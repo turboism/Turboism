@@ -10,35 +10,48 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 /**
- * Wiring of {@link RuntimeMeshToolContext#selectionBrush()}: which brush a plugin receives is
- * decided by the {@code cubism.mesh.point-and-edge-layout} capability carried by the tool
- * registration. The session here is not a native one, so each branch stops at its own distinct
- * "requires an exact native mesh-tool session" refusal, which tells the branches apart without a
- * host.
+ * Wiring of {@link RuntimeMeshToolContext}: the canvas point-and-edge session is admitted by the
+ * {@code cubism.mesh.point-and-edge-layout} capability carried by the tool registration, while the
+ * selection brush is the same runtime brush for every tool. The session here is not a native one,
+ * so each branch stops at its own distinct refusal, which tells the branches apart without a host.
  */
 class RuntimeMeshToolContextWiringTest {
 
-    private static final String GEOMETRIC_REFUSAL = "geometric mesh layout requires an exact native mesh-tool session";
+    private static final String CANVAS_REFUSAL = "mesh canvas session requires an exact native mesh-tool session";
     private static final String GENERIC_REFUSAL = "selection brush requires an exact native mesh-tool session";
 
     @Test
-    void aCapabilityDeclaringPluginReceivesTheRuntimeGeometricBrush() {
-        assertEquals(GEOMETRIC_REFUSAL, brushRefusal(true, RuntimeGeometricMeshLayout.TOOL_ID));
+    void aCapabilityDeclaringPluginReceivesTheRuntimeCanvasSession() {
+        assertEquals(CANVAS_REFUSAL, refusal(true, MeshToolContext::canvasSession));
     }
 
     @Test
-    void aPluginWithoutTheCapabilityReusingTheReservedToolIdReceivesTheGenericBrush() {
-        assertEquals(GENERIC_REFUSAL, brushRefusal(false, RuntimeGeometricMeshLayout.TOOL_ID));
+    void aPluginWithoutTheCapabilityIsRefusedBeforeReachingTheCanvasSession() {
+        assertEquals(
+                "mesh canvas session requires the cubism.mesh.point-and-edge-layout capability",
+                refusal(false, MeshToolContext::canvasSession));
     }
 
-    private static String brushRefusal(final boolean pointAndEdgeLayoutGranted, final String toolId) {
+    @Test
+    void theSelectionBrushNoLongerDependsOnThePointAndEdgeCapability() {
+        assertEquals(GENERIC_REFUSAL, refusal(true, MeshToolContext::selectionBrush));
+        assertEquals(GENERIC_REFUSAL, refusal(false, MeshToolContext::selectionBrush));
+    }
+
+    private static String refusal(
+            final boolean pointAndEdgeLayoutGranted,
+            final java.util.function.Function<MeshToolContext, Object> handle) {
         final AtomicReference<String> refusal = new AtomicReference<>();
         try (MeshToolCoordinator coordinator = new MeshToolCoordinator()) {
             coordinator.register(
-                    "plugin", 1, new Tool(toolId, refusal), (permission, operation) -> {}, pointAndEdgeLayoutGranted);
+                    "plugin",
+                    1,
+                    new Tool("geometric-mesh-layout", refusal, handle),
+                    (permission, operation) -> {},
+                    pointAndEdgeLayoutGranted);
             coordinator.beginSession(new Session());
             try {
-                coordinator.activate("plugin", 1, toolId);
+                coordinator.activate("plugin", 1, "geometric-mesh-layout");
             } catch (RuntimeException ignored) {
                 // The refusal is recorded inside activate(); the coordinator rethrows it.
             }
@@ -46,7 +59,9 @@ class RuntimeMeshToolContextWiringTest {
         }
     }
 
-    private record Tool(String id, AtomicReference<String> refusal) implements MeshTool {
+    private record Tool(
+            String id, AtomicReference<String> refusal, java.util.function.Function<MeshToolContext, Object> handle)
+            implements MeshTool {
         @Override
         public String label() {
             return id;
@@ -60,7 +75,7 @@ class RuntimeMeshToolContextWiringTest {
         @Override
         public void activate(final MeshToolContext context) {
             try {
-                context.selectionBrush();
+                handle.apply(context);
             } catch (IllegalStateException failure) {
                 refusal.set(failure.getMessage());
                 throw failure;

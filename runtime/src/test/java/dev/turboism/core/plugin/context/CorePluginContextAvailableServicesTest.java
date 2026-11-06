@@ -102,7 +102,8 @@ class CorePluginContextAvailableServicesTest {
                 PluginService.EXPORT_SETTINGS,
                 PluginService.ACTION_CATALOG,
                 PluginService.PROJECT_WORK_TIME,
-                PluginService.HOST_VIEW_PANEL);
+                PluginService.HOST_VIEW_PANEL,
+                PluginService.PREVIEW_FRAMES);
         final Set<PluginService> expectedPresent = Set.of(
                 PluginService.SELECTION_QUERY,
                 PluginService.MODEL_HIERARCHY_QUERY,

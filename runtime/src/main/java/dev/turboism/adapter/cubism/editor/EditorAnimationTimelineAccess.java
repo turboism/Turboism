@@ -1659,8 +1659,9 @@ final class EditorAnimationTimelineAccess {
             final java.util.function.Supplier<Object> undoFactory,
             final Runnable mutation) {
         EditorHostThread.requireHostThread("Cubism animation timeline write");
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-                authoringCoordinator, "Animation timeline write: " + label);
+        if (authoringCoordinator != null) {
+            authoringCoordinator.requireNoAmbientTransaction("Animation timeline write: " + label);
+        }
         final Object editMode = resolver.invoke("cubism.editor-model.scene-document.current-edit-mode", sceneDocument);
         if (editMode == null) {
             throw unavailable("Editor animation scene edit mode is unavailable.");

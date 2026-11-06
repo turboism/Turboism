@@ -554,8 +554,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                     editorAdmission(evidence.editorModel().orElseThrow(), resolver);
             final CubismModelAccess modelAccess = editorAccessFactory.create(resolver, descriptor.sessionId(), core);
             final TextureAtlasDataModelCapture textureAtlasCapture = new TextureAtlasDataModelCapture();
-            final TextureAtlasLayoutProvider textureAtlasProvider =
-                    textureAtlasProvider(resolver, descriptor.sessionId(), textureAtlasCapture);
+            final TextureAtlasLayoutProvider textureAtlasProvider = textureAtlasProvider(
+                    resolver, descriptor.sessionId(), textureAtlasCapture, ambientAuthoringScopeAccess(modelAccess));
             final ToolbarMaterial toolbar = toolbarMaterial(evidence);
             final PanelMaterial panel = panelMaterialFactory.create(evidence);
             final TopMenuMaterial topMenu = topMenuMaterial(evidence);
@@ -599,7 +599,10 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     }
 
     static TextureAtlasLayoutProvider textureAtlasProvider(
-            final VerifiedMemberResolver resolver, final String sessionId, final TextureAtlasDataModelCapture capture) {
+            final VerifiedMemberResolver resolver,
+            final String sessionId,
+            final TextureAtlasDataModelCapture capture,
+            final java.util.function.BooleanSupplier ambientScopeActive) {
         final VerifiedTextureAtlasSelectorContract.Profile profile = VerifiedTextureAtlasSelectorContract.profileFor(
                         resolver.admittedCubismVersion())
                 .orElse(null);
@@ -610,8 +613,19 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                         VerifiedTextureAtlasSelectorContract.CAPABILITY_ID,
                         profile.requiredAliases())
-                ? new VerifiedTextureAtlasLayoutProvider(resolver, sessionId, capture, profile)
+                ? new VerifiedTextureAtlasLayoutProvider(resolver, sessionId, capture, profile, ambientScopeActive)
                 : null;
+    }
+
+    /**
+     * Ambient authoring-transaction observation for the texture-atlas layout apply, which cannot
+     * join the ambient scope and must refuse while it is open. Only the verified editor access
+     * owns the transaction coordinator; any other access implementation can never carry one.
+     */
+    private static java.util.function.BooleanSupplier ambientAuthoringScopeAccess(final CubismModelAccess modelAccess) {
+        return modelAccess instanceof EditorBackedCubismModelAccess editorAccess
+                ? editorAccess::ambientAuthoringScopeActive
+                : () -> false;
     }
 
     /**

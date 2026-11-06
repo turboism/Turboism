@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 /** Shared verified texture-atlas projection and transaction engine. */
 final class VerifiedTextureAtlasLayoutProviderEngine {
@@ -30,6 +31,9 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
     private final String adapterSliceId;
     private final String capabilityId;
     private final Set<String> requiredAliases;
+    /** Reports whether an authoring transaction ambient scope is open on the calling thread. */
+    private final BooleanSupplier ambientScopeActive;
+
     private final IdentityHashMap<Object, Long> revisions = new IdentityHashMap<>();
     private Object directDocument;
     private Object directSource;
@@ -42,7 +46,8 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
             final String exactVersion,
             final String adapterSliceId,
             final String capabilityId,
-            final Set<String> requiredAliases) {
+            final Set<String> requiredAliases,
+            final BooleanSupplier ambientScopeActive) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.sessionIdentity = requireText(sessionIdentity, "sessionIdentity");
         this.capture = Objects.requireNonNull(capture, "capture");
@@ -50,6 +55,7 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
         this.adapterSliceId = requireText(adapterSliceId, "adapterSliceId");
         this.capabilityId = requireText(capabilityId, "capabilityId");
         this.requiredAliases = Set.copyOf(requiredAliases);
+        this.ambientScopeActive = Objects.requireNonNull(ambientScopeActive, "ambientScopeActive");
     }
 
     Optional<TextureAtlasAuthoringState> current() {
@@ -62,6 +68,11 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
     ApplyOutcome apply(final TextureAtlasAuthoringState expected, final TextureAtlasLayoutPlan plan) {
         Objects.requireNonNull(expected, "expected");
         Objects.requireNonNull(plan, "plan");
+        // An active authoring transaction owns the host thread's Undo stack. This write
+        // cannot join that ambient scope, so it refuses before any native edit, staging or
+        // image work rather than creating a detached Undo group the root transaction can
+        // neither join nor roll back (see EditorAmbientTransactionRejection).
+        if (ambientScopeActive.getAsBoolean()) return ApplyOutcome.REJECTED;
         if (!available()) return ApplyOutcome.REJECTED;
         final Binding binding = binding();
         if (binding == null || !sameBinding(expected, binding)) return ApplyOutcome.REJECTED;

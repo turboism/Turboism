@@ -3,13 +3,14 @@ package dev.turboism.adapter.cubism.mesh;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.permissions.PermissionChecker;
-import dev.turboism.sdk.cubism.mesh.MeshBrush;
+import dev.turboism.sdk.cubism.mesh.MeshCanvasSession;
 import dev.turboism.sdk.cubism.mesh.MeshEditor;
 import dev.turboism.sdk.cubism.mesh.MeshTool;
 import dev.turboism.sdk.cubism.mesh.SelectionMode;
 import dev.turboism.sdk.cubism.mesh.VertexSelection;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.permission.PermissionIds;
+import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Component;
 import java.awt.Container;
@@ -30,44 +31,42 @@ import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.ActionMap;
 import javax.swing.InputMap;
 import javax.swing.JComponent;
-import javax.swing.JPanel;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 
-/** Runtime-owned geometric mesh point-and-edge layout controller bound to one mesh-tool activation. */
-final class RuntimeGeometricMeshLayout implements MeshBrush {
-    static final String TOOL_ID = "geometric-mesh-layout";
+/**
+ * Runtime-owned canvas point-and-edge session bound to one mesh-tool activation.
+ *
+ * <p>This is the host half of the capability: it installs the canvas overlay, routes the primary
+ * button to anchor placement while forwarding every other gesture to the surrounding mesh editor,
+ * keeps the overlay topmost and sized to its owner, revalidates the activation lease on every
+ * entry point, and commits a plugin-computed layout inside the host's own Undo group. The geometry
+ * itself — shapes, parameters, dialog and commit policy — belongs to the plugin.</p>
+ */
+final class RuntimeMeshCanvasSession implements MeshCanvasSession {
     private static final int MAX_POSITION_RETRIES = 20;
-    private static final String ESCAPE_ACTION_KEY = "turboism:geometric-mesh-layout-deactivate";
+    private static final String ESCAPE_ACTION_KEY = "turboism:mesh-canvas-deactivate";
     private static final KeyStroke ESCAPE = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);
 
-    private static volatile GeometricMeshDialog.Config sharedConfig = new GeometricMeshDialog.Config(
-            GeometricMeshShape.Preset.CIRCLE,
-            GeometricMeshShape.DEFAULT_RADIUS,
-            GeometricMeshShape.DEFAULT_SIDES,
-            GeometricMeshShape.DEFAULT_CONCENTRIC_RINGS,
-            false,
-            false);
-
     private final Host host;
-    private final GeometricMeshOverlayPanel overlay;
+    private final MeshCanvasOverlayPanel overlay;
     private final AtomicBoolean closed = new AtomicBoolean();
-    private volatile int radiusPixels = 32;
-    private GeometricMeshDialog.Config currentConfig = sharedConfig;
+    private final List<Consumer<Point2>> anchorListeners = new CopyOnWriteArrayList<>();
+    private volatile Preview preview;
     private Point2 anchor;
-    private boolean previewActive;
     private boolean draggingAnchor;
     private boolean installed;
     private boolean forwarding;
     private int positionRetries;
     private JComponent component;
-    private GeometricMeshDialog dialog;
     private Object previousEscapeBinding;
     private Action previousEscapeAction;
     private KeyboardFocusManager keyboard;
@@ -80,7 +79,7 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
         public void actionPerformed(final ActionEvent event) {
             if (!operational()) return;
             try {
-                cancelAndDeactivate();
+                deactivate();
             } catch (Throwable ignored) {
                 FatalErrors.rethrowIfFatal(ignored);
             }
@@ -173,31 +172,16 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
         }
     };
 
-    RuntimeGeometricMeshLayout(final Host host) {
+    RuntimeMeshCanvasSession(final Host host) {
         this.host = Objects.requireNonNull(host, "host");
-        this.overlay = new GeometricMeshOverlayPanel(this::capturesInputAt);
+        this.overlay = new MeshCanvasOverlayPanel(this::capturesInputAt);
     }
 
     /**
-     * Selects the runtime brush for one registered tool. The plugin must have declared the
-     * {@code cubism.mesh.point-and-edge-layout} capability and the tool identifier must be this
-     * brush's own, so a plugin that reuses the identifier without declaring the capability keeps
-     * its own (generic) brush instead of silently receiving runtime behaviour it never declared.
-     *
-     * @param pointAndEdgeLayoutGranted whether the registering plugin declared the capability, may be
-     *     {@code false}
-     * @param tool the registered tool, may be null
-     * @return {@code true} only for a capability-admitted plugin's own tool
-     */
-    static boolean matches(final boolean pointAndEdgeLayoutGranted, final MeshTool tool) {
-        return pointAndEdgeLayoutGranted && tool != null && TOOL_ID.equals(tool.id());
-    }
-
-    /**
-     * Fail-closed admission for the runtime brush: the declared capability plus the read and write
-     * permissions the brush actually exercises. Capability admission has already happened upstream
-     * — {@code cubism.mesh.custom-tools} is required to register any mesh tool and
-     * {@code cubism.mesh.point-and-edge-layout} to reach this brush — so this gate adds the
+     * Fail-closed admission for the runtime canvas session: the declared capability plus the read
+     * and write permissions the session actually exercises. Capability admission has already
+     * happened upstream — {@code cubism.mesh.custom-tools} is required to register any mesh tool
+     * and {@code cubism.mesh.point-and-edge-layout} to reach this session — so this gate adds the
      * per-surface authorization the capability declaration alone lacks.
      *
      * @param pointAndEdgeLayoutGranted whether the activating plugin declared the capability
@@ -208,14 +192,14 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
     static void requireOwner(final boolean pointAndEdgeLayoutGranted, final PermissionChecker permissions) {
         Objects.requireNonNull(permissions, "permissions");
         if (!pointAndEdgeLayoutGranted) {
-            throw new IllegalStateException("geometric mesh layout requires the "
+            throw new IllegalStateException("mesh canvas session requires the "
                     + RuntimeMeshToolRegistry.POINT_AND_EDGE_LAYOUT_CAPABILITY + " capability");
         }
-        permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_READ, "mesh.geometric-layout.activate");
-        permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "mesh.geometric-layout.activate");
+        permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_READ, "mesh.point-and-edge-layout.activate");
+        permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "mesh.point-and-edge-layout.activate");
     }
 
-    static RuntimeGeometricMeshLayout production(
+    static RuntimeMeshCanvasSession production(
             final MeshEditor editor,
             final MeshToolCoordinator.ActivationLease lease,
             final Runnable deactivate,
@@ -230,15 +214,15 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
         Objects.requireNonNull(permissions, "permissions");
         requireOwner(pointAndEdgeLayoutGranted, permissions);
         if (!(lease.session() instanceof NativeMeshToolSession session)) {
-            throw new IllegalStateException("geometric mesh layout requires an exact native mesh-tool session");
+            throw new IllegalStateException("mesh canvas session requires an exact native mesh-tool session");
         }
         final VerifiedMemberResolver resolver = session.resolver();
         final Object rawComponent = session.identity().component();
         if (resolver == null || !(rawComponent instanceof JComponent component)) {
-            throw new IllegalStateException("geometric mesh layout exact component or resolver is unavailable");
+            throw new IllegalStateException("mesh canvas session exact component or resolver is unavailable");
         }
         NativeMeshMirrorBridge.disarmNativePointAddPreview(resolver.hostClassLoader());
-        return new RuntimeGeometricMeshLayout(new Host() {
+        return new RuntimeMeshCanvasSession(new Host() {
             @Override
             public JComponent component() {
                 lease.requireCurrent();
@@ -254,21 +238,24 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
             @Override
             public Point2 defaultAnchor() {
                 lease.requireCurrent();
-                permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_READ, "mesh.geometric-layout.default-anchor");
+                permissions.check(
+                        PermissionIds.TURBOISM_CUBISM_MODEL_READ, "mesh.point-and-edge-layout.default-anchor");
                 return NativeMeshVertexProjector.defaultMeshCenter(resolver, session.identity());
             }
 
             @Override
             public Point2 unprojectToMesh(final float componentX, final float componentY) {
                 lease.requireCurrent();
-                permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_READ, "mesh.geometric-layout.unproject-anchor");
+                permissions.check(
+                        PermissionIds.TURBOISM_CUBISM_MODEL_READ, "mesh.point-and-edge-layout.unproject-anchor");
                 return NativeMeshVertexProjector.unprojectToMesh(resolver, session.identity(), componentX, componentY);
             }
 
             @Override
             public List<Point2> projectPositions(final float[] meshPositions) {
                 lease.requireCurrent();
-                permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_READ, "mesh.geometric-layout.project-preview");
+                permissions.check(
+                        PermissionIds.TURBOISM_CUBISM_MODEL_READ, "mesh.point-and-edge-layout.project-preview");
                 return NativeMeshVertexProjector.projectPositions(resolver, session.identity(), meshPositions);
             }
 
@@ -276,7 +263,7 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
             public List<Integer> commitPlan(final float[] meshPositions, final int[] edgePairs) {
                 lease.requireCurrent();
                 permissions.check(
-                        PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "mesh.geometric-layout.commit-points-edges");
+                        PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "mesh.point-and-edge-layout.commit-points-edges");
                 try {
                     return NativeMeshMirrorBridge.addGeometricPointsAndEdges(
                             session.identity().mode(),
@@ -286,7 +273,7 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
                             meshPositions,
                             edgePairs);
                 } catch (ReflectiveOperationException failure) {
-                    throw new IllegalStateException("failed to commit geometric mesh points and edges", failure);
+                    throw new IllegalStateException("failed to commit mesh canvas points and edges", failure);
                 }
             }
 
@@ -314,7 +301,7 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
 
     void install() {
         requireOpen();
-        if (!host.revalidate()) throw new IllegalStateException("geometric-mesh-layout activation lease is stale");
+        if (!host.revalidate()) throw new IllegalStateException("mesh canvas session activation lease is stale");
         runOnEdt(() -> {
             if (installed) return;
             final JComponent target = Objects.requireNonNull(host.component(), "host.component()");
@@ -337,7 +324,7 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
                 target.add(overlay);
                 keepTopmost();
                 positionOverlay();
-                initializeAnchorAndDialog();
+                initializeAnchor();
                 target.repaint();
             } catch (RuntimeException | Error failure) {
                 cleanupOnEdt();
@@ -346,38 +333,88 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
         });
     }
 
-    private void initializeAnchorAndDialog() {
+    private void initializeAnchor() {
         try {
             anchor = host.defaultAnchor();
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             anchor = new Point2(0.0f, 0.0f);
         }
-        previewActive = true;
-        dialog = new GeometricMeshDialog(currentConfig, anchor, new GeometricMeshDialog.Listener() {
-            @Override
-            public void onConfigChanged(final GeometricMeshDialog.Config config) {
-                currentConfig = config;
-                sharedConfig = config;
-                if (previewActive) {
-                    refreshOverlayPreview();
-                }
-            }
+    }
 
-            @Override
-            public void onConfirm(final GeometricMeshDialog.Config config) {
-                currentConfig = config;
-                sharedConfig = config;
-                commitCurrentGeometry();
-            }
+    @Override
+    public Point2 anchor() {
+        requireCurrent();
+        return anchor;
+    }
 
-            @Override
-            public void onCancel() {
-                cancelAndDeactivate();
-            }
+    @Override
+    public Registration observeAnchorMoved(final Consumer<Point2> listener) {
+        Objects.requireNonNull(listener, "listener");
+        requireCurrent();
+        final Consumer<Point2> observed = nextAnchor -> {
+            if (closed.get()) return;
+            listener.accept(nextAnchor);
+        };
+        anchorListeners.add(observed);
+        return () -> anchorListeners.remove(observed);
+    }
+
+    @Override
+    public void showPreview(final List<Point2> vertices, final int[] edgePairs) {
+        requireCurrent();
+        final Preview next = preview(vertices, edgePairs);
+        this.preview = next;
+        if (SwingUtilities.isEventDispatchThread()) {
+            refreshOverlayPreview();
+        } else {
+            EdtDispatch.post("mesh canvas preview", this::refreshOverlayPreview);
+        }
+    }
+
+    @Override
+    public void clearPreview() {
+        requireCurrent();
+        this.preview = null;
+        if (SwingUtilities.isEventDispatchThread()) {
+            overlay.clearPreview();
+        } else {
+            EdtDispatch.post("mesh canvas preview clear", overlay::clearPreview);
+        }
+    }
+
+    @Override
+    public List<Integer> commit(final List<Point2> vertices, final int[] edgePairs) {
+        requireCurrent();
+        final Preview layout = preview(vertices, edgePairs);
+        return EdtDispatch.call("mesh canvas commit", () -> {
+            requireCurrent();
+            final List<Integer> added = host.commitPlan(flatten(layout.vertices()), layout.edgePairs());
+            host.selectVertices(added);
+            preview = null;
+            overlay.clearPreview();
+            if (component != null) component.repaint();
+            return added;
         });
-        refreshOverlayPreview();
-        dialog.show(component);
+    }
+
+    @Override
+    public void deactivate() {
+        if (closed.get()) return;
+        preview = null;
+        overlay.clearPreview();
+        host.deactivate();
+    }
+
+    @Override
+    public void close() {
+        if (!closed.compareAndSet(false, true)) return;
+        anchorListeners.clear();
+        runOnEdtEventually(this::cleanupOnEdt);
+    }
+
+    JComponent overlayForTests() {
+        return overlay;
     }
 
     private void primaryPress(final MouseEvent event) {
@@ -400,10 +437,12 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
             final Point2 nextAnchor = host.unprojectToMesh(x, y);
             if (nextAnchor != null && Float.isFinite(nextAnchor.x()) && Float.isFinite(nextAnchor.y())) {
                 anchor = nextAnchor;
-                previewActive = true;
-                if (dialog != null) {
-                    dialog.updateAnchor(anchor);
-                    dialog.show(component);
+                for (Consumer<Point2> listener : anchorListeners) {
+                    try {
+                        listener.accept(nextAnchor);
+                    } catch (Throwable ignored) {
+                        FatalErrors.rethrowIfFatal(ignored);
+                    }
                 }
                 refreshOverlayPreview();
             }
@@ -413,17 +452,21 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
     }
 
     private void refreshOverlayPreview() {
-        if (!operational() || !previewActive || anchor == null) {
+        final Preview current = preview;
+        if (!operational() || current == null || anchor == null) {
             overlay.clearPreview();
             return;
         }
         try {
-            final GeometricMeshShape.LayoutPlan plan = currentConfig.toLayoutPlan(anchor.x(), anchor.y());
-            final float[] verticesMesh = plan.verticesXY();
-            final float[] combined = new float[2 + verticesMesh.length];
+            final List<Point2> vertices = current.vertices();
+            final float[] combined = new float[2 + vertices.size() * 2];
             combined[0] = anchor.x();
             combined[1] = anchor.y();
-            System.arraycopy(verticesMesh, 0, combined, 2, verticesMesh.length);
+            for (int index = 0; index < vertices.size(); index++) {
+                final Point2 vertex = vertices.get(index);
+                combined[2 + index * 2] = vertex.x();
+                combined[3 + index * 2] = vertex.y();
+            }
             final List<Point2> projected = host.projectPositions(combined);
             if (projected.isEmpty()) {
                 overlay.clearPreview();
@@ -432,7 +475,7 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
             final Point2 centerScreen = projected.get(0);
             final List<Point2> verticesScreen =
                     projected.size() > 1 ? projected.subList(1, projected.size()) : List.of();
-            overlay.updatePreview(centerScreen, verticesScreen, plan.edgePairs());
+            overlay.updatePreview(centerScreen, verticesScreen, current.edgePairs());
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             overlay.clearPreview();
@@ -440,74 +483,12 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
     }
 
     private void schedulePreviewRefresh() {
-        if (!operational() || !previewActive) return;
+        if (!operational() || preview == null) return;
         SwingUtilities.invokeLater(() -> {
-            if (operational() && previewActive) {
+            if (operational() && preview != null) {
                 refreshOverlayPreview();
             }
         });
-    }
-
-    private void commitCurrentGeometry() {
-        if (!operational() || anchor == null) return;
-        try {
-            final GeometricMeshShape.LayoutPlan plan = currentConfig.toLayoutPlan(anchor.x(), anchor.y());
-            final List<Integer> addedIds = host.commitPlan(plan.verticesXY(), plan.edgePairs());
-            host.selectVertices(addedIds);
-            previewActive = false;
-            overlay.clearPreview();
-            if (dialog != null) {
-                dialog.hide();
-            }
-            if (component != null) {
-                component.repaint();
-            }
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-        }
-    }
-
-    private void cancelAndDeactivate() {
-        draggingAnchor = false;
-        previewActive = false;
-        overlay.clearPreview();
-        if (dialog != null) {
-            dialog.hide();
-        }
-        host.deactivate();
-    }
-
-    @Override
-    public int radiusPixels() {
-        requireCurrent();
-        return radiusPixels;
-    }
-
-    @Override
-    public void setRadiusPixels(final int value) {
-        requireCurrent();
-        if (value < MIN_RADIUS_PIXELS || value > MAX_RADIUS_PIXELS) {
-            throw new IllegalArgumentException("radiusPixels must be within [8, 128]");
-        }
-        this.radiusPixels = value;
-    }
-
-    @Override
-    public void close() {
-        if (!closed.compareAndSet(false, true)) return;
-        runOnEdtEventually(this::cleanupOnEdt);
-    }
-
-    JComponent overlayForTests() {
-        return overlay;
-    }
-
-    JPanel dialogPanelForTests() {
-        return dialog == null ? null : dialog.panelForTests();
-    }
-
-    Point2 anchorForTests() {
-        return anchor;
     }
 
     private boolean dispatchKeyEvent(final KeyEvent event) {
@@ -563,12 +544,12 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
     }
 
     private void requireOpen() {
-        if (closed.get()) throw new IllegalStateException("geometric mesh layout is closed");
+        if (closed.get()) throw new IllegalStateException("mesh canvas session is closed");
     }
 
     private void requireCurrent() {
         requireOpen();
-        if (!host.revalidate()) throw new IllegalStateException("geometric-mesh-layout activation lease is stale");
+        if (!host.revalidate()) throw new IllegalStateException("mesh canvas session activation lease is stale");
     }
 
     private void positionOverlay() {
@@ -658,9 +639,10 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
         if (!installed) return;
         installed = false;
         draggingAnchor = false;
-        previewActive = false;
         escapePressed = false;
         navigationPressed = false;
+        preview = null;
+        anchorListeners.clear();
         overlay.clearPreview();
         overlay.removeMouseListener(mouse);
         overlay.removeMouseMotionListener(motion);
@@ -675,10 +657,6 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
         else inputMap.put(ESCAPE, previousEscapeBinding);
         if (previousEscapeAction == null) actionMap.remove(ESCAPE_ACTION_KEY);
         else actionMap.put(ESCAPE_ACTION_KEY, previousEscapeAction);
-        if (dialog != null) {
-            dialog.dispose();
-            dialog = null;
-        }
         final JComponent target = component;
         component = null;
         if (target != null) {
@@ -691,15 +669,53 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
         }
     }
 
+    private static Preview preview(final List<Point2> vertices, final int[] edgePairs) {
+        final List<Point2> points = List.copyOf(Objects.requireNonNull(vertices, "vertices"));
+        Objects.requireNonNull(edgePairs, "edgePairs");
+        if ((edgePairs.length & 1) != 0) {
+            throw new IllegalArgumentException("edge pairs must have even length");
+        }
+        final int[] edges = edgePairs.clone();
+        for (int element : edges) {
+            if (element < 0 || element >= points.size()) {
+                throw new IllegalArgumentException("edge pair names a vertex outside the layout");
+            }
+        }
+        return new Preview(points, edges);
+    }
+
+    private static float[] flatten(final List<Point2> vertices) {
+        final float[] positions = new float[vertices.size() * 2];
+        for (int index = 0; index < vertices.size(); index++) {
+            final Point2 vertex = vertices.get(index);
+            positions[index * 2] = vertex.x();
+            positions[index * 2 + 1] = vertex.y();
+        }
+        return positions;
+    }
+
     private static void runOnEdt(final Runnable action) {
-        EdtDispatch.call("geometric-mesh-layout EDT install", () -> {
+        EdtDispatch.call("mesh canvas EDT install", () -> {
             action.run();
             return null;
         });
     }
 
     private static void runOnEdtEventually(final Runnable action) {
-        EdtDispatch.runEventually("geometric-mesh-layout EDT cleanup", action);
+        EdtDispatch.runEventually("mesh canvas EDT cleanup", action);
+    }
+
+    /** One validated mesh-space preview layout, immutable except for the edge array copy it owns. */
+    private record Preview(List<Point2> vertices, int[] edgePairs) {
+        private Preview {
+            vertices = List.copyOf(vertices);
+            edgePairs = edgePairs.clone();
+        }
+
+        @Override
+        public int[] edgePairs() {
+            return edgePairs.clone();
+        }
     }
 
     interface Host {

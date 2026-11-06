@@ -30,7 +30,7 @@ public final class CapabilityAdmission {
     /** Canvas-top control strip the shared mirror hooks mount buttons into. */
     public static final String VIEW_CONTEXT_MENU_MOUNT = "ui.view-context-menu.mount";
     /**
-     * Runtime point-and-edge layout brush for one registered mesh tool. The capability half of this
+     * Runtime canvas point-and-edge session for one registered mesh tool. The capability half of this
      * row is read from the manifest when the tool is registered — no plugin list exists at that
      * point — and its permission half is enforced by the brush on every operation, so the row is the
      * declaration of record for the surface rather than a list lookup.
@@ -43,6 +43,13 @@ public final class CapabilityAdmission {
      * and holds the panel-contribution permission may render panel content into a host view anchor.
      */
     public static final String UI_HOST_VIEW_PANEL = "ui.host-view-panel";
+    /**
+     * Preview frame readback surface: whichever plugin declares the preview capture capability and
+     * holds the viewport-read permission may read the focused preview and place a control strip on
+     * it. The capability half is read from the manifest when the plugin context is built — there is
+     * no plugin list at that point — so the row is the declaration of record for the surface.
+     */
+    public static final String CUBISM_PREVIEW_FRAMES = "cubism.preview.frames";
 
     private static final Set<CapabilityRule> RULES = index(List.of(
             new CapabilityRule(
@@ -68,7 +75,11 @@ public final class CapabilityAdmission {
             new CapabilityRule(
                     UI_HOST_VIEW_PANEL,
                     Set.of("ui.host-view-panel.contribute"),
-                    Set.of(PermissionIds.TURBOISM_UI_PANEL_CONTRIBUTE))));
+                    Set.of(PermissionIds.TURBOISM_UI_PANEL_CONTRIBUTE)),
+            new CapabilityRule(
+                    CUBISM_PREVIEW_FRAMES,
+                    Set.of("cubism.preview.capture"),
+                    Set.of(PermissionIds.TURBOISM_UI_VIEWPORT_READ))));
 
     private CapabilityAdmission() {}
 

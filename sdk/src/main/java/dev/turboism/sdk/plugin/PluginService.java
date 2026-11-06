@@ -68,6 +68,10 @@ public enum PluginService {
     /** {@link dev.turboism.sdk.cubism.physics.PhysicsEditorService} */
     PHYSICS_EDITOR(dev.turboism.sdk.cubism.physics.PhysicsEditorService.class),
 
+    /** {@link dev.turboism.sdk.cubism.preview.PreviewFrameService} */
+    @Incubating
+    PREVIEW_FRAMES(dev.turboism.sdk.cubism.preview.PreviewFrameService.class),
+
     /** {@link dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService} */
     FILE_CHOOSER_HISTORY(dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.class),
 
@@ -216,7 +220,6 @@ public enum PluginService {
 
     /** {@link dev.turboism.sdk.cubism.export.ExportSettingsContributionService} */
     EXPORT_SETTINGS(dev.turboism.sdk.cubism.export.ExportSettingsContributionService.class),
-
     /** {@link dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService} */
     PROJECT_WORK_TIME(dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService.class);
 

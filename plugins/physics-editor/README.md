@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.physics-editor
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Adds select-all behavior and reopen retention to Cubism's native Physics / Scene
 
 ## GIF recording
 
-Use the red **Record** icon in the transparent, icon-only toolbar above the right preview (1–50 FPS). Hover over an icon to see its action. It becomes **Pause** during recording; press it again to resume. **Stop** opens export settings, and **Discard** deletes the recording without exporting. There is no frame-count input. Default registered shortcuts: **F7** record/pause/resume, **Shift+F7** pause, **F8** stop/export, **F9** discard. They can be changed in the shortcut settings and only operate on the focused Physics Settings preview. Paused time adds no frames. Recording reads the model framebuffer, excluding the settings and toolbar. When recording finishes, the export dialog provides percentage scaling, pixel width/height, and an aspect-ratio lock. **Optimize to target size** is checked by default with a **20 MB** limit (1 MB = 1,000,000 bytes). Optimization may reduce colors and dimensions while preserving all frames and playback timing. Uncheck it to export at the selected dimensions without a size target.
+The plugin adds its own control strip above the focused preview: **Record**, **Stop**, **Discard**, a **FPS** field (1–50, default 30) and a status line. **Record** becomes **Pause** while recording and **Resume** while paused. **Stop** opens the export settings, and **Discard** deletes the recording without exporting. There is no frame-count input. Default registered shortcuts: **F7** record/pause/resume, **Shift+F7** pause, **F8** stop/export, **F9** discard. They can be changed in the shortcut settings and only operate on the focused Physics Settings preview. Paused time adds no frames. Recording reads the model framebuffer, excluding the settings and the control strip. When recording finishes, the export dialog provides percentage scaling, pixel width/height, and an aspect-ratio lock. **Optimize to target size** is checked by default with a **20 MB** limit (1 MB = 1,000,000 bytes). Optimization may reduce colors and dimensions while preserving all frames and playback timing. Uncheck it to export at the selected dimensions without a size target.
 
 Confirm export settings, then choose a save location. The last successful GIF export directory is remembered across sessions, independently of project saves. Export failures preserve the recording so you can adjust settings and retry. Cancellation, closing the preview, or disabling the plugin cleans up temporary recordings.
 
@@ -28,7 +28,7 @@ GIF export requires **Gifsicle** installed locally: make `gifsicle` available on
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.physics-editor` |
 | Category | `modeling` |
 | Tags | physics, editing, simulation |
@@ -78,7 +78,9 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 
 ## Capabilities
 
-No capabilities are declared in the plugin manifest.
+| Capability | Why it is declared |
+|---|---|
+| `cubism.preview.capture` | Reads frames from the focused preview surface and places the plugin's own control strip on it. The runtime performs the readback; the plugin decides what to do with the frames. |
 
 ## Permissions
 
@@ -86,6 +88,9 @@ No capabilities are declared in the plugin manifest.
 |---|---|---|
 | `turboism.action.register` | `application` | Registers GIF recording, pause, stop and discard actions with configurable shortcuts. |
 | `turboism.cubism.model.write` | `application` | Atomically enables or disables Physics Settings groups through the verified Editor transaction path. |
+| `turboism.file.read` | `application` | Checks the remembered GIF export directory and the exported file size. |
+| `turboism.file.write` | `application` | Writes the recording, its temporary encoder output and the GIF the user exports. |
+| `turboism.process.run` | `application` | Runs the user-supplied Gifsicle executable to optimize an exported GIF to the requested size. |
 
 ## Privacy and data
 
@@ -121,6 +126,12 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Header displays a minus/dash | The indeterminate state indicates that some groups are enabled and others are disabled. Clicking the checkbox will enable all groups. |
 
 ## Changelog
+
+### 0.68.0
+
+- GIF recording moved into the plugin: the recording state machine, the GIF encoder, the export dialog, the scale/Gifsicle policy and every user-visible string now live here, driving the framework `PreviewFrameService` capability instead of the runtime's retired GIF commands.
+- The plugin now declares the file read/write and process permissions it needs to write a recording and run Gifsicle.
+- The icon-only recording toolbar is replaced by a text control strip rendered by the host from the plugin's panel content.
 
 ### 0.1.0
 

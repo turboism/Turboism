@@ -1,7 +1,7 @@
-package dev.turboism.adapter.cubism.mesh;
+package dev.turboism.plugin.geometricmeshlayout;
 
-import dev.turboism.i18n.CubismHostLocale;
 import dev.turboism.sdk.cubism.model.Point2;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
@@ -9,53 +9,40 @@ import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.Point;
-import java.awt.Window;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.ResourceBundle;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
-import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
-import javax.swing.SwingUtilities;
 
-/** Modeless configuration dialog for the Geometric Mesh Layout tool. */
-final class GeometricMeshDialog {
+/**
+ * Plugin-owned modeless configuration dialog for the Geometric Mesh Layout tool.
+ *
+ * <p>The dialog is pure plugin UI: it renders the plugin's parameter state, reports every change to
+ * the tool, and never touches a host component. The runtime canvas session paints the preview the
+ * tool derives from the reported configuration.</p>
+ */
+final class GeometricMeshLayoutDialog {
     static final String DIALOG_NAME = "turboism:geometric-mesh-layout-dialog";
     private static final int SLIDER_MAX_RADIUS = 500;
     private static final int SLIDER_MAX_SIDES = 64;
 
-    record Config(
-            GeometricMeshShape.Preset preset,
-            float radius,
-            int sides,
-            int concentricRings,
-            boolean createCenter,
-            boolean connectToCenter) {
-        Config {
-            Objects.requireNonNull(preset, "preset");
-            radius = GeometricMeshShape.clampRadius(radius);
-            sides = GeometricMeshShape.clampSides(sides);
-            concentricRings = GeometricMeshShape.clampConcentricRings(concentricRings);
-            if (!createCenter) {
-                connectToCenter = false;
-            }
-        }
+    /** Receives dialog interactions; the tool owns the configuration state. */
+    interface Listener {
+        void onConfigChanged(GeometricMeshConfig config);
 
-        GeometricMeshShape.LayoutPlan toLayoutPlan(final float centerX, final float centerY) {
-            return GeometricMeshShape.generate(
-                    centerX, centerY, radius, sides, concentricRings, createCenter, connectToCenter);
-        }
+        void onConfirm(GeometricMeshConfig config);
+
+        void onCancel();
     }
 
     record PresetItem(GeometricMeshShape.Preset preset, String label) {
@@ -63,14 +50,6 @@ final class GeometricMeshDialog {
         public String toString() {
             return label;
         }
-    }
-
-    interface Listener {
-        void onConfigChanged(Config config);
-
-        void onConfirm(Config config);
-
-        void onCancel();
     }
 
     private final Listener listener;
@@ -92,15 +71,14 @@ final class GeometricMeshDialog {
     private boolean syncingControls;
     private boolean positionedOnce;
 
-    GeometricMeshDialog(final Config initial, final Point2 initialAnchor, final Listener listener) {
-        this(initial, initialAnchor, listener, CubismHostLocale.resolve());
-    }
-
-    GeometricMeshDialog(
-            final Config initial, final Point2 initialAnchor, final Listener listener, final Locale locale) {
+    GeometricMeshLayoutDialog(
+            final GeometricMeshConfig initial,
+            final Point2 initialAnchor,
+            final Listener listener,
+            final PluginLocalization localization) {
         Objects.requireNonNull(initial, "initial");
         this.listener = Objects.requireNonNull(listener, "listener");
-        this.texts = Texts.forLocale(locale);
+        this.texts = Texts.of(Objects.requireNonNull(localization, "localization"));
 
         rootPanel = new JPanel(new BorderLayout(0, 10));
         rootPanel.setBorder(BorderFactory.createEmptyBorder(12, 16, 12, 16));
@@ -112,7 +90,7 @@ final class GeometricMeshDialog {
 
         // Row 0: Center anchor info
         final JLabel anchorTitleLabel = new JLabel(texts.anchorLabel());
-        anchorValueLabel = new JLabel(formatAnchor(texts, initialAnchor));
+        anchorValueLabel = new JLabel(formatAnchor(initialAnchor));
         anchorValueLabel.setName("geometric-mesh-layout.anchor");
         anchorValueLabel.setFont(anchorValueLabel.getFont().deriveFont(Font.BOLD));
         gbc.gridx = 0;
@@ -395,13 +373,14 @@ final class GeometricMeshDialog {
         }
     }
 
-    Config currentConfig() {
+    GeometricMeshConfig currentConfig() {
         final PresetItem selected = (PresetItem) presetCombo.getSelectedItem();
         final GeometricMeshShape.Preset preset =
                 selected != null ? selected.preset() : GeometricMeshShape.Preset.CIRCLE;
         final boolean createCenter = createCenterCheck.isSelected();
         final boolean connectToCenter = createCenter && connectToCenterCheck.isSelected();
-        return new Config(preset, radiusValue(), sidesValue(), ringsValue(), createCenter, connectToCenter);
+        return new GeometricMeshConfig(
+                preset, radiusValue(), sidesValue(), ringsValue(), createCenter, connectToCenter);
     }
 
     private float radiusValue() {
@@ -426,13 +405,12 @@ final class GeometricMeshDialog {
     }
 
     void updateAnchor(final Point2 anchor) {
-        anchorValueLabel.setText(formatAnchor(texts, anchor));
+        anchorValueLabel.setText(formatAnchor(anchor));
     }
 
-    void show(final JComponent canvasComponent) {
-        final Window owner = canvasComponent == null ? null : SwingUtilities.getWindowAncestor(canvasComponent);
+    void show() {
         if (dialog == null) {
-            dialog = TurboismWindowFactory.dialog(owner, texts.title(), false);
+            dialog = TurboismWindowFactory.dialog(null, texts.title(), false);
             if (dialog == null) {
                 return;
             }
@@ -449,19 +427,8 @@ final class GeometricMeshDialog {
             dialog.pack();
             dialog.setResizable(false);
         }
-        if (!positionedOnce && canvasComponent != null && canvasComponent.isShowing()) {
-            try {
-                final Point canvasOnScreen = canvasComponent.getLocationOnScreen();
-                final int x = canvasOnScreen.x + Math.max(24, canvasComponent.getWidth() - dialog.getWidth() - 36);
-                final int y = canvasOnScreen.y + 48;
-                dialog.setLocation(x, y);
-                positionedOnce = true;
-            } catch (RuntimeException ignored) {
-                dialog.setLocationRelativeTo(owner);
-                positionedOnce = true;
-            }
-        } else if (!positionedOnce) {
-            dialog.setLocationRelativeTo(owner);
+        if (!positionedOnce) {
+            dialog.setLocationRelativeTo(null);
             positionedOnce = true;
         }
         if (!dialog.isVisible()) {
@@ -486,17 +453,13 @@ final class GeometricMeshDialog {
         return dialog != null && dialog.isShowing();
     }
 
-    JPanel panelForTests() {
+    JPanel panel() {
         return rootPanel;
     }
 
-    private static String formatAnchor(final Texts texts, final Point2 anchor) {
+    private String formatAnchor(final Point2 anchor) {
         if (anchor == null) return texts.anchorUnset();
         return String.format(Locale.ROOT, "(%.1f, %.1f)", anchor.x(), anchor.y());
-    }
-
-    static Texts textsForLocale(final Locale locale) {
-        return Texts.forLocale(locale);
     }
 
     record Texts(
@@ -517,44 +480,26 @@ final class GeometricMeshDialog {
             String connectToCenterLabel,
             String confirmButton,
             String cancelButton) {
-        private static final String BUNDLE_NAME = "dev.turboism.adapter.cubism.mesh.messages";
 
-        static Texts forLocale(final Locale rawLocale) {
-            final Locale target = normalizeLocale(rawLocale == null ? CubismHostLocale.resolve() : rawLocale);
-            final ResourceBundle bundle =
-                    ResourceBundle.getBundle(BUNDLE_NAME, target, GeometricMeshDialog.class.getClassLoader());
+        static Texts of(final PluginLocalization localization) {
             return new Texts(
-                    bundle.getString("dialog.title"),
-                    bundle.getString("dialog.anchor.label"),
-                    bundle.getString("dialog.anchor.hint"),
-                    bundle.getString("dialog.anchor.unset"),
-                    bundle.getString("dialog.preset.label"),
-                    bundle.getString("dialog.preset.circle"),
-                    bundle.getString("dialog.preset.triangle"),
-                    bundle.getString("dialog.preset.quadrilateral"),
-                    bundle.getString("dialog.preset.hexagon"),
-                    bundle.getString("dialog.preset.octagon"),
-                    bundle.getString("dialog.radius.label"),
-                    bundle.getString("dialog.sides.label"),
-                    bundle.getString("dialog.concentric.label"),
-                    bundle.getString("dialog.center.create"),
-                    bundle.getString("dialog.center.connect"),
-                    bundle.getString("dialog.button.confirm"),
-                    bundle.getString("dialog.button.cancel"));
-        }
-
-        private static Locale normalizeLocale(final Locale locale) {
-            if (!"zh".equalsIgnoreCase(locale.getLanguage())
-                    || !locale.getScript().isBlank()) {
-                return locale;
-            }
-            final String country = locale.getCountry().toUpperCase(Locale.ROOT);
-            final String script =
-                    switch (country) {
-                        case "TW", "HK", "MO" -> "Hant";
-                        default -> "Hans";
-                    };
-            return new Locale.Builder().setLanguage("zh").setScript(script).build();
+                    localization.text("dialog.title", "Geometric Mesh Layout"),
+                    localization.text("dialog.anchor.label", "Center Anchor:"),
+                    localization.text("dialog.anchor.hint", "Click or drag on canvas to set center anchor"),
+                    localization.text("dialog.anchor.unset", "Unset"),
+                    localization.text("dialog.preset.label", "Shape Preset:"),
+                    localization.text("dialog.preset.circle", "Circle (16)"),
+                    localization.text("dialog.preset.triangle", "Triangle (3)"),
+                    localization.text("dialog.preset.quadrilateral", "Quadrilateral (4)"),
+                    localization.text("dialog.preset.hexagon", "Hexagon (6)"),
+                    localization.text("dialog.preset.octagon", "Octagon (8)"),
+                    localization.text("dialog.radius.label", "Radius:"),
+                    localization.text("dialog.sides.label", "Sides:"),
+                    localization.text("dialog.concentric.label", "Concentric Rings:"),
+                    localization.text("dialog.center.create", "Create Center Point"),
+                    localization.text("dialog.center.connect", "Connect Perimeter to Center"),
+                    localization.text("dialog.button.confirm", "Confirm"),
+                    localization.text("dialog.button.cancel", "Cancel"));
         }
     }
 }

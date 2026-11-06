@@ -748,9 +748,13 @@ private val pluginBoundaryExtras = mapOf(
         contractTaskNames = listOf("verifySelectionBrushJar")
     ),
     ":plugins:geometric-mesh-layout" to PluginBoundaryExtras(
+        // The plugin owns its configuration dialog as a plain JDK Swing window (the same
+        // plugin-owned-window exception TurboismWindowFactory documents), so AWT/Swing are
+        // admitted here. Everything below that could reach runtime internals or the host
+        // canvas stays forbidden: the canvas overlay itself is runtime-painted data.
         forbiddenSourceTokens = listOf(
-            "java.awt", "javax.swing", "java.lang.reflect", "dev.turboism.runtime",
-            "dev.turboism.mapping", "VerifiedMemberResolver", "ClassLoader", "getDeclared"
+            "java.lang.reflect", "dev.turboism.runtime", "dev.turboism.mapping",
+            "VerifiedMemberResolver", "ClassLoader", "getDeclared"
         ),
         contractTaskNames = listOf("verifyGeometricMeshLayoutJar")
     )

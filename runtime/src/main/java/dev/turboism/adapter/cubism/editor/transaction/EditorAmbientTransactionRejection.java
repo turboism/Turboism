@@ -1,4 +1,4 @@
-package dev.turboism.adapter.cubism.editor;
+package dev.turboism.adapter.cubism.editor.transaction;
 
 /**
  * Typed rejection raised when a hand-written native Undo envelope is invoked while an authoring
@@ -13,9 +13,9 @@ package dev.turboism.adapter.cubism.editor;
  * failure is raised before any native edit begins, so the rejected write leaves no Undo entry
  * and no open edit session.</p>
  */
-final class EditorAmbientTransactionRejection extends IllegalStateException {
+public final class EditorAmbientTransactionRejection extends IllegalStateException {
 
-    EditorAmbientTransactionRejection(final String writeLabel) {
+    public EditorAmbientTransactionRejection(final String writeLabel) {
         super(writeLabel + " cannot run inside an active authoring transaction: this write cannot"
                 + " join the ambient Undo group, and running it would create a detached Undo"
                 + " group outside transaction control. Move this operation outside the"

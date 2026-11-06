@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.physics-editor",
   "name": "Physics Settings Enhancer",
   "version": "0.68.0",
-  "description": "Adds Physics Settings group select-all and reopen retention.",
+  "description": "Adds Physics Settings group select-all, reopen retention and preview GIF recording with a plugin-owned control strip and export dialog.",
   "entrypoints": [
     "dev.turboism.plugin.physicseditor.PhysicsEditorPlugin"
   ],
@@ -30,9 +30,24 @@
       "id": "turboism.cubism.model.write",
       "scope": "application",
       "reason": "Atomically enables or disables Physics Settings groups through the verified Editor transaction path."
+    },
+    {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Checks the remembered GIF export directory and the exported file size."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Writes the recording, its temporary encoder output and the GIF the user exports."
+    },
+    {
+      "id": "turboism.process.run",
+      "scope": "application",
+      "reason": "Runs the user-supplied Gifsicle executable to optimize an exported GIF to the requested size."
     }
   ],
-  "capabilities": [],
+  "capabilities": ["cubism.preview.capture"],
   "environment": {
     "requiresCubism": true,
     "ui": "swing"
