@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- Added the official `project-work-time` plugin and its shared runtime tracker: the bottom status bar shows the current Editor-session foreground time and the active project's cross-session cumulative work time. The runtime samples only while Cubism owns the desktop foreground and persists totals across sessions. The SDK adds `CubismFacade.isEditorForeground()`, `CubismFacade.activity()`, `CubismActivityChangedEvent`, and the `ProjectWorkTimeService` directory service so other plugins reuse the same accounting instead of duplicating timers.
+
 - The SDK adds the incubating `PreviewFrameService` capability with `PreviewFrameSource`, `PreviewFrame`, `PreviewFrameSourceClosedException` and the `PluginService.PREVIEW_FRAMES` directory member, plus the `cubism.preview.capture` admission row: a plugin reads frames from the focused preview and places its own `PanelView` control strip on it, while the runtime resolves the surface, performs the OpenGL readback on its own thread and drops updates once the plugin generation is fenced.
 
 - The SDK adds the incubating `HostViewPanel` capability with `HostViewPanelHandle`, the `HostViewAnchors` anchor constants and the `PluginService.HOST_VIEW_PANEL` directory member: a plugin attaches `PanelView` content to a named host view (the native texture-atlas editor first), the runtime renders it, marshals updates onto the editor thread and drops them once the plugin generation is fenced.

@@ -10,6 +10,8 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 新增
 
+- 新增官方 `project-work-time` 插件及共享运行时计时器：底部状态栏显示当前编辑器会话的前台用时与当前工程跨会话累计工作时间。只有 Cubism 位于前台时运行时才会计时，并按工程持久化累计数据。SDK 新增 `CubismFacade.isEditorForeground()`、`CubismFacade.activity()`、`CubismActivityChangedEvent` 与 `ProjectWorkTimeService` 目录服务，其他插件可直接复用同一份统计，避免重复实现计时逻辑。
+
 - SDK 新增孵化中的 `PreviewFrameService` 能力（含 `PreviewFrameSource`、`PreviewFrame`、`PreviewFrameSourceClosedException` 与 `PluginService.PREVIEW_FRAMES` 目录成员），并新增 `cubism.preview.capture` 准入规则：插件可读取聚焦预览的帧并在其上放置自己的 `PanelView` 控制条，由运行时负责解析预览表面、在独立线程上完成 OpenGL 回读，并在插件代际关闭后丢弃更新。
 
 - SDK 新增孵化中的 `HostViewPanel` 能力（含 `HostViewPanelHandle`、`HostViewAnchors` 锚点常量与 `PluginService.HOST_VIEW_PANEL` 目录成员）：插件可把 `PanelView` 内容挂到指定的宿主视图（首期为原生纹理图集编辑器），由运行时负责渲染、在编辑器线程上应用更新，并在插件代际关闭后静默丢弃更新。

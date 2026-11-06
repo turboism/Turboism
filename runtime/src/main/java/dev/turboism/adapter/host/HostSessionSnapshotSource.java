@@ -14,6 +14,7 @@ import dev.turboism.sdk.cubism.ProjectResourceSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -26,15 +27,19 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
 
     private final ProjectWorkspaceAdapter projectWorkspace;
     private final Supplier<HostSelection> selectionReader;
+    private final BooleanSupplier foregroundReader;
     private final Object invalidationLock = new Object();
     private Optional<ProjectSnapshot> lastProjectObservation = Optional.empty();
     private Optional<DocumentSnapshot> lastDocumentObservation = Optional.empty();
     private long invalidationToken;
 
     private HostSessionSnapshotSource(
-            final ProjectWorkspaceAdapter projectWorkspace, final Supplier<HostSelection> selectionReader) {
+            final ProjectWorkspaceAdapter projectWorkspace,
+            final Supplier<HostSelection> selectionReader,
+            final BooleanSupplier foregroundReader) {
         this.projectWorkspace = Objects.requireNonNull(projectWorkspace, "projectWorkspace");
         this.selectionReader = Objects.requireNonNull(selectionReader, "selectionReader");
+        this.foregroundReader = Objects.requireNonNull(foregroundReader, "foregroundReader");
     }
 
     /**
@@ -44,7 +49,7 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
      * @throws NullPointerException if {@code projectWorkspace} is null
      */
     public static HostSnapshotSource forSession(final ProjectWorkspaceAdapter projectWorkspace) {
-        return new HostSessionSnapshotSource(projectWorkspace, HostSelection::empty);
+        return new HostSessionSnapshotSource(projectWorkspace, HostSelection::empty, () -> false);
     }
 
     /**
@@ -57,7 +62,21 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
      */
     public static HostSnapshotSource forSession(
             final ProjectWorkspaceAdapter projectWorkspace, final Supplier<HostSelection> selectionReader) {
-        return new HostSessionSnapshotSource(projectWorkspace, selectionReader);
+        return new HostSessionSnapshotSource(projectWorkspace, selectionReader, () -> false);
+    }
+
+    /**
+     * @param projectWorkspace adapter whose immutable project and document snapshots are projected
+     * @param selectionReader live host selection read
+     * @param foregroundReader live desktop foreground probe
+     * @return a snapshot source for this session
+     * @throws NullPointerException if any argument is null
+     */
+    public static HostSnapshotSource forSession(
+            final ProjectWorkspaceAdapter projectWorkspace,
+            final Supplier<HostSelection> selectionReader,
+            final BooleanSupplier foregroundReader) {
+        return new HostSessionSnapshotSource(projectWorkspace, selectionReader, foregroundReader);
     }
 
     @Override
@@ -66,8 +85,19 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
     }
 
     @Override
+    public Optional<String> activeProjectId() {
+        final ProjectWorkspaceAdapter.AdapterResult<Optional<String>> result = projectWorkspace.activeProjectId();
+        return result.isAvailable() ? result.value().orElse(Optional.empty()) : Optional.empty();
+    }
+
+    @Override
     public Optional<HostDocument> activeDocument() {
         return available(projectWorkspace.activeDocument()).map(this::document);
+    }
+
+    @Override
+    public boolean isForeground() {
+        return foregroundReader.getAsBoolean();
     }
 
     @Override

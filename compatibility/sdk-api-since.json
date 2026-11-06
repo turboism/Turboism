@@ -1,9 +1,11 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "20081d49eb6328c8c9ff21c7efb225b1b7f5e659e450fae54b1bdb2ecaff4b63",
+  "surfaceSha256": "bc79cb14ff15d1b582fa2758cfb3c7857b14fe1c525bdbc0c483ef5878ddd3de",
   "classes": {
+    "dev.turboism.sdk.cubism.CubismActivitySnapshot": "0.68.1",
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
+    "dev.turboism.sdk.cubism.event.CubismActivityChangedEvent": "0.68.1",
     "dev.turboism.sdk.cubism.export.ProtectedExportCensus": "0.68.1",
     "dev.turboism.sdk.cubism.export.ProtectedExportContribution": "0.68.1",
     "dev.turboism.sdk.cubism.export.ProtectedExportPlan": "0.68.1",
@@ -36,6 +38,10 @@
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPackingException$1": "0.67.2",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPackingException$Reason": "0.67.2",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPageSize": "0.67.2",
+    "dev.turboism.sdk.cubism.worktime.ProjectWorkTime": "0.68.1",
+    "dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService": "0.68.1",
+    "dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService$Unavailable": "0.68.1",
+    "dev.turboism.sdk.cubism.worktime.ProjectWorkTimeSnapshot": "0.68.1",
     "dev.turboism.sdk.ui.HostViewAnchors": "0.68.1",
     "dev.turboism.sdk.ui.HostViewPanel": "0.68.1",
     "dev.turboism.sdk.ui.HostViewPanel$Unavailable": "0.68.1",
@@ -47,6 +53,8 @@
     "dev.turboism.sdk.ui.window.TurboismProgressDialog": "0.67.4"
   },
   "members": {
+    "dev.turboism.sdk.cubism.CubismFacade#activity:()Ldev/turboism/sdk/cubism/CubismActivitySnapshot;": "0.68.1",
+    "dev.turboism.sdk.cubism.CubismFacade#isEditorForeground:()Z": "0.68.1",
     "dev.turboism.sdk.cubism.export.ExportSettingsContributionService#contributeProtectedExport:(Ldev/turboism/sdk/cubism/export/ProtectedExportContribution;)Ldev/turboism/sdk/plugin/Registration;": "0.68.1",
     "dev.turboism.sdk.cubism.mesh.MeshToolContext#canvasSession:()Ldev/turboism/sdk/cubism/mesh/MeshCanvasSession;": "0.68.1",
     "dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot$Form#<init>:(Ljava/lang/String;Ljava/util/List;ILjava/util/Optional;)V": "0.68.0",
@@ -75,6 +83,7 @@
     "dev.turboism.sdk.plugin.PluginService#MESH_EDIT_CONTRIBUTION": "0.68.1",
     "dev.turboism.sdk.plugin.PluginService#MESH_MIRROR_CONTROL": "0.68.1",
     "dev.turboism.sdk.plugin.PluginService#PREVIEW_FRAMES": "0.68.1",
+    "dev.turboism.sdk.plugin.PluginService#PROJECT_WORK_TIME": "0.68.1",
     "dev.turboism.sdk.ui.UiHostCapabilityService#openSelectionTableDialog:(Ldev/turboism/sdk/ui/SelectionTableDialogRequest;Ldev/turboism/sdk/ui/SelectionTableDialogResultListener;)Ldev/turboism/sdk/plugin/Registration;": "0.68.0",
     "dev.turboism.sdk.ui.UiScheduler#runUiTeardown:(Ljava/lang/Runnable;Ljava/time/Duration;)Z": "0.68.1",
     "dev.turboism.sdk.ui.UserFileAccessService#writeBytesAtomicBounded:(Ldev/turboism/sdk/ui/UserFileHandle;[BI)Ljava/util/concurrent/CompletionStage;": "0.68.0",
