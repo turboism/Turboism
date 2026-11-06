@@ -119,6 +119,11 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
     dev.turboism.ui.panel.RuntimeHostViewPanelRegistry hostViewPanels();
 
     /**
+     * @return the preview surface registry every preview frame capability reads through; never null
+     */
+    dev.turboism.adapter.cubism.preview.RuntimePreviewSurfaceRegistry previewSurfaces();
+
+    /**
      * @return the texture-atlas editor session this access was composed with; never null
      */
     dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession();
@@ -300,6 +305,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator;
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
     private final dev.turboism.ui.panel.RuntimeHostViewPanelRegistry hostViewPanels;
+    private final dev.turboism.adapter.cubism.preview.RuntimePreviewSurfaceRegistry previewSurfaces;
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry
             textureAtlasAlgorithms;
@@ -347,6 +353,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             final dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator,
             final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
             final dev.turboism.ui.panel.RuntimeHostViewPanelRegistry hostViewPanels,
+            final dev.turboism.adapter.cubism.preview.RuntimePreviewSurfaceRegistry previewSurfaces,
             final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
             final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry
                     textureAtlasAlgorithms,
@@ -401,6 +408,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         this.workspaceLayoutCoordinator = workspaceLayoutCoordinator;
         this.textureAtlasEditorUi = java.util.Objects.requireNonNull(textureAtlasEditorUi, "textureAtlasEditorUi");
         this.hostViewPanels = java.util.Objects.requireNonNull(hostViewPanels, "hostViewPanels");
+        this.previewSurfaces = java.util.Objects.requireNonNull(previewSurfaces, "previewSurfaces");
         this.textureAtlasEditorSession =
                 java.util.Objects.requireNonNull(textureAtlasEditorSession, "textureAtlasEditorSession");
         this.textureAtlasAlgorithms =
@@ -610,6 +618,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public dev.turboism.ui.panel.RuntimeHostViewPanelRegistry hostViewPanels() {
         return hostViewPanels;
+    }
+
+    @Override
+    public dev.turboism.adapter.cubism.preview.RuntimePreviewSurfaceRegistry previewSurfaces() {
+        return previewSurfaces;
     }
 
     /** @return the texture-atlas editor session this access was composed with. */

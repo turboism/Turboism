@@ -1,7 +1,7 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "9e2ae3fab59d351cab52e4e0990d651565e01ff0f110a7f5199e8d1655a717ec",
+  "surfaceSha256": "0a84c9c92bdbbad2d08f0530ae4a4de01a88f225292adbb7eee33f27fb5376db",
   "classes": {
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
     "dev.turboism.sdk.cubism.export.ProtectedExportCensus": "0.68.1",
@@ -26,6 +26,11 @@
     "dev.turboism.sdk.cubism.model.ParameterGroupChild": "0.68.0",
     "dev.turboism.sdk.cubism.model.ParameterGroupChild$Kind": "0.68.0",
     "dev.turboism.sdk.cubism.physics.PhysicsEditorService$GifCommand": "0.68.1",
+    "dev.turboism.sdk.cubism.preview.PreviewFrame": "0.68.1",
+    "dev.turboism.sdk.cubism.preview.PreviewFrameService": "0.68.1",
+    "dev.turboism.sdk.cubism.preview.PreviewFrameService$Unavailable": "0.68.1",
+    "dev.turboism.sdk.cubism.preview.PreviewFrameSource": "0.68.1",
+    "dev.turboism.sdk.cubism.preview.PreviewFrameSourceClosedException": "0.68.1",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPackingException": "0.67.2",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPackingException$1": "0.67.2",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPackingException$Reason": "0.67.2",
@@ -65,6 +70,7 @@
     "dev.turboism.sdk.plugin.PluginDescriptor#hotReload:()Z": "0.68.1",
     "dev.turboism.sdk.plugin.PluginService#ART_MESH_MIRROR": "0.68.0",
     "dev.turboism.sdk.plugin.PluginService#HOST_VIEW_PANEL": "0.68.1",
+    "dev.turboism.sdk.plugin.PluginService#PREVIEW_FRAMES": "0.68.1",
     "dev.turboism.sdk.ui.UiHostCapabilityService#openSelectionTableDialog:(Ldev/turboism/sdk/ui/SelectionTableDialogRequest;Ldev/turboism/sdk/ui/SelectionTableDialogResultListener;)Ldev/turboism/sdk/plugin/Registration;": "0.68.0",
     "dev.turboism.sdk.ui.UiScheduler#runUiTeardown:(Ljava/lang/Runnable;Ljava/time/Duration;)Z": "0.68.1",
     "dev.turboism.sdk.ui.UserFileAccessService#writeBytesAtomicBounded:(Ldev/turboism/sdk/ui/UserFileHandle;[BI)Ljava/util/concurrent/CompletionStage;": "0.68.0",

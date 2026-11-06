@@ -79,6 +79,7 @@ public final class KernelReportSnapshotFactory {
             binding("ui.viewport.read", "ui.viewport.read", PermissionIds.TURBOISM_UI_VIEWPORT_READ),
             binding("cubism.recent-file.read", "recentFile.list", PermissionIds.TURBOISM_CUBISM_RECENT_FILE_READ),
             binding("cubism.screenshot.capture", "screenshot.capture", PermissionIds.TURBOISM_UI_VIEWPORT_READ),
+            binding("cubism.preview.capture", "preview.capture", PermissionIds.TURBOISM_UI_VIEWPORT_READ),
             binding(
                     "ui.recent-preview.contribute",
                     "recentPreview.contribute",
