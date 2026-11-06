@@ -388,7 +388,15 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
     }
 
     private static String presetAlias(final PresetColor preset) {
-        return "cubism.editor-model.label-color-type." + preset.name().toLowerCase(java.util.Locale.ROOT);
+        return switch (preset) {
+            case RED -> "cubism.editor-model.label-color-type.red";
+            case ORANGE -> "cubism.editor-model.label-color-type.orange";
+            case YELLOW -> "cubism.editor-model.label-color-type.yellow";
+            case GREEN -> "cubism.editor-model.label-color-type.green";
+            case BLUE -> "cubism.editor-model.label-color-type.blue";
+            case PURPLE -> "cubism.editor-model.label-color-type.purple";
+            case GRAY -> "cubism.editor-model.label-color-type.gray";
+        };
     }
 
     private Optional<UiColor> effectiveColor(final Object labelColor, final NativeLabelColor semantic) {

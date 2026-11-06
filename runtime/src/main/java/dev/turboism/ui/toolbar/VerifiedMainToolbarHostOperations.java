@@ -155,18 +155,17 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
             return kotlinUnit();
         });
         final Object button = modelingResolver.construct(create, icons.get(0), callback);
-        final String prefix = "cubism.ui-main-toolbar.abstract-button.";
-        final Object peer = resolver.invoke(prefix + "get-jabstract-button", button);
+        final Object peer = resolver.invoke("cubism.ui-main-toolbar.abstract-button.get-jabstract-button", button);
         if (!(peer instanceof javax.swing.AbstractButton swingButton)) {
             throw new IllegalStateException("ordinary tool has no verified native button peer");
         }
-        resolver.invoke(prefix + "set-icon", button, icons.get(0));
-        resolver.invoke(prefix + "set-pressed-icon", button, icons.get(1));
+        resolver.invoke("cubism.ui-main-toolbar.abstract-button.set-icon", button, icons.get(0));
+        resolver.invoke("cubism.ui-main-toolbar.abstract-button.set-pressed-icon", button, icons.get(1));
         modelingResolver.invoke(
                 dev.turboism.mapping.selector.ModelingSelectionSelectorContract.TOGGLE_ROLLOVER, button, icons.get(2));
-        resolver.invoke(prefix + "set-selected-icon", button, icons.get(3));
-        resolver.invoke(prefix + "set-disabled-icon", button, icons.get(4));
-        resolver.invoke(prefix + "set-disabled-selected-icon", button, icons.get(5));
+        resolver.invoke("cubism.ui-main-toolbar.abstract-button.set-selected-icon", button, icons.get(3));
+        resolver.invoke("cubism.ui-main-toolbar.abstract-button.set-disabled-icon", button, icons.get(4));
+        resolver.invoke("cubism.ui-main-toolbar.abstract-button.set-disabled-selected-icon", button, icons.get(5));
         swingButton.setRolloverEnabled(true);
         // Native tool buttons keep keyboard focus on the canvas. Otherwise Space release toggles
         // this button after a pan, and FlatLaf paints a persistent focus outline around the icon.
@@ -183,7 +182,7 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
             onEdt(() -> {
                 final boolean selected =
                         modeling.isActive(descriptor.pluginId(), descriptor.pluginGeneration(), descriptor.toolId());
-                resolver.invoke(prefix + "set-selected", button, selected);
+                resolver.invoke("cubism.ui-main-toolbar.abstract-button.set-selected", button, selected);
                 swingButton.setEnabled(selected || modeling.isEligible());
                 if (selected) clearNativeToolHighlights();
                 return null;

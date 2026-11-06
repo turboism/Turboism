@@ -11,7 +11,6 @@ import java.util.Map;
 
 /** Before image for the native reparent handler, which eagerly transforms every stored form. */
 final class EditorArtMeshParentSnapshot {
-    private static final String M = "cubism.editor-model.";
     private final VerifiedMemberResolver resolver;
     private final Object source;
     private final ArtMeshId id;
@@ -30,8 +29,10 @@ final class EditorArtMeshParentSnapshot {
         forms = nativeForms();
         parent = parent();
         parentGuid = parent == null
-                ? resolver.invoke(M + "deformer-guid.root", resolver.readStaticField(M + "deformer-guid.companion"))
-                : resolver.invoke(M + "parameter-controllable-source.guid", parent);
+                ? resolver.invoke(
+                        "cubism.editor-model.deformer-guid.root",
+                        resolver.readStaticField("cubism.editor-model.deformer-guid.companion"))
+                : resolver.invoke("cubism.editor-model.parameter-controllable-source.guid", parent);
     }
 
     static boolean available(final VerifiedMemberResolver resolver) {
@@ -58,7 +59,8 @@ final class EditorArtMeshParentSnapshot {
 
     void restore() {
         requireLayout();
-        resolver.invoke(M + "parameter-controllable-source.set-target-deformer-guid", source, parentGuid);
+        resolver.invoke(
+                "cubism.editor-model.parameter-controllable-source.set-target-deformer-guid", source, parentGuid);
         // The native parent handler owns default, ordinary and morph positions equally.
         // Preserve their identities and untouched source geometry; never reconstruct a layout.
         for (var form : before.forms()) {
@@ -67,8 +69,9 @@ final class EditorArtMeshParentSnapshot {
                 xy[2 * i] = form.positions().get(i).x();
                 xy[2 * i + 1] = form.positions().get(i).y();
             }
-            resolver.invoke(M + "art-mesh-form.set-positions", forms.get(form.formGuid()), xy);
-            resolver.invoke(M + "drawable-form.set-draw-order", forms.get(form.formGuid()), form.drawOrder());
+            resolver.invoke("cubism.editor-model.art-mesh-form.set-positions", forms.get(form.formGuid()), xy);
+            resolver.invoke(
+                    "cubism.editor-model.drawable-form.set-draw-order", forms.get(form.formGuid()), form.drawOrder());
         }
     }
 
@@ -78,7 +81,7 @@ final class EditorArtMeshParentSnapshot {
     }
 
     private Object parent() {
-        return resolver.invoke(M + "parameter-controllable-source.target-deformer-source", source);
+        return resolver.invoke("cubism.editor-model.parameter-controllable-source.target-deformer-source", source);
     }
 
     private ArtMeshAuthoringSnapshot read() {
@@ -93,12 +96,12 @@ final class EditorArtMeshParentSnapshot {
     }
 
     private Map<String, Object> nativeForms() {
-        final Object raw = resolver.invoke(M + "art-mesh-source.keyforms", source);
+        final Object raw = resolver.invoke("cubism.editor-model.art-mesh-source.keyforms", source);
         if (!(raw instanceof java.util.List<?> values)) throw stale();
         final var result = new LinkedHashMap<String, Object>();
         for (var form : values) {
             final Object guid = resolver.invoke("cubism.editor-history.semantic.form.guid", form);
-            final Object value = resolver.invoke(M + "form-guid.value", guid);
+            final Object value = resolver.invoke("cubism.editor-model.form-guid.value", guid);
             if (!(value instanceof String text) || result.putIfAbsent(text, form) != null) throw stale();
         }
         return result;

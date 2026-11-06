@@ -387,8 +387,19 @@ class HostAliasVocabularyTest(unittest.TestCase):
         report = failures(self.root)
         self.assertIn("cubism.clipmaskk.app-controller.instance", report)
 
-    def test_prefix_template_is_not_an_alias_literal(self):
-        self.assertFalse(CHECKER.is_alias_literal("cubism.editor-model.parameter.", {
+    def test_prefix_concatenation_is_rejected(self):
+        # A prefix fragment no longer skips the scan: a prefix + suffix concatenation leaves the
+        # visible half as a literal no record declares, so the alias escapes nothing and fails.
+        write(self.root, ADAPTER, adapter_body(
+            '        resolver.invoke("cubism.clipmask.app-controller." + SUFFIX, null);'))
+        report = failures(self.root)
+        self.assertIn("cubism.clipmask.app-controller.", report)
+        self.assertIn("lack reviewed evidence", report)
+
+    def test_prefix_fragment_is_an_alias_candidate_in_namespace(self):
+        # A trailing-dot prefix fragment inside a reviewed namespace is treated as an alias
+        # candidate (and fails as unrecorded unless pinned), not silently skipped.
+        self.assertTrue(CHECKER.is_alias_literal("cubism.editor-model.parameter.", {
             "cubism.editor-model."}))
         self.assertFalse(CHECKER.is_alias_literal("cubism.clipmask.other.member", {
             "cubism.editor-model."}))
