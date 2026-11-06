@@ -4,7 +4,7 @@ Work is ordered by product and framework capability. Track labels are parallel p
 
 ## Current objective
 
-Build a usable, version-routed Cubism and Editor API that third-party plugins can consume naturally, then reconnect official modeling workflows through that API.
+Build a usable, version-routed Cubism and Editor API that third-party plugins can consume naturally, then reconnect official modeling workflows through that API. The priority order is framework > first-party plugins > third-party plugins: third-party consumption is what the API is shaped for, but it never outranks the framework itself or the official workflows built on it.
 
 Legacy repositories remain read-only behavior evidence rather than a new-framework skeleton. Extraction is performed per usable feature slice, without repository-wide phase closure.
 
@@ -228,6 +228,10 @@ Candidate areas:
 Every hook requires necessity evidence, exact version routing, bounded execution, backpressure, kill switch, safe mode, cleanup and performance observation.
 
 ## Track G — Third-party and release readiness
+
+Third-party plugin support is the lowest priority of the program (framework >
+first-party plugins > third-party plugins); release readiness itself keeps its
+full importance and is not deferred with it.
 
 ### Framework readiness
 
