@@ -119,7 +119,7 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
                         "cubism.editor-model.parameter-source.guid", parameterSourceLookup.find(model, entry.getKey()));
                 axes.put(guid, entry.getValue());
             }
-            new EditorParameterInterpolationAccess(resolver)
+            new EditorParameterInterpolationAccess(resolver, authoringWriter)
                     .writeMany(
                             source,
                             modelSource,

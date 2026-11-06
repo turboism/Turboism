@@ -1,6 +1,7 @@
 package dev.turboism.ui.panel;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.mapping.verification.UiEmbeddedPanelAliases;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.plugin.Registration;
@@ -31,65 +32,6 @@ import javax.swing.SwingUtilities;
 /** Exact-version Cubism embedded-panel operations restricted to verified aliases. */
 public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelHostOperations {
 
-    private static final String APP_INSTANCE = "cubism.ui-panel.app-controller.instance";
-    private static final String APP_MAIN_FRAME = "cubism.ui-panel.app-controller.main-frame";
-    private static final String APP_REPAINT = "cubism.ui-panel.app-controller.repaint";
-    private static final String MAIN_FRAME_DOCK_MANAGER = "cubism.ui-panel.main-frame.dock-manager";
-    private static final String DOCK_PALETTE_MANAGER = "cubism.ui-panel.dock.palette-manager";
-    private static final String DOCK_SET_PALETTE_VISIBLE = "cubism.ui-panel.dock.set-palette-visible";
-    private static final String DOCK_UPDATE_WINDOW_MENU = "cubism.ui-panel.dock.update-window-menu";
-    private static final String PALETTE_MANAGER_GET = "cubism.ui-panel.palette-manager.get";
-    private static final String PALETTE_MANAGER_ADD = "cubism.ui-panel.palette-manager.add";
-    private static final String PALETTE_MANAGER_CLOSE = "cubism.ui-panel.palette-manager.close";
-    private static final String PALETTE_MANAGER_CURRENT_WORKSPACE = "cubism.ui-panel.palette-manager.current-workspace";
-    private static final String WORKSPACE_ACTIVATE = "cubism.ui-panel.workspace.activate";
-    private static final String WORKSPACE_PALETTE_BOX_FOR = "cubism.ui-panel.workspace.palette-box-for";
-    private static final String PALETTE_BOX_REMOVE_TAB = "cubism.ui-panel.palette-box.remove-tab";
-    private static final String PALETTE_MANAGER_REMOVE_UPDATE = "cubism.ui-panel.palette-manager.remove-update";
-    private static final String PALETTE_MANAGER_MAIN_FRAME_WINDOW = "cubism.ui-panel.palette-manager.main-frame-window";
-    private static final String PALETTE_MANAGER_VERIFY_CLEANUP = "cubism.ui-panel.palette-manager.verify-cleanup";
-    private static final String PALETTE_MANAGER_FIRE_STATE = "cubism.ui-panel.palette-manager.fire-state";
-    private static final String WORKSPACE_ADD_PALETTE_FRAME = "cubism.ui-panel.workspace.add-palette-frame";
-    private static final String WORKSPACE_REMOVE_PALETTE_FRAME = "cubism.ui-panel.workspace.remove-palette-frame";
-    private static final String WORKSPACE_FIRST_PALETTE_BOX = "cubism.ui-panel.workspace.first-palette-box";
-    private static final String PALETTE_BOX_CREATE = "cubism.ui-panel.palette-box.create";
-    private static final String PALETTE_BOX_ADD_TAB = "cubism.ui-panel.palette-box.add-tab";
-    private static final String PALETTE_BOX_SET_SELECTED = "cubism.ui-panel.palette-box.set-selected";
-    private static final String PALETTE_BOX_TAB_PANEL = "cubism.ui-panel.palette-box.tab-panel";
-    private static final String TAB_PANEL_ENTRIES = "cubism.ui-panel.tab-panel.entries";
-    private static final String TAB_ENTRY_PALETTE = "cubism.ui-panel.tab-entry.palette";
-    private static final String TAB_ENTRY_BUTTON = "cubism.ui-panel.tab-entry.button";
-    private static final String WIDGET_JCOMPONENT = "cubism.ui-panel.widget.jcomponent";
-    private static final String PALETTE_FRAME_CREATE = "cubism.ui-panel.palette-frame.create";
-    private static final String PALETTE_FRAME_ROOT = "cubism.ui-panel.palette-frame.root";
-    private static final String PALETTE_FRAME_WINDOW = "cubism.ui-panel.palette-frame.window";
-    private static final String PALETTE_FRAME_DISPOSE = "cubism.ui-panel.palette-frame.dispose";
-    private static final String WORKSPACE_ROOT_CONTAINER = "cubism.ui-panel.workspace.root-container";
-    private static final String ROOT_COMPONENT = "cubism.ui-panel.root.component";
-    private static final String ROOT_SET_COMPONENT = "cubism.ui-panel.root.set-component";
-    private static final String WINDOW_SET_VISIBLE = "cubism.ui-panel.window.set-visible";
-    private static final String PALETTE_ID_CREATE = "cubism.ui-panel.palette-id.create";
-    private static final String PALETTE_CREATE = "cubism.ui-panel.palette.create";
-    private static final String PALETTE_ID = "cubism.ui-panel.palette.id";
-    private static final String PALETTE_SET_PANEL = "cubism.ui-panel.palette.set-panel";
-    private static final String SWING_CONTAINER_CREATE = "cubism.ui-panel.swing-container.create";
-    private static final String MAIN_FRAME_WINDOW = "cubism.ui-panel.main-frame.window";
-    private static final String WINDOW_MENU_BAR = "cubism.ui-panel.window.menu-bar";
-    private static final String MENU_BAR_MENUS = "cubism.ui-panel.menu-bar.menus";
-    private static final String WIDGET_NAME = "cubism.ui-panel.widget.name";
-    private static final String WIDGET_SET_NAME = "cubism.ui-panel.widget.set-name";
-    private static final String WIDGET_REVALIDATE = "cubism.ui-panel.widget.revalidate";
-    private static final String WIDGET_REPAINT = "cubism.ui-panel.widget.repaint";
-    private static final String MENU_ITEMS = "cubism.ui-panel.menu.items";
-    private static final String MENU_ADD = "cubism.ui-panel.menu.add";
-    private static final String TAB_POPUP_ADD = "cubism.ui-panel.dock-tab-popup.menu-append";
-    private static final String MENU_SWING = "cubism.ui-panel.menu.swing";
-    private static final String MENU_ITEM_CREATE = "cubism.ui-panel.menu-item.create";
-    private static final String MENU_ITEM_CHECK_CREATE = "cubism.ui-panel.menu-item.check.create";
-    private static final String MENU_ITEM_SWING = "cubism.ui-panel.menu-item.swing";
-    private static final String MENU_ITEM_IS_SELECTED = "cubism.ui-panel.menu-item.is-selected";
-    private static final String DOCK_MAIN_FRAME_CTRL = "cubism.ui-panel.dock.main-frame-ctrl";
-    private static final String MAIN_FRAME_PALETTE_MENU_MAP = "cubism.ui-panel.main-frame.palette-menu-map";
     private static final Set<String> WINDOW_MENU_LABELS = Set.of("Window", "ウィンドウ", "视窗", "視窗", "窗口", "창");
     private static final long FLOAT_RESET_SUPPRESS_MILLIS = 1_500L;
 
@@ -242,16 +184,16 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             requireActiveHost(expectedGeneration);
             final NativeDock dock = resolveDock();
             final Object workspace = currentWorkspace(dock);
-            final Object rootContainer = resolver.invoke(WORKSPACE_ROOT_CONTAINER, workspace);
+            final Object rootContainer = resolver.invoke(UiEmbeddedPanelAliases.WORKSPACE_ROOT_CONTAINER, workspace);
             if (rootContainer == null) {
                 throw new IllegalStateException("Cubism workspace root container is unavailable");
             }
-            final Object rootComponent = resolver.invoke(ROOT_COMPONENT, rootContainer);
+            final Object rootComponent = resolver.invoke(UiEmbeddedPanelAliases.ROOT_COMPONENT, rootContainer);
             if (rootComponent == null) {
                 throw new IllegalStateException("Cubism workspace root component is unavailable");
             }
             pruneEmptyBoxes(rootComponent);
-            resolver.invoke(PALETTE_MANAGER_VERIFY_CLEANUP, dock.paletteManager());
+            resolver.invoke(UiEmbeddedPanelAliases.PALETTE_MANAGER_VERIFY_CLEANUP, dock.paletteManager());
             refresh(dock);
         });
     }
@@ -275,12 +217,13 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         }
         final NativeDock dock = resolveDock();
         final String nativeId = "turboism:" + descriptor.pluginId() + ":" + descriptor.contributionId();
-        final Object paletteId = resolver.construct(PALETTE_ID_CREATE, nativeId);
-        final Object existingPalette = resolver.invoke(PALETTE_MANAGER_GET, dock.paletteManager(), paletteId);
+        final Object paletteId = resolver.construct(UiEmbeddedPanelAliases.PALETTE_ID_CREATE, nativeId);
+        final Object existingPalette =
+                resolver.invoke(UiEmbeddedPanelAliases.PALETTE_MANAGER_GET, dock.paletteManager(), paletteId);
         // Cubism retains palette identity across Window-menu hide/close cycles. Reuse that
         // identity during contribution reconciliation instead of adding a duplicate palette.
         final Object palette = existingPalette == null
-                ? resolver.construct(PALETTE_CREATE, paletteId, descriptor.title())
+                ? resolver.construct(UiEmbeddedPanelAliases.PALETTE_CREATE, paletteId, descriptor.title())
                 : existingPalette;
 
         panels.put(palette, new NativePanel(dock, palette, paletteId));
@@ -318,8 +261,8 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                 }
                 stableContentRoots.put(palette, stableContentRoot);
             }
-            final Object content = resolver.construct(SWING_CONTAINER_CREATE, stableContentRoot);
-            resolver.invoke(PALETTE_SET_PANEL, palette, content, 340, 300);
+            final Object content = resolver.construct(UiEmbeddedPanelAliases.SWING_CONTAINER_CREATE, stableContentRoot);
+            resolver.invoke(UiEmbeddedPanelAliases.PALETTE_SET_PANEL, palette, content, 340, 300);
 
             // The Window-menu check item and its paletteMenuMap entry must exist before
             // addPalette/setPaletteVisible: native updateWindowMenuItem runs at the end of
@@ -334,7 +277,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                     palette,
                     () -> requestActivation(dock, palette, paletteId, closed));
             if (existingPalette == null) {
-                resolver.invoke(PALETTE_MANAGER_ADD, dock.paletteManager(), palette);
+                resolver.invoke(UiEmbeddedPanelAliases.PALETTE_MANAGER_ADD, dock.paletteManager(), palette);
             }
             // Dock into the first existing workspace palette box (native getFirstPaletteBox
             // semantics) so a custom tab reuses the current dock column instead of opening a
@@ -370,7 +313,8 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                         () -> dockFloatingPanel(floating),
                         () -> removeWindowMenuItem(installedItem),
                         () -> removePaletteFromWorkspace(dock, palette),
-                        () -> resolver.invoke(PALETTE_MANAGER_CLOSE, dock.paletteManager(), paletteId),
+                        () -> resolver.invoke(
+                                UiEmbeddedPanelAliases.PALETTE_MANAGER_CLOSE, dock.paletteManager(), paletteId),
                         () -> refresh(dock));
             } catch (Throwable cleanupFailure) {
                 // @containment-exempt: closePanel failures merged with fatal prioritized
@@ -431,7 +375,8 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                     closePanel(
                             () -> dockFloatingPanel(floating),
                             () -> removePaletteFromWorkspace(dock, palette),
-                            () -> resolver.invoke(PALETTE_MANAGER_CLOSE, dock.paletteManager(), paletteId),
+                            () -> resolver.invoke(
+                                    UiEmbeddedPanelAliases.PALETTE_MANAGER_CLOSE, dock.paletteManager(), paletteId),
                             () -> removeWindowMenuItem(installedWindowMenuItem),
                             () -> refresh(dock));
                 });
@@ -469,16 +414,19 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                 .sorted(java.util.Comparator.comparingInt(
                         value -> value.contribution().priority()))
                 .forEach(value -> {
-                    final Object callback =
-                            resolver.createFunctionalConstructorArgumentProxy(MENU_ITEM_CREATE, 2, ignored -> {
+                    final Object callback = resolver.createFunctionalConstructorArgumentProxy(
+                            UiEmbeddedPanelAliases.MENU_ITEM_CREATE, 2, ignored -> {
                                 routePanelTabAction(value, palette);
                                 return kotlinUnit();
                             });
                     final Object nativeItem = resolver.construct(
-                            MENU_ITEM_CREATE, value.contribution().label(), null, callback);
+                            UiEmbeddedPanelAliases.MENU_ITEM_CREATE,
+                            value.contribution().label(),
+                            null,
+                            callback);
                     // The tab popup is a com.live2d.ui.menu.k container, not a CMenu;
                     // items are appended through its k#c(CMenuItem) method.
-                    resolver.invoke(TAB_POPUP_ADD, menu, nativeItem);
+                    resolver.invoke(UiEmbeddedPanelAliases.DOCK_TAB_POPUP_MENU_APPEND, menu, nativeItem);
                 });
     }
 
@@ -512,7 +460,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         if (existing != null) {
             return existing;
         }
-        final Object paletteId = resolver.invoke(PALETTE_ID, palette);
+        final Object paletteId = resolver.invoke(UiEmbeddedPanelAliases.PALETTE_ID, palette);
         if (paletteId == null) {
             throw new IllegalStateException("Cubism palette identity is unavailable");
         }
@@ -572,12 +520,12 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     }
 
     private void floatPanel(final NativePanel panel) {
-        final Object sourceBox =
-                resolver.invoke(WORKSPACE_PALETTE_BOX_FOR, currentWorkspace(panel.dock()), panel.palette());
+        final Object sourceBox = resolver.invoke(
+                UiEmbeddedPanelAliases.WORKSPACE_PALETTE_BOX_FOR, currentWorkspace(panel.dock()), panel.palette());
         if (sourceBox == null) {
             throw new IllegalStateException("Cubism panel is not docked");
         }
-        final Object rawSourcePalettes = resolver.invoke(DockTreeTraversal.PALETTE_BOX_PALETTES, sourceBox);
+        final Object rawSourcePalettes = resolver.invoke(UiEmbeddedPanelAliases.PALETTE_BOX_PALETTES, sourceBox);
         if (!(rawSourcePalettes instanceof List<?> sourcePalettes)) {
             throw new IllegalStateException("Cubism source palette list is unavailable");
         }
@@ -587,20 +535,34 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                 .orElse(null);
         final Object workspace = currentWorkspace(panel.dock());
         final Object paletteArray = paletteArray(panel.palette());
-        final Object ownerWindow =
-                resolver.invoke(PALETTE_MANAGER_MAIN_FRAME_WINDOW, panel.dock().paletteManager());
-        final Object floatingBox =
-                resolver.construct(PALETTE_BOX_CREATE, panel.dock().paletteManager(), paletteArray);
-        final Object frame =
-                resolver.construct(PALETTE_FRAME_CREATE, panel.dock().paletteManager(), ownerWindow);
-        resolver.invoke(WORKSPACE_ADD_PALETTE_FRAME, workspace, frame);
-        resolver.invoke(PALETTE_BOX_REMOVE_TAB, sourceBox, panel.palette());
-        resolver.invoke(ROOT_SET_COMPONENT, resolver.invoke(PALETTE_FRAME_ROOT, frame), floatingBox);
+        final Object ownerWindow = resolver.invoke(
+                UiEmbeddedPanelAliases.PALETTE_MANAGER_MAIN_FRAME_WINDOW,
+                panel.dock().paletteManager());
+        final Object floatingBox = resolver.construct(
+                UiEmbeddedPanelAliases.PALETTE_BOX_CREATE, panel.dock().paletteManager(), paletteArray);
+        final Object frame = resolver.construct(
+                UiEmbeddedPanelAliases.PALETTE_FRAME_CREATE, panel.dock().paletteManager(), ownerWindow);
+        resolver.invoke(UiEmbeddedPanelAliases.WORKSPACE_ADD_PALETTE_FRAME, workspace, frame);
+        resolver.invoke(UiEmbeddedPanelAliases.PALETTE_BOX_REMOVE_TAB, sourceBox, panel.palette());
         resolver.invoke(
-                PALETTE_MANAGER_REMOVE_UPDATE, panel.dock().paletteManager(), workspace, sourceBox, paletteArray);
-        resolver.invoke(PALETTE_MANAGER_VERIFY_CLEANUP, panel.dock().paletteManager());
-        resolver.invoke(PALETTE_MANAGER_FIRE_STATE, panel.dock().paletteManager(), panel.palette());
-        resolver.invoke(WINDOW_SET_VISIBLE, resolver.invoke(PALETTE_FRAME_WINDOW, frame), true);
+                UiEmbeddedPanelAliases.ROOT_SET_COMPONENT,
+                resolver.invoke(UiEmbeddedPanelAliases.PALETTE_FRAME_ROOT, frame),
+                floatingBox);
+        resolver.invoke(
+                UiEmbeddedPanelAliases.PALETTE_MANAGER_REMOVE_UPDATE,
+                panel.dock().paletteManager(),
+                workspace,
+                sourceBox,
+                paletteArray);
+        resolver.invoke(
+                UiEmbeddedPanelAliases.PALETTE_MANAGER_VERIFY_CLEANUP,
+                panel.dock().paletteManager());
+        resolver.invoke(
+                UiEmbeddedPanelAliases.PALETTE_MANAGER_FIRE_STATE, panel.dock().paletteManager(), panel.palette());
+        resolver.invoke(
+                UiEmbeddedPanelAliases.WINDOW_SET_VISIBLE,
+                resolver.invoke(UiEmbeddedPanelAliases.PALETTE_FRAME_WINDOW, frame),
+                true);
         floatingPanels.put(panel.palette(), new FloatingPanel(panel, siblingAnchor, sourceBox, frame, floatingBox));
         lastFloatMillis.put(panel.palette(), System.currentTimeMillis());
         floatingFrameLifecycle.remember(frame, panel.palette(), siblingAnchor, sourceBox);
@@ -620,11 +582,11 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         if (targetBox == null) {
             throw new IllegalStateException("Cubism dock target is unavailable");
         }
-        resolver.invoke(PALETTE_BOX_REMOVE_TAB, floating.floatingBox(), panel.palette());
-        resolver.invoke(PALETTE_BOX_ADD_TAB, targetBox, panel.palette());
-        resolver.invoke(PALETTE_BOX_SET_SELECTED, targetBox, panel.paletteId());
+        resolver.invoke(UiEmbeddedPanelAliases.PALETTE_BOX_REMOVE_TAB, floating.floatingBox(), panel.palette());
+        resolver.invoke(UiEmbeddedPanelAliases.PALETTE_BOX_ADD_TAB, targetBox, panel.palette());
+        resolver.invoke(UiEmbeddedPanelAliases.PALETTE_BOX_SET_SELECTED, targetBox, panel.paletteId());
         resolver.invoke(
-                PALETTE_MANAGER_REMOVE_UPDATE,
+                UiEmbeddedPanelAliases.PALETTE_MANAGER_REMOVE_UPDATE,
                 panel.dock().paletteManager(),
                 workspace,
                 floating.floatingBox(),
@@ -640,12 +602,13 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             return originalBox;
         }
         if (siblingAnchor != null) {
-            final Object siblingBox = resolver.invoke(WORKSPACE_PALETTE_BOX_FOR, workspace, siblingAnchor);
+            final Object siblingBox =
+                    resolver.invoke(UiEmbeddedPanelAliases.WORKSPACE_PALETTE_BOX_FOR, workspace, siblingAnchor);
             if (siblingBox != null) {
                 return siblingBox;
             }
         }
-        return resolver.invoke(WORKSPACE_FIRST_PALETTE_BOX, workspace);
+        return resolver.invoke(UiEmbeddedPanelAliases.WORKSPACE_FIRST_PALETTE_BOX, workspace);
     }
 
     /** Returns whether the exact box identity is still attached to the current workspace tree. */
@@ -654,11 +617,12 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             return false;
         }
         try {
-            final Object rootContainer = resolver.invoke(WORKSPACE_ROOT_CONTAINER, workspace);
+            final Object rootContainer = resolver.invoke(UiEmbeddedPanelAliases.WORKSPACE_ROOT_CONTAINER, workspace);
             if (rootContainer == null) {
                 return false;
             }
-            return traversal.containsComponent(resolver.invoke(ROOT_COMPONENT, rootContainer), box);
+            return traversal.containsComponent(
+                    resolver.invoke(UiEmbeddedPanelAliases.ROOT_COMPONENT, rootContainer), box);
         } catch (RuntimeException failure) {
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
                     "floating-panels", "Original dock box tree validation failed safely", failure);
@@ -683,30 +647,38 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
                     "floating-panels", "Dock entry skipped because the panel is already docked");
             return;
         }
-        resolver.invoke(PALETTE_BOX_REMOVE_TAB, sourceBox, panel.palette());
-        resolver.invoke(PALETTE_BOX_ADD_TAB, targetBox, panel.palette());
-        resolver.invoke(PALETTE_BOX_SET_SELECTED, targetBox, panel.paletteId());
+        resolver.invoke(UiEmbeddedPanelAliases.PALETTE_BOX_REMOVE_TAB, sourceBox, panel.palette());
+        resolver.invoke(UiEmbeddedPanelAliases.PALETTE_BOX_ADD_TAB, targetBox, panel.palette());
+        resolver.invoke(UiEmbeddedPanelAliases.PALETTE_BOX_SET_SELECTED, targetBox, panel.paletteId());
         resolver.invoke(
-                PALETTE_MANAGER_REMOVE_UPDATE,
+                UiEmbeddedPanelAliases.PALETTE_MANAGER_REMOVE_UPDATE,
                 panel.dock().paletteManager(),
                 workspace,
                 sourceBox,
                 paletteArray(panel.palette()));
-        resolver.invoke(PALETTE_MANAGER_VERIFY_CLEANUP, panel.dock().paletteManager());
-        resolver.invoke(PALETTE_MANAGER_FIRE_STATE, panel.dock().paletteManager(), panel.palette());
+        resolver.invoke(
+                UiEmbeddedPanelAliases.PALETTE_MANAGER_VERIFY_CLEANUP,
+                panel.dock().paletteManager());
+        resolver.invoke(
+                UiEmbeddedPanelAliases.PALETTE_MANAGER_FIRE_STATE, panel.dock().paletteManager(), panel.palette());
         // Restore palette visibility in the dock wrapper, matching the legacy merge path.
-        resolver.invoke(DOCK_SET_PALETTE_VISIBLE, panel.dock().dockManager(), panel.palette(), true);
+        resolver.invoke(
+                UiEmbeddedPanelAliases.DOCK_SET_PALETTE_VISIBLE, panel.dock().dockManager(), panel.palette(), true);
     }
 
     private Object findPaletteBox(final NativePanel panel) {
         final FloatingPanel floating = floatingPanels.get(panel.palette());
         return floating == null
-                ? resolver.invoke(WORKSPACE_PALETTE_BOX_FOR, currentWorkspace(panel.dock()), panel.palette())
+                ? resolver.invoke(
+                        UiEmbeddedPanelAliases.WORKSPACE_PALETTE_BOX_FOR,
+                        currentWorkspace(panel.dock()),
+                        panel.palette())
                 : floating.floatingBox();
     }
 
     private Object currentWorkspace(final NativeDock dock) {
-        final Object workspace = resolver.invoke(PALETTE_MANAGER_CURRENT_WORKSPACE, dock.paletteManager());
+        final Object workspace =
+                resolver.invoke(UiEmbeddedPanelAliases.PALETTE_MANAGER_CURRENT_WORKSPACE, dock.paletteManager());
         if (workspace == null) {
             throw new IllegalStateException("Cubism current workspace is unavailable");
         }
@@ -723,7 +695,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         if (box == null || palette == null) {
             return false;
         }
-        final Object rawPalettes = resolver.invoke(DockTreeTraversal.PALETTE_BOX_PALETTES, box);
+        final Object rawPalettes = resolver.invoke(UiEmbeddedPanelAliases.PALETTE_BOX_PALETTES, box);
         if (!(rawPalettes instanceof List<?> palettes)) {
             return false;
         }
@@ -898,11 +870,11 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
      * the least-loaded dock column and leftover empty docks get filled.
      */
     private Object findSparsestPaletteBox(final Object workspace) {
-        final Object rootContainer = resolver.invoke(WORKSPACE_ROOT_CONTAINER, workspace);
+        final Object rootContainer = resolver.invoke(UiEmbeddedPanelAliases.WORKSPACE_ROOT_CONTAINER, workspace);
         if (rootContainer == null) {
             return null;
         }
-        final Object rootComponent = resolver.invoke(ROOT_COMPONENT, rootContainer);
+        final Object rootComponent = resolver.invoke(UiEmbeddedPanelAliases.ROOT_COMPONENT, rootContainer);
         if (rootComponent == null) {
             return null;
         }
@@ -943,7 +915,8 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
      * query + setPaletteVisible(true)).
      */
     private void showPaletteInWorkspace(final NativeDock dock, final Object palette, final Object paletteId) {
-        final Object workspace = resolver.invoke(PALETTE_MANAGER_CURRENT_WORKSPACE, dock.paletteManager());
+        final Object workspace =
+                resolver.invoke(UiEmbeddedPanelAliases.PALETTE_MANAGER_CURRENT_WORKSPACE, dock.paletteManager());
         if (workspace == null) {
             throw new IllegalStateException("Cubism current workspace is unavailable");
         }
@@ -951,12 +924,12 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         if (targetBox != null) {
             // The palette is now attached to the workspace tree; the following native
             // updateWindowMenuItem visibility derivation checks the menu item.
-            resolver.invoke(PALETTE_BOX_ADD_TAB, targetBox, palette);
-            resolver.invoke(PALETTE_BOX_SET_SELECTED, targetBox, paletteId);
+            resolver.invoke(UiEmbeddedPanelAliases.PALETTE_BOX_ADD_TAB, targetBox, palette);
+            resolver.invoke(UiEmbeddedPanelAliases.PALETTE_BOX_SET_SELECTED, targetBox, paletteId);
             return;
         }
-        resolver.invoke(WORKSPACE_ACTIVATE, workspace, palette);
-        resolver.invoke(DOCK_SET_PALETTE_VISIBLE, dock.dockManager(), palette, true);
+        resolver.invoke(UiEmbeddedPanelAliases.WORKSPACE_ACTIVATE, workspace, palette);
+        resolver.invoke(UiEmbeddedPanelAliases.DOCK_SET_PALETTE_VISIBLE, dock.dockManager(), palette, true);
     }
 
     private void requestActivation(
@@ -971,20 +944,26 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     }
 
     private void removePaletteFromWorkspace(final NativeDock dock, final Object palette) {
-        final Object workspace = resolver.invoke(PALETTE_MANAGER_CURRENT_WORKSPACE, dock.paletteManager());
+        final Object workspace =
+                resolver.invoke(UiEmbeddedPanelAliases.PALETTE_MANAGER_CURRENT_WORKSPACE, dock.paletteManager());
         if (workspace == null) {
             throw new IllegalStateException("Cubism current workspace is unavailable during cleanup");
         }
-        final Object paletteBox = resolver.invoke(WORKSPACE_PALETTE_BOX_FOR, workspace, palette);
+        final Object paletteBox = resolver.invoke(UiEmbeddedPanelAliases.WORKSPACE_PALETTE_BOX_FOR, workspace, palette);
         if (paletteBox == null) {
             return;
         }
-        resolver.invoke(PALETTE_BOX_REMOVE_TAB, paletteBox, palette);
+        resolver.invoke(UiEmbeddedPanelAliases.PALETTE_BOX_REMOVE_TAB, paletteBox, palette);
         final Object paletteArray = java.lang.reflect.Array.newInstance(palette.getClass(), 1);
         java.lang.reflect.Array.set(paletteArray, 0, palette);
-        resolver.invoke(PALETTE_MANAGER_REMOVE_UPDATE, dock.paletteManager(), workspace, paletteBox, paletteArray);
+        resolver.invoke(
+                UiEmbeddedPanelAliases.PALETTE_MANAGER_REMOVE_UPDATE,
+                dock.paletteManager(),
+                workspace,
+                paletteBox,
+                paletteArray);
 
-        resolver.invoke(PALETTE_MANAGER_VERIFY_CLEANUP, dock.paletteManager());
+        resolver.invoke(UiEmbeddedPanelAliases.PALETTE_MANAGER_VERIFY_CLEANUP, dock.paletteManager());
     }
 
     private WindowMenuItem installWindowMenuItem(
@@ -994,23 +973,23 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             final Object paletteId,
             final Object palette,
             final Runnable activate) {
-        final Object window = resolver.invoke(MAIN_FRAME_WINDOW, dock.mainFrame());
-        final Object menuBar = resolver.invoke(WINDOW_MENU_BAR, window);
+        final Object window = resolver.invoke(UiEmbeddedPanelAliases.MAIN_FRAME_WINDOW, dock.mainFrame());
+        final Object menuBar = resolver.invoke(UiEmbeddedPanelAliases.WINDOW_MENU_BAR, window);
         if (menuBar == null) {
             throw new IllegalStateException("Cubism menu bar is unavailable");
         }
-        final Object rawMenus = resolver.invoke(MENU_BAR_MENUS, menuBar);
+        final Object rawMenus = resolver.invoke(UiEmbeddedPanelAliases.MENU_BAR_MENUS, menuBar);
         if (!(rawMenus instanceof List<?> menus)) {
             throw new IllegalStateException("Cubism top-menu collection is unavailable");
         }
         final Object windowMenu = menus.stream()
                 .filter(menu -> {
-                    final Object peer = resolver.invoke(MENU_SWING, menu);
+                    final Object peer = resolver.invoke(UiEmbeddedPanelAliases.MENU_SWING, menu);
                     return peer instanceof JMenu swingMenu && WINDOW_MENU_LABELS.contains(swingMenu.getText());
                 })
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("Cubism Window menu is unavailable"));
-        final Object rawItems = resolver.invoke(MENU_ITEMS, windowMenu);
+        final Object rawItems = resolver.invoke(UiEmbeddedPanelAliases.MENU_ITEMS, windowMenu);
         if (!(rawItems instanceof List<?> items)) {
             throw new IllegalStateException("Cubism Window-menu items are unavailable");
         }
@@ -1019,14 +998,14 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         // Detach any stale item with the same id instead of failing, so a rebuild
         // after a host-side panel close can always re-install cleanly.
         final List<?> staleItems = items.stream()
-                .filter(item -> nativeItemId.equals(resolver.invoke(WIDGET_NAME, item)))
+                .filter(item -> nativeItemId.equals(resolver.invoke(UiEmbeddedPanelAliases.WIDGET_NAME, item)))
                 .toList();
         if (!staleItems.isEmpty()) {
             for (Object stale : staleItems) {
                 items.remove(stale);
-                final Object stalePeer = resolver.invoke(MENU_ITEM_SWING, stale);
+                final Object stalePeer = resolver.invoke(UiEmbeddedPanelAliases.MENU_ITEM_SWING, stale);
                 if (stalePeer instanceof JMenuItem staleItem) {
-                    final Object menuPeer = resolver.invoke(MENU_SWING, windowMenu);
+                    final Object menuPeer = resolver.invoke(UiEmbeddedPanelAliases.MENU_SWING, windowMenu);
                     if (menuPeer instanceof JMenu menu) {
                         menu.remove(staleItem);
                     }
@@ -1040,30 +1019,33 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         // check mark. The functional callback is a constructor argument, so it must exist before
         // the item; the item is only observable at click time, hence the holder.
         final Object[] nativeItemRef = new Object[1];
-        final Object callback =
-                resolver.createFunctionalConstructorArgumentProxy(MENU_ITEM_CHECK_CREATE, 1, ignored -> {
+        final Object callback = resolver.createFunctionalConstructorArgumentProxy(
+                UiEmbeddedPanelAliases.MENU_ITEM_CHECK_CREATE, 1, ignored -> {
                     // Native toggle semantics (com.live2d.cubism.view.aa): the Swing peer already
                     // flipped its selected state on click, so isSelected is the target visibility —
                     // checked shows the palette, unchecked hides it. The hide path runs the native
                     // full route (removeTab/removePaletteUpdate and the trailing updateWindowMenuItem)
                     // through setPaletteVisible(false); the show path keeps the verified activation.
-                    final boolean visible = (Boolean) resolver.invoke(MENU_ITEM_IS_SELECTED, nativeItemRef[0]);
+                    final boolean visible =
+                            (Boolean) resolver.invoke(UiEmbeddedPanelAliases.MENU_ITEM_IS_SELECTED, nativeItemRef[0]);
                     if (visible) {
                         activate.run();
                     } else {
-                        resolver.invoke(DOCK_SET_PALETTE_VISIBLE, dock.dockManager(), palette, false);
+                        resolver.invoke(
+                                UiEmbeddedPanelAliases.DOCK_SET_PALETTE_VISIBLE, dock.dockManager(), palette, false);
                     }
                     return kotlinUnit();
                 });
-        final Object nativeItem = resolver.construct(MENU_ITEM_CHECK_CREATE, label, callback);
+        final Object nativeItem = resolver.construct(UiEmbeddedPanelAliases.MENU_ITEM_CHECK_CREATE, label, callback);
         nativeItemRef[0] = nativeItem;
-        resolver.invoke(WIDGET_SET_NAME, nativeItem, nativeItemId);
-        resolver.invoke(MENU_ADD, windowMenu, nativeItem);
+        resolver.invoke(UiEmbeddedPanelAliases.WIDGET_SET_NAME, nativeItem, nativeItemId);
+        resolver.invoke(UiEmbeddedPanelAliases.MENU_ADD, windowMenu, nativeItem);
         // Register the palette in CEMainFrameCtrl.paletteMenuMap so the native
         // updateWindowMenuItem can maintain the check state (and does not raise
         // "Illegal state :_" in DEVELOPER_MODE builds).
-        final Object mainFrameCtrl = resolver.invoke(DOCK_MAIN_FRAME_CTRL, dock.dockManager());
-        final Object paletteMenuMap = resolver.invoke(MAIN_FRAME_PALETTE_MENU_MAP, mainFrameCtrl);
+        final Object mainFrameCtrl = resolver.invoke(UiEmbeddedPanelAliases.DOCK_MAIN_FRAME_CTRL, dock.dockManager());
+        final Object paletteMenuMap =
+                resolver.invoke(UiEmbeddedPanelAliases.MAIN_FRAME_PALETTE_MENU_MAP, mainFrameCtrl);
         putPaletteMenuEntry(paletteMenuMap, paletteId, nativeItem);
         refreshMenu(menuBar);
         return new WindowMenuItem(menuBar, windowMenu, nativeItem, paletteMenuMap, paletteId);
@@ -1097,7 +1079,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         // Drop the paletteMenuMap entry before detaching the menu item so the host can
         // never observe a map entry without a menu item.
         removePaletteMenuEntry(installed.paletteMenuMap(), installed.paletteId());
-        final Object rawItems = resolver.invoke(MENU_ITEMS, installed.menu());
+        final Object rawItems = resolver.invoke(UiEmbeddedPanelAliases.MENU_ITEMS, installed.menu());
         if (!(rawItems instanceof List<?>)) {
             throw new IllegalStateException("Cubism Window-menu items are unavailable during cleanup");
         }
@@ -1105,8 +1087,8 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         if (!items.remove(installed.item())) {
             throw new IllegalStateException("embedded-panel Window-menu item is no longer host-owned");
         }
-        final Object menuPeer = resolver.invoke(MENU_SWING, installed.menu());
-        final Object itemPeer = resolver.invoke(MENU_ITEM_SWING, installed.item());
+        final Object menuPeer = resolver.invoke(UiEmbeddedPanelAliases.MENU_SWING, installed.menu());
+        final Object itemPeer = resolver.invoke(UiEmbeddedPanelAliases.MENU_ITEM_SWING, installed.item());
         if (!(menuPeer instanceof JMenu menu) || !(itemPeer instanceof JMenuItem item)) {
             throw new IllegalStateException("Cubism Window-menu Swing peers are unavailable");
         }
@@ -1118,8 +1100,8 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     }
 
     private void refreshMenu(final Object menuBar) {
-        resolver.invoke(WIDGET_REVALIDATE, menuBar);
-        resolver.invoke(WIDGET_REPAINT, menuBar);
+        resolver.invoke(UiEmbeddedPanelAliases.WIDGET_REVALIDATE, menuBar);
+        resolver.invoke(UiEmbeddedPanelAliases.WIDGET_REPAINT, menuBar);
     }
 
     private Object kotlinUnit() {
@@ -1132,16 +1114,16 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     }
 
     private NativeDock resolveDock() {
-        final Object app = resolver.invokeStatic(APP_INSTANCE);
-        final Object mainFrame = resolver.invoke(APP_MAIN_FRAME, app);
+        final Object app = resolver.invokeStatic(UiEmbeddedPanelAliases.APP_CONTROLLER_INSTANCE);
+        final Object mainFrame = resolver.invoke(UiEmbeddedPanelAliases.APP_CONTROLLER_MAIN_FRAME, app);
         if (mainFrame == null) {
             throw new IllegalStateException("Cubism main frame is not ready");
         }
-        final Object dockManager = resolver.invoke(MAIN_FRAME_DOCK_MANAGER, mainFrame);
+        final Object dockManager = resolver.invoke(UiEmbeddedPanelAliases.MAIN_FRAME_DOCK_MANAGER, mainFrame);
         if (dockManager == null) {
             throw new IllegalStateException("Cubism dock manager is not ready");
         }
-        final Object paletteManager = resolver.invoke(DOCK_PALETTE_MANAGER, dockManager);
+        final Object paletteManager = resolver.invoke(UiEmbeddedPanelAliases.DOCK_PALETTE_MANAGER, dockManager);
         if (paletteManager == null) {
             throw new IllegalStateException("Cubism palette manager is not ready");
         }
@@ -1149,8 +1131,8 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     }
 
     private void refresh(final NativeDock dock) {
-        resolver.invoke(DOCK_UPDATE_WINDOW_MENU, dock.dockManager());
-        resolver.invoke(APP_REPAINT, dock.app());
+        resolver.invoke(UiEmbeddedPanelAliases.DOCK_UPDATE_WINDOW_MENU, dock.dockManager());
+        resolver.invoke(UiEmbeddedPanelAliases.APP_CONTROLLER_REPAINT, dock.app());
     }
 
     static void runOnEdtLater(final Runnable operation) {

@@ -408,8 +408,8 @@ class EditorParameterBindingMorphTransferTest {
             for (float value : values) objectSource.set.targets.add(new HostMorphTarget("from", value));
             document = new Document(modelSource);
             editMode = document.editMode;
-            Host.current = document;
-            Host.document = document;
+            final Host host = Host.install(this);
+            host.current = document;
         }
     }
 }

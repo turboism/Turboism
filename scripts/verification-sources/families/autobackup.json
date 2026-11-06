@@ -23,6 +23,10 @@
  "packs": [],
  "extraLiterals": [],
  "coverageSources": [],
+ "aliases": {
+  "className": "AutoBackupAliases",
+  "prefix": "cubism.auto-backup."
+ },
  "vocabulary": {
   "admissionEqualsUse": false
  }

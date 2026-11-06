@@ -23,6 +23,13 @@
  "packs": [],
  "extraLiterals": [],
  "coverageSources": [],
+ "aliases": {
+  "className": "UiTopMenuAliases",
+  "prefix": [
+   "cubism.editor-command.",
+   "cubism.ui-top-menu."
+  ]
+ },
  "vocabulary": {
   "admissionEqualsUse": false
  }

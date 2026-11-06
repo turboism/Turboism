@@ -30,6 +30,17 @@
  "packs": [],
  "extraLiterals": [],
  "coverageSources": [],
+ "aliases": {
+  "className": "WorkspaceControlAliases",
+  "prefix": [
+   "workspace.app.",
+   "workspace.dock.",
+   "workspace.id.",
+   "workspace.main-frame.",
+   "workspace.palette-manager.",
+   "workspace.workspace."
+  ]
+ },
  "vocabulary": {
   "admissionEqualsUse": false
  }

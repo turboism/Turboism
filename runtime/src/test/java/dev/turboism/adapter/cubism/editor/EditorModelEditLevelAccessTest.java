@@ -19,37 +19,27 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import javax.swing.SwingUtilities;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class EditorModelEditLevelAccessTest {
 
-    @AfterEach
-    void clearHost() {
-        Host.currentDocument = null;
-        Host.editLevel = 1;
-        Host.commandCalls = 0;
-        Host.readOnEdt = false;
-        Host.writeOnEdt = false;
-    }
-
     @Test
     void readsAndSwitchesTheCurrentModelEditLevelThroughTheHostCommand() {
-        Host.install(new Fixture("model-a"));
+        final Host host = Host.install(new Fixture("model-a"));
         final var model = new EditorBackedCubismModelAccess(resolver(true), "session-a").active();
 
         assertEquals(ModelEditLevel.LEVEL_1, model.editLevel());
         model.setEditLevel(ModelEditLevel.LEVEL_3);
 
         assertEquals(ModelEditLevel.LEVEL_3, model.editLevel());
-        assertEquals(1, Host.commandCalls);
+        assertEquals(1, host.commandCalls);
         model.setEditLevel(ModelEditLevel.LEVEL_3);
-        assertEquals(1, Host.commandCalls, "unchanged level must not invoke the host command");
+        assertEquals(1, host.commandCalls, "unchanged level must not invoke the host command");
     }
 
     @Test
     void offEdtReadsAndWritesRunHostEditLevelMethodsOnEdt() throws Exception {
-        Host.install(new Fixture("model-a"));
+        final Host host = Host.install(new Fixture("model-a"));
         final var model = new EditorBackedCubismModelAccess(resolver(true), "session-a").active();
         final ExecutorService worker = Executors.newSingleThreadExecutor();
         try {
@@ -69,24 +59,24 @@ class EditorModelEditLevelAccessTest {
         } finally {
             worker.shutdownNow();
         }
-        assertTrue(Host.readOnEdt);
-        assertTrue(Host.writeOnEdt);
+        assertTrue(host.readOnEdt);
+        assertTrue(host.writeOnEdt);
     }
 
     @Test
     void switchingFailsClosedWithoutSeparateWriteEvidence() {
-        Host.install(new Fixture("model-a"));
+        final Host host = Host.install(new Fixture("model-a"));
         final var model = new EditorBackedCubismModelAccess(resolver(false), "session-a").active();
 
         assertEquals(ModelEditLevel.LEVEL_1, model.editLevel());
         assertThrows(UnsupportedOperationException.class, () -> model.setEditLevel(ModelEditLevel.LEVEL_2));
-        assertEquals(0, Host.commandCalls);
+        assertEquals(0, host.commandCalls);
     }
 
     @Test
     void unknownHostLevelFailsClosed() {
-        Host.install(new Fixture("model-a"));
-        Host.editLevel = 0;
+        final Host host = Host.install(new Fixture("model-a"));
+        host.editLevel = 0;
         final var model = new EditorBackedCubismModelAccess(resolver(true), "session-a").active();
 
         assertThrows(IllegalStateException.class, model::editLevel);

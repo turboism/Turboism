@@ -8,8 +8,11 @@ the rule. Derivation is deterministic and injective: a name collision is an erro
 last-one-wins.
 
 The derived name depends only on the alias text, which is why a family must declare the alias
-prefix its records share: two aliases of one family differing only outside that prefix would map to
-the same constant name if the prefix were guessed.
+prefix or prefixes its records share: two aliases of one family differing only outside the chosen
+prefix would map to the same constant name if the prefix were guessed. A family may span several
+namespaces, so ``prefix`` is either one namespace string (the common shape) or a list of them; every
+alias must belong to exactly one declared prefix, and two aliases that derive one constant name
+across prefixes are an error like a collision inside one.
 """
 from __future__ import annotations
 
@@ -32,23 +35,39 @@ class VocabularyError(ValueError):
     """Raised when an alias vocabulary cannot be derived deterministically."""
 
 
-def declaration(block: object, label: str) -> tuple[str, str]:
-    """Returns the ``(class name, alias prefix)`` of one family's ``aliases`` block.
+def _prefixes(prefix: object) -> tuple[str, ...]:
+    """Returns the declared namespaces as a tuple, accepting one string or a list of them."""
+    declared = (prefix,) if isinstance(prefix, str) else tuple(prefix) if isinstance(prefix, list) else None
+    if not declared:
+        raise VocabularyError(
+            f"aliases prefix must be a dotted lowercase namespace ending in '.' or a non-empty list of them, got {prefix!r}")
+    for namespace in declared:
+        if not isinstance(namespace, str) or not PREFIX.match(namespace):
+            raise VocabularyError(
+                f"aliases prefix must be a dotted lowercase namespace ending in '.', got {namespace!r}")
+    if len(set(declared)) != len(declared):
+        raise VocabularyError(f"aliases prefix declares a namespace twice: {prefix!r}")
+    return declared
+
+
+def declaration(block: object, label: str) -> tuple[str, tuple[str, ...]]:
+    """Returns the ``(class name, alias prefixes)`` of one family's ``aliases`` block.
 
     The block is family data, so an unexpected shape is an authoring error rather than a reason to
-    fall back to a default: a guessed class name would emit a target nothing checks.
+    fall back to a default: a guessed class name would emit a target nothing checks. ``prefix`` is
+    one namespace string or a list of them; the normalised form is always a tuple.
     """
     if not isinstance(block, Mapping) or set(block) != DECLARATION_KEYS:
         raise VocabularyError(
             f"{label}: aliases block must declare exactly {sorted(DECLARATION_KEYS)}")
     class_name = block["className"]
-    prefix = block["prefix"]
     if not isinstance(class_name, str) or not CLASS_NAME.match(class_name):
         raise VocabularyError(f"{label}: aliases className must be a <Family>Aliases name, got {class_name!r}")
-    if not isinstance(prefix, str) or not PREFIX.match(prefix):
-        raise VocabularyError(
-            f"{label}: aliases prefix must be a dotted lowercase namespace ending in '.', got {prefix!r}")
-    return class_name, prefix
+    try:
+        prefixes = _prefixes(block["prefix"])
+    except VocabularyError as failure:
+        raise VocabularyError(f"{label}: {failure}") from failure
+    return class_name, prefixes
 
 
 def constant_name(alias: str, prefix: str) -> str:
@@ -64,20 +83,32 @@ def constant_name(alias: str, prefix: str) -> str:
     return name
 
 
-def constants(aliases: Iterable[str], prefix: str) -> dict[str, str]:
+def constants(aliases: Iterable[str], prefixes: str | tuple[str, ...]) -> dict[str, str]:
     """Returns ``constant name -> alias`` for every alias, failing closed on a collision.
+
+    ``prefixes`` is one namespace string or the normalised tuple ``declaration`` returns. Every
+    alias must belong to exactly one declared prefix: an alias outside all of them, or inside two
+    nested ones, would hide which namespace its constant stands for, so it is an authoring error
+    naming the alias and the declared prefixes.
 
     Separator placement is the plausible collision source (``a-b.c`` vs ``a.b-c`` derive one name),
     and a collision would make one alias unreachable from Java, so it is an authoring error instead
-    of a deduplicated table.
+    of a deduplicated table. The rule is prefix-relative, so a collision across two prefixes fails
+    exactly like one inside a single namespace.
     """
+    declared = (prefixes,) if isinstance(prefixes, str) else tuple(prefixes)
     table: dict[str, str] = {}
     for alias in sorted(aliases):
-        name = constant_name(alias, prefix)
+        owners = [p for p in declared if alias.startswith(p) and len(alias) > len(p)]
+        if len(owners) != 1:
+            raise VocabularyError(
+                f"alias {alias!r} must belong to exactly one of the declared prefixes "
+                f"{sorted(declared)}, belongs to {sorted(owners)}")
+        name = constant_name(alias, owners[0])
         if name in table:
             raise VocabularyError(
                 f"aliases {table[name]!r} and {alias!r} both derive the constant name {name!r}")
         table[name] = alias
     if not table:
-        raise VocabularyError(f"no alias of the {prefix!r} namespace was declared")
+        raise VocabularyError(f"no alias of the {declared!r} prefixes was declared")
     return table
