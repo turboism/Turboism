@@ -86,6 +86,10 @@ public final class KernelReportSnapshotFactory {
             binding("ui.dialog.contribute", "ui.dialog.contribute", PermissionIds.TURBOISM_UI_DIALOG_CONTRIBUTE),
             binding("ui.embedded-panel.contribute", "ui.panel.contribute", PermissionIds.TURBOISM_UI_PANEL_CONTRIBUTE),
             binding(
+                    "ui.host-view-panel.contribute",
+                    "ui.host-view-panel.contribute",
+                    PermissionIds.TURBOISM_UI_PANEL_CONTRIBUTE),
+            binding(
                     "ui.file-chooser.request",
                     "ui.file-chooser.request",
                     PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST),

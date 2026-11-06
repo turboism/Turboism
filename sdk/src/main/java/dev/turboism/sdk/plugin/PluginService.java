@@ -123,6 +123,10 @@ public enum PluginService {
     /** {@link dev.turboism.sdk.ui.UiHostCapabilityService} */
     UI_HOST(dev.turboism.sdk.ui.UiHostCapabilityService.class),
 
+    /** {@link dev.turboism.sdk.ui.HostViewPanel} */
+    @Incubating
+    HOST_VIEW_PANEL(dev.turboism.sdk.ui.HostViewPanel.class),
+
     /** {@link dev.turboism.sdk.ui.dialog.HostDialogAutomationService} */
     HOST_DIALOGS(dev.turboism.sdk.ui.dialog.HostDialogAutomationService.class),
 
