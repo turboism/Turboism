@@ -3,13 +3,9 @@ package dev.turboism.plugin.mesheditmirroraxisenhance;
 import dev.turboism.plugin.mesheditmirroraxisenhance.service.MeshInspectorService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
-import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface;
 import dev.turboism.sdk.cubism.mesh.MeshEditTool;
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorControl;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
@@ -44,19 +40,17 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
                     "Inspect Meshes",
                     "Ctrl+Alt+M",
                     ignored -> inspectorService.inspect());
-            registerMirrorLinkedDeletion();
+            final MeshMirrorControl mirror = context.services().require(MeshMirrorControl.class);
+            final MeshEditContributionSurface contributions =
+                    context.services().require(MeshEditContributionSurface.class);
+            registerMirrorLinkedDeletion(mirror, contributions);
+            context.disposableScope().register(mirror.participate());
             context.disposableScope()
-                    .register(context.services()
-                            .require(MeshMirrorMoveParticipation.class)
-                            .participate());
+                    .register(mirror.extendEligibleTools(
+                            Set.of(MeshEditTool.ARROW, MeshEditTool.ERASER, MeshEditTool.LASSO)));
             context.disposableScope()
-                    .register(context.services()
-                            .require(MeshMirrorToolEligibility.class)
-                            .extendEligibleTools(Set.of(MeshEditTool.ARROW, MeshEditTool.ERASER, MeshEditTool.LASSO)));
-            context.disposableScope()
-                    .register(context.services()
-                            .require(MeshEditUiService.class)
-                            .contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
+                    .register(contributions.contributeMirrorAxisAngleControl(
+                            new MeshEditContributionSurface.MirrorAxisAngleControl(
                                     "mesh.mirror-axis.angle",
                                     context.localization().text("mesh.mirror-axis.angle.label"),
                                     context.localization().text("mesh.mirror-axis.angle.reset"),
@@ -83,7 +77,7 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
 
     /** Called by the native-position mesh-edit control. */
     public void setMirrorAxisAngleDegrees(final float angleDegrees) {
-        context.services().require(MeshMirrorAxisService.class).setCurrentAngleDegrees(angleDegrees);
+        context.services().require(MeshMirrorControl.class).setCurrentAngleDegrees(angleDegrees);
     }
 
     /**
@@ -96,15 +90,11 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
      * <p>The enable condition is the host's own mirror toggle, reported through the deletion,
      * rather than anything this plugin invents.</p>
      */
-    private void registerMirrorLinkedDeletion() {
+    private void registerMirrorLinkedDeletion(
+            final MeshMirrorControl mirror, final MeshEditContributionSurface contributions) {
         context.disposableScope()
-                .register(context.services()
-                        .require(MeshEditParticipation.class)
-                        .participate(deletion -> deletion.mirrorAxis().enabled()
-                                ? context.services()
-                                        .require(MeshMirrorCounterparts.class)
-                                        .mirrorOf(deletion)
-                                : MeshEditContribution.none()));
+                .register(contributions.participate(deletion ->
+                        deletion.mirrorAxis().enabled() ? mirror.mirrorOf(deletion) : MeshEditContribution.none()));
     }
 
     private void registerAction(

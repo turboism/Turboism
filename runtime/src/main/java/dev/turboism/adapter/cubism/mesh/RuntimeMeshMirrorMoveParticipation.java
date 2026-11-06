@@ -5,6 +5,7 @@ import dev.turboism.sdk.plugin.Registration;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Shared plugin-policy registry consulted by the exact 5.2.03 movement hook. */
+@SuppressWarnings("removal") // the released interface this registry keeps serving
 public final class RuntimeMeshMirrorMoveParticipation implements MeshMirrorMoveParticipation {
 
     private final AtomicInteger participants = new AtomicInteger();
