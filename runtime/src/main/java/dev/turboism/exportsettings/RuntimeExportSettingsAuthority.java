@@ -518,8 +518,14 @@ public final class RuntimeExportSettingsAuthority implements NativeExportSetting
             final ProtectedExportOrchestrator orchestrator = protectedExportOrchestrator;
             if (orchestrator != null && orchestrator.isOrchestrationOption(option.pluginId(), option.optionId())) {
                 // Armed: the session reports its own terminal outcome. Refused: the
-                // orchestrator already named the refusal through its own reporter.
-                orchestrator.requestExport(owner);
+                // orchestrator already named the refusal through its own reporter. The
+                // planner travels from the live contribution, so a revoked registration
+                // can never plan a session.
+                orchestrator.requestExport(
+                        owner,
+                        option.registry()
+                                .protectedExportPlanner(option.optionId())
+                                .orElse(null));
                 return Decision.silentVeto();
             }
             return Decision.vetoed(decision.messageKey(), resolveMessage(option, decision.messageKey()));
