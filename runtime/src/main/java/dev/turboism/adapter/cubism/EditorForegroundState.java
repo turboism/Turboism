@@ -30,8 +30,6 @@ public final class EditorForegroundState {
                     return true;
                 }
             }
-        } catch (ThreadDeath | VirtualMachineError fatal) {
-            throw fatal;
         } catch (RuntimeException ignored) {
             return false;
         }

@@ -158,9 +158,10 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
     @Override
     public Optional<String> activeProjectId() {
         try {
-            final Object appController = resolver.invokeStatic(APP_INSTANCE);
+            final Object appController = resolver.invokeStatic(ProjectWorkspaceAliases.APP_CONTROLLER_INSTANCE);
             if (appController == null) return Optional.empty();
-            final Object project = resolver.invoke(CURRENT_PROJECT, appController);
+            final Object project =
+                    resolver.invoke(ProjectWorkspaceAliases.APP_CONTROLLER_CURRENT_PROJECT, appController);
             return project == null ? Optional.empty() : Optional.of(identities.idFor(project, "project"));
         } catch (VerifiedAccessException exception) {
             if (exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION) {
