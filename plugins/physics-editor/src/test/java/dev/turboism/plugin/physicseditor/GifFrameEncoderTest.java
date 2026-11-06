@@ -1,4 +1,4 @@
-package dev.turboism.adapter.cubism.physics;
+package dev.turboism.plugin.physicseditor;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -14,7 +14,7 @@ import javax.imageio.metadata.IIOMetadataNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-class PhysicsGifEncoderTest {
+class GifFrameEncoderTest {
     @TempDir
     Path temporary;
 
@@ -44,7 +44,7 @@ class PhysicsGifEncoderTest {
         final Path raw = temporary.resolve("input with spaces.gif");
         final Path output = temporary.resolve("output with spaces.gif");
         writeRecording(raw, 12, 30, true);
-        PhysicsGifEncoder.optimize(gifsicle, raw, output, 20_000, 160, 100, 12);
+        GifFrameEncoder.optimize(gifsicle, raw, output, 20_000, 160, 100, 12);
         assertTrue(Files.size(output) <= 20_000);
         assertGif(output, 12, 40, -1, -1);
     }
@@ -55,7 +55,7 @@ class PhysicsGifEncoderTest {
         final Path raw = temporary.resolve("input.gif");
         final Path output = temporary.resolve("output.gif");
         writeRecording(raw, 6, 30, false);
-        PhysicsGifEncoder.optimize(gifsicle, raw, output, Long.MAX_VALUE, 80, 80, 6);
+        GifFrameEncoder.optimize(gifsicle, raw, output, Long.MAX_VALUE, 80, 80, 6);
         assertGif(output, 6, 20, 80, 80);
     }
 
@@ -63,14 +63,14 @@ class PhysicsGifEncoderTest {
     void rejectsImpossibleLimitAndMissingExecutable() throws Exception {
         assertThrows(
                 java.io.IOException.class,
-                () -> PhysicsGifEncoder.verifyExecutable(
+                () -> GifFrameEncoder.verifyExecutable(
                         temporary.resolve("missing gifsicle").toString()));
         final String gifsicle = realGifsicle();
         final Path raw = temporary.resolve("input.gif");
         writeRecording(raw, 3, 30, false);
         assertThrows(
                 java.io.IOException.class,
-                () -> PhysicsGifEncoder.optimize(gifsicle, raw, temporary.resolve("output.gif"), 1, 160, 100, 3));
+                () -> GifFrameEncoder.optimize(gifsicle, raw, temporary.resolve("output.gif"), 1, 160, 100, 3));
     }
 
     @Test
@@ -79,7 +79,7 @@ class PhysicsGifEncoderTest {
         try {
             assertThrows(
                     InterruptedException.class,
-                    () -> PhysicsGifEncoder.optimize(
+                    () -> GifFrameEncoder.optimize(
                             "missing", temporary.resolve("input"), temporary.resolve("output"), 1, 1, 1, 1));
         } finally {
             Thread.interrupted();
@@ -96,7 +96,7 @@ class PhysicsGifEncoderTest {
     private static void writeRecording(final Path raw, final int frames, final int fps, final boolean noise)
             throws Exception {
         final Random random = new Random(91);
-        try (var encoder = new PhysicsGifEncoder(raw, fps)) {
+        try (var encoder = new GifFrameEncoder(raw, fps)) {
             for (int frame = 0; frame < frames; frame++) {
                 final BufferedImage image = new BufferedImage(160, 100, BufferedImage.TYPE_INT_RGB);
                 for (int y = 0; y < 100; y++) {

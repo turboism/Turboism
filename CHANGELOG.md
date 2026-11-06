@@ -10,13 +10,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- The SDK adds the incubating `PreviewFrameService` capability with `PreviewFrameSource`, `PreviewFrame`, `PreviewFrameSourceClosedException` and the `PluginService.PREVIEW_FRAMES` directory member, plus the `cubism.preview.capture` admission row: a plugin reads frames from the focused preview and places its own `PanelView` control strip on it, while the runtime resolves the surface, performs the OpenGL readback on its own thread and drops updates once the plugin generation is fenced.
+
 - The SDK adds the incubating `HostViewPanel` capability with `HostViewPanelHandle`, the `HostViewAnchors` anchor constants and the `PluginService.HOST_VIEW_PANEL` directory member: a plugin attaches `PanelView` content to a named host view (the native texture-atlas editor first), the runtime renders it, marshals updates onto the editor thread and drops them once the plugin generation is fenced.
 
-- Physics Settings preview GIF recording with record/pause/resume, stop/discard controls and registered shortcuts, post-recording size controls, optional Gifsicle optimization (20 MB by default), and a persistent GIF export directory.
+- Physics Settings preview GIF recording with record/pause/resume, stop/discard controls and registered shortcuts, post-recording size controls, optional Gifsicle optimization (20 MB by default), and a persistent GIF export directory. The recording state machine, the encoder, the export dialog, the scale/Gifsicle policy and the control strip live in `:plugins:physics-editor`; `:runtime` only exposes the generic preview capture capability they drive.
 
 - The SDK adds the incubating `MeshMirrorControl` and `MeshEditContributionSurface` capabilities with the `PluginService.MESH_MIRROR_CONTROL` and `PluginService.MESH_EDIT_CONTRIBUTION` directory members. Each consolidates released single-purpose services a plugin always needed together — the mirror axis, the counterpart rule, movement participation and the eligible-tool set on one side, host-edit participation and native tool-area contributions on the other — so mesh editing no longer costs six service lookups. Permissions and operation ids are unchanged.
 
 ### Deprecated
+
+- `PhysicsEditorService.gifCommand` and `PhysicsEditorService.GifCommand` are deprecated for removal: the runtime no longer records a GIF for a plugin and accepts the command as a no-op. Use `PreviewFrameService` (with `PluginService.PREVIEW_FRAMES`) and drive the recording from the plugin; removal follows in the next minor release.
 
 - `TextureAtlasEditorUi` and `TextureAtlasEditorPanel` are deprecated for removal; both keep working as a thin adapter over `HostViewPanel`. Use `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)` and `HostViewPanelHandle.setContent(PanelView)` instead.
 

@@ -1,6 +1,7 @@
 package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.adapter.cubism.preview.RuntimePreviewFrameService;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
@@ -9,6 +10,7 @@ import dev.turboism.recentpreview.RuntimeRecentPreviewContributionService;
 import dev.turboism.screenshot.RuntimeScreenshotCaptureService;
 import dev.turboism.sdk.action.ActionCatalogService;
 import dev.turboism.sdk.appearance.AppearanceService;
+import dev.turboism.sdk.cubism.preview.PreviewFrameService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
@@ -58,7 +60,8 @@ record UiCapabilityBundle(
         RecentFileService recentFileService,
         ScreenshotCaptureService screenshotCaptureService,
         RecentPreviewContributionService recentPreviewContributionService,
-        ActionCatalogService actionCatalogService)
+        ActionCatalogService actionCatalogService,
+        PreviewFrameService previewFrameService)
         implements PluginCapabilityBundle {
 
     UiCapabilityBundle {
@@ -78,6 +81,7 @@ record UiCapabilityBundle(
         Objects.requireNonNull(screenshotCaptureService, "screenshotCaptureService");
         Objects.requireNonNull(recentPreviewContributionService, "recentPreviewContributionService");
         Objects.requireNonNull(actionCatalogService, "actionCatalogService");
+        Objects.requireNonNull(previewFrameService, "previewFrameService");
     }
 
     static UiCapabilityBundle create(
@@ -139,6 +143,19 @@ record UiCapabilityBundle(
                 ? HostViewPanel.unavailable()
                 : new PluginScopedHostViewPanel(
                         hostAccess.hostViewPanels(), uiPermissionChecker, dependencies.disposableScope());
+        // Declaring cubism.preview.capture is the admission condition: the capability row exists in
+        // CapabilityAdmission, the permission is enforced per call by the service, and a plugin that
+        // declares neither never resolves a preview surface.
+        final RuntimePreviewFrameService previewFrameService =
+                hostAccess == null || !RuntimePreviewFrameService.declaredBy(dependencies.descriptor())
+                        ? null
+                        : new RuntimePreviewFrameService(
+                                hostAccess.previewSurfaces(), uiPermissionChecker, dependencies.disposableScope());
+        if (previewFrameService != null) {
+            dependencies.disposableScope().register(previewFrameService::close);
+        }
+        final PreviewFrameService previewFrameServiceView =
+                previewFrameService == null ? PreviewFrameService.unavailable() : previewFrameService;
 
         final WorkspaceService rawWorkspace = hostAccess == null
                 ? WorkspaceService.unavailable()
@@ -236,7 +253,8 @@ record UiCapabilityBundle(
                 recentFileService,
                 screenshotCaptureService,
                 recentPreviewContributionService,
-                actionCatalogService);
+                actionCatalogService,
+                previewFrameServiceView);
     }
 
     private static void bindContributionLocalization(
@@ -292,5 +310,6 @@ record UiCapabilityBundle(
                 PluginService.RECENT_PREVIEWS,
                 () -> recentPreviewContributionService,
                 RecentPreviewContributionService::unavailable);
+        directory.install(PluginService.PREVIEW_FRAMES, () -> previewFrameService, PreviewFrameService::unavailable);
     }
 }

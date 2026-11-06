@@ -1,4 +1,4 @@
-package dev.turboism.adapter.cubism.physics;
+package dev.turboism.plugin.physicseditor;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -12,15 +12,28 @@ import javax.imageio.ImageWriter;
 import javax.imageio.metadata.IIOMetadataNode;
 import javax.imageio.stream.ImageOutputStream;
 
-/** Disk-backed GIF sequence encoding and bounded Gifsicle optimization. */
-final class PhysicsGifEncoder implements AutoCloseable {
+/**
+ * Disk-backed GIF sequence encoding and bounded Gifsicle optimization.
+ *
+ * <p>Both halves are plugin-owned policy: the frame delay distribution, the color/resize ladder and
+ * the bounded wait on the external optimizer are feature decisions, not framework ones. The class
+ * reports failures as {@link IOException} so its caller owns the user-visible message.</p>
+ */
+final class GifFrameEncoder implements AutoCloseable {
+
+    /** Optimization attempts before the encoder gives up on the requested size limit. */
+    private static final int MAX_OPTIMIZATION_STEPS = 24;
+
+    /** Bound on one external optimizer run; a hung Gifsicle must not wedge the recording thread. */
+    private static final long OPTIMIZER_TIMEOUT_SECONDS = 60L;
+
     private final ImageWriter writer =
             ImageIO.getImageWritersByFormatName("gif").next();
     private final ImageOutputStream stream;
     private final int fps;
     private int frames;
 
-    PhysicsGifEncoder(final Path destination, final int fps) throws IOException {
+    GifFrameEncoder(final Path destination, final int fps) throws IOException {
         this.fps = fps;
         stream = ImageIO.createImageOutputStream(destination.toFile());
         writer.setOutput(stream);
@@ -72,7 +85,7 @@ final class PhysicsGifEncoder implements AutoCloseable {
             final int frameCount)
             throws IOException, InterruptedException {
         // Every attempt uses the original recording, avoiding cumulative quantization/resizing damage.
-        for (int step = 0; step < 24; step++) {
+        for (int step = 0; step < MAX_OPTIMIZATION_STEPS; step++) {
             if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
             final double scale = step < 3 ? 1 : Math.pow(0.8, step - 2);
             final int colors = step == 0 ? 256 : step == 1 ? 128 : step < 10 ? 64 : 16;
@@ -116,7 +129,8 @@ final class PhysicsGifEncoder implements AutoCloseable {
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start();
         try {
-            if (!process.waitFor(60, TimeUnit.SECONDS)) throw new IOException("Gifsicle timed out");
+            if (!process.waitFor(OPTIMIZER_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                throw new IOException("Gifsicle timed out");
             if (process.exitValue() != 0) throw new IOException("Gifsicle failed (exit " + process.exitValue() + ")");
         } finally {
             if (process.isAlive()) {

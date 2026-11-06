@@ -14,7 +14,16 @@ public interface PhysicsEditorService {
      */
     Registration contribute(PhysicsEditorContribution contribution);
 
-    /** Recording commands for the focused native Physics Settings preview. */
+    /**
+     * Recording commands for the focused native Physics Settings preview.
+     *
+     * @deprecated the recording state machine, its export settings and its output policy belong to
+     *     the plugin that provides them; use
+     *     {@link dev.turboism.sdk.cubism.preview.PreviewFrameService} to attach the plugin's own
+     *     control strip and read frames. Dispatched commands are accepted and ignored, so an
+     *     already released plugin keeps loading.
+     */
+    @Deprecated(forRemoval = true)
     enum GifCommand {
         /** Starts recording, pauses it, or resumes a paused recording. */
         RECORD_PAUSE,
@@ -26,7 +35,16 @@ public interface PhysicsEditorService {
         DISCARD
     }
 
-    /** Dispatches to the focused physics preview; does nothing when none is focused. */
+    /**
+     * Dispatches to the focused physics preview; does nothing when none is focused.
+     *
+     * @param command the command to dispatch
+     * @deprecated the runtime no longer records GIFs on a plugin's behalf and ignores the command;
+     *     drive the recording from the plugin through
+     *     {@link dev.turboism.sdk.cubism.preview.PreviewFrameService}. Scheduled for removal in the
+     *     next minor release.
+     */
+    @Deprecated(forRemoval = true)
     default void gifCommand(final GifCommand command) {}
 
     /**

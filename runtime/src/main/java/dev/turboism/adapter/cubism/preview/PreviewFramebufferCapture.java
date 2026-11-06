@@ -1,4 +1,4 @@
-package dev.turboism.adapter.cubism.physics;
+package dev.turboism.adapter.cubism.preview;
 
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.reflect.ReflectAccess;
@@ -7,14 +7,14 @@ import java.lang.reflect.Proxy;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Reads the preview framebuffer on its own JOGL context; never captures the desktop. */
-final class PhysicsPreviewCapture implements AutoCloseable {
+final class PreviewFramebufferCapture implements AutoCloseable {
     private final Object drawable;
     private final Class<?> runnableType;
     private final Class<?> drawableType;
     private final Object reader;
     private final Class<?> glType;
 
-    PhysicsPreviewCapture(final Object panel) throws Exception {
+    PreviewFramebufferCapture(final Object panel) throws Exception {
         final Object wrapper = invoke(panel, "getViewPanel");
         drawable = invoke(wrapper, "getRaw_glJPanel");
         final ClassLoader loader = drawable.getClass().getClassLoader();
@@ -55,7 +55,7 @@ final class PhysicsPreviewCapture implements AutoCloseable {
                         }
                         return true;
                     }
-                    if ("toString".equals(method.getName())) return "Turboism GIF capture";
+                    if ("toString".equals(method.getName())) return "Turboism preview capture";
                     if ("hashCode".equals(method.getName())) return System.identityHashCode(proxy);
                     return arguments != null && arguments.length == 1 && proxy == arguments[0];
                 });
