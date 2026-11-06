@@ -32,18 +32,17 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
     private static final String ACTION_NAME = "Turboism: Set Native Label Color";
 
     private final VerifiedMemberResolver resolver;
-    private final Supplier<EditorBackedCubismModelAccess.Binding> currentBinding;
+    private final Supplier<BoundModel> currentBinding;
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorNativeControlAppearanceAccess(
-            final VerifiedMemberResolver resolver,
-            final Supplier<EditorBackedCubismModelAccess.Binding> currentBinding) {
+            final VerifiedMemberResolver resolver, final Supplier<BoundModel> currentBinding) {
         this(resolver, currentBinding, null);
     }
 
     EditorNativeControlAppearanceAccess(
             final VerifiedMemberResolver resolver,
-            final Supplier<EditorBackedCubismModelAccess.Binding> currentBinding,
+            final Supplier<BoundModel> currentBinding,
             final EditorAuthoringTransactionCoordinator authoringCoordinator) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentBinding = Objects.requireNonNull(currentBinding, "currentBinding");
@@ -54,7 +53,7 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
     public NativeLabelColorState readNativeLabelColor(final NativeLabelColorTarget target) {
         requireReadAuthorization();
         Objects.requireNonNull(target, "target");
-        final EditorBackedCubismModelAccess.Binding binding = currentBinding.get();
+        final BoundModel binding = currentBinding.get();
         final Object labelColor = labelColor(binding, target);
         final NativeLabelColor semantic = readLabelColor(labelColor);
         final NativeLabelColorState result = new NativeLabelColorState(semantic, effectiveColor(labelColor, semantic));
@@ -76,7 +75,7 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(color, "color");
         requireWriteAuthorization();
-        final EditorBackedCubismModelAccess.Binding binding = currentBinding.get();
+        final BoundModel binding = currentBinding.get();
         final Object labelColor = labelColor(binding, target);
         final NativeLabelColorValue requested = nativeValue(color);
         if (exactMatch(requested, readNativeValue(labelColor))) {
@@ -191,8 +190,7 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
         }
     }
 
-    private Object labelColor(
-            final EditorBackedCubismModelAccess.Binding binding, final NativeLabelColorTarget target) {
+    private Object labelColor(final BoundModel binding, final NativeLabelColorTarget target) {
         final Object source = binding.source();
         final Object value;
         if (target.palette() == NativeLabelColorTarget.Palette.PARAMETER_GROUP) {
@@ -320,8 +318,8 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
      * Fail closed unless the active document/source/model references and identity still match
      * the consistent binding this operation started from.
      */
-    private void requireCurrent(final EditorBackedCubismModelAccess.Binding expected) {
-        final EditorBackedCubismModelAccess.Binding current = currentBinding.get();
+    private void requireCurrent(final BoundModel expected) {
+        final BoundModel current = currentBinding.get();
         if (!current.identity().equals(expected.identity())
                 || current.document() != expected.document()
                 || current.source() != expected.source()
@@ -332,9 +330,7 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
 
     /** Fail closed unless the target still resolves by ID to the exact same label-color object. */
     private Object requireSameLabelColor(
-            final EditorBackedCubismModelAccess.Binding binding,
-            final NativeLabelColorTarget target,
-            final Object expected) {
+            final BoundModel binding, final NativeLabelColorTarget target, final Object expected) {
         final Object resolved = labelColor(binding, target);
         if (resolved != expected) {
             throw new IllegalStateException(
@@ -468,7 +464,7 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
             final Object app,
             final NativeLabelColorTarget target,
             final long transaction,
-            final EditorBackedCubismModelAccess.Binding binding,
+            final BoundModel binding,
             final String sourceId) {
         final Object completePack = resolver.invoke("cubism.editor-model.app-controller.complete-pack", app);
         if (target.palette() == NativeLabelColorTarget.Palette.PARAMETER_GROUP) {
@@ -499,7 +495,7 @@ final class EditorNativeControlAppearanceAccess implements NativeLabelColorAutho
     private void trace(
             final long transaction,
             final String phase,
-            final EditorBackedCubismModelAccess.Binding binding,
+            final BoundModel binding,
             final String sourceId,
             final String detail) {
         EditorObjectValidationTrace.event(
