@@ -7,7 +7,7 @@
 ## 目录结构
 
 ```text
-test-assets/model-import-3d/
+testing/assets/model-import-3d/
 ├── README.md
 ├── cube-985496727e50/
 │   └── cube.glb
@@ -22,10 +22,10 @@ test-assets/model-import-3d/
 
 | 仓库内路径 | 原解析逻辑路径 | 字节数 | SHA-256 |
 |---|---|---:|---|
-| `test-assets/model-import-3d/cube-985496727e50/cube.glb` | `build/model-import-3d-inputs/cube-985496727e50/cube.glb` | 1936 | `985496727e505bcc1b5c748415373090c11b1058bb20ac57a4434914e3717630` |
-| `test-assets/model-import-3d/cube-textured/cube-textured.glb` | `artifacts/cube-textured/cube-textured.glb` | 5672 | `dee63d3d8dcf9f08adf302c6020486385e71929a81dfc674fa2c6aefbe997859` |
-| `test-assets/model-import-3d/plane-textured/plane.glb` | `artifacts/plane-textured/plane.glb` | 2868 | `8aa60f903cee58d123831d6b66315b0537bafffcf68a064bcb6a0b0132d1b997` |
-| `test-assets/model-import-3d/plane-textured/plane-seam.glb` | `artifacts/plane-textured/plane-seam.glb` | 3068 | `89d1617c9555250d504136c081abec11b2f3e00fde45237d633bdb2096585f34` |
+| `testing/assets/model-import-3d/cube-985496727e50/cube.glb` | `build/model-import-3d-inputs/cube-985496727e50/cube.glb` | 1936 | `985496727e505bcc1b5c748415373090c11b1058bb20ac57a4434914e3717630` |
+| `testing/assets/model-import-3d/cube-textured/cube-textured.glb` | `artifacts/cube-textured/cube-textured.glb` | 5672 | `dee63d3d8dcf9f08adf302c6020486385e71929a81dfc674fa2c6aefbe997859` |
+| `testing/assets/model-import-3d/plane-textured/plane.glb` | `artifacts/plane-textured/plane.glb` | 2868 | `8aa60f903cee58d123831d6b66315b0537bafffcf68a064bcb6a0b0132d1b997` |
+| `testing/assets/model-import-3d/plane-textured/plane-seam.glb` | `artifacts/plane-textured/plane-seam.glb` | 3068 | `89d1617c9555250d504136c081abec11b2f3e00fde45237d633bdb2096585f34` |
 
 ## 来源与几何/UV 元数据（Manifest 摘要）
 

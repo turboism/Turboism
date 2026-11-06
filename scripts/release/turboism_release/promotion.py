@@ -148,10 +148,10 @@ def verify_bundle(source_root, bundle_root, run, source_sha):
     # there is no committed matrix file whose stability this guard must hold.
     clean = subprocess.run(["git", "-C", str(source_root), "diff", "--quiet", "HEAD", "--",
                             "gradle/common-java.gradle.kts", "CHANGELOG.md", "packaging/release-plugins.txt",
-                            "release-notes", "scripts/release/turboism_release/release_notes.py",
+                            "distribution/release-notes", "scripts/release/turboism_release/release_notes.py",
                             "compatibility/cubism/reviewed-releases.json",
                             "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
-                            "compatibility-policy/src/main/java/dev/turboism/compatibility/policy/ReviewedReleaseTable.java"],
+                            "core/compatibility-policy/src/main/java/dev/turboism/compatibility/policy/ReviewedReleaseTable.java"],
                            capture_output=True)
     require(clean.returncode == 0, "source release metadata was modified after checkout")
     document = read_document(unique_file(bundle_root, "candidate.json"), "candidate")

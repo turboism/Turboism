@@ -491,7 +491,7 @@ private val persistenceCoreForbiddenBinaryPrefixes = listOf(
 private val persistenceCoreAllowedDevTurboismRoots = setOf("persistence", "sdk")
 
 private fun checkPersistenceCoreSources(root: Project, state: BoundaryState) {
-    val sourceRoot = root.file("persistence-core/src/main/java")
+    val sourceRoot = root.file("core/persistence/src/main/java")
     if (!sourceRoot.isDirectory) {
         state.reject(
             "Persistence-core production sources are missing at " +
@@ -620,7 +620,7 @@ private val compatibilityPolicyForbiddenBinaryPrefixes = listOf(
 private val compatibilityPolicyAllowedDevTurboismRoots = setOf("compatibility", "sdk")
 
 private fun checkCompatibilityPolicySources(root: Project, state: BoundaryState) {
-    val sourceRoot = root.file("compatibility-policy/src/main/java")
+    val sourceRoot = root.file("core/compatibility-policy/src/main/java")
     if (!sourceRoot.isDirectory) {
         state.reject(
             "Compatibility-policy production sources are missing at " +

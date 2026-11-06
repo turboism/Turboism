@@ -581,7 +581,7 @@ def case_version_token_in_declared_type(root: Path) -> None:
 
 def case_version_token_in_new_production_roots(root: Path) -> None:
     """core-contract/persistence-core/compatibility-policy/event-processor/graal-host are production roots too."""
-    for module in ("core-contract", "persistence-core", "compatibility-policy", "event-processor", "graal-host"):
+    for module in ("core/contract", "core/persistence", "core/compatibility-policy", "core/event-processor", "graal-host"):
         write(
             root,
             f"{module}/src/main/java/dev/turboism/sample/ThingManifest52.java",

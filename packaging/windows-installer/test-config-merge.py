@@ -642,7 +642,7 @@ def check_managed_graal_installer_contract():
           and "graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip" not in service
           and "341_299_924" not in service and "341299924" not in service)
     # 接口常量和构建版本目录必须与清单一致，构建脚本必须读取该目录。
-    jvm_settings = (INSTALLER_NSI.parents[2] / "core-contract/src/main/java/dev/turboism/internal/core/CubismJvmSettingsService.java").read_text(encoding="utf-8")
+    jvm_settings = (INSTALLER_NSI.parents[2] / "core/contract/src/main/java/dev/turboism/internal/core/CubismJvmSettingsService.java").read_text(encoding="utf-8")
     graal_build = (INSTALLER_NSI.parents[2] / "graal-host/build.gradle.kts").read_text(encoding="utf-8")
     catalog_graal = re.search(
         r'^graal\s*=\s*"([^"]+)"',

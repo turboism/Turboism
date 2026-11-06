@@ -855,7 +855,7 @@ class ModelTextureAtlasCallsiteRegressionTest {
         var w = new TestWorld();
         w.choice = 1; // FACE_COLORS -> full-circle layered import
         w.start();
-        byte[] cubeGlb = ModelImportTestFixtures.readBytes("test-assets/model-import-3d/cube-985496727e50/cube.glb");
+        byte[] cubeGlb = ModelImportTestFixtures.readBytes("testing/assets/model-import-3d/cube-985496727e50/cube.glb");
         w.feedModel(cubeGlb);
         assertTrue(w.finished.await(10, TimeUnit.SECONDS));
         edt(() -> {});
@@ -894,7 +894,7 @@ class ModelTextureAtlasCallsiteRegressionTest {
         var w = new TestWorld();
         w.choice = 0; // SOURCE_MATERIAL -> Path 2 (layered import)
         w.start();
-        byte[] cubeGlb = ModelImportTestFixtures.readBytes("test-assets/model-import-3d/cube-985496727e50/cube.glb");
+        byte[] cubeGlb = ModelImportTestFixtures.readBytes("testing/assets/model-import-3d/cube-985496727e50/cube.glb");
         w.feedModel(cubeGlb);
         assertTrue(w.finished.await(10, TimeUnit.SECONDS));
         edt(() -> {});
@@ -923,7 +923,7 @@ class ModelTextureAtlasCallsiteRegressionTest {
         w.choice = 0;
         w.start();
         byte[] texturedGlb =
-                ModelImportTestFixtures.readBytes("test-assets/model-import-3d/cube-textured/cube-textured.glb");
+                ModelImportTestFixtures.readBytes("testing/assets/model-import-3d/cube-textured/cube-textured.glb");
         w.feedModel(texturedGlb);
         assertTrue(w.finished.await(10, TimeUnit.SECONDS));
         edt(() -> {});
@@ -950,7 +950,7 @@ class ModelTextureAtlasCallsiteRegressionTest {
         w.atlases.add(new MockTextureAtlas(oldAtlasId, "Old Atlas", 1024, 1024));
 
         w.start();
-        byte[] cubeGlb = ModelImportTestFixtures.readBytes("test-assets/model-import-3d/cube-985496727e50/cube.glb");
+        byte[] cubeGlb = ModelImportTestFixtures.readBytes("testing/assets/model-import-3d/cube-985496727e50/cube.glb");
         w.feedModel(cubeGlb);
         assertTrue(w.finished.await(10, TimeUnit.SECONDS));
         edt(() -> {});
@@ -982,7 +982,7 @@ class ModelTextureAtlasCallsiteRegressionTest {
         w.appendFails = true; // Inject failure in appendTextureAtlasPages
 
         w.start();
-        byte[] cubeGlb = ModelImportTestFixtures.readBytes("test-assets/model-import-3d/cube-985496727e50/cube.glb");
+        byte[] cubeGlb = ModelImportTestFixtures.readBytes("testing/assets/model-import-3d/cube-985496727e50/cube.glb");
         w.feedModel(cubeGlb);
         assertTrue(w.finished.await(10, TimeUnit.SECONDS));
         edt(() -> {});
@@ -1002,7 +1002,7 @@ class ModelTextureAtlasCallsiteRegressionTest {
         w.supportsAppend = false; // Capability unavailable
 
         w.start();
-        byte[] cubeGlb = ModelImportTestFixtures.readBytes("test-assets/model-import-3d/cube-985496727e50/cube.glb");
+        byte[] cubeGlb = ModelImportTestFixtures.readBytes("testing/assets/model-import-3d/cube-985496727e50/cube.glb");
         w.feedModel(cubeGlb);
         assertTrue(w.finished.await(10, TimeUnit.SECONDS));
         edt(() -> {});

@@ -43,7 +43,7 @@ class GoldenUpdateStateSnapshotsTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final Path FIXTURES =
-            Path.of(System.getProperty("turboism.goldenSnapshotRoot", "tests/fixtures/snapshots"));
+            Path.of(System.getProperty("turboism.goldenSnapshotRoot", "testing/fixtures/snapshots"));
     private static final Set<String> FAMILIES = Set.of("installed-build", "update-journal");
     private static final String PROBE_SHA = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     private static final Pattern TRAILING_NUMBER = Pattern.compile("^(.*?)([0-9]+)$");

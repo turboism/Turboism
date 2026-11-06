@@ -1,6 +1,6 @@
 import dev.turboism.gradle.internal.VerificationStamps
 
-val goldenSnapshotFixtures = fileTree("tests/fixtures/snapshots") { include("**/*") }
+val goldenSnapshotFixtures = fileTree("testing/fixtures/snapshots") { include("**/*") }
 
 tasks.register<Exec>("checkGoldenSnapshotManifest") {
     group = "verification"

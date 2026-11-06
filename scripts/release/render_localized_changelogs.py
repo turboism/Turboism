@@ -37,7 +37,7 @@ LOCALE_CHANGELOGS = {
     "ko": "CHANGELOG.ko.md",
 }
 ENGLISH = ROOT / "CHANGELOG.md"
-NOTES_DIR = ROOT / "release-notes"
+NOTES_DIR = ROOT / "distribution" / "release-notes"
 
 SECTION_RE = re.compile(r"^## \[(?P<version>[^\]]+)\][^\n]*$", re.M)
 

@@ -34,7 +34,7 @@ class PluginPersistenceJournalCompatibilityTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final Path FIXTURES =
-            Path.of(System.getProperty("turboism.goldenSnapshotRoot", "tests/fixtures/snapshots"));
+            Path.of(System.getProperty("turboism.goldenSnapshotRoot", "testing/fixtures/snapshots"));
 
     @TempDir
     Path home;
