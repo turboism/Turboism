@@ -517,7 +517,7 @@ public final class EditorBackedCubismModelAccess
             final Object source,
             final float expectedValue) {
         EditorHostThread.requireHostThread("Parameter.setValue");
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, "Parameter.setValue");
+        authoringCoordinator.requireNoAmbientTransaction("Parameter.setValue");
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
         final Object parameterSet = resolver.invoke("cubism.editor-model.model.parameter-set", expectedModel);
@@ -570,7 +570,7 @@ public final class EditorBackedCubismModelAccess
                     "Parameter definition editing is unavailable without exact verified host evidence.");
         }
         requireCurrent(expectedIdentity, expectedModel);
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, "Parameter.updateDefinition");
+        authoringCoordinator.requireNoAmbientTransaction("Parameter.updateDefinition");
         final ParameterBinding parameterBinding = parameter(expectedModel, currentId);
         final Object source = resolver.invoke("cubism.editor-model.parameter.source", parameterBinding.parameter());
         final ParameterDefinition current = definition(source, currentId);
@@ -1019,7 +1019,8 @@ public final class EditorBackedCubismModelAccess
                     objectReadAccess::bindingTargetSource,
                     EditorBackedCubismModelAccess.this::source,
                     authoringCoordinator,
-                    EditorBackedCubismModelAccess.this::authoringParticipationBinding);
+                    EditorBackedCubismModelAccess.this::authoringParticipationBinding,
+                    authoringWriter);
         }
 
         @Override
