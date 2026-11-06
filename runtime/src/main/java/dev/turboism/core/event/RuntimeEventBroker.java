@@ -897,6 +897,18 @@ public final class RuntimeEventBroker {
         }
     }
 
+    /**
+     * Removes this generation's executor claim and aborts the captured set without waiting for
+     * running work. Used by failed-load cleanup: the owner is already fenced and closed there,
+     * so a graceful drain cannot deliver anything and would only delay the caller.
+     */
+    private void discardExecutors(final PluginEventOwnerKey key) {
+        final PluginExecutorSet claimed = executorClaims.remove(key);
+        if (claimed != null) {
+            scheduler.discardPluginExecutors(key.pluginId(), claimed);
+        }
+    }
+
     private OwnerLifecycle lifecycle(final PluginEventOwnerKey owner) {
         final OwnerState state = owners.get(Objects.requireNonNull(owner, "owner"));
         if (state == null) {
@@ -1005,6 +1017,16 @@ public final class RuntimeEventBroker {
          */
         public void releaseExecutors() {
             broker.releaseExecutors(key);
+        }
+
+        /**
+         * Aborts this generation's claimed executor set without waiting: removed from the
+         * registry when still mapped, then discarded either way. Safe to call after
+         * {@link #close()} and idempotent. Intended for failed generations whose owner is
+         * already fenced, where a graceful shutdown has nothing admissible left to drain.
+         */
+        public void discardExecutors() {
+            broker.discardExecutors(key);
         }
 
         /** Waits up to the timeout for this owner mailbox to become quiescent. */

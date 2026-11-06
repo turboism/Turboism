@@ -111,6 +111,25 @@ public final class PluginWorkExecutorRegistry {
     }
 
     /**
+     * Aborts the executor set a failed generation captured at fencing, without waiting for
+     * running work.
+     *
+     * <p>A failed generation is already fenced and its event owner closed, so a graceful
+     * shutdown has nothing admissible left to drain; waiting for it would only delay the
+     * startup path that reported the failure. The capture stays compare-and-remove safe: a
+     * newer generation's set is never touched.</p>
+     *
+     * @param pluginId the owning plugin, must not be blank
+     * @param expected the set captured by this generation's earlier {@link #claim}
+     */
+    public void discard(String pluginId, PluginExecutorSet expected) {
+        String id = requireText(pluginId, "pluginId");
+        Objects.requireNonNull(expected, "expected");
+        executors.remove(id, expected);
+        expected.discard();
+    }
+
+    /**
      * Returns this plugin's event-delivery lane, creating the executor set and the lane on first
      * use. The lane is lazily constructed inside the set, so plugins that never receive events
      * pay no lane cost.

@@ -43,6 +43,63 @@ class EditorUiContributionAuthorityTest {
         assertEquals(List.of("plugin-a:leading", "plugin-a:first", "plugin-b:second"), provider.snapshots.get(0));
     }
 
+    /**
+     * Startup contributes from several plugin lifecycle workers while the host thread is busy
+     * booting; one reconcile per contribution cost one EDT round trip each. A deferred window
+     * must arm the family instead of realizing it, stay logically visible, and flush exactly once
+     * per family at close.
+     */
+    @Test
+    void deferredWindowArmsFamiliesAndFlushesEachOnceOnClose() throws Exception {
+        RuntimeEditorUiHostLifecycle lifecycle = new RuntimeEditorUiHostLifecycle();
+        long generation = lifecycle.connecting().generation();
+        RecordingProvider provider = new RecordingProvider(EditorUiFamily.MENU);
+        provider.admit(generation);
+        lifecycle.ready(generation, Set.of(EditorUiFamily.MENU));
+        EditorUiContributionAuthority authority = new EditorUiContributionAuthority(lifecycle);
+        authority.installProvider(provider);
+        provider.snapshots.clear();
+
+        try (AutoCloseable ignored = authority.deferReconciles()) {
+            authority.contribute(contribution("plugin-a", "first", 0));
+            authority.contribute(contribution("plugin-b", "second", 1));
+            authority.contribute(contribution("plugin-a", "third", 2));
+
+            assertTrue(provider.snapshots.isEmpty(), "a deferred window must not realize while open");
+            assertEquals(
+                    3,
+                    authority.contributions(EditorUiFamily.MENU).size(),
+                    "contributions stay logically visible inside the deferred window");
+        }
+
+        assertEquals(1, provider.snapshots.size(), "one flush per armed family");
+        assertEquals(List.of("plugin-a:first", "plugin-b:second", "plugin-a:third"), provider.snapshots.get(0));
+    }
+
+    /** Nested deferred windows flush only when the outermost one closes. */
+    @Test
+    void nestedDeferredWindowsFlushAtTheOutermostClose() throws Exception {
+        RuntimeEditorUiHostLifecycle lifecycle = new RuntimeEditorUiHostLifecycle();
+        long generation = lifecycle.connecting().generation();
+        RecordingProvider provider = new RecordingProvider(EditorUiFamily.MENU);
+        provider.admit(generation);
+        lifecycle.ready(generation, Set.of(EditorUiFamily.MENU));
+        EditorUiContributionAuthority authority = new EditorUiContributionAuthority(lifecycle);
+        authority.installProvider(provider);
+        provider.snapshots.clear();
+
+        try (AutoCloseable outer = authority.deferReconciles()) {
+            try (AutoCloseable inner = authority.deferReconciles()) {
+                authority.contribute(contribution("plugin-a", "first", 0));
+            }
+            assertTrue(provider.snapshots.isEmpty(), "the inner close must not flush while the outer is open");
+            authority.contribute(contribution("plugin-b", "second", 1));
+        }
+
+        assertEquals(1, provider.snapshots.size());
+        assertEquals(List.of("plugin-a:first", "plugin-b:second"), provider.snapshots.get(0));
+    }
+
     @Test
     void contributionChangesReplaceNativeRegistrationExactlyOnce() {
         RuntimeEditorUiHostLifecycle lifecycle = new RuntimeEditorUiHostLifecycle();

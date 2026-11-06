@@ -44,6 +44,13 @@ final class PluginGenerationContent implements AdmittedGeneration.Content<LocalP
     private final EditorObjectHookRegistry editorObjectHookRegistry;
     private final ProjectLifecycleHookRegistry projectLifecycleHookRegistry;
     private final List<TurboismPlugin> entrypoints = new ArrayList<>();
+    private final long profileCreatedNanos = System.nanoTime();
+    private long profileMarkNanos = profileCreatedNanos;
+    private final StringBuilder profilePhases = new StringBuilder();
+    private volatile long edtCallsAtStart;
+    private volatile long edtWaitAtStart;
+    private volatile long edtCallsAtEnd;
+    private volatile long edtWaitAtEnd;
     private URLClassLoader classLoader;
     private PluginContextBundle contextBundle;
     private int initialized;
@@ -95,68 +102,86 @@ final class PluginGenerationContent implements AdmittedGeneration.Content<LocalP
     @Override
     public LocalPluginRuntime.LoadedPlugin start(
             final AdmittedGeneration.GenerationState shared, final PluginLifecycleLease lease) throws Exception {
-        final PluginDescriptor descriptor = candidate.descriptor();
-        // Public event payload types resolve through the shared SDK classloader; the
-        // plugin loader only isolates plugin classes behind the parent boundary.
-        classLoader = new URLClassLoader(
-                new URL[] {candidate.jar().toUri().toURL()},
-                PluginClassLoader.resolvePluginParent(TurboismPlugin.class.getClassLoader()));
-        runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
+        final var edtBefore = dev.turboism.ui.host.EdtDispatch.threadContention();
+        edtCallsAtStart = edtBefore.calls();
+        edtWaitAtStart = edtBefore.waitMillis();
+        profileMark("queue");
+        try {
+            final PluginDescriptor descriptor = candidate.descriptor();
+            // Public event payload types resolve through the shared SDK classloader; the
+            // plugin loader only isolates plugin classes behind the parent boundary.
+            classLoader = new URLClassLoader(
+                    new URL[] {candidate.jar().toUri().toURL()},
+                    PluginClassLoader.resolvePluginParent(TurboismPlugin.class.getClassLoader()));
+            runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
+            profileMark("classloader");
 
-        entrypoints.addAll(instantiateAll(descriptor, classLoader));
-        runtime.setEntrypoints(entrypoints);
-        final List<EventSubscriberDescriptor> eventSubscribers =
-                new GeneratedSubscriberCatalogLoader().inspect(entrypoints, classLoader);
-        runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
+            entrypoints.addAll(instantiateAll(descriptor, classLoader));
+            runtime.setEntrypoints(entrypoints);
+            final List<EventSubscriberDescriptor> eventSubscribers =
+                    new GeneratedSubscriberCatalogLoader().inspect(entrypoints, classLoader);
+            runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
+            profileMark("construct");
 
-        shared.scope = new DisposableScope();
-        contextBundle = contextFactory.create(descriptor, classLoader, shared.scope, () -> !shared.guard.isFenced());
-        shared.eventOwner = contextBundle.eventOwner();
-        if (!eventSubscribers.isEmpty()) {
-            requireEventSubscribePermission(descriptor);
-            EventSubscriptionPermissionCatalog.requireDeclared(descriptor, eventSubscribers);
-        }
-        contextBundle.eventOwner().registerAnnotated(eventSubscribers, entrypoints);
-        runtime.setContext(contextBundle.context());
-        log.debug(
-                descriptor.id(),
-                "Localization active locale="
-                        + contextBundle.localization().locale().toLanguageTag()
-                        + " catalogs=" + descriptor.i18n().locales());
-        final dev.turboism.sdk.plugin.PluginContext guardedContext = shared.guard.wrap(contextBundle.context());
-        contextBundle.eventOwner().beginInitializing();
-
-        for (TurboismPlugin entrypoint : entrypoints) {
-            lease.checkpoint();
-            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(classLoader)) {
-                entrypoint.init(guardedContext);
+            shared.scope = new DisposableScope();
+            contextBundle =
+                    contextFactory.create(descriptor, classLoader, shared.scope, () -> !shared.guard.isFenced());
+            shared.eventOwner = contextBundle.eventOwner();
+            if (!eventSubscribers.isEmpty()) {
+                requireEventSubscribePermission(descriptor);
+                EventSubscriptionPermissionCatalog.requireDeclared(descriptor, eventSubscribers);
             }
-            initialized++;
+            contextBundle.eventOwner().registerAnnotated(eventSubscribers, entrypoints);
+            runtime.setContext(contextBundle.context());
+            log.debug(
+                    descriptor.id(),
+                    "Localization active locale="
+                            + contextBundle.localization().locale().toLanguageTag()
+                            + " catalogs=" + descriptor.i18n().locales());
+            final dev.turboism.sdk.plugin.PluginContext guardedContext = shared.guard.wrap(contextBundle.context());
+            contextBundle.eventOwner().beginInitializing();
+            profileMark("context");
+
+            for (TurboismPlugin entrypoint : entrypoints) {
+                lease.checkpoint();
+                try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(classLoader)) {
+                    entrypoint.init(guardedContext);
+                }
+                initialized++;
+            }
+            runtime.transitionTo(PluginLifecycleState.LOADED);
+            log.info(descriptor.id(), "Plugin lifecycle: initialized entrypoints=" + initialized);
+            profileMark("init");
+
+            contextBundle.eventOwner().beginEnabling();
+            enableAll(lease);
+            profileMark("enable");
+
+            // Commit boundary: activation, hook registration and LoadedPlugin assembly run atomically
+            // against the deadline fence. A late worker hits the fence here and unwinds instead of
+            // activating a generation the caller already reported timed out.
+            final LocalPluginRuntime.LoadedPlugin committed = lease.commit(() -> {
+                contextBundle.eventOwner().activate();
+                registerHooks(shared.scope);
+                return new LocalPluginRuntime.LoadedPlugin(
+                        candidate.jar(),
+                        runtime,
+                        entrypoints,
+                        shared.scope,
+                        classLoader,
+                        contextBundle.localization(),
+                        contextBundle.cleanupEvidence(),
+                        contextBundle.eventOwner(),
+                        contextBundle.context(),
+                        shared.guard);
+            });
+            profileMark("commit");
+            return committed;
+        } finally {
+            final var edtAfter = dev.turboism.ui.host.EdtDispatch.threadContention();
+            edtCallsAtEnd = edtAfter.calls();
+            edtWaitAtEnd = edtAfter.waitMillis();
         }
-        runtime.transitionTo(PluginLifecycleState.LOADED);
-        log.info(descriptor.id(), "Plugin lifecycle: initialized entrypoints=" + initialized);
-
-        contextBundle.eventOwner().beginEnabling();
-        enableAll(lease);
-
-        // Commit boundary: activation, hook registration and LoadedPlugin assembly run atomically
-        // against the deadline fence. A late worker hits the fence here and unwinds instead of
-        // activating a generation the caller already reported timed out.
-        return lease.commit(() -> {
-            contextBundle.eventOwner().activate();
-            registerHooks(shared.scope);
-            return new LocalPluginRuntime.LoadedPlugin(
-                    candidate.jar(),
-                    runtime,
-                    entrypoints,
-                    shared.scope,
-                    classLoader,
-                    contextBundle.localization(),
-                    contextBundle.cleanupEvidence(),
-                    contextBundle.eventOwner(),
-                    contextBundle.context(),
-                    shared.guard);
-        });
     }
 
     @Override
@@ -288,7 +313,12 @@ final class PluginGenerationContent implements AdmittedGeneration.Content<LocalP
             return;
         }
         try {
-            eventOwner.releaseExecutors();
+            if (cause == AdmittedGeneration.Cause.LOAD_FAILED) {
+                // A failed generation is fenced; draining undeliverable work only stalls startup.
+                eventOwner.discardExecutors();
+            } else {
+                eventOwner.releaseExecutors();
+            }
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             log.error(id(), "Plugin executor release after load failure failed safely", failure);
@@ -311,6 +341,25 @@ final class PluginGenerationContent implements AdmittedGeneration.Content<LocalP
 
     int entrypointCount() {
         return entrypoints.size();
+    }
+
+    private synchronized void profileMark(final String phase) {
+        final long now = System.nanoTime();
+        profilePhases
+                .append(' ')
+                .append(phase)
+                .append('=')
+                .append(java.time.Duration.ofNanos(now - profileMarkNanos).toMillis());
+        profileMarkNanos = now;
+    }
+
+    synchronized String profileTimeline() {
+        return profilePhases.toString();
+    }
+
+    String edtAttribution() {
+        final long calls = edtCallsAtEnd - edtCallsAtStart;
+        return calls <= 0L ? "" : " edtCalls=" + calls + " edtWaitMs=" + (edtWaitAtEnd - edtWaitAtStart);
     }
 
     /** Event-owner generation this attempt admitted, or {@code NO_ADMITTED_GENERATION}. */

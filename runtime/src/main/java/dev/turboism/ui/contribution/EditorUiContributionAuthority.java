@@ -33,6 +33,13 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
     private final Map<EditorUiFamily, EditorUiContributionFailure> failures = new EnumMap<>(EditorUiFamily.class);
     private final Map<EditorUiFamily, ReconcileState> reconcileStates = new EnumMap<>(EditorUiFamily.class);
     private final Registration lifecycleRegistration;
+    /**
+     * Deferred-reconcile window depth. While positive, family reconciles only arm a follow-up
+     * pass; the outermost scope flushes every armed family once.
+     */
+    private int deferDepth;
+
+    private final java.util.Set<EditorUiFamily> deferredFamilies = java.util.EnumSet.noneOf(EditorUiFamily.class);
     private boolean closed;
 
     public EditorUiContributionAuthority(final EditorUiHostLifecycle hostLifecycle) {
@@ -230,6 +237,76 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
     }
 
     private void reconcile(final EditorUiFamily family) {
+        // A deferred window arms families instead of realizing them: the caller has already
+        // stated that its contribution only needs to be logically visible now. Startup uses this
+        // to collapse one host-EDT round trip per plugin per family into one per family, which is
+        // safe by the same contract that lets a coalesced caller return before realization.
+        synchronized (monitor) {
+            if (deferDepth > 0) {
+                deferredFamilies.add(family);
+                return;
+            }
+        }
+        reconcileNow(family);
+    }
+
+    /**
+     * Defers family reconciliation until the returned scope is closed, then flushes every family
+     * that was armed.
+     *
+     * <p>Reconciles arriving inside the window are only recorded and armed; the outermost close
+     * realizes them once per family. This is the startup shape: dozens of plugins contribute while
+     * the host thread is busy booting, and paying one round trip per plugin per family dominated
+     * the load window. Contributions stay visible through {@link #contributions(EditorUiFamily)}
+     * immediately, and a family that fails at flush records its failure through
+     * {@link #lastFailure(EditorUiFamily)} — exactly the contract a coalesced reconcile already
+     * has.</p>
+     *
+     * @return a scope whose close flushes the armed families; nested scopes flush at the outermost
+     *     close
+     * @throws IllegalStateException if the authority is closed
+     */
+    public AutoCloseable deferReconciles() {
+        synchronized (monitor) {
+            requireOpen();
+            deferDepth++;
+        }
+        return new AutoCloseable() {
+            private boolean closed;
+
+            @Override
+            public void close() throws Exception {
+                if (closed) {
+                    return;
+                }
+                closed = true;
+                final List<EditorUiFamily> armed;
+                synchronized (monitor) {
+                    if (--deferDepth > 0) {
+                        return;
+                    }
+                    armed = new ArrayList<>(deferredFamilies);
+                    deferredFamilies.clear();
+                }
+                RuntimeException first = null;
+                for (EditorUiFamily family : armed) {
+                    try {
+                        reconcileNow(family);
+                    } catch (RuntimeException failure) {
+                        // A deferred caller has already returned; the authority recorded the
+                        // provider failure for lastFailure(family), so the flush keeps going and
+                        // reports the first one after every family had its chance.
+                        first = append(first, failure);
+                    }
+                }
+                if (first != null) {
+                    throw first;
+                }
+            }
+        };
+    }
+
+    private void reconcileNow(final EditorUiFamily family) {
         // Reconciles of one family are coalesced, not queued: at most one thread runs the
         // remove -> provider -> put sequence at a time, and any request arriving while a pass
         // is in flight only arms `pending` and returns — the active reconciler folds it into

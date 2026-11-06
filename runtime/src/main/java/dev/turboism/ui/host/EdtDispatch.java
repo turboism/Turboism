@@ -3,6 +3,7 @@ package dev.turboism.ui.host;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.time.Duration;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -58,6 +59,22 @@ public final class EdtDispatch {
     static final int QUEUED = 0;
     static final int RUNNING = 1;
     static final int DONE = 2;
+    private static final java.util.concurrent.atomic.LongAdder DISPATCH_COUNT =
+            new java.util.concurrent.atomic.LongAdder();
+    private static final java.util.concurrent.atomic.LongAdder DISPATCH_WAIT_NANOS =
+            new java.util.concurrent.atomic.LongAdder();
+    /**
+     * Per-calling-thread dispatch cost, so a lifecycle worker can attribute the hand-off it
+     * caused instead of reading a process-wide counter other threads are also moving.
+     */
+    private static final ThreadLocal<long[]> THREAD_COST = ThreadLocal.withInitial(() -> new long[2]);
+    /**
+     * Per-label dispatch cost, so startup attribution can name the hand-offs that dominate instead
+     * of only counting them.
+     */
+    private static final java.util.concurrent.ConcurrentHashMap<String, long[]> LABEL_COST =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     static final int ABANDONED = 3;
 
     private static final String COMPONENT = "host-edt-dispatch";
@@ -190,6 +207,130 @@ public final class EdtDispatch {
         if (SwingUtilities.isEventDispatchThread()) {
             return runInline(label, task, exact);
         }
+        final long startedNanos = System.nanoTime();
+        try {
+            return dispatchToEventThread(label, acceptTimeout, task, abandonCompensation, exact, scopedDefault);
+        } finally {
+            final long waited = System.nanoTime() - startedNanos;
+            DISPATCH_COUNT.increment();
+            DISPATCH_WAIT_NANOS.add(waited);
+            final long[] mine = THREAD_COST.get();
+            mine[0]++;
+            mine[1] += waited;
+            final long[] cost = LABEL_COST.computeIfAbsent(label, ignored -> new long[2]);
+            synchronized (cost) {
+                cost[0]++;
+                cost[1] += waited;
+            }
+        }
+    }
+
+    /**
+     * The costliest dispatch labels so far, as {@code label=calls/waitMs} entries, most expensive
+     * first.
+     *
+     * @param limit how many labels to report
+     * @param sinceMillisOnly skip labels whose total wait is below this threshold
+     * @return immutable list of rendered entries
+     */
+    public static List<String> costliestLabels(final int limit, final long sinceMillisOnly) {
+        return LABEL_COST.entrySet().stream()
+                .map(entry -> {
+                    final long[] cost = entry.getValue();
+                    synchronized (cost) {
+                        return new LabelCost(entry.getKey(), cost[0], cost[1]);
+                    }
+                })
+                .filter(cost -> java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(cost.waitNanos()) >= sinceMillisOnly)
+                .sorted(java.util.Comparator.comparingLong(LabelCost::waitNanos).reversed())
+                .limit(limit)
+                .map(cost -> cost.label() + "=" + cost.calls() + "/"
+                        + java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(cost.waitNanos()) + "ms")
+                .toList();
+    }
+
+    private record LabelCost(String label, long calls, long waitNanos) {}
+
+    /**
+     * Immutable snapshot of the per-label dispatch cost, taken to measure a bounded window.
+     *
+     * @return label to {@code [calls, waitNanos]} snapshot
+     */
+    public static java.util.Map<String, long[]> labelSnapshot() {
+        final java.util.Map<String, long[]> snapshot = new java.util.LinkedHashMap<>();
+        LABEL_COST.forEach((label, cost) -> {
+            synchronized (cost) {
+                snapshot.put(label, new long[] {cost[0], cost[1]});
+            }
+        });
+        return snapshot;
+    }
+
+    /**
+     * Dispatch labels that grew since {@code baseline}, most expensive first.
+     *
+     * @param baseline snapshot taken before the measured window
+     * @param limit how many labels to report
+     * @return immutable list of {@code label=calls/waitMs} entries
+     */
+    public static List<String> costliestLabelsSince(final java.util.Map<String, long[]> baseline, final int limit) {
+        final java.util.List<LabelCost> deltas = new java.util.ArrayList<>();
+        LABEL_COST.forEach((label, cost) -> {
+            final long[] before = baseline.getOrDefault(label, new long[] {0L, 0L});
+            synchronized (cost) {
+                final long calls = cost[0] - before[0];
+                final long waitNanos = cost[1] - before[1];
+                if (calls > 0L) {
+                    deltas.add(new LabelCost(label, calls, waitNanos));
+                }
+            }
+        });
+        deltas.sort(java.util.Comparator.comparingLong(LabelCost::waitNanos).reversed());
+        return deltas.stream()
+                .limit(limit)
+                .map(cost -> cost.label() + "=" + cost.calls() + "/"
+                        + java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(cost.waitNanos()) + "ms")
+                .toList();
+    }
+
+    /**
+     * Dispatch cost paid by the calling thread so far.
+     *
+     * @return that thread's off-EDT dispatch count and total wait
+     */
+    public static Contention threadContention() {
+        final long[] mine = THREAD_COST.get();
+        return new Contention(mine[0], java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(mine[1]));
+    }
+
+    /**
+     * Cumulative off-EDT dispatch contention: how many round trips callers made and how much
+     * wall time they spent blocked on them.
+     *
+     * <p>Startup attribution uses the delta across a plugin load wave: plugins that register UI
+     * contributions synchronously serialize on this single thread, so a large share here means
+     * the cost is host-thread hand-off rather than plugin work.</p>
+     */
+    public static Contention contention() {
+        return new Contention(
+                DISPATCH_COUNT.sum(), java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(DISPATCH_WAIT_NANOS.sum()));
+    }
+
+    /**
+     * Cumulative off-EDT dispatch contention.
+     *
+     * @param calls dispatches made from a non-EDT thread
+     * @param waitMillis total wall time those callers spent waiting
+     */
+    public record Contention(long calls, long waitMillis) {}
+
+    private static <T> T dispatchToEventThread(
+            final String label,
+            final Duration acceptTimeout,
+            final Callable<T> task,
+            final Runnable abandonCompensation,
+            final boolean exact,
+            final boolean scopedDefault) {
         final Queued<T> queued = new Queued<>(label, task);
         SwingUtilities.invokeLater(queued);
         final boolean shortBound = EXITING.get() || (!scopedDefault && EDT_UNRESPONSIVE.get());
