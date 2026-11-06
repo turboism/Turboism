@@ -27,7 +27,7 @@ class EditorModelProfileAccessTest {
     @Test
     void writesModelNameAndReadsProfileAndCanvas() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final VerifiedMemberResolver resolver = resolver(true);
         final EditorModelProfileAccess access =
                 new EditorModelProfileAccess(resolver, (identity, model) -> {}, writer(resolver, fixture));
@@ -61,7 +61,7 @@ class EditorModelProfileAccessTest {
     @Test
     void missingCapabilityFailsClosed() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final VerifiedMemberResolver resolver = resolver(false);
         final EditorModelProfileAccess access =
                 new EditorModelProfileAccess(resolver, (identity, model) -> {}, writer(resolver, fixture));
@@ -78,7 +78,7 @@ class EditorModelProfileAccessTest {
     @Test
     void blankNameRejectedAndNoChangeSkipsUndo() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final VerifiedMemberResolver resolver = resolver(true);
         final EditorModelProfileAccess access =
                 new EditorModelProfileAccess(resolver, (identity, model) -> {}, writer(resolver, fixture));
