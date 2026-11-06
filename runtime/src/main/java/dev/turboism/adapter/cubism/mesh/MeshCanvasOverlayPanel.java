@@ -15,10 +15,16 @@ import java.util.List;
 import java.util.Objects;
 import javax.swing.JPanel;
 
-/** Transparent canvas overlay that renders the center anchor and geometric mesh preview. */
-final class GeometricMeshOverlayPanel extends JPanel {
-    static final String COMPONENT_NAME = "turboism:geometric-mesh-layout-overlay";
-    static final String PREVIEW_VISIBLE_PROPERTY = "turboism:geometric-mesh-layout-preview-visible";
+/**
+ * Transparent canvas overlay that renders the mesh-canvas anchor and the plugin-supplied point and
+ * edge preview.
+ *
+ * <p>Painting is runtime-owned on purpose: the plugin hands over mesh-space data and never touches
+ * a host component, so a plugin cannot reach the canvas tree through this surface.</p>
+ */
+final class MeshCanvasOverlayPanel extends JPanel {
+    static final String COMPONENT_NAME = "turboism:mesh-canvas-overlay";
+    static final String PREVIEW_VISIBLE_PROPERTY = "turboism:mesh-canvas-preview-visible";
 
     private static final Color SHADOW_COLOR = new Color(0x14, 0x16, 0x1A, 0xD8);
     private static final Color EDGE_COLOR = new Color(0x21, 0xB8, 0xFF, 0xF0);
@@ -30,7 +36,7 @@ final class GeometricMeshOverlayPanel extends JPanel {
     private List<Point2> vertices = List.of();
     private int[] edgePairs = new int[0];
 
-    GeometricMeshOverlayPanel(final InputRegion inputRegion) {
+    MeshCanvasOverlayPanel(final InputRegion inputRegion) {
         this.inputRegion = Objects.requireNonNull(inputRegion, "inputRegion");
         setOpaque(false);
         setFocusable(false);

@@ -21,9 +21,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class RuntimeMeshToolRegistry implements MeshToolRegistry {
     public static final String REQUIRED_CAPABILITY = "cubism.mesh.custom-tools";
     /**
-     * Capability that entitles a plugin's own registered tool to the runtime point-and-edge layout
-     * brush. It is carried into the tool registration so the brush is selected by capability
-     * instead of by a plugin identity.
+     * Capability that entitles a registered tool to the runtime canvas point-and-edge session. It
+     * is carried into the tool registration so the session is admitted by capability instead of by
+     * a plugin identity or a reserved tool identifier.
      */
     public static final String POINT_AND_EDGE_LAYOUT_CAPABILITY = "cubism.mesh.point-and-edge-layout";
 
