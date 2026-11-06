@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor.transaction;
 
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
@@ -48,6 +49,7 @@ public final class EditorAuthoringWrite {
     private final Runnable compensation;
     private final BooleanSupplier restored;
     private final Set<EditorRefreshRequirement> refreshRequirements;
+    private final HistoryEntryDetail semanticDetail;
 
     private EditorAuthoringWrite(final Builder builder) {
         this.operationId = builder.operationId;
@@ -61,6 +63,7 @@ public final class EditorAuthoringWrite {
         this.compensation = builder.compensation;
         this.restored = builder.restored;
         this.refreshRequirements = builder.refreshRequirements;
+        this.semanticDetail = builder.semanticDetail;
     }
 
     /**
@@ -97,6 +100,18 @@ public final class EditorAuthoringWrite {
      */
     public EditorUndoContribution contribution(final BooleanSupplier groupUndoApplied) {
         final BooleanSupplier checkedGroupUndo = Objects.requireNonNull(groupUndoApplied, "groupUndoApplied");
+        if (semanticDetail == null) {
+            return new EditorUndoContribution(
+                    operationId,
+                    targetIdentity,
+                    label,
+                    undoAdmission,
+                    mutation,
+                    applied,
+                    compensation,
+                    restored != null ? restored : checkedGroupUndo,
+                    refreshRequirements);
+        }
         return new EditorUndoContribution(
                 operationId,
                 targetIdentity,
@@ -106,7 +121,8 @@ public final class EditorAuthoringWrite {
                 applied,
                 compensation,
                 restored != null ? restored : checkedGroupUndo,
-                refreshRequirements);
+                refreshRequirements,
+                semanticDetail);
     }
 
     /**
@@ -167,6 +183,7 @@ public final class EditorAuthoringWrite {
         private Runnable compensation = () -> {};
         private BooleanSupplier restored;
         private Set<EditorRefreshRequirement> refreshRequirements = Set.of();
+        private HistoryEntryDetail semanticDetail;
 
         private Builder(final String operationId, final String label) {
             this.operationId = operationId;
@@ -276,6 +293,19 @@ public final class EditorAuthoringWrite {
             final Set<EditorRefreshRequirement> requested =
                     Objects.requireNonNull(refreshRequirements, "refreshRequirements");
             this.refreshRequirements = requested.isEmpty() ? Set.of() : Set.copyOf(EnumSet.copyOf(requested));
+            return this;
+        }
+
+        /**
+         * Sets the semantic history detail carried by the contribution. When absent the
+         * contribution derives its conservative legacy detail from the operation identity,
+         * target identity and standalone label.
+         *
+         * @param semanticDetail semantic detail for the committed history entry
+         * @return this builder
+         */
+        public Builder detail(final HistoryEntryDetail semanticDetail) {
+            this.semanticDetail = Objects.requireNonNull(semanticDetail, "semanticDetail");
             return this;
         }
 
