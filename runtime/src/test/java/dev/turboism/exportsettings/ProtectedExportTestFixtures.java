@@ -12,20 +12,31 @@ import dev.turboism.sdk.cubism.core.OwnedMoc;
 import dev.turboism.sdk.cubism.core.OwnedModel;
 import dev.turboism.sdk.cubism.core.OwnedParameter;
 import dev.turboism.sdk.cubism.core.OwnedPart;
+import dev.turboism.sdk.cubism.export.ProtectedExportCensus;
+import dev.turboism.sdk.cubism.export.ProtectedExportPlan;
+import dev.turboism.sdk.cubism.export.ProtectedExportPlanResult;
+import dev.turboism.sdk.cubism.export.ProtectedExportPlanner;
 import dev.turboism.sdk.cubism.model.BlendMode;
 import dev.turboism.sdk.cubism.model.Color;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -52,6 +63,136 @@ final class ProtectedExportTestFixtures {
                     task.run();
                 }
             };
+
+    /**
+     * Stand-in for the plugin's contributed planner: this suite drives the orchestrator
+     * without loading the plugin artifact, so the census-driven token scheme is
+     * implemented here as an independent producer. Any disagreement with the runtime's
+     * {@code ProtectedExportPlanAdmission} fails the whole matrix loudly — which is the
+     * point of keeping it separate from the admission's own allocation.
+     */
+    static final ProtectedExportPlanner CANONICAL_PLANNER = ProtectedExportTestFixtures::plan;
+
+    private static ProtectedExportPlanResult plan(final ProtectedExportCensus census) {
+        final Set<String> reservedNames = census.reservedSourceNames();
+        final Set<String> reservedIds = census.reservedSourceIds();
+        final Set<String> hashes = new LinkedHashSet<>();
+        final Set<String> usedNames = new LinkedHashSet<>();
+        final Set<String> usedIds = new LinkedHashSet<>();
+        final Map<String, ProtectedExportPlan.Target> artMeshes = allocate(
+                census.artMeshGuids(), "ArtMesh_", "@", 62, reservedNames, reservedIds, hashes, usedNames, usedIds);
+        final Map<String, ProtectedExportPlan.Target> physics = allocate(
+                census.physicsSettingGuids(),
+                "Physics_",
+                "PhysicsId_",
+                51,
+                reservedNames,
+                reservedIds,
+                hashes,
+                usedNames,
+                usedIds);
+        final Map<String, ProtectedExportPlan.Target> motionSync = allocate(
+                census.motionSyncSettingGuids(),
+                "MotionSync_",
+                "MotionSyncId_",
+                51,
+                reservedNames,
+                reservedIds,
+                hashes,
+                usedNames,
+                usedIds);
+        return new ProtectedExportPlanResult.Admitted(
+                new ProtectedExportPlan(leafToRoot(census), artMeshes, physics, motionSync, census.passThroughGuids()));
+    }
+
+    private static Map<String, ProtectedExportPlan.Target> allocate(
+            final List<String> guids,
+            final String namePrefix,
+            final String idPrefix,
+            final int maxPrefix,
+            final Set<String> reservedNames,
+            final Set<String> reservedIds,
+            final Set<String> hashes,
+            final Set<String> usedNames,
+            final Set<String> usedIds) {
+        final Map<String, ProtectedExportPlan.Target> planned = new LinkedHashMap<>();
+        for (String guid : new TreeSet<>(guids)) {
+            final String hash = sha256Hex(guid);
+            if (!hashes.add(hash)) {
+                throw new FixturePlanRejection("protected-export.obfuscation-hash-collision");
+            }
+            boolean allocated = false;
+            final int ceiling = Math.min(hash.length(), maxPrefix);
+            for (int length = 16; length <= ceiling; length++) {
+                final String suffix = hash.substring(0, length);
+                final String name = namePrefix + suffix;
+                final String idToken = idPrefix + suffix;
+                if (reservedNames.contains(name)
+                        || reservedNames.contains(idToken)
+                        || reservedIds.contains(name)
+                        || reservedIds.contains(idToken)
+                        || usedNames.contains(name)
+                        || usedIds.contains(idToken)) {
+                    continue;
+                }
+                planned.put(guid, new ProtectedExportPlan.Target(name, idToken));
+                usedNames.add(name);
+                usedIds.add(idToken);
+                allocated = true;
+                break;
+            }
+            if (!allocated) {
+                throw new FixturePlanRejection("protected-export.obfuscation-unallocatable");
+            }
+        }
+        return planned;
+    }
+
+    private static List<String> leafToRoot(final ProtectedExportCensus census) {
+        final Map<String, List<String>> children = new TreeMap<>();
+        census.deformerGuids().forEach(guid -> children.put(guid, new ArrayList<>()));
+        census.deformerParentGuids()
+                .forEach((child, parent) -> children.get(parent).add(child));
+        children.values().forEach(list -> list.sort(String::compareTo));
+        final Map<String, Integer> state = new HashMap<>();
+        final List<String> order = new ArrayList<>(children.size());
+        for (String start : children.keySet()) {
+            visit(start, children, state, order);
+        }
+        return order;
+    }
+
+    private static void visit(
+            final String start,
+            final Map<String, List<String>> children,
+            final Map<String, Integer> state,
+            final List<String> order) {
+        if (state.getOrDefault(start, 0) != 0) {
+            return;
+        }
+        for (String child : children.get(start)) {
+            visit(child, children, state, order);
+        }
+        state.put(start, 2);
+        order.add(start);
+    }
+
+    private static String sha256Hex(final String guid) {
+        final MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
+        }
+        return HexFormat.of().formatHex(digest.digest(guid.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    /** Bounded marker so a fixture allocation failure reads like the plugin's rejection. */
+    private static final class FixturePlanRejection extends RuntimeException {
+        private FixturePlanRejection(final String messageKey) {
+            super(messageKey);
+        }
+    }
 
     static final class Fixture {
         final FakeHost host = new FakeHost();
@@ -99,6 +240,9 @@ final class ProtectedExportTestFixtures {
             }
             values.put(parameterId, value);
         }
+
+        /** The planner stand-in this fixture's sessions admit plans from. */
+        final ProtectedExportPlanner planner = CANONICAL_PLANNER;
 
         ProtectedExportOrchestrator orchestrator() {
             if (orchestrator == null) {

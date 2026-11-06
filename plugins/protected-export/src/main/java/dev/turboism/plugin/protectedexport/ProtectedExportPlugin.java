@@ -2,9 +2,9 @@ package dev.turboism.plugin.protectedexport;
 
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
-import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
+import dev.turboism.sdk.cubism.export.ProtectedExportContribution;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -14,14 +14,17 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Registers the default-off protected-export option.
+ * Registers the default-off protected-export option and the planner that rewrites the
+ * staged copy.
  *
  * <p>The option is deliberately a narrow SDK-only seam. An unchecked export is a native
- * passthrough. A checked export vetoes the plain native flow and performs a read-only,
- * identity-bound planner diagnostic; when the runtime authority has armed the protected
- * orchestrator for this plugin's option, that veto is what hands control to the
- * orchestrated copy/flatten/obfuscate/validate/publish pipeline. This class never names
- * a path, mutates a model, or performs an export.</p>
+ * passthrough. A checked export vetoes the plain native flow; when the runtime authority
+ * has armed the protected orchestrator for this plugin's option, that veto is what hands
+ * control to the orchestrated copy/flatten/obfuscate/validate/publish pipeline. The
+ * {@link ProtectedExportPlanner} contributed here is the single planner of the slice: the
+ * runtime censuses the staging copy, calls it, and verifies the returned plan before it
+ * rewrites anything. This class never names a path, mutates a model, or performs an
+ * export.</p>
  */
 public final class ProtectedExportPlugin implements TurboismPlugin {
 
@@ -57,11 +60,12 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
                     activeContext
                             .services()
                             .require(ExportSettingsContributionService.class)
-                            .contribute(new ExportSettingsContribution(
+                            .contributeProtectedExport(new ProtectedExportContribution(
                                     OPTION_ID,
                                     OPTION_LABEL_KEY,
                                     (selected, documentId, modelId) ->
-                                            decide(callbackToken, selected, documentId, modelId))),
+                                            decide(callbackToken, selected, documentId, modelId),
+                                    new ProtectedExportPlanner())),
                     "export settings registration");
             registrationToken = callbackToken;
             registration = candidate;
@@ -119,23 +123,17 @@ public final class ProtectedExportPlugin implements TurboismPlugin {
         }
 
         try {
-            final CubismModel activeModel = currentModel(activeContext, documentId, modelId);
-            if (activeModel == null) {
+            if (currentModel(activeContext, documentId, modelId) == null) {
                 return unavailable();
-            }
-
-            final ProtectedExportPlan plan = new ProtectedExportPlanner().plan(activeModel);
-            if (!plan.unresolvedConditions().isEmpty()) {
-                warnSafely(
-                        activeContext,
-                        "Protected export preflight has unresolved conditions; protected export remains unavailable.");
             }
         } catch (RuntimeException unavailable) {
             warnSafely(
                     activeContext, "Protected export preflight is unavailable; protected export remains unavailable.");
         }
 
-        // A read-only plan is descriptive evidence, never execution authority.
+        // The veto is the handoff: the runtime arms its orchestrated session, censuses the
+        // staging copy and verifies the plan this plugin's planner returns. Until then this
+        // callback never plans, mutates or exports anything.
         return unavailable();
     }
 
