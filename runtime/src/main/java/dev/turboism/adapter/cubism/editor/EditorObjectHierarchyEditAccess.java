@@ -3,6 +3,8 @@ package dev.turboism.adapter.cubism.editor;
 import dev.turboism.adapter.cubism.editor.history.HierarchyRelationCapture;
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWrite;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -45,6 +47,8 @@ final class EditorObjectHierarchyEditAccess {
 
     private static final int MAX_OBJECT_ID_LENGTH = 128;
 
+    private static final String OPERATION_ID = "cubism.hierarchy.write";
+
     private static final String CREATE_PART_ACTION = "Turboism: Create Part";
     private static final String CREATE_ART_MESH_ACTION = "Turboism: Create ArtMesh";
     private static final String CREATE_WARP_ACTION = "Turboism: Create Warp Deformer";
@@ -56,6 +60,7 @@ final class EditorObjectHierarchyEditAccess {
     private final EditorParameterCombinedAccess.ModelGuard currentGuard;
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
     private final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding;
+    private final EditorAuthoringWriter authoringWriter;
 
     EditorObjectHierarchyEditAccess(
             final VerifiedMemberResolver resolver, final EditorParameterCombinedAccess.ModelGuard currentGuard) {
@@ -74,6 +79,9 @@ final class EditorObjectHierarchyEditAccess {
         }
         this.authoringCoordinator = authoringCoordinator;
         this.authoringBinding = authoringBinding;
+        this.authoringWriter = authoringCoordinator == null
+                ? null
+                : new CoordinatorAuthoringWriter(authoringCoordinator, resolver, authoringBinding);
     }
 
     // ------------------------------------------------------------------
@@ -987,41 +995,19 @@ final class EditorObjectHierarchyEditAccess {
             final String action,
             final Runnable mutation) {
         EditorHostThread.requireHostThread("Cubism hierarchy edit");
-        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
-        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
-        if (ambientJoin.isPresent()) {
-            ambientJoin
-                    .orElseThrow()
-                    .admit(
-                            "cubism.hierarchy.write",
-                            "hierarchy:" + Integer.toHexString(System.identityHashCode(objectSource)) + ":" + action,
-                            action,
-                            (edit, transactionLabel) ->
-                                    admitObjectUndo(edit, modelSource, objectSource, action, paletteAlias, kindLabel),
-                            mutation,
-                            () -> true,
-                            EnumSet.of(
-                                    EditorRefreshRequirement.MODEL_INSTANCES,
-                                    paletteRequirement(paletteAlias),
-                                    EditorRefreshRequirement.CANVAS,
-                                    EditorRefreshRequirement.MARK_DIRTY));
-            return;
-        }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, action);
-        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, action);
-        boolean completed = false;
-        try {
-            admitObjectUndo(edit, modelSource, objectSource, action, paletteAlias, kindLabel);
-            mutation.run();
-            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
-            refresh(app, paletteAlias);
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-            completed = true;
-        } finally {
-            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
-        }
+        authoringWriter.apply(EditorAuthoringWrite.of(OPERATION_ID, action)
+                .subject("hierarchy:" + Integer.toHexString(System.identityHashCode(objectSource)) + ":" + action)
+                .refusalLabel(action)
+                .admit((edit, transactionLabel) ->
+                        admitObjectUndo(edit, modelSource, objectSource, action, paletteAlias, kindLabel))
+                .mutate(mutation)
+                .admissionVerified()
+                .refresh(EnumSet.of(
+                        EditorRefreshRequirement.MODEL_INSTANCES,
+                        paletteRequirement(paletteAlias),
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY))
+                .build());
     }
 
     /**

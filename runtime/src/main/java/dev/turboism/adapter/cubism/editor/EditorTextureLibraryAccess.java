@@ -1,7 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
-import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWrite;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -38,12 +39,8 @@ final class EditorTextureLibraryAccess {
     private static final String LAYERED_IMAGE_GUID = "cubism.editor-model.layered-image.guid";
     private static final String GUID_VALUE = "cubism.editor-model.guid.value";
 
+    private static final String OPERATION_ID = "cubism.texture.write";
     private static final String APP_INSTANCE = "cubism.editor-model.app-controller.instance";
-    private static final String CURRENT_DOCUMENT = "cubism.editor-model.app-controller.current-document";
-    private static final String EDIT_MODE = "cubism.editor-model.modeling-document.edit-mode";
-    private static final String MARK_DIRTY = "cubism.editor-model.modeling-document.mark-dirty";
-    private static final String BEGIN_EDIT = "cubism.editor-model.edit-mode.begin";
-    private static final String END_EDIT = "cubism.editor-model.edit-mode.end";
     private static final String UNDO_ADD = "cubism.editor-model.undo.add";
     private static final String UNDO_ADD_LISTENER = "cubism.editor-model.undo.add-listener";
     private static final String UNDO_REVERT = "cubism.editor-model.texture-undo.undo";
@@ -69,15 +66,15 @@ final class EditorTextureLibraryAccess {
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
-    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
+    private final EditorAuthoringWriter authoringWriter;
 
     EditorTextureLibraryAccess(
             final VerifiedMemberResolver resolver,
             final EditorParameterCombinedAccess.ModelGuard modelGuard,
-            final EditorAuthoringTransactionCoordinator authoringCoordinator) {
+            final EditorAuthoringWriter authoringWriter) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
-        this.authoringCoordinator = authoringCoordinator;
+        this.authoringWriter = authoringWriter;
     }
 
     List<RawTexture> rawImages(final String identity, final Object source, final Object model) {
@@ -319,63 +316,31 @@ final class EditorTextureLibraryAccess {
     private void envelope(final String label, final Object source, final Operation operation) {
         EditorHostThread.requireHostThread("Cubism texture write");
         final Object app = resolver.invokeStatic(APP_INSTANCE);
-        final Object document = resolver.invoke(CURRENT_DOCUMENT, app);
-        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
-        if (ambientJoin.isPresent()) {
-            ambientJoin
-                    .orElseThrow()
-                    .admit(
-                            "cubism.texture.write",
-                            "texture:" + label,
-                            label,
-                            (edit, transactionLabel) -> {
-                                // Construct-and-redo: the operation applies against the supplied edit and
-                                // returns the undoable; register it on the ambient root exactly as the
-                                // standalone envelope does.
-                                final Object undoable = operation.apply(edit);
-                                if (undoable != edit) registerAppliedUndo(edit, undoable);
-                                final Object listener = resolver.createFunctionalProxy(UNDO_LISTENER_CLASS, ignored -> {
-                                    resolver.invoke(UPDATE_INSTANCES, source);
-                                    refresh(app);
-                                    return null;
-                                });
-                                resolver.invoke(UNDO_ADD_LISTENER, undoable, listener);
-                            },
-                            () -> {},
-                            () -> true,
-                            EnumSet.of(
-                                    EditorRefreshRequirement.MODEL_INSTANCES,
-                                    EditorRefreshRequirement.PART_PALETTE,
-                                    EditorRefreshRequirement.PROJECT_PALETTE,
-                                    EditorRefreshRequirement.CANVAS,
-                                    EditorRefreshRequirement.MARK_DIRTY));
-            return;
-        }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, label);
-        final Object editMode = resolver.invoke(EDIT_MODE, document);
-        final Object edit = resolver.invoke(BEGIN_EDIT, editMode, label);
-        boolean completed = false;
-        try {
-            final Object undoable = operation.apply(edit);
-            // Prepared 5.2 edits already belong to the root. Other native factories forceRedo
-            // before returning; compensate them if the root refuses registration.
-            if (undoable != edit) registerAppliedUndo(edit, undoable);
-            final Object listener = resolver.createFunctionalProxy(UNDO_LISTENER_CLASS, ignored -> {
-                resolver.invoke(UPDATE_INSTANCES, source);
-                refresh(app);
-                return null;
-            });
-            resolver.invoke(UNDO_ADD_LISTENER, undoable, listener);
-            resolver.invoke(UPDATE_INSTANCES, source);
-            refresh(app);
-            resolver.invoke(MARK_DIRTY, document);
-            completed = true;
-        } finally {
-            resolver.invoke(END_EDIT, editMode, Boolean.valueOf(!completed), null);
-        }
-        if (!completed) {
-            throw new IllegalStateException("Cubism texture edit was rolled back: " + label);
-        }
+        authoringWriter.apply(EditorAuthoringWrite.of(OPERATION_ID, label)
+                .subject("texture:" + label)
+                .refusalLabel(label)
+                .admit((edit, transactionLabel) -> {
+                    // Construct-and-redo: the operation applies against the supplied edit and returns
+                    // the undoable; register it on the shared root exactly as the standalone envelope
+                    // registers it on its own edit.
+                    final Object undoable = operation.apply(edit);
+                    if (undoable != edit) registerAppliedUndo(edit, undoable);
+                    final Object listener = resolver.createFunctionalProxy(UNDO_LISTENER_CLASS, ignored -> {
+                        resolver.invoke(UPDATE_INSTANCES, source);
+                        refresh(app);
+                        return null;
+                    });
+                    resolver.invoke(UNDO_ADD_LISTENER, undoable, listener);
+                })
+                .mutate(() -> {})
+                .admissionVerified()
+                .refresh(EnumSet.of(
+                        EditorRefreshRequirement.MODEL_INSTANCES,
+                        EditorRefreshRequirement.PART_PALETTE,
+                        EditorRefreshRequirement.PROJECT_PALETTE,
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY))
+                .build());
     }
 
     private void registerAppliedUndo(final Object edit, final Object undoable) {

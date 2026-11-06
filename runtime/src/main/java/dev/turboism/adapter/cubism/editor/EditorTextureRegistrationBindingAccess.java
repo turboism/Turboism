@@ -719,7 +719,7 @@ final class EditorTextureRegistrationBindingAccess {
             final Supplier<ModelImageBinding> work) {
         // mutate validates the binding on every contribution. Exceptions propagate to
         // the owning root; only that root can commit or restore the complete import.
-        if (active.hasActiveTransaction()) return work.get();
+        if (active.ambientScopeActive()) return work.get();
         return requireCommitted(active.execute(binding, AuthoringTransactionOptions.of(label), work::get), label);
     }
 
