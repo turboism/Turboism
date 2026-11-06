@@ -39,7 +39,7 @@ final class ExportSettingsContributionServiceContractTest {
     @Test
     void serviceSurfaceIsPreviewBoundedAndSafeModeFailsClosed() throws Exception {
         assertEquals(
-                List.of("contribute", "unavailable"),
+                List.of("contribute", "contributeProtectedExport", "unavailable"),
                 Arrays.stream(ExportSettingsContributionService.class.getDeclaredMethods())
                         .filter(method -> Modifier.isPublic(method.getModifiers()))
                         .map(Method::getName)
@@ -50,6 +50,11 @@ final class ExportSettingsContributionServiceContractTest {
                 ExportSettingsContributionService.class
                         .getDeclaredMethod("contribute", ExportSettingsContribution.class)
                         .getReturnType());
+        assertEquals(
+                Registration.class,
+                ExportSettingsContributionService.class
+                        .getDeclaredMethod("contributeProtectedExport", ProtectedExportContribution.class)
+                        .getReturnType());
 
         // Safe mode refuses contribution without touching a registry.
         final ExportSettingsContributionService safe = ExportSettingsContributionService.unavailable();
@@ -58,6 +63,13 @@ final class ExportSettingsContributionServiceContractTest {
                 UnsupportedOperationException.class,
                 () -> safe.contribute(
                         contribution("option-1", "label.key", (s, d, m) -> ExportSettingsDecision.proceedUnchanged())));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> safe.contributeProtectedExport(new ProtectedExportContribution(
+                        "option-1",
+                        "label.key",
+                        (s, d, m) -> ExportSettingsDecision.proceedUnchanged(),
+                        census -> new ProtectedExportPlanResult.Rejected("export.rejected"))));
     }
 
     @Test
