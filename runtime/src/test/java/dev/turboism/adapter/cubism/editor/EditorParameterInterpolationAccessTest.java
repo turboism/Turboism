@@ -632,6 +632,7 @@ class EditorParameterInterpolationAccessTest {
         final EditorAuthoringTransactionCoordinator.Binding binding = new EditorAuthoringTransactionCoordinator.Binding(
                 "interpolation-test", "document", 1, "model", 1, Thread.currentThread());
         final VerifiedMemberResolver resolver;
+        final EditorAuthoringWriter writer;
         final EditorParameterInterpolationAccess access;
         Edit edit;
         int begins, modelUpdates, cacheBuilds;
@@ -641,7 +642,8 @@ class EditorParameterInterpolationAccessTest {
         Fixture(String version, String missing) {
             CURRENT = this;
             resolver = resolver(version, missing);
-            access = new EditorParameterInterpolationAccess(resolver);
+            writer = new CoordinatorAuthoringWriter(coordinator, resolver, () -> binding);
+            access = new EditorParameterInterpolationAccess(resolver, writer);
         }
 
         void writeBoth(ParameterInterpolation settings) {
@@ -861,6 +863,7 @@ class EditorParameterInterpolationAccessTest {
                 method(M + "undo.add", Edit.class, "add", Undo.class, boolean.class),
                 method(M + "undo.add-listener", Undo.class, "listen", Listener.class),
                 method(M + "undo.execute-undo", Undo.class, "undo"),
+                method(M + "undo.group-undo", Undo.class, "undo"),
                 method(M + "model-source.update-instances", Fixture.class, "update"),
                 method(M + "app-controller.complete-pack", Fixture.class, "pack"),
                 method(M + "complete-pack.update-parameter", Fixture.class, "refresh", boolean.class),
@@ -880,6 +883,7 @@ class EditorParameterInterpolationAccessTest {
                         M + "undo-listener.class", Listener.class.getName().replace('.', '/')));
         var caps = new HashSet<>(EditorArtMeshAuthoringReadSelectorContract.CAPABILITY_IDS);
         caps.add(EditorParameterInterpolationSelectorContract.CAPABILITY_ID);
+        caps.add(EditorEditSessionSelectorContract.EDIT_BEGIN_CAPABILITY_ID);
         return TestVerifiedResolvers.create(
                 version,
                 EditorParameterInterpolationSelectorContract.ADAPTER_SLICE_ID,
