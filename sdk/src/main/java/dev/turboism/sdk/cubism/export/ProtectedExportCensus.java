@@ -23,7 +23,10 @@ import java.util.Set;
  * the deformer census is a root (the host's own downward traversal semantics).</p>
  */
 @Incubating
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03", "5.3.04"})
+@CubismEditor({
+    "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
+    "5.3.03", "5.3.04"
+})
 public record ProtectedExportCensus(
         List<String> deformerGuids,
         Map<String, String> deformerParentGuids,

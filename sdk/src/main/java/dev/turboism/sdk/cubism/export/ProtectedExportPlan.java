@@ -22,7 +22,10 @@ import java.util.regex.Pattern;
  * is never an identifier the host handed out.</p>
  */
 @Incubating
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03", "5.3.04"})
+@CubismEditor({
+    "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
+    "5.3.03", "5.3.04"
+})
 public record ProtectedExportPlan(
         List<String> deformerOrderLeafToRoot,
         Map<String, Target> artMeshTargets,
@@ -70,7 +73,10 @@ public record ProtectedExportPlan(
 
     /** One censused identity's planned protected name and private ID token. */
     @Incubating
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03", "5.3.04"})
+    @CubismEditor({
+        "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
+        "5.3.03", "5.3.04"
+    })
     public record Target(String name, String idToken) {
         public Target {
             name = token(name, "name");
