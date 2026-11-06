@@ -13,6 +13,7 @@ public sealed interface PanelView
                 PanelView.Row,
                 PanelView.Text,
                 PanelView.Image,
+                PanelView.ScaledImage,
                 PanelView.Button,
                 PanelView.TextInput,
                 PanelView.Select,
@@ -20,7 +21,15 @@ public sealed interface PanelView
                 PanelView.Chart,
                 PanelView.CollapsibleSection,
                 PanelView.Separator,
-                PanelView.Scroll {
+                PanelView.Scroll,
+                PanelView.Card,
+                PanelView.Grid,
+                PanelView.Centered,
+                PanelView.Link,
+                PanelView.SpaceBetween,
+                PanelView.LeftRow,
+                PanelView.IconButton,
+                PanelView.Padded {
 
     /** Creates a vertical stack of the given children. */
     static Column column(final PanelView... children) {
@@ -42,9 +51,24 @@ public sealed interface PanelView
         return new Text(value, grayed, false);
     }
 
+    /** Text rendered at a scaled font size (1.0 is the host default). */
+    static Text text(final String value, final boolean grayed, final float fontScale) {
+        return new Text(value, grayed, false, fontScale);
+    }
+
     /** Text rendered centered in its region, e.g. a panel header statistic. */
     static Text textCentered(final String value) {
         return new Text(value, false, true);
+    }
+
+    /** Text rendered centered and optionally grayed, e.g. a centered subtitle. */
+    static Text textCentered(final String value, final boolean grayed) {
+        return new Text(value, grayed, true);
+    }
+
+    /** Text rendered centered at a scaled font size. */
+    static Text textCentered(final String value, final boolean grayed, final float fontScale) {
+        return new Text(value, grayed, true, fontScale);
     }
 
     /** Creates an image node from PNG bytes with accessibility alt text. */
@@ -52,9 +76,30 @@ public sealed interface PanelView
         return new Image(pngBytes, altText);
     }
 
+    /**
+     * Creates a high-resolution image node displayed inside the given logical bounds.
+     * The runtime preserves the image aspect ratio, scales it down for 1x displays and
+     * keeps the original pixels available as a device-resolution variant for HiDPI
+     * displays.
+     */
+    static ScaledImage scaledImage(
+            final byte[] pngBytes, final String altText, final int maxWidth, final int maxHeight) {
+        return new ScaledImage(pngBytes, altText, maxWidth, maxHeight);
+    }
+
     /** Creates a push button that invokes {@code actionId} when pressed. */
     static Button button(final String id, final String label, final String actionId) {
         return new Button(id, label, actionId);
+    }
+
+    /** Creates an icon-only button with tooltip text and no visible label. */
+    static IconButton iconButton(final String id, final byte[] pngBytes, final String tooltip, final String actionId) {
+        return new IconButton(id, pngBytes, tooltip, actionId);
+    }
+
+    /** Wraps a child in an empty inset; useful for standalone header alignment. */
+    static Padded padded(final PanelView child, final int top, final int left, final int bottom, final int right) {
+        return new Padded(child, top, left, bottom, right);
     }
 
     /** Creates a labeled text field whose edits dispatch {@code actionId}. */
@@ -136,6 +181,49 @@ public sealed interface PanelView
         return new CollapsibleSection(title, expandedByDefault, List.of(children));
     }
 
+    /**
+     * Creates a clickable card around {@code content}. Double-clicking the card
+     * dispatches {@code actionId}; the card id is sent as the action event source.
+     */
+    static Card card(final String id, final String actionId, final PanelView content) {
+        return new Card(id, actionId, content);
+    }
+
+    /** Creates a borderless clickable row, e.g. a details-list entry. */
+    static Card flatCard(final String id, final String actionId, final PanelView content) {
+        return new Card(id, actionId, content, false);
+    }
+
+    /** Creates a fixed-column grid of child nodes. */
+    static Grid grid(final int columns, final PanelView... children) {
+        return new Grid(columns, List.of(children));
+    }
+
+    /** Centers one child block horizontally and vertically in the available space. */
+    static Centered centered(final PanelView child) {
+        return new Centered(child, 0, 0);
+    }
+
+    /** Centers one child block inside a fixed preferred-size box. */
+    static Centered centered(final PanelView child, final int preferredWidth, final int preferredHeight) {
+        return new Centered(child, preferredWidth, preferredHeight);
+    }
+
+    /** Creates a blue underlined link that dispatches {@code actionId} on left click. */
+    static Link link(final String id, final String label, final String actionId) {
+        return new Link(id, label, actionId);
+    }
+
+    /** Creates a row with {@code left} aligned to the start and {@code right} to the end. */
+    static SpaceBetween spaceBetween(final PanelView left, final PanelView right) {
+        return new SpaceBetween(left, right);
+    }
+
+    /** Creates a row with {@code left} at its preferred size and {@code right} filling the rest. */
+    static LeftRow leftRow(final PanelView left, final PanelView right) {
+        return new LeftRow(left, right);
+    }
+
     /** Vertical stack of child nodes. */
     record Column(List<PanelView> children) implements PanelView {
         public Column {
@@ -151,17 +239,24 @@ public sealed interface PanelView
     }
 
     /** Plain text node; {@code grayed} renders disabled-looking, {@code centered} centers it. */
-    record Text(String value, boolean grayed, boolean centered) implements PanelView {
+    record Text(String value, boolean grayed, boolean centered, float fontScale) implements PanelView {
         public Text {
             value = Objects.requireNonNull(value, "value");
+            if (Float.isNaN(fontScale) || fontScale < 0.5f || fontScale > 3.0f) {
+                throw new IllegalArgumentException("fontScale must be between 0.5 and 3.0");
+            }
+        }
+
+        public Text(final String value, final boolean grayed, final boolean centered) {
+            this(value, grayed, centered, 1.0f);
         }
 
         public Text(final String value, final boolean grayed) {
-            this(value, grayed, false);
+            this(value, grayed, false, 1.0f);
         }
 
         public Text(final String value) {
-            this(value, false, false);
+            this(value, false, false, 1.0f);
         }
     }
 
@@ -170,25 +265,8 @@ public sealed interface PanelView
      * alt text. The runtime renders it as an image label sized to the decoded pixels.
      */
     record Image(byte[] pngBytes, String altText) implements PanelView {
-        private static final int MAX_PNG_BYTES = 1024 * 1024;
-        private static final byte[] PNG_SIGNATURE = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
-
         public Image {
-            pngBytes = Objects.requireNonNull(pngBytes, "pngBytes").clone();
-            if (pngBytes.length == 0 || pngBytes.length > MAX_PNG_BYTES) {
-                throw new IllegalArgumentException("pngBytes must contain between 1 and 1048576 bytes");
-            }
-            if (!startsWithPngSignature(pngBytes)) {
-                throw new IllegalArgumentException("pngBytes must start with the PNG signature");
-            }
-            try {
-                final var decoded = ImageIO.read(new ByteArrayInputStream(pngBytes));
-                if (decoded == null || decoded.getWidth() < 1 || decoded.getHeight() < 1) {
-                    throw new IllegalArgumentException("pngBytes must be a readable PNG");
-                }
-            } catch (IOException failure) {
-                throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
-            }
+            pngBytes = checkedPngBytes(pngBytes);
             altText = Objects.requireNonNull(altText, "altText");
         }
 
@@ -196,13 +274,32 @@ public sealed interface PanelView
         public byte[] pngBytes() {
             return pngBytes.clone();
         }
+    }
 
-        private static boolean startsWithPngSignature(final byte[] value) {
-            if (value.length < PNG_SIGNATURE.length) return false;
-            for (int index = 0; index < PNG_SIGNATURE.length; index++) {
-                if (value[index] != PNG_SIGNATURE[index]) return false;
+    /**
+     * High-resolution PNG image node with explicit logical display bounds. The runtime
+     * fits the image into the bounds while preserving aspect ratio, and supplies the
+     * original pixels to HiDPI painting without increasing the panel's logical size.
+     */
+    record ScaledImage(byte[] pngBytes, String altText, int maxWidth, int maxHeight) implements PanelView {
+        private static final int MAX_DISPLAY_DIMENSION = 4096;
+
+        public ScaledImage {
+            pngBytes = checkedPngBytes(pngBytes);
+            altText = Objects.requireNonNull(altText, "altText");
+            requireDisplayDimension(maxWidth, "maxWidth");
+            requireDisplayDimension(maxHeight, "maxHeight");
+        }
+
+        @Override
+        public byte[] pngBytes() {
+            return pngBytes.clone();
+        }
+
+        private static void requireDisplayDimension(final int value, final String name) {
+            if (value < 1 || value > MAX_DISPLAY_DIMENSION) {
+                throw new IllegalArgumentException(name + " must be between 1 and " + MAX_DISPLAY_DIMENSION);
             }
-            return true;
         }
     }
 
@@ -212,6 +309,38 @@ public sealed interface PanelView
             id = requireText(id, "id");
             label = requireText(label, "label");
             actionId = requireText(actionId, "actionId");
+        }
+    }
+
+    /** Empty inset around a child. */
+    record Padded(PanelView child, int top, int left, int bottom, int right) implements PanelView {
+        public Padded {
+            child = Objects.requireNonNull(child, "child");
+            requireInset(top, "top");
+            requireInset(left, "left");
+            requireInset(bottom, "bottom");
+            requireInset(right, "right");
+        }
+
+        private static void requireInset(final int value, final String name) {
+            if (value < 0) {
+                throw new IllegalArgumentException(name + " must be non-negative");
+            }
+        }
+    }
+
+    /** Icon-only button; {@code pngBytes} is an alpha mask tinted by the runtime theme. */
+    record IconButton(String id, byte[] pngBytes, String tooltip, String actionId) implements PanelView {
+        public IconButton {
+            id = requireText(id, "id");
+            pngBytes = checkedPngBytes(pngBytes);
+            tooltip = requireText(tooltip, "tooltip");
+            actionId = requireText(actionId, "actionId");
+        }
+
+        @Override
+        public byte[] pngBytes() {
+            return pngBytes.clone();
         }
     }
 
@@ -328,6 +457,79 @@ public sealed interface PanelView
         }
     }
 
+    /**
+     * Double-clickable card around arbitrary panel content.
+     *
+     * <p>The rendered card is a bordered container; a left-button double-click
+     * dispatches {@code actionId} with a {@link dev.turboism.sdk.action.UiActionEvent}
+     * whose source id is {@code id}. Single clicks are presentation-only.</p>
+     */
+    record Card(String id, String actionId, PanelView content, boolean bordered) implements PanelView {
+        public Card {
+            id = requireText(id, "id");
+            actionId = requireText(actionId, "actionId");
+            content = Objects.requireNonNull(content, "content");
+        }
+
+        /** Creates a bordered card; the details-view equivalent uses {@link #flatCard}. */
+        public Card(final String id, final String actionId, final PanelView content) {
+            this(id, actionId, content, true);
+        }
+    }
+
+    /** Fixed-column grid of child nodes; columns must be between 1 and 12. */
+    record Grid(int columns, List<PanelView> children) implements PanelView {
+        public Grid {
+            if (columns < 1 || columns > 12) {
+                throw new IllegalArgumentException("columns must be between 1 and 12");
+            }
+            children = immutableChildren(children);
+        }
+    }
+
+    /** Centers one child block in the available width and height. */
+    record Centered(PanelView child, int preferredWidth, int preferredHeight) implements PanelView {
+        public Centered {
+            child = Objects.requireNonNull(child, "child");
+            if (preferredWidth < 0 || preferredHeight < 0) {
+                throw new IllegalArgumentException("preferred dimensions must be non-negative");
+            }
+            if ((preferredWidth == 0) != (preferredHeight == 0)) {
+                throw new IllegalArgumentException("preferred width and height must both be zero or both be positive");
+            }
+        }
+
+        /** Centers the child at its natural preferred size. */
+        public Centered(final PanelView child) {
+            this(child, 0, 0);
+        }
+    }
+
+    /** Blue underlined link that dispatches {@code actionId} on a left click. */
+    record Link(String id, String label, String actionId) implements PanelView {
+        public Link {
+            id = requireText(id, "id");
+            label = requireText(label, "label");
+            actionId = requireText(actionId, "actionId");
+        }
+    }
+
+    /** Left/right row with the two blocks pinned to the start and end of the available width. */
+    record SpaceBetween(PanelView left, PanelView right) implements PanelView {
+        public SpaceBetween {
+            left = Objects.requireNonNull(left, "left");
+            right = Objects.requireNonNull(right, "right");
+        }
+    }
+
+    /** Row with a fixed-leading block and a trailing block that fills the remaining width. */
+    record LeftRow(PanelView left, PanelView right) implements PanelView {
+        public LeftRow {
+            left = Objects.requireNonNull(left, "left");
+            right = Objects.requireNonNull(right, "right");
+        }
+    }
+
     /** Real-time line chart whose live data is resolved by the runtime through {@code id}. */
     record Chart(String id, String title, List<SeriesSpec> series) implements PanelView {
         public Chart {
@@ -365,6 +567,31 @@ public sealed interface PanelView
             throw new IllegalArgumentException("children must not be empty");
         }
         return snapshot;
+    }
+
+    private static byte[] checkedPngBytes(final byte[] value) {
+        final byte[] pngBytes = Objects.requireNonNull(value, "pngBytes").clone();
+        if (pngBytes.length == 0 || pngBytes.length > 1024 * 1024) {
+            throw new IllegalArgumentException("pngBytes must contain between 1 and 1048576 bytes");
+        }
+        final byte[] signature = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
+        if (pngBytes.length < signature.length) {
+            throw new IllegalArgumentException("pngBytes must start with the PNG signature");
+        }
+        for (int index = 0; index < signature.length; index++) {
+            if (pngBytes[index] != signature[index]) {
+                throw new IllegalArgumentException("pngBytes must start with the PNG signature");
+            }
+        }
+        try {
+            final var decoded = ImageIO.read(new ByteArrayInputStream(pngBytes));
+            if (decoded == null || decoded.getWidth() < 1 || decoded.getHeight() < 1) {
+                throw new IllegalArgumentException("pngBytes must be a readable PNG");
+            }
+        } catch (IOException failure) {
+            throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
+        }
+        return pngBytes;
     }
 
     private static String requireText(final String value, final String name) {

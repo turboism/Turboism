@@ -2,6 +2,7 @@ package dev.turboism.adapter.ui;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import java.util.Objects;
 import java.util.Optional;
@@ -35,6 +36,32 @@ public interface UiSurfaceAdapter {
      *         or an unavailable result when the capability cannot be served
      */
     AdapterResult<Optional<String>> requestFile(FileChooserRequest request);
+
+    /**
+     * Contributes a runtime-rendered board over the empty modeling viewport.
+     *
+     * @param pluginId the contributing plugin, used to route panel actions
+     * @param contribution the board content
+     * @return an available result carrying the registration, or an unavailable result when
+     *     the host does not expose a verified viewport board surface
+     */
+    default AdapterResult<Registration> contributeRecentProjectBoard(
+            final String pluginId, final EmbeddedPanelContribution contribution) {
+        Objects.requireNonNull(pluginId, "pluginId");
+        Objects.requireNonNull(contribution, "contribution");
+        return AdapterResult.unavailable(
+                SafeModeDiagnostic.capabilityUnavailable("ui.recent-project-board.contribute"));
+    }
+
+    /**
+     * Opens the host's native New Animation flow.
+     *
+     * @return an available result carrying whether the native action was dispatched, or an
+     *     unavailable result when the host has no verified surface
+     */
+    default AdapterResult<Boolean> createNewAnimationProject() {
+        return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable("ui.new-animation-project"));
+    }
 
     /** The host capabilities this adapter can be gated by. */
     enum Capability {

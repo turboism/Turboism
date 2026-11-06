@@ -24,6 +24,7 @@ include(
     "plugins:clipmask-viewer",
     "plugins:webdav-backup",
     "plugins:recent-preview",
+    "plugins:recent-project-board",
     "plugins:scene-palette-enhancer",
     "plugins:psd-clip-mask-import",
     "plugins:external-psd-edit",

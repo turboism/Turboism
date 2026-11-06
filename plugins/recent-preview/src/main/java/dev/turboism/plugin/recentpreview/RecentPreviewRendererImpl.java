@@ -20,6 +20,8 @@ public final class RecentPreviewRendererImpl implements RecentPreviewRenderer {
 
     static final DateTimeFormatter LAST_MODIFIED_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
+    /** Logical popup image bounds; the captured source may be larger for HiDPI sharpness. */
+    static final int DISPLAY_MAX = 150;
 
     private final RecentPreviewController controller;
     private final Consumer<RecentFileId> captureRequester;
@@ -94,7 +96,7 @@ public final class RecentPreviewRendererImpl implements RecentPreviewRenderer {
     /** Builds the thumbnail plus the two legacy information rows. */
     static PanelView contentFor(final RecentFileSummary summary, final byte[] png) {
         return PanelView.column(
-                PanelView.image(png, summary.displayName()),
+                PanelView.scaledImage(png, summary.displayName(), DISPLAY_MAX, DISPLAY_MAX),
                 PanelView.text(summary.displayName()),
                 PanelView.text(formatLastModified(summary.lastModified())));
     }

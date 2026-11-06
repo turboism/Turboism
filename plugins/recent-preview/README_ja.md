@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: recent-files, preview, navigation
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -30,13 +30,13 @@ interface: swing
 
 ## 機能概要
 
-- サポート対象のプロジェクトを開くまたは保存する操作の後に、最大 150×150 のモデリングサーフェスのプレビューをキャプチャします。
+- サポート対象のプロジェクトを開くまたは保存する操作の後に、最大 300×300 のモデリングサーフェスのプレビューをキャプチャし、既存のポップアップサイズ内に表示します。
 - 実行中および変更のないキャプチャを重複排除し、キャッシュ済みのコンテンツを Recent Files のホバー UI に提供します。
 - 不透明な最近使用したファイル ID と、パスを含まないキャッシュインデックスを使用します。
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.0,1.0.0)`。
+- **SDK API 範囲:** `[0.68.1,1.0.0)`。
 - **Cubism:** Cubism が必要です。Turboism は現在、正確にレビュー済みの Editor アーティファクト `5.0.00` から `5.3.04` を受け入れています。このプラグインは、宣言されたサービスと機能が利用可能な場合にのみ、各ホスト向け機能を公開します。
 - **インターフェースモード:** `swing`。
 - **プラグイン依存関係:** 宣言されていません。
@@ -57,6 +57,12 @@ interface: swing
 2. Cubism の Recent Files 表示を開き、最近使用した項目にカーソルを合わせます。
 3. ポップアップにキャッシュ済みのサムネイルと利用可能な表示メタデータが表示されます。古い、または利用できないキャプチャは安全にスキップされます。
 
+## プラグイン間イベント契約
+
+本プラグインは公開イベント `thumbnail.captured`（契約 `1.0.0`）を提供します。SDK 所有のペイロード `RecentPreviewCapturedEvent` には、不透明な最近ファイル ID、表示名、キャプチャした `ScreenshotImage`、そのまま利用できるサムネイル `PanelView` が含まれます。
+
+利用側プラグインは `dev.turboism.plugin.recent-preview` への依存（`ordering: after`）とイベントのインポートを宣言し、`turboism.event.subscribe` 権限を追加します。購読は `@SubscribeEvent` または `context.eventBus().subscribe(RecentPreviewCapturedEvent.class, ...)` で行います。`event.image().png()` で画像ストリーム、`event.thumbnail()` で `PanelView` 部品を取得できます。イベントはライブ配信のみで、キャプチャ後に購読を開始したプラグインへ過去の画像を再生しません。
+
 ## 機能
 
 プラグインマニフェストには機能は宣言されていません。
@@ -71,6 +77,7 @@ interface: swing
 | `turboism.ui.recent-preview.contribute` | `application` | ホストの Recent Files ホバーブリッジにサムネイルポップアップのコンテンツを提供します。 |
 | `turboism.file.read` | `application` | プラグインに限定されたキャッシュストレージから、キャッシュ済みプレビュー PNG を読み取ります。 |
 | `turboism.file.write` | `application` | プレビュー PNG とパスを含まないインデックスを、プラグインに限定されたキャッシュストレージへアトミックに書き込みます。 |
+| `turboism.event.publish` | `application` | 公開 `thumbnail.captured` イベントをインポートした依存プラグインへ、確定済みサムネイルを配信します。 |
 
 ## プライバシーとデータ
 

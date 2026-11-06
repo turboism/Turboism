@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: recent-files, preview, navigation
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -30,13 +30,13 @@ interface: swing
 
 ## 功能概述
 
-- 在受支持的项目打开或保存活动后，捕获最大为 150×150 的建模画布预览。
+- 在受支持的项目打开或保存活动后，捕获最大为 300×300 的建模画布预览，并在原有弹窗尺寸内显示。
 - 对进行中的捕获和未变更的捕获进行去重，并将缓存内容贡献给 Recent Files 悬停 UI。
 - 使用不透明的最近文件 ID 和不含路径的缓存索引。
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.67.0,1.0.0)`。
+- **SDK API 范围：** `[0.68.1,1.0.0)`。
 - **Cubism：**需要 Cubism。Turboism 当前允许精确审核过的 Editor 构件 `5.0.00` 至 `5.3.04`；本插件仅在其声明的服务和功能能力可用时公开各项面向主机的功能。
 - **界面模式：**`swing`。
 - **插件依赖：**未声明。
@@ -57,6 +57,32 @@ interface: swing
 2. 打开 Cubism 的 Recent Files 界面，并将鼠标悬停在最近项目上。
 3. 弹窗会显示缓存的缩略图和可用的显示元数据；过期或不可用的捕获会被安全地跳过。
 
+## 插件间事件契约
+
+本插件导出公共事件 `thumbnail.captured`（契约版本 `1.0.0`）。其 SDK 载荷 `RecentPreviewCapturedEvent` 包含不透明的最近文件 ID、显示名称、捕获的 `ScreenshotImage`，以及可直接使用的缩略图 `PanelView`。
+
+消费方插件需要声明对 `dev.turboism.plugin.recent-preview` 的依赖（`ordering: after`）、导入该事件，并声明 `turboism.event.subscribe` 权限：
+
+```json
+"dependencies": [{
+  "id": "dev.turboism.plugin.recent-preview",
+  "version": "[0.68.0,1.0.0)",
+  "type": "required",
+  "ordering": "after",
+  "reason": "消费已提交的最近文件预览。"
+}],
+"eventImports": [{
+  "provider": "dev.turboism.plugin.recent-preview",
+  "eventId": "thumbnail.captured",
+  "contractVersion": "[1.0.0,2.0.0)",
+  "eventType": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent",
+  "abiSha256": "e4791126d565f94153f3580974ea179f1fd46fa69a638ed52cabdb359a4f4109",
+  "required": true
+}]
+```
+
+可通过 `@SubscribeEvent` 或 `context.eventBus().subscribe(RecentPreviewCapturedEvent.class, ...)` 订阅。`event.image().png()` 获取图片流，`event.thumbnail()` 获取 `PanelView` 部件。新捕获会实时发布；提供方还会在启动后延迟重放一次现有磁盘缓存的有界快照，方便依赖插件在本次会话首次新捕获前渲染最近工程看板。若订阅方启动得更晚，应保留自己的副本或请求新的捕获。
+
 ## 功能能力
 
 插件清单中未声明任何功能能力。
@@ -71,6 +97,7 @@ interface: swing
 | `turboism.ui.recent-preview.contribute` | `application` | 向主机的 Recent Files 悬停桥接贡献缩略图弹窗内容。 |
 | `turboism.file.read` | `application` | 从插件隔离的缓存存储中读取缓存的预览 PNG。 |
 | `turboism.file.write` | `application` | 将预览 PNG 和不含路径的索引以原子方式写入插件隔离的缓存存储。 |
+| `turboism.event.publish` | `application` | 向导入公共 `thumbnail.captured` 事件的依赖插件发布已提交的缩略图。 |
 
 ## 隐私与数据
 

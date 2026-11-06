@@ -814,6 +814,19 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         .orElse(null));
     }
 
+    private static RuntimeHostAdapters boardHost(
+            final PanelMaterial panel,
+            final dev.turboism.ui.action.EditorUiActionRouter actionRouter,
+            final java.util.function.Supplier<java.util.Locale> locale,
+            final RuntimeHostAdapters adapters) {
+        if (panel == null || actionRouter == null) {
+            return adapters;
+        }
+        return RuntimeHostAdapters.withRecentProjectBoard(
+                adapters,
+                new dev.turboism.ui.panel.RecentProjectBoardHostOperations(panel.resolver(), actionRouter, locale));
+    }
+
     private HostAdapterConnection connection(
             final RuntimeHostAdapters adapters,
             final CubismModelAccess modelAccess,
@@ -876,6 +889,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                             editorUiActionRouter,
                             effectiveLocale,
                             owner == null ? (reference, disabled) -> Optional.empty() : owner::resolve);
+            final RuntimeHostAdapters adaptersWithBoard =
+                    boardHost(panel, editorUiActionRouter, effectiveLocale, installedAdapters);
             final RuntimeUiResourceService installedResourceOwner = resourceOwner;
             final dev.turboism.ui.workspace.layout.WorkspaceLayoutHostProvider installedLayoutProvider = layoutProvider;
             final dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations installedPanelOperations = panelOperations;
@@ -929,7 +944,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
                 @Override
                 public RuntimeHostAdapters adapters() {
-                    return installedAdapters;
+                    return adaptersWithBoard;
                 }
 
                 @Override

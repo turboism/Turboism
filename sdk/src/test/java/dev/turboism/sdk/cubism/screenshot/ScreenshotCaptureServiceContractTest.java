@@ -36,14 +36,14 @@ final class ScreenshotCaptureServiceContractTest {
                 ScreenshotCaptureService.unavailable(),
                 context.services().find(ScreenshotCaptureService.class).orElse(ScreenshotCaptureService.unavailable()));
 
-        final ScreenshotCaptureRequest request = new ScreenshotCaptureRequest(new RecentFileId("recent-1"), 150, 150);
-        // Bounds are capped at 150×150 per the preview contract.
+        final ScreenshotCaptureRequest request = new ScreenshotCaptureRequest(new RecentFileId("recent-1"), 300, 300);
+        // Bounds are capped at 300×300 per the preview contract.
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new ScreenshotCaptureRequest(new RecentFileId("recent-1"), 0, 150));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new ScreenshotCaptureRequest(new RecentFileId("recent-1"), 150, 151));
+                () -> new ScreenshotCaptureRequest(new RecentFileId("recent-1"), 150, 301));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new ScreenshotCaptureRequest(new RecentFileId("recent-1"), 4096, 150));

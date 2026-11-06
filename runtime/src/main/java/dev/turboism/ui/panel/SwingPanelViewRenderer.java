@@ -7,7 +7,17 @@ import dev.turboism.sdk.ui.resource.UiIconRef;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.Graphics2D;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
+import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.image.BaseMultiResolutionImage;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.util.Objects;
 import java.util.Optional;
@@ -28,6 +38,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 
 /** Renders immutable SDK panel values into runtime-owned Swing components. */
 public final class SwingPanelViewRenderer {
@@ -152,10 +163,74 @@ public final class SwingPanelViewRenderer {
                     ? "<html><div style='text-align:center'>" + escaped + "</div></html>"
                     : "<html>" + escaped + "</html>";
             final JLabel label = new JLabel(html);
+            if (text.fontScale() != 1.0f) {
+                final java.awt.Font font = label.getFont();
+                if (font != null) {
+                    label.setFont(font.deriveFont(font.getSize2D() * text.fontScale()));
+                }
+            }
             if (text.grayed()) {
                 final java.awt.Color grayed = javax.swing.UIManager.getColor("Label.disabledForeground");
                 label.setForeground(grayed == null ? new java.awt.Color(0x999999) : grayed);
             }
+            return label;
+        }
+        if (view instanceof PanelView.LeftRow leftRow) {
+            final JPanel panel = new JPanel(new BorderLayout());
+            panel.setOpaque(false);
+            panel.add(renderNode(leftRow.left(), action, false, locale, iconResolver), BorderLayout.WEST);
+            final JPanel right = new JPanel(new GridBagLayout());
+            right.setOpaque(false);
+            final GridBagConstraints constraints = new GridBagConstraints();
+            constraints.gridx = 0;
+            constraints.gridy = 0;
+            constraints.anchor = GridBagConstraints.WEST;
+            constraints.weightx = 1.0;
+            constraints.weighty = 1.0;
+            right.add(renderNode(leftRow.right(), action, false, locale, iconResolver), constraints);
+            panel.add(right, BorderLayout.CENTER);
+            panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, panel.getPreferredSize().height));
+            return panel;
+        }
+        if (view instanceof PanelView.SpaceBetween between) {
+            final JPanel panel = new JPanel(new BorderLayout());
+            panel.setOpaque(false);
+            panel.add(renderNode(between.left(), action, false, locale, iconResolver), BorderLayout.WEST);
+            panel.add(renderNode(between.right(), action, false, locale, iconResolver), BorderLayout.EAST);
+            panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, panel.getPreferredSize().height));
+            return panel;
+        }
+        if (view instanceof PanelView.Centered centered) {
+            final JPanel panel = new JPanel(new GridBagLayout());
+            panel.setOpaque(false);
+            final GridBagConstraints constraints = new GridBagConstraints();
+            constraints.gridx = 0;
+            constraints.gridy = 0;
+            if (centered.preferredWidth() > 0 && centered.preferredHeight() > 0) {
+                final Dimension fixed = new Dimension(centered.preferredWidth(), centered.preferredHeight());
+                panel.setPreferredSize(fixed);
+                panel.setMinimumSize(fixed);
+                constraints.fill = GridBagConstraints.HORIZONTAL;
+                constraints.weightx = 1.0;
+            }
+            panel.add(renderNode(centered.child(), action, false, locale, iconResolver), constraints);
+            panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+            return panel;
+        }
+        if (view instanceof PanelView.Link link) {
+            final JLabel label = new JLabel("<html><div style='text-align:center'><nobr><u><font color='#3B82F6'>"
+                    + htmlEscape(link.label()) + "</font></u></nobr></div></html>");
+            label.setName(link.id());
+            label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+            label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            label.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(final MouseEvent event) {
+                    if (SwingUtilities.isLeftMouseButton(event)) {
+                        action.accept(link.actionId(), Optional.of(UiActionEvent.text(link.id(), link.id())));
+                    }
+                }
+            });
             return label;
         }
         if (view instanceof PanelView.Image image) {
@@ -166,6 +241,33 @@ public final class SwingPanelViewRenderer {
             label.setPreferredSize(new Dimension(
                     label.getIcon().getIconWidth(), label.getIcon().getIconHeight()));
             return label;
+        }
+        if (view instanceof PanelView.ScaledImage image) {
+            return scaledImageLabel(image);
+        }
+        if (view instanceof PanelView.Padded padded) {
+            final JPanel panel = new JPanel(new BorderLayout());
+            panel.setOpaque(false);
+            panel.setBorder(
+                    BorderFactory.createEmptyBorder(padded.top(), padded.left(), padded.bottom(), padded.right()));
+            panel.add(renderNode(padded.child(), action, false, locale, iconResolver), BorderLayout.CENTER);
+            panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, panel.getPreferredSize().height));
+            return panel;
+        }
+        if (view instanceof PanelView.IconButton iconButton) {
+            final JButton component = new JButton();
+            component.setName(iconButton.id());
+            component.setToolTipText(iconButton.tooltip());
+            component.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+            component.setContentAreaFilled(false);
+            component.setBorderPainted(false);
+            component.setFocusPainted(false);
+            component.setOpaque(false);
+            component.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            component.setIcon(new ThemedMaskIcon(iconButton.pngBytes(), 20));
+            component.setPreferredSize(new Dimension(30, 30));
+            component.addActionListener(ignored -> action.accept(iconButton.actionId(), Optional.empty()));
+            return component;
         }
         if (view instanceof PanelView.Button button) {
             final JButton component = new JButton(button.label());
@@ -231,6 +333,36 @@ public final class SwingPanelViewRenderer {
             return pane;
         }
 
+        if (view instanceof PanelView.Grid grid) {
+            final JPanel panel = new JPanel(new GridLayout(0, grid.columns(), 12, 12));
+            panel.setOpaque(false);
+            panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            panel.setAlignmentY(Component.TOP_ALIGNMENT);
+            for (PanelView child : grid.children()) {
+                panel.add(renderNode(child, action, false, locale, iconResolver));
+            }
+            // Keep the grid at its natural row height: stretching it to the whole
+            // viewport would leave large empty card cells under short content.
+            panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, panel.getPreferredSize().height));
+            return panel;
+        }
+
+        if (view instanceof PanelView.Card card) {
+            final JPanel panel = new JPanel(new BorderLayout());
+            panel.setName(card.id());
+            panel.setOpaque(false);
+            panel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            panel.setBorder(
+                    card.bordered()
+                            ? javax.swing.BorderFactory.createCompoundBorder(
+                                    javax.swing.BorderFactory.createLineBorder(cardBorderColor(), 1, true),
+                                    javax.swing.BorderFactory.createEmptyBorder(6, 6, 6, 6))
+                            : javax.swing.BorderFactory.createEmptyBorder(4, 6, 4, 6));
+            panel.add(renderNode(card.content(), action, false, locale, iconResolver), BorderLayout.CENTER);
+            installCardActivation(panel, card, action);
+            return panel;
+        }
+
         if (view instanceof PanelView.CollapsibleSection section) {
             // A section holding exactly one chart already carries the chart
             // label as its border title; suppress the duplicated inner title
@@ -250,12 +382,149 @@ public final class SwingPanelViewRenderer {
                 "unsupported panel view: " + view.getClass().getName());
     }
 
+    /** Theme-tinted alpha-mask icon used by plugin icon buttons. */
+    private static final class ThemedMaskIcon implements Icon {
+        private final BufferedImage mask;
+        private final int size;
+        private java.awt.Color tint;
+        private BufferedImage tinted;
+
+        private ThemedMaskIcon(final byte[] pngBytes, final int size) {
+            try {
+                this.mask = ImageIO.read(new ByteArrayInputStream(pngBytes));
+            } catch (Exception failure) {
+                throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
+            }
+            if (mask == null) {
+                throw new IllegalArgumentException("pngBytes must be a readable PNG");
+            }
+            this.size = size;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return size;
+        }
+
+        @Override
+        public void paintIcon(final Component component, final java.awt.Graphics graphics, final int x, final int y) {
+            java.awt.Color color = component == null ? null : component.getForeground();
+            if (color == null) {
+                color = javax.swing.UIManager.getColor("Label.foreground");
+            }
+            if (color == null) {
+                color = java.awt.Color.GRAY;
+            }
+            if (tinted == null || !color.equals(tint)) {
+                tinted = new BufferedImage(mask.getWidth(), mask.getHeight(), BufferedImage.TYPE_INT_ARGB);
+                final Graphics2D tintGraphics = tinted.createGraphics();
+                try {
+                    tintGraphics.drawImage(mask, 0, 0, null);
+                    tintGraphics.setComposite(java.awt.AlphaComposite.SrcIn);
+                    tintGraphics.setColor(color);
+                    tintGraphics.fillRect(0, 0, tinted.getWidth(), tinted.getHeight());
+                } finally {
+                    tintGraphics.dispose();
+                }
+                tint = color;
+            }
+            final Graphics2D copy = (Graphics2D) graphics.create();
+            try {
+                copy.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                copy.drawImage(tinted, x, y, size, size, null);
+            } finally {
+                copy.dispose();
+            }
+        }
+    }
+
     private static Icon icon(final byte[] pngBytes) {
         try {
             return new ImageIcon(ImageIO.read(new ByteArrayInputStream(pngBytes)));
         } catch (Exception failure) {
             throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
         }
+    }
+
+    /** Adds the double-click activation to the card and every rendered descendant. */
+    private static void installCardActivation(
+            final Component component,
+            final PanelView.Card card,
+            final BiConsumer<String, Optional<UiActionEvent>> action) {
+        component.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(final MouseEvent event) {
+                if (event.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(event)) {
+                    action.accept(card.actionId(), Optional.of(UiActionEvent.text(card.id(), card.id())));
+                }
+            }
+        });
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                installCardActivation(child, card, action);
+            }
+        }
+    }
+
+    private static java.awt.Color cardBorderColor() {
+        final java.awt.Color themed = javax.swing.UIManager.getColor("Component.borderColor");
+        return themed == null ? new java.awt.Color(0x555555) : themed;
+    }
+
+    /**
+     * Renders a high-resolution image at its logical display size. The base variant keeps
+     * the established panel dimensions; the original pixels remain available as a
+     * multi-resolution variant so HiDPI painting uses the sharper source instead of
+     * upscaling the small base raster.
+     */
+    private static JLabel scaledImageLabel(final PanelView.ScaledImage image) {
+        final BufferedImage source;
+        try {
+            source = ImageIO.read(new ByteArrayInputStream(image.pngBytes()));
+        } catch (Exception failure) {
+            throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
+        }
+        if (source == null) {
+            throw new IllegalArgumentException("pngBytes must be a readable PNG");
+        }
+        final double fit = Math.min(
+                1d,
+                Math.min(
+                        image.maxWidth() / (double) source.getWidth(),
+                        image.maxHeight() / (double) source.getHeight()));
+        final int displayWidth = Math.max(1, (int) Math.round(source.getWidth() * fit));
+        final int displayHeight = Math.max(1, (int) Math.round(source.getHeight() * fit));
+        final BufferedImage base = displayWidth == source.getWidth() && displayHeight == source.getHeight()
+                ? source
+                : scaleImage(source, displayWidth, displayHeight);
+        final ImageIcon icon = base == source
+                ? new ImageIcon(source, image.altText())
+                : new ImageIcon(new BaseMultiResolutionImage(base, source), image.altText());
+        final JLabel label = new JLabel();
+        label.setName("panel-image");
+        label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        label.setIcon(icon);
+        label.setToolTipText(image.altText());
+        label.setPreferredSize(new Dimension(displayWidth, displayHeight));
+        return label;
+    }
+
+    private static BufferedImage scaleImage(final BufferedImage source, final int width, final int height) {
+        final BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        final Graphics2D graphics = scaled.createGraphics();
+        try {
+            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            graphics.drawImage(source, 0, 0, width, height, null);
+        } finally {
+            graphics.dispose();
+        }
+        return scaled;
     }
 
     private static JPanel container(

@@ -61,6 +61,26 @@ class PanelViewContractTest {
     }
 
     @Test
+    void scaledImageNodeCarriesSourcePixelsAndLogicalDisplayBounds() {
+        final byte[] png = java.util.Base64.getDecoder()
+                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+        final PanelView.ScaledImage image = PanelView.scaledImage(png, "thumbnail", 150, 120);
+        assertEquals("thumbnail", image.altText());
+        assertEquals(150, image.maxWidth());
+        assertEquals(120, image.maxHeight());
+        assertArrayEquals(png, image.pngBytes());
+        final byte[] mutated = image.pngBytes();
+        mutated[0] = 9;
+        assertArrayEquals(png, image.pngBytes());
+        assertThrows(
+                IllegalArgumentException.class, () -> PanelView.scaledImage(new byte[] {1, 2, 3}, "bad", 150, 150));
+        assertThrows(NullPointerException.class, () -> PanelView.scaledImage(png, null, 150, 150));
+        assertThrows(NullPointerException.class, () -> PanelView.scaledImage(null, "bad", 150, 150));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.scaledImage(png, "bad", 0, 150));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.scaledImage(png, "bad", 150, 4097));
+    }
+
+    @Test
     void uiActionEventsCarryTypedControlValuesThroughActionContext() {
         UiActionEvent text = UiActionEvent.text("name", "Alice");
         UiActionEvent selection = UiActionEvent.selection("mode", "safe");
@@ -173,5 +193,108 @@ class PanelViewContractTest {
         assertThrows(
                 NullPointerException.class,
                 () -> new PanelView.Toggle("entry", (UiInlineLabel) null, false, "history.move"));
+    }
+
+    @Test
+    void cardAndGridValidateIdentityAndColumns() {
+        final PanelView.Card card = PanelView.card("card", "open", PanelView.text("x"));
+        assertEquals("card", card.id());
+        assertEquals("open", card.actionId());
+        assertTrue(card.bordered());
+        assertFalse(PanelView.flatCard("flat", "open", PanelView.text("x")).bordered());
+        assertInstanceOf(PanelView.Text.class, card.content());
+        assertThrows(IllegalArgumentException.class, () -> PanelView.card(" ", "open", PanelView.text("x")));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.card("card", " ", PanelView.text("x")));
+        assertThrows(NullPointerException.class, () -> PanelView.card("card", "open", null));
+
+        final PanelView.Grid grid = PanelView.grid(2, PanelView.text("x"), PanelView.text("y"));
+        assertEquals(2, grid.columns());
+        assertEquals(2, grid.children().size());
+        assertThrows(UnsupportedOperationException.class, () -> grid.children().add(PanelView.text("z")));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.grid(0, PanelView.text("x")));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.grid(13, PanelView.text("x")));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.grid(2));
+    }
+
+    @Test
+    void centeredAndLinkValidateTheirPayloads() {
+        final PanelView centered = PanelView.centered(PanelView.text("empty"));
+        assertInstanceOf(PanelView.Centered.class, centered);
+        assertInstanceOf(PanelView.Text.class, ((PanelView.Centered) centered).child());
+        assertThrows(NullPointerException.class, () -> PanelView.centered(null));
+        final PanelView.Centered fixed = PanelView.centered(PanelView.text("x"), 220, 220);
+        assertEquals(220, fixed.preferredWidth());
+        assertEquals(220, fixed.preferredHeight());
+        assertThrows(IllegalArgumentException.class, () -> PanelView.centered(PanelView.text("x"), 220, 0));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.centered(PanelView.text("x"), -1, 220));
+
+        final PanelView.Link link = PanelView.link("create", "Create New Project", "board.create");
+        assertEquals("create", link.id());
+        assertEquals("Create New Project", link.label());
+        assertEquals("board.create", link.actionId());
+        assertThrows(IllegalArgumentException.class, () -> PanelView.link(" ", "Create", "board.create"));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.link("create", " ", "board.create"));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.link("create", "Create", " "));
+    }
+
+    @Test
+    void spaceBetweenValidatesBothSides() {
+        final PanelView.SpaceBetween between =
+                PanelView.spaceBetween(PanelView.text("left"), PanelView.button("right", "Right", "right.action"));
+        assertEquals(
+                "left", assertInstanceOf(PanelView.Text.class, between.left()).value());
+        assertEquals(
+                "right",
+                assertInstanceOf(PanelView.Button.class, between.right()).id());
+        assertThrows(NullPointerException.class, () -> PanelView.spaceBetween(null, PanelView.text("x")));
+        assertThrows(NullPointerException.class, () -> PanelView.spaceBetween(PanelView.text("x"), null));
+
+        final PanelView.LeftRow leftRow = PanelView.leftRow(PanelView.text("left"), PanelView.text("right"));
+        assertEquals(
+                "left", assertInstanceOf(PanelView.Text.class, leftRow.left()).value());
+        assertEquals(
+                "right", assertInstanceOf(PanelView.Text.class, leftRow.right()).value());
+        assertThrows(NullPointerException.class, () -> PanelView.leftRow(null, PanelView.text("x")));
+        assertThrows(NullPointerException.class, () -> PanelView.leftRow(PanelView.text("x"), null));
+    }
+
+    @Test
+    void textSupportsValidatedFontScales() {
+        final PanelView.Text scaled = PanelView.text("large", false, 1.25f);
+        assertEquals(1.25f, scaled.fontScale());
+        assertFalse(scaled.centered());
+        final PanelView.Text centered = PanelView.textCentered("large centered", true, 1.5f);
+        assertEquals(1.5f, centered.fontScale());
+        assertTrue(centered.centered());
+        assertTrue(centered.grayed());
+        assertThrows(IllegalArgumentException.class, () -> PanelView.text("x", false, 0.4f));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.text("x", false, 3.1f));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.text("x", false, Float.NaN));
+    }
+
+    @Test
+    void iconButtonCarriesAPngMaskTooltipAndAction() {
+        final byte[] png = java.util.Base64.getDecoder()
+                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+        final PanelView.IconButton button = PanelView.iconButton("layout", png, "Layout: 6 columns", "board.layout");
+        assertEquals("layout", button.id());
+        assertEquals("Layout: 6 columns", button.tooltip());
+        assertEquals("board.layout", button.actionId());
+        assertArrayEquals(png, button.pngBytes());
+        assertThrows(IllegalArgumentException.class, () -> PanelView.iconButton(" ", png, "tip", "a"));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.iconButton("id", png, " ", "a"));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.iconButton("id", png, "tip", " "));
+        assertThrows(IllegalArgumentException.class, () -> PanelView.iconButton("id", new byte[] {1, 2}, "tip", "a"));
+    }
+
+    @Test
+    void paddedCarriesNonNegativeInsets() {
+        final PanelView.Padded padded = PanelView.padded(PanelView.text("Title"), 0, 12, 0, 4);
+        assertEquals(0, padded.top());
+        assertEquals(12, padded.left());
+        assertEquals(0, padded.bottom());
+        assertEquals(4, padded.right());
+        assertThrows(IllegalArgumentException.class, () -> PanelView.padded(PanelView.text("Title"), -1, 0, 0, 0));
+        assertThrows(NullPointerException.class, () -> PanelView.padded(null, 0, 0, 0, 0));
     }
 }
