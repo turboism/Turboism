@@ -14,8 +14,6 @@ import javax.swing.SwingUtilities;
 
 /** Native ArtMesh extended interpolation, with full source/cache recovery checks. */
 final class EditorParameterInterpolationAccess {
-    private static final String M = "cubism.editor-model.";
-    private static final String S = "cubism.editor-history.semantic.";
     private static final long MAX_POSITION_SAMPLES = 32_000_000;
     private static final int MAX_GRID_FORMS = 4096;
     private final VerifiedMemberResolver resolver;
@@ -67,10 +65,12 @@ final class EditorParameterInterpolationAccess {
             if (requested.method() == ParameterInterpolation.Method.SNS_CURVE)
                 throw new UnsupportedOperationException("SNS curve authoring is not verified by this adapter.");
             if (requested.method() != ParameterInterpolation.Method.LINEAR
-                    && list(call("keyform-binding.keys", binding)).size() < 3)
+                    && list(call("cubism.editor-model.keyform-binding.keys", binding))
+                                    .size()
+                            < 3)
                 throw new IllegalArgumentException("Ellipse interpolation requires at least three source keys.");
-            if (selected.put(guid(call("keyform-binding.parameter-guid", binding)), requested) != null)
-                throw new IllegalArgumentException("Duplicate parameter identity.");
+            if (selected.put(guid(call("cubism.editor-model.keyform-binding.parameter-guid", binding)), requested)
+                    != null) throw new IllegalArgumentException("Duplicate parameter identity.");
         }
         var before = snapshot(id, source);
         if (!before.source().morphKeys().isEmpty()) {
@@ -100,7 +100,7 @@ final class EditorParameterInterpolationAccess {
         Object[] undo = new Object[1];
         Object[] preparedExtension = new Object[1];
         Object[] structuralUndo = new Object[1];
-        Object app = resolver.invokeStatic(M + "app-controller.instance");
+        Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         coordinator.mutate(
                 authoringBinding,
                 new EditorUndoContribution(
@@ -131,31 +131,34 @@ final class EditorParameterInterpolationAccess {
                                 resolver.invoke("cubism.texture-atlas.group-undo.add", undo[0], structuralUndo[0]);
                             }
                             Object allEdit = call(
-                                    "parameter-controllable-handler.create-undo-for-all-edit",
-                                    call("parameter-controllable-source.handler", source),
+                                    "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+                                    call("cubism.editor-model.parameter-controllable-source.handler", source),
                                     label);
                             resolver.invoke("cubism.texture-atlas.group-undo.add", undo[0], allEdit);
-                            if (!Boolean.TRUE.equals(call("undo.add", edit, undo[0], true))) {
+                            if (!Boolean.TRUE.equals(call("cubism.editor-model.undo.add", edit, undo[0], true))) {
                                 throw new IllegalStateException("Cubism rejected interpolation Undo admission.");
                             }
-                            var listener = resolver.createFunctionalProxy(M + "undo-listener.class", ignored -> {
-                                rebuild(source);
-                                return null;
-                            });
-                            if (Boolean.FALSE.equals(call("undo.add-listener", undo[0], listener))) {
+                            var listener = resolver.createFunctionalProxy(
+                                    "cubism.editor-model.undo-listener.class", ignored -> {
+                                        rebuild(source);
+                                        return null;
+                                    });
+                            if (Boolean.FALSE.equals(
+                                    call("cubism.editor-model.undo.add-listener", undo[0], listener))) {
                                 throw new IllegalStateException("Cubism rejected interpolation Undo listener.");
                             }
                             if (coordinator.claimRootUndoListener(
                                     authoringBinding, edit, "parameter-interpolation.model-refresh")) {
-                                var rootListener =
-                                        resolver.createFunctionalProxy(M + "undo-listener.class", ignored -> {
-                                            call("model-source.update-instances", modelSource);
-                                            Object pack = call("app-controller.complete-pack", app);
-                                            call("complete-pack.update-parameter", pack, true);
-                                            call("complete-pack.repaint-canvas", pack, true);
+                                var rootListener = resolver.createFunctionalProxy(
+                                        "cubism.editor-model.undo-listener.class", ignored -> {
+                                            call("cubism.editor-model.model-source.update-instances", modelSource);
+                                            Object pack = call("cubism.editor-model.app-controller.complete-pack", app);
+                                            call("cubism.editor-model.complete-pack.update-parameter", pack, true);
+                                            call("cubism.editor-model.complete-pack.repaint-canvas", pack, true);
                                             return null;
                                         });
-                                if (Boolean.FALSE.equals(call("undo.add-listener", edit, rootListener))) {
+                                if (Boolean.FALSE.equals(
+                                        call("cubism.editor-model.undo.add-listener", edit, rootListener))) {
                                     throw new IllegalStateException(
                                             "Cubism rejected interpolation root Undo listener.");
                                 }
@@ -170,10 +173,14 @@ final class EditorParameterInterpolationAccess {
                                 resolver.invoke("cubism.texture-atlas.undo.force-redo", structuralUndo[0]);
                             for (var entry : selected.entrySet()) {
                                 Object currentBinding = list(call(
-                                                "keyform-grid.bindings",
-                                                call("parameter-controllable.keyform-grid", source)))
+                                                "cubism.editor-model.keyform-grid.bindings",
+                                                call(
+                                                        "cubism.editor-model.parameter-controllable.keyform-grid",
+                                                        source)))
                                         .stream()
-                                        .filter(candidate -> guid(call("keyform-binding.parameter-guid", candidate))
+                                        .filter(candidate -> guid(call(
+                                                        "cubism.editor-model.keyform-binding.parameter-guid",
+                                                        candidate))
                                                 .equals(entry.getKey()))
                                         .findFirst()
                                         .orElseThrow();
@@ -222,8 +229,8 @@ final class EditorParameterInterpolationAccess {
                         },
                         () -> {
                             requireCurrent.run();
-                            if (undo[0] != null) call("undo.execute-undo", undo[0]);
-                            call("model-source.update-instances", modelSource);
+                            if (undo[0] != null) call("cubism.editor-model.undo.execute-undo", undo[0]);
+                            call("cubism.editor-model.model-source.update-instances", modelSource);
                         },
                         () -> {
                             if (coordinator.isCreatedTargetRestored(authoringBinding, source)) return true;
@@ -256,15 +263,16 @@ final class EditorParameterInterpolationAccess {
     private Snapshot snapshot(ArtMeshId id, Object source) {
         var stored = new EditorArtMeshAuthoringReadAccess(resolver).read(id, source);
         Object ext = extension(source);
-        List<Object> otherExtensions = new ArrayList<>(list(call("parameter-controllable-source.extensions", source)));
+        List<Object> otherExtensions =
+                new ArrayList<>(list(call("cubism.editor-model.parameter-controllable-source.extensions", source)));
         if (ext != null) otherExtensions.remove(ext);
-        List<Float> opacities = list(call("art-mesh-source.keyforms", source)).stream()
-                .map(form -> number(call("drawable-form.opacity", form)))
+        List<Float> opacities = list(call("cubism.editor-model.art-mesh-source.keyforms", source)).stream()
+                .map(form -> number(call("cubism.editor-model.drawable-form.opacity", form)))
                 .toList();
         return new Snapshot(
                 stored,
                 opacities,
-                axes(call("parameter-controllable.keyform-grid", source)),
+                axes(call("cubism.editor-model.parameter-controllable.keyform-grid", source)),
                 List.copyOf(otherExtensions),
                 ext == null ? Optional.empty() : Optional.of(cache(ext, source, stored)));
     }
@@ -298,7 +306,9 @@ final class EditorParameterInterpolationAccess {
                 .toList());
         Map<String, Integer> cacheIds = new HashMap<>();
         for (int i = 0; i < forms.size(); i++) {
-            String id = text(call("form-guid.value", resolver.invoke(S + "form.guid", forms.get(i))));
+            String id = text(call(
+                    "cubism.editor-model.form-guid.value",
+                    resolver.invoke("cubism.editor-history.semantic.form.guid", forms.get(i))));
             if (sourceIds.contains(id) || cacheIds.putIfAbsent(id, i) != null)
                 throw new IllegalStateException("Duplicate cached/source form identity.");
         }
@@ -309,7 +319,8 @@ final class EditorParameterInterpolationAccess {
             rows = cells.size();
             if (rows > MAX_GRID_FORMS) throw new IllegalStateException("Stored interpolation grid exceeds budget.");
             for (Object row : cells) {
-                String id = text(call("form-guid.value", call("cubism.editor-model.keyform-grid-row.guid", row)));
+                String id = text(call(
+                        "cubism.editor-model.form-guid.value", call("cubism.editor-model.keyform-grid-row.guid", row)));
                 Integer cached = cacheIds.get(id);
                 if (cached != null) {
                     put(hash, "CACHE");
@@ -321,18 +332,23 @@ final class EditorParameterInterpolationAccess {
                     put(hash, "SOURCE");
                     put(hash, id);
                 }
-                Object access = resolver.invoke(S + "keyform-on-grid.access-key", row);
-                for (Object coordinate : list(resolver.invoke(S + "keyform-access-key.coordinates", access))) {
-                    Object binding = resolver.invoke(S + "key-on-parameter.binding", coordinate);
-                    put(hash, guid(call("keyform-binding.parameter-guid", binding)));
-                    put(hash, Float.floatToIntBits(number(resolver.invoke(S + "key-on-parameter.value", coordinate))));
+                Object access = resolver.invoke("cubism.editor-history.semantic.keyform-on-grid.access-key", row);
+                for (Object coordinate : list(
+                        resolver.invoke("cubism.editor-history.semantic.keyform-access-key.coordinates", access))) {
+                    Object binding =
+                            resolver.invoke("cubism.editor-history.semantic.key-on-parameter.binding", coordinate);
+                    put(hash, guid(call("cubism.editor-model.keyform-binding.parameter-guid", binding)));
+                    put(
+                            hash,
+                            Float.floatToIntBits(number(resolver.invoke(
+                                    "cubism.editor-history.semantic.key-on-parameter.value", coordinate))));
                 }
             }
         }
         if (referencedCache.size() != forms.size())
             throw new IllegalStateException("Unreferenced interpolation cache form.");
         for (Object form : forms) {
-            Object data = call("art-mesh-form.positions", form);
+            Object data = call("cubism.editor-model.art-mesh-form.positions", form);
             if (!(data instanceof float[] positions) || positions.length % 2 != 0)
                 throw new IllegalStateException("Invalid cached positions.");
             if (positions.length / 2 != stored.sourceGeometry().positions().size())
@@ -345,8 +361,8 @@ final class EditorParameterInterpolationAccess {
                 if (!Float.isFinite(value)) throw new IllegalStateException("Nonfinite interpolation position.");
                 put(hash, Float.floatToIntBits(value));
             }
-            put(hash, (Integer) call("drawable-form.draw-order", form));
-            put(hash, Float.floatToIntBits(number(call("drawable-form.opacity", form))));
+            put(hash, (Integer) call("cubism.editor-model.drawable-form.draw-order", form));
+            put(hash, Float.floatToIntBits(number(call("cubism.editor-model.drawable-form.opacity", form))));
         }
         put(hash, forms.size());
         return new Cache(flag, rows, hash.finish());
@@ -354,10 +370,10 @@ final class EditorParameterInterpolationAccess {
 
     private List<Axis> axes(Object grid) {
         var axes = new ArrayList<Axis>();
-        for (Object binding : list(call("keyform-grid.bindings", grid))) {
+        for (Object binding : list(call("cubism.editor-model.keyform-grid.bindings", grid))) {
             axes.add(new Axis(
-                    guid(call("keyform-binding.parameter-guid", binding)),
-                    list(call("keyform-binding.keys", binding)).stream()
+                    guid(call("cubism.editor-model.keyform-binding.parameter-guid", binding)),
+                    list(call("cubism.editor-model.keyform-binding.keys", binding)).stream()
                             .map(EditorParameterInterpolationAccess::number)
                             .toList(),
                     settings(binding),
@@ -381,13 +397,16 @@ final class EditorParameterInterpolationAccess {
 
     private Object requireBinding(Object source, Object parameterGuid) {
         return Objects.requireNonNull(
-                call("keyform-grid.find-binding", call("parameter-controllable.keyform-grid", source), parameterGuid),
+                call(
+                        "cubism.editor-model.keyform-grid.find-binding",
+                        call("cubism.editor-model.parameter-controllable.keyform-grid", source),
+                        parameterGuid),
                 "The target is not bound to this parameter.");
     }
 
     private Object extension(Object source) {
         Object found = null;
-        for (Object candidate : list(call("parameter-controllable-source.extensions", source))) {
+        for (Object candidate : list(call("cubism.editor-model.parameter-controllable-source.extensions", source))) {
             if (resolver.isInstance("cubism.editor-model.extended-interpolation.class", candidate)) {
                 if (found != null) throw new IllegalStateException("Duplicate interpolation extensions.");
                 found = candidate;
@@ -432,11 +451,11 @@ final class EditorParameterInterpolationAccess {
     }
 
     private Object call(String alias, Object target, Object... arguments) {
-        return resolver.invoke(alias.startsWith(M) ? alias : M + alias, target, arguments);
+        return resolver.invoke(alias, target, arguments);
     }
 
     private String guid(Object guid) {
-        return text(call("guid.value", guid));
+        return text(call("cubism.editor-model.guid.value", guid));
     }
 
     private static String text(Object value) {

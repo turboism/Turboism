@@ -15,7 +15,6 @@ import javax.swing.SwingUtilities;
  * extended grids and interpolation settings are never changed.
  */
 final class NativeInterpolationSaveCache {
-    private static final String M = "cubism.editor-model.";
     private static final long MAX_SERIALIZED_CACHE_VERTICES = 16_000_000;
 
     static <T> T save(VerifiedMemberResolver resolver, Object source, Supplier<T> nativeSave) {
@@ -30,24 +29,25 @@ final class NativeInterpolationSaveCache {
             return nativeSave.get();
         // Resolve every member before clearing the first cache.
         for (String alias : List.of(
-                "model-source.all-art-meshes",
-                "parameter-controllable-source.extensions",
-                "extended-interpolation.owner",
-                "extended-interpolation.forms",
-                "art-mesh-form.positions")) {
-            resolver.bind(M + alias);
+                "cubism.editor-model.model-source.all-art-meshes",
+                "cubism.editor-model.parameter-controllable-source.extensions",
+                "cubism.editor-model.extended-interpolation.owner",
+                "cubism.editor-model.extended-interpolation.forms",
+                "cubism.editor-model.art-mesh-form.positions")) {
+            resolver.bind(alias);
         }
-        resolver.verifiedSelector(M + "extended-interpolation.class");
+        resolver.verifiedSelector("cubism.editor-model.extended-interpolation.class");
         var caches = new ArrayList<List<Object>>();
         long vertices = 0;
-        for (Object mesh : list(resolver.invoke(M + "model-source.all-art-meshes", source))) {
-            for (Object ext : list(resolver.invoke(M + "parameter-controllable-source.extensions", mesh))) {
-                if (!resolver.isInstance(M + "extended-interpolation.class", ext)) continue;
-                if (resolver.invoke(M + "extended-interpolation.owner", ext) != mesh)
+        for (Object mesh : list(resolver.invoke("cubism.editor-model.model-source.all-art-meshes", source))) {
+            for (Object ext :
+                    list(resolver.invoke("cubism.editor-model.parameter-controllable-source.extensions", mesh))) {
+                if (!resolver.isInstance("cubism.editor-model.extended-interpolation.class", ext)) continue;
+                if (resolver.invoke("cubism.editor-model.extended-interpolation.owner", ext) != mesh)
                     throw new IllegalStateException("Foreign interpolation cache owner.");
-                List<Object> forms = list(resolver.invoke(M + "extended-interpolation.forms", ext));
+                List<Object> forms = list(resolver.invoke("cubism.editor-model.extended-interpolation.forms", ext));
                 for (Object form : forms) {
-                    Object positions = resolver.invoke(M + "art-mesh-form.positions", form);
+                    Object positions = resolver.invoke("cubism.editor-model.art-mesh-form.positions", form);
                     if (!(positions instanceof float[] xy) || xy.length % 2 != 0)
                         throw new IllegalStateException("Invalid interpolation cache positions.");
                     vertices = Math.addExact(vertices, xy.length / 2);
