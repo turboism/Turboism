@@ -3,12 +3,12 @@
 本目录用于管理 Turboism 的人工测试模型、PSD 及 3D 几何测试夹具。为了保持 Git 仓库精简并防范大文件与私人资产泄露，仓库采用**清单化管理 + 版本化 Release 资产分发**策略。
 
 - **小体积几何夹具（< 1MB）**：直接以 `storage: git` 形式入库受版本控制。
-- **二进制大文件（CMO3、PSD、CAN3 等）**：**严禁直接提交 Git**。通过 `test-assets/corpus.json` 登记清单（文件名、字节数、SHA-256 哈希），二进制归档发布至 GitHub Releases，使用 `scripts/test_corpus.py` 工具按需拉取至本地共享缓存并映射至工作区。
+- **二进制大文件（CMO3、PSD、CAN3 等）**：**严禁直接提交 Git**。通过 `testing/assets/corpus.json` 登记清单（文件名、字节数、SHA-256 哈希），二进制归档发布至 GitHub Releases，使用 `scripts/test_corpus.py` 工具按需拉取至本地共享缓存并映射至工作区。
 
 ## 目录结构
 
 ```text
-test-assets/
+testing/assets/
 ├── .gitignore                     # 排除本地拉取的 cmo3、psd 二进制产物
 ├── README.md                      # 测试集总说明（本文档）
 ├── corpus.json                    # 语料库总清单（Schema v1）
@@ -57,7 +57,7 @@ python3 scripts/test_corpus.py fetch texture-atlas-layout --copy
 ```
 
 - **共享缓存目录**：默认位于 `${XDG_CACHE_HOME:-~/.cache}/turboism/test-corpus/<dataset>@<version>/`。多个本地 worktree 之间共享同一缓存，不重复占用 118MB 磁盘。
-- **工作区映射**：默认创建指向缓存文件的符号链接，保留 `test-assets/texture-atlas-layout/{cmo3,psd}/...` 既有相对路径，既有单元测试与自动化脚本无需修改路径。
+- **工作区映射**：默认创建指向缓存文件的符号链接，保留 `testing/assets/texture-atlas-layout/{cmo3,psd}/...` 既有相对路径，既有单元测试与自动化脚本无需修改路径。
 
 ### 2. 校验语料 (`verify`)
 
@@ -85,14 +85,14 @@ Turboism 遵守严格的代码仓库卫生（Hygiene）防范策略：
 
 1. **绝对禁止**：严禁提交任何用户私有工程资产（如未经审查的私有模型、私人插画 PSD）、第三方未授权 3D 模型（如猫/苹果等第三方网格）以及任何不在官方测试清单中的二进制文件。
 2. **强制门禁**：
-   - 根目录 `.gitignore` 与 `test-assets/.gitignore` 排除所有 `*.cmo3`、`*.can3`、`*.cmo3.bak`、`*.psd`、`*.moc3`。
+   - 根目录 `.gitignore` 与 `testing/assets/.gitignore` 排除所有 `*.cmo3`、`*.can3`、`*.cmo3.bak`、`*.psd`、`*.moc3`。
    - `scripts/check_remote_hygiene.py` 在 pre-commit、pre-push、`devCheck` 与 CI 门禁中 fail-closed 拦截上述二进制后缀，即使使用 `git add -f` 强行暂存也会被拒绝提交。
 
 ## 如何新增测试数据集
 
 1. **确定许可与来源**：
    - 语料必须具备清晰且兼容的开源许可（如 CC0 1.0、MIT、Apache-2.0 等）。私有/不明许可资产严禁纳入。
-2. **在 `test-assets/corpus.json` 登记元数据**：
+2. **在 `testing/assets/corpus.json` 登记元数据**：
    - 声明 `id`、`version`、`license`、`storage: "release"`、`targetDir`、`usedBy`。
    - 逐个文件测量并记录相对路径、字节大小与 SHA-256 哈希。
 3. **打包确定性归档 (`pack`)**：

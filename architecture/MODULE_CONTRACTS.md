@@ -279,20 +279,20 @@ edge that made the selector package depend on the resolver. Leaf-package cycles:
   lock or mutable static state. Callers own the bytes, the thread and the failure
   presentation. A migration supplied by a plugin runs on the typed-config I/O lane
   the `:runtime` facade owns, never inside the kernel.
-- **Tests**: `persistence-core/src/test/java/dev/turboism/persistence/config/**`
+- **Tests**: `core/persistence/src/test/java/dev/turboism/persistence/config/**`
   pins the codec, document-format, schema-admission and migration outcomes;
   `:runtime` keeps `PersistenceGoldenSnapshotsTest`, `TypedConfigRecoveryPointTest`
   and `RuntimeTypedPluginConfigRegistryTest` as the production read/migrate/recover
   evidence through the real file store.
 - **Backward compatibility**: the on-disk format is frozen by
-  `tests/fixtures/snapshots/typed-config/**` and `checkGoldenSnapshotManifest`: the
+  `testing/fixtures/snapshots/typed-config/**` and `checkGoldenSnapshotManifest`: the
   `turboism-typed-config-v1` header, sorted base64url entries, schema-version and
   revision metadata must stay byte-identical. Migration failure, future-version
   rejection and idempotence semantics are unchanged; no SDK type, plugin lifecycle
   hook or class identity moves.
 - **Enforcement**: `checkModuleBoundaries` (declared and resolved Gradle edges,
   the source import allowlist and a compiled-bytecode scan over
-  `persistence-core/build/classes/java/main`), the plugin boundary dotted root
+  `core/persistence/build/classes/java/main`), the plugin boundary dotted root
   `persistence`, `checkDependencyInventory`, `checkCodeQuality`,
   `checkThrowableContainment` and `checkReviewedReleases`, whose inputs now include
   the module's production sources.
@@ -354,7 +354,7 @@ reviewable change.
   executor, lock, cache lifecycle or static mutable state. Callers supply annotation
   instances, version strings and evidence sets on their own thread. No method reads a
   file, the host, the environment or a classloader.
-- **Tests**: `compatibility-policy/src/test/java/dev/turboism/compatibility/policy/**`
+- **Tests**: `core/compatibility-policy/src/test/java/dev/turboism/compatibility/policy/**`
   pins the reviewed matrix, unknown-future fail-closed behaviour, annotation range
   expansion/exclusion/intersection and selector evidence admission offline, including
   the deep-adaptation targets 5.2.03 and 5.3.02+.
@@ -366,7 +366,7 @@ reviewable change.
   plugin lifecycle, host load order and persisted data are unchanged.
 - **Enforcement**: `checkModuleBoundaries` (declared and resolved Gradle edges, the
   source import allowlist and a compiled-bytecode scan over
-  `compatibility-policy/build/classes/java/main`), the plugin boundary dotted root
+  `core/compatibility-policy/build/classes/java/main`), the plugin boundary dotted root
   `compatibility`, `checkDependencyInventory`, `checkCodeQuality`,
   `checkThrowableContainment`, `checkReviewedReleases` and `checkCompatibilityMatrix`,
   whose inputs include the module's production sources.

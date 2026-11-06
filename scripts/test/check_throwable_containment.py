@@ -22,16 +22,16 @@ from pathlib import Path
 
 PRODUCTION_ROOTS = (
     "sdk/src/main/java",
-    "core-contract/src/main/java",
-    "event-processor/src/main/java",
+    "core/contract/src/main/java",
+    "core/event-processor/src/main/java",
     "graal-host/src/main/java",
     "runtime/src/main/java",
     # Build-time review tooling compiled in :runtime but excluded from the runtime JAR; it is
     # production source for the CLI lanes and holds itself to the same policy.
     "runtime/src/tooling/java",
     "bootstrap/src/main/java",
-    "persistence-core/src/main/java",
-    "compatibility-policy/src/main/java",
+    "core/persistence/src/main/java",
+    "core/compatibility-policy/src/main/java",
     "scripts/verification-sources/templates",
 )
 PLUGIN_ROOT = "plugins"

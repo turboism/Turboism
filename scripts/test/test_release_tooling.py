@@ -333,7 +333,12 @@ class RootReadmeTest(unittest.TestCase):
         english_links = None
         for filename in self.PAGES:
             links = re.findall(r"\[[^\]]+\]\(([^)]+)\)", (ROOT / filename).read_text(encoding="utf-8"))
-            normalized_links = ["EULA" if link == self.EULA_PATHS[filename] else link
+            # Localized docs (`*_zh.md`, `*_ja.md`, `*_ko.md`) are the per-language
+            # variant of the same underlying page; normalize the suffix so every
+            # language must reference the same doc families while keeping its
+            # localized file, mirroring the per-language EULA normalization.
+            normalized_links = ["EULA" if link == self.EULA_PATHS[filename]
+                                else re.sub(r"_(?:zh|ja|ko)\.md$", ".md", link)
                                 for link in links]
             if english_links is None:
                 english_links = Counter(normalized_links)

@@ -8,7 +8,7 @@ import re
 import sys
 from pathlib import Path, PurePosixPath
 
-ROOT = Path(__file__).resolve().parents[1] / "tests/fixtures/snapshots"
+ROOT = Path(__file__).resolve().parents[1] / "testing/fixtures/snapshots"
 ALLOWED_FAMILIES = {
     "runtime-config",
     "typed-config",

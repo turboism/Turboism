@@ -50,10 +50,10 @@ PRODUCTION_ROOTS = (
     # production source for the CLI lanes, so it keeps Javadoc and naming coverage.
     "runtime/src/tooling/java",
     "bootstrap/src/main/java",
-    "core-contract/src/main/java",
-    "persistence-core/src/main/java",
-    "compatibility-policy/src/main/java",
-    "event-processor/src/main/java",
+    "core/contract/src/main/java",
+    "core/persistence/src/main/java",
+    "core/compatibility-policy/src/main/java",
+    "core/event-processor/src/main/java",
     "graal-host/src/main/java",
     # Generated verification manifests/contracts are authored as templates here;
     # scanning them keeps Javadoc and naming coverage on the production source
@@ -68,8 +68,8 @@ SOURCE_SCAN_ROOTS = PRODUCTION_ROOTS + (
     # Runtime test fixtures (`dev.turboism.testkit`) are consumed by :testing:integration-tests
     # tests too, so they carry the same rules as the test trees they serve.
     "runtime/src/testFixtures/java",
-    "persistence-core/src/test/java",
-    "compatibility-policy/src/test/java",
+    "core/persistence/src/test/java",
+    "core/compatibility-policy/src/test/java",
     "bootstrap/src/test/java",
     "testing/integration-tests/src/test/java",
 )

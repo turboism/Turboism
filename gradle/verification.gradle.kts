@@ -234,10 +234,10 @@ tasks.register<Exec>("checkThrowableContainment") {
     inputs.files("scripts/test/check_throwable_containment.py")
     inputs.files(
         fileTree("sdk/src/main/java") { include("**/*.java") },
-        fileTree("core-contract/src/main/java") { include("**/*.java") },
-        fileTree("persistence-core/src/main/java") { include("**/*.java") },
-        fileTree("compatibility-policy/src/main/java") { include("**/*.java") },
-        fileTree("event-processor/src/main/java") { include("**/*.java") },
+        fileTree("core/contract/src/main/java") { include("**/*.java") },
+        fileTree("core/persistence/src/main/java") { include("**/*.java") },
+        fileTree("core/compatibility-policy/src/main/java") { include("**/*.java") },
+        fileTree("core/event-processor/src/main/java") { include("**/*.java") },
         fileTree("graal-host/src/main/java") { include("**/*.java") },
         fileTree("runtime/src/main/java") { include("**/*.java") },
         fileTree("runtime/src/tooling/java") { include("**/*.java") },
@@ -269,10 +269,10 @@ tasks.register<Exec>("checkCodeQuality") {
         fileTree("runtime/src/main/java") { include("**/*.java") },
         fileTree("runtime/src/tooling/java") { include("**/*.java") },
         fileTree("bootstrap/src/main/java") { include("**/*.java") },
-        fileTree("core-contract/src/main/java") { include("**/*.java") },
-        fileTree("persistence-core/src/main/java") { include("**/*.java") },
-        fileTree("compatibility-policy/src/main/java") { include("**/*.java") },
-        fileTree("event-processor/src/main/java") { include("**/*.java") },
+        fileTree("core/contract/src/main/java") { include("**/*.java") },
+        fileTree("core/persistence/src/main/java") { include("**/*.java") },
+        fileTree("core/compatibility-policy/src/main/java") { include("**/*.java") },
+        fileTree("core/event-processor/src/main/java") { include("**/*.java") },
         fileTree("graal-host/src/main/java") { include("**/*.java") },
         fileTree("plugins") { include("**/src/main/**/*.java") },
         fileTree("compatibility/cubism") { include("**/*.json") }
@@ -281,8 +281,8 @@ tasks.register<Exec>("checkCodeQuality") {
     inputs.files(
         fileTree("runtime/src/test/java") { include("**/*.java") },
         fileTree("runtime/src/testFixtures/java") { include("**/*.java") },
-        fileTree("persistence-core/src/test/java") { include("**/*.java") },
-        fileTree("compatibility-policy/src/test/java") { include("**/*.java") },
+        fileTree("core/persistence/src/test/java") { include("**/*.java") },
+        fileTree("core/compatibility-policy/src/test/java") { include("**/*.java") },
         fileTree("bootstrap/src/test/java") { include("**/*.java") },
         fileTree("testing/integration-tests/src/test/java") { include("**/*.java") },
         fileTree("buildSrc") { include("**/*.java", "**/*.kts") },
@@ -395,9 +395,9 @@ val checkReviewedReleases by tasks.registering(Exec::class) {
         include("scripts/**/*.py", "scripts/**/*.json", "scripts/**/*.java", "scripts/**/*.template",
                 "scripts/preview/run-*.sh", "compatibility/cubism/**/*.json", "compatibility/cubism/index.md",
                 "sdk/src/main/**/*.java", "runtime/src/main/**/*.java", "bootstrap/src/main/**/*.java",
-                "core-contract/src/main/**/*.java", "persistence-core/src/main/**/*.java",
-                "compatibility-policy/src/main/**/*.java",
-                "event-processor/src/main/**/*.java",
+                "core/contract/src/main/**/*.java", "core/persistence/src/main/**/*.java",
+                "core/compatibility-policy/src/main/**/*.java",
+                "core/event-processor/src/main/**/*.java",
                 "graal-host/src/main/**/*.java", "buildSrc/src/main/**/*.java",
                 "packaging/java-installer/listener-src/**/*.java", "templates/**/*.java",
                 "plugins/*/src/main/**/*.java", "plugins/mcp/src/main/resources/META-INF/turboism/mcp-sdk-coverage.json",
@@ -1521,7 +1521,7 @@ tasks.register<Exec>("checkLocalizedChangelogs") {
         "CHANGELOG.zh-CN.md",
         "CHANGELOG.ja.md",
         "CHANGELOG.ko.md",
-        fileTree("release-notes") { include("*.json") },
+        fileTree("distribution/release-notes") { include("*.json") },
         "scripts/release/render_localized_changelogs.py"
     )
     VerificationStamps.apply(this)

@@ -85,10 +85,10 @@ dalsoo=("$root/build/worktree/$id/atlas-dalsoo-polygon/libs/"*.jar)
 [[ ${#maxrects[@]} == 1 && ${#dalsoo[@]} == 1 && -f "$probe" && -f "$agent" ]] || { echo 'Build previewBundle, both Atlas plugin jars and package-atlas-queue-probe.sh first' >&2; exit 2; }
 fixture_name="atlas_mapping_geometry_$count.cmo3"
 [[ "$dataset" != circle ]] || fixture_name="atlas_mapping_$count.cmo3"
-fixture="$root/test-assets/texture-atlas-layout/cmo3/$dataset/$fixture_name"
+fixture="$root/testing/assets/texture-atlas-layout/cmo3/$dataset/$fixture_name"
 if [[ "$heavy" == true ]]; then
   fixture_name=heavy.cmo3
-  fixture="$root/test-assets/texture-atlas-layout/heavy.cmo3"
+  fixture="$root/testing/assets/texture-atlas-layout/heavy.cmo3"
 fi
 exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
   --name atlas --version "$version" --run-label "$label-$variant-parallel-$parallel" \

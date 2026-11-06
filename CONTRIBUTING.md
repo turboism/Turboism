@@ -51,9 +51,9 @@ push is refused.
 
 ## Test corpus (测试语料)
 
-Large binary test assets (`*.cmo3`, `*.can3`, `*.psd`, `*.moc3`) are never committed to Git. They are tracked via `test-assets/corpus.json` and distributed through versioned GitHub Release assets.
+Large binary test assets (`*.cmo3`, `*.can3`, `*.psd`, `*.moc3`) are never committed to Git. They are tracked via `testing/assets/corpus.json` and distributed through versioned GitHub Release assets.
 
-- Overview, licenses, cache structure, and adding new datasets: see [`test-assets/README.md`](test-assets/README.md).
+- Overview, licenses, cache structure, and adding new datasets: see [`testing/assets/README.md`](testing/assets/README.md).
 - Fetch test assets into shared cache and link to worktree:
   ```sh
   python3 scripts/test_corpus.py fetch --all

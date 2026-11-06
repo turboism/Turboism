@@ -62,12 +62,12 @@ release notes use that reviewed base section; Beta's precise prerelease version
 is selected in the workflow input, not by rewriting the stable base for every try.
 Do **not** push a public version tag to trigger a build.
 Reviewed Simplified Chinese, Japanese and Korean notes for that base live in
-`release-notes/<version>.json`, bound to the SHA-256 of the trimmed English section.
+`distribution/release-notes/<version>.json`, bound to the SHA-256 of the trimmed English section.
 `englishSha256` is a staleness check, not a security control: a stale value fails promotion instead of reusing old text, and a base
 without that file is published with its English notes only. Nightly notes are
 generated from a frozen published baseline; they take no reviewed file.
 
-`release-notes/<version>.json` is the single source for localized changelog
+`distribution/release-notes/<version>.json` is the single source for localized changelog
 text: `scripts/release/render_localized_changelogs.py` rewrites every
 JSON-covered section of `CHANGELOG.zh-CN.md`/`CHANGELOG.ja.md`/`CHANGELOG.ko.md`
 verbatim, keeps pre-JSON history and the `Unreleased` sections as committed,

@@ -7,10 +7,10 @@
 ## 许可与分发说明
 
 - **使用许可**：**Creative Commons Zero v1.0 Universal (CC0 1.0)**（用户明确确认授权，覆盖历史文档中“仅当前测试，不再分发”的早期说明）。
-- **二进制分发**：本目录下的 17 份二进制模型与工程文件（9 份 CMO3、8 份 PSD，总计 123,517,686 字节）**不直接提交 Git**，由版本化 GitHub Release 资产统一分发，由仓库根目录 `test-assets/corpus.json` 清单管理。
+- **二进制分发**：本目录下的 17 份二进制模型与工程文件（9 份 CMO3、8 份 PSD，总计 123,517,686 字节）**不直接提交 Git**，由版本化 GitHub Release 资产统一分发，由仓库根目录 `testing/assets/corpus.json` 清单管理。
 - **获取方法**：
   ```sh
-  # 拉取并映射到本地 test-assets/texture-atlas-layout/ 目录
+  # 拉取并映射到本地 testing/assets/texture-atlas-layout/ 目录
   python3 scripts/test_corpus.py fetch texture-atlas-layout
 
   # 校验本地文件完整性与哈希
