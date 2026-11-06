@@ -158,6 +158,9 @@ class CorePublicApiAdmissionTest {
 
     @Test
     void rejectsNewCoreUnderOldProfileAndOldRuntimeClassesUnderNewProfile() throws Exception {
+        assumeTrue(
+                LEGACY_EVIDENCE != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         Path artifact = coreArtifact("5.3.04");
         try (URLClassLoader loader = loader(artifact);
                 URLClassLoader oldLoader = loader(coreArtifact("5.3.02"))) {
