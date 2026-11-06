@@ -1,9 +1,17 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "3c0c161693a9a09df924d0ef051d2f5b9919515cec9df7de83e11a0aa0b691b0",
+  "surfaceSha256": "4ab6b6b3adfcc5ffa930f48980e4c9f61bf81c5c983634a72ca22f5ec390aafb",
   "classes": {
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
+    "dev.turboism.sdk.cubism.export.ProtectedExportCensus": "0.68.1",
+    "dev.turboism.sdk.cubism.export.ProtectedExportContribution": "0.68.1",
+    "dev.turboism.sdk.cubism.export.ProtectedExportPlan": "0.68.1",
+    "dev.turboism.sdk.cubism.export.ProtectedExportPlan$Target": "0.68.1",
+    "dev.turboism.sdk.cubism.export.ProtectedExportPlanResult": "0.68.1",
+    "dev.turboism.sdk.cubism.export.ProtectedExportPlanResult$Admitted": "0.68.1",
+    "dev.turboism.sdk.cubism.export.ProtectedExportPlanResult$Rejected": "0.68.1",
+    "dev.turboism.sdk.cubism.export.ProtectedExportPlanner": "0.68.1",
     "dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService": "0.68.0",
     "dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService$Unavailable": "0.68.0",
     "dev.turboism.sdk.cubism.model.ArtMeshKeyformValues": "0.68.0",
@@ -24,6 +32,7 @@
     "dev.turboism.sdk.ui.window.TurboismProgressDialog": "0.67.4"
   },
   "members": {
+    "dev.turboism.sdk.cubism.export.ExportSettingsContributionService#contributeProtectedExport:(Ldev/turboism/sdk/cubism/export/ProtectedExportContribution;)Ldev/turboism/sdk/plugin/Registration;": "0.68.1",
     "dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot$Form#<init>:(Ljava/lang/String;Ljava/util/List;ILjava/util/Optional;)V": "0.68.0",
     "dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot$Form#opacity:()Ljava/util/Optional;": "0.68.0",
     "dev.turboism.sdk.cubism.model.Deformer#ordinaryKeyformWriteSupport:()Ldev/turboism/sdk/cubism/model/OrdinaryKeyformWriteSupport;": "0.68.0",

@@ -29,6 +29,25 @@ public interface ExportSettingsContributionService {
      */
     Registration contribute(ExportSettingsContribution contribution);
 
+    /**
+     * Registers one default-off protected-export option together with the planner that
+     * rewrites the staging copy's identities and flatten order.
+     *
+     * <p>Same registration lifetime and duplicate-option rule as {@link #contribute}: a
+     * protected-export contribution is an ordinary option that additionally carries
+     * planning authority. The default refuses, so a service that does not support
+     * protected export fails closed instead of silently dropping the planner.</p>
+     *
+     * @param contribution immutable contribution owning the option, its decision callback
+     *     and its planner
+     * @return registration whose close removes the contribution
+     * @throws UnsupportedOperationException when this service does not accept protected
+     *     export contributions
+     */
+    default Registration contributeProtectedExport(final ProtectedExportContribution contribution) {
+        throw new UnsupportedOperationException("protected export contribution is not available");
+    }
+
     /** Safe-mode instance: contribution is refused. */
     static ExportSettingsContributionService unavailable() {
         return Unavailable.INSTANCE;

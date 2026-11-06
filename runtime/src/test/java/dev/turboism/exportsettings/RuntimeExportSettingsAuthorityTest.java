@@ -11,6 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecisionCallback;
+import dev.turboism.sdk.cubism.export.ProtectedExportContribution;
+import dev.turboism.sdk.cubism.export.ProtectedExportPlanResult;
+import dev.turboism.sdk.cubism.export.ProtectedExportPlanner;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.plugin.Registration;
 import java.awt.BorderLayout;
@@ -530,7 +533,8 @@ class RuntimeExportSettingsAuthorityTest {
     @ValueSource(booleans = {true, false})
     void orchestrationHandoffReportsThroughTheOwningReporter(final boolean seamInstalled) throws Exception {
         final TestContext context = new TestContext(
-                (selected, documentId, modelId) -> ExportSettingsDecision.reject("protected-export.unavailable"));
+                (selected, documentId, modelId) -> ExportSettingsDecision.reject("protected-export.unavailable"),
+                census -> new ProtectedExportPlanResult.Rejected("protected-export.not-admitted"));
         final RuntimeExportSettingsAuthority authority = context.authority();
         final List<ExportSettingsVetoDiagnostic> vetoes = new ArrayList<>();
         final List<ExportSettingsVetoDiagnostic> refusals = new ArrayList<>();
@@ -562,6 +566,39 @@ class RuntimeExportSettingsAuthorityTest {
                         refusals.get(0).key());
                 assertEquals("redirect-seam-missing", refusals.get(0).detail());
             }
+        } finally {
+            orchestrator.close();
+        }
+    }
+
+    @Test
+    void orchestrationHandoffWithoutAContributedPlannerRefusesInsteadOfArming() throws Exception {
+        // A plain contribution for the orchestrated option carries no planner: nothing can
+        // plan the census, so the session must refuse rather than arm an unplannable run.
+        final TestContext context = new TestContext(
+                (selected, documentId, modelId) -> ExportSettingsDecision.reject("protected-export.unavailable"));
+        final RuntimeExportSettingsAuthority authority = context.authority();
+        final List<ExportSettingsVetoDiagnostic> refusals = new ArrayList<>();
+        authority.hostGeneration(7L);
+        authority.markProtectedExportRedirectSeamInstalled();
+
+        final Object owner = new Object();
+        final List<ExportSettingsVetoDiagnostic> sessionReports = new ArrayList<>();
+        final ProtectedExportOrchestrator orchestrator = orchestratorFixture(owner, true, sessionReports);
+        orchestrator.refusalReporter(refusals::add);
+        authority.protectedExportOrchestrator(orchestrator);
+        try {
+            final JPanel container = dialogContent();
+            assertNullResult(authority.attach(owner, container));
+            checkbox(container, "Localized protect").setSelected(true);
+
+            assertSame(Boolean.FALSE, authority.decide(owner), "the handoff still vetoes the outer export");
+            assertEquals(1, refusals.size());
+            assertEquals(
+                    ProtectedExportOrchestrator.NOT_ADMITTED_KEY,
+                    refusals.get(0).key());
+            assertEquals("planner-missing", refusals.get(0).detail());
+            assertTrue(sessionReports.isEmpty(), "no session may arm without a planner");
         } finally {
             orchestrator.close();
         }
@@ -712,6 +749,15 @@ class RuntimeExportSettingsAuthorityTest {
         }
 
         private TestContext(final ExportSettingsDecisionCallback callback) {
+            this(callback, null);
+        }
+
+        /**
+         * {@code planner} registers the option as a protected-export contribution; without
+         * it the option is a plain contribution, which can never arm an orchestrated
+         * session.
+         */
+        private TestContext(final ExportSettingsDecisionCallback callback, final ProtectedExportPlanner planner) {
             this.registryCallback = (selected, documentId, modelId) -> {
                 callbackCalls.add(selected);
                 callbackArguments.set(new CallbackArguments(selected, documentId, modelId));
@@ -720,7 +766,12 @@ class RuntimeExportSettingsAuthorityTest {
                 }
                 return callback.decide(selected, documentId, modelId);
             };
-            registry.contribute(new ExportSettingsContribution("protect", "export.protect", registryCallback));
+            if (planner == null) {
+                registry.contribute(new ExportSettingsContribution("protect", "export.protect", registryCallback));
+            } else {
+                registry.contributeProtectedExport(
+                        new ProtectedExportContribution("protect", "export.protect", registryCallback, planner));
+            }
         }
 
         private RuntimeExportSettingsAuthority authority() {

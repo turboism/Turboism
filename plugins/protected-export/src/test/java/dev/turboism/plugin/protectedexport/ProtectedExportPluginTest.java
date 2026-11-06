@@ -12,6 +12,9 @@ import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
+import dev.turboism.sdk.cubism.export.ProtectedExportCensus;
+import dev.turboism.sdk.cubism.export.ProtectedExportContribution;
+import dev.turboism.sdk.cubism.export.ProtectedExportPlanResult;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
@@ -28,7 +31,9 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -50,10 +55,39 @@ class ProtectedExportPluginTest {
         assertTrue(plugin.enabled());
         assertEquals(1, service.contributeCalls);
         assertEquals(1, service.activeRegistrations());
-        final ExportSettingsContribution contribution = service.contributions.get(0);
+        final ProtectedExportContribution contribution = service.protectedContributions.get(0);
         assertEquals(ProtectedExportPlugin.OPTION_ID, contribution.optionId());
         assertEquals(ProtectedExportPlugin.OPTION_LABEL_KEY, contribution.labelKey());
         assertNotNull(contribution.callback());
+        assertNotNull(contribution.planner(), "the option must carry the single protected-export planner");
+    }
+
+    @Test
+    void contributedPlannerPlansTheCensusWithoutReadingTheLiveModel() {
+        final RecordingService service = new RecordingService();
+        final RecordingModel model = RecordingModel.empty(MODEL_ID);
+        final RecordingCubism cubism = RecordingCubism.withDocument(model, document(DOCUMENT_ID, MODEL_ID.value()));
+        final ProtectedExportPlugin plugin = initialized(service, cubism);
+        plugin.enable();
+
+        final ProtectedExportPlanResult result = service.protectedContributions
+                .get(0)
+                .planner()
+                .plan(new ProtectedExportCensus(
+                        List.of(), Map.of(), List.of("guid-a"), List.of(), List.of(), Set.of(), Set.of(), Set.of()));
+
+        assertTrue(result instanceof ProtectedExportPlanResult.Admitted, "expected an admitted plan: " + result);
+        assertEquals(
+                "ArtMesh_2b13a8de1741fb77",
+                ((ProtectedExportPlanResult.Admitted) result)
+                        .plan()
+                        .artMeshTargets()
+                        .get("guid-a")
+                        .name());
+        // Planning is pure: the contributed planner never touches the live model.
+        assertEquals(0, model.partsReads);
+        assertEquals(0, model.drawablesReads);
+        assertEquals(0, model.updateCalls.get());
     }
 
     @Test
@@ -83,7 +117,7 @@ class ProtectedExportPluginTest {
         final ProtectedExportPlugin plugin = initialized(service, cubism);
 
         plugin.enable();
-        final ExportSettingsContribution first = service.contributions.get(0);
+        final ProtectedExportContribution first = service.protectedContributions.get(0);
         plugin.disable();
         plugin.enable();
 
@@ -156,7 +190,7 @@ class ProtectedExportPluginTest {
         final RecordingCubism cubism = RecordingCubism.withDocument(model, document(DOCUMENT_ID, MODEL_ID.value()));
         final ProtectedExportPlugin plugin = initialized(service, cubism);
         plugin.enable();
-        final var callback = service.contributions.get(0).callback();
+        final var callback = service.protectedContributions.get(0).callback();
         plugin.disable();
 
         final ExportSettingsDecision decision = callback.decide(true, DOCUMENT_ID, MODEL_ID);
@@ -174,7 +208,7 @@ class ProtectedExportPluginTest {
                 RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID), document(DOCUMENT_ID, MODEL_ID.value()));
         final ProtectedExportPlugin plugin = initialized(service, cubism);
         plugin.enable();
-        final var callback = service.contributions.get(0).callback();
+        final var callback = service.protectedContributions.get(0).callback();
         plugin.shutdown();
 
         assertUnavailable(callback.decide(true, DOCUMENT_ID, MODEL_ID));
@@ -191,7 +225,7 @@ class ProtectedExportPluginTest {
         plugin.enable();
 
         final ExportSettingsDecision decision =
-                service.contributions.get(0).callback().decide(false, null, null);
+                service.protectedContributions.get(0).callback().decide(false, null, null);
 
         assertEquals(ExportSettingsDecision.Outcome.PROCEED_UNCHANGED, decision.outcome());
         assertEquals(0, cubism.activeDocumentReads);
@@ -209,7 +243,7 @@ class ProtectedExportPluginTest {
         plugin.enable();
 
         final ExportSettingsDecision decision =
-                service.contributions.get(0).callback().decide(true, "different-document", MODEL_ID);
+                service.protectedContributions.get(0).callback().decide(true, "different-document", MODEL_ID);
 
         assertUnavailable(decision);
         assertEquals(1, cubism.activeDocumentReads);
@@ -225,8 +259,10 @@ class ProtectedExportPluginTest {
         final ProtectedExportPlugin plugin = initialized(service, cubism);
         plugin.enable();
 
-        final ExportSettingsDecision decision =
-                service.contributions.get(0).callback().decide(true, DOCUMENT_ID, new ModelId("callback-model"));
+        final ExportSettingsDecision decision = service.protectedContributions
+                .get(0)
+                .callback()
+                .decide(true, DOCUMENT_ID, new ModelId("callback-model"));
 
         assertUnavailable(decision);
         assertEquals(1, cubism.activeDocumentReads);
@@ -243,13 +279,13 @@ class ProtectedExportPluginTest {
         final ProtectedExportPlugin plugin = initialized(service, cubism);
         plugin.enable();
 
-        assertUnavailable(service.contributions.get(0).callback().decide(true, DOCUMENT_ID, MODEL_ID));
+        assertUnavailable(service.protectedContributions.get(0).callback().decide(true, DOCUMENT_ID, MODEL_ID));
         assertEquals(0, cubism.modelAccessReads);
         assertEquals(0, model.partsReads);
     }
 
     @Test
-    void checkedCallbackRunsReadOnlyPlannerButUnresolvedConditionCannotProceed() {
+    void checkedCallbackVetoesTheNativeFlowWithoutPlanningOnTheLiveModel() {
         final RecordingService service = new RecordingService();
         final RecordingModel model = RecordingModel.empty(MODEL_ID);
         final RecordingCubism cubism = RecordingCubism.withDocument(model, document(DOCUMENT_ID, MODEL_ID.value()));
@@ -257,14 +293,16 @@ class ProtectedExportPluginTest {
         plugin.enable();
 
         final ExportSettingsDecision decision =
-                service.contributions.get(0).callback().decide(true, DOCUMENT_ID, MODEL_ID);
+                service.protectedContributions.get(0).callback().decide(true, DOCUMENT_ID, MODEL_ID);
 
+        // The veto is the handoff: the runtime owns the census and the published plan, so
+        // this callback never walks the live model (the deleted duplicate planner did).
         assertUnavailable(decision);
-        assertTrue(model.partsReads > 0);
-        assertTrue(model.parametersReads > 0);
-        assertTrue(model.deformersReads > 0);
-        assertTrue(model.drawablesReads > 0);
-        assertTrue(model.gluesReads > 0);
+        assertEquals(0, model.partsReads);
+        assertEquals(0, model.parametersReads);
+        assertEquals(0, model.deformersReads);
+        assertEquals(0, model.drawablesReads);
+        assertEquals(0, model.gluesReads);
         assertEquals(0, model.updateCalls.get());
     }
 
@@ -276,7 +314,7 @@ class ProtectedExportPluginTest {
         final ProtectedExportPlugin plugin = initialized(service, cubism);
         plugin.enable();
 
-        assertUnavailable(service.contributions.get(0).callback().decide(true, null, null));
+        assertUnavailable(service.protectedContributions.get(0).callback().decide(true, null, null));
         assertEquals(0, cubism.activeDocumentReads);
         assertEquals(0, cubism.modelAccessReads);
         assertEquals(0, model.partsReads);
@@ -330,6 +368,7 @@ class ProtectedExportPluginTest {
 
     private static final class RecordingService implements ExportSettingsContributionService {
         private final List<ExportSettingsContribution> contributions = new ArrayList<>();
+        private final List<ProtectedExportContribution> protectedContributions = new ArrayList<>();
         private final List<RecordingRegistration> registrations = new ArrayList<>();
         private int contributeCalls;
         private RuntimeException failure;
@@ -341,6 +380,18 @@ class ProtectedExportPluginTest {
                 throw failure;
             }
             contributions.add(contribution);
+            final RecordingRegistration registration = new RecordingRegistration();
+            registrations.add(registration);
+            return registration;
+        }
+
+        @Override
+        public Registration contributeProtectedExport(final ProtectedExportContribution contribution) {
+            contributeCalls++;
+            if (failure != null) {
+                throw failure;
+            }
+            protectedContributions.add(contribution);
             final RecordingRegistration registration = new RecordingRegistration();
             registrations.add(registration);
             return registration;
