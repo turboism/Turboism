@@ -211,6 +211,11 @@
    "literal": "cubism.texture-atlas.read",
    "file": "runtime/src/main/java/dev/turboism/adapter/cubism/service/read/CubismReadCapabilityServiceImpl.java",
    "reason": "Capability id reported by the texture-atlas read service, not a VerifiedMemberResolver selector alias."
+  },
+  {
+   "literal": "cubism.editor-command.",
+   "file": "runtime/src/main/java/dev/turboism/adapter/cubism/command/RuntimeEditorCommandService.java",
+   "reason": "Operation-id prefix concatenated with the request's host command id before the permission gate, not a VerifiedMemberResolver selector alias; the suffixes are SDK command identifiers, not reviewed selector names."
   }
  ]
 }

@@ -78,8 +78,6 @@ VERIFICATION_PATH = "/mapping/verification/"
 # OptimizationCatalog declares bootstrap HookContributor policyIds (hookIds),
 # not VerifiedMemberResolver member aliases.
 OPTIMIZATION_CATALOG_PATH = "/config/optimization/"
-PRESET_ALIAS_PREFIX = "cubism.editor-model.label-color-type."
-PRESET_COLORS = ("red", "orange", "yellow", "green", "blue", "purple", "gray")
 # Reviewed 5.2.03 selectors verified statically against the exact artifact but not yet
 # invoked by production. They stay admitted because runtime admission pins the record
 # roster exactly; any further unconsumed alias widens admission silently and must fail.
@@ -408,11 +406,12 @@ def alias_namespaces(aliases: set[str]) -> set[str]:
 def is_alias_literal(value: str, namespaces: set[str]) -> bool:
     """Return whether a literal belongs to a reviewed alias namespace.
 
-    Prefix templates (``"cubism.editor-model." + suffix``) are concatenations that hide their
-    suffix from every scan; they stay out until that concatenation is deleted. A literal the
-    resolver receives in alias position is an alias whatever its namespace says.
+    A prefix fragment (``"cubism.editor-model."``) is not an alias: it is the visible half of a
+    concatenation that hides its suffix from every scan, so it fails closed unless it is pinned
+    as local vocabulary with a stated reason. A literal the resolver receives in alias position
+    is an alias whatever its namespace says.
     """
-    if not value or value.endswith("."):
+    if not value:
         return False
     return any(value.startswith(namespace) for namespace in namespaces)
 
@@ -450,7 +449,7 @@ def implementation_scan(
         production_sources.append((source, text))
 
     def admit(alias: str, source: Path, *, alias_position: bool = False) -> None:
-        if not alias or alias.endswith("."):
+        if not alias:
             return
         if namespaces is not None and not alias_position:
             if not is_alias_literal(alias, namespaces):
@@ -474,9 +473,6 @@ def implementation_scan(
                 admit(alias, source)
             unresolved.extend(
                 f"{reference} ({source.relative_to(root).as_posix()})" for reference in missing)
-        if "presetAlias(" in text and PRESET_ALIAS_PREFIX in text:
-            for color in PRESET_COLORS:
-                admit(PRESET_ALIAS_PREFIX + color, source)
     return aliases, unresolved
 
 
