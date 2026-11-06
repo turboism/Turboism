@@ -194,12 +194,15 @@ final class VerifiedCanvasCompositeElisionInstaller implements AutoCloseable {
      * @throws Exception when registration, retransformation or the proof fails
      */
     synchronized void install(final boolean production) throws Exception {
-        if (hook != null) return;
-        if (!(VerifiedInstall.install(spec(production), context)
-                instanceof VerifiedInstall.Attempt.Installed<CanvasCompositeElisionTarget> installed)) {
-            throw new IllegalStateException("canvas composite elision refused: host-not-supported-or-hook-disabled");
+        if (hook == null) {
+            if (!(VerifiedInstall.bind(spec(production), context)
+                    instanceof VerifiedInstall.Attempt.Installed<CanvasCompositeElisionTarget> bound)) {
+                throw new IllegalStateException(
+                        "canvas composite elision refused: host-not-supported-or-hook-disabled");
+            }
+            hook = bound.hook();
         }
-        hook = installed.hook();
+        hook.weave();
     }
 
     /** Injected consult count for the install marker log. */

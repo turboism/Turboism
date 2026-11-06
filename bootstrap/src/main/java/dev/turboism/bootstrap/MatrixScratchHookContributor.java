@@ -27,7 +27,7 @@ final class MatrixScratchHookContributor extends NativeOptimizationHookContribut
             return refused("host-not-supported-or-hook-disabled");
         }
         final VerifiedMatrixScratchInstaller installer =
-                new VerifiedMatrixScratchInstaller(environment.instrumentation(), host.artifact(), host.classLoader());
+                new VerifiedMatrixScratchInstaller(InstallContext.of(environment));
         installer.install();
         final boolean ownedEnableProperty = System.getProperty(MatrixScratchTransformer.ENABLE_PROPERTY) == null;
         if (ownedEnableProperty) {

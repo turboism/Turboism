@@ -153,12 +153,14 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
      * @throws Exception when registration, retransformation or the proof fails
      */
     synchronized void install(final boolean production) throws Exception {
-        if (hook != null) return;
-        if (!(VerifiedInstall.install(spec(production), context)
-                instanceof VerifiedInstall.Attempt.Installed<InputPathElisionTarget> installed)) {
-            throw new IllegalStateException("input path elision refused: host-not-supported-or-hook-disabled");
+        if (hook == null) {
+            if (!(VerifiedInstall.bind(spec(production), context)
+                    instanceof VerifiedInstall.Attempt.Installed<InputPathElisionTarget> bound)) {
+                throw new IllegalStateException("input path elision refused: host-not-supported-or-hook-disabled");
+            }
+            hook = bound.hook();
         }
-        hook = installed.hook();
+        hook.weave();
     }
 
     /** Injected consult count for the install marker log. */
