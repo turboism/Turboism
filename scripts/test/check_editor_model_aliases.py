@@ -1,11 +1,26 @@
 #!/usr/bin/env python3
-"""Check resolver-consumed Editor-model aliases against reviewed records.
+"""Check resolver-consumed host aliases against the reviewed verification records.
 
-The checker scans every runtime production Java source for aliases passed to VerifiedMemberResolver
-operations. It follows simple string constants and expands the finite preset-color alias builder.
-Implementation aliases not declared by the older exact-use records or the fixed additive subset of
-the public 5.3.03 reviewed record fail hard. Admitted method aliases not consumed by production also
-fail: reviewed admission must be no wider than actual use.
+Which vocabulary a ``cubism.*`` string belongs to is decided by the call site, never by the
+string alone. This checker owns the alias vocabulary: every string literal that sits in a
+reviewed alias namespace, every literal a ``VerifiedMemberResolver`` alias accessor receives, and
+every ``<Family>Aliases.<CONSTANT>`` reference to a generated alias vocabulary has to be declared
+by an admitted record of a family that declares a ``vocabulary`` block in
+``scripts/verification-sources/families/*.json``, or be one of the deliberately unrecorded
+aliases pinned by alias, file and reason in ``scripts/verification-sources/no-record-aliases.json``.
+
+Two directions are enforced:
+
+* existence — an invoked alias with no reviewed record and no pin fails closed, so a typo in a
+  member segment cannot reach a user's host; the same holds for a constant that no record
+  declares, which is why the derived table is compared rather than trusted;
+* admission — a family that declares ``admissionEqualsUse`` (editor-model) keeps its exact-record
+  admission policy: the aliases its records admit may not exceed the aliases production invokes,
+  minus the pinned remainder, so reviewed admission cannot widen silently.
+
+The no-record pins are a non-increasing ratchet: a new unrecorded alias fails, and so does a pin
+whose alias vanished from production, moved to a different file, or became recorded (the pin then
+has to be deleted).
 
 Usage: check_editor_model_aliases.py [repo-root] [--report]
 """
@@ -15,14 +30,32 @@ import argparse
 import json
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 _SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
+from turboism_dev.alias_vocabulary import RESERVED_NAMES
+from turboism_dev.alias_vocabulary import VocabularyError
+from turboism_dev.alias_vocabulary import constants as vocabulary_constants
+from turboism_dev.alias_vocabulary import declaration as vocabulary_declaration
 from turboism_dev.json_io import read_json
 
 IMPLEMENTATION_ROOT = "runtime/src/main/java"
+FAMILY_ROOT = "scripts/verification-sources/families"
+FAMILY_FORMAT = "turboism.verification-source-family/v1"
+NO_RECORD_PATH = "scripts/verification-sources/no-record-aliases.json"
+NO_RECORD_FORMAT = "turboism.no-record-aliases/v1"
+RECORD_ROOT = "build/generated/verification"
+
+# Editor-model is the one family whose records are inventories rather than exact-use evidence, so
+# it keeps the admission policy this check has always enforced: the 5.2.03/5.3.02 records are the
+# exact consumed admission and only these four invoked 5.3.03 aliases extend it. Family data
+# declares that the family still owes this check; the pinned mechanics stay here because the
+# subset is a reviewed decision, not derivable data.
+ADMISSION_FAMILY = "editor-model"
+ADMISSION_PREFIX = "cubism.editor-model"
 BASE_RECORDS = (
     "build/generated/verification/cubism-5.2.03-editor-model.json",
     "build/generated/verification/cubism-5.3.02-editor-model.json",
@@ -34,15 +67,17 @@ ADDITIVE_ALIASES = frozenset({
     "cubism.editor-model.undo.local-simple-factory-create",
     "cubism.editor-model.undo.local-simple-factory-instance",
 })
-ALIAS_PREFIX = "cubism.editor-model"
-ALIAS_LITERAL = re.compile(r'"(' + re.escape(ALIAS_PREFIX) + r'[^\"]*)"')
+ALIAS_LITERAL = re.compile(r'"([^"]*)"')
 ALIAS_CONSTANT_DEFINITION = re.compile(
-    r'public\s+static\s+final\s+String\s+([A-Z][A-Z0-9_]*_ALIAS)\s*=\s*"'
-    + re.escape(ALIAS_PREFIX) + r'([^"]*)"')
+    r'public\s+static\s+final\s+String\s+([A-Z][A-Z0-9_]*_ALIAS)\s*=\s*"([^"]*)"')
 ALIAS_CONSTANT_REFERENCE = re.compile(r'\.\s*([A-Z][A-Z0-9_]*_ALIAS)\b')
+# Generated vocabularies are named ``<Family>Aliases`` by the generator, so a reference can only be
+# a vocabulary reference when the receiver is one of the classes a family declares.
+VOCABULARY_MEMBER = re.compile(r'\b([A-Z][A-Za-z0-9]*Aliases)\s*\.\s*([A-Z][A-Z0-9_]*)\b')
 VERIFICATION_PATH = "/mapping/verification/"
-PRESET_ALIAS_PREFIX = "cubism.editor-model.label-color-type."
-PRESET_COLORS = ("red", "orange", "yellow", "green", "blue", "purple", "gray")
+# OptimizationCatalog declares bootstrap HookContributor policyIds (hookIds),
+# not VerifiedMemberResolver member aliases.
+OPTIMIZATION_CATALOG_PATH = "/config/optimization/"
 # Reviewed 5.2.03 selectors verified statically against the exact artifact but not yet
 # invoked by production. They stay admitted because runtime admission pins the record
 # roster exactly; any further unconsumed alias widens admission silently and must fail.
@@ -63,36 +98,226 @@ REVIEWED_UNCONSUMED_ALIASES = frozenset({
     "cubism.editor-model.parameter-double-row.paint",
     "cubism.editor-model.parameter-double-row.secondary-slider",
 })
+# The resolver accessors whose arguments are selector aliases. Only the names that cannot be
+# confused with an unrelated ``invoke``/``bind`` helper pull in literals outside the reviewed
+# namespaces, so a mistyped namespace segment still fails closed.
+RESOLVER_ALIAS_POSITION = re.compile(
+    r'\.\s*(?:verifiedSelector|bindStatic|invokeStatic|readStaticField|createFunctionalProxy'
+    r'|isExactInstance|isInstance)\s*\(\s*"([^"]*)"')
 
 
-def implementation_aliases(root: Path) -> set[str]:
-    """Return production aliases, excluding contracts/manifests that merely declare evidence."""
-    aliases: set[str] = set()
-    constants: dict[str, str] = {}
-    production_sources: list[tuple[Path, str]] = []
-    base = root / IMPLEMENTATION_ROOT
-    if not base.exists():
-        return aliases
-    for source in sorted(base.rglob("*.java")):
-        text = source.read_text(encoding="utf-8")
-        if VERIFICATION_PATH in source.as_posix():
-            for name, suffix in ALIAS_CONSTANT_DEFINITION.findall(text):
-                constants[name] = ALIAS_PREFIX + suffix
+@dataclass(frozen=True)
+class FamilyVocabulary:
+    """One family's declaration that the alias vocabulary check covers it."""
+
+    name: str
+    records: tuple[str, ...]
+    admission_equals_use: bool
+    aliases_class: str | None = None
+    aliases_prefixes: tuple[str, ...] | None = None
+
+
+@dataclass(frozen=True)
+class PinnedAlias:
+    """An alias the reviewed records deliberately do not carry, pinned by name and file."""
+
+    alias: str
+    file: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class LocalLiteral:
+    """A non-alias ``cubism.*`` string that lives in a reviewed alias namespace."""
+
+    literal: str
+    file: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class NoRecordVocabulary:
+    """The pinned no-record surface: extra namespaces, aliases and local vocabulary."""
+
+    namespaces: tuple[str, ...]
+    aliases: tuple[PinnedAlias, ...]
+    local_vocabulary: tuple[LocalLiteral, ...]
+
+
+@dataclass(frozen=True)
+class Vocabulary:
+    """The measured vocabulary of one repository tree; ``failures`` stays separate."""
+
+    families: dict[str, FamilyVocabulary]
+    per_record: dict[str, set[str]]
+    namespaces: tuple[str, ...]
+    declared: int
+    used: int
+    pins: int
+    local_vocabulary: int
+    vocabulary_constants: int
+    unrecorded: tuple[str, ...]
+    unused: tuple[str, ...]
+
+
+def family_vocabulary(root: Path) -> dict[str, FamilyVocabulary]:
+    """Return the families that declare a ``vocabulary`` block, keyed by family name.
+
+    Family data, not a name list here, decides which records back the alias vocabulary:
+    ``compatibility-catalog`` aggregates every other family's records and ``validation-lanes``
+    has none, so neither declares a block. A declared family has to name readable records,
+    otherwise the alias side of the comparison would silently shrink. An ``aliases`` block is
+    carried through as the family's generated vocabulary declaration, so the caller can resolve
+    ``<Family>Aliases.<CONSTANT>`` references against the same records.
+    """
+    base = root / FAMILY_ROOT
+    if not base.is_dir():
+        raise ValueError(f"missing family authoring directory {FAMILY_ROOT}")
+    families: dict[str, FamilyVocabulary] = {}
+    for path in sorted(base.glob("*.json")):
+        document = read_json(path)
+        if document.get("format") != FAMILY_FORMAT:
+            raise ValueError(f"{path.name}: format must be {FAMILY_FORMAT!r}")
+        vocabulary = document.get("vocabulary")
+        if vocabulary is None:
             continue
-        production_sources.append((source, text))
-    for _source, text in production_sources:
-        for alias in ALIAS_LITERAL.findall(text):
-            if alias.endswith(".") or alias.endswith(".class"):
-                continue
-            aliases.add(alias)
-        if "presetAlias(" in text and PRESET_ALIAS_PREFIX in text:
-            aliases.update(PRESET_ALIAS_PREFIX + color for color in PRESET_COLORS)
-        for name in ALIAS_CONSTANT_REFERENCE.findall(text):
-            value = constants.get(name)
-            if value is None or value.endswith(".") or value.endswith(".class"):
-                continue
-            aliases.add(value)
-    return aliases
+        name = document.get("family")
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"{path.name}: a vocabulary family needs a family name")
+        records = tuple(document.get("records") or ())
+        if not records:
+            raise ValueError(f"{path.name}: a vocabulary family must bind records")
+        for record in records:
+            if not (root / RECORD_ROOT / record).is_file():
+                raise ValueError(f"{path.name}: binds missing record {record}")
+        families[name] = FamilyVocabulary(
+            name=name,
+            records=records,
+            admission_equals_use=bool(vocabulary.get("admissionEqualsUse")),
+            **_aliases_declaration(document, name),
+        )
+    if not families:
+        raise ValueError(f"{FAMILY_ROOT}: no family declares a vocabulary block")
+    strict = sorted(name for name, family in families.items() if family.admission_equals_use)
+    if strict and strict != [ADMISSION_FAMILY]:
+        raise ValueError(
+            "admissionEqualsUse is only implemented for "
+            f"{ADMISSION_FAMILY}, declared by: {', '.join(strict)}")
+    if ADMISSION_FAMILY not in families or not families[ADMISSION_FAMILY].admission_equals_use:
+        raise ValueError(f"{ADMISSION_FAMILY} must declare vocabulary.admissionEqualsUse")
+    return families
+
+
+def _aliases_declaration(document: dict, name: str) -> dict[str, object]:
+    """Return the family's generated alias vocabulary declaration, if it has one.
+
+    Only a declared block makes a family's constants resolvable: a ``<Family>Aliases.<CONSTANT>``
+    reference is followed for the classes this returns, so a family that generates no vocabulary
+    contributes no aliases rather than a guessed table. The declared prefixes stay normalised as
+    the tuple ``turboism_dev.alias_vocabulary.declaration`` returns.
+    """
+    block = document.get("aliases")
+    if block is None:
+        return {"aliases_class": None, "aliases_prefixes": None}
+    try:
+        class_name, prefixes = vocabulary_declaration(block, name)
+    except VocabularyError as failure:
+        raise ValueError(f"{name}: {failure}") from failure
+    return {"aliases_class": class_name, "aliases_prefixes": prefixes}
+
+
+def alias_vocabulary_classes(
+    root: Path, families: dict[str, FamilyVocabulary]
+) -> dict[str, dict[str, str]]:
+    """Return ``class name -> {constant: alias}`` for every family that generates a vocabulary.
+
+    The table is derived from the same records and the same name derivation the generator uses
+    (``turboism_dev.alias_vocabulary``), so a reference can only resolve to an alias the records
+    actually declare; a name the derivation does not produce is reported, not guessed.
+    """
+    classes: dict[str, dict[str, str]] = {}
+    for family in sorted(families.values(), key=lambda entry: entry.name):
+        if family.aliases_class is None or family.aliases_prefixes is None:
+            continue
+        aliases: set[str] = set()
+        for relative in family.records:
+            aliases |= selector_aliases(root, f"{RECORD_ROOT}/{relative}")
+        try:
+            classes[family.aliases_class] = vocabulary_constants(aliases, family.aliases_prefixes)
+        except VocabularyError as failure:
+            raise ValueError(f"{family.name}: {failure}") from failure
+    return classes
+
+
+def vocabulary_members(
+    text: str, vocabulary: dict[str, dict[str, str]]
+) -> tuple[set[str], list[str]]:
+    """Return the aliases and the unresolved constants one source references.
+
+    ``ALL`` is the vocabulary's own roll-up set, not an alias, so it is a known member that
+    resolves to nothing. Any other member the derived table lacks is unresolved: the generator
+    would not emit it, so the reference cannot name a reviewed alias.
+    """
+    aliases: set[str] = set()
+    unresolved: list[str] = []
+    for class_name, constant in VOCABULARY_MEMBER.findall(text):
+        table = vocabulary.get(class_name)
+        if table is None:
+            continue
+        if constant in RESERVED_NAMES:
+            continue
+        alias = table.get(constant)
+        if alias is None:
+            unresolved.append(f"{class_name}.{constant}")
+            continue
+        aliases.add(alias)
+    return aliases, unresolved
+
+
+def no_record_vocabulary(root: Path) -> NoRecordVocabulary:
+    """Return the pinned no-record aliases and the local vocabulary beside them.
+
+    Every entry is explicit: an alias without a reviewed record is a capability on a user's host
+    that has no provenance, so it may only exist as a named pin with a stated reason, never as an
+    unnamed allowlist pattern. An empty pin list is the intended end state once a Lane C task has
+    reviewed the remaining aliases into records.
+    """
+    path = root / NO_RECORD_PATH
+    if not path.is_file():
+        raise ValueError(f"missing {NO_RECORD_PATH}")
+    document = read_json(path)
+    if document.get("format") != NO_RECORD_FORMAT:
+        raise ValueError(f"{NO_RECORD_PATH}: format must be {NO_RECORD_FORMAT!r}")
+    namespaces = tuple(document.get("namespaces") or ())
+    aliases: list[PinnedAlias] = []
+    local: list[LocalLiteral] = []
+    for entry in document.get("aliases") or ():
+        aliases.append(_pinned(entry, PinnedAlias, "alias"))
+    for entry in document.get("localVocabulary") or ():
+        local.append(_pinned(entry, LocalLiteral, "literal"))
+    return NoRecordVocabulary(namespaces=namespaces, aliases=tuple(aliases), local_vocabulary=tuple(local))
+
+
+def _pinned(entry: dict, kind: type[PinnedAlias] | type[LocalLiteral], field: str) -> PinnedAlias | LocalLiteral:
+    """Return one validated pin entry; unnamed or unreascribed entries fail closed."""
+    for key in (field, "file", "reason"):
+        value = entry.get(key) if isinstance(entry, dict) else None
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"{NO_RECORD_PATH}: entry {entry!r} needs a non-empty {key!r}")
+    return kind(entry[field], entry["file"], entry["reason"])
+
+
+def selector_aliases(root: Path, relative: str) -> set[str]:
+    """Return every selector alias one record declares, whatever its kind.
+
+    Class and type-relation selectors are host members too, so existence evidence comes from
+    every selector: a class alias invoked without a record is exactly the unreviewed capability
+    this check exists to stop.
+    """
+    path = root / relative
+    if not path.exists():
+        return set()
+    return {selector["alias"] for selector in read_json(path)["selectors"]}
 
 
 def aliases_in_record(root: Path, relative: str) -> set[str]:
@@ -109,22 +334,156 @@ def aliases_in_record(root: Path, relative: str) -> set[str]:
     return {
         selector["alias"]
         for selector in data["selectors"]
-        if selector["alias"].startswith(ALIAS_PREFIX)
+        if selector["alias"].startswith(ADMISSION_PREFIX)
         and selector["kind"] not in ("class", "inherits")
     }
 
 
-def capability_ids(root: Path) -> set[str]:
-    """Return the declared capabilityId union across the reviewed records."""
+def admitted_aliases(root: Path) -> set[str]:
+    """Return every alias the exact admitted Editor-model records declare.
+
+    The admitted roster is the pinned 5.2.03/5.3.02 pair plus the fixed 5.3.03 additive subset.
+    Every namespace those records cover counts -- editor-model inventories the editor-history,
+    texture-atlas, integration and object-context-menu selectors too -- while the wider 5.3.03
+    static inventory still needs the additive pin, so this cannot widen silently.
+    """
+    aliases = set(ADDITIVE_ALIASES)
+    for relative in BASE_RECORDS:
+        aliases |= selector_aliases(root, relative)
+    return aliases
+
+
+def capability_ids(root: Path, families: dict[str, FamilyVocabulary]) -> set[str]:
+    """Return the declared capabilityId union across every admitted record."""
     ids: set[str] = set()
-    for relative in (*BASE_RECORDS, ADDITIVE_RECORD):
-        path = root / relative
-        if not path.exists():
-            continue
-        data = read_json(path)
-        for identifier in data.get("capabilityIds", []):
-            ids.add(str(identifier))
+    for family in families.values():
+        for relative in family.records:
+            path = root / RECORD_ROOT / relative
+            if not path.exists():
+                continue
+            for identifier in read_json(path).get("capabilityIds", []):
+                ids.add(str(identifier))
     return ids
+
+
+def declared_aliases(root: Path, families: dict[str, FamilyVocabulary]) -> set[str]:
+    """Return the alias union of every family's admitted records.
+
+    Families without ``admissionEqualsUse`` contribute every selector their records carry: the
+    union answers "does a reviewer know this name", which a typo fails on every version. The
+    strict family contributes only what its admission policy admits.
+    """
+    aliases: set[str] = set()
+    for family in families.values():
+        if family.admission_equals_use:
+            aliases |= admitted_aliases(root)
+            continue
+        for relative in family.records:
+            aliases |= selector_aliases(root, f"{RECORD_ROOT}/{relative}")
+    if not aliases:
+        raise ValueError("the declared families contributed no alias")
+    return aliases
+
+
+def alias_namespaces(aliases: set[str]) -> set[str]:
+    """Return the ``owner.member-family.`` namespaces the review evidence covers.
+
+    A namespace is the first two dotted segments, which is where every reviewed alias family
+    lives (``cubism.editor-model.``, ``cubism.ui-status-bar.``, ``workspace.dock.``). The segment
+    before the member is the only namespace boundary records can supply, so an alias with a
+    single dot (``object-context-menu.part.``) names itself as the namespace instead of widening
+    to the whole ``object-context-menu.`` tree. An alias without any namespace is outside every
+    shape this check understands and fails closed rather than being silently skipped.
+    """
+    namespaces: set[str] = set()
+    for alias in aliases:
+        segments = alias.split(".")
+        if len(segments) < 2:
+            raise ValueError(f"reviewed alias {alias!r} has no owner/member namespace")
+        namespaces.add(".".join(segments[:2]) + ".")
+    return namespaces
+
+
+def is_alias_literal(value: str, namespaces: set[str]) -> bool:
+    """Return whether a literal belongs to a reviewed alias namespace.
+
+    A prefix fragment (``"cubism.editor-model."``) is not an alias: it is the visible half of a
+    concatenation that hides its suffix from every scan, so it fails closed unless it is pinned
+    as local vocabulary with a stated reason. A literal the resolver receives in alias position
+    is an alias whatever its namespace says.
+    """
+    if not value:
+        return False
+    return any(value.startswith(namespace) for namespace in namespaces)
+
+
+def implementation_scan(
+    root: Path,
+    namespaces: set[str] | None = None,
+    vocabulary: dict[str, dict[str, str]] | None = None,
+) -> tuple[dict[str, set[str]], list[str]]:
+    """Return production aliases mapped to their sources, plus unresolved vocabulary constants.
+
+    Contracts, manifests and compatibility catalogs declare evidence instead of invoking a host
+    member, so their literals never count as implementation use. ``namespaces`` of ``None``
+    accepts every literal, which is what the unit tests use to pin the constant-following rules.
+    A ``vocabulary`` of generated ``<Family>Aliases`` tables makes every
+    ``<Family>Aliases.<CONSTANT>`` reference count as the record alias it names; a constant those
+    tables lack is returned as an unresolved reference, so an invented or renamed constant cannot
+    pass as an alias.
+    """
+    aliases: dict[str, set[str]] = {}
+    unresolved: list[str] = []
+    constants: dict[str, str] = {}
+    production_sources: list[tuple[Path, str]] = []
+    base = root / IMPLEMENTATION_ROOT
+    if not base.exists():
+        return aliases, unresolved
+    for source in sorted(base.rglob("*.java")):
+        text = source.read_text(encoding="utf-8")
+        if VERIFICATION_PATH in source.as_posix():
+            for name, value in ALIAS_CONSTANT_DEFINITION.findall(text):
+                constants[name] = value
+            continue
+        if OPTIMIZATION_CATALOG_PATH in source.as_posix():
+            continue
+        production_sources.append((source, text))
+
+    def admit(alias: str, source: Path, *, alias_position: bool = False) -> None:
+        if not alias:
+            return
+        if namespaces is not None and not alias_position:
+            if not is_alias_literal(alias, namespaces):
+                return
+        aliases.setdefault(alias, set()).add(source.relative_to(root).as_posix())
+
+    for source, text in production_sources:
+        for alias in ALIAS_LITERAL.findall(text):
+            admit(alias, source)
+        # A literal in alias position is an alias whatever its namespace says, which is what
+        # catches a mistyped namespace segment.
+        for alias in RESOLVER_ALIAS_POSITION.findall(text):
+            admit(alias, source, alias_position=True)
+        for name in ALIAS_CONSTANT_REFERENCE.findall(text):
+            value = constants.get(name)
+            if value is not None:
+                admit(value, source)
+        if vocabulary:
+            members, missing = vocabulary_members(text, vocabulary)
+            for alias in sorted(members):
+                admit(alias, source)
+            unresolved.extend(
+                f"{reference} ({source.relative_to(root).as_posix()})" for reference in missing)
+    return aliases, unresolved
+
+
+def implementation_aliases(
+    root: Path,
+    namespaces: set[str] | None = None,
+    vocabulary: dict[str, dict[str, str]] | None = None,
+) -> dict[str, set[str]]:
+    """Return the aliases production mentions; unresolved vocabulary references are dropped."""
+    return implementation_scan(root, namespaces, vocabulary)[0]
 
 
 def record_aliases(root: Path) -> tuple[set[str], dict[str, set[str]]]:
@@ -161,6 +520,106 @@ def record_aliases(root: Path) -> tuple[set[str], dict[str, set[str]]]:
     return union, per_record
 
 
+def check(root: Path) -> tuple[list[str], Vocabulary]:
+    """Return the failure messages and the measured vocabulary of one repository tree."""
+    families = family_vocabulary(root)
+    declared = declared_aliases(root, families)
+    vocabulary = alias_vocabulary_classes(root, families)
+    no_record = no_record_vocabulary(root)
+    namespaces = alias_namespaces(declared) | set(no_record.namespaces)
+    implementation, unresolved = implementation_scan(root, namespaces, vocabulary)
+    used = set(implementation)
+    pins = {pin.alias: pin for pin in no_record.aliases}
+    local = {entry.literal: entry for entry in no_record.local_vocabulary}
+    if not used:
+        raise ValueError("could not read any production alias")
+
+    # A literal that is both pinned and declared local vocabulary hides which claim it makes.
+    overlap = sorted(set(pins) & set(local))
+    if overlap:
+        raise ValueError(
+            f"{NO_RECORD_PATH}: entries are both pinned and local vocabulary: "
+            + ", ".join(overlap))
+
+    capabilities = capability_ids(root, families)
+    unrecorded = sorted(
+        alias for alias in used
+        if alias not in declared and alias not in capabilities
+        and alias not in pins and alias not in local)
+    recorded_pins = sorted(set(pins) & declared)
+    stale_pins = sorted(set(pins) - used)
+    drifted_pins = sorted(
+        alias for alias in set(pins) & used if pins[alias].file not in implementation[alias])
+    stale_local = sorted(set(local) - used)
+    drifted_local = sorted(
+        literal for literal in set(local) & used if local[literal].file not in implementation[literal])
+
+    union, per_record = record_aliases(root)
+    admitted_implementation = {
+        alias for alias in used if alias.startswith(ADMISSION_PREFIX + ".")
+    }
+    unused = sorted((union - admitted_implementation) - REVIEWED_UNCONSUMED_ALIASES)
+    unconsumed_drift = sorted(REVIEWED_UNCONSUMED_ALIASES - union)
+
+    failures: list[str] = []
+    if unresolved:
+        failures.append(
+            f"FAIL: {len(unresolved)} generated alias vocabulary reference(s) name a constant "
+            "no record declares:")
+        failures.extend(f"  {reference}" for reference in unresolved)
+    if unrecorded:
+        failures.append(
+            f"FAIL: {len(unrecorded)} invoked host aliases lack reviewed evidence "
+            f"and are not pinned in {NO_RECORD_PATH}:")
+        failures.extend(f"  {alias}" for alias in unrecorded)
+    if recorded_pins:
+        failures.append(
+            f"FAIL: {len(recorded_pins)} pinned no-record aliases are now declared by a "
+            "reviewed record; delete their pins:")
+        failures.extend(f"  {alias}" for alias in recorded_pins)
+    if stale_pins:
+        failures.append(
+            f"FAIL: {len(stale_pins)} pinned no-record aliases are no longer used; "
+            "delete their pins:")
+        failures.extend(f"  {alias}" for alias in stale_pins)
+    if drifted_pins:
+        failures.append(
+            f"FAIL: {len(drifted_pins)} pinned no-record aliases moved away from their pinned "
+            "file; update the pin:")
+        failures.extend(f"  {alias} ({pins[alias].file})" for alias in drifted_pins)
+    if stale_local:
+        failures.append(
+            f"FAIL: {len(stale_local)} local-vocabulary literals are no longer used; "
+            "delete their entries:")
+        failures.extend(f"  {literal}" for literal in stale_local)
+    if drifted_local:
+        failures.append(
+            f"FAIL: {len(drifted_local)} local-vocabulary literals moved away from their "
+            "declared file; update the entry:")
+        failures.extend(f"  {literal} ({local[literal].file})" for literal in drifted_local)
+    if unused:
+        failures.append(
+            f"FAIL: {len(unused)} reviewed {ADMISSION_FAMILY} aliases are unused and not pinned:")
+        failures.extend(f"  {alias}" for alias in unused)
+    if unconsumed_drift:
+        failures.append(f"FAIL: pinned reviewed-unconsumed {ADMISSION_FAMILY} aliases vanished from the records:")
+        failures.extend(f"  {alias}" for alias in unconsumed_drift)
+
+    measurement = Vocabulary(
+        families=families,
+        per_record=per_record,
+        namespaces=tuple(sorted(namespaces)),
+        declared=len(declared),
+        used=len(used),
+        pins=len(pins),
+        local_vocabulary=len(local),
+        vocabulary_constants=sum(len(table) for table in vocabulary.values()),
+        unrecorded=tuple(unrecorded),
+        unused=tuple(unused),
+    )
+    return failures, measurement
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", nargs="?", default=".")
@@ -168,53 +627,38 @@ def main() -> int:
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
-    implementation = implementation_aliases(root)
     try:
-        union, per_record = record_aliases(root)
-        capabilities = capability_ids(root)
+        failures, measurement = check(root)
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as failure:
-        print(f"FAIL: invalid reviewed Editor-model record: {failure}", file=sys.stderr)
-        return 2
-    if not implementation or not union:
-        print("FAIL: could not read the implementation or reviewed records", file=sys.stderr)
+        print(f"FAIL: invalid host alias vocabulary input: {failure}", file=sys.stderr)
         return 2
 
-    # Literals matching a record capabilityId are capability references (e.g.
-    # the SDK availability gate), not member-alias invocations.
-    unrecorded = sorted(implementation - union - capabilities)
-    unused = sorted((union - implementation) - REVIEWED_UNCONSUMED_ALIASES)
-    unconsumed_drift = sorted(REVIEWED_UNCONSUMED_ALIASES - union)
     if args.report:
-        print(f"implementation aliases : {len(implementation)}")
-        for name, aliases in per_record.items():
+        print(f"vocabulary families    : {len(measurement.families)}")
+        for name in sorted(measurement.families):
+            print(f"  {name}: {len(measurement.families[name].records)} records")
+        print(f"reviewed namespaces    : {len(measurement.namespaces)}")
+        print(f"declared aliases       : {measurement.declared}")
+        for name, aliases in sorted(measurement.per_record.items()):
             print(f"  {name}: {len(aliases)}")
-        print(f"unrecorded (must be 0) : {len(unrecorded)}")
-        for alias in unrecorded:
+        print(f"invoked aliases        : {measurement.used}")
+        print(f"pinned no-record       : {measurement.pins}")
+        print(f"local vocabulary       : {measurement.local_vocabulary}")
+        print(f"vocabulary constants   : {measurement.vocabulary_constants}")
+        print(f"unrecorded (must be 0) : {len(measurement.unrecorded)}")
+        for alias in measurement.unrecorded:
             print(f"    {alias}")
-        print(f"unused beyond pinned remainder (must be 0) : {len(unused)}")
-        for alias in unused:
+        print(f"unused beyond pinned remainder (must be 0) : {len(measurement.unused)}")
+        for alias in measurement.unused:
             print(f"    {alias}")
         return 0
 
-    failed = False
-    if unrecorded:
-        failed = True
-        print(f"FAIL: {len(unrecorded)} invoked Editor-model aliases lack reviewed evidence:")
-        for alias in unrecorded:
-            print(f"  {alias}")
-    if unused:
-        failed = True
-        print(f"FAIL: {len(unused)} reviewed Editor-model aliases are unused and not pinned:")
-        for alias in unused:
-            print(f"  {alias}")
-    if unconsumed_drift:
-        failed = True
-        print("FAIL: pinned reviewed-unconsumed aliases vanished from the records:")
-        for alias in unconsumed_drift:
-            print(f"  {alias}")
-    if failed:
+    if failures:
+        print("\n".join(failures))
         return 1
-    print(f"PASS: {len(implementation)} consumed Editor-model aliases exactly match reviewed admission")
+    print(
+        f"PASS: {measurement.used} invoked host aliases are declared by "
+        f"{len(measurement.families)} reviewed families or pinned without a record")
     return 0
 
 

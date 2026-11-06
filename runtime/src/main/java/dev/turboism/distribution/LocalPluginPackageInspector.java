@@ -3,6 +3,7 @@ package dev.turboism.distribution;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.core.archive.ArchiveStructureException;
 import dev.turboism.core.archive.StrictZipArchive;
+import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -147,7 +148,7 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
     }
 
     private static void verifyManifest(JsonNode manifest, PluginJarInspector.Inspected plugin) throws Exception {
-        PluginDescriptorSnapshot descriptor = plugin.descriptor();
+        PluginDescriptor descriptor = plugin.descriptor();
         require(
                 manifest.path("packageId").textValue().equals(descriptor.id())
                         && manifest.path("version").textValue().equals(descriptor.version()),

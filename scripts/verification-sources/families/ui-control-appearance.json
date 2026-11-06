@@ -29,5 +29,12 @@
  "coverage": true,
  "packs": [],
  "extraLiterals": [],
- "coverageSources": []
+ "coverageSources": [],
+ "aliases": {
+  "className": "UiControlAppearanceAliases",
+  "prefix": "cubism.ui-control-appearance."
+ },
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }

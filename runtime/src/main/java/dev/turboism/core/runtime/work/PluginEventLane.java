@@ -112,6 +112,21 @@ public final class PluginEventLane {
         return worker.isTerminated();
     }
 
+    /**
+     * Aborts the lane without waiting for in-flight drains.
+     *
+     * <p>Used only when the owning plugin generation already failed and its event owner is
+     * fenced and closed: a graceful drain has nothing left to deliver, so waiting for it would
+     * only delay the caller. The worker is a daemon thread and exits once its current body
+     * returns; queued drains are discarded.</p>
+     */
+    void discard() {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+        worker.shutdownNow();
+    }
+
     private void emit(
             PluginTask task,
             PluginWorkBudgetEvent.Phase phase,

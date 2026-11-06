@@ -10,7 +10,23 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 추가
 
-- 물리 시뮬레이션 미리보기에 GIF 녹화를 추가했습니다. 녹화/일시 정지/계속, 정지/버리기 및 단축키 등록, 녹화 후 크기 설정, Gifsicle 목표 크기 최적화 (기본 20 MB), GIF 내보내기 폴더 저장을 지원합니다.
+- SDK에 인큐베이팅 `PreviewFrameService` 기능(`PreviewFrameSource`, `PreviewFrame`, `PreviewFrameSourceClosedException`, `PluginService.PREVIEW_FRAMES` 디렉터리 멤버)과 `cubism.preview.capture` admission 행을 추가했습니다. 플러그인은 포커스된 미리보기의 프레임을 읽고 자체 `PanelView` 컨트롤 스트립을 배치할 수 있으며, 미리보기 표면 해석, 전용 스레드에서의 OpenGL 읽기, 플러그인 세대 종료 후 갱신 폐기는 런타임이 담당합니다.
+
+- SDK에 인큐베이팅 `HostViewPanel` 기능(`HostViewPanelHandle`, `HostViewAnchors` 앵커 상수, `PluginService.HOST_VIEW_PANEL` 디렉터리 멤버)을 추가했습니다. 플러그인은 `PanelView` 내용을 이름이 지정된 호스트 뷰(우선 네이티브 텍스처 아틀라스 편집기)에 붙이고, 렌더링과 편집기 스레드에서의 갱신 적용, 플러그인 세대 종료 후 갱신의 조용한 폐기는 런타임이 담당합니다.
+
+- SDK에 인큐베이팅 `MeshCanvasSession` 기능과 `MeshToolContext.canvasSession()`을 추가했습니다. 플러그인이 자체 상태로 점·선 배치를 계산하고, 런타임이 미리 보기 렌더링, 캔버스 앵커 추적, 한 번의 Undo 로 배치 확정을 담당합니다. `geometric-mesh-layout` 플러그인은 이제 도형 계산, 매개변수 상태, 설정 대화상자를 직접 소유합니다.
+
+- 물리 시뮬레이션 미리보기에 GIF 녹화를 추가했습니다. 녹화/일시 정지/계속, 정지/버리기 및 단축키 등록, 녹화 후 크기 설정, Gifsicle 목표 크기 최적화 (기본 20 MB), GIF 내보내기 폴더 저장을 지원합니다. 녹화 상태 기계, 인코더, 내보내기 대화상자, 배율/Gifsicle 정책, 컨트롤 스트립은 `:plugins:physics-editor`가 소유하며 `:runtime`은 이들이 구동하는 범용 미리보기 캡처 기능만 제공합니다.
+
+- SDK에 인큐베이팅 `MeshMirrorControl` 및 `MeshEditContributionSurface` 기능과 `PluginService.MESH_MIRROR_CONTROL`, `PluginService.MESH_EDIT_CONTRIBUTION` 디렉터리 멤버를 추가했습니다. 전자는 미러 축, 미러 대응점 규칙, 이동 참여, 사용 가능 도구 집합을, 후자는 호스트 편집 참여와 네이티브 도구 영역 기여를 플러그인이 항상 함께 필요로 하는 공개된 단일 목적 서비스로 통합합니다. 메시 편집에 더 이상 여섯 번의 서비스 조회가 필요하지 않습니다. 권한과 작업 ID는 그대로입니다.
+
+### 폐기 예정
+
+- `PhysicsEditorService.gifCommand`와 `PhysicsEditorService.GifCommand`를 제거 예정으로 폐기했습니다. 런타임은 더 이상 플러그인을 대신해 GIF를 녹화하지 않으며 명령은 수락되지만 아무 동작도 하지 않습니다. `PreviewFrameService`(`PluginService.PREVIEW_FRAMES`)를 사용해 플러그인에서 녹화를 구동하세요. 다음 마이너 릴리스에서 제거됩니다.
+
+- `TextureAtlasEditorUi`와 `TextureAtlasEditorPanel`을 제거 예정으로 폐기했습니다. 두 인터페이스는 `HostViewPanel` 위의 얇은 어댑터로 계속 동작합니다. 대신 `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)`와 `HostViewPanelHandle.setContent(PanelView)`를 사용하세요.
+
+- `MeshMirrorAxisService`, `MeshMirrorCounterparts`, `MeshMirrorMoveParticipation`, `MeshMirrorToolEligibility`, `MeshEditParticipation`, `MeshEditUiService`(해당 `PluginService` 멤버와 `MeshEditUiService.MirrorAxisAngleControl` 포함)를 제거 예정으로 폐기했습니다. 여섯 가지 모두 동작은 그대로입니다. 대신 `MeshMirrorControl`과 `MeshEditContributionSurface`를 사용하세요.
 
 ## [0.68.1] - 2026-10-30
 

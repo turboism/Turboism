@@ -2,11 +2,13 @@ package dev.turboism.update;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.PublishGuard;
+import dev.turboism.core.io.WriteOptions;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
@@ -51,6 +53,28 @@ import java.util.Optional;
 final class FrameworkUpdateApplier {
     static final String JOURNAL = "journal.json";
     static final String JOURNAL_FORMAT = "turboism-update-journal-v1";
+
+    /** Journal, installed-build and installed payload: an atomic replacement is required, permissions inherited. */
+    private static final WriteOptions ATOMIC_WRITE = WriteOptions.DEFAULT;
+
+    /** Receipt index state is private: owner-only before the first byte, on every platform. */
+    private static final WriteOptions PRIVATE_WRITE =
+            WriteOptions.DEFAULT.withPermissions(WriteOptions.Permissions.OWNER_ONLY);
+
+    /**
+     * Windows keeps the receipt index's historical owner/SYSTEM/Administrators DACL. The staged file is
+     * already owner-only, and this widens it to exactly the trusted principals the pre-migration code
+     * applied before the bytes were written, never to an inherited temp-directory DACL.
+     */
+    private static final PublishGuard PRIVATE_ACL = new PublishGuard() {
+        @Override
+        public void beforePublish(final Path staged, final Path target) {}
+
+        @Override
+        public void afterPublish(final Path staged, final Path target) throws IOException {
+            restrictAclIfWindows(target);
+        }
+    };
 
     /** Test seam: invoked at named points so tests can simulate a crash or lock at any step. */
     @FunctionalInterface
@@ -486,27 +510,36 @@ final class FrameworkUpdateApplier {
         }
         Files.createDirectories(step.target.getParent());
         requirePlainDirectories(step.target.getParent());
-        final Path prepared = work.resolve("prepared");
-        FrameworkUpdateCache.installationAncestors(prepared);
-        Files.createDirectories(prepared);
-        final Path temporary = Files.createTempFile(prepared, "payload-", ".new");
-        try (InputStream in = Files.newInputStream(step.source, LinkOption.NOFOLLOW_LINKS)) {
-            Files.copy(in, temporary, StandardCopyOption.REPLACE_EXISTING);
-        }
-        force(temporary);
-        // Re-hash the copy that will actually be installed: guards against corruption between staging and now.
-        if (!FrameworkUpdateCache.hash(temporary, step.entry.bytes()).equals(step.entry.sha256())) {
-            Files.deleteIfExists(temporary);
-            throw new IOException("Copied bytes differ from signed manifest: " + step.relative);
-        }
         try {
-            Files.move(temporary, step.target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException unsupported) {
-            Files.deleteIfExists(temporary);
-            throw new IOException("Atomic replacement unavailable for " + step.relative, unsupported);
+            // Re-hash the copy that will actually be installed, after it is forced and while the previous
+            // payload is still visible: guards against corruption between staging and now.
+            DurableFile.at(step.target)
+                    .withOptions(ATOMIC_WRITE)
+                    .guardedBy((staged, target) -> {
+                        try {
+                            if (!FrameworkUpdateCache.hash(staged, step.entry.bytes())
+                                    .equals(step.entry.sha256())) {
+                                throw new IOException("Copied bytes differ from signed manifest: " + step.relative);
+                            }
+                        } catch (InterruptedException cancelled) {
+                            Thread.currentThread().interrupt();
+                            throw new IOException("Interrupted while verifying " + step.relative, cancelled);
+                        }
+                    })
+                    .replaceStreaming(out -> copyPayload(step.source, out));
         } catch (IOException failure) {
-            Files.deleteIfExists(temporary);
-            throw failure; // typically a locked file on Windows: fail, then roll back
+            if (failure.getCause() instanceof InterruptedException cancelled) {
+                // Keep cancellation visible to the apply loop instead of reporting a rollback.
+                Thread.currentThread().interrupt();
+                throw cancelled;
+            }
+            throw failure;
+        }
+    }
+
+    private static void copyPayload(final Path source, final java.io.OutputStream out) throws IOException {
+        try (InputStream in = Files.newInputStream(source, LinkOption.NOFOLLOW_LINKS)) {
+            in.transferTo(out);
         }
     }
 
@@ -594,6 +627,8 @@ final class FrameworkUpdateApplier {
 
     private void cleanup() throws IOException {
         deleteTree(work.resolve("backup"));
+        // Nothing stages here any more; the step still sweeps a prepared tree left by an interrupted
+        // older publication, which is what the pre-migration applier wrote into.
         deleteTree(work.resolve("prepared"));
         Files.deleteIfExists(work.resolve(JOURNAL));
     }
@@ -610,6 +645,34 @@ final class FrameworkUpdateApplier {
     // ---------------------------------------------------------------- journal
 
     private ObjectNode readJournal(final Path path) throws IOException {
+        return readJournal(path, work);
+    }
+
+    /** One validated journal, described without binding it to the installation being inspected. */
+    record JournalSummary(String state, String version, int files) {}
+
+    /**
+     * Validates and summarizes the journal held by {@code work} exactly as {@link #recover} does.
+     *
+     * <p>Nothing is mutated and the installation binding is deliberately not compared: diagnostics
+     * and the release corpus must be able to read an old journal's shape on a machine that is not
+     * that installation. {@link #recover} still refuses a journal whose recorded root differs, so a
+     * foreign journal can never roll back the wrong installation.</p>
+     *
+     * @param work the helper work directory that owns {@code journal.json}
+     * @return the validated summary, or empty when no journal exists
+     */
+    static Optional<JournalSummary> inspectJournal(final Path work) throws IOException {
+        final Path journal = work.toAbsolutePath().normalize().resolve(JOURNAL);
+        if (!Files.isRegularFile(journal, LinkOption.NOFOLLOW_LINKS)) return Optional.empty();
+        final ObjectNode parsed = readJournal(journal, work.toAbsolutePath().normalize());
+        return Optional.of(new JournalSummary(
+                parsed.path("state").asText(),
+                parsed.path("version").asText(),
+                parsed.path("files").size()));
+    }
+
+    private static ObjectNode readJournal(final Path path, final Path work) throws IOException {
         FrameworkUpdateCache.installationAncestors(work);
         final BasicFileAttributes a = FrameworkUpdateCache.attributes(path);
         if (a == null || !a.isRegularFile() || a.size() > 1024 * 1024) throw new IOException("Invalid journal");
@@ -653,33 +716,15 @@ final class FrameworkUpdateApplier {
     }
 
     private static void writeAtomic(final Path target, final byte[] bytes) throws IOException {
-        final Path temporary = Files.createTempFile(target.getParent(), ".update-", ".writing");
-        try {
-            Files.write(temporary, bytes, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
-            force(temporary);
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException unsupported) {
-            throw new IOException("Atomic replacement unavailable", unsupported);
-        } finally {
-            Files.deleteIfExists(temporary);
-        }
+        DurableFile.at(target).withOptions(ATOMIC_WRITE).replace(bytes);
     }
 
     /** Receipt index state (live index, its rollback backup, or its restore) is private: on Windows an inherited
-     * temp-directory DACL would otherwise survive an atomic rename, so an explicit owner/SYSTEM/Administrators ACL
-     * is applied to the temp file before it is published. Never used for the non-private journal. */
+     * temp-directory DACL would otherwise survive an atomic rename, so the staged file is owner-only before it holds
+     * a byte and the trusted-principal DACL is applied before the directory entry is forced. Never used for the
+     * non-private journal. */
     private static void writePrivateAtomic(final Path target, final byte[] bytes) throws IOException {
-        final Path temporary = Files.createTempFile(target.getParent(), ".receipt-index-", ".writing");
-        try {
-            restrictAclIfWindows(temporary);
-            Files.write(temporary, bytes, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
-            force(temporary);
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException unsupported) {
-            throw new IOException("Atomic replacement unavailable", unsupported);
-        } finally {
-            Files.deleteIfExists(temporary);
-        }
+        DurableFile.at(target).withOptions(PRIVATE_WRITE).guardedBy(PRIVATE_ACL).replace(bytes);
     }
 
     /** Restores the previous receipt index from its rollback backup via a private atomic publication, so a wide ACL

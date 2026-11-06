@@ -3,6 +3,7 @@ package dev.turboism.mapping.verification;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.compatibility.policy.ReviewedCubismReleases;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
@@ -12,12 +13,13 @@ import java.util.Map;
  * optional Core artifact) and prints a versioned JSON verdict for installers,
  * caches and diagnostics.
  *
- * <p>Unlike {@link ReviewedHostArtifactCli} — which keeps its exact-sample
- * semantics — this entry point reports the full admission picture: the
- * host's own declared identity, the exact-artifact verdict as a separate
- * dimension, the per-slice contract outcome with bounded reasons, and the
- * statically eligible capability set. Classloader attestation and runtime Hook
- * installation still run before plugins can use those capabilities.</p>
+ * <p>Unlike {@code ReviewedHostArtifactCli} — which keeps its exact-sample
+ * semantics and now lives in the build-time tooling source set — this entry point
+ * reports the full admission picture: the host's own declared identity, the
+ * exact-artifact verdict as a separate dimension, the per-slice contract outcome
+ * with bounded reasons, and the statically eligible capability set. Classloader
+ * attestation and runtime Hook installation still run before plugins can use
+ * those capabilities.</p>
  *
  * <p>The probe is an offline precheck: the runtime classloader and hook
  * contract checks can still degrade further. Exit codes are 0 for an

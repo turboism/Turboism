@@ -19,8 +19,8 @@ class MeshToolCoordinatorStateTest {
     void switchesInDeactivateThenActivateOrderAndNativeActivationRevokesExactlyOnce() {
         MeshToolCoordinator coordinator = new MeshToolCoordinator();
         List<String> calls = new ArrayList<>();
-        coordinator.register("plugin", 1, tool("a", calls), (permission, operation) -> {});
-        coordinator.register("plugin", 1, tool("b", calls), (permission, operation) -> {});
+        coordinator.register("plugin", 1, tool("a", calls), (permission, operation) -> {}, false);
+        coordinator.register("plugin", 1, tool("b", calls), (permission, operation) -> {}, false);
         coordinator.beginSession(new Session(9));
 
         coordinator.activate("plugin", 1, "a");
@@ -37,7 +37,7 @@ class MeshToolCoordinatorStateTest {
         // Tool activation is refused without an open session, and the toolbar reports that refusal
         // through the host action ingress, so the session state has to be observable from outside.
         final MeshToolCoordinator coordinator = new MeshToolCoordinator();
-        coordinator.register("plugin", 1, tool("a", new ArrayList<>()), (permission, operation) -> {});
+        coordinator.register("plugin", 1, tool("a", new ArrayList<>()), (permission, operation) -> {}, false);
 
         assertFalse(coordinator.hasActiveSession());
         assertThrows(IllegalStateException.class, () -> coordinator.activate("plugin", 1, "a"));
@@ -54,7 +54,7 @@ class MeshToolCoordinatorStateTest {
     @Test
     void exactGenerationsAndHostSessionIdentityRejectStaleOperations() {
         MeshToolCoordinator coordinator = new MeshToolCoordinator();
-        coordinator.register("plugin", 1, tool("a", new ArrayList<>()), (permission, operation) -> {});
+        coordinator.register("plugin", 1, tool("a", new ArrayList<>()), (permission, operation) -> {}, false);
         coordinator.beginSession(new Session(3));
         coordinator.activate("plugin", 1, "a");
         MeshToolCoordinator.ActivationLease lease = coordinator.activeLease().orElseThrow();

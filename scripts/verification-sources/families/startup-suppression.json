@@ -29,5 +29,12 @@
  "coverage": true,
  "packs": [],
  "extraLiterals": [],
- "coverageSources": []
+ "coverageSources": [],
+ "aliases": {
+  "className": "StartupSuppressionAliases",
+  "prefix": "cubism.startup-suppression."
+ },
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }

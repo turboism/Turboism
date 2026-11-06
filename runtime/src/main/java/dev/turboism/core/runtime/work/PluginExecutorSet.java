@@ -111,6 +111,27 @@ public final class PluginExecutorSet {
         taskExecutor.shutdown();
     }
 
+    /**
+     * Aborts the whole set without waiting for running work.
+     *
+     * <p>Only for a generation that already failed and was fenced: nothing this set could still
+     * deliver is admissible, so a graceful drain has no value and only delays the caller.
+     * Queued work is discarded; running bodies observe the closed generation and exit.
+     * Idempotent.
+     */
+    public void discard() {
+        closed = true;
+        synchronized (this) {
+            if (eventLane != null) {
+                eventLane.discard();
+            }
+            if (longLane != null) {
+                longLane.discard();
+            }
+        }
+        taskExecutor.discard();
+    }
+
     /** Returns {@code true} once every owned pool has terminated. */
     public boolean isTerminated() {
         final PluginEventLane events = eventLane;

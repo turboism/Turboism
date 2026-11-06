@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * the panel's own class loader, mirroring the reviewed legacy injection. Any
  * reflection failure fails closed and leaves the native UI unchanged.
  */
+@SuppressWarnings("removal") // the released interface this native control owner keeps serving
 public final class RuntimeMeshEditUiService implements MeshEditUiService {
 
     private final AtomicReference<MirrorAxisAngleControl> contribution = new AtomicReference<>();

@@ -23,7 +23,7 @@ class EditorPartOpacityAccessTest {
         childSource.parent = fixture.partSource;
         fixture.source.sources.add(childSource);
         fixture.source.model.parts.add(new HostPart("PartChild", childSource));
-        Host.document = fixture.document;
+        Host.install(fixture);
         final EditorBackedCubismModelAccess access =
                 new EditorBackedCubismModelAccess(resolver(true, "5.3.02"), "session-a");
         final var part = access.active().parts().find(new PartId("PartClip"));
@@ -51,7 +51,7 @@ class EditorPartOpacityAccessTest {
     @Test
     void exact5203ExposesEvaluationOpacityReadButRejectsAuthoringWrite() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final EditorBackedCubismModelAccess access =
                 new EditorBackedCubismModelAccess(resolver(true, "5.2.03"), "session-a");
         final var part = access.active().parts().find(new PartId("PartClip"));
@@ -66,7 +66,7 @@ class EditorPartOpacityAccessTest {
     @Test
     void noChangeSkipsUndoAndDetachedSameIdReferenceFailsClosed() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(resolver(true), "session-a");
         final var part = access.active().parts().find(new PartId("PartClip"));
 
@@ -83,10 +83,10 @@ class EditorPartOpacityAccessTest {
     @Test
     void retainedPartsFindChecksCurrentDocumentBeforeReadingSavedSource() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(resolver(true), "session-a");
         final var parts = access.active().parts();
-        Host.document = new Fixture().document;
+        Host.install(new Fixture());
 
         assertThrows(IllegalStateException.class, () -> parts.find(new PartId("PartClip")));
     }
@@ -101,7 +101,7 @@ class EditorPartOpacityAccessTest {
     @Test
     void successorGenerationReadsOpacityThroughItsOwnRecordedCapability() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final EditorBackedCubismModelAccess access =
                 new EditorBackedCubismModelAccess(resolver(true, "5.4.00"), "session-a");
         final var part = access.active().parts().find(new PartId("PartClip"));
@@ -114,7 +114,7 @@ class EditorPartOpacityAccessTest {
     @Test
     void exactResolverWithoutPartCapabilityFailsClosedBeforeSelectorUse() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
 
         assertThrows(UnsupportedOperationException.class, () -> access.active().parts());
@@ -131,6 +131,7 @@ class EditorPartOpacityAccessTest {
                 includePartCapability
                         ? java.util.Set.of(
                                 "cubism.editor-model.read",
+                                "cubism.editor-history.read",
                                 opacityCapability(cubismVersion),
                                 EditorPartTreeSelectorContract.CAPABILITY_ID)
                         : java.util.Set.of("cubism.editor-model.read"),

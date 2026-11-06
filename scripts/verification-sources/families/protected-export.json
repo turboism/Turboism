@@ -36,5 +36,12 @@
   "cubism-5.3.04-protected-export.json"
  ],
  "extraLiterals": [],
- "coverageSources": []
+ "coverageSources": [],
+ "aliases": {
+  "className": "ProtectedExportAliases",
+  "prefix": "cubism.protected-export."
+ },
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }

@@ -225,6 +225,21 @@ public final class RuntimeScheduler {
     }
 
     /**
+     * Aborts the executor set captured by {@link #claimPluginExecutors} without waiting for
+     * running work.
+     *
+     * <p>Reserved for a generation that already failed and was fenced: nothing its pools could
+     * still deliver is admissible, so a graceful drain has no value and would only delay the
+     * startup path that reported the failure.</p>
+     *
+     * @param pluginId the owning plugin, must not be blank
+     * @param expected the set captured at fencing
+     */
+    public void discardPluginExecutors(String pluginId, PluginExecutorSet expected) {
+        executorRegistry.discard(pluginId, expected);
+    }
+
+    /**
      * Queues a settlement callback on a plugin's completion lane, kept separate from ordinary
      * work so a saturated plugin can still finish work already in flight.
      *

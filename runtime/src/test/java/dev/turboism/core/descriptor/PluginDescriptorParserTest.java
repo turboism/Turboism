@@ -473,6 +473,80 @@ class PluginDescriptorParserTest {
         assertEquals("PLUGIN_META_BAD_EVENT_ID", failure.code());
     }
 
+    @Test
+    void parsedDescriptorIsDeeplyImmutable() throws DescriptorParseException {
+        final String digest = "c".repeat(64);
+        final PluginDescriptor descriptor = parser.parse(toStream("""
+            {
+              "format": "turboism.plugin.meta",
+              "schemaVersion": 5,
+              "id": "dev.turboism.plugin.demo",
+              "name": "Demo Plugin",
+              "version": "0.1.0",
+              "entrypoints": ["dev.turboism.plugin.demo.DemoPlugin"],
+              "turboismApi": "[0.67.0,1.0.0)",
+              "authors": [{"name": "Turboism Contributors"}],
+              "website": "https://turboism.dev",
+              "resources": ["icons/"],
+              "i18n": {"baseName": "META-INF/turboism/i18n/messages", "locales": ["base"]},
+              "dependencies": [{"id": "dev.turboism.plugin.provider", "version": "[1.0.0,2.0.0)"}],
+              "permissions": [{"id": "turboism.file.read", "reason": "Reads a project file."}],
+              "capabilities": ["ui.panel"],
+              "environment": {"requiresCubism": false, "ui": "none"},
+              "category": "modeling",
+              "tags": ["parameter"],
+              "eventExports": [{
+                "id": "demo.ready",
+                "contractVersion": "1.0.0",
+                "eventType": "dev.turboism.plugin.demo.DemoReadyEvent",
+                "abiSha256": "%s"
+              }],
+              "eventImports": [{
+                "provider": "dev.turboism.plugin.provider",
+                "eventId": "provider.ready",
+                "contractVersion": "[1.0.0,2.0.0)",
+                "eventType": "dev.turboism.plugin.provider.ProviderReadyEvent",
+                "abiSha256": "%s",
+                "required": false
+              }],
+              "eventContracts": [{
+                "id": "demo.events",
+                "version": "1.0.0",
+                "artifact": "META-INF/turboism/contracts/demo-events-1.0.0.jar",
+                "sha256": "%s"
+              }]
+            }
+            """.formatted(digest, digest, digest)));
+
+        assertEquals(1, descriptor.entrypoints().size());
+        assertEquals(1, descriptor.authors().size());
+        assertEquals(1, descriptor.resources().size());
+        assertEquals(1, descriptor.i18n().locales().size());
+        assertEquals(1, descriptor.dependencies().size());
+        assertEquals(1, descriptor.permissions().size());
+        assertEquals(1, descriptor.capabilities().size());
+        assertEquals(1, descriptor.tags().size());
+        assertEquals(1, descriptor.eventExports().size());
+        assertEquals(1, descriptor.eventImports().size());
+        assertEquals(1, descriptor.eventContracts().size());
+
+        assertRejectsMutation(() -> descriptor.entrypoints().add("mutated"));
+        assertRejectsMutation(() -> descriptor.authors().add(null));
+        assertRejectsMutation(() -> descriptor.resources().add("mutated/"));
+        assertRejectsMutation(() -> descriptor.i18n().locales().add("de"));
+        assertRejectsMutation(() -> descriptor.dependencies().add(null));
+        assertRejectsMutation(() -> descriptor.permissions().add(null));
+        assertRejectsMutation(() -> descriptor.capabilities().add("mutated"));
+        assertRejectsMutation(() -> descriptor.tags().add("mutated"));
+        assertRejectsMutation(() -> descriptor.eventExports().add(null));
+        assertRejectsMutation(() -> descriptor.eventImports().add(null));
+        assertRejectsMutation(() -> descriptor.eventContracts().add(null));
+    }
+
+    private static void assertRejectsMutation(final Runnable mutation) {
+        assertThrows(UnsupportedOperationException.class, mutation::run, "parsed descriptor list must be immutable");
+    }
+
     private static String v5Descriptor(final String eventFields) {
         return """
             {

@@ -8,7 +8,14 @@ import dev.turboism.sdk.CubismEditor;
  * bottom of the editor panel on the exact host; the plugin owns the panel's
  * content and refresh policy (for example, a statistics panel fed by
  * {@link TextureAtlasEditorSession}).
+ *
+ * @deprecated use {@link dev.turboism.sdk.ui.HostViewPanel} with the
+ *     {@link dev.turboism.sdk.ui.HostViewAnchors#TEXTURE_ATLAS_EDITOR} anchor and
+ *     {@link dev.turboism.sdk.ui.PanelView} content instead: the generalized surface renders
+ *     any panel tree into a host view and is not named after one host window. Scheduled for
+ *     removal; every released operation keeps working through this thin adapter until then.
  */
+@Deprecated(forRemoval = true)
 @CubismEditor({"5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
 public interface TextureAtlasEditorUi {
 
@@ -17,6 +24,8 @@ public interface TextureAtlasEditorUi {
      * returns the panel handle. Safe to call before or after the editor window
      * opens: panels registered while the window is already visible are attached
      * immediately. The host renderer is supplied by the runtime adapter.
+     *
+     * @return the panel handle; the content is a single text line
      */
     TextureAtlasEditorPanel attach();
 

@@ -80,7 +80,9 @@ public final class ShellManifest {
             List.of(),
             List.of(),
             List.of(),
-            List.of());
+            List.of(),
+            // The shell is never hot-swapped; only the update pipeline replaces agent generations.
+            false);
 
     private ShellManifest() {}
 

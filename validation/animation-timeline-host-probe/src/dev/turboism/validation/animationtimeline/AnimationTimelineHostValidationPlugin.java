@@ -12,6 +12,9 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.validation.shared.verdict.ProbeAssertions;
+import dev.turboism.validation.shared.verdict.ProbeTerminal;
+
+import static dev.turboism.validation.shared.verdict.ProbeAssertions.singleLine;
 
 import javax.swing.SwingUtilities;
 import java.io.File;
@@ -101,7 +104,7 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
         final long startedNanos = System.nanoTime();
         try {
             final CubismModel model = awaitActiveModel();
-            recordAssertion("host.activeModel", "model with drawables", "active", "PASS");
+            recordAssertion("host.activeModel", "model with drawables", "active", ProbeTerminal.PASS);
             final Fixture fixture = buildFixture();
             runReadMatrix(model, fixture);
             runSceneMatrix(model, fixture);
@@ -109,7 +112,7 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
             runEvalMatrix(model, fixture);
             runOffEdtProbe(model);
         } catch (Exception failure) {
-            recordAssertion("matrix.unexpectedFailure", "no exception", singleLine(failure), "FAIL");
+            recordAssertion("matrix.unexpectedFailure", "no exception", singleLine(failure), ProbeTerminal.FAIL);
             logger.error("ANIM_MATRIX_FAILED " + singleLine(failure), failure);
         }
         final String terminal = assertions.terminal().name();
@@ -179,13 +182,13 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
                 fixture.modelDoc = modelDocs == null || modelDocs.isEmpty() ? null : modelDocs.get(0);
             }
             if (fixture.modelDoc == null) {
-                recordAssertion("fixture.modelDoc", "active CModelingDocument", "none", "BLOCKED");
+                recordAssertion("fixture.modelDoc", "active CModelingDocument", "none", ProbeTerminal.BLOCKED);
                 return null;
             }
             fixture.modelFile = (File) invoke(fixture.modelDoc, "getFile");
             fixture.modelSource = invoke(fixture.modelDoc, "getModelSource");
             recordAssertion("fixture.modelDoc", "active CModelingDocument",
-                fixture.modelFile != null ? fixture.modelFile.getName() : "no file", "PASS");
+                fixture.modelFile != null ? fixture.modelFile.getName() : "no file", ProbeTerminal.PASS);
 
             final Object pack = invoke(fixture.app, "getCompletePack");
             final Class<?> animClass = hostClass("com.live2d.cubism.doc.animation.CAnimation");
@@ -207,7 +210,7 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
                 fixture.content, -1);
             recordAssertion("fixture.projectChild", "animation file content in project children",
                 String.valueOf(((List<?>) invoke(project, "getChildren")).contains(fixture.content)),
-                "PASS");
+                ProbeTerminal.PASS);
 
             buildScene(fixture, anim, SCENE_A, true);
             buildScene(fixture, anim, SCENE_B, false);
@@ -279,7 +282,7 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
                     + " resourceSrc=" + resourcePath + " modelFile=" + modelPath,
                 resourceSrc != null && modelFile != null
                     && resourceSrc.getCanonicalFile().equals(modelFile.getCanonicalFile())
-                    ? "PASS" : "FAIL");
+                    ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
 
             final Object effect = invoke(track, "getKeyParamEffect$cubism");
 
@@ -287,7 +290,7 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
                 (List<?>) invoke(fixture.modelSource, "getAllParameters");
             recordAssertion("fixture.parameters", ">= 2 parameter sources",
                 parameters == null ? "null" : String.valueOf(parameters.size()),
-                parameters != null && parameters.size() >= 2 ? "PASS" : "BLOCKED");
+                parameters != null && parameters.size() >= 2 ? ProbeTerminal.PASS : ProbeTerminal.BLOCKED);
             if (parameters == null || parameters.size() < 2) {
                 return;
             }
@@ -329,7 +332,7 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
             }
             recordAssertion("fixture.attr.guids",
                 "all effect attributes carry a guid",
-                "assigned=" + nullGuids, "PASS");
+                "assigned=" + nullGuids, ProbeTerminal.PASS);
         }
         invoke(fixture.content, "addScene",
             new Class<?>[]{sceneSourceClass, boolean.class}, scene, true);
@@ -345,7 +348,7 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
         recordAssertion("fixture.scene." + sceneName, "scene doc created with view contexts",
             "viewContexts=" + ((List<?>) invoke(sceneDoc, "getViewContexts")).size()
                 + " sceneInstances=" + ((List<?>) invoke(scene, "getSceneInstances")).size(),
-            "PASS");
+            ProbeTerminal.PASS);
     }
 
     // ------------------------------------------------------------------
@@ -366,64 +369,64 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
 
     private void runReadMatrix(final CubismModel model, final Fixture fixture) throws Exception {
         if (fixture == null) {
-            recordAssertion("read.enumerate", "fixture built", "no fixture", "BLOCKED");
+            recordAssertion("read.enumerate", "fixture built", "no fixture", ProbeTerminal.BLOCKED);
             return;
         }
         final List<AnimationDocument> docs = onHostThread(model::animationDocuments);
         recordAssertion("read.enumerate.count", ">= 1 animation document",
-            String.valueOf(docs.size()), docs.isEmpty() ? "FAIL" : "PASS");
+            String.valueOf(docs.size()), docs.isEmpty() ? ProbeTerminal.FAIL : ProbeTerminal.PASS);
         final AnimationDocument doc = docs.stream()
             .filter(d -> ANIMATION_NAME.equals(d.animationName())).findFirst().orElse(null);
         if (doc == null) {
-            recordAssertion("read.enumerate.probe", ANIMATION_NAME, "absent", "FAIL");
+            recordAssertion("read.enumerate.probe", ANIMATION_NAME, "absent", ProbeTerminal.FAIL);
             return;
         }
         recordAssertion("read.enumerate.probe", ANIMATION_NAME + " found",
             "scenes=" + doc.sceneCount() + " names=" + doc.sceneNames()
-                + " current=" + doc.currentSceneName().orElse("none"), "PASS");
+                + " current=" + doc.currentSceneName().orElse("none"), ProbeTerminal.PASS);
         recordAssertion("read.scene.count", "2", String.valueOf(doc.sceneCount()),
-            doc.sceneCount() == 2 ? "PASS" : "FAIL");
+            doc.sceneCount() == 2 ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         recordAssertion("read.scene.current", SCENE_A,
             doc.currentSceneName().orElse("none"),
-            doc.currentSceneName().map(SCENE_A::equals).orElse(false) ? "PASS" : "FAIL");
+            doc.currentSceneName().map(SCENE_A::equals).orElse(false) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         final List<AnimationScene> scenes = onHostThread(doc::scenes);
         final AnimationScene sceneA = scenes.stream()
             .filter(s -> SCENE_A.equals(s.name())).findFirst().orElse(null);
         if (sceneA == null) {
-            recordAssertion("read.scene.projection", SCENE_A, "absent", "FAIL");
+            recordAssertion("read.scene.projection", SCENE_A, "absent", ProbeTerminal.FAIL);
             return;
         }
         recordAssertion("read.scene.projection", SCENE_A,
-            "duration=" + sceneA.durationFrames() + " tracks=" + sceneA.tracks().size(), "PASS");
+            "duration=" + sceneA.durationFrames() + " tracks=" + sceneA.tracks().size(), ProbeTerminal.PASS);
         final AnimationTrack modelTrack = sceneA.tracks().stream()
             .filter(t -> t.kind() == AnimationTrackKind.LIVE2D_MODEL).findFirst().orElse(null);
         if (modelTrack == null) {
-            recordAssertion("read.track.model", "one LIVE2D_MODEL track", "absent", "FAIL");
+            recordAssertion("read.track.model", "one LIVE2D_MODEL track", "absent", ProbeTerminal.FAIL);
             return;
         }
         recordAssertion("read.track.model", "LIVE2D_MODEL track with model guid",
             "name=" + modelTrack.name() + " guid=" + modelTrack.linkedModelGuid().orElse("none")
                 + " attrs=" + modelTrack.attributes().size(),
-            modelTrack.linkedModelGuid().isPresent() ? "PASS" : "FAIL");
+            modelTrack.linkedModelGuid().isPresent() ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         final List<AnimationAttribute> attrs = modelTrack.attributes();
         final List<AnimationAttribute> keyed = attrs.stream()
             .filter(a -> !a.keyframes().isEmpty()).toList();
         recordAssertion("read.attr.count", "exactly the 2 keyed parameter attributes",
             "total=" + attrs.size() + " keyed=" + keyed.size(),
-            keyed.size() == 2 ? "PASS" : "FAIL");
+            keyed.size() == 2 ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         for (final AnimationAttribute attr : keyed) {
             final List<Integer> frames =
                 attr.keyframes().stream().map(AnimationKeyframe::frame).toList();
             recordAssertion("read.attr.keys." + attr.id(), "frames [0, 30, 60]",
                 frames.toString(),
-                frames.equals(List.of(0, 30, 60)) ? "PASS" : "FAIL");
+                frames.equals(List.of(0, 30, 60)) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         }
     }
 
     private void runSceneMatrix(final CubismModel model, final Fixture fixture) throws Exception {
         final AnimationDocument doc = probeDocument(model);
         if (doc == null) {
-            recordAssertion("scene.matrix", "probe document", "absent", "BLOCKED");
+            recordAssertion("scene.matrix", "probe document", "absent", ProbeTerminal.BLOCKED);
             return;
         }
         final List<AnimationScene> scenes = onHostThread(doc::scenes);
@@ -432,7 +435,7 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
         final AnimationScene sceneB = scenes.stream()
             .filter(s -> SCENE_B.equals(s.name())).findFirst().orElse(null);
         if (sceneA == null || sceneB == null) {
-            recordAssertion("scene.matrix", "both scenes projected", "missing", "BLOCKED");
+            recordAssertion("scene.matrix", "both scenes projected", "missing", ProbeTerminal.BLOCKED);
             return;
         }
         try {
@@ -443,9 +446,9 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
             });
             final int after = onHostThread(sceneA::playheadFrame);
             recordAssertion("playback.seekTo", "playhead 0 -> 15",
-                before + " -> " + after, after == 15 ? "PASS" : "FAIL");
+                before + " -> " + after, after == 15 ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         } catch (Exception failure) {
-            recordAssertion("playback.seekTo", "no exception", singleLine(failure), "FAIL");
+            recordAssertion("playback.seekTo", "no exception", singleLine(failure), ProbeTerminal.FAIL);
         }
         try {
             onHostThread(() -> {
@@ -457,9 +460,9 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
                 onHostThread(() -> probeDocumentUnchecked(model).currentSceneName().orElse("none"));
             recordAssertion("scene.activate", "B becomes current",
                 "current=" + currentB + " name=" + currentName,
-                currentB && SCENE_B.equals(currentName) ? "PASS" : "FAIL");
+                currentB && SCENE_B.equals(currentName) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         } catch (Exception failure) {
-            recordAssertion("scene.activate", "no exception", singleLine(failure), "FAIL");
+            recordAssertion("scene.activate", "no exception", singleLine(failure), ProbeTerminal.FAIL);
         }
         try {
             onHostThread(() -> {
@@ -470,9 +473,9 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
                 onHostThread(() -> probeDocumentUnchecked(model).sceneNames());
             recordAssertion("scene.rename", SCENE_B + " -> " + SCENE_B_RENAMED,
                 names.toString(),
-                names.contains(SCENE_B_RENAMED) ? "PASS" : "FAIL");
+                names.contains(SCENE_B_RENAMED) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         } catch (Exception failure) {
-            recordAssertion("scene.rename", "no exception", singleLine(failure), "FAIL");
+            recordAssertion("scene.rename", "no exception", singleLine(failure), ProbeTerminal.FAIL);
         }
         try {
             final AnimationCurveType original = onHostThread(sceneA::defaultCurveType);
@@ -483,16 +486,16 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
             final AnimationCurveType updated = onHostThread(sceneA::defaultCurveType);
             recordAssertion("scene.defaultCurveType", "get/set roundtrip",
                 original + " -> " + updated,
-                updated == AnimationCurveType.STEP ? "PASS" : "FAIL");
+                updated == AnimationCurveType.STEP ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         } catch (Exception failure) {
-            recordAssertion("scene.defaultCurveType", "no exception", singleLine(failure), "FAIL");
+            recordAssertion("scene.defaultCurveType", "no exception", singleLine(failure), ProbeTerminal.FAIL);
         }
     }
 
     private void runAttributeMatrix(final CubismModel model, final Fixture fixture) throws Exception {
         final AnimationAttribute attr = probeAttribute(model);
         if (attr == null) {
-            recordAssertion("attr.matrix", "parameter attribute", "absent", "BLOCKED");
+            recordAssertion("attr.matrix", "parameter attribute", "absent", ProbeTerminal.BLOCKED);
             return;
         }
         try {
@@ -502,7 +505,7 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
             });
             final List<Integer> frames = keyFrames(model, attr.id());
             recordAssertion("attr.setKeyframe", "key added at 45", frames.toString(),
-                frames.contains(45) ? "PASS" : "FAIL");
+                frames.contains(45) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
             final int undoDepthBefore = undoDepth(fixture);
             onHostThread(() -> {
                 attr.removeKeyframe(45);
@@ -510,32 +513,32 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
             });
             final List<Integer> afterRemove = keyFrames(model, attr.id());
             recordAssertion("attr.removeKeyframe", "key 45 removed", afterRemove.toString(),
-                !afterRemove.contains(45) ? "PASS" : "FAIL");
+                !afterRemove.contains(45) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
             final int undoDepthAfter = undoDepth(fixture);
             recordAssertion("undo.envelope", "native undo step recorded",
                 undoDepthBefore + " -> " + undoDepthAfter,
-                undoDepthAfter > undoDepthBefore ? "PASS" : "FAIL");
+                undoDepthAfter > undoDepthBefore ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         } catch (Exception failure) {
-            recordAssertion("attr.setRemove", "no exception", singleLine(failure), "FAIL");
+            recordAssertion("attr.setRemove", "no exception", singleLine(failure), ProbeTerminal.FAIL);
         }
         try {
             final int moved = onHostThread(() -> attr.offsetKeyframes(10));
             final List<Integer> afterOffset = keyFrames(model, attr.id());
             recordAssertion("attr.offsetKeyframes", "frames +10",
                 "moved=" + moved + " frames=" + afterOffset,
-                moved == 3 && afterOffset.equals(List.of(10, 40, 70)) ? "PASS" : "FAIL");
+                moved == 3 && afterOffset.equals(List.of(10, 40, 70)) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
             onHostThread(() -> attr.quantizeKeyframes(10));
             final List<Integer> afterQuantize = keyFrames(model, attr.id());
             recordAssertion("attr.quantizeKeyframes", "frames quantized to 10s",
                 afterQuantize.toString(),
-                afterQuantize.equals(List.of(10, 40, 70)) ? "PASS" : "FAIL");
+                afterQuantize.equals(List.of(10, 40, 70)) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
             final int scaled = onHostThread(() -> attr.scaleKeyframeTimes(0.5, 0));
             final List<Integer> afterScale = keyFrames(model, attr.id());
             recordAssertion("attr.scaleKeyframeTimes", "frames halved from 0",
                 "scaled=" + scaled + " frames=" + afterScale,
-                afterScale.equals(List.of(5, 20, 35)) ? "PASS" : "FAIL");
+                afterScale.equals(List.of(5, 20, 35)) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         } catch (Exception failure) {
-            recordAssertion("attr.transform", "no exception", singleLine(failure), "FAIL");
+            recordAssertion("attr.transform", "no exception", singleLine(failure), ProbeTerminal.FAIL);
         }
         try {
             onHostThread(() -> {
@@ -549,9 +552,9 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
                 types.toString(),
                 !segmentTypes.isEmpty()
                     && segmentTypes.stream().allMatch(AnimationCurveType.STEP::equals)
-                    ? "PASS" : "FAIL");
+                    ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         } catch (Exception failure) {
-            recordAssertion("attr.applyCurveType", "no exception", singleLine(failure), "FAIL");
+            recordAssertion("attr.applyCurveType", "no exception", singleLine(failure), ProbeTerminal.FAIL);
         }
         try {
             final Object undoManager = invoke(fixture.sceneDocA, "getUndoManager");
@@ -565,16 +568,16 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
             recordAssertion("undo.native",
                 "undo/redo restores keyframes (pos=" + posBefore + " size=" + sizeBefore + ")",
                 "undo=" + afterUndo + " redo=" + afterRedo,
-                !afterUndo.equals(afterRedo) || !afterRedo.isEmpty() ? "PASS" : "FAIL");
+                !afterUndo.equals(afterRedo) || !afterRedo.isEmpty() ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         } catch (Exception failure) {
-            recordAssertion("undo.native", "no exception", singleLine(failure), "FAIL");
+            recordAssertion("undo.native", "no exception", singleLine(failure), ProbeTerminal.FAIL);
         }
     }
 
     private void runEvalMatrix(final CubismModel model, final Fixture fixture) throws Exception {
         final AnimationAttribute attr = probeAttribute(model);
         if (attr == null) {
-            recordAssertion("eval.matrix", "parameter attribute", "absent", "BLOCKED");
+            recordAssertion("eval.matrix", "parameter attribute", "absent", ProbeTerminal.BLOCKED);
             return;
         }
         recordEvalDiagnostics(fixture);
@@ -585,9 +588,9 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
             });
             final List<Integer> frames = keyFrames(model, attr.id());
             recordAssertion("eval.recordKeyframe", "evaluated key at 20", frames.toString(),
-                frames.contains(20) ? "PASS" : "FAIL");
+                frames.contains(20) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         } catch (Exception failure) {
-            recordAssertion("eval.recordKeyframe", "no exception", singleLine(failure), "FAIL");
+            recordAssertion("eval.recordKeyframe", "no exception", singleLine(failure), ProbeTerminal.FAIL);
         }
         try {
             final int written =
@@ -595,9 +598,9 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
             final List<Integer> frames = keyFrames(model, attr.id());
             recordAssertion("eval.bakeEvaluated", "keys at 80/90/100",
                 "written=" + written + " frames=" + frames,
-                frames.containsAll(List.of(80, 90, 100)) ? "PASS" : "FAIL");
+                frames.containsAll(List.of(80, 90, 100)) ? ProbeTerminal.PASS : ProbeTerminal.FAIL);
         } catch (Exception failure) {
-            recordAssertion("eval.bakeEvaluated", "no exception", singleLine(failure), "FAIL");
+            recordAssertion("eval.bakeEvaluated", "no exception", singleLine(failure), ProbeTerminal.FAIL);
         }
     }
 
@@ -609,7 +612,7 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
                     fixture.sceneSourceA, "getSceneInstances");
                 if (instances == null || instances.isEmpty()) {
                     recordAssertion("diag.eval.modelInstance", "scene instance",
-                        "none", "INFO");
+                        "none", ProbeTerminal.INFO);
                     return null;
                 }
                 final Object sceneInstance = instances.get(0);
@@ -656,21 +659,21 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
                 recordAssertion("diag.eval.modelInstance",
                     "live model track instance with populated parameter set",
                     summary.length() == 0 ? "no model track instance" : summary.toString(),
-                    "INFO");
+                    ProbeTerminal.INFO);
                 return null;
             });
         } catch (Exception failure) {
             recordAssertion("diag.eval.modelInstance", "no exception",
-                singleLine(failure), "INFO");
+                singleLine(failure), ProbeTerminal.INFO);
         }
         try {
             final boolean readOnly = (Boolean) onHostThread(
                 () -> invoke(fixture.attrA1, "isReadOnly"));
             recordAssertion("diag.attr.readOnly", "isReadOnly flag",
-                String.valueOf(readOnly), "INFO");
+                String.valueOf(readOnly), ProbeTerminal.INFO);
         } catch (Exception failure) {
             recordAssertion("diag.attr.readOnly", "no exception",
-                singleLine(failure), "INFO");
+                singleLine(failure), ProbeTerminal.INFO);
         }
     }
 
@@ -678,10 +681,10 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
         try {
             final List<AnimationDocument> docs = model.animationDocuments();
             recordAssertion("thread.offEdt.enumerate", "off-EDT enumeration outcome",
-                "returned " + docs.size() + " documents", "INFO");
+                "returned " + docs.size() + " documents", ProbeTerminal.INFO);
         } catch (Exception failure) {
             recordAssertion("thread.offEdt.enumerate", "off-EDT enumeration outcome",
-                "threw " + singleLine(failure), "INFO");
+                "threw " + singleLine(failure), ProbeTerminal.INFO);
         }
     }
 
@@ -856,17 +859,9 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
     }
 
     private void recordAssertion(
-        final String name, final Object expected, final Object actual, final String status
+        final String name, final Object expected, final Object actual, final ProbeTerminal status
     ) {
         assertions.record(name, expected, actual, status);
-    }
-
-    private static String singleLine(final Object value) {
-        if (value == null) {
-            return "null";
-        }
-        final String text = value.toString().replace('\n', ' ').replace('\r', ' ');
-        return text.length() > 4000 ? text.substring(0, 4000) : text;
     }
 
     private void writeResultFile(final long startedNanos) {
@@ -883,11 +878,7 @@ public final class AnimationTimelineHostValidationPlugin implements TurboismPlug
                 .append('\n')
                 .append("durationMillis=")
                 .append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n');
-            assertions.appendCounters(report);
-            assertions.appendIndexed(report, true);
-            // The terminal verdict goes last: the Runner requires a positive verdict count
-            // as soon as it observes the pass line.
-            report.append("terminal=").append(assertions.terminal().name()).append('\n');
+            assertions.appendPublication(report, ProbeAssertions.Records.INDEXED, "terminal");
             Files.writeString(result, report.toString(),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception failure) {

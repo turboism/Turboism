@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.compatibility.policy.ReviewedCubismReleases;
 import dev.turboism.mapping.verification.selector.CubismSliceCatalog;
 import java.io.IOException;
 import java.io.InputStream;

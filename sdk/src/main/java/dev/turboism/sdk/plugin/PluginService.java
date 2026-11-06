@@ -68,29 +68,77 @@ public enum PluginService {
     /** {@link dev.turboism.sdk.cubism.physics.PhysicsEditorService} */
     PHYSICS_EDITOR(dev.turboism.sdk.cubism.physics.PhysicsEditorService.class),
 
+    /** {@link dev.turboism.sdk.cubism.preview.PreviewFrameService} */
+    @Incubating
+    PREVIEW_FRAMES(dev.turboism.sdk.cubism.preview.PreviewFrameService.class),
+
     /** {@link dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService} */
     FILE_CHOOSER_HISTORY(dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.class),
 
-    /** {@link dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService} */
+    /**
+     * {@link dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService}
+     *
+     * @deprecated use {@link #MESH_MIRROR_CONTROL}
+     */
+    @Deprecated(forRemoval = true)
     MESH_MIRROR_AXIS(dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService.class),
 
     /** {@link dev.turboism.sdk.cubism.mesh.MeshEditService} */
     MESH_EDIT(dev.turboism.sdk.cubism.mesh.MeshEditService.class),
 
-    /** {@link dev.turboism.sdk.cubism.mesh.MeshEditParticipation} */
+    /**
+     * {@link dev.turboism.sdk.cubism.mesh.MeshEditParticipation}
+     *
+     * @deprecated use {@link #MESH_EDIT_CONTRIBUTION}
+     */
+    @Deprecated(forRemoval = true)
     MESH_EDIT_PARTICIPATION(dev.turboism.sdk.cubism.mesh.MeshEditParticipation.class),
 
-    /** {@link dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts} */
+    /**
+     * {@link dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts}
+     *
+     * @deprecated use {@link #MESH_MIRROR_CONTROL}
+     */
+    @Deprecated(forRemoval = true)
     MESH_MIRROR_COUNTERPARTS(dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts.class),
 
-    /** {@link dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility} */
+    /**
+     * {@link dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility}
+     *
+     * @deprecated use {@link #MESH_MIRROR_CONTROL}
+     */
+    @Deprecated(forRemoval = true)
     MESH_MIRROR_TOOL_ELIGIBILITY(dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility.class),
 
-    /** {@link dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation} */
+    /**
+     * {@link dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation}
+     *
+     * @deprecated use {@link #MESH_MIRROR_CONTROL}
+     */
+    @Deprecated(forRemoval = true)
     MESH_MIRROR_MOVE_PARTICIPATION(dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation.class),
 
-    /** {@link dev.turboism.sdk.cubism.mesh.MeshEditUiService} */
+    /**
+     * {@link dev.turboism.sdk.cubism.mesh.MeshEditUiService}
+     *
+     * @deprecated use {@link #MESH_EDIT_CONTRIBUTION}
+     */
+    @Deprecated(forRemoval = true)
     MESH_EDIT_UI(dev.turboism.sdk.cubism.mesh.MeshEditUiService.class),
+
+    /**
+     * Directory-only mesh mirror control: axis, counterparts, movement participation and
+     * eligible-tool extensions on one surface; no {@link PluginContext} accessor.
+     */
+    @Incubating
+    MESH_MIRROR_CONTROL(dev.turboism.sdk.cubism.mesh.MeshMirrorControl.class),
+
+    /**
+     * Directory-only mesh edit contribution surface: host-edit participation and tool-area
+     * contributions on one surface; no {@link PluginContext} accessor.
+     */
+    @Incubating
+    MESH_EDIT_CONTRIBUTION(dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface.class),
 
     /** Directory-only custom mesh tools; no {@link PluginContext} accessor. */
     @Incubating
@@ -122,6 +170,10 @@ public enum PluginService {
 
     /** {@link dev.turboism.sdk.ui.UiHostCapabilityService} */
     UI_HOST(dev.turboism.sdk.ui.UiHostCapabilityService.class),
+
+    /** {@link dev.turboism.sdk.ui.HostViewPanel} */
+    @Incubating
+    HOST_VIEW_PANEL(dev.turboism.sdk.ui.HostViewPanel.class),
 
     /** {@link dev.turboism.sdk.ui.dialog.HostDialogAutomationService} */
     HOST_DIALOGS(dev.turboism.sdk.ui.dialog.HostDialogAutomationService.class),

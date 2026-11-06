@@ -1,12 +1,14 @@
 package dev.turboism.plugin.textureatlasstats;
 
-import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession;
-import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasSummary;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.ui.HostViewAnchors;
+import dev.turboism.sdk.ui.HostViewPanel;
+import dev.turboism.sdk.ui.HostViewPanelHandle;
+import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.UiScheduler;
 import java.util.Objects;
 import java.util.concurrent.Executors;
@@ -15,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Contributes a single-line model-image counter into the native texture-atlas editor
- * window through the framework UI/session capabilities:
+ * window through the framework host-view and session capabilities:
  * {@code Total model images: 849, current texture model images: 37}.
  *
  * <p>The one-second tick is only a gate: while the contributed panel is not on screen
@@ -26,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
 
     private static final long POLL_SECONDS = 1L;
+    private static final int PANEL_ORDER = 0;
     private static final String LINE_KEY = "texture-atlas-stats.line";
     private static final String UNAVAILABLE_KEY = "texture-atlas-stats.unavailable";
 
@@ -34,7 +37,7 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
     private ScheduledExecutorService scheduler;
     private TextureAtlasEditorSession session;
     private PluginLocalization localization;
-    private TextureAtlasEditorPanel panel;
+    private HostViewPanelHandle panel;
     private volatile String publishedText;
     private volatile boolean enabled;
 
@@ -51,13 +54,13 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
         if (enabled) return;
         enabled = true;
         try {
-            final TextureAtlasEditorUi editorUi = context.cubism().textureAtlasEditorUi();
-            final TextureAtlasEditorPanel attached = editorUi.attach();
-            panel = attached;
+            final HostViewPanel hostViewPanel =
+                    context.services().find(HostViewPanel.class).orElseGet(HostViewPanel::unavailable);
             session = context.cubism().textureAtlasEditorSession();
             localization = context.localization();
             publishedText = localization.text(LINE_KEY);
-            attached.setText(publishedText);
+            panel = hostViewPanel.attach(
+                    HostViewAnchors.TEXTURE_ATLAS_EDITOR, PanelView.text(publishedText), PANEL_ORDER);
             scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
                 final Thread thread = new Thread(runnable, "turboism-texture-atlas-stats");
                 thread.setDaemon(true);
@@ -99,7 +102,7 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
      * Package-private so the lifecycle tests can drive one tick deterministically.
      */
     void refresh() {
-        final TextureAtlasEditorPanel target = panel;
+        final HostViewPanelHandle target = panel;
         final TextureAtlasEditorSession activeSession = session;
         final PluginLocalization i18n = localization;
         if (!enabled || target == null || activeSession == null || i18n == null) return;
@@ -118,13 +121,13 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
     }
 
     /** Dispatches a refresh only when the rendered text changed. Callers stay on the poll thread. */
-    private void publish(final TextureAtlasEditorPanel target, final String text) {
+    private void publish(final HostViewPanelHandle target, final String text) {
         if (text.equals(publishedText)) return;
         publishedText = text;
-        dispatchTextToUi(target, text);
+        dispatchContentToUi(target, text);
     }
 
-    private void dispatchTextToUi(final TextureAtlasEditorPanel target, final String text) {
+    private void dispatchContentToUi(final HostViewPanelHandle target, final String text) {
         if (!enabled) {
             return;
         }
@@ -132,10 +135,11 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
         if (ui == null) {
             return;
         }
+        final PanelView content = PanelView.text(text);
         try {
             ui.runOnUiThread(() -> {
                 if (enabled) {
-                    target.setText(text);
+                    target.setContent(content);
                 }
             });
         } catch (IllegalStateException fenced) {

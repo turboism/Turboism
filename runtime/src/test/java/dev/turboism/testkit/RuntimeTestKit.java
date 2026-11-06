@@ -8,7 +8,6 @@ import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
@@ -66,40 +65,6 @@ public final class RuntimeTestKit {
 
     /** Returns an empty host snapshot source: no project, document, model, selection or host. */
     public static HostSnapshotSource emptyHostSnapshotSource() {
-        return EmptyHostSnapshotSource.INSTANCE;
-    }
-
-    private static final class EmptyHostSnapshotSource implements HostSnapshotSource {
-        private static final EmptyHostSnapshotSource INSTANCE = new EmptyHostSnapshotSource();
-
-        @Override
-        public Optional<HostProject> activeProject() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<HostDocument> activeDocument() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<HostModel> activeModel() {
-            return Optional.empty();
-        }
-
-        @Override
-        public HostSelection selection() {
-            return HostSelection.empty();
-        }
-
-        @Override
-        public boolean isHostPresent() {
-            return false;
-        }
-
-        @Override
-        public long invalidationToken() {
-            return 0L;
-        }
+        return RecordingHostSnapshotSource.empty();
     }
 }

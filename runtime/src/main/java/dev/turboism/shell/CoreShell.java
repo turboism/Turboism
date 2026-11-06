@@ -15,6 +15,7 @@ import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
+import dev.turboism.sdk.ui.settings.SettingsContribution;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.shell.service.MainToolbarHomeEntryService;
 import java.util.Optional;
@@ -128,36 +129,13 @@ public final class CoreShell implements ShellHandle {
                 localization(context).text("main-toolbar.about-menu.label"),
                 ignored -> windows.showAbout());
         registerSettingsActions();
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
-                                localization(context), "heavy-model", 60)));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
-                                localization(context), "model", 70)));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
-                                localization(context), "rendering", 80)));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
-                                localization(context), "upload", 90)));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
-                                localization(context), "mesh", 100)));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createPerformanceSection(
-                                localization(context), "jvm", 110)));
+        for (final SettingsContribution contribution :
+                OptimizationSettingsContribution.create(localization(context), services.optimizationSettings())) {
+            context.disposableScope()
+                    .register(context.services()
+                            .require(UiHostCapabilityService.class)
+                            .contributeSettings(contribution));
+        }
         context.disposableScope()
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
@@ -191,139 +169,8 @@ public final class CoreShell implements ShellHandle {
         context.disposableScope()
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createModelUpdateSkipToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createIncrementalUpdateToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createIncrementalUpdateAffectersToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createUniformLocationCacheToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createUploadElisionToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createMeshSetupElisionToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createInputPathElisionToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createMesaGlThreadToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createAsyncReadbackToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createMeshInterpolationToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createShaderUniformToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createMatrixScratchToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createImageArchiveReuseToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createFloatArrayParseCacheToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createTextureUploadPreparationToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createWarpPositionProjectionToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createClipMaskDeduplicationToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createClipMaskScissorClearToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(
-                                CubismJvmSettingsContribution.createExtendedInterpolationIncrementalSetupToggle(
-                                        localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createReinitPairElisionToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createModelInstanceCoalesceToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(CubismJvmSettingsContribution.createInspectorPropertyBypassToggle(
-                                localization(context), services.cubismJvmSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
                         .contributeSettings(CubismJvmSettingsContribution.createPerformanceRecommendationNote(
                                 localization(context))));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(MeshTriangulationSettingsContribution.create(
-                                localization(context), services.meshTriangulationSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(TriangulationEdgeIndexSettingsContribution.create(
-                                localization(context), services.triangulationEdgeIndexSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(AtlasTileBboxSettingsContribution.create(
-                                localization(context), services.atlasTileBboxSettings())));
-        context.disposableScope()
-                .register(context.services()
-                        .require(UiHostCapabilityService.class)
-                        .contributeSettings(AtlasCacheReuseSettingsContribution.create(
-                                localization(context), services.atlasCacheReuseSettings())));
         registerUpdateFeatures();
         registerPluginUpdateFeatures();
         registerPluginActions();

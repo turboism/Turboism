@@ -9,7 +9,7 @@ import dev.turboism.runtime.log.RuntimeDiagnostics;
  * transformer must observe the host's {@code TriangleList} before it loads, so
  * it installs in {@link Phase#PREMAIN} and closes on the process-exit path.
  */
-final class TriangulationEdgeIndexHookContributor implements HookContributor {
+final class TriangulationEdgeIndexHookContributor implements ReportedHookContributor {
 
     static final String HOOK_POLICY_ID = "cubism.mesh.triangulation-edge-index";
 
@@ -38,8 +38,8 @@ final class TriangulationEdgeIndexHookContributor implements HookContributor {
     @Override
     public boolean admitted(final HookEnvironment environment) {
         final boolean requested = environment
-                .optimizationConfig()
-                .choice(dev.turboism.config.NativeOptimizationConfig.Option.TRIANGULATION_EDGE_INDEX)
+                .plan()
+                .choice(dev.turboism.config.optimization.OptimizationCatalog.TRIANGULATION_EDGE_INDEX)
                 .enabled();
         final boolean admitted = environment.startupPolicy() != null
                 && environment.startupPolicy().hookEnabled(HOOK_POLICY_ID)

@@ -8,10 +8,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchTransformer;
+import dev.turboism.compatibility.policy.ReviewedCubismReleases;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.CubismEditorReleaseDetector;
 import dev.turboism.mapping.verification.CubismHostIdentity;
-import dev.turboism.mapping.verification.ReviewedCubismReleases;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

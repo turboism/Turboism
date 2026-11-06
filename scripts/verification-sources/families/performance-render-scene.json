@@ -29,5 +29,12 @@
  "packs": [],
  "extraLiterals": [],
  "coverageSources": [],
- "coverage": false
+ "coverage": false,
+ "aliases": {
+  "className": "PerformanceRenderSceneAliases",
+  "prefix": "cubism.performance."
+ },
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }

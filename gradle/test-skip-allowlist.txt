@@ -81,6 +81,9 @@ dev.turboism.plugin.perfstats.PerfStatsPluginLifecycleTest.windowActionFailsGrac
 # Framework self-update cases from main that only run on their target platform or
 # under an explicit opt-in environment; Linux CI skips them through assumptions.
 dev.turboism.config.TypedConfigDocumentStorePermissionTest.* # requires a POSIX filesystem; Windows NTFS skips POSIX mode bit enforcement via assumption.
+# The shared durable-write primitive asserts real POSIX mode bits the same way; its
+# owner-only fail-closed branch is platform-independent and always runs.
+dev.turboism.core.io.DurableFileTest.ownerOnlyRestrictsTheFileBeforeAnyPayloadByteIsWritten() # requires a POSIX filesystem; Windows NTFS skips POSIX mode bit enforcement via assumption.
 dev.turboism.update.FrameworkInstallationReceiptLoaderTest.appliedReceiptIndexAndRollbackBackupStayPrivateUnderWideInheritedAcl() # non-POSIX (Windows ACL) only; POSIX enforces receipt privacy with owner-only mode bits.
 dev.turboism.update.FrameworkInstallationReceiptLoaderTest.receiptIndexRestorePublishesPrivateStateInsteadOfWideCopiedBackup() # non-POSIX (Windows ACL) only; POSIX enforces receipt privacy with owner-only mode bits.
 dev.turboism.update.FrameworkUpdateApplierTest.lockedFileOnWindowsRollsBackEverythingElseAndKeepsLockedFileUntouched() # Windows sharing-violation semantics only.
@@ -90,9 +93,9 @@ dev.turboism.update.FrameworkUpdateE2E.realWindowsLifecycle() # opt-in real Wind
 dev.turboism.update.SignTestStage.sign() # opt-in staging signer; requires TURBOISM_SIGN_STAGE.
 
 # Optional native GIF optimizer checks; CI provisions Gifsicle and always runs these.
-dev.turboism.adapter.cubism.physics.PhysicsGifEncoderTest.realGifsicleHonorsLimitAndPreservesCountAndTiming() # requires TURBOISM_TEST_GIFSICLE pointing to a local Gifsicle executable; CI supplies it.
-dev.turboism.adapter.cubism.physics.PhysicsGifEncoderTest.realGifsiclePreservesIdenticalFramesAndSupportsUnlockedPixelScaling() # requires TURBOISM_TEST_GIFSICLE pointing to a local Gifsicle executable; CI supplies it.
-dev.turboism.adapter.cubism.physics.PhysicsGifEncoderTest.rejectsImpossibleLimitAndMissingExecutable() # requires TURBOISM_TEST_GIFSICLE pointing to a local Gifsicle executable; CI supplies it.
+dev.turboism.plugin.physicseditor.GifFrameEncoderTest.realGifsicleHonorsLimitAndPreservesCountAndTiming() # requires TURBOISM_TEST_GIFSICLE pointing to a local Gifsicle executable; CI supplies it.
+dev.turboism.plugin.physicseditor.GifFrameEncoderTest.realGifsiclePreservesIdenticalFramesAndSupportsUnlockedPixelScaling() # requires TURBOISM_TEST_GIFSICLE pointing to a local Gifsicle executable; CI supplies it.
+dev.turboism.plugin.physicseditor.GifFrameEncoderTest.rejectsImpossibleLimitAndMissingExecutable() # requires TURBOISM_TEST_GIFSICLE pointing to a local Gifsicle executable; CI supplies it.
 
 # Symlink creation needs Developer Mode or elevation on Windows; the test asserts real link behavior.
 dev.turboism.pluginmanagement.PendingPluginOperationsSecurityTest.stagingSymlinkFailsClosedWithoutWritingOutsideHome() # requires symbolic-link creation privilege; Windows hosts without Developer Mode skip by design.

@@ -22,5 +22,12 @@
  "coverage": true,
  "packs": [],
  "extraLiterals": [],
- "coverageSources": []
+ "coverageSources": [],
+ "aliases": {
+  "className": "AutoBackupAliases",
+  "prefix": "cubism.auto-backup."
+ },
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }

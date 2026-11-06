@@ -368,7 +368,9 @@ class EditorNativeControlAppearanceAccessTest {
         assertEquals(0, fixture.editMode.committedEdits, "no wrong history may be committed");
         assertEquals(1, fixture.editMode.cancelledEnds);
         assertEquals(0, fixture.document.dirtyUpdates);
-        assertEquals(0, fixture.completePack.canvasRepaints, "the UI refresh must not run against the replaced target");
+        // Recovery rewinds the open root with the native group undo, whose child listener repaints
+        // the label color it just restored: exactly one repaint of the restored target.
+        assertEquals(1, fixture.completePack.canvasRepaints, "the rollback repaints the restored label color once");
     }
 
     @Test
@@ -417,8 +419,10 @@ class EditorNativeControlAppearanceAccessTest {
         NativeLabelColorTarget folder =
                 new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, "GroupFace");
 
+        // The unified authoring envelope reports the host failure through its own coordinator
+        // contract, and the rollback refresh double-faults on the same broken complete pack.
         assertThrows(
-                dev.turboism.mapping.verification.VerifiedAccessException.class,
+                IllegalStateException.class,
                 () -> access.setNativeLabelColor(folder, new NativeLabelColor.Preset(PresetColor.RED)));
 
         final String trace =
@@ -597,8 +601,9 @@ class EditorNativeControlAppearanceAccessTest {
                 java.util.Set.of(
                         "cubism.editor-model.read",
                         "cubism.editor-model.write",
-                        EditorNativeControlAppearanceReadSelectorContract.CAPABILITY_ID),
-                selectors(),
+                        EditorNativeControlAppearanceReadSelectorContract.CAPABILITY_ID,
+                        "cubism.editor-history.read"),
+                writeSelectors(),
                 Host.class.getClassLoader());
     }
 
@@ -609,8 +614,9 @@ class EditorNativeControlAppearanceAccessTest {
                 java.util.Set.of(
                         "cubism.editor-model.read",
                         "cubism.editor-model.write",
-                        EditorNativeControlAppearanceWriteSelectorContract.CAPABILITY_ID),
-                selectors(),
+                        EditorNativeControlAppearanceWriteSelectorContract.CAPABILITY_ID,
+                        "cubism.editor-history.read"),
+                writeSelectors(),
                 Host.class.getClassLoader());
     }
 
@@ -643,12 +649,13 @@ class EditorNativeControlAppearanceAccessTest {
                 "cubism.editor-model.write",
                 EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
                 EditorNativeControlAppearanceReadSelectorContract.CAPABILITY_ID,
-                EditorNativeControlAppearanceWriteSelectorContract.CAPABILITY_ID);
+                EditorNativeControlAppearanceWriteSelectorContract.CAPABILITY_ID,
+                "cubism.editor-history.read");
         return TestVerifiedResolvers.create(
                 "5.3.02",
                 "adapter.editor-model.readwrite",
                 authorized ? capabilities : java.util.Set.of("cubism.editor-model.read", "cubism.editor-model.write"),
-                selectors(),
+                writeSelectors(),
                 Host.class.getClassLoader());
     }
 
@@ -899,6 +906,9 @@ class EditorNativeControlAppearanceAccessTest {
                 method("cubism.editor-model.edit-mode.end", EditMode.class, "end", "(ZLjava/lang/Object;)Z"),
                 StaticSelector.classSelector("cubism.editor-model.undo.class", undo),
                 method("cubism.editor-model.undo.add", Undo.class, "add", "(Ljava/lang/Object;Z)Z"),
+                // The authoring envelope rewinds a recovering root with the native group undo before
+                // it closes the bracket with abort=true.
+                method("cubism.editor-model.undo.group-undo", Undo.class, "undo", "()V"),
                 method("cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(L" + undoListener + ";)Z"),
                 StaticSelector.classSelector("cubism.editor-model.undo-listener.class", undoListener),
                 StaticSelector.constructor(
@@ -906,6 +916,42 @@ class EditorNativeControlAppearanceAccessTest {
                         simpleUndo,
                         "(Ljava/lang/String;L" + copyable + ";Ljava/lang/Object;)V",
                         StaticSelector.ACCESS_PUBLIC));
+    }
+
+    /** Native Undo-history projection shared by the authoring-envelope write paths. */
+    private static List<StaticSelector> historySelectors() {
+        return List.of(
+                method(
+                        "cubism.editor-history.document.undo-manager",
+                        Document.class,
+                        "undoManager",
+                        desc(HistoryManager.class)),
+                StaticSelector.classSelector("cubism.editor-history.manager.class", internal(HistoryManager.class)),
+                method("cubism.editor-history.manager.entries", HistoryManager.class, "entries", "()Ljava/util/List;"),
+                method("cubism.editor-history.manager.position", HistoryManager.class, "position", "()I"),
+                method(
+                        "cubism.editor-history.manager.can-undo",
+                        HistoryManager.class,
+                        "canUndo",
+                        "()Ljava/lang/Boolean;"),
+                method(
+                        "cubism.editor-history.manager.can-redo",
+                        HistoryManager.class,
+                        "canRedo",
+                        "()Ljava/lang/Boolean;"),
+                StaticSelector.classSelector("cubism.editor-history.entry.class", internal(Undo.class)),
+                method(
+                        "cubism.editor-history.entry.presentation-name",
+                        Undo.class,
+                        "presentationName",
+                        "()Ljava/lang/String;"),
+                method("cubism.editor-history.entry.significant", Undo.class, "significant", "()Ljava/lang/Boolean;"));
+    }
+
+    private static List<StaticSelector> writeSelectors() {
+        final List<StaticSelector> aliases = new ArrayList<>(selectors());
+        aliases.addAll(historySelectors());
+        return aliases;
     }
 
     public interface Copyable {
@@ -1154,11 +1200,13 @@ class EditorNativeControlAppearanceAccessTest {
     public static final class Document {
         final ModelSource source;
         final EditMode editMode;
+        final HistoryManager undoManager;
         int dirtyUpdates;
 
         Document(final ModelSource source, final EditMode editMode) {
             this.source = source;
             this.editMode = editMode;
+            this.undoManager = new HistoryManager(editMode);
         }
 
         public ModelSource modelSource() {
@@ -1167,6 +1215,10 @@ class EditorNativeControlAppearanceAccessTest {
 
         public EditMode editMode() {
             return editMode;
+        }
+
+        public HistoryManager undoManager() {
+            return undoManager;
         }
 
         public void markDirty() {
@@ -1275,10 +1327,20 @@ class EditorNativeControlAppearanceAccessTest {
     public static final class Undo {
         final List<SimpleUndo> edits = new ArrayList<>();
         final List<UndoListener> listeners = new ArrayList<>();
+        String presentationName = "edit";
 
         public boolean add(final Object raw, final boolean force) {
             edits.add((SimpleUndo) raw);
             return force;
+        }
+
+        /** Native history projection: the committed entry keeps the label the edit was begun with. */
+        public String presentationName() {
+            return presentationName;
+        }
+
+        public Boolean significant() {
+            return Boolean.TRUE;
         }
 
         public boolean addListener(final UndoListener listener) {
@@ -1286,7 +1348,7 @@ class EditorNativeControlAppearanceAccessTest {
             return true;
         }
 
-        void undo() {
+        public void undo() {
             for (int index = edits.size() - 1; index >= 0; index--)
                 edits.get(index).undo();
             listeners.forEach(listener -> listener.executed(null));
@@ -1308,12 +1370,14 @@ class EditorNativeControlAppearanceAccessTest {
         int committedEdits;
         int cancelledEnds;
         Runnable onBegin;
+        final List<Undo> history = new ArrayList<>();
         Undo active;
         Undo committed;
 
         public Undo begin(final String action) {
             beginCalls++;
             active = new Undo();
+            active.presentationName = action;
             if (onBegin != null) {
                 onBegin.run();
             }
@@ -1324,6 +1388,7 @@ class EditorNativeControlAppearanceAccessTest {
             if (!cancelled) {
                 committedEdits++;
                 committed = active;
+                history.add(active);
             } else {
                 cancelledEnds++;
                 if (active != null) {
@@ -1340,6 +1405,31 @@ class EditorNativeControlAppearanceAccessTest {
 
         void redo() {
             committed.redo();
+        }
+    }
+
+    /** Native Undo-manager projection: one committed history entry per committed edit. */
+    public static final class HistoryManager {
+        private final EditMode editMode;
+
+        HistoryManager(final EditMode editMode) {
+            this.editMode = editMode;
+        }
+
+        public List<Undo> entries() {
+            return List.copyOf(editMode.history);
+        }
+
+        public int position() {
+            return editMode.history.size();
+        }
+
+        public Boolean canUndo() {
+            return !editMode.history.isEmpty();
+        }
+
+        public Boolean canRedo() {
+            return Boolean.FALSE;
         }
     }
 

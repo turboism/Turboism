@@ -15,6 +15,7 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
@@ -95,7 +96,7 @@ final class CubismFacadeAuthoringTransactionTest {
             final BooleanSupplier active,
             final AuthoringTransactionService service) {
         return new CubismFacadeImpl(
-                emptySource(),
+                RecordingHostSnapshotSource.empty(),
                 new CubismPermissionGate("plugin.test", permissions, ignored -> {}, Clock.systemUTC()),
                 unavailableModelAccess(),
                 active,
@@ -134,40 +135,6 @@ final class CubismFacadeAuthoringTransactionTest {
                         value,
                         new AuthoringTransactionReceipt(
                                 "transaction-1", options.label(), history, history, Optional.empty()));
-            }
-        };
-    }
-
-    private static HostSnapshotSource emptySource() {
-        return new HostSnapshotSource() {
-            @Override
-            public Optional<HostProject> activeProject() {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<HostDocument> activeDocument() {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<HostModel> activeModel() {
-                return Optional.empty();
-            }
-
-            @Override
-            public HostSelection selection() {
-                return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
-            }
-
-            @Override
-            public boolean isHostPresent() {
-                return false;
-            }
-
-            @Override
-            public long invalidationToken() {
-                return 0;
             }
         };
     }

@@ -20,6 +20,7 @@ import dev.turboism.mapping.verification.SliceContract;
 import dev.turboism.mapping.verification.SliceRegistry;
 import dev.turboism.mapping.verification.SliceResolverFactory;
 import dev.turboism.mapping.verification.TopMenuVerificationManifest;
+import dev.turboism.mapping.verification.UiEmbeddedPanelAliases;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.appearance.AppearanceHostProvider;
@@ -53,7 +54,7 @@ import javax.swing.SwingUtilities;
 /** Production connector pinned to the reviewed project/workspace verification trust root. */
 final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
-    static final String PANEL_ICON_ANCHOR_ALIAS = "cubism.ui-panel.app-controller.class";
+    static final String PANEL_ICON_ANCHOR_ALIAS = UiEmbeddedPanelAliases.APP_CONTROLLER_CLASS;
 
     private final VerifiedAdapterFactory factory;
     private final EditorResolverFactory editorResolverFactory;
@@ -554,8 +555,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                     editorAdmission(evidence.editorModel().orElseThrow(), resolver);
             final CubismModelAccess modelAccess = editorAccessFactory.create(resolver, descriptor.sessionId(), core);
             final TextureAtlasDataModelCapture textureAtlasCapture = new TextureAtlasDataModelCapture();
-            final TextureAtlasLayoutProvider textureAtlasProvider =
-                    textureAtlasProvider(resolver, descriptor.sessionId(), textureAtlasCapture);
+            final TextureAtlasLayoutProvider textureAtlasProvider = textureAtlasProvider(
+                    resolver, descriptor.sessionId(), textureAtlasCapture, ambientAuthoringScopeAccess(modelAccess));
             final ToolbarMaterial toolbar = toolbarMaterial(evidence);
             final PanelMaterial panel = panelMaterialFactory.create(evidence);
             final TopMenuMaterial topMenu = topMenuMaterial(evidence);
@@ -599,7 +600,10 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     }
 
     static TextureAtlasLayoutProvider textureAtlasProvider(
-            final VerifiedMemberResolver resolver, final String sessionId, final TextureAtlasDataModelCapture capture) {
+            final VerifiedMemberResolver resolver,
+            final String sessionId,
+            final TextureAtlasDataModelCapture capture,
+            final java.util.function.BooleanSupplier ambientScopeActive) {
         final VerifiedTextureAtlasSelectorContract.Profile profile = VerifiedTextureAtlasSelectorContract.profileFor(
                         resolver.admittedCubismVersion())
                 .orElse(null);
@@ -610,8 +614,19 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                         VerifiedTextureAtlasSelectorContract.CAPABILITY_ID,
                         profile.requiredAliases())
-                ? new VerifiedTextureAtlasLayoutProvider(resolver, sessionId, capture, profile)
+                ? new VerifiedTextureAtlasLayoutProvider(resolver, sessionId, capture, profile, ambientScopeActive)
                 : null;
+    }
+
+    /**
+     * Ambient authoring-transaction observation for the texture-atlas layout apply, which cannot
+     * join the ambient scope and must refuse while it is open. Only the verified editor access
+     * owns the transaction coordinator; any other access implementation can never carry one.
+     */
+    private static java.util.function.BooleanSupplier ambientAuthoringScopeAccess(final CubismModelAccess modelAccess) {
+        return modelAccess instanceof EditorBackedCubismModelAccess editorAccess
+                ? editorAccess::ambientAuthoringScopeActive
+                : () -> false;
     }
 
     /**
@@ -748,7 +763,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             final PanelMaterial panel, final RuntimeHostAdapters adapters) {
         CubismNativeIconResolver iconResolver = null;
         try {
-            iconResolver = CubismNativeIconResolver.preload(panel.resolver(), PANEL_ICON_ANCHOR_ALIAS);
+            iconResolver =
+                    CubismNativeIconResolver.preload(panel.resolver(), UiEmbeddedPanelAliases.APP_CONTROLLER_CLASS);
             return RuntimeUiResourceService.connected(
                     iconResolver, adapters.themeStatus(), () -> RuntimeUiResourceService.DEFAULT_SCALE_PERCENT);
         } catch (RuntimeException | LinkageError optionalFailure) {

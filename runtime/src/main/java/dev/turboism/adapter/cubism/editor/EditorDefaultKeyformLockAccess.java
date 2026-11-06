@@ -1,7 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
-import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWrite;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract;
@@ -12,24 +13,20 @@ import java.util.Objects;
 /** Verified Editor-native default-keyform lock access. */
 final class EditorDefaultKeyformLockAccess {
 
+    private static final String OPERATION_ID = "cubism.model.set-default-keyform-locked";
     private static final String ACTION_NAME = "Turboism: Set Default Keyform Lock";
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
-    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
-
-    EditorDefaultKeyformLockAccess(
-            final VerifiedMemberResolver resolver, final EditorParameterCombinedAccess.ModelGuard modelGuard) {
-        this(resolver, modelGuard, null);
-    }
+    private final EditorAuthoringWriter authoringWriter;
 
     EditorDefaultKeyformLockAccess(
             final VerifiedMemberResolver resolver,
             final EditorParameterCombinedAccess.ModelGuard modelGuard,
-            final EditorAuthoringTransactionCoordinator authoringCoordinator) {
+            final EditorAuthoringWriter authoringWriter) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
-        this.authoringCoordinator = authoringCoordinator;
+        this.authoringWriter = Objects.requireNonNull(authoringWriter, "authoringWriter");
     }
 
     boolean locked(final String expectedIdentity, final Object source, final Object expectedModel) {
@@ -56,42 +53,23 @@ final class EditorDefaultKeyformLockAccess {
         }
 
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
         final boolean before = locked(source);
-        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
-        if (ambientJoin.isPresent()) {
-            ambientJoin
-                    .orElseThrow()
-                    .admit(
-                            "cubism.model.set-default-keyform-locked",
-                            expectedIdentity + ":model:default-keyform-locked",
-                            ACTION_NAME,
-                            (edit, transactionLabel) -> addUndo(edit, source, before, locked, app),
-                            () -> setLocked(source, locked),
-                            () -> locked(source) == locked,
-                            () -> setLocked(source, before),
-                            () -> locked(source) == before,
-                            EnumSet.of(
-                                    EditorRefreshRequirement.PARAMETER_PALETTE,
-                                    EditorRefreshRequirement.CANVAS,
-                                    EditorRefreshRequirement.MARK_DIRTY));
-            modelGuard.requireCurrent(expectedIdentity, expectedModel);
-            return;
-        }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-                authoringCoordinator, "Model.setDefaultKeyformLocked");
-        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-        final Object undo = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, ACTION_NAME);
-        boolean completed = false;
-        try {
-            addUndo(undo, source, before, locked, app);
-            setLocked(source, locked);
-            refreshUi(app);
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-            completed = true;
-        } finally {
-            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
-        }
+        authoringWriter.apply(EditorAuthoringWrite.of(OPERATION_ID, ACTION_NAME)
+                .subject(expectedIdentity + ":model:default-keyform-locked")
+                .refusalLabel("Model.setDefaultKeyformLocked")
+                .admit((edit, transactionLabel) -> addUndo(edit, source, before, locked, app))
+                .mutate(() -> setLocked(source, locked))
+                .verifyApplied(() -> locked(source) == locked)
+                .compensate(() -> setLocked(source, before))
+                .restored(() -> locked(source) == before)
+                .refresh(EnumSet.of(
+                        EditorRefreshRequirement.PARAMETER_PALETTE,
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY))
+                .build());
+        // The coalesced palette requirement rebuilds the rows; the palette's operation view is a
+        // separate member the shared refresh mapping does not reach yet (design C2 §7 Q3).
+        refreshPaletteOperation(app);
         modelGuard.requireCurrent(expectedIdentity, expectedModel);
     }
 
@@ -131,10 +109,15 @@ final class EditorDefaultKeyformLockAccess {
         resolver.invoke("cubism.editor-model.model-source.set-default-keyform-locked", source, Boolean.valueOf(locked));
     }
 
+    /** Undo/redo notification: the envelope updated the parameter palette and repainted the canvas. */
     private void refreshUi(final Object app) {
         final Object completePack = resolver.invoke("cubism.editor-model.app-controller.complete-pack", app);
         resolver.invoke("cubism.editor-model.complete-pack.update-parameter", completePack, Boolean.TRUE);
         resolver.invoke("cubism.editor-model.complete-pack.repaint-canvas", completePack, Boolean.TRUE);
+        refreshPaletteOperation(app);
+    }
+
+    private void refreshPaletteOperation(final Object app) {
         final Object mainFrame = resolver.invoke("cubism.editor-model.app-controller.main-frame", app);
         final Object palette = resolver.invoke("cubism.editor-model.main-frame.parameter-palette", mainFrame);
         final Object paletteView = resolver.invoke("cubism.editor-model.parameter-palette.view", palette);

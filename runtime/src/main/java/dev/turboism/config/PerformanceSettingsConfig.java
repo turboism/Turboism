@@ -2,6 +2,8 @@ package dev.turboism.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import dev.turboism.config.optimization.Optimization;
+import dev.turboism.config.optimization.OptimizationCatalog;
 import dev.turboism.runtime.env.ProtonEnvironment;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -86,6 +88,13 @@ public final class PerformanceSettingsConfig {
         }
     }
 
+    /**
+     * Source reported for every field when {@code config.json} could not be read: native
+     * optimizations fall back to off, and the bootstrap plan reports that fallback as its own
+     * refusal reason instead of a preference the user never set.
+     */
+    public static final String SOURCE_INVALID_CONFIG = "invalid-config";
+
     /** Startup request and its source, separate from the subsequently edited saved value. */
     public record Value(String value, String source) {}
 
@@ -113,20 +122,12 @@ public final class PerformanceSettingsConfig {
             JsonNode node = (field.launcher ? root.path("launcher") : root).get(field.key);
             String value = saved(root, field, proton);
             String source = node == null ? "platform-default" : "global-config";
+            final String overridden = jvmOverride(field);
             if (!valid) {
                 value = field.nativeOptimization() ? "false" : field.defaultValue(proton);
-                source = "invalid-config";
-            } else if (field.nativeOptimization() && System.getProperty("turboism.optimization." + field.key) != null) {
-                value = Boolean.toString(
-                        Boolean.parseBoolean(System.getProperty("turboism.optimization." + field.key)));
-                source = "jvm-override";
-            } else if (field == Field.MESH_INTERPOLATION
-                    && System.getProperty("turboism.meshInterpolation.enabled") != null) {
-                value = Boolean.toString(
-                        Boolean.parseBoolean(System.getProperty("turboism.meshInterpolation.enabled")));
-                source = "jvm-override";
-            } else if (field == Field.SHADER_UNIFORM && System.getProperty("turboism.shaderUniform.enabled") != null) {
-                value = Boolean.toString(Boolean.parseBoolean(System.getProperty("turboism.shaderUniform.enabled")));
+                source = SOURCE_INVALID_CONFIG;
+            } else if (overridden != null) {
+                value = overridden;
                 source = "jvm-override";
             } else if (field == Field.REDUCE_AUTO_BACKUP && System.getenv("TURBOISM_REDUCE_AUTO_BACKUP") != null) {
                 String override = System.getenv("TURBOISM_REDUCE_AUTO_BACKUP").trim();
@@ -148,12 +149,31 @@ public final class PerformanceSettingsConfig {
     }
 
     /**
+     * The {@code -D} override in force for one field, or {@code null} when none is set.
+     *
+     * <p>The names come from the catalogue row that owns the field and are tried in declaration
+     * order, so {@code turboism.optimization.<key>} still wins over the legacy aliases earlier
+     * launchers documented. The five fields without a catalogue row - the JVM selection, the
+     * managed-runtime path, the ZGC switch, the memory profile and the auto-backup switch - are not
+     * native optimizations and have no override.</p>
+     */
+    private static String jvmOverride(final Field field) {
+        final Optimization optimization = OptimizationCatalog.byKey(field.key).orElse(null);
+        if (optimization == null) return null;
+        for (final String property : optimization.overrideProperties()) {
+            final String overridden = System.getProperty(property);
+            if (overridden != null) return Boolean.toString(Boolean.parseBoolean(overridden));
+        }
+        return null;
+    }
+
+    /**
      * Reads a persisted boolean performance preference from {@code repository}, returning
      * {@code false} if the configuration file cannot be read or parsed.
      *
-     * <p>The four native-optimization preference services in this package all persist a single
-     * boolean through the same repository; sharing the read keeps their unreadable-file policy
-     * identical instead of restating the same try/catch per service.
+     * <p>The preference service in this package persists a single boolean through the same
+     * repository; sharing the read keeps its unreadable-file policy identical to the startup
+     * snapshot instead of restating the same try/catch.
      *
      * @param repository the configuration repository to read from
      * @param field the boolean performance setting field

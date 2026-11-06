@@ -6,15 +6,16 @@ import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionTarget
 import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.jar.JarFile;
+import java.util.Optional;
 
 /**
- * Exact admission, dependency verification and restoration for the test-only
- * input-path elision experiment. One host class is rewritten —
+ * Exact admission, dependency verification and restoration for the input-path elision transform,
+ * in its validation and production modes. One host class is rewritten —
  * {@code com/live2d/ui/CWidget}, inside {@code requestFocus()V} and
  * {@code setCursor(Lcom/live2d/type/CCursor;)V}. The bridge reads
  * {@code CWidget.getJComponent()} and {@code CCursor.getJCursor()}; every such
@@ -27,11 +28,27 @@ import java.util.jar.JarFile;
  * {@code shader/A.a(GL,String,Z)} and the uniform-location hooks
  * {@code shader/*} plus JOGL classes — disjoint owners, so this experiment
  * coexists with all of them.</p>
+ *
+ * <p>The protocol itself lives in {@link VerifiedInstall}. The validation mode never consults the
+ * startup policy — the harness owns its gate — while the production mode keeps the kill switch.</p>
  */
 final class VerifiedInputPathElisionInstaller implements AutoCloseable {
 
     /** Startup hook id used by the safe-mode / disabledHooks policy. */
     static final String HOOK_ID = "cubism.render.input-path-elision";
+
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+
+    /** The validation-mode row: the harness's system property is the only switch. */
+    private static final Admission VALIDATION_ADMISSION =
+            new Admission(HOOK_ID, PolicyCheck.SKIP, JvmCheck.AT_LEAST_17);
+
+    /** The one rewritten entry method; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_MATCHES = 1;
+
+    /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_OWNERS = 1;
 
     /** Exact production admission: reviewed digest + JVM17 + hook policy. */
     static boolean admitted(
@@ -39,150 +56,136 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
             final RuntimeStartupConfig config,
             final boolean requested,
             final Runtime.Version jvm) {
-        return requested
-                && jvm.feature() >= 17
-                && InputPathElisionTarget.of(digest).isPresent()
-                && config.hookEnabled(HOOK_ID);
+        return VerifiedInstall.admits(
+                ADMISSION,
+                config,
+                requested,
+                jvm.feature(),
+                () -> InputPathElisionTarget.of(digest).isPresent());
     }
 
-    private final Instrumentation instrumentation;
-    private final InputPathElisionTarget target;
-    private final Class<?> entry;
-    private final InputPathElisionTransformer transformer;
-    private final InputPathElisionBridge bridge;
-    private boolean installed, restored, registered;
+    private final InstallContext context;
+    private InputPathElisionBridge bridge;
+    private VerifiedInstall<InputPathElisionTarget> hook;
 
     VerifiedInputPathElisionInstaller(
-            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
-        target = InputPathElisionTarget.of(HostArtifactDigest.from(artifact))
-                .orElseThrow(() -> new IllegalArgumentException("input path elision unsupported host artifact"));
-        if (Runtime.version().feature() < 17) {
-            throw new IllegalArgumentException("input path elision requires JVM17+");
-        }
-        this.instrumentation = instrumentation;
-        if (!instrumentation.isRetransformClassesSupported()) {
-            throw new IllegalStateException("retransform unavailable");
-        }
-        try (JarFile jar = new JarFile(artifact.toFile())) {
-            entry = Class.forName(InputPathElisionTarget.OWNER.replace('/', '.'), false, loader);
-            VerifiedHookInstallerSupport.attestClassSource(
-                    entry,
-                    loader,
-                    artifact,
-                    "input path elision dependency loader/source mismatch: " + entry.getName());
-            transformer = new InputPathElisionTransformer(
-                    loader, artifact, VerifiedHookInstallerSupport.readReferenceBytes(jar, entry));
-            verify(
-                    jar,
-                    loader,
-                    artifact,
-                    InputPathElisionTarget.OWNER,
-                    InputPathElisionTarget.COMPONENT_METHOD,
-                    InputPathElisionTarget.COMPONENT_DESCRIPTOR);
-            verify(
-                    jar,
-                    loader,
-                    artifact,
-                    InputPathElisionTarget.CURSOR_OWNER,
-                    InputPathElisionTarget.CURSOR_ACCESSOR,
-                    InputPathElisionTarget.CURSOR_ACCESSOR_DESCRIPTOR);
-        }
-        bridge = new InputPathElisionBridge(loader);
+            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) {
+        this(InstallContext.of(instrumentation, artifact, loader));
     }
 
-    private void verify(
-            final JarFile jar,
-            final ClassLoader loader,
-            final Path artifact,
-            final String owner,
-            final String method,
-            final String descriptor)
+    VerifiedInputPathElisionInstaller(final InstallContext context) {
+        this.context = context;
+    }
+
+    private WeaveSpec<InputPathElisionTarget> spec(final boolean production) {
+        return new WeaveSpec<InputPathElisionTarget>(
+                production ? ADMISSION : VALIDATION_ADMISSION,
+                "input path elision",
+                VerifiedInputPathElisionInstaller::resolve,
+                new WeavePlan<>(
+                        VerifiedInputPathElisionInstaller::targets, VerifiedInputPathElisionInstaller::sitesProven),
+                (target, launch) -> {
+                    bridge = new InputPathElisionBridge(launch.hostLoader());
+                    return BridgeLayer.of(() -> bridge.install(production), bridge);
+                },
+                WeaveEffects.none());
+    }
+
+    private static Optional<InputPathElisionTarget> resolve(final Path artifact) throws Exception {
+        return InputPathElisionTarget.of(HostArtifactDigest.from(artifact));
+    }
+
+    private static List<WeaveTarget> targets(final InputPathElisionTarget target, final WeaveSource source)
             throws Exception {
-        final Class<?> type = Class.forName(owner.replace('/', '.'), false, loader);
-        VerifiedHookInstallerSupport.attestClassSource(
-                type, loader, artifact, "input path elision dependency loader/source mismatch: " + type.getName());
+        final Class<?> entry = source.load(InputPathElisionTarget.OWNER);
+        final InputPathElisionTransformer transformer =
+                new InputPathElisionTransformer(source.loader(), source.artifact(), source.referenceBytes(entry));
+        verify(
+                source,
+                InputPathElisionTarget.OWNER,
+                InputPathElisionTarget.COMPONENT_METHOD,
+                InputPathElisionTarget.COMPONENT_DESCRIPTOR);
+        verify(
+                source,
+                InputPathElisionTarget.CURSOR_OWNER,
+                InputPathElisionTarget.CURSOR_ACCESSOR,
+                InputPathElisionTarget.CURSOR_ACCESSOR_DESCRIPTOR);
+        return List.of(WeaveTarget.single(
+                entry,
+                transformer,
+                EXPECTED_MATCHES,
+                transformer::matches,
+                transformer::failure,
+                owner -> transformer.beforeSha256()));
+    }
+
+    private static void verify(
+            final WeaveSource source, final String owner, final String method, final String descriptor)
+            throws Exception {
+        final Class<?> type = source.load(owner);
         final byte[] actual = VerifiedHookInstallerSupport.captureLoadedBytes(
-                instrumentation,
+                source.instrumentation(),
                 type,
                 "input path elision class unmodifiable: " + type.getName(),
                 "input path elision dependency inspection absent: " + type.getName());
-        final List<String> expected = ReviewedMethodShape.read(
-                VerifiedHookInstallerSupport.readReferenceBytes(jar, type), owner, method, descriptor);
+        final List<String> expected = ReviewedMethodShape.read(source.referenceBytes(type), owner, method, descriptor);
         if (expected == null || !expected.equals(ReviewedMethodShape.read(actual, owner, method, descriptor))) {
             throw new IllegalStateException("input path elision dependency body mismatch: " + owner + "." + method);
         }
+    }
+
+    /** The experiment injects exactly two consult sites, one per rewritten method. */
+    private static String sitesProven(final List<WeaveTarget> targets) {
+        final int sites =
+                targets.get(0).transformer(InputPathElisionTransformer.class).sites();
+        return sites == 2 ? null : "sites=" + sites;
     }
 
     synchronized void install() throws Exception {
         install(false);
     }
 
+    /**
+     * Installs the weave through {@link VerifiedInstall}.
+     *
+     * @param production whether the bridge arms its consult immediately and the kill switch applies
+     * @throws IllegalStateException when the artifact is not a reviewed input-path host
+     * @throws Exception when registration, retransformation or the proof fails
+     */
     synchronized void install(final boolean production) throws Exception {
-        if (installed) return;
-        if (!instrumentation.isModifiableClass(entry)) {
-            throw new IllegalStateException("input path elision entry unmodifiable: " + entry.getName());
-        }
-        bridge.install(production);
-        try {
-            instrumentation.addTransformer(transformer, true);
-            registered = true;
-            instrumentation.retransformClasses(entry);
-            if (transformer.matches() != 1 || transformer.sites() != 2 || transformer.failure() != null) {
-                throw new IllegalStateException(
-                        "input path elision entry not admitted: " + entry.getName() + " " + transformer.failure());
+        if (hook == null) {
+            if (!(VerifiedInstall.bind(spec(production), context)
+                    instanceof VerifiedInstall.Attempt.Installed<InputPathElisionTarget> bound)) {
+                throw new IllegalStateException("input path elision refused: host-not-supported-or-hook-disabled");
             }
-            installed = true;
-        } catch (Exception | Error failure) {
-            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
-            throw failure;
+            hook = bound.hook();
         }
+        hook.weave();
     }
 
     /** Injected consult count for the install marker log. */
     int sites() {
-        return transformer.sites();
+        return hook.targets()
+                .get(0)
+                .transformer(InputPathElisionTransformer.class)
+                .sites();
     }
 
     @Override
     public synchronized void close() {
+        if (hook == null) return;
         final Map<String, Long> stats = bridge.snapshot();
-        bridge.close();
-        if (restored || (!installed && !registered && transformer.beforeSha256() == null)) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                    "bootstrap", "TURBOISM_INPUT_PATH closed" + report(stats) + " installed=false");
-            return;
-        }
-        if (registered) {
-            instrumentation.removeTransformer(transformer);
-            registered = false;
-        }
         try {
-            // A transformer that never observed bytes rewrote nothing.
-            if (transformer.beforeSha256() == null) {
-                restored = true;
-                installed = false;
-                dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                        "bootstrap", "TURBOISM_INPUT_PATH closed" + report(stats) + " restored=true");
-                return;
-            }
-            final byte[] original = VerifiedHookInstallerSupport.captureLoadedBytes(
-                    instrumentation,
-                    entry,
-                    "input path elision class unmodifiable: " + entry.getName(),
-                    "input path elision dependency inspection absent: " + entry.getName());
-            final String hash = VerifiedHookInstallerSupport.sha256Hex(original);
-            if (!hash.equals(transformer.beforeSha256())) {
-                throw new IllegalStateException("input path elision restoration not proven: " + entry.getName());
-            }
-            restored = true;
-            installed = false;
-        } catch (Exception failure) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                    "bootstrap", "TURBOISM_INPUT_PATH closed" + report(stats) + " restored=false reason=" + failure);
-            throw new IllegalStateException("input path elision restoration failed", failure);
+            hook.close();
+        } catch (RuntimeException | Error failure) {
+            log(stats, false);
+            throw failure;
         }
-        dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                "bootstrap", "TURBOISM_INPUT_PATH closed" + report(stats) + " restored=true");
+        log(stats, hook.restored());
+    }
+
+    private static void log(final Map<String, Long> stats, final boolean restored) {
+        RuntimeDiagnostics.info("bootstrap", "TURBOISM_INPUT_PATH closed" + report(stats) + " restored=" + restored);
     }
 
     /** Per-site counters for the close marker; gauges stay absolute. */
@@ -197,6 +200,6 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
     }
 
     boolean restored() {
-        return restored;
+        return hook != null && hook.restored();
     }
 }

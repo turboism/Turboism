@@ -2,7 +2,16 @@ package dev.turboism.sdk.cubism.mesh;
 
 import dev.turboism.sdk.CubismEditor;
 
-/** Session-scoped angle of Cubism's mesh-edit mirror axis. */
+/**
+ * Session-scoped angle of Cubism's mesh-edit mirror axis.
+ *
+ * @deprecated use {@link MeshMirrorControl#currentAngleDegrees()} and
+ *     {@link MeshMirrorControl#setCurrentAngleDegrees(float)} instead: the mirror axis, the
+ *     counterpart rule, movement participation and the eligible-tool set are one capability,
+ *     handed out together by {@code PluginService.MESH_MIRROR_CONTROL}. Scheduled for removal;
+ *     every released operation keeps working through this thin adapter until then.
+ */
+@Deprecated(forRemoval = true)
 @CubismEditor(from = "5.0.00")
 public interface MeshMirrorAxisService {
 

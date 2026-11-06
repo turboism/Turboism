@@ -44,7 +44,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
 
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
 
         assertEquals(ProtectedExportOrchestrator.Phase.PUBLISHED, report.reached());
@@ -76,7 +76,7 @@ class ProtectedExportOrchestratorTest {
         fixture.host.copyFileMarkedReadOnlyOnOpen = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
 
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
 
         assertEquals(ProtectedExportOrchestrator.Phase.PUBLISHED, report.reached());
@@ -97,7 +97,7 @@ class ProtectedExportOrchestratorTest {
         // the first one again.
         fixture.host.vanishArtMeshAfterCensus = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.OBFUSCATE_FAILED_KEY, report.failureKey());
@@ -124,7 +124,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         customizer.accept(fixture);
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         orchestrator.close();
         return new ExportExecution(fixture, report);
@@ -154,7 +154,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.exportDriftsGeometry = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNotNull(report.failureKey());
@@ -178,7 +178,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.exportWritesNonFinite = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNotNull(report.failureKey());
@@ -201,7 +201,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.exportWritesEmptyGeometry = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNotNull(report.failureKey());
@@ -227,7 +227,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.flattenCorruptsGeometry = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.BEHAVIOR_MISMATCH_KEY, report.failureKey());
@@ -249,7 +249,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.unboundDeformerConstant = 7f;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.BEHAVIOR_MISMATCH_KEY, report.failureKey());
@@ -266,7 +266,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.copyParameterStartsOffDefault = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertTrue(report.published(), "expected publish, failed with " + report.failureKey());
@@ -288,7 +288,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.seamInstalled.set(false);
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertFalse(orchestrator.requestExport(fixture.outerDialog));
+        assertFalse(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
         orchestrator.close();
     }
 
@@ -300,7 +300,7 @@ class ProtectedExportOrchestratorTest {
         final List<ExportSettingsVetoDiagnostic> refusals = new ArrayList<>();
         orchestrator.refusalReporter(refusals::add);
 
-        assertFalse(orchestrator.requestExport(fixture.outerDialog));
+        assertFalse(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
         assertEquals(1, refusals.size(), "a refused request must name itself for the user-visible sink");
         assertEquals(
                 ProtectedExportOrchestrator.NOT_ADMITTED_KEY, refusals.get(0).key());
@@ -316,8 +316,8 @@ class ProtectedExportOrchestratorTest {
         orchestrator.refusalReporter(refusals::add);
         fixture.host.bindDelayMillis = 5_000L;
 
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-        assertFalse(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
+        assertFalse(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
         assertEquals(1, refusals.size());
         assertEquals(
                 ProtectedExportOrchestrator.NOT_ADMITTED_KEY, refusals.get(0).key());
@@ -343,8 +343,8 @@ class ProtectedExportOrchestratorTest {
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         // First arm parks inside the (blocking) fake bind; a second request cannot displace it.
         fixture.host.bindDelayMillis = 5_000L;
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-        assertFalse(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
+        assertFalse(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
         orchestrator.close();
     }
 
@@ -381,7 +381,7 @@ class ProtectedExportOrchestratorTest {
         // applying would consume a foreign object, so flatten must refuse.
         fixture.host.selectsExtraDeformer = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.FLATTEN_FAILED_KEY, report.failureKey());
@@ -398,7 +398,7 @@ class ProtectedExportOrchestratorTest {
         // identity — the session rejects at preflight before any copy is made.
         fixture.host.original.model.unpinnableObjects.add(new Object());
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
@@ -424,7 +424,7 @@ class ProtectedExportOrchestratorTest {
         fixture.host.original.model.unpinnableObjects.add(new FakeUnsupported("art-path"));
         fixture.host.original.model.unpinnableObjects.add(new Object());
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
@@ -442,7 +442,7 @@ class ProtectedExportOrchestratorTest {
         fixture.host.original.model.passThrough.add(
                 new FakePassThrough("deform-path", "dp-1-guid", "dp-1", "deformPath", List.of()));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
@@ -459,7 +459,7 @@ class ProtectedExportOrchestratorTest {
         fixture.host.original.model.passThrough.add(
                 new FakePassThrough("art-path", "m-a-guid", "ap-1", "artPath", List.of()));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
@@ -480,7 +480,7 @@ class ProtectedExportOrchestratorTest {
         fixture.host.original.model.parts.get(0).childGuids.add("ap-1-guid");
         fixture.host.original.model.parts.get(0).childGuids.add("al-1-guid");
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNull(report.failureKey());
@@ -501,7 +501,7 @@ class ProtectedExportOrchestratorTest {
                 new FakePassThrough("art-path", "ap-1-guid", "ArtPath1", "art-path-one", List.of()));
         fixture.host.mutatePassThroughMidRun = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.OBFUSCATE_FAILED_KEY, report.failureKey());
@@ -524,7 +524,7 @@ class ProtectedExportOrchestratorTest {
                 fixture.host.original.model.artMeshes.get(1)));
         fixture.host.original.model.parts.get(0).childGuids.add("glue-1-guid");
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNull(report.failureKey());
@@ -552,7 +552,7 @@ class ProtectedExportOrchestratorTest {
                 fixture.host.original.model.artMeshes.get(1)));
         fixture.host.mutateGlueMidRun = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.OBFUSCATE_FAILED_KEY, report.failureKey());
@@ -570,7 +570,7 @@ class ProtectedExportOrchestratorTest {
         fixture.host.original.model.glues.add(
                 new FakeGlue("glue-1-guid", "Glue1", "glue-one", fixture.host.original.model.artMeshes.get(0), null));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
@@ -592,7 +592,7 @@ class ProtectedExportOrchestratorTest {
                 fixture.host.original.model.artMeshes.get(1)));
         fixture.host.exportDropsGlue = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals("protected-export.validation-failed:protected-export.moc3-glue-ids", report.failureKey());
@@ -626,7 +626,7 @@ class ProtectedExportOrchestratorTest {
         fixture.host.original.model.physicsSettings.add(physicsSetting("phys-1-guid", "hairPhys", "hair"));
         fixture.host.original.model.physicsSettings.add(physicsSetting("phys-2-guid", "skirtPhys", "skirt"));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNull(report.failureKey(), "expected publish: " + report.failureKey() + " " + report.failureDetail());
@@ -660,7 +660,7 @@ class ProtectedExportOrchestratorTest {
         fixture.host.original.model.physicsSettings.add(physicsSetting("phys-1-guid", "hairPhys", "hair"));
         fixture.host.exportWritesPhysics = false;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNull(report.failureKey(), "expected publish: " + report.failureKey());
@@ -697,7 +697,7 @@ class ProtectedExportOrchestratorTest {
         dangling.inputs.add(new FakePhysicsInput("ghost-param-guid", 1f, "SRC_TO_X", false));
         fixture.host.original.model.physicsSettings.add(dangling);
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
@@ -716,7 +716,7 @@ class ProtectedExportOrchestratorTest {
         fixture.host.original.model.physicsSettings.add(physicsSetting("phys-1-guid", "hairPhys", "hair"));
         fixture.host.mutateSettingsMidRun = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.OBFUSCATE_FAILED_KEY, report.failureKey());
@@ -732,7 +732,7 @@ class ProtectedExportOrchestratorTest {
         // rather than riding through unseen.
         fixture.host.original.model.physicsSettings.add(new Object());
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
@@ -748,7 +748,7 @@ class ProtectedExportOrchestratorTest {
         fixture.host.original.model.motionSyncSettings.add(
                 new FakeMotionSyncSettings("ms-1-guid", "MotionSync1", "voice", 4242));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNull(report.failureKey(), "expected publish: " + report.failureKey());
@@ -763,7 +763,7 @@ class ProtectedExportOrchestratorTest {
         // post-mutation census compares against the bound snapshot and refuses.
         fixture.host.mutatePartNameMidRun = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.OBFUSCATE_FAILED_KEY, report.failureKey());
@@ -776,7 +776,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.duplicateDeformerGuids = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
@@ -789,7 +789,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.extendedInterpolation = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
@@ -806,7 +806,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.exportShowsDialog = false;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.EXPORT_FAILED_KEY, report.failureKey());
@@ -830,7 +830,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.exportCompletes = false;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.EXPORT_TIMEOUT_KEY, report.failureKey());
@@ -843,7 +843,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.cancelInnerDialog = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.EXPORT_CANCELLED_KEY, report.failureKey());
@@ -857,7 +857,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.cancelChooser = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.EXPORT_CANCELLED_KEY, report.failureKey());
@@ -879,7 +879,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.exportCompletes = false;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.EXPORT_TIMEOUT_KEY, report.failureKey());
@@ -899,7 +899,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.restoreOriginal = false;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.RESTORE_FAILED_KEY, report.failureKey());
@@ -917,7 +917,7 @@ class ProtectedExportOrchestratorTest {
         fixture.host.original.modified = true;
         fixture.host.original.model.parameters.set(0, new FakeParameter("param-1", 0f, 2f, 0f, false));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertTrue(
@@ -945,7 +945,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.serializeFails = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.BIND_FAILED_KEY, report.failureKey());
@@ -964,7 +964,7 @@ class ProtectedExportOrchestratorTest {
         Files.writeString(blocked, "not a directory");
         fixture.host.realPick = blocked.resolve("model.moc3").toFile();
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PUBLISH_FAILED_KEY, report.failureKey());
@@ -1002,7 +1002,7 @@ class ProtectedExportOrchestratorTest {
             Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
         };
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PUBLISH_FAILED_KEY, report.failureKey());
@@ -1044,7 +1044,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture(tempDir);
         fixture.host.releaseCopyHandle = false;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.RESTORE_FAILED_KEY, report.failureKey());
@@ -1064,7 +1064,7 @@ class ProtectedExportOrchestratorTest {
         // content so flatten/obfuscation must leave the flag set unchanged.
         fixture.host.multiplyColor = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNull(report.failureKey(), "expected publish: " + report.failureKey());
@@ -1080,7 +1080,7 @@ class ProtectedExportOrchestratorTest {
         // object rather than rejecting the family outright.
         fixture.host.embeddedMorphTargets = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNull(report.failureKey(), "expected publish: " + report.failureKey());
@@ -1095,7 +1095,7 @@ class ProtectedExportOrchestratorTest {
         // census and legitimately disappears with its owner — not a rejection.
         fixture.host.attachedExtension = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNull(report.failureKey(), "expected publish: " + report.failureKey());
@@ -1116,7 +1116,7 @@ class ProtectedExportOrchestratorTest {
         // undo state must stay untouched.
         fixture.host.switchActiveDocOnSelect = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.FLATTEN_FAILED_KEY, report.failureKey());
@@ -1155,7 +1155,7 @@ class ProtectedExportOrchestratorTest {
         // no-op: no second report and certainly no publication.
         fixture.host.exportCompletes = false;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+        assertTrue(orchestrator.requestExport(fixture.outerDialog, fixture.planner));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.EXPORT_TIMEOUT_KEY, report.failureKey());

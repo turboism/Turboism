@@ -62,11 +62,23 @@ final class McpHttpServer implements AutoCloseable {
 
     private static final int HOST_WORK_SLOTS = HTTP_THREADS - 1;
 
+    /** A client that connects before the warm-up finishes waits at most this long per request. */
+    private static final long GRAPH_READY_TIMEOUT_SECONDS = 30L;
+
     private final HttpServer server;
     private final ExecutorService executor;
     private final PluginLogger logger;
-    private final McpProtocol protocol;
-    private final McpToolCatalog tools;
+    /**
+     * Tool surface, installed by {@link #installGraph} on a warm-up thread after the server is
+     * already bound and published. Building it (domains + combined catalog + protocol) is the
+     * single largest cost of this plugin's enable, and nothing before the first MCP request needs
+     * it, so it stays off the plugin lifecycle path.
+     */
+    private volatile McpProtocol protocol;
+
+    private volatile McpToolCatalog tools;
+    private final java.util.concurrent.CountDownLatch graphReady = new java.util.concurrent.CountDownLatch(1);
+    private volatile String graphFailure = "";
     private final McpAccessToken accessToken;
     private final Path connectionFile;
     private final Path bridgeFile;
@@ -74,13 +86,13 @@ final class McpHttpServer implements AutoCloseable {
     private final Optional<McpStdioLaunch> stdioLaunch;
     private final WindowRateLimiter rateLimiter;
     private final boolean requireAuthForRead;
-    private final McpSessionRegistry sessions;
-    private final McpFileGrantDomain fileGrants;
-    private final McpFileInspectDomain fileInspect;
-    private final McpImageRegistrationDomain imageRegistration;
-    private final McpAtlasDomain atlas;
-    private final McpMocExportDomain mocExport;
-    private final McpConnectionHistory history;
+    private volatile McpSessionRegistry sessions;
+    private volatile McpFileGrantDomain fileGrants;
+    private volatile McpFileInspectDomain fileInspect;
+    private volatile McpImageRegistrationDomain imageRegistration;
+    private volatile McpAtlasDomain atlas;
+    private volatile McpMocExportDomain mocExport;
+    private volatile McpConnectionHistory history;
     private final McpHostWorkLane hostWork;
     private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -124,6 +136,94 @@ final class McpHttpServer implements AutoCloseable {
         this.mocExport = Objects.requireNonNull(mocExport, "mocExport");
         this.history = Objects.requireNonNull(history, "history");
         this.hostWork = new McpHostWorkLane(HOST_WORK_SLOTS);
+        graphReady.countDown();
+    }
+
+    /**
+     * Constructs a transport whose tool surface is installed later by {@link #installGraph}.
+     * Everything a client needs before its first tool call — bound socket, endpoint, access
+     * token, stdio descriptor — is already in place.
+     */
+    private McpHttpServer(
+            final HttpServer server,
+            final ExecutorService executor,
+            final PluginLogger logger,
+            final McpAccessToken accessToken,
+            final Path connectionFile,
+            final Path bridgeFile,
+            final URI endpoint,
+            final Optional<McpStdioLaunch> stdioLaunch,
+            final WindowRateLimiter rateLimiter,
+            final boolean requireAuthForRead) {
+        this.server = server;
+        this.executor = executor;
+        this.logger = logger;
+        this.accessToken = Objects.requireNonNull(accessToken, "accessToken");
+        this.connectionFile = connectionFile;
+        this.bridgeFile = bridgeFile;
+        this.endpoint = endpoint;
+        this.stdioLaunch = Objects.requireNonNull(stdioLaunch, "stdioLaunch");
+        this.rateLimiter = rateLimiter;
+        this.requireAuthForRead = requireAuthForRead;
+        this.hostWork = new McpHostWorkLane(HOST_WORK_SLOTS);
+    }
+
+    /** Installs the deferred tool surface and releases any handler waiting for it. */
+    private void installGraph(
+            final McpProtocol protocol,
+            final McpToolCatalog tools,
+            final McpSessionRegistry sessions,
+            final McpFileGrantDomain fileGrants,
+            final McpFileInspectDomain fileInspect,
+            final McpImageRegistrationDomain imageRegistration,
+            final McpAtlasDomain atlas,
+            final McpMocExportDomain mocExport,
+            final McpConnectionHistory history) {
+        if (closed.get()) {
+            // The transport closed while the surface was warming: release what was built instead
+            // of installing it onto a stopped server.
+            fileGrants.close();
+            fileInspect.close();
+            imageRegistration.close();
+            atlas.close();
+            mocExport.close();
+            graphReady.countDown();
+            return;
+        }
+        this.protocol = protocol;
+        this.tools = tools;
+        this.sessions = sessions;
+        this.fileGrants = fileGrants;
+        this.fileInspect = fileInspect;
+        this.imageRegistration = imageRegistration;
+        this.atlas = atlas;
+        this.mocExport = mocExport;
+        this.history = history;
+        fileGrants.startMaintenance();
+        graphReady.countDown();
+    }
+
+    private void failGraph(final Throwable failure) {
+        graphFailure = failure.getClass().getSimpleName() + ": " + failure.getMessage();
+        graphReady.countDown();
+    }
+
+    /**
+     * Waits for the warm-up thread to publish the tool surface. A request that arrives before it
+     * is ready is served once it is; a failed build answers 503 instead of hanging.
+     */
+    private void awaitGraph() throws IOException {
+        try {
+            if (!graphReady.await(GRAPH_READY_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)) {
+                throw new IOException("MCP tool surface is still initializing");
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while waiting for the MCP tool surface", interrupted);
+        }
+        if (protocol == null || tools == null) {
+            throw new IOException("MCP tool surface is unavailable: " + graphFailure);
+        }
     }
 
     static McpHttpServer start(final PluginContext context) throws IOException {
@@ -227,177 +327,238 @@ final class McpHttpServer implements AutoCloseable {
             final URI endpoint = URI.create("http://127.0.0.1:" + actualPort + "/mcp");
             final Path connectionFile = checked.stateDir().resolve("mcp-connection.json");
             final McpExecutionBridge execution = new McpExecutionBridge(checked.uiScheduler());
-            final McpTools legacyTools = new McpTools(
-                    checked.modelObjects(),
-                    checked.cubism(),
-                    checked.hierarchyQuery(),
-                    checked.selectionQuery(),
-                    checked.read(),
-                    checked.clipMasks(),
-                    logger,
-                    execution);
-            final McpProductionDomainCatalog production = new McpProductionDomainCatalog(legacyTools);
-            final McpParameterDomain parameters = new McpParameterDomain(checked.cubism(), execution);
-            final McpResourceCatalog parameterResources = parameters.resourceCatalog();
-            final McpGlueDomain glues = new McpGlueDomain(checked.cubism(), execution);
-            final McpTextureDomain textures = new McpTextureDomain(checked.cubism());
-            final McpFileGrantDomain fileGrants = new McpFileGrantDomain(checked.userFiles(), execution);
-            final McpFileInspectDomain fileInspect =
-                    new McpFileInspectDomain(checked.userFiles(), fileGrants, execution);
-            final McpRenderDomain render = new McpRenderDomain(checked.cubism(), execution);
-            final McpPoseGridDomain poses = new McpPoseGridDomain(checked.cubism(), execution, render);
-            final McpAuthoringSnapshotStore authoringSnapshots = new McpAuthoringSnapshotStore();
-            final McpStoredAuthoringDomain storedAuthoring =
-                    new McpStoredAuthoringDomain(checked.cubism(), execution, authoringSnapshots);
-            final McpDocumentLifecycleDomain documents = new McpDocumentLifecycleDomain(
-                    checked.cubism(),
-                    checked.editorCommands(),
-                    execution,
-                    () -> storedAuthoring.context().binding());
-            final McpDocumentFileDomain documentFiles = new McpDocumentFileDomain(
-                    checked.editorCommands(),
-                    fileGrants,
-                    execution,
-                    () -> storedAuthoring.context().binding(),
-                    documents);
-            final McpEvaluatedMeshDomain evaluated =
-                    new McpEvaluatedMeshDomain(authoringSnapshots, execution, storedAuthoring::context);
-            final McpSourcePropertiesDomain properties = new McpSourcePropertiesDomain(
-                    checked.cubism(), execution, authoringSnapshots, storedAuthoring::context);
-            final McpAssetSourceDomain assetSources = new McpAssetSourceDomain(execution, storedAuthoring::context);
-            final McpImageBindingDomain imageBindings = new McpImageBindingDomain(
-                    checked.cubism(), execution, authoringSnapshots, storedAuthoring::context);
-            final McpImageRegistrationDomain imageRegistration =
-                    new McpImageRegistrationDomain(checked.userFiles(), fileGrants, imageBindings, execution);
-            final McpAtlasDomain atlas = new McpAtlasDomain(checked.cubism(), execution, storedAuthoring::context);
-            final McpMocExportDomain mocExport = new McpMocExportDomain(
-                    checked.cubism(), checked.userFiles(), fileGrants, execution, storedAuthoring::context);
-            final McpParameterStructureDomain parameterStructure =
-                    new McpParameterStructureDomain(checked.cubism(), execution, storedAuthoring::context);
-            final McpBindingInitializationDomain bindingInitialization = new McpBindingInitializationDomain(
-                    checked.cubism(), execution, authoringSnapshots, storedAuthoring::context);
-            final McpMeshCreationDomain meshCreation =
-                    new McpMeshCreationDomain(checked.cubism(), execution, storedAuthoring::context);
-            final McpMaskDomain masks = new McpMaskDomain(checked.cubism(), execution, storedAuthoring::context);
-            final McpGeometryValidationDomain geometryValidation =
-                    new McpGeometryValidationDomain(authoringSnapshots, execution, storedAuthoring::context);
-            final McpContinuityDomain continuity =
-                    new McpContinuityDomain(authoringSnapshots, execution, storedAuthoring::context);
-            final McpRigTransferDomain rigTransfer =
-                    new McpRigTransferDomain(authoringSnapshots, execution, storedAuthoring::context);
-            final McpRotationRigDomain rotationRig =
-                    new McpRotationRigDomain(authoringSnapshots, execution, storedAuthoring::context);
-            final McpWarpValidationDomain warpValidation =
-                    new McpWarpValidationDomain(authoringSnapshots, execution, storedAuthoring::context);
-            final McpMeshRigDomain meshRig =
-                    new McpMeshRigDomain(authoringSnapshots, execution, storedAuthoring::context);
-            final McpWarpRigDomain warpRig =
-                    new McpWarpRigDomain(authoringSnapshots, execution, storedAuthoring::context);
-            final McpKeyformWriteDomain keyforms = new McpKeyformWriteDomain(
-                    checked.cubism(), execution, authoringSnapshots, storedAuthoring::context);
-            final McpHistoryCommandDomain historyCommands =
-                    new McpHistoryCommandDomain(checked.history(), checked.editorCommands(), execution);
-            final McpRuntimeDiagnostics runtimeDiagnostics = new McpRuntimeDiagnostics();
-            final McpDiagnosticsDomain diagnostics = new McpDiagnosticsDomain(
-                    checked.cubism(),
-                    checked.workspace(),
-                    checked.workspaceLayout(),
-                    checked.diagnostics(),
-                    runtimeDiagnostics,
-                    parameterResources,
-                    execution);
-            final McpToolCatalog tools = McpTransactionDomain.attach(
-                    McpToolCatalog.combine(
-                            production.tools(),
-                            parameters.toolCatalog(),
-                            parameterStructure.tools(),
-                            meshCreation.tools(),
-                            bindingInitialization.tools(),
-                            documents.tools(),
-                            historyCommands.tools(),
-                            glues.tools(),
-                            textures.tools(execution),
-                            render.tools(),
-                            poses.tools(),
-                            storedAuthoring.tools(),
-                            keyforms.tools(),
-                            geometryValidation.tools(),
-                            continuity.tools(),
-                            rigTransfer.tools(),
-                            warpValidation.tools(),
-                            rotationRig.tools(),
-                            warpRig.tools(),
-                            meshRig.tools(),
-                            masks.tools(),
-                            evaluated.tools(),
-                            properties.tools(),
-                            assetSources.tools(),
-                            imageBindings.tools(),
-                            imageRegistration.tools(),
-                            atlas.tools(),
-                            mocExport.tools(),
-                            fileGrants.tools(),
-                            documentFiles.tools(),
-                            fileInspect.tools()),
-                    optionalAuthoringTransactions(checked.cubism()),
-                    execution,
-                    runtimeDiagnostics::observe);
-            final McpResourceCatalog resources = runtimeDiagnostics.observe(McpResourceCatalog.combine(
-                    production.resourceCatalog(),
-                    diagnostics.resourceCatalog(),
-                    parameterResources,
-                    historyCommands.resources()));
             stage.enter("access-token publication");
             final McpAccessToken accessToken = McpAccessToken.loadOrCreate(checked.stateDir(), logger::warn);
             stage.enter("stdio bridge publication");
             final Path bridgeFile = McpStdioBridge.publish(checked.stateDir(), logger::warn);
             stage.enter("stdio launch descriptor");
             final Optional<McpStdioLaunch> stdioLaunch = McpStdioBridge.launch(checked.stateDir(), logger);
-
-            final McpConnectionHistory history = new McpConnectionHistory();
+            stage.enter("transport construction");
             transport = new McpHttpServer(
                     server,
                     executor,
                     logger,
-                    McpProtocol.forCatalogs(tools, resources, McpPromptCatalog.defaults()),
-                    tools,
                     accessToken,
                     connectionFile,
                     bridgeFile,
                     endpoint,
                     stdioLaunch,
                     new WindowRateLimiter(checked.requestsPerMinute()),
-                    checked.requireAuthForRead(),
-                    new McpSessionRegistry(java.time.Duration.ofMinutes(30), java.time.Clock.systemUTC(), session -> {
-                        fileGrants.dropSession(session);
-                        fileInspect.dropSession(session);
-                        imageRegistration.dropSession(session);
-                        atlas.dropSession(session);
-                        mocExport.dropSession(session);
-                        history.record(McpConnectionHistory.Event.SESSION_EXPIRED, "", "idle timeout");
-                    }),
-                    fileGrants,
-                    fileInspect,
-                    imageRegistration,
-                    atlas,
-                    mocExport,
-                    history);
+                    checked.requireAuthForRead());
+            stage.enter("context registration");
             server.createContext("/mcp", transport::handle);
 
             stage.enter("server start");
-            fileGrants.startMaintenance();
             server.start();
 
             stage.enter("connection-file publication");
             transport.writeConnectionFile();
-            logger.info("Turboism MCP server started on the local loopback interface");
+            // "started" stays in this line: the endpoint is live and serving before the tool
+            // surface finishes warming, and startup diagnostics key on it.
+            logger.info("Turboism MCP server started on the local loopback interface (tool surface warming);"
+                    + " startup profile:" + stage.profile());
+            startToolSurfaceWarmup(transport, checked);
             return transport;
         } catch (ThreadDeath | VirtualMachineError fatal) {
             throw fatal;
         } catch (Throwable failure) {
+            final String profile = stage.profile();
             closeAfterStartupFailure(transport, server, executor, failure);
-            throw stage.failure(failure);
+            final McpStartupFailure reported = stage.failure(failure, profile);
+            throw reported;
         }
+    }
+
+    /**
+     * Warms the deferred tool surface on a daemon thread.
+     *
+     * <p>Domains, the combined catalog and the protocol are the largest part of this plugin's
+     * startup (hundreds of milliseconds), and nothing before the first MCP request needs them.
+     * A client that connects earlier is served once the surface lands; a build failure surfaces
+     * as 503 with the recorded cause instead of blocking the editor's plugin load.</p>
+     */
+    private static void startToolSurfaceWarmup(final McpHttpServer transport, final Dependencies checked) {
+        final Thread warmup = new Thread(
+                () -> {
+                    final long startedNanos = System.nanoTime();
+                    try {
+                        final GraphParts parts = buildGraph(checked);
+                        transport.installGraph(
+                                parts.protocol(),
+                                parts.tools(),
+                                parts.sessions(),
+                                parts.fileGrants(),
+                                parts.fileInspect(),
+                                parts.imageRegistration(),
+                                parts.atlas(),
+                                parts.mocExport(),
+                                parts.history());
+                        transport.logger.info("Turboism MCP tool surface ready after "
+                                + ((System.nanoTime() - startedNanos) / 1_000_000L) + "ms");
+                    } catch (ThreadDeath | VirtualMachineError fatal) {
+                        throw fatal;
+                    } catch (RuntimeException | Error failure) {
+                        transport.failGraph(failure);
+                        transport.logger.warn("Turboism MCP tool surface failed to initialize: " + failure);
+                    }
+                },
+                "turboism-mcp-tool-surface");
+        warmup.setDaemon(true);
+        warmup.start();
+    }
+
+    /** Deferred tool surface: everything a request handler needs once the editor is ready. */
+    private record GraphParts(
+            McpProtocol protocol,
+            McpToolCatalog tools,
+            McpSessionRegistry sessions,
+            McpFileGrantDomain fileGrants,
+            McpFileInspectDomain fileInspect,
+            McpImageRegistrationDomain imageRegistration,
+            McpAtlasDomain atlas,
+            McpMocExportDomain mocExport,
+            McpConnectionHistory history) {}
+
+    private static GraphParts buildGraph(final Dependencies checked) {
+        final PluginLogger logger = checked.logger();
+        final McpExecutionBridge execution = new McpExecutionBridge(checked.uiScheduler());
+        final McpTools legacyTools = new McpTools(
+                checked.modelObjects(),
+                checked.cubism(),
+                checked.hierarchyQuery(),
+                checked.selectionQuery(),
+                checked.read(),
+                checked.clipMasks(),
+                logger,
+                execution);
+        final McpProductionDomainCatalog production = new McpProductionDomainCatalog(legacyTools);
+        final McpParameterDomain parameters = new McpParameterDomain(checked.cubism(), execution);
+        final McpResourceCatalog parameterResources = parameters.resourceCatalog();
+        final McpGlueDomain glues = new McpGlueDomain(checked.cubism(), execution);
+        final McpTextureDomain textures = new McpTextureDomain(checked.cubism());
+        final McpFileGrantDomain fileGrants = new McpFileGrantDomain(checked.userFiles(), execution);
+        final McpFileInspectDomain fileInspect = new McpFileInspectDomain(checked.userFiles(), fileGrants, execution);
+        final McpRenderDomain render = new McpRenderDomain(checked.cubism(), execution);
+        final McpPoseGridDomain poses = new McpPoseGridDomain(checked.cubism(), execution, render);
+        final McpAuthoringSnapshotStore authoringSnapshots = new McpAuthoringSnapshotStore();
+        final McpStoredAuthoringDomain storedAuthoring =
+                new McpStoredAuthoringDomain(checked.cubism(), execution, authoringSnapshots);
+        final McpDocumentLifecycleDomain documents = new McpDocumentLifecycleDomain(
+                checked.cubism(),
+                checked.editorCommands(),
+                execution,
+                () -> storedAuthoring.context().binding());
+        final McpDocumentFileDomain documentFiles = new McpDocumentFileDomain(
+                checked.editorCommands(),
+                fileGrants,
+                execution,
+                () -> storedAuthoring.context().binding(),
+                documents);
+        final McpEvaluatedMeshDomain evaluated =
+                new McpEvaluatedMeshDomain(authoringSnapshots, execution, storedAuthoring::context);
+        final McpSourcePropertiesDomain properties = new McpSourcePropertiesDomain(
+                checked.cubism(), execution, authoringSnapshots, storedAuthoring::context);
+        final McpAssetSourceDomain assetSources = new McpAssetSourceDomain(execution, storedAuthoring::context);
+        final McpImageBindingDomain imageBindings =
+                new McpImageBindingDomain(checked.cubism(), execution, authoringSnapshots, storedAuthoring::context);
+        final McpImageRegistrationDomain imageRegistration =
+                new McpImageRegistrationDomain(checked.userFiles(), fileGrants, imageBindings, execution);
+        final McpAtlasDomain atlas = new McpAtlasDomain(checked.cubism(), execution, storedAuthoring::context);
+        final McpMocExportDomain mocExport = new McpMocExportDomain(
+                checked.cubism(), checked.userFiles(), fileGrants, execution, storedAuthoring::context);
+        final McpParameterStructureDomain parameterStructure =
+                new McpParameterStructureDomain(checked.cubism(), execution, storedAuthoring::context);
+        final McpBindingInitializationDomain bindingInitialization = new McpBindingInitializationDomain(
+                checked.cubism(), execution, authoringSnapshots, storedAuthoring::context);
+        final McpMeshCreationDomain meshCreation =
+                new McpMeshCreationDomain(checked.cubism(), execution, storedAuthoring::context);
+        final McpMaskDomain masks = new McpMaskDomain(checked.cubism(), execution, storedAuthoring::context);
+        final McpGeometryValidationDomain geometryValidation =
+                new McpGeometryValidationDomain(authoringSnapshots, execution, storedAuthoring::context);
+        final McpContinuityDomain continuity =
+                new McpContinuityDomain(authoringSnapshots, execution, storedAuthoring::context);
+        final McpRigTransferDomain rigTransfer =
+                new McpRigTransferDomain(authoringSnapshots, execution, storedAuthoring::context);
+        final McpRotationRigDomain rotationRig =
+                new McpRotationRigDomain(authoringSnapshots, execution, storedAuthoring::context);
+        final McpWarpValidationDomain warpValidation =
+                new McpWarpValidationDomain(authoringSnapshots, execution, storedAuthoring::context);
+        final McpMeshRigDomain meshRig = new McpMeshRigDomain(authoringSnapshots, execution, storedAuthoring::context);
+        final McpWarpRigDomain warpRig = new McpWarpRigDomain(authoringSnapshots, execution, storedAuthoring::context);
+        final McpKeyformWriteDomain keyforms =
+                new McpKeyformWriteDomain(checked.cubism(), execution, authoringSnapshots, storedAuthoring::context);
+        final McpHistoryCommandDomain historyCommands =
+                new McpHistoryCommandDomain(checked.history(), checked.editorCommands(), execution);
+        final McpRuntimeDiagnostics runtimeDiagnostics = new McpRuntimeDiagnostics();
+        final McpDiagnosticsDomain diagnostics = new McpDiagnosticsDomain(
+                checked.cubism(),
+                checked.workspace(),
+                checked.workspaceLayout(),
+                checked.diagnostics(),
+                runtimeDiagnostics,
+                parameterResources,
+                execution);
+        final McpToolCatalog tools = McpTransactionDomain.attach(
+                McpToolCatalog.combine(
+                        production.tools(),
+                        parameters.toolCatalog(),
+                        parameterStructure.tools(),
+                        meshCreation.tools(),
+                        bindingInitialization.tools(),
+                        documents.tools(),
+                        historyCommands.tools(),
+                        glues.tools(),
+                        textures.tools(execution),
+                        render.tools(),
+                        poses.tools(),
+                        storedAuthoring.tools(),
+                        keyforms.tools(),
+                        geometryValidation.tools(),
+                        continuity.tools(),
+                        rigTransfer.tools(),
+                        warpValidation.tools(),
+                        rotationRig.tools(),
+                        warpRig.tools(),
+                        meshRig.tools(),
+                        masks.tools(),
+                        evaluated.tools(),
+                        properties.tools(),
+                        assetSources.tools(),
+                        imageBindings.tools(),
+                        imageRegistration.tools(),
+                        atlas.tools(),
+                        mocExport.tools(),
+                        fileGrants.tools(),
+                        documentFiles.tools(),
+                        fileInspect.tools()),
+                optionalAuthoringTransactions(checked.cubism()),
+                execution,
+                runtimeDiagnostics::observe);
+        final McpResourceCatalog resources = runtimeDiagnostics.observe(McpResourceCatalog.combine(
+                production.resourceCatalog(),
+                diagnostics.resourceCatalog(),
+                parameterResources,
+                historyCommands.resources()));
+        final McpConnectionHistory history = new McpConnectionHistory();
+        final McpSessionRegistry sessions =
+                new McpSessionRegistry(java.time.Duration.ofMinutes(30), java.time.Clock.systemUTC(), session -> {
+                    fileGrants.dropSession(session);
+                    fileInspect.dropSession(session);
+                    imageRegistration.dropSession(session);
+                    atlas.dropSession(session);
+                    mocExport.dropSession(session);
+                    history.record(McpConnectionHistory.Event.SESSION_EXPIRED, "", "idle timeout");
+                });
+        return new GraphParts(
+                McpProtocol.forCatalogs(tools, resources, McpPromptCatalog.defaults()),
+                tools,
+                sessions,
+                fileGrants,
+                fileInspect,
+                imageRegistration,
+                atlas,
+                mocExport,
+                history);
     }
 
     /**
@@ -464,12 +625,16 @@ final class McpHttpServer implements AutoCloseable {
     }
 
     List<McpConnectionHistory.Entry> connectionHistory() {
-        return history.snapshot();
+        final McpConnectionHistory current = history;
+        // Before the warm-up publishes the surface there is no history to report; the window
+        // renders an empty list rather than failing on a not-yet-built domain graph.
+        return current == null ? List.of() : current.snapshot();
     }
 
     private void handle(final HttpExchange exchange) throws IOException {
         try (exchange) {
             final Headers responseHeaders = exchange.getResponseHeaders();
+            awaitGraph();
             responseHeaders.set("Cache-Control", "no-store");
             responseHeaders.set("X-Content-Type-Options", "nosniff");
 
@@ -885,11 +1050,18 @@ final class McpHttpServer implements AutoCloseable {
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
         server.stop(0);
-        imageRegistration.close();
-        atlas.close();
-        mocExport.close();
-        fileInspect.close();
-        fileGrants.close();
+        // The tool surface may still be warming: every domain is released only when it exists,
+        // and a warm-up that finishes after this point sees a closed server and exits.
+        final McpImageRegistrationDomain currentImage = imageRegistration;
+        if (currentImage != null) currentImage.close();
+        final McpAtlasDomain currentAtlas = atlas;
+        if (currentAtlas != null) currentAtlas.close();
+        final McpMocExportDomain currentMoc = mocExport;
+        if (currentMoc != null) currentMoc.close();
+        final McpFileInspectDomain currentInspect = fileInspect;
+        if (currentInspect != null) currentInspect.close();
+        final McpFileGrantDomain currentGrants = fileGrants;
+        if (currentGrants != null) currentGrants.close();
         executor.shutdownNow();
         try {
             if (Files.isRegularFile(connectionFile, LinkOption.NOFOLLOW_LINKS)
@@ -909,13 +1081,34 @@ final class McpHttpServer implements AutoCloseable {
      */
     private static final class StartupStage {
         private String current = "context dependency extraction";
+        private final long startedNanos = System.nanoTime();
+        private long markNanos = startedNanos;
+        private final StringBuilder timings = new StringBuilder();
 
         private void enter(final String name) {
+            final long now = System.nanoTime();
+            timings.append(' ').append(current).append('=').append((now - markNanos) / 1_000_000L);
+            markNanos = now;
             this.current = name;
         }
 
+        /** Milliseconds spent inside the last entered stage. */
+        private long lastStageMillis() {
+            return (System.nanoTime() - markNanos) / 1_000_000L;
+        }
+
+        private String profile() {
+            final long now = System.nanoTime();
+            return timings + " " + current + "=" + ((now - markNanos) / 1_000_000L) + " totalMs="
+                    + ((now - startedNanos) / 1_000_000L);
+        }
+
         private McpStartupFailure failure(final Throwable original) {
-            return new McpStartupFailure(current, frameChain(original), original);
+            return failure(original, "");
+        }
+
+        private McpStartupFailure failure(final Throwable original, final String profile) {
+            return new McpStartupFailure(current, frameChain(original), original, profile);
         }
 
         private static String frameChain(final Throwable original) {
@@ -949,10 +1142,12 @@ final class McpHttpServer implements AutoCloseable {
     static final class McpStartupFailure extends IOException {
         private final String stage;
 
-        private McpStartupFailure(final String stage, final String frameChain, final Throwable cause) {
+        private McpStartupFailure(
+                final String stage, final String frameChain, final Throwable cause, final String profile) {
             super(
                     "Turboism MCP startup failed at stage '" + stage + "'" + " (original failure at " + frameChain
-                            + ")",
+                            + ")"
+                            + (profile == null || profile.isBlank() ? "" : " | start-state profile:" + profile),
                     cause);
             this.stage = stage;
         }

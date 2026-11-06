@@ -936,7 +936,13 @@ final class SessionPartObjectOps implements PartObjectOps {
 
     private Object alphaComposition(final EditSessionOpsAccess access, final EditAlphaBlend blend) {
         return access.readStaticField(
-                "cubism.editor-model.alpha-composition." + blend.name().toLowerCase(java.util.Locale.ROOT));
+                switch (blend) {
+                    case OVER -> "cubism.editor-model.alpha-composition.over";
+                    case ATOP -> "cubism.editor-model.alpha-composition.atop";
+                    case OUT -> "cubism.editor-model.alpha-composition.out";
+                    case CONJOINT -> "cubism.editor-model.alpha-composition.conjoint";
+                    case DISJOINT -> "cubism.editor-model.alpha-composition.disjoint";
+                });
     }
 
     private void writeFloatColor(final EditSessionOpsAccess access, final Object color, final String hex) {

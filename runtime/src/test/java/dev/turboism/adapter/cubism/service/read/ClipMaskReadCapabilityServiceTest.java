@@ -34,6 +34,7 @@ import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -435,80 +436,19 @@ class ClipMaskReadCapabilityServiceTest {
     }
 
     private static HostSnapshotSource modelSource() {
-        return new HostSnapshotSource() {
-            @Override
-            public Optional<HostProject> activeProject() {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<HostDocument> activeDocument() {
-                return Optional.of(new HostDocument(
-                        "document-1",
-                        "Document",
-                        "models/demo/model.cdi3.json",
-                        Optional.empty(),
-                        Optional.of(model())));
-            }
-
-            @Override
-            public Optional<HostModel> activeModel() {
-                return Optional.of(model());
-            }
-
-            @Override
-            public HostSelection selection() {
-                return new HostSelection(List.of("model-1"), Optional.empty(), Optional.empty(), Optional.empty());
-            }
-
-            @Override
-            public boolean isHostPresent() {
-                return true;
-            }
-
-            @Override
-            public long invalidationToken() {
-                return 0L;
-            }
-
-            private HostModel model() {
-                return new HostModel("model-1", "Model", List.of(), List.of(), List.of());
-            }
-        };
+        final HostSnapshotSource.HostModel model =
+                new HostSnapshotSource.HostModel("model-1", "Model", List.of(), List.of(), List.of());
+        return RecordingHostSnapshotSource.builder()
+                .document(new HostSnapshotSource.HostDocument(
+                        "document-1", "Document", "models/demo/model.cdi3.json", Optional.empty(), Optional.of(model)))
+                .model(model)
+                .selectedObjectIds(List.of("model-1"))
+                .hostPresent(true)
+                .build();
     }
 
     private static HostSnapshotSource emptySource() {
-        return new HostSnapshotSource() {
-            @Override
-            public Optional<HostProject> activeProject() {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<HostDocument> activeDocument() {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<HostModel> activeModel() {
-                return Optional.empty();
-            }
-
-            @Override
-            public HostSelection selection() {
-                return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
-            }
-
-            @Override
-            public boolean isHostPresent() {
-                return false;
-            }
-
-            @Override
-            public long invalidationToken() {
-                return 0L;
-            }
-        };
+        return RecordingHostSnapshotSource.empty();
     }
 
     private static M12ReadSnapshotSource fallback(final AtomicInteger reads) {

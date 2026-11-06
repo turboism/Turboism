@@ -1,6 +1,9 @@
 package dev.turboism.config;
 
 import dev.turboism.core.diagnostics.StartupReport;
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.PathLocks;
+import dev.turboism.core.io.WriteOptions;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureDomain;
@@ -11,13 +14,11 @@ import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.Reader;
-import java.io.Writer;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -58,6 +59,13 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
     private static final String DIAGNOSTIC_LOCATION = "config://<redacted>";
     private static final long CONFIG_WAIT_TIMEOUT_MILLIS = 1_000L;
     private static final long CLOSE_TIMEOUT_SECONDS = 5L;
+
+    /**
+     * Plugin config files keep the pre-migration tolerance for file systems that refuse
+     * {@code ATOMIC_MOVE} and inherit the plugin data directory's permission model.
+     */
+    private static final WriteOptions CONFIG_WRITE =
+            WriteOptions.DEFAULT.withAtomicity(WriteOptions.Atomicity.PREFERRED);
 
     private final PermissionChecker permissionChecker;
     private final ExecutorService io;
@@ -256,7 +264,6 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
             return revokedWrite(scope);
         }
         final Properties properties = new Properties();
-        Path temporary = null;
         try {
             final Path path = confinedPath(scope);
             final Path parent = path.getParent();
@@ -271,19 +278,13 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
                 }
             }
             properties.setProperty(key, value);
-            temporary = Files.createTempFile(
-                    Objects.requireNonNull(confined.getParent(), "config parent"), ".turboism-config-", ".tmp");
-            try (Writer writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
-                properties.store(writer, "Turboism plugin config");
-            }
             beforeConfigPublication();
             lifecycleLock.lockInterruptibly();
             try {
                 if (writeRevoked(scope)) {
                     return revokedWrite(scope);
                 }
-                replaceConfig(temporary, confined);
-                temporary = null;
+                replaceConfig(confined, properties);
                 return null;
             } finally {
                 lifecycleLock.unlock();
@@ -294,14 +295,6 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
         } catch (IOException exception) {
             emit("CONFIG_WRITE_FAILED", exception.getMessage(), scope);
             return new PluginConfigException("Failed to write plugin config scope " + scope, exception);
-        } finally {
-            if (temporary != null) {
-                try {
-                    Files.deleteIfExists(temporary);
-                } catch (IOException ignored) {
-                    // Best effort: the unpublished temporary file remains confined to plugin data.
-                }
-            }
         }
     }
 
@@ -319,11 +312,16 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
         beforePublication.run();
     }
 
-    private void replaceConfig(final Path temporary, final Path target) throws IOException {
-        try {
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException unsupported) {
-            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+    /**
+     * Publishes one plugin config file. The path monitor serializes two registries that name the same
+     * plugin data directory, so neither stages a replacement over the other's write.
+     */
+    private static void replaceConfig(final Path target, final Properties properties) throws IOException {
+        synchronized (PathLocks.forPath(target)) {
+            DurableFile.at(target)
+                    .withOptions(CONFIG_WRITE)
+                    .replaceStreaming(out -> properties.store(
+                            new OutputStreamWriter(out, StandardCharsets.UTF_8), "Turboism plugin config"));
         }
     }
 

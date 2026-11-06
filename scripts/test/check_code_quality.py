@@ -46,9 +46,13 @@ from pathlib import Path
 PRODUCTION_ROOTS = (
     "sdk/src/main/java",
     "runtime/src/main/java",
+    # Build-time review tooling compiled in :runtime but excluded from the runtime JAR. It is
+    # production source for the CLI lanes, so it keeps Javadoc and naming coverage.
+    "runtime/src/tooling/java",
     "bootstrap/src/main/java",
     "core-contract/src/main/java",
     "persistence-core/src/main/java",
+    "compatibility-policy/src/main/java",
     "event-processor/src/main/java",
     "graal-host/src/main/java",
     # Generated verification manifests/contracts are authored as templates here;
@@ -61,7 +65,11 @@ PLUGIN_ROOT = "plugins"
 SOURCE_SCAN_ROOTS = PRODUCTION_ROOTS + (
     PLUGIN_ROOT,
     "runtime/src/test/java",
+    # Runtime test fixtures (`dev.turboism.testkit`) are consumed by :testing:integration-tests
+    # tests too, so they carry the same rules as the test trees they serve.
+    "runtime/src/testFixtures/java",
     "persistence-core/src/test/java",
+    "compatibility-policy/src/test/java",
     "bootstrap/src/test/java",
     "testing/integration-tests/src/test/java",
 )

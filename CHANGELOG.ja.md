@@ -10,7 +10,23 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 ### 追加
 
-- 物理演算プレビューに GIF 録画を追加。録画／一時停止／再開、停止／破棄とショートカット登録、録画後のサイズ変更、Gifsicle による目標サイズ最適化（既定 20 MB）、GIF 専用出力フォルダーの記憶に対応。
+- SDK にインキュベーティングな `PreviewFrameService` 機能（`PreviewFrameSource`、`PreviewFrame`、`PreviewFrameSourceClosedException`、`PluginService.PREVIEW_FRAMES` ディレクトリメンバー）と `cubism.preview.capture` の admission 行を追加しました。プラグインはフォーカス中のプレビューのフレームを読み取り、独自の `PanelView` コントロールストリップを配置できます。プレビュー面の解決、専用スレッドでの OpenGL 読み戻し、プラグイン世代終了後の更新の破棄はランタイムが行います。
+
+- SDK にインキュベーティングな `HostViewPanel` 機能（`HostViewPanelHandle`、`HostViewAnchors` のアンカー定数、`PluginService.HOST_VIEW_PANEL` ディレクトリメンバー）を追加しました。プラグインは `PanelView` の内容を名前付きホストビュー（まずはネイティブのテクスチャアトラスエディター）に取り付け、描画・エディタースレッドでの更新適用・プラグイン世代の終了後の更新の黙った破棄はランタイムが行います。
+
+- SDK にインキュベーティングな `MeshCanvasSession` 機能と `MeshToolContext.canvasSession()` を追加しました。プラグインが自身の状態から点・辺の配置を計算し、ランタイムがプレビューの描画、キャンバス上のアンカー追従、レイアウトの 1 回の Undo での確定を行います。`geometric-mesh-layout` プラグインは形状計算・パラメーター状態・設定ダイアログを自前で持つようになりました。
+
+- 物理演算プレビューに GIF 録画を追加。録画／一時停止／再開、停止／破棄とショートカット登録、録画後のサイズ変更、Gifsicle による目標サイズ最適化（既定 20 MB）、GIF 専用出力フォルダーの記憶に対応。録画の状態機械・エンコーダー・書き出しダイアログ・拡大率／Gifsicle のポリシー・コントロールストリップは `:plugins:physics-editor` が所有し、`:runtime` はそれらが駆動する汎用プレビュー取り込み機能のみを提供します。
+
+- SDK にインキュベーティングな `MeshMirrorControl` と `MeshEditContributionSurface` 機能、および `PluginService.MESH_MIRROR_CONTROL` と `PluginService.MESH_EDIT_CONTRIBUTION` ディレクトリメンバーを追加しました。前者はミラー軸・ミラー対応点の規則・移動参加・対象ツール集合を、後者はホスト編集への参加とネイティブツール領域へのコントリビューションを、それぞれプラグインが常に同時に必要とする公開済みの単一目的サービスとして統合します。メッシュ編集で 6 回のサービス参照が不要になります。権限と操作 ID は変わりません。
+
+### 非推奨
+
+- `PhysicsEditorService.gifCommand` と `PhysicsEditorService.GifCommand` を削除予定として非推奨にしました。ランタイムはプラグインに代わって GIF を録画せず、コマンドは受理されますが何も行いません。`PreviewFrameService`（`PluginService.PREVIEW_FRAMES`）を使ってプラグイン側で録画を駆動してください。次のマイナーリリースで削除します。
+
+- `TextureAtlasEditorUi` と `TextureAtlasEditorPanel` を削除予定として非推奨にしました。どちらも `HostViewPanel` 上の薄いアダプターとして引き続き動作します。代わりに `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)` と `HostViewPanelHandle.setContent(PanelView)` を使用してください。
+
+- `MeshMirrorAxisService`、`MeshMirrorCounterparts`、`MeshMirrorMoveParticipation`、`MeshMirrorToolEligibility`、`MeshEditParticipation`、`MeshEditUiService`（および対応する `PluginService` メンバーと `MeshEditUiService.MirrorAxisAngleControl`）を削除予定として非推奨にしました。6 つとも動作は変わりません。代わりに `MeshMirrorControl` と `MeshEditContributionSurface` を使用してください。
 
 ## [0.68.1] - 2026-10-30
 

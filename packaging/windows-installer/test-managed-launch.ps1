@@ -101,11 +101,11 @@ if ($JdkParserOnly) {
     if ($null -eq $jdk17) { throw "JDK 17 parser regression cannot run: no runnable Java 17 (JAVA_HOME, PATH)" }
     Write-Host "ok: JDK 17 parser regression uses runnable Java 17 at $jdk17"
     $regression = Invoke-CubismJdkOptionRegression -Java $jdk17
-    Assert-ManagedLaunch ($regression.Options -eq '-Djava.locale.providers=CLDR,SPI -XX:+UseZGC -XX:ZUncommitDelay=60 -XX:+DisableAttachMechanism') "managed defaults use CLDR/SPI, ZGC and guarded edge ownership without enabling experimental geometry reuse"
+    Assert-ManagedLaunch ($regression.Options -eq '-Djava.locale.providers=CLDR,SPI -XX:+UseZGC -XX:ZUncommitDelay=60') "managed defaults use CLDR/SPI and ZGC without claiming edge ownership or enabling experimental geometry reuse"
     Assert-ManagedLaunch ($regression.Options -notmatch 'add-exports=') "managed options omit obsolete internal ASM exports"
     Assert-ManagedLaunch ($regression.ExitCode -eq 0) "real Java 17 accepts the managed JVM options (exit $($regression.ExitCode))"
     Assert-ManagedLaunch ($regression.Output -match 'version "17\.') "managed option run proves a real Java 17 JVM executed"
-    Assert-ManagedLaunch ($regression.Output -match 'DisableAttachMechanism\s+=\s+true') "actual default VM disables dynamic attach for owned lazy definitions"
+    Assert-ManagedLaunch ($regression.Output -match 'DisableAttachMechanism\s+=\s+false') "an absent edge-index key keeps the vendor attach mechanism enabled"
     Assert-ManagedLaunch ($regression.Output -match 'ZUncommitDelay\s+=\s+60\s') "actual default VM applies the one-minute ZGC uncommit delay"
     $zgcHome = Join-Path ([System.IO.Path]::GetTempPath()) ("turboism-zgc-" + [guid]::NewGuid().ToString("N"))
     try {
@@ -114,7 +114,7 @@ if ($JdkParserOnly) {
         Assert-ManagedLaunch ($defaultTokens -contains '-XX:+UseZGC') "managed options default to ZGC when launcher.zgc is unset"
         Assert-ManagedLaunch ($defaultTokens -contains '-XX:ZUncommitDelay=60') "ZGC defaults return uncommitted heap one minute after activity stops"
         Assert-ManagedLaunch ([array]::IndexOf($defaultTokens, '-XX:ZUncommitDelay=60') -eq ([array]::IndexOf($defaultTokens, '-XX:+UseZGC') + 1)) "the uncommit delay follows -XX:+UseZGC so it reads as its companion flag"
-        Assert-ManagedLaunch ($defaultTokens -contains '-XX:+DisableAttachMechanism') "missing config enables the edge-index ownership protocol on restart"
+        Assert-ManagedLaunch ($defaultTokens -notcontains '-XX:+DisableAttachMechanism') "missing config leaves the edge-index ownership protocol off on restart"
         foreach ($edgeValue in @($true, $false)) {
             $edgeJson = if ($edgeValue) { 'true' } else { 'false' }
             [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), ('{"meshTriangulationEdgeIndex":' + $edgeJson + '}'))
@@ -124,8 +124,8 @@ if ($JdkParserOnly) {
             $edgeVm = Invoke-CubismJdkOptionRegression -Java $jdk17 -TurboismHome $zgcHome
             Assert-ManagedLaunch ($edgeVm.ExitCode -eq 0 -and $edgeVm.Output -match ('DisableAttachMechanism\s+=\s+' + $edgeJson)) "actual Java 17 attach state follows the saved edge-index $edgeJson"
         }
-        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"meshTriangulationEdgeIndex":false}}')
-        Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -contains '-XX:+DisableAttachMechanism') "a launcher-nested key does not override the root-level default"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"meshTriangulationEdgeIndex":true}}')
+        Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -notcontains '-XX:+DisableAttachMechanism') "a launcher-nested key does not override the root-level default"
         foreach ($invalidEdge in @('"false"', 'null', '0', '[]', '{}')) {
             [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), ('{"meshTriangulationEdgeIndex":' + $invalidEdge + '}'))
             $edgeInvalid = $false
@@ -859,11 +859,11 @@ public static class SyntheticCubismProbe {
     else {
         Write-Host "ok: JDK 17 parser regression uses runnable Java 17 at $jdk17"
         $regression = Invoke-CubismJdkOptionRegression -Java $jdk17
-        Assert-ManagedLaunch ($regression.Options -eq '-Djava.locale.providers=CLDR,SPI -XX:+UseZGC -XX:ZUncommitDelay=60 -XX:+DisableAttachMechanism') "managed defaults use CLDR/SPI, ZGC and guarded edge ownership without enabling experimental geometry reuse"
+        Assert-ManagedLaunch ($regression.Options -eq '-Djava.locale.providers=CLDR,SPI -XX:+UseZGC -XX:ZUncommitDelay=60') "managed defaults use CLDR/SPI and ZGC without claiming edge ownership or enabling experimental geometry reuse"
         Assert-ManagedLaunch ($regression.Options -notmatch 'add-exports=') "managed options omit obsolete internal ASM exports"
         Assert-ManagedLaunch ($regression.ExitCode -eq 0) "real Java 17 accepts the managed JVM options (exit $($regression.ExitCode))"
         Assert-ManagedLaunch ($regression.Output -match 'version "17\.') "managed option run proves a real Java 17 JVM executed"
-        Assert-ManagedLaunch ($regression.Output -match 'DisableAttachMechanism\s+=\s+true') "actual default VM disables dynamic attach for owned lazy definitions"
+        Assert-ManagedLaunch ($regression.Output -match 'DisableAttachMechanism\s+=\s+false') "an absent edge-index key keeps the vendor attach mechanism enabled"
         Assert-ManagedLaunch ($regression.Output -match 'ZUncommitDelay\s+=\s+60\s') "actual default VM applies the one-minute ZGC uncommit delay"
     }
     $env:JDK_JAVA_OPTIONS = '-Xmx192m -javaagent:old-turboism-agent.jar -Dturboism.home=old-home -Dturboism.graal.enabled=true -Dturboism.graal.java=old-java -Dturboism.graal.classpath=old-classpath --add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'

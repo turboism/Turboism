@@ -71,8 +71,11 @@ class PluginPlanEvidenceIntegrationTest {
                 UnsupportedOperationException.class,
                 () -> plan.files().add(plan.files().get(0)));
         assertNotSame(evidence.authors(), evidence.dependencies());
+        assertInstanceOf(dev.turboism.sdk.plugin.PluginDescriptor.class, evidence);
         assertTrue(java.util.Arrays.stream(evidence.getClass().getDeclaredFields())
-                .noneMatch(field -> field.getType().getName().startsWith("dev.turboism.sdk")));
+                .noneMatch(field -> field.getType().getName().equals("com.fasterxml.jackson.databind.JsonNode")
+                        || field.getType().equals(Path.class)
+                        || field.getType().equals(byte[].class)));
         assertTrue(java.util.Arrays.stream(plan.getClass().getDeclaredFields())
                 .noneMatch(field -> field.getType().getName().equals("com.fasterxml.jackson.databind.JsonNode")
                         || field.getType().equals(Path.class)

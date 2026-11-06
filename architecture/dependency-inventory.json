@@ -8,7 +8,13 @@
         ":sdk"
       ],
       "testImplementation": [
+        ":compatibility-policy",
         ":testing:test-support"
+      ]
+    },
+    ":compatibility-policy": {
+      "api": [
+        ":sdk"
       ]
     },
     ":core-contract": {
@@ -471,12 +477,14 @@
     },
     ":runtime": {
       "implementation": [
+        ":compatibility-policy",
         ":core-contract",
         ":persistence-core",
         ":sdk"
       ],
       "testImplementation": [
         ":plugins:selection-brush",
+        ":runtime",
         ":testing:test-support"
       ]
     },
@@ -507,6 +515,7 @@
         "dev.turboism.adapter",
         "dev.turboism.config",
         "dev.turboism.core",
+        "dev.turboism.home",
         "dev.turboism.hostread",
         "dev.turboism.mapping",
         "dev.turboism.recentfile",
@@ -528,10 +537,6 @@
       [
         "dev.turboism.adapter",
         "dev.turboism.hostread"
-      ],
-      [
-        "dev.turboism.adapter",
-        "dev.turboism.i18n"
       ],
       [
         "dev.turboism.adapter",
@@ -619,10 +624,6 @@
       ],
       [
         "dev.turboism.core",
-        "dev.turboism.mapping"
-      ],
-      [
-        "dev.turboism.core",
         "dev.turboism.permissions"
       ],
       [
@@ -682,7 +683,7 @@
         "dev.turboism.core"
       ],
       [
-        "dev.turboism.hook",
+        "dev.turboism.home",
         "dev.turboism.core"
       ],
       [
@@ -891,6 +892,10 @@
       ],
       [
         "dev.turboism.shell",
+        "dev.turboism.config"
+      ],
+      [
+        "dev.turboism.shell",
         "dev.turboism.core"
       ],
       [
@@ -1015,7 +1020,6 @@
       "dev.turboism.filechooser",
       "dev.turboism.graal",
       "dev.turboism.home",
-      "dev.turboism.hook",
       "dev.turboism.hostread",
       "dev.turboism.i18n",
       "dev.turboism.internal",

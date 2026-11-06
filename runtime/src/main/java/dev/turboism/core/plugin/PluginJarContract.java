@@ -98,7 +98,7 @@ public final class PluginJarContract {
     private static void validateHotReloadCompatibility(
             final PluginDescriptor descriptor, final Set<String> content, final String logicalPath)
             throws PluginJarContractException {
-        if (descriptor instanceof dev.turboism.core.descriptor.CorePluginDescriptor cpd && cpd.hotReload()) {
+        if (descriptor.hotReload()) {
             if (content.contains("META-INF/turboism/hooks")
                     || content.stream().anyMatch(entry -> entry.startsWith("META-INF/turboism/hooks/"))) {
                 throw problem(

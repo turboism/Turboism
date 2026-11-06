@@ -20,6 +20,7 @@ import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.WorkBudget;
 import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -38,10 +39,19 @@ class SelectionQueryIsolationTest {
     // producer loop runs; all remaining rapid updates coalesce into one trailing batch.
     private static final int MAX_COALESCED_PUBLICATIONS = 2;
 
+    private static final HostSnapshotSource.HostParameter PARAMETER =
+            new HostSnapshotSource.HostParameter("param-angle-x", "Angle X", 0.0, 0.0, -30.0, 30.0, true, true);
+    private static final HostSnapshotSource.HostArtMesh MESH =
+            new HostSnapshotSource.HostArtMesh("mesh-face", "Face Mesh", Optional.empty(), true, true);
+    private static final HostSnapshotSource.HostDeformer DEFORMER = new HostSnapshotSource.HostDeformer(
+            "deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"));
+    private static final HostSnapshotSource.HostModel MODEL =
+            new HostSnapshotSource.HostModel("model-1", "Model", List.of(PARAMETER), List.of(MESH), List.of(DEFORMER));
+
     @Test
     void currentSelectionReturnsWithoutRunningListenerCallbackInline() throws CubismServiceException {
         // Given
-        final MutableSelectionSource source = MutableSelectionSource.withSelection(List.of("param-angle-x"));
+        final RecordingHostSnapshotSource source = withSelection(List.of("param-angle-x"));
         final SelectionFixture fixture = serviceWith(source);
         final List<SelectionChangedEvent> events = new CopyOnWriteArrayList<>();
         final AtomicReference<String> subscriberThread = new AtomicReference<>();
@@ -52,7 +62,7 @@ class SelectionQueryIsolationTest {
         });
         fixture.observer().activate();
         fixture.service().currentSelection();
-        source.replaceSelection(List.of("mesh-face"));
+        replaceSelection(source, List.of("mesh-face"));
 
         // When
         fixture.service().currentSelection();
@@ -69,7 +79,7 @@ class SelectionQueryIsolationTest {
     @Test
     void rapidSelectionChangesAreCoalescedAndListenerReceivesLatestSelection() throws CubismServiceException {
         // Given
-        final MutableSelectionSource source = MutableSelectionSource.withSelection(List.of("param-angle-x"));
+        final RecordingHostSnapshotSource source = withSelection(List.of("param-angle-x"));
         final SelectionFixture fixture = serviceWith(source);
         final List<SelectionChangedEvent> events = new CopyOnWriteArrayList<>();
         fixture.broker().subscribe(fixture.observer().key(), SelectionChangedEvent.class, events::add);
@@ -78,7 +88,7 @@ class SelectionQueryIsolationTest {
 
         // When
         for (int index = 0; index < 10; index++) {
-            source.replaceSelection(List.of(index == 9 ? "deformer-root" : "mesh-face"));
+            replaceSelection(source, List.of(index == 9 ? "deformer-root" : "mesh-face"));
             fixture.service().currentSelection();
         }
 
@@ -132,60 +142,18 @@ class SelectionQueryIsolationTest {
         return Stubs.permission(id, "read", "selection isolation test");
     }
 
-    private static final class MutableSelectionSource implements HostSnapshotSource {
-        private static final HostParameter PARAMETER =
-                new HostParameter("param-angle-x", "Angle X", 0.0, 0.0, -30.0, 30.0, true, true);
-        private static final HostArtMesh MESH = new HostArtMesh("mesh-face", "Face Mesh", Optional.empty(), true, true);
-        private static final HostDeformer DEFORMER =
-                new HostDeformer("deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"));
-        private static final HostModel MODEL =
-                new HostModel("model-1", "Model", List.of(PARAMETER), List.of(MESH), List.of(DEFORMER));
+    private static RecordingHostSnapshotSource withSelection(final List<String> selectedObjectIds) {
+        return RecordingHostSnapshotSource.builder()
+                .model(MODEL)
+                .selectedObjectIds(selectedObjectIds)
+                .hostPresent(true)
+                .build();
+    }
 
-        private List<String> selectedObjectIds;
-        private long invalidationToken;
-
-        private MutableSelectionSource(final List<String> selectedObjectIds) {
-            this.selectedObjectIds = List.copyOf(selectedObjectIds);
-        }
-
-        static MutableSelectionSource withSelection(final List<String> selectedObjectIds) {
-            return new MutableSelectionSource(selectedObjectIds);
-        }
-
-        void replaceSelection(final List<String> nextSelectedObjectIds) {
-            selectedObjectIds = List.copyOf(nextSelectedObjectIds);
-            invalidationToken++;
-        }
-
-        @Override
-        public Optional<HostProject> activeProject() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<HostDocument> activeDocument() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<HostModel> activeModel() {
-            return Optional.of(MODEL);
-        }
-
-        @Override
-        public HostSelection selection() {
-            return new HostSelection(selectedObjectIds, Optional.empty(), Optional.empty(), Optional.empty());
-        }
-
-        @Override
-        public boolean isHostPresent() {
-            return true;
-        }
-
-        @Override
-        public long invalidationToken() {
-            return invalidationToken;
-        }
+    /** Replaces the observed selection and moves the token, as a host selection change does. */
+    private static void replaceSelection(final RecordingHostSnapshotSource source, final List<String> next) {
+        source.setSelectedObjectIds(next);
+        source.advanceInvalidationToken();
     }
 
     private static void waitFor(java.util.function.BooleanSupplier condition, Duration timeout) {

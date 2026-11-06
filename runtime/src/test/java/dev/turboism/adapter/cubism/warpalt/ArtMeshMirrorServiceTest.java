@@ -3,6 +3,8 @@ package dev.turboism.adapter.cubism.warpalt;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.permissions.ServiceGateInstaller;
+import dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService;
 import dev.turboism.sdk.plugin.DisposableScope;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -35,7 +37,7 @@ final class ArtMeshMirrorServiceTest {
     void pluginScopeDisarmsArtMeshAndClosedScopeCannotLeakParticipation() throws Exception {
         var delegate = NativeArtMeshSymmetryBridge.service();
         var scope = new DisposableScope();
-        var service = new AuthorizedArtMeshMirrorService(delegate, PermissionChecker.allowAll(), scope);
+        var service = gated(delegate, PermissionChecker.allowAll(), scope);
         service.participate();
         service.setEnabled(true);
         scope.close();
@@ -48,12 +50,22 @@ final class ArtMeshMirrorServiceTest {
     @Test
     void mutationsRequireModelWritePermission() {
         var delegate = NativeArtMeshSymmetryBridge.service();
-        var service = new AuthorizedArtMeshMirrorService(
-                delegate, PermissionChecker.from(java.util.List.of()), new DisposableScope());
+        var service = gated(delegate, PermissionChecker.from(java.util.List.of()), new DisposableScope());
         assertThrows(dev.turboism.sdk.permission.CubismPermissionException.class, service::participate);
         assertThrows(dev.turboism.sdk.permission.CubismPermissionException.class, () -> service.setEnabled(true));
         assertThrows(dev.turboism.sdk.permission.CubismPermissionException.class, service::resetAxis);
         assertFalse(delegate.hasParticipants());
         assertFalse(delegate.isEnabled());
+    }
+
+    private static ArtMeshMirrorService gated(
+            final RuntimeArtMeshMirrorService service, final PermissionChecker checker, final DisposableScope scope) {
+        return ServiceGateInstaller.install(
+                ArtMeshMirrorService.class,
+                service,
+                checker,
+                scope,
+                null,
+                ServiceGateInstaller.rowsFor(ArtMeshMirrorService.class));
     }
 }

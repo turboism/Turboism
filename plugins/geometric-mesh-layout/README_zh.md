@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, artmesh, editing
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -20,7 +20,7 @@ interface: embedded
 
 ## 要求与兼容性
 
-Turboism API: `[0.67.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
+Turboism API: `[0.68.1,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
 
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
@@ -45,6 +45,7 @@ Turboism API: `[0.67.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
 | Capability | Effect |
 |---|---|
 | `cubism.mesh.custom-tools` | 在原生网格编辑工具栏中注册自定义工具。 |
+| `cubism.mesh.point-and-edge-layout` | 提供运行时画布会话，绘制本插件的预览并以单次撤销提交生成的点与边。 |
 
 ## 权限
 

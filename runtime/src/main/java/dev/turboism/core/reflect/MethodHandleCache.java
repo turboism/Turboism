@@ -27,6 +27,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * cached {@link Method}); when that fails and the member is not already accessible, the lookup
  * fails closed with {@link NoSuchMethodException} so callers keep their existing
  * {@code ReflectiveOperationException} handling.</p>
+ *
+ * <p>This cache is the <em>finding</em> half of the host lookup policy: it answers "which member" and
+ * never "how to invoke it". {@link HostHandles} builds on it — the per-arity overload lists below are
+ * what turn a reviewed JVM descriptor into the one reviewed {@link Method}, and {@code HostHandles}
+ * then opens it. A bridge that needs an invocable handle goes through {@code HostHandles} rather than
+ * calling this class directly.</p>
  */
 public final class MethodHandleCache {
 

@@ -79,7 +79,7 @@ class VerifiedMatrixScratchInstallerTest {
     void armsOnlyAfterTransformAndRestoresBeforeRemovingOwnedGate() throws Exception {
         System.getProperties().remove(GATE);
         try (Fixture f = fixture();
-                var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
+                var installer = new VerifiedMatrixScratchInstaller(f.context())) {
             assertFalse(System.getProperties().containsKey(GATE));
             installer.install();
             AtomicBoolean gate = (AtomicBoolean) System.getProperties().get(GATE);
@@ -101,7 +101,7 @@ class VerifiedMatrixScratchInstallerTest {
     void transformationFailureDisarmsAndRollsBack() throws Exception {
         System.getProperties().remove(GATE);
         try (Fixture f = fixture();
-                var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
+                var installer = new VerifiedMatrixScratchInstaller(f.context())) {
             f.failTransform = true;
             assertThrows(Exception.class, installer::install);
             assertTrue(f.active.isEmpty());
@@ -115,7 +115,7 @@ class VerifiedMatrixScratchInstallerTest {
         AtomicBoolean foreign = new AtomicBoolean(true);
         System.getProperties().put(GATE, foreign);
         try (Fixture f = fixture();
-                var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
+                var installer = new VerifiedMatrixScratchInstaller(f.context())) {
             assertThrows(IllegalStateException.class, installer::install);
             assertSame(foreign, System.getProperties().get(GATE));
             assertTrue(foreign.get());
@@ -128,9 +128,7 @@ class VerifiedMatrixScratchInstallerTest {
         System.getProperties().remove(GATE);
         try (Fixture f = fixture()) {
             f.changeMatrixBody = true;
-            assertThrows(
-                    IllegalStateException.class,
-                    () -> new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader));
+            assertThrows(IllegalStateException.class, () -> new VerifiedMatrixScratchInstaller(f.context()));
             assertTrue(f.active.isEmpty());
             assertFalse(System.getProperties().containsKey(GATE));
         }
@@ -140,7 +138,7 @@ class VerifiedMatrixScratchInstallerTest {
     void dependencyChangeBetweenPreparationAndInstallIsRejected() throws Exception {
         System.getProperties().remove(GATE);
         try (Fixture f = fixture();
-                var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
+                var installer = new VerifiedMatrixScratchInstaller(f.context())) {
             f.changeMatrixBody = true;
             assertThrows(IllegalStateException.class, installer::install);
             assertTrue(f.active.isEmpty());
@@ -152,7 +150,7 @@ class VerifiedMatrixScratchInstallerTest {
     void laterObservedMathChangeRetiresReuseWithoutRewritingTheDependency() throws Exception {
         System.getProperties().remove(GATE);
         try (Fixture f = fixture();
-                var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
+                var installer = new VerifiedMatrixScratchInstaller(f.context())) {
             installer.install();
             var gate = (AtomicBoolean) System.getProperties().get(GATE);
             assertTrue(gate.get());
@@ -169,7 +167,7 @@ class VerifiedMatrixScratchInstallerTest {
     void failedRemovalCannotBeReportedAsRestoredAndCanBeRetried() throws Exception {
         System.getProperties().remove(GATE);
         try (Fixture f = fixture();
-                var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
+                var installer = new VerifiedMatrixScratchInstaller(f.context())) {
             installer.install();
             var gate = (AtomicBoolean) System.getProperties().get(GATE);
             f.failRemoval = true;
@@ -263,6 +261,16 @@ class VerifiedMatrixScratchInstallerTest {
         @Override
         public void close() throws Exception {
             loader.close();
+        }
+
+        /** The launch facts the shared protocol is installed with; the policy admits every hook. */
+        InstallContext context() {
+            return new InstallContext(
+                    instrumentation,
+                    artifact,
+                    loader,
+                    new RuntimeStartupConfig(false, false, false, false),
+                    Runtime.version().feature());
         }
     }
 

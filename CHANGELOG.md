@@ -11,7 +11,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - Added the `recent-project-board` official preview plugin: while no Cubism document is open, it fills the native modeling viewport with recent-project thumbnails from the official `recent-preview` plugin and opens the selected project on double-click. The SDK adds `RecentFileService.open(RecentFileId)`, a verified viewport-board contribution surface, and `PanelView.Card` / `PanelView.Grid` / `PanelView.Centered` / `PanelView.Link` nodes; the board uses configurable 6-column, 3-column, and left-aligned details layouts with a persisted icon-only Lucide header layout control, scales text up in the 3-column and details layouts, vertically centers the details metadata and the header title/subtitle block (with a left inset), keeps the header title/subtitle left-aligned and the icon control right-aligned, normalizes viewport bounds through visible-rect intersection across Cubism 5.0.00 through 5.3.04, centers grid card names/timestamps and no-preview placeholders, shows a centered empty state with blue Create New Project and Create New Animation Project links backed by `NEW_MODEL` and the native New Animation flow, and `recent-preview` now also replays a bounded snapshot of its disk cache after startup.
-- Physics Settings preview GIF recording with record/pause/resume, stop/discard controls and registered shortcuts, post-recording size controls, optional Gifsicle optimization (20 MB by default), and a persistent GIF export directory.
+- The SDK adds the incubating `PreviewFrameService` capability with `PreviewFrameSource`, `PreviewFrame`, `PreviewFrameSourceClosedException` and the `PluginService.PREVIEW_FRAMES` directory member, plus the `cubism.preview.capture` admission row: a plugin reads frames from the focused preview and places its own `PanelView` control strip on it, while the runtime resolves the surface, performs the OpenGL readback on its own thread and drops updates once the plugin generation is fenced.
+
+- The SDK adds the incubating `HostViewPanel` capability with `HostViewPanelHandle`, the `HostViewAnchors` anchor constants and the `PluginService.HOST_VIEW_PANEL` directory member: a plugin attaches `PanelView` content to a named host view (the native texture-atlas editor first), the runtime renders it, marshals updates onto the editor thread and drops them once the plugin generation is fenced.
+
+- The SDK adds the incubating `MeshCanvasSession` capability and `MeshToolContext.canvasSession()`: a plugin computes a point-and-edge layout from its own state, and the runtime paints the preview, follows the operator's canvas anchor and commits the layout as a single Undo entry. The `geometric-mesh-layout` plugin now owns its shape maths, parameter state and configuration dialog.
+
+- Physics Settings preview GIF recording with record/pause/resume, stop/discard controls and registered shortcuts, post-recording size controls, optional Gifsicle optimization (20 MB by default), and a persistent GIF export directory. The recording state machine, the encoder, the export dialog, the scale/Gifsicle policy and the control strip live in `:plugins:physics-editor`; `:runtime` only exposes the generic preview capture capability they drive.
+
+- The SDK adds the incubating `MeshMirrorControl` and `MeshEditContributionSurface` capabilities with the `PluginService.MESH_MIRROR_CONTROL` and `PluginService.MESH_EDIT_CONTRIBUTION` directory members. Each consolidates released single-purpose services a plugin always needed together — the mirror axis, the counterpart rule, movement participation and the eligible-tool set on one side, host-edit participation and native tool-area contributions on the other — so mesh editing no longer costs six service lookups. Permissions and operation ids are unchanged.
+
+### Deprecated
+
+- `PhysicsEditorService.gifCommand` and `PhysicsEditorService.GifCommand` are deprecated for removal: the runtime no longer records a GIF for a plugin and accepts the command as a no-op. Use `PreviewFrameService` (with `PluginService.PREVIEW_FRAMES`) and drive the recording from the plugin; removal follows in the next minor release.
+
+- `TextureAtlasEditorUi` and `TextureAtlasEditorPanel` are deprecated for removal; both keep working as a thin adapter over `HostViewPanel`. Use `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)` and `HostViewPanelHandle.setContent(PanelView)` instead.
+
+- `MeshMirrorAxisService`, `MeshMirrorCounterparts`, `MeshMirrorMoveParticipation`, `MeshMirrorToolEligibility`, `MeshEditParticipation` and `MeshEditUiService` (with their `PluginService` members and `MeshEditUiService.MirrorAxisAngleControl`) are deprecated for removal; all six keep working unchanged. Use `MeshMirrorControl` and `MeshEditContributionSurface` instead.
 
 ### Fixed
 

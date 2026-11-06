@@ -597,21 +597,6 @@ public final class KernelRuntime implements AutoCloseable {
             final java.util.function.Consumer<dev.turboism.exportsettings.ExportSettingsVetoDiagnostic> vetoSurface =
                     dev.turboism.exportsettings.ExportSettingsVetoDialog::present;
             exportSettings.vetoReporter(vetoSurface);
-            // The orchestrator is a degraded-capability seam: when the record is absent or the
-            // pinned chain fails, no orchestrator is bound and checked export stays rejected.
-            final dev.turboism.exportsettings.ProtectedExportOrchestrator protectedExport =
-                    createProtectedExportOrchestrator(
-                            protectedExportVerificationRecord,
-                            normalizedHostArtifact,
-                            verifiedHostClassLoader,
-                            exportSettings,
-                            ingress,
-                            layout,
-                            log,
-                            vetoSurface);
-            if (protectedExport != null) {
-                exportSettings.protectedExportOrchestrator(protectedExport);
-            }
             final KernelReportWriter reportWriter = new KernelReportWriter(
                     layout.runtimeStateDir(),
                     diagnostic -> log.warn(
@@ -629,6 +614,24 @@ public final class KernelRuntime implements AutoCloseable {
                     normalizedVerificationRecord,
                     normalizedHostArtifact,
                     effectiveLocale.get());
+            // The orchestrator is a degraded-capability seam: when the record is absent or the
+            // pinned chain fails, no orchestrator is bound and checked export stays rejected. It is
+            // built once the runtime exists because the orchestration owner is read from the
+            // capability table at export time, and plugins only load afterwards.
+            final dev.turboism.exportsettings.ProtectedExportOrchestrator protectedExport =
+                    createProtectedExportOrchestrator(
+                            protectedExportVerificationRecord,
+                            normalizedHostArtifact,
+                            verifiedHostClassLoader,
+                            exportSettings,
+                            ingress,
+                            layout,
+                            log,
+                            vetoSurface,
+                            runtime::loadReport);
+            if (protectedExport != null) {
+                exportSettings.protectedExportOrchestrator(protectedExport);
+            }
             runtime.bindFileChooserHistoryService(fileChooserHistory);
             runtime.bindExportSettingsAuthority(exportSettings);
             runtime.bindProtectedExportOrchestrator(protectedExport);
@@ -1023,6 +1026,10 @@ public final class KernelRuntime implements AutoCloseable {
      *
      * <p>Any failure degrades to no orchestrator: the authority keeps serving the native dialog
      * and a checked option stays rejected, never silently downgraded to an unchecked export.</p>
+     *
+     * <p>The orchestrated owner is not a plugin id: it is whichever single plugin the capability
+     * table admits for the protected-export surface, resolved from the live load report on every
+     * use because plugins load after this factory runs.</p>
      */
     private static dev.turboism.exportsettings.ProtectedExportOrchestrator createProtectedExportOrchestrator(
             final Optional<Path> protectedExportVerificationRecord,
@@ -1032,7 +1039,8 @@ public final class KernelRuntime implements AutoCloseable {
             final HostRuntimeIngress ingress,
             final TurboismHomeLayout layout,
             final KernelLog log,
-            final java.util.function.Consumer<dev.turboism.exportsettings.ExportSettingsVetoDiagnostic> vetoSurface) {
+            final java.util.function.Consumer<dev.turboism.exportsettings.ExportSettingsVetoDiagnostic> vetoSurface,
+            final java.util.function.Supplier<LocalPluginRuntime.LoadReport> loadReport) {
         if (protectedExportVerificationRecord.isEmpty()) {
             return null;
         }
@@ -1044,7 +1052,8 @@ public final class KernelRuntime implements AutoCloseable {
                                     protectedExportVerificationRecord.orElseThrow(),
                                     normalizedHostArtifact,
                                     verifiedHostClassLoader);
-            final String orchestratedPluginId = "dev.turboism.plugin.protected-export";
+            final java.util.function.Supplier<java.util.Optional<String>> orchestrationOwner =
+                    () -> admittedOrchestrationOwner(loadReport.get(), log);
             final dev.turboism.exportsettings.ProtectedExportOrchestrator.EdtDispatcher edt =
                     new dev.turboism.exportsettings.ProtectedExportOrchestrator.EdtDispatcher() {
                         @Override
@@ -1073,10 +1082,13 @@ public final class KernelRuntime implements AutoCloseable {
                                             ? writer::writeParameterValue
                                             : null),
                             layout.runtimeStateDir().resolve("protected-export"),
-                            orchestratedPluginId,
+                            orchestrationOwner,
                             "protected-export",
                             exportSettings::protectedExportRedirectSeamInstalled,
-                            () -> exportSettings.pluginBindingLive(orchestratedPluginId),
+                            () -> orchestrationOwner
+                                    .get()
+                                    .map(exportSettings::pluginBindingLive)
+                                    .orElse(false),
                             exportSettings::hostGeneration,
                             edt,
                             report -> {
@@ -1112,6 +1124,28 @@ public final class KernelRuntime implements AutoCloseable {
                     "Protected-export orchestration unavailable: "
                             + failure.getClass().getName());
             return null;
+        }
+    }
+
+    /**
+     * Resolves the single plugin entitled to drive the protected-export pipeline from the
+     * capability table.
+     *
+     * <p>Fail-closed by construction: with no entitled owner nothing arms, and a second entitled
+     * owner is a configuration error that leaves the pipeline disarmed instead of picking one of
+     * the two.</p>
+     */
+    private static java.util.Optional<String> admittedOrchestrationOwner(
+            final LocalPluginRuntime.LoadReport report, final KernelLog log) {
+        if (report == null) {
+            return java.util.Optional.empty();
+        }
+        try {
+            return dev.turboism.core.lifecycle.CapabilityAdmission.admittedOwner(
+                    report.loaded(), dev.turboism.core.lifecycle.CapabilityAdmission.EXPORT_PROTECTED_ORCHESTRATION);
+        } catch (RuntimeException failure) {
+            log.warn("protected-export", "Orchestration owner is not admissible: " + failure.getMessage());
+            return java.util.Optional.empty();
         }
     }
 

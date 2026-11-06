@@ -11,9 +11,9 @@ import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import java.time.Clock;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -204,37 +204,7 @@ class RuntimeCoreModelBackendTest {
     }
 
     private static HostSnapshotSource emptyHostSource() {
-        return new HostSnapshotSource() {
-            @Override
-            public Optional<HostProject> activeProject() {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<HostDocument> activeDocument() {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<HostModel> activeModel() {
-                return Optional.empty();
-            }
-
-            @Override
-            public HostSelection selection() {
-                return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
-            }
-
-            @Override
-            public boolean isHostPresent() {
-                return true;
-            }
-
-            @Override
-            public long invalidationToken() {
-                return 0L;
-            }
-        };
+        return RecordingHostSnapshotSource.builder().hostPresent(true).build();
     }
 
     private static TestCoreApiFixture.Model coreModel(final float[] values) {

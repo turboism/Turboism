@@ -5,12 +5,13 @@ import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUpload
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionTarget;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.jar.JarFile;
+import java.util.Optional;
 
 /**
  * Exact admission, dependency verification and restoration for the test-only
@@ -27,19 +28,43 @@ import java.util.jar.JarFile;
  * — a different method on a class this experiment does not rewrite, so the
  * dependency check on {@code shader/A.a(Buffer)} still sees the official body
  * under either of those transforms. The two experiments remain disjoint.</p>
+ *
+ * <p>The protocol itself lives in {@link VerifiedInstall}: one target per wrapper, both retransformed
+ * in one call and both re-captured on close. The validation mode never consults the startup policy —
+ * the harness owns its gate — while the production mode keeps the kill switch.</p>
  */
 final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable {
 
     /** Operator kill-switch id checked through the startup hook policy. */
     static final String HOOK_ID = "cubism.render.upload-elision";
 
-    private final Instrumentation instrumentation;
-    private final SkippedFrameUploadElisionTarget target;
-    private final SkippedFrameUploadElisionBridge bridge;
-    private final List<Class<?>> entries = new ArrayList<>();
-    private final List<SkippedFrameUploadElisionTransformer> transformers = new ArrayList<>();
-    private final List<SkippedFrameUploadElisionTransformer> registered = new ArrayList<>();
-    private boolean installed, restored;
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+
+    /** The validation-mode row: the harness's system property is the only switch. */
+    private static final Admission VALIDATION_ADMISSION =
+            new Admission(HOOK_ID, PolicyCheck.SKIP, JvmCheck.AT_LEAST_17);
+
+    /** Each wrapper transformer rewrites exactly one site; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_MATCHES = 1;
+
+    /** The close proof re-captures both rewritten wrappers; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_OWNERS = 2;
+
+    private final InstallContext context;
+    private final boolean production;
+    private SkippedFrameUploadElisionBridge bridge;
+    private VerifiedInstall<SkippedFrameUploadElisionTarget> hook;
+
+    VerifiedSkippedFrameUploadElisionInstaller(
+            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) {
+        this(InstallContext.of(instrumentation, artifact, loader), false);
+    }
+
+    VerifiedSkippedFrameUploadElisionInstaller(final InstallContext context, final boolean production) {
+        this.context = context;
+        this.production = production;
+    }
 
     /**
      * Production admission: the operator requested the hook, the JVM can
@@ -51,161 +76,131 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             final dev.turboism.config.RuntimeStartupConfig config,
             final boolean requested,
             final int jvm) {
-        return requested
-                && jvm >= 17
-                && config.hookEnabled(HOOK_ID)
-                && SkippedFrameUploadElisionTarget.of(digest).isPresent();
+        return VerifiedInstall.admits(
+                ADMISSION,
+                config,
+                requested,
+                jvm,
+                () -> SkippedFrameUploadElisionTarget.of(digest).isPresent());
     }
 
-    VerifiedSkippedFrameUploadElisionInstaller(
-            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
-        this(instrumentation, artifact, loader, false);
+    private WeaveSpec<SkippedFrameUploadElisionTarget> spec() {
+        return new WeaveSpec<SkippedFrameUploadElisionTarget>(
+                production ? ADMISSION : VALIDATION_ADMISSION,
+                "upload elision",
+                VerifiedSkippedFrameUploadElisionInstaller::resolve,
+                new WeavePlan<>(
+                        VerifiedSkippedFrameUploadElisionInstaller::targets,
+                        VerifiedSkippedFrameUploadElisionInstaller::guardsProven),
+                (target, launch) -> {
+                    bridge = new SkippedFrameUploadElisionBridge(launch.hostLoader(), production, target.sizeOwner());
+                    return BridgeLayer.of(bridge::install, bridge);
+                },
+                WeaveEffects.none());
     }
 
-    VerifiedSkippedFrameUploadElisionInstaller(
-            final Instrumentation instrumentation,
-            final Path artifact,
-            final ClassLoader loader,
-            final boolean production)
+    private static Optional<SkippedFrameUploadElisionTarget> resolve(final Path artifact) throws Exception {
+        return SkippedFrameUploadElisionTarget.of(HostArtifactDigest.from(artifact));
+    }
+
+    private static List<WeaveTarget> targets(final SkippedFrameUploadElisionTarget target, final WeaveSource source)
             throws Exception {
-        target = SkippedFrameUploadElisionTarget.of(HostArtifactDigest.from(artifact))
-                .orElseThrow(() -> new IllegalArgumentException("upload elision unsupported host artifact"));
-        if (Runtime.version().feature() < 17) {
-            throw new IllegalArgumentException("upload elision requires JVM17+");
+        final List<WeaveTarget> targets = new ArrayList<>(SkippedFrameUploadElisionTarget.OWNERS.size());
+        for (final String owner : SkippedFrameUploadElisionTarget.OWNERS) {
+            final Class<?> type = source.load(owner);
+            final SkippedFrameUploadElisionTransformer transformer = new SkippedFrameUploadElisionTransformer(
+                    source.loader(), source.artifact(), source.referenceBytes(type), owner);
+            targets.add(WeaveTarget.single(
+                    type,
+                    transformer,
+                    EXPECTED_MATCHES,
+                    transformer::matches,
+                    transformer::failure,
+                    hashOwner -> transformer.beforeSha256()));
         }
-        this.instrumentation = instrumentation;
-        if (!instrumentation.isRetransformClassesSupported()) {
-            throw new IllegalStateException("retransform unavailable");
+        verify(source, SkippedFrameUploadElisionTarget.BASE_OWNER, "i", "()Ljava/nio/IntBuffer;");
+        verify(source, SkippedFrameUploadElisionTarget.BASE_OWNER, "k", "()Z");
+        for (final String owner : SkippedFrameUploadElisionTarget.OWNERS) {
+            verify(source, owner, "b", "()Ljava/nio/Buffer;");
         }
-        try (JarFile jar = new JarFile(artifact.toFile())) {
-            for (final String owner : SkippedFrameUploadElisionTarget.OWNERS) {
-                final Class<?> type = Class.forName(owner.replace('/', '.'), false, loader);
-                VerifiedHookInstallerSupport.attestClassSource(
-                        type, loader, artifact, "upload elision dependency loader/source mismatch: " + type.getName());
-                entries.add(type);
-                transformers.add(new SkippedFrameUploadElisionTransformer(
-                        loader, artifact, VerifiedHookInstallerSupport.readReferenceBytes(jar, type), owner));
-            }
-            verify(jar, loader, artifact, SkippedFrameUploadElisionTarget.BASE_OWNER, "i", "()Ljava/nio/IntBuffer;");
-            verify(jar, loader, artifact, SkippedFrameUploadElisionTarget.BASE_OWNER, "k", "()Z");
-            for (final String owner : SkippedFrameUploadElisionTarget.OWNERS) {
-                verify(jar, loader, artifact, owner, "b", "()Ljava/nio/Buffer;");
-            }
-            verify(jar, loader, artifact, target.sizeOwner(), "a", "(Ljava/nio/Buffer;)J");
-        }
-        bridge = new SkippedFrameUploadElisionBridge(loader, production, target.sizeOwner());
+        verify(source, target.sizeOwner(), "a", "(Ljava/nio/Buffer;)J");
+        return targets;
     }
 
-    private void verify(
-            final JarFile jar,
-            final ClassLoader loader,
-            final Path artifact,
-            final String owner,
-            final String method,
-            final String descriptor)
+    private static void verify(
+            final WeaveSource source, final String owner, final String method, final String descriptor)
             throws Exception {
-        final Class<?> type = Class.forName(owner.replace('/', '.'), false, loader);
-        VerifiedHookInstallerSupport.attestClassSource(
-                type, loader, artifact, "upload elision dependency loader/source mismatch: " + type.getName());
+        final Class<?> type = source.load(owner);
         final byte[] actual = VerifiedHookInstallerSupport.captureLoadedBytes(
-                instrumentation,
+                source.instrumentation(),
                 type,
                 "upload elision class unmodifiable: " + type.getName(),
                 "upload elision dependency inspection absent: " + type.getName());
-        final List<String> expected = ReviewedMethodShape.read(
-                VerifiedHookInstallerSupport.readReferenceBytes(jar, type), owner, method, descriptor);
+        final List<String> expected = ReviewedMethodShape.read(source.referenceBytes(type), owner, method, descriptor);
         if (expected == null || !expected.equals(ReviewedMethodShape.read(actual, owner, method, descriptor))) {
             throw new IllegalStateException("upload elision dependency body mismatch: " + owner + "." + method);
         }
     }
 
+    /** Each wrapper must guard exactly two upload call sites, not merely match one method. */
+    private static String guardsProven(final List<WeaveTarget> targets) {
+        for (final WeaveTarget target : targets) {
+            final int guarded = target.transformer(SkippedFrameUploadElisionTransformer.class)
+                    .guarded();
+            if (guarded != 2) {
+                return "guarded=" + guarded + " in " + target.type().getName();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Installs the weave through {@link VerifiedInstall}.
+     *
+     * @throws IllegalStateException when the artifact is not a reviewed upload-elision host
+     * @throws Exception when registration, retransformation or the match proof fails
+     */
     synchronized void install() throws Exception {
-        if (installed) return;
-        for (final Class<?> type : entries) {
-            if (!instrumentation.isModifiableClass(type)) {
-                throw new IllegalStateException("upload elision entry unmodifiable: " + type.getName());
+        if (hook == null) {
+            if (!(VerifiedInstall.bind(spec(), context)
+                    instanceof VerifiedInstall.Attempt.Installed<SkippedFrameUploadElisionTarget> bound)) {
+                throw new IllegalStateException("upload elision refused: host-not-supported-or-hook-disabled");
             }
+            hook = bound.hook();
         }
-        bridge.install();
-        try {
-            for (int i = 0; i < entries.size(); i++) {
-                final SkippedFrameUploadElisionTransformer transformer = transformers.get(i);
-                instrumentation.addTransformer(transformer, true);
-                registered.add(transformer);
-                instrumentation.retransformClasses(entries.get(i));
-                if (transformer.matches() != 1 || transformer.guarded() != 2 || transformer.failure() != null) {
-                    throw new IllegalStateException("upload elision entry not admitted: "
-                            + entries.get(i).getName() + " " + transformer.failure());
-                }
-            }
-            installed = true;
-        } catch (Exception | Error failure) {
-            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
-            throw failure;
-        }
+        hook.weave();
     }
 
     /** Guarded upload call sites across both rewritten wrappers. */
     int sites() {
         int total = 0;
-        for (final SkippedFrameUploadElisionTransformer transformer : transformers) {
-            total += transformer.guarded();
+        for (final WeaveTarget target : hook.targets()) {
+            total += target.transformer(SkippedFrameUploadElisionTransformer.class)
+                    .guarded();
         }
         return total;
     }
 
     @Override
     public synchronized void close() {
+        if (hook == null) return;
         final Map<String, Long> stats = bridge.snapshot();
-        bridge.close();
-        if (restored) return;
-        Throwable failure = null;
-        // Detach every registered transformer even when an earlier removal fails.
-        for (final var transformer : List.copyOf(registered)) {
-            try {
-                instrumentation.removeTransformer(transformer);
-                registered.remove(transformer);
-            } catch (Exception | Error problem) {
-                // @containment-exempt: problem is merged and rethrown below with fatal error prioritized
-                failure = dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, problem);
-            }
+        try {
+            hook.close();
+        } catch (RuntimeException | Error failure) {
+            log(stats, false);
+            throw failure;
         }
-        // A failed restoration is retryable after registration has been undone.
-        // beforeSha256 is per class, including successful rewrites before a
-        // later entry failed admission; installed is deliberately irrelevant.
-        for (int i = 0; i < entries.size(); i++) {
-            final String before = transformers.get(i).beforeSha256();
-            if (before == null) continue;
-            try {
-                final String hash =
-                        VerifiedHookInstallerSupport.sha256Hex(VerifiedHookInstallerSupport.captureLoadedBytes(
-                                instrumentation,
-                                entries.get(i),
-                                "upload elision class unmodifiable: "
-                                        + entries.get(i).getName(),
-                                "upload elision dependency inspection absent: "
-                                        + entries.get(i).getName()));
-                if (!hash.equals(before)) {
-                    throw new IllegalStateException("upload elision restoration not proven: "
-                            + entries.get(i).getName());
-                }
-            } catch (Exception | Error problem) {
-                // @containment-exempt: problem is merged and rethrown below with fatal error prioritized
-                failure = dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, problem);
-            }
-        }
-        installed = false;
-        restored = failure == null;
-        dev.turboism.runtime.log.RuntimeDiagnostics.info(
+        log(stats, hook.restored());
+    }
+
+    private static void log(final Map<String, Long> stats, final boolean restored) {
+        RuntimeDiagnostics.info(
                 "bootstrap",
                 "TURBOISM_UPLOAD_ELISION closed elided=" + stats.get("elided")
                         + " passed=" + stats.get("passed") + " calls=" + stats.get("calls")
                         + " clears=" + stats.get("clears") + reportTail(stats)
                         + " restored=" + restored);
-        if (failure != null) {
-            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
-            throw new IllegalStateException("upload elision restoration failed", failure);
-        }
     }
 
     /** Pass-reason, per-kind and content-mode counters for the close marker. */
@@ -238,6 +233,6 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
     }
 
     boolean restored() {
-        return restored;
+        return hook != null && hook.restored();
     }
 }

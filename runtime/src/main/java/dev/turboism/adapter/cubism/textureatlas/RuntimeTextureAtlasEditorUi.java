@@ -3,31 +3,51 @@ package dev.turboism.adapter.cubism.textureatlas;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi;
-import dev.turboism.ui.host.EdtDispatch;
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.Container;
-import java.lang.ref.WeakReference;
+import dev.turboism.sdk.ui.HostViewAnchors;
+import dev.turboism.sdk.ui.HostViewPanelHandle;
+import dev.turboism.sdk.ui.PanelView;
+import dev.turboism.ui.panel.RuntimeHostViewPanelRegistry;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
-import javax.swing.BoxLayout;
-import javax.swing.JPanel;
 
 /**
- * Framework capability: attaches plugin-owned UI panels to the native texture-atlas
- * editor view. The exact-host ingress ({@link #ingress()}) records the constructed
- * editor view and attaches any panels registered so far; {@link #attach} attaches
- * immediately when the editor view is already live. Panels are rendered as Swing
- * labels owned by this adapter; plugins only see the semantic panel handle.
+ * Deprecated {@link TextureAtlasEditorUi} adapter over the generalized
+ * {@link RuntimeHostViewPanelRegistry}.
+ *
+ * <p>The attachment machinery — host-view ingress, the plugin container, EDT marshalling and
+ * visibility reporting — lives once in the registry. This class keeps only what the released
+ * interface adds: the exact-host generation binding the texture-atlas editor session resolves
+ * through, the single-text-line panel shape, and close-on-fence of the panels it created. New
+ * code contributes {@link PanelView} content through {@link dev.turboism.sdk.ui.HostViewPanel}
+ * with the {@link HostViewAnchors#TEXTURE_ATLAS_EDITOR} anchor instead.</p>
  */
+@SuppressWarnings("removal") // the released surface this adapter keeps working
 public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, AutoCloseable {
 
-    private final List<PanelHandle> panels = new ArrayList<>();
-    private volatile WeakReference<Object> currentView;
+    private static final String ANCHOR = HostViewAnchors.TEXTURE_ATLAS_EDITOR;
+
+    private final RuntimeHostViewPanelRegistry panels;
+    private final List<TextPanel> attached = new ArrayList<>();
+    private long nextOrder;
     private long boundGeneration;
     private VerifiedMemberResolver boundResolver;
     private boolean closed;
+
+    /** Creates an adapter over a private registry, for callers that own no host session. */
+    public RuntimeTextureAtlasEditorUi() {
+        this(new RuntimeHostViewPanelRegistry());
+    }
+
+    /**
+     * Creates the adapter that contributes into {@code panels}' texture-atlas anchor.
+     *
+     * @param panels the host-session-owned panel registry, never {@code null}
+     */
+    public RuntimeTextureAtlasEditorUi(final RuntimeHostViewPanelRegistry panels) {
+        this.panels = Objects.requireNonNull(panels, "panels");
+    }
 
     /** Loader-neutral ingress receiving the constructed host editor view. */
     public Consumer<Object> ingress() {
@@ -39,18 +59,16 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
         if (closed) return;
         if (generation < 1) throw new IllegalArgumentException("generation must be positive");
         boundGeneration = generation;
-        boundResolver = java.util.Objects.requireNonNull(resolver, "resolver");
+        boundResolver = Objects.requireNonNull(resolver, "resolver");
     }
 
-    private synchronized void bindView(final Object view) {
-        if (closed || view == null || boundResolver == null) return;
-        final WeakReference<Object> previous = currentView;
-        final Object previousView = previous == null ? null : previous.get();
-        if (previousView != null && previousView != view) {
-            onEdtEventually(() -> detachPanels(previousView));
+    private void bindView(final Object view) {
+        final boolean bound;
+        synchronized (this) {
+            bound = !closed && boundResolver != null;
         }
-        currentView = new WeakReference<>(view);
-        onEdt(() -> attachPanels(view));
+        if (!bound || view == null) return;
+        panels.bind(ANCHOR, view);
     }
 
     @Override
@@ -63,167 +81,24 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
         if (closed) {
             throw new IllegalStateException("Texture-atlas editor UI is closed.");
         }
-        final PanelHandle panel = new PanelHandle(new javax.swing.JLabel());
-        panels.removeIf(PanelHandle::closed);
-        panels.add(panel);
-        final WeakReference<Object> view = currentView;
-        if (view != null && view.get() != null) {
-            onEdt(() -> attachPanels(view.get()));
-        }
+        attached.removeIf(TextPanel::isClosed);
+        final TextPanel panel = new TextPanel(panels.attach(ANCHOR, PanelView.text(""), (int) nextOrder++));
+        attached.add(panel);
         return panel;
-    }
-
-    private void attachPanels(final Object view) {
-        if (!(view instanceof Container container)) {
-            return;
-        }
-        panels.removeIf(PanelHandle::closed);
-        if (panels.isEmpty()) {
-            return;
-        }
-        JPanel pluginPanels = pluginPanels(container);
-        boolean changed = false;
-        for (PanelHandle handle : panels) {
-            final javax.swing.JLabel panel = handle.label();
-            if (panel.getParent() == pluginPanels) continue;
-            if (panel.getParent() != null) {
-                panel.getParent().remove(panel);
-            }
-            pluginPanels.add(panel);
-            changed = true;
-        }
-        if (changed) {
-            refresh(view);
-        }
-    }
-
-    private static JPanel pluginPanels(final Container container) {
-        for (Component component : container.getComponents()) {
-            if (component instanceof JPanel panel
-                    && Boolean.TRUE.equals(panel.getClientProperty(RuntimeTextureAtlasEditorUi.class))) {
-                return panel;
-            }
-        }
-        final JPanel panel = new JPanel();
-        panel.putClientProperty(RuntimeTextureAtlasEditorUi.class, Boolean.TRUE);
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        container.add(panel, BorderLayout.SOUTH);
-        return panel;
-    }
-
-    private void detachPanels(final Object view) {
-        if (!(view instanceof Container container)) return;
-        boolean changed = false;
-        for (PanelHandle handle : panels) {
-            final javax.swing.JLabel panel = handle.label();
-            if (panel.getParent() != null && panel.getParent().getParent() == container) {
-                panel.getParent().remove(panel);
-                changed = true;
-            }
-        }
-        for (Component component : container.getComponents()) {
-            if (component instanceof JPanel panel
-                    && Boolean.TRUE.equals(panel.getClientProperty(RuntimeTextureAtlasEditorUi.class))
-                    && panel.getComponentCount() == 0) {
-                container.remove(panel);
-                changed = true;
-            }
-        }
-        if (changed) {
-            refresh(view);
-        }
-    }
-
-    private static void refresh(final Object view) {
-        if (view instanceof Component component) {
-            component.revalidate();
-            component.repaint();
-        }
-    }
-
-    private void unregister(final PanelHandle panel) {
-        synchronized (this) {
-            if (!panels.remove(panel)) return;
-        }
-        onEdtEventually(() -> {
-            final javax.swing.JLabel label = panel.label();
-            final Container parent = label.getParent();
-            if (parent != null) {
-                final Container view = parent.getParent();
-                parent.remove(label);
-                if (view != null && parent.getComponentCount() == 0) {
-                    view.remove(parent);
-                }
-                refresh(view == null ? parent : view);
-            }
-        });
-    }
-
-    private final class PanelHandle implements TextureAtlasEditorPanel {
-        private final javax.swing.JLabel label;
-        private volatile boolean visible;
-        private boolean closed;
-
-        private PanelHandle(final javax.swing.JLabel label) {
-            this.label = label;
-            // The renderer is Swing-owned, so show/hide transitions are observed on the host
-            // thread and published as one volatile flag. A polling plugin then reads a plain
-            // boolean instead of touching the host component from its own thread. detachPanels
-            // and close() remove the label, which reports SHOWING_CHANGED again, so a retired
-            // view never keeps reporting visible.
-            label.addHierarchyListener(event -> {
-                if ((event.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0) {
-                    visible = label.isShowing();
-                }
-            });
-        }
-
-        @Override
-        public boolean isVisible() {
-            synchronized (this) {
-                if (closed) return false;
-            }
-            return visible;
-        }
-
-        @Override
-        public void setText(final String text) {
-            synchronized (this) {
-                if (closed) return;
-            }
-            onEdt(() -> label.setText(text));
-        }
-
-        @Override
-        public void close() {
-            synchronized (this) {
-                if (closed) return;
-                closed = true;
-            }
-            unregister(this);
-        }
-
-        private javax.swing.JLabel label() {
-            return label;
-        }
-
-        private synchronized boolean closed() {
-            return closed;
-        }
     }
 
     /** Atomically captured resolver/view pair for the active host generation. */
     public synchronized RuntimeTextureAtlasEditorSession.GenerationBinding binding() {
         if (closed || boundResolver == null) return null;
-        final Object view = currentView == null ? null : currentView.get();
+        final Object view = panels.view(ANCHOR);
         return view == null
                 ? null
                 : new RuntimeTextureAtlasEditorSession.GenerationBinding(boundGeneration, boundResolver, view);
     }
 
     /** Current host editor view, for callers that only need the native component. */
-    public synchronized Object view() {
-        return closed || currentView == null ? null : currentView.get();
+    public Object view() {
+        return closed ? null : panels.view(ANCHOR);
     }
 
     /**
@@ -232,41 +107,60 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
      */
     public synchronized void deactivate() {
         if (closed) return;
-        final WeakReference<Object> view = currentView;
-        final Object current = view == null ? null : view.get();
         boundGeneration = 0;
         boundResolver = null;
-        currentView = null;
-        if (current != null) {
-            onEdtEventually(() -> detachPanels(current));
-        }
+        panels.deactivate(ANCHOR);
     }
 
     @Override
     public void close() {
-        final List<PanelHandle> registered;
+        final List<TextPanel> registered;
         synchronized (this) {
             if (closed) return;
-            deactivate();
             closed = true;
-            registered = List.copyOf(panels);
+            boundGeneration = 0;
+            boundResolver = null;
+            registered = List.copyOf(attached);
+            attached.clear();
         }
-        registered.forEach(PanelHandle::close);
+        panels.deactivate(ANCHOR);
+        registered.forEach(TextPanel::close);
     }
 
-    private static void onEdt(final Runnable task) {
-        EdtDispatch.call("texture-atlas editor UI update", () -> {
-            task.run();
-            return null;
-        });
-    }
+    /** One released single-text-line panel, rendered as {@link PanelView#text} content. */
+    private final class TextPanel implements TextureAtlasEditorPanel {
 
-    /**
-     * Idempotent detach/removal work: on acceptance timeout the task stays queued and still runs
-     * exactly once when the EDT drains, so a detached or closed panel is never orphaned on a
-     * stale editor view.
-     */
-    private static void onEdtEventually(final Runnable task) {
-        EdtDispatch.runEventually("texture-atlas editor UI removal", task);
+        private final HostViewPanelHandle handle;
+        private volatile boolean closed;
+
+        private TextPanel(final HostViewPanelHandle handle) {
+            this.handle = handle;
+        }
+
+        @Override
+        public void setText(final String text) {
+            handle.setContent(PanelView.text(text == null ? "" : text));
+        }
+
+        @Override
+        public boolean isVisible() {
+            return !closed && handle.isVisible();
+        }
+
+        @Override
+        public void close() {
+            synchronized (this) {
+                if (closed) return;
+                closed = true;
+            }
+            synchronized (RuntimeTextureAtlasEditorUi.this) {
+                attached.remove(this);
+            }
+            handle.close();
+        }
+
+        private boolean isClosed() {
+            return closed;
+        }
     }
 }

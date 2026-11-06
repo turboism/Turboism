@@ -23,6 +23,7 @@ import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -37,10 +38,18 @@ class SelectionQueryServiceImplTest {
 
     private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-07-08T02:00:00Z"), ZoneOffset.UTC);
 
+    private static final HostSnapshotSource.HostParameter PARAMETER =
+            new HostSnapshotSource.HostParameter("param-angle-x", "Angle X", 0.0, 0.0, -30.0, 30.0, true, true);
+    private static final HostSnapshotSource.HostArtMesh MESH =
+            new HostSnapshotSource.HostArtMesh("mesh-face", "Face Mesh", Optional.empty(), true, true);
+    private static final HostSnapshotSource.HostDeformer DEFORMER = new HostSnapshotSource.HostDeformer(
+            "deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"));
+    private static final HostSnapshotSource.HostModel MODEL =
+            new HostSnapshotSource.HostModel("model-1", "Model", List.of(PARAMETER), List.of(MESH), List.of(DEFORMER));
+
     @Test
     void currentSelectionAndSelectedIdsReturnTypedModelObjectIdsWhenPermissionGranted() throws CubismServiceException {
-        final MutableSelectionSource source =
-                MutableSelectionSource.withSelection(List.of("param-angle-x", "mesh-face"));
+        final RecordingHostSnapshotSource source = withSelection(List.of("param-angle-x", "mesh-face"));
         final SelectionQueryServiceImpl service =
                 serviceWith(source, new ArrayList<>(), List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)));
 
@@ -57,7 +66,7 @@ class SelectionQueryServiceImplTest {
 
     @Test
     void publishesSelectionTransitionThroughRuntimeBroker() throws Exception {
-        final MutableSelectionSource source = MutableSelectionSource.withSelection(List.of("param-angle-x"));
+        final RecordingHostSnapshotSource source = withSelection(List.of("param-angle-x"));
         final RuntimeScheduler scheduler = directScheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner observerOwner = broker.admit("plugin.observer");
@@ -73,9 +82,9 @@ class SelectionQueryServiceImplTest {
                 source, new ArrayList<>(), List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)), broker);
 
         service.currentSelection();
-        source.replaceSelection(List.of("mesh-face"));
+        replaceSelection(source, List.of("mesh-face"));
         service.currentSelection();
-        source.replaceSelection(List.of("mesh-face"));
+        replaceSelection(source, List.of("mesh-face"));
         service.currentSelection();
 
         assertTrue(delivered.await(1, TimeUnit.SECONDS));
@@ -92,7 +101,7 @@ class SelectionQueryServiceImplTest {
     void everyDeniedModelReadOperationRecordsItsOperationAndSelectionCapability() {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
         final SelectionQueryServiceImpl service =
-                serviceWith(MutableSelectionSource.withSelection(List.of("mesh-face")), auditEvents, List.of());
+                serviceWith(withSelection(List.of("mesh-face")), auditEvents, List.of());
 
         assertDenied(service::currentSelection, auditEvents, SelectionQueryServiceImpl.CURRENT_SELECTION_OPERATION);
         assertDenied(
@@ -154,60 +163,17 @@ class SelectionQueryServiceImplTest {
         return Stubs.permission(id);
     }
 
-    private static final class MutableSelectionSource implements HostSnapshotSource {
+    private static RecordingHostSnapshotSource withSelection(final List<String> selectedObjectIds) {
+        return RecordingHostSnapshotSource.builder()
+                .model(MODEL)
+                .selectedObjectIds(selectedObjectIds)
+                .hostPresent(true)
+                .build();
+    }
 
-        private static final HostParameter PARAMETER =
-                new HostParameter("param-angle-x", "Angle X", 0.0, 0.0, -30.0, 30.0, true, true);
-        private static final HostArtMesh MESH = new HostArtMesh("mesh-face", "Face Mesh", Optional.empty(), true, true);
-        private static final HostDeformer DEFORMER =
-                new HostDeformer("deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"));
-        private static final HostModel MODEL =
-                new HostModel("model-1", "Model", List.of(PARAMETER), List.of(MESH), List.of(DEFORMER));
-
-        private List<String> selectedObjectIds;
-        private long invalidationToken;
-
-        private MutableSelectionSource(final List<String> selectedObjectIds) {
-            this.selectedObjectIds = List.copyOf(selectedObjectIds);
-        }
-
-        static MutableSelectionSource withSelection(final List<String> selectedObjectIds) {
-            return new MutableSelectionSource(selectedObjectIds);
-        }
-
-        void replaceSelection(final List<String> nextSelectedObjectIds) {
-            selectedObjectIds = List.copyOf(nextSelectedObjectIds);
-            invalidationToken++;
-        }
-
-        @Override
-        public Optional<HostProject> activeProject() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<HostDocument> activeDocument() {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<HostModel> activeModel() {
-            return Optional.of(MODEL);
-        }
-
-        @Override
-        public HostSelection selection() {
-            return new HostSelection(selectedObjectIds, Optional.empty(), Optional.empty(), Optional.empty());
-        }
-
-        @Override
-        public boolean isHostPresent() {
-            return true;
-        }
-
-        @Override
-        public long invalidationToken() {
-            return invalidationToken;
-        }
+    /** Replaces the observed selection and moves the token, as a host selection change does. */
+    private static void replaceSelection(final RecordingHostSnapshotSource source, final List<String> next) {
+        source.setSelectedObjectIds(next);
+        source.advanceInvalidationToken();
     }
 }

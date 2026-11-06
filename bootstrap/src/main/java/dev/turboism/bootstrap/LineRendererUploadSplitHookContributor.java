@@ -29,14 +29,12 @@ final class LineRendererUploadSplitHookContributor extends NativeOptimizationHoo
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedLineRendererUploadSplitInstaller.admitted(
-                host.artifact(),
-                NativeOptimizationPolicy.load(environment.options().home()),
-                true)) {
+                host.artifact(), environment.plan().policy(), true)) {
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("host-not-supported-or-hook-disabled");
         }
-        final VerifiedLineRendererUploadSplitInstaller installer = new VerifiedLineRendererUploadSplitInstaller(
-                environment.instrumentation(), host.artifact(), host.classLoader());
+        final VerifiedLineRendererUploadSplitInstaller installer =
+                new VerifiedLineRendererUploadSplitInstaller(InstallContext.of(environment));
         installer.install();
         log(environment, id() + " uploadSplit=ACTIVE");
         return installer;

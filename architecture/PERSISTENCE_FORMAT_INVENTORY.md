@@ -19,7 +19,7 @@ Read it with the two existing contracts:
 | Is a stored document accepted, migrated or refused? | `RuntimeConfigRepository`, `RuntimeTypedPluginConfigRegistry`, `TypedConfigDocumentStore`, `ConfigMerge` — never this document |
 | Is a fixture authentic and unmodified? | `scripts/check_golden_snapshots.py` + `manifest.json` |
 | Is a signed artifact authentic? | `UpdateManifestVerifier` / `PluginCatalogVerifier` against bundled public keyrings |
-| Which old versions must keep working? | **open maintainer decision**, §12 |
+| Which old versions must keep working? | §12 (decided: every published release from `v0.42.0` on) |
 
 Evidence status labels used below:
 
@@ -141,7 +141,12 @@ shows the runtime's `"format" : "turboism.runtime.config"` / `[ "plugins" ]` sha
 hand-written read-compatible JSON with `"format": "turboism.runtime.config"` and inline arrays —
 that is the *installer template* shape, not the Jackson shape. It is a legitimate
 read-compatibility fixture, but it is not evidence of any released writer's output and must not be
-described as such (§14 G2).
+described as such. #110 added release-derived fixtures for both layouts
+(`runtime-config-installer-template-0-42-0`/`-0-67-4` and
+`runtime-config-runtime-writer-0-42-0`/`-0-67-4`, §13.1) while leaving this synthetic record
+byte-identical; the writer-compatibility gap is therefore closed (§14 G2). #69-closure extended the
+same corpus to the remaining published families (typed-config, plugin properties, plugin journal,
+catalog state, installed build, update journal) — see §13.1 batch 2.
 
 ### 2.4 Typed config document epochs
 
@@ -175,14 +180,16 @@ done
 
 Two consequences that matter more than any envelope detail:
 
-1. **A plugin id rename orphans its documents.** `dev.turboism.plugin.backup` was renamed to
-   `dev.turboism.plugin.webdav` in `v0.44.0` keeping the same `CONFIG_ID` (`backup.webdav`) and the
-   same `CONFIG_PATH` (`backup/webdav.cfg`). Because the root is keyed by plugin id, the old document
-   stays at `config/dev.turboism.plugin.backup/backup/webdav.cfg` while the new plugin reads
-   `config/dev.turboism.plugin.webdav/backup/webdav.cfg` — absent, so it starts from defaults. The
-   retired JAR is deleted on upgrade (`packaging/retired-plugins.txt` lists
-   `dev.turboism.plugin.backup`), but nothing migrates the settings: `LegacyHomeMigration` only moves
-   the pre-layout `plugin-data/<id>/data/typed-config` tree, not a renamed plugin's config directory.
+1. **A plugin id rename used to orphan its documents — closed.** `dev.turboism.plugin.backup` was
+   renamed to `dev.turboism.plugin.webdav` in `v0.44.0` keeping the same `CONFIG_ID`
+   (`backup.webdav`) and the same `CONFIG_PATH` (`backup/webdav.cfg`). Because the root is keyed by
+   plugin id, the old document stayed at `config/dev.turboism.plugin.backup/backup/webdav.cfg` while
+   the new plugin reads `config/dev.turboism.plugin.webdav/backup/webdav.cfg`, and the retired JAR is
+   deleted on upgrade (`packaging/retired-plugins.txt`). `LegacyHomeMigration` now copies every
+   document of a renamed id to the current id's config directory when the destination is absent; the
+   retired document is never moved, rewritten or deleted, so it stays the recoverable pre-upgrade
+   image. Recorded renames are the `RENAMED_PLUGIN_IDS` map; a symlinked document is skipped rather
+   than followed. Closed gap G10, verified by `LegacyHomeMigrationTest`.
 2. **Removed plugins leave documents with no reader.** `bounding-box/features.cfg` and
    `project-panel/state.cfg` have no registered schema after `v0.67.0`, so they are never read, never
    migrated and never deleted. They are inert, but they are also invisible user data that no support
@@ -205,10 +212,7 @@ typed facade over this same document:
 | --- | --- |
 | `RuntimeSettingsFileService` | `logLevel`, `maxLogStorageMiB` |
 | `CubismJvmSettingsFileService` | `launcher.cubismJvm`, `launcher.graalVmPath` |
-| `AtlasCacheReuseSettingsFileService` | `atlasCacheReuse` |
-| `AtlasTileBboxSettingsFileService` | `atlasTileBbox` |
-| `MeshTriangulationSettingsFileService` | `meshTriangulationHashFix` |
-| `TriangulationEdgeIndexSettingsFileService` | `meshTriangulationEdgeIndex` |
+| `OptimizationSettingsFileService` | every native-optimization key the catalogue declares: `launcher.<key>` for the 22 launcher rows, `<key>` at the root for `atlasCacheReuse`, `atlasTileBbox`, `meshTriangulationHashFix` and `meshTriangulationEdgeIndex` |
 
 All of them delegate to `RuntimeConfigRepository#update`, so there is exactly one runtime write
 path and one runtime read path for this family.
@@ -397,8 +401,9 @@ First-party plugins still using it: `external-psd-edit` (`external-editor.proper
 `RuntimePluginStorage` is a permission facade over `ConfinedStorageBackend`, which is confined to
 three roots per plugin (`TurboismHomeLayout#plugin`): `data/<pluginId>`, `state/<pluginId>`,
 `cache/<pluginId>`. Writes go through `writeBytesAtomicLocked` → `StorageFiles#writeDurably`
-(`CREATE_NEW` + `force`) → `StorageAtomicMover#move` (`ATOMIC_MOVE`, fail-closed when the
-filesystem cannot do it). There is **no format layer**: the bytes are whatever the plugin encodes.
+(`dev.turboism.core.io.DurableFile`, create-once + `force`) → `StorageFiles#moveAtomically`
+(atomic replacement, fail-closed when the filesystem cannot do it). There is **no format layer**:
+the bytes are whatever the plugin encodes.
 
 Persisted first-party state found in the current tree:
 
@@ -725,53 +730,134 @@ test), a receipt whose `keyId` says so, and a test that drives the production ve
 production applier. The fixture must state in the manifest/README that it is
 `test-key-reproducible`, not historical. Real historical receipts stay an explicit open gap (§14 G3).
 
-## 12. Proposed support window and deprecation policy (decision required)
+## 12. Compatibility support window and deprecation policy (decided)
 
-Nothing here is implemented, and no production support is narrowed by this document. Three options
-for the maintainer to choose; the recommendation is **B**.
+**Decision: Option B is adopted.** This section is normative. It replaces the earlier "proposed,
+decision required" draft; the three proposals are recorded in §12.7 so the reasoning stays
+reviewable.
 
-### Option A — "everything ever published stays readable" (widest)
+### 12.1 Read window
 
-Support every format epoch in §2.1, including the v0 `config.json` shape and every typed-config
-schema ever shipped. Consequence: the corpus must either carry a v0 `config.json` fixture with an
-explicitly non-release provenance (so the "release-derived" label stops being universal), or leave
-that epoch uncovered; and the closed-schema behaviour of `config.json` (unknown field → unreadable)
-has to be accepted as permanent.
+Every on-disk format written by **any published release from `v0.42.0` onward** is inside the read
+window. A document in the window must have exactly one of three outcomes, in this order of
+preference:
 
-### Option B — "supported = every published release of the current major line; older data must be readable or refused without loss" (recommended)
+1. **read** by the current production reader without touching the bytes
+   (`RuntimeConfigRepository`, `RuntimeTypedPluginConfigRegistry`, `RuntimePluginConfigRegistry`,
+   `PendingPluginOperations`, `PluginCatalogStateStore`, `InstalledBuild`,
+   `FrameworkUpdateApplier`, `FrameworkUpdateLaunchLease`, `UpdateStateStore`,
+   `UpdatePreferencesStore`);
+2. **migrated** by an approved step that first leaves a durable pre-image of the pre-upgrade bytes
+   (the typed-config recovery point, the update journal's `backup/` tree, or the installer's
+   pre-normalisation image); or
+3. **refused** fail-closed with a diagnostic while 100% of the original bytes stay on disk.
 
-- **Read window**: every on-disk format written by any release from `v0.42.0` onward must be
-  *readable*, *migrated*, or *refused with the original bytes preserved*. That is the whole
-  published set, so the window is currently "all of it".
-- **Write window**: only the current schema is written. A read-time migration is allowed only with a
-  recovery point (already true in the current tree, unreleased) — this becomes a hard requirement.
-- **Deprecation**: a format epoch may be dropped from the read window only by an explicit
-  documented release decision in `CHANGELOG.md` plus a removal note in this inventory, and only
-  after the epoch has had no published writer for two minor releases. Dropping it means: refuse the
-  document with a diagnostic and keep the bytes; never migrate to defaults.
-- **Corpus**: every epoch in §2.1 that has a released writer gets a fixture; epochs that never had a
-  released writer stay listed as gaps rather than invented.
+There is no fourth outcome. "Reset to defaults and report success" is not a supported outcome for
+any epoch inside the window, and silent removal of unknown data is only allowed through an explicit
+migration step that names the dropped keys (the approved example is `texture-atlas/layout.cfg`
+v3→v4).
 
-### Option C — "latest two stable releases only" (narrowest)
+Because the window starts at the first published release, it currently covers the **whole** published
+set — §2.1 contains no epoch that is outside it. A future narrowing has to follow §12.5.
 
-Support `v0.67.x` and `v0.68.x` only. Consequence: a user who skipped from `v0.44.0` to a future
-release has unreadable data with no migration, which contradicts #69's premise. Not recommended.
+Pre-`v0.42.0` untagged `config.json` **v0** (no `schemaVersion`) is **outside the runtime read
+window**: it is normalised by the installer `ConfigMerge#normalizeToCurrent` (and by the PowerShell
+configurator) before the runtime runs, and the runtime refuses a document without a `schemaVersion`
+without modifying it. v0 therefore stays installer-owned and needs no runtime fixture; that is the
+resolution of the register's open question 1 and leaves G1 as an installer-lane fixture gap only.
 
-### Decision points the maintainer must resolve explicitly
+### 12.2 Write window
 
-1. Is the v0 `config.json` shape (pre-`v0.42.0`) inside or outside the read window?
-2. Does the **installer's** normalisation (which drops unknown fields, since `v0.67.0`) count as an
-   approved unknown-data rule, or must it return to the `v0.42.0`–`v0.43.2` preserve-unknown
-   behaviour / start refusing? Three released policies exist (§3.3) and only one can be "the" rule.
-3. Must a recovery point become mandatory for every destructive migration *before* the next stable
-   release (today it exists only in a nightly)?
+Only the current schema of each family is written. Two obligations accompany that:
+
+- a **destructive read-time transition** (a migration that replaces the stored document) requires a
+  durable pre-image *before* the replace — for Family 2 that is
+  `TypedConfigDocumentStore#recordRecoveryPoint`, bounded to `RECOVERY_POINT_RETENTION`;
+- a save that follows an **unreadable** read (corrupt bytes, an unknown field, or a `schemaVersion`
+  newer than this build) must keep one bounded recovery image of the previous document before the
+  atomic replace. The image is the sibling `<file>.corrupt.bak`, retention is exactly one and a
+  normal overwrite of a readable document writes no image. Implemented for `catalog-state.json`,
+  `update-state.json` and `update-preferences.json`; the mechanics are described in the non-typed
+  audit §3.3/§3.4, and gap G9 tracks shipping it in a stable release.
+
+### 12.3 Pre-image inventory
+
+| Family | Durable pre-image | Retention | Gate |
+| --- | --- | --- | --- |
+| typed plugin config (`<doc>.cfg`) | `.recovery-points/<doc>.recovery/<schema>-r<rev>-<sha256>.bak` | 3 | `PersistenceGoldenSnapshotsTest` |
+| framework update payloads | `state/runtime/update/helper/backup/` + `journal.json` | until committed | `FrameworkUpdateApplierTest`, `SignedReceiptAndUpdateJournalCompatibilityTest` |
+| `catalog-state.json` | `catalog-state.json.corrupt.bak` | 1 | `PluginPersistenceJournalCompatibilityTest` |
+| `update-state.json` / `update-preferences.json` | `<file>.corrupt.bak` | 1 | `SignedReceiptAndUpdateJournalCompatibilityTest` |
+| renamed plugin config (G10) | the untouched document under the retired plugin id | indefinitely | `LegacyHomeMigrationTest` |
+
+### 12.4 Unknown-field and unknown-data rule
+
+The three released `config.json` policies (§3.3) are reconciled by reader, not by a single global
+rule:
+
+- the **runtime** refuses an unknown field and never rewrites the file;
+- the **installer** normalises (drops unknown fields) from `v0.67.0` and must capture a
+  pre-normalisation image first (tracked as N1 in the non-typed audit);
+- the runtime and the installer never both apply to the same document in the same run.
+
+For every other family, unknown fields in a *closed* schema are refused with the bytes preserved
+(`pending.json`, `catalog-state.json`, receipt index and documents); *permissive* readers
+(`update-state.json`, `update-preferences.json`) ignore unknown fields but must never widen what the
+document can cause to happen.
+
+### 12.5 Deprecation policy
+
+A format epoch may leave the read window only when **all** of the following hold:
+
+1. the epoch has had **no published writer for at least two minor releases** — that is, the first
+   release that no longer reads it must come no earlier than the second minor release after the last
+   release that wrote it;
+2. a release-blocking entry is added to `CHANGELOG.md` **and** to this inventory (§2.1 row plus a
+   removal note) naming the epoch, the last release that wrote it and the first release that no
+   longer reads it;
+3. the post-deprecation behaviour is a **refusal with a diagnostic that preserves the original
+   bytes** — never a silent reset to defaults, never a delete, never a rewrite.
+
+Deleting a fixture from `tests/fixtures/snapshots/` is a policy change, not test cleanup: the
+manifest gate fails when a sample disappears, and the policy above is the only accepted reason.
+
+### 12.6 What the policy does not cover
+
+- signatures that cannot be re-issued (real historical receipts and catalog envelopes, G3):
+  verification of existing bytes is covered with the documented `test-key-reproducible` key, and
+  issuance stays forbidden (§11);
+- bytes from a tagged-but-never-published build (G8) and from a pre-`v0.42.0` build (G1);
+- formats written by the host (Cubism) or by a plugin that declares no runtime-owned schema;
+- the per-user self-update download cache, which lives outside the installation and is discardable.
+
+### 12.7 Enforcement
+
+| Rule | Gate |
+| --- | --- |
+| fixtures are immutable, path-safe and complete | `scripts/check_golden_snapshots.py` + `scripts/test/test_check_golden_snapshots.py` |
+| every fixture is replayed by a production reader | `PersistenceGoldenSnapshotsTest`, `PluginPersistenceJournalCompatibilityTest`, `GoldenUpdateStateSnapshotsTest` under `:runtime:persistenceGoldenSnapshotsTest` |
+| a read leaves released bytes untouched | per-fixture `assertArrayEquals(original, ...)` |
+| destructive transitions keep a pre-image | recovery-point, `*.corrupt.bak` and journal-backup tests |
+| the policy text tracks the corpus | this document (§13/§14 are updated in the same change) |
+
+### 12.8 Recorded alternatives (not adopted)
+
+- **Option A** — "everything ever published stays readable", including pre-`v0.42.0` v0
+  `config.json`: rejected because no released writer produced v0, so it could only be covered by a
+  non-release-derived fixture, which would weaken the meaning of `verified-release-artifact`.
+- **Option C** — "latest two stable releases only" (`v0.67.x`, `v0.68.x`): rejected because a user
+  who skipped from `v0.44.0` would lose data with no migration, which contradicts the premise of
+  #69.
 
 ## 13. Follow-up tasks
 
-### 13.1 #110 batch 1 — candidates a released writer can produce offline today
+### 13.1 Release-derived fixtures — #110 batch 1 and the #69 closure batch
+
+#### 13.1.1 #110 batch 1 — candidates a released writer can produce offline today
 
 Ordered by evidence strength. Each line is a fixture to add, with its provenance source; none of
-them requires Cubism, a network, or a private key.
+them requires Cubism, a running host, or a private key. Method A generation needs a one-time
+download of the published release asset; replay and verification stay offline.
 
 | # | Fixture | Source writer | Provenance |
 | --- | --- | --- | --- |
@@ -779,24 +865,77 @@ them requires Cubism, a network, or a private key.
 | 2 | `runtime-config/schema-v1/installer-template-0.67.4.json` | shipped seed, later field set | `git show v0.67.4:packaging/windows-installer/config.template.json` |
 | 3 | `runtime-config/schema-v1/runtime-writer-0.42.0.json` | `RuntimeConfigRepository#read` on a missing file | Method A with the `v0.42.0` agent jar |
 | 4 | `runtime-config/schema-v1/runtime-writer-0.67.4.json` | same, later defaults | Method A with the `v0.67.4` agent jar |
-| 5 | `typed-config/schema-v3/texture-atlas-layout-0.42.0.cfg` | `RuntimeTypedPluginConfigRegistry#write` | Method A/B at `v0.42.0`; expectation `migrate-v3-to-v4-retain-layout-mode` |
+| 5 | `typed-config/schema-v3/texture-atlas-layout-0.42.0.cfg` | `TypedConfigDocumentStore#writeAtomic` (the writer behind `RuntimeTypedPluginConfigRegistry#write`) | Method A/B at `v0.42.0`; expectation `migrate-v3-to-v4-retain-layout-mode` |
 | 6 | `typed-config/schema-v4/texture-atlas-layout-0.67.4.cfg` | same, current schema | Method A/B at `v0.67.4`; expectation `v4-reads-without-migration` |
 | 7 | `typed-config/schema-v1/backup-webdav-0.44.0.cfg` | same, credential-bearing document | Method A/B at `v0.44.0`, de-identified per §10.4 |
 | 8 | `plugin-journal/schema-v1/pending-0.42.0.json` | `PendingPluginOperations#stage` | Method B: the class and its constructor are public, but `stage(...)` is package-private, so the generator must sit in `dev.turboism.pluginmanagement` |
 | 9 | `update-state/schema-v1/update-state-0.44.0.json` | `UpdateStateStore#save` | Method A at `v0.44.0` |
 | 10 | `update-state/schema-v1/update-preferences-0.44.0.json` | `UpdatePreferencesStore#save` | Method A at `v0.44.0` |
 
-Prerequisites for that PR (in the same change, because the checker is the gate):
+**Landed in #110 batch 1** (`origin: verified-release-artifact`, nine fixtures; the four existing
+`synthetic-format-v1` records are unchanged):
 
-- `scripts/check_golden_snapshots.py` currently hard-codes
-  `ALLOWED_FAMILIES = {"runtime-config", "typed-config"}`. New families
-  (`plugin-journal`, `update-state`, …) must be added there **and** to the `switch` in
-  `PersistenceGoldenSnapshotsTest#verify`, which currently throws `Unrecognized golden fixture
-  family` for anything else.
-- `PersistenceGoldenSnapshotsTest#allRegisteredSnapshots` asserts `cases.size() >= 4`; the matrix
-  must only grow, so no change is needed, but the per-family expectations need new branches.
-- New manifest fields (release tag, commit, writer, command) must be optional-but-validated so the
-  four existing `synthetic-format-v1` records stay byte-identical and semantically unchanged.
+| Fixture ID | Corpus path | Release | Production replay and oracle |
+| --- | --- | --- | --- |
+| `runtime-config-installer-template-0-42-0` | `runtime-config/schema-v1/installer-template-0.42.0.json` | `v0.42.0` @ `4f75113d7` | `RuntimeConfigRepository#read`: schema 1, `worktreeId=turboism-runtime`, read leaves bytes unchanged, an update preserves the seed's fields. |
+| `runtime-config-installer-template-0-67-4` | `runtime-config/schema-v1/installer-template-0.67.4.json` | `v0.67.4` @ `d9d630c65` | same reader, plus the later `useTextIcon`/`hooks.startup` fields. |
+| `runtime-config-runtime-writer-0-42-0` | `runtime-config/schema-v1/runtime-writer-0.42.0.json` | `v0.42.0` @ `4f75113d7` | Method A agent-jar `read()` on an empty home; the Jackson layout (`"key" : value`, no trailing newline) is now pinned. |
+| `runtime-config-runtime-writer-0-67-4` | `runtime-config/schema-v1/runtime-writer-0.67.4.json` | `v0.67.4` @ `d9d630c65` | same, later defaults. |
+| `typed-config-texture-atlas-layout-0-42-0` | `typed-config/schema-v3/texture-atlas-layout-0.42.0.cfg` | `v0.42.0` @ `4f75113d7` | Registry read migrates v3→v4, retains only `layout-mode`, bumps revision 3→4, and the `.recovery-points/` image equals the fixture byte for byte. A second read is idempotent; a future schema is refused without mutation. |
+| `typed-config-texture-atlas-layout-0-67-4` | `typed-config/schema-v4/texture-atlas-layout-0.67.4.cfg` | `v0.67.4` @ `d9d630c65` | v4 read with no migration and no recovery point; bytes unchanged; an unknown key and a future version are refused without mutation. |
+| `typed-config-backup-webdav-0-44-0` | `typed-config/schema-v1/backup-webdav-0.44.0.cfg` | `v0.44.0` @ `a8a81477c` | v1 read of all ten settings with synthetic endpoint values; no migration, no recovery point; bytes unchanged; future version refused. |
+| `update-state-0-44-0` | `update-state/schema-v1/update-state-0.44.0.json` | `v0.44.0` @ `a8a81477c` | `UpdateStateStore#read`: attempt and ETag survive, no cached result, bytes unchanged. |
+| `update-preferences-0-44-0` | `update-state/schema-v1/update-preferences-0.44.0.json` | `v0.44.0` @ `a8a81477c` | `UpdatePreferencesStore#readAll`: `automaticChecksEnabled=false` and the missing plugin field defaults to enabled; bytes unchanged. |
+
+The release-derived bytes were produced by the released agent JARs (Method A) or read verbatim
+from the tagged tree (Method C), never hand-written. `plugin-journal/schema-v1/pending-0.42.0.json`
+(#8) is **not** in this batch: its package-private `stage(...)`/`operations()` reader would need a
+helper in `dev.turboism.pluginmanagement`, which was outside that PR's file boundary; the closure
+batch below lands it with a same-package replay, so that deferral is resolved. No fixture in this
+batch claims to be a signed receipt or a real catalog signature.
+
+Implemented prerequisites (checker and replay gate):
+
+- `ALLOWED_FAMILIES` now includes `update-state`; `verified-release-artifact` records are rejected
+  unless `releaseTag`, `releaseCommit` (40-char lowercase hex), `writer`, `producerInvocation` and
+  `deidentification` are non-empty and well formed. Existing hash/path/symlink/unregistered-file
+  fail-closed checks are unchanged.
+- `PersistenceGoldenSnapshotsTest` dispatches the new `update-state` family and the release-derived
+  expectations; per-document `documentPath` is validated by the manifest checker.
+- The four original `synthetic-format-v1` records are byte-identical and unchanged.
+
+#### 13.1.2 #69 closure batch
+
+Nine further `verified-release-artifact` fixtures bring the corpus to 22 records (4 synthetic + 18
+release-derived); the thirteen existing records are byte-identical and unchanged. Two of the nine
+close families the earlier PRs had registered as gaps (`plugin-journal`, and the launcher/update
+state pair `installed-build` + `update-journal`).
+
+| Fixture ID | Corpus path | Release | Production replay and oracle |
+| --- | --- | --- | --- |
+
+| Fixture ID | Corpus path | Release | Production replay and oracle |
+| --- | --- | --- | --- |
+| `typed-config-ui-theme-selection-0-42-0` | `typed-config/schema-v1/ui-theme-selection-0.42.0.cfg` | `v0.42.0` @ `4f75113d7` | `RuntimeTypedPluginConfigRegistry#read`: `selected-theme` reads as the synthetic theme id at revision 1, no migration and no recovery point, bytes unchanged, unknown key and future version refused. |
+| `typed-config-texture-atlas-dalsoo-layout-0-67-4` | `typed-config/schema-v2/texture-atlas-dalsoo-layout.0.67.4.cfg` | `v0.67.4` @ `d9d630c65` | all eleven stored values read back (enums, bounds, per-item policy list); bytes unchanged; unknown key and future version refused; the approved v1→v2 rule adds the three preset defaults and leaves the v1 bytes in the recovery point. |
+| `plugin-properties-external-editor-0-42-0` | `plugin-properties/schema-v1/external-editor-0.42.0.properties` | `v0.42.0` @ `4f75113d7` | `RuntimePluginConfigRegistry#read`/`#writeString`: the released values read back, a retired key survives both the read and a later production write, the read leaves the bytes untouched. |
+| `plugin-journal-pending-0-42-0` | `plugin-journal/schema-v1/pending-0.42.0.json` | `v0.42.0` @ `4f75113d7` | `PendingPluginOperations#operations`/`#pendingChanges`/`#recoveryRequired`: both released operations are read (staged install of the shipped `ui-theme` plugin plus an uninstall), the document predates `revision`, nothing is rewritten. Closed gap G11. |
+| `catalog-state-0-67-4` | `catalog-state/schema-v2/catalog-state-0.67.4.json` | `v0.67.4` @ `d9d630c65` | `PluginCatalogStateStore#read`: watermark, ETag, attempt, staged update and both synthetic cached payloads read back; bytes unchanged; a save round-trip keeps the meaning. |
+| `installed-build-zip-0-67-4` | `installed-build/schema-v1/installed-build-zip-0.67.4.json` | `v0.67.4` @ `d9d630c65` | extracted from the published ZIP; `InstalledBuild#inferVariant` reports `full` and the helper's policy check treats `0.67.4` as the installed version. |
+| `installed-build-runtime-0-68-1-beta-5` | `installed-build/schema-v1/installed-build-runtime-0.68.1-beta.5.json` | `v0.68.1-beta.5` @ `93a7191e4` | the runtime writer's identity document; same replay, plus the numeric-core comparison a beta installation needs. |
+| `update-journal-0-68-1-beta-5` | `update-journal/schema-v1/journal-0.68.1-beta.5.json` | `v0.68.1-beta.5` @ `93a7191e4` | a journal left in `APPLYING` by the released applier; `FrameworkUpdateApplier#inspectJournal` validates it like `#recover` does, and `#recover` refuses it for any other installation while the bytes stay. |
+| `update-journal-lease-0-68-1-beta-5` | `update-journal/schema-v1/lease-0.68.1-beta.5.json` | `v0.68.1-beta.5` @ `93a7191e4` | `FrameworkUpdateLaunchLease#readAll` reads the released `LAUNCHING` entry with its pid, start instant and token; the entry is never rewritten. |
+
+Checker and replay gate after this batch:
+
+- `ALLOWED_FAMILIES` covers all eight registered families;
+- `PersistenceGoldenSnapshotsTest` replays the families whose readers are reachable from
+  `dev.turboism.config` and **fails when a fixture's family has no owner**, so a new family cannot
+  enter the corpus unreplayed;
+- the two package-private families are replayed by same-package suites
+  (`PluginPersistenceJournalCompatibilityTest`, `GoldenUpdateStateSnapshotsTest`), which also assert
+  that every case of their family was covered;
+- `:runtime:persistenceGoldenSnapshotsTest` runs all three suites.
 
 ### 13.2 #111 — non-typed state, journals and signed receipts
 
@@ -806,12 +945,12 @@ Prerequisites for that PR (in the same change, because the checker is the gate):
 | 2 | `config.json` tolerated-value preservation (#85) | the loss existed in every published release; the fix is unreleased | `RuntimeConfigRepository#update` with an unsupported `locale`/`memoryProfile` on disk |
 | 3 | typed-config recovery point | a destructive read-time migration must leave the pre-upgrade bytes; **no release does this** | `TypedConfigDocumentStore#recordRecoveryPoint` via the registry read path |
 | 4 | migration failure / future version | original bytes must survive and no default must masquerade as success | already covered for the synthetic v1 case; needs a **release-derived** v3 input |
-| 5 | plugin install journal | interrupted install must stay recoverable and refuse new work | `PendingPluginOperations` + `PluginUpdateGate` |
+| 5 | plugin install journal (**done**: release-derived fixture replayed in `PluginPersistenceJournalCompatibilityTest`) | interrupted install must stay recoverable and refuse new work | `PendingPluginOperations` + `PluginUpdateGate` |
 | 6 | framework update journal + lease | crash at each journal state must not lose payload or receipt | `FrameworkUpdateApplier#recover` / `#apply` with the `Faults` seam (both package-private, so the test must live in `dev.turboism.update`) |
 | 7 | signed receipt verification | reject tampered bytes; never re-sign | `UpdateManifestVerifier#authenticate` + `FrameworkUpdateReceipt#prepare`, with the test key of §11.3 |
-| 8 | `catalog-state.json` schema 2 | wrong `schemaVersion` must be refused, not migrated, and the file preserved | `PluginCatalogStateStore#read` |
-| 9 | installer normalisation vs runtime strictness | the installer drops unknown fields since `v0.67.0`; the runtime refuses them; `v0.42.0`–`v0.43.2` preserved them. The three must be reconciled into one documented rule or deliberately kept distinct | `ConfigMerge#normalizeToCurrent` (installer harness) vs `RuntimeConfigRepository#read` |
-| 10 | plugin-id rename orphaning (§2.4) | `dev.turboism.plugin.backup` → `dev.turboism.plugin.webdav` at `v0.44.0` leaves the old `backup/webdav.cfg` unread and the new document absent; the user's WebDAV settings silently reset | `TurboismHomeLayout#plugin` + `RuntimeTypedPluginConfigRegistry` (no migration exists; test would pin current behaviour, not fix it) |
+| 8 | `catalog-state.json` schema 2 (**done**: release-derived fixture plus a corrupt-image test) | wrong `schemaVersion` must be refused, not migrated, and the file preserved | `PluginCatalogStateStore#read` |
+| 9 | installer normalisation vs runtime strictness (**decided**, §12.4) | the installer drops unknown fields since `v0.67.0`; the runtime refuses them; `v0.42.0`–`v0.43.2` preserved them. The three are reconciled as a per-reader rule, and the installer still owes a pre-normalisation image (N1) | `ConfigMerge#normalizeToCurrent` (installer harness) vs `RuntimeConfigRepository#read` |
+| 10 | plugin-id rename orphaning (§2.4) (**fixed**) | `dev.turboism.plugin.backup` → `dev.turboism.plugin.webdav` at `v0.44.0` used to leave the old `backup/webdav.cfg` unread and the new document absent, silently resetting WebDAV settings | `LegacyHomeMigration#migrate` copies the retired document to the current id without consuming it; `LegacyHomeMigrationTest` covers absence, idempotence, an authoritative destination and a symlinked source |
 | 11 | orphaned documents of removed plugins (§2.4) | `bounding-box/features.cfg` and `project-panel/state.cfg` are never read, migrated or deleted | behaviour test asserting the files are left untouched |
 
 ### 13.3 Deliberately out of scope for both
@@ -823,18 +962,23 @@ Prerequisites for that PR (in the same change, because the checker is the gate):
 
 ## 14. Evidence gap register
 
-| ID | Gap | Impact | What would close it |
+Status legend: **closed** = a fixture plus a production replay now pin the behaviour; **closed by
+policy** = §12 makes the remaining question a documented decision instead of an open gap; **open** =
+still needs evidence this repository cannot produce offline.
+
+| ID | Gap | Status | Impact and what remains |
 | --- | --- | --- | --- |
-| G1 | legacy `config.json` **v0** bytes (no `schemaVersion`) | the only `config.json` schema migration ever shipped cannot be tested against real input | a v0 document from a pre-`v0.42.0` installation, or an explicit decision that v0 is out of the read window (§12.1) |
-| G2 | the existing `runtime-config-v1` fixture is not any released writer's byte layout | it proves read-compatibility, not writer compatibility | add the installer-template and runtime-writer fixtures (§13.1 #1–#4); leave the synthetic one unchanged |
-| G3 | real historical signed receipts and catalog signatures | verification is tested only against a reproducible test key | keep as an explicit open gap; never re-sign |
-| G4 | `turboism.cubism.discovery-snapshot` exact bytes | the installer handoff format is only exercised by PowerShell tests | freeze a recorded snapshot with provenance, or generate on a Windows host |
-| G5 | typed-config `texture-atlas/layout.cfg` schema 1 and 2 | two migration steps have no real input | none available; keep as a documented chain-only claim |
-| G6 | `catalog-state.json` schema 1 | the reader refuses v1 by design and no release ever wrote it | none needed; record the refusal as the contract |
-| G7 | `cubism-installations.json` byte-exact generation | writer is PowerShell-formatting dependent | Windows-host generation, or a labelled frozen document |
-| G8 | `v0.43.3`–`v0.43.8`, `v0.43.10-0.nightly.2` were tagged but never published | those intermediate states have no downloadable artifact | treat as schema history only; never as release evidence |
-| G9 | recovery points exist in no stable release | the destructive-migration window is open for every user on `v0.67.4` | ship the current behaviour in the next stable release (§12 decision 3) |
-| G10 | a plugin-id rename silently orphans its typed config (§2.4) | WebDAV backup settings reset on upgrade from `≤v0.43.9` to `≥v0.44.0`; the same class of loss will recur on any future rename | a migration that moves `config/<old-id>/` to `config/<new-id>/` when the new directory is absent, plus a fixture pair |
+| G1 | legacy `config.json` **v0** bytes (no `schemaVersion`) | closed by policy (§12.1) | v0 is installer-owned and outside the runtime read window: `ConfigMerge#normalizeToCurrent` normalises it and the runtime refuses a document without `schemaVersion` without modifying it. Remaining work is installer-lane only (N1: the pre-normalisation image). |
+| G2 | the existing `runtime-config-v1` fixture is not any released writer's byte layout | **closed** (#110 and the #69 closure batch) | the four release-derived fixtures `runtime-config-installer-template-0-42-0`, `runtime-config-installer-template-0-67-4`, `runtime-config-runtime-writer-0-42-0` and `runtime-config-runtime-writer-0-67-4` pin both the installer seed and the runtime Jackson layout. The synthetic record stays byte-identical as a read-compatibility case only. |
+| G3 | real historical signed receipts and catalog signatures | **open, closed by policy (§12.6)** | verification of existing bytes is covered with the documented `test-key-reproducible` key; issuance stays forbidden, so a "real historical" sample cannot be produced without the protected key. Never re-sign. |
+| G4 | `turboism.cubism.discovery-snapshot` exact bytes | **open** | the installer handoff format is only exercised by PowerShell tests; closing it needs a Windows host or a labelled frozen document. It is a transient, digest-bound handoff, not user state, so §12.6 keeps it outside the read window. |
+| G5 | typed-config `texture-atlas/layout.cfg` schema 1 and 2 | **open for the fixture, closed for the chain** | no published release wrote schema 1/2, so no release-derived sample exists. The released v3→v4 path is pinned by `typed-config-texture-atlas-layout-0-42-0`; the dalsoo document's v1→v2 step is exercised from a store-written v1 document (`typed-config-texture-atlas-dalsoo-layout-0-67-4`), which is a chain claim, not release evidence. |
+| G6 | `catalog-state.json` schema 1 | **closed by design** | the reader refuses v1 by design, no release ever wrote it, and the refusal is pinned by `catalogStateV1IsRefusedRatherThanMigrated`. |
+| G7 | `cubism-installations.json` byte-exact generation | **open** | the writer is PowerShell-formatting dependent; closing it needs a Windows host or a labelled frozen document. PowerShell contract tests cover the reader's required-key and exact-version behaviour meanwhile. |
+| G8 | `v0.43.3`–`v0.43.8`, `v0.43.10-0.nightly.2` were tagged but never published | **closed by policy (§12.6)** | those intermediate states have no downloadable artifact, so they stay schema history only and are never release evidence. |
+| G9 | recovery points exist in no stable release | **closed by policy (§12.2), still to ship** | the current tree writes a recovery point before a destructive migration and preserves a `*.corrupt.bak` image before overwriting an unreadable document; §12.2 makes both hard requirements, so the next stable release must carry them. Users on `v0.67.4` remain exposed until it does. |
+| G10 | a plugin-id rename silently orphans its typed config (§2.4) | **closed** | `LegacyHomeMigration#migrate` now copies every document of a recorded rename (`RENAMED_PLUGIN_IDS`: `dev.turboism.plugin.backup` → `dev.turboism.plugin.webdav`) to the current id's config directory when the destination is absent, keeps the retired document byte-identical as the pre-upgrade image, never follows a symlink and is idempotent. `LegacyHomeMigrationTest` covers the copy, the preserved original, idempotence, an authoritative destination and a symlinked source. A future rename only needs a new map entry. |
+| G11 | release-derived `plugin-journal/schema-v1/pending-0.42.0.json` is not in the corpus | **closed** | the fixture exists (`plugin-journal-pending-0-42-0`), the `plugin-journal` family is registered in `ALLOWED_FAMILIES`, and `PluginPersistenceJournalCompatibilityTest` replays it through `PendingPluginOperations` from the same package, so no production API had to widen. |
 
 ## Appendix A — reproduction commands
 

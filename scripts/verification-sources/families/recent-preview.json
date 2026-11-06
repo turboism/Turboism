@@ -54,5 +54,12 @@
  ],
  "packs": [],
  "coverageSources": [],
- "coverage": false
+ "coverage": false,
+ "aliases": {
+  "className": "RecentPreviewAliases",
+  "prefix": "cubism."
+ },
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }

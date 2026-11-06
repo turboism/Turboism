@@ -2094,7 +2094,7 @@ function Remove-TurboismJdkOptions {
         if ($value.StartsWith('"') -and $value.EndsWith('"') -and $value.Length -ge 2) { $value = $value.Substring(1, $value.Length - 2) }
         $probe = $value.Replace('"', '')
         if ($probe -match '(?i)^-Dturboism\.home=' -or
-            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|incrementalUpdateAffecters|uniformLocationCache|uploadElision|meshSetupElision|inputPathElision|mesaGlThread|meshInterpolation|shaderUniform|matrixScratch|imageArchiveReuse|floatArrayParseCache|textureUploadPreparation|warpPositionProjection|reinitPairElision|clipMaskDeduplication|clipMaskScissorClear|extendedInterpolationIncrementalSetup|modelInstanceCoalesce|inspectorPropertyBypass)=' -or
+            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|incrementalUpdateAffecters|uniformLocationCache|uploadElision|meshSetupElision|inputPathElision|mesaGlThread|asyncReadback|meshInterpolation|shaderUniform|matrixScratch|imageArchiveReuse|floatArrayParseCache|textureUploadPreparation|warpPositionProjection|reinitPairElision|clipMaskDeduplication|clipMaskScissorClear|extendedInterpolationIncrementalSetup|modelInstanceCoalesce|inspectorPropertyBypass)=' -or
             $probe -match '(?i)^-Dturboism\.graal\.(?:enabled|java|classpath|mainClass|startupTimeoutMillis)=' -or
             $probe -match '(?i)^-javaagent:.*turboism-agent\.jar(?:[=].*)?$' -or
             $probe -match '(?i)^--add-exports=java\.base[./]jdk\.internal\.org\.objectweb\.asm(?:[.]commons)?=ALL-UNNAMED$') { continue }
@@ -2102,6 +2102,16 @@ function Remove-TurboismJdkOptions {
     }
     return ($kept -join " ").Trim()
 }
+
+# Managed-option polarity, declared for the packaging cross-check in
+# bootstrap/src/test/java/dev/turboism/bootstrap/PackagingOptimizationDeclarationTest.java.
+# Every launcher.<name> optimization field the agent persists appears in exactly
+# one of the four machine-readable lines below, and the cross-check also verifies
+# each name against the emission code that follows these lines.
+# optimization-emit-false: modelUpdateSkip, uniformLocationCache, uploadElision, meshSetupElision, reinitPairElision, clipMaskDeduplication, clipMaskScissorClear, extendedInterpolationIncrementalSetup, modelInstanceCoalesce, inspectorPropertyBypass
+# optimization-emit-true: incrementalUpdate, incrementalUpdateAffecters
+# optimization-explicit-false: inputPathElision, mesaGlThread
+# optimization-not-emitted: asyncReadback, meshInterpolation, shaderUniform, matrixScratch, imageArchiveReuse, floatArrayParseCache, textureUploadPreparation, warpPositionProjection
 
 function Get-CubismManagedJdkOptionTokens {
     param([string]$TurboismHome = "")
@@ -2188,10 +2198,11 @@ function Get-CubismManagedJdkOptionTokens {
 function Read-CubismMeshTriangulationEdgeIndexPreference {
     param([string]$TurboismHome)
     # This is a root-level runtime preference, not launcher.*. Match the
-    # settings page: missing config/key defaults on; explicit false persists.
-    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $true }
+    # settings page and the agent: missing config or key means off, which keeps
+    # the VM's dynamic-attach behavior, and only an explicit true opts in.
+    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $false }
     $path = Join-Path $TurboismHome "config.json"
-    if (-not (Test-Path -LiteralPath $path)) { return $true }
+    if (-not (Test-Path -LiteralPath $path)) { return $false }
     if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
     try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
     catch { throw "Turboism config is invalid or exceeds bound" }
@@ -2199,7 +2210,7 @@ function Read-CubismMeshTriangulationEdgeIndexPreference {
         throw "Turboism config must be an object"
     }
     $setting = $document.PSObject.Properties["meshTriangulationEdgeIndex"]
-    if ($null -eq $setting) { return $true }
+    if ($null -eq $setting) { return $false }
     if ($setting.Value -isnot [bool]) { throw "Turboism meshTriangulationEdgeIndex setting is invalid" }
     return [bool]$setting.Value
 }

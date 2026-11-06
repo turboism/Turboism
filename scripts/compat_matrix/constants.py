@@ -4,7 +4,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from turboism_dev.paths import repo_root
+from turboism_dev.paths import (
+    COMPATIBILITY_MATRIX,
+    GENERATED_ROOT,
+    repo_root,
+)
 
 LANGUAGES = ("en", "zh", "ja", "ko")
 
@@ -15,7 +19,8 @@ REPO_ROOT = repo_root()
 
 VERIFICATION_DIR = Path("build/generated/verification")
 FAMILIES_DIR = Path("scripts/verification-sources/families")
-MATRIX_JSON = Path("compatibility/cubism/compatibility-matrix.json")
+# Generated build product (never committed): see turboism_dev.paths.
+MATRIX_JSON = COMPATIBILITY_MATRIX
 DOCS_DIR = Path("compatibility/cubism")
 REVIEWED_HOST_ARTIFACTS = Path(
     "compatibility/cubism/reviewed-releases.json"
@@ -34,7 +39,6 @@ INTERCEPTOR = Path(
 )
 CLASS_PINS_DIR = Path("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins")
 CAMPAIGN_JOBS = Path("validation/cubism-version-matrix/campaign-jobs.json")
-CAMPAIGN_INVENTORY = Path("validation/cubism-version-matrix/inventory.json")
 MONOTONICITY_EXCEPTIONS = Path("scripts/version-monotonicity-exceptions.json")
 VERSION_BOUNDARIES = Path("compatibility/cubism/version-boundaries.json")
 OFFICIAL_TIMELINE = Path("compatibility/cubism/official-feature-timeline.json")
@@ -42,6 +46,11 @@ PLUGIN_DESCRIPTOR = Path("src/main/resources/META-INF/turboism/plugin.json")
 
 BLOCK_BEGIN = "<!-- compatibility:begin -->"
 BLOCK_END = "<!-- compatibility:end -->"
+
+
+def is_generated_output(relative: str | Path) -> bool:
+    """True when ``relative`` is an untracked build product, not a committed output."""
+    return Path(relative).is_relative_to(GENERATED_ROOT)
 
 README_HEADINGS = {
     "README.md": "## Requirements and compatibility",

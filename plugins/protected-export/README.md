@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: export, protected, candidate
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -25,7 +25,7 @@ interface: none
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.0,1.0.0)`.
+- **SDK API range:** `[0.68.1,1.0.0)`.
 - **Cubism:** Requires Cubism. Admissions are recorded per exact reviewed Editor version (`5.1.00`–`5.3.04` at this time); unsupported or unreviewed hosts fail closed during preflight.
 - **Models:** Only eligible models are admitted. Models with unsupported families, non-stored keyforms, degenerate geometry, or missing pairs are vetoed with a blocker reason instead of partially exported.
 - **Interface mode:** `none` — the plugin drives the export through framework actions and reports through notifications and logs.
@@ -51,7 +51,9 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 
 ## Capabilities
 
-No capabilities are declared in the plugin manifest.
+| Capability | Effect |
+|---|---|
+| `cubism.export.protected` | Admits the declaring plugin as the single owner that drives the runtime protected-export pipeline for its own export-settings option. |
 
 ## Permissions
 
