@@ -158,7 +158,9 @@ def check(sdk_classes: str, plugins: list[str]) -> int:
     table = json.loads(SINCE_FILE.read_text(encoding="utf-8"))
     if table.get("format") != FORMAT:
         raise ValueError(f"{SINCE_FILE}: unexpected format")
-    if surface_hash(run_helper("enumerate", sdk_classes)) != table["surfaceSha256"]:
+    actual_surface = surface_hash(run_helper("enumerate", sdk_classes))
+    if actual_surface != table["surfaceSha256"]:
+        print(f"SDK compiled surfaceSha256={actual_surface}", file=sys.stderr)
         print("SDK surface changed since compatibility/sdk-api-since.json was written; "
               "run python3 scripts/sdk_api_since.py --write", file=sys.stderr)
         return 1
