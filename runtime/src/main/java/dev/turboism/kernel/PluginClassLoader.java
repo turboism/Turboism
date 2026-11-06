@@ -28,6 +28,9 @@ import java.util.concurrent.TimeoutException;
  */
 final class PluginClassLoader {
 
+    /** Diagnostic switch: emit phase timing for every plugin, even fast successful loads. */
+    private static final boolean PROFILE_ALL_LOADS = Boolean.getBoolean("turboism.plugin.loadProfile");
+
     private final KernelPluginContextFactory contextFactory;
     private final KernelLog log;
     private final List<LocalPluginRuntime.LoadedPlugin> loaded;
@@ -38,6 +41,8 @@ final class PluginClassLoader {
     private final PluginLifecyclePolicy policy;
     private final PluginLifecycleEvents lifecycleEvents;
     private final AdmittedGeneration.Admission admission;
+    private final java.util.concurrent.atomic.AtomicLong consumedLoadMillis =
+            new java.util.concurrent.atomic.AtomicLong();
 
     PluginClassLoader(
             final KernelPluginContextFactory contextFactory,
@@ -109,6 +114,14 @@ final class PluginClassLoader {
         if (elapsedMillis > 5_000L) {
             log.warn(descriptor.id(), "Plugin lifecycle: slow load detected elapsedMs=" + elapsedMillis);
         }
+        consumedLoadMillis.addAndGet(elapsedMillis);
+        final String profile =
+                "Plugin load profile: totalMs=" + elapsedMillis + content.profileTimeline() + content.edtAttribution();
+        if (PROFILE_ALL_LOADS || elapsedMillis >= 200L || outcome.kind() != PluginLifecycleLane.Outcome.SUCCEEDED) {
+            log.info(descriptor.id(), profile);
+        } else {
+            log.debug(descriptor.id(), profile);
+        }
         return switch (outcome.kind()) {
             case SUCCEEDED -> {
                 final LocalPluginRuntime.LoadedPlugin value = outcome.value();
@@ -152,6 +165,11 @@ final class PluginClassLoader {
                 yield null;
             }
         };
+    }
+
+    /** Cumulative worker-busy milliseconds across finished plugin load attempts. */
+    long consumedLoadMillis() {
+        return consumedLoadMillis.get();
     }
 
     record PendingLoad(

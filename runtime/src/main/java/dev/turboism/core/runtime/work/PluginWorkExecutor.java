@@ -233,6 +233,21 @@ public final class PluginWorkExecutor {
         return workerPool.isTerminated() && timeoutScheduler.isTerminated();
     }
 
+    /**
+     * Aborts both pools without waiting for running work.
+     *
+     * <p>Only for a generation that already failed and was fenced, where a graceful drain can
+     * no longer accomplish anything and would only delay the caller. Queued work is discarded;
+     * worker threads are daemon threads and exit once their current body returns. Idempotent.
+     */
+    public void discard() {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+        workerPool.shutdownNow();
+        timeoutScheduler.shutdownNow();
+    }
+
     private void shutdownPool(final java.util.concurrent.ExecutorService pool) {
         pool.shutdown();
         try {
