@@ -36,7 +36,7 @@ class RuntimeTextureAtlasEditorUiTest {
 
         final JPanel panelContainer = (JPanel) first.getComponent(0);
         final JLabel label = (JLabel) panelContainer.getComponent(0);
-        assertEquals("Atlas statistics", label.getText());
+        assertEquals("<html>Atlas statistics</html>", label.getText());
         assertSame(panelContainer, label.getParent());
         assertSame(first, ui.view());
 
@@ -72,7 +72,7 @@ class RuntimeTextureAtlasEditorUiTest {
         assertEquals(1, view.getComponentCount());
         assertEquals(1, ((JPanel) view.getComponent(0)).getComponentCount());
         second.setText("remaining");
-        assertEquals("remaining", ((JLabel) ((JPanel) view.getComponent(0)).getComponent(0)).getText());
+        assertEquals("<html>remaining</html>", ((JLabel) ((JPanel) view.getComponent(0)).getComponent(0)).getText());
         ui.close();
         assertEquals(0, view.getComponentCount());
     }
@@ -95,7 +95,7 @@ class RuntimeTextureAtlasEditorUiTest {
         ui.ingress().accept(second);
         assertSame(second, ui.view());
         assertSame(label, ((JPanel) second.getComponent(0)).getComponent(0));
-        assertEquals("Atlas statistics", label.getText());
+        assertEquals("<html>Atlas statistics</html>", label.getText());
 
         ui.close();
     }

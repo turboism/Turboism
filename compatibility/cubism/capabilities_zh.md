@@ -151,6 +151,8 @@
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.ui.HostViewPanel` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.ui.HostViewPanelHandle` | type | 5.2.00–5.3.04 |
 
 ## 仅在部分版本可用的 Editor 命令
 

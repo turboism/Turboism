@@ -10,7 +10,13 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 ### 追加
 
+- SDK にインキュベーティングな `HostViewPanel` 機能（`HostViewPanelHandle`、`HostViewAnchors` のアンカー定数、`PluginService.HOST_VIEW_PANEL` ディレクトリメンバー）を追加しました。プラグインは `PanelView` の内容を名前付きホストビュー（まずはネイティブのテクスチャアトラスエディター）に取り付け、描画・エディタースレッドでの更新適用・プラグイン世代の終了後の更新の黙った破棄はランタイムが行います。
+
 - 物理演算プレビューに GIF 録画を追加。録画／一時停止／再開、停止／破棄とショートカット登録、録画後のサイズ変更、Gifsicle による目標サイズ最適化（既定 20 MB）、GIF 専用出力フォルダーの記憶に対応。
+
+### 非推奨
+
+- `TextureAtlasEditorUi` と `TextureAtlasEditorPanel` を削除予定として非推奨にしました。どちらも `HostViewPanel` 上の薄いアダプターとして引き続き動作します。代わりに `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)` と `HostViewPanelHandle.setContent(PanelView)` を使用してください。
 
 ## [0.68.1] - 2026-10-30
 

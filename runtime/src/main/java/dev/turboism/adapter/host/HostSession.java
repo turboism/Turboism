@@ -54,8 +54,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator
             textureAtlasNativeInvocations =
                     new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator();
+    private final dev.turboism.ui.panel.RuntimeHostViewPanelRegistry hostViewPanels =
+            new dev.turboism.ui.panel.RuntimeHostViewPanelRegistry();
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi =
-            new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi();
+            new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi(hostViewPanels);
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession =
             new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession(
                     textureAtlasEditorUi::binding);
@@ -704,6 +706,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return textureAtlasEditorUi;
     }
 
+    /** @return the host-session-owned host view panel registry every UI anchor renders through. */
+    public dev.turboism.ui.panel.RuntimeHostViewPanelRegistry hostViewPanels() {
+        return hostViewPanels;
+    }
+
     /** @return the stable texture-atlas editor session resolved against the active connection. */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession() {
         return textureAtlasEditorSession;
@@ -871,6 +878,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 workspaceCoordinator,
                 workspaceLayoutCoordinator,
                 textureAtlasEditorUi(),
+                hostViewPanels,
                 textureAtlasEditorSession(),
                 textureAtlasAlgorithms(),
                 textureAtlasAutoLayoutDispatch());
@@ -928,6 +936,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         outcome = outcome.combine(runCoordinator(textureAtlasLayouts::close));
         outcome = outcome.combine(runCoordinator(textureAtlasNativeInvocations::close));
         outcome = outcome.combine(runCoordinator(textureAtlasEditorUi::close));
+        outcome = outcome.combine(runCoordinator(hostViewPanels::close));
         outcome = outcome.combine(runCoordinator(parameterLifecycle::close));
         outcome = outcome.combine(runCoordinator(meshEditUiService::resetSession));
         outcome = outcome.combine(runCoordinator(meshMirrorAxisService::resetSession));
