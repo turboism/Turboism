@@ -5,7 +5,7 @@ package dev.turboism.adapter.cubism.editor;
  * transaction ambient scope is active on the host thread.
  *
  * <p>Envelopes that can express their work as an admitted root-transaction contribution join
- * the ambient scope through {@code HostUndoMutationScope} instead of reaching this rejection.
+ * the ambient scope through {@code EditorAuthoringWriter} instead of reaching this rejection.
  * The remaining sites — writes whose native Undo cannot be admitted to the modeling root edit
  * (animation timeline {@code edit-mode-base} envelopes, the host-internal parameter-definition
  * Undo) — open their own {@code edit-mode} session, which would create a detached Undo group

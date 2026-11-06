@@ -255,7 +255,7 @@ final class EditorPartStructureAccess {
                 // write, so the mutation only re-checks the binding it was admitted against.
                 .admit((edit, transactionLabel) -> {
                     final Object undo = undoSupplier.get();
-                    HostUndoMutationScope.requireUndoAccepted(
+                    EditorAuthoringWrite.requireUndoAccepted(
                             resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE), actionName);
                     final Object listener =
                             resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {

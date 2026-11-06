@@ -337,7 +337,22 @@ class EditorTextureAccessTest {
     }
 
     private static EditorTextureAccess access(final String version, final boolean includeCapability) {
-        return new EditorTextureAccess(resolver(version, includeCapability), (identity, model) -> {});
+        return writeAccess(resolver(version, includeCapability));
+    }
+
+    /**
+     * Composes the texture families over the authoring coordinator, so every texture write runs the
+     * production envelope: one root edit, verified history, coalesced refresh and dirty marking.
+     */
+    private static EditorTextureAccess writeAccess(final VerifiedMemberResolver resolver) {
+        final Document document = Host.document;
+        return new EditorTextureAccess(
+                resolver,
+                (identity, model) -> {},
+                new dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator(
+                        new TxHost(document)),
+                () -> new dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding(
+                        "test-plugin", "doc-1", 1L, "model-1", 1L, Thread.currentThread()));
     }
 
     @ParameterizedTest
@@ -357,8 +372,8 @@ class EditorTextureAccessTest {
                         EditorTextureSelectorContract.WRITE_CAPABILITY_ID),
                 true,
                 "5.3.99");
-        final ModelTextures textures = new EditorTextureAccess(resolver, (identity, model) -> {})
-                .textures("compatible-session", fixture.source, fixture.model);
+        final ModelTextures textures =
+                writeAccess(resolver).textures("compatible-session", fixture.source, fixture.model);
 
         assertEquals("5.3.99", resolver.cubismVersion());
         assertEquals(sourceVersion, resolver.admittedCubismVersion());
@@ -653,6 +668,113 @@ class EditorTextureAccessTest {
         final TextureManager manager = source.manager;
         final EditMode editMode = document.editMode;
         final CompletePack pack = document.pack;
+    }
+
+    /**
+     * Minimal verified authoring host over the fixture document: it opens the native edit, projects
+     * one committed history entry, rewinds on recovery and publishes the coalesced refresh.
+     */
+    public static final class TxHost
+            implements dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Host {
+        private final Document document;
+        private final ModelSource source;
+
+        TxHost(final Document document) {
+            this.document = document;
+            this.source = document.source;
+        }
+
+        @Override
+        public boolean isCurrent(
+                final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding
+                        binding) {
+            return true;
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.history.HistorySnapshot history(
+                final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding
+                        binding) {
+            return new dev.turboism.sdk.cubism.history.HistorySnapshot(
+                    dev.turboism.sdk.cubism.history.HistorySnapshot.Availability.AVAILABLE,
+                    1,
+                    1L,
+                    0,
+                    List.of(),
+                    false,
+                    false,
+                    "doc-1",
+                    "model-1");
+        }
+
+        @Override
+        public java.util.Optional<String> committedHistoryEntryId(
+                final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding
+                        binding,
+                final dev.turboism.sdk.cubism.history.HistorySnapshot before,
+                final dev.turboism.sdk.cubism.history.HistorySnapshot after,
+                final String transactionId,
+                final String label) {
+            return java.util.Optional.of("entry-1");
+        }
+
+        @Override
+        public String diagnosticId(final String code, final Throwable failure) {
+            final String value = failure == null ? code : code + ": " + failure;
+            return value.length() > 128 ? value.substring(0, 128) : value;
+        }
+
+        @Override
+        public Object beginEdit(
+                final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding
+                        binding,
+                final String label) {
+            return document.editMode.begin(label);
+        }
+
+        @Override
+        public void endEdit(
+                final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding
+                        binding,
+                final Object edit,
+                final boolean abort) {
+            document.editMode.end(abort, null);
+        }
+
+        @Override
+        public void undoEditGroup(
+                final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding
+                        binding,
+                final Object edit) {
+            if (edit instanceof GroupUndo group) group.undo();
+        }
+
+        @Override
+        public void refresh(
+                final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding
+                        binding,
+                final java.util.Set<dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement>
+                        requirements) {
+            if (requirements.contains(
+                    dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement.MODEL_INSTANCES)) {
+                source.updateInstances();
+            }
+            if (requirements.contains(
+                    dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement.PART_PALETTE)) {
+                document.pack.updateParts(true);
+            }
+            if (requirements.contains(
+                    dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement.PROJECT_PALETTE)) {
+                document.pack.updateProject();
+            }
+            if (requirements.contains(dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement.CANVAS)) {
+                document.pack.repaint(true);
+            }
+            if (requirements.contains(
+                    dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement.MARK_DIRTY)) {
+                document.markDirty();
+            }
+        }
     }
 
     public static final class Host {

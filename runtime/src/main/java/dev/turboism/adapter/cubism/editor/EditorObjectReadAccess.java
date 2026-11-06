@@ -5,6 +5,7 @@ import static dev.turboism.adapter.cubism.editor.EditorObjectReadCore.*;
 import dev.turboism.adapter.cubism.editor.EditorObjectReadCore.*;
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
@@ -119,10 +120,22 @@ final class EditorObjectReadAccess {
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
         this.morphTargetAccess = Objects.requireNonNull(morphTargetAccess, "morphTargetAccess");
         this.core = new EditorObjectReadCore(resolver, currentGuard, evaluatedJoin, lazyPublish);
+        // The read access is the composition point for the object write families: one writer over
+        // the model access's coordinator is enough, and a read-only composition (no coordinator)
+        // simply never writes.
+        final EditorAuthoringWriter authoringWriter = authoringCoordinator == null
+                ? null
+                : new CoordinatorAuthoringWriter(authoringCoordinator, resolver, authoringBinding);
         this.writes = new EditorObjectWriteAccess(
-                resolver, core, hierarchyEditAccess, authoringCoordinator, authoringBinding);
+                resolver, core, hierarchyEditAccess, authoringCoordinator, authoringBinding, authoringWriter);
         this.inspector = new EditorObjectInspectorAccess(
-                resolver, currentGuard, core, hierarchyEditAccess, authoringCoordinator, authoringBinding);
+                resolver,
+                currentGuard,
+                core,
+                hierarchyEditAccess,
+                authoringCoordinator,
+                authoringBinding,
+                authoringWriter);
         this.clipMasks = new EditorObjectClipMaskAccess(resolver, currentGuard, core, writes);
         this.bindingReads = new EditorObjectBindingReadAccess(resolver, morphTargetAccess, core);
         this.hierarchyEditAccess = hierarchyEditAccess;

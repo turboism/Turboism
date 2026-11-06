@@ -62,16 +62,6 @@ public final class EditorAuthoringTransactionCoordinator {
     }
 
     /**
-     * Whether this coordinator owns a root on the current thread. Writers that retain a
-     * legacy standalone path must still use {@link #mutate} to validate participation.
-     *
-     * @return true only while a root callback is active on this thread
-     */
-    public boolean hasActiveTransaction() {
-        return ambient.get() != null;
-    }
-
-    /**
      * Executes a deliberately source-only batch inside the current root. The final barrier
      * runs before returning or propagating a callback failure, so subsequent conversions and
      * compensation see current native instances. Ordinary callers retain immediate evaluation.

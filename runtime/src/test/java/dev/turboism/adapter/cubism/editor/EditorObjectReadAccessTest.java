@@ -1398,7 +1398,7 @@ class EditorObjectReadAccessTest {
                 List.of(new Point2(0, 0), new Point2(2, 0), new Point2(0, 2), new Point2(2, 2)));
         assertThrows(RuntimeException.class, () -> warp.replaceGrid(changedWarp));
         assertEquals(originalWarp, warp.grid());
-        assertAbortedWithoutPublishedEffects(fixture);
+        assertCoordinatorRollbackRepublishesRestoredState(fixture);
 
         fixture.resetPublishedEffects();
         fixture.failures.failOn(4);
@@ -1407,7 +1407,7 @@ class EditorObjectReadAccessTest {
                 () -> rotation.replaceForm(new RotationDeformerForm(
                         22.0F, 8.0F, 9.0F, 1.5F, !originalRotation.reflectedX(), !originalRotation.reflectedY())));
         assertEquals(originalRotation, rotation.form());
-        assertAbortedWithoutPublishedEffects(fixture);
+        assertCoordinatorRollbackRepublishesRestoredState(fixture);
     }
 
     @ParameterizedTest
@@ -1449,6 +1449,19 @@ class EditorObjectReadAccessTest {
         assertEquals(3, fixture.source.updateCount);
     }
 
+    /**
+     * A verified coordinator contribution re-publishes the state its compensation restored: one
+     * instance re-evaluation plus the deformer palette and the canvas. It still commits no history
+     * entry and no dirty mark, which is what the rollback contract requires.
+     */
+    private static void assertCoordinatorRollbackRepublishesRestoredState(final Fixture fixture) {
+        assertEquals(0, fixture.document.editMode.edits.size());
+        assertFalse(fixture.document.dirty);
+        assertEquals(1, fixture.source.updateCount);
+        assertEquals(1, fixture.document.pack.deformerRefreshCount);
+        assertEquals(1, fixture.document.pack.repaintCount);
+    }
+
     private static void assertAbortedWithoutPublishedEffects(final Fixture fixture) {
         assertEquals(0, fixture.document.editMode.edits.size());
         assertFalse(fixture.document.dirty);
@@ -1468,11 +1481,19 @@ class EditorObjectReadAccessTest {
 
     private static VerifiedMemberResolver resolver(
             final String version, final boolean includeWrite, final boolean includeMorph) {
+        final java.util.ArrayList<StaticSelector> aliases = new java.util.ArrayList<>(selectors());
+        final java.util.Set<String> capabilities = capabilities(includeWrite, includeMorph);
+        if (includeWrite) {
+            // Every migrated write runs the authoring envelope, which verifies the native history
+            // snapshot around the edit it opens.
+            aliases.addAll(historySelectors());
+            capabilities.add("cubism.editor-history.read");
+        }
         return TestVerifiedResolvers.create(
                 version,
                 EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
-                capabilities(includeWrite, includeMorph),
-                selectors(),
+                capabilities,
+                aliases,
                 Host.class.getClassLoader());
     }
 
