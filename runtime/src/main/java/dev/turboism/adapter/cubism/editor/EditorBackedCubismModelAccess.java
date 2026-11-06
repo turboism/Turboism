@@ -201,6 +201,15 @@ public final class EditorBackedCubismModelAccess
     }
 
     /**
+     * Whether an authoring transaction ambient scope is open on the calling thread. Writes that
+     * cannot join the ambient scope (the texture-atlas layout apply) consult this to refuse
+     * instead of creating a detached Undo group the root transaction cannot roll back.
+     */
+    public boolean ambientAuthoringScopeActive() {
+        return authoringCoordinator.ambientScopeActive();
+    }
+
+    /**
      * Whether this connection's verified evidence admits the live selection read.
      * When false the snapshot seam reports an honest empty selection instead of
      * reflecting into the Editor.
