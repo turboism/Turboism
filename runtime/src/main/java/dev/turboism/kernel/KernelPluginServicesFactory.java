@@ -57,6 +57,7 @@ final class KernelPluginServicesFactory implements AutoCloseable {
     private final RuntimePerformanceEventPublisher performanceEvents;
     private final dev.turboism.adapter.cubism.HostSnapshotSource sessionSnapshotSource;
     private final dev.turboism.adapter.cubism.SelectionObservationPublisher selectionObserver;
+    private final dev.turboism.worktime.RuntimeProjectWorkTimeService projectWorkTime;
     private dev.turboism.cleanup.RetryableCleanup cleanup;
     private final dev.turboism.mcp.McpConnectionRegistry mcpConnections = new dev.turboism.mcp.McpConnectionRegistry();
     /**
@@ -168,7 +169,9 @@ final class KernelPluginServicesFactory implements AutoCloseable {
         // selection observer: a single invalidation-token domain lets the shared
         // observation baseline order query results against sampler results.
         this.sessionSnapshotSource = dev.turboism.adapter.host.HostSessionSnapshotSource.forSession(
-                hostAccess.adapters().projectWorkspace(), hostAccess::currentHostSelection);
+                hostAccess.adapters().projectWorkspace(),
+                hostAccess::currentHostSelection,
+                dev.turboism.adapter.cubism.EditorForegroundState::isForeground);
         // Session-scoped selection observation on the bounded host-read lane.
         this.selectionObserver = new dev.turboism.adapter.cubism.SelectionObservationPublisher(
                 sessionSnapshotSource,
@@ -177,6 +180,17 @@ final class KernelPluginServicesFactory implements AutoCloseable {
                 eventBroker,
                 eventBroker.observationBaseline(dev.turboism.adapter.cubism.SelectionObservation.class));
         this.selectionObserver.signalDemand();
+        this.projectWorkTime = new dev.turboism.worktime.RuntimeProjectWorkTimeService(
+                sessionSnapshotSource,
+                eventBroker,
+                scheduler,
+                hostReadLane,
+                home.resolve("state/runtime/project-work-time.json"),
+                Clock.systemUTC());
+        eventBroker
+                .observationBaseline(dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService.class)
+                .set(projectWorkTime);
+        this.projectWorkTime.start();
     }
 
     RuntimeEventBroker.Owner admitEventOwner(final PluginDescriptor descriptor) {
@@ -201,12 +215,16 @@ final class KernelPluginServicesFactory implements AutoCloseable {
             cleanup = new dev.turboism.cleanup.RetryableCleanup(
                     "Shared plugin service cleanup failed",
                     selectionObserver::close,
+                    projectWorkTime::close,
                     performanceEvents::close,
                     performanceProbe::close,
                     mcpConnections::close,
                     () -> eventBroker
                             .observationBaseline(dev.turboism.sdk.performance.PerformanceProbeService.class)
-                            .compareAndSet(performanceProbe, null));
+                            .compareAndSet(performanceProbe, null),
+                    () -> eventBroker
+                            .observationBaseline(dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService.class)
+                            .compareAndSet(projectWorkTime, null));
         }
         cleanup.close();
     }

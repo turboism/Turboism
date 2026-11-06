@@ -35,6 +35,21 @@ public interface ProjectWorkspaceAdapter {
     AdapterResult<Optional<DocumentSnapshot>> activeDocument();
 
     /**
+     * Returns the active project identity without building a full project snapshot.
+     *
+     * <p>Connected implementations admit the same reviewed version and project-read capability
+     * as {@link #activeProject()}; the default composes that full read and extracts the id.</p>
+     *
+     * @return an available result carrying the identity (empty when no project is open), or an
+     *         unavailable result whose diagnostic explains the failed read; never null
+     */
+    default AdapterResult<Optional<String>> activeProjectId() {
+        final AdapterResult<Optional<ProjectSnapshot>> project = activeProject();
+        return new AdapterResult<>(
+                project.value().map(value -> value.map(ProjectSnapshot::projectId)), project.diagnostic());
+    }
+
+    /**
      * @return an available result carrying the current workspace (empty when the host has
      *         none to report), or an unavailable result whose diagnostic explains the failed
      *         read; never null
@@ -99,6 +114,15 @@ public interface ProjectWorkspaceAdapter {
          * @throws AdapterHostException when the host call fails with a known diagnostic
          */
         Optional<ProjectSnapshot> activeProject();
+
+        /**
+         * Returns the active project identity without traversing the project's documents.
+         *
+         * @return the active project identity, empty when no project is open
+         */
+        default Optional<String> activeProjectId() {
+            return activeProject().map(ProjectSnapshot::projectId);
+        }
 
         /**
          * @return the document currently active on the host; the default reports none,
@@ -244,6 +268,12 @@ public interface ProjectWorkspaceAdapter {
         public AdapterResult<Optional<DocumentSnapshot>> activeDocument() {
             return host.map(ops -> callProjectWorkspace(ops, DOCUMENT_CAPABILITY_ID, ops::activeDocument))
                     .orElseGet(unavailable(DOCUMENT_CAPABILITY_ID));
+        }
+
+        @Override
+        public AdapterResult<Optional<String>> activeProjectId() {
+            return host.map(ops -> callProjectWorkspace(ops, PROJECT_CAPABILITY_ID, ops::activeProjectId))
+                    .orElseGet(unavailable(PROJECT_CAPABILITY_ID));
         }
 
         @Override

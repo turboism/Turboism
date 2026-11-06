@@ -4,6 +4,7 @@ import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionInvocationEvent;
 import dev.turboism.sdk.appearance.AppearanceChangedEvent;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
+import dev.turboism.sdk.cubism.event.CubismActivityChangedEvent;
 import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
 import dev.turboism.sdk.cubism.event.DeformerLockEvent;
 import dev.turboism.sdk.cubism.event.DeformerOpacityEvent;
@@ -123,6 +124,9 @@ public final class EventSubscriptionPermissionCatalog {
         }
         if (subscriptionType.isAssignableFrom(SelectionChangedEvent.class)) {
             permissions.add(PermissionIds.TURBOISM_CUBISM_SELECTION_OBSERVE);
+        }
+        if (subscriptionType.isAssignableFrom(CubismActivityChangedEvent.class)) {
+            permissions.add(PermissionIds.TURBOISM_CUBISM_PROJECT_READ);
         }
         if (subscriptionType.isAssignableFrom(SceneTableHeaderClickEvent.class)
                 || subscriptionType.isAssignableFrom(SceneTableSnapshotEvent.class)
