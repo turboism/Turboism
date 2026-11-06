@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assumptions;
 
 /**
  * Resolves and gates 3D model test assets (committed small fixtures under
- * {@code test-assets/model-import-3d/}, or local large fixtures under {@code artifacts/} and
+ * {@code testing/assets/model-import-3d/}, or local large fixtures under {@code artifacts/} and
  * {@code build/model-import-3d-inputs/}).
  *
  * <p>When fixtures are not present in the workspace, tests are cleanly skipped via
@@ -18,7 +18,8 @@ import org.junit.jupiter.api.Assumptions;
  */
 final class ModelImportTestFixtures {
 
-    private static final String COMMITTED_FIXTURES_DIR = "test-assets/model-import-3d";
+    private static final String COMMITTED_FIXTURES_DIR = "testing/assets/model-import-3d";
+    private static final String COMMITTED_FIXTURES_DIR_LEGACY = "test-assets/model-import-3d";
 
     private static final String PROPERTY_REQUIRE_FIXTURES = "turboism.requireImport3dFixtures";
     private static final String ENV_REQUIRE_FIXTURES = "TURBOISM_REQUIRE_IMPORT_3D_FIXTURES";
@@ -81,15 +82,31 @@ final class ModelImportTestFixtures {
     }
 
     /**
-     * Resolves a relative fixture path against committed {@code test-assets/model-import-3d/}
+     * Resolves a relative fixture path against committed {@code testing/assets/model-import-3d/}
      * first, then repository root or override directories.
      */
     static Path resolveFixture(final String relativePath) {
         final Path root = repoRoot();
         final Path normalizedRelative = Path.of(relativePath).normalize();
-        final Path committedRoot = root.resolve(COMMITTED_FIXTURES_DIR).normalize();
+        final Path committedRoot = Files.isDirectory(root.resolve(COMMITTED_FIXTURES_DIR))
+                ? root.resolve(COMMITTED_FIXTURES_DIR).normalize()
+                : root.resolve(COMMITTED_FIXTURES_DIR_LEGACY).normalize();
 
-        // 0. Check committed small fixtures under test-assets/model-import-3d/ first
+        // 0. Check committed small fixtures under testing/assets/model-import-3d/ first
+        if (relativePath.startsWith("testing/assets/model-import-3d/") || relativePath.startsWith("testing\\assets\\model-import-3d\\")) {
+            final String subPath = relativePath.substring("testing/assets/model-import-3d/".length());
+            final Path committedCandidate = committedRoot.resolve(subPath).normalize();
+            if (committedCandidate.startsWith(committedRoot) && Files.isRegularFile(committedCandidate)) {
+                return committedCandidate;
+            }
+        }
+        if (relativePath.startsWith("test-assets/model-import-3d/") || relativePath.startsWith("test-assets\\model-import-3d\\")) {
+            final String subPath = relativePath.substring("test-assets/model-import-3d/".length());
+            final Path committedCandidate = committedRoot.resolve(subPath).normalize();
+            if (committedCandidate.startsWith(committedRoot) && Files.isRegularFile(committedCandidate)) {
+                return committedCandidate;
+            }
+        }
         if (relativePath.startsWith("artifacts/") || relativePath.startsWith("artifacts\\")) {
             final String subPath = relativePath.substring("artifacts/".length());
             final Path committedCandidate = committedRoot.resolve(subPath).normalize();

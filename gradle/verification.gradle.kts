@@ -1521,7 +1521,7 @@ tasks.register<Exec>("checkLocalizedChangelogs") {
         "CHANGELOG.zh-CN.md",
         "CHANGELOG.ja.md",
         "CHANGELOG.ko.md",
-        fileTree("release-notes") { include("*.json") },
+        fileTree("distribution/release-notes") { include("*.json") },
         "scripts/release/render_localized_changelogs.py"
     )
     VerificationStamps.apply(this)

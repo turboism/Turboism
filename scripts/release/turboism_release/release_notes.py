@@ -143,7 +143,9 @@ def render_nightly(receipt, context):
 def reviewed_locales(root, version, english):
     """Translations must bind to the exact English section, avoiding stale reuse."""
     result = {'en': english.strip()}
-    path = Path(root)/'release-notes'/f'{version}.json'
+    path = Path(root)/'distribution'/'release-notes'/f'{version}.json'
+    if not path.is_file():
+        path = Path(root)/'release-notes'/f'{version}.json'
     if not path.is_file():
         return result
     require(not path.is_symlink() and path.stat().st_size < 90000, 'Invalid translations file')

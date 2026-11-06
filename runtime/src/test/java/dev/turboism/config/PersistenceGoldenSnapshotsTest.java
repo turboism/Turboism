@@ -84,7 +84,7 @@ class PersistenceGoldenSnapshotsTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final Path FIXTURES =
-            Path.of(System.getProperty("turboism.goldenSnapshotRoot", "tests/fixtures/snapshots"));
+            Path.of(System.getProperty("turboism.goldenSnapshotRoot", "testing/fixtures/snapshots"));
     private static final String LEGACY_DOCUMENT = "legacy.cfg";
     private static final String ATLAS_DOCUMENT = "texture-atlas/layout.cfg";
     private static final String WEBDAV_DOCUMENT = "backup/webdav.cfg";

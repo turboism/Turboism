@@ -44,6 +44,9 @@ def default_repo_root() -> Path:
 
 def default_manifest_path(repo_root: Path | None = None) -> Path:
     root = repo_root or default_repo_root()
+    primary = root / "testing" / "assets" / "corpus.json"
+    if primary.exists():
+        return primary
     return root / "test-assets" / "corpus.json"
 
 
@@ -484,7 +487,7 @@ def main(argv: list[str] | None = None) -> int:
         "--manifest",
         type=Path,
         default=None,
-        help="Path to corpus.json (default: test-assets/corpus.json)",
+        help="Path to corpus.json (default: testing/assets/corpus.json)",
     )
     parser.add_argument(
         "--repo",
