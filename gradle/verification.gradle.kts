@@ -337,6 +337,7 @@ val checkEditorModelAliases by tasks.registering(Exec::class) {
     inputs.files(
         "scripts/test/check_editor_model_aliases.py",
         "scripts/test/test_editor_model_aliases.py",
+        "scripts/turboism_dev/alias_vocabulary.py",
         "scripts/verification-sources/no-record-aliases.json"
     )
     inputs.files(
@@ -549,6 +550,7 @@ val checkVerificationSources by tasks.registering(Exec::class) {
         "scripts/generate_verification_sources.py",
         "compatibility/cubism/reviewed-releases.json",
         "scripts/preview/reviewed_host_artifacts.py",
+        "scripts/turboism_dev/alias_vocabulary.py",
         "scripts/turboism_dev/json_io.py",
         "scripts/verification-sources/model-update-targets.json",
         "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/model-update-skip.json",
