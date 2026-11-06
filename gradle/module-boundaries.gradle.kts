@@ -491,7 +491,7 @@ private val persistenceCoreForbiddenBinaryPrefixes = listOf(
 private val persistenceCoreAllowedDevTurboismRoots = setOf("persistence", "sdk")
 
 private fun checkPersistenceCoreSources(root: Project, state: BoundaryState) {
-    val sourceRoot = root.file("persistence-core/src/main/java")
+    val sourceRoot = root.file("core/persistence/src/main/java")
     if (!sourceRoot.isDirectory) {
         state.reject(
             "Persistence-core production sources are missing at " +

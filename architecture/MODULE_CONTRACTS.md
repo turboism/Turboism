@@ -279,7 +279,7 @@ edge that made the selector package depend on the resolver. Leaf-package cycles:
   lock or mutable static state. Callers own the bytes, the thread and the failure
   presentation. A migration supplied by a plugin runs on the typed-config I/O lane
   the `:runtime` facade owns, never inside the kernel.
-- **Tests**: `persistence-core/src/test/java/dev/turboism/persistence/config/**`
+- **Tests**: `core/persistence/src/test/java/dev/turboism/persistence/config/**`
   pins the codec, document-format, schema-admission and migration outcomes;
   `:runtime` keeps `PersistenceGoldenSnapshotsTest`, `TypedConfigRecoveryPointTest`
   and `RuntimeTypedPluginConfigRegistryTest` as the production read/migrate/recover
@@ -292,7 +292,7 @@ edge that made the selector package depend on the resolver. Leaf-package cycles:
   hook or class identity moves.
 - **Enforcement**: `checkModuleBoundaries` (declared and resolved Gradle edges,
   the source import allowlist and a compiled-bytecode scan over
-  `persistence-core/build/classes/java/main`), the plugin boundary dotted root
+  `core/persistence/build/classes/java/main`), the plugin boundary dotted root
   `persistence`, `checkDependencyInventory`, `checkCodeQuality`,
   `checkThrowableContainment` and `checkReviewedReleases`, whose inputs now include
   the module's production sources.
