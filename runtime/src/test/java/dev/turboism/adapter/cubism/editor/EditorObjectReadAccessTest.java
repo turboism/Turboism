@@ -397,8 +397,16 @@ class EditorObjectReadAccessTest {
         aliases.add(method(
                 "cubism.editor-history.manager.entries", GridHistoryManager.class, "entries", "()Ljava/util/List;"));
         aliases.add(method("cubism.editor-history.manager.position", GridHistoryManager.class, "position", "()I"));
-        aliases.add(method("cubism.editor-history.manager.can-undo", GridHistoryManager.class, "canUndo", "()Z"));
-        aliases.add(method("cubism.editor-history.manager.can-redo", GridHistoryManager.class, "canRedo", "()Z"));
+        aliases.add(method(
+                "cubism.editor-history.manager.can-undo",
+                GridHistoryManager.class,
+                "canUndo",
+                "()Ljava/lang/Boolean;"));
+        aliases.add(method(
+                "cubism.editor-history.manager.can-redo",
+                GridHistoryManager.class,
+                "canRedo",
+                "()Ljava/lang/Boolean;"));
         aliases.add(
                 StaticSelector.classSelector("cubism.editor-history.entry.class", internal(GridHistoryEntry.class)));
         aliases.add(method(
@@ -479,8 +487,16 @@ class EditorObjectReadAccessTest {
         aliases.add(method(
                 "cubism.editor-history.manager.entries", GridHistoryManager.class, "entries", "()Ljava/util/List;"));
         aliases.add(method("cubism.editor-history.manager.position", GridHistoryManager.class, "position", "()I"));
-        aliases.add(method("cubism.editor-history.manager.can-undo", GridHistoryManager.class, "canUndo", "()Z"));
-        aliases.add(method("cubism.editor-history.manager.can-redo", GridHistoryManager.class, "canRedo", "()Z"));
+        aliases.add(method(
+                "cubism.editor-history.manager.can-undo",
+                GridHistoryManager.class,
+                "canUndo",
+                "()Ljava/lang/Boolean;"));
+        aliases.add(method(
+                "cubism.editor-history.manager.can-redo",
+                GridHistoryManager.class,
+                "canRedo",
+                "()Ljava/lang/Boolean;"));
         aliases.add(
                 StaticSelector.classSelector("cubism.editor-history.entry.class", internal(GridHistoryEntry.class)));
         aliases.add(method(
@@ -1102,7 +1118,7 @@ class EditorObjectReadAccessTest {
     void editsParameterBindingsWithStrictConflictsAndExplicitUnbind(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(resolver(version, true), "session-a").active();
+        final var model = new EditorBackedCubismModelAccess(bindingBatchResolver(version), "session-a").active();
         final var operations = model.parameterBindings(new dev.turboism.sdk.cubism.id.ParameterId("ParamAngleX"));
         final var target = dev.turboism.sdk.cubism.model.ParameterBindingTarget.artMesh(new ArtMeshId("ArtMeshFace"));
 
@@ -1452,6 +1468,69 @@ class EditorObjectReadAccessTest {
 
     private static VerifiedMemberResolver resolver(
             final String version, final boolean includeWrite, final boolean includeMorph) {
+        return TestVerifiedResolvers.create(
+                version,
+                EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+                capabilities(includeWrite, includeMorph),
+                selectors(),
+                Host.class.getClassLoader());
+    }
+
+    /**
+     * Resolver for the migrated parameter-binding batch writes: the authoring envelope verifies the
+     * native history snapshot, so these cases need the undo-manager projection in addition to the
+     * batch capability row.
+     */
+    private static VerifiedMemberResolver bindingBatchResolver(final String version) {
+        final java.util.ArrayList<StaticSelector> aliases = new java.util.ArrayList<>(selectors());
+        aliases.addAll(historySelectors());
+        return TestVerifiedResolvers.create(
+                version,
+                EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+                capabilities(true, false),
+                aliases,
+                Host.class.getClassLoader());
+    }
+
+    /** Native Undo-history projection shared by the authoring-envelope write paths. */
+    private static List<StaticSelector> historySelectors() {
+        return List.of(
+                method(
+                        "cubism.editor-history.document.undo-manager",
+                        Document.class,
+                        "undoManager",
+                        desc(GridHistoryManager.class)),
+                StaticSelector.classSelector("cubism.editor-history.manager.class", internal(GridHistoryManager.class)),
+                method(
+                        "cubism.editor-history.manager.entries",
+                        GridHistoryManager.class,
+                        "entries",
+                        "()Ljava/util/List;"),
+                method("cubism.editor-history.manager.position", GridHistoryManager.class, "position", "()I"),
+                method(
+                        "cubism.editor-history.manager.can-undo",
+                        GridHistoryManager.class,
+                        "canUndo",
+                        "()Ljava/lang/Boolean;"),
+                method(
+                        "cubism.editor-history.manager.can-redo",
+                        GridHistoryManager.class,
+                        "canRedo",
+                        "()Ljava/lang/Boolean;"),
+                StaticSelector.classSelector("cubism.editor-history.entry.class", internal(GroupUndo.class)),
+                method(
+                        "cubism.editor-history.entry.presentation-name",
+                        GroupUndo.class,
+                        "presentationName",
+                        "()Ljava/lang/String;"),
+                method(
+                        "cubism.editor-history.entry.significant",
+                        GroupUndo.class,
+                        "significant",
+                        "()Ljava/lang/Boolean;"));
+    }
+
+    private static java.util.HashSet<String> capabilities(final boolean includeWrite, final boolean includeMorph) {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
         capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorClipMaskReadSelectorContract.CAPABILITY_ID);
@@ -1482,17 +1561,14 @@ class EditorObjectReadAccessTest {
                     dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract
                             .TRANSFER_CAPABILITY_ID);
             capabilities.add(EditorObjectWriteSelectorContract.CLIP_MASK_CAPABILITY_ID);
+            // The migrated parameter-binding batch writes run through the authoring envelope.
+            capabilities.add("cubism.editor-history.read");
         }
         if (includeMorph) {
             capabilities.add(
                     dev.turboism.mapping.verification.selector.EditorMorphTargetSelectorContract.READ_CAPABILITY_ID);
         }
-        return TestVerifiedResolvers.create(
-                version,
-                EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
-                capabilities,
-                selectors(),
-                Host.class.getClassLoader());
+        return capabilities;
     }
 
     @Test

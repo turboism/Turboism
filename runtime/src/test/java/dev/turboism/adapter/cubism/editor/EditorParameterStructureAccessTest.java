@@ -628,8 +628,13 @@ class EditorParameterStructureAccessTest {
         ParameterScopedFixture(final String excludedAlias, final boolean envelopeJoin) {
             this.envelopeJoin = envelopeJoin;
             Host.document = fixture.document;
+            final VerifiedMemberResolver scopedResolver = resolver(true, excludedAlias, envelopeJoin);
             access = new EditorParameterStructureAccess(
-                    resolver(true, excludedAlias, envelopeJoin), (identity, model) -> {}, coordinator, () -> binding);
+                    scopedResolver,
+                    (identity, model) -> {},
+                    coordinator,
+                    () -> binding,
+                    new CoordinatorAuthoringWriter(coordinator, scopedResolver, () -> binding));
         }
 
         void create(final String id) {
@@ -751,6 +756,24 @@ class EditorParameterStructureAccessTest {
         selectors.add(method(
                 "cubism.editor-model.modeling-document.edit-mode", Document.class, "editMode", desc(EditMode.class)));
         selectors.add(method("cubism.editor-model.modeling-document.mark-dirty", Document.class, "markDirty", "()V"));
+        selectors.add(method(
+                "cubism.editor-history.document.undo-manager", Document.class, "undoManager", desc(UndoManager.class)));
+        selectors.add(StaticSelector.classSelector("cubism.editor-history.manager.class", internal(UndoManager.class)));
+        selectors.add(
+                method("cubism.editor-history.manager.entries", UndoManager.class, "entries", "()Ljava/util/List;"));
+        selectors.add(method("cubism.editor-history.manager.position", UndoManager.class, "position", "()I"));
+        selectors.add(method(
+                "cubism.editor-history.manager.can-undo", UndoManager.class, "canUndo", "()Ljava/lang/Boolean;"));
+        selectors.add(method(
+                "cubism.editor-history.manager.can-redo", UndoManager.class, "canRedo", "()Ljava/lang/Boolean;"));
+        selectors.add(StaticSelector.classSelector("cubism.editor-history.entry.class", internal(GroupUndo.class)));
+        selectors.add(method(
+                "cubism.editor-history.entry.presentation-name",
+                GroupUndo.class,
+                "presentationName",
+                "()Ljava/lang/String;"));
+        selectors.add(method(
+                "cubism.editor-history.entry.significant", GroupUndo.class, "significant", "()Ljava/lang/Boolean;"));
         selectors.add(method(
                 "cubism.editor-model.edit-mode.begin",
                 EditMode.class,
@@ -955,6 +978,7 @@ class EditorParameterStructureAccessTest {
                 includeCapability
                         ? java.util.Set.of(
                                 "cubism.editor-model.read",
+                                "cubism.editor-history.read",
                                 EditorParameterStructureSelectorContract.CAPABILITY_ID,
                                 envelopeJoin
                                         ? dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract
@@ -990,6 +1014,7 @@ class EditorParameterStructureAccessTest {
         final ModelSource source;
         final EditMode editMode = new EditMode();
         final CompletePack pack = new CompletePack();
+        final UndoManager undoManager = new UndoManager(editMode);
         boolean dirty;
 
         Document(final ModelSource source) {
@@ -1004,8 +1029,37 @@ class EditorParameterStructureAccessTest {
             return editMode;
         }
 
+        public UndoManager undoManager() {
+            return undoManager;
+        }
+
         public void markDirty() {
             dirty = true;
+        }
+    }
+
+    /** Native Undo-manager projection over the edit bank (one history entry per edit). */
+    public static final class UndoManager {
+        private final EditMode editMode;
+
+        UndoManager(final EditMode editMode) {
+            this.editMode = editMode;
+        }
+
+        public List<Undo> entries() {
+            return List.copyOf(editMode.history);
+        }
+
+        public int position() {
+            return editMode.history.size();
+        }
+
+        public Boolean canUndo() {
+            return !editMode.history.isEmpty();
+        }
+
+        public Boolean canRedo() {
+            return Boolean.FALSE;
         }
     }
 
@@ -1346,6 +1400,7 @@ class EditorParameterStructureAccessTest {
 
     public static final class EditMode {
         final List<Undo> edits = new ArrayList<>();
+        final List<Undo> history = new ArrayList<>();
         boolean aborted;
         int beginCount;
         int endCount;
@@ -1357,13 +1412,18 @@ class EditorParameterStructureAccessTest {
 
         public GroupUndo begin(final String name) {
             beginCount++;
-            lastUndo = new GroupUndo(edits);
+            lastUndo = new GroupUndo(edits, name);
             return lastUndo;
         }
 
         public void end(final boolean abort, final Object ignored) {
             endCount++;
             aborted = abort;
+            if (abort) {
+                edits.clear();
+            } else if (lastUndo != null) {
+                history.add(lastUndo);
+            }
         }
         /** Simulates the host native Undo command (menu click) for the latest edit envelope. */
         public void undo() {
@@ -1377,9 +1437,24 @@ class EditorParameterStructureAccessTest {
 
     public static final class GroupUndo extends Undo {
         final List<Undo> edits;
+        private final String presentationName;
 
         GroupUndo(final List<Undo> edits) {
+            this(edits, "group");
+        }
+
+        GroupUndo(final List<Undo> edits, final String presentationName) {
             this.edits = edits;
+            this.presentationName = presentationName;
+        }
+
+        /** Native history projection: the committed entry's presentation name is the write label. */
+        public String presentationName() {
+            return presentationName;
+        }
+
+        public Boolean significant() {
+            return Boolean.TRUE;
         }
 
         public boolean add(final Undo undo, final boolean significant) {

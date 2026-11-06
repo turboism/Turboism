@@ -83,9 +83,10 @@ class EditorPartStructureAccessTest {
                 includeCapability
                         ? java.util.Set.of(
                                 "cubism.editor-model.read",
+                                "cubism.editor-history.read",
                                 EditorPartStructureSelectorContract.CAPABILITY_ID,
                                 dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract.CAPABILITY_ID)
-                        : java.util.Set.of("cubism.editor-model.read"),
+                        : java.util.Set.of("cubism.editor-model.read", "cubism.editor-history.read"),
                 hierarchySelectors(),
                 Host.class.getClassLoader());
     }

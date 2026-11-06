@@ -158,8 +158,9 @@ class EditorParameterBindingMorphTransferTest {
     }
 
     private static EditorParameterBindingBatchAccess access(final Fixture fixture) {
+        final VerifiedMemberResolver resolver = resolver();
         return new EditorParameterBindingBatchAccess(
-                resolver(),
+                resolver,
                 "test-model",
                 fixture.modelSource,
                 fixture.model,
@@ -169,7 +170,8 @@ class EditorParameterBindingMorphTransferTest {
                     }
                 },
                 (identity, source, model, target) -> fixture.objectSource,
-                (model, parameterId) -> fixture.parameters.get(parameterId.value()));
+                (model, parameterId) -> fixture.parameters.get(parameterId.value()),
+                authoringWriter(resolver, fixture.document, fixture.modelSource, fixture.model));
     }
 
     private static Fixture fixture(final float minimum, final float maximum, final float... values) {
@@ -180,13 +182,45 @@ class EditorParameterBindingMorphTransferTest {
         return TestVerifiedResolvers.create(
                 "5.3.02",
                 EditorParameterBindingBatchWriteSelectorContract.ADAPTER_SLICE_ID,
-                Set.of(EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID),
+                Set.of(
+                        EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
+                        "cubism.editor-history.read"),
                 selectors(),
                 EditorParameterBindingMorphTransferTest.class.getClassLoader());
     }
 
     private static List<StaticSelector> selectors() {
         return List.of(
+                StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)),
+                method(
+                        "cubism.editor-history.document.undo-manager",
+                        Document.class,
+                        "undoManager",
+                        descriptor(UndoManager.class)),
+                StaticSelector.classSelector("cubism.editor-history.manager.class", internal(UndoManager.class)),
+                method("cubism.editor-history.manager.entries", UndoManager.class, "entries", descriptor(List.class)),
+                method("cubism.editor-history.manager.position", UndoManager.class, "position", descriptor(int.class)),
+                method(
+                        "cubism.editor-history.manager.can-undo",
+                        UndoManager.class,
+                        "canUndo",
+                        descriptor(Boolean.class)),
+                method(
+                        "cubism.editor-history.manager.can-redo",
+                        UndoManager.class,
+                        "canRedo",
+                        descriptor(Boolean.class)),
+                StaticSelector.classSelector("cubism.editor-history.entry.class", internal(GroupUndo.class)),
+                method(
+                        "cubism.editor-history.entry.presentation-name",
+                        GroupUndo.class,
+                        "presentationName",
+                        descriptor(String.class)),
+                method(
+                        "cubism.editor-history.entry.significant",
+                        GroupUndo.class,
+                        "significant",
+                        descriptor(Boolean.class)),
                 StaticSelector.staticMethod(
                         "cubism.editor-model.app-controller.instance",
                         internal(Host.class),
@@ -355,6 +389,7 @@ class EditorParameterBindingMorphTransferTest {
         if (type == void.class) return "V";
         if (type == boolean.class) return "Z";
         if (type == float.class) return "F";
+        if (type == int.class) return "I";
         return "L" + internal(type) + ";";
     }
 

@@ -153,17 +153,20 @@ public final class EditorBackedCubismModelAccess
         this.editSessionHost =
                 new VerifiedEditorEditSessionHost(resolver, this::authoringNativeBinding, this::authoringGeneration);
         this.editSessionManager = new RuntimeEditSessionManager(editSessionHost, editScopeGate);
-        this.combinedAccess = new EditorParameterCombinedAccess(
-                resolver, this::requireCurrent, this::source, this.authoringCoordinator);
+        this.combinedAccess =
+                new EditorParameterCombinedAccess(resolver, this::requireCurrent, this::source, this.authoringWriter);
         this.parameterStructureAccess = new EditorParameterStructureAccess(
-                resolver, this::requireCurrent, this.authoringCoordinator, this::authoringParticipationBinding);
+                resolver,
+                this::requireCurrent,
+                this.authoringCoordinator,
+                this::authoringParticipationBinding,
+                this.authoringWriter);
         this.parameterGroupsAccess =
                 new EditorParameterGroupsAccess(resolver, this::requireCurrent, this.parameterStructureAccess);
         this.defaultKeyformLockAccess =
                 new EditorDefaultKeyformLockAccess(resolver, this::requireCurrent, this.authoringWriter);
         this.editLevelAccess = new EditorModelEditLevelAccess(resolver, this::requireCurrent);
-        this.partStructureAccess =
-                new EditorPartStructureAccess(resolver, this::requireCurrent, this.authoringCoordinator);
+        this.partStructureAccess = new EditorPartStructureAccess(resolver, this::requireCurrent, this.authoringWriter);
         this.morphTargetAccess = new EditorMorphTargetAccess(resolver, this::requireCurrent, this.authoringCoordinator);
         this.hierarchyEditAccess = new EditorObjectHierarchyEditAccess(
                 resolver, this::requireCurrent, this.authoringCoordinator, this::authoringParticipationBinding);
@@ -186,7 +189,7 @@ public final class EditorBackedCubismModelAccess
                 this.partStructureAccess,
                 this.morphTargetAccess,
                 this.hierarchyEditAccess,
-                this.authoringCoordinator);
+                this.authoringWriter);
         this.evaluatedJoin = evaluatedJoin;
         this.objectReadAccess = new EditorObjectReadAccess(
                 resolver,
@@ -1093,6 +1096,7 @@ public final class EditorBackedCubismModelAccess
                     EditorBackedCubismModelAccess.this::requireCurrent,
                     objectReadAccess::bindingTargetSource,
                     EditorBackedCubismModelAccess.this::source,
+                    authoringWriter,
                     authoringCoordinator,
                     EditorBackedCubismModelAccess.this::authoringParticipationBinding);
         }
