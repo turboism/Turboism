@@ -1,9 +1,11 @@
 package dev.turboism.adapter.cubism;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
+import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Component;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -20,7 +22,6 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
-import javax.swing.SwingUtilities;
 
 /**
  * Recent Files menu projection over verified host roots: current project merged ahead
@@ -99,19 +100,12 @@ public final class VerifiedRecentFileListHostOperations implements RecentFileAda
     @Override
     public boolean open(final RecentFileId id) {
         Objects.requireNonNull(id, "id");
-        if (SwingUtilities.isEventDispatchThread()) {
-            return openOnEdt(id);
-        }
-        final boolean[] opened = {false};
         try {
-            SwingUtilities.invokeAndWait(() -> opened[0] = openOnEdt(id));
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            return false;
-        } catch (java.lang.reflect.InvocationTargetException | RuntimeException failure) {
+            return EdtDispatch.call("recent file open", () -> openOnEdt(id));
+        } catch (RuntimeException failure) {
+            FatalErrors.rethrowIfFatal(failure);
             return false;
         }
-        return opened[0];
     }
 
     private synchronized boolean openOnEdt(final RecentFileId id) {

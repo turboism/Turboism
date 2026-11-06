@@ -47,16 +47,30 @@ class FirstPartyMetadataVerificationTest {
     }
 
     @Test
-    void unsupportedTrackedSchemaVersionIsRejected() throws Exception {
+    void newerTrackedSchemaVersionIsAccepted() throws Exception {
+        final Path descriptor = tracked("modeling", "[]");
+        final String text = Files.readString(descriptor);
+        Files.writeString(descriptor, text.replace("\"schemaVersion\": 3", "\"schemaVersion\": 4"));
+
+        FirstPartyMetadataVerificationCli.verify(descriptor, jarFor(descriptor));
+    }
+
+    @Test
+    void trackedEventExportDriftIsRejected() throws Exception {
         final Path descriptor = tracked("modeling", "[]");
         final Path jar = jarFor(descriptor);
         final String text = Files.readString(descriptor);
-        Files.writeString(descriptor, text.replace("\"schemaVersion\": 3", "\"schemaVersion\": 4"));
+        final String export = "\"eventExports\": [{\"id\": \"thumbnail.captured\", \"contractVersion\": \"1.0.0\", "
+                + "\"eventType\": \"dev.turboism.plugin.firstparty.Thumbnail\", \"abiSha256\": \""
+                + "a".repeat(64) + "\"}],\n  \"category\"";
+        Files.writeString(
+                descriptor,
+                text.replace("\"schemaVersion\": 3", "\"schemaVersion\": 4").replace("\"category\"", export));
 
         final FirstPartyMetadataVerificationCli.FirstPartyRejection failure = assertThrows(
                 FirstPartyMetadataVerificationCli.FirstPartyRejection.class,
                 () -> FirstPartyMetadataVerificationCli.verify(descriptor, jar));
-        assertEquals("FIRST_PARTY_SCHEMA_NOT_V3", failure.code());
+        assertEquals("FIRST_PARTY_EVENT_CONTRACT_MISMATCH", failure.code());
     }
 
     @Test
