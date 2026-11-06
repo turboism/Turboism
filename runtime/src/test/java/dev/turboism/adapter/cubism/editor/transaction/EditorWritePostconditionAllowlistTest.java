@@ -69,6 +69,7 @@ class EditorWritePostconditionAllowlistTest {
     private static final Set<String> READBACK_SITES = Set.of(
             "EditorDefaultKeyformLockAccess#cubism.model.set-default-keyform-locked",
             "EditorParameterBindingAccess#operationId",
+            "EditorParameterInterpolationAccess#cubism.art-mesh.parameter-interpolation",
             "EditorModelProfileAccess#cubism.model.set-name",
             "EditorMorphTargetAccess#cubism.morph-target.set-parameter",
             "EditorNativeControlAppearanceAccess#cubism.model.set-native-label-color",
