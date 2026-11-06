@@ -55,7 +55,9 @@ printf '# Recent-preview validation probe: no localized messages.\n' \
   mapfile -t probe_classes < <(
     find "$probe_class_dir_rel" -maxdepth 1 -type f \
       \( -name 'WindowsRecentPreviewValidationProbe.class' \
-         -o -name 'WindowsRecentPreviewValidationProbe$*.class' \) \
+         -o -name 'WindowsRecentPreviewValidationProbe$*.class' \
+         -o -name 'WindowsProbeHarness.class' \
+         -o -name 'WindowsProbeHarness$*.class' \) \
       -printf '%p\n' | LC_ALL=C sort
   )
   [ "${#probe_classes[@]}" -gt 1 ] || {

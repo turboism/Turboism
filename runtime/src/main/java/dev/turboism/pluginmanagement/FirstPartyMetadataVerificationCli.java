@@ -20,7 +20,7 @@ import java.util.jar.JarFile;
  * First-party package admission: binds each tracked descriptor to the exact
  * Gradle {@code Jar.archiveFile} supplied on the command line, loads the built
  * JAR through the production {@link PluginJarContract}, and proves that the
- * packaged schema v3 classification equals the reviewed tracked metadata.
+ * packaged schema classification equals the reviewed tracked metadata.
  *
  * <p>The gate never scans directories or sorts residual JARs: artifact
  * selection is exclusively the explicit descriptor/JAR pairs provided by the
@@ -82,9 +82,11 @@ public final class FirstPartyMetadataVerificationCli {
                     "FIRST_PARTY_CATEGORY_UNREGISTERED",
                     "tracked category '" + source.category().orElse("<none>") + "' is not in the official registry");
         }
-        if (schemaVersion(descriptorPath) != 3) {
+        if (schemaVersion(descriptorPath) < 3) {
             throw new FirstPartyRejection(
-                    descriptorPath, "FIRST_PARTY_SCHEMA_NOT_V3", "tracked descriptor must declare schemaVersion 3");
+                    descriptorPath,
+                    "FIRST_PARTY_SCHEMA_TOO_OLD",
+                    "tracked descriptor must declare schemaVersion 3 or newer");
         }
         final PluginDescriptor embedded;
         try (JarFile jar = new JarFile(jarPath.toFile())) {
@@ -121,6 +123,14 @@ public final class FirstPartyMetadataVerificationCli {
                     descriptorPath,
                     "FIRST_PARTY_CLASSIFICATION_MISMATCH",
                     "packaged category/tags differ from tracked metadata");
+        }
+        if (!source.eventExports().equals(embedded.eventExports())
+                || !source.eventImports().equals(embedded.eventImports())
+                || !source.eventContracts().equals(embedded.eventContracts())) {
+            throw new FirstPartyRejection(
+                    descriptorPath,
+                    "FIRST_PARTY_EVENT_CONTRACT_MISMATCH",
+                    "packaged event exports/imports/contracts differ from tracked metadata");
         }
         final boolean sourceHotReload = source.hotReload();
         final boolean embeddedHotReload = embedded.hotReload();

@@ -1,0 +1,110 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 4,
+  "id": "dev.turboism.plugin.recent-project-board",
+  "name": "Recent Project Board",
+  "version": "0.68.1",
+  "description": "Shows recent project thumbnails over the empty Cubism viewport and opens a project on double-click.",
+  "entrypoints": [
+    "dev.turboism.plugin.recentprojectboard.RecentProjectBoardPlugin"
+  ],
+  "turboismApi": "[0.68.1,1.0.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [
+    "icons/"
+  ],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": [
+      "en",
+      "ja",
+      "ko",
+      "zh-Hans",
+      "zh-Hant"
+    ]
+  },
+  "eventImports": [
+    {
+      "provider": "dev.turboism.plugin.recent-preview",
+      "eventId": "thumbnail.captured",
+      "contractVersion": "[1.0.0,2.0.0)",
+      "eventType": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent",
+      "abiSha256": "e4791126d565f94153f3580974ea179f1fd46fa69a638ed52cabdb359a4f4109",
+      "required": true
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "dev.turboism.plugin.recent-preview",
+      "version": "[0.68.0,1.0.0)",
+      "type": "required",
+      "ordering": "after",
+      "reason": "Consumes the provider's live thumbnail.captured events and its delayed startup cache replay."
+    }
+  ],
+  "permissions": [
+    {
+      "id": "turboism.cubism.recent-file.read",
+      "scope": "application",
+      "reason": "Lists recent projects and dispatches the selected recent file for opening."
+    },
+    {
+      "id": "turboism.ui.panel.contribute",
+      "scope": "application",
+      "reason": "Contributes the recent-project board to the empty viewport placement."
+    },
+    {
+      "id": "turboism.cubism.model.observe",
+      "scope": "application",
+      "reason": "Refreshes the recent-project list after a project is opened or closed."
+    },
+    {
+      "id": "turboism.event.subscribe",
+      "scope": "application",
+      "reason": "Receives live and replayed thumbnail.captured events from the recent-preview provider."
+    },
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Registers the double-click open action used by board cards."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Creates a new model document through NEW_MODEL and opens the native New Animation flow when the empty board's create links are used."
+    },
+    {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Reads the plugin-confined recent-project board layout preference."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Persists the selected recent-project board layout preference."
+    }
+  ],
+  "capabilities": [
+    "ui.embedded-panel.contribute"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  },
+  "lifecycle": {
+    "hotReload": true
+  },
+  "tags": [
+    "recent-files",
+    "preview",
+    "viewport",
+    "navigation"
+  ],
+  "category": "workflow"
+}

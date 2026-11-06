@@ -3,6 +3,7 @@ package dev.turboism.recentfile;
 import dev.turboism.adapter.cubism.RecentFileAdapter;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
 import java.util.List;
@@ -23,6 +24,13 @@ public final class RuntimeRecentFileService implements RecentFileService {
     public List<RecentFileSummary> list() {
         permissionChecker.check(PERMISSION, "cubism.recent-file.list");
         return adapter.list();
+    }
+
+    @Override
+    public boolean open(final RecentFileId id) {
+        Objects.requireNonNull(id, "id");
+        permissionChecker.check(PERMISSION, "cubism.recent-file.open");
+        return adapter.open(id);
     }
 
     @Override

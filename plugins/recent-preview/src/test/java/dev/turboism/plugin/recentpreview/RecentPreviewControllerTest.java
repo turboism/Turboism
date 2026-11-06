@@ -10,6 +10,7 @@ import dev.turboism.plugin.recentpreview.cache.PreviewCache;
 import dev.turboism.plugin.recentpreview.cache.PreviewCacheWriteResult;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 final class RecentPreviewControllerTest {
@@ -37,9 +39,32 @@ final class RecentPreviewControllerTest {
         assertEquals(
                 PreviewCacheWriteResult.STORED,
                 controller.capture(file.id()).toCompletableFuture().join());
-        assertEquals(new ScreenshotCaptureRequest(file.id(), 150, 150), captures.request);
+        assertEquals(new ScreenshotCaptureRequest(file.id(), 300, 300), captures.request);
         assertEquals(file, cache.file);
         assertTrue(controller.image(file.id()).isPresent());
+    }
+
+    @Test
+    void publishesACommittedCaptureForDependentPlugins() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
+        final RecordingCapture captures = new RecordingCapture();
+        final RecordingCache cache = new RecordingCache();
+        final AtomicReference<RecentPreviewCapturedEvent> published = new AtomicReference<>();
+        final RecentPreviewController controller =
+                new RecentPreviewController(() -> List.of(file), captures, cache, published::set);
+
+        controller.enable();
+        controller.refresh().toCompletableFuture().join();
+        assertEquals(
+                PreviewCacheWriteResult.STORED,
+                controller.capture(file.id()).toCompletableFuture().join());
+
+        assertNotNull(published.get());
+        assertEquals(file.id(), published.get().id());
+        assertEquals("model.cmo3", published.get().displayName());
+        assertEquals(1, published.get().image().width());
+        assertEquals(1, published.get().image().height());
+        assertNotNull(published.get().thumbnail());
     }
 
     @Test

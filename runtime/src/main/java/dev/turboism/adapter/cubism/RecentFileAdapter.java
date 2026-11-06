@@ -22,6 +22,18 @@ public interface RecentFileAdapter {
     Optional<RecentFileId> current();
 
     /**
+     * Opens the recent project identified by {@code id} through the host's recent-file
+     * surface.
+     *
+     * @param id opaque recent-file identity
+     * @return {@code true} when the open request was dispatched
+     */
+    default boolean open(final RecentFileId id) {
+        Objects.requireNonNull(id, "id");
+        return false;
+    }
+
+    /**
      * @return {@code true} while a live host backend serves this adapter;
      *         {@code false} for the safe-mode adapter
      */
@@ -72,6 +84,11 @@ public interface RecentFileAdapter {
             }
 
             @Override
+            public boolean open(final RecentFileId id) {
+                return host.open(id);
+            }
+
+            @Override
             public boolean available() {
                 return host.available();
             }
@@ -89,6 +106,15 @@ public interface RecentFileAdapter {
          * @return the id of the project file currently open on the host; empty when none
          */
         Optional<RecentFileId> current();
+
+        /**
+         * @param id opaque recent-file identity
+         * @return {@code true} when the open request was dispatched
+         */
+        default boolean open(final RecentFileId id) {
+            Objects.requireNonNull(id, "id");
+            return false;
+        }
 
         /**
          * @return {@code true} while the host backend behind these operations is

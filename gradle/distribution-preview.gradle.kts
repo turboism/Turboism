@@ -22,6 +22,8 @@ private fun configurePreviewSource(task: Sync, previewDirectory: Provider<org.gr
     task.into(previewDirectory)
     configurePreviewAgentJar(task)
     configurePreviewInspectorJar(task)
+    configurePreviewRecentPreviewJar(task)
+    configurePreviewRecentProjectBoardJar(task)
     configurePreviewPerfStatsJar(task)
     configurePreviewThemeJar(task)
     configureScenePaletteEnhancerJar(task)
@@ -41,6 +43,20 @@ private fun configurePreviewInspectorJar(task: Sync) {
     task.from(project(":plugins:project-inspector").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
         into("plugins")
         rename { "project-inspector.jar" }
+    }
+}
+
+private fun configurePreviewRecentPreviewJar(task: Sync) {
+    task.from(project(":plugins:recent-preview").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
+        into("plugins")
+        rename { "recent-preview.jar" }
+    }
+}
+
+private fun configurePreviewRecentProjectBoardJar(task: Sync) {
+    task.from(project(":plugins:recent-project-board").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
+        into("plugins")
+        rename { "recent-project-board.jar" }
     }
 }
 
@@ -127,6 +143,8 @@ val previewBundle by tasks.registering(Sync::class) {
     dependsOn(
         ":bootstrap:jar",
         ":plugins:project-inspector:jar",
+        ":plugins:recent-preview:jar",
+        ":plugins:recent-project-board:jar",
         ":plugins:perf-stats:jar",
         ":plugins:ui-theme:jar",
         ":plugins:scene-palette-enhancer:jar",
@@ -193,7 +211,8 @@ tasks.register("checkPreviewBundleLayout") {
 private fun verifyPreviewBundle(root: File) {
     val required = listOf(
         "turboism-agent.jar", "launch-cubism-turboism.bat", "launch-cubism-turboism.ps1",
-        "run-preview.bat", "README.md", "plugins/project-inspector.jar", "plugins/perf-stats.jar",
+        "run-preview.bat", "README.md", "plugins/project-inspector.jar",
+        "plugins/recent-preview.jar", "plugins/recent-project-board.jar", "plugins/perf-stats.jar",
         "plugins/ui-theme.jar", "plugins/scene-palette-enhancer.jar",
         "plugins/mesh-edit-mirror-axis-enhance.jar", "plugins/selection-brush.jar", "graal/lib/polyglot-25.2.4.jar"
     )

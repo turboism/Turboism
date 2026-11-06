@@ -33,7 +33,7 @@ final class RecentFileServiceContractTest {
                 context.services().find(RecentFileService.class).orElse(RecentFileService.unavailable()));
 
         assertEquals(
-                List.of("isAvailable", "list", "unavailable"),
+                List.of("isAvailable", "list", "open", "unavailable"),
                 Arrays.stream(RecentFileService.class.getDeclaredMethods())
                         .filter(method -> Modifier.isPublic(method.getModifiers()))
                         .map(Method::getName)
@@ -41,6 +41,11 @@ final class RecentFileServiceContractTest {
                         .toList());
         assertEquals(
                 List.class, RecentFileService.class.getDeclaredMethod("list").getReturnType());
+        assertEquals(
+                boolean.class,
+                RecentFileService.class
+                        .getDeclaredMethod("open", RecentFileId.class)
+                        .getReturnType());
 
         final Instant modified = Instant.parse("2026-08-05T00:00:00Z");
         final RecentFileSummary summary = new RecentFileSummary(
