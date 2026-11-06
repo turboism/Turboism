@@ -117,8 +117,7 @@ final class PluginClassLoader {
         consumedLoadMillis.addAndGet(elapsedMillis);
         final String profile =
                 "Plugin load profile: totalMs=" + elapsedMillis + content.profileTimeline() + content.edtAttribution();
-        if (PROFILE_ALL_LOADS || elapsedMillis >= 200L
-                || outcome.kind() != PluginLifecycleLane.Outcome.SUCCEEDED) {
+        if (PROFILE_ALL_LOADS || elapsedMillis >= 200L || outcome.kind() != PluginLifecycleLane.Outcome.SUCCEEDED) {
             log.info(descriptor.id(), profile);
         } else {
             log.debug(descriptor.id(), profile);
