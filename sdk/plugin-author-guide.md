@@ -128,6 +128,34 @@ when selecting APIs. Probe availability; catch
 [CubismEditorApiUnavailableException](src/main/java/dev/turboism/sdk/cubism/CubismEditorApiUnavailableException.java)
 at feature boundaries and disable or hide unsupported actions.
 
+## Work time and activity observation
+
+Resolve the runtime-owned tracker through the service directory:
+
+```java
+ProjectWorkTimeService workTime = context.services()
+        .find(ProjectWorkTimeService.class)
+        .orElse(ProjectWorkTimeService.unavailable());
+ProjectWorkTimeSnapshot snapshot = workTime.snapshot();
+Duration session = snapshot.sessionForegroundTime();
+Optional<ProjectWorkTime> active = snapshot.activeProject();
+List<ProjectWorkTime> projects = snapshot.projects();
+```
+
+The tracker is shared by every plugin, samples the Editor once per second on the
+runtime's host-read lane, and persists cumulative totals across Editor sessions.
+`ProjectWorkTime` exposes both the current process's `sessionTime` and the
+cross-session `totalTime`; the project key is an opaque persistence identity.
+Access requires `turboism.cubism.project.read`. Values are the latest completed
+observation, so a consumer does not perform a host read on its own thread and
+does not need to duplicate the activation timer.
+
+For transition-driven consumers, subscribe to `CubismActivityChangedEvent`
+through the event bus; it is published when the desktop foreground state or the
+active project tab changes. Read `context.cubism().activity()` for the initial
+state, and `context.cubism().isEditorForeground()` when only the foreground bit
+is needed.
+
 ## Settings, storage and configuration
 
 Prefer declarative

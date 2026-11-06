@@ -33,10 +33,31 @@ public interface HostSnapshotSource {
     Optional<HostProject> activeProject();
 
     /**
+     * Returns a lightweight identity for the active project, without building a full project
+     * snapshot. Implementations that can resolve the host project identity process an exact
+     * host read; the default derives the id from {@link #activeProject()}.
+     *
+     * @return the active project identity, empty when no project is active or the read fails
+     */
+    default Optional<String> activeProjectId() {
+        return activeProject().map(HostProject::projectId);
+    }
+
+    /**
      * @return the document currently active on the host; empty when no host is attached or no
      *         document is active
      */
     Optional<HostDocument> activeDocument();
+
+    /**
+     * Returns whether the Cubism process currently owns the active desktop window.
+     *
+     * <p>The default fails closed with {@code false}; a source that can observe desktop
+     * activation overrides it.</p>
+     */
+    default boolean isForeground() {
+        return false;
+    }
 
     /** Model owned by the active MODEL document only. */
     Optional<HostModel> activeModel();

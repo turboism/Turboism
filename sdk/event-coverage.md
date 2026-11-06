@@ -43,6 +43,8 @@ them (`RuntimeEventContractCatalog` rejects plugin publication):
   warp-deformer grid, rotation-deformer base angle/form, model update,
   cubism operation lifecycle, editor startup/exit, project file lifecycle.
 - `sdk.cubism.event.SelectionChangedEvent` — selection transitions.
+- `sdk.cubism.event.CubismActivityChangedEvent` — process foreground-state and
+  active-project transitions; requires `turboism.cubism.project.read`.
 - `sdk.cubism.backup.BackupCompletedEvent` — backup completion.
 - `sdk.appearance.AppearanceChangedEvent` — host appearance changes.
 - `sdk.action.ActionInvocationEvent` — action invocation lifecycle.

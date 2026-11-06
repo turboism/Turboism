@@ -36,6 +36,7 @@ include(
     "plugins:physics-editor",
     "plugins:history-panel",
     "plugins:perf-stats",
+    "plugins:project-work-time",
     "plugins:command-palette",
     "plugins:palette-label-style",
     "plugins:parameter-batch-transfer",

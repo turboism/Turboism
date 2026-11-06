@@ -169,6 +169,23 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
     }
 
     @Override
+    public Optional<String> activeProjectId() {
+        try {
+            final Object appController = resolver.invokeStatic(APP_INSTANCE);
+            if (appController == null) return Optional.empty();
+            final Object project = resolver.invoke(CURRENT_PROJECT, appController);
+            return project == null ? Optional.empty() : Optional.of(identities.idFor(project, "project"));
+        } catch (VerifiedAccessException exception) {
+            if (exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION) {
+                throw mappingFailure(ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID);
+            }
+            throw validationFailure(ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID);
+        } catch (RuntimeException exception) {
+            throw validationFailure(ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID);
+        }
+    }
+
+    @Override
     public Optional<DocumentSnapshot> activeDocument() {
         try {
             final Object appController = resolver.invokeStatic(APP_INSTANCE);
