@@ -109,7 +109,8 @@ class NativeMeshToolSessionBridgeTest {
                         deactivations.incrementAndGet();
                     }
                 },
-                (permission, operation) -> {});
+                (permission, operation) -> {},
+                false);
         NativeMeshToolSessionBridge.install(
                 owner, 41L, resolver(mode), new NativeMeshToolSessionBridge.SessionListener() {
                     @Override

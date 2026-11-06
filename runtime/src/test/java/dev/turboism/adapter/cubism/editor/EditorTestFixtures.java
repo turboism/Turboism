@@ -3,8 +3,11 @@ package dev.turboism.adapter.cubism.editor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.cubism.editor.history.EditorHistoryPort;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
+import dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
@@ -3400,6 +3403,28 @@ public final class EditorTestFixtures {
             }
         }
         return selectors;
+    }
+
+    /**
+     * Builds the production authoring envelope over a fixture's native document, model source and
+     * model, so a migrated write exercises real Undo admission, history verification and refresh
+     * instead of a hand-rolled edit bracket. The resolver must authorize
+     * {@code cubism.editor-history.read} and the fixture document must expose its undo manager.
+     */
+    public static EditorAuthoringWriter authoringWriter(
+            final VerifiedMemberResolver resolver, final Object document, final Object source, final Object model) {
+        final String identity = "session-a:model-a:1";
+        final VerifiedEditorAuthoringTransactionHost host = new VerifiedEditorAuthoringTransactionHost(
+                resolver,
+                () -> new VerifiedEditorAuthoringTransactionHost.NativeBinding(identity, 1L, document, source, model),
+                () -> 1L,
+                new EditorHistoryPort(() -> Optional.of(resolver), () -> 1L));
+        final EditorAuthoringTransactionCoordinator coordinator = new EditorAuthoringTransactionCoordinator(host);
+        return new CoordinatorAuthoringWriter(
+                coordinator,
+                resolver,
+                () -> new EditorAuthoringTransactionCoordinator.Binding(
+                        "editor-test", identity, 1L, identity, 1L, Thread.currentThread()));
     }
 
     public static final class HierarchyScopedFixture {

@@ -2,14 +2,13 @@ package dev.turboism.update;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.WriteOptions;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -30,8 +29,8 @@ import java.util.Set;
  * liveness is judged by process identity rather than whether the transaction lock is still held.
  *
  * <p>Entries live under {@code <work>/lease}, which inherits the owner-only ACL already prepared for
- * {@code state/runtime/update}; each entry is written via temp-file + force + {@link StandardCopyOption#ATOMIC_MOVE}
- * with {@code REPLACE_EXISTING}. On Windows this maps to {@code MoveFileEx(MOVEFILE_REPLACE_EXISTING)}: NTFS
+ * {@code state/runtime/update}; each entry is published through one durable sibling temporary file, so a reader never
+ * observes a partial entry. On Windows this maps to {@code MoveFileEx(MOVEFILE_REPLACE_EXISTING)}: NTFS
  * performs a single rename that replaces the target, and the operation fails closed if the target is open without
  * {@code FILE_SHARE_DELETE}. On POSIX it is {@code rename(2)}, also atomic-replace.
  */
@@ -40,6 +39,9 @@ final class FrameworkUpdateLaunchLease {
     static final int MAX_ENTRIES = 256;
     static final int MAX_ENTRY_BYTES = 4096;
     static final String FORMAT = "turboism-launch-lease-v1";
+
+    /** Lease entries: an atomic replacement is required, permissions inherited from the private lease directory. */
+    private static final WriteOptions LEASE_WRITE = WriteOptions.DEFAULT;
 
     enum Kind {
         LAUNCHING,
@@ -253,19 +255,9 @@ final class FrameworkUpdateLaunchLease {
         Files.createDirectories(file.getParent());
         FrameworkUpdateCache.installationAncestors(file.getParent());
         final byte[] bytes = UpdateFileSupport.JSON.writeValueAsBytes(node);
-        final Path temporary = Files.createTempFile(file.getParent(), ".lease-", ".writing");
-        try {
-            Files.write(temporary, bytes, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
-            try (FileChannel channel =
-                    FileChannel.open(temporary, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
-                channel.force(true);
-            }
-            // Atomic replace: Windows MoveFileEx(MOVEFILE_REPLACE_EXISTING); POSIX rename(2). Fails closed if
-            // the target is open without share-delete.
-            Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } finally {
-            Files.deleteIfExists(temporary);
-        }
+        // Atomic replace: Windows MoveFileEx(MOVEFILE_REPLACE_EXISTING); POSIX rename(2). Fails closed if
+        // the target is open without share-delete.
+        DurableFile.at(file).withOptions(LEASE_WRITE).replace(bytes);
     }
 
     private static ObjectNode entryJson(

@@ -15,14 +15,12 @@ final class FloatArrayParseCacheHookContributor extends NativeOptimizationHookCo
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedFloatArrayParseCacheInstaller.admitted(
-                host.artifact(),
-                NativeOptimizationPolicy.load(environment.options().home()),
-                true)) {
+                host.artifact(), environment.plan().policy(), true)) {
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("host-not-supported-or-hook-disabled");
         }
-        final VerifiedFloatArrayParseCacheInstaller installer = new VerifiedFloatArrayParseCacheInstaller(
-                environment.instrumentation(), host.artifact(), host.classLoader());
+        final VerifiedFloatArrayParseCacheInstaller installer =
+                new VerifiedFloatArrayParseCacheInstaller(InstallContext.of(environment));
         installer.install();
         return installer;
     }

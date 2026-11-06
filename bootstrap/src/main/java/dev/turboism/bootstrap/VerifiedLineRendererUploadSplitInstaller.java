@@ -5,59 +5,81 @@ import dev.turboism.adapter.cubism.optimization.lineupload.LineRendererUploadSpl
 import dev.turboism.adapter.cubism.optimization.lineupload.LineRendererUploadSplitTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import java.lang.instrument.ClassFileTransformer;
-import java.lang.instrument.Instrumentation;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
-import java.security.ProtectionDomain;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.jar.JarFile;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
-/** Exact-host admission, rewrite and verified restoration for the line-renderer upload split. */
+/**
+ * Exact-host admission, rewrite and verified restoration for the line-renderer upload split.
+ *
+ * <p>The protocol itself lives in {@link VerifiedInstall}; this class keeps the hook's reviewed
+ * target and its dependency-member proof.</p>
+ */
 final class VerifiedLineRendererUploadSplitInstaller implements AutoCloseable {
 
     static final String HOOK_ID = "cubism.render.line-renderer-upload-split";
 
-    private final Instrumentation instrumentation;
-    private final Class<?> target;
-    private final LineRendererUploadSplitTransformer transformer;
-    private final LineRendererUploadSplitBridge bridge;
-    private boolean installed;
-    private boolean restored;
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.ANY);
+
+    /** The one split method this hook rewrites; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_MATCHES = 1;
+
+    /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_OWNERS = 1;
+
+    private final InstallContext context;
+    private LineRendererUploadSplitBridge bridge;
+    private VerifiedInstall<LineRendererUploadSplitTarget> hook;
+
+    VerifiedLineRendererUploadSplitInstaller(final InstallContext context) {
+        this.context = context;
+    }
 
     static boolean admitted(final Path artifact, final RuntimeStartupConfig config, final boolean requested)
             throws java.io.IOException {
-        return requested
-                && config != null
-                && config.hookEnabled(HOOK_ID)
+        // The digest read stays after the shared gate so a refused hook never opens the artifact.
+        return VerifiedInstall.admits(
+                        ADMISSION, config, requested, Runtime.version().feature())
                 && LineRendererUploadSplitTarget.of(HostArtifactDigest.from(artifact))
                         .isPresent();
     }
 
-    VerifiedLineRendererUploadSplitInstaller(
-            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        final Path source =
-                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
-        LineRendererUploadSplitTarget.of(HostArtifactDigest.from(source))
-                .orElseThrow(
-                        () -> new IllegalArgumentException("line-renderer upload split unsupported host artifact"));
-        target = Class.forName(LineRendererUploadSplitTarget.OWNER.replace('/', '.'), false, loader);
-        VerifiedHookInstallerSupport.attestClassSource(
-                target, loader, source, "line-renderer upload split loader/source mismatch");
+    private static Optional<LineRendererUploadSplitTarget> resolve(final Path artifact) throws Exception {
+        return LineRendererUploadSplitTarget.of(HostArtifactDigest.from(artifact));
+    }
+
+    private WeaveSpec<LineRendererUploadSplitTarget> spec() {
+        return new WeaveSpec<LineRendererUploadSplitTarget>(
+                ADMISSION,
+                "line-renderer upload split",
+                VerifiedLineRendererUploadSplitInstaller::resolve,
+                new WeavePlan<>(VerifiedLineRendererUploadSplitInstaller::targets, WeavePlan.PostCheck.NONE),
+                (target, launch) -> {
+                    bridge = new LineRendererUploadSplitBridge(launch.hostLoader());
+                    return BridgeLayer.of(bridge::install, bridge);
+                },
+                WeaveEffects.none());
+    }
+
+    private static List<WeaveTarget> targets(final LineRendererUploadSplitTarget contract, final WeaveSource source)
+            throws Exception {
+        final Class<?> target = source.load(LineRendererUploadSplitTarget.OWNER);
         for (final LineRendererUploadSplitTarget.Dep dep : LineRendererUploadSplitTarget.DEPENDENCIES) {
-            final Class<?> owner = Class.forName(dep.owner().replace('/', '.'), false, loader);
-            VerifiedHookInstallerSupport.attestClassSource(
-                    owner, loader, source, "line-renderer upload split dependency loader/source mismatch");
-            verifyMethodPresent(owner, dep.name(), dep.descriptor());
+            verifyMethodPresent(source.load(dep.owner()), dep.name(), dep.descriptor());
         }
-        try (JarFile jar = new JarFile(source.toFile())) {
-            transformer = new LineRendererUploadSplitTransformer(
-                    loader, source, VerifiedHookInstallerSupport.readReferenceBytes(jar, target));
-        }
-        bridge = new LineRendererUploadSplitBridge(loader);
+        final LineRendererUploadSplitTransformer transformer = new LineRendererUploadSplitTransformer(
+                source.loader(), source.artifact(), source.referenceBytes(target));
+        return List.of(WeaveTarget.single(
+                target,
+                transformer,
+                EXPECTED_MATCHES,
+                transformer::matches,
+                transformer::failure,
+                owner -> transformer.beforeSha256()));
     }
 
     private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)
@@ -71,67 +93,32 @@ final class VerifiedLineRendererUploadSplitInstaller implements AutoCloseable {
         throw new NoSuchMethodException(owner.getName() + "." + name + descriptor);
     }
 
+    /**
+     * Installs the weave through {@link VerifiedInstall}.
+     *
+     * @throws IllegalStateException when the artifact is not a reviewed line-renderer host
+     * @throws Exception when registration, retransformation or the match proof fails
+     */
     synchronized void install() throws Exception {
-        if (installed) return;
-        if (!instrumentation.isRetransformClassesSupported() || !instrumentation.isModifiableClass(target)) {
-            throw new IllegalStateException("line-renderer host class cannot be transformed");
+        if (hook != null) return;
+        if (!(VerifiedInstall.install(spec(), context)
+                instanceof VerifiedInstall.Attempt.Installed<LineRendererUploadSplitTarget> installed)) {
+            throw new IllegalStateException("line-renderer upload split refused: host-not-supported-or-hook-disabled");
         }
-        bridge.install();
-        try {
-            instrumentation.addTransformer(transformer, true);
-            installed = true;
-            instrumentation.retransformClasses(target);
-            if (transformer.matches() != 1 || transformer.failure() != null) {
-                throw new IllegalStateException(
-                        "line-renderer upload split was not admitted: " + transformer.failure());
-            }
-        } catch (Exception | Error failure) {
-            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
-            throw failure;
-        }
+        hook = installed.hook();
     }
 
-    synchronized java.util.Map<String, Long> snapshot() {
-        return bridge.snapshot();
+    /** Live work counts for the close marker; empty until this attempt built its bridge. */
+    synchronized Map<String, Long> snapshot() {
+        return bridge == null ? Map.of() : bridge.snapshot();
     }
 
     @Override
     public synchronized void close() {
-        if (!installed) {
-            bridge.close();
-            return;
-        }
-        instrumentation.removeTransformer(transformer);
-        final AtomicReference<String> observed = new AtomicReference<>();
-        final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    final Module module,
-                    final ClassLoader loader,
-                    final String name,
-                    final Class<?> redefined,
-                    final ProtectionDomain domain,
-                    final byte[] bytes) {
-                if (redefined == target) observed.set(VerifiedHookInstallerSupport.sha256HexUnchecked(bytes));
-                return null;
-            }
-        };
-        instrumentation.addTransformer(observer, true);
-        try {
-            instrumentation.retransformClasses(target);
-            restored = transformer.beforeSha256() != null
-                    && transformer.beforeSha256().equals(observed.get());
-            if (!restored) throw new IllegalStateException("line-renderer upload split restoration not proven");
-            installed = false;
-        } catch (java.lang.instrument.UnmodifiableClassException failure) {
-            throw new IllegalStateException("line-renderer upload split restoration failed", failure);
-        } finally {
-            instrumentation.removeTransformer(observer);
-            bridge.close();
-        }
+        if (hook != null) hook.close();
     }
 
     boolean restored() {
-        return restored;
+        return hook != null && hook.restored();
     }
 }

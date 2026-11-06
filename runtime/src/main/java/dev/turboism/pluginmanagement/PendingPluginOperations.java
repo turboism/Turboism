@@ -1,5 +1,8 @@
 package dev.turboism.pluginmanagement;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.StreamReadFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -28,8 +31,15 @@ import java.util.stream.Collectors;
 
 /** Runtime-owned staging journal applied before plugin discovery. */
 public final class PendingPluginOperations {
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
+                    .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                    .build())
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final int MAX_JOURNAL_BYTES = 64 * 1024;
+    private static final java.util.Set<String> JOURNAL_FIELDS =
+            java.util.Set.of("format", "schemaVersion", "revision", "operations");
+    private static final java.util.Set<String> OPERATION_FIELDS = java.util.Set.of(
+            "type", "pluginId", "stagedJar", "version", "rawSha256", "descriptorSha256", "jarSha256", "jarSize");
     private static final String CORE_ID = dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID;
     private final Path home;
     private final Path plugins;
@@ -492,7 +502,7 @@ public final class PendingPluginOperations {
             }
             // Inactive name is intentionally ignored by older runtimes after a framework rollback.
             // Keep the complete original intent and packages; do not retry corrupt bytes every launch.
-            files.move(journal, failedJournal, files.parent(journal), false);
+            files.publish(journal, failedJournal, files.parent(journal), false);
             return new ApplyResult(Status.ROLLED_BACK, "PLUGIN_PENDING_ROLLED_BACK");
         } catch (Exception unsafeRecovery) {
             return new ApplyResult(Status.RECOVERY_REQUIRED, "PLUGIN_PENDING_RECOVERY_REQUIRED");
@@ -555,7 +565,7 @@ public final class PendingPluginOperations {
                     FileChannel.open(temporary, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
                 snapshot.force(true);
             }
-            files.move(temporary, target, pluginParent, true);
+            files.publish(temporary, target, pluginParent, true);
             for (Path path : existing) if (!path.equals(target)) files.delete(path, pluginParent);
         } finally {
             files.delete(temporary, pluginParent);
@@ -610,7 +620,7 @@ public final class PendingPluginOperations {
                 final Path temporary = plugins.resolve(".restore-" + UUID.randomUUID() + ".tmp");
                 try {
                     copySnapshot(path, temporary, pluginParent);
-                    files.move(temporary, target, pluginParent, false);
+                    files.publish(temporary, target, pluginParent, false);
                 } finally {
                     files.delete(temporary, pluginParent);
                 }
@@ -637,12 +647,13 @@ public final class PendingPluginOperations {
             }
             if (bytes.length > MAX_JOURNAL_BYTES) throw new IOException();
             final JsonNode root = JSON.readTree(bytes);
-            if (root == null
-                    || !root.path("format").asText().equals("turboism.plugin.pending")
-                    || root.path("schemaVersion").asInt() != 1
-                    || !root.path("operations").isArray()) throw new IOException();
+            if (!(root instanceof ObjectNode journal)
+                    || !hasOnlyFields(journal, JOURNAL_FIELDS)
+                    || !journal.path("format").asText().equals("turboism.plugin.pending")
+                    || journal.path("schemaVersion").asInt() != 1
+                    || !journal.path("operations").isArray()) throw new IOException();
             final List<Operation> result = new ArrayList<>();
-            for (JsonNode node : root.path("operations")) result.add(Operation.from(node));
+            for (JsonNode node : journal.path("operations")) result.add(Operation.from(node));
             return new JournalSnapshot(file, result, snapshotOf(file, bytes));
         } catch (NoSuchFileException missing) {
             return new JournalSnapshot(file, new ArrayList<>(), snapshotOf(file, new byte[0]));
@@ -652,7 +663,6 @@ public final class PendingPluginOperations {
     }
 
     private void writeOperations(final List<Operation> operations) {
-        Path temporary = null;
         try {
             Files.createDirectories(staging);
             final ConfinedPluginFiles.ParentIdentity parent = files.parent(journal);
@@ -667,17 +677,8 @@ public final class PendingPluginOperations {
                     .forEach(operation -> values.add(operation.json()));
             final byte[] bytes = JSON.writerWithDefaultPrettyPrinter().writeValueAsBytes(root);
             if (bytes.length > MAX_JOURNAL_BYTES) throw new IOException("pending journal too large");
-            temporary = staging.resolve(".pending-" + UUID.randomUUID() + ".tmp");
-            try (var output = files.createNew(temporary, parent)) {
-                final ByteBuffer buffer = ByteBuffer.wrap(bytes);
-                while (buffer.hasRemaining()) output.write(buffer);
-                if (!(output instanceof FileChannel channel))
-                    throw new IOException("durable journal channel unavailable");
-                channel.force(true);
-            }
-            files.move(temporary, journal, parent, true);
+            files.writeBytes(journal, bytes, parent, true);
         } catch (IOException failure) {
-            deleteQuietly(temporary);
             throw new IllegalStateException("PLUGIN_PENDING_WRITE_FAILED", failure);
         }
     }
@@ -697,6 +698,15 @@ public final class PendingPluginOperations {
         final List<Operation> result = new ArrayList<>(input);
         result.removeIf(operation -> operation.pluginId.equals(pluginId));
         return result;
+    }
+
+    /** A transaction journal is authoritative: unknown fields must not be applied by an older reader. */
+    private static boolean hasOnlyFields(final ObjectNode node, final java.util.Set<String> allowed) {
+        final var names = node.fieldNames();
+        while (names.hasNext()) {
+            if (!allowed.contains(names.next())) return false;
+        }
+        return true;
     }
 
     private static void copySnapshot(
@@ -825,6 +835,9 @@ public final class PendingPluginOperations {
         }
 
         static Operation from(final JsonNode node) {
+            if (!(node instanceof ObjectNode operation)
+                    || !hasOnlyFields(operation, OPERATION_FIELDS)
+                    || operation.size() != OPERATION_FIELDS.size()) throw new IllegalArgumentException();
             final String type = node.path("type").asText();
             final String pluginId = node.path("pluginId").asText();
             if (!(type.equals("INSTALL") || type.equals("UNINSTALL")) || pluginId.isBlank())

@@ -14,7 +14,7 @@ tasks.register<Exec>("checkGoldenSnapshotManifest") {
 
 tasks.register<Exec>("checkArchitectureRules") {
     group = "verification"
-    description = "Runs pinned ast-grep rule tests and enforces production AST guardrails."
+    description = "Runs ast-grep rule tests and enforces production AST guardrails."
     workingDir(rootDir)
     inputs.file("scripts/check_ast_grep.py")
     inputs.file("sgconfig.yml")

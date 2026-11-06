@@ -9,7 +9,7 @@ import dev.turboism.runtime.log.RuntimeDiagnostics;
  * transformer must observe the host's mesh classes before they load, so it
  * installs in {@link Phase#PREMAIN} and closes on the process-exit path.
  */
-final class MeshTriangulationHashHookContributor implements HookContributor {
+final class MeshTriangulationHashHookContributor implements ReportedHookContributor {
 
     static final String HOOK_POLICY_ID = "cubism.mesh.triangulation-hash";
 
@@ -41,8 +41,8 @@ final class MeshTriangulationHashHookContributor implements HookContributor {
     @Override
     public boolean admitted(final HookEnvironment environment) {
         final boolean requested = environment
-                .optimizationConfig()
-                .choice(dev.turboism.config.NativeOptimizationConfig.Option.MESH_TRIANGULATION_HASH)
+                .plan()
+                .choice(dev.turboism.config.optimization.OptimizationCatalog.MESH_TRIANGULATION_HASH)
                 .enabled();
         final boolean admitted = environment.startupPolicy() != null
                 && environment.startupPolicy().hookEnabled(HOOK_POLICY_ID)

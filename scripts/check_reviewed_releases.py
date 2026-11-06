@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from turboism_dev.json_io import dump_json, read_json
-from turboism_dev.paths import repo_root
+from turboism_dev.paths import COMPATIBILITY_MATRIX, repo_root
 from turboism_dev.versions import (reviewed_range_versions, cubism_version_key, dotted_to_compact,
     compact_to_dotted as _compact_to_dotted, missing_higher, parse_cubism_version)
 from preview.reviewed_host_artifacts import SOURCE_RELATIVE, load_releases
@@ -80,7 +80,7 @@ r1_COMPATIBILITY_CATALOG = Path(
     "scripts/verification-sources/families/compatibility-catalog.json"
 )
 r1_AVAILABILITY_POLICY = Path(
-    "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorAvailabilityPolicy.java"
+    "compatibility-policy/src/main/java/dev/turboism/compatibility/policy/CubismEditorAvailabilityPolicy.java"
 )
 r1_HOST_VALIDATION_TASKS = HOST_TASKS
 r1_HOST_VALIDATION_PY = Path("scripts/preview/host_validation.py")
@@ -141,7 +141,7 @@ def r1_derived_consumers(root: Path) -> list[str]:
     """Reject a stale consumer that stops using the generated table."""
     expected = {
         r1_AVAILABILITY_POLICY: 'REVIEWED_VERSIONS = ReviewedReleaseTable.versions()',
-        Path('runtime/src/main/java/dev/turboism/mapping/verification/ReviewedCubismReleases.java'): 'ReviewedReleaseTable.find(version)',
+        Path('compatibility-policy/src/main/java/dev/turboism/compatibility/policy/ReviewedCubismReleases.java'): 'ReviewedReleaseTable.find(version)',
         Path('runtime/src/main/java/dev/turboism/mapping/verification/CorePublicApiTrustRoots.java'): 'ReviewedReleaseTable.find(profile)',
         Path('runtime/src/main/java/dev/turboism/adapter/cubism/core/CoreVersionExpectation.java'): 'ReviewedReleaseTable.find(profile)',
         r1_HOST_VALIDATION_PY: 'reviewed_host_artifacts.load()',
@@ -320,6 +320,8 @@ r2_JAVA_ROOTS = (
     "runtime/src/main",
     "bootstrap/src/main",
     "core-contract/src/main",
+    "persistence-core/src/main",
+    "compatibility-policy/src/main",
     "event-processor/src/main",
     "graal-host/src/main",
     "packaging/java-installer/listener-src",
@@ -1123,7 +1125,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "preview"))
 
 
 r4_ROOT = ROOT
-r4_MATRIX_PATH = Path("compatibility/cubism/compatibility-matrix.json")
+# Generated build product: the Gradle generate task must run before this gate.
+r4_MATRIX_PATH = COMPATIBILITY_MATRIX
 r4_MANIFEST_PATH = HOST_TASKS
 
 # Task -> explicit capability dependencies when taskGroupAliases/taskPluginAliases
@@ -1248,7 +1251,10 @@ def r4_derive_all_task_versions(
     try:
         matrix = read_json(matrix_file)
     except Exception as exc:
-        return {}, [f"{r4_MATRIX_PATH}: cannot read compatibility matrix: {exc}"]
+        return {}, [
+            f"{r4_MATRIX_PATH}: cannot read the generated compatibility matrix: {exc}; "
+            "run `python3 scripts/generate_compatibility_matrix.py` first"
+        ]
     try:
         manifest = read_json(manifest_file)
     except Exception as exc:

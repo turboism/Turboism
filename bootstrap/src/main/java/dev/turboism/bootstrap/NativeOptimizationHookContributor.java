@@ -20,7 +20,7 @@ import dev.turboism.runtime.log.RuntimeDiagnostics;
  * {@link MeshMirrorHookContributor} precedent; the close handle itself owns no
  * protocol line because these hooks do not close on the process-exit path.</p>
  */
-abstract class NativeOptimizationHookContributor implements HookContributor {
+abstract class NativeOptimizationHookContributor implements ReportedHookContributor {
 
     private final String protocolId;
     private final String policyId;

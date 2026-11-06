@@ -6,12 +6,12 @@ import dev.turboism.adapter.cubism.optimization.meshsetup.SkippedFrameMeshSetupE
 import dev.turboism.adapter.cubism.optimization.meshsetup.SkippedFrameMeshSetupElisionTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import java.lang.instrument.Instrumentation;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.jar.JarFile;
+import java.util.Optional;
 
 /**
  * Exact admission, dependency verification, weaving and restoration for the
@@ -22,18 +22,31 @@ import java.util.jar.JarFile;
  * dirty flag and the frame's {@code GL3} context; every such dependency body is
  * verified against the official artifact before any rewrite. On close the class
  * must hash back to its pre-rewrite SHA-256.</p>
+ *
+ * <p>The protocol itself lives in {@link VerifiedInstall}; this class keeps the hook's reviewed
+ * target, its setup-shape gate and its dependency-body proof.</p>
  */
 final class VerifiedSkippedFrameMeshSetupElisionInstaller implements AutoCloseable {
 
     /** Operator kill-switch id checked through the startup hook policy. */
     static final String HOOK_ID = "cubism.render.mesh-setup-elision";
 
-    private final Instrumentation instrumentation;
-    private final SkippedFrameMeshSetupElisionTarget target;
-    private final Class<?> entry;
-    private final SkippedFrameMeshSetupElisionTransformer transformer;
-    private final SkippedFrameMeshSetupElisionBridge bridge;
-    private boolean installed, restored;
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+
+    /** The one setup method this hook rewrites; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_MATCHES = 1;
+
+    /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_OWNERS = 1;
+
+    private final InstallContext context;
+    private SkippedFrameMeshSetupElisionBridge bridge;
+    private VerifiedInstall<SkippedFrameMeshSetupElisionTarget> hook;
+
+    VerifiedSkippedFrameMeshSetupElisionInstaller(final InstallContext context) {
+        this.context = context;
+    }
 
     /**
      * Production admission: the operator requested the hook, the JVM can
@@ -45,165 +58,158 @@ final class VerifiedSkippedFrameMeshSetupElisionInstaller implements AutoCloseab
             final RuntimeStartupConfig config,
             final boolean requested,
             final int jvm) {
-        return requested
-                && jvm >= 17
-                && config.hookEnabled(HOOK_ID)
-                && SkippedFrameMeshSetupElisionTarget.of(digest).isPresent();
+        return VerifiedInstall.admits(
+                ADMISSION,
+                config,
+                requested,
+                jvm,
+                () -> SkippedFrameMeshSetupElisionTarget.of(digest).isPresent());
     }
 
-    VerifiedSkippedFrameMeshSetupElisionInstaller(
-            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
-        target = SkippedFrameMeshSetupElisionTarget.of(HostArtifactDigest.from(artifact))
-                .orElseThrow(() -> new IllegalArgumentException("mesh setup elision unsupported host artifact"));
-        if (Runtime.version().feature() < 17) {
-            throw new IllegalArgumentException("mesh setup elision requires JVM17+");
+    private WeaveSpec<SkippedFrameMeshSetupElisionTarget> spec() {
+        return new WeaveSpec<SkippedFrameMeshSetupElisionTarget>(
+                ADMISSION,
+                "mesh setup elision",
+                VerifiedSkippedFrameMeshSetupElisionInstaller::resolve,
+                new WeavePlan<>(
+                        VerifiedSkippedFrameMeshSetupElisionInstaller::targets,
+                        VerifiedSkippedFrameMeshSetupElisionInstaller::guardProven),
+                (target, launch) -> {
+                    bridge = new SkippedFrameMeshSetupElisionBridge(launch.hostLoader());
+                    return BridgeLayer.of(bridge::install, bridge);
+                },
+                WeaveEffects.none());
+    }
+
+    private static Optional<SkippedFrameMeshSetupElisionTarget> resolve(final Path artifact) throws Exception {
+        return SkippedFrameMeshSetupElisionTarget.of(HostArtifactDigest.from(artifact));
+    }
+
+    private static List<WeaveTarget> targets(final SkippedFrameMeshSetupElisionTarget target, final WeaveSource source)
+            throws Exception {
+        final Class<?> entry = source.load(SkippedFrameMeshSetupElisionTarget.OWNER);
+        final byte[] reference = source.referenceBytes(entry);
+        if (!SkippedFrameMeshSetupElisionTarget.hasReviewedSetupShape(ReviewedMethodShape.read(
+                reference,
+                SkippedFrameMeshSetupElisionTarget.OWNER,
+                SkippedFrameMeshSetupElisionTarget.METHOD,
+                SkippedFrameMeshSetupElisionTarget.DESCRIPTOR))) {
+            throw new IllegalStateException("GMesh2.setup shape is not the reviewed version-compatible body");
         }
-        this.instrumentation = instrumentation;
-        if (!instrumentation.isRetransformClassesSupported()) {
-            throw new IllegalStateException("retransform unavailable");
-        }
-        entry = Class.forName(SkippedFrameMeshSetupElisionTarget.OWNER.replace('/', '.'), false, loader);
-        VerifiedHookInstallerSupport.attestClassSource(
-                entry, loader, artifact, "mesh setup elision dependency loader/source mismatch: " + entry.getName());
+        final SkippedFrameMeshSetupElisionTransformer transformer =
+                new SkippedFrameMeshSetupElisionTransformer(source.loader(), source.artifact(), reference);
         final Map<Class<?>, byte[]> observed = new HashMap<>();
-        try (JarFile jar = new JarFile(artifact.toFile())) {
-            final byte[] reference = VerifiedHookInstallerSupport.readReferenceBytes(jar, entry);
-            if (!SkippedFrameMeshSetupElisionTarget.hasReviewedSetupShape(ReviewedMethodShape.read(
-                    reference,
-                    SkippedFrameMeshSetupElisionTarget.OWNER,
-                    SkippedFrameMeshSetupElisionTarget.METHOD,
-                    SkippedFrameMeshSetupElisionTarget.DESCRIPTOR))) {
-                throw new IllegalStateException("GMesh2.setup shape is not the reviewed version-compatible body");
-            }
-            transformer = new SkippedFrameMeshSetupElisionTransformer(loader, artifact, reference);
-            verifyMethod(
-                    jar,
-                    loader,
-                    artifact,
-                    observed,
-                    SkippedFrameMeshSetupElisionTarget.FRAME_OWNER,
-                    SkippedFrameMeshSetupElisionTarget.FRAME_METHOD,
-                    SkippedFrameMeshSetupElisionTarget.FRAME_DESCRIPTOR);
-            verifyMethod(
-                    jar,
-                    loader,
-                    artifact,
-                    observed,
-                    SkippedFrameMeshSetupElisionTarget.BASE_OWNER,
-                    SkippedFrameMeshSetupElisionTarget.DIRTY_METHOD,
-                    SkippedFrameMeshSetupElisionTarget.DIRTY_DESCRIPTOR);
-            verifyMethod(
-                    jar,
-                    loader,
-                    artifact,
-                    observed,
-                    SkippedFrameMeshSetupElisionTarget.BASE_OWNER,
-                    SkippedFrameMeshSetupElisionTarget.NAME_METHOD,
-                    SkippedFrameMeshSetupElisionTarget.NAME_DESCRIPTOR);
-            for (final String getter : SkippedFrameMeshSetupElisionTarget.BUFFER_GETTERS) {
-                final Class<?> returnType = entry.getMethod(getter).getReturnType();
-                final String descriptor =
-                        java.lang.invoke.MethodType.methodType(returnType).descriptorString();
-                verifyMethod(
-                        jar, loader, artifact, observed, SkippedFrameMeshSetupElisionTarget.OWNER, getter, descriptor);
-            }
+        verifyMethod(
+                source,
+                observed,
+                SkippedFrameMeshSetupElisionTarget.FRAME_OWNER,
+                SkippedFrameMeshSetupElisionTarget.FRAME_METHOD,
+                SkippedFrameMeshSetupElisionTarget.FRAME_DESCRIPTOR);
+        verifyMethod(
+                source,
+                observed,
+                SkippedFrameMeshSetupElisionTarget.BASE_OWNER,
+                SkippedFrameMeshSetupElisionTarget.DIRTY_METHOD,
+                SkippedFrameMeshSetupElisionTarget.DIRTY_DESCRIPTOR);
+        verifyMethod(
+                source,
+                observed,
+                SkippedFrameMeshSetupElisionTarget.BASE_OWNER,
+                SkippedFrameMeshSetupElisionTarget.NAME_METHOD,
+                SkippedFrameMeshSetupElisionTarget.NAME_DESCRIPTOR);
+        for (final String getter : SkippedFrameMeshSetupElisionTarget.BUFFER_GETTERS) {
+            final Class<?> returnType = entry.getMethod(getter).getReturnType();
+            final String descriptor =
+                    java.lang.invoke.MethodType.methodType(returnType).descriptorString();
+            verifyMethod(source, observed, SkippedFrameMeshSetupElisionTarget.OWNER, getter, descriptor);
         }
-        bridge = new SkippedFrameMeshSetupElisionBridge(loader);
+        return List.of(WeaveTarget.single(
+                entry,
+                transformer,
+                EXPECTED_MATCHES,
+                transformer::matches,
+                transformer::failure,
+                owner -> transformer.beforeSha256()));
     }
 
-    private void verifyMethod(
-            final JarFile jar,
-            final ClassLoader loader,
-            final Path artifact,
+    private static void verifyMethod(
+            final WeaveSource source,
             final Map<Class<?>, byte[]> observed,
             final String owner,
             final String method,
             final String descriptor)
             throws Exception {
-        final Class<?> type = Class.forName(owner.replace('/', '.'), false, loader);
-        VerifiedHookInstallerSupport.attestClassSource(
-                type, loader, artifact, "mesh setup elision dependency loader/source mismatch: " + type.getName());
+        final Class<?> type = source.load(owner);
         byte[] actual = observed.get(type);
         if (actual == null) {
             actual = VerifiedHookInstallerSupport.captureLoadedBytes(
-                    instrumentation,
+                    source.instrumentation(),
                     type,
                     "mesh setup elision class unmodifiable: " + type.getName(),
                     "mesh setup elision dependency inspection absent: " + type.getName());
             observed.put(type, actual);
         }
-        final List<String> expected = ReviewedMethodShape.read(
-                VerifiedHookInstallerSupport.readReferenceBytes(jar, type), owner, method, descriptor);
+        final List<String> expected = ReviewedMethodShape.read(source.referenceBytes(type), owner, method, descriptor);
         if (expected == null || !expected.equals(ReviewedMethodShape.read(actual, owner, method, descriptor))) {
             throw new IllegalStateException("mesh setup elision dependency body mismatch: " + owner + "." + method);
         }
     }
 
+    /** The rewrite must guard exactly one setup entry, not merely match the method. */
+    private static String guardProven(final List<WeaveTarget> targets) {
+        final int guarded = targets.get(0)
+                .transformer(SkippedFrameMeshSetupElisionTransformer.class)
+                .guarded();
+        return guarded == 1 ? null : "guarded=" + guarded;
+    }
+
+    /**
+     * Installs the weave through {@link VerifiedInstall}.
+     *
+     * @throws IllegalStateException when the artifact is not a reviewed mesh-setup host
+     * @throws Exception when registration, retransformation or the match proof fails
+     */
     synchronized void install() throws Exception {
-        if (installed) return;
-        if (!instrumentation.isModifiableClass(entry)) {
-            throw new IllegalStateException("mesh setup elision entry unmodifiable: " + entry.getName());
+        if (hook != null) return;
+        if (!(VerifiedInstall.install(spec(), context)
+                instanceof VerifiedInstall.Attempt.Installed<SkippedFrameMeshSetupElisionTarget> installed)) {
+            throw new IllegalStateException("mesh setup elision refused: host-not-supported-or-hook-disabled");
         }
-        bridge.install();
-        try {
-            instrumentation.addTransformer(transformer, true);
-            instrumentation.retransformClasses(entry);
-            if (transformer.matches() != 1 || transformer.guarded() != 1 || transformer.failure() != null) {
-                throw new IllegalStateException("mesh setup elision entry not admitted: " + transformer.failure());
-            }
-            installed = true;
-        } catch (Exception | Error failure) {
-            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
-            throw failure;
-        }
+        hook = installed.hook();
     }
 
     /** Rewritten setup entry guards so far (one per admitted class). */
     int sites() {
-        return transformer.guarded();
+        return hook.targets()
+                .get(0)
+                .transformer(SkippedFrameMeshSetupElisionTransformer.class)
+                .guarded();
     }
 
-    /** Live work counts for the close marker. */
+    /** Live work counts for the close marker; empty until this attempt built its bridge. */
     Map<String, Long> snapshot() {
-        return bridge.snapshot();
+        return bridge == null ? Map.of() : bridge.snapshot();
     }
 
     boolean restored() {
-        return restored;
+        return hook != null && hook.restored();
     }
 
     @Override
     public synchronized void close() {
+        if (hook == null) return;
         final Map<String, Long> stats = bridge.snapshot();
-        bridge.close();
-        if (restored) return;
-        Throwable failure = null;
         try {
-            instrumentation.removeTransformer(transformer);
-        } catch (Exception | Error problem) {
-            // @containment-exempt: problem is merged and rethrown below with fatal error prioritized
-            failure = dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, problem);
+            hook.close();
+        } catch (RuntimeException | Error failure) {
+            log(stats, false);
+            throw failure;
         }
-        final String before = transformer.beforeSha256();
-        if (before != null) {
-            try {
-                final String hash =
-                        VerifiedHookInstallerSupport.sha256Hex(VerifiedHookInstallerSupport.captureLoadedBytes(
-                                instrumentation,
-                                entry,
-                                "mesh setup elision class unmodifiable: " + entry.getName(),
-                                "mesh setup elision dependency inspection absent: " + entry.getName()));
-                if (!hash.equals(before)) {
-                    throw new IllegalStateException("mesh setup elision restoration not proven: " + entry.getName());
-                }
-            } catch (Exception | Error problem) {
-                // @containment-exempt: problem is merged and rethrown below with fatal error prioritized
-                failure = dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, problem);
-            }
-        }
-        installed = false;
-        restored = failure == null;
-        dev.turboism.runtime.log.RuntimeDiagnostics.info(
+        log(stats, hook.restored());
+    }
+
+    private static void log(final Map<String, Long> stats, final boolean restored) {
+        RuntimeDiagnostics.info(
                 "bootstrap",
                 "TURBOISM_MESH_SETUP_ELISION closed elided=" + stats.get("elided")
                         + " passed=" + stats.get("passed") + " calls=" + stats.get("calls")
@@ -218,9 +224,5 @@ final class VerifiedSkippedFrameMeshSetupElisionInstaller implements AutoCloseab
                         + " contextChanges=" + stats.get("contextChanges")
                         + " tracked=" + stats.get("tracked")
                         + " restored=" + restored);
-        if (failure != null) {
-            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
-            throw new IllegalStateException("mesh setup elision restoration failed", failure);
-        }
     }
 }

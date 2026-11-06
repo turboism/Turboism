@@ -24,9 +24,7 @@ class ConfinedPluginFilesWindowsTest {
         final ConfinedPluginFiles files = new ConfinedPluginFiles(
                 home, path -> attributes(path, null, FileTime.fromMillis(reads.incrementAndGet())));
         final ConfinedPluginFiles.ParentIdentity parent = files.parent(target);
-        try (var output = files.createNew(target, parent)) {
-            output.write(java.nio.ByteBuffer.wrap(new byte[] {1}));
-        }
+        files.writeBytes(target, new byte[] {1}, parent, false);
 
         parent.verify();
         assertTrue(Files.isRegularFile(target));

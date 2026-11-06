@@ -1,0 +1,13 @@
+{
+  "schemaVersion" : 2,
+  "catalogVersion" : 42,
+  "publishedAt" : "2026-09-30T12:00:00Z",
+  "catalogSha256" : "59a36fd75921b6aa47ec76753997c2660f32b583272397733de22704d6e4f169",
+  "etag" : "W/\"golden-corpus-0.67.4\"",
+  "lastAutomaticAttempt" : "2026-09-30T12:05:00Z",
+  "cachedCatalogBase64" : "eyJub3RlIjoic3ludGhldGljLWdvbGRlbi1jb3JwdXMtY2F0YWxvZy1ub3QtYS1zaWduZWQtZG9jdW1lbnQifQ==",
+  "cachedSignatureBase64" : "eyJub3RlIjoic3ludGhldGljLWdvbGRlbi1jb3JwdXMtZW52ZWxvcGUtbm90LWEtc2lnbmF0dXJlIn0=",
+  "stagedUpdates" : {
+    "dev.turboism.plugin.example" : "0.2.0"
+  }
+}

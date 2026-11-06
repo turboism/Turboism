@@ -35,7 +35,7 @@ final class HookEnvironment {
     private final String classPath;
     private final Path workingDirectory;
     private final RuntimeStartupConfig startupPolicy;
-    private dev.turboism.config.NativeOptimizationConfig optimizationConfig;
+    private final OptimizationPlan plan;
 
     private HookEnvironment(final Builder builder) {
         this.instrumentation = builder.instrumentation;
@@ -51,7 +51,7 @@ final class HookEnvironment {
         this.classPath = builder.classPath;
         this.workingDirectory = builder.workingDirectory;
         this.startupPolicy = builder.startupPolicy;
-        this.optimizationConfig = builder.optimizationConfig;
+        this.plan = builder.plan != null ? builder.plan : launchPlan(this.options);
     }
 
     HookEnvironment forHook(final String hookId) {
@@ -69,19 +69,35 @@ final class HookEnvironment {
                 .classPath(classPath)
                 .workingDirectory(workingDirectory)
                 .startupPolicy(startupPolicy)
-                .optimizationConfig(optimizationConfig())
+                .plan(plan)
                 .build();
     }
 
-    /** One immutable optimization snapshot shared by every hook in this launch phase. */
-    synchronized dev.turboism.config.NativeOptimizationConfig optimizationConfig() {
-        if (optimizationConfig == null) {
-            optimizationConfig = dev.turboism.config.NativeOptimizationConfig.load(
-                    options == null ? null : options.home(),
-                    message -> dev.turboism.runtime.log.RuntimeDiagnostics.warn("config", message));
-            dev.turboism.config.NativeOptimizationDiagnostics.startup(optimizationConfig.settings());
-        }
-        return optimizationConfig;
+    /**
+     * One immutable optimization plan shared by every hook of this launch. Built once, where the
+     * environment that owns the launch is built; a per-hook copy reuses it instead of reading
+     * {@code config.json} again.
+     *
+     * @return the resolved decisions for this launch
+     */
+    OptimizationPlan plan() {
+        return plan;
+    }
+
+    /**
+     * Reads the two configuration snapshots a launch needs - the performance preferences and the
+     * fail-closed startup subset - exactly once, and publishes the preference snapshot as the
+     * diagnostics seed before any performance hook installs.
+     */
+    private static OptimizationPlan launchPlan(final AgentOptions options) {
+        final Path home = options == null ? null : options.home();
+        final OptimizationPlan resolved = OptimizationPlan.resolve(
+                dev.turboism.config.NativeOptimizationConfig.load(
+                        home, message -> dev.turboism.runtime.log.RuntimeDiagnostics.warn("config", message)),
+                home == null ? null : NativeOptimizationPolicy.load(home));
+        dev.turboism.config.NativeOptimizationDiagnostics.startup(
+                resolved.preferences().settings());
+        return resolved;
     }
 
     Instrumentation instrumentation() {
@@ -354,10 +370,10 @@ final class HookEnvironment {
         private String classPath = "";
         private Path workingDirectory = Path.of(".");
         private RuntimeStartupConfig startupPolicy;
-        private dev.turboism.config.NativeOptimizationConfig optimizationConfig;
+        private OptimizationPlan plan;
 
-        Builder optimizationConfig(dev.turboism.config.NativeOptimizationConfig value) {
-            this.optimizationConfig = value;
+        Builder plan(final OptimizationPlan value) {
+            this.plan = value;
             return this;
         }
 

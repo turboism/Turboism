@@ -116,6 +116,20 @@ public interface PluginDescriptor {
         return List.of();
     }
 
+    /**
+     * Whether the plugin declares safe runtime hot reload, install and update capability.
+     *
+     * <p>The declaration is a claim, not a verification: consumers must still check the
+     * archive structure (for example that it contributes no {@code META-INF/turboism/hooks}
+     * entries) before replacing a loaded plugin. Descriptors without the field (schema v2
+     * and legacy descriptors) are not hot-reload safe.</p>
+     *
+     * @return {@code true} when the descriptor declares hot reload capability
+     */
+    default boolean hotReload() {
+        return false;
+    }
+
     /** One public event contract this plugin provides. */
     interface EventExport {
         /** Returns the event's stable identifier within the providing plugin. */

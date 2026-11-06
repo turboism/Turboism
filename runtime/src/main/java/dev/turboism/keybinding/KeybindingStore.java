@@ -1,13 +1,12 @@
 package dev.turboism.keybinding;
 
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.WriteOptions;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -180,15 +179,11 @@ final class KeybindingStore {
         if (parent != null) {
             Files.createDirectories(parent);
         }
-        final Path temp = file.resolveSibling(file.getFileName() + ".tmp");
-        try (OutputStream out = Files.newOutputStream(temp)) {
-            raw.store(out, "Turboism keybindings");
-        }
-        try {
-            Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException fallback) {
-            Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
-        }
+        // Keybindings are advisory: an atomic replace is preferred but a file system that refuses
+        // ATOMIC_MOVE still gets the new map instead of failing the user's save.
+        DurableFile.at(file)
+                .withOptions(WriteOptions.DEFAULT.withAtomicity(WriteOptions.Atomicity.PREFERRED))
+                .replaceStreaming(out -> raw.store(out, "Turboism keybindings"));
     }
 
     private static String requireValue(final String name, final String value) {

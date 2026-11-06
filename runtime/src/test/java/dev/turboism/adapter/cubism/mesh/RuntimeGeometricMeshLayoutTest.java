@@ -264,37 +264,37 @@ class RuntimeGeometricMeshLayoutTest {
     }
 
     @Test
-    void matchesOnlyTheOwningPluginToolIdentifier() {
+    void matchesOnlyTheCapabilityDeclaringPluginsOwnToolIdentifier() {
         final MeshTool ownerTool = tool(RuntimeGeometricMeshLayout.TOOL_ID);
         final MeshTool renamedOwnerTool = tool("some-other-tool");
 
-        assertTrue(RuntimeGeometricMeshLayout.matches(RuntimeGeometricMeshLayout.OWNER_PLUGIN_ID, ownerTool));
+        assertTrue(RuntimeGeometricMeshLayout.matches(true, ownerTool));
         assertFalse(
-                RuntimeGeometricMeshLayout.matches("dev.turboism.plugin.someone-else", ownerTool),
+                RuntimeGeometricMeshLayout.matches(false, ownerTool),
                 "a plugin that reuses the reserved tool id must not receive the runtime brush");
-        assertFalse(RuntimeGeometricMeshLayout.matches(RuntimeGeometricMeshLayout.OWNER_PLUGIN_ID, renamedOwnerTool));
-        assertFalse(RuntimeGeometricMeshLayout.matches(RuntimeGeometricMeshLayout.OWNER_PLUGIN_ID, null));
-        assertFalse(RuntimeGeometricMeshLayout.matches(null, ownerTool));
+        assertFalse(RuntimeGeometricMeshLayout.matches(true, renamedOwnerTool));
+        assertFalse(RuntimeGeometricMeshLayout.matches(true, null));
     }
 
     @Test
-    void requireOwnerFailsClosedForAForeignPluginIdentity() {
+    void requireOwnerFailsClosedWithoutTheDeclaredCapability() {
         final List<String> checked = new ArrayList<>();
         final PermissionChecker permissions = (permissionId, operation) -> checked.add(permissionId);
 
         final IllegalStateException refusal = assertThrows(
-                IllegalStateException.class,
-                () -> RuntimeGeometricMeshLayout.requireOwner("dev.turboism.plugin.someone-else", permissions));
-        assertTrue(refusal.getMessage().contains(RuntimeGeometricMeshLayout.OWNER_PLUGIN_ID), refusal.getMessage());
-        assertEquals(List.of(), checked, "a foreign identity must be refused before any permission check");
+                IllegalStateException.class, () -> RuntimeGeometricMeshLayout.requireOwner(false, permissions));
+        assertTrue(
+                refusal.getMessage().contains(RuntimeMeshToolRegistry.POINT_AND_EDGE_LAYOUT_CAPABILITY),
+                refusal.getMessage());
+        assertEquals(List.of(), checked, "a missing capability must be refused before any permission check");
     }
 
     @Test
-    void requireOwnerChecksReadAndWriteForTheOwningPlugin() {
+    void requireOwnerChecksReadAndWriteForTheCapabilityDeclaringPlugin() {
         final List<String> checked = new ArrayList<>();
         final PermissionChecker permissions = (permissionId, operation) -> checked.add(permissionId);
 
-        RuntimeGeometricMeshLayout.requireOwner(RuntimeGeometricMeshLayout.OWNER_PLUGIN_ID, permissions);
+        RuntimeGeometricMeshLayout.requireOwner(true, permissions);
 
         assertEquals(
                 List.of(PermissionIds.TURBOISM_CUBISM_MODEL_READ, PermissionIds.TURBOISM_CUBISM_MODEL_WRITE), checked);
@@ -310,7 +310,7 @@ class RuntimeGeometricMeshLayoutTest {
 
         assertThrows(
                 dev.turboism.sdk.permission.CubismPermissionException.class,
-                () -> RuntimeGeometricMeshLayout.requireOwner(RuntimeGeometricMeshLayout.OWNER_PLUGIN_ID, readOnly));
+                () -> RuntimeGeometricMeshLayout.requireOwner(true, readOnly));
     }
 
     private static MeshTool tool(final String id) {

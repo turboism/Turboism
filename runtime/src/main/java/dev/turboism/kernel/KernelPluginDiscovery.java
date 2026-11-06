@@ -1,8 +1,8 @@
 package dev.turboism.kernel;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.FrameworkBuildInfo;
+import dev.turboism.core.descriptor.CubismVersionSidecar;
+import dev.turboism.core.descriptor.CubismVersionSidecar.Read;
 import dev.turboism.core.descriptor.DescriptorParseException;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.core.plugin.PluginJarContract;
@@ -29,12 +29,10 @@ import java.util.jar.JarFile;
 final class KernelPluginDiscovery {
 
     private static final String DESCRIPTOR_PATH = "META-INF/turboism/plugin.json";
-    private static final String CUBISM_VERSIONS_PATH = "META-INF/turboism/cubism-versions.json";
     /** Never-shipped schema-v5 embedded contract artifact directory. */
     private static final String CONTRACT_DIRECTORY = "META-INF/turboism/contracts/";
 
     private static final PluginDescriptorParser DESCRIPTOR_PARSER = new PluginDescriptorParser();
-    private static final ObjectMapper SIDECAR_MAPPER = new ObjectMapper();
 
     private static final PluginVersion TURBOISM_API_VERSION =
             FrameworkBuildInfo.current().apiVersion();
@@ -244,25 +242,17 @@ final class KernelPluginDiscovery {
         if (!descriptor.environment().requiresCubism()) {
             return;
         }
-        final JarEntry sidecar = archive.getJarEntry(CUBISM_VERSIONS_PATH);
-        if (sidecar == null || sidecar.isDirectory()) {
+        final Read declaration = CubismVersionSidecar.read(archive, descriptor.id());
+        if (declaration instanceof Read.Absent) {
             logs.accept(new DiscoveryLog(
                     false,
                     "Plugin " + descriptor.id() + " declares no Cubism Editor version support ("
-                            + CUBISM_VERSIONS_PATH + " absent); treated as undeclared — see "
+                            + CubismVersionSidecar.ENTRY + " absent); treated as undeclared — see "
                             + "compatibility/cubism/compatibility-matrix.json for derived support"));
-            return;
-        }
-        try (InputStream source = archive.getInputStream(sidecar)) {
-            final JsonNode document = SIDECAR_MAPPER.readTree(source);
-            final JsonNode versions = document.path("supportedVersions");
-            if (!versions.isArray()) {
-                throw new IOException("supportedVersions is not an array");
-            }
-        } catch (IOException | RuntimeException exception) {
+        } else if (declaration instanceof Read.Malformed) {
             logs.accept(new DiscoveryLog(
                     true,
-                    "Plugin " + descriptor.id() + " ships an unreadable " + CUBISM_VERSIONS_PATH
+                    "Plugin " + descriptor.id() + " ships an unreadable " + CubismVersionSidecar.ENTRY
                             + "; treated as undeclared"));
         }
     }

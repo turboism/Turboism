@@ -2,6 +2,8 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWrite;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -28,28 +30,21 @@ import java.util.function.Supplier;
 /** Exact, generation-bound Editor projection for Parameter collection structure writes. */
 final class EditorParameterStructureAccess {
 
+    private static final String STRUCTURE_OPERATION_ID = "cubism.parameter.structure-edit";
+    private static final String STRUCTURE_BATCH_OPERATION_ID = "cubism.parameter.structure-edit-batch";
+
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
     private final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding;
-
-    EditorParameterStructureAccess(
-            final VerifiedMemberResolver resolver, final EditorParameterCombinedAccess.ModelGuard modelGuard) {
-        this(resolver, modelGuard, null, null);
-    }
-
-    EditorParameterStructureAccess(
-            final VerifiedMemberResolver resolver,
-            final EditorParameterCombinedAccess.ModelGuard modelGuard,
-            final EditorAuthoringTransactionCoordinator authoringCoordinator) {
-        this(resolver, modelGuard, authoringCoordinator, null);
-    }
+    private final EditorAuthoringWriter authoringWriter;
 
     EditorParameterStructureAccess(
             final VerifiedMemberResolver resolver,
             final EditorParameterCombinedAccess.ModelGuard modelGuard,
             final EditorAuthoringTransactionCoordinator authoringCoordinator,
-            final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding) {
+            final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding,
+            final EditorAuthoringWriter authoringWriter) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         if ((authoringCoordinator == null) != (authoringBinding == null)) {
@@ -57,6 +52,7 @@ final class EditorParameterStructureAccess {
         }
         this.authoringCoordinator = authoringCoordinator;
         this.authoringBinding = authoringBinding;
+        this.authoringWriter = Objects.requireNonNull(authoringWriter, "authoringWriter");
     }
 
     ParameterId create(
@@ -108,7 +104,7 @@ final class EditorParameterStructureAccess {
                 groupHandler(parentGroup),
                 hostSource,
                 Integer.valueOf(index));
-        if (authoringCoordinator.hasActiveTransaction()) {
+        if (authoringCoordinator.ambientScopeActive()) {
             writeCreatedParameter(identity, source, model, parentGroup, hostSource, definition.id(), add);
         } else {
             write(identity, source, model, "Turboism: Create Parameter", add);
@@ -189,7 +185,7 @@ final class EditorParameterStructureAccess {
                     hostSource,
                     Integer.valueOf(index)));
         }
-        if (authoringCoordinator.hasActiveTransaction()) {
+        if (authoringCoordinator.ambientScopeActive()) {
             for (int i = 0; i < hostSources.size(); i++) {
                 writeCreatedParameter(
                         identity,
@@ -759,70 +755,36 @@ final class EditorParameterStructureAccess {
         requireHostThread(actionName);
         modelGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = activeDocumentFor(source, app);
-        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
-        if (ambientJoin.isPresent()) {
-            ambientJoin
-                    .orElseThrow()
-                    .admit(
-                            "cubism.parameter.structure-edit",
-                            identity + ":parameter-structure:" + actionName,
-                            actionName,
-                            (edit, transactionLabel) -> {
-                                final Object undo = undoSupplier.get();
-                                HostUndoMutationScope.requireUndoAccepted(
-                                        resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE),
-                                        actionName);
-                                final Object listener = resolver.createFunctionalProxy(
-                                        "cubism.editor-model.undo-listener.class", ignored -> {
-                                            resolver.invoke(
-                                                    "cubism.editor-model.model-source.update-instances", source);
-                                            refresh(app);
-                                            return null;
-                                        });
-                                requireListenerAccepted(
-                                        resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener),
-                                        actionName);
-                            },
-                            () -> {
-                                modelGuard.requireCurrent(identity, model);
-                                activeDocumentFor(source, app);
-                            },
-                            () -> true,
-                            EnumSet.of(
-                                    EditorRefreshRequirement.MODEL_INSTANCES,
-                                    EditorRefreshRequirement.PARAMETER_STRUCTURE,
-                                    EditorRefreshRequirement.CANVAS,
-                                    EditorRefreshRequirement.MARK_DIRTY));
-            return;
-        }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, actionName);
-        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, actionName);
-        boolean completed = false;
-        try {
-            final Object undo = undoSupplier.get();
-            final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
-            if (!(accepted instanceof Boolean value) || !value) {
-                throw new IllegalStateException("Cubism rejected the " + actionName + " Undo entry.");
-            }
-            final Object listener =
-                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
-                        resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-                        refresh(app);
-                        return null;
-                    });
-            requireListenerAccepted(
-                    resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener), actionName);
-            modelGuard.requireCurrent(identity, model);
-            activeDocumentFor(source, app);
-            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-            refresh(app);
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-            completed = true;
-        } finally {
-            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
-        }
+        activeDocumentFor(source, app);
+        authoringWriter.apply(EditorAuthoringWrite.of(STRUCTURE_OPERATION_ID, actionName)
+                .subject(identity + ":parameter-structure:" + actionName)
+                .refusalLabel(actionName)
+                // The native add/remove/copy returns the Undo object that already performed the
+                // write, so the mutation only re-checks the binding it was admitted against.
+                .admit((edit, transactionLabel) -> {
+                    final Object undo = undoSupplier.get();
+                    EditorAuthoringWrite.requireUndoAccepted(
+                            resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE), actionName);
+                    final Object listener =
+                            resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                                resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                                refresh(app);
+                                return null;
+                            });
+                    requireListenerAccepted(
+                            resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener), actionName);
+                })
+                .mutate(() -> {
+                    modelGuard.requireCurrent(identity, model);
+                    activeDocumentFor(source, app);
+                })
+                .admissionVerified()
+                .refresh(EnumSet.of(
+                        EditorRefreshRequirement.MODEL_INSTANCES,
+                        EditorRefreshRequirement.PARAMETER_STRUCTURE,
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY))
+                .build());
     }
 
     private void writeBatch(
@@ -834,80 +796,40 @@ final class EditorParameterStructureAccess {
         requireHostThread(actionName);
         modelGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = activeDocumentFor(source, app);
-        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
-        if (ambientJoin.isPresent()) {
-            ambientJoin
-                    .orElseThrow()
-                    .admit(
-                            "cubism.parameter.structure-edit-batch",
-                            identity + ":parameter-structure-batch:" + actionName,
-                            actionName,
-                            (edit, transactionLabel) -> {
-                                final Object listener = resolver.createFunctionalProxy(
-                                        "cubism.editor-model.undo-listener.class", ignored -> {
-                                            resolver.invoke(
-                                                    "cubism.editor-model.model-source.update-instances", source);
-                                            refresh(app);
-                                            return null;
-                                        });
-                                requireListenerAccepted(
-                                        resolver.invoke("cubism.editor-model.undo.add-listener", edit, listener),
-                                        actionName);
-                                for (Supplier<Object> undoSupplier : undoSuppliers) {
-                                    modelGuard.requireCurrent(identity, model);
-                                    activeDocumentFor(source, app);
-                                    final Object undo = undoSupplier.get();
-                                    HostUndoMutationScope.requireUndoAccepted(
-                                            resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE),
-                                            actionName);
-                                }
-                            },
-                            () -> {
-                                modelGuard.requireCurrent(identity, model);
-                                activeDocumentFor(source, app);
-                            },
-                            () -> true,
-                            EnumSet.of(
-                                    EditorRefreshRequirement.MODEL_INSTANCES,
-                                    EditorRefreshRequirement.PARAMETER_STRUCTURE,
-                                    EditorRefreshRequirement.CANVAS,
-                                    EditorRefreshRequirement.MARK_DIRTY));
-            return;
-        }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, actionName);
-        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-        // One edit-mode envelope around the whole batch: every child operation lands
-        // in a single Undo entry, never one entry per parameter.
-        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, actionName);
-        boolean completed = false;
-        try {
-            final Object listener =
-                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
-                        resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-                        refresh(app);
-                        return null;
-                    });
-            requireListenerAccepted(
-                    resolver.invoke("cubism.editor-model.undo.add-listener", edit, listener), actionName);
-            for (Supplier<Object> undoSupplier : undoSuppliers) {
-                modelGuard.requireCurrent(identity, model);
-                activeDocumentFor(source, app);
-                final Object undo = undoSupplier.get();
-                final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
-                if (!(accepted instanceof Boolean value) || !value) {
-                    throw new IllegalStateException("Cubism rejected the " + actionName + " Undo entry.");
-                }
-            }
-            modelGuard.requireCurrent(identity, model);
-            activeDocumentFor(source, app);
-            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-            refresh(app);
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-            completed = true;
-        } finally {
-            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
-        }
+        activeDocumentFor(source, app);
+        authoringWriter.apply(EditorAuthoringWrite.of(STRUCTURE_BATCH_OPERATION_ID, actionName)
+                .subject(identity + ":parameter-structure-batch:" + actionName)
+                .refusalLabel(actionName)
+                // One root edit around the whole batch: every child operation lands in a single
+                // Undo entry, never one entry per parameter.
+                .admit((edit, transactionLabel) -> {
+                    final Object listener =
+                            resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                                resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                                refresh(app);
+                                return null;
+                            });
+                    requireListenerAccepted(
+                            resolver.invoke("cubism.editor-model.undo.add-listener", edit, listener), actionName);
+                    for (Supplier<Object> undoSupplier : undoSuppliers) {
+                        modelGuard.requireCurrent(identity, model);
+                        activeDocumentFor(source, app);
+                        final Object undo = undoSupplier.get();
+                        EditorAuthoringWrite.requireUndoAccepted(
+                                resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE), actionName);
+                    }
+                })
+                .mutate(() -> {
+                    modelGuard.requireCurrent(identity, model);
+                    activeDocumentFor(source, app);
+                })
+                .admissionVerified()
+                .refresh(EnumSet.of(
+                        EditorRefreshRequirement.MODEL_INSTANCES,
+                        EditorRefreshRequirement.PARAMETER_STRUCTURE,
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY))
+                .build());
     }
 
     private Object activeDocumentFor(final Object source, final Object app) {

@@ -45,6 +45,7 @@ Turboism API: `[0.67.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
 | Capability | Effect |
 |---|---|
 | `cubism.mesh.custom-tools` | 在原生网格编辑工具栏中注册自定义工具。 |
+| `cubism.mesh.point-and-edge-layout` | 为本插件注册的工具启用运行时的点线布局笔刷。 |
 
 ## 权限
 

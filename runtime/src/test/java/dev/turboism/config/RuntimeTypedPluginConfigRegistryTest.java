@@ -10,6 +10,7 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.failure.RuntimeFailureCollector;
+import dev.turboism.persistence.config.StoredDocument;
 import dev.turboism.sdk.config.ConfigCodecs;
 import dev.turboism.sdk.config.ConfigDocument;
 import dev.turboism.sdk.config.ConfigErrorCode;
@@ -202,7 +203,7 @@ class RuntimeTypedPluginConfigRegistryTest {
     void migrationFutureVersionAndMalformedPersistenceFailClosed() throws Exception {
         final ConfigKey<Boolean> enabled = new ConfigKey<>("migrated", "enabled", false, ConfigCodecs.booleanValue());
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(temporary.resolve("typed-config"));
-        store.writeAtomic("migrated.cfg", new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("enabled", "true")));
+        store.writeAtomic("migrated.cfg", new StoredDocument(1, 7, Map.of("enabled", "true")));
         final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
         final ConfigMigration migration = new ConfigMigration() {
             @Override
@@ -230,8 +231,7 @@ class RuntimeTypedPluginConfigRegistryTest {
         assertEquals(ConfigValueSource.STORED, migrated.value().source());
         assertEquals(8, migrated.value().revision());
 
-        store.writeAtomic(
-                "migrated.cfg", new TypedConfigDocumentStore.StoredDocument(3, 8, Map.of("enabled", "false")));
+        store.writeAtomic("migrated.cfg", new StoredDocument(3, 8, Map.of("enabled", "false")));
         final ConfigReadResult<Boolean> future =
                 registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertEquals(ConfigValueSource.DEFAULT_FUTURE_VERSION, future.value().source());
@@ -240,7 +240,7 @@ class RuntimeTypedPluginConfigRegistryTest {
                 future.error().orElseThrow().code());
 
         final ConfigKey<Boolean> broken = new ConfigKey<>("broken", "enabled", true, ConfigCodecs.booleanValue());
-        store.writeAtomic("broken.cfg", new TypedConfigDocumentStore.StoredDocument(1, 2, Map.of("enabled", "true")));
+        store.writeAtomic("broken.cfg", new StoredDocument(1, 2, Map.of("enabled", "true")));
         registry.registerSchema(
                         new ConfigSchema("broken", "broken.cfg", 2, List.of(broken)), List.of(new ConfigMigration() {
                             @Override
@@ -293,8 +293,7 @@ class RuntimeTypedPluginConfigRegistryTest {
     void readTimeMigrationRetainsThePreMigrationBytesBeforeReplacingThem() throws Exception {
         final Path configRoot = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(configRoot);
-        store.writeAtomic(
-                "recovered.cfg", new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("enabled", "true")));
+        store.writeAtomic("recovered.cfg", new StoredDocument(1, 7, Map.of("enabled", "true")));
         final byte[] original = Files.readAllBytes(configRoot.resolve("recovered.cfg"));
         final ConfigKey<Boolean> enabled = new ConfigKey<>("recovered", "enabled", false, ConfigCodecs.booleanValue());
         final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
@@ -323,7 +322,7 @@ class RuntimeTypedPluginConfigRegistryTest {
     void writeThroughAnOlderSchemaRetainsThePreMigrationBytesBeforeReplacingThem() throws Exception {
         final Path configRoot = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(configRoot);
-        store.writeAtomic("upgraded.cfg", new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("enabled", "true")));
+        store.writeAtomic("upgraded.cfg", new StoredDocument(1, 7, Map.of("enabled", "true")));
         final byte[] original = Files.readAllBytes(configRoot.resolve("upgraded.cfg"));
         final ConfigKey<Boolean> enabled = new ConfigKey<>("upgraded", "enabled", true, ConfigCodecs.booleanValue());
         final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
@@ -351,7 +350,7 @@ class RuntimeTypedPluginConfigRegistryTest {
     void unusableRecoveryAreaFailsTheMigrationWithoutRewritingTheDocument() throws Exception {
         final Path configRoot = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(configRoot);
-        store.writeAtomic("blocked.cfg", new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("enabled", "true")));
+        store.writeAtomic("blocked.cfg", new StoredDocument(1, 7, Map.of("enabled", "true")));
         final byte[] original = Files.readAllBytes(configRoot.resolve("blocked.cfg"));
         // Portable IO fault: the recovery root exists but can never become a directory.
         Files.write(configRoot.resolve(".recovery-points"), new byte[] {0x00});
@@ -454,8 +453,7 @@ class RuntimeTypedPluginConfigRegistryTest {
 
         final Path document = temporary.resolve("typed-config/widget/settings.cfg");
         assertTrue(Files.isRegularFile(document));
-        final TypedConfigDocumentStore.StoredDocument stored = new TypedConfigDocumentStore(
-                        temporary.resolve("typed-config"))
+        final StoredDocument stored = new TypedConfigDocumentStore(temporary.resolve("typed-config"))
                 .read("widget/settings.cfg")
                 .orElseThrow();
         assertEquals(1, stored.schemaVersion());
@@ -487,8 +485,7 @@ class RuntimeTypedPluginConfigRegistryTest {
     void registrationLeavesExistingValidDocumentByteStable() throws Exception {
         final Path root = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
-        store.writeAtomic(
-                "existing.cfg", new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("enabled", "false")));
+        store.writeAtomic("existing.cfg", new StoredDocument(1, 7, Map.of("enabled", "false")));
         final byte[] before = Files.readAllBytes(root.resolve("existing.cfg"));
         final ConfigKey<Boolean> enabled = new ConfigKey<>("existing", "enabled", true, ConfigCodecs.booleanValue());
         final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
@@ -677,8 +674,7 @@ class RuntimeTypedPluginConfigRegistryTest {
     @Test
     void choiceBindingFallsBackToDeclaredDefaultWithoutOverwritingLegacyValue() throws Exception {
         final TypedConfigDocumentStore documents = new TypedConfigDocumentStore(temporary.resolve("typed-config"));
-        documents.writeAtomic(
-                "choice.cfg", new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("mode", "legacy")));
+        documents.writeAtomic("choice.cfg", new StoredDocument(1, 7, Map.of("mode", "legacy")));
         final SettingsContributionStore settingsStore = new SettingsContributionStore();
         final RuntimeTypedPluginConfigRegistry registry =
                 registry(allPermissions(), new RuntimeFailureCollector(), settingsStore, "Typed Config Test");

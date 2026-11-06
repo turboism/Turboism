@@ -82,25 +82,44 @@ public final class UpdatePreferencesStore {
         try {
             final ObjectNode root = UpdateFileSupport.readObject(home, path);
             if (root == null) return StoredPreferences.DEFAULT;
-            final JsonNode schema = root.get("schemaVersion");
-            final JsonNode enabled = root.get("automaticChecksEnabled");
-            final JsonNode pluginUpdates = root.get("automaticPluginUpdatesEnabled");
-            if (schema == null
-                    || !schema.isIntegralNumber()
-                    || !schema.canConvertToInt()
-                    || schema.intValue() != SCHEMA_VERSION
-                    || enabled == null
-                    || !enabled.isBoolean()
-                    || (pluginUpdates != null && !pluginUpdates.isBoolean())) {
-                throw new IOException("preference schema invalid");
-            }
-            final boolean pluginUpdatesEnabled = pluginUpdates == null || pluginUpdates.booleanValue();
-            return new StoredPreferences(enabled.booleanValue(), pluginUpdatesEnabled);
+            return parse(root);
         } catch (RuntimeException | IOException failure) {
             if (reportCorruption) {
                 UpdateFileSupport.report(diagnostic, "UPDATE_PREFERENCES_CORRUPT");
             }
             return StoredPreferences.DEFAULT;
+        }
+    }
+
+    /** Decodes one document; throws unless it is the current schema this build understands. */
+    private static StoredPreferences parse(final ObjectNode root) throws IOException {
+        final JsonNode schema = root.get("schemaVersion");
+        final JsonNode enabled = root.get("automaticChecksEnabled");
+        final JsonNode pluginUpdates = root.get("automaticPluginUpdatesEnabled");
+        if (schema == null
+                || !schema.isIntegralNumber()
+                || !schema.canConvertToInt()
+                || schema.intValue() != SCHEMA_VERSION
+                || enabled == null
+                || !enabled.isBoolean()
+                || (pluginUpdates != null && !pluginUpdates.isBoolean())) {
+            throw new IOException("preference schema invalid");
+        }
+        final boolean pluginUpdatesEnabled = pluginUpdates == null || pluginUpdates.booleanValue();
+        return new StoredPreferences(enabled.booleanValue(), pluginUpdatesEnabled);
+    }
+
+    /**
+     * Keeps one image of a preference document this build can no longer read before the new
+     * preference replaces it: a future build's file must not be silently returned to defaults.
+     */
+    private void preserveUnreadableState() {
+        try {
+            final ObjectNode root = UpdateFileSupport.readObject(home, path);
+            if (root == null) return;
+            parse(root);
+        } catch (IOException | RuntimeException unreadable) {
+            UpdateFileSupport.preserveUnreadable(home, path);
         }
     }
 
@@ -110,6 +129,7 @@ public final class UpdatePreferencesStore {
         root.put("automaticChecksEnabled", preferences.automaticChecksEnabled());
         root.put("automaticPluginUpdatesEnabled", preferences.automaticPluginUpdatesEnabled());
         try {
+            preserveUnreadableState();
             UpdateFileSupport.writeAtomic(home, path, root);
             return CoreUpdateService.PreferenceSaveResult.success();
         } catch (RuntimeException | IOException failure) {

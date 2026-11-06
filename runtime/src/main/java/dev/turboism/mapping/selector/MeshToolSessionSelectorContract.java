@@ -1,5 +1,6 @@
 package dev.turboism.mapping.selector;
 
+import dev.turboism.compatibility.policy.SelectorAdmissionPolicy;
 import dev.turboism.internal.ReviewedVersions;
 import java.util.Set;
 
@@ -149,11 +150,7 @@ public final class MeshToolSessionSelectorContract {
     /** Returns true only for a supported exact version and a complete admitted record. */
     public static boolean isAdmitted(
             final String version, final Set<String> capabilities, final Set<String> availableAliases) {
-        return version != null
-                && capabilities != null
-                && availableAliases != null
-                && SUPPORTED_VERSIONS.contains(version)
-                && capabilities.contains(CAPABILITY_ID)
-                && availableAliases.containsAll(REQUIRED_ALIASES);
+        return SelectorAdmissionPolicy.admits(
+                SUPPORTED_VERSIONS, CAPABILITY_ID, REQUIRED_ALIASES, version, capabilities, availableAliases);
     }
 }

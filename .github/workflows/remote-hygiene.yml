@@ -2,8 +2,15 @@
 #
 # Primary line of defense: local pre-commit/pre-push hooks installed via
 # `python3 scripts/check_remote_hygiene.py --install-hooks`. This workflow is
-# the secondary, server-side net: every push and pull_request gets the full
-# reachable history scanned by the same stdlib checker.
+# the secondary, server-side net: every push and pull_request scans reachable
+# history with the same stdlib checker.
+#
+# The scan stays a reachable-history scan, not a diff scan. The cached boundary
+# is only a speed-up over commits already verified under an identical rules
+# fingerprint (SHA-256 of the checker); a missing, corrupt or rule-changed
+# boundary falls back to the full scan and rewrites it. The cache key rotates
+# per commit/run because a cache key is immutable: keying it on the rules hash
+# alone would pin the boundary to the first commit that ever ran.
 #
 # No secrets and no third-party actions: every action below is an immutable
 # first-party SHA already pinned elsewhere in this repo.
@@ -31,5 +38,13 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Restore the verified history boundary
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ${{ runner.temp }}/remote-hygiene-boundary.json
+          key: remote-hygiene-boundary-v1-${{ hashFiles('scripts/check_remote_hygiene.py') }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            remote-hygiene-boundary-v1-${{ hashFiles('scripts/check_remote_hygiene.py') }}-${{ github.sha }}-
+            remote-hygiene-boundary-v1-${{ hashFiles('scripts/check_remote_hygiene.py') }}-
       - name: Scan all reachable history
-        run: python3 scripts/check_remote_hygiene.py --all
+        run: python3 scripts/check_remote_hygiene.py --all --boundary-file "$RUNNER_TEMP/remote-hygiene-boundary.json"

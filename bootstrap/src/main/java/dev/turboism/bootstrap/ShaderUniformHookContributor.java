@@ -7,7 +7,7 @@ import dev.turboism.runtime.log.RuntimeDiagnostics;
  * transformer must observe the host's shader classes before they load, so it
  * installs in {@link Phase#PREMAIN} and closes on the process-exit path.
  */
-final class ShaderUniformHookContributor implements HookContributor {
+final class ShaderUniformHookContributor implements ReportedHookContributor {
 
     static final String HOOK_POLICY_ID = "cubism.shader.uniform";
 

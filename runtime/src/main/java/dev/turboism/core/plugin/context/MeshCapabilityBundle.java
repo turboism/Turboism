@@ -1,25 +1,16 @@
 package dev.turboism.core.plugin.context;
 
-import dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditParticipation;
-import dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditService;
-import dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditUiService;
-import dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorAxisService;
-import dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorCounterparts;
-import dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorMoveParticipation;
-import dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorToolEligibility;
 import dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
-import dev.turboism.adapter.cubism.warpalt.AuthorizedArtMeshMirrorService;
-import dev.turboism.adapter.cubism.warpalt.AuthorizedViewContextMenuRegistry;
-import dev.turboism.adapter.cubism.warpalt.AuthorizedWarpAltMirrorParticipation;
 import dev.turboism.adapter.cubism.warpalt.NativeArtMeshSymmetryBridge;
 import dev.turboism.adapter.cubism.warpalt.NativeWarpAltMirrorBridge;
 import dev.turboism.adapter.cubism.warpalt.RuntimeViewContextMenuRegistry;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.permissions.ServiceGateInstaller;
 import dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService;
 import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
 import dev.turboism.sdk.cubism.mesh.MeshEditService;
@@ -29,6 +20,7 @@ import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
 import dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginService;
 import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
 import java.util.Objects;
@@ -73,29 +65,42 @@ record MeshCapabilityBundle(
                 dependencies.permissions(),
                 dependencies.cubismAuditSink(),
                 dependencies.clock()));
+        final DisposableScope scope = dependencies.disposableScope();
         final MeshMirrorAxisService meshMirrorAxisService =
-                new AuthorizedMeshMirrorAxisService(sharedMeshMirrorAxis, meshPermissionChecker);
-        final MeshEditUiService meshEditUiService = new AuthorizedMeshEditUiService(
-                sharedMeshEditUi, meshPermissionChecker, dependencies.disposableScope());
+                gate(MeshMirrorAxisService.class, sharedMeshMirrorAxis, meshPermissionChecker, scope);
+        final MeshEditUiService meshEditUiService =
+                gate(MeshEditUiService.class, sharedMeshEditUi, meshPermissionChecker, scope);
         final MeshEditService meshEditService =
-                new AuthorizedMeshEditService(new RuntimeMeshEditService(), meshPermissionChecker);
-        final MeshEditParticipation meshEditParticipationService = new AuthorizedMeshEditParticipation(
-                NativeMeshMirrorBridge.participation(), meshPermissionChecker, dependencies.disposableScope());
-        final MeshMirrorCounterparts meshMirrorCounterpartsService = new AuthorizedMeshMirrorCounterparts(
-                NativeMeshMirrorBridge.counterparts(), meshPermissionChecker, dependencies.disposableScope());
-        final MeshMirrorToolEligibility meshMirrorToolEligibilityService = new AuthorizedMeshMirrorToolEligibility(
-                NativeMeshMirrorBridge.toolEligibility(), meshPermissionChecker, dependencies.disposableScope());
-        final MeshMirrorMoveParticipation meshMirrorMoveParticipationService =
-                new AuthorizedMeshMirrorMoveParticipation(
-                        NativeMeshMirrorBridge.moveParticipation(),
-                        meshPermissionChecker,
-                        dependencies.disposableScope());
-        final ArtMeshMirrorService artMeshMirrorService = new AuthorizedArtMeshMirrorService(
-                NativeArtMeshSymmetryBridge.service(), meshPermissionChecker, dependencies.disposableScope());
-        final WarpAltMirrorParticipation warpAltMirrorParticipationService = new AuthorizedWarpAltMirrorParticipation(
-                NativeWarpAltMirrorBridge.moveParticipation(), meshPermissionChecker, dependencies.disposableScope());
-        final ViewContextMenuRegistry viewContextMenuRegistry = new AuthorizedViewContextMenuRegistry(
-                RuntimeViewContextMenuRegistry.getInstance(), meshPermissionChecker);
+                gate(MeshEditService.class, new RuntimeMeshEditService(), meshPermissionChecker, scope);
+        final MeshEditParticipation meshEditParticipationService =
+                gate(MeshEditParticipation.class, NativeMeshMirrorBridge.participation(), meshPermissionChecker, scope);
+        final MeshMirrorCounterparts meshMirrorCounterpartsService = gate(
+                MeshMirrorCounterparts.class,
+                NativeMeshMirrorBridge.pluginCounterparts(),
+                meshPermissionChecker,
+                scope);
+        final MeshMirrorToolEligibility meshMirrorToolEligibilityService = gate(
+                MeshMirrorToolEligibility.class,
+                NativeMeshMirrorBridge.toolEligibility(),
+                meshPermissionChecker,
+                scope);
+        final MeshMirrorMoveParticipation meshMirrorMoveParticipationService = gate(
+                MeshMirrorMoveParticipation.class,
+                NativeMeshMirrorBridge.moveParticipation(),
+                meshPermissionChecker,
+                scope);
+        final ArtMeshMirrorService artMeshMirrorService =
+                gate(ArtMeshMirrorService.class, NativeArtMeshSymmetryBridge.service(), meshPermissionChecker, scope);
+        final WarpAltMirrorParticipation warpAltMirrorParticipationService = gate(
+                WarpAltMirrorParticipation.class,
+                NativeWarpAltMirrorBridge.moveParticipation(),
+                meshPermissionChecker,
+                scope);
+        final ViewContextMenuRegistry viewContextMenuRegistry = gate(
+                ViewContextMenuRegistry.class,
+                RuntimeViewContextMenuRegistry.getInstance(),
+                meshPermissionChecker,
+                scope);
         return new MeshCapabilityBundle(
                 meshMirrorAxisService,
                 meshEditUiService,
@@ -107,6 +112,16 @@ record MeshCapabilityBundle(
                 artMeshMirrorService,
                 warpAltMirrorParticipationService,
                 viewContextMenuRegistry);
+    }
+
+    /**
+     * Wraps one mesh or warp service in its gate table. The scope is only used to adopt returned
+     * registrations: these services are admitted by the catalogue that hands them out, so no
+     * per-call liveness fence is layered on top of the plugin generation guard.
+     */
+    private static <T> T gate(
+            final Class<T> api, final T delegate, final PermissionChecker checker, final DisposableScope scope) {
+        return ServiceGateInstaller.install(api, delegate, checker, scope, null, ServiceGateInstaller.rowsFor(api));
     }
 
     @Override

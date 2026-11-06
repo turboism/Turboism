@@ -4,9 +4,9 @@ import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridg
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadTracker.ClearKind;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadTracker.Compare;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadTracker.Kind;
+import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.nio.Buffer;
@@ -28,10 +28,9 @@ import java.util.function.Supplier;
  * Turboism class is referenced by the rewritten wrappers. The predicate slot
  * receives {@code (wrapper, gl)}; the wrapper's name-holder, payload buffer and
  * the reviewed {@code shader/A.a(Buffer)J} size are resolved once through
- * {@link MethodHandles#privateLookupIn} (the host JAR lives in the unnamed
- * module, so it is open to this lookup). Signature extraction failures are
- * counted and fall back to the native upload — see
- * {@link SkippedFrameUploadTracker} for the elision rules.</p>
+ * {@link HostHandles} (the host JAR lives in the unnamed module, so it is open to that
+ * lookup). Signature extraction failures are counted and fall back to the native upload —
+ * see {@link SkippedFrameUploadTracker} for the elision rules.</p>
  */
 public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
 
@@ -63,6 +62,9 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
     public static final String ENABLE_PROPERTY = "turboism.optimization.uploadElision";
     /** Retained-payload ceiling in bytes for content mode. */
     public static final String SNAPSHOT_BUDGET_PROPERTY = "turboism.optimization.uploadElision.snapshotBudget";
+
+    /** {@code getContext()} and {@code static getCurrent()} both answer {@code GLContext}. */
+    private static final String GL_CONTEXT_DESCRIPTOR = "()Lcom/jogamp/opengl/GLContext;";
 
     private static final int MAX_WRAPPER_KINDS = 8;
 
@@ -114,28 +116,27 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
 
     public SkippedFrameUploadElisionBridge(final ClassLoader loader, final boolean production, final String sizeOwner)
             throws ReflectiveOperationException {
-        final Class<?> base =
-                Class.forName(SkippedFrameUploadElisionTarget.BASE_OWNER.replace('/', '.'), false, loader);
-        nameHandle = MethodHandles.privateLookupIn(base, MethodHandles.lookup())
-                .findVirtual(base, "i", MethodType.methodType(IntBuffer.class));
-        final Class<?> helper = Class.forName(sizeOwner.replace('/', '.'), false, loader);
+        final Class<?> base = HostHandles.load(loader, SkippedFrameUploadElisionTarget.BASE_OWNER);
+        nameHandle = HostHandles.virtual(
+                base, "i", "()Ljava/nio/IntBuffer;", MethodType.methodType(IntBuffer.class, Object.class));
+        final Class<?> helper = HostHandles.load(loader, sizeOwner);
         final Object singleton = helper.getField("a").get(null);
-        sizeHandle = MethodHandles.publicLookup()
-                .unreflect(helper.getMethod("a", Buffer.class))
-                .bindTo(singleton);
-        final Class<?> gl = Class.forName("com.jogamp.opengl.GL", false, loader);
-        final Class<?> context = Class.forName("com.jogamp.opengl.GLContext", false, loader);
-        final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
-        glContext = lookup.findVirtual(gl, "getContext", MethodType.methodType(context))
-                .asType(MethodType.methodType(Object.class, Object.class));
-        currentContext = lookup.findStatic(context, "getCurrent", MethodType.methodType(context))
-                .asType(MethodType.methodType(Object.class));
-        contextCreated = lookup.findVirtual(context, "isCreated", MethodType.methodType(boolean.class))
-                .asType(MethodType.methodType(boolean.class, Object.class));
-        contextShared = lookup.findVirtual(context, "isShared", MethodType.methodType(boolean.class))
-                .asType(MethodType.methodType(boolean.class, Object.class));
-        contextHandle = lookup.findVirtual(context, "getHandle", MethodType.methodType(long.class))
-                .asType(MethodType.methodType(long.class, Object.class));
+        // The reviewed size entry is pinned by its Buffer parameter; the helper declares it with a
+        // primitive return, so it is discovered by name and parameter type, opened on the discovered
+        // descriptor and bound to the shader singleton.
+        sizeHandle = HostHandles.unreflect(helper.getMethod("a", Buffer.class)).bindTo(singleton);
+        final Class<?> gl = HostHandles.load(loader, "com/jogamp/opengl/GL");
+        final Class<?> context = HostHandles.load(loader, "com/jogamp/opengl/GLContext");
+        glContext = HostHandles.virtual(
+                gl, "getContext", GL_CONTEXT_DESCRIPTOR, MethodType.methodType(Object.class, Object.class));
+        currentContext = HostHandles.staticCall(
+                context, "getCurrent", GL_CONTEXT_DESCRIPTOR, MethodType.methodType(Object.class));
+        contextCreated =
+                HostHandles.virtual(context, "isCreated", "()Z", MethodType.methodType(boolean.class, Object.class));
+        contextShared =
+                HostHandles.virtual(context, "isShared", "()Z", MethodType.methodType(boolean.class, Object.class));
+        contextHandle =
+                HostHandles.virtual(context, "getHandle", "()J", MethodType.methodType(long.class, Object.class));
         tracker = new SkippedFrameUploadTracker(
                 production || "content".equals(System.getProperty(COMPARE_PROPERTY, "identity"))
                         ? Compare.CONTENT
@@ -344,7 +345,7 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
             try {
                 final Method method = type.getMethod("b");
                 if (!Buffer.class.isAssignableFrom(method.getReturnType())) return null;
-                return MethodHandles.publicLookup().unreflect(method);
+                return HostHandles.unreflect(method);
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
                 return null;

@@ -19,14 +19,14 @@ final class UniformLocationCacheHookContributor extends NativeOptimizationHookCo
         final var host = environment.host().orElseThrow();
         if (!VerifiedUniformLocationInstaller.admitted(
                 host.artifact(),
-                NativeOptimizationPolicy.load(environment.options().home()),
+                environment.plan().policy(),
                 true,
                 Runtime.version().feature())) {
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("host-not-supported-or-hook-disabled");
         }
-        final VerifiedUniformLocationInstaller installer = new VerifiedUniformLocationInstaller(
-                environment.instrumentation(), host.artifact(), host.classLoader());
+        final VerifiedUniformLocationInstaller installer =
+                new VerifiedUniformLocationInstaller(InstallContext.of(environment));
         installer.install();
         // The shader-uniform hook owns the same query seam and runs first (premain,
         // retransformation-incapable). COMPOSED_SHADER_UNIFORM records that this

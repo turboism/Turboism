@@ -54,7 +54,7 @@ class ReviewedReleasesTest(unittest.TestCase):
                 dest.write_bytes((ROOT / relative).read_bytes())
             outputs = render(root)
             self.assertIn('CUBISM_5_3_05_VERSION = "5.3.05"', outputs[HOST])
-            self.assertIn('CUBISM_5_3_05_VERSION, 2, 5, 0, 0, false)', outputs[TABLE])
+            self.assertIn('new Release("5.3.05", 2, 5, 0, 0, false)', outputs[TABLE])
             self.assertEqual(['5304', '5305'], [compact(v) for v in load(path)])
             self.assertIn('FIXTURE_5305=', outputs[ENV])
             for relative, text in outputs.items():

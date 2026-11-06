@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.permissions.ServiceGateInstaller;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorContribution;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -29,13 +30,30 @@ class PhysicsEditorCoordinatorTest {
 
     @Test
     void pluginScopedServiceForwardsDelegateAvailability() {
-        final PluginScopedPhysicsEditorService unavailable = new PluginScopedPhysicsEditorService(
-                PhysicsEditorService.unavailable(), new DisposableScope(), () -> true);
+        final PhysicsEditorService unavailable =
+                scoped(PhysicsEditorService.unavailable(), new DisposableScope(), () -> true);
         assertFalse(unavailable.isAvailable(), "a scoped view of the sentinel reports unavailable");
 
-        final PluginScopedPhysicsEditorService available =
-                new PluginScopedPhysicsEditorService(new PhysicsEditorCoordinator(), new DisposableScope(), () -> true);
+        final PhysicsEditorService available =
+                scoped(new PhysicsEditorCoordinator(), new DisposableScope(), () -> true);
         assertTrue(available.isAvailable(), "a scoped view of the live coordinator reports available");
+    }
+
+    /**
+     * The gated view of a physics editor service, exactly as the capability factory installs it:
+     * fenced by the owning scope's liveness, delegating to {@code delegate}.
+     */
+    private static PhysicsEditorService scoped(
+            final PhysicsEditorService delegate,
+            final DisposableScope scope,
+            final java.util.function.BooleanSupplier scopeActive) {
+        return ServiceGateInstaller.install(
+                PhysicsEditorService.class,
+                delegate,
+                dev.turboism.permissions.PermissionChecker.allowAll(),
+                scope,
+                scopeActive,
+                ServiceGateInstaller.rowsFor(PhysicsEditorService.class));
     }
 
     @Test
@@ -197,7 +215,7 @@ class PhysicsEditorCoordinatorTest {
             scopeActive.set(false);
         });
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
-        final PhysicsEditorService service = new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
+        final PhysicsEditorService service = scoped(coordinator, scope, scopeActive::get);
         service.contribute(new PhysicsEditorContribution(true, true));
         final Outer outer = new Outer(false, false);
         final Panel panel = onEdt(() -> new Panel(outer));
@@ -222,7 +240,7 @@ class PhysicsEditorCoordinatorTest {
             scopeActive.set(false);
         });
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
-        final PhysicsEditorService service = new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
+        final PhysicsEditorService service = scoped(coordinator, scope, scopeActive::get);
         scope.close();
 
         assertThrows(IllegalStateException.class, () -> service.contribute(new PhysicsEditorContribution(true, false)));
@@ -238,7 +256,7 @@ class PhysicsEditorCoordinatorTest {
             scopeActive.set(false);
         });
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
-        final PhysicsEditorService service = new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
+        final PhysicsEditorService service = scoped(coordinator, scope, scopeActive::get);
         final var registration = service.contribute(new PhysicsEditorContribution(true, false));
 
         registration.close();
@@ -257,7 +275,7 @@ class PhysicsEditorCoordinatorTest {
             scopeActive.set(false);
         });
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
-        final PhysicsEditorService service = new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
+        final PhysicsEditorService service = scoped(coordinator, scope, scopeActive::get);
         final AtomicBoolean contributed = new AtomicBoolean();
         scope.register(() -> {
             try {
@@ -288,8 +306,8 @@ class PhysicsEditorCoordinatorTest {
             activeB.set(false);
         });
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
-        final PhysicsEditorService serviceA = new PluginScopedPhysicsEditorService(coordinator, scopeA, activeA::get);
-        final PhysicsEditorService serviceB = new PluginScopedPhysicsEditorService(coordinator, scopeB, activeB::get);
+        final PhysicsEditorService serviceA = scoped(coordinator, scopeA, activeA::get);
+        final PhysicsEditorService serviceB = scoped(coordinator, scopeB, activeB::get);
 
         serviceA.contribute(new PhysicsEditorContribution(true, false));
         scopeA.close();

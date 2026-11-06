@@ -11,10 +11,14 @@ import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecisionCallback;
+import dev.turboism.sdk.cubism.export.ProtectedExportContribution;
+import dev.turboism.sdk.cubism.export.ProtectedExportPlanResult;
+import dev.turboism.sdk.cubism.export.ProtectedExportPlanner;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -331,6 +335,49 @@ final class RuntimeExportSettingsContributionRegistryTest {
                 NullPointerException.class, () -> registry.invoke(OPTION, true, null, MODEL, registry.generation()));
         assertThrows(
                 NullPointerException.class, () -> registry.invoke(OPTION, true, DOCUMENT, null, registry.generation()));
+    }
+
+    @Test
+    void protectedContributionExposesItsPlannerAndSharesTheOptionNamespace() {
+        final RuntimeExportSettingsContributionRegistry registry = registry();
+        final ProtectedExportPlanner planner =
+                census -> new ProtectedExportPlanResult.Rejected("protected-export.not-admitted");
+        final Registration registration = registry.contributeProtectedExport(new ProtectedExportContribution(
+                "protect",
+                "label.protect",
+                (selected, documentId, modelId) -> {
+                    throw new AssertionError("unselected invocation must bypass callbacks");
+                },
+                planner));
+
+        assertEquals(Optional.of(planner), registry.protectedExportPlanner("protect"));
+        assertEquals(Optional.empty(), registry.protectedExportPlanner("other"));
+        // One namespace: a plain contribution may not reuse the protected option id.
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> registry.contribute(contribution(
+                        "protect", (selected, documentId, modelId) -> ExportSettingsDecision.proceedUnchanged())));
+
+        registration.close();
+        assertEquals(Optional.empty(), registry.protectedExportPlanner("protect"));
+    }
+
+    @Test
+    void plainContributionCarriesNoPlannerAndClosedRegistryRefusesBoth() {
+        final RuntimeExportSettingsContributionRegistry registry = registry();
+        registry.contribute(
+                contribution(OPTION, (selected, documentId, modelId) -> ExportSettingsDecision.proceedUnchanged()));
+        assertEquals(Optional.empty(), registry.protectedExportPlanner(OPTION));
+
+        registry.close();
+        assertEquals(Optional.empty(), registry.protectedExportPlanner(OPTION));
+        assertThrows(
+                IllegalStateException.class,
+                () -> registry.contributeProtectedExport(new ProtectedExportContribution(
+                        "protect",
+                        "label.protect",
+                        (selected, documentId, modelId) -> ExportSettingsDecision.proceedUnchanged(),
+                        census -> new ProtectedExportPlanResult.Rejected("protected-export.not-admitted"))));
     }
 
     @Test

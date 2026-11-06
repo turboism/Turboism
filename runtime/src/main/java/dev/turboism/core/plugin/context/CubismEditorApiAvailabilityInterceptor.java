@@ -1,5 +1,6 @@
 package dev.turboism.core.plugin.context;
 
+import dev.turboism.compatibility.policy.CubismEditorAvailabilityPolicy;
 import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
 import dev.turboism.sdk.plugin.PluginServiceDirectory;
@@ -267,7 +268,7 @@ final class CubismEditorApiAvailabilityInterceptor {
 
     private void enforce(final Class<?> sdkInterface, final Method method, final Set<String> requiredCapabilities) {
         final CubismEditorAvailabilityPolicy.Resolution resolution =
-                CubismEditorAvailabilityPolicy.resolve(sdkInterface, method);
+                CubismEditorAvailabilityResolver.resolve(sdkInterface, method);
         if (!resolution.restricted()) {
             return;
         }

@@ -2,8 +2,9 @@
 """Generate verification manifests and selector contracts from records + authoring files.
 
 The ``*VerificationManifest`` classes and ``selector/*Contract`` classes under
-``dev.turboism.mapping.verification`` are generated artifacts. Their source of
-truth is:
+``dev.turboism.mapping.verification`` are generated artifacts, as is each
+``<Family>Aliases`` vocabulary class whose family declares an ``aliases`` block.
+Their source of truth is:
 
 - the byte-hashed verification records under
   ``build/generated/verification/`` (record sha256, verificationId,
@@ -46,6 +47,8 @@ import re
 import sys
 from pathlib import Path
 
+from turboism_dev.alias_vocabulary import VocabularyError, constants as vocabulary_constants
+from turboism_dev.alias_vocabulary import declaration as vocabulary_declaration
 from turboism_dev.json_io import read_json
 from turboism_dev.paths import repo_root
 
@@ -59,9 +62,18 @@ SOURCE_ROOT = Path("runtime/src/main/java")
 VERIFICATION_PACKAGE = "dev/turboism/mapping/verification"
 
 FAMILY_FORMAT = "turboism.verification-source-family/v1"
+# Targets rendered from an authoring template under TEMPLATE_ROOT.
 GENERATED_TARGETS = re.compile(
     r"^" + VERIFICATION_PACKAGE + r"/(?:[^/]*VerificationManifest|selector/[^/]+)\.java$"
 )
+# Derived from a family's ``aliases`` block plus its records: no Java template, because every line
+# of the vocabulary is a constant whose name and value come from the reviewed records.
+ALIAS_VOCABULARY_TARGET = re.compile(
+    r"^" + VERIFICATION_PACKAGE + r"/([A-Z][A-Za-z0-9]*Aliases)\.java$"
+)
+# Palantir format wraps long declarations instead of running past the column limit; the generated
+# vocabulary keeps the same shape so a reader cannot tell generated from formatted source.
+MAX_LINE_LENGTH = 120
 
 PLACEHOLDER = re.compile(
     r"\$\{record:([^}:]+):((?:artifact\.)?[a-zA-Z0-9]+)(?::([a-z]+))?\}"
@@ -202,6 +214,7 @@ def load_families(root: Path) -> list[dict]:
         family.setdefault("coverageSources", [])
         family.setdefault("coverageSourceGlobs", [])
         family.setdefault("coverage", False)
+        family.setdefault("aliases", None)
         family["path"] = path.name
         families.append(family)
     return families
@@ -356,6 +369,11 @@ def target_files(families: list[dict]) -> dict[str, dict]:
     targets: dict[str, dict] = {}
     for family in families:
         for relpath in family["files"]:
+            if ALIAS_VOCABULARY_TARGET.match(relpath):
+                raise GenerationError(
+                    f"{family['path']}: {relpath} is derived from the family's aliases "
+                    "block; do not list it under files"
+                )
             if not GENERATED_TARGETS.match(relpath):
                 raise GenerationError(
                     f"{family['path']}: {relpath} is not a generated target; "
@@ -518,6 +536,88 @@ public final class ModelUpdateTargetTable {
     return {MODEL_UPDATE_TARGET: content}
 
 
+def family_alias_union(family: dict, records: dict[str, dict]) -> set[str]:
+    """Returns every selector alias the family's records declare, whatever its kind."""
+    aliases: set[str] = set()
+    for name in family["records"]:
+        if name not in records:
+            raise GenerationError(
+                f"{family['path']}: alias vocabulary binds missing record {name}")
+        aliases |= records[name]["aliases"]
+    if not aliases:
+        raise GenerationError(
+            f"{family['path']}: alias vocabulary would be empty; the family records carry no selector")
+    return aliases
+
+
+def render_alias_vocabulary(family: dict, class_name: str, constants: dict[str, str]) -> str:
+    """Renders one ``<Family>Aliases`` class: one constant per record alias plus its ``ALL`` set.
+
+    The constant names and values are the whole content, so the class carries no logic to test: the
+    derivation lives in ``turboism_dev.alias_vocabulary`` and the host alias vocabulary check reads
+    the same table back when it resolves ``<Family>Aliases.<CONSTANT>`` references.
+    """
+    lines = [
+        "package dev.turboism.mapping.verification;",
+        "",
+        "import java.util.Set;",
+        "",
+        "/**",
+        f" * Record-derived selector aliases for the {{@code {family['family']}}} family.",
+        " *",
+        " * <p>Generated from the byte-hashed verification records this family binds; every constant is",
+        " * the record alias it names, so an adapter names a host member instead of spelling it. Adding",
+        " * a selector to a record adds a constant here; a name collision fails generation rather than",
+        " * silently dropping an alias.</p>",
+        " */",
+        f"public final class {class_name} {{",
+        f"    private {class_name}() {{}}",
+    ]
+    for name, alias in constants.items():
+        declaration_line = f'    public static final String {name} = "{alias}";'
+        lines.append("")
+        lines.append(f"    /** {{@code {alias}}}. */")
+        if len(declaration_line) <= MAX_LINE_LENGTH:
+            lines.append(declaration_line)
+        else:
+            lines.append(f"    public static final String {name} =")
+            lines.append(f'            "{alias}";')
+    lines.extend([
+        "",
+        "    /** Every alias of this family; the declared side of the host alias vocabulary check. */",
+        "    public static final Set<String> ALL =",
+        "            Set.of(",
+    ])
+    names = list(constants)
+    for index, name in enumerate(names):
+        suffix = ");" if index == len(names) - 1 else ","
+        lines.append(f"                    {name}{suffix}")
+    lines.extend(["}", ""])
+    return "\n".join(lines)
+
+
+def render_alias_vocabularies(families: list[dict], records: dict[str, dict]) -> dict[str, str]:
+    """Renders one alias vocabulary per family that declares an ``aliases`` block."""
+    rendered: dict[str, str] = {}
+    owners: dict[str, str] = {}
+    for family in families:
+        block = family.get("aliases")
+        if block is None:
+            continue
+        try:
+            class_name, prefix = vocabulary_declaration(block, family["path"])
+            constants = vocabulary_constants(family_alias_union(family, records), prefix)
+        except VocabularyError as exc:
+            raise GenerationError(str(exc)) from exc
+        relpath = f"{VERIFICATION_PACKAGE}/{class_name}.java"
+        if relpath in owners:
+            raise GenerationError(
+                f"{relpath}: claimed by both {owners[relpath]} and {family['path']}")
+        owners[relpath] = family["path"]
+        rendered[relpath] = render_alias_vocabulary(family, class_name, constants)
+    return rendered
+
+
 def render_all(root: Path) -> dict[str, str]:
     """Renders and validates every declared target; returns relpath -> text."""
     records = load_records(root)
@@ -539,6 +639,7 @@ def render_all(root: Path) -> dict[str, str]:
         violations.extend(validate_family(root, family, records, packs, owned))
     if violations:
         raise GenerationError("; ".join(violations))
+    rendered.update(render_alias_vocabularies(families, records))
     rendered.update(render_model_update_targets(root))
     return rendered
 
@@ -550,7 +651,11 @@ def checked_in_targets(root: Path) -> set[str]:
     found = set()
     for path in sorted(base.rglob("*.java")):
         relative = path.relative_to(root / SOURCE_ROOT).as_posix()
-        if GENERATED_TARGETS.match(relative) or relative == MODEL_UPDATE_TARGET:
+        if (
+            GENERATED_TARGETS.match(relative)
+            or ALIAS_VOCABULARY_TARGET.match(relative)
+            or relative == MODEL_UPDATE_TARGET
+        ):
             found.add(relative)
     return found
 

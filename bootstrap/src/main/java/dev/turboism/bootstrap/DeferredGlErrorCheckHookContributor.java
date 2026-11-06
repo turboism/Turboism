@@ -44,16 +44,18 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
         }
         try {
             final var host = environment.host().orElseThrow();
+            // The launch startup policy snapshot, never a re-read of config.json: a hook that re-read the
+            // home directory could admit differently from the agent that gated it.
             if (!VerifiedDeferredGlErrorCheckInstaller.admitted(
                     HostArtifactDigest.from(host.artifact()),
-                    NativeOptimizationPolicy.load(environment.options().home()),
+                    environment.plan().policy(),
                     true,
                     Runtime.version().feature())) {
                 warnInactive(environment, "admission-refused");
                 return refused("host-not-supported-or-hook-disabled");
             }
-            final VerifiedDeferredGlErrorCheckInstaller installer = new VerifiedDeferredGlErrorCheckInstaller(
-                    environment.instrumentation(), host.artifact(), host.classLoader());
+            final VerifiedDeferredGlErrorCheckInstaller installer =
+                    new VerifiedDeferredGlErrorCheckInstaller(InstallContext.of(environment));
             installer.install();
             log(environment, id() + " deferred=ACTIVE targets=" + installer.targetDescription());
             return installer;

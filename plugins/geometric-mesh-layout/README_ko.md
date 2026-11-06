@@ -44,6 +44,7 @@ Turboism 공식 배포 패키지에 포함되어 있으며 플러그인 관리�
 | Capability | Effect |
 |---|---|
 | `cubism.mesh.custom-tools` | 네이티브 메시 편집 툴바에 사용자 정의 도구를 등록합니다. |
+| `cubism.mesh.point-and-edge-layout` | 이 플러그인이 등록한 도구에 런타임 점·선 배치 브러시를 연결합니다. |
 
 ## 권한
 

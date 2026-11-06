@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.core;
 
-import dev.turboism.mapping.verification.ReviewedReleaseTable;
+import dev.turboism.compatibility.policy.ReviewedReleaseTable;
 import java.util.Objects;
 
 /**

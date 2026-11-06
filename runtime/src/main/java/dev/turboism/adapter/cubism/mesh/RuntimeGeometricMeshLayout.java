@@ -42,16 +42,6 @@ import javax.swing.SwingUtilities;
 
 /** Runtime-owned geometric mesh point-and-edge layout controller bound to one mesh-tool activation. */
 final class RuntimeGeometricMeshLayout implements MeshBrush {
-    /**
-     * The only plugin identity this runtime brush is bound to. The value is the plugin id the
-     * plugin declares in its own {@code plugin.json}; the runtime does not verify that the JAR is
-     * first-party. A tool that merely reuses the tool identifier never reaches the brush, but a
-     * third-party JAR that declares this plugin id can reach it after capability and permission
-     * admission. The required {@code cubism.mesh.custom-tools} capability and user-granted model
-     * read/write permissions bound its operations; they do not establish first-party provenance.
-     */
-    static final String OWNER_PLUGIN_ID = "dev.turboism.plugin.geometric-mesh-layout";
-
     static final String TOOL_ID = "geometric-mesh-layout";
     private static final int MAX_POSITION_RETRIES = 20;
     private static final String ESCAPE_ACTION_KEY = "turboism:geometric-mesh-layout-deactivate";
@@ -189,34 +179,37 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
     }
 
     /**
-     * Selects the runtime brush for one registered tool. Both the manifest-declared owning plugin
-     * identity and the tool identifier must match, so a plugin that reuses the identifier keeps its
-     * own (generic) brush instead of silently receiving runtime behaviour it never declared.
+     * Selects the runtime brush for one registered tool. The plugin must have declared the
+     * {@code cubism.mesh.point-and-edge-layout} capability and the tool identifier must be this
+     * brush's own, so a plugin that reuses the identifier without declaring the capability keeps
+     * its own (generic) brush instead of silently receiving runtime behaviour it never declared.
      *
-     * @param pluginId the manifest-declared identity registered by the tool's plugin, may be null
+     * @param pointAndEdgeLayoutGranted whether the registering plugin declared the capability, may be
+     *     {@code false}
      * @param tool the registered tool, may be null
-     * @return {@code true} only for the owning plugin's own tool
+     * @return {@code true} only for a capability-admitted plugin's own tool
      */
-    static boolean matches(final String pluginId, final MeshTool tool) {
-        return OWNER_PLUGIN_ID.equals(pluginId) && tool != null && TOOL_ID.equals(tool.id());
+    static boolean matches(final boolean pointAndEdgeLayoutGranted, final MeshTool tool) {
+        return pointAndEdgeLayoutGranted && tool != null && TOOL_ID.equals(tool.id());
     }
 
     /**
-     * Fail-closed admission for the runtime brush: the owning plugin identity plus the read and
-     * write permissions the brush actually exercises. Capability admission has already happened
-     * upstream — {@code cubism.mesh.custom-tools} is required to register any mesh tool — so this
-     * gate adds the per-surface authorization the identifier comparison lacked.
+     * Fail-closed admission for the runtime brush: the declared capability plus the read and write
+     * permissions the brush actually exercises. Capability admission has already happened upstream
+     * — {@code cubism.mesh.custom-tools} is required to register any mesh tool and
+     * {@code cubism.mesh.point-and-edge-layout} to reach this brush — so this gate adds the
+     * per-surface authorization the capability declaration alone lacks.
      *
-     * @param pluginId the manifest-declared identity of the activating plugin
+     * @param pointAndEdgeLayoutGranted whether the activating plugin declared the capability
      * @param permissions the activating plugin's permission checker
-     * @throws IllegalStateException when the tool is not owned by {@link #OWNER_PLUGIN_ID}
+     * @throws IllegalStateException when the activating plugin never declared the capability
      * @throws dev.turboism.sdk.permission.CubismPermissionException when a required grant is missing
      */
-    static void requireOwner(final String pluginId, final PermissionChecker permissions) {
+    static void requireOwner(final boolean pointAndEdgeLayoutGranted, final PermissionChecker permissions) {
         Objects.requireNonNull(permissions, "permissions");
-        if (!OWNER_PLUGIN_ID.equals(pluginId)) {
-            throw new IllegalStateException(
-                    "geometric mesh layout is reserved for plugin " + OWNER_PLUGIN_ID + ", not " + pluginId);
+        if (!pointAndEdgeLayoutGranted) {
+            throw new IllegalStateException("geometric mesh layout requires the "
+                    + RuntimeMeshToolRegistry.POINT_AND_EDGE_LAYOUT_CAPABILITY + " capability");
         }
         permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_READ, "mesh.geometric-layout.activate");
         permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "mesh.geometric-layout.activate");
@@ -227,14 +220,15 @@ final class RuntimeGeometricMeshLayout implements MeshBrush {
             final MeshToolCoordinator.ActivationLease lease,
             final Runnable deactivate,
             final MeshTool tool,
-            final PermissionChecker permissions) {
+            final PermissionChecker permissions,
+            final boolean pointAndEdgeLayoutGranted) {
         Objects.requireNonNull(editor, "editor");
         Objects.requireNonNull(lease, "lease");
         Objects.requireNonNull(deactivate, "deactivate");
         lease.requireCurrent();
         Objects.requireNonNull(tool, "tool");
         Objects.requireNonNull(permissions, "permissions");
-        requireOwner(lease.pluginId(), permissions);
+        requireOwner(pointAndEdgeLayoutGranted, permissions);
         if (!(lease.session() instanceof NativeMeshToolSession session)) {
             throw new IllegalStateException("geometric mesh layout requires an exact native mesh-tool session");
         }

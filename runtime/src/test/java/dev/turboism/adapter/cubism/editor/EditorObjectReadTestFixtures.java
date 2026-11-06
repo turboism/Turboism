@@ -44,6 +44,16 @@ public final class EditorObjectReadTestFixtures {
     public static final class GroupUndo {
         final List<String> undoTargets = new java.util.ArrayList<>();
         int undoAddCount;
+        private String presentationName = "group";
+
+        /** Native history projection: the committed entry's presentation name is the write label. */
+        public String presentationName() {
+            return presentationName;
+        }
+
+        public Boolean significant() {
+            return Boolean.TRUE;
+        }
 
         public boolean add(final Undo undo, final boolean merge) {
             if (undo == null) return false;
@@ -58,6 +68,7 @@ public final class EditorObjectReadTestFixtures {
 
         public GroupUndo begin(final String action) {
             final GroupUndo value = new GroupUndo();
+            value.presentationName = action;
             edits.add(value);
             return value;
         }
@@ -106,6 +117,7 @@ public final class EditorObjectReadTestFixtures {
         final ModelSource source;
         final EditMode editMode = new EditMode();
         final CompletePack pack = new CompletePack();
+        final GridHistoryManager undoManager = new GridHistoryManager(editMode);
         boolean dirty;
 
         Document(final ModelSource source) {
@@ -117,7 +129,7 @@ public final class EditorObjectReadTestFixtures {
         }
 
         public GridHistoryManager undoManager() {
-            return new GridHistoryManager();
+            return undoManager;
         }
 
         public EditMode editMode() {
@@ -1096,21 +1108,28 @@ public final class EditorObjectReadTestFixtures {
         }
     }
 
+    /** Native Undo-manager projection over the edit bank (one history entry per committed edit). */
     public static final class GridHistoryManager {
-        public List<GridHistoryEntry> entries() {
-            return List.of();
+        private final EditMode editMode;
+
+        GridHistoryManager(final EditMode editMode) {
+            this.editMode = editMode;
+        }
+
+        public List<GroupUndo> entries() {
+            return List.copyOf(editMode.edits);
         }
 
         public int position() {
-            return 0;
+            return editMode.edits.size();
         }
 
-        public boolean canUndo() {
-            return false;
+        public Boolean canUndo() {
+            return !editMode.edits.isEmpty();
         }
 
-        public boolean canRedo() {
-            return false;
+        public Boolean canRedo() {
+            return Boolean.FALSE;
         }
     }
 

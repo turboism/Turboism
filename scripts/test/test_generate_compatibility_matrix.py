@@ -215,18 +215,6 @@ def build_tree(root: Path) -> None:
     _write(root, f"{module}/README_ja.md", README_JA)
     _write(
         root,
-        "validation/cubism-version-matrix/inventory.json",
-        json.dumps(
-            {
-                "versions": [
-                    {"version": v, "code": v.replace("0", "")}
-                    for v in VERSIONS
-                ]
-            }
-        ),
-    )
-    _write(
-        root,
         "scripts/version-monotonicity-exceptions.json",
         json.dumps(
             {
@@ -566,6 +554,89 @@ class MatrixTest(unittest.TestCase):
         self.assertEqual(0, GEN.main(["--root", str(self.root), "--check"]))
         (self.root / "compatibility/cubism/plugins.md").write_text("stale")
         self.assertEqual(1, GEN.main(["--root", str(self.root), "--check"]))
+
+    def test_matrix_is_a_generated_build_product(self) -> None:
+        self.assertEqual(
+            "build/generated/compatibility/cubism/compatibility-matrix.json",
+            GEN.MATRIX_JSON.as_posix(),
+        )
+        self.assertTrue(GEN.is_generated_output(GEN.MATRIX_JSON.as_posix()))
+        self.assertFalse(
+            GEN.is_generated_output("compatibility/cubism/plugins.md")
+        )
+        self.assertEqual(0, GEN.main(["--root", str(self.root)]))
+        self.assertFalse(
+            (self.root / "compatibility/cubism/compatibility-matrix.json").exists()
+        )
+        generated = self.root / GEN.MATRIX_JSON
+        document = json.loads(generated.read_text(encoding="utf-8"))
+        self.assertEqual("turboism.compatibility-matrix/v1", document["format"])
+        self.assertEqual(list(VERSIONS), document["reviewedVersions"])
+
+    def test_check_ignores_the_generated_matrix(self) -> None:
+        self.assertEqual(0, GEN.main(["--root", str(self.root)]))
+        generated = self.root / GEN.MATRIX_JSON
+        # A clean checkout only carries the tracked outputs: a missing build
+        # product is not staleness, it is simply not generated here.
+        generated.unlink()
+        self.assertEqual(0, GEN.main(["--root", str(self.root), "--check"]))
+        # The build product is not a committed contract either; its content is
+        # pinned by determinism and by the consumers that read the projection.
+        generated.parent.mkdir(parents=True, exist_ok=True)
+        generated.write_text("{}\n", encoding="utf-8")
+        self.assertEqual(0, GEN.main(["--root", str(self.root), "--check"]))
+
+    def _tree_bytes(self) -> dict[str, bytes]:
+        return {
+            path.relative_to(self.root).as_posix(): path.read_bytes()
+            for path in sorted(self.root.rglob("*"))
+            if path.is_file()
+        }
+
+    def test_generated_only_never_rewrites_committed_outputs(self) -> None:
+        self.assertEqual(0, GEN.main(["--root", str(self.root)]))
+        generated = self.root / GEN.MATRIX_JSON
+        readme = "plugins/toy/README.md"
+        committed = self._tree_bytes()
+        committed.pop(GEN.MATRIX_JSON.as_posix())
+
+        # A drifted committed output fails the one render instead of being
+        # regenerated on the way to being checked.
+        (self.root / readme).write_text("stale", encoding="utf-8")
+        drifted = (self.root / readme).read_bytes()
+        generated.unlink()
+        self.assertEqual(
+            1,
+            GEN.main(
+                ["--root", str(self.root), "--check", "--generated-only"]
+            ),
+        )
+        self.assertEqual(drifted, (self.root / readme).read_bytes())
+        self.assertFalse(generated.exists())
+
+        # The clean run materializes the build product without touching a single
+        # committed file.
+        (self.root / readme).write_bytes(committed[readme])
+        before = self._tree_bytes()
+        self.assertEqual(
+            0,
+            GEN.main(
+                ["--root", str(self.root), "--check", "--generated-only"]
+            ),
+        )
+        first = generated.read_bytes()
+        after = self._tree_bytes()
+        after.pop(GEN.MATRIX_JSON.as_posix())
+        self.assertEqual(before, after)
+
+        # Materialization is deterministic: a second run is byte-identical.
+        self.assertEqual(
+            0,
+            GEN.main(
+                ["--root", str(self.root), "--check", "--generated-only"]
+            ),
+        )
+        self.assertEqual(first, generated.read_bytes())
 
 
 if __name__ == "__main__":

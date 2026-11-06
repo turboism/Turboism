@@ -72,6 +72,7 @@ class SelectionBrushPluginLifecycleIntegrationTest {
                 generation,
                 (permission, operation) -> {},
                 true,
+                false,
                 coordinator,
                 authority);
         registry.bind(scope);

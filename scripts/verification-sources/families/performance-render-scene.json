@@ -29,5 +29,8 @@
  "packs": [],
  "extraLiterals": [],
  "coverageSources": [],
- "coverage": false
+ "coverage": false,
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }

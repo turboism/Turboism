@@ -41,7 +41,9 @@ dependencies {
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.release.set(17)
-    if (name == "compileJava") {
+    // `compileToolingJava` compiles the runtime's build-time review tooling: it is production
+    // code for the CLI lanes, so it gets the same static analysis as main.
+    if (name == "compileJava" || name == "compileToolingJava") {
         options.isFork = true
         options.forkOptions.jvmArgs = options.forkOptions.jvmArgs.orEmpty() + listOf(
             "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",

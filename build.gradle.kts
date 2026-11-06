@@ -111,9 +111,9 @@ tasks.register("checkPluginInspectionRuntime") {
 tasks.register<JavaExec>("mappingReview") {
     group = "verification"
     description = "Run the local draft mapping review CLI; apply is dry-run unless --write is passed."
-    dependsOn(":runtime:classes", "materializeDraftContracts")
+    dependsOn(":runtime:toolingClasses", "materializeDraftContracts")
     classpath = project(":runtime").extensions.getByType<SourceSetContainer>()
-        .named("main").get().runtimeClasspath
+        .named("tooling").get().runtimeClasspath
     mainClass.set("dev.turboism.mapping.draft.MappingReviewCli")
     val cliArgsFile = providers.gradleProperty("turboismMappingReviewArgsFile")
     val legacyCliArgs = providers.gradleProperty("turboismMappingReviewArgs")

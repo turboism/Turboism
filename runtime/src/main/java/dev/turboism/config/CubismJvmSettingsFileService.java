@@ -1,6 +1,7 @@
 package dev.turboism.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import dev.turboism.config.optimization.OptimizationCatalog;
 import dev.turboism.internal.core.CubismJvmSettingsService;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -165,226 +166,6 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
-    public boolean modelUpdateSkip() {
-        return optimization("modelUpdateSkip");
-    }
-
-    @Override
-    public boolean saveModelUpdateSkip(final boolean value) {
-        return saveOptimization("modelUpdateSkip", value);
-    }
-
-    @Override
-    public boolean incrementalUpdate() {
-        return optimization("incrementalUpdate");
-    }
-
-    @Override
-    public boolean saveIncrementalUpdate(final boolean value) {
-        return saveOptimization("incrementalUpdate", value);
-    }
-
-    @Override
-    public boolean incrementalUpdateAffecters() {
-        return optimization("incrementalUpdateAffecters");
-    }
-
-    @Override
-    public boolean saveIncrementalUpdateAffecters(final boolean value) {
-        return saveOptimization("incrementalUpdateAffecters", value);
-    }
-
-    @Override
-    public boolean uniformLocationCache() {
-        return optimization("uniformLocationCache");
-    }
-
-    @Override
-    public boolean saveUniformLocationCache(final boolean value) {
-        return saveOptimization("uniformLocationCache", value);
-    }
-
-    @Override
-    public boolean uploadElision() {
-        return optimization("uploadElision");
-    }
-
-    @Override
-    public boolean saveUploadElision(final boolean value) {
-        return saveOptimization("uploadElision", value);
-    }
-
-    @Override
-    public boolean meshSetupElision() {
-        return optimization("meshSetupElision");
-    }
-
-    @Override
-    public boolean saveMeshSetupElision(final boolean value) {
-        return saveOptimization("meshSetupElision", value);
-    }
-
-    @Override
-    public boolean inputPathElision() {
-        return optimization("inputPathElision");
-    }
-
-    @Override
-    public boolean saveInputPathElision(final boolean value) {
-        return saveOptimization("inputPathElision", value);
-    }
-
-    @Override
-    public boolean mesaGlThread() {
-        return optimization("mesaGlThread");
-    }
-
-    @Override
-    public boolean saveMesaGlThread(final boolean value) {
-        return saveOptimization("mesaGlThread", value);
-    }
-
-    @Override
-    public boolean asyncReadback() {
-        return optimization("asyncReadback");
-    }
-
-    @Override
-    public boolean saveAsyncReadback(final boolean value) {
-        return saveOptimization("asyncReadback", value);
-    }
-
-    @Override
-    public boolean meshInterpolation() {
-        return optimization("meshInterpolation");
-    }
-
-    @Override
-    public boolean saveMeshInterpolation(final boolean value) {
-        return saveOptimization("meshInterpolation", value);
-    }
-
-    @Override
-    public boolean shaderUniform() {
-        return optimization("shaderUniform");
-    }
-
-    @Override
-    public boolean saveShaderUniform(final boolean value) {
-        return saveOptimization("shaderUniform", value);
-    }
-
-    @Override
-    public boolean matrixScratch() {
-        return optimization("matrixScratch");
-    }
-
-    @Override
-    public boolean saveMatrixScratch(final boolean value) {
-        return saveOptimization("matrixScratch", value);
-    }
-
-    @Override
-    public boolean imageArchiveReuse() {
-        return optimization("imageArchiveReuse");
-    }
-
-    @Override
-    public boolean saveImageArchiveReuse(final boolean value) {
-        return saveOptimization("imageArchiveReuse", value);
-    }
-
-    @Override
-    public boolean floatArrayParseCache() {
-        return optimization("floatArrayParseCache");
-    }
-
-    @Override
-    public boolean saveFloatArrayParseCache(final boolean value) {
-        return saveOptimization("floatArrayParseCache", value);
-    }
-
-    @Override
-    public boolean textureUploadPreparation() {
-        return optimization("textureUploadPreparation");
-    }
-
-    @Override
-    public boolean saveTextureUploadPreparation(final boolean value) {
-        return saveOptimization("textureUploadPreparation", value);
-    }
-
-    @Override
-    public boolean warpPositionProjection() {
-        return optimization("warpPositionProjection");
-    }
-
-    @Override
-    public boolean saveWarpPositionProjection(final boolean value) {
-        return saveOptimization("warpPositionProjection", value);
-    }
-
-    @Override
-    public boolean reinitPairElision() {
-        return optimization("reinitPairElision");
-    }
-
-    @Override
-    public boolean saveReinitPairElision(final boolean value) {
-        return saveOptimization("reinitPairElision", value);
-    }
-
-    @Override
-    public boolean clipMaskDeduplication() {
-        return optimization("clipMaskDeduplication");
-    }
-
-    @Override
-    public boolean saveClipMaskDeduplication(final boolean value) {
-        return saveOptimization("clipMaskDeduplication", value);
-    }
-
-    @Override
-    public boolean clipMaskScissorClear() {
-        return optimization("clipMaskScissorClear");
-    }
-
-    @Override
-    public boolean saveClipMaskScissorClear(final boolean value) {
-        return saveOptimization("clipMaskScissorClear", value);
-    }
-
-    @Override
-    public boolean extendedInterpolationIncrementalSetup() {
-        return optimization("extendedInterpolationIncrementalSetup");
-    }
-
-    @Override
-    public boolean saveExtendedInterpolationIncrementalSetup(final boolean value) {
-        return saveOptimization("extendedInterpolationIncrementalSetup", value);
-    }
-
-    @Override
-    public boolean modelInstanceCoalesce() {
-        return optimization("modelInstanceCoalesce");
-    }
-
-    @Override
-    public boolean saveModelInstanceCoalesce(final boolean value) {
-        return saveOptimization("modelInstanceCoalesce", value);
-    }
-
-    @Override
-    public boolean inspectorPropertyBypass() {
-        return optimization("inspectorPropertyBypass");
-    }
-
-    @Override
-    public boolean saveInspectorPropertyBypass(final boolean value) {
-        return saveOptimization("inspectorPropertyBypass", value);
-    }
-
-    @Override
     public String globalConfigPath() {
         return turboismHome == null ? "" : turboismHome.resolve("config.json").toString();
     }
@@ -406,7 +187,7 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
             var request = startup == null ? null : startup.value(field);
             String actual;
             if (field.nativeOptimization()) {
-                var status = hooks.get(NativeOptimizationConfig.Option.forKey(field.key()));
+                var status = hooks.get(OptimizationCatalog.requireByKey(field.key()));
                 actual = status == null ? "not-observed" : status.state() + ": " + status.reason();
             } else {
                 actual = switch (field) {
@@ -451,38 +232,9 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
                         .orElse("");
     }
 
-    @Override
-    public List<OptimizationStatus> optimizationStatuses() {
-        final JsonNode root = config.read();
-        final boolean proton = dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(environment);
-        final var diagnostics = NativeOptimizationDiagnostics.snapshot();
-        final List<OptimizationStatus> result = new ArrayList<>();
-        for (var option : NativeOptimizationConfig.Option.values()) {
-            final var status = diagnostics.get(option);
-            final var choice = status == null ? null : status.choice();
-            result.add(new OptimizationStatus(
-                    option.key(),
-                    Boolean.parseBoolean(PerformanceSettingsConfig.saved(root, option.field(), proton)),
-                    choice == null ? Optional.empty() : Optional.of(choice.enabled()),
-                    choice == null ? "unknown" : choice.source(),
-                    status == null ? "unknown" : status.state(),
-                    status == null ? "not-observed" : status.reason()));
-        }
-        return List.copyOf(result);
-    }
-
     private String savedPerformance(PerformanceSettingsConfig.Field field) {
         return PerformanceSettingsConfig.saved(
                 config.read(), field, dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(environment));
-    }
-
-    private boolean optimization(final String name) {
-        return Boolean.parseBoolean(savedPerformance(PerformanceSettingsConfig.Field.forKey(name)));
-    }
-
-    private boolean saveOptimization(final String name, final boolean value) {
-        PerformanceSettingsConfig.save(config, PerformanceSettingsConfig.Field.forKey(name), Boolean.toString(value));
-        return value;
     }
 
     @Override

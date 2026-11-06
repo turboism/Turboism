@@ -14,16 +14,18 @@ final class ModelUpdateSkipHookContributor extends NativeOptimizationHookContrib
             return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
+        // The launch startup policy snapshot, never a re-read of config.json: a hook that re-read the
+        // home directory could admit differently from the agent that gated it.
         if (!VerifiedModelUpdateSkipInstaller.admitted(
                 host.artifact(),
-                NativeOptimizationPolicy.load(environment.options().home()),
+                environment.plan().policy(),
                 true,
                 Runtime.version().feature())) {
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("host-not-supported-or-hook-disabled");
         }
-        final VerifiedModelUpdateSkipInstaller installer = new VerifiedModelUpdateSkipInstaller(
-                environment.instrumentation(), host.artifact(), host.classLoader());
+        final VerifiedModelUpdateSkipInstaller installer =
+                new VerifiedModelUpdateSkipInstaller(InstallContext.of(environment));
         installer.install();
         return installer;
     }

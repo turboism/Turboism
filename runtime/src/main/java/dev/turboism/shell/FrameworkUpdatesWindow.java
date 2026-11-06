@@ -259,14 +259,14 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         pluginPanel.add(new JLabel(text("updates.plugins.header")), BorderLayout.NORTH);
         pluginPanel.add(tableScroll, BorderLayout.CENTER);
         pluginPanel.add(emptyList, BorderLayout.SOUTH);
-        pluginPanel.setMinimumSize(new Dimension(400, 160));
+        pluginPanel.setMinimumSize(new Dimension(240, 96));
         final JPanel notesPanel = new JPanel(new BorderLayout(4, 4));
         final JPanel notesHeading = new JPanel(new BorderLayout(8, 0));
         notesHeading.add(notesTitle, BorderLayout.LINE_START);
         notesHeading.add(notesComponentName, BorderLayout.LINE_END);
         notesPanel.add(notesHeading, BorderLayout.NORTH);
         notesPanel.add(new JScrollPane(releaseNotes), BorderLayout.CENTER);
-        notesPanel.setMinimumSize(new Dimension(280, 160));
+        notesPanel.setMinimumSize(new Dimension(200, 96));
         split.setLeftComponent(pluginPanel);
         split.setRightComponent(notesPanel);
         split.setResizeWeight(0.55);
@@ -319,7 +319,10 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                 for (JButton button : List.of(check, cancel, install)) buttons.add(button);
                 content.add(buttons, BorderLayout.SOUTH);
                 dialog.setContentPane(content);
-                dialog.setMinimumSize(new Dimension(900, 520));
+                // Interior panels shrink before the window does, so the footer buttons stay reachable
+                // on displays whose usable height is smaller than the content's preferred height.
+                final java.awt.Rectangle usable = CoreDialogs.usableBounds();
+                dialog.setMinimumSize(new Dimension(Math.min(900, usable.width), Math.min(420, usable.height)));
             }
         }
         render();
