@@ -1,0 +1,5 @@
+plugin.description
+plugin.name
+status.no-project
+status.project
+status.session

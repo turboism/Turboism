@@ -631,7 +631,7 @@ val writeBootstrapReceiptTestClasspath by tasks.registering {
 
 // The complete byte-for-byte fixture inventory is evaluated in ordinary runtime:test
 // as well as by a focused offline development gate.
-val persistenceGoldenFixtures = rootProject.file("tests/fixtures/snapshots")
+val persistenceGoldenFixtures = rootProject.file("testing/fixtures/snapshots")
 tasks.withType<Test>().configureEach {
     inputs.dir(persistenceGoldenFixtures)
     systemProperty("turboism.goldenSnapshotRoot", persistenceGoldenFixtures.absolutePath)

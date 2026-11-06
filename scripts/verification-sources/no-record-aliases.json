@@ -203,6 +203,11 @@
    "reason": "Operation id passed to the permission gate, not a VerifiedMemberResolver selector alias."
   },
   {
+   "literal": "cubism.project.work-time.read",
+   "file": "runtime/src/main/java/dev/turboism/worktime/PermissionCheckedProjectWorkTimeService.java",
+   "reason": "Permission check operation id for plugin-scoped ProjectWorkTimeService snapshots, not a VerifiedMemberResolver host-selector alias. The runtime-owned tracker reads existing host/project snapshots and does not introduce an unreviewed Cubism reflective selector."
+  },
+  {
    "literal": "cubism.texture-atlas.layout",
    "file": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/RuntimeTextureAtlasLayoutService.java",
    "reason": "Capability id of the texture-atlas layout service, not a VerifiedMemberResolver selector alias; the records declare the layout.write alias, not the capability."

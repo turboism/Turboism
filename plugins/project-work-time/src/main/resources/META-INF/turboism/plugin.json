@@ -1,0 +1,53 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.project-work-time",
+  "name": "Project Work Time",
+  "version": "0.68.1",
+  "description": "Shows Editor session time and the active project's cumulative work time in the Cubism status bar.",
+  "entrypoints": [
+    "dev.turboism.plugin.projectworktime.ProjectWorkTimePlugin"
+  ],
+  "turboismApi": "[0.68.1,1.0.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.project.read",
+      "scope": "application",
+      "reason": "Reads the runtime-owned project work-time statistics for the active project."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Shows session and active-project work time in the Cubism status bar."
+    }
+  ],
+  "capabilities": [
+    "cubism.project.read"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  },
+  "lifecycle": {
+    "hotReload": true
+  },
+  "tags": [
+    "time",
+    "project",
+    "status-bar"
+  ],
+  "category": "workflow"
+}

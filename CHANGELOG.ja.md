@@ -10,6 +10,8 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 ### 追加
 
+- 公式 `project-work-time` プラグインと共有ランタイムトラッカーを追加しました。ステータスバーに現在のエディターセッションの前面時間と、現在のプロジェクトのセッションをまたぐ累計作業時間を表示します。ランタイムは Cubism がデスクトップの前面にある間だけ計測し、累計をセッションをまたいで保存します。SDK には `CubismFacade.isEditorForeground()`、`CubismFacade.activity()`、`CubismActivityChangedEvent`、`ProjectWorkTimeService` ディレクトリサービスを追加し、他のプラグインが同じ集計を再利用できます。
+
 - SDK にインキュベーティングな `PreviewFrameService` 機能（`PreviewFrameSource`、`PreviewFrame`、`PreviewFrameSourceClosedException`、`PluginService.PREVIEW_FRAMES` ディレクトリメンバー）と `cubism.preview.capture` の admission 行を追加しました。プラグインはフォーカス中のプレビューのフレームを読み取り、独自の `PanelView` コントロールストリップを配置できます。プレビュー面の解決、専用スレッドでの OpenGL 読み戻し、プラグイン世代終了後の更新の破棄はランタイムが行います。
 
 - SDK にインキュベーティングな `HostViewPanel` 機能（`HostViewPanelHandle`、`HostViewAnchors` のアンカー定数、`PluginService.HOST_VIEW_PANEL` ディレクトリメンバー）を追加しました。プラグインは `PanelView` の内容を名前付きホストビュー（まずはネイティブのテクスチャアトラスエディター）に取り付け、描画・エディタースレッドでの更新適用・プラグイン世代の終了後の更新の黙った破棄はランタイムが行います。

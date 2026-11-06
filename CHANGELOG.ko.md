@@ -10,6 +10,8 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 추가
 
+- 공식 `project-work-time` 플러그인과 공유 런타임 추적기를 추가했습니다. 상태 표시줄에 현재 편집기 세션의 전경 시간과 현재 프로젝트의 세션 간 누적 작업 시간을 표시합니다. 런타임은 Cubism이 데스크톱 전경에 있을 때만 측정하고 누적 시간을 세션 간 저장합니다. SDK에는 `CubismFacade.isEditorForeground()`, `CubismFacade.activity()`, `CubismActivityChangedEvent`, `ProjectWorkTimeService` 디렉터리 서비스를 추가해 다른 플러그인이 동일한 집계를 재사용할 수 있습니다.
+
 - SDK에 인큐베이팅 `PreviewFrameService` 기능(`PreviewFrameSource`, `PreviewFrame`, `PreviewFrameSourceClosedException`, `PluginService.PREVIEW_FRAMES` 디렉터리 멤버)과 `cubism.preview.capture` admission 행을 추가했습니다. 플러그인은 포커스된 미리보기의 프레임을 읽고 자체 `PanelView` 컨트롤 스트립을 배치할 수 있으며, 미리보기 표면 해석, 전용 스레드에서의 OpenGL 읽기, 플러그인 세대 종료 후 갱신 폐기는 런타임이 담당합니다.
 
 - SDK에 인큐베이팅 `HostViewPanel` 기능(`HostViewPanelHandle`, `HostViewAnchors` 앵커 상수, `PluginService.HOST_VIEW_PANEL` 디렉터리 멤버)을 추가했습니다. 플러그인은 `PanelView` 내용을 이름이 지정된 호스트 뷰(우선 네이티브 텍스처 아틀라스 편집기)에 붙이고, 렌더링과 편집기 스레드에서의 갱신 적용, 플러그인 세대 종료 후 갱신의 조용한 폐기는 런타임이 담당합니다.

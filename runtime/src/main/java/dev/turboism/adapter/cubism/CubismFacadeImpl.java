@@ -11,6 +11,7 @@ import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.core.runtime.psd.RuntimePsdExportService;
 import dev.turboism.core.runtime.psd.RuntimePsdReplaceService;
 import dev.turboism.permissions.CubismPermissionGate;
+import dev.turboism.sdk.cubism.CubismActivitySnapshot;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DocumentKind;
@@ -1038,6 +1039,23 @@ public final class CubismFacadeImpl implements CubismFacade {
             Optional<ModelSnapshot> model,
             SelectionSnapshot selection,
             HostSnapshotSource.SdkRuntimeObservation observed) {}
+
+    @Override
+    public boolean isEditorForeground() {
+        requireActiveScope();
+        return source.isForeground();
+    }
+
+    @Override
+    public CubismActivitySnapshot activity() {
+        requireActiveScope();
+        permissionGate.require(PROJECT_READ_PERMISSION, "activity");
+        final HostSnapshotSource.SdkRuntimeObservation observed = source.observeSdkRuntime();
+        final Optional<ProjectSnapshot> project = observed.host() != null
+                ? observed.host().project().map(snapshotFactory::project)
+                : Optional.ofNullable(observed.project());
+        return new CubismActivitySnapshot(source.isForeground(), project, java.time.Instant.now());
+    }
 
     @Override
     public Optional<ProjectSnapshot> activeProject() {

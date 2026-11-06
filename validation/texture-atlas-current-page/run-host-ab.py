@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 GOLDEN = Path('${GOLDEN_PREFIX}')  # Redacted historical path; execution is disabled.
 RUNNER = Path('${PROTON_RUNNER}')  # Redacted historical path; execution is disabled.
 BUILD = ROOT / 'build/worktree/investigate-texture-sort-native-legacy-performance'
-SOURCE = ROOT / 'test-assets/texture-atlas-layout/cmo3'
+SOURCE = ROOT / 'testing/assets/texture-atlas-layout/cmo3'
 
 
 def digest(path):

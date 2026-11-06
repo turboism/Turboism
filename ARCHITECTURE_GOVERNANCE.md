@@ -73,7 +73,7 @@ renames and type-sensitive rewrites, use a type-aware refactoring tool.
 
 ## Golden snapshot contract
 
-`tests/fixtures/snapshots/manifest.json` is the immutable fixture inventory.
+`testing/fixtures/snapshots/manifest.json` is the immutable fixture inventory.
 `checkGoldenSnapshotManifest` ensures each file is listed once with a stable SHA-256,
 and `checkGoldenSnapshotManifestSelfTest` proves the checker rejects a changed hash,
 an unlisted, missing or symlinked fixture, an escaped path and a bogus provenance
