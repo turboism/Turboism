@@ -291,6 +291,78 @@ class VerifiedInstallTest {
         assertFalse(installed.restored());
     }
 
+    @Test
+    void unprovenRemovalFailsTheCloseAndStaysRetryable() throws Exception {
+        final Fake fake = new Fake();
+        final var installed =
+                install(spec(fake, List.of(target(fake.transformer("only", HostA.class), HostA.class))), fake);
+        fake.failRemoval = true;
+
+        final IllegalStateException failure = assertThrows(IllegalStateException.class, installed::close);
+
+        assertTrue(failure.getMessage().contains("transformer removal not proven"), failure.getMessage());
+        assertEquals(1, fake.active.size(), "the unproven registration stays active");
+        assertFalse(
+                installed.restored(),
+                "a surviving registration rewrites the class again, so the restoration is not proven");
+
+        fake.failRemoval = false;
+        installed.close();
+
+        assertTrue(installed.restored(), "the retry removes the registration the first close could not");
+        assertTrue(fake.active.isEmpty());
+    }
+
+    @Test
+    void aTargetWithoutAClassIsRegisteredButNotRetransformed() throws Exception {
+        final Fake fake = new Fake();
+        final List<String> observed = new ArrayList<>();
+        final ClassFileTransformer guard = new ClassFileTransformer() {
+            @Override
+            public byte[] transform(
+                    final Module module,
+                    final ClassLoader loader,
+                    final String name,
+                    final Class<?> redefined,
+                    final ProtectionDomain domain,
+                    final byte[] bytes) {
+                observed.add(name);
+                return null;
+            }
+        };
+        final var spec = new WeaveSpec<>(
+                ADMISSION,
+                "test hook",
+                artifact -> Optional.of(new Contract("bound")),
+                plan(
+                        List.of(
+                                WeaveTarget.registeredOnly(guard),
+                                target(fake.transformer("only", HostA.class), HostA.class)),
+                        WeavePlan.PostCheck.NONE),
+                BridgeFactory.none(),
+                WeaveEffects.none());
+
+        final var installed = install(spec, fake);
+
+        assertEquals(
+                List.of(
+                        "add:observer",
+                        "add:only",
+                        "call:retransformClasses",
+                        "retransform:" + WeaveTarget.internalName(HostA.class)),
+                fake.events,
+                "a registration-only guard joins the registration but not the retransformation");
+        assertEquals(
+                List.of(WeaveTarget.internalName(HostA.class)),
+                observed,
+                "the guard observes the class another target declared, without a target of its own");
+
+        installed.close();
+
+        assertTrue(installed.restored());
+        assertTrue(fake.active.isEmpty());
+    }
+
     private WeaveSpec<Contract> spec(final Fake fake) {
         return spec(fake, List.of(target(fake.transformer("only", HostA.class), HostA.class)));
     }
@@ -447,6 +519,7 @@ class VerifiedInstallTest {
         private final Map<ClassFileTransformer, String> labels = new IdentityHashMap<>();
         Error captureFailure;
         boolean breakRestore;
+        boolean failRemoval;
 
         Instrumentation instrumentation() {
             return (Instrumentation) Proxy.newProxyInstance(
@@ -475,9 +548,11 @@ class VerifiedInstallTest {
                     yield null;
                 }
                 case "removeTransformer" -> {
-                    final boolean removed = active.remove(args[0]);
-                    events.add("remove:" + label((ClassFileTransformer) args[0]));
-                    yield removed;
+                    final ClassFileTransformer transformer = (ClassFileTransformer) args[0];
+                    events.add("remove:" + label(transformer));
+                    // Only a hook registration can be reported as not proven; the routine's own
+                    // capture observer is always removable.
+                    yield failRemoval && labels.containsKey(transformer) ? false : active.remove(transformer);
                 }
                 case "retransformClasses" -> {
                     events.add("call:retransformClasses");

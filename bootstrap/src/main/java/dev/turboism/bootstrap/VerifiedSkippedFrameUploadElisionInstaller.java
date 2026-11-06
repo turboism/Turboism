@@ -161,12 +161,14 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
      * @throws Exception when registration, retransformation or the match proof fails
      */
     synchronized void install() throws Exception {
-        if (hook != null) return;
-        if (!(VerifiedInstall.install(spec(), context)
-                instanceof VerifiedInstall.Attempt.Installed<SkippedFrameUploadElisionTarget> installed)) {
-            throw new IllegalStateException("upload elision refused: host-not-supported-or-hook-disabled");
+        if (hook == null) {
+            if (!(VerifiedInstall.bind(spec(), context)
+                    instanceof VerifiedInstall.Attempt.Installed<SkippedFrameUploadElisionTarget> bound)) {
+                throw new IllegalStateException("upload elision refused: host-not-supported-or-hook-disabled");
+            }
+            hook = bound.hook();
         }
-        hook = installed.hook();
+        hook.weave();
     }
 
     /** Guarded upload call sites across both rewritten wrappers. */
