@@ -668,6 +668,162 @@ class SwingPanelViewRendererTest {
         });
     }
 
+    @Test
+    void cardDispatchesDoubleClickAndGridRendersColumns() throws Exception {
+        final List<String> actions = new ArrayList<>();
+        final List<Optional<UiActionEvent>> events = new ArrayList<>();
+        final PanelView view = PanelView.grid(
+                2,
+                PanelView.card("card-1", "open", PanelView.text("One")),
+                PanelView.card("card-2", "open", PanelView.text("Two")));
+
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(view, (action, event) -> {
+                actions.add(action);
+                events.add(event);
+            });
+            assertInstanceOf(
+                    java.awt.GridLayout.class,
+                    assertInstanceOf(JPanel.class, rendered).getLayout());
+            final JPanel card = assertInstanceOf(JPanel.class, named(rendered, "card-1"));
+            card.dispatchEvent(new MouseEvent(
+                    card, MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(), 0, 1, 1, 2, false, MouseEvent.BUTTON1));
+            card.dispatchEvent(new MouseEvent(
+                    card, MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(), 0, 1, 1, 1, false, MouseEvent.BUTTON1));
+        });
+
+        assertEquals(List.of("open"), actions);
+        assertEquals("card-1", events.get(0).orElseThrow().sourceId());
+        assertEquals(
+                "card-1",
+                assertInstanceOf(
+                                UiActionEvent.TextValue.class,
+                                events.get(0).orElseThrow().value())
+                        .value());
+    }
+
+    @Test
+    void centeredBoxUsesItsFixedPreferredSize() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.centered(PanelView.text("placeholder"), 220, 180), (action, event) -> {});
+            final JPanel centered = assertInstanceOf(JPanel.class, rendered);
+            assertEquals(220, centered.getPreferredSize().width);
+            assertEquals(180, centered.getPreferredSize().height);
+            assertEquals(220, centered.getMinimumSize().width);
+            assertEquals(180, centered.getMinimumSize().height);
+        });
+    }
+
+    @Test
+    void centeredLinkDispatchesOnLeftClick() throws Exception {
+        final List<String> actions = new ArrayList<>();
+        final List<Optional<UiActionEvent>> events = new ArrayList<>();
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.centered(PanelView.column(
+                            PanelView.textCentered("No recent projects"),
+                            PanelView.link("create", "Create New Project", "board.create"))),
+                    (action, event) -> {
+                        actions.add(action);
+                        events.add(event);
+                    });
+            assertInstanceOf(
+                    java.awt.GridBagLayout.class,
+                    assertInstanceOf(JPanel.class, rendered).getLayout());
+            final JLabel link = assertInstanceOf(JLabel.class, named(rendered, "create"));
+            link.dispatchEvent(new MouseEvent(
+                    link, MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(), 0, 1, 1, 1, false, MouseEvent.BUTTON1));
+        });
+
+        assertEquals(List.of("board.create"), actions);
+        assertEquals("create", events.get(0).orElseThrow().sourceId());
+    }
+
+    @Test
+    void leftRowKeepsTheRightBlockAfterTheLeftPreferredWidth() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.leftRow(PanelView.centered(PanelView.text("thumb"), 110, 96), PanelView.text("name")),
+                    (action, event) -> {});
+            final JPanel row = assertInstanceOf(JPanel.class, rendered);
+            row.setSize(400, 96);
+            row.doLayout();
+            assertEquals(0, row.getComponent(0).getX());
+            final JPanel right = assertInstanceOf(JPanel.class, row.getComponent(1));
+            assertTrue(right.getX() >= 110);
+            right.doLayout();
+            final Component text = right.getComponent(0);
+            assertTrue(text.getY() > 0);
+            assertTrue(text.getY() + text.getHeight() < 96);
+        });
+    }
+
+    @Test
+    void scaledTextUsesALargerFont() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.column(
+                            PanelView.text("normal"),
+                            PanelView.text("large", false, 1.25f),
+                            PanelView.textCentered("centered", true, 1.5f)),
+                    (action, event) -> {});
+            final JPanel column = assertInstanceOf(JPanel.class, rendered);
+            final JLabel normal = assertInstanceOf(JLabel.class, column.getComponent(0));
+            final JLabel large = assertInstanceOf(JLabel.class, column.getComponent(2));
+            final JLabel centered = assertInstanceOf(JLabel.class, column.getComponent(4));
+            assertTrue(large.getFont().getSize2D() > normal.getFont().getSize2D());
+            assertTrue(centered.getFont().getSize2D() > normal.getFont().getSize2D());
+        });
+    }
+
+    @Test
+    void spaceBetweenPinsTheButtonToTheRightEdge() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.spaceBetween(
+                            PanelView.text("Recent Files"), PanelView.button("layout", "Layout: 6", "board.layout")),
+                    (action, event) -> {});
+            final JPanel between = assertInstanceOf(JPanel.class, rendered);
+            between.setSize(400, 60);
+            between.doLayout();
+            assertEquals(0, between.getComponent(0).getX());
+            final AbstractButton button = assertInstanceOf(AbstractButton.class, named(rendered, "layout"));
+            assertEquals(400, button.getX() + button.getWidth());
+        });
+    }
+
+    @Test
+    void iconButtonRendersAnIconWithoutVisibleTextAndDispatches() throws Exception {
+        final byte[] png = java.util.Base64.getDecoder()
+                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+        final List<String> actions = new ArrayList<>();
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.iconButton("layout", png, "Layout: 6 columns", "board.layout"),
+                    (action, event) -> actions.add(action));
+            final AbstractButton button = assertInstanceOf(AbstractButton.class, named(rendered, "layout"));
+            assertTrue(button.getText() == null || button.getText().isEmpty());
+            assertNotNull(button.getIcon());
+            assertEquals("Layout: 6 columns", button.getToolTipText());
+            button.doClick();
+        });
+        assertEquals(List.of("board.layout"), actions);
+    }
+
+    @Test
+    void paddedAddsAnEmptyBorderAroundTheChild() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.padded(PanelView.text("Title"), 2, 12, 4, 6), (action, event) -> {});
+            final java.awt.Insets insets = rendered.getInsets();
+            assertEquals(2, insets.top);
+            assertEquals(12, insets.left);
+            assertEquals(4, insets.bottom);
+            assertEquals(6, insets.right);
+        });
+    }
+
     private static Component named(final Component component, final String name) {
         if (name.equals(component.getName())) {
             return component;

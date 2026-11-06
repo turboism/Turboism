@@ -99,41 +99,45 @@ Section "-插件载荷" SecPluginPayload
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0022.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
+    File "/oname=recent-project-board.jar" "${STAGING_DIR}/plugins/recent-project-board.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0023.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=selection-brush.jar" "${STAGING_DIR}/plugins/selection-brush.jar"
+    File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0024.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
+    File "/oname=selection-brush.jar" "${STAGING_DIR}/plugins/selection-brush.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0025.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=atlas-dalsoo-polygon.jar" "${STAGING_DIR}/plugins/atlas-dalsoo-polygon.jar"
+    File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0026.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=atlas-folder-layout.jar" "${STAGING_DIR}/plugins/atlas-folder-layout.jar"
+    File "/oname=atlas-dalsoo-polygon.jar" "${STAGING_DIR}/plugins/atlas-dalsoo-polygon.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0027.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=atlas-bitmask-nesting.jar" "${STAGING_DIR}/plugins/atlas-bitmask-nesting.jar"
+    File "/oname=atlas-folder-layout.jar" "${STAGING_DIR}/plugins/atlas-folder-layout.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0028.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
+    File "/oname=atlas-bitmask-nesting.jar" "${STAGING_DIR}/plugins/atlas-bitmask-nesting.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0029.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+    File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0030.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=warp-deformer-alt-symmetry.jar" "${STAGING_DIR}/plugins/warp-deformer-alt-symmetry.jar"
+    File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0031.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=warp-deformer-alt-symmetry.jar" "${STAGING_DIR}/plugins/warp-deformer-alt-symmetry.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0032.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
     File "/oname=webdav-backup.jar" "${STAGING_DIR}/plugins/webdav-backup.jar"
   ${EndIf}
@@ -181,6 +185,7 @@ Var PluginState_28
 Var PluginState_29
 Var PluginState_30
 Var PluginState_31
+Var PluginState_32
 
 LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_ENGLISH} "Turboism ACP 0.68.1"
 LangString PLUGIN_DESC_dev_turboism_plugin_acp ${LANG_ENGLISH} "ACP v1 Agent and Settings windows connecting a user-installed agent to the authenticated Turboism MCP server."
@@ -358,6 +363,14 @@ LangString PLUGIN_NAME_dev_turboism_plugin_recent_preview ${LANG_JAPANESE} "最�
 LangString PLUGIN_DESC_dev_turboism_plugin_recent_preview ${LANG_JAPANESE} "Turboism の最近のプレビュー。"
 LangString PLUGIN_NAME_dev_turboism_plugin_recent_preview ${LANG_KOREAN} "최근 미리보기 0.68.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_recent_preview ${LANG_KOREAN} "Turboism 최근 미리보기 플러그인입니다."
+LangString PLUGIN_NAME_dev_turboism_plugin_recent_project_board ${LANG_ENGLISH} "Recent Project Board 0.68.1"
+LangString PLUGIN_DESC_dev_turboism_plugin_recent_project_board ${LANG_ENGLISH} "Shows recent project thumbnails over the empty Cubism viewport and opens a project on double-click."
+LangString PLUGIN_NAME_dev_turboism_plugin_recent_project_board ${LANG_SIMPCHINESE} "最近工程看板 0.68.1"
+LangString PLUGIN_DESC_dev_turboism_plugin_recent_project_board ${LANG_SIMPCHINESE} "在空的 Cubism 视口中显示最近工程缩略图，双击即可打开工程。"
+LangString PLUGIN_NAME_dev_turboism_plugin_recent_project_board ${LANG_JAPANESE} "最近のプロジェクトボード 0.68.1"
+LangString PLUGIN_DESC_dev_turboism_plugin_recent_project_board ${LANG_JAPANESE} "空の Cubism ビューポートに最近のプロジェクトのサムネイルを表示し、ダブルクリックで開きます。"
+LangString PLUGIN_NAME_dev_turboism_plugin_recent_project_board ${LANG_KOREAN} "최근 프로젝트 보드 0.68.1"
+LangString PLUGIN_DESC_dev_turboism_plugin_recent_project_board ${LANG_KOREAN} "비어 있는 Cubism 뷰포트에 최근 프로젝트 썸네일을 표시하고 더블 클릭으로 엽니다."
 LangString PLUGIN_NAME_dev_turboism_plugin_scene_palette_enhancer ${LANG_ENGLISH} "Scene Palette Enhancer 0.68.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_scene_palette_enhancer ${LANG_ENGLISH} "Sorts and manually reorders items in the Cubism Scene palette."
 LangString PLUGIN_NAME_dev_turboism_plugin_scene_palette_enhancer ${LANG_SIMPCHINESE} "场景面板增强器 0.68.0"
@@ -441,8 +454,8 @@ LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_KOREAN} "Turboism WebDA
 
 ; 初始化第一方插件选择状态（默认全选）
 Function InitPluginSelectionDefaults
-  StrCpy $PluginTotalCount "32"
-  StrCpy $PluginSelectedCount "32"
+  StrCpy $PluginTotalCount "33"
+  StrCpy $PluginSelectedCount "33"
   StrCpy $PluginCurrentIndex "0"
   StrCpy $PluginReadmeDir ""
   StrCpy $PluginState_0 1
@@ -477,6 +490,7 @@ Function InitPluginSelectionDefaults
   StrCpy $PluginState_29 1
   StrCpy $PluginState_30 1
   StrCpy $PluginState_31 1
+  StrCpy $PluginState_32 1
 FunctionEnd
 
 ; 按当前界面语言解压插件渲染后的 RTF README 到安装器私有临时目录
@@ -522,6 +536,7 @@ Function StagePluginReadmeFiles
     File "/oname=plugin-29.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0029-chn.rtf"
     File "/oname=plugin-30.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0030-chn.rtf"
     File "/oname=plugin-31.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0031-chn.rtf"
+    File "/oname=plugin-32.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0032-chn.rtf"
   ${ElseIf} $LANGUAGE == ${LANG_JAPANESE}
     File "/oname=plugin-0.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0000-jpn.rtf"
     File "/oname=plugin-1.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0001-jpn.rtf"
@@ -555,6 +570,7 @@ Function StagePluginReadmeFiles
     File "/oname=plugin-29.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0029-jpn.rtf"
     File "/oname=plugin-30.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0030-jpn.rtf"
     File "/oname=plugin-31.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0031-jpn.rtf"
+    File "/oname=plugin-32.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0032-jpn.rtf"
   ${ElseIf} $LANGUAGE == ${LANG_KOREAN}
     File "/oname=plugin-0.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0000-kor.rtf"
     File "/oname=plugin-1.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0001-kor.rtf"
@@ -588,6 +604,7 @@ Function StagePluginReadmeFiles
     File "/oname=plugin-29.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0029-kor.rtf"
     File "/oname=plugin-30.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0030-kor.rtf"
     File "/oname=plugin-31.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0031-kor.rtf"
+    File "/oname=plugin-32.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0032-kor.rtf"
   ${Else}
     File "/oname=plugin-0.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0000-eng.rtf"
     File "/oname=plugin-1.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0001-eng.rtf"
@@ -621,6 +638,7 @@ Function StagePluginReadmeFiles
     File "/oname=plugin-29.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0029-eng.rtf"
     File "/oname=plugin-30.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0030-eng.rtf"
     File "/oname=plugin-31.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0031-eng.rtf"
+    File "/oname=plugin-32.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0032-eng.rtf"
   ${EndIf}
 FunctionEnd
 
@@ -718,42 +736,46 @@ Function PopulatePluginSelectionList
   Call InsertPluginListViewItem
   StrCpy $0 22
   StrCpy $1 $PluginState_22
-  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_scene_palette_enhancer)"
+  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_recent_project_board)"
   Call InsertPluginListViewItem
   StrCpy $0 23
   StrCpy $1 $PluginState_23
-  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_selection_brush)"
+  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_scene_palette_enhancer)"
   Call InsertPluginListViewItem
   StrCpy $0 24
   StrCpy $1 $PluginState_24
-  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas)"
+  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_selection_brush)"
   Call InsertPluginListViewItem
   StrCpy $0 25
   StrCpy $1 $PluginState_25
-  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas_dalsoo)"
+  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas)"
   Call InsertPluginListViewItem
   StrCpy $0 26
   StrCpy $1 $PluginState_26
-  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas_folders)"
+  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas_dalsoo)"
   Call InsertPluginListViewItem
   StrCpy $0 27
   StrCpy $1 $PluginState_27
-  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas_nesting)"
+  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas_folders)"
   Call InsertPluginListViewItem
   StrCpy $0 28
   StrCpy $1 $PluginState_28
-  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats)"
+  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas_nesting)"
   Call InsertPluginListViewItem
   StrCpy $0 29
   StrCpy $1 $PluginState_29
-  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_uitheme)"
+  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats)"
   Call InsertPluginListViewItem
   StrCpy $0 30
   StrCpy $1 $PluginState_30
-  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_warp_deformer_alt_symmetry)"
+  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_uitheme)"
   Call InsertPluginListViewItem
   StrCpy $0 31
   StrCpy $1 $PluginState_31
+  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_warp_deformer_alt_symmetry)"
+  Call InsertPluginListViewItem
+  StrCpy $0 32
+  StrCpy $1 $PluginState_32
   StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_webdav)"
   Call InsertPluginListViewItem
   System::Call '*(i 8, i $PluginCurrentIndex, i 0, i 3, i 3, p 0, i 0, i 0, p 0) p .r3'
@@ -1151,6 +1173,18 @@ Function SyncPluginSelectionFromListView
     StrCpy $5 31
   ${EndIf}
   IntOp $4 $4 + $1
+  SendMessage $PluginSelectionList 0x102C 32 0xF000 $1
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
+    StrCpy $1 1
+  ${Else}
+    StrCpy $1 0
+  ${EndIf}
+  ${If} $1 != $PluginState_32
+    StrCpy $PluginState_32 $1
+    StrCpy $5 32
+  ${EndIf}
+  IntOp $4 $4 + $1
 FunctionEnd
 
 ; 全选 ($0=1) 或全不选 ($0=0) 全部第一方插件
@@ -1187,8 +1221,9 @@ Function SetAllPluginsSelected
   StrCpy $PluginState_29 $0
   StrCpy $PluginState_30 $0
   StrCpy $PluginState_31 $0
+  StrCpy $PluginState_32 $0
   ${If} $0 == 1
-    StrCpy $PluginSelectedCount "32"
+    StrCpy $PluginSelectedCount "33"
     StrCpy $4 0x2000
   ${Else}
     StrCpy $PluginSelectedCount "0"
@@ -1340,59 +1375,65 @@ Function WritePluginSelectionSkipMarkers
   ${If} $PluginState_22 == 0
     FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0022.skip" w
     FileClose $0
-    Delete "$INSTDIR\plugins\scene-palette-enhancer.jar"
+    Delete "$INSTDIR\plugins\recent-project-board.jar"
   ${EndIf}
   Delete "$PLUGINSDIR\Turboism-plugin-plan\0023.skip"
   ${If} $PluginState_23 == 0
     FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0023.skip" w
     FileClose $0
-    Delete "$INSTDIR\plugins\selection-brush.jar"
+    Delete "$INSTDIR\plugins\scene-palette-enhancer.jar"
   ${EndIf}
   Delete "$PLUGINSDIR\Turboism-plugin-plan\0024.skip"
   ${If} $PluginState_24 == 0
     FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0024.skip" w
     FileClose $0
-    Delete "$INSTDIR\plugins\atlas-maxrects-bssf.jar"
+    Delete "$INSTDIR\plugins\selection-brush.jar"
   ${EndIf}
   Delete "$PLUGINSDIR\Turboism-plugin-plan\0025.skip"
   ${If} $PluginState_25 == 0
     FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0025.skip" w
     FileClose $0
-    Delete "$INSTDIR\plugins\atlas-dalsoo-polygon.jar"
+    Delete "$INSTDIR\plugins\atlas-maxrects-bssf.jar"
   ${EndIf}
   Delete "$PLUGINSDIR\Turboism-plugin-plan\0026.skip"
   ${If} $PluginState_26 == 0
     FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0026.skip" w
     FileClose $0
-    Delete "$INSTDIR\plugins\atlas-folder-layout.jar"
+    Delete "$INSTDIR\plugins\atlas-dalsoo-polygon.jar"
   ${EndIf}
   Delete "$PLUGINSDIR\Turboism-plugin-plan\0027.skip"
   ${If} $PluginState_27 == 0
     FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0027.skip" w
     FileClose $0
-    Delete "$INSTDIR\plugins\atlas-bitmask-nesting.jar"
+    Delete "$INSTDIR\plugins\atlas-folder-layout.jar"
   ${EndIf}
   Delete "$PLUGINSDIR\Turboism-plugin-plan\0028.skip"
   ${If} $PluginState_28 == 0
     FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0028.skip" w
     FileClose $0
-    Delete "$INSTDIR\plugins\texture-atlas-stats.jar"
+    Delete "$INSTDIR\plugins\atlas-bitmask-nesting.jar"
   ${EndIf}
   Delete "$PLUGINSDIR\Turboism-plugin-plan\0029.skip"
   ${If} $PluginState_29 == 0
     FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0029.skip" w
     FileClose $0
-    Delete "$INSTDIR\plugins\ui-theme.jar"
+    Delete "$INSTDIR\plugins\texture-atlas-stats.jar"
   ${EndIf}
   Delete "$PLUGINSDIR\Turboism-plugin-plan\0030.skip"
   ${If} $PluginState_30 == 0
     FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0030.skip" w
     FileClose $0
-    Delete "$INSTDIR\plugins\warp-deformer-alt-symmetry.jar"
+    Delete "$INSTDIR\plugins\ui-theme.jar"
   ${EndIf}
   Delete "$PLUGINSDIR\Turboism-plugin-plan\0031.skip"
   ${If} $PluginState_31 == 0
     FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0031.skip" w
+    FileClose $0
+    Delete "$INSTDIR\plugins\warp-deformer-alt-symmetry.jar"
+  ${EndIf}
+  Delete "$PLUGINSDIR\Turboism-plugin-plan\0032.skip"
+  ${If} $PluginState_32 == 0
+    FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0032.skip" w
     FileClose $0
     Delete "$INSTDIR\plugins\webdav-backup.jar"
   ${EndIf}
@@ -1400,7 +1441,7 @@ FunctionEnd
 
 ; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。
 Function SetBundledPluginIds
-  StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.artmesh-mirror;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.deformer-batch-rename;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.frame-animation-import;dev.turboism.plugin.geometric-mesh-layout;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.parameter-sync;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-dalsoo;dev.turboism.plugin.texture-atlas-folders;dev.turboism.plugin.texture-atlas-nesting;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.webdav"
+  StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.artmesh-mirror;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.deformer-batch-rename;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.frame-animation-import;dev.turboism.plugin.geometric-mesh-layout;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.parameter-sync;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.recent-project-board;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-dalsoo;dev.turboism.plugin.texture-atlas-folders;dev.turboism.plugin.texture-atlas-nesting;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.webdav"
 FunctionEnd
 
 ; 卸载白名单：仅删除安装器部署的插件 JAR；未知文件与第三方 JAR 保留。
@@ -1431,6 +1472,7 @@ Function un.DeleteInstallerPluginJars
   Delete "$INSTDIR\plugins\protected-export.jar"
   Delete "$INSTDIR\plugins\psd-clip-mask-import.jar"
   Delete "$INSTDIR\plugins\recent-preview.jar"
+  Delete "$INSTDIR\plugins\recent-project-board.jar"
   Delete "$INSTDIR\plugins\scene-palette-enhancer.jar"
   Delete "$INSTDIR\plugins\selection-brush.jar"
   Delete "$INSTDIR\plugins\texture-atlas-stats.jar"

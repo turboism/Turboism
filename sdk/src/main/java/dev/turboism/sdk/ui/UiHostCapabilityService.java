@@ -85,6 +85,35 @@ public interface UiHostCapabilityService {
     Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution);
 
     /**
+     * Contributes a runtime-rendered board over the empty modeling viewport.
+     *
+     * <p>The runtime owns the placement: the board is shown only while no document is open
+     * and is hidden as soon as a project loads. Implementations that do not provide a
+     * verified viewport surface fail closed.</p>
+     *
+     * @param contribution the viewport board content; its {@code placement} is interpreted
+     *     as {@code viewport} regardless of the supplied value
+     * @return a registration whose {@code close()} removes the board
+     * @throws UnsupportedOperationException when the host has no viewport board surface
+     */
+    default Registration contributeRecentProjectBoard(final EmbeddedPanelContribution contribution) {
+        Objects.requireNonNull(contribution, "contribution");
+        throw new UnsupportedOperationException("recent-project board is unavailable");
+    }
+
+    /**
+     * Opens the host's native New Animation flow. The host may show its own dialog; the method
+     * returns after the native action has been dispatched. Requires
+     * {@code turboism.cubism.model.write}.
+     *
+     * @return {@code true} when the native New Animation action was dispatched
+     * @throws UnsupportedOperationException when the host has no verified New Animation surface
+     */
+    default boolean createNewAnimationProject() {
+        throw new UnsupportedOperationException("new animation project is unavailable");
+    }
+
+    /**
      * Contributes a toolkit-neutral control to the shared Turboism settings window.
      * Requires {@code turboism.ui.settings.contribute}; the registration is owned
      * by the calling plugin's disposable scope.

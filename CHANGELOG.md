@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- Added the `recent-project-board` official preview plugin: while no Cubism document is open, it fills the native modeling viewport with recent-project thumbnails from the official `recent-preview` plugin and opens the selected project on double-click. The SDK adds `RecentFileService.open(RecentFileId)`, a verified viewport-board contribution surface, and `PanelView.Card` / `PanelView.Grid` / `PanelView.Centered` / `PanelView.Link` nodes; the board uses configurable 6-column, 3-column, and left-aligned details layouts with a persisted icon-only Lucide header layout control, scales text up in the 3-column and details layouts, vertically centers the details metadata and the header title/subtitle block (with a left inset), keeps the header title/subtitle left-aligned and the icon control right-aligned, normalizes viewport bounds through visible-rect intersection across Cubism 5.0.00 through 5.3.04, centers grid card names/timestamps and no-preview placeholders, shows a centered empty state with blue Create New Project and Create New Animation Project links backed by `NEW_MODEL` and the native New Animation flow, and `recent-preview` now also replays a bounded snapshot of its disk cache after startup.
 - Physics Settings preview GIF recording with record/pause/resume, stop/discard controls and registered shortcuts, post-recording size controls, optional Gifsicle optimization (20 MB by default), and a persistent GIF export directory.
 
 ### Fixed

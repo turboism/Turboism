@@ -564,6 +564,25 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
+    public Registration contributeRecentProjectBoard(final EmbeddedPanelContribution contribution) {
+        Objects.requireNonNull(contribution, "contribution");
+        permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.recent-project-board.contribute");
+        final UiSurfaceAdapter.AdapterResult<Registration> result =
+                uiSurfaceAdapter.contributeRecentProjectBoard(pluginId, contribution);
+        if (result.isAvailable()) {
+            return enrollAdapterRegistration(result.value().orElseThrow());
+        }
+        throw new UnsupportedOperationException("recent-project board is unavailable");
+    }
+
+    @Override
+    public boolean createNewAnimationProject() {
+        permissionChecker.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "ui.new-animation-project");
+        final UiSurfaceAdapter.AdapterResult<Boolean> result = uiSurfaceAdapter.createNewAnimationProject();
+        return result.isAvailable() && Boolean.TRUE.equals(result.value().orElse(false));
+    }
+
+    @Override
     public Registration contributeCollapsibleSection(final CollapsibleSectionContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_PANEL_CONTRIBUTE, "ui.panel.contribute");

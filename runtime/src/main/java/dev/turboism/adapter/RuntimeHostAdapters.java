@@ -25,8 +25,14 @@ import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.StatusBarVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.EmbeddedPanelContribution;
+import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.resource.UiResourceService;
+import dev.turboism.ui.panel.RecentProjectBoardHostOperations;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
@@ -287,7 +293,7 @@ public record RuntimeHostAdapters(
         Objects.requireNonNull(diagnostics, "diagnostics");
         RecentPreviewVerificationManifest.requireAuthorized(projectResolver, panelResolver);
         final VerifiedRecentFileListHostOperations files =
-                new VerifiedRecentFileListHostOperations(projectResolver, panelResolver);
+                new VerifiedRecentFileListHostOperations(projectResolver, panelResolver, diagnostics);
         final VerifiedRecentPreviewPopupHostOperations popup =
                 new VerifiedRecentPreviewPopupHostOperations(panelResolver, locale, diagnostics);
         return new RuntimeHostAdapters(
@@ -301,6 +307,60 @@ public record RuntimeHostAdapters(
                 ScreenshotCaptureAdapter.connected(
                         new PreviewCaptureHostOperations(panelResolver, files, popup, diagnostics)),
                 RecentPreviewContributionAdapter.connected(popup),
+                base.autoBackup(),
+                base.uiResources());
+    }
+
+    /**
+     * Adds the verified viewport-board surface to the UI adapter while preserving every other
+     * adapter. The board host installs directly over the native GL viewport and never enters
+     * the dock palette provider, so it is available during early plugin enable.
+     *
+     * @param base the adapter bundle to extend
+     * @param boardHost the verified viewport board host
+     * @return a bundle whose UI surface also serves recent-project boards
+     */
+    public static RuntimeHostAdapters withRecentProjectBoard(
+            final RuntimeHostAdapters base, final RecentProjectBoardHostOperations boardHost) {
+        Objects.requireNonNull(base, "base");
+        Objects.requireNonNull(boardHost, "boardHost");
+        final UiSurfaceAdapter surface = new UiSurfaceAdapter() {
+            @Override
+            public AdapterResult<Registration> openDialog(final DialogRequest request) {
+                return base.uiSurface().openDialog(request);
+            }
+
+            @Override
+            public AdapterResult<Boolean> confirmDialog(final DialogRequest request) {
+                return base.uiSurface().confirmDialog(request);
+            }
+
+            @Override
+            public AdapterResult<Optional<String>> requestFile(final FileChooserRequest request) {
+                return base.uiSurface().requestFile(request);
+            }
+
+            @Override
+            public AdapterResult<Registration> contributeRecentProjectBoard(
+                    final String pluginId, final EmbeddedPanelContribution contribution) {
+                return AdapterResult.available(boardHost.install(pluginId, contribution));
+            }
+
+            @Override
+            public AdapterResult<Boolean> createNewAnimationProject() {
+                return AdapterResult.available(boardHost.createNewAnimation());
+            }
+        };
+        return new RuntimeHostAdapters(
+                base.themeStatus(),
+                base.renderStatus(),
+                base.projectWorkspace(),
+                base.clipMaskRead(),
+                base.statusToolbar(),
+                surface,
+                base.recentFiles(),
+                base.screenshots(),
+                base.recentPreviews(),
                 base.autoBackup(),
                 base.uiResources());
     }

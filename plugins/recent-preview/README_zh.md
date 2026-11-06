@@ -81,7 +81,7 @@ interface: swing
 }]
 ```
 
-可通过 `@SubscribeEvent` 或 `context.eventBus().subscribe(RecentPreviewCapturedEvent.class, ...)` 订阅。`event.image().png()` 获取图片流，`event.thumbnail()` 获取 `PanelView` 部件。事件为实时事件，不会向捕获开始后才订阅的插件重放历史图片。
+可通过 `@SubscribeEvent` 或 `context.eventBus().subscribe(RecentPreviewCapturedEvent.class, ...)` 订阅。`event.image().png()` 获取图片流，`event.thumbnail()` 获取 `PanelView` 部件。新捕获会实时发布；提供方还会在启动后延迟重放一次现有磁盘缓存的有界快照，方便依赖插件在本次会话首次新捕获前渲染最近工程看板。若订阅方启动得更晚，应保留自己的副本或请求新的捕获。
 
 ## 功能能力
 

@@ -19,10 +19,11 @@ import java.util.Objects;
  * {@link #thumbnail()} returns an immutable {@link PanelView} ready for a panel or
  * popup contribution.</p>
  *
- * <p>The event is a live observation: it is not replayed to a subscriber that starts
- * after a capture. Consumers that need the existing cache on demand should keep their
- * own copy from received events or request a new capture through the host screenshot
- * service.</p>
+ * <p>New captures are published live. The provider also replays a bounded snapshot of
+ * its existing disk cache shortly after startup so a dependent that loads alongside it
+ * can render a recent-project board before the first new capture in the session. A
+ * subscriber that starts much later should keep its own copy from received events or
+ * request a new capture through the host screenshot service.</p>
  */
 @CubismEditor
 public record RecentPreviewCapturedEvent(RecentFileId id, String displayName, ScreenshotImage image)

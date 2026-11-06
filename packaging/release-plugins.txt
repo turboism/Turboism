@@ -24,6 +24,7 @@
 :plugins:protected-export
 :plugins:psd-clip-mask-import
 :plugins:recent-preview
+:plugins:recent-project-board
 :plugins:scene-palette-enhancer
 :plugins:selection-brush
 :plugins:texture-atlas-stats

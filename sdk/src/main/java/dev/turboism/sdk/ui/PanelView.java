@@ -21,7 +21,15 @@ public sealed interface PanelView
                 PanelView.Chart,
                 PanelView.CollapsibleSection,
                 PanelView.Separator,
-                PanelView.Scroll {
+                PanelView.Scroll,
+                PanelView.Card,
+                PanelView.Grid,
+                PanelView.Centered,
+                PanelView.Link,
+                PanelView.SpaceBetween,
+                PanelView.LeftRow,
+                PanelView.IconButton,
+                PanelView.Padded {
 
     /** Creates a vertical stack of the given children. */
     static Column column(final PanelView... children) {
@@ -43,9 +51,24 @@ public sealed interface PanelView
         return new Text(value, grayed, false);
     }
 
+    /** Text rendered at a scaled font size (1.0 is the host default). */
+    static Text text(final String value, final boolean grayed, final float fontScale) {
+        return new Text(value, grayed, false, fontScale);
+    }
+
     /** Text rendered centered in its region, e.g. a panel header statistic. */
     static Text textCentered(final String value) {
         return new Text(value, false, true);
+    }
+
+    /** Text rendered centered and optionally grayed, e.g. a centered subtitle. */
+    static Text textCentered(final String value, final boolean grayed) {
+        return new Text(value, grayed, true);
+    }
+
+    /** Text rendered centered at a scaled font size. */
+    static Text textCentered(final String value, final boolean grayed, final float fontScale) {
+        return new Text(value, grayed, true, fontScale);
     }
 
     /** Creates an image node from PNG bytes with accessibility alt text. */
@@ -67,6 +90,16 @@ public sealed interface PanelView
     /** Creates a push button that invokes {@code actionId} when pressed. */
     static Button button(final String id, final String label, final String actionId) {
         return new Button(id, label, actionId);
+    }
+
+    /** Creates an icon-only button with tooltip text and no visible label. */
+    static IconButton iconButton(final String id, final byte[] pngBytes, final String tooltip, final String actionId) {
+        return new IconButton(id, pngBytes, tooltip, actionId);
+    }
+
+    /** Wraps a child in an empty inset; useful for standalone header alignment. */
+    static Padded padded(final PanelView child, final int top, final int left, final int bottom, final int right) {
+        return new Padded(child, top, left, bottom, right);
     }
 
     /** Creates a labeled text field whose edits dispatch {@code actionId}. */
@@ -148,6 +181,49 @@ public sealed interface PanelView
         return new CollapsibleSection(title, expandedByDefault, List.of(children));
     }
 
+    /**
+     * Creates a clickable card around {@code content}. Double-clicking the card
+     * dispatches {@code actionId}; the card id is sent as the action event source.
+     */
+    static Card card(final String id, final String actionId, final PanelView content) {
+        return new Card(id, actionId, content);
+    }
+
+    /** Creates a borderless clickable row, e.g. a details-list entry. */
+    static Card flatCard(final String id, final String actionId, final PanelView content) {
+        return new Card(id, actionId, content, false);
+    }
+
+    /** Creates a fixed-column grid of child nodes. */
+    static Grid grid(final int columns, final PanelView... children) {
+        return new Grid(columns, List.of(children));
+    }
+
+    /** Centers one child block horizontally and vertically in the available space. */
+    static Centered centered(final PanelView child) {
+        return new Centered(child, 0, 0);
+    }
+
+    /** Centers one child block inside a fixed preferred-size box. */
+    static Centered centered(final PanelView child, final int preferredWidth, final int preferredHeight) {
+        return new Centered(child, preferredWidth, preferredHeight);
+    }
+
+    /** Creates a blue underlined link that dispatches {@code actionId} on left click. */
+    static Link link(final String id, final String label, final String actionId) {
+        return new Link(id, label, actionId);
+    }
+
+    /** Creates a row with {@code left} aligned to the start and {@code right} to the end. */
+    static SpaceBetween spaceBetween(final PanelView left, final PanelView right) {
+        return new SpaceBetween(left, right);
+    }
+
+    /** Creates a row with {@code left} at its preferred size and {@code right} filling the rest. */
+    static LeftRow leftRow(final PanelView left, final PanelView right) {
+        return new LeftRow(left, right);
+    }
+
     /** Vertical stack of child nodes. */
     record Column(List<PanelView> children) implements PanelView {
         public Column {
@@ -163,17 +239,24 @@ public sealed interface PanelView
     }
 
     /** Plain text node; {@code grayed} renders disabled-looking, {@code centered} centers it. */
-    record Text(String value, boolean grayed, boolean centered) implements PanelView {
+    record Text(String value, boolean grayed, boolean centered, float fontScale) implements PanelView {
         public Text {
             value = Objects.requireNonNull(value, "value");
+            if (Float.isNaN(fontScale) || fontScale < 0.5f || fontScale > 3.0f) {
+                throw new IllegalArgumentException("fontScale must be between 0.5 and 3.0");
+            }
+        }
+
+        public Text(final String value, final boolean grayed, final boolean centered) {
+            this(value, grayed, centered, 1.0f);
         }
 
         public Text(final String value, final boolean grayed) {
-            this(value, grayed, false);
+            this(value, grayed, false, 1.0f);
         }
 
         public Text(final String value) {
-            this(value, false, false);
+            this(value, false, false, 1.0f);
         }
     }
 
@@ -226,6 +309,38 @@ public sealed interface PanelView
             id = requireText(id, "id");
             label = requireText(label, "label");
             actionId = requireText(actionId, "actionId");
+        }
+    }
+
+    /** Empty inset around a child. */
+    record Padded(PanelView child, int top, int left, int bottom, int right) implements PanelView {
+        public Padded {
+            child = Objects.requireNonNull(child, "child");
+            requireInset(top, "top");
+            requireInset(left, "left");
+            requireInset(bottom, "bottom");
+            requireInset(right, "right");
+        }
+
+        private static void requireInset(final int value, final String name) {
+            if (value < 0) {
+                throw new IllegalArgumentException(name + " must be non-negative");
+            }
+        }
+    }
+
+    /** Icon-only button; {@code pngBytes} is an alpha mask tinted by the runtime theme. */
+    record IconButton(String id, byte[] pngBytes, String tooltip, String actionId) implements PanelView {
+        public IconButton {
+            id = requireText(id, "id");
+            pngBytes = checkedPngBytes(pngBytes);
+            tooltip = requireText(tooltip, "tooltip");
+            actionId = requireText(actionId, "actionId");
+        }
+
+        @Override
+        public byte[] pngBytes() {
+            return pngBytes.clone();
         }
     }
 
@@ -339,6 +454,79 @@ public sealed interface PanelView
     record Scroll(PanelView child) implements PanelView {
         public Scroll {
             child = Objects.requireNonNull(child, "child");
+        }
+    }
+
+    /**
+     * Double-clickable card around arbitrary panel content.
+     *
+     * <p>The rendered card is a bordered container; a left-button double-click
+     * dispatches {@code actionId} with a {@link dev.turboism.sdk.action.UiActionEvent}
+     * whose source id is {@code id}. Single clicks are presentation-only.</p>
+     */
+    record Card(String id, String actionId, PanelView content, boolean bordered) implements PanelView {
+        public Card {
+            id = requireText(id, "id");
+            actionId = requireText(actionId, "actionId");
+            content = Objects.requireNonNull(content, "content");
+        }
+
+        /** Creates a bordered card; the details-view equivalent uses {@link #flatCard}. */
+        public Card(final String id, final String actionId, final PanelView content) {
+            this(id, actionId, content, true);
+        }
+    }
+
+    /** Fixed-column grid of child nodes; columns must be between 1 and 12. */
+    record Grid(int columns, List<PanelView> children) implements PanelView {
+        public Grid {
+            if (columns < 1 || columns > 12) {
+                throw new IllegalArgumentException("columns must be between 1 and 12");
+            }
+            children = immutableChildren(children);
+        }
+    }
+
+    /** Centers one child block in the available width and height. */
+    record Centered(PanelView child, int preferredWidth, int preferredHeight) implements PanelView {
+        public Centered {
+            child = Objects.requireNonNull(child, "child");
+            if (preferredWidth < 0 || preferredHeight < 0) {
+                throw new IllegalArgumentException("preferred dimensions must be non-negative");
+            }
+            if ((preferredWidth == 0) != (preferredHeight == 0)) {
+                throw new IllegalArgumentException("preferred width and height must both be zero or both be positive");
+            }
+        }
+
+        /** Centers the child at its natural preferred size. */
+        public Centered(final PanelView child) {
+            this(child, 0, 0);
+        }
+    }
+
+    /** Blue underlined link that dispatches {@code actionId} on a left click. */
+    record Link(String id, String label, String actionId) implements PanelView {
+        public Link {
+            id = requireText(id, "id");
+            label = requireText(label, "label");
+            actionId = requireText(actionId, "actionId");
+        }
+    }
+
+    /** Left/right row with the two blocks pinned to the start and end of the available width. */
+    record SpaceBetween(PanelView left, PanelView right) implements PanelView {
+        public SpaceBetween {
+            left = Objects.requireNonNull(left, "left");
+            right = Objects.requireNonNull(right, "right");
+        }
+    }
+
+    /** Row with a fixed-leading block and a trailing block that fills the remaining width. */
+    record LeftRow(PanelView left, PanelView right) implements PanelView {
+        public LeftRow {
+            left = Objects.requireNonNull(left, "left");
+            right = Objects.requireNonNull(right, "right");
         }
     }
 

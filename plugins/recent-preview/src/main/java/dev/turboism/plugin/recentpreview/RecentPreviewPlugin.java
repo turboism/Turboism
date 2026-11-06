@@ -8,9 +8,11 @@ import dev.turboism.sdk.cubism.ProjectFileOperation;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
+import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.task.FixedDelayTaskRequest;
@@ -21,10 +23,13 @@ import dev.turboism.sdk.task.TaskHandle;
 import dev.turboism.sdk.task.TaskId;
 import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.ui.UiScheduler;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import javax.imageio.ImageIO;
 import javax.swing.SwingUtilities;
 
 /**
@@ -57,6 +62,7 @@ public final class RecentPreviewPlugin implements CubismPlugin {
     RecentPreviewPoller.Clock pollClock = System::currentTimeMillis;
 
     private TaskHandle pollTask;
+    private volatile javax.swing.Timer cacheReplayTimer;
 
     @Override
     public void init(final PluginContext context) {
@@ -83,10 +89,13 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         enabled = true;
         controller.enable();
         controller.preload().whenComplete((ignored, failure) -> {
-            if (enabled) refreshPopup();
+            if (!enabled) return;
+            publishCachedPreviews();
+            refreshPopup();
         });
         contributeRenderer();
         startPoller();
+        scheduleCacheReplay();
     }
 
     @Override
@@ -96,6 +105,7 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         }
         enabled = false;
         stopPoller();
+        stopCacheReplay();
         closeContribution();
         if (controller != null) controller.disable();
         if (renderer != null) renderer.clearTransientState();
@@ -229,6 +239,29 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         }
     }
 
+    /**
+     * Replays the disk cache once after the plugin load wave has settled. Dependents that
+     * declare this plugin as an {@code after} dependency load just after this plugin's
+     * {@code enable()}; the delayed replay gives their event subscribers time to attach.
+     */
+    private void scheduleCacheReplay() {
+        stopCacheReplay();
+        final javax.swing.Timer timer = new javax.swing.Timer(6_000, ignored -> {
+            stopCacheReplay();
+            if (enabled) publishCachedPreviews();
+        });
+        timer.setRepeats(false);
+        timer.start();
+        cacheReplayTimer = timer;
+    }
+
+    /** Cancels the delayed cache replay; idempotent. */
+    private void stopCacheReplay() {
+        final javax.swing.Timer active = cacheReplayTimer;
+        cacheReplayTimer = null;
+        if (active != null) active.stop();
+    }
+
     /** Cancels the poll task and drops the poller; idempotent. */
     private void stopPoller() {
         final TaskHandle active = pollTask;
@@ -311,8 +344,48 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         });
     }
 
+    /**
+     * Publishes the current disk-cache snapshot for recent files so dependents that start
+     * alongside the plugin can render a recent-project board before the first new capture.
+     * The replay is bounded and runs after {@link RecentPreviewController#preload()}.
+     */
+    private void publishCachedPreviews() {
+        if (!enabled || controller == null) return;
+        final List<RecentFileSummary> files;
+        try {
+            files = controller.refresh().toCompletableFuture().join();
+        } catch (RuntimeException failure) {
+            context.logger()
+                    .warn("Recent preview cache replay refresh failed: "
+                            + failure.getClass().getSimpleName());
+            return;
+        }
+        int published = 0;
+        for (RecentFileSummary file : files) {
+            if (published >= 12) break;
+            final Optional<byte[]> png = controller.image(file.id());
+            if (png.isEmpty()) continue;
+            try {
+                final BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(png.get()));
+                if (decoded == null || decoded.getWidth() < 1 || decoded.getHeight() < 1) continue;
+                publishCaptured(new RecentPreviewCapturedEvent(
+                        file.id(),
+                        file.displayName(),
+                        new ScreenshotImage(decoded.getWidth(), decoded.getHeight(), png.get())));
+                published++;
+            } catch (java.io.IOException | RuntimeException failure) {
+                context.logger()
+                        .warn("Recent preview cache replay skipped one entry: "
+                                + failure.getClass().getSimpleName());
+            }
+        }
+        if (published > 0) {
+            context.logger().info("Recent preview cache replayed entries=" + published);
+        }
+    }
+
     /** Publishes the committed capture to dependent plugins without affecting the cache path. */
-    private void publishCaptured(final dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent event) {
+    private void publishCaptured(final RecentPreviewCapturedEvent event) {
         final PluginContext current = context;
         if (!enabled || current == null) {
             return;

@@ -81,7 +81,7 @@ A consumer declares a dependency on `dev.turboism.plugin.recent-preview` with `o
 }]
 ```
 
-Subscribe with `@SubscribeEvent` or `context.eventBus().subscribe(RecentPreviewCapturedEvent.class, ...)`. Use `event.image().png()` for the byte stream or `event.thumbnail()` for a `PanelView` part. The event is live-only and is not replayed to subscribers that start after a capture.
+Subscribe with `@SubscribeEvent` or `context.eventBus().subscribe(RecentPreviewCapturedEvent.class, ...)`. Use `event.image().png()` for the byte stream or `event.thumbnail()` for a `PanelView` part. New captures are published live; the provider also replays a bounded snapshot of its existing disk cache shortly after startup so dependents can render a recent-project board before the first new capture in the session. A subscriber that starts much later should keep its own copy or request a new capture.
 
 ## Capabilities
 

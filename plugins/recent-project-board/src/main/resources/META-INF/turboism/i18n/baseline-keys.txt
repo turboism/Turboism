@@ -1,0 +1,14 @@
+board.columns
+board.create
+board.createAnimation
+board.details
+board.empty
+board.layout
+board.layout.action
+board.noPreview
+board.open.label
+board.subtitle
+board.title
+board.unavailable
+plugin.description
+plugin.name

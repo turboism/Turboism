@@ -169,6 +169,18 @@ final class DynamicRuntimeHostAdapters {
                             final dev.turboism.sdk.ui.FileChooserRequest request) {
                         return call(adapters -> adapters.uiSurface().requestFile(request));
                     }
+
+                    @Override
+                    public AdapterResult<Registration> contributeRecentProjectBoard(
+                            final String pluginId, final dev.turboism.sdk.ui.EmbeddedPanelContribution contribution) {
+                        return call(adapters ->
+                                track(adapters.uiSurface().contributeRecentProjectBoard(pluginId, contribution)));
+                    }
+
+                    @Override
+                    public AdapterResult<Boolean> createNewAnimationProject() {
+                        return call(adapters -> adapters.uiSurface().createNewAnimationProject());
+                    }
                 },
                 dev.turboism.adapter.cubism.RecentFileAdapter.connected(
                         new dev.turboism.adapter.cubism.RecentFileAdapter.HostOperations() {
@@ -180,6 +192,11 @@ final class DynamicRuntimeHostAdapters {
                             @Override
                             public java.util.Optional<dev.turboism.sdk.cubism.recentfile.RecentFileId> current() {
                                 return call(adapters -> adapters.recentFiles().current());
+                            }
+
+                            @Override
+                            public boolean open(final dev.turboism.sdk.cubism.recentfile.RecentFileId id) {
+                                return call(adapters -> adapters.recentFiles().open(id));
                             }
 
                             @Override

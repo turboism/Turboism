@@ -14654,6 +14654,95 @@
    }
   },
   {
+   "id": "dev.turboism.plugin.recent-project-board",
+   "name": "Recent Project Board",
+   "directory": "recent-project-board",
+   "requiresCubism": true,
+   "supportedVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "supportedGaps": {},
+   "fullFeatureVersions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "partialFeatures": [
+    {
+     "key": "dev.turboism.sdk.cubism.command.EditorCommandService",
+     "declaredCapability": null,
+     "versions": [
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommandService.java"
+     ],
+     "missingNature": {
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary"
+     }
+    }
+   ],
+   "unmappedCapabilities": [],
+   "hostValidation": {}
+  },
+  {
    "id": "dev.turboism.plugin.scene-palette-enhancer",
    "name": "Scene Palette Enhancer",
    "directory": "scene-palette-enhancer",
