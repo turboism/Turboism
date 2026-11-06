@@ -343,12 +343,15 @@ class RootReadmeTest(unittest.TestCase):
             # Localized docs (`*_zh.md`, `*_ja.md`, `*_ko.md`) are the per-language
             # variant of the same underlying page; normalize the suffix so every
             # language must reference the same doc families while keeping its
-            # localized file, mirroring the per-language EULA normalization.
-            normalized_links = ["EULA" if link == self.EULA_PATHS[filename]
-                                else re.sub(r"_(?:zh|ja|ko)\.md$", ".md", link)
-                                for link in links]
-            normalized_links = ["CAPABILITIES" if link == self.CAPABILITY_PATHS[filename] else link
-                                for link in normalized_links]
+            # localized file, mirroring the per-language EULA normalization. The
+            # capability-matrix tokens match before the suffix is stripped, because
+            # `capabilities_zh.md` no longer equals its declared per-language path
+            # once the suffix is gone.
+            normalized_links = [
+                "EULA" if link == self.EULA_PATHS[filename]
+                else "CAPABILITIES" if link == self.CAPABILITY_PATHS[filename]
+                else re.sub(r"_(?:zh|ja|ko)\.md$", ".md", link)
+                for link in links]
             if english_links is None:
                 english_links = Counter(normalized_links)
             self.assertEqual(Counter(normalized_links), english_links, filename)
