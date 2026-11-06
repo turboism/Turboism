@@ -6,12 +6,12 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.ui.action.EditorUiActionRouter;
+import dev.turboism.ui.host.EdtDispatch;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.swing.JComponent;
-import javax.swing.SwingUtilities;
 
 /**
  * Installs a plugin's recent-project board over the native modeling viewport.
@@ -39,13 +39,6 @@ public final class RecentProjectBoardHostOperations {
         this.locale = Objects.requireNonNull(locale, "locale");
     }
 
-    /**
-     * Installs one board.
-     *
-     * @param pluginId the contributing plugin, used to route card actions
-     * @param contribution the board content
-     * @return a registration that removes the board when closed
-     */
     /**
      * Dispatches the host's native New Animation action. The native entry point opens
      * Cubism's own New Animation flow (usually a dialog); the caller only owns the dispatch.
@@ -76,21 +69,24 @@ public final class RecentProjectBoardHostOperations {
                     throw new IllegalStateException("Cubism New Animation action failed", failure);
                 }
             };
-            if (SwingUtilities.isEventDispatchThread()) {
+            EdtDispatch.call("recent project board new animation", () -> {
                 dispatch.run();
-            } else {
-                SwingUtilities.invokeAndWait(dispatch);
-            }
+                return null;
+            });
             return true;
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            return false;
         } catch (ReflectiveOperationException | RuntimeException failure) {
             FatalErrors.rethrowIfFatal(failure);
             return false;
         }
     }
 
+    /**
+     * Installs one board.
+     *
+     * @param pluginId the contributing plugin, used to route card actions
+     * @param contribution the board content
+     * @return a registration that removes the board when closed
+     */
     public Registration install(final String pluginId, final EmbeddedPanelContribution contribution) {
         Objects.requireNonNull(pluginId, "pluginId");
         Objects.requireNonNull(contribution, "contribution");

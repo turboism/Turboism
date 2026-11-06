@@ -403,6 +403,18 @@
         ":testing:test-support"
       ]
     },
+    ":plugins:recent-project-board": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
     ":plugins:scene-palette-enhancer": {
       "annotationProcessor": [
         ":event-processor"
