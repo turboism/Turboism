@@ -131,6 +131,7 @@ class EditorPartOpacityAccessTest {
                 includePartCapability
                         ? java.util.Set.of(
                                 "cubism.editor-model.read",
+                                "cubism.editor-history.read",
                                 opacityCapability(cubismVersion),
                                 EditorPartTreeSelectorContract.CAPABILITY_ID)
                         : java.util.Set.of("cubism.editor-model.read"),
