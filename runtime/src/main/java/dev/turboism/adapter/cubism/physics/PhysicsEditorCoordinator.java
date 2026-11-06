@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.physics;
 
+import dev.turboism.adapter.cubism.preview.RuntimePreviewSurfaceRegistry;
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
@@ -42,11 +43,32 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
     private static final int PRIORITY_COLUMN = 1;
 
     private final Object lock = new Object();
+    private final RuntimePreviewSurfaceRegistry previewSurfaces;
+    private final boolean ownsPreviewSurfaces;
     private PhysicsEditorContribution contribution;
     private final List<Controller> controllers = new ArrayList<>();
-    private final List<PhysicsGifRecorder> recorders = new ArrayList<>();
     private Map<String, Boolean> retained = Map.of();
     private boolean closed;
+
+    /**
+     * Creates a coordinator owning a private preview surface registry.
+     *
+     * <p>Used where no host session is composed, so preview panels are never registered and the
+     * preview capabilities resolve nothing.</p>
+     */
+    public PhysicsEditorCoordinator() {
+        this.previewSurfaces = new RuntimePreviewSurfaceRegistry();
+        this.ownsPreviewSurfaces = true;
+    }
+
+    /**
+     * @param previewSurfaces the host-session-owned preview surface registry every constructed
+     *     preview panel is registered with, never {@code null}
+     */
+    public PhysicsEditorCoordinator(final RuntimePreviewSurfaceRegistry previewSurfaces) {
+        this.previewSurfaces = Objects.requireNonNull(previewSurfaces, "previewSurfaces");
+        this.ownsPreviewSurfaces = false;
+    }
 
     @Override
     public Registration contribute(final PhysicsEditorContribution requested) {
@@ -82,25 +104,21 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
         runOnEdt(() -> install(panel, profile, active));
     }
 
-    /** Attaches recording controls to the exact native preview surface. */
+    /**
+     * Registers a newly constructed native preview panel with the preview surface registry.
+     *
+     * <p>Registration is unconditional: reading preview frames and attaching a control strip belong
+     * to the preview capability, not to a Physics Settings contribution, so a plugin that only
+     * records previews still resolves the surface.</p>
+     *
+     * @param panel the host preview panel, never {@code null}
+     */
     public void onPreviewConstructed(final Object panel) {
-        runOnEdt(() -> {
-            synchronized (lock) {
-                if (closed || contribution == null) return;
-                try {
-                    final PhysicsGifRecorder recorder = PhysicsGifRecorder.install(panel, () -> {
-                        synchronized (lock) {
-                            recorders.removeIf(PhysicsGifRecorder::isClosed);
-                        }
-                    });
-                    if (recorder != null) recorders.add(recorder);
-                } catch (Throwable failure) {
-                    FatalErrors.rethrowIfFatal(failure);
-                    dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                            "physics-editor", "GIF controls could not be attached", failure);
-                }
-            }
-        });
+        Objects.requireNonNull(panel, "panel");
+        synchronized (lock) {
+            if (closed) return;
+        }
+        previewSurfaces.register(panel);
     }
 
     @Override
@@ -110,26 +128,26 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
         }
     }
 
+    /**
+     * Accepted for compatibility and ignored.
+     *
+     * <p>The recording state machine belongs to the plugin that drives it; the runtime no longer
+     * keeps a recorder per preview. See {@link PhysicsEditorService#gifCommand} for the
+     * replacement.</p>
+     *
+     * @param command the ignored command
+     * @deprecated the plugin records through
+     *     {@link dev.turboism.sdk.cubism.preview.PreviewFrameService}
+     */
     @Override
+    @Deprecated(forRemoval = true)
     public void gifCommand(final GifCommand command) {
         Objects.requireNonNull(command, "command");
-        runOnEdt(() -> {
-            final List<PhysicsGifRecorder> current;
-            synchronized (lock) {
-                if (closed || contribution == null) return;
-                current = List.copyOf(recorders);
-            }
-            current.stream()
-                    .filter(PhysicsGifRecorder::isFocused)
-                    .findFirst()
-                    .ifPresent(recorder -> recorder.command(command));
-        });
     }
 
     @Override
     public void close() {
         final List<Controller> stale;
-        final List<PhysicsGifRecorder> staleRecorders;
         synchronized (lock) {
             if (closed) return;
             closed = true;
@@ -137,33 +155,23 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
             retained = Map.of();
             stale = List.copyOf(controllers);
             controllers.clear();
-            staleRecorders = List.copyOf(recorders);
-            recorders.clear();
         }
-        runOnEdt(() -> {
-            stale.forEach(Controller::close);
-            staleRecorders.forEach(PhysicsGifRecorder::close);
-        });
+        runOnEdt(() -> stale.forEach(Controller::close));
+        if (ownsPreviewSurfaces) previewSurfaces.close();
     }
 
     // Contribution clearing is scoped to the exact instance that registered it.
     @SuppressWarnings("ReferenceEquality")
     private void clearContribution(final PhysicsEditorContribution expected) {
         final List<Controller> stale;
-        final List<PhysicsGifRecorder> staleRecorders;
         synchronized (lock) {
             if (contribution != expected) return;
             contribution = null;
             retained = Map.of();
             stale = List.copyOf(controllers);
             controllers.clear();
-            staleRecorders = List.copyOf(recorders);
-            recorders.clear();
         }
-        runOnEdt(() -> {
-            stale.forEach(Controller::close);
-            staleRecorders.forEach(PhysicsGifRecorder::close);
-        });
+        runOnEdt(() -> stale.forEach(Controller::close));
     }
 
     // The active contribution is a handle: a replaced instance invalidates the deferred install.
