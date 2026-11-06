@@ -1,7 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
-import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWrite;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorMorphTargetSelectorContract;
@@ -17,10 +18,15 @@ import java.util.Optional;
 /** Exact, generation-bound Editor projection for keyform Morph Target reads and binding writes. */
 final class EditorMorphTargetAccess {
 
+    private static final String OPERATION_ID = "cubism.morph-target.set-parameter";
+    private static final String ACTION_NAME = "Turboism: Set Morph Target";
+    private static final String SUBJECT_PREFIX = "morph-target:";
+
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
-    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
+    private final EditorAuthoringWriter authoringWriter;
 
+    /** Read-only composition: morph-target writes require the authoring writer. */
     EditorMorphTargetAccess(
             final VerifiedMemberResolver resolver, final EditorParameterCombinedAccess.ModelGuard modelGuard) {
         this(resolver, modelGuard, null);
@@ -29,10 +35,10 @@ final class EditorMorphTargetAccess {
     EditorMorphTargetAccess(
             final VerifiedMemberResolver resolver,
             final EditorParameterCombinedAccess.ModelGuard modelGuard,
-            final EditorAuthoringTransactionCoordinator authoringCoordinator) {
+            final EditorAuthoringWriter authoringWriter) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
-        this.authoringCoordinator = authoringCoordinator;
+        this.authoringWriter = authoringWriter;
     }
 
     MorphTargets morphTargets(
@@ -274,98 +280,51 @@ final class EditorMorphTargetAccess {
             requireWriteAuthorization();
             currentSetOrThrow();
             if (parameterId().equals(id) && Float.compare(keyValue(), value) == 0) return;
+            final ParameterId beforeId = parameterId();
+            final float beforeValue = keyValue();
             final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-            final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
-            final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
-            if (ambientJoin.isPresent()) {
-                final ParameterId beforeId = parameterId();
-                final float beforeValue = keyValue();
-                ambientJoin
-                        .orElseThrow()
-                        .admit(
-                                "cubism.morph-target.set-parameter",
-                                "morph-target:" + Integer.toHexString(System.identityHashCode(expected)),
-                                "Turboism: Set Morph Target",
-                                (edit, transactionLabel) -> {
-                                    // Construct-and-redo: captures the old binding and applies the new one.
-                                    final Object utils =
-                                            resolver.readStaticField("cubism.editor-model.morph-target-utils.instance");
-                                    final Object undo = resolver.invoke(
-                                            "cubism.editor-model.morph-target.change-parameter",
-                                            utils,
-                                            expected,
-                                            parameterGuid(source, id),
-                                            Float.valueOf(value));
-                                    HostUndoMutationScope.requireUndoAccepted(
-                                            resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE),
-                                            "Set Morph Target");
-                                    final Object listener = resolver.createFunctionalProxy(
-                                            "cubism.editor-model.undo-listener.class", ignored -> {
-                                                resolver.invoke(
-                                                        "cubism.editor-model.model-source.update-instances", source);
-                                                refresh(app);
-                                                return null;
-                                            });
-                                    resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
-                                },
-                                () -> {},
-                                () -> parameterId().equals(id) && Float.compare(keyValue(), value) == 0,
-                                () -> {
-                                    final Object utils =
-                                            resolver.readStaticField("cubism.editor-model.morph-target-utils.instance");
-                                    resolver.invoke(
-                                            "cubism.editor-model.morph-target.change-parameter",
-                                            utils,
-                                            expected,
-                                            parameterGuid(source, beforeId),
-                                            Float.valueOf(beforeValue));
-                                },
-                                () -> parameterId().equals(beforeId) && Float.compare(keyValue(), beforeValue) == 0,
-                                EnumSet.of(
-                                        EditorRefreshRequirement.MODEL_INSTANCES,
-                                        EditorRefreshRequirement.PART_PALETTE,
-                                        EditorRefreshRequirement.CANVAS,
-                                        EditorRefreshRequirement.MARK_DIRTY));
-                currentSetOrThrow();
-                return;
-            }
-            EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-                    authoringCoordinator, "MorphTarget.setParameterAndKeyValue");
-            final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-            final Object edit =
-                    resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, "Turboism: Set Morph Target");
-            boolean completed = false;
-            try {
-                // Host mechanism: MorphTargetParameterUtils.changeMorphTargetParameter_exe wraps the
-                // binding change in ChangeMorphTargetParameterUndoRedo whose constructor captures the
-                // old parameter/key value and applies the new binding immediately (construct-and-redo);
-                // undo() restores oldParameterGuid/oldKeyValue, redo() re-applies the new binding.
-                final Object utils = resolver.readStaticField("cubism.editor-model.morph-target-utils.instance");
-                final Object undo = resolver.invoke(
-                        "cubism.editor-model.morph-target.change-parameter",
-                        utils,
-                        expected,
-                        parameterGuid(source, id),
-                        Float.valueOf(value));
-                final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
-                if (!(accepted instanceof Boolean acceptedValue) || !acceptedValue) {
-                    throw new IllegalStateException("Cubism rejected the Morph Target Undo entry.");
-                }
-                final Object listener =
-                        resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
-                            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-                            refresh(app);
-                            return null;
-                        });
-                resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
-                resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-                refresh(app);
-                resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-                completed = true;
-            } finally {
-                resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
-            }
+            // Host mechanism: MorphTargetParameterUtils.changeMorphTargetParameter_exe wraps the
+            // binding change in ChangeMorphTargetParameterUndoRedo whose constructor captures the
+            // old parameter/key value and applies the new binding immediately (construct-and-redo);
+            // undo() restores oldParameterGuid/oldKeyValue, redo() re-applies the new binding.
+            authoringWriter.apply(EditorAuthoringWrite.of(OPERATION_ID, ACTION_NAME)
+                    .subject(SUBJECT_PREFIX + Integer.toHexString(System.identityHashCode(expected)))
+                    .refusalLabel("MorphTarget.setParameterAndKeyValue")
+                    .admit((edit, transactionLabel) -> {
+                        final Object undo = changeParameter(id, value);
+                        EditorAuthoringWrite.requireUndoAccepted(
+                                resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE),
+                                "Morph Target");
+                        final Object listener =
+                                resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                                    resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                                    refresh(app);
+                                    return null;
+                                });
+                        resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+                    })
+                    .mutate(() -> {})
+                    .verifyApplied(() -> parameterId().equals(id) && Float.compare(keyValue(), value) == 0)
+                    .compensate(() -> changeParameter(beforeId, beforeValue))
+                    .restored(() -> parameterId().equals(beforeId) && Float.compare(keyValue(), beforeValue) == 0)
+                    .refresh(EnumSet.of(
+                            EditorRefreshRequirement.MODEL_INSTANCES,
+                            EditorRefreshRequirement.PART_PALETTE,
+                            EditorRefreshRequirement.CANVAS,
+                            EditorRefreshRequirement.MARK_DIRTY))
+                    .build());
             currentSetOrThrow();
+        }
+
+        /** Construct-and-redo: the native factory applies the binding and returns its Undo entry. */
+        private Object changeParameter(final ParameterId id, final float value) {
+            final Object utils = resolver.readStaticField("cubism.editor-model.morph-target-utils.instance");
+            return resolver.invoke(
+                    "cubism.editor-model.morph-target.change-parameter",
+                    utils,
+                    expected,
+                    parameterGuid(source, id),
+                    Float.valueOf(value));
         }
     }
 }

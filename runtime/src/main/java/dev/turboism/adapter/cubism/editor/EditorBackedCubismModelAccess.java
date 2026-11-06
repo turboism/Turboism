@@ -156,7 +156,7 @@ public final class EditorBackedCubismModelAccess
                 new EditorDefaultKeyformLockAccess(resolver, this::requireCurrent, this.authoringWriter);
         this.editLevelAccess = new EditorModelEditLevelAccess(resolver, this::requireCurrent);
         this.partStructureAccess = new EditorPartStructureAccess(resolver, this::requireCurrent, this.authoringWriter);
-        this.morphTargetAccess = new EditorMorphTargetAccess(resolver, this::requireCurrent, this.authoringCoordinator);
+        this.morphTargetAccess = new EditorMorphTargetAccess(resolver, this::requireCurrent, this.authoringWriter);
         this.hierarchyEditAccess = new EditorObjectHierarchyEditAccess(
                 resolver, this::requireCurrent, this.authoringCoordinator, this::authoringParticipationBinding);
 
@@ -191,7 +191,7 @@ public final class EditorBackedCubismModelAccess
         this.statisticsAccess = new EditorModelStatisticsAccess(resolver, this::requireCurrent);
         this.psdSnapshotAccess = new EditorPsdSnapshotAccess(resolver, this::requireCurrent);
         this.nativeControlAppearanceAccess =
-                new EditorNativeControlAppearanceAccess(resolver, modelGeneration::mint, this.authoringCoordinator);
+                new EditorNativeControlAppearanceAccess(resolver, modelGeneration::mint, this.authoringWriter);
         this.selectionReadAccess = new EditorSelectionReadAccess(resolver);
     }
 

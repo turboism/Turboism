@@ -4,7 +4,7 @@ import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransaction
 
 /**
  * Shared fail-closed check for hand-written native Undo envelopes that cannot join the ambient
- * transaction (see {@code HostUndoMutationScope} for the envelope families that do join). When an
+ * transaction (see {@code EditorAuthoringWriter} for the envelope families that do join). When an
  * authoring transaction ambient scope is active on the host thread, such an envelope entry must
  * reject rather than open a detached {@code edit-mode} group the root transaction cannot join or
  * roll back.

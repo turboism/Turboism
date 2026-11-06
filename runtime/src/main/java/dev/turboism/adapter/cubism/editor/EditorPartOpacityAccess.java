@@ -377,7 +377,7 @@ final class EditorPartOpacityAccess {
                     }
                     final Object partUndo = resolver.invoke(
                             "cubism.editor-model.part-handler.create-undo-for-all-edit", handler, ACTION_NAME);
-                    HostUndoMutationScope.requireUndoAccepted(
+                    EditorAuthoringWrite.requireUndoAccepted(
                             resolver.invoke("cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE),
                             "Part opacity");
                     final Object listener =
@@ -546,7 +546,7 @@ final class EditorPartOpacityAccess {
                     }
                     final Object partUndo = resolver.invoke(
                             "cubism.editor-model.part-handler.create-undo-for-all-edit", handler, actionName);
-                    HostUndoMutationScope.requireUndoAccepted(
+                    EditorAuthoringWrite.requireUndoAccepted(
                             resolver.invoke("cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE),
                             "Part Inspector");
                     final Object listener =
@@ -766,7 +766,7 @@ final class EditorPartOpacityAccess {
                             "cubism.editor-model.part-source.create-undo-for-basic-settings",
                             current.source(),
                             actionName);
-                    HostUndoMutationScope.requireUndoAccepted(
+                    EditorAuthoringWrite.requireUndoAccepted(
                             resolver.invoke("cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE),
                             "Part authoring");
                     final Object listener =

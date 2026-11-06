@@ -21,15 +21,22 @@ import java.util.function.Supplier;
  * semantics; inside one the write joins the shared root edit through
  * {@link EditorAuthoringTransactionCoordinator#mutateEnvelopeOrStandalone}.</p>
  *
- * <p>The runtime kill switch {@value HostUndoMutationScope#ENABLED_PROPERTY} keeps exactly one
- * meaning here: {@code false} means no envelope joins at all. Inside an ambient root such a write
+ * <p>The runtime kill switch {@value #ENABLED_PROPERTY} keeps exactly one meaning here:
+ * {@code false} means no envelope joins at all. Inside an ambient root such a write
  * fails closed with the typed {@link EditorAmbientTransactionRejection} before any native edit
- * begins; outside one it runs its own standalone transaction, exactly like the envelope families
- * that have not migrated yet. Admission also requires the verified native
+ * begins; outside one it runs its own standalone transaction, which is unaffected by the switch.
+ * Admission also requires the verified native
  * {@code cubism.editor-model.undo.group-undo} row, because that member is the only mechanism that
  * rewinds admitted Undo objects when the root recovers.</p>
  */
 final class CoordinatorAuthoringWriter implements EditorAuthoringWriter {
+
+    /**
+     * Runtime kill switch for ambient envelope admission. Unset or any value other than
+     * {@code "false"} keeps admission enabled; {@code "false"} restores the fail-closed
+     * rejection of every authoring write inside an ambient root.
+     */
+    static final String ENABLED_PROPERTY = "turboism.editorAmbientEnvelopeJoin";
 
     private static final Set<String> GROUP_UNDO_REQUIRED = Set.of("cubism.editor-model.undo.group-undo");
 
@@ -70,7 +77,7 @@ final class CoordinatorAuthoringWriter implements EditorAuthoringWriter {
      */
     private boolean joinsAmbientRoot() {
         if (!coordinator.ambientScopeActive()) return true;
-        if ("false".equalsIgnoreCase(System.getProperty(HostUndoMutationScope.ENABLED_PROPERTY))) return false;
+        if ("false".equalsIgnoreCase(System.getProperty(ENABLED_PROPERTY))) return false;
         return resolver.authorizesFeature(
                 EditorEditSessionSelectorContract.ADAPTER_SLICE_ID,
                 EditorEditSessionSelectorContract.EDIT_BEGIN_CAPABILITY_ID,
