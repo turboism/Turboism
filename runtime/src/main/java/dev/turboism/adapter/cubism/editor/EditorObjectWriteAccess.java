@@ -6,6 +6,8 @@ import dev.turboism.adapter.cubism.editor.EditorObjectReadCore.*;
 import dev.turboism.adapter.cubism.editor.history.decoder.ArtMeshPropertyCapture;
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWrite;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -38,23 +40,28 @@ import java.util.function.Supplier;
 /** Exact-version Editor write envelopes and Inspector property writes behind {@link EditorObjectReadAccess}. */
 final class EditorObjectWriteAccess {
 
+    private static final String OPERATION_ID = "cubism.object.write-envelope";
+
     private final VerifiedMemberResolver resolver;
     private final EditorObjectReadCore core;
     private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
     private final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding;
+    private final EditorAuthoringWriter authoringWriter;
 
     EditorObjectWriteAccess(
             final VerifiedMemberResolver resolver,
             final EditorObjectReadCore core,
             final EditorObjectHierarchyEditAccess hierarchyEditAccess,
             final EditorAuthoringTransactionCoordinator authoringCoordinator,
-            final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding) {
+            final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding,
+            final EditorAuthoringWriter authoringWriter) {
         this.resolver = resolver;
         this.core = core;
         this.hierarchyEditAccess = hierarchyEditAccess;
         this.authoringCoordinator = authoringCoordinator;
         this.authoringBinding = authoringBinding;
+        this.authoringWriter = authoringWriter;
     }
 
     void requireWriteAuthorized(final Kind kind) {
@@ -857,117 +864,78 @@ final class EditorObjectWriteAccess {
         final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
         final String sourceId = core.objectId(undoObjectSources.get(0));
         final long trace = EditorObjectValidationTrace.begin(kind.label, action, sourceId, document, modelSource);
-        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
-        if (ambientJoin.isPresent()) {
-            final EnumSet<EditorRefreshRequirement> refreshRequirements = EnumSet.of(
-                    EditorRefreshRequirement.MODEL_INSTANCES,
-                    kind == Kind.ART_MESH
-                            ? EditorRefreshRequirement.PART_PALETTE
-                            : EditorRefreshRequirement.DEFORMER_PALETTE,
-                    EditorRefreshRequirement.CANVAS,
-                    EditorRefreshRequirement.MARK_DIRTY);
-            if (inspectorRefresh) {
-                refreshRequirements.add(EditorRefreshRequirement.DEFORMER_PALETTE);
-            }
-            ambientJoin
-                    .orElseThrow()
-                    .admit(
-                            "cubism.object.write-envelope",
-                            "object:" + sourceId + ":" + action,
-                            action,
-                            (edit, transactionLabel) -> {
-                                Object objectUndo = null;
-                                for (Object undoObjectSource : undoObjectSources) {
-                                    final Object handler = resolver.invoke(
-                                            "cubism.editor-model.parameter-controllable-source.handler",
-                                            undoObjectSource);
-                                    if (!resolver.isInstance(
-                                            "cubism.editor-model.parameter-controllable-handler.class", handler)) {
-                                        throw unavailable("Editor object Undo handler is unavailable.");
-                                    }
-                                    objectUndo = resolver.invoke(undoAlias(undoKind), handler, action);
-                                    HostUndoMutationScope.requireUndoAccepted(
-                                            resolver.invoke(
-                                                    "cubism.editor-model.undo.add", edit, objectUndo, Boolean.TRUE),
-                                            "Editor object");
-                                }
-                                final Object observed = objectUndo;
-                                final Object listener = resolver.createFunctionalProxy(
-                                        "cubism.editor-model.undo-listener.class", ignored -> {
-                                            resolver.invoke(
-                                                    "cubism.editor-model.model-source.update-instances", modelSource);
-                                            refresh(app, kind, inspectorRefresh);
-                                            return null;
-                                        });
-                                resolver.invoke("cubism.editor-model.undo.add-listener", observed, listener);
-                            },
-                            mutation,
-                            () -> true,
-                            refreshRequirements);
-            return;
+        final EnumSet<EditorRefreshRequirement> refreshRequirements = EnumSet.of(
+                EditorRefreshRequirement.MODEL_INSTANCES,
+                kind == Kind.ART_MESH
+                        ? EditorRefreshRequirement.PART_PALETTE
+                        : EditorRefreshRequirement.DEFORMER_PALETTE,
+                EditorRefreshRequirement.CANVAS,
+                EditorRefreshRequirement.MARK_DIRTY);
+        if (inspectorRefresh) {
+            refreshRequirements.add(EditorRefreshRequirement.DEFORMER_PALETTE);
         }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, action);
-        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, action);
         EditorObjectValidationTrace.event(trace, "edit-begin", kind.label, action, sourceId, document, modelSource, "");
         boolean completed = false;
         try {
-            Object objectUndo = null;
-            for (Object undoObjectSource : undoObjectSources) {
-                final Object handler =
-                        resolver.invoke("cubism.editor-model.parameter-controllable-source.handler", undoObjectSource);
-                if (!resolver.isInstance("cubism.editor-model.parameter-controllable-handler.class", handler)) {
-                    throw unavailable("Editor object Undo handler is unavailable.");
-                }
-                objectUndo = resolver.invoke(undoAlias(undoKind), handler, action);
-                final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, objectUndo, Boolean.TRUE);
-                if (!(accepted instanceof Boolean value) || !value) {
-                    throw new IllegalStateException("Cubism rejected the Editor object Undo entry.");
-                }
-                EditorObjectValidationTrace.event(
-                        trace,
-                        "undo-admitted",
-                        kind.label,
-                        action,
-                        core.objectId(undoObjectSource),
-                        document,
-                        modelSource,
-                        "accepted=true kind=" + undoKind.name());
-            }
-            final java.util.concurrent.atomic.AtomicInteger listenerCount =
-                    new java.util.concurrent.atomic.AtomicInteger();
-            final Object listener =
-                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
-                        resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
-                        refresh(app, kind, inspectorRefresh);
+            authoringWriter.apply(EditorAuthoringWrite.of(OPERATION_ID, action)
+                    .subject("object:" + sourceId + ":" + action)
+                    .refusalLabel(action)
+                    .admit((edit, transactionLabel) -> {
+                        Object objectUndo = null;
+                        for (Object undoObjectSource : undoObjectSources) {
+                            final Object handler = resolver.invoke(
+                                    "cubism.editor-model.parameter-controllable-source.handler", undoObjectSource);
+                            if (!resolver.isInstance(
+                                    "cubism.editor-model.parameter-controllable-handler.class", handler)) {
+                                throw unavailable("Editor object Undo handler is unavailable.");
+                            }
+                            objectUndo = resolver.invoke(undoAlias(undoKind), handler, action);
+                            EditorAuthoringWrite.requireUndoAccepted(
+                                    resolver.invoke("cubism.editor-model.undo.add", edit, objectUndo, Boolean.TRUE),
+                                    "Editor object");
+                            EditorObjectValidationTrace.event(
+                                    trace,
+                                    "undo-admitted",
+                                    kind.label,
+                                    action,
+                                    core.objectId(undoObjectSource),
+                                    document,
+                                    modelSource,
+                                    "accepted=true kind=" + undoKind.name());
+                        }
+                        final Object observed = objectUndo;
+                        final Object listener =
+                                resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                                    resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+                                    refresh(app, kind, inspectorRefresh);
+                                    return null;
+                                });
+                        // The refresh listener rides the last admitted snapshot; the whole edit session
+                        // undoes as one step.
+                        resolver.invoke("cubism.editor-model.undo.add-listener", observed, listener);
+                    })
+                    .mutate(() -> {
+                        mutation.run();
                         EditorObjectValidationTrace.event(
                                 trace,
-                                "undo-listener",
+                                "mutation",
                                 kind.label,
                                 action,
                                 sourceId,
                                 document,
                                 modelSource,
-                                "callback=" + listenerCount.incrementAndGet() + " updated=true refreshed=true");
-                        return null;
-                    });
-            // The refresh listener rides the last admitted snapshot; the whole edit session undoes as one step.
-            resolver.invoke("cubism.editor-model.undo.add-listener", objectUndo, listener);
-            mutation.run();
-            EditorObjectValidationTrace.event(
-                    trace, "mutation", kind.label, action, sourceId, document, modelSource, "completed=true");
-            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
-            EditorObjectValidationTrace.event(
-                    trace, "instances-updated", kind.label, action, sourceId, document, modelSource, "completed=true");
-            refresh(app, kind, inspectorRefresh);
+                                "completed=true");
+                    })
+                    .admissionVerified()
+                    .refresh(refreshRequirements)
+                    .build());
+            // The coordinator refreshes the palettes and marks the document dirty once for the root.
             EditorObjectValidationTrace.event(
                     trace, "refresh", kind.label, action, sourceId, document, modelSource, "palette=true canvas=true");
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
             EditorObjectValidationTrace.event(
                     trace, "dirty", kind.label, action, sourceId, document, modelSource, "marked=true");
             completed = true;
         } finally {
-            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
             EditorObjectValidationTrace.event(
                     trace,
                     "edit-end",
@@ -1179,7 +1147,7 @@ final class EditorObjectWriteAccess {
                         identity, modelSource, model, current.source(), targetSource, true, -1, "ArtMesh");
                 return;
             }
-            if (authoringCoordinator.hasActiveTransaction()) {
+            if (authoringCoordinator.ambientScopeActive()) {
                 throw new UnsupportedOperationException("ArtMesh parent conversion cannot join this verified root");
             }
         }
@@ -1191,110 +1159,55 @@ final class EditorObjectWriteAccess {
             return;
         }
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
-        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
-        if (ambientJoin.isPresent()) {
-            ambientJoin
-                    .orElseThrow()
-                    .admit(
-                            "cubism.art-mesh.set-target-deformer",
-                            "art-mesh:" + core.objectId(current.source()) + ":target-deformer",
-                            "Set ArtMesh target Deformer",
-                            (edit, transactionLabel) -> {
-                                final Object handler = resolver.invoke(
-                                        "cubism.editor-model.parameter-controllable-source.handler", current.source());
-                                if (!resolver.isInstance(
-                                        "cubism.editor-model.parameter-controllable-handler.class", handler)) {
-                                    throw unavailable("Editor object Undo handler is unavailable.");
-                                }
-                                // Construct-and-redo: the factory applies the retarget and returns the Undo.
-                                final Object changeUndo;
-                                if (target == null) {
-                                    final Object companion =
-                                            resolver.readStaticField("cubism.editor-model.deformer-guid.companion");
-                                    final Object rootGuid =
-                                            resolver.invoke("cubism.editor-model.deformer-guid.root", companion);
-                                    changeUndo = resolver.invoke(
-                                            "cubism.editor-model.parameter-controllable-handler.change-target-deformer-guid",
-                                            handler,
-                                            model,
-                                            rootGuid,
-                                            Boolean.FALSE);
-                                } else {
-                                    changeUndo = resolver.invoke(
-                                            "cubism.editor-model.parameter-controllable-handler.change-target-deformer",
-                                            handler,
-                                            model,
-                                            target);
-                                }
-                                HostUndoMutationScope.requireUndoAccepted(
-                                        resolver.invoke("cubism.editor-model.undo.add", edit, changeUndo, Boolean.TRUE),
-                                        "target Deformer");
-                                final Object listener = resolver.createFunctionalProxy(
-                                        "cubism.editor-model.undo-listener.class", ignored -> {
-                                            resolver.invoke(
-                                                    "cubism.editor-model.model-source.update-instances", modelSource);
-                                            refresh(app, Kind.ART_MESH, true);
-                                            return null;
-                                        });
-                                resolver.invoke("cubism.editor-model.undo.add-listener", changeUndo, listener);
-                            },
-                            () -> {},
-                            () -> true,
-                            EnumSet.of(
-                                    EditorRefreshRequirement.MODEL_INSTANCES,
-                                    EditorRefreshRequirement.PART_PALETTE,
-                                    EditorRefreshRequirement.DEFORMER_PALETTE,
-                                    EditorRefreshRequirement.CANVAS,
-                                    EditorRefreshRequirement.MARK_DIRTY));
-            return;
-        }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, "ArtMesh.setTargetDeformer");
-        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-        final Object edit =
-                resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, "Set ArtMesh target Deformer");
-        boolean completed = false;
-        try {
-            final Object handler =
-                    resolver.invoke("cubism.editor-model.parameter-controllable-source.handler", current.source());
-            if (!resolver.isInstance("cubism.editor-model.parameter-controllable-handler.class", handler)) {
-                throw unavailable("Editor object Undo handler is unavailable.");
-            }
-            final Object changeUndo;
-            if (target == null) {
-                final Object companion = resolver.readStaticField("cubism.editor-model.deformer-guid.companion");
-                final Object rootGuid = resolver.invoke("cubism.editor-model.deformer-guid.root", companion);
-                changeUndo = resolver.invoke(
-                        "cubism.editor-model.parameter-controllable-handler.change-target-deformer-guid",
-                        handler,
-                        model,
-                        rootGuid,
-                        Boolean.FALSE);
-            } else {
-                changeUndo = resolver.invoke(
-                        "cubism.editor-model.parameter-controllable-handler.change-target-deformer",
-                        handler,
-                        model,
-                        target);
-            }
-            final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, changeUndo, Boolean.TRUE);
-            if (!(accepted instanceof Boolean value) || !value) {
-                throw new IllegalStateException("Cubism rejected the target Deformer Undo entry.");
-            }
-            final Object listener =
-                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
-                        resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
-                        refresh(app, Kind.ART_MESH, true);
-                        return null;
-                    });
-            resolver.invoke("cubism.editor-model.undo.add-listener", changeUndo, listener);
-            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
-            refresh(app, Kind.ART_MESH, true);
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-            completed = true;
-        } finally {
-            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
-        }
+        authoringWriter.apply(EditorAuthoringWrite.of(
+                        "cubism.art-mesh.set-target-deformer", "Set ArtMesh target Deformer")
+                .subject("art-mesh:" + core.objectId(current.source()) + ":target-deformer")
+                .refusalLabel("ArtMesh.setTargetDeformer")
+                .admit((edit, transactionLabel) -> {
+                    final Object handler = resolver.invoke(
+                            "cubism.editor-model.parameter-controllable-source.handler", current.source());
+                    if (!resolver.isInstance("cubism.editor-model.parameter-controllable-handler.class", handler)) {
+                        throw unavailable("Editor object Undo handler is unavailable.");
+                    }
+                    // Construct-and-redo: the factory applies the retarget and returns the Undo.
+                    final Object changeUndo;
+                    if (target == null) {
+                        final Object companion =
+                                resolver.readStaticField("cubism.editor-model.deformer-guid.companion");
+                        final Object rootGuid = resolver.invoke("cubism.editor-model.deformer-guid.root", companion);
+                        changeUndo = resolver.invoke(
+                                "cubism.editor-model.parameter-controllable-handler.change-target-deformer-guid",
+                                handler,
+                                model,
+                                rootGuid,
+                                Boolean.FALSE);
+                    } else {
+                        changeUndo = resolver.invoke(
+                                "cubism.editor-model.parameter-controllable-handler.change-target-deformer",
+                                handler,
+                                model,
+                                target);
+                    }
+                    EditorAuthoringWrite.requireUndoAccepted(
+                            resolver.invoke("cubism.editor-model.undo.add", edit, changeUndo, Boolean.TRUE),
+                            "target Deformer");
+                    final Object listener =
+                            resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                                resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+                                refresh(app, Kind.ART_MESH, true);
+                                return null;
+                            });
+                    resolver.invoke("cubism.editor-model.undo.add-listener", changeUndo, listener);
+                })
+                .mutate(() -> {})
+                .admissionVerified()
+                .refresh(EnumSet.of(
+                        EditorRefreshRequirement.MODEL_INSTANCES,
+                        EditorRefreshRequirement.PART_PALETTE,
+                        EditorRefreshRequirement.DEFORMER_PALETTE,
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY))
+                .build());
     }
 
     private void setTargetDeformerCooperatively(

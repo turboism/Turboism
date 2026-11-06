@@ -239,7 +239,7 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
         currentGuard.requireCurrent(identity, model);
         final Object objectSource = targetLookup.find(identity, modelSource, model, target);
         final Object grid = resolver.invoke("cubism.editor-model.parameter-controllable.keyform-grid", objectSource);
-        if (coordinator.hasActiveTransaction()) {
+        if (coordinator.ambientScopeActive()) {
             mutateInTransaction(target, objectSource, action, desired, () -> mutation.accept(grid));
             return;
         }

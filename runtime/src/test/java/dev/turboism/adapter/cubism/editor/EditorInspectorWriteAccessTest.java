@@ -474,7 +474,7 @@ class EditorInspectorWriteAccessTest {
     void envelopeJoinKillSwitchRestoresFailClosedRejection() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        System.setProperty(HostUndoMutationScope.ENABLED_PROPERTY, "false");
+        System.setProperty(CoordinatorAuthoringWriter.ENABLED_PROPERTY, "false");
         try {
             final var access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
             final var service = ((RuntimeAuthoringTransactionProvider) access).authoringTransactions("plugin.test");
@@ -496,7 +496,7 @@ class EditorInspectorWriteAccessTest {
             assertEquals(0, fixture.pack.partRefreshCount);
             assertFalse(fixture.document.dirty);
         } finally {
-            System.clearProperty(HostUndoMutationScope.ENABLED_PROPERTY);
+            System.clearProperty(CoordinatorAuthoringWriter.ENABLED_PROPERTY);
         }
     }
 
@@ -508,7 +508,7 @@ class EditorInspectorWriteAccessTest {
     void envelopeJoinKillSwitchPropagatingRejectionRollsBackTheRootTransaction() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        System.setProperty(HostUndoMutationScope.ENABLED_PROPERTY, "false");
+        System.setProperty(CoordinatorAuthoringWriter.ENABLED_PROPERTY, "false");
         try {
             final var access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
             final var service = ((RuntimeAuthoringTransactionProvider) access).authoringTransactions("plugin.test");
@@ -524,7 +524,7 @@ class EditorInspectorWriteAccessTest {
             assertTrue(fixture.document.undoManager.entries.isEmpty());
             assertFalse(fixture.document.dirty);
         } finally {
-            System.clearProperty(HostUndoMutationScope.ENABLED_PROPERTY);
+            System.clearProperty(CoordinatorAuthoringWriter.ENABLED_PROPERTY);
         }
     }
 
@@ -943,7 +943,7 @@ class EditorInspectorWriteAccessTest {
                 EditorGlueInspectorSelectorContract.CAPABILITY_ID,
                 EditorHistoryReadSelectorContract.CAPABILITY_ID,
                 // Ambient envelope admission is gated on the verified group-undo row of the
-                // edit-session begin capability (HostUndoMutationScope).
+                // edit-session begin capability (CoordinatorAuthoringWriter).
                 dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract.EDIT_BEGIN_CAPABILITY_ID));
         if (cubism52) {
             capabilities.remove(EditorPartInspectorSelectorContract.CAPABILITY_ID);

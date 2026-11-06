@@ -432,7 +432,7 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
                                     transfer.morphTarget(),
                                     transfer.targetGuid(),
                                     Float.valueOf(transfer.mapped()));
-                            HostUndoMutationScope.requireUndoAccepted(
+                            EditorAuthoringWrite.requireUndoAccepted(
                                     resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE),
                                     "Morph Target");
                             admitted[0]++;
@@ -524,7 +524,7 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
                                 "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
                                 handler,
                                 "Turboism: " + action);
-                        HostUndoMutationScope.requireUndoAccepted(
+                        EditorAuthoringWrite.requireUndoAccepted(
                                 resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE),
                                 "parameter-binding");
                         final Object listener =

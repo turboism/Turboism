@@ -75,6 +75,20 @@ public final class EditorAuthoringWrite {
     }
 
     /**
+     * Enforces the {@code cubism.editor-model.undo.add} admission contract shared by every
+     * authoring write: the host must accept the Undo object into the supplied native edit.
+     *
+     * @param accepted value the native {@code undo.add} returned
+     * @param label native write name used in the failure message
+     * @throws IllegalStateException when the host did not accept the Undo entry
+     */
+    public static void requireUndoAccepted(final Object accepted, final String label) {
+        if (!(accepted instanceof Boolean value) || !value) {
+            throw new IllegalStateException("Cubism rejected the " + label + " Undo entry.");
+        }
+    }
+
+    /**
      * Projects this write onto the contribution contract the coordinator consumes.
      *
      * @param groupUndoApplied ambient root's native group-undo probe, used as the rollback readback

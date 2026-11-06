@@ -104,7 +104,7 @@ final class EditorParameterStructureAccess {
                 groupHandler(parentGroup),
                 hostSource,
                 Integer.valueOf(index));
-        if (authoringCoordinator.hasActiveTransaction()) {
+        if (authoringCoordinator.ambientScopeActive()) {
             writeCreatedParameter(identity, source, model, parentGroup, hostSource, definition.id(), add);
         } else {
             write(identity, source, model, "Turboism: Create Parameter", add);
@@ -185,7 +185,7 @@ final class EditorParameterStructureAccess {
                     hostSource,
                     Integer.valueOf(index)));
         }
-        if (authoringCoordinator.hasActiveTransaction()) {
+        if (authoringCoordinator.ambientScopeActive()) {
             for (int i = 0; i < hostSources.size(); i++) {
                 writeCreatedParameter(
                         identity,
@@ -763,7 +763,7 @@ final class EditorParameterStructureAccess {
                 // write, so the mutation only re-checks the binding it was admitted against.
                 .admit((edit, transactionLabel) -> {
                     final Object undo = undoSupplier.get();
-                    HostUndoMutationScope.requireUndoAccepted(
+                    EditorAuthoringWrite.requireUndoAccepted(
                             resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE), actionName);
                     final Object listener =
                             resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
@@ -815,7 +815,7 @@ final class EditorParameterStructureAccess {
                         modelGuard.requireCurrent(identity, model);
                         activeDocumentFor(source, app);
                         final Object undo = undoSupplier.get();
-                        HostUndoMutationScope.requireUndoAccepted(
+                        EditorAuthoringWrite.requireUndoAccepted(
                                 resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE), actionName);
                     }
                 })
