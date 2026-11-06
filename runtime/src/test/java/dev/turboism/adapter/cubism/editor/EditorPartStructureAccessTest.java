@@ -17,7 +17,7 @@ class EditorPartStructureAccessTest {
     @Test
     void addsCopiesAndDeletesPartsThroughNativeUndo() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(resolver(true), "session-a");
         final var parts = access.active().parts();
 
@@ -49,7 +49,7 @@ class EditorPartStructureAccessTest {
     @Test
     void missingCapabilityFailsClosedBeforeAnyWrite() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
         assertThrows(
                 UnsupportedOperationException.class,
@@ -67,7 +67,7 @@ class EditorPartStructureAccessTest {
     @Test
     void absentPartFailsClosed() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(resolver(true), "session-a");
         final var parts = access.active().parts();
         assertThrows(java.util.NoSuchElementException.class, () -> parts.copy(new PartId("Missing")));
