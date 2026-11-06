@@ -1,6 +1,10 @@
 package dev.turboism.exportsettings;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.sdk.cubism.export.ProtectedExportCensus;
+import dev.turboism.sdk.cubism.export.ProtectedExportPlan;
+import dev.turboism.sdk.cubism.export.ProtectedExportPlanResult;
+import dev.turboism.sdk.cubism.export.ProtectedExportPlanner;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -229,11 +233,17 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * all heavy preflight executes on the orchestrator worker after the modal unwinds.
      * The outer export is vetoed regardless of the return value.</p>
      *
+     * @param dialogOwner the confirmed export dialog owner
+     * @param planner the planner contributed with the orchestrated option, or {@code null}
+     *     when the contribution carries none — then the session cannot be planned and refuses
      * @return {@code true} only when a session armed and will run
      */
-    public boolean requestExport(final Object dialogOwner) {
+    public boolean requestExport(final Object dialogOwner, final ProtectedExportPlanner planner) {
         if (closed.get()) {
             return refuse("orchestrator-closed");
+        }
+        if (planner == null) {
+            return refuse("planner-missing");
         }
         if (!redirectSeamInstalled.getAsBoolean()) {
             return refuse("redirect-seam-missing");
@@ -270,7 +280,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 document,
                 modelSource,
                 sourceFile,
-                hostGeneration.getAsLong());
+                hostGeneration.getAsLong(),
+                planner);
         if (!armed.compareAndSet(null, session)) {
             return refuse("busy");
         }
@@ -382,21 +393,24 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             requireGeneration(session, generation);
             requireLiveDocument(session);
             snapshotInvariants(session);
-            // The full census resolves on the original source before any copy exists.
-            try {
-                session.plan = ProtectedExportDeformerPlan.plan(host, session.modelSource)
-                        .leafToRootGuids();
-            } catch (ProtectedExportDeformerPlan.ProtectedExportPlanRejection rejection) {
-                throw new SessionRejection(PREFLIGHT_FAILED_KEY, rejection.getMessage());
-            }
             if (host.usesExtendedInterpolation(session.modelSource)) {
                 throw new SessionRejection(PREFLIGHT_FAILED_KEY, "extended-interpolation");
             }
             // Identity census on the authoring source before any copy exists —
             // the bound copy must reproduce it exactly.
             session.originalCensus = censusModel(session.modelSource, PREFLIGHT_FAILED_KEY);
+            // The planner input census resolves on the same source: only read
+            // evidence, never a host object the plugin could act on.
+            try {
+                session.census = ProtectedExportCensusBuilder.build(host, session.modelSource);
+            } catch (ProtectedExportRejection rejection) {
+                throw new SessionRejection(PREFLIGHT_FAILED_KEY, rejection.getMessage());
+            }
             return null;
         });
+        // The plugin's planner and the admission of its plan are pure functions over
+        // the census, so they run on the worker thread — never on the EDT.
+        session.plan = admitPlan(session);
         try {
             session.sourceSha256 = sha256(session.sourceFile.toPath());
         } catch (IOException failure) {
@@ -449,15 +463,16 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         });
         session.copyDocument = bound;
         session.copyModelSource = copySource;
-        // Binding confirmation: the copy census must reproduce the plan exactly.
-        final List<String> copyOrder;
+        // Binding confirmation: the copy's deformer census must reproduce the source's
+        // exactly — a copy that re-parented, re-ordered or dropped a deformer is not the
+        // model the plan was verified against.
+        final ProtectedExportCensusBuilder.DeformerCensus copyCensus;
         try {
-            copyOrder = onEdt(
-                    () -> ProtectedExportDeformerPlan.plan(host, copySource).leafToRootGuids());
-        } catch (ProtectedExportDeformerPlan.ProtectedExportPlanRejection rejection) {
+            copyCensus = onEdt(() -> ProtectedExportCensusBuilder.deformerCensus(host, copySource));
+        } catch (ProtectedExportRejection rejection) {
             throw new SessionRejection(BIND_FAILED_KEY);
         }
-        if (!session.plan.equals(copyOrder)) {
+        if (!sameDeformers(session.census, copyCensus)) {
             throw new SessionRejection(BIND_FAILED_KEY);
         }
         // Pre-mutation census on the bound copy: every later phase and the staged
@@ -477,8 +492,54 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         session.phase = Phase.COPY_BOUND;
     }
 
+    private static boolean sameDeformers(
+            final ProtectedExportCensus source, final ProtectedExportCensusBuilder.DeformerCensus copy) {
+        return source.deformerGuids().equals(copy.guids())
+                && source.deformerParentGuids().equals(copy.parentGuids());
+    }
+
+    /** The verified plan of an armed session; without one nothing may be rewritten. */
+    private static ProtectedExportPlan requirePlan(final Session session) {
+        final ProtectedExportPlan plan = session.plan;
+        if (plan == null) {
+            throw new SessionRejection(PREFLIGHT_FAILED_KEY);
+        }
+        return plan;
+    }
+
+    /**
+     * Asks the contributed planner for a plan and admits it. The planner is plugin code
+     * running on this worker thread against copied read evidence only; the admission then
+     * proves the plan is the one this census allows, so the pipeline can still only
+     * <em>refuse</em> a plan it did not verify.
+     */
+    private ProtectedExportPlan admitPlan(final Session session) {
+        final ProtectedExportPlanResult result;
+        try {
+            result = session.planner.plan(session.census);
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            throw new SessionRejection(PREFLIGHT_FAILED_KEY, "planner-failed:" + describe(failure));
+        }
+        if (result == null) {
+            throw new SessionRejection(PREFLIGHT_FAILED_KEY, "planner-unavailable");
+        }
+        if (result instanceof ProtectedExportPlanResult.Rejected rejected) {
+            throw new SessionRejection(PREFLIGHT_FAILED_KEY, rejected.reasonKey());
+        }
+        if (!(result instanceof ProtectedExportPlanResult.Admitted admitted)) {
+            throw new SessionRejection(PREFLIGHT_FAILED_KEY, "planner-unavailable");
+        }
+        try {
+            ProtectedExportPlanAdmission.verify(admitted.plan(), session.census);
+        } catch (ProtectedExportRejection rejection) {
+            throw new SessionRejection(PREFLIGHT_FAILED_KEY, rejection.getMessage());
+        }
+        return admitted.plan();
+    }
+
     private void flatten(final Session session) throws Exception {
-        for (String guid : session.plan) {
+        for (String guid : session.plan.deformerOrderLeafToRoot()) {
             final boolean applied = onEdt(() -> {
                 // The apply command mutates whatever the selector and active
                 // document hold, and every selection-mutating call can reenter
@@ -553,20 +614,13 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * requires every ArtMesh to carry exactly its planned identity.
      */
     private void obfuscate(final Session session) throws Exception {
-        final ProtectedExportObfuscationPlan.Plan plan;
-        try {
-            plan = onEdt(() -> {
-                requireGeneration(session, session.hostGeneration);
-                requireLiveCopy(session, OBFUSCATE_FAILED_KEY);
-                return ProtectedExportObfuscationPlan.plan(host, requireCopyModelSource(session, OBFUSCATE_FAILED_KEY));
-            });
-        } catch (ProtectedExportDeformerPlan.ProtectedExportPlanRejection rejection) {
-            throw new SessionRejection(OBFUSCATE_FAILED_KEY);
-        }
-        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry :
-                plan.byGuid().entrySet()) {
+        // The plan was verified at preflight against the source census, and binding
+        // proved the copy reproduces that census, so no identity is planned twice.
+        final ProtectedExportPlan plan = requirePlan(session);
+        for (Map.Entry<String, ProtectedExportPlan.Target> entry :
+                plan.artMeshTargets().entrySet()) {
             final String guid = entry.getKey();
-            final ProtectedExportObfuscationPlan.Target target = entry.getValue();
+            final ProtectedExportPlan.Target target = entry.getValue();
             final boolean applied = onEdt(() -> {
                 requireGeneration(session, session.hostGeneration);
                 requireLiveCopy(session, OBFUSCATE_FAILED_KEY);
@@ -585,11 +639,11 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         }
         // Physics and motion-sync settings: same GUID-hash obfuscation — name
         // and ID only; every behavior value is pinned by the content signature.
-        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry :
+        for (Map.Entry<String, ProtectedExportPlan.Target> entry :
                 plan.physicsSettings().entrySet()) {
             applySettingsRewrite(session, entry, true);
         }
-        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry :
+        for (Map.Entry<String, ProtectedExportPlan.Target> entry :
                 plan.motionSyncSettings().entrySet()) {
             applySettingsRewrite(session, entry, false);
         }
@@ -598,8 +652,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             requireLiveCopy(session, OBFUSCATE_FAILED_KEY);
             final Object liveSource = requireCopyModelSource(session, OBFUSCATE_FAILED_KEY);
             for (Object mesh : host.allArtMeshes(liveSource)) {
-                final ProtectedExportObfuscationPlan.Target target =
-                        plan.byGuid().get(host.objectGuid(mesh));
+                final ProtectedExportPlan.Target target = plan.artMeshTargets().get(host.objectGuid(mesh));
                 if (target == null
                         || !target.name().equals(host.objectLocalName(mesh))
                         || !target.idToken().equals(host.drawableIdString(mesh))) {
@@ -624,8 +677,9 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         if (!Boolean.TRUE.equals(consistent)) {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY);
         }
-        session.expectedDrawableIds = plan.idTokens();
-        session.obfuscationPlan = plan;
+        final Set<String> drawableIds = new LinkedHashSet<>();
+        plan.artMeshTargets().values().forEach(target -> drawableIds.add(target.idToken()));
+        session.expectedDrawableIds = Set.copyOf(drawableIds);
         session.phase = Phase.OBFUSCATED;
     }
 
@@ -655,13 +709,13 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * comparison, not a structural-equality proxy.
      */
     private void captureBehavior(final Session session) throws Exception {
-        final ProtectedExportObfuscationPlan.Plan plan = session.obfuscationPlan;
+        final ProtectedExportPlan plan = session.plan;
         if (plan == null) {
             throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY);
         }
         final Map<String, String> tokenKeys = new LinkedHashMap<>();
-        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry :
-                plan.byGuid().entrySet()) {
+        for (Map.Entry<String, ProtectedExportPlan.Target> entry :
+                plan.artMeshTargets().entrySet()) {
             tokenKeys.put(entry.getKey(), entry.getValue().idToken());
         }
         session.behavior = captureBehaviorSnapshot(session, tokenKeys);
@@ -677,8 +731,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      */
     private void compareBehavior(final Session session) {
         final Map<String, String> guidToToken = new LinkedHashMap<>();
-        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry :
-                session.obfuscationPlan.byGuid().entrySet()) {
+        for (Map.Entry<String, ProtectedExportPlan.Target> entry :
+                requirePlan(session).artMeshTargets().entrySet()) {
             guidToToken.put(entry.getKey(), entry.getValue().idToken());
         }
         final String drift =
@@ -1532,12 +1586,11 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * signature the staged {@code physics3.json} must reproduce verbatim.
      */
     private static List<ProtectedExportStaging.PhysicsSettingExpectation> physicsExpectations(
-            final ModelCensus census, final ProtectedExportObfuscationPlan.Plan plan) {
+            final ModelCensus census, final ProtectedExportPlan plan) {
         final List<ProtectedExportStaging.PhysicsSettingExpectation> expectations = new ArrayList<>();
         for (Map.Entry<String, SettingsIdentity> entry :
                 census.physicsSettings().entrySet()) {
-            final ProtectedExportObfuscationPlan.Target target =
-                    plan.physicsSettings().get(entry.getKey());
+            final ProtectedExportPlan.Target target = plan.physicsSettings().get(entry.getKey());
             if (target == null) {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY, "settings-identity-drift");
             }
@@ -1556,7 +1609,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * what the bound snapshot recorded.
      */
     private void verifyPostMutationCensus(
-            final Session session, final ModelCensus after, final ProtectedExportObfuscationPlan.Plan plan) {
+            final Session session, final ModelCensus after, final ProtectedExportPlan plan) {
         final ModelCensus before = session.censusBefore;
         if (before == null) {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY);
@@ -1583,7 +1636,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         if (!before.parts().keySet().equals(after.parts().keySet())) {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY, "part-identity-drift");
         }
-        final Set<String> flattened = new LinkedHashSet<>(session.plan);
+        final Set<String> flattened = new LinkedHashSet<>(requirePlan(session).deformerOrderLeafToRoot());
         for (Map.Entry<String, PartIdentity> entry : before.parts().entrySet()) {
             final PartIdentity prior = entry.getValue();
             final PartIdentity current = after.parts().get(entry.getKey());
@@ -1608,7 +1661,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY, "artmesh-identity-drift");
         }
         for (Map.Entry<String, ArtMeshIdentity> entry : after.artMeshes().entrySet()) {
-            final ProtectedExportObfuscationPlan.Target target = plan.byGuid().get(entry.getKey());
+            final ProtectedExportPlan.Target target = plan.artMeshTargets().get(entry.getKey());
             final ArtMeshIdentity current = entry.getValue();
             if (target == null
                     || !target.name().equals(current.name())
@@ -1688,14 +1741,14 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     private static void verifySettingsDrift(
             final Map<String, SettingsIdentity> before,
             final Map<String, SettingsIdentity> after,
-            final Map<String, ProtectedExportObfuscationPlan.Target> planned) {
+            final Map<String, ProtectedExportPlan.Target> planned) {
         if (!before.keySet().equals(after.keySet()) || !before.keySet().equals(planned.keySet())) {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY, "settings-identity-drift");
         }
         for (Map.Entry<String, SettingsIdentity> entry : after.entrySet()) {
             final SettingsIdentity prior = before.get(entry.getKey());
             final SettingsIdentity current = entry.getValue();
-            final ProtectedExportObfuscationPlan.Target target = planned.get(entry.getKey());
+            final ProtectedExportPlan.Target target = planned.get(entry.getKey());
             if (!prior.signature().equals(current.signature())
                     || !target.name().equals(current.name())
                     || !target.idToken().equals(current.id())) {
@@ -1719,9 +1772,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * Runs on the EDT like every other copy mutation.
      */
     private void applySettingsRewrite(
-            final Session session,
-            final Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry,
-            final boolean physics)
+            final Session session, final Map.Entry<String, ProtectedExportPlan.Target> entry, final boolean physics)
             throws Exception {
         final boolean applied = onEdt(() -> {
             requireGeneration(session, session.hostGeneration);
@@ -1733,7 +1784,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             if (source == null) {
                 return Boolean.FALSE;
             }
-            final ProtectedExportObfuscationPlan.Target target = entry.getValue();
+            final ProtectedExportPlan.Target target = entry.getValue();
             host.setSettingsName(source, target.name());
             host.setSettingsId(source, target.idToken());
             return target.name().equals(host.settingsName(source))
@@ -2107,6 +2158,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         final Object modelSource;
         final File sourceFile;
         final long hostGeneration;
+        final ProtectedExportPlanner planner;
         final CountDownLatch completion = new CountDownLatch(1);
         final java.util.concurrent.CompletableFuture<Void> exportDone = new java.util.concurrent.CompletableFuture<>();
         final AtomicBoolean innerDialogSeen = new AtomicBoolean();
@@ -2117,7 +2169,11 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         final AtomicBoolean reportDelivered = new AtomicBoolean();
         final java.util.concurrent.locks.ReentrantLock teardownLock = new java.util.concurrent.locks.ReentrantLock();
         volatile Phase phase = Phase.ARMED;
-        volatile List<String> plan = List.of();
+        /** Planner input census of the authoring source; the copy must reproduce it. */
+        volatile ProtectedExportCensus census;
+        /** Plan admitted at preflight; the copy's flatten and obfuscation targets. */
+        volatile ProtectedExportPlan plan;
+
         volatile String sourceSha256;
         volatile boolean originalModified;
         volatile String originalUndoSignature;
@@ -2134,7 +2190,6 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         volatile List<String> stagedPaths = List.of();
         volatile List<Path> stagedFiles = List.of();
         volatile Set<String> expectedDrawableIds = Set.of();
-        volatile ProtectedExportObfuscationPlan.Plan obfuscationPlan;
         volatile ProtectedExportStaging.BehaviorSnapshot originalBehavior;
         volatile ProtectedExportStaging.BehaviorSnapshot behavior;
         volatile Map<String, ProtectedExportStaging.ParameterExpectation> expectedParameters = Map.of();
@@ -2174,13 +2229,15 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 final Object document,
                 final Object modelSource,
                 final File sourceFile,
-                final long hostGeneration) {
+                final long hostGeneration,
+                final ProtectedExportPlanner planner) {
             this.id = id;
             this.dialogOwner = dialogOwner;
             this.document = document;
             this.modelSource = modelSource;
             this.sourceFile = sourceFile;
             this.hostGeneration = hostGeneration;
+            this.planner = planner;
         }
 
         File stagingPick(final File realPick) {
