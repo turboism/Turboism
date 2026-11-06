@@ -13,7 +13,7 @@ from preview.reviewed_host_artifacts import SOURCE_RELATIVE, load_releases
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = Path('scripts/reviewed-releases/ReviewedHostArtifacts.java.template')
 JAVA_DIR = Path('runtime/src/main/java/dev/turboism/mapping/verification')
-POLICY_JAVA_DIR = Path('compatibility-policy/src/main/java/dev/turboism/compatibility/policy')
+POLICY_JAVA_DIR = Path('core/compatibility-policy/src/main/java/dev/turboism/compatibility/policy')
 HOST = JAVA_DIR / 'ReviewedHostArtifacts.java'
 TABLE = POLICY_JAVA_DIR / 'ReviewedReleaseTable.java'
 ENV = Path('.env.example')

@@ -620,7 +620,7 @@ private val compatibilityPolicyForbiddenBinaryPrefixes = listOf(
 private val compatibilityPolicyAllowedDevTurboismRoots = setOf("compatibility", "sdk")
 
 private fun checkCompatibilityPolicySources(root: Project, state: BoundaryState) {
-    val sourceRoot = root.file("compatibility-policy/src/main/java")
+    val sourceRoot = root.file("core/compatibility-policy/src/main/java")
     if (!sourceRoot.isDirectory) {
         state.reject(
             "Compatibility-policy production sources are missing at " +
