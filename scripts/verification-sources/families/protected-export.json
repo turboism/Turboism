@@ -37,6 +37,10 @@
  ],
  "extraLiterals": [],
  "coverageSources": [],
+ "aliases": {
+  "className": "ProtectedExportAliases",
+  "prefix": "cubism.protected-export."
+ },
  "vocabulary": {
   "admissionEqualsUse": false
  }

@@ -1,6 +1,7 @@
 package dev.turboism.ui.overlay;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.mapping.verification.UiBoundingBoxOverlayAliases;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
@@ -42,15 +43,6 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
     private static final int MAX_CACHED_OVERLAYS = 16;
 
     private static final Object[] EMPTY_BUTTONS = new Object[0];
-
-    private static final String BUTTON_CREATE = "cubism.ui-bounding-box-overlay.button.create";
-    private static final String BUTTON_SET_ENABLED = "cubism.ui-bounding-box-overlay.button.set-enabled";
-    private static final String SCENE_COMPONENT_OBJECTS = "cubism.ui-bounding-box-overlay.scene.component-objects";
-    private static final String ENTITY_CHILDREN = "cubism.ui-bounding-box-overlay.entity.children";
-    private static final String SCENE_REMOVE_VOLATILE = "cubism.ui-bounding-box-overlay.scene.remove-volatile";
-    private static final String ENTITIES_REMOVE = "cubism.ui-bounding-box-overlay.entities.remove";
-    private static final String WRITABLE_IMAGE_CREATE = "cubism.ui-bounding-box-overlay.writable-image.create";
-    private static final String ICON_SET_CREATE = "cubism.ui-bounding-box-overlay.icon-set.create";
 
     private static final System.Logger POSITION_LOG =
             System.getLogger(VerifiedBoundingBoxOverlayButtonHostOperations.class.getName());
@@ -324,22 +316,22 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
     private Throwable detachButton(final Object button, final Object sceneGraph) {
         Throwable first = null;
         try {
-            resolver.invoke(BUTTON_SET_ENABLED, button, Boolean.FALSE);
+            resolver.invoke(UiBoundingBoxOverlayAliases.BUTTON_SET_ENABLED, button, Boolean.FALSE);
         } catch (RuntimeException | Error failure) {
             // @containment-exempt: detach step failure merged with fatal prioritized
             first = append(first, failure);
         }
         if (sceneGraph != null) {
             try {
-                resolver.invoke(SCENE_REMOVE_VOLATILE, sceneGraph, button);
+                resolver.invoke(UiBoundingBoxOverlayAliases.SCENE_REMOVE_VOLATILE, sceneGraph, button);
             } catch (RuntimeException | Error failure) {
                 // @containment-exempt: detach step failure merged with fatal prioritized
                 first = append(first, failure);
             }
             try {
-                final Object objects = resolver.invoke(SCENE_COMPONENT_OBJECTS, sceneGraph);
-                final Object children = resolver.invoke(ENTITY_CHILDREN, objects);
-                resolver.invoke(ENTITIES_REMOVE, children, button);
+                final Object objects = resolver.invoke(UiBoundingBoxOverlayAliases.SCENE_COMPONENT_OBJECTS, sceneGraph);
+                final Object children = resolver.invoke(UiBoundingBoxOverlayAliases.ENTITY_CHILDREN, objects);
+                resolver.invoke(UiBoundingBoxOverlayAliases.ENTITIES_REMOVE, children, button);
             } catch (RuntimeException | Error failure) {
                 // @containment-exempt: detach step failure merged with fatal prioritized
                 first = append(first, failure);
@@ -350,15 +342,17 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
 
     private Object createButton(final Object overlay, final BoundingBoxOverlayButtonDescriptor descriptor) {
         final long generation = NativeBoundingBoxOverlayButtonBridge.activeGeneration();
-        final Object callback = resolver.createFunctionalArgumentProxy(BUTTON_CREATE, 1, ignored -> {
-            // Click-inert by generation and identity: hook close invalidates every proxy
-            // from that installation, while reconcile immediately invalidates removed items.
-            if (NativeBoundingBoxOverlayButtonBridge.isGenerationActive(generation) && isCurrent(descriptor.button())) {
-                descriptor.button().onClick().run();
-            }
-            return kotlinUnit();
-        });
-        return resolver.invoke(BUTTON_CREATE, overlay, iconSet(descriptor), callback);
+        final Object callback =
+                resolver.createFunctionalArgumentProxy(UiBoundingBoxOverlayAliases.BUTTON_CREATE, 1, ignored -> {
+                    // Click-inert by generation and identity: hook close invalidates every proxy
+                    // from that installation, while reconcile immediately invalidates removed items.
+                    if (NativeBoundingBoxOverlayButtonBridge.isGenerationActive(generation)
+                            && isCurrent(descriptor.button())) {
+                        descriptor.button().onClick().run();
+                    }
+                    return kotlinUnit();
+                });
+        return resolver.invoke(UiBoundingBoxOverlayAliases.BUTTON_CREATE, overlay, iconSet(descriptor), callback);
     }
 
     // Button currency is identity: descriptors bind the exact native widget instance.
@@ -386,7 +380,8 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
         // the toggled set. Feeding our semantic order (normal, hover, pressed,
         // disabled) put the hover image on the disabled slot and pressed on the
         // hover slot — hover never visibly changed.
-        return resolver.construct(ICON_SET_CREATE, normal, disabled, hover, pressed, normal, hover, pressed);
+        return resolver.construct(
+                UiBoundingBoxOverlayAliases.ICON_SET_CREATE, normal, disabled, hover, pressed, normal, hover, pressed);
     }
 
     private Object writableImage(final String pluginId, final String path) {
@@ -398,7 +393,7 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
             if (image == null) {
                 throw new IllegalStateException("overlay icon resource is not a supported image");
             }
-            return resolver.construct(WRITABLE_IMAGE_CREATE, normalizeArgb(image));
+            return resolver.construct(UiBoundingBoxOverlayAliases.WRITABLE_IMAGE_CREATE, normalizeArgb(image));
         } catch (IOException exception) {
             throw new IllegalStateException("overlay icon resource could not be read", exception);
         }
