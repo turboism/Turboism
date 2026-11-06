@@ -151,6 +151,8 @@ Only surfaces whose `@CubismEditor` resolves to a strict subset of the reviewed 
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.ui.HostViewPanel` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.ui.HostViewPanelHandle` | type | 5.2.00–5.3.04 |
 
 ## Editor commands available on a subset of versions
 

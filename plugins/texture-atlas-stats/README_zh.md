@@ -44,9 +44,7 @@ interface: swing
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
 完整功能（审核版本）：5.2.00–5.2.03, 5.3.00–5.3.04。
-- 图集编辑器面板 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）
 - 原生纹理图集编辑器会话访问 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）
-- 原生纹理图集编辑器 UI 贡献 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 
@@ -65,12 +63,14 @@ interface: swing
 | 声明的功能能力 | 对用户的影响 |
 |---|---|
 | `cubism.texture-atlas.statistics` | 从活动纹理图集编辑器会话读取模型图像数量。 |
+| `ui.host-view-panel.contribute` | 将统计行渲染到原生纹理图集编辑器窗口。 |
 
 ## 权限
 
 | 权限 | 范围 | 请求原因 |
 |---|---|---|
 | `turboism.cubism.model.read` | `application` | 从活动纹理图集编辑器会话读取模型图像数量。 |
+| `turboism.ui.panel.contribute` | `application` | 将统计行附加到原生纹理图集编辑器窗口。 |
 
 ## 隐私与数据
 

@@ -100,7 +100,8 @@ class CorePluginContextAvailableServicesTest {
                 PluginService.MCP_CONNECTIONS,
                 PluginService.UI_RESOURCES,
                 PluginService.EXPORT_SETTINGS,
-                PluginService.ACTION_CATALOG);
+                PluginService.ACTION_CATALOG,
+                PluginService.HOST_VIEW_PANEL);
         final Set<PluginService> expectedPresent = Set.of(
                 PluginService.SELECTION_QUERY,
                 PluginService.MODEL_HIERARCHY_QUERY,

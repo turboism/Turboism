@@ -9,12 +9,14 @@ import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
-import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession;
-import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasSummary;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.ui.HostViewAnchors;
+import dev.turboism.sdk.ui.HostViewPanel;
+import dev.turboism.sdk.ui.HostViewPanelHandle;
+import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.test.plugin.FakePluginContext;
 import java.util.List;
 import java.util.Locale;
@@ -28,7 +30,7 @@ class TextureAtlasStatisticsPluginTest {
 
     @Test
     void enableAttachesOneLinePanelFedByTheEditorSession() {
-        final RecordingUi ui = new RecordingUi();
+        final RecordingHostViewPanels ui = new RecordingHostViewPanels();
         final CountingSession session = new CountingSession();
         final TextureAtlasStatisticsPlugin plugin = new TextureAtlasStatisticsPlugin();
         plugin.init(new ShellPluginContext(session, ui));
@@ -37,6 +39,10 @@ class TextureAtlasStatisticsPluginTest {
         assertNotNull(ui.attached);
         assertEquals(1, ui.attachCount);
         assertEquals(1, ui.liveCount);
+        assertEquals(
+                HostViewAnchors.TEXTURE_ATLAS_EDITOR,
+                ui.anchor,
+                "the panel attaches to the native texture-atlas editor anchor");
         assertEquals(INITIAL_TEXT, ui.attached.text, "enable attaches the localized line before the first tick");
 
         ui.attached.visible = true;
@@ -59,12 +65,12 @@ class TextureAtlasStatisticsPluginTest {
 
     @Test
     void hiddenPanelIsNeverReadAndClosedPanelStopsPolling() {
-        final RecordingUi ui = new RecordingUi();
+        final RecordingHostViewPanels ui = new RecordingHostViewPanels();
         final CountingSession session = new CountingSession();
         final TextureAtlasStatisticsPlugin plugin = new TextureAtlasStatisticsPlugin();
         plugin.init(new ShellPluginContext(session, ui));
         plugin.enable();
-        final FakePanel panel = ui.attached;
+        final FakePanelHandle panel = ui.attached;
         // enable() sets the localized line once; only poll ticks are counted from here.
         panel.dispatches.set(0);
 
@@ -92,12 +98,12 @@ class TextureAtlasStatisticsPluginTest {
 
     @Test
     void unchangedCountsAreNotDispatchedTwice() {
-        final RecordingUi ui = new RecordingUi();
+        final RecordingHostViewPanels ui = new RecordingHostViewPanels();
         final CountingSession session = new CountingSession();
         final TextureAtlasStatisticsPlugin plugin = new TextureAtlasStatisticsPlugin();
         plugin.init(new ShellPluginContext(session, ui));
         plugin.enable();
-        final FakePanel panel = ui.attached;
+        final FakePanelHandle panel = ui.attached;
         panel.dispatches.set(0);
         panel.visible = true;
 
@@ -117,12 +123,12 @@ class TextureAtlasStatisticsPluginTest {
 
     @Test
     void pollTicksSurviveInvisibleCyclesWithoutLosingTheVisibilityGate() {
-        final RecordingUi ui = new RecordingUi();
+        final RecordingHostViewPanels ui = new RecordingHostViewPanels();
         final CountingSession session = new CountingSession();
         final TextureAtlasStatisticsPlugin plugin = new TextureAtlasStatisticsPlugin();
         plugin.init(new ShellPluginContext(session, ui));
         plugin.enable();
-        final FakePanel panel = ui.attached;
+        final FakePanelHandle panel = ui.attached;
         panel.dispatches.set(0);
 
         panel.visible = true;
@@ -158,14 +164,15 @@ class TextureAtlasStatisticsPluginTest {
         }
     }
 
-    private static final class FakePanel implements TextureAtlasEditorPanel {
+    private static final class FakePanelHandle implements HostViewPanelHandle {
         final AtomicInteger dispatches = new AtomicInteger();
         volatile boolean visible;
-        String text;
-        boolean closed;
+        volatile String text;
+        volatile boolean closed;
 
         @Override
-        public void setText(final String next) {
+        public void setContent(final PanelView content) {
+            final String next = lineOf(content);
             if (next.equals(text)) return;
             dispatches.incrementAndGet();
             text = next;
@@ -182,21 +189,24 @@ class TextureAtlasStatisticsPluginTest {
         }
     }
 
-    private static final class RecordingUi implements TextureAtlasEditorUi {
-        FakePanel attached;
+    private static final class RecordingHostViewPanels implements HostViewPanel {
+        FakePanelHandle attached;
         int attachCount;
         int liveCount;
+        String anchor;
 
         @Override
-        public TextureAtlasEditorPanel attach() {
+        public HostViewPanelHandle attach(final String anchor, final PanelView content, final int order) {
             attachCount++;
             liveCount++;
-            attached = new FakePanel();
-            final FakePanel panel = attached;
-            return new TextureAtlasEditorPanel() {
+            this.anchor = anchor;
+            attached = new FakePanelHandle();
+            attached.text = lineOf(content);
+            final FakePanelHandle panel = attached;
+            return new HostViewPanelHandle() {
                 @Override
-                public void setText(final String text) {
-                    panel.setText(text);
+                public void setContent(final PanelView next) {
+                    panel.setContent(next);
                 }
 
                 @Override
@@ -212,6 +222,12 @@ class TextureAtlasStatisticsPluginTest {
                 }
             };
         }
+    }
+
+    /** The plugin contributes one text line; the fake renders it at the same granularity. */
+    private static String lineOf(final PanelView content) {
+        assertTrue(content instanceof PanelView.Text, "the statistics panel contributes one text line");
+        return ((PanelView.Text) content).value();
     }
 
     /** Formats the counted line so a changed count produces visibly different text. */
@@ -246,12 +262,10 @@ class TextureAtlasStatisticsPluginTest {
 
     private static final class ShellPluginContext extends FakePluginContext {
         private final TextureAtlasEditorSession session;
-        private final TextureAtlasEditorUi ui;
 
-        private ShellPluginContext(final TextureAtlasEditorSession session, final TextureAtlasEditorUi ui) {
-            super(FakePluginContext.builder());
+        private ShellPluginContext(final TextureAtlasEditorSession session, final HostViewPanel hostViewPanels) {
+            super(FakePluginContext.builder().service(HostViewPanel.class, hostViewPanels));
             this.session = session;
-            this.ui = ui;
         }
 
         @Override
@@ -290,11 +304,6 @@ class TextureAtlasStatisticsPluginTest {
                 @Override
                 public TextureAtlasEditorSession textureAtlasEditorSession() {
                     return session;
-                }
-
-                @Override
-                public TextureAtlasEditorUi textureAtlasEditorUi() {
-                    return ui;
                 }
             };
         }
