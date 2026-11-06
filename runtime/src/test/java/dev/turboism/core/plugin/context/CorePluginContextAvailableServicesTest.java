@@ -115,6 +115,8 @@ class CorePluginContextAvailableServicesTest {
                 PluginService.MESH_MIRROR_TOOL_ELIGIBILITY,
                 PluginService.MESH_MIRROR_MOVE_PARTICIPATION,
                 PluginService.MESH_EDIT_UI,
+                PluginService.MESH_MIRROR_CONTROL,
+                PluginService.MESH_EDIT_CONTRIBUTION,
                 PluginService.WARP_ALT_MIRROR_PARTICIPATION,
                 PluginService.ART_MESH_MIRROR,
                 PluginService.VIEW_CONTEXT_MENU,

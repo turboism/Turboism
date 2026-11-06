@@ -1,7 +1,7 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "d7450b30d4626e2c2947f6b7f54d82c725850680c8cb3d6b3f78ff47acf48d84",
+  "surfaceSha256": "9e2ae3fab59d351cab52e4e0990d651565e01ff0f110a7f5199e8d1655a717ec",
   "classes": {
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
     "dev.turboism.sdk.cubism.export.ProtectedExportCensus": "0.68.1",
@@ -14,6 +14,11 @@
     "dev.turboism.sdk.cubism.export.ProtectedExportPlanner": "0.68.1",
     "dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService": "0.68.0",
     "dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService$Unavailable": "0.68.0",
+    "dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface": "0.68.1",
+    "dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface$MirrorAxisAngleControl": "0.68.1",
+    "dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface$Unavailable": "0.68.1",
+    "dev.turboism.sdk.cubism.mesh.MeshMirrorControl": "0.68.1",
+    "dev.turboism.sdk.cubism.mesh.MeshMirrorControl$Unavailable": "0.68.1",
     "dev.turboism.sdk.cubism.model.ArtMeshKeyformValues": "0.68.0",
     "dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport": "0.68.0",
     "dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport$Check": "0.68.0",

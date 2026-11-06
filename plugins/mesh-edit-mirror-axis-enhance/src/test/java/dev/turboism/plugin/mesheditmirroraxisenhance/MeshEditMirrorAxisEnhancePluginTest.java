@@ -1,6 +1,7 @@
 package dev.turboism.plugin.mesheditmirroraxisenhance;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -18,9 +19,14 @@ import dev.turboism.sdk.cubism.RenderStatusSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
+import dev.turboism.sdk.cubism.mesh.MeshDeletion;
+import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface;
+import dev.turboism.sdk.cubism.mesh.MeshEditParticipant;
 import dev.turboism.sdk.cubism.mesh.MeshEditTool;
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorControl;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterpartResolver;
+import dev.turboism.sdk.cubism.mesh.MirrorAxisState;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -79,17 +85,17 @@ class MeshEditMirrorAxisEnhancePluginTest {
 
         plugin.setMirrorAxisAngleDegrees(225.0f);
 
-        assertEquals(-135.0f, context.meshMirrorAxis().currentAngleDegrees());
+        assertEquals(-135.0f, context.meshMirrorControl.angle);
     }
 
     @Test
-    void registersTheLegacyMirrorAxisAngleControlInPluginScope() throws Exception {
+    void registersTheMirrorAxisAngleControlInPluginScope() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
         MeshEditMirrorAxisEnhancePlugin plugin = new MeshEditMirrorAxisEnhancePlugin();
         plugin.init(context);
         plugin.enable();
 
-        MeshEditUiService.MirrorAxisAngleControl control = context.meshEditUi().control;
+        MeshEditContributionSurface.MirrorAxisAngleControl control = context.meshEditContributions.control;
         assertEquals("mesh.mirror-axis.angle", control.contributionId());
         assertEquals("Mirror Axis Rotation", control.label());
         assertEquals("Reset to 0°", control.resetToolTip());
@@ -98,10 +104,10 @@ class MeshEditMirrorAxisEnhancePluginTest {
         assertEquals(0.1f, control.stepDegrees());
 
         control.onAngleChanged().accept(45.0f);
-        assertEquals(45.0f, context.meshMirrorAxis().currentAngleDegrees());
+        assertEquals(45.0f, context.meshMirrorControl.angle);
 
         context.disposableScope().close();
-        assertTrue(context.meshEditUi().control == null);
+        assertTrue(context.meshEditContributions.control == null);
     }
 
     @Test
@@ -112,11 +118,10 @@ class MeshEditMirrorAxisEnhancePluginTest {
         plugin.enable();
 
         assertEquals(
-                Set.of(MeshEditTool.ARROW, MeshEditTool.ERASER, MeshEditTool.LASSO),
-                context.meshMirrorToolEligibility.tools);
+                Set.of(MeshEditTool.ARROW, MeshEditTool.ERASER, MeshEditTool.LASSO), context.meshMirrorControl.tools);
 
         context.disposableScope().close();
-        assertTrue(context.meshMirrorToolEligibility.tools.isEmpty());
+        assertTrue(context.meshMirrorControl.tools.isEmpty());
     }
 
     @Test
@@ -126,52 +131,36 @@ class MeshEditMirrorAxisEnhancePluginTest {
         plugin.init(context);
         plugin.enable();
 
-        assertTrue(context.meshMirrorMoveParticipation.participating);
+        assertTrue(context.meshMirrorControl.moving);
 
         context.disposableScope().close();
-        assertTrue(!context.meshMirrorMoveParticipation.participating);
-    }
-
-    /** Records the participant the plugin registers, so the policy's presence is assertable. */
-    static final class RecordingMeshEditParticipation implements dev.turboism.sdk.cubism.mesh.MeshEditParticipation {
-
-        dev.turboism.sdk.cubism.mesh.MeshEditParticipant participant;
-
-        @Override
-        public dev.turboism.sdk.plugin.Registration participate(
-                final dev.turboism.sdk.cubism.mesh.MeshEditParticipant registered) {
-            this.participant = registered;
-            return () -> this.participant = null;
-        }
+        assertFalse(context.meshMirrorControl.moving);
     }
 
     /**
      * The mirror-linked deletion policy lives here, not in the framework. Enabling the plugin
      * must register it, and the policy must defer to the host's own mirror toggle.
      */
-    @org.junit.jupiter.api.Test
+    @Test
     void enableRegistersTheMirrorLinkedDeletionPolicy() {
         final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
         final MeshEditMirrorAxisEnhancePlugin plugin = new MeshEditMirrorAxisEnhancePlugin();
         plugin.init(context);
         plugin.enable();
 
-        final var participant = context.meshEditParticipation.participant;
+        final MeshEditParticipant participant = context.meshEditContributions.participant;
         assertNotNull(participant);
 
-        final var off = participant.onDeleting(new dev.turboism.sdk.cubism.mesh.MeshDeletion(
-                java.util.List.of(),
-                java.util.List.of(),
-                new dev.turboism.sdk.cubism.mesh.MirrorAxisState(false, 0.0f),
-                null));
+        final MeshEditContribution off =
+                participant.onDeleting(new MeshDeletion(List.of(), List.of(), new MirrorAxisState(false, 0.0f), null));
         assertTrue(off.isEmpty(), "a disabled mirror axis must contribute nothing");
+        assertEquals(
+                0, context.meshMirrorControl.mirrorOfCalls, "a disabled mirror axis must not ask for counterparts");
 
-        final var on = participant.onDeleting(new dev.turboism.sdk.cubism.mesh.MeshDeletion(
-                java.util.List.of(),
-                java.util.List.of(),
-                new dev.turboism.sdk.cubism.mesh.MirrorAxisState(true, 90.0f),
-                null));
+        final MeshEditContribution on =
+                participant.onDeleting(new MeshDeletion(List.of(), List.of(), new MirrorAxisState(true, 90.0f), null));
         assertNotNull(on, "an enabled mirror axis must consult the counterpart service");
+        assertEquals(1, context.meshMirrorControl.mirrorOfCalls);
     }
 
     private static final class RecordingPluginContext extends FakePluginContext {
@@ -179,8 +168,9 @@ class MeshEditMirrorAxisEnhancePluginTest {
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
         private final RecordingUiHost uiHost = new RecordingUiHost();
         private final PluginLogger logger;
-        private final RecordingMeshMirrorAxisService meshMirrorAxis = new RecordingMeshMirrorAxisService();
-        private final RecordingMeshEditUiService meshEditUi = new RecordingMeshEditUiService();
+        private final RecordingMeshMirrorControl meshMirrorControl = new RecordingMeshMirrorControl();
+        private final RecordingMeshEditContributionSurface meshEditContributions =
+                new RecordingMeshEditContributionSurface();
 
         RecordingPluginContext(PluginLogger logger) {
             super(FakePluginContext.builder());
@@ -197,47 +187,6 @@ class MeshEditMirrorAxisEnhancePluginTest {
         @Override
         public CubismReadCapabilityService cubismRead() {
             return new FixedCubismRead();
-        }
-
-        public MeshMirrorAxisService meshMirrorAxis() {
-            return meshMirrorAxis;
-        }
-
-        final RecordingMeshEditParticipation meshEditParticipation = new RecordingMeshEditParticipation();
-        final RecordingMeshMirrorMoveParticipation meshMirrorMoveParticipation =
-                new RecordingMeshMirrorMoveParticipation();
-        final RecordingMeshMirrorToolEligibility meshMirrorToolEligibility = new RecordingMeshMirrorToolEligibility();
-
-        public dev.turboism.sdk.cubism.mesh.MeshEditParticipation meshEditParticipation() {
-            return meshEditParticipation;
-        }
-
-        public dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts meshMirrorCounterparts() {
-            return new dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts() {
-                @Override
-                public dev.turboism.sdk.cubism.mesh.MeshEditContribution mirrorOf(
-                        final dev.turboism.sdk.cubism.mesh.MeshDeletion deletion) {
-                    return dev.turboism.sdk.cubism.mesh.MeshEditContribution.none();
-                }
-
-                @Override
-                public dev.turboism.sdk.plugin.Registration overrideResolver(
-                        final dev.turboism.sdk.cubism.mesh.MeshMirrorCounterpartResolver resolver) {
-                    return () -> {};
-                }
-            };
-        }
-
-        public dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility meshMirrorToolEligibility() {
-            return meshMirrorToolEligibility;
-        }
-
-        public dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation meshMirrorMoveParticipation() {
-            return meshMirrorMoveParticipation;
-        }
-
-        public RecordingMeshEditUiService meshEditUi() {
-            return meshEditUi;
         }
 
         @Override
@@ -260,23 +209,15 @@ class MeshEditMirrorAxisEnhancePluginTest {
             return uiHost;
         }
 
+        /**
+         * Installs only the two consolidated mesh services: the plugin must not need the six
+         * released single-purpose ones any more.
+         */
         @Override
         public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
             return dev.turboism.sdk.plugin.PluginServices.builder()
-                    .supply(dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService.class, () -> this.meshMirrorAxis())
-                    .supply(
-                            dev.turboism.sdk.cubism.mesh.MeshEditParticipation.class,
-                            () -> this.meshEditParticipation())
-                    .supply(
-                            dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts.class,
-                            () -> this.meshMirrorCounterparts())
-                    .supply(
-                            dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility.class,
-                            () -> this.meshMirrorToolEligibility())
-                    .supply(
-                            dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation.class,
-                            () -> this.meshMirrorMoveParticipation())
-                    .supply(dev.turboism.sdk.cubism.mesh.MeshEditUiService.class, () -> this.meshEditUi())
+                    .supply(MeshMirrorControl.class, () -> meshMirrorControl)
+                    .supply(MeshEditContributionSurface.class, () -> meshEditContributions)
                     .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
                     .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
                     .build();
@@ -383,32 +324,12 @@ class MeshEditMirrorAxisEnhancePluginTest {
         }
     }
 
-    private static final class RecordingMeshMirrorMoveParticipation
-            implements dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation {
-
-        private boolean participating;
-
-        @Override
-        public Registration participate() {
-            participating = true;
-            return () -> participating = false;
-        }
-    }
-
-    private static final class RecordingMeshMirrorToolEligibility
-            implements dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility {
-
-        private Set<MeshEditTool> tools = Set.of();
-
-        @Override
-        public Registration extendEligibleTools(final Set<MeshEditTool> registered) {
-            tools = Set.copyOf(registered);
-            return () -> tools = Set.of();
-        }
-    }
-
-    private static final class RecordingMeshMirrorAxisService implements MeshMirrorAxisService {
+    /** Records every mirror verb the plugin exercises, so its policy stays assertable. */
+    private static final class RecordingMeshMirrorControl implements MeshMirrorControl {
         private float angle;
+        private boolean moving;
+        private Set<MeshEditTool> tools = Set.of();
+        private int mirrorOfCalls;
 
         @Override
         public float currentAngleDegrees() {
@@ -419,13 +340,44 @@ class MeshEditMirrorAxisEnhancePluginTest {
         public void setCurrentAngleDegrees(float angleDegrees) {
             angle = angleDegrees > 180.0f ? angleDegrees - 360.0f : angleDegrees;
         }
+
+        @Override
+        public MeshEditContribution mirrorOf(final MeshDeletion deletion) {
+            mirrorOfCalls++;
+            return MeshEditContribution.none();
+        }
+
+        @Override
+        public Registration overrideResolver(final MeshMirrorCounterpartResolver resolver) {
+            return () -> {};
+        }
+
+        @Override
+        public Registration participate() {
+            moving = true;
+            return () -> moving = false;
+        }
+
+        @Override
+        public Registration extendEligibleTools(final Set<MeshEditTool> registered) {
+            tools = Set.copyOf(registered);
+            return () -> tools = Set.of();
+        }
     }
 
-    private static final class RecordingMeshEditUiService implements MeshEditUiService {
+    /** Records the participant and the tool-area control the plugin contributes. */
+    private static final class RecordingMeshEditContributionSurface implements MeshEditContributionSurface {
+        private MeshEditParticipant participant;
         private MirrorAxisAngleControl control;
 
         @Override
-        public Registration contributeMirrorAxisAngleControl(MirrorAxisAngleControl contribution) {
+        public Registration participate(final MeshEditParticipant registered) {
+            participant = registered;
+            return () -> participant = null;
+        }
+
+        @Override
+        public Registration contributeMirrorAxisAngleControl(final MirrorAxisAngleControl contribution) {
             control = contribution;
             return () -> control = null;
         }

@@ -14,9 +14,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Physics Settings preview GIF recording with record/pause/resume, stop/discard controls and registered shortcuts, post-recording size controls, optional Gifsicle optimization (20 MB by default), and a persistent GIF export directory.
 
+- The SDK adds the incubating `MeshMirrorControl` and `MeshEditContributionSurface` capabilities with the `PluginService.MESH_MIRROR_CONTROL` and `PluginService.MESH_EDIT_CONTRIBUTION` directory members. Each consolidates released single-purpose services a plugin always needed together — the mirror axis, the counterpart rule, movement participation and the eligible-tool set on one side, host-edit participation and native tool-area contributions on the other — so mesh editing no longer costs six service lookups. Permissions and operation ids are unchanged.
+
 ### Deprecated
 
 - `TextureAtlasEditorUi` and `TextureAtlasEditorPanel` are deprecated for removal; both keep working as a thin adapter over `HostViewPanel`. Use `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)` and `HostViewPanelHandle.setContent(PanelView)` instead.
+
+- `MeshMirrorAxisService`, `MeshMirrorCounterparts`, `MeshMirrorMoveParticipation`, `MeshMirrorToolEligibility`, `MeshEditParticipation` and `MeshEditUiService` (with their `PluginService` members and `MeshEditUiService.MirrorAxisAngleControl`) are deprecated for removal; all six keep working unchanged. Use `MeshMirrorControl` and `MeshEditContributionSurface` instead.
 
 ### Fixed
 

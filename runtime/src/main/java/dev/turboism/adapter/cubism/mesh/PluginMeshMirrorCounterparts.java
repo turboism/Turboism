@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * deletion. A second override from the same plugin is a programming error and refused, and
  * closing the returned registration restores the framework default.</p>
  */
+@SuppressWarnings("removal") // the released interface this per-plugin resolver view keeps serving
 final class PluginMeshMirrorCounterparts implements MeshMirrorCounterparts {
 
     private final RuntimeMeshMirrorCounterparts shared;

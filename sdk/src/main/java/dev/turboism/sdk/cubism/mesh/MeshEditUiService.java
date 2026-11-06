@@ -5,7 +5,16 @@ import dev.turboism.sdk.plugin.Registration;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-/** Declarative contributions for Cubism's native mesh-edit tool area. */
+/**
+ * Declarative contributions for Cubism's native mesh-edit tool area.
+ *
+ * @deprecated use {@link MeshEditContributionSurface#contributeMirrorAxisAngleControl(
+ *     MeshEditContributionSurface.MirrorAxisAngleControl)} instead: that surface consolidates the
+ *     two ways a plugin takes part in a native mesh edit and is handed out by
+ *     {@code PluginService.MESH_EDIT_CONTRIBUTION}. Scheduled for removal; every released
+ *     operation keeps working through this thin adapter until then.
+ */
+@Deprecated(forRemoval = true)
 @CubismEditor(from = "5.0.00")
 public interface MeshEditUiService {
 
@@ -52,7 +61,14 @@ public interface MeshEditUiService {
         }
     }
 
-    /** Definition of one contributed mirror-axis angle control; degrees bound the range. */
+    /**
+     * Definition of one contributed mirror-axis angle control; degrees bound the range.
+     *
+     * @deprecated use {@link MeshEditContributionSurface.MirrorAxisAngleControl} instead, the
+     *     control record of the consolidated contribution surface. Scheduled for removal with
+     *     its owning interface.
+     */
+    @Deprecated(forRemoval = true)
     record MirrorAxisAngleControl(
             String contributionId,
             String label,

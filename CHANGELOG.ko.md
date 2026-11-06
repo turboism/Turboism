@@ -14,9 +14,13 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 - 물리 시뮬레이션 미리보기에 GIF 녹화를 추가했습니다. 녹화/일시 정지/계속, 정지/버리기 및 단축키 등록, 녹화 후 크기 설정, Gifsicle 목표 크기 최적화 (기본 20 MB), GIF 내보내기 폴더 저장을 지원합니다.
 
+- SDK에 인큐베이팅 `MeshMirrorControl` 및 `MeshEditContributionSurface` 기능과 `PluginService.MESH_MIRROR_CONTROL`, `PluginService.MESH_EDIT_CONTRIBUTION` 디렉터리 멤버를 추가했습니다. 전자는 미러 축, 미러 대응점 규칙, 이동 참여, 사용 가능 도구 집합을, 후자는 호스트 편집 참여와 네이티브 도구 영역 기여를 플러그인이 항상 함께 필요로 하는 공개된 단일 목적 서비스로 통합합니다. 메시 편집에 더 이상 여섯 번의 서비스 조회가 필요하지 않습니다. 권한과 작업 ID는 그대로입니다.
+
 ### 폐기 예정
 
 - `TextureAtlasEditorUi`와 `TextureAtlasEditorPanel`을 제거 예정으로 폐기했습니다. 두 인터페이스는 `HostViewPanel` 위의 얇은 어댑터로 계속 동작합니다. 대신 `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)`와 `HostViewPanelHandle.setContent(PanelView)`를 사용하세요.
+
+- `MeshMirrorAxisService`, `MeshMirrorCounterparts`, `MeshMirrorMoveParticipation`, `MeshMirrorToolEligibility`, `MeshEditParticipation`, `MeshEditUiService`(해당 `PluginService` 멤버와 `MeshEditUiService.MirrorAxisAngleControl` 포함)를 제거 예정으로 폐기했습니다. 여섯 가지 모두 동작은 그대로입니다. 대신 `MeshMirrorControl`과 `MeshEditContributionSurface`를 사용하세요.
 
 ## [0.68.1] - 2026-10-30
 
