@@ -189,8 +189,8 @@ final class KernelPluginContextFactory implements AutoCloseable {
             if (requestedDescriptor
                     .capabilities()
                     .contains(dev.turboism.adapter.cubism.mesh.RuntimeMeshToolRegistry.REQUIRED_CAPABILITY)) {
-                // The runtime point-and-edge layout brush is selected by this declaration, so a
-                // plugin that declares it owns the brush its own tool registers.
+                // The runtime canvas point-and-edge session is admitted by this declaration, so a
+                // plugin that declares it receives the session for its own tool.
                 final boolean pointAndEdgeLayout = requestedDescriptor
                         .capabilities()
                         .contains(

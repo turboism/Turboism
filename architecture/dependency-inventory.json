@@ -540,10 +540,6 @@
       ],
       [
         "dev.turboism.adapter",
-        "dev.turboism.i18n"
-      ],
-      [
-        "dev.turboism.adapter",
         "dev.turboism.internal"
       ],
       [
