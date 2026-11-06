@@ -41,6 +41,10 @@
  ],
  "coverageSources": [],
  "coverage": false,
+ "aliases": {
+  "className": "CoreAliases",
+  "prefix": "cubism.core."
+ },
  "vocabulary": {
   "admissionEqualsUse": false
  }

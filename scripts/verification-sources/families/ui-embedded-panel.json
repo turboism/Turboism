@@ -30,6 +30,10 @@
  "packs": [],
  "extraLiterals": [],
  "coverageSources": [],
+ "aliases": {
+  "className": "UiEmbeddedPanelAliases",
+  "prefix": "cubism.ui-panel."
+ },
  "vocabulary": {
   "admissionEqualsUse": false
  }

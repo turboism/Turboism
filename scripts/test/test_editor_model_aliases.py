@@ -490,14 +490,14 @@ class GeneratedAliasVocabularyTest(unittest.TestCase):
             self.vocabulary()
 
     def test_record_alias_outside_the_declared_prefix_fails_closed(self):
-        # A family vocabulary covers one namespace; an alias of another namespace would derive a
-        # constant name that hides which owner it belongs to, so the declaration is an error.
+        # A family vocabulary covers its declared namespaces; an alias of another namespace would
+        # derive a constant name that hides which owner it belongs to, so the declaration is an error.
         path = self.root / record_path(CLIPMASK_RECORD)
         document = json.loads(path.read_text(encoding="utf-8"))
         document["selectors"].append(selector(SCENE_ALIAS))
         path.write_text(json.dumps(document), encoding="utf-8")
         with self.assertRaisesRegex(
-                ValueError, re.escape("is not a member of the 'cubism.clipmask.' namespace")):
+                ValueError, re.escape(f"'{SCENE_ALIAS}' must belong to exactly one")):
             self.vocabulary()
 
     def test_unknown_vocabulary_constant_fails_closed(self):

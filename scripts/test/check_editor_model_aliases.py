@@ -114,7 +114,7 @@ class FamilyVocabulary:
     records: tuple[str, ...]
     admission_equals_use: bool
     aliases_class: str | None = None
-    aliases_prefix: str | None = None
+    aliases_prefixes: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -208,21 +208,22 @@ def family_vocabulary(root: Path) -> dict[str, FamilyVocabulary]:
     return families
 
 
-def _aliases_declaration(document: dict, name: str) -> dict[str, str | None]:
+def _aliases_declaration(document: dict, name: str) -> dict[str, object]:
     """Return the family's generated alias vocabulary declaration, if it has one.
 
     Only a declared block makes a family's constants resolvable: a ``<Family>Aliases.<CONSTANT>``
     reference is followed for the classes this returns, so a family that generates no vocabulary
-    contributes no aliases rather than a guessed table.
+    contributes no aliases rather than a guessed table. The declared prefixes stay normalised as
+    the tuple ``turboism_dev.alias_vocabulary.declaration`` returns.
     """
     block = document.get("aliases")
     if block is None:
-        return {"aliases_class": None, "aliases_prefix": None}
+        return {"aliases_class": None, "aliases_prefixes": None}
     try:
-        class_name, prefix = vocabulary_declaration(block, name)
+        class_name, prefixes = vocabulary_declaration(block, name)
     except VocabularyError as failure:
         raise ValueError(f"{name}: {failure}") from failure
-    return {"aliases_class": class_name, "aliases_prefix": prefix}
+    return {"aliases_class": class_name, "aliases_prefixes": prefixes}
 
 
 def alias_vocabulary_classes(
@@ -236,13 +237,13 @@ def alias_vocabulary_classes(
     """
     classes: dict[str, dict[str, str]] = {}
     for family in sorted(families.values(), key=lambda entry: entry.name):
-        if family.aliases_class is None or family.aliases_prefix is None:
+        if family.aliases_class is None or family.aliases_prefixes is None:
             continue
         aliases: set[str] = set()
         for relative in family.records:
             aliases |= selector_aliases(root, f"{RECORD_ROOT}/{relative}")
         try:
-            classes[family.aliases_class] = vocabulary_constants(aliases, family.aliases_prefix)
+            classes[family.aliases_class] = vocabulary_constants(aliases, family.aliases_prefixes)
         except VocabularyError as failure:
             raise ValueError(f"{family.name}: {failure}") from failure
     return classes

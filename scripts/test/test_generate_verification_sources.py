@@ -127,7 +127,7 @@ class GenerateVerificationSourcesTest(unittest.TestCase):
         self.assertEqual([], violations)
         self.assertEqual(0, equivalent)
         rendered = GEN.render_all(ROOT)
-        self.assertEqual(97, len(rendered))
+        self.assertEqual(111, len(rendered))
 
     def test_live_clipmask_vocabulary_covers_every_record_alias(self):
         rendered = GEN.render_all(ROOT)[VOCABULARY_RELPATH]
@@ -392,7 +392,7 @@ class AliasVocabularyGenerationTest(unittest.TestCase):
             "mappingId": "m.other", "alias": "cubism.other.alpha", "kind": "method",
             "status": "VERIFIED_STATIC"})
         (self.root / GEN.VERIFICATION_DIR / RECORD_NAME).write_text(json.dumps(self.document))
-        with self.assertRaisesRegex(GEN.GenerationError, "is not a member of the"):
+        with self.assertRaisesRegex(GEN.GenerationError, "must belong to exactly one of"):
             GEN.render_all(self.root)
 
     def test_vocabulary_listed_as_a_family_file_fails_closed(self):
