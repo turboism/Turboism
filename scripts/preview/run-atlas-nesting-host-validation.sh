@@ -17,13 +17,13 @@ if [[ "$version" == 50* || "$version" == 51* ]]; then
 fi
 case "$dataset" in
   geometry-100)
-    count=100; dataset=geometry; fixture="$root/test-assets/texture-atlas-layout/cmo3/geometry/atlas_mapping_geometry_100.cmo3"
+    count=100; dataset=geometry; fixture="$root/testing/assets/texture-atlas-layout/cmo3/geometry/atlas_mapping_geometry_100.cmo3"
     hash=369c906ad47610a958e770930649f0821f616e8eb66564c39a478c41b49024ff ;;
   geometry-500)
-    count=500; dataset=geometry; fixture="$root/test-assets/texture-atlas-layout/cmo3/geometry/atlas_mapping_geometry_500.cmo3"
+    count=500; dataset=geometry; fixture="$root/testing/assets/texture-atlas-layout/cmo3/geometry/atlas_mapping_geometry_500.cmo3"
     hash=99038495f8c7fb9ee94cf6b9ce3d60370fc0203c411ed39b0084d84ce72a683b ;;
   circle-500)
-    count=500; dataset=circle; fixture="$root/test-assets/texture-atlas-layout/cmo3/circle/atlas_mapping_500.cmo3"
+    count=500; dataset=circle; fixture="$root/testing/assets/texture-atlas-layout/cmo3/circle/atlas_mapping_500.cmo3"
     hash=54ce27647bd8d63d16fc643eb209ef2016fda0d975779b5b07943da303478b50 ;;
   heavy)
     turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_HEAVY 'heavy model fixture path' || exit 2

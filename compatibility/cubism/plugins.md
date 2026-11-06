@@ -37,6 +37,7 @@ When Cubism runs under a FREE licence, saving is subject to the FREE parameter-c
 | `perf-stats` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.0.00–5.0.06, 5.1.01–5.1.03, 5.2.03, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
 | `physics-editor` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
 | `project-inspector` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
+| `project-work-time` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
 | `protected-export` | 5.1.00–5.3.04（earlier Cubism versions lack the feature entirely） | Protected-export orchestration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）<br>Export settings contribution not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | host-verified 5.1.00, 5.1.03–5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04 |
 | `psd-clip-mask-import` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.0.00–5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
 | `recent-preview` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.2.03, 5.3.02 |

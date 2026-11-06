@@ -275,6 +275,13 @@ class RootReadmeTest(unittest.TestCase):
         "README.ko.md": "packaging/eula/EULA.ko.txt",
     }
 
+    CAPABILITY_PATHS = {
+        "README.md": "compatibility/cubism/capabilities.md",
+        "README.zh-CN.md": "compatibility/cubism/capabilities_zh.md",
+        "README.ja.md": "compatibility/cubism/capabilities_ja.md",
+        "README.ko.md": "compatibility/cubism/capabilities_ko.md",
+    }
+
     PAGES = {
         "README.md": ["Copyright and notices", "About", "Supported Cubism Editor versions",
                       "Installation", "Development", "Documentation"],
@@ -333,8 +340,15 @@ class RootReadmeTest(unittest.TestCase):
         english_links = None
         for filename in self.PAGES:
             links = re.findall(r"\[[^\]]+\]\(([^)]+)\)", (ROOT / filename).read_text(encoding="utf-8"))
-            normalized_links = ["EULA" if link == self.EULA_PATHS[filename] else link
+            # Localized docs (`*_zh.md`, `*_ja.md`, `*_ko.md`) are the per-language
+            # variant of the same underlying page; normalize the suffix so every
+            # language must reference the same doc families while keeping its
+            # localized file, mirroring the per-language EULA normalization.
+            normalized_links = ["EULA" if link == self.EULA_PATHS[filename]
+                                else re.sub(r"_(?:zh|ja|ko)\.md$", ".md", link)
                                 for link in links]
+            normalized_links = ["CAPABILITIES" if link == self.CAPABILITY_PATHS[filename] else link
+                                for link in normalized_links]
             if english_links is None:
                 english_links = Counter(normalized_links)
             self.assertEqual(Counter(normalized_links), english_links, filename)

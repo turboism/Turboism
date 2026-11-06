@@ -219,7 +219,9 @@ public enum PluginService {
     UI_RESOURCES(dev.turboism.sdk.ui.resource.UiResourceService.class),
 
     /** {@link dev.turboism.sdk.cubism.export.ExportSettingsContributionService} */
-    EXPORT_SETTINGS(dev.turboism.sdk.cubism.export.ExportSettingsContributionService.class);
+    EXPORT_SETTINGS(dev.turboism.sdk.cubism.export.ExportSettingsContributionService.class),
+    /** {@link dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService} */
+    PROJECT_WORK_TIME(dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService.class);
 
     private final Class<?> type;
 

@@ -9,7 +9,7 @@
       "license": "CC0-1.0",
       "storage": "release",
       "source": "Circle and Geometry test corpus for texture atlas layout benchmarks (CC0 1.0)",
-      "targetDir": "test-assets/texture-atlas-layout",
+      "targetDir": "testing/assets/texture-atlas-layout",
       "release": {
         "tag": "test-corpus-texture-atlas-layout-v1",
         "archive": "texture-atlas-layout-v1.tar.gz",
@@ -120,7 +120,7 @@
       "license": "CC0-1.0",
       "storage": "git",
       "source": "Self-built minimal GLB geometry fixtures (Blender export + programmatic PNG texture embed)",
-      "targetDir": "test-assets/model-import-3d",
+      "targetDir": "testing/assets/model-import-3d",
       "usedBy": [
         ":plugins:model-import-3d:test (EmbeddedTextureTest)",
         ":plugins:model-import-3d:test (ModelImportPluginTest)",

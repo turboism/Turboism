@@ -37,6 +37,7 @@ include(
     "plugins:physics-editor",
     "plugins:history-panel",
     "plugins:perf-stats",
+    "plugins:project-work-time",
     "plugins:command-palette",
     "plugins:palette-label-style",
     "plugins:parameter-batch-transfer",
@@ -49,3 +50,9 @@ include(
     "testing:test-support",
     "testing:integration-tests"
 )
+
+project(":core-contract").projectDir = file("core/contract")
+project(":persistence-core").projectDir = file("core/persistence")
+project(":compatibility-policy").projectDir = file("core/compatibility-policy")
+project(":event-processor").projectDir = file("core/event-processor")
+

@@ -7,7 +7,7 @@ runtime format, no migration, no support claim and no fixture.
 Read it with the two existing contracts:
 
 - `ARCHITECTURE_GOVERNANCE.md` — golden snapshot contract and recovery point contract.
-- `tests/fixtures/snapshots/manifest.json` + `scripts/check_golden_snapshots.py` — the immutable
+- `testing/fixtures/snapshots/manifest.json` + `scripts/check_golden_snapshots.py` — the immutable
   fixture inventory and its checker.
 
 ## 0. What this document owns, and what it does not
@@ -818,7 +818,7 @@ A format epoch may leave the read window only when **all** of the following hold
 3. the post-deprecation behaviour is a **refusal with a diagnostic that preserves the original
    bytes** — never a silent reset to defaults, never a delete, never a rewrite.
 
-Deleting a fixture from `tests/fixtures/snapshots/` is a policy change, not test cleanup: the
+Deleting a fixture from `testing/fixtures/snapshots/` is a policy change, not test cleanup: the
 manifest gate fails when a sample disappears, and the policy above is the only accepted reason.
 
 ### 12.6 What the policy does not cover

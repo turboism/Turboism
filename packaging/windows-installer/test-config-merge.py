@@ -12,7 +12,7 @@
   - 卸载失败关闭后置顺序和精确 LICENSE 删除仍保持不变。
 
 packaging/release-plugins.txt 仍是发布载荷的唯一权威清单：本脚本将其作为显式
-31 项目 / 3 公开排除模块回归 oracle（清单漂移即失败），但下方模拟器的合成
+33 项目 / 3 公开排除模块回归 oracle（清单漂移即失败），但下方模拟器的合成
 id/module fixture 与该清单相互独立 —— Gradle 模块名不是插件 id 的通用约定
 （如 atlas-maxrects-bssf 与 id 不同形），真实 id 由
 verify-installer.py 与 assemble-release.sh 从各 JAR 的
@@ -29,7 +29,7 @@ INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
 EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 ICON_DIR = Path(__file__).resolve().parent / "assets"
 
-# 冻结的 31 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
+# 冻结的 33 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 # 第 2 项由 "backup" 改名为 "webdav-backup"（插件改名），增加 frame-animation-import。
 EXPECTED_PATHS = [
     ":plugins:acp",
@@ -55,6 +55,7 @@ EXPECTED_PATHS = [
     ":plugins:parameter-sync",
     ":plugins:perf-stats",
     ":plugins:physics-editor",
+    ":plugins:project-work-time",
     ":plugins:protected-export",
     ":plugins:psd-clip-mask-import",
     ":plugins:recent-preview",
@@ -642,7 +643,7 @@ def check_managed_graal_installer_contract():
           and "graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip" not in service
           and "341_299_924" not in service and "341299924" not in service)
     # 接口常量和构建版本目录必须与清单一致，构建脚本必须读取该目录。
-    jvm_settings = (INSTALLER_NSI.parents[2] / "core-contract/src/main/java/dev/turboism/internal/core/CubismJvmSettingsService.java").read_text(encoding="utf-8")
+    jvm_settings = (INSTALLER_NSI.parents[2] / "core/contract/src/main/java/dev/turboism/internal/core/CubismJvmSettingsService.java").read_text(encoding="utf-8")
     graal_build = (INSTALLER_NSI.parents[2] / "graal-host/build.gradle.kts").read_text(encoding="utf-8")
     catalog_graal = re.search(
         r'^graal\s*=\s*"([^"]+)"',
