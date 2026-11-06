@@ -32,6 +32,10 @@
  "coverageSources": [
   "runtime/src/main/java/dev/turboism/ui/mesh/MeshToolbarSelectorContract.java"
  ],
+ "aliases": {
+  "className": "UiMainToolbarAliases",
+  "prefix": "cubism.ui-main-toolbar."
+ },
  "vocabulary": {
   "admissionEqualsUse": false
  }

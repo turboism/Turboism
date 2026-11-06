@@ -727,6 +727,7 @@ scripts/test/test_cubism_host_validation_local.sh
 scripts/test/test_cubism_host_validation_lock.sh
 scripts/test/test_cubism_host_validation_project_copy.sh
 scripts/test/test_dependency_inventory.py
+scripts/test/test_alias_vocabulary.py
 scripts/test/test_editor_model_aliases.py
 scripts/test/test_external_psd_edit_persist_driver.sh
 scripts/test/test_external_psd_performance_sampler.sh

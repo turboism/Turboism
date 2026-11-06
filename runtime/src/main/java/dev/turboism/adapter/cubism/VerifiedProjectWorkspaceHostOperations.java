@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.lifecycle.ProjectContentIdentity;
 import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.mapping.verification.ProjectWorkspaceAliases;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -31,21 +32,6 @@ import java.util.regex.Pattern;
 /** Project/workspace HostOperations backed only by exact verified selectors and reviewed host types. */
 public final class VerifiedProjectWorkspaceHostOperations implements ProjectWorkspaceAdapter.HostOperations {
 
-    private static final String APP_INSTANCE = "cubism.app-controller.instance";
-    private static final String CURRENT_PROJECT = "cubism.app-controller.current-project";
-    private static final String CURRENT_DOCUMENT = "cubism.app-controller.current-document";
-    private static final String MAIN_FRAME = "cubism.app-controller.main-frame";
-    private static final String PROJECT_DOCUMENTS = "cubism.project.documents";
-    private static final String DOCUMENT_FILE_CONTENT = "cubism.document.file-content";
-    private static final String FILE_CONTENT_FILE = "cubism.file-content.file";
-    private static final String DOCK_MANAGER = "cubism.main-frame.dock-manager";
-    private static final String LAST_WORKSPACE = "cubism.dock-wrapper.last-workspace";
-    private static final String WORKSPACE_ID = "cubism.workspace.id";
-    private static final String WORKSPACE_NAME = "cubism.workspace.name";
-    private static final String WORKSPACE_GUID = "cubism.workspace.guid";
-    private static final String ID_VALUE = "cubism.id.value";
-    private static final String GUID_VALUE = "cubism.guid.value";
-
     private static final String MODELING_DOCUMENT_CLASS = "com.live2d.cubism.doc.modeling.CModelingDocument";
     private static final String ANIMATION_SCENE_DOCUMENT_CLASS = "com.live2d.cubism.doc.animation.CSceneDocument";
     private static final String ANIMATION_CONTENT_CLASS = "com.live2d.cubism.doc.animation.CAnimationFileContent";
@@ -63,30 +49,30 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
     private static final String FILE_CONTENT_CLASS = "com.live2d.cubism.doc.IFileContent";
 
     private static final java.util.Set<String> METHOD_ALIASES_USED = java.util.Set.of(
-            APP_INSTANCE,
-            CURRENT_PROJECT,
-            CURRENT_DOCUMENT,
-            MAIN_FRAME,
-            PROJECT_DOCUMENTS,
-            DOCUMENT_FILE_CONTENT,
-            FILE_CONTENT_FILE,
-            DOCK_MANAGER,
-            LAST_WORKSPACE,
-            WORKSPACE_ID,
-            WORKSPACE_NAME,
-            WORKSPACE_GUID,
-            ID_VALUE,
-            GUID_VALUE);
+            ProjectWorkspaceAliases.APP_CONTROLLER_INSTANCE,
+            ProjectWorkspaceAliases.APP_CONTROLLER_CURRENT_PROJECT,
+            ProjectWorkspaceAliases.APP_CONTROLLER_CURRENT_DOCUMENT,
+            ProjectWorkspaceAliases.APP_CONTROLLER_MAIN_FRAME,
+            ProjectWorkspaceAliases.PROJECT_DOCUMENTS,
+            ProjectWorkspaceAliases.DOCUMENT_FILE_CONTENT,
+            ProjectWorkspaceAliases.FILE_CONTENT_FILE,
+            ProjectWorkspaceAliases.MAIN_FRAME_DOCK_MANAGER,
+            ProjectWorkspaceAliases.DOCK_WRAPPER_LAST_WORKSPACE,
+            ProjectWorkspaceAliases.WORKSPACE_ID,
+            ProjectWorkspaceAliases.WORKSPACE_NAME,
+            ProjectWorkspaceAliases.WORKSPACE_GUID,
+            ProjectWorkspaceAliases.ID_VALUE,
+            ProjectWorkspaceAliases.GUID_VALUE);
     private static final java.util.Set<String> CLASS_ALIASES_REQUIRED = java.util.Set.of(
-            "cubism.app-controller.class",
-            "cubism.project.class",
-            "cubism.document.class",
-            "cubism.file-content.class",
-            "cubism.main-frame.class",
-            "cubism.dock-wrapper.class",
-            "cubism.workspace.class",
-            "cubism.id.class",
-            "cubism.guid.class");
+            ProjectWorkspaceAliases.APP_CONTROLLER_CLASS,
+            ProjectWorkspaceAliases.PROJECT_CLASS,
+            ProjectWorkspaceAliases.DOCUMENT_CLASS,
+            ProjectWorkspaceAliases.FILE_CONTENT_CLASS,
+            ProjectWorkspaceAliases.MAIN_FRAME_CLASS,
+            ProjectWorkspaceAliases.DOCK_WRAPPER_CLASS,
+            ProjectWorkspaceAliases.WORKSPACE_CLASS,
+            ProjectWorkspaceAliases.ID_CLASS,
+            ProjectWorkspaceAliases.GUID_CLASS);
     public static final java.util.Set<String> REQUIRED_ALIASES = requiredAliases();
 
     private static java.util.Set<String> requiredAliases() {
@@ -154,9 +140,10 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
     @Override
     public Optional<ProjectSnapshot> activeProject() {
         try {
-            final Object appController = resolver.invokeStatic(APP_INSTANCE);
+            final Object appController = resolver.invokeStatic(ProjectWorkspaceAliases.APP_CONTROLLER_INSTANCE);
             if (appController == null) return Optional.empty();
-            final Object currentDocument = resolver.invoke(CURRENT_DOCUMENT, appController);
+            final Object currentDocument =
+                    resolver.invoke(ProjectWorkspaceAliases.APP_CONTROLLER_CURRENT_DOCUMENT, appController);
             return projectSnapshot(appController, currentDocument);
         } catch (VerifiedAccessException exception) {
             if (exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION) {
@@ -188,9 +175,10 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
     @Override
     public Optional<DocumentSnapshot> activeDocument() {
         try {
-            final Object appController = resolver.invokeStatic(APP_INSTANCE);
+            final Object appController = resolver.invokeStatic(ProjectWorkspaceAliases.APP_CONTROLLER_INSTANCE);
             if (appController == null) return Optional.empty();
-            final Object currentDocument = resolver.invoke(CURRENT_DOCUMENT, appController);
+            final Object currentDocument =
+                    resolver.invoke(ProjectWorkspaceAliases.APP_CONTROLLER_CURRENT_DOCUMENT, appController);
             return currentDocument == null
                     ? Optional.empty()
                     : Optional.of(document(currentDocument).snapshot());
@@ -209,8 +197,10 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
         final Object appController;
         final Object currentDocument;
         try {
-            appController = resolver.invokeStatic(APP_INSTANCE);
-            currentDocument = appController == null ? null : resolver.invoke(CURRENT_DOCUMENT, appController);
+            appController = resolver.invokeStatic(ProjectWorkspaceAliases.APP_CONTROLLER_INSTANCE);
+            currentDocument = appController == null
+                    ? null
+                    : resolver.invoke(ProjectWorkspaceAliases.APP_CONTROLLER_CURRENT_DOCUMENT, appController);
         } catch (RuntimeException failure) {
             return new ProjectWorkspaceAdapter.ActiveProjectDocument(Optional.empty(), Optional.empty());
         }
@@ -246,12 +236,12 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
      */
     private Optional<ProjectSnapshot> projectSnapshot(
             final Object appController, final Object currentDocument, final DocumentBuild resolvedActive) {
-        final Object project = resolver.invoke(CURRENT_PROJECT, appController);
+        final Object project = resolver.invoke(ProjectWorkspaceAliases.APP_CONTROLLER_CURRENT_PROJECT, appController);
         if (project == null) return Optional.empty();
         final String projectId = identities.idFor(project, "project");
         final List<DocumentSnapshot> documents = new ArrayList<>();
         DocumentBuild active = resolvedActive;
-        final Object rawDocuments = resolver.invoke(PROJECT_DOCUMENTS, project);
+        final Object rawDocuments = resolver.invoke(ProjectWorkspaceAliases.PROJECT_DOCUMENTS, project);
         if (rawDocuments instanceof Iterable<?> iterable) {
             for (Object document : iterable) {
                 if (document == null) continue;
@@ -286,19 +276,21 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
     @Override
     public Optional<WorkspaceSnapshot> workspace() {
         try {
-            final Object appController = resolver.invokeStatic(APP_INSTANCE);
+            final Object appController = resolver.invokeStatic(ProjectWorkspaceAliases.APP_CONTROLLER_INSTANCE);
             if (appController == null) return Optional.empty();
-            final Object mainFrame = resolver.invoke(MAIN_FRAME, appController);
+            final Object mainFrame = resolver.invoke(ProjectWorkspaceAliases.APP_CONTROLLER_MAIN_FRAME, appController);
             if (mainFrame == null) return Optional.empty();
-            final Object dockManager = resolver.invoke(DOCK_MANAGER, mainFrame);
+            final Object dockManager = resolver.invoke(ProjectWorkspaceAliases.MAIN_FRAME_DOCK_MANAGER, mainFrame);
             if (dockManager == null) return Optional.empty();
-            final Object workspace = resolver.invoke(LAST_WORKSPACE, dockManager);
+            final Object workspace = resolver.invoke(ProjectWorkspaceAliases.DOCK_WRAPPER_LAST_WORKSPACE, dockManager);
             if (workspace == null) return Optional.empty();
-            final Object id = resolver.invoke(WORKSPACE_ID, workspace);
-            final String idValue = id == null ? "" : text(resolver.invoke(ID_VALUE, id), "");
-            final String displayName = text(resolver.invoke(WORKSPACE_NAME, workspace), "Workspace");
-            final Object guid = resolver.invoke(WORKSPACE_GUID, workspace);
-            final String guidValue = guid == null ? "" : text(resolver.invoke(GUID_VALUE, guid), "");
+            final Object id = resolver.invoke(ProjectWorkspaceAliases.WORKSPACE_ID, workspace);
+            final String idValue = id == null ? "" : text(resolver.invoke(ProjectWorkspaceAliases.ID_VALUE, id), "");
+            final String displayName =
+                    text(resolver.invoke(ProjectWorkspaceAliases.WORKSPACE_NAME, workspace), "Workspace");
+            final Object guid = resolver.invoke(ProjectWorkspaceAliases.WORKSPACE_GUID, workspace);
+            final String guidValue =
+                    guid == null ? "" : text(resolver.invoke(ProjectWorkspaceAliases.GUID_VALUE, guid), "");
             if (idValue.isBlank() && guidValue.isBlank()) return Optional.empty();
             final String stableWorkspaceId = idValue.isBlank() ? "workspace-" + safeSegment(guidValue) : idValue;
             return Optional.of(new WorkspaceSnapshot(
@@ -335,8 +327,10 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
             contentOwner = invokePublic(document, "a").orElse(null);
             file = imageSourceFile(contentOwner);
         } else {
-            contentOwner = resolver.invoke(DOCUMENT_FILE_CONTENT, document);
-            file = contentOwner == null ? null : asFile(resolver.invoke(FILE_CONTENT_FILE, contentOwner));
+            contentOwner = resolver.invoke(ProjectWorkspaceAliases.DOCUMENT_FILE_CONTENT, document);
+            file = contentOwner == null
+                    ? null
+                    : asFile(resolver.invoke(ProjectWorkspaceAliases.FILE_CONTENT_FILE, contentOwner));
         }
         final String documentId = identities.idFor(document, "document");
         final String fallbackName = file == null || file.getName().isBlank() ? "untitled" : file.getName();
@@ -482,7 +476,7 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
             return imageContent(content);
         }
         final ProjectContentKind kind = contentKind(content);
-        final File file = asFile(resolver.invoke(FILE_CONTENT_FILE, content));
+        final File file = asFile(resolver.invoke(ProjectWorkspaceAliases.FILE_CONTENT_FILE, content));
         final String fallbackName = file == null || file.getName().isBlank() ? "Untitled" : file.getName();
         final String name =
                 switch (kind) {

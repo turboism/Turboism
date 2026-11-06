@@ -98,7 +98,7 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
     public dev.turboism.sdk.cubism.model.ParameterInterpolation interpolation(final ParameterBindingTarget target) {
         interpolationTarget(target);
         final Object source = targetLookup.find(identity, modelSource, model, target);
-        return new EditorParameterInterpolationAccess(resolver).read(source, parameterGuid());
+        return new EditorParameterInterpolationAccess(resolver, writer).read(source, parameterGuid());
     }
 
     @Override
@@ -107,7 +107,7 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
         interpolationTarget(target);
         requireAuthorized(target.type());
         final Object source = targetLookup.find(identity, modelSource, model, target);
-        new EditorParameterInterpolationAccess(resolver)
+        new EditorParameterInterpolationAccess(resolver, writer)
                 .write(
                         source,
                         modelSource,
