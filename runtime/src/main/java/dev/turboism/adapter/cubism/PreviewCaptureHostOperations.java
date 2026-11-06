@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism;
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.mapping.verification.RecentPreviewAliases;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
@@ -321,7 +322,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
      * fallback is applied by the caller).
      */
     static Component resolveCaptureComponent(final VerifiedMemberResolver panelResolver) {
-        final Object app = panelResolver.invokeStatic(RecentMenuChain.PANEL_APP_INSTANCE);
+        final Object app = panelResolver.invokeStatic(RecentPreviewAliases.UI_PANEL_APP_CONTROLLER_INSTANCE);
         final Object mainViewPanel = chainStep(
                 chainStep(app, "getCompletePack", "getCompletePack"),
                 "getMainViewPanel",

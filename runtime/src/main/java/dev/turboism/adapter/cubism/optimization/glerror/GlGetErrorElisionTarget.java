@@ -14,7 +14,8 @@ import java.util.Optional;
  * on the supported 5.3.x artifacts; reviewed against the official JARs). The marker
  * method's own bytecode shape is verified at install time against the artifact's
  * reference bytes, so a version whose method drifts fails closed at the shape gate.
- * Cubism 5.2.03 has no such method on this owner and is intentionally absent.</p>
+ * The owner is version-routed: 5.0.x/5.1.x artifacts use {@code shader/w}, 5.2.x
+ * uses {@code shader/y}, and 5.3.x uses {@code shader/A}.</p>
  */
 public record GlGetErrorElisionTarget(
         HostArtifactDigest digest, String version, String owner, String method, String descriptor) {

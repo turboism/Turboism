@@ -1,5 +1,6 @@
 package dev.turboism.adapter.ui;
 
+import dev.turboism.mapping.verification.UiStatusBarAliases;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CanvasHintNotification;
@@ -32,22 +33,15 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
      */
     private static final float NATIVE_UNTIL_DISMISSED_SECONDS = 1_000_000_000.0f;
 
-    private static final String SHOW_HINT_ALIAS = "cubism.ui-canvas-hint.view-context.show-hint";
-
     /**
-     * Clickable and positionable variant of {@link #SHOW_HINT_ALIAS}. Its fourth
+     * Clickable and positionable variant of {@link #UiStatusBarAliases.VIEW_CONTEXT_SHOW_HINT}. Its fourth
      * parameter is the host's {@code Function1<GButtonEntity, Unit>} action and the
      * fifth is the optional position override; either may be {@code null}, which keeps
      * the native behaviour for that argument.
      */
-    private static final String SHOW_HINT_WITH_ACTION_ALIAS =
-            "cubism.ui-canvas-hint.view-context.show-hint-with-action";
-
     private static final int HINT_ACTION_PARAMETER_INDEX = 3;
 
     /** Native {@code GVector2(float, float)} used only for an explicit hint position. */
-    private static final String POSITION_CREATE_ALIAS = "cubism.ui-canvas-hint.position.create";
-
     private final VerifiedMemberResolver resolver;
 
     public VerifiedCxStatusBarHostAccess(final VerifiedMemberResolver resolver) {
@@ -56,39 +50,39 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
 
     @Override
     public Object contentRoot() {
-        final Object appController = resolver.invokeStatic("cubism.ui-status-bar.app-controller.instance");
+        final Object appController = resolver.invokeStatic(UiStatusBarAliases.APP_CONTROLLER_INSTANCE);
         if (appController == null) {
             return null;
         }
-        final Object mainFrameController =
-                resolver.invoke("cubism.ui-status-bar.app-controller.main-frame", appController);
+        final Object mainFrameController = resolver.invoke(UiStatusBarAliases.APP_CONTROLLER_MAIN_FRAME, appController);
         if (mainFrameController == null) {
             return null;
         }
-        final Object frame = resolver.invoke("cubism.ui-status-bar.main-frame-controller.frame", mainFrameController);
+        final Object frame = resolver.invoke(UiStatusBarAliases.MAIN_FRAME_CONTROLLER_FRAME, mainFrameController);
         if (frame == null) {
             return null;
         }
-        return resolver.invoke("cubism.ui-status-bar.frame.content-pane", frame);
+        return resolver.invoke(UiStatusBarAliases.FRAME_CONTENT_PANE, frame);
     }
 
     @Override
     public Registration showCanvasHint(final CanvasHintNotification notification) {
         Objects.requireNonNull(notification, "notification");
-        final Object appController = resolver.invokeStatic("cubism.ui-status-bar.app-controller.instance");
+        final Object appController = resolver.invokeStatic(UiStatusBarAliases.APP_CONTROLLER_INSTANCE);
         if (appController == null) {
             throw new IllegalStateException("CX canvas-hint app controller is not ready");
         }
         final Object viewContext =
-                resolver.invoke("cubism.ui-canvas-hint.app-controller.current-view-context", appController);
+                resolver.invoke(UiStatusBarAliases.APP_CONTROLLER_CURRENT_VIEW_CONTEXT, appController);
         if (viewContext == null) {
             throw new IllegalStateException("CX canvas-hint view context is not ready");
         }
-        if (!resolver.isInstance("cubism.ui-canvas-hint.view-context.class", viewContext)) {
+        if (!resolver.isInstance(UiStatusBarAliases.VIEW_CONTEXT_CLASS, viewContext)) {
             throw new IllegalStateException("CX canvas-hint view context type is invalid");
         }
         showHint(viewContext, notification);
-        return () -> resolver.invoke(SHOW_HINT_ALIAS, viewContext, "", 0.0f, notification.id());
+        return () ->
+                resolver.invoke(UiStatusBarAliases.VIEW_CONTEXT_SHOW_HINT, viewContext, "", 0.0f, notification.id());
     }
 
     /**
@@ -101,7 +95,12 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
         final boolean clickable = notification.onClick().isPresent();
         final boolean positioned = notification.position().isPresent();
         if (!clickable && !positioned) {
-            resolver.invoke(SHOW_HINT_ALIAS, viewContext, notification.message(), durationSeconds, notification.id());
+            resolver.invoke(
+                    UiStatusBarAliases.VIEW_CONTEXT_SHOW_HINT,
+                    viewContext,
+                    notification.message(),
+                    durationSeconds,
+                    notification.id());
             return;
         }
         // A null action is a supported argument: the native button checks for it before
@@ -109,7 +108,7 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
         final Object nativeAction = clickable ? nativeAction(notification) : null;
         final Object nativePosition = positioned ? nativePosition(notification) : null;
         resolver.invoke(
-                SHOW_HINT_WITH_ACTION_ALIAS,
+                UiStatusBarAliases.VIEW_CONTEXT_SHOW_HINT_WITH_ACTION,
                 viewContext,
                 notification.message(),
                 durationSeconds,
@@ -121,7 +120,7 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
     private Object nativeAction(final CanvasHintNotification notification) {
         final Runnable action = notification.onClick().orElseThrow();
         return resolver.createFunctionalArgumentProxy(
-                SHOW_HINT_WITH_ACTION_ALIAS, HINT_ACTION_PARAMETER_INDEX, ignored -> {
+                UiStatusBarAliases.VIEW_CONTEXT_SHOW_HINT_WITH_ACTION, HINT_ACTION_PARAMETER_INDEX, ignored -> {
                     action.run();
                     // The native click handler discards this result; the host never
                     // inspects the Unit instance, so null cannot reach Kotlin as a value.
@@ -131,7 +130,7 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
 
     private Object nativePosition(final CanvasHintNotification notification) {
         final CanvasHintPosition override = notification.position().orElseThrow();
-        return resolver.construct(POSITION_CREATE_ALIAS, override.x(), override.y());
+        return resolver.construct(UiStatusBarAliases.POSITION_CREATE, override.x(), override.y());
     }
 
     private static float nativeDurationSeconds(final float durationSeconds) {
@@ -140,10 +139,10 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
 
     @Override
     public List<?> children(final Object container) {
-        if (container == null || !resolver.isInstance("cubism.ui-status-bar.container.class", container)) {
+        if (container == null || !resolver.isInstance(UiStatusBarAliases.CONTAINER_CLASS, container)) {
             return null;
         }
-        final Object children = resolver.invoke("cubism.ui-status-bar.container.children", container);
+        final Object children = resolver.invoke(UiStatusBarAliases.CONTAINER_CHILDREN, container);
         if (!(children instanceof List<?> list)) {
             throw new IllegalStateException("CX status-region container children are not a List; failing closed");
         }
@@ -152,28 +151,28 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
 
     @Override
     public boolean isCLabel(final Object widget) {
-        return resolver.isInstance("cubism.ui-status-bar.label.class", widget);
+        return resolver.isInstance(UiStatusBarAliases.LABEL_CLASS, widget);
     }
 
     @Override
     public boolean isCMemoryViewerPanel(final Object widget) {
-        return resolver.isInstance("cubism.ui-status-bar.memory-viewer.class", widget);
+        return resolver.isInstance(UiStatusBarAliases.MEMORY_VIEWER_CLASS, widget);
     }
 
     @Override
     public Object createLabel(final String id, final String text) {
         Objects.requireNonNull(id, "id");
-        return resolver.construct("cubism.ui-status-bar.label.create", Objects.requireNonNull(text, "text"));
+        return resolver.construct(UiStatusBarAliases.LABEL_CREATE, Objects.requireNonNull(text, "text"));
     }
 
     @Override
     public void setName(final Object widget, final String id) {
-        resolver.invoke("cubism.ui-status-bar.widget.set-name", widget, Objects.requireNonNull(id, "id"));
+        resolver.invoke(UiStatusBarAliases.WIDGET_SET_NAME, widget, Objects.requireNonNull(id, "id"));
     }
 
     @Override
     public void setText(final Object widget, final String text) {
-        resolver.invoke("cubism.ui-status-bar.label.set-text", widget, Objects.requireNonNull(text, "text"));
+        resolver.invoke(UiStatusBarAliases.LABEL_SET_TEXT, widget, Objects.requireNonNull(text, "text"));
     }
 
     @Override
@@ -188,25 +187,25 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
                 };
         // Operations always set the raw message immediately before appearance.
         // Preserve it byte-for-byte even when the message itself starts with a marker.
-        final Object current = resolver.invoke("cubism.ui-status-bar.label.text", widget);
+        final Object current = resolver.invoke(UiStatusBarAliases.LABEL_TEXT, widget);
         final String text = current instanceof String value ? value : "";
-        resolver.invoke("cubism.ui-status-bar.label.set-text", widget, prefix + text);
-        resolver.invoke("cubism.ui-status-bar.widget.set-tooltip", widget, severity);
+        resolver.invoke(UiStatusBarAliases.LABEL_SET_TEXT, widget, prefix + text);
+        resolver.invoke(UiStatusBarAliases.WIDGET_SET_TOOLTIP, widget, severity);
     }
 
     @Override
     public void add(final Object parent, final Object widget, final int index) {
-        resolver.invoke("cubism.ui-status-bar.container.add", parent, widget, index);
+        resolver.invoke(UiStatusBarAliases.CONTAINER_ADD, parent, widget, index);
     }
 
     @Override
     public void remove(final Object parent, final Object widget) {
-        resolver.invoke("cubism.ui-status-bar.container.remove", parent, widget);
+        resolver.invoke(UiStatusBarAliases.CONTAINER_REMOVE, parent, widget);
     }
 
     @Override
     public void refresh(final Object widget) {
-        resolver.invoke("cubism.ui-status-bar.widget.revalidate", widget);
-        resolver.invoke("cubism.ui-status-bar.widget.repaint", widget);
+        resolver.invoke(UiStatusBarAliases.WIDGET_REVALIDATE, widget);
+        resolver.invoke(UiStatusBarAliases.WIDGET_REPAINT, widget);
     }
 }

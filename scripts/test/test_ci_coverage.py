@@ -653,17 +653,27 @@ def check_sources(root: Path, bodies: dict[str, list[str]], covered: set[str]) -
     # tests run through the explicit `:buildSrc:test` CI step instead.
     settings = (root / 'settings.gradle.kts').read_text(encoding='utf-8')
     ci_workflow = (root / '.github/workflows/ci.yml').read_text(encoding='utf-8')
+    # A module may live at a directory other than its include name
+    # (`project(":name").projectDir = file("dir")`); resolve those mappings so
+    # directory-derived paths are matched against the registered include name.
+    dir_includes = {
+        match.group(2): match.group(1).lstrip(chr(58))
+        for match in re.finditer(
+            r'project\("([^"]+)"\)\.projectDir\s*=\s*file\("([^"]+)"\)', settings)
+    }
     for source in root.glob('**/src/test/java'):
         if 'build' in source.relative_to(root).parts:
             continue
         module = source.parents[2]
-        path = ':' + module.relative_to(root).as_posix().replace('/', ':')
+        relative_module = module.relative_to(root).as_posix()
+        path = ':' + relative_module.replace('/', ':')
         assert (module / 'build.gradle.kts').is_file(), f'test source without module: {source}'
         if path == ':buildSrc':
             assert ':buildSrc:test' in ci_workflow, (
                 'buildSrc tests are not run by CI; add a `:buildSrc:test` step to ci.yml')
             continue
-        assert f'"{path.lstrip(chr(58))}"' in settings or f'"{path}"' in settings, f'test module omitted from settings: {path}'
+        registered = dir_includes.get(relative_module, path.lstrip(chr(58)))
+        assert f'"{registered}"' in settings or f'"{path}"' in settings, f'test module omitted from settings: {path}'
 
 
 OPT_IN_TESTS = {
@@ -727,6 +737,7 @@ scripts/test/test_cubism_host_validation_local.sh
 scripts/test/test_cubism_host_validation_lock.sh
 scripts/test/test_cubism_host_validation_project_copy.sh
 scripts/test/test_dependency_inventory.py
+scripts/test/test_alias_vocabulary.py
 scripts/test/test_editor_model_aliases.py
 scripts/test/test_external_psd_edit_persist_driver.sh
 scripts/test/test_external_psd_performance_sampler.sh

@@ -25,7 +25,7 @@ class EditorMorphTargetAccessTest {
     @Test
     void readsAndWritesMorphTargetBindingsThroughNativeUndo() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final VerifiedMemberResolver resolver = resolver(true);
         final EditorMorphTargetAccess access = new EditorMorphTargetAccess(
                 resolver,
@@ -61,7 +61,7 @@ class EditorMorphTargetAccessTest {
         // registered by MorphTargetParameterUtils.changeMorphTargetParameter_exe must restore the
         // original parameter/key binding on undo, re-apply on redo, and restore again on undo.
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final VerifiedMemberResolver resolver = resolver(true);
         final EditorMorphTargetAccess access = new EditorMorphTargetAccess(
                 resolver,
@@ -95,7 +95,7 @@ class EditorMorphTargetAccessTest {
     @Test
     void missingCapabilityFailsClosed() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final EditorMorphTargetAccess access = new EditorMorphTargetAccess(resolver(false), (identity, model) -> {});
         assertThrows(
                 UnsupportedOperationException.class,
@@ -105,7 +105,7 @@ class EditorMorphTargetAccessTest {
     @Test
     void absentParameterTargetFailsClosed() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final EditorMorphTargetAccess access = new EditorMorphTargetAccess(resolver(true), (identity, model) -> {});
         final var targets = access.morphTargets("session-a", fixture.source, fixture.model, fixture.objectSource);
         assertThrows(java.util.NoSuchElementException.class, () -> targets.find(new ParameterId("Missing")));

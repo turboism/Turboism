@@ -39,7 +39,7 @@ class PartOpacity52WriteProbeSkeletonTest {
     @Test
     void exact5203PartOpacityWriteFailsClosedWithoutMutationOrUndo() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var access = new EditorBackedCubismModelAccess(resolver("5.2.03"), "session-a");
         final var part = access.active().parts().find(new PartId("PartClip"));
 
@@ -154,7 +154,6 @@ class PartOpacity52WriteProbeSkeletonTest {
         final Document document = new Document();
 
         Fixture() {
-            Host.document = document;
             document.source.parts.add(new PartSource("PartClip"));
             document.model.parts.add(new Part(document.source.parts.get(0)));
         }

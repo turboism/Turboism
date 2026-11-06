@@ -292,18 +292,21 @@ public final class EditorTestFixtures {
 
     public static final class ParameterGroupHandler {
         public Undo addParameterChild(final ParameterSource source, final int index) {
-            final Document doc = Host.current != null ? Host.current : Host.document;
+            final Host host = Host.instance();
+            final Document doc = host.current != null ? host.current : host.document;
             return doc.source.handler.addParameter(source, index);
         }
 
         public Undo addGroupChild(final ParameterGroup group, final int index) {
-            final Document doc = Host.current != null ? Host.current : Host.document;
+            final Host host = Host.instance();
+            final Document doc = host.current != null ? host.current : host.document;
             return doc.source.handler.addGroup(group, index);
         }
 
         public Undo removeDescendant(
                 final ParameterGroup group, final ParameterSet set, final boolean a, final boolean b) {
-            final Document doc = Host.current != null ? Host.current : Host.document;
+            final Host host = Host.instance();
+            final Document doc = host.current != null ? host.current : host.document;
             return doc.source.handler.removeGroup(group);
         }
     }
@@ -765,26 +768,25 @@ public final class EditorTestFixtures {
     // ------------------------------------------------------------------
 
     public static final class Host {
-        private static final Host INSTANCE = new Host();
-        public static Document document;
-        public static Document current;
-        public static Document currentDocument;
-        public static CompletePack completePack;
-        public static MainFrame mainFrame;
-        public static UpdateManager updateManager = new UpdateManager();
-        public static boolean updateManagerFails;
-        public static int editLevel = 1;
-        public static int commandCalls;
-        public static volatile boolean readOnEdt;
-        public static volatile boolean writeOnEdt;
+        private static Host installed;
+        public Document document;
+        public Document current;
+        public CompletePack completePack;
+        public MainFrame mainFrame;
+        public UpdateManager updateManager = new UpdateManager();
+        public boolean updateManagerFails;
+        public int editLevel = 1;
+        public int commandCalls;
+        public volatile boolean readOnEdt;
+        public volatile boolean writeOnEdt;
 
+        /** Returns the host instance the running test installed; null before {@link #install}. */
         public static Host instance() {
-            return INSTANCE;
+            return installed;
         }
 
         public Document currentDocument() {
             if (document != null) return document;
-            if (currentDocument != null) return currentDocument;
             return current;
         }
 
@@ -799,25 +801,33 @@ public final class EditorTestFixtures {
             commandCalls++;
         }
 
-        public static void install(final Object fixture) {
+        /**
+         * Installs a fresh per-test host reflecting the fixture's {@code document}, {@code
+         * completePack} and {@code mainFrame} fields, and returns it. The instance owns all
+         * mutable host state; nothing is shared between tests.
+         */
+        public static Host install(final Object fixture) {
+            final Host host = new Host();
             try {
                 final var f = fixture.getClass();
                 try {
-                    currentDocument = (Document) f.getDeclaredField("document").get(fixture);
+                    host.document = (Document) f.getDeclaredField("document").get(fixture);
                 } catch (NoSuchFieldException ignored) {
                 }
                 try {
-                    completePack =
+                    host.completePack =
                             (CompletePack) f.getDeclaredField("completePack").get(fixture);
                 } catch (NoSuchFieldException ignored) {
                 }
                 try {
-                    mainFrame = (MainFrame) f.getDeclaredField("mainFrame").get(fixture);
+                    host.mainFrame = (MainFrame) f.getDeclaredField("mainFrame").get(fixture);
                 } catch (NoSuchFieldException ignored) {
                 }
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
+            installed = host;
+            return host;
         }
 
         public CompletePack completePack() {
@@ -1830,7 +1840,8 @@ public final class EditorTestFixtures {
         public static ParameterGroup lastGroup;
 
         public GroupUndo removeParameter(final Id guid, final ParameterSet set, final boolean flag) {
-            final Document doc = Host.current != null ? Host.current : Host.document;
+            final Host host = Host.instance();
+            final Document doc = host.current != null ? host.current : host.document;
             final ModelSource src = doc.source;
             src.sources.removeIf(s -> s.guid.value().equals(guid.value()));
             if (src.rootGroup != null)
@@ -1846,7 +1857,8 @@ public final class EditorTestFixtures {
         }
 
         public Undo addParameter(final ParameterSource source, final int index) {
-            final Document doc = Host.current != null ? Host.current : Host.document;
+            final Host host = Host.instance();
+            final Document doc = host.current != null ? host.current : host.document;
             final ModelSource ms = doc.source;
             source.parentGroup = ms.rootGroup;
             if (ms.rootGroup != null) ms.rootGroup.children.add(source);
@@ -1856,7 +1868,8 @@ public final class EditorTestFixtures {
         }
 
         public Undo addGroup(final ParameterGroup group, final int index) {
-            final Document doc = Host.current != null ? Host.current : Host.document;
+            final Host host = Host.instance();
+            final Document doc = host.current != null ? host.current : host.document;
             final ModelSource ms = doc.source;
             group.parent = ms.rootGroup;
             if (ms.rootGroup != null) ms.rootGroup.children.add(group);
@@ -2828,7 +2841,6 @@ public final class EditorTestFixtures {
         public final Document document;
         public final EditMode editMode;
         public final CompletePack pack;
-        public final Host host = Host.instance();
 
         public Fixture() {
             source.rootPart = rootPart;
@@ -3436,7 +3448,7 @@ public final class EditorTestFixtures {
         final EditorObjectHierarchyEditAccess access;
 
         HierarchyScopedFixture(final VerifiedMemberResolver resolver) {
-            Host.document = fixture.document;
+            Host.install(fixture);
             final EditorParameterCombinedAccess.ModelGuard guard = (identity, model) -> {};
             access = new EditorObjectHierarchyEditAccess(resolver, guard, coordinator, () -> binding);
         }
