@@ -30,6 +30,13 @@
  "packs": [],
  "extraLiterals": [],
  "coverageSources": [],
+ "aliases": {
+  "className": "UiStatusBarAliases",
+  "prefix": [
+   "cubism.ui-status-bar.",
+   "cubism.ui-canvas-hint."
+  ]
+ },
  "vocabulary": {
   "admissionEqualsUse": false
  }

@@ -605,8 +605,8 @@ def render_alias_vocabularies(families: list[dict], records: dict[str, dict]) ->
         if block is None:
             continue
         try:
-            class_name, prefix = vocabulary_declaration(block, family["path"])
-            constants = vocabulary_constants(family_alias_union(family, records), prefix)
+            class_name, prefixes = vocabulary_declaration(block, family["path"])
+            constants = vocabulary_constants(family_alias_union(family, records), prefixes)
         except VocabularyError as exc:
             raise GenerationError(str(exc)) from exc
         relpath = f"{VERIFICATION_PACKAGE}/{class_name}.java"

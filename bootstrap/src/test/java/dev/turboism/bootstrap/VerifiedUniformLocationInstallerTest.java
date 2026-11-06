@@ -126,23 +126,21 @@ class VerifiedUniformLocationInstallerTest {
         try (Fixture fixture = fixture()) {
             // A byte-identical elision produced by an unregistered transformer is
             // indistinguishable from foreign instrumentation: strict admission.
+            var target = dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTarget.of(
+                            dev.turboism.mapping.verification.HostArtifactDigest.from(fixture.artifact))
+                    .orElseThrow();
             byte[] reference;
             try (var jar = new java.util.jar.JarFile(fixture.artifact.toFile());
-                    var input = jar.getInputStream(jar.getJarEntry("com/live2d/graphics3d/shader/A.class"))) {
+                    var input = jar.getInputStream(jar.getJarEntry(target.owner() + ".class"))) {
                 reference = input.readAllBytes();
             }
             var foreign = new dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTransformer(
-                    fixture.loader,
-                    fixture.artifact,
-                    reference,
-                    dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTarget.of(
-                                    dev.turboism.mapping.verification.HostArtifactDigest.from(fixture.artifact))
-                            .orElseThrow());
+                    fixture.loader, fixture.artifact, reference, target);
             fixture.active.add(foreign);
             IllegalStateException failure = assertThrows(
                     IllegalStateException.class, () -> new VerifiedUniformLocationInstaller(fixture.context()));
             assertTrue(
-                    failure.getMessage().contains("shader/A.a"),
+                    failure.getMessage().contains(target.owner() + "." + target.method()),
                     "the rejection must name the drifted method: " + failure.getMessage());
         }
     }

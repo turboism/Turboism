@@ -30,6 +30,10 @@
  "extraLiterals": [],
  "coverageSources": [],
  "coverage": false,
+ "aliases": {
+  "className": "PerformanceRenderSceneAliases",
+  "prefix": "cubism.performance."
+ },
  "vocabulary": {
   "admissionEqualsUse": false
  }

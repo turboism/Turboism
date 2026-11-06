@@ -1,6 +1,7 @@
 package dev.turboism.ui.workspace;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.WorkspaceControlAliases;
 import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceInfo;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
@@ -15,38 +16,24 @@ final class WorkspaceReflectionEngine {
     // ponytail: 64-entry ceiling; introduce pagination only if exact-host evidence exceeds it.
     static final int MAX_AVAILABLE_WORKSPACES = 64;
 
-    static final String APP_INSTANCE = "workspace.app.instance";
-    static final String MAIN_FRAME = "workspace.app.main-frame";
-    static final String DOCK = "workspace.main-frame.dock";
-    static final String PALETTE_MANAGER = "workspace.dock.palette-manager";
-    static final String CURRENT = "workspace.palette-manager.current";
-    static final String PRESET = "workspace.dock.preset";
-    static final String CUSTOM = "workspace.dock.custom";
-    static final String WORKSPACE_ID = "workspace.workspace.id";
-    static final String WORKSPACE_NAME = "workspace.workspace.name";
-    static final String ID_VALUE = "workspace.id.value";
-    static final String DEFAULT_LAYOUT = "workspace.workspace.default-layout";
     static final int MAX_DEFAULT_LAYOUT_BYTES = 16 * 1024 * 1024;
-    static final String CHANGE = "workspace.dock.change";
-    static final String UPDATE_DEFAULT = "workspace.dock.update-default";
-    static final String RESET_DEFAULT = "workspace.dock.reset-default";
 
     static final Set<String> REQUIRED_ALIASES = Set.of(
-            "workspace.app.class",
-            APP_INSTANCE,
-            MAIN_FRAME,
-            DOCK,
-            PALETTE_MANAGER,
-            CURRENT,
-            PRESET,
-            CUSTOM,
-            WORKSPACE_ID,
-            WORKSPACE_NAME,
-            ID_VALUE,
-            CHANGE,
-            UPDATE_DEFAULT,
-            RESET_DEFAULT,
-            DEFAULT_LAYOUT);
+            WorkspaceControlAliases.CLASS,
+            WorkspaceControlAliases.INSTANCE,
+            WorkspaceControlAliases.MAIN_FRAME,
+            WorkspaceControlAliases.DOCK,
+            WorkspaceControlAliases.PALETTE_MANAGER,
+            WorkspaceControlAliases.CURRENT,
+            WorkspaceControlAliases.PRESET,
+            WorkspaceControlAliases.CUSTOM,
+            WorkspaceControlAliases.ID,
+            WorkspaceControlAliases.NAME,
+            WorkspaceControlAliases.VALUE,
+            WorkspaceControlAliases.CHANGE,
+            WorkspaceControlAliases.UPDATE_DEFAULT,
+            WorkspaceControlAliases.RESET_DEFAULT,
+            WorkspaceControlAliases.DEFAULT_LAYOUT);
 
     private final VerifiedMemberResolver resolver;
 
@@ -82,7 +69,7 @@ final class WorkspaceReflectionEngine {
                     .findFirst()
                     .orElse(null);
             if (target == null) return WorkspaceOperationResult.Outcome.NOT_FOUND;
-            resolver.invoke(CHANGE, before.dock, target.hostId);
+            resolver.invoke(WorkspaceControlAliases.CHANGE, before.dock, target.hostId);
             final State after = state();
             return after != null && !after.incomplete && after.current.info.id().equals(requested)
                     ? WorkspaceOperationResult.Outcome.CHANGED
@@ -93,11 +80,11 @@ final class WorkspaceReflectionEngine {
     }
 
     WorkspaceOperationResult.Outcome updateDefault() {
-        return command(UPDATE_DEFAULT);
+        return command(WorkspaceControlAliases.UPDATE_DEFAULT);
     }
 
     WorkspaceOperationResult.Outcome resetToDefault() {
-        return command(RESET_DEFAULT);
+        return command(WorkspaceControlAliases.RESET_DEFAULT);
     }
 
     private WorkspaceOperationResult.Outcome command(final String alias) {
@@ -105,13 +92,14 @@ final class WorkspaceReflectionEngine {
             final State before = state();
             if (before == null) return WorkspaceOperationResult.Outcome.UNAVAILABLE;
             if (before.incomplete) return WorkspaceOperationResult.Outcome.FAILED;
-            if (UPDATE_DEFAULT.equals(alias) && !before.currentCustom) {
+            if (WorkspaceControlAliases.UPDATE_DEFAULT.equals(alias) && !before.currentCustom) {
                 return WorkspaceOperationResult.Outcome.FAILED;
             }
-            final byte[] savedBefore = UPDATE_DEFAULT.equals(alias) ? defaultLayout(before.current) : null;
+            final byte[] savedBefore =
+                    WorkspaceControlAliases.UPDATE_DEFAULT.equals(alias) ? defaultLayout(before.current) : null;
             resolver.invoke(alias, before.dock);
             final State after = state();
-            if (UPDATE_DEFAULT.equals(alias)) {
+            if (WorkspaceControlAliases.UPDATE_DEFAULT.equals(alias)) {
                 if (after == null
                         || after.incomplete
                         || !after.currentCustom
@@ -134,23 +122,23 @@ final class WorkspaceReflectionEngine {
     }
 
     private State state() {
-        final Object app = resolver.invokeStatic(APP_INSTANCE);
+        final Object app = resolver.invokeStatic(WorkspaceControlAliases.INSTANCE);
         if (app == null) return null;
-        final Object frame = resolver.invoke(MAIN_FRAME, app);
+        final Object frame = resolver.invoke(WorkspaceControlAliases.MAIN_FRAME, app);
         if (frame == null) return null;
-        final Object dock = resolver.invoke(DOCK, frame);
+        final Object dock = resolver.invoke(WorkspaceControlAliases.DOCK, frame);
         if (dock == null) return null;
-        final Object paletteManager = resolver.invoke(PALETTE_MANAGER, dock);
+        final Object paletteManager = resolver.invoke(WorkspaceControlAliases.PALETTE_MANAGER, dock);
         if (paletteManager == null) return null;
-        final HostWorkspace current = workspace(resolver.invoke(CURRENT, paletteManager));
+        final HostWorkspace current = workspace(resolver.invoke(WorkspaceControlAliases.CURRENT, paletteManager));
         if (current == null) return null;
 
         final LinkedHashMap<WorkspaceId, HostWorkspace> available = new LinkedHashMap<>();
         final int[] traversalBudget = {MAX_AVAILABLE_WORKSPACES - 1};
-        boolean incomplete = add(available, resolver.invoke(PRESET, dock), traversalBudget);
+        boolean incomplete = add(available, resolver.invoke(WorkspaceControlAliases.PRESET, dock), traversalBudget);
         final LinkedHashMap<WorkspaceId, HostWorkspace> custom = new LinkedHashMap<>();
         if (!incomplete) {
-            incomplete = add(custom, resolver.invoke(CUSTOM, dock), traversalBudget);
+            incomplete = add(custom, resolver.invoke(WorkspaceControlAliases.CUSTOM, dock), traversalBudget);
         }
         final boolean currentCustom =
                 custom.containsKey(current.info.id()) && !available.containsKey(current.info.id());
@@ -180,7 +168,7 @@ final class WorkspaceReflectionEngine {
     }
 
     private byte[] defaultLayout(final HostWorkspace workspace) {
-        final Object value = resolver.invoke(DEFAULT_LAYOUT, workspace.hostWorkspace);
+        final Object value = resolver.invoke(WorkspaceControlAliases.DEFAULT_LAYOUT, workspace.hostWorkspace);
         if (value == null) return null;
         if (!(value instanceof byte[] bytes) || bytes.length > MAX_DEFAULT_LAYOUT_BYTES) {
             throw new IllegalStateException("Workspace default layout is invalid or exceeds the copy limit.");
@@ -190,11 +178,11 @@ final class WorkspaceReflectionEngine {
 
     private HostWorkspace workspace(final Object hostWorkspace) {
         if (hostWorkspace == null) return null;
-        final Object hostId = resolver.invoke(WORKSPACE_ID, hostWorkspace);
+        final Object hostId = resolver.invoke(WorkspaceControlAliases.ID, hostWorkspace);
         if (hostId == null) return null;
-        final Object rawId = resolver.invoke(ID_VALUE, hostId);
+        final Object rawId = resolver.invoke(WorkspaceControlAliases.VALUE, hostId);
         if (!(rawId instanceof String id) || id.isBlank()) return null;
-        final Object rawName = resolver.invoke(WORKSPACE_NAME, hostWorkspace);
+        final Object rawName = resolver.invoke(WorkspaceControlAliases.NAME, hostWorkspace);
         final String name = rawName instanceof String text && !text.isBlank() ? text : id;
         return new HostWorkspace(hostWorkspace, hostId, new WorkspaceInfo(new WorkspaceId(id), name));
     }

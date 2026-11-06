@@ -93,14 +93,16 @@ final class ModelImportTestFixtures {
                 : root.resolve(COMMITTED_FIXTURES_DIR_LEGACY).normalize();
 
         // 0. Check committed small fixtures under testing/assets/model-import-3d/ first
-        if (relativePath.startsWith("testing/assets/model-import-3d/") || relativePath.startsWith("testing\\assets\\model-import-3d\\")) {
+        if (relativePath.startsWith("testing/assets/model-import-3d/")
+                || relativePath.startsWith("testing\\assets\\model-import-3d\\")) {
             final String subPath = relativePath.substring("testing/assets/model-import-3d/".length());
             final Path committedCandidate = committedRoot.resolve(subPath).normalize();
             if (committedCandidate.startsWith(committedRoot) && Files.isRegularFile(committedCandidate)) {
                 return committedCandidate;
             }
         }
-        if (relativePath.startsWith("test-assets/model-import-3d/") || relativePath.startsWith("test-assets\\model-import-3d\\")) {
+        if (relativePath.startsWith("test-assets/model-import-3d/")
+                || relativePath.startsWith("test-assets\\model-import-3d\\")) {
             final String subPath = relativePath.substring("test-assets/model-import-3d/".length());
             final Path committedCandidate = committedRoot.resolve(subPath).normalize();
             if (committedCandidate.startsWith(committedRoot) && Files.isRegularFile(committedCandidate)) {
