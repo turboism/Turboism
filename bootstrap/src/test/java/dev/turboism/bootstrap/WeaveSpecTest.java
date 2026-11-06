@@ -58,6 +58,22 @@ class WeaveSpecTest {
                 1,
                 VerifiedTextureUploadPreparationInstaller.EXPECTED_MATCHES,
                 VerifiedTextureUploadPreparationInstaller.HOOK_ID);
+        // The three D1 hooks gain a match count and a restoration proof in this slice.
+        assertEquals(
+                3,
+                VerifiedClipMaskDeduplicationInstaller.EXPECTED_MATCHES,
+                VerifiedClipMaskDeduplicationInstaller.HOOK_ID);
+        assertEquals(
+                2,
+                VerifiedExtendedInterpolationSetupInstaller.EXPECTED_MATCHES,
+                VerifiedExtendedInterpolationSetupInstaller.HOOK_ID);
+        assertEquals(
+                6,
+                VerifiedInspectorPropertyBypassInstaller.EXPECTED_MATCHES,
+                VerifiedInspectorPropertyBypassInstaller.HOOK_ID);
+        // The two hooks that invented their own target list keep one rewritten site per transformer.
+        assertEquals(1, VerifiedUniformLocationInstaller.EXPECTED_MATCHES, VerifiedUniformLocationInstaller.HOOK_ID);
+        assertEquals(1, VerifiedMatrixScratchInstaller.EXPECTED_MATCHES, VerifiedMatrixScratchInstaller.HOOK_ID);
     }
 
     @Test
@@ -98,6 +114,22 @@ class WeaveSpecTest {
                 1,
                 VerifiedTextureUploadPreparationInstaller.EXPECTED_OWNERS,
                 VerifiedTextureUploadPreparationInstaller.HOOK_ID);
+        // One rewritten render-system class, one setup owner and six inspector setters.
+        assertEquals(
+                1,
+                VerifiedClipMaskDeduplicationInstaller.EXPECTED_OWNERS,
+                VerifiedClipMaskDeduplicationInstaller.HOOK_ID);
+        assertEquals(
+                1,
+                VerifiedExtendedInterpolationSetupInstaller.EXPECTED_OWNERS,
+                VerifiedExtendedInterpolationSetupInstaller.HOOK_ID);
+        assertEquals(
+                6,
+                VerifiedInspectorPropertyBypassInstaller.EXPECTED_OWNERS,
+                VerifiedInspectorPropertyBypassInstaller.HOOK_ID);
+        // The shader query plus the four lifecycle roles, and the one rewritten traversal.
+        assertEquals(5, VerifiedUniformLocationInstaller.EXPECTED_OWNERS, VerifiedUniformLocationInstaller.HOOK_ID);
+        assertEquals(1, VerifiedMatrixScratchInstaller.EXPECTED_OWNERS, VerifiedMatrixScratchInstaller.HOOK_ID);
     }
 
     @Test
@@ -119,6 +151,12 @@ class WeaveSpecTest {
         assertRow(VerifiedLineRendererUploadSplitInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.ANY);
         assertRow(VerifiedIncrementalUpdateInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
         assertRow(VerifiedTextureUploadPreparationInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.EXACTLY_17);
+        // The two hooks whose only switch is their own preference never consult the startup policy.
+        assertRow(VerifiedClipMaskDeduplicationInstaller.ADMISSION, PolicyCheck.SKIP, JvmCheck.ANY);
+        assertRow(VerifiedExtendedInterpolationSetupInstaller.ADMISSION, PolicyCheck.SKIP, JvmCheck.ANY);
+        assertRow(VerifiedInspectorPropertyBypassInstaller.ADMISSION, PolicyCheck.SKIP, JvmCheck.AT_LEAST_17);
+        assertRow(VerifiedUniformLocationInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+        assertRow(VerifiedMatrixScratchInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
     }
 
     private static void assertRow(final Admission admission, final PolicyCheck policyCheck, final JvmCheck jvmCheck) {

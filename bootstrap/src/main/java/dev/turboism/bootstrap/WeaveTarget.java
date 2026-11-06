@@ -15,7 +15,8 @@ import java.util.function.Supplier;
  * same transformer instance: the routine registers that transformer once and retransforms every
  * declared class in one call, so the transformer sees the whole rewrite set.</p>
  *
- * @param type the attested host class
+ * @param type the attested host class, or {@code null} for a transformer the routine registers without
+ *     retransforming a class of its own — a guard that only observes the classes it is asked about
  * @param transformer the transformer, registered with {@code canRetransform = true}
  * @param expectedMatches the exact matched-site count this hook expects, {@code -1} to assert none
  * @param matches the transformer's matched-site count accessor
@@ -53,6 +54,18 @@ record WeaveTarget(
             final Function<String, String> beforeSha256) {
         return new WeaveTarget(
                 type, transformer, expectedMatches, matches, failure, Set.of(internalName(type)), beforeSha256);
+    }
+
+    /**
+     * A transformer the routine only registers: no class of its own is retransformed, no match count is
+     * asserted and no class is re-captured for it on close. This is the shape of a dependency guard that
+     * inspects the classes a hook's weave reads instead of rewriting one.
+     *
+     * @param transformer the guard transformer
+     * @return a target that joins the registration but not the retransformation
+     */
+    static WeaveTarget registeredOnly(final ClassFileTransformer transformer) {
+        return new WeaveTarget(null, transformer, -1, () -> 0, () -> null, Set.of(), owner -> null);
     }
 
     /**

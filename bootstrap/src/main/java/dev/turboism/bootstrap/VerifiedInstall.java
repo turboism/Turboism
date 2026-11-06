@@ -11,6 +11,7 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
@@ -36,10 +37,12 @@ import java.util.jar.JarFile;
  *   <li>every target's match count and recorded failure, then the plan's post-check, must all hold;
  *       otherwise every transformer this attempt registered is removed again and the failure is
  *       rethrown;</li>
- *   <li>{@link #close()} removes every transformer (never abandoning the rest when one removal fails),
- *       withdraws the hook's side effects, re-captures each rewritten class through one transient
- *       observer, compares it with the hash the transformer observed before the rewrite, and only then
- *       closes the bridge. {@link #restored()} is readable after {@code close()}.</li>
+ *   <li>{@link #close()} removes every transformer (never abandoning the rest when one removal fails,
+ *       and treating a {@code false} removal verdict as the failure it is), withdraws the hook's side
+ *       effects, re-captures each rewritten class through one transient observer, compares it with the
+ *       hash the transformer observed before the rewrite, and only then closes the bridge.
+ *       {@link #restored()} is readable after {@code close()}; a registration that could not be removed
+ *       keeps the handle open for a retry instead of reporting a settled weave.</li>
  * </ol>
  *
  * <p>Per-hook isolation stays where it was: the routine throws on failure and leaves no transformer
@@ -216,7 +219,7 @@ final class VerifiedInstall<T> implements AutoCloseable {
         try (JarFile jar = new JarFile(context.artifact().toFile())) {
             final WeaveSource source = new WeaveSource(spec.feature(), context, jar);
             for (final WeaveTarget target : spec.plan().targets().create(contract, source)) {
-                if (!instrumentation.isModifiableClass(target.type())) {
+                if (target.type() != null && !instrumentation.isModifiableClass(target.type())) {
                     throw new IllegalStateException(spec.feature() + " target unmodifiable: "
                             + target.type().getName());
                 }
@@ -229,8 +232,15 @@ final class VerifiedInstall<T> implements AutoCloseable {
                 instrumentation.addTransformer(target.transformer(), true);
             }
         }
-        instrumentation.retransformClasses(
-                registered.stream().map(WeaveTarget::type).toArray(Class<?>[]::new));
+        // A target may declare no class of its own: a guard transformer observes the classes it is
+        // asked about, so it is registered without joining the single retransformation call.
+        final Class<?>[] retransformed = registered.stream()
+                .map(WeaveTarget::type)
+                .filter(Objects::nonNull)
+                .toArray(Class<?>[]::new);
+        if (retransformed.length > 0) {
+            instrumentation.retransformClasses(retransformed);
+        }
         verifyWeave();
         spec.effects().confirmed(this);
     }
@@ -267,9 +277,9 @@ final class VerifiedInstall<T> implements AutoCloseable {
         final Throwable withdrawn = attempt(() -> spec.effects().withdrawn(this));
         final Throwable proof = attempt(this::verifyRestoration);
         final Throwable bridgeFailure = attempt(bridge::close);
-        // The restoration proof is the only retryable step: a failed proof leaves the handle open so a
-        // second close can re-capture and settle.
-        closed = proof == null;
+        // A registration that could not be removed and a restoration proof that failed are the two
+        // retryable steps: either one leaves the handle open so a second close can finish the job.
+        closed = removed == null && proof == null;
         return FatalErrors.mergeForCleanup(
                 FatalErrors.mergeForCleanup(removed, withdrawn), FatalErrors.mergeForCleanup(proof, bridgeFailure));
     }
@@ -277,19 +287,36 @@ final class VerifiedInstall<T> implements AutoCloseable {
     /**
      * Removes every registration in reverse spec order, never abandoning the rest when one removal
      * fails. A transformer declared against several classes is removed once.
+     *
+     * @throws RuntimeException the merged removal failure, thrown after every registration was attempted
      */
-    private Throwable removeEveryTransformer() {
+    private void removeEveryTransformer() {
         final List<WeaveTarget> reverse = new ArrayList<>(registered);
         Collections.reverse(reverse);
         Throwable failure = null;
         for (final WeaveTarget target : reverse) {
             final ClassFileTransformer transformer = target.transformer();
             if (!registrations.contains(transformer)) continue;
-            final Throwable removal = attempt(() -> context.instrumentation().removeTransformer(transformer));
+            final Throwable removal = attempt(() -> remove(transformer));
             if (removal == null) registrations.remove(transformer);
             failure = FatalErrors.mergeForCleanup(failure, removal);
         }
-        return failure;
+        if (failure != null) {
+            throw FatalErrors.propagate(failure);
+        }
+    }
+
+    /**
+     * Removes one registration and treats a {@code false} verdict as a failure: an instrumentation that
+     * reports the transformer as never registered has not proven that this hook's weave is gone.
+     *
+     * @param transformer the registration to remove
+     */
+    private void remove(final ClassFileTransformer transformer) {
+        if (!context.instrumentation().removeTransformer(transformer)) {
+            throw new IllegalStateException(spec.feature() + " transformer removal not proven: "
+                    + transformer.getClass().getName());
+        }
     }
 
     /**
