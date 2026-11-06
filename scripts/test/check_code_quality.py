@@ -52,7 +52,7 @@ PRODUCTION_ROOTS = (
     "bootstrap/src/main/java",
     "core/contract/src/main/java",
     "core/persistence/src/main/java",
-    "compatibility-policy/src/main/java",
+    "core/compatibility-policy/src/main/java",
     "core/event-processor/src/main/java",
     "graal-host/src/main/java",
     # Generated verification manifests/contracts are authored as templates here;
@@ -69,7 +69,7 @@ SOURCE_SCAN_ROOTS = PRODUCTION_ROOTS + (
     # tests too, so they carry the same rules as the test trees they serve.
     "runtime/src/testFixtures/java",
     "core/persistence/src/test/java",
-    "compatibility-policy/src/test/java",
+    "core/compatibility-policy/src/test/java",
     "bootstrap/src/test/java",
     "testing/integration-tests/src/test/java",
 )

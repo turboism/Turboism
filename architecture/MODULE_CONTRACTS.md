@@ -354,7 +354,7 @@ reviewable change.
   executor, lock, cache lifecycle or static mutable state. Callers supply annotation
   instances, version strings and evidence sets on their own thread. No method reads a
   file, the host, the environment or a classloader.
-- **Tests**: `compatibility-policy/src/test/java/dev/turboism/compatibility/policy/**`
+- **Tests**: `core/compatibility-policy/src/test/java/dev/turboism/compatibility/policy/**`
   pins the reviewed matrix, unknown-future fail-closed behaviour, annotation range
   expansion/exclusion/intersection and selector evidence admission offline, including
   the deep-adaptation targets 5.2.03 and 5.3.02+.
@@ -366,7 +366,7 @@ reviewable change.
   plugin lifecycle, host load order and persisted data are unchanged.
 - **Enforcement**: `checkModuleBoundaries` (declared and resolved Gradle edges, the
   source import allowlist and a compiled-bytecode scan over
-  `compatibility-policy/build/classes/java/main`), the plugin boundary dotted root
+  `core/compatibility-policy/build/classes/java/main`), the plugin boundary dotted root
   `compatibility`, `checkDependencyInventory`, `checkCodeQuality`,
   `checkThrowableContainment`, `checkReviewedReleases` and `checkCompatibilityMatrix`,
   whose inputs include the module's production sources.

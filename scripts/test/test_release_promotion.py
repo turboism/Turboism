@@ -103,7 +103,7 @@ class PromotionTest(unittest.TestCase):
         reviewed.write_text(table(['5.3.04']))
         for name, module in (
             ('ReviewedHostArtifacts.java', 'runtime/src/main/java/dev/turboism/mapping/verification'),
-            ('ReviewedReleaseTable.java', 'compatibility-policy/src/main/java/dev/turboism/compatibility/policy'),
+            ('ReviewedReleaseTable.java', 'core/compatibility-policy/src/main/java/dev/turboism/compatibility/policy'),
         ):
             relative = Path(module) / name
             generated = self.source / relative
@@ -169,7 +169,7 @@ class PromotionTest(unittest.TestCase):
     def test_generated_java_cannot_change_after_candidate(self):
         for name, module in (
             ('ReviewedHostArtifacts.java', 'runtime/src/main/java/dev/turboism/mapping/verification'),
-            ('ReviewedReleaseTable.java', 'compatibility-policy/src/main/java/dev/turboism/compatibility/policy'),
+            ('ReviewedReleaseTable.java', 'core/compatibility-policy/src/main/java/dev/turboism/compatibility/policy'),
         ):
             with self.subTest(file=name):
                 path = self.source / module / name
