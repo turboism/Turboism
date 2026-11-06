@@ -30,7 +30,7 @@ public final class CapabilityAdmission {
     /** Canvas-top control strip the shared mirror hooks mount buttons into. */
     public static final String VIEW_CONTEXT_MENU_MOUNT = "ui.view-context-menu.mount";
     /**
-     * Runtime point-and-edge layout brush for one registered mesh tool. The capability half of this
+     * Runtime canvas point-and-edge session for one registered mesh tool. The capability half of this
      * row is read from the manifest when the tool is registered — no plugin list exists at that
      * point — and its permission half is enforced by the brush on every operation, so the row is the
      * declaration of record for the surface rather than a list lookup.

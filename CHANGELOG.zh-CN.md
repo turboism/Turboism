@@ -14,6 +14,8 @@ Turboism 的所有重要变更都记录在本文件中。
 
 - SDK 新增孵化中的 `HostViewPanel` 能力（含 `HostViewPanelHandle`、`HostViewAnchors` 锚点常量与 `PluginService.HOST_VIEW_PANEL` 目录成员）：插件可把 `PanelView` 内容挂到指定的宿主视图（首期为原生纹理图集编辑器），由运行时负责渲染、在编辑器线程上应用更新，并在插件代际关闭后静默丢弃更新。
 
+- SDK 新增孵化中的 `MeshCanvasSession` 能力与 `MeshToolContext.canvasSession()`：插件按自身状态计算点线布局，由运行时绘制预览、跟随操作者在画布上放置的锚点，并以单次撤销提交整份布局。`geometric-mesh-layout` 插件现在自行持有形状算法、参数状态与配置对话框。
+
 - 物理模拟预览新增 GIF 录制：支持录制／暂停／继续、停止／放弃及注册快捷键、录制后调整导出尺寸、可选 Gifsicle 目标大小优化（默认 20 MB），并持久化 GIF 专用导出目录。录制状态机、编码器、导出对话框、缩放／Gifsicle 策略与控制条均由 `:plugins:physics-editor` 持有，`:runtime` 只提供它们所驱动的通用预览截帧能力。
 
 - SDK 新增孵化中的 `MeshMirrorControl` 与 `MeshEditContributionSurface` 能力，并新增 `PluginService.MESH_MIRROR_CONTROL` 与 `PluginService.MESH_EDIT_CONTRIBUTION` 目录成员。两者分别把插件总是同时需要的已发布单一职责服务合并在一起：一侧是镜像轴、镜像对应点规则、移动参与和可用工具集，另一侧是宿主编辑参与与原生工具区贡献，网格编辑不再需要六次服务查找。权限与操作标识保持不变。

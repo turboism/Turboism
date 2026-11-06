@@ -8,7 +8,8 @@ import dev.turboism.sdk.cubism.model.Drawable;
  * Selection-only view of the exact active native mesh editor.
  *
  * <p>Selection changes do not create an authoring transaction or Undo entry. This interface
- * intentionally exposes no geometry-authoring operations.</p>
+ * intentionally exposes no geometry-authoring operations; plugin-computed point-and-edge authoring
+ * is a separate capability, {@link MeshToolContext#canvasSession()}.</p>
  *
  * <p><strong>Preview API:</strong> this contract may evolve before stabilization.</p>
  */
