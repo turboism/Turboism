@@ -46,7 +46,7 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
             final var profile =
                     VerifiedTextureAtlasSelectorContract.profileFor(version).orElseThrow();
             final var provider = new VerifiedTextureAtlasLayoutProvider(
-                    resolver(version, true), "session-" + version, capture, profile);
+                    resolver(version, true), "session-" + version, capture, profile, () -> false);
             final var before = provider.current().orElseThrow();
             final var plan = new TextureAtlasLayoutPlan(
                     16,
@@ -66,8 +66,8 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
     void packsActiveModelWithoutOpeningAtlasEditor() {
         final Fixture fixture = new Fixture();
         final var capture = new TextureAtlasDataModelCapture();
-        final var provider =
-                new VerifiedTextureAtlasLayoutProvider(resolver("5.3.02", true), "session-a", capture, PROFILE_5_3_02);
+        final var provider = new VerifiedTextureAtlasLayoutProvider(
+                resolver("5.3.02", true), "session-a", capture, PROFILE_5_3_02, () -> false);
         final var before = provider.current().orElseThrow();
         final var plan = new TextureAtlasLayoutPlan(
                 16,
@@ -89,7 +89,7 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
     void rejectsDirectTargetAfterDocumentReplacementEvenWhenGuidAndLayoutMatch() {
         new Fixture();
         final var provider = new VerifiedTextureAtlasLayoutProvider(
-                resolver("5.3.02", true), "session-a", new TextureAtlasDataModelCapture(), PROFILE_5_3_02);
+                resolver("5.3.02", true), "session-a", new TextureAtlasDataModelCapture(), PROFILE_5_3_02, () -> false);
         final var before = provider.current().orElseThrow();
         final Fixture replacement = new Fixture();
         assertEquals(before.modelId(), provider.current().orElseThrow().modelId());
@@ -101,7 +101,7 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
     void missingAtlasStillIssuesTargetButMissingActiveDocumentDoesNot() {
         final Fixture fixture = new Fixture();
         final var provider = new VerifiedTextureAtlasLayoutProvider(
-                resolver("5.3.02", true), "session-a", new TextureAtlasDataModelCapture(), PROFILE_5_3_02);
+                resolver("5.3.02", true), "session-a", new TextureAtlasDataModelCapture(), PROFILE_5_3_02, () -> false);
         fixture.source.textureManager.atlases.clear();
         assertTrue(provider.current().isPresent());
         Host.document = null;
@@ -293,7 +293,7 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
                 .current()
                 .isPresent());
         assertFalse(new VerifiedTextureAtlasLayoutProvider(
-                        resolver("5.3.02", true), "session-a", captured(fixture), PROFILE_5_2_03)
+                        resolver("5.3.02", true), "session-a", captured(fixture), PROFILE_5_2_03, () -> false)
                 .current()
                 .isPresent());
         assertFalse(provider(resolver("5.3.02", false), "session-a", fixture)

@@ -112,7 +112,7 @@ class VerifiedTextureAtlasLayoutProvider520Test {
                 .current()
                 .isPresent());
         assertFalse(new VerifiedTextureAtlasLayoutProvider(
-                        resolver("5.2.03", true), "session-a", captured(fixture), PROFILE_5_3_02)
+                        resolver("5.2.03", true), "session-a", captured(fixture), PROFILE_5_3_02, () -> false)
                 .current()
                 .isPresent());
         assertFalse(provider(resolver("5.2.03", false), "session-a", fixture)

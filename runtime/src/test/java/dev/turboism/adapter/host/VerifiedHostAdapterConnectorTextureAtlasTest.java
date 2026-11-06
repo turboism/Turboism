@@ -102,7 +102,8 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
                                 selectors5303,
                                 getClass().getClassLoader()),
                         "session-5303",
-                        new TextureAtlasDataModelCapture()));
+                        new TextureAtlasDataModelCapture(),
+                        () -> false));
         assertInstanceOf(
                 VerifiedTextureAtlasLayoutProvider.class,
                 VerifiedHostAdapterConnector.textureAtlasProvider(
@@ -113,7 +114,8 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
                                 selectors,
                                 getClass().getClassLoader()),
                         "session-5302",
-                        new TextureAtlasDataModelCapture()));
+                        new TextureAtlasDataModelCapture(),
+                        () -> false));
         assertInstanceOf(
                 VerifiedTextureAtlasLayoutProvider.class,
                 VerifiedHostAdapterConnector.textureAtlasProvider(
@@ -124,7 +126,8 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
                                 selectors520,
                                 getClass().getClassLoader()),
                         "session-520",
-                        new TextureAtlasDataModelCapture()));
+                        new TextureAtlasDataModelCapture(),
+                        () -> false));
         assertNull(VerifiedHostAdapterConnector.textureAtlasProvider(
                 TestVerifiedResolvers.create(
                         "5.4.0",
@@ -133,7 +136,8 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
                         selectors,
                         getClass().getClassLoader()),
                 "session-unsupported",
-                new TextureAtlasDataModelCapture()));
+                new TextureAtlasDataModelCapture(),
+                () -> false));
         assertNull(VerifiedHostAdapterConnector.textureAtlasProvider(
                 TestVerifiedResolvers.create(
                         "5.3.03",
@@ -142,7 +146,8 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
                         selectors5303.subList(1, selectors5303.size()),
                         getClass().getClassLoader()),
                 "session-5303-incomplete",
-                new TextureAtlasDataModelCapture()));
+                new TextureAtlasDataModelCapture(),
+                () -> false));
         assertNull(VerifiedHostAdapterConnector.textureAtlasProvider(
                 TestVerifiedResolvers.create(
                         "5.3.02",
@@ -151,7 +156,8 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
                         selectors.subList(1, selectors.size()),
                         getClass().getClassLoader()),
                 "session-incomplete",
-                new TextureAtlasDataModelCapture()));
+                new TextureAtlasDataModelCapture(),
+                () -> false));
         assertNull(VerifiedHostAdapterConnector.textureAtlasProvider(
                 TestVerifiedResolvers.create(
                         "5.2.03",
@@ -160,6 +166,7 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
                         selectors520.subList(1, selectors520.size()),
                         getClass().getClassLoader()),
                 "session-520-incomplete",
-                new TextureAtlasDataModelCapture()));
+                new TextureAtlasDataModelCapture(),
+                () -> false));
     }
 }
