@@ -389,7 +389,7 @@ public final class RuntimeProjectWorkTimeService implements ProjectWorkTimeServi
                 .sorted()
                 .toList();
         final List<String> stableNames = contentNames.isEmpty() ? documentNames : contentNames;
-        final String stableBase = stableNames.isEmpty() ? project.name() : String.join("", stableNames);
+        final String stableBase = stableNames.isEmpty() ? project.name() : String.join(Character.toString(0x1F), stableNames);
         return stableBase + "|" + directory;
     }
 
