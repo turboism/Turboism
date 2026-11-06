@@ -73,6 +73,7 @@ val generateVerificationSources by tasks.registering(Exec::class) {
         rootProject.file("scripts/generate_verification_sources.py"),
         rootProject.file("compatibility/cubism/reviewed-releases.json"),
         rootProject.file("scripts/preview/reviewed_host_artifacts.py"),
+        rootProject.file("scripts/turboism_dev/alias_vocabulary.py"),
         rootProject.file("scripts/turboism_dev/json_io.py"),
         rootProject.file("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/model-update-skip.json"),
         rootProject.file("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/incremental-update.json"),

@@ -30,6 +30,10 @@
  "packs": [],
  "extraLiterals": [],
  "coverageSources": [],
+ "aliases": {
+  "className": "ClipmaskAliases",
+  "prefix": "cubism.clipmask."
+ },
  "vocabulary": {
   "admissionEqualsUse": false
  }

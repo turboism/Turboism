@@ -18,8 +18,11 @@ assert SPEC.loader is not None
 SPEC.loader.exec_module(GEN)
 
 MANIFEST_RELPATH = "dev/turboism/mapping/verification/FixtureVerificationManifest.java"
+VOCABULARY_RELPATH = "dev/turboism/mapping/verification/ClipmaskAliases.java"
+FIXTURE_VOCABULARY_RELPATH = "dev/turboism/mapping/verification/FixtureAliases.java"
 RECORD_NAME = "cubism-9.9.09-fixture.json"
 ALIASES = ("cubism.fixture.alpha", "cubism.fixture.beta")
+FIXTURE_ALIASES = {"className": "FixtureAliases", "prefix": "cubism.fixture."}
 
 
 def record() -> dict:
@@ -83,6 +86,7 @@ def write_tree(
     family_files: list[str] | None = None,
     coverage: bool = False,
     extra_families: dict[str, dict] | None = None,
+    aliases: dict | None = None,
 ) -> None:
     verification = root / GEN.VERIFICATION_DIR
     verification.mkdir(parents=True)
@@ -96,6 +100,8 @@ def write_tree(
         "files": family_files if family_files is not None else [MANIFEST_RELPATH],
         "coverage": coverage,
     }
+    if aliases is not None:
+        spec["aliases"] = aliases
     (families / "fixture.json").write_text(json.dumps(spec))
     for name, extra in (extra_families or {}).items():
         (families / name).write_text(json.dumps(extra))
@@ -121,7 +127,18 @@ class GenerateVerificationSourcesTest(unittest.TestCase):
         self.assertEqual([], violations)
         self.assertEqual(0, equivalent)
         rendered = GEN.render_all(ROOT)
-        self.assertEqual(96, len(rendered))
+        self.assertEqual(97, len(rendered))
+
+    def test_live_clipmask_vocabulary_covers_every_record_alias(self):
+        rendered = GEN.render_all(ROOT)[VOCABULARY_RELPATH]
+        family = next(entry for entry in GEN.load_families(ROOT) if entry["family"] == "clipmask")
+        aliases = GEN.family_alias_union(family, GEN.load_records(ROOT))
+        self.assertEqual(16, len(aliases))
+        for alias in aliases:
+            self.assertIn(f'"{alias}"', rendered)
+        self.assertEqual(rendered.count("public static final String "), len(aliases))
+        self.assertIn("public static final Set<String> ALL =", rendered)
+        self.assertEqual(rendered, GEN.render_all(ROOT)[VOCABULARY_RELPATH])
 
     def test_consistent_fixture_passes(self):
         document = record()
@@ -325,6 +342,73 @@ class GenerateVerificationSourcesTest(unittest.TestCase):
             ).read_text()
             self.assertIn("${record:%s:sha256}" % RECORD_NAME, template)
             self.assert_clean(root, equivalent=1)
+
+
+class AliasVocabularyGenerationTest(unittest.TestCase):
+    """The generated ``<Family>Aliases`` vocabulary: record-derived, injective, template-free."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        self.document = record()
+        write_tree(
+            self.root, self.document,
+            manifest_template(self.document), manifest_source(self.document),
+            aliases=FIXTURE_ALIASES,
+        )
+
+    def rendered(self) -> str:
+        return GEN.render_all(self.root)[FIXTURE_VOCABULARY_RELPATH]
+
+    def test_one_constant_per_record_alias_plus_the_rollup(self):
+        rendered = self.rendered()
+        self.assertIn(
+            'public static final String ALPHA = "cubism.fixture.alpha";', rendered)
+        self.assertIn(
+            'public static final String BETA = "cubism.fixture.beta";', rendered)
+        self.assertIn("public static final Set<String> ALL =", rendered)
+        self.assertEqual(rendered.count("public static final String "), len(ALIASES))
+        self.assertEqual(rendered, self.rendered())
+
+    def test_vocabulary_needs_no_authoring_template(self):
+        self.assertFalse((self.root / GEN.TEMPLATE_ROOT / FIXTURE_VOCABULARY_RELPATH).exists())
+        self.assertFalse(
+            (self.root / GEN.SOURCE_ROOT / FIXTURE_VOCABULARY_RELPATH).exists())
+        self.assertIn("FixtureAliases", self.rendered())
+
+    def test_colliding_constant_names_fail_closed(self):
+        # Both spellings upper-snake to ``AL_PHA``, so one alias would be unreachable from Java.
+        for index, alias in enumerate(("cubism.fixture.al-pha", "cubism.fixture.al.pha")):
+            self.document["selectors"].append({
+                "mappingId": "m.collision.%d" % index, "alias": alias, "kind": "method",
+                "status": "VERIFIED_STATIC"})
+        (self.root / GEN.VERIFICATION_DIR / RECORD_NAME).write_text(json.dumps(self.document))
+        with self.assertRaisesRegex(GEN.GenerationError, "both derive the constant name"):
+            GEN.render_all(self.root)
+
+    def test_alias_outside_the_declared_prefix_fails_closed(self):
+        self.document["selectors"].append({
+            "mappingId": "m.other", "alias": "cubism.other.alpha", "kind": "method",
+            "status": "VERIFIED_STATIC"})
+        (self.root / GEN.VERIFICATION_DIR / RECORD_NAME).write_text(json.dumps(self.document))
+        with self.assertRaisesRegex(GEN.GenerationError, "is not a member of the"):
+            GEN.render_all(self.root)
+
+    def test_vocabulary_listed_as_a_family_file_fails_closed(self):
+        path = self.root / GEN.FAMILY_DIR / "fixture.json"
+        spec = json.loads(path.read_text())
+        spec["files"] = [MANIFEST_RELPATH, FIXTURE_VOCABULARY_RELPATH]
+        path.write_text(json.dumps(spec))
+        with self.assertRaisesRegex(GEN.GenerationError, "derived from the family's aliases"):
+            GEN.render_all(self.root)
+
+    def test_checked_in_vocabulary_fails_the_generated_expectation(self):
+        aliases_source = self.root / GEN.SOURCE_ROOT / FIXTURE_VOCABULARY_RELPATH
+        aliases_source.parent.mkdir(parents=True, exist_ok=True)
+        aliases_source.write_text(self.rendered())
+        found, _ = GEN.check(self.root, expect="generated")
+        self.assertTrue(any("reappeared" in violation for violation in found), found)
 
 
 class ModelUpdateTargetGenerationTest(unittest.TestCase):

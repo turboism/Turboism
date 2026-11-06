@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism;
 import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
+import dev.turboism.mapping.verification.ClipmaskAliases;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
@@ -14,41 +15,24 @@ import java.util.Set;
 /** Clip-mask HostOperations backed only by the exact verified selector slice. */
 public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter.HostOperations {
 
-    private static final String APP_CONTROLLER_CLASS = "cubism.clipmask.app-controller.class";
-    private static final String APP_INSTANCE = "cubism.clipmask.app-controller.instance";
-    private static final String CURRENT_DOCUMENT = "cubism.clipmask.app-controller.current-document";
-    private static final String DOCUMENT_CLASS = "cubism.clipmask.document.class";
-    private static final String MODELING_DOCUMENT_CLASS = "cubism.clipmask.modeling-document.class";
-    private static final String MODEL_SOURCE = "cubism.clipmask.modeling-document.model-source";
-    private static final String MODEL_SOURCE_CLASS = "cubism.clipmask.model-source.class";
-    private static final String ALL_ART_MESHES = "cubism.clipmask.model-source.all-art-meshes";
-    private static final String ART_MESH_SOURCE_CLASS = "cubism.clipmask.art-mesh-source.class";
-    private static final String DRAWABLE_SOURCE_CLASS = "cubism.clipmask.drawable-source.class";
-    private static final String DRAWABLE_GUID = "cubism.clipmask.drawable-source.guid";
-    private static final String CLIP_GUID_LIST = "cubism.clipmask.drawable-source.clip-guid-list";
-    private static final String INVERTED = "cubism.clipmask.drawable-source.invert-clipping-mask";
-    private static final String DRAWABLE_GUID_CLASS = "cubism.clipmask.drawable-guid.class";
-    private static final String GUID_CLASS = "cubism.clipmask.guid.class";
-    private static final String GUID_VALUE = "cubism.clipmask.guid.value";
-
     private static final Set<String> METHOD_ALIASES_USED = Set.of(
-            APP_INSTANCE,
-            CURRENT_DOCUMENT,
-            MODEL_SOURCE,
-            ALL_ART_MESHES,
-            DRAWABLE_GUID,
-            CLIP_GUID_LIST,
-            INVERTED,
-            GUID_VALUE);
+            ClipmaskAliases.APP_CONTROLLER_INSTANCE,
+            ClipmaskAliases.APP_CONTROLLER_CURRENT_DOCUMENT,
+            ClipmaskAliases.MODELING_DOCUMENT_MODEL_SOURCE,
+            ClipmaskAliases.MODEL_SOURCE_ALL_ART_MESHES,
+            ClipmaskAliases.DRAWABLE_SOURCE_GUID,
+            ClipmaskAliases.DRAWABLE_SOURCE_CLIP_GUID_LIST,
+            ClipmaskAliases.DRAWABLE_SOURCE_INVERT_CLIPPING_MASK,
+            ClipmaskAliases.GUID_VALUE);
     private static final Set<String> CLASS_ALIASES_REQUIRED = Set.of(
-            APP_CONTROLLER_CLASS,
-            DOCUMENT_CLASS,
-            MODELING_DOCUMENT_CLASS,
-            MODEL_SOURCE_CLASS,
-            ART_MESH_SOURCE_CLASS,
-            DRAWABLE_SOURCE_CLASS,
-            DRAWABLE_GUID_CLASS,
-            GUID_CLASS);
+            ClipmaskAliases.APP_CONTROLLER_CLASS,
+            ClipmaskAliases.DOCUMENT_CLASS,
+            ClipmaskAliases.MODELING_DOCUMENT_CLASS,
+            ClipmaskAliases.MODEL_SOURCE_CLASS,
+            ClipmaskAliases.ART_MESH_SOURCE_CLASS,
+            ClipmaskAliases.DRAWABLE_SOURCE_CLASS,
+            ClipmaskAliases.DRAWABLE_GUID_CLASS,
+            ClipmaskAliases.GUID_CLASS);
 
     /** Aliases independently required by this implementation, not copied from its trust manifest. */
     public static final Set<String> REQUIRED_ALIASES = requiredAliases();
@@ -95,25 +79,25 @@ public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter
     @Override
     public List<ClipMaskSnapshot> clipMasks() {
         try {
-            final Object appController = resolver.invokeStatic(APP_INSTANCE);
+            final Object appController = resolver.invokeStatic(ClipmaskAliases.APP_CONTROLLER_INSTANCE);
             if (appController == null) {
                 return List.of();
             }
-            requireInstance(APP_CONTROLLER_CLASS, appController);
-            final Object document = resolver.invoke(CURRENT_DOCUMENT, appController);
+            requireInstance(ClipmaskAliases.APP_CONTROLLER_CLASS, appController);
+            final Object document = resolver.invoke(ClipmaskAliases.APP_CONTROLLER_CURRENT_DOCUMENT, appController);
             if (document == null) {
                 return List.of();
             }
-            requireInstance(DOCUMENT_CLASS, document);
-            if (!resolver.isInstance(MODELING_DOCUMENT_CLASS, document)) {
+            requireInstance(ClipmaskAliases.DOCUMENT_CLASS, document);
+            if (!resolver.isInstance(ClipmaskAliases.MODELING_DOCUMENT_CLASS, document)) {
                 return List.of();
             }
-            final Object modelSource = resolver.invoke(MODEL_SOURCE, document);
+            final Object modelSource = resolver.invoke(ClipmaskAliases.MODELING_DOCUMENT_MODEL_SOURCE, document);
             if (modelSource == null) {
                 return List.of();
             }
-            requireInstance(MODEL_SOURCE_CLASS, modelSource);
-            final Object rawMeshes = resolver.invoke(ALL_ART_MESHES, modelSource);
+            requireInstance(ClipmaskAliases.MODEL_SOURCE_CLASS, modelSource);
+            final Object rawMeshes = resolver.invoke(ClipmaskAliases.MODEL_SOURCE_ALL_ART_MESHES, modelSource);
             if (rawMeshes == null) {
                 return List.of();
             }
@@ -123,9 +107,9 @@ public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter
 
             final List<ClipMaskSnapshot> snapshots = new ArrayList<>();
             for (Object mesh : meshes) {
-                requireInstance(ART_MESH_SOURCE_CLASS, mesh);
-                requireInstance(DRAWABLE_SOURCE_CLASS, mesh);
-                final Object rawClipList = resolver.invoke(CLIP_GUID_LIST, mesh);
+                requireInstance(ClipmaskAliases.ART_MESH_SOURCE_CLASS, mesh);
+                requireInstance(ClipmaskAliases.DRAWABLE_SOURCE_CLASS, mesh);
+                final Object rawClipList = resolver.invoke(ClipmaskAliases.DRAWABLE_SOURCE_CLIP_GUID_LIST, mesh);
                 if (!(rawClipList instanceof Iterable<?> clipGuids)) {
                     throw validationFailure();
                 }
@@ -133,8 +117,8 @@ public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter
                 if (orderedMaskIds.isEmpty()) {
                     continue;
                 }
-                final String targetId = drawableGuidValue(resolver.invoke(DRAWABLE_GUID, mesh));
-                final Object rawInverted = resolver.invoke(INVERTED, mesh);
+                final String targetId = drawableGuidValue(resolver.invoke(ClipmaskAliases.DRAWABLE_SOURCE_GUID, mesh));
+                final Object rawInverted = resolver.invoke(ClipmaskAliases.DRAWABLE_SOURCE_INVERT_CLIPPING_MASK, mesh);
                 if (!(rawInverted instanceof Boolean inverted)) {
                     throw validationFailure();
                 }
@@ -156,16 +140,16 @@ public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter
     private List<String> guidValues(final Iterable<?> rawGuids) {
         final List<String> values = new ArrayList<>();
         for (Object rawGuid : rawGuids) {
-            requireInstance(DRAWABLE_GUID_CLASS, rawGuid);
+            requireInstance(ClipmaskAliases.DRAWABLE_GUID_CLASS, rawGuid);
             values.add(drawableGuidValue(rawGuid));
         }
         return List.copyOf(values);
     }
 
     private String drawableGuidValue(final Object drawableGuid) {
-        requireInstance(DRAWABLE_GUID_CLASS, drawableGuid);
-        requireInstance(GUID_CLASS, drawableGuid);
-        final Object value = resolver.invoke(GUID_VALUE, drawableGuid);
+        requireInstance(ClipmaskAliases.DRAWABLE_GUID_CLASS, drawableGuid);
+        requireInstance(ClipmaskAliases.GUID_CLASS, drawableGuid);
+        final Object value = resolver.invoke(ClipmaskAliases.GUID_VALUE, drawableGuid);
         if (!(value instanceof String text) || text.isBlank()) {
             throw validationFailure();
         }
