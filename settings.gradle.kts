@@ -48,3 +48,8 @@ include(
     "testing:test-support",
     "testing:integration-tests"
 )
+
+project(":core-contract").projectDir = file("core/contract")
+project(":persistence-core").projectDir = file("core/persistence")
+project(":event-processor").projectDir = file("core/event-processor")
+
