@@ -23,6 +23,7 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.test.Stubs;
+import dev.turboism.testkit.RecordingHostSnapshotSource;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -186,37 +187,7 @@ class PsdModelTexturesForwardingTest {
             public void update() {}
         };
         return new CubismFacadeImpl(
-                new HostSnapshotSource() {
-                    @Override
-                    public Optional<HostProject> activeProject() {
-                        return Optional.empty();
-                    }
-
-                    @Override
-                    public Optional<HostDocument> activeDocument() {
-                        return Optional.empty();
-                    }
-
-                    @Override
-                    public Optional<HostModel> activeModel() {
-                        return Optional.empty();
-                    }
-
-                    @Override
-                    public HostSelection selection() {
-                        return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
-                    }
-
-                    @Override
-                    public boolean isHostPresent() {
-                        return false;
-                    }
-
-                    @Override
-                    public long invalidationToken() {
-                        return 0L;
-                    }
-                },
+                RecordingHostSnapshotSource.empty(),
                 new CubismPermissionGate(
                         "plugin.demo",
                         permissions.stream()

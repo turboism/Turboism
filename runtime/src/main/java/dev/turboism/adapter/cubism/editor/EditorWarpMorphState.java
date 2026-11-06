@@ -12,7 +12,6 @@ import javax.swing.SwingUtilities;
 
 /** A separate neutral-Warp morph domain. Ordinary Warp and root-ArtMesh guards stay unchanged. */
 final class EditorWarpMorphState {
-    static final String M = "cubism.editor-model.", H = "cubism.editor-history.semantic.";
     final Object source, parent, grid, forms, targets, targetSet, constraints;
     final int rows, columns;
     final boolean quad;
@@ -43,61 +42,71 @@ final class EditorWarpMorphState {
                 EditorWarpAuthoringSelectorContract.ADAPTER_SLICE_ID,
                 "cubism.editor-history.semantic-read",
                 Set.of(
-                        H + "deformer-form.source",
-                        M + "deformer-form.opacity",
-                        M + "deformer-form.multiply-color",
-                        M + "deformer-form.screen-color"))) throw unsupported();
+                        "cubism.editor-history.semantic.deformer-form.source",
+                        "cubism.editor-model.deformer-form.opacity",
+                        "cubism.editor-model.deformer-form.multiply-color",
+                        "cubism.editor-model.deformer-form.screen-color"))) throw unsupported();
     }
 
     EditorWarpMorphState(VerifiedMemberResolver r, Object source, Object modelSource, Object model) {
         authorize(r);
         this.source = source;
-        if (!Boolean.FALSE.equals(call(r, M + "parameter-controllable-source.locked-in-hierarchy", source))
-                || call(r, M + "parameter-controllable-source.extended-morph-set", source) != null) throw unsupported();
-        parent = call(r, M + "parameter-controllable-source.target-deformer-source", source);
-        extensions = list(call(r, M + "parameter-controllable-source.extensions", source));
+        if (!Boolean.FALSE.equals(
+                        call(r, "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy", source))
+                || call(r, "cubism.editor-model.parameter-controllable-source.extended-morph-set", source) != null)
+            throw unsupported();
+        parent = call(r, "cubism.editor-model.parameter-controllable-source.target-deformer-source", source);
+        extensions = list(call(r, "cubism.editor-model.parameter-controllable-source.extensions", source));
         for (Object extension : extensions)
-            if (r.isInstance(M + "extended-interpolation.class", extension)) throw unsupported();
-        sourceGuid = guid(r, call(r, M + "deformer-source.guid", source));
-        rows = integer(call(r, M + "warp-source.row", source));
-        columns = integer(call(r, M + "warp-source.col", source));
-        quad = bool(call(r, M + "warp-source.quad-transform", source));
+            if (r.isInstance("cubism.editor-model.extended-interpolation.class", extension)) throw unsupported();
+        sourceGuid = guid(r, call(r, "cubism.editor-model.deformer-source.guid", source));
+        rows = integer(call(r, "cubism.editor-model.warp-source.row", source));
+        columns = integer(call(r, "cubism.editor-model.warp-source.col", source));
+        quad = bool(call(r, "cubism.editor-model.warp-source.quad-transform", source));
         long count = ((long) rows + 1) * ((long) columns + 1);
         if (rows < 1 || columns < 1 || count > 1_000_000) throw unsupported();
-        grid = call(r, M + "parameter-controllable.keyform-grid", source);
-        if (!list(call(r, M + "keyform-grid.bindings", grid)).isEmpty()) throw unsupported();
-        forms = call(r, M + "warp-source.keyforms", source);
-        targetSet = call(r, M + "parameter-controllable.morph-target-set", source);
-        if (call(r, M + "morph-target-set.owner", targetSet) != source) throw unsupported();
-        targets = call(r, M + "morph-target-set.morph-targets", targetSet);
-        if (!Boolean.FALSE.equals(call(r, M + "native-list.immutable", forms))
-                || !Boolean.FALSE.equals(call(r, M + "native-list.immutable", targets))) throw unsupported();
-        constraints = call(r, M + "morph-target-set.constraints", targetSet);
-        if (!list(call(r, M + "morph-constraints.entries", constraints)).isEmpty()) throw unsupported();
+        grid = call(r, "cubism.editor-model.parameter-controllable.keyform-grid", source);
+        if (!list(call(r, "cubism.editor-model.keyform-grid.bindings", grid)).isEmpty()) throw unsupported();
+        forms = call(r, "cubism.editor-model.warp-source.keyforms", source);
+        targetSet = call(r, "cubism.editor-model.parameter-controllable.morph-target-set", source);
+        if (call(r, "cubism.editor-model.morph-target-set.owner", targetSet) != source) throw unsupported();
+        targets = call(r, "cubism.editor-model.morph-target-set.morph-targets", targetSet);
+        if (!Boolean.FALSE.equals(call(r, "cubism.editor-model.native-list.immutable", forms))
+                || !Boolean.FALSE.equals(call(r, "cubism.editor-model.native-list.immutable", targets)))
+            throw unsupported();
+        constraints = call(r, "cubism.editor-model.morph-target-set.constraints", targetSet);
+        if (!list(call(r, "cubism.editor-model.morph-constraints.entries", constraints))
+                .isEmpty()) throw unsupported();
         formRefs = list(forms);
         targetRefs = list(targets);
         if (formRefs.isEmpty() || formRefs.size() > 1_000_000 / count) throw unsupported();
         var formMap = new LinkedHashMap<String, Stored>();
         String base = null;
         for (Object form : formRefs) {
-            if (call(r, H + "deformer-form.source", form) != source) throw unsupported();
-            String id = formGuid(r, call(r, H + "form.guid", form));
-            Object raw = call(r, M + "warp-form.positions", form);
+            if (call(r, "cubism.editor-history.semantic.deformer-form.source", form) != source) throw unsupported();
+            String id = formGuid(r, call(r, "cubism.editor-history.semantic.form.guid", form));
+            Object raw = call(r, "cubism.editor-model.warp-form.positions", form);
             if (!(raw instanceof float[] values) || values.length != count * 2) throw unsupported();
             var points = new ArrayList<Point2>();
             for (int i = 0; i < values.length; i += 2) points.add(new Point2(values[i], values[i + 1]));
             var state = new Stored(
-                    new WarpMorphSnapshot.Form(id, points, number(call(r, M + "deformer-form.opacity", form))),
-                    color(r, call(r, M + "deformer-form.multiply-color", form)),
-                    color(r, call(r, M + "deformer-form.screen-color", form)),
-                    nullableText(call(r, M + "form.name", form)),
-                    nullableText(call(r, M + "form.notes", form)));
+                    new WarpMorphSnapshot.Form(
+                            id, points, number(call(r, "cubism.editor-model.deformer-form.opacity", form))),
+                    color(r, call(r, "cubism.editor-model.deformer-form.multiply-color", form)),
+                    color(r, call(r, "cubism.editor-model.deformer-form.screen-color", form)),
+                    nullableText(call(r, "cubism.editor-model.form.name", form)),
+                    nullableText(call(r, "cubism.editor-model.form.notes", form)));
             formMap.putIfAbsent(id, state);
-            var cells = list(call(r, H + "keyform-grid.forms-for-guid", grid, call(r, H + "form.guid", form)));
+            var cells = list(call(
+                    r,
+                    "cubism.editor-history.semantic.keyform-grid.forms-for-guid",
+                    grid,
+                    call(r, "cubism.editor-history.semantic.form.guid", form)));
             if (!cells.isEmpty()) {
                 if (base != null || cells.size() != 1) throw unsupported();
-                var access = call(r, H + "keyform-on-grid.access-key", cells.get(0));
-                if (!list(call(r, H + "keyform-access-key.coordinates", access)).isEmpty()) throw unsupported();
+                var access = call(r, "cubism.editor-history.semantic.keyform-on-grid.access-key", cells.get(0));
+                if (!list(call(r, "cubism.editor-history.semantic.keyform-access-key.coordinates", access))
+                        .isEmpty()) throw unsupported();
                 base = id;
             }
         }
@@ -105,31 +114,37 @@ final class EditorWarpMorphState {
         baseGuid = base;
         stored = Map.copyOf(formMap);
         var ps = new LinkedHashMap<String, Parameter>();
-        for (Object p : list(call(r, M + "parameter-set.parameters", call(r, M + "model.parameter-set", model)))) {
-            Object def = call(r, M + "parameter.source", p);
-            if (call(r, M + "parameter-source.model-source", def) != modelSource) throw unsupported();
-            String id = guid(r, call(r, M + "parameter-source.guid", def));
+        for (Object p : list(call(
+                r,
+                "cubism.editor-model.parameter-set.parameters",
+                call(r, "cubism.editor-model.model.parameter-set", model)))) {
+            Object def = call(r, "cubism.editor-model.parameter.source", p);
+            if (call(r, "cubism.editor-model.parameter-source.model-source", def) != modelSource) throw unsupported();
+            String id = guid(r, call(r, "cubism.editor-model.parameter-source.guid", def));
             var parameter = new Parameter(
                     def,
-                    text(call(r, M + "id.value", call(r, M + "parameter-source.id", def))),
-                    nullableText(call(r, M + "parameter-source.name", def)),
-                    bool(call(r, M + "parameter-source.morph-target", def)),
-                    bool(call(r, M + "parameter-source.repeat", def)),
-                    number(call(r, M + "parameter-source.minimum", def)),
-                    number(call(r, M + "parameter-source.default", def)),
-                    number(call(r, M + "parameter-source.maximum", def)),
-                    number(call(r, M + "parameter-source.snap-epsilon", def)),
-                    number(call(r, M + "parameter.value", p)));
+                    text(call(
+                            r,
+                            "cubism.editor-model.id.value",
+                            call(r, "cubism.editor-model.parameter-source.id", def))),
+                    nullableText(call(r, "cubism.editor-model.parameter-source.name", def)),
+                    bool(call(r, "cubism.editor-model.parameter-source.morph-target", def)),
+                    bool(call(r, "cubism.editor-model.parameter-source.repeat", def)),
+                    number(call(r, "cubism.editor-model.parameter-source.minimum", def)),
+                    number(call(r, "cubism.editor-model.parameter-source.default", def)),
+                    number(call(r, "cubism.editor-model.parameter-source.maximum", def)),
+                    number(call(r, "cubism.editor-model.parameter-source.snap-epsilon", def)),
+                    number(call(r, "cubism.editor-model.parameter.value", p)));
             if (ps.put(id, parameter) != null) throw unsupported();
         }
         parameters = Map.copyOf(ps);
         var ks = new ArrayList<Key>();
         for (Object target : targetRefs) {
-            if (call(r, M + "morph-target.owner", target) != source) throw unsupported();
+            if (call(r, "cubism.editor-model.morph-target.owner", target) != source) throw unsupported();
             ks.add(new Key(
-                    guid(r, call(r, M + "morph-target.parameter-guid", target)),
-                    number(call(r, M + "morph-target.key-value", target)),
-                    formGuid(r, call(r, M + "morph-target.keyform-guid", target))));
+                    guid(r, call(r, "cubism.editor-model.morph-target.parameter-guid", target)),
+                    number(call(r, "cubism.editor-model.morph-target.key-value", target)),
+                    formGuid(r, call(r, "cubism.editor-model.morph-target.keyform-guid", target))));
         }
         keys = List.copyOf(ks);
     }
@@ -256,19 +271,19 @@ final class EditorWarpMorphState {
     }
 
     private static String guid(VerifiedMemberResolver r, Object value) {
-        return text(call(r, M + "guid.value", value));
+        return text(call(r, "cubism.editor-model.guid.value", value));
     }
 
     private static String formGuid(VerifiedMemberResolver r, Object value) {
-        return text(call(r, M + "form-guid.value", value));
+        return text(call(r, "cubism.editor-model.form-guid.value", value));
     }
 
     private static List<Float> color(VerifiedMemberResolver r, Object c) {
         return List.of(
-                number(call(r, M + "float-color.red", c)),
-                number(call(r, M + "float-color.green", c)),
-                number(call(r, M + "float-color.blue", c)),
-                number(call(r, M + "float-color.alpha", c)));
+                number(call(r, "cubism.editor-model.float-color.red", c)),
+                number(call(r, "cubism.editor-model.float-color.green", c)),
+                number(call(r, "cubism.editor-model.float-color.blue", c)),
+                number(call(r, "cubism.editor-model.float-color.alpha", c)));
     }
 
     private static List<Object> list(Object value) {

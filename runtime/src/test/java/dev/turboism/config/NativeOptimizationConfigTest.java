@@ -2,10 +2,11 @@ package dev.turboism.config;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import dev.turboism.config.NativeOptimizationConfig.Option;
+import dev.turboism.config.optimization.Optimization;
+import dev.turboism.config.optimization.OptimizationCatalog;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,32 +17,38 @@ class NativeOptimizationConfigTest {
     @TempDir
     Path home;
 
-    private final Map<Option, String> properties = new EnumMap<>(Option.class);
+    /** Declared override property to its previous value; {@code null} means it was not set. */
+    private final Map<String, String> properties = new LinkedHashMap<>();
 
     @BeforeEach
     void clearOverrides() {
-        for (Option option : Option.values()) {
-            properties.put(option, System.getProperty(option.property()));
-            System.clearProperty(option.property());
+        for (Optimization optimization : OptimizationCatalog.persisted()) {
+            for (String property : optimization.overrideProperties()) {
+                properties.put(property, System.getProperty(property));
+                System.clearProperty(property);
+            }
         }
     }
 
     @AfterEach
     void restoreOverrides() {
-        for (Option option : Option.values()) {
-            String value = properties.get(option);
-            if (value == null) System.clearProperty(option.property());
-            else System.setProperty(option.property(), value);
-        }
+        properties.forEach((property, value) -> {
+            if (value == null) System.clearProperty(property);
+            else System.setProperty(property, value);
+        });
+        properties.clear();
     }
 
     @Test
     void absentConfigUsesDefaultsWithoutCreatingAFile() {
         var snapshot = NativeOptimizationConfig.load(home, ignored -> {});
         boolean proton = dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton();
-        for (Option option : Option.values()) {
-            assertEquals(option.defaultEnabled(proton), snapshot.choice(option).enabled());
-            assertEquals("platform-default", snapshot.choice(option).source());
+        for (Optimization optimization : OptimizationCatalog.persisted()) {
+            var field = PerformanceSettingsConfig.Field.forKey(optimization.key());
+            assertEquals(
+                    Boolean.parseBoolean(field.defaultValue(proton)),
+                    snapshot.choice(optimization).enabled());
+            assertEquals("platform-default", snapshot.choice(optimization).source());
         }
         assertFalse(Files.exists(home.resolve("config.json")));
     }
@@ -50,21 +57,23 @@ class NativeOptimizationConfigTest {
     void globalChoicesAreCapturedTogetherAndReReadOnNextLaunch() {
         var repository = new RuntimeConfigRepository(home, ignored -> {});
         repository.update(root -> {
-            for (Option option : Option.values())
-                (option.field().launcher() ? root.withObject("launcher") : root).put(option.key(), false);
+            for (Optimization optimization : OptimizationCatalog.persisted())
+                (optimization.access() == Optimization.Access.PERSISTED_LAUNCHER ? root.withObject("launcher") : root)
+                        .put(optimization.key(), false);
             return root;
         });
         var firstLaunch = NativeOptimizationConfig.load(home, ignored -> {});
         repository.update(root -> {
-            for (Option option : Option.values())
-                (option.field().launcher() ? root.withObject("launcher") : root).put(option.key(), true);
+            for (Optimization optimization : OptimizationCatalog.persisted())
+                (optimization.access() == Optimization.Access.PERSISTED_LAUNCHER ? root.withObject("launcher") : root)
+                        .put(optimization.key(), true);
             return root;
         });
         var nextLaunch = NativeOptimizationConfig.load(home, ignored -> {});
-        for (Option option : Option.values()) {
-            assertFalse(firstLaunch.choice(option).enabled());
-            assertTrue(nextLaunch.choice(option).enabled());
-            assertEquals("global-config", nextLaunch.choice(option).source());
+        for (Optimization optimization : OptimizationCatalog.persisted()) {
+            assertFalse(firstLaunch.choice(optimization).enabled());
+            assertTrue(nextLaunch.choice(optimization).enabled());
+            assertEquals("global-config", nextLaunch.choice(optimization).source());
         }
     }
 
@@ -75,23 +84,32 @@ class NativeOptimizationConfigTest {
             return root;
         });
         String saved = Files.readString(home.resolve("config.json"));
-        System.setProperty(Option.INCREMENTAL_UPDATE.property(), "true");
+        System.setProperty(OptimizationCatalog.INCREMENTAL_UPDATE.property(), "true");
         var launch = NativeOptimizationConfig.load(home, ignored -> {});
-        assertTrue(launch.choice(Option.INCREMENTAL_UPDATE).enabled());
-        assertEquals("jvm-override", launch.choice(Option.INCREMENTAL_UPDATE).source());
-        System.setProperty(Option.INCREMENTAL_UPDATE.property(), "false");
-        assertTrue(launch.choice(Option.INCREMENTAL_UPDATE).enabled(), "snapshot is immutable");
+        assertTrue(launch.choice(OptimizationCatalog.INCREMENTAL_UPDATE).enabled());
+        assertEquals(
+                "jvm-override",
+                launch.choice(OptimizationCatalog.INCREMENTAL_UPDATE).source());
+        System.setProperty(OptimizationCatalog.INCREMENTAL_UPDATE.property(), "false");
+        assertTrue(launch.choice(OptimizationCatalog.INCREMENTAL_UPDATE).enabled(), "snapshot is immutable");
         assertEquals(saved, Files.readString(home.resolve("config.json")));
     }
 
     @Test
     void invalidGlobalConfigDisablesEveryOptimizationEvenWithOverrides() throws Exception {
         Files.writeString(home.resolve("config.json"), "{broken");
-        for (Option option : Option.values()) System.setProperty(option.property(), "true");
+        for (Optimization optimization : OptimizationCatalog.persisted())
+            System.setProperty(optimization.property(), "true");
         var snapshot = NativeOptimizationConfig.load(home, ignored -> {});
-        for (Option option : Option.values()) {
-            assertFalse(snapshot.choice(option).enabled());
-            assertEquals("invalid-config", snapshot.choice(option).source());
+        for (Optimization optimization : OptimizationCatalog.persisted()) {
+            assertFalse(snapshot.choice(optimization).enabled());
+            assertEquals("invalid-config", snapshot.choice(optimization).source());
         }
+    }
+
+    @Test
+    void diagnosticOnlyEntriesHaveNoPersistedPreferenceToResolve() {
+        var snapshot = NativeOptimizationConfig.load(home, ignored -> {});
+        assertThrows(IllegalArgumentException.class, () -> snapshot.choice(OptimizationCatalog.SORTING_INFO_CACHE));
     }
 }

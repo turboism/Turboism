@@ -29,5 +29,12 @@
  "coverage": true,
  "packs": [],
  "extraLiterals": [],
- "coverageSources": []
+ "coverageSources": [],
+ "aliases": {
+  "className": "UiBoundingBoxOverlayAliases",
+  "prefix": "cubism.ui-bounding-box-overlay."
+ },
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }

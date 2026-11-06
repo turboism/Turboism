@@ -101,8 +101,11 @@ class PromotionTest(unittest.TestCase):
         reviewed = self.source / 'compatibility/cubism/reviewed-releases.json'
         reviewed.parent.mkdir(parents=True)
         reviewed.write_text(table(['5.3.04']))
-        for name in ('ReviewedHostArtifacts.java', 'ReviewedReleaseTable.java'):
-            relative = Path('runtime/src/main/java/dev/turboism/mapping/verification') / name
+        for name, module in (
+            ('ReviewedHostArtifacts.java', 'runtime/src/main/java/dev/turboism/mapping/verification'),
+            ('ReviewedReleaseTable.java', 'compatibility-policy/src/main/java/dev/turboism/compatibility/policy'),
+        ):
+            relative = Path(module) / name
             generated = self.source / relative
             generated.parent.mkdir(parents=True, exist_ok=True)
             generated.write_bytes((ROOT / relative).read_bytes())
@@ -164,9 +167,12 @@ class PromotionTest(unittest.TestCase):
         self.assertEqual([], self.gh.writes)
 
     def test_generated_java_cannot_change_after_candidate(self):
-        for name in ('ReviewedHostArtifacts.java', 'ReviewedReleaseTable.java'):
+        for name, module in (
+            ('ReviewedHostArtifacts.java', 'runtime/src/main/java/dev/turboism/mapping/verification'),
+            ('ReviewedReleaseTable.java', 'compatibility-policy/src/main/java/dev/turboism/compatibility/policy'),
+        ):
             with self.subTest(file=name):
-                path = self.source / 'runtime/src/main/java/dev/turboism/mapping/verification' / name
+                path = self.source / module / name
                 original = path.read_text()
                 path.write_text(original + '\n// hand edit after candidate\n')
                 with self.assertRaisesRegex(p.ReleaseError, 'source release metadata was modified'):

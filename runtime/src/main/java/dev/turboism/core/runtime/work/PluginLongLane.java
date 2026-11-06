@@ -179,6 +179,24 @@ public final class PluginLongLane {
         return worker.isTerminated();
     }
 
+    /**
+     * Aborts the lane without waiting for running work.
+     *
+     * <p>Used only for a generation that already failed: cancellation flags are still set so
+     * cooperative work stops at its next checkpoint, but the caller is not made to wait for
+     * it. The worker threads are daemon threads and exit once their current body returns.</p>
+     */
+    void discard() {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+        for (LongWorkItem item : active) {
+            item.token.cancel();
+        }
+        worker.shutdownNow();
+        monitor.shutdownNow();
+    }
+
     private void emit(
             PluginTask task,
             PluginWorkBudgetEvent.Phase phase,

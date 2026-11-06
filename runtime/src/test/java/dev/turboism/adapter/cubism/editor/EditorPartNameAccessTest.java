@@ -21,7 +21,7 @@ class EditorPartNameAccessTest {
     @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsLocalNameAndFallsBackToIdText(final String cubismVersion) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var access = new EditorBackedCubismModelAccess(resolver(true, cubismVersion), "session-a");
         final var part = access.active().parts().find(new PartId("PartClip"));
 
@@ -35,7 +35,7 @@ class EditorPartNameAccessTest {
     @ValueSource(strings = {"5.2.03", "5.3.02"})
     void writesAuthoringNameWithUndoDirtyRefreshAndNoChangeElision(final String cubismVersion) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var access = new EditorBackedCubismModelAccess(resolver(true, cubismVersion), "session-a");
         final var part = access.active().parts().find(new PartId("PartClip"));
 
@@ -56,7 +56,7 @@ class EditorPartNameAccessTest {
     @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsAndWritesBasicSettingsAndModelMetadata(final String cubismVersion) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var access = new EditorBackedCubismModelAccess(resolver(true, cubismVersion), "session-a");
         final var model = access.active();
         final var part = model.parts().find(new PartId("PartClip"));
@@ -100,7 +100,7 @@ class EditorPartNameAccessTest {
     @Test
     void rejectsBlankNameAndStaleSameIdWrite() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var access = new EditorBackedCubismModelAccess(resolver(true), "session-a");
         final var part = access.active().parts().find(new PartId("PartClip"));
 
@@ -113,7 +113,7 @@ class EditorPartNameAccessTest {
     @Test
     void sameIdReplacementMakesNameReferenceStale() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var access = new EditorBackedCubismModelAccess(resolver(true), "session-a");
         final var part = access.active().parts().find(new PartId("PartClip"));
 
@@ -125,7 +125,7 @@ class EditorPartNameAccessTest {
     @Test
     void resolverWithoutNameCapabilityFailsClosedBeforeNameSelectorUse() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
 
         assertThrows(UnsupportedOperationException.class, () -> access.active().parts());
@@ -141,6 +141,7 @@ class EditorPartNameAccessTest {
                 "adapter.editor-model.readwrite",
                 includeNameCapability
                         ? java.util.Set.of(
+                                "cubism.editor-history.read",
                                 EditorPartNameSelectorContract.CAPABILITY_ID,
                                 EditorPartNameSelectorContract.WRITE_CAPABILITY_ID,
                                 EditorPartBasicSettingsSelectorContract.READ_CAPABILITY_ID,

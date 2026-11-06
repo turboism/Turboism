@@ -4,99 +4,100 @@ import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseBridge;
 import dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
-import java.lang.instrument.ClassFileTransformer;
-import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
-import java.security.ProtectionDomain;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.jar.JarFile;
+import java.util.Optional;
 
-/** Exact native serializer admission, callback lifetime and verified bytecode restoration. */
+/**
+ * Exact native serializer admission, callback lifetime and verified bytecode restoration.
+ *
+ * <p>The protocol itself lives in {@link VerifiedInstall}; this class keeps the hook's reviewed
+ * contract table and owns the one slot bridge the rewritten parser calls.</p>
+ */
 final class VerifiedFloatArrayParseCacheInstaller implements AutoCloseable {
     static final String HOOK_ID = "cubism.float-array-parse-cache";
-    private final Instrumentation instrumentation;
-    private final Class<?> target;
-    private final FloatArrayParseTransformer transformer;
-    private final FloatArrayParseBridge bridge = new FloatArrayParseBridge();
-    private boolean installed;
-    private boolean restored;
+
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.ANY);
+
+    /** The one parser method this hook rewrites; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_MATCHES = 1;
+
+    /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_OWNERS = 1;
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
             ReviewedHostContract.candidates(FloatArrayParseTransformer.reviewedClassSha256(), version -> HOOK_ID);
 
-    static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested) {
-        return requested && config.hookEnabled(HOOK_ID) && ReviewedHostContract.resolved(artifact, CANDIDATES);
+    static final WeaveSpec<ReviewedHostContract.Bound<String>> SPEC = new WeaveSpec<ReviewedHostContract.Bound<String>>(
+            ADMISSION,
+            "float array parse cache",
+            VerifiedFloatArrayParseCacheInstaller::resolve,
+            new WeavePlan<>(VerifiedFloatArrayParseCacheInstaller::targets, WeavePlan.PostCheck.NONE),
+            (contract, context) -> {
+                final FloatArrayParseBridge bridge = new FloatArrayParseBridge();
+                return BridgeLayer.of(bridge::install, bridge);
+            },
+            WeaveEffects.none());
+
+    private final InstallContext context;
+    private VerifiedInstall<ReviewedHostContract.Bound<String>> hook;
+
+    VerifiedFloatArrayParseCacheInstaller(final InstallContext context) {
+        this.context = context;
     }
 
-    VerifiedFloatArrayParseCacheInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader)
-            throws Exception {
-        final var contract = ReviewedHostContract.requireBound(
-                ReviewedHostContract.resolve(artifact, CANDIDATES), "float array reuse");
-        this.instrumentation = instrumentation;
-        target = Class.forName(FloatArrayParseTransformer.TARGET.replace('/', '.'), false, loader);
-        VerifiedHookInstallerSupport.attestClassSource(
-                target, loader, artifact, "float array host loader or artifact mismatch");
-        try (JarFile jar = new JarFile(artifact.toFile())) {
-            transformer = new FloatArrayParseTransformer(
-                    loader, artifact, VerifiedHookInstallerSupport.readReferenceBytes(jar, target));
-        }
-        contract.requireUnchanged(artifact);
+    static boolean admitted(final Path artifact, final RuntimeStartupConfig config, final boolean requested) {
+        return VerifiedInstall.admits(
+                ADMISSION,
+                config,
+                requested,
+                Runtime.version().feature(),
+                () -> ReviewedHostContract.resolved(artifact, CANDIDATES));
     }
 
+    private static Optional<ReviewedHostContract.Bound<String>> resolve(final Path artifact) {
+        return ReviewedHostContract.resolve(artifact, CANDIDATES) instanceof ReviewedHostContract.Bound<String> bound
+                ? Optional.of(bound)
+                : Optional.empty();
+    }
+
+    private static List<WeaveTarget> targets(
+            final ReviewedHostContract.Bound<String> contract, final WeaveSource source) throws Exception {
+        final Class<?> target = source.load(FloatArrayParseTransformer.TARGET);
+        final FloatArrayParseTransformer transformer =
+                new FloatArrayParseTransformer(source.loader(), source.artifact(), source.referenceBytes(target));
+        contract.requireUnchanged(source.artifact());
+        return List.of(WeaveTarget.single(
+                target,
+                transformer,
+                EXPECTED_MATCHES,
+                transformer::matches,
+                transformer::failure,
+                owner -> transformer.beforeSha256()));
+    }
+
+    /**
+     * Installs the weave through {@link VerifiedInstall}.
+     *
+     * @throws IllegalStateException when the artifact is not an admitted float-array host
+     * @throws Exception when registration, retransformation or the match proof fails
+     */
     synchronized void install() throws Exception {
-        if (installed) return;
-        if (!instrumentation.isRetransformClassesSupported() || !instrumentation.isModifiableClass(target)) {
-            throw new IllegalStateException("native float serializer cannot be transformed");
+        if (hook != null) return;
+        if (!(VerifiedInstall.install(SPEC, context)
+                instanceof VerifiedInstall.Attempt.Installed<ReviewedHostContract.Bound<String>> installed)) {
+            throw new IllegalStateException("float array parse cache refused: host-not-supported-or-hook-disabled");
         }
-        bridge.install();
-        try {
-            instrumentation.addTransformer(transformer, true);
-            installed = true;
-            instrumentation.retransformClasses(target);
-            if (transformer.matches() != 1 || transformer.failure() != null) {
-                throw new IllegalStateException("native float serializer not admitted: " + transformer.failure());
-            }
-        } catch (Exception | Error failure) {
-            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
-            throw failure;
-        }
+        hook = installed.hook();
     }
 
     @Override
     public synchronized void close() {
-        bridge.close();
-        if (!installed) return;
-        instrumentation.removeTransformer(transformer);
-        AtomicReference<String> observed = new AtomicReference<>();
-        ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    Module module,
-                    ClassLoader loader,
-                    String name,
-                    Class<?> redefined,
-                    ProtectionDomain domain,
-                    byte[] bytes) {
-                if (redefined == target) observed.set(VerifiedHookInstallerSupport.sha256HexUnchecked(bytes));
-                return null;
-            }
-        };
-        instrumentation.addTransformer(observer, true);
-        try {
-            instrumentation.retransformClasses(target);
-            restored = transformer.beforeSha256() != null
-                    && transformer.beforeSha256().equals(observed.get());
-            if (!restored) throw new IllegalStateException("native float serializer restoration not proven");
-            installed = false;
-        } catch (java.lang.instrument.UnmodifiableClassException failure) {
-            throw new IllegalStateException("native float serializer restoration failed", failure);
-        } finally {
-            instrumentation.removeTransformer(observer);
-        }
+        if (hook != null) hook.close();
     }
 
     boolean restored() {
-        return restored;
+        return hook != null && hook.restored();
     }
 }

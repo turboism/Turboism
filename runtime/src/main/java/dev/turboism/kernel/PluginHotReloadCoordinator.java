@@ -1,6 +1,5 @@
 package dev.turboism.kernel;
 
-import dev.turboism.core.descriptor.CorePluginDescriptor;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -75,7 +74,7 @@ public final class PluginHotReloadCoordinator {
         if (descriptor == null || CORE_ID.equals(descriptor.id())) {
             return false;
         }
-        if (!(descriptor instanceof CorePluginDescriptor cpd && cpd.hotReload())) {
+        if (!descriptor.hotReload()) {
             return false;
         }
         for (String capability : descriptor.capabilities()) {

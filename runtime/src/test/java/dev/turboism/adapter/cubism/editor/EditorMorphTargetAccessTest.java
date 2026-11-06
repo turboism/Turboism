@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.*;
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.authoringWriter;
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.desc;
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
@@ -24,8 +25,12 @@ class EditorMorphTargetAccessTest {
     @Test
     void readsAndWritesMorphTargetBindingsThroughNativeUndo() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
-        final EditorMorphTargetAccess access = new EditorMorphTargetAccess(resolver(true), (identity, model) -> {});
+        Host.install(fixture);
+        final VerifiedMemberResolver resolver = resolver(true);
+        final EditorMorphTargetAccess access = new EditorMorphTargetAccess(
+                resolver,
+                (identity, model) -> {},
+                authoringWriter(resolver, fixture.document, fixture.source, fixture.source.model));
 
         final var targets = access.morphTargets("session-a", fixture.source, fixture.model, fixture.objectSource);
         final List<MorphTarget> all = targets.all();
@@ -56,8 +61,12 @@ class EditorMorphTargetAccessTest {
         // registered by MorphTargetParameterUtils.changeMorphTargetParameter_exe must restore the
         // original parameter/key binding on undo, re-apply on redo, and restore again on undo.
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
-        final EditorMorphTargetAccess access = new EditorMorphTargetAccess(resolver(true), (identity, model) -> {});
+        Host.install(fixture);
+        final VerifiedMemberResolver resolver = resolver(true);
+        final EditorMorphTargetAccess access = new EditorMorphTargetAccess(
+                resolver,
+                (identity, model) -> {},
+                authoringWriter(resolver, fixture.document, fixture.source, fixture.source.model));
         final var targets = access.morphTargets("session-a", fixture.source, fixture.model, fixture.objectSource);
         final MorphTarget target = targets.find(new ParameterId("EyeParam"));
 
@@ -86,7 +95,7 @@ class EditorMorphTargetAccessTest {
     @Test
     void missingCapabilityFailsClosed() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final EditorMorphTargetAccess access = new EditorMorphTargetAccess(resolver(false), (identity, model) -> {});
         assertThrows(
                 UnsupportedOperationException.class,
@@ -96,7 +105,7 @@ class EditorMorphTargetAccessTest {
     @Test
     void absentParameterTargetFailsClosed() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final EditorMorphTargetAccess access = new EditorMorphTargetAccess(resolver(true), (identity, model) -> {});
         final var targets = access.morphTargets("session-a", fixture.source, fixture.model, fixture.objectSource);
         assertThrows(java.util.NoSuchElementException.class, () -> targets.find(new ParameterId("Missing")));
@@ -179,6 +188,7 @@ class EditorMorphTargetAccessTest {
                 method("cubism.editor-model.guid.value", HostParameterGuid.class, "value", "()Ljava/lang/String;"));
         selectors.add(method(
                 "cubism.editor-model.form-guid.value", HostParameterGuid.class, "value", "()Ljava/lang/String;"));
+        selectors.addAll(historySelectors());
         return TestVerifiedResolvers.create(
                 "5.3.02",
                 "adapter.editor-model.readwrite",
@@ -186,10 +196,37 @@ class EditorMorphTargetAccessTest {
                         ? java.util.Set.of(
                                 "cubism.editor-model.read",
                                 EditorMorphTargetSelectorContract.READ_CAPABILITY_ID,
-                                EditorMorphTargetSelectorContract.WRITE_CAPABILITY_ID)
+                                EditorMorphTargetSelectorContract.WRITE_CAPABILITY_ID,
+                                "cubism.editor-history.read")
                         : java.util.Set.of("cubism.editor-model.read"),
                 selectors,
                 Host.class.getClassLoader());
+    }
+
+    /** Native Undo-history projection the authoring envelope verifies around its native edit. */
+    private static List<StaticSelector> historySelectors() {
+        return List.of(
+                method(
+                        "cubism.editor-history.document.undo-manager",
+                        Document.class,
+                        "undoManager",
+                        desc(UndoManager.class)),
+                StaticSelector.classSelector("cubism.editor-history.manager.class", internal(UndoManager.class)),
+                method("cubism.editor-history.manager.entries", UndoManager.class, "entries", "()Ljava/util/List;"),
+                method("cubism.editor-history.manager.position", UndoManager.class, "position", "()I"),
+                method("cubism.editor-history.manager.can-undo", UndoManager.class, "canUndo", "()Ljava/lang/Boolean;"),
+                method("cubism.editor-history.manager.can-redo", UndoManager.class, "canRedo", "()Ljava/lang/Boolean;"),
+                StaticSelector.classSelector("cubism.editor-history.entry.class", internal(GroupUndo.class)),
+                method(
+                        "cubism.editor-history.entry.presentation-name",
+                        GroupUndo.class,
+                        "presentationName",
+                        "()Ljava/lang/String;"),
+                method(
+                        "cubism.editor-history.entry.significant",
+                        GroupUndo.class,
+                        "significant",
+                        "()Ljava/lang/Boolean;"));
     }
 
     private static final class Fixture {

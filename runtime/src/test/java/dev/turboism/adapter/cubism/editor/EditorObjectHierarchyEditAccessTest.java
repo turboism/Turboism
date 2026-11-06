@@ -64,7 +64,7 @@ class EditorObjectHierarchyEditAccessTest {
     @Test
     void creates5302DefaultPartInRootTreeAndRestoresSiblingOrder() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var siblings = List.copyOf(fixture.rootPart.children);
         final var created = model.parts().create("Default Parent", null, 0);
@@ -91,7 +91,7 @@ class EditorObjectHierarchyEditAccessTest {
     void rejects5302DefaultPartWhenRootIsMissingBeforeAnyWrite() {
         final Fixture fixture = new Fixture();
         fixture.source.rootPart = null;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var original = List.copyOf(fixture.partSet.sources);
         assertThrows(IllegalStateException.class, () -> model.parts().create("Missing root", null, -1));
@@ -103,7 +103,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void createsPartWithParentIndexUndoAndRefreshCounts(final String cubismVersion) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
 
         final var root = model.parts().find(new PartId("Root"));
@@ -134,7 +134,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void createsWarpWithGridAndRotationDeformerUnderPart(final String cubismVersion) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
 
         final var warp = model.deformers().createWarp("New Warp", null, -1, 4, 3);
@@ -166,7 +166,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void createsArtMeshWithExplicitGeometryAndUndo(final String cubismVersion) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
         final ArtMeshGeometry geometry = new ArtMeshGeometry(
                 List.of(new Point2(-1F, -1F), new Point2(1F, -1F), new Point2(0F, 1F)),
@@ -196,7 +196,7 @@ class EditorObjectHierarchyEditAccessTest {
     void creates5302ArtMeshThroughPartTreeWithSingleUndo(final boolean explicitPart) {
         final Fixture fixture = new Fixture();
         fixture.source.treeMaterialization = true;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var siblings = List.copyOf(fixture.rootPart.children);
         final var geometry = nativeGeometry();
@@ -233,7 +233,7 @@ class EditorObjectHierarchyEditAccessTest {
     @Test
     void selectsExactMeshWithoutChangingDataOrHistoryAndRejectsInvalidIds() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var mesh = model.drawables().all().get(0);
         model.drawables().select(List.of(mesh.id()));
@@ -264,7 +264,7 @@ class EditorObjectHierarchyEditAccessTest {
     void sourceGeometryBatchPublishesOnceAndPreservesBothCoordinateDomains(final String version) {
         final Fixture fixture = new Fixture();
         fixture.source.treeMaterialization = true;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver(version), "session-a").active();
         final var geometry = nativeGeometry();
         final var neutral =
@@ -327,7 +327,7 @@ class EditorObjectHierarchyEditAccessTest {
     void meshBatchPreflightsAllParentIdsBeforeAnyInsertion() {
         final Fixture fixture = new Fixture();
         fixture.source.treeMaterialization = true;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.04"), "session-a").active();
         final var before = List.copyOf(fixture.drawableSet.sources);
         final var good = new dev.turboism.sdk.cubism.model.Drawables.SourceGeometryRequest(
@@ -356,7 +356,7 @@ class EditorObjectHierarchyEditAccessTest {
     void meshBatchRetainsDistinctPartOwnershipAcrossUndoRedo() {
         final Fixture fixture = new Fixture();
         fixture.source.treeMaterialization = true;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.04"), "session-a").active();
         final var parts = model.parts().createMany(List.of("Left", "Right"), null);
         final var ids =
@@ -407,7 +407,7 @@ class EditorObjectHierarchyEditAccessTest {
     void keepsUnfoldedSourceSeparateFromCollapsedDefaultAcrossUndoRedo() {
         final Fixture fixture = new Fixture();
         fixture.source.treeMaterialization = true;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var geometry = nativeGeometry();
         final var neutral =
@@ -446,7 +446,7 @@ class EditorObjectHierarchyEditAccessTest {
     @Test
     void rejectsMismatchedCoordinateDomainsBeforeCreatingOrRecordingUndo() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var sources = List.copyOf(fixture.drawableSet.sources);
         assertThrows(
@@ -464,7 +464,7 @@ class EditorObjectHierarchyEditAccessTest {
     void creates5302WarpThroughPartTreeWithSingleUndo(final boolean explicitPart) {
         final Fixture fixture = new Fixture();
         fixture.source.treeMaterialization = true;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var siblings = List.copyOf(fixture.rootPart.children);
         final var created = model.deformers()
@@ -504,7 +504,7 @@ class EditorObjectHierarchyEditAccessTest {
         fixture.source.treeMaterialization = true;
         if (missing.equals("root")) fixture.source.rootPart = null;
         else fixture.rootPart.handlerUnavailable = true;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         assertThrows(
                 IllegalStateException.class, () -> model.drawables().create("Native Mesh", null, -1, nativeGeometry()));
@@ -529,7 +529,7 @@ class EditorObjectHierarchyEditAccessTest {
             })
     void rejectsMissing5302AttachmentAliasBeforeBeginningEdit(final String missing) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(
                         resolver("5.3.02", "cubism.editor-model." + missing), "session-a")
                 .active();
@@ -551,7 +551,7 @@ class EditorObjectHierarchyEditAccessTest {
             })
     void rejectsMissing5302PartInsertionAliasBeforeBeginningEdit(final String missing) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(
                         resolver("5.3.02", "cubism.editor-model." + missing), "session-a")
                 .active();
@@ -597,7 +597,7 @@ class EditorObjectHierarchyEditAccessTest {
     void largeSiblingBatchKeepsEveryNativeUndoBeyondSemanticDetailLimit() {
         final Fixture fixture = new Fixture();
         fixture.source.treeMaterialization = true;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.04"), "session-a").active();
         final var before = List.copyOf(fixture.rootPart.children);
         final var created = model.parts()
@@ -619,7 +619,7 @@ class EditorObjectHierarchyEditAccessTest {
     void siblingPartsValidateAllNamesBeforeInsertionAndEmptyBatchDoesNothing() {
         final Fixture fixture = new Fixture();
         fixture.source.treeMaterialization = true;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.04"), "session-a").active();
         final var parent = model.parts().find(new PartId("Root"));
         assertThrows(IllegalArgumentException.class, () -> model.parts().createMany(List.of("Valid", " "), parent));
@@ -633,7 +633,7 @@ class EditorObjectHierarchyEditAccessTest {
     void siblingPartsPublishOnceAndPreserveUndoOrder(final String version) {
         final Fixture fixture = new Fixture();
         fixture.source.treeMaterialization = true;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver(version), "session-a").active();
         final var parent = model.parts().find(new PartId("Root"));
         final var before = List.copyOf(fixture.rootPart.children);
@@ -665,7 +665,7 @@ class EditorObjectHierarchyEditAccessTest {
         for (boolean targeted : List.of(false, true)) {
             final Fixture fixture = new Fixture();
             fixture.source.treeMaterialization = true;
-            Host.document = fixture.document;
+            Host.install(fixture);
             final var model = new EditorBackedCubismModelAccess(resolver(version), "session-a").active();
             final var target =
                     targeted ? java.util.Optional.of(new DeformerId("WarpA")) : java.util.Optional.<DeformerId>empty();
@@ -699,7 +699,7 @@ class EditorObjectHierarchyEditAccessTest {
     @Test
     void initializedWarpRejectsMissingTargetBeforeCreation() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.04"), "session-a").active();
         final var before = List.copyOf(fixture.deformerSet.sources);
         assertThrows(
@@ -752,7 +752,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void serviceCreatesExactDeformersUnderADeformerInOneUndoEach(final String cubismVersion) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var access = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a");
         final RuntimeModelObjectService service =
                 new RuntimeModelObjectService(access, PermissionChecker.allowAll(), () -> true);
@@ -809,7 +809,7 @@ class EditorObjectHierarchyEditAccessTest {
     void createPreflightFailureDoesNotBeginAnEmptyUndo() {
         final Fixture fixture = new Fixture();
         fixture.rootPart.handlerUnavailable = true;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
 
         assertThrows(
@@ -826,7 +826,7 @@ class EditorObjectHierarchyEditAccessTest {
     void deletesPartDeformerDrawableThroughNativeSelectionAndDeleteCommand(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         fixture.document.requireNativeDeleteSelection = "5.3.02".equals(cubismVersion);
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
 
         model.parts().remove(model.parts().find(new PartId("Child")));
@@ -869,7 +869,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void renamesDeformerAndDrawableThroughSharedLocalNameSelector(final String cubismVersion) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
 
         final var warp = model.warpDeformers().find(new DeformerId("WarpA"));
@@ -903,7 +903,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void reparentsPartToPartThroughNativeAddChildDetach(final String cubismVersion) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
 
         final var root = model.parts().find(new PartId("Root"));
@@ -927,7 +927,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void reparentsDeformerToPartAndToDeformer(final String cubismVersion) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
 
         final var warp = model.warpDeformers().find(new DeformerId("WarpA"));
@@ -957,7 +957,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void reparentsDrawableToPartAndToDeformer(final String cubismVersion) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
 
         final var mesh = model.drawables().find(new ArtMeshId("MeshA"));
@@ -980,7 +980,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void rejectsCyclesBeforeNativeInvocation(final String cubismVersion) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
 
         // Part cycle: set Root under its own descendant Child.
@@ -1004,7 +1004,7 @@ class EditorObjectHierarchyEditAccessTest {
     @Test
     void failsClosedBeforeSelectorUseWithoutHierarchyCapability() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var access = new EditorBackedCubismModelAccess(resolverWithoutHierarchyCapability(), "session-a");
         final var part = access.active().parts().find(new PartId("Root"));
         final var root = access.active().parts().find(new PartId("Root"));
@@ -1027,7 +1027,7 @@ class EditorObjectHierarchyEditAccessTest {
     @Test
     void rejectsBlankNamesAndStaleReferences() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var access = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a");
         final var model = access.active();
 
@@ -1050,7 +1050,7 @@ class EditorObjectHierarchyEditAccessTest {
     @Test
     void appliesDeformerToChildrenThroughExactNativeCommandOnce() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
 
@@ -1079,7 +1079,7 @@ class EditorObjectHierarchyEditAccessTest {
     void rejectsInvalidTargetGuidBeforeSelectionOrNativeWrite() {
         final Fixture fixture = new Fixture();
         fixture.warpSource.guid = new Guid(" ");
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
 
@@ -1097,7 +1097,7 @@ class EditorObjectHierarchyEditAccessTest {
     void rejectsApplyToChildrenWhenNativePostconditionStillContainsTargetGuid() {
         final Fixture fixture = new Fixture();
         fixture.source.applyNoop = true;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
 
@@ -1120,7 +1120,7 @@ class EditorObjectHierarchyEditAccessTest {
     @Test
     void rejectsApplyToChildrenWithoutAdmittedCapability() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolverWithoutHierarchyCapability(), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
 
@@ -1138,12 +1138,12 @@ class EditorObjectHierarchyEditAccessTest {
     @Test
     void rejectsForeignDeformerBeforeNativeInvocation() {
         final Fixture foreignFixture = new Fixture();
-        Host.document = foreignFixture.document;
+        Host.install(foreignFixture);
         final var foreignModel = new EditorBackedCubismModelAccess(resolver("5.3.02"), "foreign-session").active();
         final var foreign = foreignModel.deformers().find(new DeformerId("WarpA"));
 
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
 
         assertThrows(IllegalStateException.class, () -> model.deformers().applyToChildren(foreign));
@@ -1155,7 +1155,7 @@ class EditorObjectHierarchyEditAccessTest {
     @Test
     void rejectsStaleDeformerBeforeNativeInvocation() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
         fixture.replaceDeformerWithSameId();
@@ -1170,13 +1170,13 @@ class EditorObjectHierarchyEditAccessTest {
     void rejectsReentrantActiveDocumentSwitchBeforeNativeInvocation() {
         final Fixture original = new Fixture();
         final Fixture replacement = new Fixture();
-        Host.document = original.document;
+        final Host host = Host.install(original);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
         final int[] callbacks = {0};
         original.updateManager.selectionCallback = () -> {
             callbacks[0]++;
-            Host.document = replacement.document;
+            host.document = replacement.document;
         };
 
         assertThrows(IllegalStateException.class, () -> model.deformers().applyToChildren(target));
@@ -1194,7 +1194,7 @@ class EditorObjectHierarchyEditAccessTest {
     @Test
     void rejectsReentrantSameIdDeformerReplacementBeforeNativeInvocation() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
         final Guid originalGuid = fixture.warpSource.guid;
@@ -1220,7 +1220,7 @@ class EditorObjectHierarchyEditAccessTest {
         fixture.childPart.localName = "A";
         fixture.parentPart.localName = "B";
         fixture.rootPart.localName = "C";
-        Host.document = fixture.document;
+        Host.install(fixture);
         final VerifiedMemberResolver resolver = centralResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
 
@@ -1271,7 +1271,7 @@ class EditorObjectHierarchyEditAccessTest {
         fixture.source.allObjects.add(finalPart);
         fixture.source.model.parts.add(new HostPart(finalPart));
         fixture.rootPart.addChild(finalPart, -1);
-        Host.document = fixture.document;
+        Host.install(fixture);
         final VerifiedMemberResolver resolver = centralResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
         final var child = model.parts().find(new PartId("Child"));
@@ -1305,12 +1305,12 @@ class EditorObjectHierarchyEditAccessTest {
         final Fixture fixture = new Fixture();
         final boolean isArtMesh = "artmesh".equals(targetKind);
         if (isArtMesh) {
-            Host.document = fixture.document;
+            Host.install(fixture);
             fixture.meshSource.targetDeformerGuid = fixture.warpSource.guid;
         } else {
             fixture.warpSource.targetDeformerGuid = fixture.rotationSource.guid;
             fixture.attachWarpTarget();
-            Host.document = fixture.document;
+            Host.install(fixture);
         }
         final VerifiedMemberResolver resolver = relationAliasResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
@@ -1359,7 +1359,7 @@ class EditorObjectHierarchyEditAccessTest {
         fixture.rotationSource.id = new Id("MeshA");
         fixture.rotationSource.localName = "Rotation with Mesh ID";
         fixture.meshSource.targetDeformerGuid = fixture.warpSource.guid;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final VerifiedMemberResolver resolver = centralResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
 
@@ -1381,7 +1381,7 @@ class EditorObjectHierarchyEditAccessTest {
         // No direct Deformer parent: the child sits at the Deformer root.
         fixture.meshSource.targetDeformerGuid = null;
         fixture.warpSource.localName = "Warp with name";
-        Host.document = fixture.document;
+        Host.install(fixture);
         final VerifiedMemberResolver resolver = centralResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
 
@@ -1415,7 +1415,7 @@ class EditorObjectHierarchyEditAccessTest {
         fixture.parentPart.localName = "B";
         fixture.rootPart.localName = "Requested C";
         fixture.rootPart.renameOnNextAdd = "Actual C";
-        Host.document = fixture.document;
+        Host.install(fixture);
         final VerifiedMemberResolver resolver = centralResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
 
@@ -1436,7 +1436,7 @@ class EditorObjectHierarchyEditAccessTest {
         fixture.parentPart.localName = "B";
         fixture.rootPart.localName = "C";
         fixture.rootPart.failNameReadOnNextAdd = true;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final VerifiedMemberResolver resolver = centralResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
 
@@ -1457,7 +1457,7 @@ class EditorObjectHierarchyEditAccessTest {
     @Test
     void centralWriterRejectsSelfCycleStaleForeignAndFailedAdmissionBeforeMutation() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final VerifiedMemberResolver resolver = centralResolver("5.3.02");
         final var access = new EditorBackedCubismModelAccess(resolver, "session-a");
         final var model = access.active();
@@ -1481,7 +1481,7 @@ class EditorObjectHierarchyEditAccessTest {
         // Part membership attaches through the requested parent Part handler, so an unavailable
         // handler must reject the write before any mutation.
         rejected.rootPart.handlerUnavailable = true;
-        Host.document = rejected.document;
+        Host.install(rejected);
         final VerifiedMemberResolver rejectedResolver = centralResolver("5.3.02");
         final var rejectedModel = new EditorBackedCubismModelAccess(rejectedResolver, "session-a").active();
         assertThrows(
@@ -1498,7 +1498,7 @@ class EditorObjectHierarchyEditAccessTest {
     @Test
     void centralWriterNoChangeAndReorderDoNotPublishRelationSuccess() {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
+        Host.install(fixture);
         final VerifiedMemberResolver resolver = centralResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
         final var child = model.parts().find(new PartId("Child"));
@@ -1528,7 +1528,7 @@ class EditorObjectHierarchyEditAccessTest {
     void centralWriterGroupsPartAndDeformerRelationsInOneAmbientEntry() {
         final Fixture fixture = new Fixture();
         fixture.meshSource.targetDeformerGuid = fixture.warpSource.guid;
-        Host.document = fixture.document;
+        Host.install(fixture);
         final VerifiedMemberResolver resolver = relationAliasResolver("5.3.02");
         final var access = new EditorBackedCubismModelAccess(resolver, "session-a");
         final var service = ((RuntimeAuthoringTransactionProvider) access).authoringTransactions("plugin.test");

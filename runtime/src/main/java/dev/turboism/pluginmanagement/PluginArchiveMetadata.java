@@ -1,15 +1,13 @@
 package dev.turboism.pluginmanagement;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.core.descriptor.CubismVersionSidecar;
+import dev.turboism.core.descriptor.CubismVersionSidecar.Read;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.i18n.LocalizationDiagnosticSink;
 import dev.turboism.i18n.RuntimePluginLocalization;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -17,8 +15,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -184,49 +180,19 @@ record PluginArchiveMetadata(
                                 imported.required()))
                         .toList(),
                 readme,
-                descriptor instanceof dev.turboism.core.descriptor.CorePluginDescriptor cpd && cpd.hotReload(),
+                descriptor.hotReload(),
                 cubismCompatibility);
     }
 
     private static Optional<CorePluginManagement.CubismCompatibility> cubismCompatibility(
             final JarFile jar, final String pluginId) {
-        final JarEntry entry = jar.getJarEntry("META-INF/turboism/cubism-versions.json");
-        if (entry == null || entry.isDirectory() || entry.getSize() > 65536) return Optional.empty();
-        try (InputStream input = jar.getInputStream(entry)) {
-            final byte[] bytes = input.readNBytes(65537);
-            if (bytes.length > 65536) return Optional.empty();
-            final JsonNode document = new ObjectMapper()
-                    .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
-                    .readTree(bytes);
-            if (document == null
-                    || !"turboism.plugin-cubism-versions/v1"
-                            .equals(document.path("format").asText())
-                    || !pluginId.equals(document.path("plugin").asText())) return Optional.empty();
-            final List<String> supported = versionList(document.path("supportedVersions"));
-            final Optional<List<String>> full = document.has("fullFeatureVersions")
-                    ? Optional.of(versionList(document.path("fullFeatureVersions")))
-                    : Optional.empty();
-            return Optional.of(new CorePluginManagement.CubismCompatibility(supported, full));
-        } catch (IOException | IllegalArgumentException invalid) {
-            // Optional display metadata must not hide an otherwise readable installed plugin.
-            return Optional.empty();
+        if (CubismVersionSidecar.read(jar, pluginId) instanceof Read.Declared declared) {
+            return Optional.of(new CorePluginManagement.CubismCompatibility(
+                    declared.declaration().supportedVersions(),
+                    declared.declaration().fullFeatureVersions()));
         }
-    }
-
-    private static List<String> versionList(final JsonNode values) {
-        if (!values.isArray() || values.size() > 256) throw new IllegalArgumentException("Invalid version list");
-        final List<String> result = new ArrayList<>();
-        for (JsonNode value : values) {
-            if (!value.isTextual()
-                    || value.textValue().length() > 32
-                    || !value.textValue().matches("[0-9]+\\.[0-9]+\\.[0-9]+")) {
-                throw new IllegalArgumentException("Invalid Cubism version");
-            }
-            result.add(value.textValue());
-        }
-        if (new HashSet<>(result).size() != result.size())
-            throw new IllegalArgumentException("Duplicate Cubism version");
-        return List.copyOf(result);
+        // Optional display metadata must not hide an otherwise readable installed plugin.
+        return Optional.empty();
     }
 
     private static Optional<String> readme(final JarFile jar, final Locale locale) {

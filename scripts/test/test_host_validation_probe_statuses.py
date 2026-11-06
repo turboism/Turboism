@@ -1,100 +1,24 @@
 #!/usr/bin/env python3
-"""Offline contract for the status tokens the four shared-recorder probes may record.
+"""Offline contract for the status semantics the shared-recorder probes still owe.
 
-The recorder rejects an unknown token only when a probe runs on a host, and the rejection
-aborts the whole run (atlas-polygon once recorded NOTE). The check in
-check_validation_tools_sync reads the literals instead, so these tests need no host.
+The status tokens themselves are typed now: `ProbeAssertions.record` takes a
+`ProbeTerminal`, so an unknown token is a compile error and the old Java literal scan is
+gone. What source review still owns is business semantics: one SKIPPED assertion turns a
+whole host run into SKIPPED, so an optional or fixture-dependent step recorded as SKIPPED
+would silently weaken the run. The parameter-batch-transfer probe is the only probe that
+records SKIPPED, and only for contract rows the standard run owes.
+
+Runs without a host, SDK jar or network.
 """
 from pathlib import Path
-import sys
+import re
 import unittest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import check_validation_tools_sync as sync
-
 ROOT = Path(__file__).resolve().parents[2]
-ACCEPTED = {"PASS", "FAIL", "BLOCKED", "SKIPPED", "INFO"}
-
-
-def check(source: str) -> list[str]:
-    return sync.status_findings("Probe.java", source, ACCEPTED)
-
-
-class AcceptedStatusesTest(unittest.TestCase):
-    def test_tokens_come_from_the_shared_terminal_source(self):
-        self.assertEqual(ACCEPTED, sync.accepted_statuses(ROOT))
-
-
-class StatusScanTest(unittest.TestCase):
-    def test_unknown_literal_is_rejected(self):
-        findings = check('recordAssertion("a", "x", "y", present ? "PASS" : "NOTE");')
-        self.assertEqual(1, len(findings))
-        self.assertIn("'NOTE'", findings[0])
-        self.assertIn("Probe.java:1", findings[0])
-
-    def test_wrong_case_and_blank_literals_are_rejected(self):
-        for status in ('"pass"', '"Pass"', '""', 'ok ? "PASS" : "fail"'):
-            with self.subTest(status=status):
-                self.assertTrue(check(f'recordAssertion("a", "x", "y", {status});'))
-
-    def test_every_accepted_token_and_nested_ternary_pass(self):
-        for status in ('"PASS"', '"INFO"', 'a ? "PASS" : "SKIPPED"',
-                       'ready ? "PASS" : binding == null ? "BLOCKED" : "FAIL"'):
-            with self.subTest(status=status):
-                self.assertEqual([], check(f'recordAssertion("a", "x", "y", {status});'))
-
-    def test_literals_inside_conditions_are_not_statuses(self):
-        source = 'recordAssertion("a", "x", "y", !"unreadable".equals(state) ? "PASS" : "FAIL");'
-        self.assertEqual([], check(source))
-
-    def test_commas_and_parentheses_in_earlier_arguments_do_not_shift_the_status(self):
-        source = 'recordAssertion("a, (b)", describe(1, 2), "pre=" + x + ", post=)", ok ? "PASS" : "NOTE");'
-        self.assertEqual(1, len(check(source)))
-
-    def test_identifier_status_is_resolved_through_its_assignments(self):
-        good = 'String s;\ns = "PASS";\ns = "BLOCKED";\nrecordAssertion("a", "x", "y", s);'
-        bad = 'String s;\ns = "PASS";\ns = "NOTE";\nrecordAssertion("a", "x", "y", s);'
-        self.assertEqual([], check(good))
-        self.assertEqual(1, len(check(bad)))
-
-    def test_status_the_check_cannot_verify_is_rejected(self):
-        self.assertTrue(check('recordAssertion("a", "x", "y", computeStatus());'))
-        self.assertTrue(check('recordAssertion("a", "x", "y", unassigned);'))
-
-    def test_comments_between_arguments_do_not_shift_the_status(self):
-        source = ('recordAssertion("a", "x", "y",\n  // note, with, commas "NOTE"\n'
-                  '  /* and "NOTE", */ ok ? "PASS" : "FAIL");')
-        self.assertEqual([], check(source))
-        self.assertEqual(1, len(check(source.replace('"FAIL"', '"NOTE"'))))
-
-    def test_recorder_wrapper_declaration_is_not_a_call(self):
-        source = 'private void recordAssertion(\n final String name, final Object expected, final Object actual, final String status\n) {}'
-        self.assertEqual([], check(source))
-
-
-class ProbeSourcesTest(unittest.TestCase):
-    def test_the_four_probes_record_only_accepted_statuses(self):
-        self.assertEqual(4, len(sync.PROBE_TERMINAL_SOURCES))
-        for relative in sync.PROBE_TERMINAL_SOURCES:
-            with self.subTest(probe=relative):
-                text = (ROOT / relative).read_text(encoding="utf-8")
-                self.assertTrue(list(sync.record_status_arguments(text)), "probe records no assertion")
-                self.assertEqual([], sync.status_findings(relative, text, ACCEPTED))
-
-    def test_atlas_polygon_readback_uses_info_not_note(self):
-        relative = next(p for p in sync.PROBE_TERMINAL_SOURCES if "atlas-polygon" in p)
-        text = (ROOT / relative).read_text(encoding="utf-8")
-        self.assertIn('present ? "PASS" : "INFO"', text)
-        regressed = text.replace('present ? "PASS" : "INFO"', 'present ? "PASS" : "NOTE"')
-        self.assertTrue(sync.status_findings(relative, regressed, ACCEPTED))
-
-    def test_sync_check_reports_zero_findings(self):
-        self.assertEqual([], sync.findings(ROOT))
-
-
 PBT_SOURCE = ROOT / (
     "validation/parameter-batch-transfer-host-probe/src/dev/turboism/validation/"
     "parameterbatchtransfer/ParameterBatchTransferHostValidationPlugin.java")
+
 # Assertions that may record SKIPPED because they are contract rows the standard run owes:
 # the non-morph transferClamped source and the clamped/inverted/duplicate rows. Everything
 # else that a fixture may lack is optional and records INFO. Adding a name here needs a
@@ -114,20 +38,78 @@ PBT_OPTIONAL = (
     "classify.combined.filter",        # nothing to filter without a combined parameter
     "classify.normal.filter",          # nothing to filter without a normal parameter
 )
+# The two fast-path rows that did not run must record evidence, never PASS.
+PBT_FAST_PATH_INFO = ("setup.fallback.source.parameter", "setup.fallback.source")
+
+RECORD_CALL = "recordAssertion("
+SKIPPED = "ProbeTerminal.SKIPPED"
+STATUS_TOKEN_RE = re.compile(r"ProbeTerminal\.([A-Z]+)")
+QUOTED_STATUS_RE = re.compile(r'"(?:PASS|FAIL|BLOCKED|SKIPPED|INFO)"')
 
 
-def statuses_by_assertion(text: str) -> dict[str, set[str]]:
+def call_arguments(source: str, start: int) -> list[str]:
+    """Top-level arguments of the call whose open paren ends at start."""
+    depth, index = 1, start
+    arguments, current = [], []
+    in_string, escaped = False, False
+    while index < len(source):
+        char = source[index]
+        if in_string:
+            current.append(char)
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+            current.append(char)
+        elif char == "(":
+            depth += 1
+            current.append(char)
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                arguments.append("".join(current))
+                return arguments
+            current.append(char)
+        elif char == "," and depth == 1:
+            arguments.append("".join(current))
+            current = []
+        else:
+            current.append(char)
+        index += 1
+    raise AssertionError("unbalanced recordAssertion call")
+
+
+def record_calls(source: str):
+    """(assertion name, status argument source) for each literal-named recorder call."""
+    for match in re.finditer(re.escape(RECORD_CALL), source):
+        arguments = call_arguments(source, match.end())
+        if len(arguments) != 4 or "String status" in arguments[3]:
+            continue
+        name = arguments[0].strip()
+        if not name.startswith('"') or not name.endswith('"'):
+            continue
+        yield name.strip('"'), arguments[3]
+
+
+def statuses_by_assertion(source: str) -> dict[str, set[str]]:
     result: dict[str, set[str]] = {}
-    for _, args in sync.record_calls(text):
-        name = args[0].strip('"')
-        if len(args) == 4 and args[0].startswith('"'):
-            result.setdefault(name, set()).update(sync.STATUS_BRANCH_RE.findall(args[3]))
+    for name, status in record_calls(source):
+        result.setdefault(name, set()).update(STATUS_TOKEN_RE.findall(status))
     return result
 
 
 class ParameterBatchTransferSkipTest(unittest.TestCase):
     def setUp(self):
-        self.statuses = statuses_by_assertion(PBT_SOURCE.read_text(encoding="utf-8"))
+        self.source = PBT_SOURCE.read_text(encoding="utf-8")
+        self.statuses = statuses_by_assertion(self.source)
+
+    def test_only_owed_rows_can_record_skipped(self):
+        skipping = {name for name, found in self.statuses.items() if "SKIPPED" in found}
+        self.assertEqual(set(PBT_OWED_SKIPPED), skipping)
 
     def test_optional_paths_cannot_record_skipped(self):
         for name in PBT_OPTIONAL:
@@ -136,12 +118,15 @@ class ParameterBatchTransferSkipTest(unittest.TestCase):
                 self.assertNotIn("SKIPPED", self.statuses[name])
 
     def test_optional_fast_path_records_info_so_the_run_is_not_skipped(self):
-        for name in ("setup.fallback.source.parameter", "setup.fallback.source"):
+        for name in PBT_FAST_PATH_INFO:
             self.assertIn("INFO", self.statuses[name])
 
-    def test_only_owed_rows_can_record_skipped(self):
-        skipping = {name for name, found in self.statuses.items() if "SKIPPED" in found}
-        self.assertEqual(set(PBT_OWED_SKIPPED), skipping)
+    def test_status_arguments_are_typed_in_every_recorder_call(self):
+        # A quoted status argument is what the typed recorder replaced.
+        for name, status in record_calls(self.source):
+            with self.subTest(assertion=name):
+                self.assertEqual([], QUOTED_STATUS_RE.findall(status))
+                self.assertTrue(STATUS_TOKEN_RE.search(status), status)
 
 
 if __name__ == "__main__":

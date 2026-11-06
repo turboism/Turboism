@@ -1323,7 +1323,7 @@ final class EditorAuthoringTransactionCoordinatorTest {
         assertEquals(AuthoringTransactionOutcome.NO_CHANGE, result.outcome());
         assertTrue(callbackRan.get());
         assertTrue(evaluationRan.get());
-        assertFalse(f.coordinator.hasActiveTransaction());
+        assertFalse(f.coordinator.ambientScopeActive());
 
         final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("next root"), () -> "next");
         assertEquals(AuthoringTransactionOutcome.NO_CHANGE, next.outcome());
@@ -1351,7 +1351,7 @@ final class EditorAuthoringTransactionCoordinatorTest {
         assertSame(evaluationError, thrown);
         assertEquals(1, thrown.getSuppressed().length);
         assertSame(callbackException, thrown.getSuppressed()[0]);
-        assertFalse(f.coordinator.hasActiveTransaction(), "Ambient transaction must be cleaned up");
+        assertFalse(f.coordinator.ambientScopeActive(), "Ambient transaction must be cleaned up");
 
         final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("next root"), () -> "next");
         assertEquals(AuthoringTransactionOutcome.NO_CHANGE, next.outcome());
@@ -1380,7 +1380,7 @@ final class EditorAuthoringTransactionCoordinatorTest {
         assertSame(evaluationError, thrown);
         assertEquals(1, thrown.getSuppressed().length);
         assertSame(callbackException, thrown.getSuppressed()[0]);
-        assertFalse(f.coordinator.hasActiveTransaction(), "Ambient transaction must be cleaned up");
+        assertFalse(f.coordinator.ambientScopeActive(), "Ambient transaction must be cleaned up");
 
         final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("next root"), () -> "next");
         assertEquals(AuthoringTransactionOutcome.NO_CHANGE, next.outcome());
@@ -1408,7 +1408,7 @@ final class EditorAuthoringTransactionCoordinatorTest {
         assertSame(callbackOom, thrown);
         assertEquals(1, thrown.getSuppressed().length);
         assertSame(evaluationException, thrown.getSuppressed()[0]);
-        assertFalse(f.coordinator.hasActiveTransaction(), "Ambient transaction must be cleaned up");
+        assertFalse(f.coordinator.ambientScopeActive(), "Ambient transaction must be cleaned up");
 
         final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("next root"), () -> "next");
         assertEquals(AuthoringTransactionOutcome.NO_CHANGE, next.outcome());
@@ -1433,7 +1433,7 @@ final class EditorAuthoringTransactionCoordinatorTest {
 
         assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
         assertEquals(0, sharedException.getSuppressed().length);
-        assertFalse(f.coordinator.hasActiveTransaction());
+        assertFalse(f.coordinator.ambientScopeActive());
 
         final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("next root"), () -> "next");
         assertEquals(AuthoringTransactionOutcome.NO_CHANGE, next.outcome());
@@ -1456,7 +1456,7 @@ final class EditorAuthoringTransactionCoordinatorTest {
 
         assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
         assertTrue(evaluationRan.get(), "Deferred evaluation must run when batch ends even if callback fails");
-        assertFalse(f.coordinator.hasActiveTransaction());
+        assertFalse(f.coordinator.ambientScopeActive());
 
         final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("next root"), () -> "next");
         assertEquals(AuthoringTransactionOutcome.NO_CHANGE, next.outcome());
@@ -1491,7 +1491,7 @@ final class EditorAuthoringTransactionCoordinatorTest {
         assertSame(recoveryOom, thrown, "Fatal recovery error must take priority over non-fatal callback Error");
         assertEquals(1, thrown.getSuppressed().length);
         assertSame(callbackAssertion, thrown.getSuppressed()[0]);
-        assertFalse(f.coordinator.hasActiveTransaction());
+        assertFalse(f.coordinator.ambientScopeActive());
 
         final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("next root"), () -> "next");
         assertEquals(AuthoringTransactionOutcome.NO_CHANGE, next.outcome());

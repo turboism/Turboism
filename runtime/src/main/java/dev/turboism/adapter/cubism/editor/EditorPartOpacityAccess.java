@@ -1,7 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
-import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWrite;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorPartBasicSettingsSelectorContract;
@@ -29,6 +30,9 @@ import java.util.Optional;
 /** Exact, generation-bound Editor authoring projection for Part opacity. */
 final class EditorPartOpacityAccess {
 
+    private static final String OPACITY_OPERATION_ID = "cubism.part.set-opacity";
+    private static final String INSPECTOR_OPERATION_ID = "cubism.part.inspector-write";
+    private static final String BASIC_SETTING_OPERATION_ID = "cubism.part.basic-setting-write";
     private static final String ACTION_NAME = "Turboism: Set Part Opacity";
     private static final String NAME_ACTION_NAME = "Turboism: Set Part Name";
     private static final String SHORT_NAME_ACTION_NAME = "Turboism: Set Part Short Name";
@@ -47,16 +51,7 @@ final class EditorPartOpacityAccess {
     private final EditorPartStructureAccess structureAccess;
     private final EditorMorphTargetAccess morphTargetAccess;
     private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
-    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
-
-    EditorPartOpacityAccess(
-            final VerifiedMemberResolver resolver,
-            final EditorParameterCombinedAccess.ModelGuard modelGuard,
-            final EditorPartStructureAccess structureAccess,
-            final EditorMorphTargetAccess morphTargetAccess,
-            final EditorObjectHierarchyEditAccess hierarchyEditAccess) {
-        this(resolver, modelGuard, structureAccess, morphTargetAccess, hierarchyEditAccess, null);
-    }
+    private final EditorAuthoringWriter authoringWriter;
 
     EditorPartOpacityAccess(
             final VerifiedMemberResolver resolver,
@@ -64,13 +59,13 @@ final class EditorPartOpacityAccess {
             final EditorPartStructureAccess structureAccess,
             final EditorMorphTargetAccess morphTargetAccess,
             final EditorObjectHierarchyEditAccess hierarchyEditAccess,
-            final EditorAuthoringTransactionCoordinator authoringCoordinator) {
+            final EditorAuthoringWriter authoringWriter) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         this.structureAccess = Objects.requireNonNull(structureAccess, "structureAccess");
         this.morphTargetAccess = Objects.requireNonNull(morphTargetAccess, "morphTargetAccess");
         this.hierarchyEditAccess = Objects.requireNonNull(hierarchyEditAccess, "hierarchyEditAccess");
-        this.authoringCoordinator = authoringCoordinator;
+        this.authoringWriter = Objects.requireNonNull(authoringWriter, "authoringWriter");
     }
 
     Parts parts(final String identity, final Object source, final Object model) {
@@ -372,86 +367,43 @@ final class EditorPartOpacityAccess {
         }
         final float beforeOpacity = opacity(current.part());
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
-        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
-        if (ambientJoin.isPresent()) {
-            ambientJoin
-                    .orElseThrow()
-                    .admit(
-                            "cubism.part.set-opacity",
-                            identity + ":part:" + id.value() + ":opacity",
-                            ACTION_NAME,
-                            (edit, transactionLabel) -> {
-                                final Object handler =
-                                        resolver.invoke("cubism.editor-model.part-source.handler", current.source());
-                                if (!resolver.isInstance("cubism.editor-model.part-handler.class", handler)) {
-                                    throw unavailable("Editor Part Undo handler is unavailable.");
-                                }
-                                final Object partUndo = resolver.invoke(
-                                        "cubism.editor-model.part-handler.create-undo-for-all-edit",
-                                        handler,
-                                        ACTION_NAME);
-                                HostUndoMutationScope.requireUndoAccepted(
-                                        resolver.invoke("cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE),
-                                        "Part opacity");
-                                final Object listener = resolver.createFunctionalProxy(
-                                        "cubism.editor-model.undo-listener.class", ignored -> {
-                                            resolver.invoke(
-                                                    "cubism.editor-model.model-source.update-instances", source);
-                                            refresh(app);
-                                            return null;
-                                        });
-                                resolver.invoke("cubism.editor-model.undo.add-listener", partUndo, listener);
-                            },
-                            () -> resolver.invoke(
-                                    "cubism.editor-model.part-form.set-opacity",
-                                    currentForm(current.part()),
-                                    Float.valueOf(opacity)),
-                            () -> Float.compare(opacity(current.part()), opacity) == 0,
-                            () -> resolver.invoke(
-                                    "cubism.editor-model.part-form.set-opacity",
-                                    currentForm(current.part()),
-                                    Float.valueOf(beforeOpacity)),
-                            () -> Float.compare(opacity(current.part()), beforeOpacity) == 0,
-                            EnumSet.of(
-                                    EditorRefreshRequirement.MODEL_INSTANCES,
-                                    EditorRefreshRequirement.PART_PALETTE,
-                                    EditorRefreshRequirement.CANVAS,
-                                    EditorRefreshRequirement.MARK_DIRTY));
-            requireCurrentPart(identity, source, model, id, expectedSource, expectedPart);
-            return;
-        }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, "Part.setOpacity");
-        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, ACTION_NAME);
-        boolean completed = false;
-        try {
-            final Object handler = resolver.invoke("cubism.editor-model.part-source.handler", current.source());
-            if (!resolver.isInstance("cubism.editor-model.part-handler.class", handler)) {
-                throw unavailable("Editor Part Undo handler is unavailable.");
-            }
-            final Object partUndo =
-                    resolver.invoke("cubism.editor-model.part-handler.create-undo-for-all-edit", handler, ACTION_NAME);
-            final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE);
-            if (!(accepted instanceof Boolean value) || !value) {
-                throw new IllegalStateException("Cubism rejected the Part opacity Undo entry.");
-            }
-            final Object listener =
-                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
-                        resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-                        refresh(app);
-                        return null;
-                    });
-            resolver.invoke("cubism.editor-model.undo.add-listener", partUndo, listener);
-            resolver.invoke(
-                    "cubism.editor-model.part-form.set-opacity", currentForm(current.part()), Float.valueOf(opacity));
-            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-            refresh(app);
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-            completed = true;
-        } finally {
-            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
-        }
+        authoringWriter.apply(EditorAuthoringWrite.of(OPACITY_OPERATION_ID, ACTION_NAME)
+                .subject(identity + ":part:" + id.value() + ":opacity")
+                .refusalLabel("Part.setOpacity")
+                .admit((edit, transactionLabel) -> {
+                    final Object handler = resolver.invoke("cubism.editor-model.part-source.handler", current.source());
+                    if (!resolver.isInstance("cubism.editor-model.part-handler.class", handler)) {
+                        throw unavailable("Editor Part Undo handler is unavailable.");
+                    }
+                    final Object partUndo = resolver.invoke(
+                            "cubism.editor-model.part-handler.create-undo-for-all-edit", handler, ACTION_NAME);
+                    EditorAuthoringWrite.requireUndoAccepted(
+                            resolver.invoke("cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE),
+                            "Part opacity");
+                    final Object listener =
+                            resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                                resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                                refresh(app);
+                                return null;
+                            });
+                    resolver.invoke("cubism.editor-model.undo.add-listener", partUndo, listener);
+                })
+                .mutate(() -> resolver.invoke(
+                        "cubism.editor-model.part-form.set-opacity",
+                        currentForm(current.part()),
+                        Float.valueOf(opacity)))
+                .verifyApplied(() -> Float.compare(opacity(current.part()), opacity) == 0)
+                .compensate(() -> resolver.invoke(
+                        "cubism.editor-model.part-form.set-opacity",
+                        currentForm(current.part()),
+                        Float.valueOf(beforeOpacity)))
+                .restored(() -> Float.compare(opacity(current.part()), beforeOpacity) == 0)
+                .refresh(EnumSet.of(
+                        EditorRefreshRequirement.MODEL_INSTANCES,
+                        EditorRefreshRequirement.PART_PALETTE,
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY))
+                .build());
         requireCurrentPart(identity, source, model, id, expectedSource, expectedPart);
     }
 
@@ -567,8 +519,7 @@ final class EditorPartOpacityAccess {
         }
         requirePartInspector5302Authorization();
         final PartBinding current = requireCurrentPart(identity, source, model, id, expectedSource, expectedPart);
-        final Object host =
-                resolver.readStaticField("cubism.editor-model.alpha-composition." + alphaCompositionKey(composition));
+        final Object host = resolver.readStaticField(alphaCompositionAlias(composition));
         final Object currentHost =
                 resolver.invoke("cubism.editor-model.part-source.alpha-composition", current.source());
         if (currentHost == host) return;
@@ -584,77 +535,36 @@ final class EditorPartOpacityAccess {
             final Object source, final PartBinding current, final String actionName, final Runnable mutation) {
         EditorHostThread.requireHostThread("Cubism Part inspector write");
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
-        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
-        if (ambientJoin.isPresent()) {
-            ambientJoin
-                    .orElseThrow()
-                    .admit(
-                            "cubism.part.inspector-write",
-                            "part:" + Integer.toHexString(System.identityHashCode(current.source())) + ":" + actionName,
-                            actionName,
-                            (edit, transactionLabel) -> {
-                                final Object handler =
-                                        resolver.invoke("cubism.editor-model.part-source.handler", current.source());
-                                if (!resolver.isInstance("cubism.editor-model.part-handler.class", handler)) {
-                                    throw unavailable("Editor Part Undo handler is unavailable.");
-                                }
-                                final Object partUndo = resolver.invoke(
-                                        "cubism.editor-model.part-handler.create-undo-for-all-edit",
-                                        handler,
-                                        actionName);
-                                HostUndoMutationScope.requireUndoAccepted(
-                                        resolver.invoke("cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE),
-                                        "Part Inspector");
-                                final Object listener = resolver.createFunctionalProxy(
-                                        "cubism.editor-model.undo-listener.class", ignored -> {
-                                            resolver.invoke(
-                                                    "cubism.editor-model.model-source.update-instances", source);
-                                            refreshBoth(app);
-                                            return null;
-                                        });
-                                resolver.invoke("cubism.editor-model.undo.add-listener", partUndo, listener);
-                            },
-                            mutation,
-                            () -> true,
-                            EnumSet.of(
-                                    EditorRefreshRequirement.MODEL_INSTANCES,
-                                    EditorRefreshRequirement.PART_PALETTE,
-                                    EditorRefreshRequirement.DEFORMER_PALETTE,
-                                    EditorRefreshRequirement.CANVAS,
-                                    EditorRefreshRequirement.MARK_DIRTY));
-            return;
-        }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, actionName);
-        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, actionName);
-        boolean completed = false;
-        try {
-            final Object handler = resolver.invoke("cubism.editor-model.part-source.handler", current.source());
-            if (!resolver.isInstance("cubism.editor-model.part-handler.class", handler)) {
-                throw unavailable("Editor Part Undo handler is unavailable.");
-            }
-            final Object partUndo =
-                    resolver.invoke("cubism.editor-model.part-handler.create-undo-for-all-edit", handler, actionName);
-            final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE);
-            if (!(accepted instanceof Boolean value) || !value) {
-                throw new IllegalStateException("Cubism rejected the Part Inspector Undo entry.");
-            }
-            final Object listener =
-                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
-                        resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-                        refreshBoth(app);
-                        return null;
-                    });
-            resolver.invoke("cubism.editor-model.undo.add-listener", partUndo, listener);
-            mutation.run();
-            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-            refreshBoth(app);
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-            completed = true;
-        } finally {
-            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
-        }
+        authoringWriter.apply(EditorAuthoringWrite.of(INSPECTOR_OPERATION_ID, actionName)
+                .subject("part:" + Integer.toHexString(System.identityHashCode(current.source())) + ":" + actionName)
+                .refusalLabel(actionName)
+                .admit((edit, transactionLabel) -> {
+                    final Object handler = resolver.invoke("cubism.editor-model.part-source.handler", current.source());
+                    if (!resolver.isInstance("cubism.editor-model.part-handler.class", handler)) {
+                        throw unavailable("Editor Part Undo handler is unavailable.");
+                    }
+                    final Object partUndo = resolver.invoke(
+                            "cubism.editor-model.part-handler.create-undo-for-all-edit", handler, actionName);
+                    EditorAuthoringWrite.requireUndoAccepted(
+                            resolver.invoke("cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE),
+                            "Part Inspector");
+                    final Object listener =
+                            resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                                resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                                refreshBoth(app);
+                                return null;
+                            });
+                    resolver.invoke("cubism.editor-model.undo.add-listener", partUndo, listener);
+                })
+                .mutate(mutation)
+                .admissionVerified()
+                .refresh(EnumSet.of(
+                        EditorRefreshRequirement.MODEL_INSTANCES,
+                        EditorRefreshRequirement.PART_PALETTE,
+                        EditorRefreshRequirement.DEFORMER_PALETTE,
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY))
+                .build());
     }
 
     private void verifyModel(final Object modelSource) {
@@ -808,13 +718,13 @@ final class EditorPartOpacityAccess {
         return InspectorIdRules.isValidCubismId(id);
     }
 
-    private static String alphaCompositionKey(final AlphaComposition composition) {
+    private static String alphaCompositionAlias(final AlphaComposition composition) {
         return switch (composition) {
-            case OVER -> "over";
-            case ATOP -> "atop";
-            case OUT -> "out";
-            case CONJOINT -> "conjoint";
-            case DISJOINT -> "disjoint";
+            case OVER -> "cubism.editor-model.alpha-composition.over";
+            case ATOP -> "cubism.editor-model.alpha-composition.atop";
+            case OUT -> "cubism.editor-model.alpha-composition.out";
+            case CONJOINT -> "cubism.editor-model.alpha-composition.conjoint";
+            case DISJOINT -> "cubism.editor-model.alpha-composition.disjoint";
             case UNKNOWN -> throw new IllegalArgumentException("alpha composition must be a concrete mode");
         };
     }
@@ -847,76 +757,38 @@ final class EditorPartOpacityAccess {
             final Object source, final PartBinding current, final String actionName, final Runnable mutation) {
         EditorHostThread.requireHostThread("Cubism Part basic-setting write");
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
-        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
-        if (ambientJoin.isPresent()) {
-            ambientJoin
-                    .orElseThrow()
-                    .admit(
-                            "cubism.part.basic-setting-write",
-                            "part:" + Integer.toHexString(System.identityHashCode(current.source())) + ":" + actionName,
-                            actionName,
-                            (edit, transactionLabel) -> {
-                                final Object partUndo = resolver.invoke(
-                                        "cubism.editor-model.part-source.create-undo-for-basic-settings",
-                                        current.source(),
-                                        actionName);
-                                HostUndoMutationScope.requireUndoAccepted(
-                                        resolver.invoke("cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE),
-                                        "Part authoring");
-                                final Object listener = resolver.createFunctionalProxy(
-                                        "cubism.editor-model.undo-listener.class", ignored -> {
-                                            resolver.invoke(
-                                                    "cubism.editor-model.model-source.update-visible-lock-hierarchy",
-                                                    source);
-                                            resolver.invoke(
-                                                    "cubism.editor-model.model-source.update-instances", source);
-                                            refresh(app);
-                                            return null;
-                                        });
-                                resolver.invoke("cubism.editor-model.undo.add-listener", partUndo, listener);
-                            },
-                            () -> {
-                                mutation.run();
+        authoringWriter.apply(EditorAuthoringWrite.of(BASIC_SETTING_OPERATION_ID, actionName)
+                .subject("part:" + Integer.toHexString(System.identityHashCode(current.source())) + ":" + actionName)
+                .refusalLabel(actionName)
+                .admit((edit, transactionLabel) -> {
+                    final Object partUndo = resolver.invoke(
+                            "cubism.editor-model.part-source.create-undo-for-basic-settings",
+                            current.source(),
+                            actionName);
+                    EditorAuthoringWrite.requireUndoAccepted(
+                            resolver.invoke("cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE),
+                            "Part authoring");
+                    final Object listener =
+                            resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
                                 resolver.invoke(
                                         "cubism.editor-model.model-source.update-visible-lock-hierarchy", source);
-                            },
-                            () -> true,
-                            EnumSet.of(
-                                    EditorRefreshRequirement.MODEL_INSTANCES,
-                                    EditorRefreshRequirement.PART_PALETTE,
-                                    EditorRefreshRequirement.CANVAS,
-                                    EditorRefreshRequirement.MARK_DIRTY));
-            return;
-        }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, actionName);
-        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, actionName);
-        boolean completed = false;
-        try {
-            final Object partUndo = resolver.invoke(
-                    "cubism.editor-model.part-source.create-undo-for-basic-settings", current.source(), actionName);
-            final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, partUndo, Boolean.TRUE);
-            if (!(accepted instanceof Boolean value) || !value) {
-                throw new IllegalStateException("Cubism rejected the Part authoring Undo entry.");
-            }
-            final Object listener =
-                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
-                        resolver.invoke("cubism.editor-model.model-source.update-visible-lock-hierarchy", source);
-                        resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-                        refresh(app);
-                        return null;
-                    });
-            resolver.invoke("cubism.editor-model.undo.add-listener", partUndo, listener);
-            mutation.run();
-            resolver.invoke("cubism.editor-model.model-source.update-visible-lock-hierarchy", source);
-            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-            refresh(app);
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-            completed = true;
-        } finally {
-            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
-        }
+                                resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                                refresh(app);
+                                return null;
+                            });
+                    resolver.invoke("cubism.editor-model.undo.add-listener", partUndo, listener);
+                })
+                .mutate(() -> {
+                    mutation.run();
+                    resolver.invoke("cubism.editor-model.model-source.update-visible-lock-hierarchy", source);
+                })
+                .admissionVerified()
+                .refresh(EnumSet.of(
+                        EditorRefreshRequirement.MODEL_INSTANCES,
+                        EditorRefreshRequirement.PART_PALETTE,
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY))
+                .build());
     }
 
     private PartBinding requireCurrentPart(

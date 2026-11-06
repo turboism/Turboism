@@ -33,18 +33,20 @@ final class InputPathElisionHookContributor extends NativeOptimizationHookContri
             return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
+        // The launch startup policy snapshot, never a re-read of config.json: a hook that re-read the
+        // home directory could admit differently from the agent that gated it.
         if (production
                 && !validation
                 && !VerifiedInputPathElisionInstaller.admitted(
                         HostArtifactDigest.from(host.artifact()),
-                        NativeOptimizationPolicy.load(environment.options().home()),
+                        environment.plan().policy(),
                         true,
                         Runtime.version())) {
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("host-not-supported-or-hook-disabled");
         }
-        final VerifiedInputPathElisionInstaller installer = new VerifiedInputPathElisionInstaller(
-                environment.instrumentation(), host.artifact(), host.classLoader());
+        final VerifiedInputPathElisionInstaller installer =
+                new VerifiedInputPathElisionInstaller(InstallContext.of(environment));
         installer.install(production && !validation);
         log(
                 environment,

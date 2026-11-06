@@ -7,7 +7,13 @@ import dev.turboism.sdk.CubismEditor;
  * window through {@link TextureAtlasEditorUi#attach()}. The plugin updates the
  * panel content through this semantic surface; the host renderer and its
  * concrete widget type are owned by the runtime adapter.
+ *
+ * @deprecated use {@link dev.turboism.sdk.ui.HostViewPanelHandle}: it replaces rendered
+ *     {@link dev.turboism.sdk.ui.PanelView} content instead of a single text line and reports
+ *     the same visibility gate. Scheduled for removal; every released operation keeps working
+ *     through this thin adapter until then.
  */
+@Deprecated(forRemoval = true)
 @CubismEditor({"5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
 public interface TextureAtlasEditorPanel extends AutoCloseable {
 

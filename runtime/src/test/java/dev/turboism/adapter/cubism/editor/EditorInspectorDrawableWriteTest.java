@@ -532,16 +532,51 @@ public class EditorInspectorDrawableWriteTest {
 
     private static VerifiedMemberResolver resolver(final String version, final boolean includeWrite) {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
+        final java.util.ArrayList<StaticSelector> aliases = new java.util.ArrayList<>(selectors(version));
         capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
         if (includeWrite) {
             capabilities.add(EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID);
+            // Every migrated write runs the authoring envelope, which verifies the native history
+            // snapshot around the edit it opens.
+            capabilities.add("cubism.editor-history.read");
+            aliases.addAll(historySelectors());
         }
         return TestVerifiedResolvers.create(
                 version,
                 EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
                 capabilities,
-                selectors(version),
+                aliases,
                 Host.class.getClassLoader());
+    }
+
+    /** Native Undo-history projection shared by the authoring-envelope write paths. */
+    private static List<StaticSelector> historySelectors() {
+        return List.of(
+                method(
+                        "cubism.editor-history.document.undo-manager",
+                        Document.class,
+                        "undoManager",
+                        desc(HistoryManager.class)),
+                StaticSelector.classSelector("cubism.editor-history.manager.class", internal(HistoryManager.class)),
+                method("cubism.editor-history.manager.entries", HistoryManager.class, "entries", "()Ljava/util/List;"),
+                method("cubism.editor-history.manager.position", HistoryManager.class, "position", "()I"),
+                method(
+                        "cubism.editor-history.manager.can-undo",
+                        HistoryManager.class,
+                        "canUndo",
+                        "()Ljava/lang/Boolean;"),
+                method(
+                        "cubism.editor-history.manager.can-redo",
+                        HistoryManager.class,
+                        "canRedo",
+                        "()Ljava/lang/Boolean;"),
+                StaticSelector.classSelector("cubism.editor-history.entry.class", internal(Undo.class)),
+                method(
+                        "cubism.editor-history.entry.presentation-name",
+                        Undo.class,
+                        "presentationName",
+                        "()Ljava/lang/String;"),
+                method("cubism.editor-history.entry.significant", Undo.class, "significant", "()Ljava/lang/Boolean;"));
     }
 
     private static List<StaticSelector> selectors(final String version) {
@@ -954,10 +989,20 @@ public class EditorInspectorDrawableWriteTest {
 
     public static class Undo {
         Listener listener;
+        String presentationName = "edit";
 
         public boolean addListener(final Listener listener) {
             this.listener = listener;
             return true;
+        }
+
+        /** Native history projection: the committed entry keeps the label the edit was begun with. */
+        public String presentationName() {
+            return presentationName;
+        }
+
+        public Boolean significant() {
+            return Boolean.TRUE;
         }
     }
 
@@ -972,12 +1017,38 @@ public class EditorInspectorDrawableWriteTest {
 
         public GroupUndo begin(final String action) {
             final GroupUndo value = new GroupUndo();
+            value.presentationName = action;
             edits.add(value);
             return value;
         }
 
         public void end(final boolean aborted, final Object ignored) {
             if (aborted && !edits.isEmpty()) edits.remove(edits.size() - 1);
+        }
+    }
+
+    /** Native Undo-manager projection: one committed history entry per committed edit. */
+    public static final class HistoryManager {
+        private final EditMode editMode;
+
+        HistoryManager(final EditMode editMode) {
+            this.editMode = editMode;
+        }
+
+        public List<GroupUndo> entries() {
+            return List.copyOf(editMode.edits);
+        }
+
+        public int position() {
+            return editMode.edits.size();
+        }
+
+        public Boolean canUndo() {
+            return !editMode.edits.isEmpty();
+        }
+
+        public Boolean canRedo() {
+            return Boolean.FALSE;
         }
     }
 
@@ -1410,6 +1481,7 @@ public class EditorInspectorDrawableWriteTest {
         final ModelSource source;
         final EditMode editMode = new EditMode();
         final CompletePack pack = new CompletePack();
+        final HistoryManager undoManager = new HistoryManager(editMode);
         boolean dirty;
 
         Document(final ModelSource source) {
@@ -1422,6 +1494,10 @@ public class EditorInspectorDrawableWriteTest {
 
         public EditMode editMode() {
             return editMode;
+        }
+
+        public HistoryManager undoManager() {
+            return undoManager;
         }
 
         public void markDirty() {

@@ -1,11 +1,10 @@
 package dev.turboism.adapter.cubism.optimization.meshsetup;
 
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
+import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
 import java.nio.IntBuffer;
 import java.util.Map;
 import java.util.Properties;
@@ -49,6 +48,9 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
     /** Slot for the payload-free statistics supplier. */
     public static final String STATS_PROPERTY = "turboism.mesh-setup-elision.stats";
 
+    /** {@code getContext()} and {@code static getCurrent()} both answer {@code GLContext}. */
+    private static final String GL_CONTEXT_DESCRIPTOR = "()Lcom/jogamp/opengl/GLContext;";
+
     private final MethodHandle[] bufferGetters;
     private final MethodHandle nameHandle, dirtyHandle;
     private final MethodHandle frameGl, glContext, currentContext, contextCreated, contextShared, contextHandle;
@@ -88,47 +90,47 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
      * @throws ReflectiveOperationException when a reviewed member is absent
      */
     public SkippedFrameMeshSetupElisionBridge(final ClassLoader loader) throws ReflectiveOperationException {
-        final Class<?> mesh = Class.forName(SkippedFrameMeshSetupElisionTarget.OWNER.replace('/', '.'), false, loader);
+        final Class<?> mesh = HostHandles.load(loader, SkippedFrameMeshSetupElisionTarget.OWNER);
         bufferGetters = new MethodHandle[SkippedFrameMeshSetupElisionTarget.BUFFER_GETTERS.size()];
         for (int i = 0; i < bufferGetters.length; i++) {
-            final Method method = mesh.getMethod(SkippedFrameMeshSetupElisionTarget.BUFFER_GETTERS.get(i));
-            bufferGetters[i] = MethodHandles.publicLookup()
-                    .unreflect(method)
-                    .asType(MethodType.methodType(Object.class, Object.class));
+            // The reviewed buffer wrappers differ per attribute, so the getter is discovered by name and
+            // opened on its discovered descriptor.
+            bufferGetters[i] = HostHandles.virtual(
+                    mesh.getMethod(SkippedFrameMeshSetupElisionTarget.BUFFER_GETTERS.get(i)),
+                    MethodType.methodType(Object.class, Object.class));
         }
 
-        final Class<?> base =
-                Class.forName(SkippedFrameMeshSetupElisionTarget.BASE_OWNER.replace('/', '.'), false, loader);
-        final MethodHandles.Lookup baseLookup = MethodHandles.privateLookupIn(base, MethodHandles.lookup());
-        nameHandle = baseLookup
-                .findVirtual(
-                        base, SkippedFrameMeshSetupElisionTarget.NAME_METHOD, MethodType.methodType(IntBuffer.class))
-                .asType(MethodType.methodType(IntBuffer.class, Object.class));
-        dirtyHandle = baseLookup
-                .findVirtual(
-                        base, SkippedFrameMeshSetupElisionTarget.DIRTY_METHOD, MethodType.methodType(boolean.class))
-                .asType(MethodType.methodType(boolean.class, Object.class));
+        final Class<?> base = HostHandles.load(loader, SkippedFrameMeshSetupElisionTarget.BASE_OWNER);
+        nameHandle = HostHandles.virtual(
+                base,
+                SkippedFrameMeshSetupElisionTarget.NAME_METHOD,
+                SkippedFrameMeshSetupElisionTarget.NAME_DESCRIPTOR,
+                MethodType.methodType(IntBuffer.class, Object.class));
+        dirtyHandle = HostHandles.virtual(
+                base,
+                SkippedFrameMeshSetupElisionTarget.DIRTY_METHOD,
+                SkippedFrameMeshSetupElisionTarget.DIRTY_DESCRIPTOR,
+                MethodType.methodType(boolean.class, Object.class));
 
-        final Class<?> frame =
-                Class.forName(SkippedFrameMeshSetupElisionTarget.FRAME_OWNER.replace('/', '.'), false, loader);
-        final Class<?> gl3 = Class.forName("com.jogamp.opengl.GL3", false, loader);
-        frameGl = MethodHandles.publicLookup()
-                .findVirtual(frame, SkippedFrameMeshSetupElisionTarget.FRAME_METHOD, MethodType.methodType(gl3))
-                .asType(MethodType.methodType(Object.class, Object.class));
+        final Class<?> frame = HostHandles.load(loader, SkippedFrameMeshSetupElisionTarget.FRAME_OWNER);
+        frameGl = HostHandles.virtual(
+                frame,
+                SkippedFrameMeshSetupElisionTarget.FRAME_METHOD,
+                SkippedFrameMeshSetupElisionTarget.FRAME_DESCRIPTOR,
+                MethodType.methodType(Object.class, Object.class));
 
-        final Class<?> gl = Class.forName("com.jogamp.opengl.GL", false, loader);
-        final Class<?> context = Class.forName("com.jogamp.opengl.GLContext", false, loader);
-        final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
-        glContext = lookup.findVirtual(gl, "getContext", MethodType.methodType(context))
-                .asType(MethodType.methodType(Object.class, Object.class));
-        currentContext = lookup.findStatic(context, "getCurrent", MethodType.methodType(context))
-                .asType(MethodType.methodType(Object.class));
-        contextCreated = lookup.findVirtual(context, "isCreated", MethodType.methodType(boolean.class))
-                .asType(MethodType.methodType(boolean.class, Object.class));
-        contextShared = lookup.findVirtual(context, "isShared", MethodType.methodType(boolean.class))
-                .asType(MethodType.methodType(boolean.class, Object.class));
-        contextHandle = lookup.findVirtual(context, "getHandle", MethodType.methodType(long.class))
-                .asType(MethodType.methodType(long.class, Object.class));
+        final Class<?> gl = HostHandles.load(loader, "com/jogamp/opengl/GL");
+        final Class<?> context = HostHandles.load(loader, "com/jogamp/opengl/GLContext");
+        glContext = HostHandles.virtual(
+                gl, "getContext", GL_CONTEXT_DESCRIPTOR, MethodType.methodType(Object.class, Object.class));
+        currentContext = HostHandles.staticCall(
+                context, "getCurrent", GL_CONTEXT_DESCRIPTOR, MethodType.methodType(Object.class));
+        contextCreated =
+                HostHandles.virtual(context, "isCreated", "()Z", MethodType.methodType(boolean.class, Object.class));
+        contextShared =
+                HostHandles.virtual(context, "isShared", "()Z", MethodType.methodType(boolean.class, Object.class));
+        contextHandle =
+                HostHandles.virtual(context, "getHandle", "()J", MethodType.methodType(long.class, Object.class));
     }
 
     /** Occupies the predicate/complete/failure/stats slots; refuses another installation. */

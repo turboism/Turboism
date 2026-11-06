@@ -202,7 +202,7 @@ public record ExportSettingsHostProfile(
 
     /** @return the host versions whose reviewed artifacts carry an export-settings profile */
     public static List<String> supportedHostVersions() {
-        return dev.turboism.mapping.verification.ReviewedReleaseTable.versions().stream()
+        return dev.turboism.compatibility.policy.ReviewedReleaseTable.versions().stream()
                 .filter(ReviewedVersions.since("5.1.00")::contains)
                 .toList();
     }

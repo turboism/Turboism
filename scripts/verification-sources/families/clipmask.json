@@ -29,5 +29,12 @@
  "coverage": true,
  "packs": [],
  "extraLiterals": [],
- "coverageSources": []
+ "coverageSources": [],
+ "aliases": {
+  "className": "ClipmaskAliases",
+  "prefix": "cubism.clipmask."
+ },
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }

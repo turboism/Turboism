@@ -18,8 +18,8 @@ class MeshToolCoordinatorGenerationTest {
     void pluginReloadAndStaleRegistrationCloseAffectOnlyTheirExactGeneration() {
         MeshToolCoordinator coordinator = new MeshToolCoordinator();
         List<String> calls = new ArrayList<>();
-        var stale = coordinator.register("plugin", 1L, tool("brush", calls, "old"), allow());
-        coordinator.register("plugin", 2L, tool("brush", calls, "new"), allow());
+        var stale = coordinator.register("plugin", 1L, tool("brush", calls, "old"), allow(), false);
+        coordinator.register("plugin", 2L, tool("brush", calls, "new"), allow(), false);
         coordinator.beginSession(new Session(7L));
 
         coordinator.activate("plugin", 2L, "brush");
@@ -34,7 +34,7 @@ class MeshToolCoordinatorGenerationTest {
     @Test
     void sessionReplacementAndHostReplacementInvalidateEveryCapturedLeaseIdentity() {
         MeshToolCoordinator coordinator = new MeshToolCoordinator();
-        coordinator.register("plugin", 1L, tool("brush", new ArrayList<>(), "one"), allow());
+        coordinator.register("plugin", 1L, tool("brush", new ArrayList<>(), "one"), allow(), false);
         Session first = new Session(9L);
         coordinator.beginSession(first);
         coordinator.activate("plugin", 1L, "brush");
@@ -56,14 +56,14 @@ class MeshToolCoordinatorGenerationTest {
     @Test
     void staleIdentityAndClosedCoordinatorRejectFurtherMutation() {
         MeshToolCoordinator coordinator = new MeshToolCoordinator();
-        coordinator.register("plugin", 4L, tool("brush", new ArrayList<>(), "four"), allow());
+        coordinator.register("plugin", 4L, tool("brush", new ArrayList<>(), "four"), allow(), false);
         coordinator.beginSession(new Session(2L));
 
         assertThrows(IllegalArgumentException.class, () -> coordinator.activate("plugin", 3L, "brush"));
         coordinator.close();
         assertThrows(
                 IllegalStateException.class,
-                () -> coordinator.register("plugin", 5L, tool("other", new ArrayList<>(), "five"), allow()));
+                () -> coordinator.register("plugin", 5L, tool("other", new ArrayList<>(), "five"), allow(), false));
     }
 
     private static dev.turboism.permissions.PermissionChecker allow() {

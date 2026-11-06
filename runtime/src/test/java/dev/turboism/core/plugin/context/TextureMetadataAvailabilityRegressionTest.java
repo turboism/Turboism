@@ -64,7 +64,7 @@ final class TextureMetadataAvailabilityRegressionTest {
 
     @Test
     void everyReviewedVersionAdmitsAllFiveTextureWrites() {
-        for (String version : CubismEditorAvailabilityPolicy.reviewedVersions()) {
+        for (String version : CubismEditorAvailabilityResolver.reviewedVersions()) {
             final RecordingTextures delegate = new RecordingTextures();
             final ModelTextures textures = wrapped(version, delegate);
             textures.addModelImageGroup("group");

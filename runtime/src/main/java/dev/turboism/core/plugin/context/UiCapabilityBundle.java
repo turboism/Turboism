@@ -1,6 +1,7 @@
 package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.adapter.cubism.preview.RuntimePreviewFrameService;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
@@ -9,11 +10,13 @@ import dev.turboism.recentpreview.RuntimeRecentPreviewContributionService;
 import dev.turboism.screenshot.RuntimeScreenshotCaptureService;
 import dev.turboism.sdk.action.ActionCatalogService;
 import dev.turboism.sdk.appearance.AppearanceService;
+import dev.turboism.sdk.cubism.preview.PreviewFrameService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginService;
+import dev.turboism.sdk.ui.HostViewPanel;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.dialog.HostDialogAutomationService;
@@ -29,6 +32,7 @@ import dev.turboism.ui.action.RuntimeActionCatalogService;
 import dev.turboism.ui.appearance.RuntimeAppearanceService;
 import dev.turboism.ui.dialog.RuntimeHostDialogAutomationService;
 import dev.turboism.ui.filter.RuntimePaletteFilterRegistry;
+import dev.turboism.ui.panel.PluginScopedHostViewPanel;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
 import dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry;
 import dev.turboism.ui.workspace.RuntimeWorkspaceService;
@@ -46,6 +50,7 @@ record UiCapabilityBundle(
         PaletteFilterRegistry paletteFilterRegistry,
         ContextMenuRegistry contextMenuRegistry,
         UiHostCapabilityService uiHostCapabilityService,
+        HostViewPanel hostViewPanel,
         UiResourceService uiResourceService,
         HostDialogAutomationService hostDialogAutomationService,
         AppearanceService appearanceService,
@@ -55,7 +60,8 @@ record UiCapabilityBundle(
         RecentFileService recentFileService,
         ScreenshotCaptureService screenshotCaptureService,
         RecentPreviewContributionService recentPreviewContributionService,
-        ActionCatalogService actionCatalogService)
+        ActionCatalogService actionCatalogService,
+        PreviewFrameService previewFrameService)
         implements PluginCapabilityBundle {
 
     UiCapabilityBundle {
@@ -64,6 +70,7 @@ record UiCapabilityBundle(
         Objects.requireNonNull(paletteFilterRegistry, "paletteFilterRegistry");
         Objects.requireNonNull(contextMenuRegistry, "contextMenuRegistry");
         Objects.requireNonNull(uiHostCapabilityService, "uiHostCapabilityService");
+        Objects.requireNonNull(hostViewPanel, "hostViewPanel");
         Objects.requireNonNull(uiResourceService, "uiResourceService");
         Objects.requireNonNull(hostDialogAutomationService, "hostDialogAutomationService");
         Objects.requireNonNull(appearanceService, "appearanceService");
@@ -74,6 +81,7 @@ record UiCapabilityBundle(
         Objects.requireNonNull(screenshotCaptureService, "screenshotCaptureService");
         Objects.requireNonNull(recentPreviewContributionService, "recentPreviewContributionService");
         Objects.requireNonNull(actionCatalogService, "actionCatalogService");
+        Objects.requireNonNull(previewFrameService, "previewFrameService");
     }
 
     static UiCapabilityBundle create(
@@ -131,6 +139,23 @@ record UiCapabilityBundle(
                 : new RuntimeRecentPreviewContributionService(adapters.recentPreviews(), uiPermissionChecker);
         final HostDialogAutomationService hostDialogAutomationService =
                 new RuntimeHostDialogAutomationService(uiPermissionChecker);
+        final HostViewPanel hostViewPanel = hostAccess == null
+                ? HostViewPanel.unavailable()
+                : new PluginScopedHostViewPanel(
+                        hostAccess.hostViewPanels(), uiPermissionChecker, dependencies.disposableScope());
+        // Declaring cubism.preview.capture is the admission condition: the capability row exists in
+        // CapabilityAdmission, the permission is enforced per call by the service, and a plugin that
+        // declares neither never resolves a preview surface.
+        final RuntimePreviewFrameService previewFrameService =
+                hostAccess == null || !RuntimePreviewFrameService.declaredBy(dependencies.descriptor())
+                        ? null
+                        : new RuntimePreviewFrameService(
+                                hostAccess.previewSurfaces(), uiPermissionChecker, dependencies.disposableScope());
+        if (previewFrameService != null) {
+            dependencies.disposableScope().register(previewFrameService::close);
+        }
+        final PreviewFrameService previewFrameServiceView =
+                previewFrameService == null ? PreviewFrameService.unavailable() : previewFrameService;
 
         final WorkspaceService rawWorkspace = hostAccess == null
                 ? WorkspaceService.unavailable()
@@ -218,6 +243,7 @@ record UiCapabilityBundle(
                 paletteFilter,
                 contextMenu,
                 uiHostCapabilityService,
+                hostViewPanel,
                 uiResourceService,
                 hostDialogAutomationService,
                 appearanceService,
@@ -227,7 +253,8 @@ record UiCapabilityBundle(
                 recentFileService,
                 screenshotCaptureService,
                 recentPreviewContributionService,
-                actionCatalogService);
+                actionCatalogService,
+                previewFrameServiceView);
     }
 
     private static void bindContributionLocalization(
@@ -270,6 +297,7 @@ record UiCapabilityBundle(
         directory.installWhenPresent(PluginService.UI_HOST, () -> uiHostCapabilityService);
         directory.install(PluginService.UI_RESOURCES, () -> uiResourceService, UiResourceService::unavailable);
         directory.installWhenPresent(PluginService.HOST_DIALOGS, () -> hostDialogAutomationService);
+        directory.install(PluginService.HOST_VIEW_PANEL, () -> hostViewPanel, HostViewPanel::unavailable);
         directory.install(PluginService.APPEARANCE, () -> appearanceService, AppearanceService::unavailable);
         directory.install(PluginService.WORKSPACE, () -> workspaceService, WorkspaceService::unavailable);
         directory.install(
@@ -282,5 +310,6 @@ record UiCapabilityBundle(
                 PluginService.RECENT_PREVIEWS,
                 () -> recentPreviewContributionService,
                 RecentPreviewContributionService::unavailable);
+        directory.install(PluginService.PREVIEW_FRAMES, () -> previewFrameService, PreviewFrameService::unavailable);
     }
 }

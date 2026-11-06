@@ -122,6 +122,13 @@
 | `dev.turboism.sdk.cubism.export.ExportSettingsContributionService.Unavailable` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.export.ExportSettingsDecision#ExportSettingsDecision()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.export.Outcome` | type | 5.1.00–5.3.04 |
+| `dev.turboism.sdk.cubism.export.ProtectedExportCensus#ProtectedExportCensus()` | method | 5.1.00–5.3.04 |
+| `dev.turboism.sdk.cubism.export.ProtectedExportContribution#ProtectedExportContribution()` | method | 5.1.00–5.3.04 |
+| `dev.turboism.sdk.cubism.export.ProtectedExportPlan#ProtectedExportPlan()` | method | 5.1.00–5.3.04 |
+| `dev.turboism.sdk.cubism.export.ProtectedExportPlan#Target()` | method | 5.1.00–5.3.04 |
+| `dev.turboism.sdk.cubism.export.ProtectedExportPlanResult` | type | 5.1.00–5.3.04 |
+| `dev.turboism.sdk.cubism.export.ProtectedExportPlanResult#Admitted()` | method | 5.1.00–5.3.04 |
+| `dev.turboism.sdk.cubism.export.ProtectedExportPlanResult#Rejected()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AlphaComposition` | type | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYure` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYureBinding` | type | 5.1.00–5.3.04 |
@@ -144,6 +151,8 @@
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.ui.HostViewPanel` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.ui.HostViewPanelHandle` | type | 5.2.00–5.3.04 |
 
 ## 일부 버전에서만 사용 가능한 Editor 명령
 

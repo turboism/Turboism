@@ -60,7 +60,7 @@ selector re-verification + class-source attestation)
 | `runtime .../verification/*VerificationManifest.java` | 21 | Hand-maintained | No generator exists; each embeds per-version `ReviewedSliceRecord` (verificationId, record SHA-256, cubismVersion, profileId) plus capability/alias sets |
 | `runtime .../verification/selector/*.java` | 44 | Hand-maintained | Plain constant classes; the only generated sibling (`CorePublicApiSelectorContract`) is emitted into `runtime/build/`, not this source set |
 | `ReviewedHostArtifacts`, `CubismEditorReleaseDetector`, `CorePublicApiTrustRoots`, `CubismEditorAvailabilityPolicy`, `bootstrap/build.gradle.kts` record list | — | Hand-maintained | Version set is restated in each; see drift register |
-| `mapping/draft/*` (pipeline classes) | 24 | Hand-maintained tooling | `MappingReviewCli`/`MappingReviewService`/`MappingUpdate*Validator`/`MappingReviewValidator` — the pipeline is a reviewer tool, not a manifest producer |
+| `runtime/src/tooling/java/.../mapping/draft/*` (pipeline classes) | 24 | Hand-maintained tooling; compiled into `:runtime`'s `tooling` source set and never packaged in the agent JAR | `MappingReviewCli`/`MappingReviewService`/`MappingUpdate*Validator`/`MappingReviewValidator` — the pipeline is a reviewer tool, not a manifest producer |
 
 Generation coverage is asymmetric by design today: `runtime:generateCorePublicApiCatalog`
 and `runtime:generateCorePublicApiSelectorContract` cover only the Cubism **Core**

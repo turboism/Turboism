@@ -10,7 +10,7 @@ import dev.turboism.runtime.log.RuntimeDiagnostics;
  * installs in {@link Phase#PREMAIN} before the host's textureatlas classes
  * load and closes on the process-exit path.
  */
-final class AtlasCacheReuseHookContributor implements HookContributor {
+final class AtlasCacheReuseHookContributor implements ReportedHookContributor {
 
     static final String HOOK_POLICY_ID = "cubism.textureatlas.cache-reuse";
 
@@ -42,8 +42,8 @@ final class AtlasCacheReuseHookContributor implements HookContributor {
     @Override
     public boolean admitted(final HookEnvironment environment) {
         final boolean requested = environment
-                .optimizationConfig()
-                .choice(dev.turboism.config.NativeOptimizationConfig.Option.ATLAS_CACHE_REUSE)
+                .plan()
+                .choice(dev.turboism.config.optimization.OptimizationCatalog.ATLAS_CACHE_REUSE)
                 .enabled();
         final boolean admitted = environment.startupPolicy() != null
                 && environment.startupPolicy().hookEnabled(HOOK_POLICY_ID)

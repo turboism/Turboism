@@ -1,7 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
-import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWrite;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorModelProfileSelectorContract;
@@ -13,22 +14,20 @@ import java.util.Objects;
 /** Exact, generation-bound Editor projection for model name writes, model profile reads, and canvas metrics. */
 final class EditorModelProfileAccess {
 
+    private static final String OPERATION_ID = "cubism.model.set-name";
+    private static final String ACTION_NAME = "Turboism: Set Model Name";
+
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
-    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
-
-    EditorModelProfileAccess(
-            final VerifiedMemberResolver resolver, final EditorParameterCombinedAccess.ModelGuard modelGuard) {
-        this(resolver, modelGuard, null);
-    }
+    private final EditorAuthoringWriter authoringWriter;
 
     EditorModelProfileAccess(
             final VerifiedMemberResolver resolver,
             final EditorParameterCombinedAccess.ModelGuard modelGuard,
-            final EditorAuthoringTransactionCoordinator authoringCoordinator) {
+            final EditorAuthoringWriter authoringWriter) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
-        this.authoringCoordinator = authoringCoordinator;
+        this.authoringWriter = Objects.requireNonNull(authoringWriter, "authoringWriter");
     }
 
     void setName(final String identity, final Object source, final Object model, final String name) {
@@ -53,72 +52,38 @@ final class EditorModelProfileAccess {
         final Object current = resolver.invoke("cubism.editor-model.model-source.name", source);
         if (current instanceof String existing && existing.equals(name)) return;
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
-        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
-        if (ambientJoin.isPresent()) {
-            final HostUndoMutationScope join = ambientJoin.orElseThrow();
-            final String beforeName = current instanceof String text ? text : null;
-            join.admit(
-                    "cubism.model.set-name",
-                    identity + ":model:name",
-                    "Turboism: Set Model Name",
-                    (edit, transactionLabel) -> {
-                        final Object undo = resolver.construct(
-                                "cubism.editor-model.simple-undo.create", "Turboism: Set Model Name", source, null);
-                        HostUndoMutationScope.requireUndoAccepted(
-                                resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE),
-                                "Set Model Name");
-                        final Object listener =
-                                resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
-                                    resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-                                    refresh(app);
-                                    return null;
-                                });
-                        resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
-                    },
-                    () -> resolver.invoke("cubism.editor-model.model-source.set-name", source, name),
-                    () -> name.equals(resolver.invoke("cubism.editor-model.model-source.name", source)),
-                    beforeName != null
-                            ? () -> resolver.invoke("cubism.editor-model.model-source.set-name", source, beforeName)
-                            : () -> {},
-                    beforeName != null
-                            ? () -> beforeName.equals(resolver.invoke("cubism.editor-model.model-source.name", source))
-                            : join::groupUndoApplied,
-                    EnumSet.of(
-                            EditorRefreshRequirement.MODEL_INSTANCES,
-                            EditorRefreshRequirement.PART_PALETTE,
-                            EditorRefreshRequirement.CANVAS,
-                            EditorRefreshRequirement.MARK_DIRTY));
-            modelGuard.requireCurrent(identity, model);
-            return;
+        final String beforeName = current instanceof String text ? text : null;
+        final EditorAuthoringWrite.Builder write = EditorAuthoringWrite.of(OPERATION_ID, ACTION_NAME)
+                .subject(identity + ":model:name")
+                .refusalLabel("Model.setName")
+                .admit((edit, transactionLabel) -> {
+                    final Object undo =
+                            resolver.construct("cubism.editor-model.simple-undo.create", ACTION_NAME, source, null);
+                    final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
+                    if (!(accepted instanceof Boolean admitted) || !admitted) {
+                        throw new IllegalStateException("Cubism rejected the model-name Undo entry.");
+                    }
+                    final Object listener =
+                            resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                                resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                                refresh(app);
+                                return null;
+                            });
+                    resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+                })
+                .mutate(() -> resolver.invoke("cubism.editor-model.model-source.set-name", source, name))
+                .verifyApplied(() -> name.equals(resolver.invoke("cubism.editor-model.model-source.name", source)))
+                .refresh(EnumSet.of(
+                        EditorRefreshRequirement.MODEL_INSTANCES,
+                        EditorRefreshRequirement.PART_PALETTE,
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY));
+        if (beforeName != null) {
+            write.compensate(() -> resolver.invoke("cubism.editor-model.model-source.set-name", source, beforeName))
+                    .restored(
+                            () -> beforeName.equals(resolver.invoke("cubism.editor-model.model-source.name", source)));
         }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, "Model.setName");
-        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-        final Object edit =
-                resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, "Turboism: Set Model Name");
-        boolean completed = false;
-        try {
-            final Object undo = resolver.construct(
-                    "cubism.editor-model.simple-undo.create", "Turboism: Set Model Name", source, null);
-            final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
-            if (!(accepted instanceof Boolean value) || !value) {
-                throw new IllegalStateException("Cubism rejected the model-name Undo entry.");
-            }
-            final Object listener =
-                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
-                        resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-                        refresh(app);
-                        return null;
-                    });
-            resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
-            resolver.invoke("cubism.editor-model.model-source.set-name", source, name);
-            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-            refresh(app);
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-            completed = true;
-        } finally {
-            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
-        }
+        authoringWriter.apply(write.build());
         modelGuard.requireCurrent(identity, model);
     }
 

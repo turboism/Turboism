@@ -1,9 +1,9 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.mesh.MeshMirrorHookAdmission;
 import dev.turboism.adapter.cubism.mesh.MeshMirrorHostProfile;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
+import dev.turboism.core.lifecycle.CapabilityAdmission;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.nio.file.Path;
@@ -14,8 +14,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * Declarative contributor for the verified mesh-mirror hook. The transformer
  * must be installed before the host's mirror classes load, so it installs in
  * {@link Phase#PREMAIN} from the process classpath, then binds runtime
- * services once the preview runtime has started and the authorized consumer
- * is present.
+ * services once the preview runtime has started and a capability-admitted
+ * consumer is present.
  */
 final class MeshMirrorHookContributor implements HookContributor {
 
@@ -139,11 +139,12 @@ final class MeshMirrorHookContributor implements HookContributor {
             throw new IllegalStateException("Mesh mirror bind refused: runtime slice not admitted");
         }
         final var runtime = environment.runtime().orElseThrow();
-        if (!MeshMirrorHookAdmission.admitted(runtime.loadReport().loaded())) {
+        if (CapabilityAdmission.admitted(runtime.loadReport().loaded(), CapabilityAdmission.MESH_MIRROR_HOOKS)
+                .isEmpty()) {
             current.close();
             installer.compareAndSet(current, null);
             CURRENT.compareAndSet(current, null);
-            throw new IllegalStateException("Mesh mirror bind refused: authorized consumer plugin absent");
+            throw new IllegalStateException("Mesh mirror bind refused: capability-admitted consumer absent");
         }
         try {
             current.defineLazyTargets(environment.host().orElseThrow().classLoader());

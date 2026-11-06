@@ -40,5 +40,12 @@
   "cubism.core.owned-moc.read"
  ],
  "coverageSources": [],
- "coverage": false
+ "coverage": false,
+ "aliases": {
+  "className": "CoreAliases",
+  "prefix": "cubism.core."
+ },
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }

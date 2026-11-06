@@ -5,6 +5,8 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
+import dev.turboism.sdk.cubism.export.ProtectedExportContribution;
+import dev.turboism.sdk.cubism.export.ProtectedExportPlanner;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.plugin.Registration;
 import java.time.Duration;
@@ -12,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -65,8 +68,19 @@ public final class RuntimeExportSettingsContributionRegistry
 
     @Override
     public Registration contribute(final ExportSettingsContribution contribution) {
-        final ExportSettingsContribution requested = Objects.requireNonNull(contribution, "contribution");
-        final ContributionEntry entry = new ContributionEntry(requested);
+        return register(Objects.requireNonNull(contribution, "contribution"), null);
+    }
+
+    @Override
+    public Registration contributeProtectedExport(final ProtectedExportContribution contribution) {
+        final ProtectedExportContribution requested = Objects.requireNonNull(contribution, "contribution");
+        return register(
+                new ExportSettingsContribution(requested.optionId(), requested.labelKey(), requested.callback()),
+                requested.planner());
+    }
+
+    private Registration register(final ExportSettingsContribution requested, final ProtectedExportPlanner planner) {
+        final ContributionEntry entry = new ContributionEntry(requested, planner);
         synchronized (lifecycleLock) {
             if (closed) {
                 throw new IllegalStateException("export settings contribution registry is closed");
@@ -88,6 +102,24 @@ public final class RuntimeExportSettingsContributionRegistry
                 }
             }
         };
+    }
+
+    /**
+     * The protected-export planner of one contributed option, or empty when the option was
+     * registered as a plain contribution or the registry is closed.
+     *
+     * <p>The orchestrator resolves the planner here rather than capturing it at plugin load
+     * time: only a live, still-registered contribution may plan an armed session.</p>
+     */
+    Optional<ProtectedExportPlanner> protectedExportPlanner(final String optionId) {
+        Objects.requireNonNull(optionId, "optionId");
+        synchronized (lifecycleLock) {
+            if (closed) {
+                return Optional.empty();
+            }
+            final ContributionEntry entry = contributions.get(optionId);
+            return entry == null ? Optional.empty() : Optional.ofNullable(entry.planner());
+        }
     }
 
     /** Returns the exact plugin id owned by this registry. */
@@ -259,7 +291,7 @@ public final class RuntimeExportSettingsContributionRegistry
         }
     }
 
-    private record ContributionEntry(ExportSettingsContribution contribution) {
+    private record ContributionEntry(ExportSettingsContribution contribution, ProtectedExportPlanner planner) {
         private ContributionEntry {
             Objects.requireNonNull(contribution, "contribution");
         }

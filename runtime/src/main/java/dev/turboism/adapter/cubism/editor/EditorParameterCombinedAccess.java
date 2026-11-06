@@ -1,7 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
-import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWrite;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorParameterCombinedWriteSelectorContract;
@@ -14,27 +15,23 @@ import java.util.Optional;
 /** Verified Editor-native four-corner parameter pairing operations. */
 final class EditorParameterCombinedAccess {
 
+    private static final String OPERATION_ID = "cubism.parameter.combine-edit";
+    private static final String ACTION_NAME = "Turboism: Edit Combined Parameters";
+
     private final VerifiedMemberResolver resolver;
     private final ModelGuard modelGuard;
     private final ParameterSourceLookup sourceLookup;
-    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
-
-    EditorParameterCombinedAccess(
-            final VerifiedMemberResolver resolver,
-            final ModelGuard modelGuard,
-            final ParameterSourceLookup sourceLookup) {
-        this(resolver, modelGuard, sourceLookup, null);
-    }
+    private final EditorAuthoringWriter authoringWriter;
 
     EditorParameterCombinedAccess(
             final VerifiedMemberResolver resolver,
             final ModelGuard modelGuard,
             final ParameterSourceLookup sourceLookup,
-            final EditorAuthoringTransactionCoordinator authoringCoordinator) {
+            final EditorAuthoringWriter authoringWriter) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         this.sourceLookup = Objects.requireNonNull(sourceLookup, "sourceLookup");
-        this.authoringCoordinator = authoringCoordinator;
+        this.authoringWriter = Objects.requireNonNull(authoringWriter, "authoringWriter");
     }
 
     Optional<ParameterId> partner(final String expectedIdentity, final Object expectedModel, final ParameterId id) {
@@ -134,64 +131,38 @@ final class EditorParameterCombinedAccess {
             final Runnable mutation) {
         EditorHostThread.requireHostThread("Cubism parameter combine write");
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
-        final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
-        if (ambientJoin.isPresent()) {
-            ambientJoin
-                    .orElseThrow()
-                    .admit(
-                            "cubism.parameter.combine-edit",
-                            expectedIdentity + ":parameter-group:"
-                                    + Integer.toHexString(System.identityHashCode(group)),
-                            "Turboism: Edit Combined Parameters",
-                            (edit, transactionLabel) -> {
-                                addUndo(edit, group);
-                                addUndo(edit, firstSource);
-                                addUndo(edit, secondSource);
-                                final Object listener = resolver.createFunctionalProxy(
-                                        "cubism.editor-model.undo-listener.class", ignored -> {
-                                            refreshUi(app);
-                                            return null;
-                                        });
-                                resolver.invoke("cubism.editor-model.undo.add-listener", edit, listener);
-                            },
-                            mutation,
-                            () -> true,
-                            EnumSet.of(
-                                    EditorRefreshRequirement.PARAMETER_PALETTE,
-                                    EditorRefreshRequirement.CANVAS,
-                                    EditorRefreshRequirement.MARK_DIRTY));
-            modelGuard.requireCurrent(expectedIdentity, expectedModel);
-            return;
-        }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, "Parameter.combine/uncombine");
-        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
-        final Object undo =
-                resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, "Turboism: Edit Combined Parameters");
-        boolean completed = false;
-        try {
-            addUndo(undo, group);
-            addUndo(undo, firstSource);
-            addUndo(undo, secondSource);
-            final Object listener =
-                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
-                        refreshUi(app);
-                        return null;
-                    });
-            resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
-            mutation.run();
-            refreshUi(app);
-            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
-            completed = true;
-        } finally {
-            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
-        }
+        authoringWriter.apply(EditorAuthoringWrite.of(OPERATION_ID, ACTION_NAME)
+                .subject(expectedIdentity + ":parameter-group:" + Integer.toHexString(System.identityHashCode(group)))
+                .refusalLabel("Parameter.combine/uncombine")
+                // The group and both parameter sources move under one bracket: three native Undo
+                // objects are admitted into the root edit before the pairing mutation runs.
+                .admit((edit, transactionLabel) -> {
+                    addUndo(edit, group);
+                    addUndo(edit, firstSource);
+                    addUndo(edit, secondSource);
+                    final Object listener =
+                            resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                                refreshUi(app);
+                                return null;
+                            });
+                    resolver.invoke("cubism.editor-model.undo.add-listener", edit, listener);
+                })
+                .mutate(mutation)
+                .admissionVerified()
+                .refresh(EnumSet.of(
+                        EditorRefreshRequirement.PARAMETER_PALETTE,
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY))
+                .build());
+        // The coalesced palette requirement rebuilds the rows; the palette's operation view is a
+        // separate member the shared refresh mapping does not reach yet (design C2 §7 Q3).
+        refreshUi(app);
         modelGuard.requireCurrent(expectedIdentity, expectedModel);
     }
 
     private void addUndo(final Object edit, final Object target) {
-        final Object targetUndo = resolver.construct(
-                "cubism.editor-model.simple-undo.create", "Turboism: Edit Combined Parameters", target, null);
+        final Object targetUndo =
+                resolver.construct("cubism.editor-model.simple-undo.create", ACTION_NAME, target, null);
         final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, targetUndo, Boolean.TRUE);
         if (!(accepted instanceof Boolean value) || !value) {
             throw new IllegalStateException("Cubism rejected the Combined parameter Undo entry.");

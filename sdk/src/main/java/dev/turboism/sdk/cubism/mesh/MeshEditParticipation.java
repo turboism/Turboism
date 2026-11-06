@@ -9,7 +9,13 @@ import dev.turboism.sdk.plugin.Registration;
  * <p>Participation only fires where the framework actually intercepts the host. On a host that
  * already performs the edit natively there is no interception and no callback, so behaviour
  * cannot be applied twice.</p>
+ *
+ * @deprecated use {@link MeshEditContributionSurface#participate(MeshEditParticipant)} instead:
+ *     that surface consolidates the two ways a plugin takes part in a native mesh edit and is
+ *     handed out by {@code PluginService.MESH_EDIT_CONTRIBUTION}. Scheduled for removal; every
+ *     released operation keeps working through this thin adapter until then.
  */
+@Deprecated(forRemoval = true)
 @CubismEditor(from = "5.0.00")
 public interface MeshEditParticipation {
 

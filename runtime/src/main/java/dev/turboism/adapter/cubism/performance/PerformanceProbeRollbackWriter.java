@@ -1,10 +1,11 @@
 package dev.turboism.adapter.cubism.performance;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.core.io.DurableFile;
+import dev.turboism.core.io.WriteOptions;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,6 +28,9 @@ public final class PerformanceProbeRollbackWriter {
     private static final int SCHEMA_VERSION = 1;
     private static final int MAX_BYTES = 256 * 1024;
     private static final Pattern SHA256_PATTERN = Pattern.compile("[0-9a-f]{64}");
+    /** A manifest is evidence, not live state: a plain replacing move is better than no manifest. */
+    private static final WriteOptions PREFER_ATOMIC_REPLACE =
+            WriteOptions.DEFAULT.withAtomicity(WriteOptions.Atomicity.PREFERRED);
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -43,8 +47,8 @@ public final class PerformanceProbeRollbackWriter {
      * target and owner.</p>
      *
      * <p>The manifest carries the exact Cubism version selected by the installer profile,
-     * is capped at 256 KiB, and is published through a sibling {@code .tmp} file moved into
-     * place, atomically where the filesystem supports it.</p>
+     * is capped at 256 KiB, and is published through a uniquely named sibling temporary file
+     * moved into place, atomically where the filesystem supports it.</p>
      *
      * @param output             destination path, resolved to an absolute normalized path
      * @param cubismVersion      exact reviewed Cubism Editor version
@@ -123,13 +127,7 @@ public final class PerformanceProbeRollbackWriter {
         if (bytes.length > MAX_BYTES) throw new IOException("performance probe rollback manifest exceeds 256 KiB");
         final Path target = output.toAbsolutePath().normalize();
         Files.createDirectories(target.getParent());
-        final Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
-        Files.write(temporary, bytes);
-        try {
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
-            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-        }
+        DurableFile.at(target).withOptions(PREFER_ATOMIC_REPLACE).replace(bytes);
     }
 
     private static void validateOwners(final List<String> expectedOwners, final Map<String, OwnerEvidence> owners) {

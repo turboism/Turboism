@@ -1,5 +1,6 @@
 package dev.turboism.config;
 
+import dev.turboism.config.optimization.OptimizationCatalog;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -14,7 +15,7 @@ public final class TriangulationEdgeIndexPreference {
 
     /** Config key holding the preference. */
     public static final String KEY = "meshTriangulationEdgeIndex";
-    /** Default when nothing is persisted: the weave is on. */
+    /** Default when nothing is persisted: the weave is off, matching the launcher and the field. */
     public static final boolean DEFAULT_ENABLED = false;
 
     private TriangulationEdgeIndexPreference() {}
@@ -25,7 +26,7 @@ public final class TriangulationEdgeIndexPreference {
      */
     public static boolean read(final Path turboismHome) {
         return NativeOptimizationConfig.load(turboismHome, ignored -> {})
-                .choice(NativeOptimizationConfig.Option.TRIANGULATION_EDGE_INDEX)
+                .choice(OptimizationCatalog.TRIANGULATION_EDGE_INDEX)
                 .enabled();
     }
 

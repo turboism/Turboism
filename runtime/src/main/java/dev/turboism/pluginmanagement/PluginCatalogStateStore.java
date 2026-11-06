@@ -6,9 +6,9 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.io.PathLocks;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
@@ -22,8 +22,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
@@ -40,9 +38,24 @@ public final class PluginCatalogStateStore {
     /** Relative path below Turboism home for the v2 catalog state file. */
     public static final String RELATIVE_PATH = "state/runtime/plugin-management/catalog-state.json";
 
+    /**
+     * Suffix of the single bounded recovery image kept when the stored document can no longer be
+     * read as the current schema. Rewritten rather than appended, so retention is exactly one.
+     */
+    static final String RECOVERY_SUFFIX = ".corrupt.bak";
+
     private static final long MAX_STATE_FILE_BYTES = 16L * 1024L * 1024L;
+    private static final java.util.Set<String> STATE_FIELDS = java.util.Set.of(
+            "schemaVersion",
+            "catalogVersion",
+            "publishedAt",
+            "catalogSha256",
+            "etag",
+            "lastAutomaticAttempt",
+            "cachedCatalogBase64",
+            "cachedSignatureBase64",
+            "stagedUpdates");
     private static final Pattern SHA256_PATTERN = Pattern.compile("[0-9a-f]{64}");
-    private static final Map<Path, Object> LOCKS = new ConcurrentHashMap<>();
     private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
                     .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
                     .build())
@@ -69,7 +82,7 @@ public final class PluginCatalogStateStore {
             throw new IllegalArgumentException("catalog state path escaped home");
         }
         this.files = new ConfinedPluginFiles(this.home);
-        this.lock = LOCKS.computeIfAbsent(this.path, ignored -> new Object());
+        this.lock = PathLocks.forPath(this.path);
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
     }
 
@@ -100,36 +113,7 @@ public final class PluginCatalogStateStore {
                 if (!(parsed instanceof ObjectNode root)) {
                     throw new IOException("catalog state must be a JSON object");
                 }
-                final JsonNode schema = root.get("schemaVersion");
-                if (schema == null
-                        || !schema.isIntegralNumber()
-                        || !schema.canConvertToInt()
-                        || schema.intValue() != SCHEMA_VERSION) {
-                    throw new IOException("unsupported catalog state schemaVersion");
-                }
-                final OptionalLong catalogVersion = optionalPositiveLong(root.get("catalogVersion"));
-                final Optional<Instant> publishedAt = optionalInstant(root.get("publishedAt"));
-                final Optional<String> catalogSha256 = optionalSha256(root.get("catalogSha256"));
-                if (catalogVersion.isPresent() != publishedAt.isPresent()
-                        || catalogVersion.isPresent() != catalogSha256.isPresent()) {
-                    throw new IOException("incomplete catalog watermark in state");
-                }
-                final Optional<String> etag = optionalEtag(root.get("etag"));
-                final Optional<Instant> lastAutomaticAttempt = optionalInstant(root.get("lastAutomaticAttempt"));
-                final Optional<byte[]> cachedCatalogBytes =
-                        optionalBase64(root.get("cachedCatalogBase64"), PluginCatalogVerifier.MAX_CATALOG_BYTES);
-                final Optional<byte[]> cachedSignatureBytes =
-                        optionalBase64(root.get("cachedSignatureBase64"), PluginCatalogVerifier.MAX_SIGNATURE_BYTES);
-                final Map<String, String> stagedUpdates = parseStagedUpdates(root.get("stagedUpdates"));
-                return new State(
-                        catalogVersion,
-                        publishedAt,
-                        catalogSha256,
-                        etag,
-                        lastAutomaticAttempt,
-                        cachedCatalogBytes,
-                        cachedSignatureBytes,
-                        stagedUpdates);
+                return parseState(root);
             } catch (NoSuchFileException missing) {
                 return State.empty();
             } catch (IOException | RuntimeException corrupt) {
@@ -139,15 +123,52 @@ public final class PluginCatalogStateStore {
         }
     }
 
+    /** Decodes one document; throws unless it is the closed v2 schema this build understands. */
+    private static State parseState(final ObjectNode root) throws IOException {
+        if (!hasOnlyFields(root, STATE_FIELDS)) {
+            throw new IOException("unknown catalog state field");
+        }
+        final JsonNode schema = root.get("schemaVersion");
+        if (schema == null
+                || !schema.isIntegralNumber()
+                || !schema.canConvertToInt()
+                || schema.intValue() != SCHEMA_VERSION) {
+            throw new IOException("unsupported catalog state schemaVersion");
+        }
+        final OptionalLong catalogVersion = optionalPositiveLong(root.get("catalogVersion"));
+        final Optional<Instant> publishedAt = optionalInstant(root.get("publishedAt"));
+        final Optional<String> catalogSha256 = optionalSha256(root.get("catalogSha256"));
+        if (catalogVersion.isPresent() != publishedAt.isPresent()
+                || catalogVersion.isPresent() != catalogSha256.isPresent()) {
+            throw new IOException("incomplete catalog watermark in state");
+        }
+        final Optional<String> etag = optionalEtag(root.get("etag"));
+        final Optional<Instant> lastAutomaticAttempt = optionalInstant(root.get("lastAutomaticAttempt"));
+        final Optional<byte[]> cachedCatalogBytes =
+                optionalBase64(root.get("cachedCatalogBase64"), PluginCatalogVerifier.MAX_CATALOG_BYTES);
+        final Optional<byte[]> cachedSignatureBytes =
+                optionalBase64(root.get("cachedSignatureBase64"), PluginCatalogVerifier.MAX_SIGNATURE_BYTES);
+        final Map<String, String> stagedUpdates = parseStagedUpdates(root.get("stagedUpdates"));
+        return new State(
+                catalogVersion,
+                publishedAt,
+                catalogSha256,
+                etag,
+                lastAutomaticAttempt,
+                cachedCatalogBytes,
+                cachedSignatureBytes,
+                stagedUpdates);
+    }
+
     /** Atomically writes the given catalog state to {@code catalog-state.json}. */
     public boolean save(final State state) {
         Objects.requireNonNull(state, "state");
         synchronized (lock) {
-            Path temporary = null;
             try {
                 files.rejectLinks(home);
                 Files.createDirectories(staging);
                 files.rejectLinks(staging);
+                preserveUnreadableState();
                 final ConfinedPluginFiles.ParentIdentity parent = files.parent(path);
                 final ObjectNode root = JSON.createObjectNode();
                 root.put("schemaVersion", SCHEMA_VERSION);
@@ -170,20 +191,9 @@ public final class PluginCatalogStateStore {
                 if (encoded.length > MAX_STATE_FILE_BYTES) {
                     throw new IOException("catalog state exceeds size limit");
                 }
-                temporary = staging.resolve(".catalog-state-" + UUID.randomUUID() + ".tmp");
-                try (var output = files.createNew(temporary, parent)) {
-                    output.write(ByteBuffer.wrap(encoded));
-                }
-                files.move(temporary, path, parent, true);
+                files.writeBytes(path, encoded, parent, true);
                 return true;
             } catch (IOException | RuntimeException failure) {
-                if (temporary != null) {
-                    try {
-                        Files.deleteIfExists(temporary);
-                    } catch (IOException ignored) {
-                        // Best-effort cleanup of temp state file.
-                    }
-                }
                 report("PLUGIN_CATALOG_STATE_WRITE_FAILED");
                 return false;
             }
@@ -204,6 +214,59 @@ public final class PluginCatalogStateStore {
 
     private void report(final String code) {
         FatalErrors.reportSafely(diagnostic, code);
+    }
+
+    /**
+     * Keeps one image of a catalog state document this build can no longer read, before a save
+     * replaces it.
+     *
+     * <p>{@link #read} degrades a corrupt, v1 or forward-written document to {@link State#empty()}
+     * and leaves it in place, so the next successful catalog check would otherwise erase the only
+     * copy of what the previous (possibly newer) build had recorded. A document this build reads
+     * normally is overwritten with no extra copy. Retention is exactly one image and the copy is
+     * best effort: it never blocks or fails the save.</p>
+     */
+    private void preserveUnreadableState() {
+        final byte[] bytes;
+        try {
+            files.rejectLinks(home);
+            files.rejectLinks(path);
+            if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) return;
+            if (Files.size(path) > MAX_STATE_FILE_BYTES) return;
+            bytes = Files.readAllBytes(path);
+        } catch (IOException | RuntimeException unavailable) {
+            return;
+        }
+        try {
+            final JsonNode parsed = JSON.readTree(bytes);
+            if (parsed instanceof ObjectNode root) {
+                parseState(root);
+                return;
+            }
+        } catch (IOException | RuntimeException unreadable) {
+            // fall through: keep the bytes
+        }
+        try {
+            writeRecoveryImage(bytes);
+        } catch (IOException | RuntimeException unavailable) {
+            // Best effort by contract: the caller's save still proceeds.
+        }
+    }
+
+    /** Replaces the single recovered-state sibling with exactly these bytes, atomically. */
+    private void writeRecoveryImage(final byte[] bytes) throws IOException {
+        final Path recovery = path.resolveSibling(path.getFileName() + RECOVERY_SUFFIX);
+        final ConfinedPluginFiles.ParentIdentity parent = files.parent(recovery);
+        files.writeBytes(recovery, bytes, parent, true);
+    }
+
+    /** Catalog state is a closed v2 schema: an older reader must not act on fields it does not know. */
+    private static boolean hasOnlyFields(final ObjectNode node, final java.util.Set<String> allowed) {
+        final var names = node.fieldNames();
+        while (names.hasNext()) {
+            if (!allowed.contains(names.next())) return false;
+        }
+        return true;
     }
 
     private static OptionalLong optionalPositiveLong(final JsonNode node) throws IOException {

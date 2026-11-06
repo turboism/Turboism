@@ -1,5 +1,6 @@
 package dev.turboism.config;
 
+import dev.turboism.config.optimization.OptimizationCatalog;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -25,7 +26,7 @@ public final class AtlasCacheReusePreference {
      */
     public static boolean read(final Path turboismHome) {
         return NativeOptimizationConfig.load(turboismHome, ignored -> {})
-                .choice(NativeOptimizationConfig.Option.ATLAS_CACHE_REUSE)
+                .choice(OptimizationCatalog.ATLAS_CACHE_REUSE)
                 .enabled();
     }
 

@@ -4,11 +4,11 @@ import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipTarge
 import dev.turboism.adapter.cubism.optimization.modelupdate.UnchangedFramePredicate.Decision;
 import dev.turboism.adapter.cubism.optimization.modelupdate.UnchangedFramePredicate.Frame;
 import dev.turboism.adapter.cubism.optimization.modelupdate.UnchangedFramePredicate.ParamSet;
+import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -190,6 +190,9 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     /**
      * Resolves every dependency method of {@code target} on {@code loader}'s host classes.
      *
+     * <p>Each dependency binds by the exact descriptor its reviewed table declares — the same one the
+     * verified installer checks against the official artifact — through {@link HostHandles}.</p>
+     *
      * @throws ReflectiveOperationException when any reviewed getter is absent or mistyped
      */
     public ModelUpdateSkipBridge(final ModelUpdateSkipTarget target, final ClassLoader loader)
@@ -295,33 +298,32 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
 
     private static Map<Dep, MethodHandle> resolve(final ModelUpdateSkipTarget target, final ClassLoader loader)
             throws ReflectiveOperationException {
-        final var lookup = MethodHandles.publicLookup();
         final Map<Dep, MethodHandle> handles = new java.util.HashMap<>();
         for (final Dep dep : target.dependencies()) {
-            final Class<?> owner = Class.forName(dep.owner(), false, loader);
-            final Method method = method(owner, dep);
-            final MethodType invoked = invokedType(method);
-            handles.put(dep, lookup.unreflect(method).asType(invoked));
+            handles.put(
+                    dep,
+                    HostHandles.virtual(
+                            HostHandles.load(loader, dep.owner()),
+                            dep.name(),
+                            dep.descriptor(),
+                            invokedType(dep.descriptor(), loader)));
         }
         return Map.copyOf(handles);
     }
 
-    /** Erased {@code (Object...)->primitive-or-Object} invocation signature. */
-    private static MethodType invokedType(final Method method) {
-        final Class<?>[] erased = new Class<?>[method.getParameterCount() + 1];
+    /**
+     * Erased {@code (Object receiver, Object...)} call shape of one reviewed dependency descriptor.
+     *
+     * <p>The reviewed table pins every host parameter type exactly, so the descriptor is the only
+     * acceptance rule; the bridge then calls each getter on one erased shape and keeps a primitive
+     * return primitive.</p>
+     */
+    private static MethodType invokedType(final String descriptor, final ClassLoader loader) {
+        final MethodType declared = MethodType.fromMethodDescriptorString(descriptor, loader);
+        final Class<?>[] erased = new Class<?>[declared.parameterCount() + 1];
         Arrays.fill(erased, Object.class);
-        final Class<?> type = method.getReturnType();
+        final Class<?> type = declared.returnType();
         return MethodType.methodType(type.isPrimitive() ? type : Object.class, erased);
-    }
-
-    private static Method method(final Class<?> owner, final Dep dep) throws NoSuchMethodException {
-        for (final Method method : owner.getMethods()) {
-            if (!method.getName().equals(dep.name())) continue;
-            final String descriptor = MethodType.methodType(method.getReturnType(), method.getParameterTypes())
-                    .descriptorString();
-            if (descriptor.equals(dep.descriptor())) return method;
-        }
-        throw new NoSuchMethodException(owner.getName() + "." + dep.name() + dep.descriptor());
     }
 
     /** Occupies the callback/after/stats slots; refuses to replace another installation. */

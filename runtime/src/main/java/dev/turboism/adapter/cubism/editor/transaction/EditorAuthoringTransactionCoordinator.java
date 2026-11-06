@@ -62,16 +62,6 @@ public final class EditorAuthoringTransactionCoordinator {
     }
 
     /**
-     * Whether this coordinator owns a root on the current thread. Writers that retain a
-     * legacy standalone path must still use {@link #mutate} to validate participation.
-     *
-     * @return true only while a root callback is active on this thread
-     */
-    public boolean hasActiveTransaction() {
-        return ambient.get() != null;
-    }
-
-    /**
      * Executes a deliberately source-only batch inside the current root. The final barrier
      * runs before returning or propagating a callback failure, so subsequent conversions and
      * compensation see current native instances. Ordinary callers retain immediate evaluation.
@@ -205,6 +195,21 @@ public final class EditorAuthoringTransactionCoordinator {
     }
 
     /**
+     * Rejects one hand-written native Undo envelope while an ambient authoring transaction is
+     * open on this thread: the envelope's detached {@code edit-mode} group can neither join the
+     * root nor be rolled back by it. The typed rejection carries the write label for
+     * diagnostics; the failure is raised before any native edit begins.
+     *
+     * @param writeLabel human-readable name of the rejected write, for diagnostics
+     * @throws EditorAmbientTransactionRejection when an ambient root is open on this thread
+     */
+    public void requireNoAmbientTransaction(final String writeLabel) {
+        if (ambientScopeActive()) {
+            throw new EditorAmbientTransactionRejection(writeLabel);
+        }
+    }
+
+    /**
      * Admits one hand-written native-Undo-envelope contribution into the ambient root
      * transaction. The contribution's Undo object is attached to the shared root edit instead
      * of opening a nested edit-mode bracket, so commit produces one Undo group and rollback is
@@ -221,6 +226,36 @@ public final class EditorAuthoringTransactionCoordinator {
         }
         scope.noteEnvelopeContribution();
         apply(scope, scope.binding(), Objects.requireNonNull(contribution, "contribution"), List.of());
+    }
+
+    /**
+     * Admits one changed authoring primitive into the ambient root when one is open on this
+     * thread, and otherwise opens a standalone root with the same admission, rollback and
+     * verification semantics. Envelope families whose write owns a native Undo object use this
+     * instead of {@link #mutate} so a recovering root rewinds the admitted Undo objects through the
+     * native group-undo step before the bracket is aborted; {@code endEdit(abort)} alone discards
+     * the group without restoring model state.
+     *
+     * @param binding current authoring binding
+     * @param contribution changed authoring primitive
+     * @throws IllegalStateException when the ambient submission is rejected or the standalone
+     *     transaction cannot commit safely
+     */
+    public void mutateEnvelopeOrStandalone(final Binding binding, final EditorUndoContribution contribution) {
+        final Binding checkedBinding = Objects.requireNonNull(binding, "binding");
+        final EditorUndoContribution checkedContribution = Objects.requireNonNull(contribution, "contribution");
+        if (ambient.get() != null) {
+            mutateEnvelope(checkedContribution);
+            return;
+        }
+        final AuthoringTransactionResult<Void> result =
+                execute(checkedBinding, AuthoringTransactionOptions.of(checkedContribution.standaloneLabel()), () -> {
+                    final EditorAuthoringScope scope = Objects.requireNonNull(ambient.get(), "ambient scope");
+                    scope.noteEnvelopeContribution();
+                    apply(scope, checkedBinding, checkedContribution, List.of());
+                    return null;
+                });
+        requireStandaloneSuccess(result);
     }
 
     /**
@@ -343,6 +378,10 @@ public final class EditorAuthoringTransactionCoordinator {
                             createdTargets);
                     return null;
                 });
+        requireStandaloneSuccess(result);
+    }
+
+    private static void requireStandaloneSuccess(final AuthoringTransactionResult<Void> result) {
         if (!result.successful()) {
             throw new IllegalStateException("Standalone Editor authoring transaction failed: " + result.outcome()
                     + result.diagnosticId().map(id -> " [" + id + "]").orElse(""));

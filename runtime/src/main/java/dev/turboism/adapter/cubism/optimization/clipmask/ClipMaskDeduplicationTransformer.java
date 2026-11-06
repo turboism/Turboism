@@ -78,6 +78,11 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
         return sites;
     }
 
+    /** {@return the pre-rewrite SHA-256 of {@code owner}, or {@code null} for a class this transform did not rewrite} */
+    public String beforeSha256(final String owner) {
+        return beforeSha256.get(owner);
+    }
+
     /** {@return the most recent rejection, or {@code null}} */
     public String failure() {
         if (failures.isEmpty()) return null;

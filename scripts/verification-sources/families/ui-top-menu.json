@@ -22,5 +22,15 @@
  "coverage": true,
  "packs": [],
  "extraLiterals": [],
- "coverageSources": []
+ "coverageSources": [],
+ "aliases": {
+  "className": "UiTopMenuAliases",
+  "prefix": [
+   "cubism.editor-command.",
+   "cubism.ui-top-menu."
+  ]
+ },
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }

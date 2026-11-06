@@ -26,6 +26,9 @@ final class VerifiedModelInstanceCoalesceInstaller implements AutoCloseable {
 
     static final String HOOK_ID = "cubism.model-instance-update-coalesce";
 
+    /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.SKIP, JvmCheck.AT_LEAST_17);
+
     private static final String DOCUMENT = "com/live2d/cubism/doc/modeling/CModelingDocument";
     private static final String UNDO_GROUP = "com/live2d/undo/GroupUndo";
 
@@ -46,7 +49,9 @@ final class VerifiedModelInstanceCoalesceInstaller implements AutoCloseable {
     private boolean restored;
 
     static boolean admitted(final Path artifact, final boolean requested, final int jvm) {
-        return requested && jvm >= 17 && ReviewedHostContract.resolved(artifact, CANDIDATES);
+        // This hook's switch is the persisted preference, so the startup policy is never consulted.
+        return VerifiedInstall.admits(
+                ADMISSION, null, requested, jvm, () -> ReviewedHostContract.resolved(artifact, CANDIDATES));
     }
 
     VerifiedModelInstanceCoalesceInstaller(

@@ -22,8 +22,6 @@ import javax.swing.SwingUtilities;
 
 /** Read-only decoder. Caller must validate the object and read on the same Editor thread. */
 final class EditorArtMeshAuthoringReadAccess {
-    private static final String MODEL = "cubism.editor-model.";
-    private static final String SEMANTIC = "cubism.editor-history.semantic.";
     private final VerifiedMemberResolver resolver;
 
     EditorArtMeshAuthoringReadAccess(final VerifiedMemberResolver resolver) {
@@ -35,10 +33,10 @@ final class EditorArtMeshAuthoringReadAccess {
             throw new IllegalStateException("stored authoring reads require the Editor thread");
         }
         requireAuthorized();
-        final String sourceGuid = guid(model("art-mesh-source.guid", source));
-        final var sourcePositions = points(model("art-mesh-source.positions", source));
-        final var sourceUvs = points(model("art-mesh-source.uvs", source));
-        final var sourceIndices = indices(model("art-mesh-source.indices", source));
+        final String sourceGuid = guid(model("cubism.editor-model.art-mesh-source.guid", source));
+        final var sourcePositions = points(model("cubism.editor-model.art-mesh-source.positions", source));
+        final var sourceUvs = points(model("cubism.editor-model.art-mesh-source.uvs", source));
+        final var sourceIndices = indices(model("cubism.editor-model.art-mesh-source.indices", source));
         final ArtMeshGeometry geometry;
         try {
             geometry = new ArtMeshGeometry(sourcePositions, sourceUvs, sourceIndices);
@@ -60,19 +58,22 @@ final class EditorArtMeshAuthoringReadAccess {
                             + "; " + invalid.getMessage(),
                     invalid);
         }
-        final Object grid = model("parameter-controllable.keyform-grid", source);
+        final Object grid = model("cubism.editor-model.parameter-controllable.keyform-grid", source);
         final var axes = new ArrayList<Axis>();
         final var axisByBinding = new IdentityHashMap<Object, Axis>();
-        for (final Object binding : list(model("keyform-grid.bindings", grid))) {
-            final Object parameter = semantic("keyform-binding.parameter", binding);
+        for (final Object binding : list(model("cubism.editor-model.keyform-grid.bindings", grid))) {
+            final Object parameter = semantic("cubism.editor-history.semantic.keyform-binding.parameter", binding);
             final var keys = new ArrayList<Float>();
-            for (final Object key : list(model("keyform-binding.keys", binding))) keys.add(number(key));
+            for (final Object key : list(model("cubism.editor-model.keyform-binding.keys", binding)))
+                keys.add(number(key));
             final Axis axis = new Axis(
-                    guid(model("keyform-binding.parameter-guid", binding)),
-                    new ParameterId(text(model("id.value", model("keyform-binding.parameter-id", binding)))),
-                    number(model("parameter-source.minimum", parameter)),
-                    number(model("parameter-source.default", parameter)),
-                    number(model("parameter-source.maximum", parameter)),
+                    guid(model("cubism.editor-model.keyform-binding.parameter-guid", binding)),
+                    new ParameterId(text(model(
+                            "cubism.editor-model.id.value",
+                            model("cubism.editor-model.keyform-binding.parameter-id", binding)))),
+                    number(model("cubism.editor-model.parameter-source.minimum", parameter)),
+                    number(model("cubism.editor-model.parameter-source.default", parameter)),
+                    number(model("cubism.editor-model.parameter-source.maximum", parameter)),
                     keys);
             axes.add(axis);
             if (axisByBinding.put(binding, axis) != null) {
@@ -84,43 +85,49 @@ final class EditorArtMeshAuthoringReadAccess {
         final boolean opacityReadable = resolver.authorizesFeature(
                 EditorArtMeshAuthoringReadSelectorContract.ADAPTER_SLICE_ID,
                 "cubism.editor-model.read",
-                java.util.Set.of(MODEL + "drawable-form.opacity"));
+                java.util.Set.of("cubism.editor-model.drawable-form.opacity"));
         final var forms = new ArrayList<Form>();
         final var cells = new ArrayList<Cell>();
-        for (final Object form : list(model("art-mesh-source.keyforms", source))) {
-            final Object nativeGuid = semantic("form.guid", form);
+        for (final Object form : list(model("cubism.editor-model.art-mesh-source.keyforms", source))) {
+            final Object nativeGuid = semantic("cubism.editor-history.semantic.form.guid", form);
             final String formGuid = formGuid(nativeGuid);
-            final Object order = model("drawable-form.draw-order", form);
+            final Object order = model("cubism.editor-model.drawable-form.draw-order", form);
             if (!(order instanceof Integer drawOrder)) {
                 throw new IllegalStateException("stored draw order is not an int");
             }
             forms.add(new Form(
                     formGuid,
-                    points(model("art-mesh-form.positions", form)),
+                    points(model("cubism.editor-model.art-mesh-form.positions", form)),
                     drawOrder,
-                    opacityReadable ? Optional.of(number(model("drawable-form.opacity", form))) : Optional.empty()));
+                    opacityReadable
+                            ? Optional.of(number(model("cubism.editor-model.drawable-form.opacity", form)))
+                            : Optional.empty()));
             // Every reviewed generation exposes form -> rows; the grid -> all rows
             // selector is 5.3.03-only and deliberately not used here.
-            for (final Object row : list(semantic("keyform-grid.forms-for-guid", grid, nativeGuid))) {
-                final Object accessKey = semantic("keyform-on-grid.access-key", row);
+            for (final Object row :
+                    list(semantic("cubism.editor-history.semantic.keyform-grid.forms-for-guid", grid, nativeGuid))) {
+                final Object accessKey = semantic("cubism.editor-history.semantic.keyform-on-grid.access-key", row);
                 final var coordinates = new ArrayList<Coordinate>();
-                for (final Object coordinate : list(semantic("keyform-access-key.coordinates", accessKey))) {
-                    final Object binding = semantic("key-on-parameter.binding", coordinate);
+                for (final Object coordinate :
+                        list(semantic("cubism.editor-history.semantic.keyform-access-key.coordinates", accessKey))) {
+                    final Object binding =
+                            semantic("cubism.editor-history.semantic.key-on-parameter.binding", coordinate);
                     final Axis axis = axisByBinding.get(binding);
                     if (axis == null) throw new IllegalStateException("cell refers to a foreign grid binding");
                     coordinates.add(new Coordinate(
-                            axis.parameterGuid(), number(semantic("key-on-parameter.value", coordinate))));
+                            axis.parameterGuid(),
+                            number(semantic("cubism.editor-history.semantic.key-on-parameter.value", coordinate))));
                 }
                 cells.add(new Cell(formGuid, coordinates));
             }
         }
         final var morphKeys = new ArrayList<MorphKey>();
-        final Object set = model("parameter-controllable.morph-target-set", source);
-        for (final Object target : list(model("morph-target-set.morph-targets", set))) {
-            final Object key = model("morph-target.key-value", target);
+        final Object set = model("cubism.editor-model.parameter-controllable.morph-target-set", source);
+        for (final Object target : list(model("cubism.editor-model.morph-target-set.morph-targets", set))) {
+            final Object key = model("cubism.editor-model.morph-target.key-value", target);
             morphKeys.add(new MorphKey(
-                    guid(model("morph-target.parameter-guid", target)),
-                    formGuid(model("morph-target.keyform-guid", target)),
+                    guid(model("cubism.editor-model.morph-target.parameter-guid", target)),
+                    formGuid(model("cubism.editor-model.morph-target.keyform-guid", target)),
                     key == null ? Optional.empty() : Optional.of(number(key))));
         }
         return new ArtMeshAuthoringSnapshot(id, sourceGuid, geometry, axes, cells, forms, morphKeys);
@@ -141,19 +148,19 @@ final class EditorArtMeshAuthoringReadAccess {
     }
 
     private Object model(final String alias, final Object target, final Object... arguments) {
-        return resolver.invoke(MODEL + alias, Objects.requireNonNull(target, alias), arguments);
+        return resolver.invoke(alias, Objects.requireNonNull(target, alias), arguments);
     }
 
     private Object semantic(final String alias, final Object target, final Object... arguments) {
-        return resolver.invoke(SEMANTIC + alias, Objects.requireNonNull(target, alias), arguments);
+        return resolver.invoke(alias, Objects.requireNonNull(target, alias), arguments);
     }
 
     private String guid(final Object value) {
-        return text(model("guid.value", value));
+        return text(model("cubism.editor-model.guid.value", value));
     }
 
     private String formGuid(final Object value) {
-        return text(model("form-guid.value", value));
+        return text(model("cubism.editor-model.form-guid.value", value));
     }
 
     private static String text(final Object value) {

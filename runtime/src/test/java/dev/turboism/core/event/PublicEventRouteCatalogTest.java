@@ -327,7 +327,8 @@ class PublicEventRouteCatalogTest {
                 List.of(),
                 exports,
                 imports,
-                List.of());
+                List.of(),
+                false);
     }
 
     private static RuntimeScheduler scheduler() {

@@ -29,5 +29,12 @@
  "coverage": true,
  "packs": [],
  "extraLiterals": [],
- "coverageSources": []
+ "coverageSources": [],
+ "aliases": {
+  "className": "UiEmbeddedPanelAliases",
+  "prefix": "cubism.ui-panel."
+ },
+ "vocabulary": {
+  "admissionEqualsUse": false
+ }
 }

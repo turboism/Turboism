@@ -8,7 +8,7 @@
   "entrypoints": [
     "dev.turboism.plugin.protectedexport.ProtectedExportPlugin"
   ],
-  "turboismApi": "[0.67.0,1.0.0)",
+  "turboismApi": "[0.68.1,1.0.0)",
   "authors": [
     { "name": "Turboism Contributors" }
   ],
@@ -27,7 +27,9 @@
       "reason": "Read the active Cubism model for protected-export preflight and the runtime orchestration's model census; the authoring document is never written."
     }
   ],
-  "capabilities": [],
+  "capabilities": [
+    "cubism.export.protected"
+  ],
   "environment": {
     "requiresCubism": true,
     "ui": "none"

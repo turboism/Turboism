@@ -35,10 +35,12 @@ class PerformanceSettingsConfigTest {
         assertFalse(AtlasCacheReusePreference.normalize("invalid"));
         assertFalse(MeshTriangulationPreference.normalize("invalid"));
         assertFalse(TriangulationEdgeIndexPreference.normalize("invalid"));
-        assertFalse(dev.turboism.internal.core.AtlasCacheReuseSettingsService.unavailable()
-                .read());
-        assertFalse(CubismJvmSettingsService.unavailable().modelUpdateSkip());
-        assertFalse(CubismJvmSettingsService.unavailable().uniformLocationCache());
+        assertFalse(dev.turboism.internal.core.OptimizationSettingsService.unavailable()
+                .enabled("atlasCacheReuse"));
+        assertFalse(dev.turboism.internal.core.OptimizationSettingsService.unavailable()
+                .enabled("modelUpdateSkip"));
+        assertFalse(dev.turboism.internal.core.OptimizationSettingsService.unavailable()
+                .enabled("uniformLocationCache"));
         assertTrue(CubismJvmSettingsService.unavailable().zgc());
     }
 
@@ -82,7 +84,7 @@ class PerformanceSettingsConfigTest {
         NativeOptimizationDiagnostics.startup(PerformanceSettingsConfig.load(home, ignored -> {}));
         NativeOptimizationDiagnostics.installed("TURBOISM_ATLAS_CACHE_REUSE", "not-installed", "preference-disabled");
         try (var service = new CubismJvmSettingsFileService(repository, home, Map.of())) {
-            new AtlasCacheReuseSettingsFileService(repository).save(true);
+            new OptimizationSettingsFileService(repository).setEnabled("atlasCacheReuse", true);
             service.saveReduceAutoBackup(true);
             service.saveZgc(true);
             service.saveMemoryProfile(CubismJvmSettingsService.MemoryProfile.SYSTEM);
@@ -114,7 +116,7 @@ class PerformanceSettingsConfigTest {
         assertFalse(TriangulationEdgeIndexPreference.read(home));
         assertFalse(TriangulationEdgeIndexPreference.read(
                 Path.of("").toAbsolutePath().relativize(home)));
-        assertFalse(new TriangulationEdgeIndexSettingsFileService(repository).read());
+        assertFalse(new OptimizationSettingsFileService(repository).enabled("meshTriangulationEdgeIndex"));
     }
 
     @Test

@@ -43,8 +43,8 @@ class RuntimeMeshToolRegistryTest {
         RuntimeEditorUiHostLifecycle lifecycle = readyMeshLifecycle();
         EditorUiContributionAuthority authority = new EditorUiContributionAuthority(lifecycle);
         MeshToolCoordinator coordinator = new MeshToolCoordinator();
-        RuntimeMeshToolRegistry noCapability =
-                new RuntimeMeshToolRegistry("plugin", 1L, (permission, operation) -> {}, false, coordinator, authority);
+        RuntimeMeshToolRegistry noCapability = new RuntimeMeshToolRegistry(
+                "plugin", 1L, (permission, operation) -> {}, false, false, coordinator, authority);
         RuntimeMeshToolRegistry denied = new RuntimeMeshToolRegistry(
                 "plugin",
                 2L,
@@ -52,6 +52,7 @@ class RuntimeMeshToolRegistryTest {
                     throw new SecurityException(permission);
                 },
                 true,
+                false,
                 coordinator,
                 authority);
 
@@ -122,7 +123,7 @@ class RuntimeMeshToolRegistryTest {
             MeshToolCoordinator coordinator,
             EditorUiContributionAuthority authority) {
         return new RuntimeMeshToolRegistry(
-                pluginId, generation, (permission, operation) -> {}, true, coordinator, authority);
+                pluginId, generation, (permission, operation) -> {}, true, false, coordinator, authority);
     }
 
     private static RuntimeEditorUiHostLifecycle readyMeshLifecycle() {

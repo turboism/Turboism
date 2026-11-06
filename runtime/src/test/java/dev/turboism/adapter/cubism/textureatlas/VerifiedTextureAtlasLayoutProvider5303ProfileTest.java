@@ -18,14 +18,19 @@ class VerifiedTextureAtlasLayoutProvider5303ProfileTest {
     void exactProfileStillRequiresDedicatedAuthoringAuthorization() {
         final TextureAtlasDataModelCapture capture = new TextureAtlasDataModelCapture();
         assertFalse(new VerifiedTextureAtlasLayoutProvider(
-                        resolver("5.3.03", Set.of("cubism.editor-model.read")), "session-5303", capture, PROFILE_5_3_03)
+                        resolver("5.3.03", Set.of("cubism.editor-model.read")),
+                        "session-5303",
+                        capture,
+                        PROFILE_5_3_03,
+                        () -> false)
                 .current()
                 .isPresent());
         assertFalse(new VerifiedTextureAtlasLayoutProvider(
                         resolver("5.3.02", Set.of(VerifiedTextureAtlasSelectorContract.CAPABILITY_ID)),
                         "session-5302",
                         capture,
-                        PROFILE_5_3_03)
+                        PROFILE_5_3_03,
+                        () -> false)
                 .current()
                 .isPresent());
     }

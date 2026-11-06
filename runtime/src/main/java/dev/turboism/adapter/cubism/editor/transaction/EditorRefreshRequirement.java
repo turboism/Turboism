@@ -4,7 +4,12 @@ package dev.turboism.adapter.cubism.editor.transaction;
 public enum EditorRefreshRequirement {
     /** Re-evaluate model instances once after all changed writes. */
     MODEL_INSTANCES,
-    /** Refresh the native parameter palette. */
+    /**
+     * Refresh the native parameter palette. The palette's operation view
+     * ({@code cubism.editor-model.parameter-operation.refresh}) is not part of this requirement: many
+     * verified fixtures bind the palette but not that view, so the families that need it refresh it
+     * themselves after the write (design C2 §7 Q3).
+     */
     PARAMETER_PALETTE,
     /** Rebuild the parameter tree after structural or folder changes. */
     PARAMETER_STRUCTURE,
