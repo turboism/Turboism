@@ -101,6 +101,7 @@ class CorePluginContextAvailableServicesTest {
                 PluginService.UI_RESOURCES,
                 PluginService.EXPORT_SETTINGS,
                 PluginService.ACTION_CATALOG,
+                PluginService.PROJECT_WORK_TIME,
                 PluginService.HOST_VIEW_PANEL,
                 PluginService.PREVIEW_FRAMES);
         final Set<PluginService> expectedPresent = Set.of(

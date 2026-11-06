@@ -20,6 +20,27 @@ public interface CubismFacade {
     Optional<DocumentSnapshot> activeDocument();
 
     /**
+     * Returns whether one of the Cubism process's top-level windows is the active desktop
+     * window.
+     *
+     * <p>This is a best-effort process-level signal. It is false while no Editor window is
+     * active, including when another application owns the desktop foreground. Implementations
+     * that cannot observe desktop activation fail closed with {@code false}.</p>
+     */
+    default boolean isEditorForeground() {
+        return false;
+    }
+
+    /**
+     * Returns the current foreground state together with the active project tab.
+     *
+     * <p>The default is the inactive empty observation without touching the host.</p>
+     */
+    default CubismActivitySnapshot activity() {
+        return CubismActivitySnapshot.inactive(java.time.Instant.EPOCH);
+    }
+
+    /**
      * Returns the model owned by the active MODEL document only.
      *
      * <p>This is empty for animation scene, game-data, physics, and other documents, even when

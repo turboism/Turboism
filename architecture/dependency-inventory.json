@@ -367,6 +367,18 @@
         ":testing:test-support"
       ]
     },
+    ":plugins:project-work-time": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
     ":plugins:protected-export": {
       "annotationProcessor": [
         ":event-processor"
@@ -1005,6 +1017,26 @@
       [
         "dev.turboism.userfile",
         "dev.turboism.task"
+      ],
+      [
+        "dev.turboism.worktime",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.worktime",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.worktime",
+        "dev.turboism.hostread"
+      ],
+      [
+        "dev.turboism.worktime",
+        "dev.turboism.permissions"
+      ],
+      [
+        "dev.turboism.worktime",
+        "dev.turboism.runtime"
       ]
     ],
     "topPackages": [
@@ -1040,7 +1072,8 @@
       "dev.turboism.task",
       "dev.turboism.ui",
       "dev.turboism.update",
-      "dev.turboism.userfile"
+      "dev.turboism.userfile",
+      "dev.turboism.worktime"
     ]
   }
 }

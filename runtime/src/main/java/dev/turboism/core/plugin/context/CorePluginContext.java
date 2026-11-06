@@ -74,6 +74,7 @@ public final class CorePluginContext implements PluginContext {
     private volatile ScriptService scriptService = ScriptService.unavailable();
     private volatile McpConnectionService mcpConnectionService = McpConnectionService.unavailable();
     private volatile dev.turboism.sdk.performance.PerformanceProbeService performanceStatsService;
+    private volatile dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService projectWorkTimeService;
     private volatile MeshToolRegistry meshTools;
     private boolean meshToolsInstalled;
     private volatile dev.turboism.sdk.cubism.modeling.ModelingToolRegistry modelingTools;
@@ -358,7 +359,9 @@ public final class CorePluginContext implements PluginContext {
                         dependencies.hostSnapshotSource() instanceof HostSessionSnapshotSource
                                 ? dependencies.hostSnapshotSource()
                                 : HostSessionSnapshotSource.forSession(
-                                        hostAccess.adapters().projectWorkspace(), hostAccess::currentHostSelection));
+                                        hostAccess.adapters().projectWorkspace(),
+                                        hostAccess::currentHostSelection,
+                                        dev.turboism.adapter.cubism.EditorForegroundState::isForeground));
         final RuntimeHostAdapters adapters = env.hostAdapters();
         final CubismServicesFactory servicesFactory = env.servicesFactory();
         final CubismEditorApiAvailabilityInterceptor editorApiAvailability = new CubismEditorApiAvailabilityInterceptor(
@@ -410,6 +413,10 @@ public final class CorePluginContext implements PluginContext {
                 PluginService.MCP_CONNECTIONS, () -> mcpConnectionService, McpConnectionService::unavailable);
         serviceDirectory.install(PluginService.CONFIG, dependencies::config, PluginConfigRegistry::unavailable);
         serviceDirectory.installAlways(PluginService.PERFORMANCE_STATS, this::performanceProbeService);
+        serviceDirectory.install(
+                PluginService.PROJECT_WORK_TIME,
+                this::projectWorkTimeService,
+                dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService::unavailable);
 
         for (final PluginCapabilityBundle bundle : capabilityBundles) {
             bundle.registerServices(serviceDirectory);
@@ -598,6 +605,29 @@ public final class CorePluginContext implements PluginContext {
                         shared == null ? owned : shared, permissionChecker, dependencies.disposableScope(), owned);
             }
             return performanceStatsService;
+        }
+    }
+
+    /**
+     * Lazily binds the runtime-shared work-time tracker to this plugin's permission scope.
+     * Plugins resolve it through {@link #services()} ({@link PluginService#PROJECT_WORK_TIME}).
+     */
+    private dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService projectWorkTimeService() {
+        synchronized (this) {
+            if (projectWorkTimeService == null) {
+                final dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService shared = dependencies
+                        .eventBroker()
+                        .observationBaseline(dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService.class)
+                        .get();
+                if (shared == null) {
+                    return dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService.unavailable();
+                }
+                projectWorkTimeService = dev.turboism.worktime.PermissionCheckedProjectWorkTimeService.bind(
+                        shared,
+                        dev.turboism.permissions.PermissionChecker.from(dependencies.permissions()),
+                        dependencies.disposableScope());
+            }
+            return projectWorkTimeService;
         }
     }
 

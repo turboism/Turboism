@@ -224,7 +224,7 @@ class CubismVersionSidecarTest {
     @Test
     void allShippedSidecarsAreValidDeclarations() throws IOException, DescriptorParseException {
         final List<Path> sidecars = shippedSidecars();
-        assertEquals(37, sidecars.size(), "expected 37 shipped cubism-versions.json sidecars");
+        assertEquals(38, sidecars.size(), "expected 38 shipped cubism-versions.json sidecars");
 
         for (Path sidecar : sidecars) {
             final Path descriptor = sidecar.getParent().resolve("plugin.json");

@@ -3,6 +3,7 @@ package dev.turboism.core.event;
 import dev.turboism.sdk.action.ActionInvocationEvent;
 import dev.turboism.sdk.appearance.AppearanceChangedEvent;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
+import dev.turboism.sdk.cubism.event.CubismActivityChangedEvent;
 import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
 import dev.turboism.sdk.cubism.event.DeformerLockEvent;
 import dev.turboism.sdk.cubism.event.DeformerOpacityEvent;
@@ -51,6 +52,7 @@ final class RuntimeEventContractCatalog {
             CubismOperationLifecycleEvent.class,
             ModelUpdateEvent.class,
             ProjectFileLifecycleEvent.class,
+            CubismActivityChangedEvent.class,
             EditorStartupEvent.class,
             EditorExitEvent.class,
             PartNameEvent.class,
