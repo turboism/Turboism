@@ -35,9 +35,18 @@ final class VerifiedTextureAtlasFixture {
             final String sessionIdentity,
             final Fixture fixture,
             final VerifiedTextureAtlasSelectorContract.Profile profile) {
+        return provider(resolver, sessionIdentity, fixture, profile, () -> false);
+    }
+
+    static VerifiedTextureAtlasLayoutProvider provider(
+            final VerifiedMemberResolver resolver,
+            final String sessionIdentity,
+            final Fixture fixture,
+            final VerifiedTextureAtlasSelectorContract.Profile profile,
+            final java.util.function.BooleanSupplier ambientScopeActive) {
         final TextureAtlasDataModelCapture capture = new TextureAtlasDataModelCapture();
         capture.capture(fixture.data);
-        return new VerifiedTextureAtlasLayoutProvider(resolver, sessionIdentity, capture, profile);
+        return new VerifiedTextureAtlasLayoutProvider(resolver, sessionIdentity, capture, profile, ambientScopeActive);
     }
 
     static TextureAtlasDataModelCapture captured(final Fixture fixture) {

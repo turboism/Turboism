@@ -82,7 +82,8 @@ class TextureAtlasFirstLayoutTest {
                 resolver("5.3.02", true),
                 "session",
                 capturedEditor ? captured(fixture) : new TextureAtlasDataModelCapture(),
-                PROFILE_5_3_02);
+                PROFILE_5_3_02,
+                () -> false);
     }
 
     private static TextureAtlasLayoutPlan plan() {
