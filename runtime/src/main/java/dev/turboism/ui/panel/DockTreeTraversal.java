@@ -1,5 +1,6 @@
 package dev.turboism.ui.panel;
 
+import dev.turboism.mapping.verification.UiEmbeddedPanelAliases;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,13 +21,6 @@ import java.util.function.Consumer;
  */
 public final class DockTreeTraversal {
 
-    public static final String PALETTE_BOX_CLASS = "cubism.ui-panel.palette-box.class";
-    public static final String SPLIT_CLASS = "cubism.ui-panel.split.class";
-    public static final String SPLIT_CONTENTS = "cubism.ui-panel.split.contents";
-    public static final String SPLIT_REMOVE = "cubism.ui-panel.split.remove";
-    public static final String PALETTE_BOX_PALETTES = "cubism.ui-panel.palette-box.palettes";
-    public static final String COMPONENT_PALETTE_COUNT = "cubism.ui-panel.component.palette-count";
-
     private final VerifiedMemberResolver resolver;
 
     public DockTreeTraversal(final VerifiedMemberResolver resolver) {
@@ -35,17 +29,17 @@ public final class DockTreeTraversal {
 
     /** Exact CPMPaletteBox attestation. */
     public boolean isPaletteBox(final Object component) {
-        return resolver.isInstance(PALETTE_BOX_CLASS, component);
+        return resolver.isInstance(UiEmbeddedPanelAliases.PALETTE_BOX_CLASS, component);
     }
 
     /** Exact CPMSplitContainer attestation; other components are never expanded. */
     public boolean isSplitContainer(final Object component) {
-        return resolver.isInstance(SPLIT_CLASS, component);
+        return resolver.isInstance(UiEmbeddedPanelAliases.SPLIT_CLASS, component);
     }
 
     /** Ordered child components of a split container. */
     public List<?> splitContents(final Object splitContainer) {
-        final Object rawContents = resolver.invoke(SPLIT_CONTENTS, splitContainer);
+        final Object rawContents = resolver.invoke(UiEmbeddedPanelAliases.SPLIT_CONTENTS, splitContainer);
         if (rawContents instanceof List<?> contents) {
             return contents;
         }
@@ -57,7 +51,7 @@ public final class DockTreeTraversal {
      * ({@code CPMPaletteBox.getPalettes().size()}).
      */
     public int paletteTabCount(final Object paletteBox) {
-        final Object rawPalettes = resolver.invoke(PALETTE_BOX_PALETTES, paletteBox);
+        final Object rawPalettes = resolver.invoke(UiEmbeddedPanelAliases.PALETTE_BOX_PALETTES, paletteBox);
         if (rawPalettes instanceof List<?> palettes) {
             return palettes.size();
         }
@@ -116,14 +110,14 @@ public final class DockTreeTraversal {
             if (isEmptyDockComponent(child)) {
                 dev.turboism.runtime.log.RuntimeDiagnostics.debug(
                         "floating-panels", "Removing one empty dock component");
-                resolver.invoke(SPLIT_REMOVE, component, child);
+                resolver.invoke(UiEmbeddedPanelAliases.SPLIT_REMOVE, component, child);
             }
         }
     }
 
     private boolean isEmptyDockComponent(final Object component) {
         if (isPaletteBox(component)) {
-            return (Integer) resolver.invoke(COMPONENT_PALETTE_COUNT, component) == 0;
+            return (Integer) resolver.invoke(UiEmbeddedPanelAliases.COMPONENT_PALETTE_COUNT, component) == 0;
         }
         if (!isSplitContainer(component)) {
             return false;

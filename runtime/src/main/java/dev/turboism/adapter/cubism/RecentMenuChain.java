@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism;
 
+import dev.turboism.mapping.verification.RecentPreviewAliases;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.awt.Component;
 import java.io.File;
@@ -22,30 +23,21 @@ import javax.swing.JMenuItem;
  */
 final class RecentMenuChain {
 
-    static final String PANEL_APP_INSTANCE = "cubism.ui-panel.app-controller.instance";
-    static final String PANEL_MAIN_FRAME = "cubism.ui-panel.app-controller.main-frame";
-    static final String MAIN_FRAME_WINDOW = "cubism.ui-panel.main-frame.window";
-    static final String WINDOW_MENU_BAR = "cubism.ui-panel.window.menu-bar";
-    static final String MENU_BAR_MENUS = "cubism.ui-panel.menu-bar.menus";
-    static final String MENU_SWING = "cubism.ui-panel.menu.swing";
-
-    static final String PROJECT_APP_INSTANCE = "cubism.app-controller.instance";
-    static final String CURRENT_DOCUMENT = "cubism.app-controller.current-document";
-    static final String VIEW_CONTEXT_HISTORY = "cubism.app-controller.view-context-history";
-    static final String VIEW_CONTEXT_DOCUMENT = "cubism.view-context.document";
-    static final String DOCUMENT_FILE_CONTENT = "cubism.document.file-content";
-    static final String FILE_CONTENT_FILE = "cubism.file-content.file";
-
     static final Set<String> PROJECT_ALIASES = Set.of(
-            PROJECT_APP_INSTANCE,
-            CURRENT_DOCUMENT,
-            VIEW_CONTEXT_HISTORY,
-            VIEW_CONTEXT_DOCUMENT,
-            DOCUMENT_FILE_CONTENT,
-            FILE_CONTENT_FILE);
+            RecentPreviewAliases.APP_CONTROLLER_INSTANCE,
+            RecentPreviewAliases.APP_CONTROLLER_CURRENT_DOCUMENT,
+            RecentPreviewAliases.APP_CONTROLLER_VIEW_CONTEXT_HISTORY,
+            RecentPreviewAliases.VIEW_CONTEXT_DOCUMENT,
+            RecentPreviewAliases.DOCUMENT_FILE_CONTENT,
+            RecentPreviewAliases.FILE_CONTENT_FILE);
 
     static final Set<String> PANEL_ALIASES = Set.of(
-            PANEL_APP_INSTANCE, PANEL_MAIN_FRAME, MAIN_FRAME_WINDOW, WINDOW_MENU_BAR, MENU_BAR_MENUS, MENU_SWING);
+            RecentPreviewAliases.UI_PANEL_APP_CONTROLLER_INSTANCE,
+            RecentPreviewAliases.UI_PANEL_APP_CONTROLLER_MAIN_FRAME,
+            RecentPreviewAliases.UI_PANEL_MAIN_FRAME_WINDOW,
+            RecentPreviewAliases.UI_PANEL_WINDOW_MENU_BAR,
+            RecentPreviewAliases.UI_PANEL_MENU_BAR_MENUS,
+            RecentPreviewAliases.UI_PANEL_MENU_SWING);
 
     static final Set<String> FILE_LABELS = Set.of("file", "ファイル", "文件", "파일");
     static final Set<String> RECENT_LABELS =
@@ -55,9 +47,9 @@ final class RecentMenuChain {
 
     /** Verified window root of the main frame; null when the chain is unavailable. */
     static Object resolveWindow(final VerifiedMemberResolver panelResolver) {
-        final Object app = panelResolver.invokeStatic(PANEL_APP_INSTANCE);
-        final Object mainFrame = panelResolver.invoke(PANEL_MAIN_FRAME, app);
-        return panelResolver.invoke(MAIN_FRAME_WINDOW, mainFrame);
+        final Object app = panelResolver.invokeStatic(RecentPreviewAliases.UI_PANEL_APP_CONTROLLER_INSTANCE);
+        final Object mainFrame = panelResolver.invoke(RecentPreviewAliases.UI_PANEL_APP_CONTROLLER_MAIN_FRAME, app);
+        return panelResolver.invoke(RecentPreviewAliases.UI_PANEL_MAIN_FRAME_WINDOW, mainFrame);
     }
 
     /**
@@ -71,13 +63,14 @@ final class RecentMenuChain {
      * fail-closed: an empty history or an unresolvable document still yields null.</p>
      */
     static Path currentProjectPath(final VerifiedMemberResolver projectResolver) {
-        final Object app = projectResolver.invokeStatic(PROJECT_APP_INSTANCE);
-        Object document = app == null ? null : projectResolver.invoke(CURRENT_DOCUMENT, app);
+        final Object app = projectResolver.invokeStatic(RecentPreviewAliases.APP_CONTROLLER_INSTANCE);
+        Object document =
+                app == null ? null : projectResolver.invoke(RecentPreviewAliases.APP_CONTROLLER_CURRENT_DOCUMENT, app);
         if (document == null) document = lastActiveDocument(projectResolver, app);
         if (document == null) return null;
-        final Object content = projectResolver.invoke(DOCUMENT_FILE_CONTENT, document);
+        final Object content = projectResolver.invoke(RecentPreviewAliases.DOCUMENT_FILE_CONTENT, document);
         if (content == null) return null;
-        final Object raw = projectResolver.invoke(FILE_CONTENT_FILE, content);
+        final Object raw = projectResolver.invoke(RecentPreviewAliases.FILE_CONTENT_FILE, content);
         if (!(raw instanceof File file)) return null;
         return normalizeExistingProject(file.toPath());
     }
@@ -91,10 +84,10 @@ final class RecentMenuChain {
      */
     private static Object lastActiveDocument(final VerifiedMemberResolver projectResolver, final Object app) {
         if (app == null) return null;
-        final Object history = projectResolver.readField(VIEW_CONTEXT_HISTORY, app);
+        final Object history = projectResolver.readField(RecentPreviewAliases.APP_CONTROLLER_VIEW_CONTEXT_HISTORY, app);
         if (!(history instanceof List<?> contexts) || contexts.isEmpty()) return null;
         final Object context = contexts.get(contexts.size() - 1);
-        return context == null ? null : projectResolver.invoke(VIEW_CONTEXT_DOCUMENT, context);
+        return context == null ? null : projectResolver.invoke(RecentPreviewAliases.VIEW_CONTEXT_DOCUMENT, context);
     }
 
     /** Paths of the existing files listed in the Recent menu, in menu order. */
@@ -105,11 +98,11 @@ final class RecentMenuChain {
 
     /** The Recent submenu (Swing peer) of the host File menu, or null. */
     static JMenu recentMenu(final VerifiedMemberResolver panelResolver, final Object window) {
-        final Object menuBar = panelResolver.invoke(WINDOW_MENU_BAR, window);
-        final Object rawMenus = panelResolver.invoke(MENU_BAR_MENUS, menuBar);
+        final Object menuBar = panelResolver.invoke(RecentPreviewAliases.UI_PANEL_WINDOW_MENU_BAR, window);
+        final Object rawMenus = panelResolver.invoke(RecentPreviewAliases.UI_PANEL_MENU_BAR_MENUS, menuBar);
         if (!(rawMenus instanceof Iterable<?> menus)) return null;
         for (Object menu : menus) {
-            final Object peer = panelResolver.invoke(MENU_SWING, menu);
+            final Object peer = panelResolver.invoke(RecentPreviewAliases.UI_PANEL_MENU_SWING, menu);
             if (peer instanceof JMenu swing && isFileLabel(swing.getText())) {
                 final JMenu recent = findRecentMenu(swing);
                 if (recent != null) return recent;
