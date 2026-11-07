@@ -4,7 +4,7 @@
     "sha256": "83326ac519dd5e4cad9b39e4c7234410cc62bf0d1f5241364561d6906292b6da"
   },
   "production_agent_sha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
-  "primary_cohort": "clean",
+  "primary_cohort": "clean+final",
   "hosts": {
     "5103": {
       "off": {
@@ -80,35 +80,37 @@
       "off": {
         "runs": [
           "5304-off-c1",
-          "5304-off-c2"
+          "5304-off-c2",
+          "5304-off-f1"
         ],
-        "wall_s_median": 79.613,
+        "wall_s_median": 79.177,
         "wall_s_range": [
           78.288,
           80.939
         ],
-        "cpu_s_median": 188.93,
-        "alloc_gb_median": 22.018,
+        "cpu_s_median": 186.594,
+        "alloc_gb_median": 22.009,
         "prep_ms_median": null,
-        "heap_mb_median": 2613.9
+        "heap_mb_median": 2489.5
       },
       "on": {
         "runs": [
           "5304-on-c1",
-          "5304-on-c2"
+          "5304-on-c2",
+          "5304-on-f1"
         ],
-        "wall_s_median": 75.276,
+        "wall_s_median": 73.069,
         "wall_s_range": [
-          73.069,
+          72.627,
           77.483
         ],
-        "cpu_s_median": 171.555,
-        "alloc_gb_median": 14.878,
-        "prep_ms_median": 1823.4,
-        "heap_mb_median": 2960.9,
-        "wall_delta_pct": -5.4,
+        "cpu_s_median": 165.969,
+        "alloc_gb_median": 14.872,
+        "prep_ms_median": 1631.6,
+        "heap_mb_median": 2272.3,
+        "wall_delta_pct": -7.7,
         "alloc_delta_pct": -32.4,
-        "cpu_delta_pct": -9.2
+        "cpu_delta_pct": -11.1
       }
     }
   },
@@ -130,6 +132,20 @@
     {
       "run": "5203-shadow-s2",
       "version": "5203",
+      "arm": "direct",
+      "prepared": "11",
+      "preparedBytes": "939524096",
+      "preparedPixels": "234881024",
+      "comparedTextures": "11",
+      "comparedBytes": "939524096",
+      "mismatches": "0",
+      "rejectedCalls": "0",
+      "cleanup": "safe",
+      "exit": 0
+    },
+    {
+      "run": "5304-shadow-final",
+      "version": "5304",
       "arm": "direct",
       "prepared": "11",
       "preparedBytes": "939524096",
@@ -428,6 +444,16 @@
       "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
     },
     {
+      "run": "5304-off-f1",
+      "version": "5304",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
       "run": "5304-off-r1",
       "version": "5304",
       "arm": "native",
@@ -468,6 +494,16 @@
       "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
     },
     {
+      "run": "5304-on-f1",
+      "version": "5304",
+      "arm": "direct",
+      "mode": "on",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
       "run": "5304-on-r1",
       "version": "5304",
       "arm": "direct",
@@ -486,6 +522,16 @@
       "failure": "",
       "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
       "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5304-shadow-final",
+      "version": "5304",
+      "arm": "direct",
+      "mode": "shadow",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
     },
     {
       "run": "5304-shadow-s1",

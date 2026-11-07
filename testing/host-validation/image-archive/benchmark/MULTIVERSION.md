@@ -40,7 +40,10 @@ compared every preparation with the unchanged native JOGL representation.
 | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | 5.1.03 | `shader.w` | 1 | 11 | 939,524,096 | 0 | 0 | safe / 0 |
 | 5.2.03 | `shader.y` | 1 | 11 | 939,524,096 | 0 | 0 | safe / 0 |
-| 5.3.04 | `shader.A` | 1 | 11 | 939,524,096 | 0 | 0 | safe / 0 |
+| 5.3.04 | `shader.A` | 2 | 11 each | 939,524,096 each | 0 | 0 | safe / 0 |
+
+The second 5.3.04 shadow run (`5304-shadow-final`) repeated the result with the
+final shipped harness build: 11/11, 939,524,096 bytes, 0 mismatches, 0 rejected.
 
 Shadow runs also verified observer attachment before the first call,
 source-pixel immutability, callback/registry removal and class-byte restoration.
@@ -48,11 +51,12 @@ Shadow wall/CPU numbers are **not** performance samples.
 
 ## Off/on loading comparison
 
-Sequence per host: `off, on, on, off`. Big-fixture runs only; the 398 KB
-sanity fixture is excluded. Times are agent-entry to stable document publication.
-Allocation is the sum of observed per-thread allocation maxima, a lower bound; it
-is not retained RAM, RSS or VRAM. The primary (`clean`) cohort was measured after
-removing the earlier diagnostic window dump; the diagnostic cohort is retained in
+Sequence per host: `off, on, on, off`, plus one final `off, on` pair on 5.3.04
+with the shipped harness build. Big-fixture runs only; the 398 KB sanity fixture
+is excluded. Times are agent-entry to stable document publication. Allocation is
+the sum of observed per-thread allocation maxima, a lower bound; it is not
+retained RAM, RSS or VRAM. The primary cohort is `clean` (after removing a verbose
+diagnostic window dump) plus `final`; the diagnostic cohort is retained in
 `loads.csv` but is not used for the medians below.
 
 | Host | Arm | Runs | Wall median (s) | Wall range (s) | CPU median (s) | Observed alloc median (GB) | Preparation median (ms) |
@@ -61,8 +65,8 @@ removing the earlier diagnostic window dump; the diagnostic cohort is retained i
 | 5.1.03 | on | 2 | 85.757 | 84.135–87.379 | 209.109 | 49.606 | 1,781.6 |
 | 5.2.03 | off | 2 | 74.722 | 74.384–75.061 | 182.703 | 22.043 | — |
 | 5.2.03 | on | 2 | 72.385 | 71.455–73.315 | 170.195 | 14.877 | 1,664.8 |
-| 5.3.04 | off | 2 | 79.613 | 78.288–80.939 | 188.930 | 22.018 | — |
-| 5.3.04 | on | 2 | 75.276 | 73.069–77.483 | 171.555 | 14.878 | 1,823.4 |
+| 5.3.04 | off | 3 | 79.177 | 78.288–80.939 | 186.594 | 22.009 | — |
+| 5.3.04 | on | 3 | 73.069 | 72.627–77.483 | 165.969 | 14.872 | 1,631.6 |
 
 Medians versus off:
 
@@ -70,17 +74,18 @@ Medians versus off:
 | --- | ---: | ---: | ---: |
 | 5.1.03 | **−3.5%** | **−5.3%** | **−13.7%** |
 | 5.2.03 | **−3.1%** | **−6.8%** | **−32.5%** |
-| 5.3.04 | **−5.4%** | **−9.2%** | **−32.4%** |
+| 5.3.04 | **−7.7%** | **−11.1%** | **−32.4%** |
 
 Interpretation:
 
-- In this cleaner block, all three hosts show a **small 3.1–5.4% shorter wall
-  median** and **5.3–9.2% lower CPU median**, alongside lower observed allocation.
-  This is a consistent screening signal, not a statistical guarantee: two samples
+- In this cleaner block, all three hosts show a **3.1–7.7% shorter wall median** and
+  **5.3–11.1% lower CPU median**, alongside lower observed allocation. This is a
+  consistent screening signal, not a statistical guarantee: two to three samples
   per arm, one model, one machine, no randomized order and no significance test.
 - The 5.2.03 and 5.3.04 wall ranges are separated in this block; the 5.1.03 ranges
   overlap (off minimum 86.128 s, on maximum 87.379 s). Treat 5.1.03 as the weakest
-  timing evidence.
+  timing evidence. The third 5.3.04 pair (`*-f1`, shipped harness) reproduced the
+  direction: 79.177 → 72.627 s.
 - The observed-allocation reduction is about one third on 5.2.03/5.3.04 and about
   one seventh on 5.1.03, whose baseline is much larger. This remains a sampled
   lower bound, not a retained-memory or peak-memory claim.

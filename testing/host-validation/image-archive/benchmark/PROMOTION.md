@@ -50,9 +50,9 @@ performance promise**. The prior promotion-independent validation compared all
 The **promoted build** was then checked on 5.1.03, 5.2.03 and 5.3.04. Shadow
 comparisons again covered 11/11 preparations / 939,524,096 bytes with zero
 mismatches per host. The clean off/on block measured wall medians −3.5% / −3.1% /
-−5.4% and observed allocation −13.7% / −32.5% / −32.4% respectively. Two samples
-per arm and one fixture still make this a screening signal, not a release-wide
-guarantee. See [MULTIVERSION.md](MULTIVERSION.md).
+−7.7% and observed allocation −13.7% / −32.5% / −32.4% respectively. Two to three
+samples per arm and one fixture still make this a screening signal, not a
+release-wide guarantee. See [MULTIVERSION.md](MULTIVERSION.md).
 
 ## Known limitations carried into production
 
@@ -88,7 +88,7 @@ Pin coverage is **not** runtime-test coverage. Current evidence status:
 | Evidence tier | Versions | Status |
 | --- | --- | --- |
 | Exact editor JAR corpus staged on the validation machine | All 20 reviewed stable versions | **Passed** offline exact-byte artifact test: 23/23 executed, 0 skipped, 0 failures. Each JAR matched `ReviewedHostArtifacts`, its factory matched the pin, JOGL matched the gate, the adjacent overload stayed unchanged and tampering was rejected. See [ARTIFACTS.md](ARTIFACTS.md) |
-| Complete local installed hosts | 5.1.03, 5.2.03, 5.3.04 (all bundled JVM 17.0.3.1 and the reviewed JOGL) | **Promoted product build shadow-tested on all three**: 11/11 preparations, 939,524,096 bytes, zero mismatches per host. Off/on loading comparisons completed: the clean block showed 3.1–5.4% shorter wall medians and 13.7–32.5% lower observed allocation. Two samples per arm; a screening signal, not a guarantee. See [MULTIVERSION.md](MULTIVERSION.md) |
+| Complete local installed hosts | 5.1.03, 5.2.03, 5.3.04 (all bundled JVM 17.0.3.1 and the reviewed JOGL) | **Promoted product build shadow-tested on all three**: 11/11 preparations, 939,524,096 bytes, zero mismatches per host. Off/on loading comparisons completed: the clean block showed 3.1–7.7% shorter wall medians and 13.7–32.5% lower observed allocation. Two to three samples per arm; a screening signal, not a guarantee. See [MULTIVERSION.md](MULTIVERSION.md) |
 | Remaining reviewed versions (13 of 20) | 5.0.00, 5.0.02–5.0.04, 5.0.06, 5.1.01–5.1.03, 5.2.00–5.2.02, 5.3.01, 5.3.03 | **Offline artifact/pin test passed**, but no runtime loading test was run on these versions |
 
 **Do not claim all 20 runtime versions are tested.** The offline artifact test
@@ -114,7 +114,7 @@ This is a work-in-progress branch, not release acceptance.
 - [x] Expand `TextureUploadPreparationArtifactTest` beyond its existing three explicit versions; add an offline all-reviewed-version pin/owner contract test. 23/23 executed, 0 skipped, 0 failures on the staged 20-version corpus.
 - [x] Stage exact JAR dependencies and verify each available artifact and all three shader families; distinguish this from unavailable full-version binaries. See [ARTIFACTS.md](ARTIFACTS.md).
 - [x] Rebuild the preview product/validation bundle and shadow-test that exact build on the available hosts, using isolated homes. 5.1.03/5.2.03/5.3.04 each compared 11/11 preparations and 939,524,096 bytes with zero mismatches.
-- [x] Complete-host loading comparisons on 5.1.03 / 5.2.03 / 5.3.04. Clean block: wall medians −3.5% / −3.1% / −5.4% and observed allocation −13.7% / −32.5% / −32.4% for 5.1.03 / 5.2.03 / 5.3.04. Two samples per arm; a screening signal, not a guarantee. Details, diagnostic cohort and failures in [MULTIVERSION.md](MULTIVERSION.md).
+- [x] Complete-host loading comparisons on 5.1.03 / 5.2.03 / 5.3.04. Clean block: wall medians −3.5% / −3.1% / −7.7% and observed allocation −13.7% / −32.5% / −32.4% for 5.1.03 / 5.2.03 / 5.3.04. Two to three samples per arm; a screening signal, not a guarantee. Details, diagnostic cohort and failures in [MULTIVERSION.md](MULTIVERSION.md).
 - [ ] Interactive rendering (FPS/deformation) and broader memory/input checks for 256 MiB targets — unmeasured.
 - [x] Add automated regression coverage for the historical builder's `--converter-source` admission guard and validate source/control equivalence for a frozen reproduction. The builder now checks the control agent's converter long constants against the frozen source; eight offline tests pass.
 - [ ] Run proportionate final gates after the intended base is integrated; `checkCompletedCommit` has not been run for this promotion.

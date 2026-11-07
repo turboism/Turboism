@@ -18,9 +18,11 @@ run,cohort,version,arm,mode,fixture_bytes,wall_s,cpu_s,alloc_gb,prep_ms,heap_mb,
 5304-native-small-s5,sanity,5304,native,off,398674,33.516,86.688,2.196,,191.5,safe,0
 5304-off-c1,clean,5304,native,off,763166356,78.288,182.078,22.009,,2440.9,safe,0
 5304-off-c2,clean,5304,native,off,763166356,80.939,195.781,22.027,,2786.9,safe,0
+5304-off-f1,final,5304,native,off,763166356,79.177,186.594,22.001,,2489.5,safe,0
 5304-off-r1,diagnostic,5304,native,off,763166356,75.668,179.547,22.094,,4475.1,safe,0
 5304-off-r2,diagnostic,5304,native,off,763166356,77.557,176.656,22.091,,2419.9,safe,0
 5304-on-c1,clean,5304,direct,on,763166356,73.069,165.969,14.864,1591.2,2272.3,safe,0
 5304-on-c2,clean,5304,direct,on,763166356,77.483,177.141,14.891,2055.6,3649.4,safe,0
+5304-on-f1,final,5304,direct,on,763166356,72.627,161.516,14.872,1631.6,2264.2,safe,0
 5304-on-r1,diagnostic,5304,direct,on,763166356,73.929,168.891,14.937,1497.1,2863.8,safe,0
 5304-on-r2,diagnostic,5304,direct,on,763166356,77.068,177.438,14.963,2383.7,2058.2,safe,0
