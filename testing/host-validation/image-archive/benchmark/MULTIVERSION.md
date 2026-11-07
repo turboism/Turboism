@@ -140,3 +140,45 @@ Use `--arm native --mode off` for the control and `--arm direct --mode on` for
 the timing arm. Never reuse an output directory. Raw logs, copied models, JFRs
 and AppData stay under the ignored local build tree; the tracked
 `observations/multiversion/` files contain only sanitized numbers and hashes.
+
+## Runtime coverage for the remaining reviewed versions
+
+The 13 versions that previously had only offline artifact evidence were each
+launched on the same native-Windows machine with the promoted product agent and
+the auxiliary shadow observer. Two fixtures were used:
+
+- `hiyori_free_t08.cmo3` (10,127,083 bytes, SHA-256
+  `99cf572c8dcb144f657ee0669c5f05e0aed239066f3673b15889eafae67256e9`), an
+  official sample old enough for every reviewed host. Every version loaded it and
+  compared **1 preparation / 16,777,216 bytes with zero mismatches**.
+- The 763 MB `bench.cmo3` was also attempted. Cubism 5.0.02, 5.1.01, 5.2.00 and
+  5.3.01 abort that load with “file was closed/interrupted” because the project
+  was saved by Cubism 5.3.2; those four attempts are recorded as fixture
+  incompatibility, not hook failures, and the same hosts passed with the hiyori
+  fixture.
+
+| Version | Factory owner | hiyori shadow | bench shadow |
+| --- | --- | --- | --- |
+| 5.0.00 | `shader.w` | PASS 1/16,777,216 B, 0 mismatch | PASS |
+| 5.0.02 | `shader.w` | PASS 1/16,777,216 B, 0 mismatch | fixture incompatible |
+| 5.0.03 | `shader.w` | PASS 1/16,777,216 B, 0 mismatch | PASS |
+| 5.0.04 | `shader.w` | PASS 1/16,777,216 B, 0 mismatch | PASS |
+| 5.0.06 | `shader.w` | PASS 1/16,777,216 B, 0 mismatch | PASS |
+| 5.1.01 | `shader.w` | PASS 1/16,777,216 B, 0 mismatch | fixture incompatible |
+| 5.1.02 | `shader.w` | PASS 1/16,777,216 B, 0 mismatch | PASS |
+| 5.2.00 | `shader.y` | PASS 1/16,777,216 B, 0 mismatch | fixture incompatible |
+| 5.2.01 | `shader.y` | PASS 1/16,777,216 B, 0 mismatch | PASS |
+| 5.2.02 | `shader.y` | PASS 1/16,777,216 B, 0 mismatch | PASS |
+| 5.3.01 | `shader.A` | PASS 1/16,777,216 B, 0 mismatch | fixture incompatible |
+| 5.3.03 | `shader.A` | PASS 1/16,777,216 B, 0 mismatch | PASS (3 preparations) |
+
+Every passing run reported `cleanup=safe`, `normalExitCode=0`, an observer
+attached before the first call, and verified class-byte restoration. Together
+with the earlier 5.1.03 / 5.2.03 / 5.3.04 runs, **all 20 reviewed stable versions
+now have runtime evidence**, and the three shader families are each exercised on
+more than one version. Numbers: `observations/multiversion/runtime-matrix.csv`.
+
+Limits: this is still one machine, one GPU and a small/medium fixture per version.
+It proves the hook admits, transforms, produces byte-identical upload data and
+restores on each version; it does **not** measure loading performance for these
+13 versions, and it is not a substitute for a per-version heavy-model benchmark.

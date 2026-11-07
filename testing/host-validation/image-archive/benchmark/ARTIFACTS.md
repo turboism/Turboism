@@ -58,5 +58,7 @@ than treating a green build as full coverage.
   an OpenGL context, decode PNG data, or measure loading/memory.
 - The exact JAR corpus was present on one authorized validation machine. Do not
   claim other machines have the same corpus without checking the artifact hashes.
-- Runtime evidence is tracked separately in [PROMOTION.md](PROMOTION.md); the
-  5.1.03 / 5.2.03 loading comparisons remain pending.
+- Runtime evidence is tracked separately in [PROMOTION.md](PROMOTION.md) and
+  [MULTIVERSION.md](MULTIVERSION.md). All 20 reviewed stable versions have now
+  been launched and shadow-verified; the offline test here remains the exact-byte
+  admission proof, not a runtime substitute.

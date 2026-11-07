@@ -89,7 +89,7 @@ Pin coverage is **not** runtime-test coverage. Current evidence status:
 | --- | --- | --- |
 | Exact editor JAR corpus staged on the validation machine | All 20 reviewed stable versions | **Passed** offline exact-byte artifact test: 23/23 executed, 0 skipped, 0 failures. Each JAR matched `ReviewedHostArtifacts`, its factory matched the pin, JOGL matched the gate, the adjacent overload stayed unchanged and tampering was rejected. See [ARTIFACTS.md](ARTIFACTS.md) |
 | Complete local installed hosts | 5.1.03, 5.2.03, 5.3.04 (all bundled JVM 17.0.3.1 and the reviewed JOGL) | **Promoted product build shadow-tested on all three**: 11/11 preparations, 939,524,096 bytes, zero mismatches per host. Off/on loading comparisons completed: the clean block showed 3.1–7.7% shorter wall medians and 13.7–32.5% lower observed allocation. Two to three samples per arm; a screening signal, not a guarantee. See [MULTIVERSION.md](MULTIVERSION.md) |
-| Remaining reviewed versions (13 of 20) | 5.0.00, 5.0.02–5.0.04, 5.0.06, 5.1.01–5.1.03, 5.2.00–5.2.02, 5.3.01, 5.3.03 | **Offline artifact/pin test passed**, but no runtime loading test was run on these versions |
+| Remaining reviewed versions (13 of 20) | 5.0.00, 5.0.02–5.0.04, 5.0.06, 5.1.01–5.1.03, 5.2.00–5.2.02, 5.3.01, 5.3.03 | **Runtime shadow test passed** on the official `hiyori_free_t08` fixture: 1 preparation / 16,777,216 bytes, zero mismatches, safe cleanup and normal exit on every version. No per-version loading benchmark was run. See [MULTIVERSION.md](MULTIVERSION.md) |
 
 **Do not claim all 20 runtime versions are tested.** The offline artifact test
 proves exact bytecode admission for every reviewed stable JAR; it does not
@@ -115,7 +115,8 @@ This is a work-in-progress branch, not release acceptance.
 - [x] Stage exact JAR dependencies and verify each available artifact and all three shader families; distinguish this from unavailable full-version binaries. See [ARTIFACTS.md](ARTIFACTS.md).
 - [x] Rebuild the preview product/validation bundle and shadow-test that exact build on the available hosts, using isolated homes. 5.1.03/5.2.03/5.3.04 each compared 11/11 preparations and 939,524,096 bytes with zero mismatches.
 - [x] Complete-host loading comparisons on 5.1.03 / 5.2.03 / 5.3.04. Clean block: wall medians −3.5% / −3.1% / −7.7% and observed allocation −13.7% / −32.5% / −32.4% for 5.1.03 / 5.2.03 / 5.3.04. Two to three samples per arm; a screening signal, not a guarantee. Details, diagnostic cohort and failures in [MULTIVERSION.md](MULTIVERSION.md).
-- [ ] Interactive rendering (FPS/deformation) and broader memory/input checks for 256 MiB targets — unmeasured.
+- [x] Runtime coverage for all 20 reviewed stable versions: the 13 previously untested versions each loaded the official hiyori fixture with byte-identical upload data and verified restoration.
+- [ ] Interactive rendering (FPS/deformation) and broader memory/input checks for 256 MiB targets — unmeasured. The FPS probe is Linux/Proton-only (`DISPLAY`/wine window driving); no native-Windows equivalent exists yet.
 - [x] Add automated regression coverage for the historical builder's `--converter-source` admission guard and validate source/control equivalence for a frozen reproduction. The builder now checks the control agent's converter long constants against the frozen source; eight offline tests pass.
 - [ ] Run proportionate final gates after the intended base is integrated; `checkCompletedCommit` has not been run for this promotion.
 
