@@ -231,6 +231,12 @@ public record PluginCatalog(
             artifact = Objects.requireNonNull(artifact, "artifact");
         }
 
+        /** Returns whether any explanatory reason was shortened while parsing the verified catalog. */
+        public boolean hasTruncatedReasons() {
+            return dependencies.stream().anyMatch(CatalogDependency::reasonTruncated)
+                    || permissions.stream().anyMatch(CatalogPermission::reasonTruncated);
+        }
+
         /** Returns {@code true} only when this release has {@code status == "active"}. */
         public boolean isActive() {
             return STATUS_ACTIVE.equals(status);
@@ -250,13 +256,20 @@ public record PluginCatalog(
      * @param type dependency requirement type ({@code "required"} or {@code "optional"})
      * @param ordering load ordering hint ({@code "none"}, {@code "before"}, or {@code "after"})
      * @param reason optional human-readable reason
+     * @param reasonTruncated whether the original reason exceeded the retained text limit
      */
-    public record CatalogDependency(String id, String version, String type, String ordering, Optional<String> reason) {
+    public record CatalogDependency(
+            String id, String version, String type, String ordering, Optional<String> reason, boolean reasonTruncated) {
         /** Required dependency type value. */
         public static final String TYPE_REQUIRED = "required";
 
         /** Optional dependency type value. */
         public static final String TYPE_OPTIONAL = "optional";
+
+        /** Creates a dependency whose reason has not been truncated. */
+        public CatalogDependency(String id, String version, String type, String ordering, Optional<String> reason) {
+            this(id, version, type, ordering, reason, false);
+        }
 
         public CatalogDependency {
             id = Objects.requireNonNull(id, "id");
@@ -278,8 +291,14 @@ public record PluginCatalog(
      * @param id permission identifier
      * @param scope permission scope ({@code "application"} or {@code "user"})
      * @param reason human-readable reason
+     * @param reasonTruncated whether the original reason exceeded the retained text limit
      */
-    public record CatalogPermission(String id, String scope, String reason) {
+    public record CatalogPermission(String id, String scope, String reason, boolean reasonTruncated) {
+        /** Creates a permission whose reason has not been truncated. */
+        public CatalogPermission(String id, String scope, String reason) {
+            this(id, scope, reason, false);
+        }
+
         public CatalogPermission {
             id = Objects.requireNonNull(id, "id");
             scope = Objects.requireNonNull(scope, "scope");

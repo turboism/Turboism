@@ -3,7 +3,6 @@ package dev.turboism.shell;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.internal.core.CorePluginManagement.OperationResult;
 import dev.turboism.pluginmanagement.PluginCatalog;
-import dev.turboism.pluginmanagement.PluginCatalog.CatalogPermission;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogPlugin;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogRelease;
 import dev.turboism.pluginmanagement.PluginCatalogClient.DownloadControl;
@@ -660,6 +659,12 @@ final class PluginMarketWindow {
         header.add(summaryLabel);
         header.add(infoGrid);
         header.add(actions);
+        if (targetRel.hasTruncatedReasons()) {
+            final JEditorPane notice = PluginMarketReasonView.truncationNotice(
+                    i18n, MARKET_BASE_URL + plugin.slug(), PluginMarketWindow::openUrl);
+            notice.setAlignmentX(Component.LEFT_ALIGNMENT);
+            header.add(notice);
+        }
 
         // README / Details
         final String readmeHtml = PluginReadmeRenderer.render("# " + loc.name() + "\n\n" + loc.summary() + "\n\n" + "["
@@ -689,23 +694,13 @@ final class PluginMarketWindow {
     }
 
     private boolean confirmPermissions(final CatalogPlugin plugin, final CatalogRelease release) {
-        final List<CatalogPermission> permissions = release.permissions();
-        final StringBuilder msg = new StringBuilder();
-        msg.append(i18n.text("market.permission.confirm.message")).append("\n\n");
-        if (permissions.isEmpty()) {
-            msg.append("- ").append(i18n.text("common.none")).append("\n");
-        } else {
-            for (CatalogPermission p : permissions) {
-                msg.append("• ").append(p.id()).append(" (").append(p.scope()).append(")");
-                if (!p.reason().isBlank()) {
-                    msg.append(": ").append(p.reason());
-                }
-                msg.append("\n");
-            }
-        }
+        final JEditorPane permissions = PluginMarketReasonView.permissions(
+                i18n, release, MARKET_BASE_URL + plugin.slug(), PluginMarketWindow::openUrl);
+        final JScrollPane scroll = new JScrollPane(permissions);
+        scroll.setPreferredSize(new Dimension(560, 320));
         final int choice = JOptionPane.showConfirmDialog(
                 dialog,
-                msg.toString(),
+                scroll,
                 i18n.text("market.permission.confirm.title"),
                 JOptionPane.OK_CANCEL_OPTION,
                 JOptionPane.WARNING_MESSAGE);
