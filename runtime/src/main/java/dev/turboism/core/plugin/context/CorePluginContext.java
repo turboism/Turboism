@@ -3,18 +3,11 @@ package dev.turboism.core.plugin.context;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
-import dev.turboism.adapter.host.HostSessionSnapshotSource;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
-import dev.turboism.config.RuntimePluginConfigRegistry;
-import dev.turboism.core.action.RuntimeActionRegistry;
-import dev.turboism.core.diagnostics.StartupReport;
-import dev.turboism.core.event.PluginEventBus;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.failure.RuntimeFailureSink;
-import dev.turboism.permissions.CubismPermissionGate;
-import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -47,11 +40,6 @@ import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.ui.UiHostStateSource;
-import dev.turboism.ui.context.RuntimeContextMenuRegistry;
-import dev.turboism.ui.filter.RuntimePaletteFilterRegistry;
-import dev.turboism.ui.menu.RuntimeMenuRegistry;
-import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
-import dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry;
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
@@ -75,10 +63,10 @@ public final class CorePluginContext implements PluginContext {
     private volatile McpConnectionService mcpConnectionService = McpConnectionService.unavailable();
     private volatile dev.turboism.sdk.performance.PerformanceProbeService performanceStatsService;
     private volatile dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService projectWorkTimeService;
-    private volatile MeshToolRegistry meshTools;
-    private boolean meshToolsInstalled;
-    private volatile dev.turboism.sdk.cubism.modeling.ModelingToolRegistry modelingTools;
-    private boolean modelingToolsInstalled;
+    private final CorePluginInstallableService<MeshToolRegistry> meshTools =
+            new CorePluginInstallableService<>("mesh tools");
+    private final CorePluginInstallableService<dev.turboism.sdk.cubism.modeling.ModelingToolRegistry> modelingTools =
+            new CorePluginInstallableService<>("modeling tools");
     private final RuntimePluginServiceDirectory serviceDirectory = new RuntimePluginServiceDirectory();
 
     public CorePluginContext(final Dependencies dependencies) {
@@ -350,41 +338,13 @@ public final class CorePluginContext implements PluginContext {
      * @param environment assembled host environment and scoped services
      */
     public CorePluginContext(final Dependencies dependencies, final PluginContextEnvironment environment) {
-        Objects.requireNonNull(dependencies, "dependencies");
+        final CorePluginContextComposition.Composition composition =
+                CorePluginContextComposition.compose(dependencies, environment);
+        this.dependencies = composition.dependencies();
+        this.cubismServices = composition.cubismServices();
+        this.hostCapabilities = composition.hostCapabilities();
+        this.capabilityBundles = composition.capabilityBundles();
         final PluginContextEnvironment env = Objects.requireNonNull(environment, "environment");
-        final RuntimeHostAdapterAccess hostAccess = env.hostAccess();
-        this.dependencies = hostAccess == null
-                ? dependencies
-                : dependencies.withHostSnapshotSource(
-                        dependencies.hostSnapshotSource() instanceof HostSessionSnapshotSource
-                                ? dependencies.hostSnapshotSource()
-                                : HostSessionSnapshotSource.forSession(
-                                        hostAccess.adapters().projectWorkspace(),
-                                        hostAccess::currentHostSelection,
-                                        dev.turboism.adapter.cubism.EditorForegroundState::isForeground));
-        final RuntimeHostAdapters adapters = env.hostAdapters();
-        final CubismServicesFactory servicesFactory = env.servicesFactory();
-        final CubismEditorApiAvailabilityInterceptor editorApiAvailability = new CubismEditorApiAvailabilityInterceptor(
-                servicesFactory instanceof DefaultCubismServicesFactory defaultFactory
-                        ? defaultFactory.cubismEditorVersion()
-                        : java.util.Optional::empty,
-                servicesFactory instanceof DefaultCubismServicesFactory defaultFactory
-                        ? defaultFactory.admittedCubismCapabilities()
-                        : java.util.Set::of,
-                servicesFactory instanceof DefaultCubismServicesFactory defaultFactory
-                        ? defaultFactory.admittedCubismGeneration()
-                        : java.util.Optional::empty);
-        this.cubismServices = servicesFactory.create(
-                this.dependencies,
-                env.taskScheduler() instanceof dev.turboism.task.RuntimePluginTaskScheduler runtimeTasks
-                        ? runtimeTasks
-                        : null,
-                env.generationAdmission());
-        final MeshCapabilityBundle meshCapabilities = MeshCapabilityBundle.create(hostAccess, this.dependencies);
-        final UiCapabilityBundle uiCapabilities = UiCapabilityBundle.create(
-                hostAccess, adapters, this.dependencies, env.localization(), editorApiAvailability);
-        this.hostCapabilities = HostCapabilityBundle.create(hostAccess, env, editorApiAvailability);
-        this.capabilityBundles = List.of(cubismServices, meshCapabilities, uiCapabilities, hostCapabilities);
         if (env.scriptService() != null) {
             this.scriptService = env.scriptService();
         }
@@ -405,9 +365,9 @@ public final class CorePluginContext implements PluginContext {
      */
     private void installServiceDirectory() {
         serviceDirectory.installWhenPresent(
-                PluginService.MODELING_TOOLS, () -> disposableScope().isSealed() ? null : modelingTools);
+                PluginService.MODELING_TOOLS, () -> disposableScope().isSealed() ? null : modelingTools.current());
         serviceDirectory.installWhenPresent(
-                PluginService.MESH_TOOLS, () -> disposableScope().isSealed() ? null : meshTools);
+                PluginService.MESH_TOOLS, () -> disposableScope().isSealed() ? null : meshTools.current());
         serviceDirectory.install(PluginService.SCRIPTS, () -> scriptService, ScriptService::unavailable);
         serviceDirectory.install(
                 PluginService.MCP_CONNECTIONS, () -> mcpConnectionService, McpConnectionService::unavailable);
@@ -477,31 +437,13 @@ public final class CorePluginContext implements PluginContext {
     }
 
     /** Installs and owns this generation's directory-only mesh-tool service exactly once. */
-    public synchronized void installMeshTools(final MeshToolRegistry service) {
-        Objects.requireNonNull(service, "service");
-        if (meshToolsInstalled) throw new IllegalStateException("mesh tools already installed");
-        disposableScope().register(() -> {
-            synchronized (CorePluginContext.this) {
-                meshTools = null;
-            }
-            service.close();
-        });
-        meshTools = service;
-        meshToolsInstalled = true;
+    public void installMeshTools(final MeshToolRegistry service) {
+        meshTools.install(service, disposableScope());
     }
 
     /** Installs the independently verified, directory-only ordinary tool service once. */
-    public synchronized void installModelingTools(final dev.turboism.sdk.cubism.modeling.ModelingToolRegistry service) {
-        Objects.requireNonNull(service, "service");
-        if (modelingToolsInstalled) throw new IllegalStateException("modeling tools already installed");
-        disposableScope().register(() -> {
-            synchronized (CorePluginContext.this) {
-                modelingTools = null;
-            }
-            service.close();
-        });
-        modelingTools = service;
-        modelingToolsInstalled = true;
+    public void installModelingTools(final dev.turboism.sdk.cubism.modeling.ModelingToolRegistry service) {
+        modelingTools.install(service, disposableScope());
     }
 
     @Override
@@ -591,18 +533,7 @@ public final class CorePluginContext implements PluginContext {
     private dev.turboism.sdk.performance.PerformanceProbeService performanceProbeService() {
         synchronized (this) {
             if (performanceStatsService == null) {
-                final dev.turboism.sdk.performance.PerformanceProbeService shared = dependencies
-                        .eventBroker()
-                        .observationBaseline(dev.turboism.sdk.performance.PerformanceProbeService.class)
-                        .get();
-                final dev.turboism.permissions.PermissionChecker permissionChecker =
-                        dev.turboism.permissions.PermissionChecker.from(dependencies.permissions());
-                final dev.turboism.performance.RuntimePerformanceProbeService owned = shared == null
-                        ? new dev.turboism.performance.RuntimePerformanceProbeService(
-                                dependencies.descriptor().id(), permissionChecker, dependencies.clock())
-                        : null;
-                performanceStatsService = dev.turboism.performance.PermissionCheckedPerformanceProbeService.bind(
-                        shared == null ? owned : shared, permissionChecker, dependencies.disposableScope(), owned);
+                performanceStatsService = CorePluginPermissionScopedServices.performanceProbe(dependencies);
             }
             return performanceStatsService;
         }
@@ -615,17 +546,7 @@ public final class CorePluginContext implements PluginContext {
     private dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService projectWorkTimeService() {
         synchronized (this) {
             if (projectWorkTimeService == null) {
-                final dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService shared = dependencies
-                        .eventBroker()
-                        .observationBaseline(dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService.class)
-                        .get();
-                if (shared == null) {
-                    return dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService.unavailable();
-                }
-                projectWorkTimeService = dev.turboism.worktime.PermissionCheckedProjectWorkTimeService.bind(
-                        shared,
-                        dev.turboism.permissions.PermissionChecker.from(dependencies.permissions()),
-                        dependencies.disposableScope());
+                projectWorkTimeService = CorePluginPermissionScopedServices.projectWorkTime(dependencies);
             }
             return projectWorkTimeService;
         }
@@ -915,9 +836,9 @@ public final class CorePluginContext implements PluginContext {
                     uiHostStateSource,
                     cubismAuditSink,
                     clock,
-                    defaultServices(
+                    CorePluginServiceFactory.defaultServices(
                             descriptor,
-                            permissionsFromDescriptor(descriptor),
+                            CorePluginServiceFactory.permissionsFromDescriptor(descriptor),
                             paths,
                             runtimeScheduler,
                             disposableScope,
@@ -930,15 +851,6 @@ public final class CorePluginContext implements PluginContext {
                             pluginClassLoader),
                     eventBroker);
         }
-
-        private static List<PluginPermission> permissionsFromDescriptor(PluginDescriptor descriptor) {
-            return descriptor.permissions().stream()
-                    .<PluginPermission>map(ref -> new DescriptorPermission(
-                            ref.id(), ref.scope(), ref.reason().orElse("")))
-                    .toList();
-        }
-
-        private record DescriptorPermission(String id, String scope, String reason) implements PluginPermission {}
 
         private Dependencies(
                 PluginDescriptor descriptor,
@@ -953,21 +865,21 @@ public final class CorePluginContext implements PluginContext {
                 UiHostStateSource uiHostStateSource,
                 Consumer<CubismFacadeAuditEvent> cubismAuditSink,
                 Clock clock,
-                DefaultServices services,
+                CorePluginServiceFactory.DefaultServices services,
                 RuntimeEventBroker eventBroker) {
             this(
                     descriptor,
                     logger,
                     paths,
-                    permissionsFromDescriptor(descriptor),
-                    services.eventBus,
-                    services.actions,
-                    services.menus,
-                    services.mainToolbar,
-                    services.paletteToolbar,
-                    services.paletteFilter,
-                    services.contextMenu,
-                    services.config,
+                    CorePluginServiceFactory.permissionsFromDescriptor(descriptor),
+                    services.eventBus(),
+                    services.actions(),
+                    services.menus(),
+                    services.mainToolbar(),
+                    services.paletteToolbar(),
+                    services.paletteFilter(),
+                    services.contextMenu(),
+                    services.config(),
                     uiScheduler,
                     runtimeScheduler,
                     diagnostics,
@@ -979,70 +891,6 @@ public final class CorePluginContext implements PluginContext {
                     clock,
                     eventBroker);
         }
-
-        private static DefaultServices defaultServices(
-                PluginDescriptor descriptor,
-                List<PluginPermission> permissions,
-                PluginPaths paths,
-                RuntimeScheduler runtimeScheduler,
-                DisposableScope disposableScope,
-                Consumer<CubismFacadeAuditEvent> cubismAuditSink,
-                Clock clock,
-                PluginLogger logger,
-                RuntimeFailureSink failureSink,
-                RuntimeEventBroker eventBroker,
-                dev.turboism.core.event.PluginEventOwnerKey eventOwner,
-                ClassLoader pluginClassLoader) {
-            PermissionChecker checker = PermissionChecker.from(
-                    new CubismPermissionGate(descriptor.id(), permissions, cubismAuditSink, clock));
-            Consumer<StartupReport.DiagnosticProblem> diagnosticSink =
-                    problem -> logger.warn(problem.code() + ": " + problem.message() + " @ " + problem.path());
-            return new DefaultServices(
-                    new PluginEventBus(eventBroker, eventOwner, checker, pluginClassLoader),
-                    new RuntimeActionRegistry(runtimeScheduler, diagnosticSink, descriptor.id(), checker, eventBroker),
-                    new RuntimeMenuRegistry(runtimeScheduler, descriptor.id(), checker),
-                    new RuntimeMainToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
-                    new RuntimePaletteToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
-                    new RuntimePaletteFilterRegistry(checker, runtimeScheduler, descriptor.id()),
-                    new RuntimeContextMenuRegistry(checker, descriptor.id()),
-                    legacyConfig(
-                            checker,
-                            runtimeScheduler,
-                            paths.configDir(),
-                            descriptor.id(),
-                            diagnosticSink,
-                            failureSink,
-                            disposableScope));
-        }
-
-        private static RuntimePluginConfigRegistry legacyConfig(
-                final PermissionChecker checker,
-                final RuntimeScheduler runtimeScheduler,
-                final java.nio.file.Path configDir,
-                final String pluginId,
-                final Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
-                final RuntimeFailureSink failureSink,
-                final DisposableScope disposableScope) {
-            final RuntimePluginConfigRegistry config = new RuntimePluginConfigRegistry(
-                    checker, runtimeScheduler, configDir, pluginId, diagnosticSink, failureSink);
-            try {
-                disposableScope.register(config);
-                return config;
-            } catch (RuntimeException | Error failure) {
-                config.close();
-                throw failure;
-            }
-        }
-
-        private record DefaultServices(
-                EventBus eventBus,
-                ActionRegistry actions,
-                MenuRegistry menus,
-                MainToolbarRegistry mainToolbar,
-                PaletteToolbarRegistry paletteToolbar,
-                PaletteFilterRegistry paletteFilter,
-                ContextMenuRegistry contextMenu,
-                PluginConfigRegistry config) {}
 
         /**
          * @param replacement the config registry to use instead of the current one

@@ -56,8 +56,11 @@ tasks.register("checkModuleBoundaries") {
  * Layering inside the single :runtime module. The framework core, adapters, mapping, leaf
  * service implementations and shared infrastructure must not import upward into composition
  * layers or sideways into surfaces they are documented to sit below. Composition seams —
- * {@code bootstrap}, {@code shell}, {@code ui}, {@code kernel}, {@code distribution} — and the
- * service-wiring package {@code core.plugin.context} may reach anywhere.
+ * {@code bootstrap}, {@code shell}, {@code ui}, {@code kernel}, {@code distribution} and
+ * {@code pluginmanagement} — and the service-wiring package {@code core.plugin.context} may
+ * reach anywhere. The bottom-most {@code runtime} and {@code internal} packages may reach
+ * nothing above them, which is what keeps infrastructure such as {@code runtime.log} from
+ * depending on the framework core.
  *
  * Violations are fail-closed: a known debt is an explicit per-file waiver in
  * [runtimePackageWaivers], every other hit fails the gate so the baseline cannot regress.
@@ -69,32 +72,36 @@ private class RuntimePackageRule(
     val message: String
 )
 
-private val runtimeCompositionLayers = setOf("shell", "kernel", "distribution")
+private val runtimeCompositionLayers = setOf("shell", "kernel", "distribution", "pluginmanagement")
 private val runtimeFeatureImpls = setOf(
     "recentfile", "recentpreview", "screenshot", "script", "storage", "task", "config",
-    "userfile", "hostread", "performance", "exportsettings", "filechooser", "mcp", "update"
+    "userfile", "hostread", "performance", "exportsettings", "filechooser", "mcp", "update",
+    "worktime", "keybinding"
 )
+// Bottom-most packages: the JDK, the SDK and their leaf siblings only — every layer above
+// them is forbidden, which is what keeps runtime.log off the framework core.
+private val runtimeLeafPackages = setOf("runtime", "internal")
 private val runtimeInfra = setOf(
     "permissions", "diagnostics", "failure", "cleanup", "home", "graal", "i18n"
-)
+) + runtimeLeafPackages
 
 private val runtimePackageRules = listOf(
     RuntimePackageRule(
         setOf("core"),
         setOf("core/plugin/context/"),
-        setOf("adapter", "hook", "shell", "ui", "kernel", "distribution"),
+        setOf("adapter", "hook", "ui") + runtimeCompositionLayers,
         "framework core must not reach into adapter/host/composition layers"
     ),
     RuntimePackageRule(
         setOf("adapter"),
         emptySet(),
-        setOf("shell", "kernel", "distribution", "bootstrap"),
+        runtimeCompositionLayers + setOf("bootstrap"),
         "editor adapters must not reach into composition/bootstrap seams"
     ),
     RuntimePackageRule(
         setOf("mapping"),
         emptySet(),
-        setOf("adapter", "shell", "ui", "kernel", "distribution", "hook"),
+        setOf("adapter", "ui", "hook") + runtimeCompositionLayers,
         "host-artifact verification must stay below runtime surfaces"
     ),
     RuntimePackageRule(
@@ -106,10 +113,27 @@ private val runtimePackageRules = listOf(
     RuntimePackageRule(
         runtimeInfra,
         emptySet(),
-        setOf("adapter", "shell", "ui", "kernel", "distribution", "hook", "mapping"),
+        setOf("adapter", "ui", "hook", "mapping") + runtimeCompositionLayers,
         "shared infrastructure must not reach into runtime surfaces"
+    ),
+    RuntimePackageRule(
+        runtimeLeafPackages,
+        emptySet(),
+        setOf("adapter", "ui", "hook", "mapping", "core") + runtimeCompositionLayers +
+            runtimeFeatureImpls + (runtimeInfra - runtimeLeafPackages),
+        "leaf runtime/internal packages must not reach into core, feature, or surface layers"
     )
 )
+
+/**
+ * Every top-level package {@code :runtime} is allowed to declare. The rules above only bind the
+ * packages they name, so a new top-level package would silently escape the layering contract;
+ * [checkRuntimeTopPackageClassification] makes that fail closed until the package is placed in a
+ * layer here.
+ */
+private val runtimeClassifiedTopPackages =
+    runtimeCompositionLayers + setOf("core", "adapter", "mapping", "ui", "bootstrap") +
+        runtimeFeatureImpls + runtimeInfra
 
 /**
  * Accepted layering debt, one entry per file. Each waiver names the file relative to
@@ -129,6 +153,7 @@ private fun checkModuleBoundaries(project: Project) {
         checkAsmDependencies(subproject, state)
         scanProductionSources(project, subproject, state)
     }
+    checkRuntimeTopPackageClassification(project, state)
     checkOpaqueUserFileRuntime(project, state)
     checkOpaqueUserFileSdk(project, state)
     checkPersistenceCoreSources(project, state)
@@ -415,6 +440,25 @@ private fun checkRuntimePackageBoundaries(
                     "(${rule.message}); add a runtimePackageWaivers entry only for a documented debt"
             )
         }
+    }
+}
+
+private fun checkRuntimeTopPackageClassification(root: Project, state: BoundaryState) {
+    val devRoot = root.file("runtime/src/main/java/dev/turboism")
+    if (!devRoot.isDirectory) {
+        // Minimal fixtures build a :runtime without a source tree; there is nothing to classify.
+        return
+    }
+    val topPackages = devRoot.listFiles()
+        ?.filter { it.isDirectory }
+        ?.map { it.name }
+        .orEmpty()
+        .sorted()
+    topPackages.filterNot { it in runtimeClassifiedTopPackages }.forEach { pkg ->
+        state.reject(
+            "Unclassified :runtime top-level package dev.turboism.$pkg: " +
+                "classify it in gradle/module-boundaries.gradle.kts"
+        )
     }
 }
 

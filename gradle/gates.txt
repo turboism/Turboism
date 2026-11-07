@@ -94,6 +94,7 @@ member checkIntegration previewBootstrapBridgeTest
 member checkIntegration :testing:integration-tests:hostValidationScriptContractTest
 member checkIntegration :bootstrap:checkBootstrapJarDependencyIsolation
 member checkIntegration :bootstrap:checkBootstrapLaunchLeasePremain
+member checkIntegration :graal-host:checkGraalHostTargetSelection
 member checkIntegration :testing:integration-tests:previewPluginRuntimeTest
 
 # --- checkCompletedCommit: everything a coherent change must survive ---------------------------
@@ -165,4 +166,3 @@ opt-in verifySelectionBrushJar reason="module check anchor of :plugins:selection
 opt-in verifyGeometricMeshLayoutJar reason="module check anchor of :plugins:geometric-mesh-layout, reached through checkPluginBoundaries contractTaskNames (a dynamic cross-project edge)" doc="plugins/geometric-mesh-layout/build.gradle.kts:8"
 opt-in checkJavaInstaller reason="builds the Java installer, so only the macOS packaging verification workflow launches it" doc=".github/workflows/macos-packaging-verification.yml:47"
 opt-in checkInstallerPluginJsonUnicodeEscapes reason="runs inside checkJavaInstaller; no aggregate launches the installer build" doc=".github/workflows/macos-packaging-verification.yml:47"
-orphan checkGraalHostTargetSelection reason="no aggregate contains :graal-host:check and the root check alias forwards to devCheck, so this gate runs nowhere; tracked as an open question (does :graal-host:check stay unreachable?) and must be wired or deleted deliberately" doc="graal-host/build.gradle.kts:87"

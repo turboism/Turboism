@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.LinkedHashMap;
@@ -58,6 +59,7 @@ public final class ConfigMergeRegression {
         pluginSelectionUpdatesCurrentConfig();
         listenerAppliesSelectionAndPreservesNoOpBytes();
         invalidConfigBlocksManagedRetirement();
+        preNormalizeBackupRetainsTheDroppedDocument();
         malformedUtf8();
         sizeBoundary();
         concurrentGrowth();
@@ -658,6 +660,71 @@ public final class ConfigMergeRegression {
                             && !normalized.containsKey("logLevel")
                             && !normalized.containsKey("unknownField"));
             check("normalized install retires the managed JAR", !Files.exists(retired));
+        } finally {
+            deleteTree(home);
+        }
+    }
+
+    /**
+     * N1: normalizing an ownable config keeps exactly one image of the bytes it replaces, while a
+     * current v1 document (only {@code disabledPlugins} updated) and a fresh install keep none.
+     */
+    private static void preNormalizeBackupRetainsTheDroppedDocument() throws Exception {
+        final Path home = Files.createTempDirectory("listener-pre-normalize-");
+        final Path config = home.resolve("config.json");
+        final Path backup = home.resolve(ConfigMerge.CORRUPT_BACKUP_FILE);
+        try {
+            final String legacy = "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1,"
+                    + "\"worktreeId\":\"pre-normalize\",\"logLevel\":\"BOGUS\",\"legacyUnknown\":true}";
+            Files.writeString(config, legacy, StandardCharsets.UTF_8);
+            listener(home, "lite").beforePacks(List.of());
+            check("normalization keeps the pre-normalize config image",
+                    Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)
+                            && legacy.equals(Files.readString(backup, StandardCharsets.UTF_8)));
+            check("normalization still publishes the v1 document",
+                    !Files.readString(config, StandardCharsets.UTF_8).contains("legacyUnknown"));
+
+            final String second = "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1,"
+                    + "\"worktreeId\":\"pre-normalize\",\"safeMode\":\"false\"}";
+            Files.writeString(config, second, StandardCharsets.UTF_8);
+            listener(home, "lite").beforePacks(List.of());
+            check("a second normalization replaces the single image",
+                    second.equals(Files.readString(backup, StandardCharsets.UTF_8)));
+            try (var siblings = Files.list(home)) {
+                check("pre-normalize retention is exactly one file",
+                        siblings.filter(path -> path.getFileName().toString().contains("corrupt.bak"))
+                                        .count()
+                                == 1);
+            }
+
+            final String current = "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1,"
+                    + "\"worktreeId\":\"pre-normalize\",\"logLevel\":\"DEBUG\"}";
+            Files.writeString(config, current, StandardCharsets.UTF_8);
+            Files.deleteIfExists(backup);
+            listener(home, "lite").beforePacks(List.of());
+            check("a current v1 selection update keeps no pre-normalize image",
+                    !Files.exists(backup, LinkOption.NOFOLLOW_LINKS));
+            Map<String, Object> applied = ConfigMerge.loadExisting(home);
+            check("a current v1 selection update still applies the selection",
+                    applied != null
+                            && List.of("dev.turboism.plugin.fixture")
+                                    .equals(applied.get("disabledPlugins")));
+
+            // A symlinked image target is skipped, never followed or replaced.
+            final Path outside = Files.createTempFile("cfg-pre-normalize-outside-", ".json");
+            try {
+                Files.deleteIfExists(backup);
+                Files.createSymbolicLink(backup, outside);
+                Files.writeString(config, legacy, StandardCharsets.UTF_8);
+                listener(home, "lite").beforePacks(List.of());
+                check("a symlinked pre-normalize image is skipped without following it",
+                        Files.isSymbolicLink(backup) && Files.size(outside) == 0L);
+            } catch (UnsupportedOperationException | java.nio.file.FileSystemException unsupported) {
+                System.out.println("  skip: symbolic links are not creatable on this platform");
+            } finally {
+                Files.deleteIfExists(backup);
+                Files.deleteIfExists(outside);
+            }
         } finally {
             deleteTree(home);
         }

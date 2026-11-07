@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Journaled, rollback-capable application of an already authenticated framework update to an installation root.
@@ -53,6 +54,28 @@ import java.util.Optional;
 final class FrameworkUpdateApplier {
     static final String JOURNAL = "journal.json";
     static final String JOURNAL_FORMAT = "turboism-update-journal-v1";
+
+    /**
+     * Closed root field set of {@code journal.json}. The journal is execution authority: an older
+     * helper must not act on a semantic field it does not understand, so an unknown field is
+     * refused instead of ignored. The set is exactly what {@link #applyAuthenticated} and the
+     * state transitions emit, so a journal written by this build always validates.
+     */
+    private static final Set<String> ALLOWED_JOURNAL_FIELDS = Set.of(
+            "format",
+            "state",
+            "version",
+            "root",
+            "agentSha256",
+            "agentBytes",
+            "identityExisted",
+            "receiptTracked",
+            "launcherPid",
+            "launcherStarted",
+            "files");
+
+    /** Closed field set of one {@code files[]} entry: the target, its new hash and its prior existence. */
+    private static final Set<String> ALLOWED_JOURNAL_FILE_FIELDS = Set.of("path", "sha256", "existed");
 
     /** Journal, installed-build and installed payload: an atomic replacement is required, permissions inherited. */
     private static final WriteOptions ATOMIC_WRITE = WriteOptions.DEFAULT;
@@ -676,12 +699,20 @@ final class FrameworkUpdateApplier {
         FrameworkUpdateCache.installationAncestors(work);
         final BasicFileAttributes a = FrameworkUpdateCache.attributes(path);
         if (a == null || !a.isRegularFile() || a.size() > 1024 * 1024) throw new IOException("Invalid journal");
+        // UpdateFileSupport.JSON already refuses duplicate keys and trailing tokens, so a journal
+        // whose bytes disagree with themselves never reaches the field checks below.
         final var parsed = UpdateFileSupport.JSON.readTree(Files.readAllBytes(path));
         if (!(parsed instanceof ObjectNode object)
                 || !JOURNAL_FORMAT.equals(object.path("format").asText())) {
             throw new IOException("Unrecognized update journal");
         }
-        if (!java.util.Set.of("PREPARED", "APPLYING", "AWAITING_HEALTH", "STARTING_HEALTH", "COMMITTED")
+        for (final var names = object.fieldNames(); names.hasNext(); ) {
+            final String field = names.next();
+            if (!ALLOWED_JOURNAL_FIELDS.contains(field)) {
+                throw new IOException("Unrecognized update journal field: " + field);
+            }
+        }
+        if (!Set.of("PREPARED", "APPLYING", "AWAITING_HEALTH", "STARTING_HEALTH", "COMMITTED")
                         .contains(object.path("state").asText())
                 || !object.path("files").isArray()
                 || object.path("files").size() > 2 * UpdateManifest.MAX_ENTRIES
@@ -691,6 +722,15 @@ final class FrameworkUpdateApplier {
         }
         final var paths = new java.util.HashSet<String>();
         for (final var entry : object.path("files")) {
+            if (!(entry instanceof ObjectNode file)) {
+                throw new IOException("Invalid journal entry");
+            }
+            for (final var names = file.fieldNames(); names.hasNext(); ) {
+                final String field = names.next();
+                if (!ALLOWED_JOURNAL_FILE_FIELDS.contains(field)) {
+                    throw new IOException("Unrecognized update journal file field: " + field);
+                }
+            }
             final String relative = entry.path("path").asText();
             final String hash = entry.path("sha256").asText();
             try {
