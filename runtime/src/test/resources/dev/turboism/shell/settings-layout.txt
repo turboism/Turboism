@@ -12,7 +12,8 @@ performance 66 toggle reinit-pair-elision
 performance 67 toggle model-instance-coalesce
 performance 68 toggle inspector-property-bypass
 performance 69 toggle async-readback
-performance 70 note performance.section.model
+performance 70 toggle texture-upload-preparation
+performance 71 note performance.section.model
 performance 72 toggle incremental-update
 performance 73 toggle incremental-update-affecters
 performance 74 toggle mesh-interpolation
@@ -32,7 +33,6 @@ performance 103 toggle atlas-tile-bbox
 performance 104 toggle atlas-cache-reuse
 performance 105 toggle image-archive-reuse
 performance 106 toggle float-array-parse-cache
-performance 107 toggle texture-upload-preparation
 performance 110 note performance.section.jvm
 performance 111 toggle cubism-zgc
 performance 112 toggle cubism-disable-auto-backup

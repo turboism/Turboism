@@ -28,7 +28,7 @@ final class OptimizationSettingsContribution {
     /** Section header rows in render order, each pinned to the index its note renders at. */
     private static final List<Section> SECTIONS = List.of(
             new Section("heavy-model", 60),
-            new Section("model", 70),
+            new Section("model", 71),
             new Section("rendering", 80),
             new Section("upload", 90),
             new Section("mesh", 100),

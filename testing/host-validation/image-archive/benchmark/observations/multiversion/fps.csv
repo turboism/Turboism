@@ -1,0 +1,5 @@
+run,mode,status,renderSceneCalls,fpsMax,fpsP05,fpsMin,samplingSeconds,deformationDriver
+fps-off-r1,off,PASS,1037,19.986,4.233223523515133,0.0,90,resize
+fps-off-r2,off,PASS,1009,16.147,3.979073257921937,0.0,90,resize
+fps-on-r1,on,PASS,1050,20.165,4.033438821203304,0.0,90,resize
+fps-on-r2,on,PASS,1038,16.094,7.9377269445744245,0.0,90,resize

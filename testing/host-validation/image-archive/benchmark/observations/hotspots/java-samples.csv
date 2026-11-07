@@ -1,0 +1,13 @@
+category,directJavaSamples,directShareOfJavaSamples,nativeJavaSamples,directAllocationWeightGB
+JOGL custom texture conversion,194,0.22045454545454546,345,4.730318216
+extended interpolation setup/evaluation,152,0.17272727272727273,147,3.625887328
+other host/JDK,146,0.16590909090909092,168,1.690597232
+model serialization/deserialization,130,0.14772727272727273,126,4.580951384
+other Turboism,98,0.11136363636363636,68,1.33023448
+float parsing,63,0.0715909090909091,60,1.377817496
+direct texture preparation,29,0.03295454545454545,0,0.369413232
+native image materialization,29,0.03295454545454545,31,1.012917712
+PNG decoding (including inflate/cache IO),24,0.02727272727272727,11,1.99126432
+archive/other inflate,7,0.007954545454545454,3,0.105300976
+observer/JFR overhead,6,0.006818181818181818,1,0.005673544
+XML parsing/validation,2,0.0022727272727272726,1,0.005252896

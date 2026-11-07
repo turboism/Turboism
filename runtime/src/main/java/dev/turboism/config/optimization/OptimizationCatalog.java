@@ -244,7 +244,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.textureUploadPreparation"),
             List.of("TURBOISM_TEXTURE_UPLOAD_PREPARATION"),
             Set.of("cubism.texture-upload-preparation"),
-            Optional.of(new Optimization.Placement("mesh", 107)),
+            Optional.of(new Optimization.Placement("heavy-model", 70)),
             "settings.optimization.texture-upload-preparation",
             "settings.optimization.texture-upload-preparation.tooltip",
             List.of());

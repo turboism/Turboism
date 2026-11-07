@@ -1,0 +1,10 @@
+{
+  "archiveFile": "texture-host-evidence.zip",
+  "sha256": "02ff3c34dbaf3d1a7141e71c1eb7e0ba765e3f210c0924dd14953035712e48c4",
+  "manifestSha256": "afa59cb71587dfa4ed91068f0b6e0a4ab4637c377b937a57ecd7f0a6cf6ee4b8",
+  "entryCount": 273,
+  "bytes": 25376947,
+  "modelFilesIncluded": false,
+  "licenseStateIncluded": false,
+  "measurementRunnerSha256": "8632dc43b6567c744587ddb9faaadaa52fd2c135bf8017dfb350c8b0102d630a"
+}
