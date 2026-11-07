@@ -90,7 +90,7 @@ export class ReleaseRegistry {
   if(path==='/_refresh'||!this.snapshot||this.snapshot.error||snapshotAge(this.snapshot)>SNAPSHOT_REFRESH_MS)await this.refresh(path==='/_refresh'?await syncCredential(request):null);
   if(path==='/_refresh'||path==='/health'){
    const usable=snapshotUsable(this.snapshot),fresh=usable&&snapshotAge(this.snapshot)<=SNAPSHOT_REFRESH_MS&&!this.snapshot?.refreshError&&!Object.keys(this.snapshot?.errors??{}).length;
-   return jsonResponse(request,{service:'turboism-release-api',status:fresh?'ready':usable?'degraded':'unavailable',synchronizedAt:this.snapshot?.syncedAt??null,mirrorConfigured:Boolean(this.env.DOWNLOADS),channels:CHANNELS.map(channel=>({channel,status:documentFor(this.snapshot,channel).status}))},usable?200:503);
+   return jsonResponse(request,{service:'turboism-release-api',status:fresh?'ready':usable?'degraded':'unavailable',synchronizedAt:this.snapshot?.syncedAt??null,mirrorConfigured:Boolean(this.env.DOWNLOADS),channels:CHANNELS.map(channel=>({channel,status:documentFor(this.snapshot,channel).status,...(this.snapshot?.errors?.[channel]?{syncError:this.snapshot.errors[channel]}:{})}))},usable?200:503);
   }
   if(START_RE.test(path))return beginEdgeDownload(request,this.env,this.snapshot,this.counts);
   const stats=/^\/v1\/downloads\/([0-9A-Za-z.-]{1,96})\.json$/.exec(path);
