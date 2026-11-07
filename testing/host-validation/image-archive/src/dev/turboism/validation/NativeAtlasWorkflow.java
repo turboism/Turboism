@@ -288,7 +288,7 @@ final class NativeAtlasWorkflow {
     }
 
     private static final Set<String> TRIAL_LABELS =
-            Set.of("继续使用", "Continue", "Continue Trial", "継続", "続行", "계속");
+            Set.of("继续使用", "繼續使用", "Continue", "Continue Trial", "継続", "続行", "계속");
 
     private static volatile boolean trialDismissed;
     private static volatile boolean newerFileWarningAccepted;
