@@ -1,0 +1,32 @@
+{
+  "off": {
+    "runs": [
+      "fps-off-r1",
+      "fps-off-r2"
+    ],
+    "frames": [
+      1037,
+      1009
+    ],
+    "frames_median": 1023.0,
+    "fpsMax_median": 18.066,
+    "fpsP05_median": 4.106
+  },
+  "on": {
+    "runs": [
+      "fps-on-r1",
+      "fps-on-r2"
+    ],
+    "frames": [
+      1050,
+      1038
+    ],
+    "frames_median": 1044.0,
+    "fpsMax_median": 18.13,
+    "fpsP05_median": 5.986
+  },
+  "delta": {
+    "frames_pct": 2.1,
+    "fpsMax_pct": 0.4
+  }
+}

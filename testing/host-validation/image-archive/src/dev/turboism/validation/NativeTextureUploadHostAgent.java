@@ -71,6 +71,14 @@ public final class NativeTextureUploadHostAgent {
             require(target!=null,"native texture factory absent");
             NativeAtlasWorkflow.awaitTaskDocument(target.getClassLoader());
             RESULT.setProperty("agentToDocumentReadyNs",Long.toString(System.nanoTime()-start));
+            int driveSeconds=Integer.getInteger("turboism.validation.deformationDriveSeconds",0);
+            if(driveSeconds>0) {
+                Thread driver=new Thread(() -> {
+                    try { NativeDeformationDriver.drive(driveSeconds); }
+                    catch(Exception failure) { System.err.println("DEFORMATION_DRIVER_FAIL "+failure); }
+                },"turboism-deformation-driver");
+                driver.setDaemon(true);driver.start();
+            }
             long cpuEnd=NativeLoadMetrics.processCpu();
             RESULT.setProperty("processCpuToDocumentReadyNs",Long.toString(cpuStart<0||cpuEnd<0?-1:cpuEnd-cpuStart));
             RESULT.setProperty("observedThreadAllocatedBytes",Long.toString(allocations.stopAndTotal()));
@@ -132,6 +140,14 @@ public final class NativeTextureUploadHostAgent {
                 RESULT.setProperty("liveDisableAndRestoration","PASS");
             }
             RESULT.setProperty("fixtureWritten","false");RESULT.setProperty("status","PASS");store(output);
+            int holdSeconds=Integer.getInteger("turboism.validation.holdOpenSeconds",0);
+            if(holdSeconds>0) {
+                long holdUntil=System.nanoTime()+holdSeconds*1_000_000_000L;
+                while(System.nanoTime()<holdUntil) {
+                    if(fpsProbeFinished(output))break;
+                    Thread.sleep(1000);
+                }
+            }
             String fixture=System.getProperty("turboism.validation.fixtureName","");
             SwingUtilities.invokeLater(()->{for(Frame frame:Frame.getFrames())if(frame.isVisible()&&frame.getTitle().contains(fixture)){
                 frame.dispatchEvent(new WindowEvent(frame,WindowEvent.WINDOW_CLOSING));break;
@@ -143,6 +159,20 @@ public final class NativeTextureUploadHostAgent {
         } finally {
             allocations.stopAndTotal();try{capture.detach();}catch(Exception ignored){ }capture.profile.set(null);
         }
+    }
+
+    /** The FPS exerciser publishes its own result once its sampling window closes. */
+    private static boolean fpsProbeFinished(Path output) {
+        Path state=output.getParent();
+        if(state==null)return false;
+        try(var paths=Files.walk(state)) {
+            for(Path candidate:(Iterable<Path>)paths.filter(Files::isRegularFile)::iterator) {
+                if(!"result.txt".equals(candidate.getFileName().toString()))continue;
+                String text=Files.readString(candidate);
+                if(text.contains("renderSceneCalls"))return true;
+            }
+        } catch(Exception ignored) { }
+        return false;
     }
 
     private static long number(Object stats,String name){return ((Number)((Map<?,?>)((Supplier<?>)stats).get()).get(name)).longValue();}

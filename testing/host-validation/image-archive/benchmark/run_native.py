@@ -84,6 +84,18 @@ def runtime_ready(home: Path) -> bool:
                for path in (home / "logs").rglob("*.log"))
 
 
+def fps_probe_finished(home: Path) -> bool:
+    """The texture result is published before the FPS exerciser finishes sampling."""
+    for path in (home / "state").rglob("result.txt"):
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if "status=" in text and "renderSceneCalls" in text:
+            return True
+    return False
+
+
 def copy_seed_state(seed: Path, destination: Path) -> None:
     """Copies settings/license state without stale temp trees or user projects."""
     if not seed.exists():
@@ -226,7 +238,8 @@ def run(args: argparse.Namespace) -> dict:
     output.mkdir(parents=True, exist_ok=False)
     home = output / "home"
     home.mkdir()
-    (home / "plugins").mkdir()
+    plugins = home / "plugins"
+    plugins.mkdir()
     state = home / "state/texture-upload"
     state.mkdir(parents=True)
     official = host / "CubismEditor5.bat"
@@ -268,6 +281,8 @@ def run(args: argparse.Namespace) -> dict:
     for path in (roaming, local, profile):
         path.mkdir()
     copy_seed_state(seed, roaming)
+    if args.fps_probe:
+        shutil.copyfile(Path(args.fps_probe).resolve(strict=True), plugins / "fps-host-validation-exerciser.jar")
     enabled = args.mode != "off"
     options = ["-Djava.locale.providers=CLDR,SPI", f"-Duser.home={profile}", f"-Dturboism.home={home}",
                f"-Dturboism.optimization.textureUploadPreparation={str(enabled).lower()}",
@@ -282,8 +297,13 @@ def run(args: argparse.Namespace) -> dict:
                "-Dturboism.validation.textureUpload.loadingTrace=true",
                "-Dturboism.validation.textureUpload.memoryIdleSeconds=30",
                *(["-Dturboism.validation.dismissTrialWelcome=true"] if args.dismiss_trial else []),
+               *(["-Dturboism.validation.deformationDriveSeconds=" + str(args.deformation_seconds)] if args.deformation_seconds else []),
+               *(["-Dturboism.validation.holdOpenSeconds=" + str(args.hold_open_seconds)] if args.hold_open_seconds else []),
+               *(["-Dturboism.validation.fps.skipRuntimeReport=true",
+                  "-Dturboism.validation.fps.sustained=true",
+                  "-Dturboism.validation.fps.settleSeconds=" + str(args.fps_settle)] if args.fps_probe else []),
                f"-javaagent:{staged_aux}",
-               f"-javaagent:{staged_agent}=home={home};timeoutSeconds=180"]
+               f"-javaagent:{staged_agent}=home={home};timeoutSeconds={args.agent_timeout}"]
     if staged_experiment:
         options.insert(-2, f"-javaagent:{staged_experiment}")
         options.extend([
@@ -308,6 +328,8 @@ def run(args: argparse.Namespace) -> dict:
               "version": args.version, "textureFactory": factory, "profiling": args.profile,
               "experiment": args.experiment, "experimentShadow": args.experiment_shadow,
               "dismissTrial": args.dismiss_trial,
+              "fpsProbe": bool(args.fps_probe), "fpsSettle": args.fps_settle,
+              "deformationSeconds": args.deformation_seconds,
               "sourceRevision": subprocess.check_output(
                   ["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip(),
               "sourceDiffSha256": hashlib.sha256(subprocess.check_output(["git", "diff"], cwd=REPO)).hexdigest(),
@@ -335,7 +357,8 @@ def run(args: argparse.Namespace) -> dict:
                 deadline = time.monotonic() + args.timeout
                 while time.monotonic() < deadline:
                     if result.exists():
-                        break
+                        if not args.fps_probe or fps_probe_finished(home):
+                            break
                     if java_handle is None:
                         all_processes = metrics.processes()
                         descendants = {process.process.pid}
@@ -366,7 +389,8 @@ def run(args: argparse.Namespace) -> dict:
                     if not (state / "start.flag").exists() and runtime_ready(home):
                         (state / "start.flag").touch()
                     if result.exists():
-                        break
+                        if not args.fps_probe or fps_probe_finished(home):
+                            break
                     if process.process.poll() is not None:
                         raise RuntimeError("launcher exited before terminal result")
                     time.sleep(.25)
@@ -434,6 +458,14 @@ def main() -> None:
     parser.add_argument("--experiment-agent", help="private, exact-host experiment probe")
     parser.add_argument("--experiment", choices=("none", "large", "png", "archive", "warp", "float"), default="none")
     parser.add_argument("--experiment-shadow", action="store_true")
+    parser.add_argument("--hold-open-seconds", type=int, default=0,
+                        help="keep the host open after the texture result so a co-loaded probe can finish")
+    parser.add_argument("--agent-timeout", type=int, default=180,
+                        help="seconds the texture agent keeps the host open before closing it")
+    parser.add_argument("--fps-probe", help="test-only FPS exerciser plugin JAR to load from the task home")
+    parser.add_argument("--fps-settle", type=int, default=0, help="seconds to let the model settle before sampling")
+    parser.add_argument("--deformation-seconds", type=int, default=0,
+                        help="drive parameter deformation for this many seconds so the canvas keeps repainting")
     parser.add_argument("--dismiss-trial", action="store_true",
                         help="test-only: dismiss the official trial welcome dialog before opening the fixture")
     args = parser.parse_args()

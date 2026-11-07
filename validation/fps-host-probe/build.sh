@@ -22,11 +22,12 @@ trap 'rm -rf "$out"' EXIT
 
 mkdir -p "$out/actor" "$out/observer"
 helpers="testing/integration-tests/src/test/java/dev/turboism/tests/plugin"
-javac --release 17 -cp "$sdk_jar" -d "$out/actor" \
+javac --release 17 -encoding UTF-8 -cp "$sdk_jar" -d "$out/actor" \
   "$src/dev/turboism/validation/fps/FpsHostValidationPlugin.java" \
   "$src/dev/turboism/validation/fps/FpsLifecycleAcceptance.java" \
   "$helpers/McpValidationHostClose.java" \
-  "$helpers/WindowsHistoryNativeUiHostClose.java"
+  "$helpers/WindowsHistoryNativeUiHostClose.java" \
+  "$helpers/WindowsProbeHarness.java"
 cp -r "$src/META-INF" "$out/actor/"
 
 output="$repo_root/build/fps-host-validation-exerciser.jar"
@@ -35,7 +36,7 @@ echo "[probe] $output"
 sha256sum "$output"
 
 observer="validation/fps-host-probe/observer"
-javac --release 17 -cp "$sdk_jar" -d "$out/observer" \
+javac --release 17 -encoding UTF-8 -cp "$sdk_jar" -d "$out/observer" \
   "$observer/dev/turboism/validation/fpsobserver/FpsLifecycleObserverPlugin.java"
 cp -r "$observer/META-INF" "$out/observer/"
 observer_output="$repo_root/build/fps-host-validation-observer.jar"

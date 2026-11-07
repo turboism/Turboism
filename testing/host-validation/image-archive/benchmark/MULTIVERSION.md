@@ -194,3 +194,48 @@ Limits: this is still one machine, one GPU and a small/medium fixture per versio
 It proves the hook admits, transforms, produces byte-identical upload data and
 restores on each version; it does **not** measure loading performance for these
 13 versions, and it is not a substitute for a per-version heavy-model benchmark.
+
+## Interactive rendering under continuous repaint
+
+The remaining unmeasured risk was that `DataBuffer.getData()` during preparation
+could disturb Java2D source-acceleration bookkeeping and slow later interactive
+rendering. That was measured on native Windows 5.3.04 with the official
+`hiyori_free_t08` fixture.
+
+Method: the reviewed SDK FPS exerciser (`validation/fps-host-probe`) samples
+`PerformanceProbeService` once per second and records the cumulative
+`renderSceneCalls` counter. Its Linux/Proton runner forces repaints by resizing
+the window through X11, which needs a display server; for native Windows a
+test-only in-JVM driver resizes the task's own frame on the EDT instead — the
+same geometry change the X11 driver makes, with no synthetic input and no host
+mutation beyond window size. The driver restores the original geometry when it
+stops and only ever touches the single frame whose title carries the task
+fixture name.
+
+Sequence `off, on, on, off`, 90-second sampling window, driver active for the
+whole window. `renderSceneCalls` is the cumulative counter at the end of the
+window, so it is a repaint-throughput proxy, not a frame-time histogram.
+
+| Arm | Runs | Frames (median) | Frames (each) | fpsMax median | fpsP05 median |
+| --- | ---: | ---: | --- | ---: | ---: |
+| off | 2 | 1,023 | 1,037 / 1,009 | 18.066 | 4.106 |
+| on | 2 | 1,044 | 1,050 / 1,038 | 18.130 | 5.986 |
+
+Delta: **+2.1% frames, +0.4% fpsMax**. Both arms overlap; the p05 difference is
+within run-to-run noise and is not a latency claim.
+
+Interpretation: **no interactive-rendering regression was detected**, and no
+interactive speedup is claimed. This closes the specific risk that the direct
+array read would slow subsequent repaints; it does not characterise deformation
+cost under heavy editing, and two runs per arm cannot resolve small effects.
+
+Limits:
+
+- `renderSceneCalls` counts repaints the host chose to schedule, so it reflects
+  the driver's resize cadence as much as rendering cost.
+- The driver's resize amplitude and cadence are fixed, not tuned per model.
+- Six earlier diagnostic runs without the resize driver recorded only 5 frames
+  each and are retained in the local build tree as harness history, not as
+  samples. One exploratory resize run (`fps-resize-s1`, 720 frames) is likewise
+  excluded from the paired comparison above.
+- Numbers: `observations/multiversion/fps.csv` and `fps-summary.json`.
