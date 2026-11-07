@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.io.PathLocks;
 import dev.turboism.distribution.LocalPluginJarPreparer;
 import dev.turboism.distribution.PluginJarPreflight;
 import dev.turboism.distribution.PreparedPluginJar;
@@ -14,6 +15,7 @@ import dev.turboism.internal.core.CorePluginManagement;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
@@ -41,6 +43,13 @@ public final class PendingPluginOperations {
     private static final java.util.Set<String> OPERATION_FIELDS = java.util.Set.of(
             "type", "pluginId", "stagedJar", "version", "rawSha256", "descriptorSha256", "jarSha256", "jarSize");
     private static final String CORE_ID = dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID;
+    /**
+     * Cross-process lock file for the journal transaction. It holds no state: the operating system
+     * releases the lock when the owning process exits, so there is no stale-owner record to
+     * interpret and no cleanup that could delete a live lock.
+     */
+    private static final String LOCK_FILE = "pending.lock";
+
     private final Path home;
     private final Path plugins;
     private final Path staging;
@@ -50,6 +59,12 @@ public final class PendingPluginOperations {
     private final ConfinedPluginFiles files;
     private final SnapshotCopier snapshotCopier;
     private final SnapshotCopier backupCopier;
+    /** One JVM monitor per journal path, shared with every other writer of the same path. */
+    private final Object journalLock;
+    /** Nesting depth of {@link #withJournalLock} on this thread; the OS lock is held only at zero. */
+    private final ThreadLocal<Integer> journalLockDepth = ThreadLocal.withInitial(() -> 0);
+    /** The OS lock this thread holds while it is the outermost journal transaction. */
+    private final ThreadLocal<HeldLock> journalFileLock = new ThreadLocal<>();
 
     public PendingPluginOperations(final Path requestedHome) {
         this(requestedHome, PendingPluginOperations::copySnapshot);
@@ -70,9 +85,18 @@ public final class PendingPluginOperations {
         files = new ConfinedPluginFiles(home);
         this.snapshotCopier = java.util.Objects.requireNonNull(snapshotCopier, "snapshotCopier");
         this.backupCopier = java.util.Objects.requireNonNull(backupCopier, "backupCopier");
+        this.journalLock = PathLocks.forPath(journal);
     }
 
     synchronized StagedInstall stage(final Path source) {
+        try {
+            return withJournalLock(() -> stageLocked(source));
+        } catch (JournalLockFailure failure) {
+            return new StagedInstall(false, "PLUGIN_STAGE_REJECTED", null);
+        }
+    }
+
+    private StagedInstall stageLocked(final Path source) {
         if (recoveryRequired()) return new StagedInstall(false, "PLUGIN_PENDING_RECOVERY_REQUIRED", null);
         final LocalPluginJarPreparer.Preparation result = new LocalPluginJarPreparer().prepare(source, packages);
         if (result instanceof LocalPluginJarPreparer.PreparationRejected rejected) {
@@ -83,6 +107,14 @@ public final class PendingPluginOperations {
     }
 
     synchronized StagedInstall stage(final PreparedPluginJar prepared) {
+        try {
+            return withJournalLock(() -> stageLocked(prepared));
+        } catch (JournalLockFailure failure) {
+            return new StagedInstall(false, "PLUGIN_STAGE_REJECTED", null);
+        }
+    }
+
+    private StagedInstall stageLocked(final PreparedPluginJar prepared) {
         if (recoveryRequired()) return new StagedInstall(false, "PLUGIN_PENDING_RECOVERY_REQUIRED", null);
         Objects.requireNonNull(prepared, "prepared");
         final Path stagedJar;
@@ -175,6 +207,14 @@ public final class PendingPluginOperations {
     }
 
     synchronized StagedBatchResult stageBatch(final List<PreparedPluginJar> batch, final List<Operation> expected) {
+        try {
+            return withJournalLock(() -> stageBatchLocked(batch, expected));
+        } catch (JournalLockFailure failure) {
+            return new StagedBatchResult(false, "PLUGIN_STAGE_REJECTED", List.of());
+        }
+    }
+
+    private StagedBatchResult stageBatchLocked(final List<PreparedPluginJar> batch, final List<Operation> expected) {
         Objects.requireNonNull(batch, "batch");
         if (recoveryRequired()) return new StagedBatchResult(false, "PLUGIN_PENDING_RECOVERY_REQUIRED", List.of());
         if (expected != null && !expected.equals(readOperations())) {
@@ -255,6 +295,17 @@ public final class PendingPluginOperations {
     /** Keeps packages referenced by the journal, including when the journal cannot safely be read. */
     synchronized void discardIfUnreferenced(final Path candidate) {
         try {
+            withJournalLock(() -> {
+                discardIfUnreferencedLocked(candidate);
+                return Boolean.TRUE;
+            });
+        } catch (Exception ignored) {
+            // Recovery must retain potentially journalled packages; startup can collect proven orphans.
+        }
+    }
+
+    private void discardIfUnreferencedLocked(final Path candidate) {
+        try {
             final Path path = files.confined(candidate);
             if (!path.startsWith(packages)) return;
             files.rejectLinks(path);
@@ -271,6 +322,14 @@ public final class PendingPluginOperations {
     }
 
     synchronized StagedUninstall stageUninstall(final String pluginId) {
+        try {
+            return withJournalLock(() -> stageUninstallLocked(pluginId));
+        } catch (JournalLockFailure failure) {
+            return new StagedUninstall(false, "PLUGIN_PENDING_WRITE_FAILED");
+        }
+    }
+
+    private StagedUninstall stageUninstallLocked(final String pluginId) {
         if (CORE_ID.equals(pluginId)) return new StagedUninstall(false, "PLUGIN_CORE_PROTECTED");
         if (recoveryRequired()) return new StagedUninstall(false, "PLUGIN_PENDING_RECOVERY_REQUIRED");
         try {
@@ -323,6 +382,15 @@ public final class PendingPluginOperations {
 
     /** Caller owns the root update lease; CAS protects the exact intent shown before consent. */
     synchronized CorePluginManagement.OperationResult discardPendingChanges(final String expectedSnapshot) {
+        try {
+            return withJournalLock(() -> discardPendingChangesLocked(expectedSnapshot));
+        } catch (JournalLockFailure failure) {
+            return CorePluginManagement.OperationResult.rejected(
+                    "PLUGIN_PENDING_RECOVERY_REQUIRED", "Pending changes could not be safely cancelled.");
+        }
+    }
+
+    private CorePluginManagement.OperationResult discardPendingChangesLocked(final String expectedSnapshot) {
         try {
             final JournalSnapshot observed = reviewedJournal();
             final List<Operation> current = observed.operations();
@@ -390,6 +458,13 @@ public final class PendingPluginOperations {
 
     /** Completes an exact install after hot apply or confirmed rollback; retains other pending work. */
     synchronized void completeHotApply(final PreparedPluginJar prepared) {
+        withJournalLock(() -> {
+            completeHotApplyLocked(prepared);
+            return Boolean.TRUE;
+        });
+    }
+
+    private void completeHotApplyLocked(final PreparedPluginJar prepared) {
         final Path applied = prepared.stagedJar().toAbsolutePath().normalize();
         final List<Operation> previous = readOperations();
         final List<Operation> remaining = previous.stream()
@@ -442,6 +517,14 @@ public final class PendingPluginOperations {
      *     not be read, backup preparation failed, or rollback itself failed and manual repair is needed
      */
     public synchronized ApplyResult apply() {
+        try {
+            return withJournalLock(this::applyLocked);
+        } catch (JournalLockFailure failure) {
+            return new ApplyResult(Status.RECOVERY_REQUIRED, "PLUGIN_PENDING_LOCK_FAILED");
+        }
+    }
+
+    private ApplyResult applyLocked() {
         final List<Operation> operations;
         final JournalSnapshot intent;
         try {
@@ -707,6 +790,102 @@ public final class PendingPluginOperations {
             if (!allowed.contains(names.next())) return false;
         }
         return true;
+    }
+
+    @FunctionalInterface
+    private interface LockedAction<T> {
+        T run();
+    }
+
+    /** The OS lock and its channel; both are released together when the outermost action returns. */
+    private record HeldLock(FileChannel channel, FileLock lock) {}
+
+    /**
+     * The journal transaction could not take its cross-process lock. Callers map it to their own
+     * fail-closed outcome rather than writing a journal they cannot serialize.
+     */
+    private static final class JournalLockFailure extends IllegalStateException {
+        JournalLockFailure(final Throwable cause) {
+            super("PLUGIN_PENDING_LOCK_FAILED", cause);
+        }
+    }
+
+    /**
+     * Runs one journal transaction under both locks: the per-path JVM monitor from {@link PathLocks}
+     * (so two {@code PendingPluginOperations} instances in one process serialize) and an operating-
+     * system file lock on {@code state/runtime/plugin-management/pending.lock} (so two processes do).
+     *
+     * <p>The monitor is reentrant and the file lock is acquired only at nesting depth zero, so the
+     * nested entry points ({@code stage(Path)} → {@code stage(PreparedPluginJar)} → {@code
+     * discardIfUnreferenced}, {@code stageBatch(List)} → {@code stageBatch(List, List)}, {@code
+     * discardPendingChanges} → {@code discardIfUnreferenced}) never try to lock the same file
+     * twice, which would raise {@link java.nio.channels.OverlappingFileLockException} even in one
+     * process.</p>
+     */
+    private <T> T withJournalLock(final LockedAction<T> action) {
+        synchronized (journalLock) {
+            final int depth = journalLockDepth.get();
+            if (depth == 0) acquireJournalFileLock();
+            journalLockDepth.set(depth + 1);
+            try {
+                return action.run();
+            } finally {
+                final int remaining = journalLockDepth.get() - 1;
+                journalLockDepth.set(remaining);
+                if (remaining == 0) releaseJournalFileLock();
+            }
+        }
+    }
+
+    /**
+     * Creates the private staging directory and takes the journal's OS lock. A symlinked or
+     * non-regular lock file is refused instead of followed, exactly like every other runtime-owned
+     * path. The lock is released by the operating system if this process dies, so a crash never
+     * leaves a lock a later run has to interpret or break.
+     *
+     * <p>{@link java.nio.channels.OverlappingFileLockException} cannot occur through this method:
+     * the monitor is held and the file lock is taken once at nesting depth zero. It is still mapped
+     * to {@link JournalLockFailure} with every other acquisition failure, so a foreign locker in the
+     * same JVM degrades to the caller's fail-closed outcome instead of escaping as a runtime error.
+     */
+    private void acquireJournalFileLock() {
+        try {
+            Files.createDirectories(staging);
+            files.rejectLinks(staging);
+            final Path lockFile = staging.resolve(LOCK_FILE);
+            if (Files.isSymbolicLink(lockFile)) throw new IOException("pending.lock is a symbolic link");
+            if (Files.exists(lockFile, LinkOption.NOFOLLOW_LINKS)
+                    && !Files.isRegularFile(lockFile, LinkOption.NOFOLLOW_LINKS)) {
+                throw new IOException("pending.lock is not a regular file");
+            }
+            final FileChannel channel = FileChannel.open(
+                    lockFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
+            try {
+                journalFileLock.set(new HeldLock(channel, channel.lock()));
+            } catch (IOException | RuntimeException failure) {
+                channel.close();
+                throw failure;
+            }
+        } catch (IOException | RuntimeException failure) {
+            throw new JournalLockFailure(failure);
+        }
+    }
+
+    private void releaseJournalFileLock() {
+        final HeldLock held = journalFileLock.get();
+        journalFileLock.remove();
+        if (held == null) return;
+        try {
+            held.lock().release();
+        } catch (IOException ignored) {
+            // Closing the channel below releases the lock in every case.
+        } finally {
+            try {
+                held.channel().close();
+            } catch (IOException ignored) {
+                // best effort; the OS releases the lock when the descriptor closes
+            }
+        }
     }
 
     private static void copySnapshot(

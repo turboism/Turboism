@@ -685,6 +685,46 @@ function Write-RuntimeConfigAtomic {
     }
 }
 
+# N1：归一化会丢弃陌生字段与非法值，因此改写前保留单份归一化前镜像
+# config.json.corrupt.bak（临时文件 + 同目录原子替换，retention 恰为 1）。
+# 目标为符号链接/重解析点或目录时不跟随、不覆盖；备份失败只打印诊断，不阻断安装。
+function Save-RuntimeConfigPreNormalizeBackup {
+    if (-not (Test-CubismNormalFile $configPath)) { return }
+    $backup = Join-Path $turboismHome "config.json.corrupt.bak"
+    # GetAttributes 也覆盖悬空符号链接（Test-Path 对悬空链接返回 false）。
+    $backupExists = $false
+    try {
+        [void][System.IO.File]::GetAttributes($backup)
+        $backupExists = $true
+    }
+    catch { $backupExists = $false }
+    if ($backupExists -and -not (Test-CubismNormalFile $backup)) {
+        Write-Host "TURBOISM_CONFIG skipped pre-normalize backup: config.json.corrupt.bak is not a normal file"
+        return
+    }
+    $nonce = "{0}-{1}" -f $PID, [guid]::NewGuid().ToString("N")
+    $temporary = Join-Path $turboismHome (".config-corrupt-{0}.tmp" -f $nonce)
+    try {
+        [System.IO.File]::Copy($configPath, $temporary, $false)
+        if (-not (Test-CubismNormalFile $temporary)) { throw "temporary pre-normalize backup was not created" }
+        if ($backupExists) {
+            [System.IO.File]::Replace($temporary, $backup, $null, $true)
+        }
+        else {
+            [System.IO.File]::Move($temporary, $backup)
+        }
+        Write-Host "TURBOISM_CONFIG pre-normalize backup=config.json.corrupt.bak"
+    }
+    catch {
+        Write-Host ("TURBOISM_CONFIG pre-normalize backup failed: " + $_.Exception.Message)
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporary -PathType Leaf) {
+            Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Invoke-RuntimeConfigMigration {
     if (-not (Test-Path -LiteralPath $configPath)) {
         Write-Host "TURBOISM_CONFIG absent"
@@ -700,6 +740,7 @@ function Invoke-RuntimeConfigMigration {
     }
     catch { }
     $migrated = Convert-RuntimeConfigToV1 $document
+    Save-RuntimeConfigPreNormalizeBackup
     Write-RuntimeConfigAtomic $migrated
     Write-Host ("TURBOISM_CONFIG migrated from={0} to=1" -f $(if ($null -ne $schema) { $schema } else { "unknown" }))
 }
@@ -827,6 +868,7 @@ function Invoke-InstallerPluginSelection {
             $document | Add-Member -NotePropertyName "disabledPlugins" -NotePropertyValue $desired
         }
         Assert-RuntimeConfigV1 $document
+        if ($hadConfig -and -not $wasValid) { Save-RuntimeConfigPreNormalizeBackup }
         Write-RuntimeConfigAtomic $document
         Write-Host "TURBOISM_CONFIG updated selection=thin"
         return
@@ -913,6 +955,7 @@ function Invoke-InstallerPluginSelection {
     }
 
     Assert-RuntimeConfigV1 $document
+    if ($hadConfig -and -not $wasValid) { Save-RuntimeConfigPreNormalizeBackup }
     Write-RuntimeConfigAtomic $document
     Write-Host "TURBOISM_CONFIG selection-applied disabled=$($desired.Count)"
 }

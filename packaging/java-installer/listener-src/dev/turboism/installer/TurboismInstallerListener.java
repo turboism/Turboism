@@ -131,6 +131,7 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
         boolean lite = "lite".equalsIgnoreCase(installData.getVariable(INSTALL_GROUP_VAR));
 
         Map<String, Object> seed = ConfigMerge.loadExisting(home);
+        final boolean existing = seed != null;
         boolean current = false;
         if (seed == null) {
             seed = ConfigMerge.loadTemplate();
@@ -152,6 +153,12 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
         final Map<String, Object> updated = ConfigMerge.applyPolicy(seed, disabled);
         ConfigMerge.validateCurrent(updated);
         if (!current || selectionChanged) {
+            // N1: normalization drops unknown fields and invalid values, so keep one image of the
+            // document this build cannot read before the normalized replacement overwrites it. A
+            // current v1 document (only disabledPlugins updated) and a fresh install keep none.
+            if (existing && !current) {
+                ConfigMerge.preservePreNormalizeBackup(home);
+            }
             ConfigMerge.write(home, updated);
         }
 

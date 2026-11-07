@@ -8,13 +8,18 @@ paths are now pinned by tests.
 It is **analysis plus focused hardening**, not a format change. No persisted `schemaVersion` was
 bumped, no historical signature was reissued and no fixture was relabelled as release-derived.
 
-Since the first revision of this audit, three of its named transitions were closed (#69):
+Since the first revision of this audit, six of its named transitions were closed (#69):
 
 - the release-derived fixture corpus now covers the non-typed families as well (§7);
 - `catalog-state.json`, `update-state.json` and `update-preferences.json` keep one bounded
   `<file>.corrupt.bak` image before a save replaces a document this build cannot read (§3.3, §3.4);
 - the `dev.turboism.plugin.backup` → `dev.turboism.plugin.webdav` rename no longer orphans the WebDAV
-  configuration (§3.7, inventory gap G10).
+  configuration (§3.7, inventory gap G10);
+- both installers keep one `config.json.corrupt.bak` image before they normalize a document that
+  fails the strict v1 contract (§3.1);
+- every plugin-journal transaction holds a cross-process `pending.lock` file lock in addition to the
+  in-JVM path monitor (§3.5);
+- the framework update journal has a closed root and `files[]` field allow-list (§3.6).
 
 ## 0. Scope and method
 
@@ -68,8 +73,8 @@ Paths are relative to `<turboism-home>` unless stated otherwise.
 
 | Primitive | Used by | Notes |
 | --- | --- | --- |
-| JVM per-path lock (`dev.turboism.core.io.PathLocks` + `synchronized`) | `PluginCatalogStateStore`; `RuntimeConfigRepository`, `UpdateFileSupport` stores until their slice lands | one monitor per normalized absolute path, so two packages serializing on the same path now share it; no cross-process lock |
-| `synchronized` instance methods | `PendingPluginOperations` | serializes staging/apply inside one instance/JVM; `PluginUpdateGate` adds a root lease for coordinated flows |
+| JVM per-path lock (`dev.turboism.core.io.PathLocks` + `synchronized`) | `PluginCatalogStateStore`, `PendingPluginOperations`, `RuntimeConfigRepository`, `UpdateFileSupport` stores | one monitor per normalized absolute path, so two packages serializing on the same path now share it; no cross-process lock by itself |
+| `synchronized` instance methods + `pending.lock` OS file lock | `PendingPluginOperations` | the instance monitor serializes one object, the `PathLocks` monitor every instance in the JVM, and the `FileLock` on `state/runtime/plugin-management/pending.lock` every process sharing the journal; the lock is reentrant per thread so nested entry points never double-lock; `PluginUpdateGate` adds a root lease for coordinated flows |
 | temp sibling + `force` + `DurableFile` publication (`dev.turboism.core.io`) | probe report/rollback manifest, plugin journal, catalog state, project work-time state, plugin packages (`ConfinedPluginFiles`, `ConfinedStagingFiles`), legacy home migration, config, update state/preferences, update journal, receipt index | one module stages a unique sibling, forces it, checks the caller's `PublishGuard` and renames; `Atomicity.REQUIRED` fails closed, `PREFERRED` keeps the documented fallback of `RuntimePluginConfigRegistry` and the probe writers |
 | `CREATE_NEW` + `force` + atomic move | `ConfinedStorageBackend` via `StorageFiles` | plugin private state; both steps are `DurableFile` calls, and the backend keeps its own temporary sibling so cleanup evidence stays countable |
 | rollback journal + backups | `FrameworkUpdateApplier` | backs up every replaced payload, `installed-build.json` and the receipt index before mutation |
@@ -107,13 +112,13 @@ only under some conditions; **No** = not enforced; **N/A** = not applicable to t
 
 | Family | Atomic replace | Unknown-field policy | Concurrent-writer protection | Corrupt/tampered bytes | Destructive transition without a durable pre-image | Regression test |
 | --- | --- | --- | --- | --- | --- | --- |
-| `config.json` | Yes: temp + atomic move, symlink chain rejected, 64 KiB cap | **Closed**: read and write refuse unknown top-level/hook/launcher/textureAtlas fields; duplicate JSON keys and trailing tokens now refused | **Partial**: per-path JVM lock; no cross-process lock; last writer wins between processes | read/update throw without writing; tolerated `locale`/`launcher.memoryProfile` is the only read-mode exception | No read-time migration; installer normalization is a separate destructive path (§3.1) | `RuntimeConfigNonTypedCompatibilityTest` |
+| `config.json` | Yes: temp + atomic move, symlink chain rejected, 64 KiB cap | **Closed**: read and write refuse unknown top-level/hook/launcher/textureAtlas fields; duplicate JSON keys and trailing tokens now refused | **Partial**: per-path JVM lock; no cross-process lock; last writer wins between processes | read/update throw without writing; tolerated `locale`/`launcher.memoryProfile` is the only read-mode exception | **Closed**: installer normalization keeps one `config.json.corrupt.bak` image of the document it cannot read before the normalized rewrite (§3.1); the runtime itself has no read-time migration | `RuntimeConfigNonTypedCompatibilityTest`; `ConfigMergeRegression`; `test-config-merge.py` |
 | plugin `Properties` | Partial: temp + atomic move, no `force`, non-atomic fallback if `ATOMIC_MOVE` unsupported | No schema: properties merges unknown keys silently | **Partial**: one bounded I/O lane + lifecycle lock per registry; no cross-process lock | malformed properties fail the read/write path; the file is not rewritten on a refused write | A failed write leaves the old file; no parser-level migration | covered by existing `RuntimePluginConfigRegistryTest`; no new fixture because `Properties.store` timestamps bytes |
 | plugin private state | Yes: `CREATE_NEW` + `force` + atomic move | plugin-owned; runtime does not interpret bytes | plugin-owned | plugin-owned; runtime confinement rejects links and escapes | plugin-owned; runtime has no format layer | inventory §5.2 / existing plugin tests; behaviour tests, not golden bytes |
-| `pending.json` / `failed-pending.json` | Yes: temp + `force` + atomic move; 64 KiB cap | **Closed since this PR**: unknown top-level or operation fields are rejected; duplicate keys and trailing tokens are rejected | **Partial**: instance `synchronized`; ABA `revision` detects a changed journal during apply; no OS file lock | invalid journal ⇒ `RECOVERY_REQUIRED`; `stage`/`apply` refuse; original bytes untouched | No conversion: the journal itself is the recovery record; failed intent is moved aside, not rewritten | `PluginPersistenceJournalCompatibilityTest` |
+| `pending.json` / `failed-pending.json` | Yes: temp + `force` + atomic move; 64 KiB cap | **Closed**: unknown top-level or operation fields are rejected; duplicate keys and trailing tokens are rejected | **Yes**: instance `synchronized` + the `PathLocks` monitor per journal path + a cross-process `pending.lock` `FileLock` around every journal transaction; ABA `revision` still detects a journal changed during apply (§3.5) | invalid journal ⇒ `RECOVERY_REQUIRED`; `stage`/`apply` refuse; original bytes untouched | No conversion: the journal itself is the recovery record; failed intent is moved aside, not rewritten | `PluginPersistenceJournalCompatibilityTest` |
 | `catalog-state.json` | Yes: temp + `CREATE_NEW` + atomic move; 16 MiB cap | **Closed since this PR**: unknown v2 top-level fields rejected; v1 refused; duplicate keys/trailing tokens already rejected | **Partial**: per-path JVM lock; no cross-process lock | corrupt state reads as `State.empty()` with `PLUGIN_CATALOG_STATE_CORRUPT`; the file is left in place by `read` | **Closed**: a save that follows an unreadable read writes `catalog-state.json.corrupt.bak` (one image) before the atomic replace; a readable document is overwritten with no image (§3.3) | `PluginPersistenceJournalCompatibilityTest` |
 | project work-time state | Yes: `DurableFile#replace` (sibling temp + `force` + atomic move) | **Closed**: root allow-list (`format`, `projects`) and exact `turboism.project-work-time/v1`; duplicate keys and trailing tokens refused | **Partial**: one service instance per process; no cross-process lock; last writer wins between processes | invalid/future bytes are ignored with a diagnostic and the file is left in place by the read | **Closed**: the next save keeps one `project-work-time.json.corrupt.bak` image of a document this build cannot read first | `RuntimeProjectWorkTimeServiceTest` |
-| `journal.json` (framework update) | Yes: temp + `force` + atomic move | **Partial**: format/state/file inventory are validated; unknown root fields are currently ignored | **Yes**: cross-process `helper-transaction.lock` plus journal/lease coordination | wrong format/state/path inventory is rejected; malformed bytes stay in place | No: backups are taken before replacement and restored on failure/crash | `SignedReceiptAndUpdateJournalCompatibilityTest` |
+| `journal.json` (framework update) | Yes: temp + `force` + atomic move | **Closed**: format/state/file inventory plus a closed root and `files[]` field allow-list; duplicate keys and trailing tokens are refused (§3.6) | **Yes**: cross-process `helper-transaction.lock` plus journal/lease coordination | wrong format/state/path inventory is rejected; malformed bytes stay in place | No: backups are taken before replacement and restored on failure/crash | `SignedReceiptAndUpdateJournalCompatibilityTest` |
 | `pending.json` (framework) | Yes: task store atomic record | **Partial**: untrusted state, re-authenticated before use | **Yes**: helper transaction lock / launch lease | refused or ignored as untrusted input | No: no authority is taken from pending bytes | existing `FrameworkUpdate*` tests |
 | `installed-build.json` | Yes: temp + atomic move in runtime; installer writer is outside the runtime | no schema layer in the applier; bytes are opaque | applier serializes with the update journal | rejected if not a plain regular file / oversize | applier backs up and restores the previous bytes | `FrameworkUpdateApplierTest` + new signed-transition test |
 | `installed-receipt.json` | Yes: private temp + `force` + atomic move; private directory/file permissions checked | **Closed**: exactly five fields, exact format/layout, digest and root identity | **Yes**: transaction lock and journal `receiptTracked` | refused if any field, digest, root binding or document byte differs | applier backs up the index before replacement and restores it on rollback; documents are append-only | new signed-transition tests |
@@ -154,11 +159,21 @@ policies exist (`v0.42.0`–`v0.43.2` preserve unknown fields; `v0.43.9`–`v0.4
 `v0.67.0`+ normalize and drop). This is the strongest candidate for a scoped remediation because a
 user who runs an installer once loses data that the runtime would have refused to touch.
 
-Scoped proposal (not implemented here): before the installer writes a normalized document, copy the
-original bytes to a bounded sibling such as `config.json.pre-normalize-<sha256>.bak` (retain one or
-two), and record the dropped field names in the install log. This belongs to the installer lane,
-not to `RuntimeConfigRepository`, and needs a separate review because it changes installer output
-and packaging tests.
+**Implemented.** Both installers now keep one pre-normalization image before they overwrite a
+document that failed the strict v1 contract. The Java listener calls
+`ConfigMerge#preservePreNormalizeBackup` only when it loaded an existing `config.json` **and** that
+document failed `validateCurrent`; the PowerShell configurator calls
+`Save-RuntimeConfigPreNormalizeBackup` only when `$hadConfig -and -not $wasValid`. A current v1
+document (only `disabledPlugins` updated) and a fresh install keep no image, so a healthy
+installation never accumulates backups.
+
+The image is the sibling `config.json.corrupt.bak`, written through a unique temporary sibling plus
+an atomic move (a plain replacing move when the file system refuses `ATOMIC_MOVE`) so retention is
+exactly one file rather than a growing history. Both writers are best effort: a failed image prints
+one `TURBOISM_CONFIG` diagnostic line and never aborts the install. Neither follows a link: a
+symlinked `config.json` is not read, and a symlinked or non-regular `config.json.corrupt.bak` is
+skipped instead of replaced. `ConfigMergeRegression` and `test-config-merge.py` pin the image bytes,
+the single-image retention, the current-v1 no-image case and the symlink refusal.
 
 ### 3.2 Typed-config read-time migration (owned by #84/#110)
 
@@ -208,19 +223,51 @@ independent stage operations from producing a last-writer-wins journal. `PluginU
 an in-process root lease and blocks background work when framework pending/journal or
 `failed-pending.json` exists, but it is not a cross-process lock.
 
-Scoped proposal (not implemented here): add a bounded lock file under
-`state/runtime/plugin-management/` with stale-owner detection, or route all cross-process staging
-through the coordinated update service. This needs a separate concurrency design; a test-only lock
-would not change production behaviour.
+**Implemented.** Every journal transaction now runs inside `PendingPluginOperations#withJournalLock`,
+which holds two locks for the whole read-modify-write window rather than only around the final
+rename:
+
+1. the `dev.turboism.core.io.PathLocks` monitor for the journal path, which is what makes two
+   `PendingPluginOperations` instances in one JVM serialize (the instance `synchronized` monitor
+   alone never did);
+2. an operating-system `FileLock` on `state/runtime/plugin-management/pending.lock`, taken with
+   `CREATE`/`WRITE`/`NOFOLLOW_LINKS` after the staging directory passes `rejectLinks`.
+
+The lock is reentrant per thread, so the nested entry points (`stage(Path)` →
+`stage(PreparedPluginJar)` → `discardIfUnreferenced`, `stageBatch(List)` →
+`stageBatch(List, List)`, `discardPendingChanges` → `discardIfUnreferenced`) acquire the file lock
+once and never raise `OverlappingFileLockException`. A symlinked or non-regular `pending.lock` is refused instead of
+followed: `stage`, `stageBatch`, `stageUninstall`, `discardPendingChanges` and `completeHotApply`
+report their existing fail-closed codes, and `apply` reports `PLUGIN_PENDING_LOCK_FAILED` with
+`RECOVERY_REQUIRED`.
+
+The lock file holds no state, so there is no stale-owner record to interpret and nothing to break:
+the operating system releases the lock when the owning process exits. `apply` still re-reads the
+journal snapshot before it deletes intent, so the ABA `revision` check remains the second line of
+defence. `PluginPersistenceJournalCompatibilityTest` proves the lock is held for the whole
+mutation window (a second channel in the same JVM observes an overlapping lock, which is exactly
+what another process would contend with), that two instances staging concurrently keep both
+operations across 16 rounds, and that a symlinked lock file is refused without touching its
+target.
 
 ### 3.6 Framework update journal unknown fields (forward-compatibility gap)
 
 `FrameworkUpdateApplier#readJournal` validates `format`, `state`, the file inventory and
-`receiptTracked`, but ignores unknown root fields. Unlike the plugin journal (hardened here), a
-future journal carrying an unknown semantic field would still be read by an older helper. The
-state set and optional fields are broader (`agentSha256`, `agentBytes`, `identityExisted`,
-`launcherPid`, `launcherStarted`), so a strict allow-list needs its own design and tests. This is
-recorded as a next-PR boundary rather than changed in this audit.
+`receiptTracked`, but ignored unknown root fields. Unlike the plugin journal (hardened above), a
+future journal carrying an unknown semantic field would still have been read by an older helper.
+
+**Implemented.** `FrameworkUpdateApplier#readJournal` now refuses any root field outside
+`ALLOWED_JOURNAL_FIELDS` (`format`, `state`, `version`, `root`, `agentSha256`, `agentBytes`,
+`identityExisted`, `receiptTracked`, `launcherPid`, `launcherStarted`, `files`) and any `files[]`
+entry field outside `ALLOWED_JOURNAL_FILE_FIELDS` (`path`, `sha256`, `existed`), reporting
+`Unrecognized update journal field: …` / `Unrecognized update journal file field: …`. The allow-list
+is exactly the union of what the applier writes across the whole state machine, so a journal from
+this build always validates, and the release-derived `APPLYING` fixture in
+`GoldenUpdateStateSnapshotsTest` still replays byte for byte. Duplicate keys and trailing tokens
+were already refused by `UpdateFileSupport.JSON` (`STRICT_DUPLICATE_DETECTION` +
+`FAIL_ON_TRAILING_TOKENS`); `SignedReceiptAndUpdateJournalCompatibilityTest` now pins all four
+refusals (unknown root field, unknown file field, duplicate key, trailing token) through both
+`inspectJournal` and `recover`, asserting the original bytes survive each refusal.
 
 ### 3.7 Plugin-id rename orphaned a released typed config (fixed)
 
@@ -243,8 +290,9 @@ never replaced. `LegacyHomeMigrationTest` covers all four cases.
 | Test class | Production path driven | Coverage |
 | --- | --- | --- |
 | `dev.turboism.config.RuntimeConfigNonTypedCompatibilityTest` | `RuntimeConfigRepository#read` / `#update` only | future `schemaVersion`; unknown top-level/launcher fields; malformed JSON; duplicate keys; trailing tokens; invalid field values; rejected write; #85 tolerated `locale` + `launcher.memoryProfile` preservation; POSIX write-failure byte preservation; concurrent updates; non-regular path |
-| `dev.turboism.pluginmanagement.PluginPersistenceJournalCompatibilityTest` | `PendingPluginOperations#stage` / `#stageUninstall` / `#apply` / `#operations` / `#recoveryRequired`; `PluginUpdateGate#isAutoUpdateBlocked`; `PluginCatalogStateStore#read` / `#save` | corrupt/truncated journal; wrong `schemaVersion`; unknown top-level field; unknown operation field; duplicate keys; trailing tokens; suspended `failed-pending.json` blocks new staging; corrupt/v1/unknown-field catalog state preserved; valid state round-trips; optional historical `revision` absence |
-| `dev.turboism.update.SignedReceiptAndUpdateJournalCompatibilityTest` | `UpdateManifestVerifier#authenticate`; `FrameworkInstallationReceiptLoader#loadForHelper`; `FrameworkUpdateReceipt#prepare` / `#publishDocuments`; `FrameworkUpdateApplier#applyAuthenticated` / `#recover`; `UpdateStateStore#read`/`#save`; `UpdatePreferencesStore#readAll`/`#save*` | fixed `test-key-reproducible` receipt verifies; tampered manifest/signature/revoked/unknown key; unknown receipt-index field; injected failure after receipt-index replacement restores index, `installed-build.json`, payloads and old signed documents; simulated crash at `after-receipt-index` recovers the same bytes; corrupt/wrong-state update journal preserved; corrupt state/preferences read as defaults without rewriting; a save after an unreadable read keeps one `<file>.corrupt.bak` image (corrupt and future-schema cases), repeated cycles keep exactly one image, and a readable document is overwritten with no image |
+| `dev.turboism.pluginmanagement.PluginPersistenceJournalCompatibilityTest` | `PendingPluginOperations#stage` / `#stageUninstall` / `#apply` / `#operations` / `#recoveryRequired`; `PluginUpdateGate#isAutoUpdateBlocked`; `PluginCatalogStateStore#read` / `#save` | corrupt/truncated journal; wrong `schemaVersion`; unknown top-level field; unknown operation field; duplicate keys; trailing tokens; suspended `failed-pending.json` blocks new staging; corrupt/v1/unknown-field catalog state preserved; valid state round-trips; optional historical `revision` absence; `pending.lock` held for the whole apply transaction; two instances staging concurrently keep both operations; symlinked `pending.lock` refused without touching its target |
+| `dev.turboism.update.SignedReceiptAndUpdateJournalCompatibilityTest` | `UpdateManifestVerifier#authenticate`; `FrameworkInstallationReceiptLoader#loadForHelper`; `FrameworkUpdateReceipt#prepare` / `#publishDocuments`; `FrameworkUpdateApplier#applyAuthenticated` / `#inspectJournal` / `#recover`; `UpdateStateStore#read`/`#save`; `UpdatePreferencesStore#readAll`/`#save*` | fixed `test-key-reproducible` receipt verifies; tampered manifest/signature/revoked/unknown key; unknown receipt-index field; injected failure after receipt-index replacement restores index, `installed-build.json`, payloads and old signed documents; simulated crash at `after-receipt-index` recovers the same bytes; corrupt/wrong-state update journal preserved; unknown journal root field, unknown `files[]` field, duplicate keys and trailing tokens refused by both `inspectJournal` and `recover` with the original bytes preserved, while a known-field journal still validates; corrupt state/preferences read as defaults without rewriting; a save after an unreadable read keeps one `<file>.corrupt.bak` image (corrupt and future-schema cases), repeated cycles keep exactly one image, and a readable document is overwritten with no image |
+| `dev.turboism.installer.ConfigMergeRegression` + `packaging/windows-installer/test-config-merge.py` | `TurboismInstallerListener#beforePacks` → `ConfigMerge#preservePreNormalizeBackup` / `#write`; PowerShell `Save-RuntimeConfigPreNormalizeBackup` / `Invoke-RuntimeConfigMigration` / `Invoke-InstallerPluginSelection` (static contract) | normalization keeps the exact pre-normalize bytes in one `config.json.corrupt.bak`; a second normalization replaces that single image; a current v1 selection update and a fresh install keep none; a symlinked image target is skipped without following it; both PowerShell call sites keep the image only for an invalid existing document, before `Write-RuntimeConfigAtomic` |
 | `dev.turboism.update.GoldenUpdateStateSnapshotsTest` | `InstalledBuild#inferVariant`; `FrameworkUpdateHelper#policyProblem`; `FrameworkUpdateApplier#inspectJournal` / `#recover`; `FrameworkUpdateLaunchLease#readAll` | release-derived `installed-build.json` (ZIP seed and runtime writer) identifies a full build and compares as the installed version; the released `APPLYING` journal validates, is refused for another installation without mutation, and an unsupported state is refused; the released lease entry reads as `LAUNCHING` with its holder fields |
 | `dev.turboism.home.LegacyHomeMigrationTest` | `LegacyHomeMigration#migrate` | legacy `plugin-data` relocation unchanged; the `backup` → `webdav` rename copies the released document, keeps the original bytes, stays idempotent, never replaces an existing destination and skips a symlinked source |
 
@@ -292,17 +340,21 @@ historical receipts remain gap G3 in the #109 inventory; verification is covered
 
 | ID | Finding | Why it is not fixed here | Next owner |
 | --- | --- | --- | --- |
-| N1 | Installer normalization drops unknown `config.json` fields without a pre-normalization copy | installer lane and packaging contract; the runtime/installer split is now decided (§12.4 of the inventory) but the installer still owes the image | packaging/installer PR |
 | N2 | Stable releases still migrate typed configs without recovery points | the behaviour is now a hard requirement (inventory §12.2) but shipping it is a release decision | next stable release |
-| N4 | Plugin journal staging has no cross-process lock | concurrency design and stale-lock handling are separate from format compatibility | follow-up concurrency PR |
-| N5 | Framework update journal ignores unknown root fields | allowed-field set is state-dependent; strictness needs its own review | follow-up updater PR |
 | N6 | `RuntimePluginConfigRegistry` does not `force` the temp properties file and falls back to a non-atomic move | properties bytes are timestamped and not golden-fixture material; durability review belongs with plugin config | follow-up plugin config PR |
 | N7 | Real historical signed receipts and catalog signatures | requires the protected private key; re-signing is forbidden | #69 evidence gap G3 |
 | N8 | `cubism-installations.json` and installer discovery snapshot byte-exact generation | PowerShell formatting and a Windows host; freeze or generate on Windows | #110 / installer evidence |
 
-Closed by the #69 closure work, kept here so the numbering stays stable: **N3** (`catalog-state.json` /
-`update-state.json` / `update-preferences.json` overwriting corrupt or future bytes) — see §3.3, §3.4
-and the `*.corrupt.bak` tests.
+Closed, kept here so the numbering stays stable:
+
+- **N1** (installer normalization dropped unknown `config.json` fields without a pre-normalization
+  copy) — see §3.1; both installers now keep one `config.json.corrupt.bak` image.
+- **N3** (`catalog-state.json` / `update-state.json` / `update-preferences.json` overwriting corrupt
+  or future bytes) — see §3.3, §3.4 and the `*.corrupt.bak` tests.
+- **N4** (plugin journal staging had no cross-process lock) — see §3.5; every journal transaction
+  now holds the `PathLocks` monitor plus a `pending.lock` OS file lock.
+- **N5** (framework update journal ignored unknown root fields) — see §3.6; the journal root and
+  `files[]` entries now have a closed field allow-list.
 
 ## 6. Supported-behaviour statement
 
@@ -316,7 +368,9 @@ For the families covered here the current contract is:
    `catalog-state.json`, `update-state.json` and `update-preferences.json`.
 3. A save that would replace a document the reader degraded keeps exactly one
    `<file>.corrupt.bak` image of it first. A readable document is overwritten in place and leaves no
-   image, so reads never create backups.
+   image, so reads never create backups. The installers follow the same rule for the one
+   destructive transition they own: a `config.json` that fails the strict v1 contract is imaged to
+   `config.json.corrupt.bak` before it is normalized.
 4. Every published write path is inside the read window of the #109 inventory §12: an old document is
    read, migrated with a durable pre-image, or refused with its bytes preserved.
 5. A signed document is verified as exact bytes. It is never re-signed, rewritten or “refreshed” to
