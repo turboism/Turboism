@@ -91,6 +91,25 @@ class NativePreparationTest(unittest.TestCase):
             path.write_bytes(b"#comment\r\nstatus=PASS\r\ncount=432\r\n")
             self.assertEqual({"status": "PASS", "count": "432"}, runner.properties(path))
 
+    def test_seed_copy_skips_stale_temporary_trees_and_projects(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            seed, destination = root / "seed", root / "destination"
+            settings = seed / "Cubism5.3_Editor/settings/shortcut.xml"
+            settings.parent.mkdir(parents=True)
+            settings.write_text("<shortcut/>", encoding="utf-8")
+            stale = seed / "Cubism5.3_Editor/.tmp-stale-20261102/property/broken.ser"
+            stale.parent.mkdir(parents=True)
+            stale.write_text("stale", encoding="utf-8")
+            (seed / "backup").mkdir()
+            (seed / "backup/bench_backup.cmo3").write_text("private model", encoding="utf-8")
+            destination.mkdir()
+            runner.copy_seed_state(seed, destination)
+            copied = destination / "Live2D"
+            self.assertTrue((copied / "Cubism5.3_Editor/settings/shortcut.xml").is_file())
+            self.assertFalse((copied / "Cubism5.3_Editor/.tmp-stale-20261102").exists())
+            self.assertFalse((copied / "backup").exists())
+
 
 class NativeSummaryTest(unittest.TestCase):
     def test_failed_or_shadow_case_is_not_a_performance_sample(self):

@@ -84,6 +84,18 @@ def runtime_ready(home: Path) -> bool:
                for path in (home / "logs").rglob("*.log"))
 
 
+def copy_seed_state(seed: Path, destination: Path) -> None:
+    """Copies settings/license state without stale temp trees or user projects."""
+    if not seed.exists():
+        return
+    shutil.copytree(
+        seed,
+        destination / "Live2D",
+        ignore=shutil.ignore_patterns("backup", "cache", "*.cmo3", "*.can3", "*.bak", "*.log", ".tmp-stale-*"),
+        ignore_dangling_symlinks=True,
+    )
+
+
 def java_options(options: list[str]) -> str:
     if any('"' in value or "\n" in value or "\r" in value for value in options):
         raise ValueError("unsafe JVM option")
@@ -102,8 +114,23 @@ class Metrics:
         k.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
         k.OpenProcess.restype = wt.HANDLE
         k.CloseHandle.argtypes = [wt.HANDLE]
+        k.GetExitCodeProcess.argtypes = [wt.HANDLE, ctypes.POINTER(wt.DWORD)]
+        k.GetExitCodeProcess.restype = wt.BOOL
         k.GetProcessTimes.argtypes = [wt.HANDLE] + [ctypes.POINTER(wt.FILETIME)] * 4
         k.QueryFullProcessImageNameW.argtypes = [wt.HANDLE, wt.DWORD, wt.LPWSTR, ctypes.POINTER(wt.DWORD)]
+
+    def running(self, pid: int) -> bool:
+        """Filters Toolhelp's exited process objects; an unreadable process stays active (fail closed)."""
+        handle = self.kernel.OpenProcess(0x1000, False, pid)
+        if not handle:
+            return True
+        try:
+            code = wt.DWORD()
+            if not self.kernel.GetExitCodeProcess(handle, ctypes.byref(code)):
+                return True
+            return code.value == 259  # STILL_ACTIVE
+        finally:
+            self.kernel.CloseHandle(handle)
 
     def processes(self) -> list[tuple[int, int, str]]:
         class Entry(ctypes.Structure):
@@ -122,7 +149,8 @@ class Metrics:
             entry.dwSize = ctypes.sizeof(entry)
             more = self.kernel.Process32FirstW(snapshot, ctypes.byref(entry))
             while more:
-                result.append((entry.th32ProcessID, entry.th32ParentProcessID, entry.szExeFile))
+                if self.running(entry.th32ProcessID):
+                    result.append((entry.th32ProcessID, entry.th32ParentProcessID, entry.szExeFile))
                 more = self.kernel.Process32NextW(snapshot, ctypes.byref(entry))
         finally:
             self.kernel.CloseHandle(snapshot)
@@ -239,9 +267,7 @@ def run(args: argparse.Namespace) -> dict:
     roaming, local, profile = output / "roaming", output / "local", output / "profile"
     for path in (roaming, local, profile):
         path.mkdir()
-    if seed.exists():
-        shutil.copytree(seed, roaming / "Live2D", ignore=shutil.ignore_patterns(
-            "backup", "cache", "*.cmo3", "*.can3", "*.bak", "*.log"))
+    copy_seed_state(seed, roaming)
     enabled = args.mode != "off"
     options = ["-Djava.locale.providers=CLDR,SPI", f"-Duser.home={profile}", f"-Dturboism.home={home}",
                f"-Dturboism.optimization.textureUploadPreparation={str(enabled).lower()}",
@@ -255,6 +281,8 @@ def run(args: argparse.Namespace) -> dict:
                f"-Dturboism.validation.runId={output.name}",
                "-Dturboism.validation.textureUpload.loadingTrace=true",
                "-Dturboism.validation.textureUpload.memoryIdleSeconds=30",
+               *(["-Dturboism.validation.dismissTrialWelcome=true"] if args.dismiss_trial else []),
+               *(["-Dturboism.validation.acceptNewerFileWarning=true"] if args.accept_newer_file_warning else []),
                f"-javaagent:{staged_aux}",
                f"-javaagent:{staged_agent}=home={home};timeoutSeconds=180"]
     if staged_experiment:
@@ -280,6 +308,8 @@ def run(args: argparse.Namespace) -> dict:
     record = {"schemaVersion": 1, "runId": output.name, "mode": args.mode, "arm": args.arm,
               "version": args.version, "textureFactory": factory, "profiling": args.profile,
               "experiment": args.experiment, "experimentShadow": args.experiment_shadow,
+              "dismissTrial": args.dismiss_trial,
+              "acceptNewerFileWarning": args.accept_newer_file_warning,
               "sourceRevision": subprocess.check_output(
                   ["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip(),
               "sourceDiffSha256": hashlib.sha256(subprocess.check_output(["git", "diff"], cwd=REPO)).hexdigest(),
@@ -406,6 +436,10 @@ def main() -> None:
     parser.add_argument("--experiment-agent", help="private, exact-host experiment probe")
     parser.add_argument("--experiment", choices=("none", "large", "png", "archive", "warp", "float"), default="none")
     parser.add_argument("--experiment-shadow", action="store_true")
+    parser.add_argument("--dismiss-trial", action="store_true",
+                        help="test-only: dismiss the official trial welcome dialog before opening the fixture")
+    parser.add_argument("--accept-newer-file-warning", action="store_true",
+                        help="test-only: accept the newer-file warning on a disposable fixture copy")
     args = parser.parse_args()
     if (args.experiment != "none" or args.experiment_shadow) and not args.experiment_agent:
         parser.error("experiments require the isolated probe")

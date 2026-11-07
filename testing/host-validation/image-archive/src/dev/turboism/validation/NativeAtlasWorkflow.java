@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.AbstractButton;
@@ -34,6 +35,12 @@ final class NativeAtlasWorkflow {
         java.util.concurrent.FutureTask<Object> pending=null;Object previous=null;int stable=0;
         try {
             while(System.nanoTime()<deadline) {
+                if(Boolean.getBoolean("turboism.validation.dismissTrialWelcome")) {
+                    try { dismissTrialWelcome(); } catch (Exception ignored) { }
+                }
+                if(Boolean.getBoolean("turboism.validation.acceptNewerFileWarning")) {
+                    try { acceptNewerFileWarning(); } catch (Exception ignored) { }
+                }
                 if(pending==null) {
                     pending=new java.util.concurrent.FutureTask<>(() -> {
                         Class<?> appClass=Class.forName("com.live2d.cubism.CEAppCtrl",false,loader);
@@ -277,6 +284,78 @@ final class NativeAtlasWorkflow {
 
     private static boolean ownedBy(Window child,Window owner) {
         for(Window current=child.getOwner();current!=null;current=current.getOwner()) if(current==owner)return true;
+        return false;
+    }
+
+    private static final Set<String> TRIAL_LABELS =
+            Set.of("继续使用", "Continue", "Continue Trial", "継続", "続行", "계속");
+
+    private static volatile boolean trialDismissed;
+    private static volatile boolean newerFileWarningAccepted;
+
+    /** Test-only: dismisses the official trial welcome dialog that otherwise blocks document opening. */
+    static void dismissTrialWelcome() throws Exception {
+        if (trialDismissed) return;
+        boolean clicked = onEdt(() -> {
+            for (Window window : Window.getWindows()) {
+                if (!window.isShowing()) continue;
+                for (String label : TRIAL_LABELS) {
+                    List<AbstractButton> buttons = new ArrayList<>();
+                    collectButtons(window, label, buttons);
+                    if (buttons.size() == 1) {
+                        writeDialogTrace("trial-dialog.txt", window, label);
+                        buttons.get(0).doClick();
+                        return true;
+                    }
+                }
+            }
+            return false;
+        });
+        if (clicked) trialDismissed = true;
+    }
+
+    /** Test-only: accepts the reviewed newer-file warning on a disposable fixture copy. */
+    static void acceptNewerFileWarning() throws Exception {
+        if (newerFileWarningAccepted) return;
+        boolean clicked = onEdt(() -> {
+            for (Window window : Window.getWindows()) {
+                if (!(window instanceof JDialog dialog) || !dialog.isShowing()) continue;
+                String title = dialog.getTitle();
+                if (title == null || !(title.equals("警告") || title.equals("Warning"))) continue;
+                if (!(hasText(dialog, "更高版本") || hasText(dialog, "newer version")
+                        || hasText(dialog, "higher version"))) continue;
+                for (String label : new String[] {"加载", "Load"}) {
+                    List<AbstractButton> buttons = new ArrayList<>();
+                    collectButtons(dialog, label, buttons);
+                    if (buttons.size() == 1) {
+                        writeDialogTrace("newer-file-warning.txt", window, label);
+                        buttons.get(0).doClick();
+                        return true;
+                    }
+                }
+            }
+            return false;
+        });
+        if (clicked) newerFileWarningAccepted = true;
+    }
+
+    private static void writeDialogTrace(String name, Window window, String button) {
+        String home = System.getProperty("turboism.validation.imageArchive.home");
+        if (home == null) return;
+        String title = window instanceof Frame frame ? frame.getTitle()
+                : window instanceof JDialog dialog ? dialog.getTitle() : "";
+        try {
+            Files.writeString(Path.of(home).resolve("state/texture-upload/" + name),
+                    "window=" + window.getClass().getName() + " title=" + title + " button=" + button);
+        } catch (Exception ignored) { }
+    }
+
+    private static boolean hasText(Container root, String needle) {
+        for (Component child : root.getComponents()) {
+            if (child instanceof JLabel label && label.getText() != null && label.getText().contains(needle))
+                return true;
+            if (child instanceof Container container && hasText(container, needle)) return true;
+        }
         return false;
     }
 

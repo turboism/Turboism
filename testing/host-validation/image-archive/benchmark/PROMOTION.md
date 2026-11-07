@@ -47,6 +47,13 @@ performance promise**. The prior promotion-independent validation compared all
 (`large-shadow`), including two real 8192² inputs. Full numbers:
 [experiment results](../experiments/RESULTS.md) and [hotspot attribution](HOTSPOTS.md).
 
+The **promoted build** was then checked on 5.1.03, 5.2.03 and 5.3.04. Shadow
+comparisons again covered 11/11 preparations / 939,524,096 bytes with zero
+mismatches per host. The clean off/on block measured wall medians −3.5% / −3.1% /
+−5.4% and observed allocation −13.7% / −32.5% / −32.4% respectively. Two samples
+per arm and one fixture still make this a screening signal, not a release-wide
+guarantee. See [MULTIVERSION.md](MULTIVERSION.md).
+
 ## Known limitations carried into production
 
 - **Memory observations were not uniformly favorable.** Direct-conversion
@@ -80,13 +87,19 @@ Pin coverage is **not** runtime-test coverage. Current evidence status:
 
 | Evidence tier | Versions | Status |
 | --- | --- | --- |
-| Exact editor JAR corpus available | 5.0.01, 5.0.05, 5.1.00, 5.2.03, 5.3.00, 5.3.02, 5.3.04 (7 releases) | Newly integrated multi-version artifact tests **pending**; corpus directories may lack bundled dependencies |
-| Complete local installed hosts | 5.1 (exact patch pending confirmation), 5.2.03, 5.3.04 | Historical direct-only and private large-image builds were tested on 5.3.04. The newly integrated product build and the other hosts still need real-host validation |
-| Remaining reviewed versions (13 of 20) | 5.0.00, 5.0.02–5.0.04, 5.0.06, 5.1.01–5.1.03, 5.2.00–5.2.02, 5.3.01, 5.3.03 | **No new artifact/runtime test**; declared in the reviewed pin table, not newly verified on these versions |
+| Exact editor JAR corpus staged on the validation machine | All 20 reviewed stable versions | **Passed** offline exact-byte artifact test: 23/23 executed, 0 skipped, 0 failures. Each JAR matched `ReviewedHostArtifacts`, its factory matched the pin, JOGL matched the gate, the adjacent overload stayed unchanged and tampering was rejected. See [ARTIFACTS.md](ARTIFACTS.md) |
+| Complete local installed hosts | 5.1.03, 5.2.03, 5.3.04 (all bundled JVM 17.0.3.1 and the reviewed JOGL) | **Promoted product build shadow-tested on all three**: 11/11 preparations, 939,524,096 bytes, zero mismatches per host. Off/on loading comparisons completed: the clean block showed 3.1–5.4% shorter wall medians and 13.7–32.5% lower observed allocation. Two samples per arm; a screening signal, not a guarantee. See [MULTIVERSION.md](MULTIVERSION.md) |
+| Remaining reviewed versions (13 of 20) | 5.0.00, 5.0.02–5.0.04, 5.0.06, 5.1.01–5.1.03, 5.2.00–5.2.02, 5.3.01, 5.3.03 | **Offline artifact/pin test passed**, but no runtime loading test was run on these versions |
 
-**Do not claim all 20 runtime versions are tested.** The pin table admits an
-install after verified class-shape/hash checks; it does not substitute for
-per-version shadow equivalence or loading evidence.
+**Do not claim all 20 runtime versions are tested.** The offline artifact test
+proves exact bytecode admission for every reviewed stable JAR; it does not
+substitute for per-version shadow equivalence or loading evidence.
+
+Offline result recorded on 2026-11-07: the expanded parameterized test covered
+all 20 stable versions and all three shader families. The historical three
+explicit property entry points remain supported, and missing staged versions
+skip with an explicit assumption. Reproduction details and limits are in
+[ARTIFACTS.md](ARTIFACTS.md).
 
 ## Integration verification status
 
@@ -97,16 +110,28 @@ This is a work-in-progress branch, not release acceptance.
 - [x] Native probe and Windows/Proton wrappers now accept/derive the factory owner from the frozen product pin rather than always assuming shader.A.
 - [x] Python harness tests (8), Ruff and shell syntax passed after factory-owner selection changes.
 - [x] Rebuilt the product/texture-validation bundle; `checkTextureUploadValidationBundle` and focused runtime/Spotless checks passed. The standalone native-probe factory-selection smoke test also passed on JDK 17.
-- [ ] Wire/run the new standalone native-probe factory-selection test in the standard validation gate.
-- [ ] Expand `TextureUploadPreparationArtifactTest` beyond its existing three explicit versions; add an offline all-reviewed-version pin/owner contract test. No such expanded test has been implemented yet.
-- [ ] Stage exact JAR dependencies, verify each available artifact and all three shader families; distinguish this from unavailable full-version binaries.
-- [ ] Rebuild the preview product/validation bundle and shadow-test that exact build on the available hosts, using version-compatible fixtures and isolated homes.
-- [ ] Complete-host loading comparisons on 5.1 / 5.2.03 — pending.
+- [x] Wire/run the new standalone native-probe factory-selection test in the standard validation gate (`checkNativeTextureFactorySelection` is part of `checkTextureUploadValidationBundle`).
+- [x] Expand `TextureUploadPreparationArtifactTest` beyond its existing three explicit versions; add an offline all-reviewed-version pin/owner contract test. 23/23 executed, 0 skipped, 0 failures on the staged 20-version corpus.
+- [x] Stage exact JAR dependencies and verify each available artifact and all three shader families; distinguish this from unavailable full-version binaries. See [ARTIFACTS.md](ARTIFACTS.md).
+- [x] Rebuild the preview product/validation bundle and shadow-test that exact build on the available hosts, using isolated homes. 5.1.03/5.2.03/5.3.04 each compared 11/11 preparations and 939,524,096 bytes with zero mismatches.
+- [x] Complete-host loading comparisons on 5.1.03 / 5.2.03 / 5.3.04. Clean block: wall medians −3.5% / −3.1% / −5.4% and observed allocation −13.7% / −32.5% / −32.4% for 5.1.03 / 5.2.03 / 5.3.04. Two samples per arm; a screening signal, not a guarantee. Details, diagnostic cohort and failures in [MULTIVERSION.md](MULTIVERSION.md).
 - [ ] Interactive rendering (FPS/deformation) and broader memory/input checks for 256 MiB targets — unmeasured.
-- [ ] Add automated regression coverage for the historical builder's `--converter-source` admission guard and validate source/control equivalence for a frozen reproduction.
+- [x] Add automated regression coverage for the historical builder's `--converter-source` admission guard and validate source/control equivalence for a frozen reproduction. The builder now checks the control agent's converter long constants against the frozen source; eight offline tests pass.
 - [ ] Run proportionate final gates after the intended base is integrated; `checkCompletedCommit` has not been run for this promotion.
 
 Historical raw evidence is local-only; sanitized tables and hashes are tracked in
 `benchmark/observations/` and `experiments/observations/`. Another machine needs its
 own authorized fixtures and matching official artifacts; the earlier private JAR,
 model, profile, AppData and raw-log directories are not part of this branch.
+
+## Validation-machine note
+
+On the takeover machine, 5.1.03, 5.2.03 and 5.3.04 were installed with the same
+JVM 17.0.3.1 and reviewed JOGL, and the 728 MiB fixture matched the recorded
+SHA-256. The offline 20-version artifact gate passed. The quiet-host check now
+ignores already-exited Toolhelp process objects; seven such ghost entries from an
+older Cubism 5.3.04 session were present but consumed no live process. The trial
+welcome dialog and the newer-saved-file warning are handled by explicit test-only
+runner flags; the warning was accepted only on disposable fixture copies. No live
+host or user process was terminated. Raw evidence remains local; sanitized numbers
+are in `observations/multiversion/`.

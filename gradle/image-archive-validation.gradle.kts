@@ -93,9 +93,9 @@ tasks.register("checkFloatArrayValidationBundle") {
 }
 
 
-val compileNativeHookHandlesTest by tasks.registering(JavaCompile::class) {
+val compileImageArchiveHostTests by tasks.registering(JavaCompile::class) {
     dependsOn(compileImageArchiveHostProbe)
-    source(file("testing/host-validation/image-archive/test/dev/turboism/validation/NativeHookHandlesTest.java"))
+    source(fileTree("testing/host-validation/image-archive/test") { include("**/*.java") })
     classpath = files(compileImageArchiveHostProbe.flatMap { it.destinationDirectory })
     destinationDirectory.set(layout.buildDirectory.dir("image-archive-host-probe/test-classes"))
     javaCompiler.set(project.extensions.getByType<JavaToolchainService>().compilerFor {
@@ -108,12 +108,26 @@ val compileNativeHookHandlesTest by tasks.registering(JavaCompile::class) {
 val checkNativeHookHandles by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Checks nested registry/contributor installation lookup without launching Cubism."
-    dependsOn(compileNativeHookHandlesTest)
+    dependsOn(compileImageArchiveHostTests)
     classpath = files(
         compileImageArchiveHostProbe.flatMap { it.destinationDirectory },
-        compileNativeHookHandlesTest.flatMap { it.destinationDirectory }
+        compileImageArchiveHostTests.flatMap { it.destinationDirectory }
     )
     mainClass.set("dev.turboism.validation.NativeHookHandlesTest")
+    javaLauncher.set(project.extensions.getByType<JavaToolchainService>().launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    })
+}
+
+val checkNativeTextureFactorySelection by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Checks the native texture probe accepts only a reviewed shader owner and keeps the legacy default."
+    dependsOn(compileImageArchiveHostTests)
+    classpath = files(
+        compileImageArchiveHostProbe.flatMap { it.destinationDirectory },
+        compileImageArchiveHostTests.flatMap { it.destinationDirectory }
+    )
+    mainClass.set("dev.turboism.validation.NativeTextureFactorySelectionTest")
     javaLauncher.set(project.extensions.getByType<JavaToolchainService>().launcherFor {
         languageVersion.set(JavaLanguageVersion.of(17))
     })
@@ -132,7 +146,7 @@ val buildTextureUploadHostProbe by tasks.registering(Jar::class) {
 tasks.register("checkTextureUploadValidationBundle") {
     group = "verification"
     description = "Checks production texture preparation and excludes the validation-only agents."
-    dependsOn("previewBundle", buildTextureUploadHostProbe, checkNativeHookHandles)
+    dependsOn("previewBundle", buildTextureUploadHostProbe, checkNativeHookHandles, checkNativeTextureFactorySelection)
     doLast {
         val agent = project(":bootstrap").tasks.named<Jar>("jar").get().archiveFile.get().asFile
         JarFile(agent).use { jar ->

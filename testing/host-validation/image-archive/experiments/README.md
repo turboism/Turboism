@@ -30,15 +30,27 @@ pre-promotion `CanonicalRgbaImage.java` (the one containing exactly one
 `33_554_432L` area-limit literal); the builder compiles that frozen source into
 the large-image variant instead of reading the current tree. The corresponding
 `--product` agent ZIP must be the frozen matching pre-promotion control build,
-not a current-product build. The receipt records both hashes; matching the supplied
-source to that frozen control is currently the caller's responsibility, not a
-verified equivalence check.
+not a current-product build. The builder now rejects a control agent whose
+converter class lacks the historical long constant or contains the promoted
+one, and it compares the control's converter long-constant set with the
+freshly compiled frozen source. The receipt records both hashes.
 
 If the file is absent, or it contains zero or more than one historical-limit
 literal (for example a current-source variant with `67_108_864L`, or a file with
 both limits), the builder fails with an explicit message instead of silently
 building a same-policy variant. The converter source SHA-256 is added to the
 build receipt as `converterSourceSha256`.
+
+Run the offline guard tests with:
+
+```sh
+python -m unittest discover -s testing/host-validation/image-archive/experiments \
+  -p 'test_experiments.py' -v
+```
+
+They cover the source-literal guard, class-file long-constant parsing, a missing
+or malformed converter entry, and acceptance/rejection of frozen versus promoted
+control agents without launching Cubism.
 
 Build runs byte/ZIP/PNG/float boundary tests, a real-JVM transformer-removal regression,
 and an exact-installed-class call-site/mutated-input gate. It writes a private

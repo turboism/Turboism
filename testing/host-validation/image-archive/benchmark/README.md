@@ -94,5 +94,12 @@ large-texture conversion, interpolation, deserialization and ImageIO cache hotsp
 [remaining loading hotspots](HOTSPOTS.md). Profiled runs are rejected by the loading
 performance summarizer and are not added to the nine-run timing matrix.
 
+For the promoted production source, [ARTIFACTS.md](ARTIFACTS.md) records the offline
+exact-byte check of all 20 reviewed stable JARs and the three shader families.
+[MULTIVERSION.md](MULTIVERSION.md) records the native 5.1.03/5.2.03/5.3.04 shadow
+and off/on loading results, including every failure and the test-only trial/warning
+accommodations. [PROMOTION.md](PROMOTION.md) records what is still missing before
+release acceptance.
+
 Parent workflow:
 [scripts/preview/README-texture-upload-preparation.md](../../../../scripts/preview/README-texture-upload-preparation.md).

@@ -1,0 +1,4 @@
+run,version,arm,prepared,preparedBytes,preparedPixels,comparedTextures,comparedBytes,mismatches,rejectedCalls,cleanup,exit
+5103-shadow-s1,5103,direct,11,939524096,234881024,11,939524096,0,0,safe,0
+5203-shadow-s2,5203,direct,11,939524096,234881024,11,939524096,0,0,safe,0
+5304-shadow-s2,5304,direct,11,939524096,234881024,11,939524096,0,0,safe,0
