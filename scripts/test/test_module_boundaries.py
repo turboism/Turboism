@@ -51,7 +51,23 @@ def write_project(project: Path, source: str = "") -> None:
         source_file.write_text(source, encoding="utf-8")
 
 
-def write_fixture_build(root: Path, plugin_source: str, resource_source: str) -> None:
+def write_runtime_source(root: Path, relative: str, source: str) -> None:
+    """Write one ``:runtime`` source relative to ``runtime/src/main/java/dev/turboism``.
+
+    The boundary task never compiles ``:runtime``, so these fixtures pin the scanning rules
+    without the source having to resolve against a real core package.
+    """
+    source_file = root / "runtime/src/main/java/dev/turboism" / relative
+    source_file.parent.mkdir(parents=True, exist_ok=True)
+    source_file.write_text(source, encoding="utf-8")
+
+
+def write_fixture_build(
+    root: Path,
+    plugin_source: str,
+    resource_source: str,
+    runtime_sources: tuple[tuple[str, str], ...] = (),
+) -> None:
     policy = root / "gradle/module-boundaries.gradle.kts"
     policy.parent.mkdir()
     policy.write_bytes(BOUNDARY_SCRIPT.read_bytes())
@@ -59,7 +75,11 @@ def write_fixture_build(root: Path, plugin_source: str, resource_source: str) ->
     (root / "settings.gradle.kts").write_text(
         'rootProject.name = "boundary-fixture"\n'
         'include(":sdk", ":runtime", ":core-contract", ":persistence-core", '
-        '":compatibility-policy", ":plugins:fixture")\n',
+        '":compatibility-policy", ":plugins:fixture")\n'
+        # The kernel and admission-policy gates read the consolidated ``core/`` layout, so the
+        # fixture projects have to live there too instead of at the top level.
+        'project(":persistence-core").projectDir = file("core/persistence")\n'
+        'project(":compatibility-policy").projectDir = file("core/compatibility-policy")\n',
         encoding="utf-8",
     )
     (root / "build.gradle.kts").write_text(
@@ -73,29 +93,38 @@ def write_fixture_build(root: Path, plugin_source: str, resource_source: str) ->
     # The kernel and admission-policy gates need a minimal, contract-clean tree to pass, and the
     # script depends on their classes, so both are compiled by every fixture.
     write_project(
-        root / "persistence-core",
+        root / "core/persistence",
         "package dev.turboism.persistence.config;\n\n"
         "import java.util.List;\n\n"
         "final class Fixture { List<String> values() { return List.of(); } }\n",
     )
     write_project(
-        root / "compatibility-policy",
+        root / "core/compatibility-policy",
         "package dev.turboism.compatibility.policy;\n\n"
         "final class Fixture { boolean admits(final String version) { return "
         'version != null && version.equals("5.3.02"); } }\n',
     )
     write_project(root / "plugins/fixture", plugin_source)
+    for relative, source in runtime_sources:
+        write_runtime_source(root, relative, source)
     if resource_source:
         resource_file = root / "plugins/fixture/src/main/resources/Fixture.java"
         resource_file.parent.mkdir(parents=True, exist_ok=True)
         resource_file.write_text(resource_source, encoding="utf-8")
 
 
-def run_gradle(name: str, plugin_source: str, *, expected: str = "", resource_source: str = "") -> None:
+def run_gradle(
+    name: str,
+    plugin_source: str,
+    *,
+    expected: str = "",
+    resource_source: str = "",
+    runtime_sources: tuple[tuple[str, str], ...] = (),
+) -> None:
     """Run one fixture build; ``expected`` empty means the boundary task must pass."""
     with tempfile.TemporaryDirectory(prefix=f"turboism-boundary-{name}-") as directory:
         root = Path(directory)
-        write_fixture_build(root, plugin_source, resource_source)
+        write_fixture_build(root, plugin_source, resource_source, runtime_sources)
         result = subprocess.run(
             [str(GRADLEW), "-p", str(root), "--offline", "--no-daemon", "checkModuleBoundaries", "--console=plain"],
             cwd=ROOT,
@@ -129,6 +158,29 @@ def main() -> None:
             "host-ui-traversal-comment-ok",
             "class Fixture { // SwingUtilities.getWindowAncestor( stays a comment\n"
             "    String note = \"SwingUtilities.getRoot(\";\n}\n",
+        ),
+        # ``:runtime`` top-level packages are exhaustively classified: a package no layer
+        # names cannot silently sit outside the layering contract.
+        lambda: run_gradle(
+            "runtime-unclassified-top-package",
+            "class Fixture {}\n",
+            runtime_sources=(("rogue/Fixture.java", "package dev.turboism.rogue;\n\nclass Fixture {}\n"),),
+            expected="Unclassified :runtime top-level package dev.turboism.rogue",
+        ),
+        # ``dev.turboism.runtime.log`` is the leaf the MODULE_CONTRACTS entry promises: importing
+        # ``core.*`` from there must fail even though ``core`` may import ``runtime.log``.
+        lambda: run_gradle(
+            "runtime-log-upward-import",
+            "class Fixture {}\n",
+            runtime_sources=(
+                (
+                    "runtime/log/Fixture.java",
+                    "package dev.turboism.runtime.log;\n\n"
+                    "import dev.turboism.core.plugin.PluginContext;\n\n"
+                    "final class Fixture {}\n",
+                ),
+            ),
+            expected="Runtime layering violation in runtime/.../runtime/log/Fixture.java",
         ),
     ]
     with ThreadPoolExecutor(max_workers=min(len(tasks), 4)) as executor:
