@@ -422,6 +422,7 @@ Runtime-owned, plugin-adjacent state files that belong to this family's threat m
 
 | File | Writer | Reader | Notes |
 | --- | --- | --- | --- |
+| `state/runtime/project-work-time.json` | `RuntimeProjectWorkTimeService#persist` (`DurableFile#replace`) | `RuntimeProjectWorkTimeService#loadPersistedProjects` | `turboism.project-work-time/v1`; closed root (`format`, `projects`), 1 MiB read cap, `NOFOLLOW_LINKS`, strict duplicate-key/trailing-token parse; a save that follows an unreadable or forward-written document keeps one `project-work-time.json.corrupt.bak` image first |
 | `state/runtime/keybindings.properties` | `RuntimeKeybindingService`/`KeybindingStore` | same | properties, user key overrides |
 | `state/turboism.core/auto-backup-baseline.properties` | `CoreShell#saveBackupBaseline` | `CoreShell` | **write-once**: an existing file is never overwritten, so a crashed session's baseline survives |
 | `<jvm tmpdir>/turboism-theme-runtime.properties` | `ThemeRuntimeProperties#write` | `ThemeRuntimeProperties#path` | **outside the home**, non-atomic, deliberately ephemeral; never a fixture candidate |

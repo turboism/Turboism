@@ -55,6 +55,12 @@ final class ConfigMerge {
     static final String WORKTREE_ID = "turboism-runtime";
     static final String PLUGIN_DIR = "plugins";
     static final String CONFIG_FILE = "config.json";
+    /**
+     * Single bounded pre-normalization image kept beside {@code config.json}. Normalization drops
+     * unknown fields and invalid values, so these bytes are the only record of what the previous
+     * build wrote. Retention is exactly one file: a later normalization replaces it.
+     */
+    static final String CORRUPT_BACKUP_FILE = "config.json.corrupt.bak";
     static final String PLUGIN_JSON_ENTRY = "META-INF/turboism/plugin.json";
     /** Classpath location of the bundled retired-plugin manifest (packaging/retired-plugins.txt). */
     static final String RETIRED_PLUGINS_RESOURCE = "/turboism/retired-plugins.txt";
@@ -1408,6 +1414,59 @@ final class ConfigMerge {
                 // best effort cleanup of the temporary sibling
             }
             throw e;
+        }
+    }
+
+    /**
+     * Keeps one pre-normalization image of {@code home/config.json} before the installer replaces a
+     * document that failed the strict v1 contract. {@link #normalizeToCurrent} drops unknown fields
+     * and invalid values, so the original bytes are the only record of the previous document.
+     *
+     * <p>The image is the sibling {@code config.json.corrupt.bak}, published through a temporary
+     * sibling plus an atomic move (falling back to a plain replacing move when the file system
+     * refuses {@code ATOMIC_MOVE}) so retention stays exactly one file rather than a growing
+     * history. It is best effort: a failure prints one diagnostic line and never aborts the
+     * install, and neither a symlinked source nor a symlinked/non-regular target is ever followed
+     * or replaced.</p>
+     */
+    static void preservePreNormalizeBackup(Path home) {
+        if (home == null) {
+            return;
+        }
+        final Path config = configPath(home);
+        final Path backup = home.resolve(CORRUPT_BACKUP_FILE);
+        try {
+            if (!Files.exists(config, LinkOption.NOFOLLOW_LINKS)
+                    || Files.isSymbolicLink(config)
+                    || !Files.isRegularFile(config, LinkOption.NOFOLLOW_LINKS)) {
+                return;
+            }
+            if (Files.exists(backup, LinkOption.NOFOLLOW_LINKS)
+                    && (Files.isSymbolicLink(backup)
+                            || !Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS))) {
+                System.out.println("TURBOISM_CONFIG skipped pre-normalize backup: "
+                        + CORRUPT_BACKUP_FILE + " is not an ordinary file");
+                return;
+            }
+            final byte[] original = readBounded(config);
+            final Path tmp = home.resolve(".config.json.corrupt.bak.tmp" + Long.toHexString(System.nanoTime()));
+            try {
+                Files.write(tmp, original, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+                try {
+                    Files.move(tmp, backup, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                } catch (AtomicMoveNotSupportedException unsupported) {
+                    Files.move(tmp, backup, StandardCopyOption.REPLACE_EXISTING);
+                }
+            } catch (IOException | RuntimeException failure) {
+                try {
+                    Files.deleteIfExists(tmp);
+                } catch (IOException ignored) {
+                    // best effort cleanup of the temporary sibling
+                }
+                throw failure;
+            }
+        } catch (IOException | ConfigException | RuntimeException failure) {
+            System.out.println("TURBOISM_CONFIG pre-normalize backup failed: " + failure.getMessage());
         }
     }
 

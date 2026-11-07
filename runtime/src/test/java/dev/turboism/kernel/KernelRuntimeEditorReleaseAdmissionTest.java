@@ -24,7 +24,7 @@ class KernelRuntimeEditorReleaseAdmissionTest {
         final Path declared5303 = editorJar("5.3.03", 503030001);
 
         final IllegalStateException unreviewedArtifact = assertThrows(
-                IllegalStateException.class, () -> KernelRuntime.requireReviewedEditorRelease(declared5303));
+                IllegalStateException.class, () -> KernelHostAdmission.requireReviewedEditorRelease(declared5303));
         assertEquals(
                 "Cubism host artifact is not an exact reviewed identity; admission failed closed",
                 unreviewedArtifact.getMessage());
@@ -37,13 +37,13 @@ class KernelRuntimeEditorReleaseAdmissionTest {
         final String declared = "5.3.02";
 
         final IllegalStateException mismatch = assertThrows(
-                IllegalStateException.class, () -> KernelRuntime.requireReleaseAgreement(reviewed, declared));
+                IllegalStateException.class, () -> KernelHostAdmission.requireReleaseAgreement(reviewed, declared));
         assertEquals("Cubism host release/artifact mismatch; admission failed closed", mismatch.getMessage());
     }
 
     @Test
     void exactReviewed5303AgreementOpensFullRuntimeAdmission() {
-        assertEquals("5.3.03", KernelRuntime.requireReleaseAgreement("5.3.03", "5.3.03"));
+        assertEquals("5.3.03", KernelHostAdmission.requireReleaseAgreement("5.3.03", "5.3.03"));
         assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 
@@ -66,13 +66,13 @@ class KernelRuntimeEditorReleaseAdmissionTest {
                 java.util.Map.of(),
                 true,
                 "fixture admitted");
-        assertEquals("5.3.02", KernelRuntime.requireAdmittedEditorRelease(artifact, resolution));
+        assertEquals("5.3.02", KernelHostAdmission.requireAdmittedEditorRelease(artifact, resolution));
 
         Files.copy(editorJar("5.3.99", 503990001), artifact, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 
         assertThrows(
                 IllegalStateException.class,
-                () -> KernelRuntime.requireAdmittedEditorRelease(artifact, resolution),
+                () -> KernelHostAdmission.requireAdmittedEditorRelease(artifact, resolution),
                 "a previously admitted version cannot authorize a replaced artifact");
     }
 
@@ -101,7 +101,7 @@ class KernelRuntimeEditorReleaseAdmissionTest {
                 "Cubism admission resolved no base runtime capability",
                 assertThrows(
                                 IllegalStateException.class,
-                                () -> KernelRuntime.requireAdmittedEditorRelease(artifact, missingBase))
+                                () -> KernelHostAdmission.requireAdmittedEditorRelease(artifact, missingBase))
                         .getMessage());
 
         final var admitted = dev.turboism.mapping.verification.CompatibilityResolution.of(
@@ -115,7 +115,7 @@ class KernelRuntimeEditorReleaseAdmissionTest {
                 "Cubism host artifact changed since compatibility probing",
                 assertThrows(
                                 IllegalStateException.class,
-                                () -> KernelRuntime.requireAdmittedEditorRelease(artifact, admitted))
+                                () -> KernelHostAdmission.requireAdmittedEditorRelease(artifact, admitted))
                         .getMessage());
     }
 

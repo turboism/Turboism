@@ -1,7 +1,10 @@
 package dev.turboism.worktime;
 
+import com.fasterxml.jackson.core.StreamReadFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.HostSnapshots;
@@ -23,6 +26,7 @@ import dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService;
 import dev.turboism.sdk.cubism.worktime.ProjectWorkTimeSnapshot;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
@@ -35,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.LongSupplier;
 
 /**
@@ -53,9 +58,25 @@ public final class RuntimeProjectWorkTimeService implements ProjectWorkTimeServi
 
     public static final Duration DEFAULT_INTERVAL = Duration.ofSeconds(1);
     public static final Duration PERSIST_INTERVAL = Duration.ofSeconds(30);
+
+    /** Upper bound of the persisted work-time document; a larger file is never read. */
+    static final long MAX_PERSISTENCE_BYTES = 1024L * 1024L;
+
+    /**
+     * Suffix of the single bounded recovery image kept when the stored document can no longer be
+     * read as the current {@link #FORMAT}. Rewritten rather than appended, so retention is one.
+     */
+    static final String CORRUPT_SUFFIX = ".corrupt.bak";
+
     private static final String FORMAT = "turboism.project-work-time/v1";
     private static final String DIAGNOSTIC_COMPONENT = "project-work-time";
     private static final long MAX_ELAPSED_NANOS = DEFAULT_INTERVAL.toNanos() * 3L;
+
+    /**
+     * Work-time state is a closed document for this build: an older reader must not act on a root
+     * field it does not understand, so an unknown field makes the whole document unreadable.
+     */
+    private static final Set<String> ALLOWED_ROOT_FIELDS = Set.of("format", "projects");
 
     private final HostSnapshotSource source;
     private final RuntimeEventBroker eventBroker;
@@ -64,7 +85,10 @@ public final class RuntimeProjectWorkTimeService implements ProjectWorkTimeServi
     private final Path persistenceFile;
     private final Clock clock;
     private final LongSupplier nanoClock;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = JsonMapper.builder()
+            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+            .build();
     private final Object lifecycle = new Object();
     private final Duration interval;
     private final Map<String, MutableProjectWorkTime> projects = new HashMap<>();
@@ -399,20 +423,55 @@ public final class RuntimeProjectWorkTimeService implements ProjectWorkTimeServi
         return result < 0L ? Long.MAX_VALUE : result;
     }
 
+    /**
+     * Parses the persisted document and accepts it only when it is the closed shape this build
+     * writes: a JSON object, no root field outside {@link #ALLOWED_ROOT_FIELDS}, the current
+     * {@link #FORMAT} and an object {@code projects} field.
+     *
+     * @param bytes the exact document bytes
+     * @return the parsed root, or {@code null} when the bytes are valid JSON but not the current
+     *     schema (corrupt shape, unknown root field or a forward-written format)
+     * @throws IOException when the bytes are not JSON at all
+     */
+    private JsonNode parseValidDocument(final byte[] bytes) throws IOException {
+        final JsonNode root = mapper.readTree(bytes);
+        if (root == null || !root.isObject()) {
+            return null;
+        }
+        final var fieldNames = root.fieldNames();
+        while (fieldNames.hasNext()) {
+            if (!ALLOWED_ROOT_FIELDS.contains(fieldNames.next())) {
+                return null;
+            }
+        }
+        if (!FORMAT.equals(root.path("format").asText(null))
+                || !root.path("projects").isObject()) {
+            return null;
+        }
+        return root;
+    }
+
     private void loadPersistedProjects() {
-        if (!Files.isRegularFile(persistenceFile)) {
+        if (!Files.exists(persistenceFile, LinkOption.NOFOLLOW_LINKS)) {
             return;
         }
         try {
-            final JsonNode root = mapper.readTree(Files.readAllBytes(persistenceFile));
-            if (root == null || !FORMAT.equals(root.path("format").asText())) {
+            if (!Files.isRegularFile(persistenceFile, LinkOption.NOFOLLOW_LINKS)) {
+                RuntimeDiagnostics.warn(DIAGNOSTIC_COMPONENT, "Ignoring work-time state that is not a regular file");
+                return;
+            }
+            if (Files.size(persistenceFile) > MAX_PERSISTENCE_BYTES) {
+                RuntimeDiagnostics.warn(
+                        DIAGNOSTIC_COMPONENT,
+                        "Ignoring work-time state above the " + MAX_PERSISTENCE_BYTES + " byte read limit");
+                return;
+            }
+            final JsonNode root = parseValidDocument(Files.readAllBytes(persistenceFile));
+            if (root == null) {
                 RuntimeDiagnostics.warn(DIAGNOSTIC_COMPONENT, "Ignoring work-time state with an unknown format");
                 return;
             }
             final JsonNode stored = root.path("projects");
-            if (!stored.isObject()) {
-                return;
-            }
             stored.fields().forEachRemaining(entry -> {
                 final JsonNode value = entry.getValue();
                 final long total = value.path("totalNanos").asLong(0L);
@@ -468,6 +527,7 @@ public final class RuntimeProjectWorkTimeService implements ProjectWorkTimeServi
             if (parent != null) {
                 Files.createDirectories(parent);
             }
+            preserveUnreadableState();
             DurableFile.at(persistenceFile).replace(mapper.writeValueAsBytes(root));
             synchronized (lifecycle) {
                 dirty = false;
@@ -477,6 +537,50 @@ public final class RuntimeProjectWorkTimeService implements ProjectWorkTimeServi
                     DIAGNOSTIC_COMPONENT,
                     "Work-time state could not be persisted safely: "
                             + failure.getClass().getName());
+        }
+    }
+
+    /**
+     * Keeps one image of a work-time document this build can no longer read, before a save replaces
+     * it.
+     *
+     * <p>{@link #loadPersistedProjects()} ignores a corrupt, unknown-field or forward-written
+     * document and leaves it in place, so the next save would otherwise erase the only copy of what
+     * the previous (possibly newer) build had recorded. A document this build reads normally is
+     * overwritten with no extra copy, so a healthy installation never accumulates backups. Retention
+     * is exactly one image and the copy is best effort: it never blocks or fails the save.</p>
+     */
+    private void preserveUnreadableState() {
+        final byte[] existing;
+        try {
+            if (!Files.isRegularFile(persistenceFile, LinkOption.NOFOLLOW_LINKS)
+                    || Files.size(persistenceFile) > MAX_PERSISTENCE_BYTES) {
+                return;
+            }
+            existing = Files.readAllBytes(persistenceFile);
+        } catch (IOException | RuntimeException unavailable) {
+            RuntimeDiagnostics.debug(
+                    DIAGNOSTIC_COMPONENT,
+                    "Work-time state pre-image could not be read: "
+                            + unavailable.getClass().getName());
+            return;
+        }
+        try {
+            if (parseValidDocument(existing) != null) {
+                return;
+            }
+        } catch (IOException | RuntimeException unreadable) {
+            // Fall through: the bytes this build cannot read are exactly what must be kept.
+        }
+        try {
+            DurableFile.at(persistenceFile.resolveSibling(
+                            persistenceFile.getFileName().toString() + CORRUPT_SUFFIX))
+                    .replace(existing);
+        } catch (IOException | RuntimeException unwritable) {
+            RuntimeDiagnostics.debug(
+                    DIAGNOSTIC_COMPONENT,
+                    "Work-time state pre-image could not be preserved: "
+                            + unwritable.getClass().getName());
         }
     }
 

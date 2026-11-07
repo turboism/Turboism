@@ -344,6 +344,102 @@ class SignedReceiptAndUpdateJournalCompatibilityTest {
         assertArrayEquals(original, Files.readAllBytes(work.resolve(FrameworkUpdateApplier.JOURNAL)));
     }
 
+    /** Minimal valid journal: exactly the fields the applier writes for a PREPARED→APPLYING run. */
+    private static ObjectNode journalDocument(final Path root) {
+        final ObjectNode journal = UpdateFileSupport.JSON.createObjectNode();
+        journal.put("format", FrameworkUpdateApplier.JOURNAL_FORMAT);
+        journal.put("state", "APPLYING");
+        journal.put("version", "0.68.0");
+        journal.put("root", root.toString());
+        journal.put("identityExisted", false);
+        final ObjectNode file = journal.putArray("files").addObject();
+        file.put("path", "turboism-agent.jar");
+        file.put("sha256", "a".repeat(64));
+        file.put("existed", true);
+        return journal;
+    }
+
+    @Test
+    void aJournalWithOnlyKnownFieldsStillValidatesWithoutRewriting() throws Exception {
+        final Path root = temporary.resolve("installation");
+        ensurePrivateDirectory(root);
+        final Path work = temporary.resolve("work");
+        ensurePrivateDirectory(work);
+        final byte[] original = UpdateFileSupport.JSON.writeValueAsBytes(journalDocument(root));
+        Files.write(work.resolve(FrameworkUpdateApplier.JOURNAL), original);
+
+        final FrameworkUpdateApplier.JournalSummary summary =
+                FrameworkUpdateApplier.inspectJournal(work).orElseThrow();
+        assertEquals("APPLYING", summary.state());
+        assertEquals("0.68.0", summary.version());
+        assertEquals(1, summary.files());
+        assertArrayEquals(original, Files.readAllBytes(work.resolve(FrameworkUpdateApplier.JOURNAL)));
+    }
+
+    @Test
+    void unknownFrameworkJournalRootFieldIsRejectedAndKeptForRecovery() throws Exception {
+        final Path root = temporary.resolve("installation");
+        ensurePrivateDirectory(root);
+        final Path work = temporary.resolve("work");
+        ensurePrivateDirectory(work);
+        final ObjectNode journal = journalDocument(root);
+        journal.put("futureRootField", true);
+        final byte[] original = UpdateFileSupport.JSON.writeValueAsBytes(journal);
+        Files.write(work.resolve(FrameworkUpdateApplier.JOURNAL), original);
+
+        final IOException refusal = assertThrows(IOException.class, () -> FrameworkUpdateApplier.inspectJournal(work));
+        assertTrue(
+                refusal.getMessage().contains("Unrecognized update journal field: futureRootField"),
+                "unexpected refusal: " + refusal.getMessage());
+        assertThrows(IOException.class, () -> new FrameworkUpdateApplier(root, work).recover());
+        assertArrayEquals(
+                original,
+                Files.readAllBytes(work.resolve(FrameworkUpdateApplier.JOURNAL)),
+                "a forward-written journal must survive byte for byte for explicit recovery");
+    }
+
+    @Test
+    void unknownFrameworkJournalFileFieldIsRejectedAndKeptForRecovery() throws Exception {
+        final Path root = temporary.resolve("installation");
+        ensurePrivateDirectory(root);
+        final Path work = temporary.resolve("work");
+        ensurePrivateDirectory(work);
+        final ObjectNode journal = journalDocument(root);
+        ((ObjectNode) journal.path("files").get(0)).put("futureFileField", 1);
+        final byte[] original = UpdateFileSupport.JSON.writeValueAsBytes(journal);
+        Files.write(work.resolve(FrameworkUpdateApplier.JOURNAL), original);
+
+        final IOException refusal = assertThrows(IOException.class, () -> FrameworkUpdateApplier.inspectJournal(work));
+        assertTrue(
+                refusal.getMessage().contains("Unrecognized update journal file field: futureFileField"),
+                "unexpected refusal: " + refusal.getMessage());
+        assertThrows(IOException.class, () -> new FrameworkUpdateApplier(root, work).recover());
+        assertArrayEquals(original, Files.readAllBytes(work.resolve(FrameworkUpdateApplier.JOURNAL)));
+    }
+
+    @Test
+    void duplicateAndTrailingFrameworkJournalTokensAreRejectedAndKeptForRecovery() throws Exception {
+        final Path root = temporary.resolve("installation");
+        ensurePrivateDirectory(root);
+        final Path work = temporary.resolve("work");
+        ensurePrivateDirectory(work);
+        final Path journal = work.resolve(FrameworkUpdateApplier.JOURNAL);
+        final String valid = UpdateFileSupport.JSON.writeValueAsString(journalDocument(root));
+
+        final byte[] duplicate =
+                valid.replaceFirst("\\{", "{\"state\":\"APPLYING\",").getBytes(StandardCharsets.UTF_8);
+        Files.write(journal, duplicate);
+        assertThrows(IOException.class, () -> FrameworkUpdateApplier.inspectJournal(work));
+        assertThrows(IOException.class, () -> new FrameworkUpdateApplier(root, work).recover());
+        assertArrayEquals(duplicate, Files.readAllBytes(journal), "duplicate keys must not be last-value-wins");
+
+        final byte[] trailing = (valid + "\n{\"future\":true}\n").getBytes(StandardCharsets.UTF_8);
+        Files.write(journal, trailing);
+        assertThrows(IOException.class, () -> FrameworkUpdateApplier.inspectJournal(work));
+        assertThrows(IOException.class, () -> new FrameworkUpdateApplier(root, work).recover());
+        assertArrayEquals(trailing, Files.readAllBytes(journal), "trailing tokens must not be silently discarded");
+    }
+
     @Test
     void corruptUpdateStateAndPreferencesAreReadAsDefaultsWithoutRewritingBytes() throws Exception {
         final Path updateState = temporary.resolve(UpdateStateStore.FILE_NAME);

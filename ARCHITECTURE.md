@@ -56,6 +56,17 @@ The authoritative project list is `settings.gradle.kts`.
   keeps host artifact digests, verified-member resolution, ASM probes, host
   identity detection and plugin activation on top of it (#113).
 
+:event-processor
+  Compile-time annotation processor (`dev.turboism.eventprocessor.*`) for
+  `@SubscribeEvent`: it emits a deterministic generated subscriber catalog for
+  the compiling module. It runs only from the annotation-processor
+  configuration and depends only on :sdk.
+
+:graal-host
+  Standalone GraalVM Polyglot script host (`dev.turboism.graalhost.*`) launched
+  outside the Cubism process. It depends only on :sdk and loads the GraalVM
+  runtime reflectively, so GraalVM/Truffle never enter the host JVM.
+
 :runtime
   Plugin runtime, policies, Cubism/Editor adapters, providers, mapping,
   hook infrastructure, transactions, diagnostics, shared services, and the

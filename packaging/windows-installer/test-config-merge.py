@@ -380,6 +380,24 @@ def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_I
     return json.dumps(updated, ensure_ascii=False, separators=(",", ":")) + "\r\n"
 
 
+PRE_NORMALIZE_BACKUP = "config.json.corrupt.bak"
+
+
+def installer_write_config_with_backup(mode, unchecked, existing_text, bundled_ids=BUNDLED_IDS):
+    """镜像 SecConfig 的预归一化备份：仅当归一化覆盖既有 config.json 时保留单份镜像。
+
+    返回 (写出文本, 镜像字节或 None)。current v1 只更新 disabledPlugins，全新安装
+    从模板创建，两者都不产生 config.json.corrupt.bak。"""
+    output = installer_write_config(mode, unchecked, existing_text, bundled_ids)
+    if existing_text is None:
+        return output, None
+    try:
+        validate_v1(json.loads(existing_text))
+    except ValueError:
+        return output, existing_text
+    return output, None
+
+
 def nsis_jars_after(mode, prev_jars):
     """镜像 NSIS 升级：Full 退休旧官方 JAR 并安装全部当前插件；
     Thin 安装器不执行退休且不写新 JAR（plugins/ 原样保留）。"""
@@ -545,6 +563,59 @@ def check_config_migration_contract():
           and "if ($published -and (Test-Path -LiteralPath $backup -PathType Leaf))" in configure
           and "CONFIG_SELECTION_FAILED" in configure
           and "ConfigMigrationError" in section)
+
+
+def ps_function_body(text, name):
+    """返回 PowerShell 顶层 function 的函数体（到下一个顶层 function 为止）。"""
+    start = text.index("function " + name)
+    end = text.find("\nfunction ", start + 1)
+    return text[start:] if end == -1 else text[start:end]
+
+
+def check_pre_normalize_backup_contract():
+    """N1: 归一化覆盖前保留单份 config.json.corrupt.bak，current v1 与全新安装不产生镜像。"""
+    configure = (INSTALLER_NSI.parent / "configure_turboism.ps1").read_text(encoding="utf-8")
+    installer_root = INSTALLER_NSI.parents[1] / "java-installer"
+    listener_src = installer_root / "listener-src" / "dev" / "turboism" / "installer"
+    config_merge = (listener_src / "ConfigMerge.java").read_text(encoding="utf-8")
+    listener = (listener_src / "TurboismInstallerListener.java").read_text(encoding="utf-8")
+
+    save = ps_function_body(configure, "Save-RuntimeConfigPreNormalizeBackup")
+    check("N1 PowerShell keeps a bounded pre-normalize image", all(
+        fragment in save for fragment in (
+            PRE_NORMALIZE_BACKUP,
+            "Test-CubismNormalFile $configPath",
+            "Test-CubismNormalFile $backup",
+            "[System.IO.File]::Copy($configPath, $temporary, $false)",
+            "[System.IO.File]::Replace($temporary, $backup, $null, $true)",
+            "[System.IO.File]::Move($temporary, $backup)",
+        )))
+    check("N1 PowerShell image is best effort and never follows a link",
+          "TURBOISM_CONFIG pre-normalize backup failed" in save
+          and "skipped pre-normalize backup" in save
+          and "Remove-Item -LiteralPath $temporary" in save)
+
+    migration = ps_function_body(configure, "Invoke-RuntimeConfigMigration")
+    check("N1 migration keeps the image before it rewrites config.json",
+          "Save-RuntimeConfigPreNormalizeBackup" in migration
+          and migration.index("Save-RuntimeConfigPreNormalizeBackup")
+          < migration.index("Write-RuntimeConfigAtomic"))
+
+    selection = ps_function_body(configure, "Invoke-InstallerPluginSelection")
+    guarded = "if ($hadConfig -and -not $wasValid) { Save-RuntimeConfigPreNormalizeBackup }"
+    saves = [i for i in range(len(selection)) if selection.startswith(guarded, i)]
+    writes = [i for i in range(len(selection)) if selection.startswith("Write-RuntimeConfigAtomic", i)]
+    check("N1 thin and full selection keep the image only for an invalid existing document",
+          len(saves) == 2 and len(writes) == 2 and all(s < w for s, w in zip(saves, writes)))
+
+    check("N1 Java installer keeps the same image before normalization overwrites",
+          'CORRUPT_BACKUP_FILE = "config.json.corrupt.bak"' in config_merge
+          and "static void preservePreNormalizeBackup(Path home)" in config_merge
+          and "readBounded(config)" in config_merge
+          and "StandardCopyOption.ATOMIC_MOVE" in config_merge
+          and "if (existing && !current) {" in listener
+          and listener.index("preservePreNormalizeBackup(home)")
+          < listener.index("ConfigMerge.write(home, updated)"))
 
 
 def check_java_installer_docs_contract():
@@ -1590,6 +1661,17 @@ def main():
             ok = field not in doc
         check("T9 非法" + label + "被丢弃并归一化", ok and doc["schemaVersion"] == 1)
 
+    # T9b: 归一化覆盖既有 config.json 时保留单份归一化前镜像；current v1 与全新安装不产生镜像。
+    out, backup = installer_write_config_with_backup("full", [a], invalid_current)
+    check("T9b 归一化保留归一化前镜像",
+          backup == invalid_current and "futureCurrentField" not in out)
+    out, backup = installer_write_config_with_backup("full", [c], existing)
+    check("T9b current v1 选择更新不产生镜像", backup is None and out != existing)
+    out, backup = installer_write_config_with_backup("full", [], legacy)
+    check("T9b v0 迁移保留归一化前镜像", backup == legacy and json.loads(out)["schemaVersion"] == 1)
+    out, backup = installer_write_config_with_backup("full", [], None)
+    check("T9b 全新安装不产生镜像", backup is None)
+
     # ---- 插件载荷库存模拟（隐藏载荷 Section + 勾选语义）----
     # TI1: 全新部分 Full（未勾选 {a, c}）→ JAR 全量安装；disabledPlugins=[a,c]
     jars = nsis_jars_after("full", [])
@@ -1660,6 +1742,7 @@ def main():
 
     check_nsis_retirement_contract()
     check_config_migration_contract()
+    check_pre_normalize_backup_contract()
     check_java_installer_docs_contract()
     check_managed_graal_installer_contract()
     check_configurator_flow_contract()

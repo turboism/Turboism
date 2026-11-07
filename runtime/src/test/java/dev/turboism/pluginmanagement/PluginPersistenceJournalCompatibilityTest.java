@@ -10,11 +10,18 @@ import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.nio.channels.FileChannel;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.DynamicTest;
@@ -316,6 +323,125 @@ class PluginPersistenceJournalCompatibilityTest {
 
         assertEquals(1, pending.operations().size());
         assertEquals("example.plugin", pending.operations().get(0).pluginId());
+    }
+
+    private Path pendingLock() {
+        return home.resolve("state/runtime/plugin-management/pending.lock");
+    }
+
+    /**
+     * N4: the journal transaction holds an operating-system lock on {@code pending.lock}.
+     *
+     * <p>A second channel in this JVM sees an overlapping lock, which is exactly the exclusion a
+     * second process would observe, so the probe proves the lock is held for the whole mutation
+     * window instead of only around the final rename.</p>
+     */
+    @Test
+    void pendingJournalLockIsHeldForTheWholeTransaction() throws Exception {
+        final Path source = home.resolve("source.jar");
+        Files.write(source, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
+        final Path packages = home.resolve("state/runtime/plugin-management/packages");
+        final var preparation = new dev.turboism.distribution.LocalPluginJarPreparer().prepare(source, packages);
+        final var prepared = ((dev.turboism.distribution.LocalPluginJarPreparer.Prepared) preparation).value();
+        assertTrue(new PendingPluginOperations(home).stage(prepared).accepted());
+        assertTrue(
+                Files.isRegularFile(pendingLock(), LinkOption.NOFOLLOW_LINKS),
+                "staging must publish the journal lock file");
+
+        final List<String> observed = new ArrayList<>();
+        final PendingPluginOperations.SnapshotCopier probe = (from, to, parent) -> {
+            try (FileChannel channel = FileChannel.open(pendingLock(), StandardOpenOption.WRITE)) {
+                try {
+                    channel.tryLock().release();
+                    observed.add("unlocked");
+                } catch (OverlappingFileLockException held) {
+                    observed.add("locked");
+                }
+            }
+            Files.copy(from, to);
+        };
+        final PendingPluginOperations pending = new PendingPluginOperations(home, probe, probe);
+
+        final PendingPluginOperations.ApplyResult result = pending.apply();
+
+        assertTrue(result.applied(), result.code());
+        assertEquals(
+                List.of("locked"),
+                observed,
+                "apply must hold pending.lock while it mutates the journal and the plugin directory");
+        assertTrue(Files.exists(home.resolve("plugins/example.plugin.jar")));
+    }
+
+    /**
+     * N4: two independent instances (the shape two processes have) serialize on the same journal
+     * instead of producing a last-writer-wins document that silently drops one staged operation.
+     */
+    @Test
+    void concurrentStagingFromTwoInstancesKeepsEveryOperation() throws Exception {
+        final PendingPluginOperations left = new PendingPluginOperations(home);
+        final PendingPluginOperations right = new PendingPluginOperations(home);
+        for (int round = 0; round < 16; round++) {
+            final String leftId = "example.left" + round;
+            final String rightId = "example.right" + round;
+            final CyclicBarrier barrier = new CyclicBarrier(2);
+            final List<Throwable> failures = new CopyOnWriteArrayList<>();
+            final Thread first = new Thread(() -> stageUninstall(barrier, left, leftId, failures), "stage-left");
+            final Thread second = new Thread(() -> stageUninstall(barrier, right, rightId, failures), "stage-right");
+            first.start();
+            second.start();
+            first.join(30_000);
+            second.join(30_000);
+            assertFalse(first.isAlive() || second.isAlive(), "staging must not block forever");
+            assertTrue(failures.isEmpty(), failures::toString);
+
+            final List<String> staged = new PendingPluginOperations(home)
+                    .operations().stream()
+                            .map(PendingPluginOperations.Operation::pluginId)
+                            .sorted()
+                            .toList();
+            assertEquals(List.of(leftId, rightId), staged, "round " + round + " lost a staged operation");
+            assertTrue(new PendingPluginOperations(home).apply().applied(), "the journal must clear between rounds");
+        }
+    }
+
+    private static void stageUninstall(
+            final CyclicBarrier barrier,
+            final PendingPluginOperations pending,
+            final String pluginId,
+            final List<Throwable> failures) {
+        try {
+            barrier.await(30, TimeUnit.SECONDS);
+            if (!pending.stageUninstall(pluginId).accepted()) {
+                failures.add(new AssertionError("stageUninstall rejected " + pluginId));
+            }
+        } catch (Throwable failure) {
+            failures.add(failure);
+        }
+    }
+
+    /**
+     * N4: a symlinked lock file is refused instead of followed, exactly like every other
+     * runtime-owned path, and the refused transaction writes no journal.
+     */
+    @Test
+    void symlinkedPendingJournalLockIsRefusedWithoutTouchingItsTarget() throws Exception {
+        final Path outside = Files.createTempFile("pending-lock-outside-", ".txt");
+        final byte[] original = "not-a-journal".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        Files.write(outside, original);
+        Files.createDirectories(pendingLock().getParent());
+        try {
+            Files.createSymbolicLink(pendingLock(), outside);
+        } catch (UnsupportedOperationException | java.nio.file.FileSystemException unsupported) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(false, "symbolic links are not creatable on this platform");
+        }
+        final PendingPluginOperations pending = new PendingPluginOperations(home);
+
+        assertFalse(pending.stageUninstall("example.plugin").accepted());
+        assertEquals(
+                PendingPluginOperations.Status.RECOVERY_REQUIRED,
+                pending.apply().status());
+        assertArrayEquals(original, Files.readAllBytes(outside), "the link target must never be locked or truncated");
+        assertFalse(Files.exists(journal()), "no journal may be written without the journal lock");
     }
 
     /**
