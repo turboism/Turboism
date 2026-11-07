@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "runs": [
+    "native-r1",
+    "legacy-r1",
+    "direct-r1",
+    "direct-r2",
+    "native-r2",
+    "legacy-r2",
+    "legacy-r3",
+    "direct-r3",
+    "native-r3"
+  ],
+  "medians": {
+    "native": {
+      "loadSeconds": 44.9251271,
+      "processCpuSeconds": 35.421875,
+      "preparationMs": 0.0,
+      "observedAllocatedGB": 23.648279824,
+      "heapAtReadyGiB": 2.7274601235985756,
+      "loadingPeakWorkingSetGiB": 5.9267578125,
+      "loadingPeakCommitGiB": 6.710968017578125,
+      "idleTailWorkingSetGiB": 5.023876190185547,
+      "loadingGcCount": 47,
+      "loadingGcMs": 719
+    },
+    "legacy": {
+      "loadSeconds": 43.1115458,
+      "processCpuSeconds": 36.625,
+      "preparationMs": 684.7386,
+      "observedAllocatedGB": 20.901584528,
+      "heapAtReadyGiB": 2.410931907594204,
+      "loadingPeakWorkingSetGiB": 5.6150360107421875,
+      "loadingPeakCommitGiB": 7.5977325439453125,
+      "idleTailWorkingSetGiB": 4.898426055908203,
+      "loadingGcCount": 51,
+      "loadingGcMs": 686
+    },
+    "direct": {
+      "loadSeconds": 43.1216249,
+      "processCpuSeconds": 36.84375,
+      "preparationMs": 389.1908,
+      "observedAllocatedGB": 20.855562896,
+      "heapAtReadyGiB": 2.511012777686119,
+      "loadingPeakWorkingSetGiB": 5.990104675292969,
+      "loadingPeakCommitGiB": 10.062606811523438,
+      "idleTailWorkingSetGiB": 6.190458297729492,
+      "loadingGcCount": 52,
+      "loadingGcMs": 678
+    }
+  },
+  "fixtureBytes": 763166356,
+  "sourceRevision": "626257f2e2a2187fd331fdadf63d8d61163e4c97",
+  "sourceDiffSha256": "ef7ca41eeeb0de5cac94f2aa9d571e908107f274405e2bd03260cd78430dee1b",
+  "runnerSha256": "8632dc43b6567c744587ddb9faaadaa52fd2c135bf8017dfb350c8b0102d630a",
+  "sharedHashes": {
+    "fixture": "83326ac519dd5e4cad9b39e4c7234410cc62bf0d1f5241364561d6906292b6da",
+    "hostJar": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
+    "officialBat": "6212404795416389745e932c6ef366e2ab3d305cefc568364514e07efe8f8815",
+    "installedBat": "2095ee85c78f3a6a43e5e6655aa44c7a4c1b1824688a4e6b8eca39588630a6c3",
+    "jogl": "7dbedb4ba89d9744aa8f8e3710436ef349547058c78e5b3beb813b27b382b0b9",
+    "auxiliary": "ff032994c4d9e7efdfb04bf8c63d10db15e7e634d01521c80e7edeaeed1338dc"
+  },
+  "agentHashes": {
+    "native": "3aca4e19f72a14248a3957311e97c8fee49a3f3ff6e2062e3ba333e07393693b",
+    "legacy": "598d4b8452a00324232d3832febca00530d6f4a8aeadfd120fc0b87211628309",
+    "direct": "3aca4e19f72a14248a3957311e97c8fee49a3f3ff6e2062e3ba333e07393693b"
+  },
+  "envelopeHashes": {
+    "native-r1": "ae1c37c3d5275262c074c4e002a3e2d1757afa0566d4b2c666676af36e45e516",
+    "legacy-r1": "07b024e4a60f35d1e147b3ed120a8196f0721c41f3c7573a748fb851620361b4",
+    "direct-r1": "aebcf0873054833612687563a659bbf516dfa30a419a39381a094972f54a23ea",
+    "direct-r2": "5d67ab97e998ee6c4f92da36cbf04c01d2e039a05066a294859c78097dd3c789",
+    "native-r2": "75e2945754ed83707fec327df1614bde9f94dd339118a346c6584f6c49addaea",
+    "legacy-r2": "d7333a0e05a2a5819ee89e681411836933bc0354d4cef61ef84015e5f5fa02db",
+    "legacy-r3": "3506bb40a620cf2dc6f829872516232c86efba4f6dd0d805837c9cb599656217",
+    "direct-r3": "bb0483999a4016e97386058e9feec48038204d1936d7b9974b5622e753064928",
+    "native-r3": "9ef8a3c498024eb6e670b3860065fad2bb320eb543b74960bbf20222d9685f77"
+  }
+}

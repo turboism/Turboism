@@ -4,11 +4,49 @@ Status: default-off, opt-in allocation optimization with exact-host equivalence 
 
 ## Supported boundary
 
-The first scope is Cubism 5.3.02 with JVM 17 and its reviewed `app/lib/jogl/jogl-all.jar` (SHA-256 `7dbedb4ba89d9744aa8f8e3710436ef349547058c78e5b3beb813b27b382b0b9`). Only the profiled `shader.A.a(graphics3d.a,CWritableImage,int,String):Pair` texture factory call site is transformed; its complete method shape must match the official reference.
+The initial measurements used Cubism 5.3.02 with JVM 17 and the reviewed `app/lib/jogl/jogl-all.jar` (SHA-256 `7dbedb4ba89d9744aa8f8e3710436ef349547058c78e5b3beb813b27b382b0b9`). The current pin table declares all 20 reviewed stable versions and derives factory owners (`shader.w`, `shader.y`, `shader.A`) rather than guessing from one version. Only the reviewed texture factory call site is transformed; its complete method shape must match. Newly integrated multi-version artifact/runtime verification is still pending; see [promotion status](../../testing/host-validation/image-archive/benchmark/PROMOTION.md).
 
-Ordinary unpremultiplied sRGB `TYPE_INT_ARGB` / `TYPE_4BYTE_ABGR` images, each dimension at most 8192 and total area 4,096–33,554,432 pixels, can be prepared as the same premultiplied RGBA8 representation that JOGL's custom converter creates. Other images/profile/version/JVM cases fall through unchanged. A complete 64 KiB channel/alpha table comes from the JDK ComponentColorModel itself. Each eligible call allocates one fresh RGBA byte image (at most 128 MiB) and a row-sized integer scratch buffer; no source images, pixel payloads, texture IDs or GL contexts are cached. Original pixels are never changed.
+Ordinary unpremultiplied sRGB `TYPE_INT_ARGB` / `TYPE_4BYTE_ABGR` images, each dimension at most 8192 and total area 4,096–67,108,864 pixels (one fresh RGBA target bounded to 256 MiB), can be prepared as the same premultiplied RGBA8 representation that JOGL's custom converter creates. Other images/profile/version/JVM cases fall through unchanged. A complete 64 KiB channel/alpha table comes from the JDK ComponentColorModel itself. Each eligible call allocates one fresh RGBA byte image (at most 256 MiB) and a row-sized integer scratch buffer; no source images, pixel payloads, texture IDs or GL contexts are cached. Original pixels are never changed.
 
 The original AWTTextureIO call, profile, dimensions, mipmap policy, handle ownership and subsequent GL operations remain native. This does not shrink upload regions or add a dirty-rectangle mechanism. It targets CPU conversion and temporary allocation, not GPU execution time.
+
+## Direct-raster conversion
+
+The current converter adds direct ARGB/ABGR array-reading paths for standard JDK
+layouts, retaining the prior `getRGB` path for unsupported layouts (including
+nonzero-offset ABGR buffers). Bounds, translated subimages and padded strides are
+checked; premultiplication, destination allocation, GL calls and default-off policy
+are unchanged. This avoids the per-pixel generic color conversion and row scratch
+buffer on eligible inputs.
+
+Local JDK 17 conversion-only measurements show approximately 1.7× ARGB and 6× ABGR
+speedups, **not end-to-end loading speedups**. Direct array exposure can also affect
+Java2D source acceleration tracking. The historical exact-host equivalence and
+loading observations below apply to their pinned agents, not automatically to this
+new converter. Subsequent native-Windows 5.3.04 validation passed 9/9 real
+preparations (402,653,184 bytes) with zero mismatches and verified restoration.
+A balanced three-arm, nine-run comparison reduced preparation callback work
+from 684.7 to 389.2 ms, but old/new document-ready medians were effectively equal
+(43.112/43.122 s); memory/commit observations were adverse and variable. This is
+**not a stable overall loading or memory benefit**. The opt-in/default-off policy
+is unchanged, and subsequent interactive rendering remains unmeasured.
+
+### Production promotion status (2026-11-07)
+
+The direct ARGB/ABGR conversion and the expanded 67,108,864-pixel / 256 MiB
+admission range are **integrated into the production source `CanonicalRgbaImage`**
+(`supportedSize()` now admits up to 8192×8192 / 67,108,864 pixels; `prepare()`
+uses the direct-array readers first and falls back to `getRGB`). The 9/9
+native-Windows preparation validation and the three-arm nine-run comparison above
+predate the large-image promotion and apply only to their frozen direct-only build.
+Separate private large-image validation covered 11/11 preparations; the newly
+integrated product build still needs its own multi-version revalidation. The historical
+33,554,432-pixel / 128 MiB figures in earlier sections describe pre-promotion
+builds and are retained only as history.
+
+Reproducible harness, raw numeric observations and limits:
+[offline benchmark](../../testing/host-validation/image-archive/benchmark/README.md)
+and [native-Windows report](../../testing/host-validation/image-archive/benchmark/NATIVE-WINDOWS.md).
 
 ## Control
 
@@ -48,9 +86,13 @@ TURBOISM_ENV_FILE=/path/to/operator.env \
 
 There is no automatic exit timeout in interactive mode. Interrupting its coordinator does not terminate an active Editor or discard unsaved work. Close Cubism normally; the retained copy location is printed. Do not add the smoke-test client to a work session. Interactive output is SESSION_ENDED/SESSION_DETACHED, **not validation PASS**.
 
-Use this existing official-BAT runner for the validated Linux/Proton workflow. The legacy preview PowerShell script that directly launches Java is not this supported entry. Also, the managed Windows launcher clears inherited JAVA_TOOL_OPTIONS; setting that variable alone is not an activation method for that launcher. Native Windows and non-JVM-17 readiness have not been established by these runs.
+Use this existing official-BAT runner for the validated Linux/Proton workflow. The legacy preview PowerShell script that directly launches Java is not this supported entry. Also, the managed Windows launcher clears inherited JAVA_TOOL_OPTIONS; setting that variable alone is not an activation method for that launcher. Those historical Proton runs do not establish native-Windows or non-JVM-17 readiness. The later 5.3.04/JVM-17 native-Windows validation is documented separately in the direct-raster report above.
 
-## Initial narrower-range results and limits (historical)
+## Initial narrower-range results and limits (historical, pre-promotion)
+
+The measurements in this section and the next used the pre-promotion 33,554,432-pixel
+/ 128 MiB bound and the getRGB-only converter. They are retained as historical
+evidence for those pinned builds, not as current-product tests.
 
 Fixture: user-provided `heavy.cmo3`, 447,432,485 bytes, SHA-256 `029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`; 849 model images and 6 atlases. Environment: bundled Java 17.0.3.1+2-LTS, DW-Proton 11.0-9, Mesa 26.1.5 / Intel UHD 630. Fresh Editor/prefix per run; source copy is staged before launch, so this is not disk-cold IO.
 
@@ -81,7 +123,13 @@ Continuation shadow `resume-texture-shadow-r1-20260906T160721Z-450525` again com
 
 Runner shutdown hardening now waits for actual launcher completion instead of signalling its process tree immediately on a shutdown log; validation requires exit code 0, and a timeout requiring forced cleanup is FAIL. Interactive sessions remain user-controlled. Keep run labels short so the generated Windows fixture path stays below the installed host's path limit.
 
-## Expanded range: final measured results (2026-09-07)
+## Expanded range: final measured results (2026-09-07, historical pre-promotion build)
+
+This section's "expanded" arm (8,192 per dimension / 33,554,432 pixels) was the
+pre-promotion maximum. Production now admits up to 67,108,864 pixels; the
+large-image screening signals that motivated that promotion are in the
+[experiment ledger](../../testing/host-validation/image-archive/experiments/RESULTS.md)
+and [PROMOTION.md](../../testing/host-validation/image-archive/benchmark/PROMOTION.md).
 
 The initial bounds excluded many smaller inputs and one real **3840×5056** input. Lowering the minimum area to 4,096 added 268 real preparations. Raising the bounded maximum to 8,192 per dimension / 33,554,432 pixels included that final large image. Neither change touches the shader call site, GL operations, image format or resource ownership. Shadow-only size counters verified the remaining input rather than assuming it was small.
 
@@ -114,4 +162,10 @@ Pinned Agent SHA-256: initial bounds `9941bd68b8f52ff6f15a716d26430852c8d69818cf
 
 Final interactive smoke `use-r1-20260907T024041Z-940202` used the expanded ordinary Agent without auxiliary validation agent, retained its isolated copy/home/prefix, and ended normally through the explicitly selected task-window close client. It is SESSION_ENDED, not validation PASS. Do not supply that smoke client when doing real work.
 
-The measured load now prepares every input at this factory; further size-range expansion has no demonstrated consumer here. Dirty rectangles, partial atlas composition, update coalescing and warp-form allocation work are separate, unimplemented directions. In particular, point-reference caching must not retain mutable form arrays or suppress native `setUpdated` writes, and XML character validation must not be disabled to reduce parser samples.
+The measured load now prepares every input at this factory up to the promoted
+67,108,864-pixel bound; the two 8192² inputs that previously fell through are now
+covered, and further size-range expansion has no demonstrated consumer here. Dirty
+rectangles, partial atlas composition, update coalescing and warp-form allocation
+work are separate, unimplemented directions. In particular, point-reference caching
+must not retain mutable form arrays or suppress native `setUpdated` writes, and XML
+character validation must not be disabled to reduce parser samples.

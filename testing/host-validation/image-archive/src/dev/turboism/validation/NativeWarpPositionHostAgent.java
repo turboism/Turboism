@@ -26,8 +26,8 @@ public final class NativeWarpPositionHostAgent {
 
     /** Runs inside the official Editor only; this is not an application launcher. */
     public static void premain(String args,Instrumentation instrumentation) {
-        long start=System.nanoTime(), cpu=NativeFloatArrayHostAgent.processCpu();
-        var allocations=new NativeFloatArrayHostAgent.Allocations();
+        long start=System.nanoTime(), cpu=NativeLoadMetrics.processCpu();
+        var allocations=new NativeLoadMetrics.Allocations();
         Path home=Path.of(System.getProperty("turboism.validation.warpProjection.home"));
         NativeMemoryObservation.startLoading(home);
         boolean enabled=Boolean.getBoolean(ENABLE), shadow=Boolean.getBoolean("turboism.validation.warpProjection.shadow");
@@ -37,7 +37,7 @@ public final class NativeWarpPositionHostAgent {
     }
 
     private static void run(Path home,Instrumentation instrumentation,long start,long cpu,
-                            NativeFloatArrayHostAgent.Allocations allocations,Capture capture,boolean enabled,boolean shadow) {
+                            NativeLoadMetrics.Allocations allocations,Capture capture,boolean enabled,boolean shadow) {
         Path output=home.resolve("state/warp-projection/result.properties");
         try {
             RESULT.setProperty("schemaVersion","1");RESULT.setProperty("runId",System.getProperty("turboism.validation.runId",""));
@@ -55,7 +55,7 @@ public final class NativeWarpPositionHostAgent {
             require(target!=null,"native interpolation consumer absent");
             NativeAtlasWorkflow.awaitTaskDocument(target.getClassLoader());
             RESULT.setProperty("agentToDocumentReadyNs",Long.toString(System.nanoTime()-start));
-            long cpuEnd=NativeFloatArrayHostAgent.processCpu();
+            long cpuEnd=NativeLoadMetrics.processCpu();
             RESULT.setProperty("processCpuToDocumentReadyNs",Long.toString(cpu<0||cpuEnd<0?-1:cpuEnd-cpu));
             RESULT.setProperty("observedThreadAllocatedBytes",Long.toString(allocations.stopAndTotal()));
             RESULT.setProperty("allocationMetric","observed-thread-maxima-lower-bound-not-RSS-or-peak");

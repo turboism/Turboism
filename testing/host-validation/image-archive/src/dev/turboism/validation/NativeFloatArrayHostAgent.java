@@ -1,6 +1,7 @@
 package dev.turboism.validation;
 
 import java.awt.Frame;
+import dev.turboism.validation.NativeLoadMetrics.Allocations;
 import java.awt.event.WindowEvent;
 import java.lang.instrument.Instrumentation;
 import java.lang.management.ManagementFactory;
@@ -10,7 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -27,7 +27,7 @@ public final class NativeFloatArrayHostAgent {
 
     /** Measures one freshly launched official Editor process, with optional untimed shadow comparison. */
     public static void premain(String args, Instrumentation instrumentation) {
-        long start = System.nanoTime(), cpuStart = processCpu();
+        long start = System.nanoTime(), cpuStart = NativeLoadMetrics.processCpu();
         Allocations allocations = new Allocations();
         Shadow shadow = new Shadow();
         boolean compare = Boolean.getBoolean("turboism.validation.floatArray.shadow");
@@ -64,7 +64,7 @@ public final class NativeFloatArrayHostAgent {
             require(target != null, "native float serializer was not loaded");
             NativeAtlasWorkflow.awaitTaskDocument(target.getClassLoader());
             RESULT.setProperty("agentToDocumentReadyNs", Long.toString(System.nanoTime() - start));
-            long cpuEnd = processCpu();
+            long cpuEnd = NativeLoadMetrics.processCpu();
             RESULT.setProperty("processCpuToDocumentReadyNs", Long.toString(cpuStart < 0 || cpuEnd < 0 ? -1 : cpuEnd - cpuStart));
             RESULT.setProperty("observedThreadAllocatedBytes", Long.toString(allocations.stopAndTotal()));
             RESULT.setProperty("allocationMetric", "sum-of-observed-thread-allocation-maxima;lower-bound-not-retained-or-peak-memory");
@@ -146,9 +146,6 @@ public final class NativeFloatArrayHostAgent {
         }
     }
 
-    static long processCpu() {
-        return ManagementFactory.getOperatingSystemMXBean() instanceof com.sun.management.OperatingSystemMXBean bean ? bean.getProcessCpuTime() : -1;
-    }
     private static void checkBits(List<String> tokens, float[] result) {
         require(result.length == tokens.size(), "native result length differs");
         for (int i = 0; i < result.length; i++) require(Float.floatToRawIntBits(result[i]) == Float.floatToRawIntBits(Float.parseFloat(tokens.get(i))), "native float bits differ");
@@ -159,43 +156,6 @@ public final class NativeFloatArrayHostAgent {
         Path temporary = path.resolveSibling(path.getFileName() + ".tmp");
         try (var out = Files.newOutputStream(temporary)) { RESULT.store(out, "Native float-array validation"); }
         Files.move(temporary, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-    }
-
-    static final class Allocations {
-        final ConcurrentHashMap<Long, Long> observed = new ConcurrentHashMap<>();
-        final AtomicBoolean running = new AtomicBoolean();
-        final com.sun.management.ThreadMXBean bean;
-        Thread thread;
-        boolean stopped;
-        long total = -1;
-        Allocations() {
-            bean = ManagementFactory.getThreadMXBean() instanceof com.sun.management.ThreadMXBean candidate
-                && candidate.isThreadAllocatedMemorySupported() ? candidate : null;
-            if (bean == null) return;
-            bean.setThreadAllocatedMemoryEnabled(true); running.set(true);
-            thread = new Thread(() -> {
-                while (running.get()) {
-                    sample();
-                    try { Thread.sleep(100); } catch (InterruptedException stopped) { break; }
-                }
-            }, "turboism-native-load-allocation-sampler");
-            thread.setDaemon(true); thread.start();
-        }
-        void sample() {
-            long[] ids = bean.getAllThreadIds(), bytes = bean.getThreadAllocatedBytes(ids);
-            for (int i = 0; i < ids.length; i++) if (bytes[i] >= 0) observed.merge(ids[i], bytes[i], Math::max);
-        }
-        synchronized long stopAndTotal() {
-            if (bean == null || stopped) return total;
-            stopped = true; running.set(false);
-            if (thread != null) {
-                thread.interrupt();
-                try {thread.join(1000);} catch (InterruptedException interrupted) {Thread.currentThread().interrupt();}
-                if (thread.isAlive()) return -1;
-            }
-            sample(); total = observed.values().stream().mapToLong(Long::longValue).sum();
-            return total;
-        }
     }
 
     private static final class Shadow {

@@ -20,6 +20,19 @@ turboism_require_task_version texture-upload "$version" || exit 2
 if [[ $# -gt 0 && "$1" != --* ]]; then run_label=$1; shift; fi
 worktree_id="$(bash "$repo_root/scripts/dev/worktree-id.sh")"
 bundle="$repo_root/build/preview/$worktree_id"
+# Use the same frozen owner pin as the product; 5.0/5.1, 5.2 and 5.3 factories differ.
+factory_owner="$(python3 - "$bundle/turboism-agent.jar" "$(turboism_dotted_version "$version")" <<'PY'
+import json, re, sys, zipfile
+with zipfile.ZipFile(sys.argv[1]) as agent:
+    pins = json.loads(agent.read('dev/turboism/adapter/cubism/class-pins/texture-upload-preparation.json')).get(sys.argv[2], {})
+if len(pins) != 1:
+    raise SystemExit('texture validation requires one reviewed factory pin')
+owner = next(iter(pins))
+if not re.fullmatch(r'com/live2d/graphics3d/shader/[A-Za-z_$][A-Za-z0-9_$]*', owner):
+    raise SystemExit('invalid reviewed texture factory owner')
+print(owner.replace('/', '.'))
+PY
+)"
 fixture_args=()
 if turboism_select_fixture "$version" 2>/dev/null; then
   fixture_args=(--fixture-remote "$fixture_src" --fixture-sha256 "$fixture_sha256")
@@ -45,6 +58,7 @@ exec bash "$repo_root/scripts/preview/run-cubism-host-validation.sh" \
   --jvm-option '-Dturboism.optimization.floatArrayParseCache=false' \
   --jvm-option '-Dturboism.optimization.imageArchiveReuse=false' \
   --jvm-option "-Dturboism.validation.textureUpload.shadow=$shadow" \
+  --jvm-option "-Dturboism.validation.textureUpload.factoryOwner=$factory_owner" \
   --jvm-option '-Dturboism.validation.textureUpload.home={HOME}' \
   --jvm-option '-Dturboism.validation.imageArchive.home={HOME}' \
   --jvm-option '-Dturboism.validation.imageArchive.fixtureName={FIXTURE_NAME}' \

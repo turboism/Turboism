@@ -93,6 +93,32 @@ tasks.register("checkFloatArrayValidationBundle") {
 }
 
 
+val compileNativeHookHandlesTest by tasks.registering(JavaCompile::class) {
+    dependsOn(compileImageArchiveHostProbe)
+    source(file("testing/host-validation/image-archive/test/dev/turboism/validation/NativeHookHandlesTest.java"))
+    classpath = files(compileImageArchiveHostProbe.flatMap { it.destinationDirectory })
+    destinationDirectory.set(layout.buildDirectory.dir("image-archive-host-probe/test-classes"))
+    javaCompiler.set(project.extensions.getByType<JavaToolchainService>().compilerFor {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    })
+    options.release.set(17)
+    options.encoding = "UTF-8"
+}
+
+val checkNativeHookHandles by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Checks nested registry/contributor installation lookup without launching Cubism."
+    dependsOn(compileNativeHookHandlesTest)
+    classpath = files(
+        compileImageArchiveHostProbe.flatMap { it.destinationDirectory },
+        compileNativeHookHandlesTest.flatMap { it.destinationDirectory }
+    )
+    mainClass.set("dev.turboism.validation.NativeHookHandlesTest")
+    javaLauncher.set(project.extensions.getByType<JavaToolchainService>().launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    })
+}
+
 val buildTextureUploadHostProbe by tasks.registering(Jar::class) {
     group = "host verification"
     description = "Builds the test-only native texture-data differential/load validator."
@@ -106,7 +132,7 @@ val buildTextureUploadHostProbe by tasks.registering(Jar::class) {
 tasks.register("checkTextureUploadValidationBundle") {
     group = "verification"
     description = "Checks production texture preparation and excludes the validation-only agents."
-    dependsOn("previewBundle", buildTextureUploadHostProbe)
+    dependsOn("previewBundle", buildTextureUploadHostProbe, checkNativeHookHandles)
     doLast {
         val agent = project(":bootstrap").tasks.named<Jar>("jar").get().archiveFile.get().asFile
         JarFile(agent).use { jar ->
@@ -118,6 +144,14 @@ tasks.register("checkTextureUploadValidationBundle") {
         }
         JarFile(buildTextureUploadHostProbe.get().archiveFile.get().asFile).use { jar ->
             check(jar.manifest.mainAttributes.getValue("Premain-Class") == "dev.turboism.validation.NativeTextureUploadHostAgent")
+        }
+        // Resolve method signature types with only the packaged probe and the JDK.
+        // A source-tree compile can hide missing helper classes in the isolated agent JAR.
+        java.net.URLClassLoader(
+            arrayOf(buildTextureUploadHostProbe.get().archiveFile.get().asFile.toURI().toURL()),
+            ClassLoader.getPlatformClassLoader()
+        ).use { loader ->
+            loader.loadClass("dev.turboism.validation.NativeTextureUploadHostAgent").declaredMethods
         }
     }
 }

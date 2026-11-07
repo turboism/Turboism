@@ -1,0 +1,16 @@
+{
+  "archiveFile": "loading-hotspots-evidence.zip",
+  "sha256": "a8aab547ee3d0c3ace81174ab31f762c984588eb377f13c2fb4e0dec023c12af",
+  "manifestSha256": "553cf02289e4e1146a718fb4ea45fafa5e67f948bdd40fd6e65a1008c631fe83",
+  "entryCount": 46,
+  "containsRawJfr": true,
+  "privacy": "Local private archive only; raw JFR may contain environment/system properties. Do not commit or upload.",
+  "modelFilesIncluded": false,
+  "staticEvidenceHashes": {
+    "awt-texture-data.txt": "f61203fd552dd067eaf4c8cf0fe78af8c9b93740174283781ad9ccc2e3f3b96d",
+    "random-access.txt": "6cef81eedde8e272a6fb0d22a087f073434e96ccd49bd95dcf9ca2c8112999b1",
+    "ut-image.txt": "77c4f640d968698a5e1ec8378fc1a292eb0434c92e2e3ace4b2f8f01bed7e501",
+    "warp-form.txt": "51cdad144ab1ed7dca760ac48105d8b11cac23cfba75cad5250d2998bf37d228",
+    "writable-image-reader.txt": "3bcf678814e284a3b56ea25976000671357db220f50700087e325e2d3b8cdc7a"
+  }
+}
