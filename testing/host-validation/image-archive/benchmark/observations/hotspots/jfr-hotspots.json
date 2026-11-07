@@ -1,0 +1,1180 @@
+{
+  "warning": "Diagnostic sample attribution only; allocation weights are estimates, not retained RAM or end-to-end timing percentages. Profiled runs excluded from performance medians.",
+  "reports": {
+    "direct": {
+      "windowStartEpochMs": 1794009780347,
+      "windowEndEpochMs": 1794009823453,
+      "sampleKinds": [
+        [
+          "jdk.NativeMethodSample",
+          1930
+        ],
+        [
+          "jdk.ExecutionSample",
+          880
+        ]
+      ],
+      "truncatedSamples": 359,
+      "categoriesBySampleKind": [
+        [
+          "jdk.NativeMethodSample | native event/network wait (not CPU attribution)",
+          1509
+        ],
+        [
+          "jdk.ExecutionSample | JOGL custom texture conversion",
+          194
+        ],
+        [
+          "jdk.ExecutionSample | extended interpolation setup/evaluation",
+          152
+        ],
+        [
+          "jdk.ExecutionSample | other host/JDK",
+          146
+        ],
+        [
+          "jdk.ExecutionSample | model serialization/deserialization",
+          130
+        ],
+        [
+          "jdk.NativeMethodSample | licensing (not an optimization target)",
+          112
+        ],
+        [
+          "jdk.ExecutionSample | other Turboism",
+          98
+        ],
+        [
+          "jdk.NativeMethodSample | GL/CL/native graphics call (not GPU timing)",
+          70
+        ],
+        [
+          "jdk.ExecutionSample | float parsing",
+          63
+        ],
+        [
+          "jdk.NativeMethodSample | other Turboism",
+          59
+        ],
+        [
+          "jdk.NativeMethodSample | PNG decoding (including inflate/cache IO)",
+          50
+        ],
+        [
+          "jdk.NativeMethodSample | other host/JDK",
+          42
+        ],
+        [
+          "jdk.NativeMethodSample | model serialization/deserialization",
+          33
+        ],
+        [
+          "jdk.NativeMethodSample | archive/other inflate",
+          30
+        ],
+        [
+          "jdk.ExecutionSample | direct texture preparation",
+          29
+        ],
+        [
+          "jdk.ExecutionSample | native image materialization",
+          29
+        ],
+        [
+          "jdk.ExecutionSample | PNG decoding (including inflate/cache IO)",
+          24
+        ],
+        [
+          "jdk.NativeMethodSample | observer/JFR overhead",
+          23
+        ],
+        [
+          "jdk.ExecutionSample | archive/other inflate",
+          7
+        ],
+        [
+          "jdk.ExecutionSample | observer/JFR overhead",
+          6
+        ],
+        [
+          "jdk.ExecutionSample | XML parsing/validation",
+          2
+        ],
+        [
+          "jdk.NativeMethodSample | native image materialization",
+          2
+        ]
+      ],
+      "javaExecutionLeaves": [
+        [
+          "java.awt.image.ComponentColorModel.getDataElements",
+          107
+        ],
+        [
+          "sun.java2d.loops.OpaqueCopyArgbToAny.Blit",
+          68
+        ],
+        [
+          "com.live2d.cubism.doc.model.deformer.warp.CWarpDeformerForm.getAllPointRef",
+          36
+        ],
+        [
+          "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.CExtendedInterpolationExtension.updateInterpolatedForms_common",
+          36
+        ],
+        [
+          "dev.turboism.adapter.cubism.optimization.image.CanonicalRgbaImage.copyIntArgb",
+          29
+        ],
+        [
+          "jp.noids.graphics.UtImage.createSameTypeImage",
+          28
+        ],
+        [
+          "jdk.internal.math.FloatingDecimal.readJavaFormatString",
+          23
+        ],
+        [
+          "sun.awt.image.ByteInterleavedRaster.putByteData",
+          23
+        ],
+        [
+          "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.f.a",
+          22
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.multByPow52",
+          19
+        ],
+        [
+          "sun.awt.image.ByteInterleavedRaster.setDataElements",
+          19
+        ],
+        [
+          "java.util.jar.JarFile.match",
+          18
+        ],
+        [
+          "java.util.HashMap.getNode",
+          15
+        ],
+        [
+          "java.util.UUID.equals",
+          11
+        ],
+        [
+          "java.util.Objects.checkIndex",
+          9
+        ],
+        [
+          "jdk.internal.math.FloatingDecimal$ASCIIToBinaryBuffer.floatValue",
+          9
+        ],
+        [
+          "com.live2d.cubism.view.palette.deformer.t.a",
+          7
+        ],
+        [
+          "com.live2d.graphics3d.type.f.a",
+          7
+        ],
+        [
+          "java.lang.StringLatin1.hashCode",
+          7
+        ],
+        [
+          "java.util.Arrays.copyOf",
+          7
+        ],
+        [
+          "java.util.HashMap.resize",
+          7
+        ],
+        [
+          "java.util.jar.Manifest$FastInputStream.readLine",
+          7
+        ],
+        [
+          "org.jdom.Verifier.isXMLCharacter",
+          7
+        ],
+        [
+          "com.live2d.cubism.doc.model.interpolator.KeyformGridSource.addKey_internal",
+          6
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.impl.XMLEntityScanner.scanContent",
+          6
+        ],
+        [
+          "java.util.ArrayList.addAll",
+          6
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.valueOfMulPow52",
+          6
+        ],
+        [
+          "com.live2d.cubism.doc.model.morphTarget.ag$h.a",
+          5
+        ],
+        [
+          "com.live2d.type.Guid.equals",
+          5
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.impl.XMLNSDocumentScannerImpl.scanStartElement",
+          5
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.impl.io.UTF8Reader.read",
+          5
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.util.SymbolTable.addSymbol",
+          5
+        ],
+        [
+          "com.live2d.cubism.doc.model.CModelSource.getObject$default",
+          4
+        ],
+        [
+          "com.live2d.doc.selection.IPointRef$b.a",
+          4
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.impl.XMLDocumentFragmentScannerImpl$FragmentContentDriver.next",
+          4
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.utils.XMLLimitAnalyzer.addValue",
+          4
+        ],
+        [
+          "java.io.ByteArrayOutputStream.toString",
+          4
+        ],
+        [
+          "java.lang.String.<init>",
+          4
+        ],
+        [
+          "kotlin.io.ByteStreamsKt.copyTo",
+          4
+        ],
+        [
+          "sun.java2d.marlin.Renderer._endRendering",
+          4
+        ],
+        [
+          "com.live2d.cubism.doc.model.deformer.warp.WarpDeformer_Draw.drawNormalPoint",
+          3
+        ],
+        [
+          "com.live2d.cubism.doc.model.deformer.warp.WarpPointRef.moveToOnLocal",
+          3
+        ],
+        [
+          "com.live2d.cubism.doc.model.deformer.warp.o.a",
+          3
+        ],
+        [
+          "com.live2d.cubism.doc.model.drawable.artMesh.MeshPointRef.moveToOnLocal",
+          3
+        ],
+        [
+          "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.a.a",
+          3
+        ],
+        [
+          "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.f.<init>",
+          3
+        ],
+        [
+          "java.io.ByteArrayOutputStream.<init>",
+          3
+        ],
+        [
+          "java.lang.String.subSequence",
+          3
+        ],
+        [
+          "java.lang.StringLatin1.newString",
+          3
+        ],
+        [
+          "java.util.Hashtable.get",
+          3
+        ]
+      ],
+      "estimatedAllocationBytesByCategory": [
+        [
+          "JOGL custom texture conversion",
+          4730318216
+        ],
+        [
+          "model serialization/deserialization",
+          4580951384
+        ],
+        [
+          "extended interpolation setup/evaluation",
+          3625887328
+        ],
+        [
+          "PNG decoding (including inflate/cache IO)",
+          1991264320
+        ],
+        [
+          "other host/JDK",
+          1690597232
+        ],
+        [
+          "float parsing",
+          1377817496
+        ],
+        [
+          "other Turboism",
+          1330234480
+        ],
+        [
+          "native image materialization",
+          1012917712
+        ],
+        [
+          "direct texture preparation",
+          369413232
+        ],
+        [
+          "archive/other inflate",
+          105300976
+        ],
+        [
+          "observer/JFR overhead",
+          5673544
+        ],
+        [
+          "XML parsing/validation",
+          5252896
+        ],
+        [
+          "licensing (not an optimization target)",
+          1317208
+        ],
+        [
+          "native event/network wait (not CPU attribution)",
+          193296
+        ]
+      ],
+      "allocationSampleCount": 6126,
+      "estimatedAllocationBytesByLeaf": [
+        [
+          "java.awt.image.ComponentColorModel.getDataElements | [I",
+          4195366040
+        ],
+        [
+          "java.awt.image.DataBufferByte.<init> | [B",
+          1532977408
+        ],
+        [
+          "sun.awt.image.ByteInterleavedRaster.getByteData | [B",
+          1347991096
+        ],
+        [
+          "com.live2d.cubism.doc.model.deformer.warp.CWarpDeformerForm.getAllPointRef | com.live2d.cubism.doc.model.deformer.warp.WarpPointRef",
+          1273250240
+        ],
+        [
+          "java.io.InputStream.readNBytes | [B",
+          1114075024
+        ],
+        [
+          "java.io.ByteArrayOutputStream.<init> | [B",
+          1041449808
+        ],
+        [
+          "java.awt.image.DataBufferInt.<init> | [I",
+          1035021480
+        ],
+        [
+          "java.util.Arrays.copyOf | [B",
+          965706560
+        ],
+        [
+          "com.live2d.serialize.archiver.RandomAccess$c.a | [B",
+          592337008
+        ],
+        [
+          "java.util.ArrayList.<init> | [Ljava.lang.Object;",
+          537083384
+        ],
+        [
+          "java.util.ArrayList.grow | [Ljava.lang.Object;",
+          446645408
+        ],
+        [
+          "com.live2d.graphics3d.type.f.a | com.live2d.graphics3d.type.GVector2",
+          392412640
+        ],
+        [
+          "java.util.Arrays.copyOfRange | [B",
+          380753096
+        ],
+        [
+          "java.lang.StringLatin1.newString | java.lang.String",
+          370948712
+        ],
+        [
+          "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.a.a | com.live2d.graphics3d.type.GVector2",
+          323180368
+        ],
+        [
+          "jdk.internal.math.FloatingDecimal.readJavaFormatString | [C",
+          301725120
+        ],
+        [
+          "jdk.internal.math.FloatingDecimal.readJavaFormatString | jdk.internal.math.FloatingDecimal$ASCIIToBinaryBuffer",
+          279307312
+        ],
+        [
+          "java.util.Arrays.copyOf | [Ljava.lang.Object;",
+          265694104
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.valueOfMulPow52 | [I",
+          251531648
+        ],
+        [
+          "java.lang.StringUTF16.compress | [B",
+          193305208
+        ],
+        [
+          "java.io.BufferedInputStream.<init> | [B",
+          193225824
+        ],
+        [
+          "java.util.Arrays.copyOf | [F",
+          191635312
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.<init> | [I",
+          166936816
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.impl.XMLVersionDetector.<init> | [C",
+          124784864
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.valueOfMulPow52 | jdk.internal.math.FDBigInteger",
+          124301288
+        ],
+        [
+          "java.util.ArrayList.iterator | java.util.ArrayList$Itr",
+          121364544
+        ],
+        [
+          "org.jdom.DefaultJDOMFactory.attribute | org.jdom.Attribute",
+          116247184
+        ],
+        [
+          "jdk.internal.math.FloatingDecimal$ASCIIToBinaryBuffer.floatValue | jdk.internal.math.FDBigInteger",
+          104424888
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.xni.XMLString.toString | java.lang.String",
+          92149368
+        ],
+        [
+          "com.live2d.serialize.impl.PropertySet.readProperty | [Ljava.lang.Object;",
+          87748000
+        ],
+        [
+          "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.f.<init> | java.util.ArrayList",
+          87476032
+        ],
+        [
+          "java.lang.ClassLoader.defineClass1 | [B",
+          84262008
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.leftShift | [I",
+          83703624
+        ],
+        [
+          "java.lang.Float.valueOf | java.lang.Float",
+          78304680
+        ],
+        [
+          "org.jdom.AttributeList.ensureCapacity | [Lorg.jdom.Attribute;",
+          75855752
+        ],
+        [
+          "com.live2d.serialize.archiver.ArchiveReader.readFileByFilePath | java.io.ByteArrayInputStream",
+          74703176
+        ],
+        [
+          "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm.getAllPointRef | com.live2d.cubism.doc.model.drawable.artMesh.MeshPointRef",
+          67005728
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.leftShift | jdk.internal.math.FDBigInteger",
+          65882480
+        ],
+        [
+          "java.lang.AbstractStringBuilder.<init> | [B",
+          62670008
+        ],
+        [
+          "java.util.zip.InflaterInputStream.<init> | [B",
+          62543864
+        ]
+      ],
+      "recordedDurationNsByEventType": [
+        [
+          "jdk.JavaMonitorWait",
+          431390407000
+        ],
+        [
+          "jdk.ThreadPark",
+          229699362800
+        ],
+        [
+          "jdk.GCPhasePause",
+          691823800
+        ],
+        [
+          "jdk.FileRead",
+          553027500
+        ]
+      ],
+      "recordedDurationCountByEventType": [
+        [
+          "jdk.JavaMonitorWait",
+          4144
+        ],
+        [
+          "jdk.ThreadPark",
+          2026
+        ],
+        [
+          "jdk.GCPhasePause",
+          67
+        ],
+        [
+          "jdk.FileRead",
+          22
+        ]
+      ]
+    },
+    "native": {
+      "windowStartEpochMs": 1794010017764,
+      "windowEndEpochMs": 1794010062658,
+      "sampleKinds": [
+        [
+          "jdk.NativeMethodSample",
+          2020
+        ],
+        [
+          "jdk.ExecutionSample",
+          961
+        ]
+      ],
+      "truncatedSamples": 489,
+      "categoriesBySampleKind": [
+        [
+          "jdk.NativeMethodSample | native event/network wait (not CPU attribution)",
+          1610
+        ],
+        [
+          "jdk.ExecutionSample | JOGL custom texture conversion",
+          345
+        ],
+        [
+          "jdk.ExecutionSample | other host/JDK",
+          168
+        ],
+        [
+          "jdk.ExecutionSample | extended interpolation setup/evaluation",
+          147
+        ],
+        [
+          "jdk.ExecutionSample | model serialization/deserialization",
+          126
+        ],
+        [
+          "jdk.NativeMethodSample | licensing (not an optimization target)",
+          108
+        ],
+        [
+          "jdk.NativeMethodSample | GL/CL/native graphics call (not GPU timing)",
+          75
+        ],
+        [
+          "jdk.ExecutionSample | other Turboism",
+          68
+        ],
+        [
+          "jdk.NativeMethodSample | other Turboism",
+          61
+        ],
+        [
+          "jdk.ExecutionSample | float parsing",
+          60
+        ],
+        [
+          "jdk.NativeMethodSample | PNG decoding (including inflate/cache IO)",
+          58
+        ],
+        [
+          "jdk.NativeMethodSample | model serialization/deserialization",
+          36
+        ],
+        [
+          "jdk.NativeMethodSample | other host/JDK",
+          33
+        ],
+        [
+          "jdk.ExecutionSample | native image materialization",
+          31
+        ],
+        [
+          "jdk.NativeMethodSample | archive/other inflate",
+          20
+        ],
+        [
+          "jdk.NativeMethodSample | observer/JFR overhead",
+          17
+        ],
+        [
+          "jdk.ExecutionSample | PNG decoding (including inflate/cache IO)",
+          11
+        ],
+        [
+          "jdk.ExecutionSample | archive/other inflate",
+          3
+        ],
+        [
+          "jdk.ExecutionSample | XML parsing/validation",
+          1
+        ],
+        [
+          "jdk.ExecutionSample | observer/JFR overhead",
+          1
+        ],
+        [
+          "jdk.NativeMethodSample | extended interpolation setup/evaluation",
+          1
+        ],
+        [
+          "jdk.NativeMethodSample | native image materialization",
+          1
+        ]
+      ],
+      "javaExecutionLeaves": [
+        [
+          "java.awt.image.ComponentColorModel.getDataElements",
+          226
+        ],
+        [
+          "sun.awt.image.ByteInterleavedRaster.setDataElements",
+          63
+        ],
+        [
+          "sun.java2d.loops.OpaqueCopyArgbToAny.Blit",
+          56
+        ],
+        [
+          "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.CExtendedInterpolationExtension.updateInterpolatedForms_common",
+          40
+        ],
+        [
+          "jp.noids.graphics.UtImage.createSameTypeImage",
+          31
+        ],
+        [
+          "com.live2d.cubism.doc.model.deformer.warp.CWarpDeformerForm.getAllPointRef",
+          26
+        ],
+        [
+          "java.util.jar.JarFile.match",
+          25
+        ],
+        [
+          "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.f.a",
+          22
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.multByPow52",
+          20
+        ],
+        [
+          "com.live2d.cubism.view.palette.deformer.t.a",
+          19
+        ],
+        [
+          "java.util.HashMap.getNode",
+          18
+        ],
+        [
+          "jdk.internal.math.FloatingDecimal.readJavaFormatString",
+          17
+        ],
+        [
+          "sun.awt.image.ByteInterleavedRaster.putByteData",
+          10
+        ],
+        [
+          "com.live2d.graphics3d.type.f.a",
+          9
+        ],
+        [
+          "java.util.Arrays.copyOf",
+          8
+        ],
+        [
+          "com.live2d.cubism.doc.model.deformer.warp.WarpPointRef.moveToOnLocal",
+          7
+        ],
+        [
+          "java.util.ArrayList.addAll",
+          7
+        ],
+        [
+          "java.util.Objects.checkIndex",
+          7
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.impl.io.UTF8Reader.read",
+          6
+        ],
+        [
+          "java.util.UUID.equals",
+          6
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.valueOfMulPow52",
+          6
+        ],
+        [
+          "jdk.internal.math.FloatingDecimal$ASCIIToBinaryBuffer.floatValue",
+          6
+        ],
+        [
+          "com.live2d.cubism.doc.model.CModelSource.getObject$default",
+          5
+        ],
+        [
+          "com.live2d.cubism.doc.model.deformer.warp.WarpDeformer_Draw.drawNormalPoint",
+          5
+        ],
+        [
+          "com.live2d.cubism.doc.model.deformer.warp.o.a",
+          5
+        ],
+        [
+          "com.live2d.cubism.view.ay.a",
+          5
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.utils.XMLLimitAnalyzer.addValue",
+          5
+        ],
+        [
+          "org.jdom.Verifier.checkAttributeName",
+          5
+        ],
+        [
+          "com.live2d.cubism.doc.model.morphTarget.aA.a",
+          4
+        ],
+        [
+          "com.live2d.type.Guid.equals",
+          4
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.impl.XMLDocumentFragmentScannerImpl$FragmentContentDriver.next",
+          4
+        ],
+        [
+          "java.util.ArrayList.<init>",
+          4
+        ],
+        [
+          "javax.swing.TimerQueue.run",
+          4
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.trimLeadingZeros",
+          4
+        ],
+        [
+          "org.jdom.ContentList.documentCanContain",
+          4
+        ],
+        [
+          "sun.java2d.marlin.Renderer._endRendering",
+          4
+        ],
+        [
+          "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.a.a",
+          3
+        ],
+        [
+          "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTargetSet.getMorphTargetList",
+          3
+        ],
+        [
+          "com.live2d.cubism.doc.model.morphTarget.ag$h.a",
+          3
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.impl.XMLEntityScanner.scanContent",
+          3
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.impl.XMLNSDocumentScannerImpl.scanStartElement",
+          3
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.util.NamespaceSupport.getURI",
+          3
+        ],
+        [
+          "java.lang.String.<init>",
+          3
+        ],
+        [
+          "java.util.concurrent.locks.ReentrantLock$Sync.lock",
+          3
+        ],
+        [
+          "kotlin.io.ByteStreamsKt.copyTo$default",
+          3
+        ],
+        [
+          "kotlin.jvm.internal.Intrinsics.sanitizeStackTrace",
+          3
+        ],
+        [
+          "org.jdom.Element.<init>",
+          3
+        ],
+        [
+          "org.jdom.input.TextBuffer.toString",
+          3
+        ],
+        [
+          "com.live2d.cubism.doc.model.ACParameterControllableSource.equals",
+          2
+        ],
+        [
+          "com.live2d.cubism.doc.model.deformer.warp.CWarpDeformerForm.blend",
+          2
+        ]
+      ],
+      "estimatedAllocationBytesByCategory": [
+        [
+          "JOGL custom texture conversion",
+          8393943880
+        ],
+        [
+          "model serialization/deserialization",
+          4788232904
+        ],
+        [
+          "extended interpolation setup/evaluation",
+          3632299128
+        ],
+        [
+          "PNG decoding (including inflate/cache IO)",
+          1979378072
+        ],
+        [
+          "other host/JDK",
+          1705312056
+        ],
+        [
+          "float parsing",
+          1170038160
+        ],
+        [
+          "native image materialization",
+          955295864
+        ],
+        [
+          "other Turboism",
+          921594104
+        ],
+        [
+          "archive/other inflate",
+          79595104
+        ],
+        [
+          "XML parsing/validation",
+          9827664
+        ],
+        [
+          "observer/JFR overhead",
+          3667840
+        ],
+        [
+          "licensing (not an optimization target)",
+          2221144
+        ],
+        [
+          "native event/network wait (not CPU attribution)",
+          194048
+        ]
+      ],
+      "allocationSampleCount": 6782,
+      "estimatedAllocationBytesByLeaf": [
+        [
+          "java.awt.image.ComponentColorModel.getDataElements | [I",
+          7521528488
+        ],
+        [
+          "java.awt.image.DataBufferByte.<init> | [B",
+          1802294224
+        ],
+        [
+          "java.util.Arrays.copyOf | [B",
+          1143548768
+        ],
+        [
+          "com.live2d.cubism.doc.model.deformer.warp.CWarpDeformerForm.getAllPointRef | com.live2d.cubism.doc.model.deformer.warp.WarpPointRef",
+          1095980928
+        ],
+        [
+          "java.io.InputStream.readNBytes | [B",
+          1053671904
+        ],
+        [
+          "sun.awt.image.ByteInterleavedRaster.getByteData | [B",
+          1009898408
+        ],
+        [
+          "java.awt.image.DataBufferInt.<init> | [I",
+          968541184
+        ],
+        [
+          "com.live2d.graphics3d.type.f.a | com.live2d.graphics3d.type.GVector2",
+          586567176
+        ],
+        [
+          "com.live2d.serialize.archiver.RandomAccess$c.a | [B",
+          576410208
+        ],
+        [
+          "java.io.ByteArrayOutputStream.<init> | [B",
+          544937280
+        ],
+        [
+          "java.util.ArrayList.grow | [Ljava.lang.Object;",
+          475841864
+        ],
+        [
+          "java.util.Arrays.copyOf | [Ljava.lang.Object;",
+          472201488
+        ],
+        [
+          "java.util.ArrayList.<init> | [Ljava.lang.Object;",
+          434367608
+        ],
+        [
+          "java.util.Arrays.copyOfRange | [B",
+          359711776
+        ],
+        [
+          "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.a.a | com.live2d.graphics3d.type.GVector2",
+          318353840
+        ],
+        [
+          "jdk.internal.math.FloatingDecimal.readJavaFormatString | jdk.internal.math.FloatingDecimal$ASCIIToBinaryBuffer",
+          293567184
+        ],
+        [
+          "java.lang.StringLatin1.newString | java.lang.String",
+          289518040
+        ],
+        [
+          "jdk.internal.math.FloatingDecimal.readJavaFormatString | [C",
+          242264136
+        ],
+        [
+          "java.lang.StringUTF16.compress | [B",
+          192114464
+        ],
+        [
+          "kotlin.io.ByteStreamsKt.copyTo | [B",
+          174077856
+        ],
+        [
+          "kotlin.reflect.jvm.internal.impl.serialization.deserialization.descriptors.DeserializedClassDescriptor$DeserializedClassMemberScope.generateFakeOverrides | kotlin.reflect.jvm.internal.impl.serialization.deserialization.descriptors.DeserializedClassDescriptor$DeserializedClassMemberScope$generateFakeOverrides$1",
+          165734088
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.valueOfMulPow52 | [I",
+          159513968
+        ],
+        [
+          "java.util.Arrays.copyOf | [F",
+          159114904
+        ],
+        [
+          "com.live2d.serialize.impl.G.a | [F",
+          151166832
+        ],
+        [
+          "com.live2d.graphics3d.type.GMatrix44.<init> | [F",
+          149064368
+        ],
+        [
+          "org.jdom.AttributeList.ensureCapacity | [Lorg.jdom.Attribute;",
+          143586080
+        ],
+        [
+          "java.io.BufferedInputStream.<init> | [B",
+          123796888
+        ],
+        [
+          "com.sun.org.apache.xerces.internal.xni.XMLString.toString | java.lang.String",
+          119826872
+        ],
+        [
+          "jdk.internal.math.FloatingDecimal$ASCIIToBinaryBuffer.floatValue | jdk.internal.math.FDBigInteger",
+          114012992
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.leftShift | jdk.internal.math.FDBigInteger",
+          112431232
+        ],
+        [
+          "java.util.ArrayList.iterator | java.util.ArrayList$Itr",
+          112330832
+        ],
+        [
+          "com.live2d.serialize.impl.PropertySet.readProperty | [Ljava.lang.Object;",
+          109148128
+        ],
+        [
+          "org.jdom.Element.<init> | org.jdom.AttributeList",
+          98384792
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.<init> | [I",
+          87434176
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.leftShift | [I",
+          85255648
+        ],
+        [
+          "jdk.internal.math.FDBigInteger.valueOfMulPow52 | jdk.internal.math.FDBigInteger",
+          75412544
+        ],
+        [
+          "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm.getAllPointRef | com.live2d.cubism.doc.model.drawable.artMesh.MeshPointRef",
+          74883024
+        ],
+        [
+          "java.lang.ClassLoader.defineClass1 | [B",
+          72232736
+        ],
+        [
+          "com.live2d.serialize.archiver.ArchiveReader.readFileByFilePath | java.io.ByteArrayInputStream",
+          65038072
+        ],
+        [
+          "java.util.zip.InflaterInputStream.<init> | [B",
+          63203872
+        ]
+      ],
+      "recordedDurationNsByEventType": [
+        [
+          "jdk.JavaMonitorWait",
+          462832952300
+        ],
+        [
+          "jdk.ThreadPark",
+          243429783400
+        ],
+        [
+          "jdk.GCPhasePause",
+          778931800
+        ],
+        [
+          "jdk.FileRead",
+          591420400
+        ]
+      ],
+      "recordedDurationCountByEventType": [
+        [
+          "jdk.JavaMonitorWait",
+          4294
+        ],
+        [
+          "jdk.ThreadPark",
+          2099
+        ],
+        [
+          "jdk.GCPhasePause",
+          79
+        ],
+        [
+          "jdk.FileRead",
+          23
+        ]
+      ]
+    }
+  },
+  "receipts": {
+    "direct": {
+      "runId": "profile-direct",
+      "profiling": true,
+      "jfrSha256": "dce109b1e53455765e2b9c3e8302a3960455f60a535b6da6b53751edf3ace761",
+      "envelopeSha256": "c80203c3c2bc578cddfe6afda01dab4f4f6bba7a8ea8398bf2f0ff38e4ab4363",
+      "runnerSha256": "9bb6e084d20a3a485471aaba0df42f50c2df35581ca9c705140dcaafe1863d8d",
+      "artifactHashes": {
+        "fixture": "83326ac519dd5e4cad9b39e4c7234410cc62bf0d1f5241364561d6906292b6da",
+        "officialBat": "6212404795416389745e932c6ef366e2ab3d305cefc568364514e07efe8f8815",
+        "installedBat": "2095ee85c78f3a6a43e5e6655aa44c7a4c1b1824688a4e6b8eca39588630a6c3",
+        "hostJar": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
+        "jogl": "7dbedb4ba89d9744aa8f8e3710436ef349547058c78e5b3beb813b27b382b0b9",
+        "agent": "3aca4e19f72a14248a3957311e97c8fee49a3f3ff6e2062e3ba333e07393693b",
+        "auxiliary": "ff032994c4d9e7efdfb04bf8c63d10db15e7e634d01521c80e7edeaeed1338dc"
+      },
+      "recordedSampleCount": {
+        "jdk.NativeMethodSample": 1930,
+        "jdk.ExecutionSample": 880
+      },
+      "agentToDocumentReadyNs": "43128419500",
+      "status": "PASS",
+      "normalExitCode": 0,
+      "cleanup": "safe"
+    },
+    "native": {
+      "runId": "profile-native",
+      "profiling": true,
+      "jfrSha256": "03aa0934fa693c600dd174ee5df9224398bce911ef14bdf47588f08fa3f6572c",
+      "envelopeSha256": "e8bfca241720a8f873e1bd87e90c978d45aa3bbce5d7401cf2cbb8ced73042ca",
+      "runnerSha256": "9bb6e084d20a3a485471aaba0df42f50c2df35581ca9c705140dcaafe1863d8d",
+      "artifactHashes": {
+        "fixture": "83326ac519dd5e4cad9b39e4c7234410cc62bf0d1f5241364561d6906292b6da",
+        "officialBat": "6212404795416389745e932c6ef366e2ab3d305cefc568364514e07efe8f8815",
+        "installedBat": "2095ee85c78f3a6a43e5e6655aa44c7a4c1b1824688a4e6b8eca39588630a6c3",
+        "hostJar": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
+        "jogl": "7dbedb4ba89d9744aa8f8e3710436ef349547058c78e5b3beb813b27b382b0b9",
+        "agent": "3aca4e19f72a14248a3957311e97c8fee49a3f3ff6e2062e3ba333e07393693b",
+        "auxiliary": "ff032994c4d9e7efdfb04bf8c63d10db15e7e634d01521c80e7edeaeed1338dc"
+      },
+      "recordedSampleCount": {
+        "jdk.NativeMethodSample": 2020,
+        "jdk.ExecutionSample": 961
+      },
+      "agentToDocumentReadyNs": "44912579500",
+      "status": "PASS",
+      "normalExitCode": 0,
+      "cleanup": "safe"
+    }
+  },
+  "analyzerSourceSha256": "28b84c2b167ae82f13271841af50569584a5c676fbd01bbc092a3dc82680ea85"
+}

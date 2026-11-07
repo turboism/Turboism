@@ -2142,3 +2142,39 @@ OFF/ON/ON/OFF，精确 camera 恢复，模型视口 `x>=500` 逐像素比较；�
 - **限制**：单模型单版本；wheel 非物理 FPS；完整轮与校准轮宿主负载有波动；artmesh 拖拽探针
   本轮被 1 像素画布身份检查挡住，未产出新拖拽/Undo 结论。证据与配置见
   [windows-cornflower-performance-20261105](../../validation/windows-cornflower-performance-20261105/README.md)。
+
+## Direct-raster texture preparation — native Windows controlled loading (2026-11-06 UTC)
+
+- **变更**：`CanonicalRgbaImage` 为标准 ARGB/ABGR 增加直接栅格读取，保留 getRGB 回退、尺寸上限与默认关闭策略。旧/新产品 agent ZIP 仅该 class 内容不同。
+- **环境**：原生 Windows 11、Ryzen 9 7940H、32 GB RAM、实测 OpenGL renderer NVIDIA RTX 4060 Laptop、Cubism 5.3.04 / bundled Java 17.0.3.1。763,166,356 B 模型，SHA-256 `83326ac519dd5e4cad9b39e4c7234410cc62bf0d1f5241364561d6906292b6da`，1029 张模型图 / 12 图集。
+- **等价与生命周期**：`shadow-s5` 比较全部 9 次准备 / 402,653,184 B，像素/元数据/有效行跨度零差异，停用/重启用/字节码恢复通过。2 张 8192² 超面积上限而回退；全部观察输入为 ARGB，无实机 ABGR 提速证据。
+- **实机矩阵**：三组各 3 轮，顺序 native/legacy/direct、direct/native/legacy、legacy/direct/native；不并发构建，逐轮全新 JVM/home/模型副本。9 轮均 PASS、正常退出 0、Job Object `cleanup=safe`、模型/工件哈希不变。
+- **结果**：旧→新准备回调中位数 **684.739→389.191 ms（−43.2%，约省296 ms）**；整体文档就绪 **43.112→43.122 s**，CPU **36.625→36.844 s**，无整体提速证据。原生关闭中位数 44.925 s；约4%的 native→direct 差值在旧实现中已经存在，不能归因于本次快路径。
+- **不利指标保留**：旧→新加载 working-set 峰值中位数 **5.615→5.990 GiB**，commit 峰值 **7.598→10.063 GiB**，空闲尾段 working set **4.898→6.190 GiB**；轮间波动明显，不归因为确定机制，也不宣称省 RAM。观察分配 **20.902→20.856 GB** 仅小幅下降。
+- **失败保留**：探针漏打包公共计时辅助类，已先红后绿修复并加入打包独立类加载检查；s1 引号、s2 日志递归、s3 旧字段、s4 双层 close 包装均按失败保留。s2 强制退出仍记 cleanup unknown，原 Job Object 内核 activeProcesses=0 后才继续，不改写为正常成功。
+- **结论/重试条件**：仍为 opt-in，不推荐默认开启。单模型/版本、非冷盘、500ms 就绪轮询、30s 无输入空闲，无交互 FPS/VRAM/显存或稳定内存收益。直接数组访问的 Java2D tracking 风险未被交互渲染测试排除。新负载已提供两个真实大图回退的证据，但扩大面积到8192²需另立256MiB目标缓冲内存实验，不能静默扩阈值。
+- **证据**：[完整报告及九轮 CSV/hash receipt](../../testing/host-validation/image-archive/benchmark/NATIVE-WINDOWS.md)；原始14个尝试、失败、JSONL/CSV、加载属性、日志和测量时源码留在本工作树忽略目录 `build/texture-host/`，不提交用户模型、license状态或本机路径。
+
+
+## Remaining loading hotspots — native Windows JFR diagnostics (2026-11-07 UTC)
+
+- **范围**：另跑 `profile-direct` / `profile-native` 两次隔离 JFR（profile 配置、96 帧栈深），均正常退出0、cleanup safe、模型/工件哈希不变。只分析加载 trace 起点到 ready marker，排除30秒空闲；`--profile`写入envelope，性能汇总器拒绝这类样本，不混入上节九轮中位数。
+- **直接路径仍有热点**：880个Java执行样本中，JOGL `createFromCustom → Graphics2D.drawImage → ComponentColorModel.getDataElements` **194（22.0%）**；扩展插值初始化 **152（17.3%）**；模型反序列化 **130（14.8%）**；float解析 **63（7.2%）**。这些是Java采样占比，非总加载时间、CPU精确秒或可实现加速比例。
+- **分配归因（估计权重，不是驻留内存/可省RAM）**：JOGL custom约4.73GB、整个扩展插值约3.63GB、模型反序列化约4.58GB、float解析约1.38GB。`getAllPointRef`逐次新建点引用列表的字节码已核对，但P01旧窄投影方案无净收益，不能据此直接重开同一实验。
+- **新增具体线索**：193个custom纹理Java样本集中35–40s，与2张8192²图的既有回退一致；下一候选应是独立大图范围/256MiB目标缓冲实验，而非继续微调已覆盖的9次准备。未逐次添加尺寸事件，不将全部采样权重精确归到两张图。
+- **ImageIO/归档**：PNG有24个Java与50个native方法样本；栈确见ByteArrayInputStream来源仍经FileCacheImageInputStream的临时文件read/write/seek。另见archive closure整段readBytes与BAOS扩容复制。候选是精确调用点的有界内存image stream/减少中间复制，不全局改ImageIO缓存、不去除XML/归档验证、不缓存可变form引用。
+- **反误读**：1509个native事件/网络等待样本不是CPU热点；真实GCPhasePause约0.692s，不用含并发阶段的GarbageCollection.duration冒充STW时间。对许可、校验和GL生命周期不作绕过。
+- **证据**：[热点报告、分类表、源代码与JFR哈希](../../testing/host-validation/image-archive/benchmark/HOTSPOTS.md)。原始JFR、日志及本地javap在忽略目录 `build/texture-host/`；JFR可能含环境/系统属性，不提交、不上传。本轮没有新增生产优化或性能收益结论。
+
+
+## Five independent hotspot experiments — native Windows screening (2026-11-07 UTC)
+
+- **设计**：只用私有实验agent，不改产品默认或生产面积上限。大图、PNG内存流、归档readAllBytes、直接类型只读warp投影、无缓存短float字面量逐项单测；不叠加。对照携带相同观测/摘要脚手架，float另用新probe和独立对照。全新JVM/home/模型副本，充足空间的新盘上同组对照，不与前节C盘数据直接混比。
+- **大图最值得推进**：11/11准备、939,524,096 B shadow零差异；两组夹持对照中，ready中位数 **40.774→39.005s（−4.3%）**、**42.877→41.264s（−3.8%）**；观测分配 **21.058→16.789GB**、**21.095→16.751GB**（均约−20%）。每臂只有2次，仍是筛查点估计，不宣称稳定/统计显著。峰值working set分别7.025→4.973、6.408→6.201GiB，幅度不稳定；尾段working set两组约−21%，不等同通用RAM/显存收益。
+- **PNG**：11张实际图片逐行像素/颜色模型/类型一致；局部ImageIO **4.376→2.526s（−42.3%）**，但整载 **40.236→42.030s（+4.5%）**，不推荐合入。仅逐读MemoryCache，不全局改ImageIO；公共InputStream mark/ownership合约仍需更窄边界。
+- **归档**：2次/124,757,880 B输出摘要相同，ZIP当前entry EOF与截断错误回归通过。局部 **0.595→0.551s**，整载 **41.641→41.178s**，仅边际变化，无稳定收益。
+- **warp**：避开旧逐vector MethodHandle/全局回调，未重开旧方案；5390次/3771822点raw bits一致，第二写循环/dirty/插值数学保留，未跳setup。整载 **43.048→43.759s**，分配不足−1%，峰值/commit有不利波动，不推荐。
+- **float**：只认d、-d、d.0、-d.0（0–9），负零保留，其余JDK。50000+离线位/异常比较，实际6414命中逐token shadow一致；**6860804次仅命中6414（0.0935%）**。整载42.378→41.380s但分配不降且覆盖极低，不据此认定加速，不扩特例/不重开旧token缓存。
+- **正确性与失败**：26个接受尝试（含shadow/预检，并非26个计时样本）全部正常exit0、cleanup safe、归档/256px模型缩略图摘要一致、输入/副本/工件hash不变，私有目标所有方法按CP无关指令/分支/handler证明恢复。3次失败预检control-s1/s2/f1保留：raw类字节比较/JVM非retransformable缓存/float Object返回描述符。后续真实JVM恢复和精确host离线weave回归通过，不重写失败为成功。
+- **限制/决策**：单模型/5.3.04/RTX4060、每组每臂2次、基线39–44s波动，非冷盘/无交互FPS/Undo/保存矩阵。只建议大图进入更广内存/兼容性验证；未合入任何本批候选，也未默认开启。不能相加PNG和大图局部收益预测未测组合。
+- **证据**：[五项完整报告、29次尝试CSV、独立cohort与hash receipts](../../testing/host-validation/image-archive/experiments/RESULTS.md)。私有原始证据指针 `build/texture-experiments/run-root.private.txt`；已按原始source SHA保存两个测量probe版本和runner换行编码，模型/license/本机路径不提交。

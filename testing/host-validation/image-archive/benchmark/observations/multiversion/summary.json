@@ -1,0 +1,557 @@
+{
+  "fixture": {
+    "bytes": 763166356,
+    "sha256": "83326ac519dd5e4cad9b39e4c7234410cc62bf0d1f5241364561d6906292b6da"
+  },
+  "production_agent_sha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+  "primary_cohort": "clean+final",
+  "hosts": {
+    "5103": {
+      "off": {
+        "runs": [
+          "5103-off-c1",
+          "5103-off-c2"
+        ],
+        "wall_s_median": 88.853,
+        "wall_s_range": [
+          86.128,
+          91.578
+        ],
+        "cpu_s_median": 220.891,
+        "alloc_gb_median": 57.454,
+        "prep_ms_median": null,
+        "heap_mb_median": 3597.8
+      },
+      "on": {
+        "runs": [
+          "5103-on-c1",
+          "5103-on-c2"
+        ],
+        "wall_s_median": 85.757,
+        "wall_s_range": [
+          84.135,
+          87.379
+        ],
+        "cpu_s_median": 209.109,
+        "alloc_gb_median": 49.606,
+        "prep_ms_median": 1781.6,
+        "heap_mb_median": 2225.4,
+        "wall_delta_pct": -3.5,
+        "alloc_delta_pct": -13.7,
+        "cpu_delta_pct": -5.3
+      }
+    },
+    "5203": {
+      "off": {
+        "runs": [
+          "5203-off-c1",
+          "5203-off-c2"
+        ],
+        "wall_s_median": 74.722,
+        "wall_s_range": [
+          74.384,
+          75.061
+        ],
+        "cpu_s_median": 182.703,
+        "alloc_gb_median": 22.043,
+        "prep_ms_median": null,
+        "heap_mb_median": 2611.8
+      },
+      "on": {
+        "runs": [
+          "5203-on-c1",
+          "5203-on-c2"
+        ],
+        "wall_s_median": 72.385,
+        "wall_s_range": [
+          71.455,
+          73.315
+        ],
+        "cpu_s_median": 170.195,
+        "alloc_gb_median": 14.877,
+        "prep_ms_median": 1664.8,
+        "heap_mb_median": 3322.2,
+        "wall_delta_pct": -3.1,
+        "alloc_delta_pct": -32.5,
+        "cpu_delta_pct": -6.8
+      }
+    },
+    "5304": {
+      "off": {
+        "runs": [
+          "5304-off-c1",
+          "5304-off-c2",
+          "5304-off-f1"
+        ],
+        "wall_s_median": 79.177,
+        "wall_s_range": [
+          78.288,
+          80.939
+        ],
+        "cpu_s_median": 186.594,
+        "alloc_gb_median": 22.009,
+        "prep_ms_median": null,
+        "heap_mb_median": 2489.5
+      },
+      "on": {
+        "runs": [
+          "5304-on-c1",
+          "5304-on-c2",
+          "5304-on-f1"
+        ],
+        "wall_s_median": 73.069,
+        "wall_s_range": [
+          72.627,
+          77.483
+        ],
+        "cpu_s_median": 165.969,
+        "alloc_gb_median": 14.872,
+        "prep_ms_median": 1631.6,
+        "heap_mb_median": 2272.3,
+        "wall_delta_pct": -7.7,
+        "alloc_delta_pct": -32.4,
+        "cpu_delta_pct": -11.1
+      }
+    }
+  },
+  "shadows": [
+    {
+      "run": "5103-shadow-s1",
+      "version": "5103",
+      "arm": "direct",
+      "prepared": "11",
+      "preparedBytes": "939524096",
+      "preparedPixels": "234881024",
+      "comparedTextures": "11",
+      "comparedBytes": "939524096",
+      "mismatches": "0",
+      "rejectedCalls": "0",
+      "cleanup": "safe",
+      "exit": 0
+    },
+    {
+      "run": "5203-shadow-s2",
+      "version": "5203",
+      "arm": "direct",
+      "prepared": "11",
+      "preparedBytes": "939524096",
+      "preparedPixels": "234881024",
+      "comparedTextures": "11",
+      "comparedBytes": "939524096",
+      "mismatches": "0",
+      "rejectedCalls": "0",
+      "cleanup": "safe",
+      "exit": 0
+    },
+    {
+      "run": "5304-shadow-final",
+      "version": "5304",
+      "arm": "direct",
+      "prepared": "11",
+      "preparedBytes": "939524096",
+      "preparedPixels": "234881024",
+      "comparedTextures": "11",
+      "comparedBytes": "939524096",
+      "mismatches": "0",
+      "rejectedCalls": "0",
+      "cleanup": "safe",
+      "exit": 0
+    },
+    {
+      "run": "5304-shadow-s2",
+      "version": "5304",
+      "arm": "direct",
+      "prepared": "11",
+      "preparedBytes": "939524096",
+      "preparedPixels": "234881024",
+      "comparedTextures": "11",
+      "comparedBytes": "939524096",
+      "mismatches": "0",
+      "rejectedCalls": "0",
+      "cleanup": "safe",
+      "exit": 0
+    }
+  ],
+  "attempts": [
+    {
+      "run": "5103-off-c1",
+      "version": "5103",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5103-off-c2",
+      "version": "5103",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5103-off-r1",
+      "version": "5103",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5103-off-r2",
+      "version": "5103",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5103-on-c1",
+      "version": "5103",
+      "arm": "direct",
+      "mode": "on",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5103-on-c2",
+      "version": "5103",
+      "arm": "direct",
+      "mode": "on",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5103-on-r1",
+      "version": "5103",
+      "arm": "direct",
+      "mode": "on",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5103-on-r2",
+      "version": "5103",
+      "arm": "direct",
+      "mode": "on",
+      "status": "FAIL",
+      "failure": "java.lang.IllegalStateException : task modeling document did not become ready within 600 seconds",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5103-on-r2b",
+      "version": "5103",
+      "arm": "direct",
+      "mode": "on",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5103-shadow-s1",
+      "version": "5103",
+      "arm": "direct",
+      "mode": "shadow",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5203-diag-s1",
+      "version": "5203",
+      "arm": "direct",
+      "mode": "shadow",
+      "status": "FAIL",
+      "failure": "TimeoutError('no terminal texture result within timeout')",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "172623057adc6d68d582213bd95d60aada9f179c59dbef3e55013899a6c41e07"
+    },
+    {
+      "run": "5203-off-c1",
+      "version": "5203",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5203-off-c2",
+      "version": "5203",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5203-off-r1",
+      "version": "5203",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5203-off-r2",
+      "version": "5203",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5203-on-c1",
+      "version": "5203",
+      "arm": "direct",
+      "mode": "on",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5203-on-c2",
+      "version": "5203",
+      "arm": "direct",
+      "mode": "on",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5203-on-r1",
+      "version": "5203",
+      "arm": "direct",
+      "mode": "on",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5203-on-r2",
+      "version": "5203",
+      "arm": "direct",
+      "mode": "on",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5203-shadow-s1",
+      "version": "5203",
+      "arm": "direct",
+      "mode": "shadow",
+      "status": "FAIL",
+      "failure": "java.lang.IllegalStateException : task modeling document did not become ready within 600 seconds",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "757abccc697aa180a40e554d19f7fc9e53ddf7a4276a9a5dd5470405c9a9958f"
+    },
+    {
+      "run": "5203-shadow-s2",
+      "version": "5203",
+      "arm": "direct",
+      "mode": "shadow",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5304-native-small-s2",
+      "version": "5304",
+      "arm": "native",
+      "mode": "off",
+      "status": "FAIL",
+      "failure": "TimeoutError('no terminal texture result within timeout')",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "d30766100bfe149d313827e7ecc84d2c7ff47b993b895f4678ccd865f086e6bc"
+    },
+    {
+      "run": "5304-native-small-s3",
+      "version": "5304",
+      "arm": "native",
+      "mode": "off",
+      "status": "FAIL",
+      "failure": "TimeoutError('no terminal texture result within timeout')",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "04b8bb4641772b506a4cd835560bb1a9bd276e46eab921ef0d6bc8ee851c555f"
+    },
+    {
+      "run": "5304-native-small-s4",
+      "version": "5304",
+      "arm": "native",
+      "mode": "off",
+      "status": "FAIL",
+      "failure": "TimeoutError('no terminal texture result within timeout')",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "757abccc697aa180a40e554d19f7fc9e53ddf7a4276a9a5dd5470405c9a9958f"
+    },
+    {
+      "run": "5304-native-small-s5",
+      "version": "5304",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "757abccc697aa180a40e554d19f7fc9e53ddf7a4276a9a5dd5470405c9a9958f"
+    },
+    {
+      "run": "5304-off-c1",
+      "version": "5304",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5304-off-c2",
+      "version": "5304",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5304-off-f1",
+      "version": "5304",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5304-off-r1",
+      "version": "5304",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5304-off-r2",
+      "version": "5304",
+      "arm": "native",
+      "mode": "off",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5304-on-c1",
+      "version": "5304",
+      "arm": "direct",
+      "mode": "on",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5304-on-c2",
+      "version": "5304",
+      "arm": "direct",
+      "mode": "on",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5304-on-f1",
+      "version": "5304",
+      "arm": "direct",
+      "mode": "on",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5304-on-r1",
+      "version": "5304",
+      "arm": "direct",
+      "mode": "on",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5304-on-r2",
+      "version": "5304",
+      "arm": "direct",
+      "mode": "on",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "fb76b45945c338ae26ca4716e7e9f451f9c802bb5f272ffda55ed9065755676b"
+    },
+    {
+      "run": "5304-shadow-final",
+      "version": "5304",
+      "arm": "direct",
+      "mode": "shadow",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "029baf2894f083163448cc9baa1bd542f76a254dad1f439b2629fc91042ca7f2"
+    },
+    {
+      "run": "5304-shadow-s1",
+      "version": "5304",
+      "arm": "direct",
+      "mode": "shadow",
+      "status": "FAIL",
+      "failure": "java.lang.IllegalStateException : task modeling document did not become ready within 600 seconds",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "d30766100bfe149d313827e7ecc84d2c7ff47b993b895f4678ccd865f086e6bc"
+    },
+    {
+      "run": "5304-shadow-s2",
+      "version": "5304",
+      "arm": "direct",
+      "mode": "shadow",
+      "status": "PASS",
+      "failure": "",
+      "agentSha256": "55b72ac6eb79a85ac9bddd387d8c1300b54b886e6eff65f80bc478ad2d27267e",
+      "auxSha256": "757abccc697aa180a40e554d19f7fc9e53ddf7a4276a9a5dd5470405c9a9958f"
+    }
+  ]
+}

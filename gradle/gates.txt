@@ -125,6 +125,8 @@ member checkCompletedCommit :bootstrap:checkBootstrapLaunchLeasePremain
 # each gate states its full dependency set; the CI coverage contract keeps both lists equal.
 member checkCompletedCommit checkArchitectureRules
 member checkCompletedCommit checkGoldenSnapshotManifest
+member checkCompletedCommit checkNativeHookHandles
+member checkCompletedCommit checkNativeTextureFactorySelection
 
 # --- checkReleasePackaging: the release delta, once, without the completed-commit closure ------
 aggregate checkReleasePackaging group="release verification" owner=".github/workflows/unified-channel-checks.yml:154" description="Runs the release-only gates (supply chain, release tooling, market metadata, installer contracts) without the public completed-commit closure." harm="an unsigned, unversioned or wrongly localized installer reaches a user because the release delta never ran against the release build identity" release-flags

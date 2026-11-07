@@ -25,11 +25,20 @@ public final class NativeTextureUploadHostAgent {
     private static final String CALLBACK = "turboism.texture-upload-preparation.callback";
     private static final String STATS = "turboism.texture-upload-preparation.stats";
     private static final Properties RESULT = new Properties();
+    static final String FACTORY_PROPERTY = "turboism.validation.textureUpload.factoryOwner";
+
+    /** The runner supplies the owner derived from the version's reviewed pin, never a guessed minor-line name. */
+    static String factoryOwner() {
+        String owner = System.getProperty(FACTORY_PROPERTY, "com.live2d.graphics3d.shader.A");
+        if (!owner.matches("com\\.live2d\\.graphics3d\\.shader\\.[A-Za-z_$][A-Za-z0-9_$]*"))
+            throw new IllegalArgumentException("invalid texture factory owner");
+        return owner;
+    }
 
     /** Starts one task-scoped observer, not a Cubism application or a synthetic performance loop. */
     public static void premain(String args, Instrumentation instrumentation) {
-        long start = System.nanoTime(), cpuStart = NativeFloatArrayHostAgent.processCpu();
-        var allocations = new NativeFloatArrayHostAgent.Allocations();
+        long start = System.nanoTime(), cpuStart = NativeLoadMetrics.processCpu();
+        var allocations = new NativeLoadMetrics.Allocations();
         NativeMemoryObservation.startLoading(Path.of(System.getProperty("turboism.validation.textureUpload.home")));
         boolean enabled = Boolean.getBoolean(ENABLE), shadow = Boolean.getBoolean("turboism.validation.textureUpload.shadow");
         Capture capture = new Capture(shadow);
@@ -39,7 +48,7 @@ public final class NativeTextureUploadHostAgent {
     }
 
     private static void run(Instrumentation instrumentation, long start, long cpuStart,
-                            NativeFloatArrayHostAgent.Allocations allocations, Capture capture, boolean enabled, boolean shadow) {
+                            NativeLoadMetrics.Allocations allocations, Capture capture, boolean enabled, boolean shadow) {
         Path home = Path.of(System.getProperty("turboism.validation.textureUpload.home"));
         Path output = home.resolve("state/texture-upload/result.properties");
         try {
@@ -47,6 +56,8 @@ public final class NativeTextureUploadHostAgent {
             RESULT.setProperty("runId",System.getProperty("turboism.validation.runId",""));
             RESULT.setProperty("fixtureName",System.getProperty("turboism.validation.fixtureName",""));
             RESULT.setProperty("hostRuntime",System.getProperty("java.runtime.version"));
+            String factoryOwner = factoryOwner();
+            RESULT.setProperty("factoryOwner", factoryOwner);
             RESULT.setProperty("optimizationEnabled",Boolean.toString(enabled));
             RESULT.setProperty("shadowComparison",Boolean.toString(shadow));
             long deadline = System.nanoTime()+600_000_000_000L;
@@ -54,13 +65,21 @@ public final class NativeTextureUploadHostAgent {
             require(Files.isRegularFile(home.resolve("state/texture-upload/start.flag")),"runtime-ready trigger absent");
             Class<?> target = null;
             while (target == null && System.nanoTime()<deadline) {
-                for (Class<?> type:instrumentation.getAllLoadedClasses()) if (type.getName().equals("com.live2d.graphics3d.shader.A")) target=type;
+                for (Class<?> type:instrumentation.getAllLoadedClasses()) if (type.getName().equals(factoryOwner)) target=type;
                 if(target==null)Thread.sleep(100);
             }
             require(target!=null,"native texture factory absent");
             NativeAtlasWorkflow.awaitTaskDocument(target.getClassLoader());
             RESULT.setProperty("agentToDocumentReadyNs",Long.toString(System.nanoTime()-start));
-            long cpuEnd=NativeFloatArrayHostAgent.processCpu();
+            int driveSeconds=Integer.getInteger("turboism.validation.deformationDriveSeconds",0);
+            if(driveSeconds>0) {
+                Thread driver=new Thread(() -> {
+                    try { NativeDeformationDriver.drive(driveSeconds); }
+                    catch(Exception failure) { System.err.println("DEFORMATION_DRIVER_FAIL "+failure); }
+                },"turboism-deformation-driver");
+                driver.setDaemon(true);driver.start();
+            }
+            long cpuEnd=NativeLoadMetrics.processCpu();
             RESULT.setProperty("processCpuToDocumentReadyNs",Long.toString(cpuStart<0||cpuEnd<0?-1:cpuEnd-cpuStart));
             RESULT.setProperty("observedThreadAllocatedBytes",Long.toString(allocations.stopAndTotal()));
             RESULT.setProperty("allocationMetric","sum-of-observed-thread-allocation-maxima;lower-bound-not-retained-or-peak-memory");
@@ -112,8 +131,7 @@ public final class NativeTextureUploadHostAgent {
                 Class<?> agent=null;
                 for(Class<?> type:instrumentation.getAllLoadedClasses())if(type.getName().equals("dev.turboism.bootstrap.TurboismAgent"))agent=type;
                 require(agent!=null,"production agent absent");
-                var field=agent.getDeclaredField("TEXTURE_UPLOAD_PREPARATION");field.setAccessible(true);
-                Object installation=((AtomicReference<?>)field.get(null)).get();require(installation!=null,"texture installer absent");
+                Object installation=NativeHookHandles.textureInstallation(agent);
                 var close=installation.getClass().getDeclaredMethod("close");close.setAccessible(true);close.invoke(installation);
                 var restored=installation.getClass().getDeclaredMethod("restored");restored.setAccessible(true);
                 require(Boolean.TRUE.equals(restored.invoke(installation)),"native texture factory bytecode restoration not proven");
@@ -122,6 +140,14 @@ public final class NativeTextureUploadHostAgent {
                 RESULT.setProperty("liveDisableAndRestoration","PASS");
             }
             RESULT.setProperty("fixtureWritten","false");RESULT.setProperty("status","PASS");store(output);
+            int holdSeconds=Integer.getInteger("turboism.validation.holdOpenSeconds",0);
+            if(holdSeconds>0) {
+                long holdUntil=System.nanoTime()+holdSeconds*1_000_000_000L;
+                while(System.nanoTime()<holdUntil) {
+                    if(fpsProbeFinished(output))break;
+                    Thread.sleep(1000);
+                }
+            }
             String fixture=System.getProperty("turboism.validation.fixtureName","");
             SwingUtilities.invokeLater(()->{for(Frame frame:Frame.getFrames())if(frame.isVisible()&&frame.getTitle().contains(fixture)){
                 frame.dispatchEvent(new WindowEvent(frame,WindowEvent.WINDOW_CLOSING));break;
@@ -133,6 +159,20 @@ public final class NativeTextureUploadHostAgent {
         } finally {
             allocations.stopAndTotal();try{capture.detach();}catch(Exception ignored){ }capture.profile.set(null);
         }
+    }
+
+    /** The FPS exerciser publishes its own result once its sampling window closes. */
+    private static boolean fpsProbeFinished(Path output) {
+        Path state=output.getParent();
+        if(state==null)return false;
+        try(var paths=Files.walk(state)) {
+            for(Path candidate:(Iterable<Path>)paths.filter(Files::isRegularFile)::iterator) {
+                if(!"result.txt".equals(candidate.getFileName().toString()))continue;
+                String text=Files.readString(candidate);
+                if(text.contains("renderSceneCalls"))return true;
+            }
+        } catch(Exception ignored) { }
+        return false;
     }
 
     private static long number(Object stats,String name){return ((Number)((Map<?,?>)((Supplier<?>)stats).get()).get(name)).longValue();}

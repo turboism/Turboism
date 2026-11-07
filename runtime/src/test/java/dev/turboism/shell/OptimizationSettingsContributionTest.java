@@ -161,7 +161,7 @@ class OptimizationSettingsContributionTest {
                         "performance.section.jvm"),
                 List.copyOf(notes.keySet()));
         assertEquals(
-                List.of(60, 70, 80, 90, 100, 110),
+                List.of(60, 71, 80, 90, 100, 110),
                 notes.values().stream().map(note -> note.index().orElseThrow()).toList(),
                 "the section notes keep the indexes the reviewed layout pins");
         for (final SettingsContribution note : notes.values()) {

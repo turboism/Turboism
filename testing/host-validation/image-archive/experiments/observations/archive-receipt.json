@@ -1,0 +1,13 @@
+{
+  "archiveFile": "five-hotspots-evidence.zip",
+  "sha256": "87e1f845a316ec4d7defd1d835bd4d7423563cf0ebc972b1d1fc9a3432bf4b9f",
+  "manifestSha256": "2a897720be412ee7cdfc7faba51c63d3279fc83c7b27c981712bb4eac79938e6",
+  "entryCount": 643,
+  "bytes": 27264975,
+  "attempts": 29,
+  "modelFilesIncluded": false,
+  "appDataAndLicenseFilesIncluded": false,
+  "hostJarOrJavapIncluded": false,
+  "rawLogsIncluded": true,
+  "privacy": "Local private archive only; raw logs can contain local paths/diagnostics."
+}

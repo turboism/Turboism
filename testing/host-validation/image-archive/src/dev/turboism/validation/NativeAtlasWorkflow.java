@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.AbstractButton;
@@ -34,6 +35,9 @@ final class NativeAtlasWorkflow {
         java.util.concurrent.FutureTask<Object> pending=null;Object previous=null;int stable=0;
         try {
             while(System.nanoTime()<deadline) {
+                if(Boolean.getBoolean("turboism.validation.dismissTrialWelcome")) {
+                    try { dismissTrialWelcome(); } catch (Exception ignored) { }
+                }
                 if(pending==null) {
                     pending=new java.util.concurrent.FutureTask<>(() -> {
                         Class<?> appClass=Class.forName("com.live2d.cubism.CEAppCtrl",false,loader);
@@ -278,6 +282,43 @@ final class NativeAtlasWorkflow {
     private static boolean ownedBy(Window child,Window owner) {
         for(Window current=child.getOwner();current!=null;current=current.getOwner()) if(current==owner)return true;
         return false;
+    }
+
+    private static final Set<String> TRIAL_LABELS =
+            Set.of("继续使用", "繼續使用", "Continue", "Continue Trial", "継続", "続行", "계속");
+
+    private static volatile boolean trialDismissed;
+
+    /** Test-only: dismisses the official trial welcome dialog that otherwise blocks document opening. */
+    static void dismissTrialWelcome() throws Exception {
+        if (trialDismissed) return;
+        boolean clicked = onEdt(() -> {
+            for (Window window : Window.getWindows()) {
+                if (!window.isShowing()) continue;
+                for (String label : TRIAL_LABELS) {
+                    List<AbstractButton> buttons = new ArrayList<>();
+                    collectButtons(window, label, buttons);
+                    if (buttons.size() == 1) {
+                        writeDialogTrace("trial-dialog.txt", window, label);
+                        buttons.get(0).doClick();
+                        return true;
+                    }
+                }
+            }
+            return false;
+        });
+        if (clicked) trialDismissed = true;
+    }
+
+    private static void writeDialogTrace(String name, Window window, String button) {
+        String home = System.getProperty("turboism.validation.imageArchive.home");
+        if (home == null) return;
+        String title = window instanceof Frame frame ? frame.getTitle()
+                : window instanceof JDialog dialog ? dialog.getTitle() : "";
+        try {
+            Files.writeString(Path.of(home).resolve("state/texture-upload/" + name),
+                    "window=" + window.getClass().getName() + " title=" + title + " button=" + button);
+        } catch (Exception ignored) { }
     }
 
     private static AbstractButton uniqueButton(Container root,String label) {
