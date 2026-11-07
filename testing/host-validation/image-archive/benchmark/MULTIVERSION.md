@@ -25,11 +25,15 @@ Test-only host accommodations used for these runs:
 
 - `--dismiss-trial` clicked the official trial welcome dialog through the
   in-JVM auxiliary agent.
-- `--accept-newer-file-warning` accepted the “file saved by a newer editor”
-  warning **on the disposable copy** for 5.2.03/5.1.03. The fixture was saved
-  by Cubism 5.3.2, so older-host results are not a native-old-fixture corpus.
+- The 763 MB `bench.cmo3` was saved by Cubism 5.3.2, so hosts older than that
+  raise the “file saved by a newer editor” warning. During the first pass this
+  harness answered that warning itself; that duplicate responder was **removed**
+  because the repository requires every license/version prompt to be answered
+  only by the audited `dev.turboism.validation.NativeFreeStartup`. Older hosts
+  are now exercised with the official `hiyori_free_t08` fixture instead, which
+  needs no such warning.
 
-Neither behavior is product behavior; both are validation-harness options.
+The trial-dialog dismissal is a validation-harness option, not product behavior.
 
 ## Shadow correctness
 
@@ -58,6 +62,12 @@ the sum of observed per-thread allocation maxima, a lower bound; it is not
 retained RAM, RSS or VRAM. The primary cohort is `clean` (after removing a verbose
 diagnostic window dump) plus `final`; the diagnostic cohort is retained in
 `loads.csv` but is not used for the medians below.
+
+**Cohort caveat:** the 5.1.03 and 5.2.03 rows below were measured while the
+harness still answered the newer-file warning itself. That responder has been
+removed for policy compliance, so those two rows are retained as historical
+screening data but are **not reproducible with the current harness**. The 5.3.04
+rows need no such warning.
 
 | Host | Arm | Runs | Wall median (s) | Wall range (s) | CPU median (s) | Observed alloc median (GB) | Preparation median (ms) |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -104,8 +114,10 @@ All attempts are retained in `attempts.csv`; none are silently discarded.
   newer-saved fixture with “file was closed/interrupted”; the replacement
   `5103-on-r2b` passed. The clean `5103-on-c1/c2` reruns did not repeat it. The
   failed run is retained but is not a timing sample.
-- 5.2.03/5.1.03 required accepting the newer-file warning on a disposable copy.
-  This is a compatibility caveat: the model was **saved by Cubism 5.3.2**.
+- The 763 MB fixture was **saved by Cubism 5.3.2**. Hosts older than that cannot
+  open it, so their timing rows above come from an earlier harness pass that has
+  since been superseded; the cross-version runtime evidence now rests on the
+  official hiyori fixture below, which every reviewed host opens natively.
 - 5.3.04 and earlier trial hosts required dismissing the official trial welcome
   dialog. Without the test-only dismissal the document never opens, and the
   attempt correctly fails as “document did not become ready”.

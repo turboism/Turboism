@@ -282,7 +282,6 @@ def run(args: argparse.Namespace) -> dict:
                "-Dturboism.validation.textureUpload.loadingTrace=true",
                "-Dturboism.validation.textureUpload.memoryIdleSeconds=30",
                *(["-Dturboism.validation.dismissTrialWelcome=true"] if args.dismiss_trial else []),
-               *(["-Dturboism.validation.acceptNewerFileWarning=true"] if args.accept_newer_file_warning else []),
                f"-javaagent:{staged_aux}",
                f"-javaagent:{staged_agent}=home={home};timeoutSeconds=180"]
     if staged_experiment:
@@ -309,7 +308,6 @@ def run(args: argparse.Namespace) -> dict:
               "version": args.version, "textureFactory": factory, "profiling": args.profile,
               "experiment": args.experiment, "experimentShadow": args.experiment_shadow,
               "dismissTrial": args.dismiss_trial,
-              "acceptNewerFileWarning": args.accept_newer_file_warning,
               "sourceRevision": subprocess.check_output(
                   ["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip(),
               "sourceDiffSha256": hashlib.sha256(subprocess.check_output(["git", "diff"], cwd=REPO)).hexdigest(),
@@ -438,8 +436,6 @@ def main() -> None:
     parser.add_argument("--experiment-shadow", action="store_true")
     parser.add_argument("--dismiss-trial", action="store_true",
                         help="test-only: dismiss the official trial welcome dialog before opening the fixture")
-    parser.add_argument("--accept-newer-file-warning", action="store_true",
-                        help="test-only: accept the newer-file warning on a disposable fixture copy")
     args = parser.parse_args()
     if (args.experiment != "none" or args.experiment_shadow) and not args.experiment_agent:
         parser.error("experiments require the isolated probe")
