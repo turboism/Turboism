@@ -89,7 +89,7 @@ public final class PluginCatalogVerifier {
     /** Maximum number of permissions per release. */
     public static final int MAX_PERMISSIONS = 100;
 
-    /** Directory v2 limit for dependency and permission reasons, measured in Unicode code points. */
+    /** Maximum retained dependency/permission reason length; longer verified text is truncated by Unicode code point. */
     public static final int MAX_REASON_CODE_POINTS = 2000;
 
     /** Maximum number of Cubism versions per release. */
@@ -777,10 +777,14 @@ public final class PluginCatalogVerifier {
         if (!ORDERING_VALUES.contains(ordering)) {
             throw reject("PLUGIN_CATALOG_SCHEMA_INVALID", path + ".ordering is invalid: " + ordering);
         }
-        final Optional<String> reason = node.has("reason")
-                ? Optional.of(requireString(node, "reason", 1, MAX_REASON_CODE_POINTS, "PLUGIN_CATALOG_SCHEMA_INVALID"))
-                : Optional.empty();
-        return new CatalogDependency(id, version, type, ordering, reason);
+        final Optional<CatalogReason> reason = node.has("reason") ? Optional.of(requireReason(node)) : Optional.empty();
+        return new CatalogDependency(
+                id,
+                version,
+                type,
+                ordering,
+                reason.map(CatalogReason::text),
+                reason.map(CatalogReason::truncated).orElse(false));
     }
 
     private static CatalogPermission parsePermission(final JsonNode item, final String path) {
@@ -797,8 +801,8 @@ public final class PluginCatalogVerifier {
         if (!PERMISSION_SCOPES.contains(scope)) {
             throw reject("PLUGIN_CATALOG_SCHEMA_INVALID", path + ".scope is invalid: " + scope);
         }
-        final String reason = requireString(node, "reason", 1, MAX_REASON_CODE_POINTS, "PLUGIN_CATALOG_SCHEMA_INVALID");
-        return new CatalogPermission(id, scope, reason);
+        final CatalogReason reason = requireReason(node);
+        return new CatalogPermission(id, scope, reason.text(), reason.truncated());
     }
 
     private static CatalogArtifact parseArtifact(final JsonNode item, final String path) {
@@ -878,6 +882,18 @@ public final class PluginCatalogVerifier {
             }
         }
     }
+
+    private static CatalogReason requireReason(final ObjectNode node) {
+        // Explanatory text must not invalidate an otherwise valid signed catalog. The original
+        // bytes are verified before parsing and remain unchanged in the cache and hash watermark.
+        final String reason = requireString(node, "reason", 1, Integer.MAX_VALUE, "PLUGIN_CATALOG_SCHEMA_INVALID");
+        final boolean truncated = reason.codePointCount(0, reason.length()) > MAX_REASON_CODE_POINTS;
+        return new CatalogReason(
+                truncated ? reason.substring(0, reason.offsetByCodePoints(0, MAX_REASON_CODE_POINTS)) : reason,
+                truncated);
+    }
+
+    private record CatalogReason(String text, boolean truncated) {}
 
     private static String requireString(
             final ObjectNode node,

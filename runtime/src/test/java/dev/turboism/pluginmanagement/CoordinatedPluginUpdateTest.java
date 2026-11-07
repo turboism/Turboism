@@ -1,5 +1,6 @@
 package dev.turboism.pluginmanagement;
 
+import static dev.turboism.pluginmanagement.PluginCatalogVerifier.MAX_REASON_CODE_POINTS;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -76,28 +77,105 @@ class CoordinatedPluginUpdateTest {
     }
 
     @Test
-    void acceptsPublishedCatalogReasonsUpToTwoThousandCodePoints() throws Exception {
-        // The directory v2 contract permits 2,000 code points for both reason fields.
-        // Published MCP permissions contain 508 and 1,021 characters.
-        for (String reason : List.of("r".repeat(508), "r".repeat(1021), "\uD83D\uDCDD".repeat(2000))) {
+    void acceptsCatalogReasonsUpToRetainedLimitUnchanged() throws Exception {
+        // Keep the published MCP lengths as well as the retained boundary.
+        for (String reason : List.of(
+                "r".repeat(508),
+                "r".repeat(1021),
+                "r".repeat(MAX_REASON_CODE_POINTS - 1),
+                "r".repeat(MAX_REASON_CODE_POINTS),
+                "\uD83D\uDCDD".repeat(MAX_REASON_CODE_POINTS))) {
             final byte[] catalog = catalogWithReason(reason, reason);
-            assertFalse(verifier.verify(catalog, signEnvelope(catalog, keyPair.getPrivate(), TEST_KEY_ID))
-                    .plugins()
-                    .isEmpty());
+            final PluginCatalog verified =
+                    verifier.verify(catalog, signEnvelope(catalog, keyPair.getPrivate(), TEST_KEY_ID));
+            final var release = verified.plugins().get(0).releases().get(0);
+            assertEquals(reason, release.dependencies().get(0).reason().orElseThrow());
+            assertEquals(reason, release.permissions().get(0).reason());
+            assertFalse(release.dependencies().get(0).reasonTruncated());
+            assertFalse(release.permissions().get(0).reasonTruncated());
+            assertFalse(release.hasTruncatedReasons());
         }
     }
 
     @Test
-    void rejectsEmptyAndOverlongCatalogReasons() throws Exception {
-        for (String reason : List.of("", "r".repeat(2001))) {
-            for (byte[] catalog :
-                    List.of(catalogWithReason(reason, "permission"), catalogWithReason("dependency", reason))) {
-                final byte[] signature = signEnvelope(catalog, keyPair.getPrivate(), TEST_KEY_ID);
-                assertThrows(
-                        PluginCatalogVerifier.PluginCatalogVerificationException.class,
-                        () -> verifier.verify(catalog, signature));
+    void truncatesCatalogReasonsAtRetainedLimit() throws Exception {
+        for (String reason : List.of(
+                "r".repeat(MAX_REASON_CODE_POINTS + 1),
+                "r".repeat(MAX_REASON_CODE_POINTS * 2),
+                "\uD83D\uDCDD".repeat(MAX_REASON_CODE_POINTS + 1),
+                "r".repeat(MAX_REASON_CODE_POINTS - 1) + "\uD83D\uDCDD" + "suffix")) {
+            final String expected = reason.substring(0, reason.offsetByCodePoints(0, MAX_REASON_CODE_POINTS));
+            for (boolean dependency : List.of(true, false)) {
+                final byte[] catalog =
+                        dependency ? catalogWithReason(reason, "permission") : catalogWithReason("dependency", reason);
+                final PluginCatalog verified =
+                        verifier.verify(catalog, signEnvelope(catalog, keyPair.getPrivate(), TEST_KEY_ID));
+                final var release = verified.plugins().get(0).releases().get(0);
+                assertEquals(
+                        dependency ? expected : "dependency",
+                        release.dependencies().get(0).reason().orElseThrow());
+                assertEquals(
+                        dependency ? "permission" : expected,
+                        release.permissions().get(0).reason());
+                assertEquals(dependency, release.dependencies().get(0).reasonTruncated());
+                assertEquals(!dependency, release.permissions().get(0).reasonTruncated());
+                assertTrue(release.hasTruncatedReasons());
             }
         }
+    }
+
+    @Test
+    void rejectsEmptyAndNonStringCatalogReasons() throws Exception {
+        final String valid = new String(catalogWithReason("dependency", "permission"), StandardCharsets.UTF_8);
+        for (String invalid : List.of("\"\"", "null", "123", "true", "[]", "{}")) {
+            for (String reason : List.of("dependency", "permission")) {
+                final byte[] catalog = valid.replace("\"reason\":\"" + reason + "\"", "\"reason\":" + invalid)
+                        .getBytes(StandardCharsets.UTF_8);
+                final byte[] signature = signEnvelope(catalog, keyPair.getPrivate(), TEST_KEY_ID);
+                final var failure = assertThrows(
+                        PluginCatalogVerifier.PluginCatalogVerificationException.class,
+                        () -> verifier.verify(catalog, signature));
+                assertEquals("PLUGIN_CATALOG_SCHEMA_INVALID", failure.code());
+            }
+        }
+    }
+
+    @Test
+    void preservesOriginalSignedCatalogWhenCachingTruncatedReasons() throws Exception {
+        final String reason = "\uD83D\uDCDD".repeat(MAX_REASON_CODE_POINTS + 1);
+        final byte[] catalog = catalogWithReason(reason, reason);
+        final byte[] signature = signEnvelope(catalog, keyPair.getPrivate(), TEST_KEY_ID);
+        final PluginCatalogStateStore stateStore = new PluginCatalogStateStore(tempHome);
+        final PluginCatalog verified = verifier.verifyAndAdvance(catalog, signature, stateStore, Optional.empty());
+        final var cached = stateStore.read();
+        assertArrayEquals(catalog, cached.cachedCatalogBytes().orElseThrow());
+        assertArrayEquals(signature, cached.cachedSignatureBytes().orElseThrow());
+        final PluginCatalog reloaded = verifier.verify(
+                cached.cachedCatalogBytes().orElseThrow(),
+                cached.cachedSignatureBytes().orElseThrow());
+        assertEquals(verified, reloaded);
+        final var release = reloaded.plugins().get(0).releases().get(0);
+        assertEquals(
+                "\uD83D\uDCDD".repeat(MAX_REASON_CODE_POINTS),
+                release.dependencies().get(0).reason().orElseThrow());
+        assertEquals(
+                "\uD83D\uDCDD".repeat(MAX_REASON_CODE_POINTS),
+                release.permissions().get(0).reason());
+        assertTrue(release.dependencies().get(0).reasonTruncated());
+        assertTrue(release.permissions().get(0).reasonTruncated());
+        assertTrue(release.hasTruncatedReasons());
+    }
+
+    @Test
+    void rejectsTamperingBeyondTruncatedReasonBoundary() throws Exception {
+        final String prefix = "r".repeat(MAX_REASON_CODE_POINTS);
+        final byte[] catalog = catalogWithReason("dependency", prefix + "a");
+        final byte[] signature = signEnvelope(catalog, keyPair.getPrivate(), TEST_KEY_ID);
+        final byte[] tampered = catalogWithReason("dependency", prefix + "b");
+        final var failure = assertThrows(
+                PluginCatalogVerifier.PluginCatalogVerificationException.class,
+                () -> verifier.verify(tampered, signature));
+        assertEquals("PLUGIN_CATALOG_HASH_MISMATCH", failure.code());
     }
 
     private byte[] catalogWithReason(final String dependencyReason, final String permissionReason) {
