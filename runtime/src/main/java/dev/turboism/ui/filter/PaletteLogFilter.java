@@ -82,6 +82,9 @@ enum LogLevel {
 
 final class PaletteLogFilter {
 
+    // LF separators prevent duplicate line breaks when Swing serializes log documents.
+    private static final String DOCUMENT_LINE_SEPARATOR = "\n";
+
     private PaletteLogFilter() {}
 
     static final String FILTERED_TEXT_PANE_KEY = LogPaletteHostStructure.FILTERED_TEXT_PANE_KEY;
@@ -290,6 +293,8 @@ final class PaletteLogFilter {
         final boolean tail = isAtTail(pane);
         final javax.swing.text.StyleContext context = new javax.swing.text.StyleContext();
         state.filteredDoc = new javax.swing.text.DefaultStyledDocument(context);
+        state.filteredDoc.putProperty(
+                javax.swing.text.DefaultEditorKit.EndOfLineStringProperty, DOCUMENT_LINE_SEPARATOR);
         try {
             state.filteredDoc.insertString(0, filteredText, null);
         } catch (javax.swing.text.BadLocationException impossible) {
@@ -327,7 +332,7 @@ final class PaletteLogFilter {
                     || PaletteFilterHostOperations.normalize(line).contains(normalizedKeyword);
             if (levelVisible && keywordVisible) {
                 if (builder.length() > 0) {
-                    builder.append(System.lineSeparator());
+                    builder.append(DOCUMENT_LINE_SEPARATOR);
                 }
                 builder.append(line);
             }
