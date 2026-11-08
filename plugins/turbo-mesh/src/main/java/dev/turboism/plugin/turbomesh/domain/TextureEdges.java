@@ -534,8 +534,13 @@ public final class TextureEdges {
         return (t.x() * dx + t.y() * dy) / (lt * lc);
     }
 
-    /** Douglas–Peucker over an open chain; closed chains are simplified on their loop. */
-    static List<Point2> douglasPeucker(final List<Point2> pts, final double tol, final boolean closed) {
+    /**
+     * Douglas–Peucker over an open chain; closed chains are simplified on their loop.
+     *
+     * <p>Shared by domain callers that carry pixel-space polylines, because float coordinates
+     * stay far below every placement tolerance in use.</p>
+     */
+    public static List<Point2> douglasPeucker(final List<Point2> pts, final double tol, final boolean closed) {
         if (pts.size() <= 2) {
             return new ArrayList<>(pts);
         }
