@@ -31,7 +31,9 @@ final class ThemePackageTransferServiceTest {
         MemoryUserFiles files = new MemoryUserFiles();
         ThemePackageTransferService transfer = new ThemePackageTransferService(files);
 
-        ThemePackageTransferService.ExportResult result = transfer.exportPackage(theme("user.aurora"));
+        ThemePackageTransferService.ExportResult result = transfer.exportPackage(theme("user.aurora"))
+                .toCompletableFuture()
+                .join();
 
         assertEquals(ThemePackageTransferService.ExportOutcome.EXPORTED, result.outcome());
         assertEquals(UserFileMode.WRITE, files.lastRequest.mode());
@@ -46,7 +48,8 @@ final class ThemePackageTransferServiceTest {
         files.requestMode = UserFileMode.READ;
         ThemePackageTransferService transfer = new ThemePackageTransferService(files);
 
-        ThemePackageTransferService.ImportResult result = transfer.importPackage();
+        ThemePackageTransferService.ImportResult result =
+                transfer.importPackage().toCompletableFuture().join();
 
         assertEquals(ThemePackageTransferService.ImportOutcome.IMPORTED, result.outcome());
         assertEquals(theme("user.aurora"), result.theme().orElseThrow());

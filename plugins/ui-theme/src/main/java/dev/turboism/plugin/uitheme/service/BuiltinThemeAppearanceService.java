@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletionStage;
 
 /** Applies one reviewed built-in package through the semantic appearance SDK. */
 public final class BuiltinThemeAppearanceService {
@@ -40,22 +41,24 @@ public final class BuiltinThemeAppearanceService {
      * Applies the shipped default theme ({@value #DEFAULT_THEME_ID}) and posts a status notification
      * naming the outcome.
      *
-     * <p>Blocks on the appearance service: it reads the current revision, applies against it, and waits
-     * for both stages. {@code APPLIED} and {@code NO_CHANGE} notify at {@code INFO}; every other
+     * <p>Never waits for the host: it composes the current revision and the apply, then notifies from
+     * the settled result. {@code APPLIED} and {@code NO_CHANGE} notify at {@code INFO}; every other
      * outcome notifies at {@code WARNING} rather than throwing, so a host that refuses the appearance
      * leaves the plugin running.
      *
+     * @return a stage that completes once the notification was posted
      * @throws IllegalStateException if the built-in default package is missing or does not decode
      */
-    public void applyDefault() {
+    public CompletionStage<Void> applyDefault() {
         final ThemePackageData theme = load(DEFAULT_THEME_ID);
-        final long revision = appearance.current().toCompletableFuture().join().revision();
-        final AppearanceApplyResult result = appearance
-                .apply(LegacyThemePaletteResolver.resolve(theme, revision))
-                .toCompletableFuture()
-                .join();
-        final boolean applied = result.outcome() == AppearanceApplyResult.Outcome.APPLIED
-                || result.outcome() == AppearanceApplyResult.Outcome.NO_CHANGE;
+        return appearance
+                .current()
+                .thenCompose(status -> appearance.apply(LegacyThemePaletteResolver.resolve(theme, status.revision())))
+                .thenAccept(result -> notifyOutcome(theme, result));
+    }
+
+    private void notifyOutcome(final ThemePackageData theme, final AppearanceApplyResult result) {
+        final boolean applied = ThemeSelectionService.accepted(result);
         uiHost.notifyStatus(new StatusNotification(
                 "ui-theme.appearance.apply." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
                 applied ? "INFO" : "WARNING",

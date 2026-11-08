@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.regex.Pattern;
 
 /** Theme generator/editor window: metadata plus semantic color slots. */
@@ -163,25 +165,42 @@ public final class ThemeEditorService {
                         backToManager.run();
                         return;
                     }
-                    final Thread thread = new Thread(() -> save(existing, values), "ui-theme-editor-op");
-                    thread.setDaemon(true);
-                    thread.start();
+                    save(existing, values);
                 });
     }
 
     private void save(final Optional<ThemePackageData> existing, final Map<String, String> values) {
+        final CompletionStage<Void> work;
         try {
-            saveInternal(existing, values);
+            work = saveInternal(existing, values);
         } catch (RuntimeException failure) {
-            logger.warn("THEME_EDITOR_SAVE_FAILED " + failure);
-            notify(
-                    "ui-theme.editor.save-failed",
-                    "WARNING",
-                    localization.text("theme.gen.saveFailed") + failure.getMessage());
+            reportSaveFailure(failure);
+            return;
         }
+        work.whenComplete((ignored, failure) -> {
+            if (failure != null) {
+                reportSaveFailure(failure);
+            }
+        });
     }
 
-    private void saveInternal(final Optional<ThemePackageData> existing, final Map<String, String> values) {
+    private void reportSaveFailure(final Throwable failure) {
+        logger.warn("THEME_EDITOR_SAVE_FAILED " + failure);
+        notify(
+                "ui-theme.editor.save-failed",
+                "WARNING",
+                localization.text("theme.gen.saveFailed") + failure.getMessage());
+    }
+
+    /**
+     * Persists the edited package, then applies it.
+     *
+     * <p>Save-and-apply is committed through the same production path as any other selection, and only
+     * after the archive is stored: a refused write reports the save failure and leaves the appearance
+     * untouched. Never waits for storage or the host, because both settle on the plugin's own worker.
+     */
+    private CompletionStage<Void> saveInternal(
+            final Optional<ThemePackageData> existing, final Map<String, String> values) {
         final String slug = values.getOrDefault(F_SLUG, "").trim();
         final String name = values.getOrDefault(F_NAME, "").trim();
         final String author = values.getOrDefault(F_AUTHOR, "").trim();
@@ -190,7 +209,7 @@ public final class ThemeEditorService {
         final String baseText = values.getOrDefault(F_BASE, "light").trim();
         if (!SLUG.matcher(slug).matches() || name.isEmpty()) {
             notify("ui-theme.editor.invalid", "WARNING", localization.text("theme.gen.invalidSlug"));
-            return;
+            return CompletableFuture.completedFuture(null);
         }
         final ThemeBase base =
                 switch (baseText) {
@@ -208,7 +227,7 @@ public final class ThemeEditorService {
         }
         if (colors.isEmpty()) {
             notify("ui-theme.editor.invalid", "WARNING", localization.text("theme.gen.saveFailed"));
-            return;
+            return CompletableFuture.completedFuture(null);
         }
         final String id =
                 existing.isPresent() && existing.orElseThrow().metadata().id().startsWith("turboism.")
@@ -217,31 +236,33 @@ public final class ThemeEditorService {
         final ThemePackageMetadata metadata =
                 new ThemePackageMetadata(id, name, "", author, url, version, null, base, ThemeIcons.LIGHT, false);
         final ThemePackageData theme = new ThemePackageData(metadata, colors, Map.of(), null, null);
-        final ThemePackageRepository.SaveResult saved = repository.save(theme, existing.isPresent());
-        if (saved.outcome() == ThemePackageRepository.SaveOutcome.CONFLICT) {
-            notify("ui-theme.editor.conflict", "WARNING", localization.text("theme.package.importConflict"));
-            return;
-        }
-        if (saved.outcome() != ThemePackageRepository.SaveOutcome.SAVED) {
-            notify(
-                    "ui-theme.editor.save-failed",
-                    "WARNING",
-                    localization.text("theme.gen.saveFailed") + saved.outcome());
-            return;
-        }
-        onSaved.run();
-        // Save-and-apply: commit the selection through the same production path.
-        final long revision = appearance.current().toCompletableFuture().join().revision();
-        final AppearanceApplyResult applied = appearance
-                .apply(LegacyThemePaletteResolver.resolve(theme, revision))
-                .toCompletableFuture()
-                .join();
-        if (applied.outcome() == AppearanceApplyResult.Outcome.APPLIED
-                || applied.outcome() == AppearanceApplyResult.Outcome.NO_CHANGE) {
+        return repository.save(theme, existing.isPresent()).thenCompose(saved -> {
+            if (saved.outcome() == ThemePackageRepository.SaveOutcome.CONFLICT) {
+                notify("ui-theme.editor.conflict", "WARNING", localization.text("theme.package.importConflict"));
+                return CompletableFuture.completedFuture(null);
+            }
+            if (saved.outcome() != ThemePackageRepository.SaveOutcome.SAVED) {
+                notify(
+                        "ui-theme.editor.save-failed",
+                        "WARNING",
+                        localization.text("theme.gen.saveFailed") + saved.outcome());
+                return CompletableFuture.completedFuture(null);
+            }
+            onSaved.run();
+            return appearance
+                    .current()
+                    .thenCompose(
+                            status -> appearance.apply(LegacyThemePaletteResolver.resolve(theme, status.revision())))
+                    .thenAccept(applied -> notifyApplyOutcome(applied, name));
+        });
+    }
+
+    private void notifyApplyOutcome(final AppearanceApplyResult applied, final String name) {
+        if (ThemeSelectionService.accepted(applied)) {
             notify("ui-theme.editor.saved-applied", "INFO", localization.format("theme.selection.applied", name));
-        } else {
-            notify("ui-theme.editor.saved", "INFO", localization.format("theme.package.imported", name));
+            return;
         }
+        notify("ui-theme.editor.saved", "INFO", localization.format("theme.package.imported", name));
     }
 
     private static String slugOf(final String id) {

@@ -28,7 +28,8 @@ final class ThemeSelectionServiceTest {
                 new RecordingAppearanceService(AppearanceApplyResult.Outcome.FAILED_RESTORED);
         ThemeSelectionService service = new ThemeSelectionService(appearance, selections);
 
-        ThemeSelectionService.SelectionResult result = service.select(theme("turboism.nord"));
+        ThemeSelectionService.SelectionResult result =
+                service.select(theme("turboism.nord")).toCompletableFuture().join();
 
         assertEquals(ThemeSelectionService.SelectionOutcome.APPLY_FAILED, result.outcome());
         assertEquals("turboism.slate", selections.selectedThemeId().orElseThrow());
@@ -43,7 +44,8 @@ final class ThemeSelectionServiceTest {
         RecordingAppearanceService appearance = new RecordingAppearanceService(AppearanceApplyResult.Outcome.APPLIED);
         ThemeSelectionService service = new ThemeSelectionService(appearance, selections);
 
-        ThemeSelectionService.SelectionResult result = service.select(theme("turboism.nord"));
+        ThemeSelectionService.SelectionResult result =
+                service.select(theme("turboism.nord")).toCompletableFuture().join();
 
         assertEquals(ThemeSelectionService.SelectionOutcome.SELECTED, result.outcome());
         assertEquals("turboism.nord", selections.selectedThemeId().orElseThrow());
@@ -57,7 +59,10 @@ final class ThemeSelectionServiceTest {
                 AppearanceApplyResult.Outcome.APPLIED, AppearanceRestoreResult.Outcome.RESTORED);
         ThemeSelectionService service = new ThemeSelectionService(appearance, selections);
 
-        ThemeSelectionService.SelectionResult result = service.restoreIfSelectionIsMissing(themeId -> Optional.empty());
+        ThemeSelectionService.SelectionResult result = service.restoreIfSelectionIsMissing(
+                        themeId -> CompletableFuture.completedFuture(Optional.empty()))
+                .toCompletableFuture()
+                .join();
 
         assertEquals(ThemeSelectionService.SelectionOutcome.INVALID_SELECTION_CLEARED, result.outcome());
         assertTrue(selections.selectedThemeId().isEmpty());
@@ -73,7 +78,12 @@ final class ThemeSelectionServiceTest {
         ThemeSelectionService service = new ThemeSelectionService(appearance, selections);
         java.util.List<String> deleted = new java.util.ArrayList<>();
 
-        ThemeSelectionService.SelectionResult result = service.delete("turboism.nord", deleted::add);
+        ThemeSelectionService.SelectionResult result = service.delete("turboism.nord", themeId -> {
+                    deleted.add(themeId);
+                    return CompletableFuture.completedFuture(null);
+                })
+                .toCompletableFuture()
+                .join();
 
         assertEquals(ThemeSelectionService.SelectionOutcome.DELETED, result.outcome());
         assertEquals(java.util.List.of("turboism.nord"), deleted);
@@ -89,7 +99,12 @@ final class ThemeSelectionServiceTest {
         ThemeSelectionService service = new ThemeSelectionService(appearance, selections);
         java.util.List<String> deleted = new java.util.ArrayList<>();
 
-        ThemeSelectionService.SelectionResult result = service.delete("turboism.nord", deleted::add);
+        ThemeSelectionService.SelectionResult result = service.delete("turboism.nord", themeId -> {
+                    deleted.add(themeId);
+                    return CompletableFuture.completedFuture(null);
+                })
+                .toCompletableFuture()
+                .join();
 
         assertEquals(ThemeSelectionService.SelectionOutcome.RESTORE_FAILED, result.outcome());
         assertEquals(java.util.List.of(), deleted);
@@ -132,15 +147,17 @@ final class ThemeSelectionServiceTest {
         }
 
         @Override
-        public void saveSelectedThemeId(final String themeId) {
+        public CompletionStage<Void> saveSelectedThemeId(final String themeId) {
             selectedThemeId = themeId;
             saveCount++;
+            return CompletableFuture.completedFuture(null);
         }
 
         @Override
-        public void clearSelectedThemeId() {
+        public CompletionStage<Void> clearSelectedThemeId() {
             selectedThemeId = null;
             clearCount++;
+            return CompletableFuture.completedFuture(null);
         }
 
         int saveCount() {

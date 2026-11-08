@@ -18,6 +18,10 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
@@ -28,6 +32,12 @@ import java.util.function.Consumer;
  * reach the host only through SDK surfaces — appearance, storage, user files, localization and the
  * UI host — so the plugin holds no direct Cubism reference of its own. Registrations made here are
  * released through the returned {@link Registration} handles when the plugin is disabled.</p>
+ *
+ * <p>Action handlers never wait for an SDK result. The runtime delivers storage, config and file
+ * results on this plugin's own worker, so a handler that waited would hold the only worker able to
+ * release it. Each workflow instead composes its stages, which also makes a disable or re-enable
+ * drop the work it superseded: every workflow is stamped with the lifecycle generation it was
+ * started under.</p>
  */
 public final class UiThemePlugin implements TurboismPlugin {
 
@@ -44,6 +54,10 @@ public final class UiThemePlugin implements TurboismPlugin {
     private ThemeManagerService themeManagerService;
     private BuiltinThemeAppearanceService builtinThemeAppearanceService;
     private ThemeEditorService themeEditorService;
+    private final AtomicBoolean managerOpenInFlight = new AtomicBoolean();
+    private final AtomicLong workflowGeneration = new AtomicLong();
+    // Listing every built-in and user package is only needed when the manager is opened, so the
+    // cache is rebuilt on that first open after each enable instead of at load time.
     private boolean themeCacheInitialized;
 
     @Override
@@ -59,6 +73,8 @@ public final class UiThemePlugin implements TurboismPlugin {
                 this.context.services().require(UiHostCapabilityService.class),
                 this.context.localization());
         final ThemeSelectionConfig selectionConfig = new ThemeSelectionConfig(this.context.config());
+        // Bootstrap barrier: init runs on the plugin lifecycle lane, never on the plugin worker that
+        // settles this config read, so the store is loaded before any action can reach it.
         selectionConfig.initialize().toCompletableFuture().join();
         final ThemePackageRepository repository = new ThemePackageRepository(this.context.storage());
         this.themeEditorService = new ThemeEditorService(
@@ -78,37 +94,92 @@ public final class UiThemePlugin implements TurboismPlugin {
                 this.context.localization(),
                 this.themeEditorService);
         this.themeEditorService.setBackToManager(this.themeManagerService::open);
-        this.themeEditorService.setOnSaved(this.themeManagerService::refreshCache);
+        this.themeEditorService.setOnSaved(() -> themeManagerService
+                .refreshCache()
+                .whenComplete((rebuilt, failure) -> logWorkflowFailure("editor-save-refresh", failure)));
         logger.info("UiThemePlugin initialized");
     }
 
     @Override
     public void enable() {
+        workflowGeneration.incrementAndGet();
         registerAction(STATUS_ACTION_ID, STATUS_ACTION_LABEL, ignored -> themePackageStatusService.checkThemeStatus());
         themeCacheInitialized = false;
         registerAction(MANAGER_ACTION_ID, MANAGER_ACTION_LABEL, ignored -> openThemeManager());
         registerAction(
                 APPLY_BUILTIN_ACTION_ID,
                 APPLY_BUILTIN_ACTION_LABEL,
-                ignored -> builtinThemeAppearanceService.applyDefault());
+                ignored -> builtinThemeAppearanceService
+                        .applyDefault()
+                        .whenComplete((settled, failure) -> logWorkflowFailure("apply-builtin", failure)));
         // The Turboism top-level menu keeps a single theme entry; all theme
         // workflows (apply/import/export/delete) live inside the manager window.
         registerMenu("Turboism/" + context.localization().text("menu.themeManager"), MANAGER_ACTION_ID, 40);
-        themeManagerService.restorePersistedSelection();
+        themeManagerService
+                .restorePersistedSelection()
+                .whenComplete((ignored, failure) -> logWorkflowFailure("restore-selection", failure));
         logger.info("UiThemePlugin enabled: unified theme manager and package actions enrolled in disposable scope");
     }
 
-    private synchronized void openThemeManager() {
-        if (!themeCacheInitialized) {
-            // Listing every built-in and user package is only needed when the manager is opened.
-            themeManagerService.refreshCache();
-            themeCacheInitialized = true;
+    /**
+     * Opens the manager once the package cache is ready.
+     *
+     * <p>Returns immediately so the plugin worker stays free to settle the storage results this
+     * workflow waits for. A workflow started before a disable or re-enable is dropped instead of
+     * opening a window for a lifecycle that already ended.
+     */
+    private void openThemeManager() {
+        final long generation = workflowGeneration.get();
+        if (!managerOpenInFlight.compareAndSet(false, true)) {
+            return;
         }
-        themeManagerService.open();
+        try {
+            themeCacheReady(generation)
+                    .thenCompose(ignored -> {
+                        if (isCurrentGeneration(generation)) {
+                            themeManagerService.open();
+                        }
+                        return CompletableFuture.<Void>completedFuture(null);
+                    })
+                    .whenComplete((ignored, failure) -> {
+                        managerOpenInFlight.set(false);
+                        logWorkflowFailure("manager-open", failure);
+                    });
+        } catch (RuntimeException failure) {
+            managerOpenInFlight.set(false);
+            logWorkflowFailure("manager-open", failure);
+        }
+    }
+
+    private CompletionStage<Void> themeCacheReady(final long generation) {
+        if (themeCacheInitialized) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return themeManagerService.refreshCache().thenRun(() -> {
+            if (isCurrentGeneration(generation)) {
+                themeCacheInitialized = true;
+            }
+        });
+    }
+
+    private boolean isCurrentGeneration(final long generation) {
+        return workflowGeneration.get() == generation;
+    }
+
+    private void logWorkflowFailure(final String workflow, final Throwable failure) {
+        if (failure != null) {
+            logger.warn("UI_THEME_WORKFLOW_FAILED " + workflow + " " + failure);
+        }
     }
 
     @Override
     public void disable() {
+        // Fences every workflow still waiting for a host result: nothing it does afterwards may reach
+        // the host for a lifecycle that already ended.
+        workflowGeneration.incrementAndGet();
+        managerOpenInFlight.set(false);
+        // The appearance host settles synchronously, and this runs on the lifecycle teardown lane
+        // rather than a plugin worker, so waiting here cannot deadlock the worker that settles it.
         final AppearanceRestoreResult restored = context.services()
                 .require(AppearanceService.class)
                 .restoreOwnedAppearance()

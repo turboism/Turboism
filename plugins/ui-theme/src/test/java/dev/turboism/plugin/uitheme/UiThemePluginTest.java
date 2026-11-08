@@ -1,10 +1,17 @@
 package dev.turboism.plugin.uitheme;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.plugin.uitheme.domain.ThemeBase;
+import dev.turboism.plugin.uitheme.domain.ThemeIcons;
+import dev.turboism.plugin.uitheme.domain.ThemePackageData;
+import dev.turboism.plugin.uitheme.domain.ThemePackageMetadata;
+import dev.turboism.plugin.uitheme.service.ThemePackageRepository;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceApplyResult;
 import dev.turboism.sdk.appearance.AppearanceBase;
@@ -58,6 +65,10 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 class UiThemePluginTest {
@@ -169,6 +180,114 @@ class UiThemePluginTest {
                 List.of(new StatusNotification(
                         "ui-theme.package.import.canceled", "INFO", "theme.package.importCanceled")),
                 notifications);
+    }
+
+    /**
+     * The runtime delivers storage results on the plugin's own single worker, so a manager open that
+     * waits for one can never be released. The gated read below stands in for that delivery order.
+     */
+    @Test
+    void managerOpenReleasesThePluginWorkerBeforeStorageSettles() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        final CompletableFuture<Void> storageGate = new CompletableFuture<>();
+        context.storage.setReadGate(storageGate);
+        context.storage.seed("themes/user.aurora.zip", new byte[] {1, 2, 3});
+        final UiThemePlugin plugin = new UiThemePlugin();
+
+        plugin.init(context);
+        plugin.enable();
+
+        final ExecutorService pluginWorker = pluginWorker();
+        try {
+            final Future<?> open = pluginWorker.submit(() -> context.actions().execute("ui-theme.manager.open"));
+            open.get(2, TimeUnit.SECONDS);
+            storageGate.complete(null);
+
+            Await.condition(() -> context.uiHost().lastChoiceRequest() != null, Duration.ofSeconds(5));
+            assertEquals(
+                    "__native__",
+                    context.uiHost().lastChoiceRequest().options().get(0).id());
+        } finally {
+            storageGate.complete(null);
+            pluginWorker.shutdownNow();
+        }
+    }
+
+    /** A manager open requested before disable must not surface a window after the plugin stops. */
+    @Test
+    void disabledPluginDropsTheManagerOpenThatWasWaitingForStorage() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        final CompletableFuture<Void> storageGate = new CompletableFuture<>();
+        context.storage.setReadGate(storageGate);
+        context.storage.seed("themes/user.aurora.zip", new byte[] {1, 2, 3});
+        final UiThemePlugin plugin = new UiThemePlugin();
+
+        plugin.init(context);
+        plugin.enable();
+
+        final ExecutorService pluginWorker = pluginWorker();
+        try {
+            pluginWorker
+                    .submit(() -> context.actions().execute("ui-theme.manager.open"))
+                    .get(2, TimeUnit.SECONDS);
+            plugin.disable();
+        } finally {
+            storageGate.complete(null);
+            pluginWorker.shutdownNow();
+        }
+
+        // The in-memory fake settles on the calling thread, so the whole continuation runs here.
+        assertNull(context.uiHost().lastChoiceRequest());
+        assertEquals(List.of(), context.uiHost().notifications());
+    }
+
+    /** Covers the async delete workflow end to end: release, remove, rebuild the cache, report. */
+    @Test
+    void managerDeleteRemovesTheStoredPackageAndReportsTheDeletion() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        final ThemePackageRepository repository = new ThemePackageRepository(context.storage);
+        repository.save(storedTheme("user.aurora"), false).toCompletableFuture().join();
+        final UiThemePlugin plugin = new UiThemePlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute("ui-theme.manager.open");
+        context.uiHost().lastChoiceListener().onResult("user.aurora", "delete");
+
+        Await.condition(() -> !context.uiHost().notifications().isEmpty(), Duration.ofSeconds(5));
+        assertEquals(
+                "ui-theme.package.delete.deleted",
+                context.uiHost().notifications().get(0).id());
+        assertFalse(repository.find("user.aurora").toCompletableFuture().join().isPresent());
+    }
+
+    /** One worker lane, mirroring the runtime: storage results are delivered on this same thread. */
+    private static ExecutorService pluginWorker() {
+        return Executors.newSingleThreadExecutor(runnable -> {
+            final Thread thread = new Thread(runnable, "theme-plugin-worker");
+            thread.setDaemon(true);
+            return thread;
+        });
+    }
+
+    private static ThemePackageData storedTheme(final String id) {
+        return new ThemePackageData(
+                new ThemePackageMetadata(
+                        id, "Aurora", "", "Turboism", "", "1", null, ThemeBase.ANY, ThemeIcons.LIGHT, false),
+                Map.of(
+                        "accent", "#88C0D0",
+                        "background", "#2E3440",
+                        "surface", "#3B4252",
+                        "input.background", "#434C5E",
+                        "foreground", "#ECEFF4",
+                        "foreground.muted", "#D8DEE9",
+                        "selection.background", "#4C566A",
+                        "selection.foreground", "#ECEFF4",
+                        "border", "#4C566A",
+                        "viewport.background", "#242933"),
+                Map.of(),
+                "",
+                "");
     }
 
     private static List<StatusNotification> awaitNotifications(final RecordingUiHost host, final int seconds) {

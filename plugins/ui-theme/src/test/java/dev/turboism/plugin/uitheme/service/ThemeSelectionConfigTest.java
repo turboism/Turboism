@@ -14,10 +14,10 @@ final class ThemeSelectionConfigTest {
         ThemeSelectionConfig selections = new ThemeSelectionConfig(config);
 
         selections.initialize().toCompletableFuture().join();
-        selections.saveSelectedThemeId("user.aurora");
+        selections.saveSelectedThemeId("user.aurora").toCompletableFuture().join();
 
         assertEquals("user.aurora", selections.selectedThemeId().orElseThrow());
-        selections.clearSelectedThemeId();
+        selections.clearSelectedThemeId().toCompletableFuture().join();
         assertTrue(selections.selectedThemeId().isEmpty());
     }
 

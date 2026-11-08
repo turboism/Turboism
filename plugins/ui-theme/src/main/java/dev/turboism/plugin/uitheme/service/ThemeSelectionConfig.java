@@ -4,7 +4,6 @@ import dev.turboism.sdk.config.ConfigCodecs;
 import dev.turboism.sdk.config.ConfigKey;
 import dev.turboism.sdk.config.ConfigReadResult;
 import dev.turboism.sdk.config.ConfigSchema;
-import dev.turboism.sdk.config.ConfigWriteResult;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import java.util.List;
 import java.util.Objects;
@@ -53,18 +52,16 @@ public final class ThemeSelectionConfig implements ThemeSelectionService.Selecti
     }
 
     @Override
-    public void saveSelectedThemeId(final String themeId) {
+    public CompletionStage<Void> saveSelectedThemeId(final String themeId) {
         if (themeId == null || themeId.isBlank() || themeId.length() > 128) {
             throw new IllegalArgumentException("themeId must be bounded non-blank text");
         }
-        write(List.of(themeId));
-        selectedThemeId = Optional.of(themeId);
+        return write(List.of(themeId)).thenRun(() -> selectedThemeId = Optional.of(themeId));
     }
 
     @Override
-    public void clearSelectedThemeId() {
-        write(List.of());
-        selectedThemeId = Optional.empty();
+    public CompletionStage<Void> clearSelectedThemeId() {
+        return write(List.of()).thenRun(() -> selectedThemeId = Optional.empty());
     }
 
     private void acceptRead(final ConfigReadResult<List<String>> read) {
@@ -81,16 +78,21 @@ public final class ThemeSelectionConfig implements ThemeSelectionService.Selecti
         initialized = true;
     }
 
-    private void write(final List<String> value) {
+    /**
+     * Persists one selection value and advances the revision the next write must quote.
+     *
+     * <p>The returned stage fails with {@link IllegalStateException} when the registry refuses the
+     * write, so the caller can report the refusal without the store silently diverging from disk.</p>
+     */
+    private CompletionStage<Void> write(final List<String> value) {
         requireInitialized();
-        final ConfigWriteResult result = registry.write(SELECTED_THEME, value, revision)
-                .toCompletableFuture()
-                .join();
-        if (!result.written()) {
-            throw new IllegalStateException("could not persist theme selection: "
-                    + result.error().orElseThrow().code());
-        }
-        revision = result.revision();
+        return registry.write(SELECTED_THEME, value, revision).thenAccept(result -> {
+            if (!result.written()) {
+                throw new IllegalStateException("could not persist theme selection: "
+                        + result.error().orElseThrow().code());
+            }
+            revision = result.revision();
+        });
     }
 
     private void requireInitialized() {

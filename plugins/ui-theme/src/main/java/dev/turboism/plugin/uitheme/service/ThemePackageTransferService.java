@@ -6,15 +6,22 @@ import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.UserFileHandle;
 import dev.turboism.sdk.ui.UserFileLifetime;
 import dev.turboism.sdk.ui.UserFileMode;
+import dev.turboism.sdk.ui.UserFileReadResult;
 import dev.turboism.sdk.ui.UserFileRequest;
-import dev.turboism.sdk.ui.UserFileRequestResult;
 import dev.turboism.sdk.ui.UserFileRequestStatus;
 import dev.turboism.sdk.ui.UserFileWriteResult;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
-/** Imports and exports bounded theme archives through opaque user-file handles. */
+/**
+ * Imports and exports bounded theme archives through opaque user-file handles.
+ *
+ * <p>No operation waits for the host: file requests and their reads and writes settle on the owning
+ * plugin's worker, so callers compose instead of blocking that worker.</p>
+ */
 public final class ThemePackageTransferService {
 
     private final UserFileAccessService files;
@@ -26,44 +33,43 @@ public final class ThemePackageTransferService {
     /**
      * Encodes the package and writes it atomically to a file the user picks.
      *
-     * <p>Blocks on the file request and the write. The handle is granted for one operation only and is
-     * closed before returning, so no path or lasting file access is retained. The user cancelling is
-     * {@code CANCELED}, a host that refuses the request is {@code UNAVAILABLE}, and a failed write is
-     * {@code FAILED}; none of them throw.
+     * <p>The handle is granted for one operation only and is closed once the write settles, so no path
+     * or lasting file access is retained. The user cancelling is {@code CANCELED}, a host that refuses
+     * the request is {@code UNAVAILABLE}, and a failed write is {@code FAILED}; none of them throw.
      *
      * @param theme the package to write
-     * @return the outcome and, when the host supplied one, its error code as a diagnostic id
+     * @return a stage of the outcome and, when the host supplied one, its error code as a diagnostic id
      * @throws NullPointerException if {@code theme} is {@code null}
      */
-    public ExportResult exportPackage(final ThemePackageData theme) {
+    public CompletionStage<ExportResult> exportPackage(final ThemePackageData theme) {
         Objects.requireNonNull(theme, "theme");
-        final UserFileRequestResult requested = files.request(new UserFileRequest(
+        final byte[] archive = ThemePackageArchive.encode(theme);
+        return files.request(new UserFileRequest(
                         "ui-theme.package.export",
                         "Export Theme Package",
                         List.of("zip"),
                         UserFileMode.WRITE,
                         UserFileLifetime.ONE_OPERATION))
-                .toCompletableFuture()
-                .join();
-        if (requested.status() == UserFileRequestStatus.CANCELED) {
-            return new ExportResult(ExportOutcome.CANCELED, Optional.empty());
-        }
-        if (requested.status() != UserFileRequestStatus.GRANTED) {
-            return new ExportResult(
-                    ExportOutcome.UNAVAILABLE,
-                    requested.error().map(error -> error.code().name()));
-        }
-        final UserFileHandle handle = requested.handle().orElseThrow();
-        try (handle) {
-            final UserFileWriteResult written = files.writeBytesAtomic(handle, ThemePackageArchive.encode(theme))
-                    .toCompletableFuture()
-                    .join();
-            return written.written()
-                    ? new ExportResult(ExportOutcome.EXPORTED, Optional.empty())
-                    : new ExportResult(
-                            ExportOutcome.FAILED,
-                            written.error().map(error -> error.code().name()));
-        }
+                .thenCompose(requested -> {
+                    if (requested.status() == UserFileRequestStatus.CANCELED) {
+                        return CompletableFuture.completedFuture(
+                                new ExportResult(ExportOutcome.CANCELED, Optional.empty()));
+                    }
+                    if (requested.status() != UserFileRequestStatus.GRANTED) {
+                        return CompletableFuture.completedFuture(new ExportResult(
+                                ExportOutcome.UNAVAILABLE,
+                                requested.error().map(error -> error.code().name())));
+                    }
+                    final UserFileHandle handle = requested.handle().orElseThrow();
+                    return files.writeBytesAtomic(handle, archive)
+                            .handle((written, failure) -> failure == null
+                                    ? exported(written)
+                                    : new ExportResult(ExportOutcome.FAILED, Optional.empty()))
+                            .thenApply(result -> {
+                                handle.close();
+                                return result;
+                            });
+                });
     }
 
     /**
@@ -72,45 +78,61 @@ public final class ThemePackageTransferService {
      * <p>Bounded read: an archive over the maximum size is reported as {@code FAILED} with the
      * {@code ARCHIVE_TOO_LARGE} diagnostic rather than partially decoded. A readable but malformed
      * archive is {@code INVALID}. Nothing is stored — the decoded package is returned to the caller to
-     * persist. The one-operation handle is closed before returning.
+     * persist. The one-operation handle is closed once the read settles.
      *
-     * @return the outcome, the decoded package on {@code IMPORTED} only, and a diagnostic id on failure
+     * @return a stage of the outcome, the decoded package on {@code IMPORTED} only, and a diagnostic id
+     *     on failure
      */
-    public ImportResult importPackage() {
-        final UserFileRequestResult requested = files.request(new UserFileRequest(
+    public CompletionStage<ImportResult> importPackage() {
+        return files.request(new UserFileRequest(
                         "ui-theme.package.import",
                         "Import Theme Package",
                         List.of("zip"),
                         UserFileMode.READ,
                         UserFileLifetime.ONE_OPERATION))
-                .toCompletableFuture()
-                .join();
-        if (requested.status() == UserFileRequestStatus.CANCELED) {
-            return new ImportResult(ImportOutcome.CANCELED, Optional.empty(), Optional.empty());
-        }
-        if (requested.status() != UserFileRequestStatus.GRANTED) {
+                .thenCompose(requested -> {
+                    if (requested.status() == UserFileRequestStatus.CANCELED) {
+                        return CompletableFuture.completedFuture(
+                                new ImportResult(ImportOutcome.CANCELED, Optional.empty(), Optional.empty()));
+                    }
+                    if (requested.status() != UserFileRequestStatus.GRANTED) {
+                        return CompletableFuture.completedFuture(new ImportResult(
+                                ImportOutcome.UNAVAILABLE,
+                                Optional.empty(),
+                                requested.error().map(error -> error.code().name())));
+                    }
+                    final UserFileHandle handle = requested.handle().orElseThrow();
+                    return files.readBytes(handle, ThemePackageArchive.MAX_ARCHIVE_BYTES)
+                            .handle((read, failure) -> failure == null
+                                    ? decodeRead(read)
+                                    : new ImportResult(ImportOutcome.FAILED, Optional.empty(), Optional.empty()))
+                            .thenApply(result -> {
+                                handle.close();
+                                return result;
+                            });
+                });
+    }
+
+    private static ExportResult exported(final UserFileWriteResult written) {
+        return written.written()
+                ? new ExportResult(ExportOutcome.EXPORTED, Optional.empty())
+                : new ExportResult(
+                        ExportOutcome.FAILED,
+                        written.error().map(error -> error.code().name()));
+    }
+
+    private static ImportResult decodeRead(final UserFileReadResult<byte[]> read) {
+        if (read.error().isPresent() || read.truncated()) {
             return new ImportResult(
-                    ImportOutcome.UNAVAILABLE,
+                    ImportOutcome.FAILED,
                     Optional.empty(),
-                    requested.error().map(error -> error.code().name()));
+                    read.error().map(error -> error.code().name()).or(() -> Optional.of("ARCHIVE_TOO_LARGE")));
         }
-        final UserFileHandle handle = requested.handle().orElseThrow();
-        try (handle) {
-            final var read = files.readBytes(handle, ThemePackageArchive.MAX_ARCHIVE_BYTES)
-                    .toCompletableFuture()
-                    .join();
-            if (read.error().isPresent() || read.truncated()) {
-                return new ImportResult(
-                        ImportOutcome.FAILED,
-                        Optional.empty(),
-                        read.error().map(error -> error.code().name()).or(() -> Optional.of("ARCHIVE_TOO_LARGE")));
-            }
-            final ThemePackageArchive.DecodeResult decoded =
-                    ThemePackageArchive.decode(read.value().orElseThrow());
-            return decoded.valid()
-                    ? new ImportResult(ImportOutcome.IMPORTED, decoded.theme(), Optional.empty())
-                    : new ImportResult(ImportOutcome.INVALID, Optional.empty(), decoded.issueCode());
-        }
+        final ThemePackageArchive.DecodeResult decoded =
+                ThemePackageArchive.decode(read.value().orElseThrow());
+        return decoded.valid()
+                ? new ImportResult(ImportOutcome.IMPORTED, decoded.theme(), Optional.empty())
+                : new ImportResult(ImportOutcome.INVALID, Optional.empty(), decoded.issueCode());
     }
 
     /**

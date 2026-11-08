@@ -19,8 +19,12 @@ final class ThemePackageRepositoryTest {
         InMemoryPluginStorage storage = new InMemoryPluginStorage();
         ThemePackageRepository repository = new ThemePackageRepository(storage);
 
-        ThemePackageRepository.SaveResult saved = repository.save(theme("user.aurora"), false);
-        Optional<ThemePackageData> loaded = repository.find("user.aurora");
+        ThemePackageRepository.SaveResult saved = repository
+                .save(theme("user.aurora"), false)
+                .toCompletableFuture()
+                .join();
+        Optional<ThemePackageData> loaded =
+                repository.find("user.aurora").toCompletableFuture().join();
 
         assertEquals(ThemePackageRepository.SaveOutcome.SAVED, saved.outcome());
         assertEquals(theme("user.aurora"), loaded.orElseThrow());
@@ -32,28 +36,37 @@ final class ThemePackageRepositoryTest {
     void savingAnExistingThemeWithoutReplacementReportsConflictAndPreservesIt() {
         InMemoryPluginStorage storage = new InMemoryPluginStorage();
         ThemePackageRepository repository = new ThemePackageRepository(storage);
-        repository.save(theme("user.aurora"), false);
+        repository.save(theme("user.aurora"), false).toCompletableFuture().join();
 
-        ThemePackageRepository.SaveResult result = repository.save(theme("user.aurora"), false);
+        ThemePackageRepository.SaveResult result = repository
+                .save(theme("user.aurora"), false)
+                .toCompletableFuture()
+                .join();
 
         assertEquals(ThemePackageRepository.SaveOutcome.CONFLICT, result.outcome());
-        assertEquals(theme("user.aurora"), repository.find("user.aurora").orElseThrow());
+        assertEquals(
+                theme("user.aurora"),
+                repository.find("user.aurora").toCompletableFuture().join().orElseThrow());
     }
 
     @Test
     void listsValidArchivesAndDeletesOnePackage() {
         InMemoryPluginStorage storage = new InMemoryPluginStorage();
         ThemePackageRepository repository = new ThemePackageRepository(storage);
-        repository.save(theme("user.aurora"), false);
-        repository.save(theme("user.dusk"), false);
+        repository.save(theme("user.aurora"), false).toCompletableFuture().join();
+        repository.save(theme("user.dusk"), false).toCompletableFuture().join();
 
         assertEquals(
                 java.util.List.of("user.aurora", "user.dusk"),
-                repository.list().stream().map(data -> data.metadata().id()).toList());
+                repository.list().toCompletableFuture().join().stream()
+                        .map(data -> data.metadata().id())
+                        .toList());
         assertEquals(
                 ThemePackageRepository.DeleteOutcome.DELETED,
-                repository.delete("user.aurora").outcome());
-        assertEquals(Optional.empty(), repository.find("user.aurora"));
+                repository.delete("user.aurora").toCompletableFuture().join().outcome());
+        assertEquals(
+                Optional.empty(),
+                repository.find("user.aurora").toCompletableFuture().join());
     }
 
     private static ThemePackageData theme(final String id) {
