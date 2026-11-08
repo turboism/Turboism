@@ -18,6 +18,12 @@ import java.util.Objects;
  * <p>{@link #NATIVE_ALGORITHM_ID} is reserved for the Editor's own generator, which always leads
  * the listing: it has no parameters and no presets (those live in the native panel) and no compute
  * function, because the host performs the work.</p>
+ *
+ * <p>{@link #supportsMultiKeyform()} states whether the compute function produces a shape for
+ * every keyform of a multi-keyform target. The framework refuses such a target while the flag is
+ * false, because the runtime writes only the current keyform: applying a single-keyform result
+ * would collapse the keyforms the user authored. A plugin sets the flag only when it consumes the
+ * keyform data the request carries.</p>
  */
 @CubismEditor
 public record AutoMeshAlgorithm(
@@ -26,6 +32,7 @@ public record AutoMeshAlgorithm(
         String description,
         List<AlgorithmParameterDescriptor> parameters,
         List<AlgorithmPreset> presets,
+        boolean supportsMultiKeyform,
         AutoMeshCompute compute) {
 
     /** Reserved id of the Editor's own generator; a plugin can never register it. */
@@ -80,6 +87,10 @@ public record AutoMeshAlgorithm(
         }
         if (nativeAlgorithm && (!parameters.isEmpty() || !presets.isEmpty())) {
             throw new IllegalArgumentException("the native algorithm declares no parameters and no presets");
+        }
+        if (nativeAlgorithm && supportsMultiKeyform) {
+            throw new IllegalArgumentException(
+                    "the native algorithm declares no keyform capability; the host remaps keyforms itself");
         }
     }
 

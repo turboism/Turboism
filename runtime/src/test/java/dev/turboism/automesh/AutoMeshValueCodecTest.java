@@ -81,6 +81,7 @@ class AutoMeshValueCodecTest {
                 "",
                 List.of(DENSITY, SCALE, FOLLOW, LAYOUT),
                 presets,
+                false,
                 (request, cancellation) -> AutoMeshResult.Cancelled.INSTANCE);
     }
 }

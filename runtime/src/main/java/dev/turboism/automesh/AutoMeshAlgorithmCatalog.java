@@ -27,7 +27,7 @@ import java.util.function.BooleanSupplier;
  * Probes run under the catalog monitor and must therefore be a plain flag read with no callback
  * into this catalog.</p>
  */
-public final class AutoMeshAlgorithmCatalog {
+public final class AutoMeshAlgorithmCatalog implements AutoMeshSessionAlgorithms {
 
     private static final String NATIVE_DISPLAY_NAME = "Native (Cubism)";
 
@@ -48,6 +48,7 @@ public final class AutoMeshAlgorithmCatalog {
                 NATIVE_DESCRIPTION,
                 List.of(),
                 List.of(),
+                false,
                 null);
     }
 
@@ -92,6 +93,7 @@ public final class AutoMeshAlgorithmCatalog {
     }
 
     /** Resolves one algorithm by id, including the Editor's own generator. */
+    @Override
     public synchronized Optional<AutoMeshAlgorithm> find(final String algorithmId) {
         if (algorithmId == null) {
             return Optional.empty();
@@ -104,6 +106,7 @@ public final class AutoMeshAlgorithmCatalog {
     }
 
     /** Stores the requested selection; a native value clears it. */
+    @Override
     public synchronized void select(final String algorithmId) {
         this.selectedAlgorithmId = normalize(algorithmId);
     }
@@ -112,6 +115,7 @@ public final class AutoMeshAlgorithmCatalog {
      * Reports the algorithm that would run now: the stored selection while a live registration
      * matches it, and empty — the Editor's own generator — otherwise.
      */
+    @Override
     public synchronized Optional<String> selectedAlgorithmId() {
         final String stored = selectedAlgorithmId;
         if (stored == null) {

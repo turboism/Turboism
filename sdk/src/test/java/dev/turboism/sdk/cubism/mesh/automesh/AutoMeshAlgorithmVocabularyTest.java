@@ -87,6 +87,7 @@ class AutoMeshAlgorithmVocabularyTest {
                                 new AlgorithmParameterDescriptor.IntParameter(
                                         "density", "Other density", "", 1, 3, 1, 1)),
                         List.of(),
+                        false,
                         compute()));
         assertThrows(
                 IllegalArgumentException.class,
@@ -96,6 +97,7 @@ class AutoMeshAlgorithmVocabularyTest {
                         "",
                         List.of(DENSITY),
                         List.of(new AlgorithmPreset("Fine", Map.of("scale", "1.0"))),
+                        false,
                         compute()));
         assertThrows(
                 IllegalArgumentException.class,
@@ -105,23 +107,35 @@ class AutoMeshAlgorithmVocabularyTest {
                         "",
                         List.of(DENSITY),
                         List.of(new AlgorithmPreset("Fine", Map.of("density", "4"))),
+                        false,
                         compute()));
     }
 
     @Test
     void nativeAlgorithmLeadsWithoutComputeAndCannotBeDeclaredByAPlugin() {
-        final AutoMeshAlgorithm nativeAlgorithm =
-                new AutoMeshAlgorithm(AutoMeshAlgorithm.NATIVE_ALGORITHM_ID, "Native", "", List.of(), List.of(), null);
+        final AutoMeshAlgorithm nativeAlgorithm = new AutoMeshAlgorithm(
+                AutoMeshAlgorithm.NATIVE_ALGORITHM_ID, "Native", "", List.of(), List.of(), false, null);
         assertTrue(nativeAlgorithm.isNative());
         assertFalse(algorithm().isNative());
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new AutoMeshAlgorithm("mesh", "Mesh", "", List.of(), List.of(), null));
+                () -> new AutoMeshAlgorithm("mesh", "Mesh", "", List.of(), List.of(), false, null));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new AutoMeshAlgorithm(
-                        AutoMeshAlgorithm.NATIVE_ALGORITHM_ID, "Native", "", List.of(DENSITY), List.of(), null));
+                        AutoMeshAlgorithm.NATIVE_ALGORITHM_ID, "Native", "", List.of(DENSITY), List.of(), false, null));
+    }
+
+    @Test
+    void keyformCapabilityBelongsToThePluginAlgorithmsOnly() {
+        assertFalse(algorithm().supportsMultiKeyform());
+        assertTrue(new AutoMeshAlgorithm("mesh", "Mesh", "", List.of(DENSITY), List.of(), true, compute())
+                .supportsMultiKeyform());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new AutoMeshAlgorithm(
+                        AutoMeshAlgorithm.NATIVE_ALGORITHM_ID, "Native", "", List.of(), List.of(), true, null));
     }
 
     @Test
@@ -162,6 +176,7 @@ class AutoMeshAlgorithmVocabularyTest {
                 "Places a mesh over the texture.",
                 List.of(DENSITY, SCALE, FOLLOW, LAYOUT, TAG),
                 List.of(new AlgorithmPreset("Fine", Map.of("density", "5", "layout", "fan"))),
+                false,
                 compute());
     }
 
