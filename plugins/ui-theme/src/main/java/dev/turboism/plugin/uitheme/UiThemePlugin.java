@@ -3,6 +3,7 @@ package dev.turboism.plugin.uitheme;
 import dev.turboism.plugin.uitheme.service.BuiltinThemeAppearanceService;
 import dev.turboism.plugin.uitheme.service.ThemeEditorService;
 import dev.turboism.plugin.uitheme.service.ThemeManagerService;
+import dev.turboism.plugin.uitheme.service.ThemeNotifications;
 import dev.turboism.plugin.uitheme.service.ThemePackageRepository;
 import dev.turboism.plugin.uitheme.service.ThemePackageStatusService;
 import dev.turboism.plugin.uitheme.service.ThemePackageTransferService;
@@ -20,7 +21,6 @@ import dev.turboism.sdk.ui.UiHostCapabilityService;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -47,6 +47,8 @@ public final class UiThemePlugin implements TurboismPlugin {
     private static final String MANAGER_ACTION_LABEL = "Theme Manager";
     private static final String APPLY_BUILTIN_ACTION_ID = "ui-theme.appearance.apply-builtin";
     private static final String APPLY_BUILTIN_ACTION_LABEL = "Apply Built-in Theme";
+    /** Marks "no open request owns the manager"; request identities start above it. */
+    private static final long NO_OPEN_REQUEST = 0L;
 
     private PluginContext context;
     private PluginLogger logger;
@@ -54,11 +56,14 @@ public final class UiThemePlugin implements TurboismPlugin {
     private ThemeManagerService themeManagerService;
     private BuiltinThemeAppearanceService builtinThemeAppearanceService;
     private ThemeEditorService themeEditorService;
-    private final AtomicBoolean managerOpenInFlight = new AtomicBoolean();
+
     private final AtomicLong workflowGeneration = new AtomicLong();
+    private final AtomicLong openRequestCounter = new AtomicLong();
+    // Which request may present the manager. A stale workflow must not free the slot of a newer one.
+    private final AtomicLong activeOpenRequest = new AtomicLong(NO_OPEN_REQUEST);
     // Listing every built-in and user package is only needed when the manager is opened, so the
     // cache is rebuilt on that first open after each enable instead of at load time.
-    private boolean themeCacheInitialized;
+    private volatile boolean themeCacheInitialized;
 
     @Override
     public void init(final PluginContext context) {
@@ -96,7 +101,8 @@ public final class UiThemePlugin implements TurboismPlugin {
         this.themeEditorService.setBackToManager(this.themeManagerService::open);
         this.themeEditorService.setOnSaved(() -> themeManagerService
                 .refreshCache()
-                .whenComplete((rebuilt, failure) -> logWorkflowFailure("editor-save-refresh", failure)));
+                .whenComplete((rebuilt, failure) ->
+                        ThemeNotifications.workflowFailed(logger, ThemeNotifications.WORKFLOW_SAVE_REFRESH, failure)));
         logger.info("UiThemePlugin initialized");
     }
 
@@ -111,13 +117,15 @@ public final class UiThemePlugin implements TurboismPlugin {
                 APPLY_BUILTIN_ACTION_LABEL,
                 ignored -> builtinThemeAppearanceService
                         .applyDefault()
-                        .whenComplete((settled, failure) -> logWorkflowFailure("apply-builtin", failure)));
+                        .whenComplete((settled, failure) -> ThemeNotifications.workflowFailed(
+                                logger, ThemeNotifications.WORKFLOW_APPLY_BUILTIN, failure)));
         // The Turboism top-level menu keeps a single theme entry; all theme
         // workflows (apply/import/export/delete) live inside the manager window.
         registerMenu("Turboism/" + context.localization().text("menu.themeManager"), MANAGER_ACTION_ID, 40);
         themeManagerService
                 .restorePersistedSelection()
-                .whenComplete((ignored, failure) -> logWorkflowFailure("restore-selection", failure));
+                .whenComplete((ignored, failure) -> ThemeNotifications.workflowFailed(
+                        logger, ThemeNotifications.WORKFLOW_RESTORE_SELECTION, failure));
         logger.info("UiThemePlugin enabled: unified theme manager and package actions enrolled in disposable scope");
     }
 
@@ -126,11 +134,13 @@ public final class UiThemePlugin implements TurboismPlugin {
      *
      * <p>Returns immediately so the plugin worker stays free to settle the storage results this
      * workflow waits for. A workflow started before a disable or re-enable is dropped instead of
-     * opening a window for a lifecycle that already ended.
+     * opening a window for a lifecycle that already ended, and it releases only its own request, so a
+     * newer open keeps its slot.</p>
      */
     private void openThemeManager() {
         final long generation = workflowGeneration.get();
-        if (!managerOpenInFlight.compareAndSet(false, true)) {
+        final long request = openRequestCounter.incrementAndGet();
+        if (!activeOpenRequest.compareAndSet(NO_OPEN_REQUEST, request)) {
             return;
         }
         try {
@@ -142,13 +152,17 @@ public final class UiThemePlugin implements TurboismPlugin {
                         return CompletableFuture.<Void>completedFuture(null);
                     })
                     .whenComplete((ignored, failure) -> {
-                        managerOpenInFlight.set(false);
-                        logWorkflowFailure("manager-open", failure);
+                        releaseOpenRequest(request);
+                        ThemeNotifications.workflowFailed(logger, ThemeNotifications.WORKFLOW_OPEN_MANAGER, failure);
                     });
         } catch (RuntimeException failure) {
-            managerOpenInFlight.set(false);
-            logWorkflowFailure("manager-open", failure);
+            releaseOpenRequest(request);
+            ThemeNotifications.workflowFailed(logger, ThemeNotifications.WORKFLOW_OPEN_MANAGER, failure);
         }
+    }
+
+    private void releaseOpenRequest(final long request) {
+        activeOpenRequest.compareAndSet(request, NO_OPEN_REQUEST);
     }
 
     private CompletionStage<Void> themeCacheReady(final long generation) {
@@ -166,18 +180,12 @@ public final class UiThemePlugin implements TurboismPlugin {
         return workflowGeneration.get() == generation;
     }
 
-    private void logWorkflowFailure(final String workflow, final Throwable failure) {
-        if (failure != null) {
-            logger.warn("UI_THEME_WORKFLOW_FAILED " + workflow + " " + failure);
-        }
-    }
-
     @Override
     public void disable() {
         // Fences every workflow still waiting for a host result: nothing it does afterwards may reach
         // the host for a lifecycle that already ended.
         workflowGeneration.incrementAndGet();
-        managerOpenInFlight.set(false);
+        activeOpenRequest.set(NO_OPEN_REQUEST);
         // The appearance host settles synchronously, and this runs on the lifecycle teardown lane
         // rather than a plugin worker, so waiting here cannot deadlock the worker that settles it.
         final AppearanceRestoreResult restored = context.services()

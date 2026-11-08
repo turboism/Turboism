@@ -12,6 +12,7 @@ import dev.turboism.plugin.uitheme.domain.ThemeIcons;
 import dev.turboism.plugin.uitheme.domain.ThemePackageData;
 import dev.turboism.plugin.uitheme.domain.ThemePackageMetadata;
 import dev.turboism.plugin.uitheme.service.ThemePackageRepository;
+import dev.turboism.plugin.uitheme.service.ThemeSelectionConfig;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceApplyResult;
 import dev.turboism.sdk.appearance.AppearanceBase;
@@ -268,6 +269,67 @@ class UiThemePluginTest {
             thread.setDaemon(true);
             return thread;
         });
+    }
+
+    /** One refused window must not block the manager for the rest of the plugin lifecycle. */
+    @Test
+    void managerReopensAfterTheHostRefusesTheWindowOnce() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext(new RefusingOnceUiHost());
+        final UiThemePlugin plugin = new UiThemePlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute("ui-theme.manager.open");
+        assertNull(context.uiHost().lastChoiceRequest());
+
+        context.actions().execute("ui-theme.manager.open");
+
+        assertNotNull(context.uiHost().lastChoiceRequest());
+    }
+
+    /**
+     * The window keeps its four actions and its native reload trigger, and that trigger must not wait
+     * for the rebuild the way the blocking port did.
+     */
+    @Test
+    void managerReloadKeepsEveryActionAndRebuildsTheCacheWithoutWaiting() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        final UiThemePlugin plugin = new UiThemePlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute("ui-theme.manager.open");
+        final ChoiceDialogRequest opened = context.uiHost().lastChoiceRequest();
+        assertEquals(
+                List.of("new-theme", "edit-theme", "open-dir", "import"),
+                opened.actions().stream()
+                        .map(dev.turboism.sdk.ui.ChoiceDialogAction::id)
+                        .toList());
+        final dev.turboism.sdk.ui.ChoiceDialogRefresher reload =
+                opened.refresher().orElseThrow();
+
+        // Storage answers only after the trigger returned: it must not wait for the rebuild.
+        final CompletableFuture<Void> storageGate = new CompletableFuture<>();
+        context.storage.setReadGate(storageGate);
+        new ThemePackageRepository(context.storage)
+                .save(storedTheme("user.aurora"), true)
+                .toCompletableFuture()
+                .join();
+
+        final ExecutorService uiThread = pluginWorker();
+        final List<dev.turboism.sdk.ui.ChoiceDialogOption> snapshot;
+        try {
+            snapshot = uiThread.submit(reload::refresh).get(2, TimeUnit.SECONDS);
+        } finally {
+            uiThread.shutdownNow();
+        }
+        assertEquals(ThemeSelectionConfig.NATIVE_ID, snapshot.get(0).id());
+        assertFalse(snapshot.stream().anyMatch(option -> option.id().equals("user.aurora")));
+
+        storageGate.complete(null);
+        Await.condition(
+                () -> reload.refresh().stream().anyMatch(option -> option.id().equals("user.aurora")),
+                Duration.ofSeconds(5));
     }
 
     private static ThemePackageData storedTheme(final String id) {
@@ -650,6 +712,20 @@ class UiThemePluginTest {
         @Override
         public CompletionStage<UserFileWriteResult> writeBytesAtomic(UserFileHandle handle, byte[] content) {
             throw new UnsupportedOperationException();
+        }
+    }
+
+    private static final class RefusingOnceUiHost extends RecordingUiHost {
+        private boolean refused;
+
+        @Override
+        public void openChoiceDialog(
+                final ChoiceDialogRequest request, final dev.turboism.sdk.ui.ChoiceDialogResultListener listener) {
+            if (!refused) {
+                refused = true;
+                throw new IllegalStateException("window refused");
+            }
+            super.openChoiceDialog(request, listener);
         }
     }
 

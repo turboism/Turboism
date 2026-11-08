@@ -61,7 +61,7 @@ public final class BuiltinThemeAppearanceService {
         final boolean applied = ThemeSelectionService.accepted(result);
         uiHost.notifyStatus(new StatusNotification(
                 "ui-theme.appearance.apply." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
-                applied ? "INFO" : "WARNING",
+                applied ? ThemeNotifications.INFO : ThemeNotifications.WARNING,
                 applied
                         ? localization.format(
                                 "theme.selection.applied", theme.metadata().name())

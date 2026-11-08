@@ -44,12 +44,12 @@ public final class ThemePackageStatusService {
             final ThemeStatusSnapshot snapshot = status.orElseThrow();
             uiHost.notifyStatus(new StatusNotification(
                     "ui-theme.package.status.available",
-                    "INFO",
+                    ThemeNotifications.INFO,
                     "Theme package available: " + snapshot.displayName() + " (" + snapshot.themeId() + ")"));
             return;
         }
         uiHost.notifyStatus(new StatusNotification(
-                "ui-theme.package.status.unavailable", "WARNING", "Theme package is not available"));
+                "ui-theme.package.status.unavailable", ThemeNotifications.WARNING, "Theme package is not available"));
     }
 
     /**
@@ -64,7 +64,9 @@ public final class ThemePackageStatusService {
                         new FileChooserRequest("ui-theme.package.import.file", "Import theme package", List.of("zip")))
                 .filter(this::confirmImport)
                 .ifPresent(packagePath -> uiHost.notifyStatus(new StatusNotification(
-                        "ui-theme.package.import.started", "INFO", "Theme package import started: " + packagePath)));
+                        "ui-theme.package.import.started",
+                        ThemeNotifications.INFO,
+                        "Theme package import started: " + packagePath)));
     }
 
     private boolean confirmImport(final String packagePath) {

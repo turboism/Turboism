@@ -33,9 +33,10 @@ public final class ThemePackageTransferService {
     /**
      * Encodes the package and writes it atomically to a file the user picks.
      *
-     * <p>The handle is granted for one operation only and is closed once the write settles, so no path
-     * or lasting file access is retained. The user cancelling is {@code CANCELED}, a host that refuses
-     * the request is {@code UNAVAILABLE}, and a failed write is {@code FAILED}; none of them throw.
+     * <p>The handle is granted for one operation only and is closed on every completion path — written,
+     * refused, failed, or thrown synchronously — so no lasting file access is retained. The user
+     * cancelling is {@code CANCELED}, a host that refuses the request is {@code UNAVAILABLE}, and a
+     * failed write is {@code FAILED}; none of those outcomes throw.
      *
      * @param theme the package to write
      * @return a stage of the outcome and, when the host supplied one, its error code as a diagnostic id
@@ -61,14 +62,16 @@ public final class ThemePackageTransferService {
                                 requested.error().map(error -> error.code().name())));
                     }
                     final UserFileHandle handle = requested.handle().orElseThrow();
-                    return files.writeBytesAtomic(handle, archive)
-                            .handle((written, failure) -> failure == null
-                                    ? exported(written)
-                                    : new ExportResult(ExportOutcome.FAILED, Optional.empty()))
-                            .thenApply(result -> {
-                                handle.close();
-                                return result;
-                            });
+                    try {
+                        return files.writeBytesAtomic(handle, archive)
+                                .handle((written, failure) -> failure == null
+                                        ? exported(written)
+                                        : new ExportResult(ExportOutcome.FAILED, Optional.empty()))
+                                .whenComplete((result, failure) -> handle.close());
+                    } catch (RuntimeException synchronous) {
+                        closeSuppressing(handle, synchronous);
+                        throw synchronous;
+                    }
                 });
     }
 
@@ -78,7 +81,8 @@ public final class ThemePackageTransferService {
      * <p>Bounded read: an archive over the maximum size is reported as {@code FAILED} with the
      * {@code ARCHIVE_TOO_LARGE} diagnostic rather than partially decoded. A readable but malformed
      * archive is {@code INVALID}. Nothing is stored — the decoded package is returned to the caller to
-     * persist. The one-operation handle is closed once the read settles.
+     * persist. The one-operation handle is closed on every completion path — decoded, refused, failed,
+     * or thrown synchronously.
      *
      * @return a stage of the outcome, the decoded package on {@code IMPORTED} only, and a diagnostic id
      *     on failure
@@ -102,15 +106,26 @@ public final class ThemePackageTransferService {
                                 requested.error().map(error -> error.code().name())));
                     }
                     final UserFileHandle handle = requested.handle().orElseThrow();
-                    return files.readBytes(handle, ThemePackageArchive.MAX_ARCHIVE_BYTES)
-                            .handle((read, failure) -> failure == null
-                                    ? decodeRead(read)
-                                    : new ImportResult(ImportOutcome.FAILED, Optional.empty(), Optional.empty()))
-                            .thenApply(result -> {
-                                handle.close();
-                                return result;
-                            });
+                    try {
+                        return files.readBytes(handle, ThemePackageArchive.MAX_ARCHIVE_BYTES)
+                                .handle((read, failure) -> failure == null
+                                        ? decodeRead(read)
+                                        : new ImportResult(ImportOutcome.FAILED, Optional.empty(), Optional.empty()))
+                                .whenComplete((result, failure) -> handle.close());
+                    } catch (RuntimeException synchronous) {
+                        closeSuppressing(handle, synchronous);
+                        throw synchronous;
+                    }
                 });
+    }
+
+    /** Closes a one-operation handle and keeps the original failure authoritative, as try-with-resources did. */
+    private static void closeSuppressing(final UserFileHandle handle, final RuntimeException primary) {
+        try {
+            handle.close();
+        } catch (RuntimeException closeFailure) {
+            primary.addSuppressed(closeFailure);
+        }
     }
 
     private static ExportResult exported(final UserFileWriteResult written) {

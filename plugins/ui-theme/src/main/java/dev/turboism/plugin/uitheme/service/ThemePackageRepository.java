@@ -115,7 +115,10 @@ public final class ThemePackageRepository {
         return decodeAll(candidateIds(listed));
     }
 
-    /** Reads one archive at a time so a listing never holds more than one decoded package at once. */
+    /**
+     * Decodes every listed archive. Archive reads run one at a time; the decoded packages are all
+     * retained, bounded by the runtime listing ceiling.
+     */
     private CompletionStage<List<ThemePackageData>> decodeAll(final List<String> themeIds) {
         CompletionStage<List<ThemePackageData>> decoded =
                 CompletableFuture.completedFuture(new ArrayList<ThemePackageData>());

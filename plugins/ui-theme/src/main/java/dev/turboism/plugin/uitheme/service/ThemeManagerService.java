@@ -70,6 +70,10 @@ public final class ThemeManagerService {
 
     private final java.util.concurrent.atomic.AtomicBoolean dialogOpen =
             new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.concurrent.atomic.AtomicBoolean cacheRebuildInFlight =
+            new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.concurrent.atomic.AtomicBoolean cacheRebuildQueued =
+            new java.util.concurrent.atomic.AtomicBoolean();
     private volatile java.util.List<ThemePackageData> cachedThemes = java.util.List.of();
 
     /**
@@ -96,7 +100,8 @@ public final class ThemeManagerService {
      * Opens the non-blocking theme manager window. The window owns all theme workflows.
      *
      * <p>Reads the cache only: the caller refreshes it first, so opening the window costs no storage
-     * access on the worker that renders it.
+     * access on the worker that renders it. The native option is always offered first, so restoring the
+     * host appearance never depends on an installed package.</p>
      */
     public void open() {
         if (!dialogOpen.compareAndSet(false, true)) {
@@ -105,37 +110,41 @@ public final class ThemeManagerService {
         final List<ThemePackageData> themes = compatibleThemes(cachedThemes);
         if (themes.isEmpty()) {
             dialogOpen.set(false);
-            notify("ui-theme.manager.empty", "WARNING", localization.text("theme.manager.empty"));
+            notify("ui-theme.manager.empty", ThemeNotifications.WARNING, localization.text("theme.manager.empty"));
             return;
         }
-        final List<ChoiceDialogOption> options = new ArrayList<>();
-        options.add(nativeOption());
-        options.addAll(themes.stream().map(this::option).toList());
+        final List<ChoiceDialogOption> options = optionsFor(themes);
         final Optional<String> selected = selectionConfig
                 .selectedThemeId()
                 .filter(id -> options.stream().anyMatch(option -> option.id().equals(id)))
                 .or(() -> Optional.of(ThemeSelectionConfig.NATIVE_ID));
-        uiHost.openChoiceDialog(
-                new ChoiceDialogRequest(
-                        DIALOG_ID,
-                        localization.text("theme.manager.title"),
-                        localization.text("theme.notice"),
-                        options,
-                        selected,
-                        localization.text("theme.button.apply"),
-                        localization.text("theme.button.close"),
-                        List.of(
-                                new dev.turboism.sdk.ui.ChoiceDialogAction(
-                                        ACTION_NEW_THEME, localization.text("theme.button.newTheme")),
-                                new dev.turboism.sdk.ui.ChoiceDialogAction(
-                                        ACTION_EDIT_THEME, localization.text("theme.button.editTheme")),
-                                new dev.turboism.sdk.ui.ChoiceDialogAction(
-                                        ACTION_OPEN_DIR, localization.text("theme.button.openDir")),
-                                new dev.turboism.sdk.ui.ChoiceDialogAction(
-                                        ACTION_IMPORT, localization.text("theme.button.import"))),
-                        Optional.of(this::refreshOptions),
-                        localization.text("theme.button.reload")),
-                this::handleResult);
+        try {
+            uiHost.openChoiceDialog(
+                    new ChoiceDialogRequest(
+                            DIALOG_ID,
+                            localization.text("theme.manager.title"),
+                            localization.text("theme.notice"),
+                            options,
+                            selected,
+                            localization.text("theme.button.apply"),
+                            localization.text("theme.button.close"),
+                            List.of(
+                                    new dev.turboism.sdk.ui.ChoiceDialogAction(
+                                            ACTION_NEW_THEME, localization.text("theme.button.newTheme")),
+                                    new dev.turboism.sdk.ui.ChoiceDialogAction(
+                                            ACTION_EDIT_THEME, localization.text("theme.button.editTheme")),
+                                    new dev.turboism.sdk.ui.ChoiceDialogAction(
+                                            ACTION_OPEN_DIR, localization.text("theme.button.openDir")),
+                                    new dev.turboism.sdk.ui.ChoiceDialogAction(
+                                            ACTION_IMPORT, localization.text("theme.button.import"))),
+                            Optional.of(this::refreshOptions),
+                            localization.text("theme.button.reload")),
+                    this::handleResult);
+        } catch (RuntimeException failure) {
+            // A refused window must not leave the manager marked as open for the rest of the lifecycle.
+            dialogOpen.set(false);
+            throw failure;
+        }
     }
 
     /**
@@ -152,7 +161,7 @@ public final class ThemeManagerService {
                     if (imported.outcome() != ThemePackageTransferService.ImportOutcome.IMPORTED) {
                         notify(
                                 "ui-theme.package.import.canceled",
-                                "INFO",
+                                ThemeNotifications.INFO,
                                 localization.text("theme.package.importCanceled"));
                         return completedWork();
                     }
@@ -161,7 +170,8 @@ public final class ThemeManagerService {
                             .save(theme, false)
                             .thenCompose(saved -> refreshCache().thenRun(() -> reportImport(theme, saved)));
                 })
-                .whenComplete((ignored, failure) -> logWorkflowFailure("import", failure));
+                .whenComplete((ignored, failure) ->
+                        ThemeNotifications.workflowFailed(logger, ThemeNotifications.WORKFLOW_IMPORT, failure));
     }
 
     /**
@@ -177,7 +187,7 @@ public final class ThemeManagerService {
                     if (selected.isEmpty()) {
                         notify(
                                 "ui-theme.package.export.no-selection",
-                                "WARNING",
+                                ThemeNotifications.WARNING,
                                 localization.text("theme.package.exportNoSelection"));
                         return completedWork();
                     }
@@ -187,13 +197,14 @@ public final class ThemeManagerService {
                                     "ui-theme.package.export."
                                             + exported.outcome().name().toLowerCase(java.util.Locale.ROOT),
                                     exported.outcome() == ThemePackageTransferService.ExportOutcome.EXPORTED
-                                            ? "INFO"
-                                            : "WARNING",
+                                            ? ThemeNotifications.INFO
+                                            : ThemeNotifications.WARNING,
                                     localization.format(
                                             "theme.package.exported",
                                             theme.metadata().name())));
                 })
-                .whenComplete((ignored, failure) -> logWorkflowFailure("export", failure));
+                .whenComplete((ignored, failure) ->
+                        ThemeNotifications.workflowFailed(logger, ThemeNotifications.WORKFLOW_EXPORT, failure));
     }
 
     /**
@@ -212,13 +223,16 @@ public final class ThemeManagerService {
         if (selected.isEmpty()) {
             notify(
                     "ui-theme.package.delete.no-selection",
-                    "WARNING",
+                    ThemeNotifications.WARNING,
                     localization.text("theme.package.deleteNoSelection"));
             return;
         }
         final String id = selected.orElseThrow();
         if (BuiltinThemeCatalog.isReviewedBuiltin(id)) {
-            notify("ui-theme.package.delete.builtin", "WARNING", localization.text("theme.package.deleteBuiltin"));
+            notify(
+                    "ui-theme.package.delete.builtin",
+                    ThemeNotifications.WARNING,
+                    localization.text("theme.package.deleteBuiltin"));
             return;
         }
         selection
@@ -233,12 +247,14 @@ public final class ThemeManagerService {
                         }))
                 .whenComplete((result, failure) -> {
                     if (failure != null) {
-                        logWorkflowFailure("delete", failure);
+                        ThemeNotifications.workflowFailed(logger, ThemeNotifications.WORKFLOW_DELETE, failure);
                         return;
                     }
                     notify(
                             "ui-theme.package.delete." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
-                            result.outcome() == ThemeSelectionService.SelectionOutcome.DELETED ? "INFO" : "WARNING",
+                            result.outcome() == ThemeSelectionService.SelectionOutcome.DELETED
+                                    ? ThemeNotifications.INFO
+                                    : ThemeNotifications.WARNING,
                             localization.format("theme.package.deleted", id));
                 });
     }
@@ -281,15 +297,33 @@ public final class ThemeManagerService {
     }
 
     /**
-     * Rebuilds the option list for the window reload button.
+     * Reload trigger for the window refresh button: rebuilds the cache in the background and answers
+     * with the current build.
      *
-     * <p>The dialog consumes a synchronous list, so this returns the cached view and starts a rebuild
-     * in the background; the rebuilt list is visible on the next reload or the next manager open. A
-     * waiting rebuild here would block the host UI thread that the refresh button runs on.</p>
+     * <p>The host calls this synchronously on its UI thread, so it never waits: waiting there froze the
+     * shell and, once the storage port became asynchronous, could stall the worker that settles the
+     * rebuild. The rebuilt list therefore serves the next window build, and a click that lands while a
+     * rebuild runs queues exactly one more so no request is silently dropped. This trigger never closes
+     * or reopens a window, so a rebuild that finishes after the user closed the manager or the plugin
+     * was disabled cannot surface UI.</p>
      */
     private List<ChoiceDialogOption> refreshOptions() {
-        refreshCache().whenComplete((rebuilt, failure) -> logWorkflowFailure("reload", failure));
-        return compatibleThemes(cachedThemes).stream().map(this::option).toList();
+        requestCacheRebuild();
+        return optionsFor(compatibleThemes(cachedThemes));
+    }
+
+    private void requestCacheRebuild() {
+        if (!cacheRebuildInFlight.compareAndSet(false, true)) {
+            cacheRebuildQueued.set(true);
+            return;
+        }
+        refreshCache().whenComplete((rebuilt, failure) -> {
+            ThemeNotifications.workflowFailed(logger, ThemeNotifications.WORKFLOW_RELOAD, failure);
+            cacheRebuildInFlight.set(false);
+            if (cacheRebuildQueued.getAndSet(false)) {
+                requestCacheRebuild();
+            }
+        });
     }
 
     private void handleResult(final String optionId, final String actionId) {
@@ -300,7 +334,7 @@ public final class ThemeManagerService {
         try {
             dispatchResult(optionId, actionId);
         } catch (RuntimeException failure) {
-            logWorkflowFailure("manager-action", failure);
+            ThemeNotifications.workflowFailed(logger, ThemeNotifications.WORKFLOW_MANAGER_ACTION, failure);
         }
     }
 
@@ -384,7 +418,8 @@ public final class ThemeManagerService {
         }
         find(optionId)
                 .thenAccept(selected -> selected.ifPresent(editor::openEdit))
-                .whenComplete((ignored, failure) -> logWorkflowFailure("edit-theme", failure));
+                .whenComplete((ignored, failure) ->
+                        ThemeNotifications.workflowFailed(logger, ThemeNotifications.WORKFLOW_EDIT, failure));
     }
 
     /** Applies the chosen option; the native option restores the host appearance. */
@@ -398,7 +433,8 @@ public final class ThemeManagerService {
         }
         find(optionId)
                 .thenCompose(found -> found.map(this::apply).orElseGet(ThemeManagerService::completedWork))
-                .whenComplete((ignored, failure) -> logWorkflowFailure("apply", failure));
+                .whenComplete((ignored, failure) ->
+                        ThemeNotifications.workflowFailed(logger, ThemeNotifications.WORKFLOW_APPLY, failure));
     }
 
     private void restoreNative() {
@@ -406,11 +442,14 @@ public final class ThemeManagerService {
                 .restoreNative()
                 .thenAccept(result -> notify(
                         "ui-theme.selection." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
-                        result.outcome() == ThemeSelectionService.SelectionOutcome.RESTORED_NATIVE ? "INFO" : "WARNING",
+                        result.outcome() == ThemeSelectionService.SelectionOutcome.RESTORED_NATIVE
+                                ? ThemeNotifications.INFO
+                                : ThemeNotifications.WARNING,
                         result.outcome() == ThemeSelectionService.SelectionOutcome.RESTORED_NATIVE
                                 ? localization.text("theme.selection.native")
                                 : localization.text("theme.selection.failed")))
-                .whenComplete((ignored, failure) -> logWorkflowFailure("restore-native", failure));
+                .whenComplete((ignored, failure) ->
+                        ThemeNotifications.workflowFailed(logger, ThemeNotifications.WORKFLOW_RESTORE_NATIVE, failure));
     }
 
     private CompletionStage<Void> apply(final ThemePackageData theme) {
@@ -418,7 +457,9 @@ public final class ThemeManagerService {
                 .select(theme)
                 .thenAccept(result -> notify(
                         "ui-theme.selection." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
-                        result.outcome() == ThemeSelectionService.SelectionOutcome.SELECTED ? "INFO" : "WARNING",
+                        result.outcome() == ThemeSelectionService.SelectionOutcome.SELECTED
+                                ? ThemeNotifications.INFO
+                                : ThemeNotifications.WARNING,
                         result.outcome() == ThemeSelectionService.SelectionOutcome.SELECTED
                                 ? localization.format(
                                         "theme.selection.applied",
@@ -428,12 +469,17 @@ public final class ThemeManagerService {
 
     private void reportImport(final ThemePackageData theme, final ThemePackageRepository.SaveResult saved) {
         if (saved.outcome() == ThemePackageRepository.SaveOutcome.CONFLICT) {
-            notify("ui-theme.package.import.conflict", "WARNING", localization.text("theme.package.importConflict"));
+            notify(
+                    "ui-theme.package.import.conflict",
+                    ThemeNotifications.WARNING,
+                    localization.text("theme.package.importConflict"));
             return;
         }
         notify(
                 "ui-theme.package.import.saved",
-                saved.outcome() == ThemePackageRepository.SaveOutcome.SAVED ? "INFO" : "WARNING",
+                saved.outcome() == ThemePackageRepository.SaveOutcome.SAVED
+                        ? ThemeNotifications.INFO
+                        : ThemeNotifications.WARNING,
                 localization.format("theme.package.imported", theme.metadata().name()));
     }
 
@@ -443,14 +489,15 @@ public final class ThemeManagerService {
                 new dev.turboism.sdk.storage.StoragePath(dev.turboism.sdk.storage.StorageRoot.DATA, "themes"));
     }
 
-    private void logWorkflowFailure(final String workflow, final Throwable failure) {
-        if (failure != null) {
-            logger.warn("UI_THEME_WORKFLOW_FAILED " + workflow + " " + failure);
-        }
-    }
-
     private static CompletionStage<Void> completedWork() {
         return CompletableFuture.completedFuture(null);
+    }
+
+    private List<ChoiceDialogOption> optionsFor(final List<ThemePackageData> themes) {
+        final List<ChoiceDialogOption> options = new ArrayList<>();
+        options.add(nativeOption());
+        options.addAll(themes.stream().map(this::option).toList());
+        return options;
     }
 
     private ChoiceDialogOption nativeOption() {

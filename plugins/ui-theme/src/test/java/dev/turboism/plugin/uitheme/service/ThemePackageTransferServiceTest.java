@@ -2,6 +2,7 @@ package dev.turboism.plugin.uitheme.service;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.turboism.plugin.uitheme.domain.ThemeBase;
 import dev.turboism.plugin.uitheme.domain.ThemeIcons;
@@ -57,6 +58,22 @@ final class ThemePackageTransferServiceTest {
         assertEquals(UserFileHandleState.CLOSED, files.handle.state());
     }
 
+    /** The one-operation handle must be released even when the host throws before any stage exists. */
+    @Test
+    void exportClosesTheOneOperationHandleWhenTheWriteThrowsSynchronously() {
+        MemoryUserFiles files = new MemoryUserFiles();
+        files.writeFailure = new IllegalStateException("write refused");
+        ThemePackageTransferService transfer = new ThemePackageTransferService(files);
+
+        assertThrows(
+                java.util.concurrent.CompletionException.class,
+                () -> transfer.exportPackage(theme("user.aurora"))
+                        .toCompletableFuture()
+                        .join());
+
+        assertEquals(UserFileHandleState.CLOSED, files.handle.state());
+    }
+
     private static ThemePackageData theme(final String id) {
         return new ThemePackageData(
                 new ThemePackageMetadata(
@@ -92,6 +109,7 @@ final class ThemePackageTransferServiceTest {
         private UserFileRequest lastRequest;
         private byte[] written;
         private byte[] read;
+        private RuntimeException writeFailure;
         private UserFileMode requestMode = UserFileMode.WRITE;
 
         @Override
@@ -119,6 +137,9 @@ final class ThemePackageTransferServiceTest {
 
         @Override
         public CompletionStage<UserFileWriteResult> writeBytesAtomic(UserFileHandle handle, byte[] content) {
+            if (writeFailure != null) {
+                throw writeFailure;
+            }
             written = content.clone();
             return CompletableFuture.completedFuture(new UserFileWriteResult(true, Optional.empty()));
         }

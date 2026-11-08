@@ -152,21 +152,27 @@ public final class ThemeEditorService {
                     value == null ? fallback : value,
                     FormFieldKind.COLOR));
         }
-        uiHost.openFormDialog(
-                new FormDialogRequest(
-                        DIALOG_ID,
-                        localization.text("theme.gen.title"),
-                        fields,
-                        localization.text("theme.gen.saveApply"),
-                        localization.text("theme.gen.cancel")),
-                (accepted, actionId, values) -> {
-                    dialogOpen.set(false);
-                    if (!accepted) {
-                        backToManager.run();
-                        return;
-                    }
-                    save(existing, values);
-                });
+        try {
+            uiHost.openFormDialog(
+                    new FormDialogRequest(
+                            DIALOG_ID,
+                            localization.text("theme.gen.title"),
+                            fields,
+                            localization.text("theme.gen.saveApply"),
+                            localization.text("theme.gen.cancel")),
+                    (accepted, actionId, values) -> {
+                        dialogOpen.set(false);
+                        if (!accepted) {
+                            backToManager.run();
+                            return;
+                        }
+                        save(existing, values);
+                    });
+        } catch (RuntimeException failure) {
+            // A refused window must not leave the editor marked as open for the rest of the lifecycle.
+            dialogOpen.set(false);
+            throw failure;
+        }
     }
 
     private void save(final Optional<ThemePackageData> existing, final Map<String, String> values) {
@@ -185,10 +191,10 @@ public final class ThemeEditorService {
     }
 
     private void reportSaveFailure(final Throwable failure) {
-        logger.warn("THEME_EDITOR_SAVE_FAILED " + failure);
+        ThemeNotifications.workflowFailed(logger, ThemeNotifications.WORKFLOW_SAVE_THEME, failure);
         notify(
                 "ui-theme.editor.save-failed",
-                "WARNING",
+                ThemeNotifications.WARNING,
                 localization.text("theme.gen.saveFailed") + failure.getMessage());
     }
 
@@ -208,7 +214,7 @@ public final class ThemeEditorService {
         final String url = values.getOrDefault(F_URL, "").trim();
         final String baseText = values.getOrDefault(F_BASE, "light").trim();
         if (!SLUG.matcher(slug).matches() || name.isEmpty()) {
-            notify("ui-theme.editor.invalid", "WARNING", localization.text("theme.gen.invalidSlug"));
+            notify("ui-theme.editor.invalid", ThemeNotifications.WARNING, localization.text("theme.gen.invalidSlug"));
             return CompletableFuture.completedFuture(null);
         }
         final ThemeBase base =
@@ -226,7 +232,7 @@ public final class ThemeEditorService {
             }
         }
         if (colors.isEmpty()) {
-            notify("ui-theme.editor.invalid", "WARNING", localization.text("theme.gen.saveFailed"));
+            notify("ui-theme.editor.invalid", ThemeNotifications.WARNING, localization.text("theme.gen.saveFailed"));
             return CompletableFuture.completedFuture(null);
         }
         final String id =
@@ -238,13 +244,16 @@ public final class ThemeEditorService {
         final ThemePackageData theme = new ThemePackageData(metadata, colors, Map.of(), null, null);
         return repository.save(theme, existing.isPresent()).thenCompose(saved -> {
             if (saved.outcome() == ThemePackageRepository.SaveOutcome.CONFLICT) {
-                notify("ui-theme.editor.conflict", "WARNING", localization.text("theme.package.importConflict"));
+                notify(
+                        "ui-theme.editor.conflict",
+                        ThemeNotifications.WARNING,
+                        localization.text("theme.package.importConflict"));
                 return CompletableFuture.completedFuture(null);
             }
             if (saved.outcome() != ThemePackageRepository.SaveOutcome.SAVED) {
                 notify(
                         "ui-theme.editor.save-failed",
-                        "WARNING",
+                        ThemeNotifications.WARNING,
                         localization.text("theme.gen.saveFailed") + saved.outcome());
                 return CompletableFuture.completedFuture(null);
             }
@@ -259,10 +268,13 @@ public final class ThemeEditorService {
 
     private void notifyApplyOutcome(final AppearanceApplyResult applied, final String name) {
         if (ThemeSelectionService.accepted(applied)) {
-            notify("ui-theme.editor.saved-applied", "INFO", localization.format("theme.selection.applied", name));
+            notify(
+                    "ui-theme.editor.saved-applied",
+                    ThemeNotifications.INFO,
+                    localization.format("theme.selection.applied", name));
             return;
         }
-        notify("ui-theme.editor.saved", "INFO", localization.format("theme.package.imported", name));
+        notify("ui-theme.editor.saved", ThemeNotifications.INFO, localization.format("theme.package.imported", name));
     }
 
     private static String slugOf(final String id) {
