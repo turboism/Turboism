@@ -164,7 +164,8 @@ final class TurboMeshPlacement {
             final dev.turboism.sdk.cubism.model.TexturePixels texture,
             final PlacementSettings settings,
             final boolean hasKeyforms) {
-        final UiHostCapabilityService ui = context.services().find(UiHostCapabilityService.class).orElse(null);
+        final UiHostCapabilityService ui =
+                context.services().find(UiHostCapabilityService.class).orElse(null);
         final boolean interactive = confirmMode() != ConfirmMode.NEVER;
         String keyformWarning = "";
         dev.turboism.plugin.turbomesh.domain.features.FeatureOptions options =
@@ -296,54 +297,8 @@ final class TurboMeshPlacement {
             final PlacementSettings settings,
             final dev.turboism.plugin.turbomesh.domain.features.FeatureOptions options)
             throws TurboMeshPlanner.PlacementException {
-        if (texture != null) {
-            try {
-                double u0 = Double.MAX_VALUE;
-                double v0 = Double.MAX_VALUE;
-                double u1 = -Double.MAX_VALUE;
-                double v1 = -Double.MAX_VALUE;
-                for (final dev.turboism.sdk.cubism.model.Point2 uv : source.uvs()) {
-                    u0 = Math.min(u0, uv.x());
-                    v0 = Math.min(v0, uv.y());
-                    u1 = Math.max(u1, uv.x());
-                    v1 = Math.max(v1, uv.y());
-                }
-                final double pad = settings.interiorMarginUv() + settings.maxBoundarySpacingUv();
-                final dev.turboism.plugin.turbomesh.domain.DomainMask mask =
-                        dev.turboism.plugin.turbomesh.domain.DomainMask.fromPixels(
-                                texture.argb(),
-                                texture.width(),
-                                texture.height(),
-                                texture.uvToPixel(),
-                                u0 - pad,
-                                v0 - pad,
-                                u1 + pad,
-                                v1 + pad,
-                                settings.rasterMaxDim(),
-                                alphaThreshold());
-                context.logger().info("turbo-mesh planning domain: texture alpha mask");
-                return TurboMeshPlanner.plan(source, mask, settings, options);
-            } catch (IllegalArgumentException | IllegalStateException invalid) {
-                context.logger()
-                        .info("turbo-mesh planning domain: texture mask rejected (" + invalid + "), geometry fallback");
-            }
-        } else {
-            context.logger().info("turbo-mesh planning domain: no texture pixels, geometry fallback");
-        }
-        return TurboMeshPlanner.plan(source, settings, options);
-    }
-
-    private static int alphaThreshold() {
-        try {
-            return Math.max(
-                    1,
-                    Math.min(
-                            255,
-                            Integer.parseInt(System.getProperty("turboMesh.alphaThreshold", "8")
-                                    .trim())));
-        } catch (RuntimeException ignored) {
-            return 8;
-        }
+        return dev.turboism.plugin.turbomesh.domain.PlacementDomainPlanner.plan(
+                source, texture, settings, options, context.logger()::info);
     }
 
     /** UI turn: re-resolve the drawable, confirm the preview, and write the plan atomically. */
@@ -357,7 +312,8 @@ final class TurboMeshPlacement {
             return;
         }
         if (confirmMode() != ConfirmMode.NEVER) {
-            final UiHostCapabilityService ui = context.services().find(UiHostCapabilityService.class).orElse(null);
+            final UiHostCapabilityService ui =
+                    context.services().find(UiHostCapabilityService.class).orElse(null);
             if (ui != null) {
                 if (!confirmPlacement(ui, sourceSummary, keyformWarning, plan)) {
                     return;
