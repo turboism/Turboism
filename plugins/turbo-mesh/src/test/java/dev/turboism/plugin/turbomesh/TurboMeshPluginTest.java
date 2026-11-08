@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.plugin.turbomesh.algorithm.AdaptiveAlgorithm;
+import dev.turboism.plugin.turbomesh.algorithm.RegionAlgorithm;
+import dev.turboism.plugin.turbomesh.algorithm.TurboMeshAlgorithms;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
@@ -204,6 +207,41 @@ class TurboMeshPluginTest {
         assertNotNull(drawable.applied);
     }
 
+    @Test
+    void enableRegistersBothAlgorithmsAndReleasesThemOnDisable() {
+        final RecordingContext context = new RecordingContext();
+        context.autoMeshAlgorithms = new RecordingAlgorithmRegistry();
+        final TurboMeshPlugin plugin = new TurboMeshPlugin();
+        plugin.init(context);
+        plugin.enable();
+
+        final RecordingAlgorithmRegistry registry = (RecordingAlgorithmRegistry) context.autoMeshAlgorithms;
+        assertEquals(List.of(RegionAlgorithm.ID, AdaptiveAlgorithm.ID), registry.registeredIds());
+        assertEquals(6, context.contextMenu.contributions.size(), "context menus keep working");
+
+        plugin.disable();
+        assertEquals(List.of(), registry.registeredIds(), "disable releases the algorithms");
+
+        plugin.shutdown();
+        assertEquals(List.of(), registry.registeredIds(), "shutdown stays idempotent");
+    }
+
+    @Test
+    void enableWithoutAutoMeshRegistryKeepsTheContextMenuActions() {
+        final RecordingContext context = new RecordingContext();
+        final TurboMeshPlugin plugin = new TurboMeshPlugin();
+        plugin.init(context);
+        plugin.enable();
+
+        assertEquals(
+                List.of(TurboMeshPlugin.GENERATE_ACTION_ID, TurboMeshPlugin.APPLY_ACTION_ID),
+                context.actions.registered.stream()
+                        .map(ActionRegistry.Action::id)
+                        .toList());
+        assertEquals(1, context.warnings.size(), "the missing registry is reported once");
+        assertEquals(TurboMeshAlgorithms.UNAVAILABLE_MESSAGE, context.warnings.get(0));
+    }
+
     private static ActionRegistry.ActionContext selection(final String drawableId) {
         return new ActionRegistry.ActionContext() {
             @Override
@@ -381,6 +419,8 @@ class TurboMeshPluginTest {
         final RecordingContextMenu contextMenu = new RecordingContextMenu();
         final RecordingUiHost uiHost = new RecordingUiHost();
         final List<Drawable> modelDrawables = new ArrayList<>();
+        final List<String> warnings = new ArrayList<>();
+        dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithmRegistry autoMeshAlgorithms;
         final PluginLogger logger = new PluginLogger() {
             @Override
             public void debug(final String message) {}
@@ -389,7 +429,9 @@ class TurboMeshPluginTest {
             public void info(final String message) {}
 
             @Override
-            public void warn(final String message) {}
+            public void warn(final String message) {
+                warnings.add(message);
+            }
 
             @Override
             public void error(final String message) {}
@@ -568,6 +610,10 @@ class TurboMeshPluginTest {
                     if (serviceType == UiHostCapabilityService.class) {
                         return Optional.of(serviceType.cast(uiHost));
                     }
+                    if (serviceType == dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithmRegistry.class
+                            && autoMeshAlgorithms != null) {
+                        return Optional.of(serviceType.cast(autoMeshAlgorithms));
+                    }
                     return Optional.empty();
                 }
             };
@@ -598,6 +644,49 @@ class TurboMeshPluginTest {
         @Override
         public DisposableScope disposableScope() {
             return disposableScope;
+        }
+    }
+
+    /** Registry double that tracks live registrations by algorithm id. */
+    private static final class RecordingAlgorithmRegistry
+            implements dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithmRegistry {
+        private final List<dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm> algorithms = new ArrayList<>();
+
+        List<String> registeredIds() {
+            return algorithms.stream()
+                    .map(dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm::id)
+                    .toList();
+        }
+
+        @Override
+        public Registration register(final dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm algorithm) {
+            algorithms.add(algorithm);
+            return () -> algorithms.remove(algorithm);
+        }
+
+        @Override
+        public List<dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm> algorithms() {
+            return List.copyOf(algorithms);
+        }
+
+        @Override
+        public Optional<dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm> find(final String algorithmId) {
+            return algorithms.stream()
+                    .filter(algorithm -> algorithm.id().equals(algorithmId))
+                    .findFirst();
+        }
+
+        @Override
+        public void select(final String algorithmId) {}
+
+        @Override
+        public Optional<String> selectedAlgorithmId() {
+            return Optional.empty();
+        }
+
+        @Override
+        public void close() {
+            algorithms.clear();
         }
     }
 

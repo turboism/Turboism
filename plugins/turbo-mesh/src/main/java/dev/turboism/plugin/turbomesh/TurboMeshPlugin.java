@@ -1,5 +1,6 @@
 package dev.turboism.plugin.turbomesh;
 
+import dev.turboism.plugin.turbomesh.algorithm.TurboMeshAlgorithms;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -21,6 +22,7 @@ public final class TurboMeshPlugin implements TurboismPlugin {
     private PluginContext context;
     private PluginLogger logger;
     private TurboMeshPlacement placement;
+    private TurboMeshAlgorithms algorithms;
 
     @Override
     public void init(final PluginContext context) {
@@ -56,7 +58,13 @@ public final class TurboMeshPlugin implements TurboismPlugin {
             contributeMenus(ContextMenuRegistry.Location.PART_TAB, 105);
             contributeMenus(ContextMenuRegistry.Location.DEFORMER_TAB, 105);
             contributeMenus(ContextMenuRegistry.Location.WORKSPACE_OBJECT, 105);
+
+            // The auto-mesh surface is optional, so this registration never blocks the actions.
+            final TurboMeshAlgorithms autoMeshAlgorithms = TurboMeshAlgorithms.register(context);
+            algorithms = autoMeshAlgorithms;
+            context.disposableScope().register(autoMeshAlgorithms);
         } catch (RuntimeException failure) {
+            closeAlgorithmsQuietly();
             closeDisposableScopeQuietly();
             throw failure;
         }
@@ -65,11 +73,13 @@ public final class TurboMeshPlugin implements TurboismPlugin {
 
     @Override
     public void disable() {
+        closeAlgorithmsQuietly();
         logger.info("TurboMeshPlugin disabled");
     }
 
     @Override
     public void shutdown() {
+        closeAlgorithmsQuietly();
         logger.info("TurboMeshPlugin shutdown");
     }
 
@@ -99,6 +109,20 @@ public final class TurboMeshPlugin implements TurboismPlugin {
                                 location,
                                 Set.of(ContextMenuRegistry.ObjectKind.ART_MESH),
                                 basePriority + 5)));
+    }
+
+    /** Releases the algorithm registrations of the current generation, ignoring a lost registry. */
+    private void closeAlgorithmsQuietly() {
+        final TurboMeshAlgorithms registered = algorithms;
+        algorithms = null;
+        if (registered == null) {
+            return;
+        }
+        try {
+            registered.close();
+        } catch (RuntimeException releaseFailure) {
+            logger.warn("TurboMeshPlugin algorithm release failed: " + releaseFailure.getMessage());
+        }
     }
 
     private void closeDisposableScopeQuietly() {

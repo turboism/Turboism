@@ -118,6 +118,44 @@ public record PlacementSettings(
                 DEFAULT_EDGE_STITCH_CELLS);
     }
 
+    /**
+     * Copy of these settings with the four user-facing density knobs replaced.
+     *
+     * <p>The adaptive algorithm exposes only these fields as parameters; every structural bound
+     * keeps its reviewed value, so a stored preset cannot loosen one.</p>
+     *
+     * @param maxBoundarySpacingUv maximum arc length between two boundary samples
+     * @param interiorSpacingUv interior fill pitch
+     * @param minSpacingUv hard lower bound between two placed points
+     * @param maxPoints absolute output vertex cap
+     * @return the adjusted settings
+     */
+    public PlacementSettings withDensity(
+            final double maxBoundarySpacingUv,
+            final double interiorSpacingUv,
+            final double minSpacingUv,
+            final int maxPoints) {
+        return new PlacementSettings(
+                maxBoundarySpacingUv,
+                interiorSpacingUv,
+                minSpacingUv,
+                interiorMarginUv,
+                sagittaUv,
+                collinearTurnRadians,
+                tipTurnRadians,
+                splitAspect,
+                minRegionCells,
+                maxDepth,
+                rasterMaxDim,
+                maxPoints,
+                seed,
+                edgeMinContrast,
+                edgeColorDistance,
+                edgeMinLengthUv,
+                edgeDpToleranceUv,
+                edgeStitchCells);
+    }
+
     /** Reads an int override from {@code System.getProperty}, clamped to the given range. */
     static int intProperty(final String name, final int fallback, final int min, final int max) {
         try {
