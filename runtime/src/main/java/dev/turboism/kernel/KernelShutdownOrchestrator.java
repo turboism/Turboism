@@ -58,6 +58,7 @@ final class KernelShutdownOrchestrator {
         if (cleanHostResources) {
             failures.addAll(runShutdownStages(List.of(
                     new ShutdownStage("PLUGIN_RUNTIME_CLOSE_FAILED", "plugin-runtime", lifecycle::closePluginRuntime),
+                    new ShutdownStage("AUTO_MESH_GUARD_CLOSE_FAILED", "auto-mesh-guard", lifecycle::closeAutoMeshGuard),
                     new ShutdownStage(
                             "EXPORT_SETTINGS_AUTHORITY_CLOSE_FAILED",
                             "export-settings-authority",

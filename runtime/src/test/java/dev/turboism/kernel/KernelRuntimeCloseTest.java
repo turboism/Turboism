@@ -42,6 +42,7 @@ class KernelRuntimeCloseTest {
                         "stop-log",
                         "host-state",
                         "plugin-runtime",
+                        "auto-mesh-guard",
                         "host-ingress",
                         "scheduler",
                         "final-report",
@@ -58,6 +59,7 @@ class KernelRuntimeCloseTest {
                 "stop-log",
                 "host-state",
                 "plugin-runtime",
+                "auto-mesh-guard",
                 "host-ingress",
                 "scheduler",
                 "final-report",
@@ -72,6 +74,7 @@ class KernelRuntimeCloseTest {
                         "stop-log",
                         "host-state",
                         "plugin-runtime",
+                        "auto-mesh-guard",
                         "host-ingress",
                         "scheduler",
                         "final-report",
@@ -110,6 +113,7 @@ class KernelRuntimeCloseTest {
                         "stop-log",
                         "host-state",
                         "plugin-runtime",
+                        "auto-mesh-guard",
                         "host-ingress",
                         "scheduler",
                         "final-report",
@@ -153,6 +157,7 @@ class KernelRuntimeCloseTest {
                         "stop-log",
                         "host-state",
                         "plugin-runtime",
+                        "auto-mesh-guard",
                         "host-ingress",
                         "scheduler",
                         "final-report",
@@ -207,6 +212,11 @@ class KernelRuntimeCloseTest {
         @Override
         public void closePluginRuntime() {
             record("plugin-runtime");
+        }
+
+        @Override
+        public void closeAutoMeshGuard() {
+            record("auto-mesh-guard");
         }
 
         @Override
