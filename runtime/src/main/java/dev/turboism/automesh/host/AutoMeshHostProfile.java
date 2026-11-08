@@ -12,7 +12,7 @@ import java.util.Optional;
 /**
  * Exact reviewed Auto Mesh Generate funnel selectors for every supported Cubism artifact.
  *
- * <p>The four members pin the two native entry points the dispatch guard transforms:
+ * <p>The four funnel members pin the two native entry points the dispatch guard transforms:
  * {@code AutoMeshUtil.updateMeshFromInspector_inModelingMode} and
  * {@code AutoMeshUtil_InMeshEditor.updateMeshFromInspector_inMeshEditorMode}. The guard refuses a
  * host whose funnel does not match its exact tuple, so an unrecognised build is never transformed.
@@ -25,13 +25,22 @@ import java.util.Optional;
  * mesh-editor funnel is descriptor-identical everywhere. Two tuples therefore cover the whole
  * reviewed set, and each artifact still carries its own mapping identities so a reviewed re-pin
  * stays per release.</p>
+ *
+ * <p>The three container constructor selectors anchor the selector row. Every reviewed build
+ * declares exactly one public {@code (CECompletePack)V} constructor per container, and that
+ * constructor is the only point where the container is reachable before the host shows it. The
+ * panel's private property list changes its generic owner between 5.2.03 and 5.3.00, which is why
+ * the anchor is the constructor and never a field.</p>
  */
 public record AutoMeshHostProfile(
         String hostVersion,
         StaticSelector modelingFunnelOwner,
         StaticSelector modelingFunnel,
         StaticSelector meshEditorFunnelOwner,
-        StaticSelector meshEditorFunnel) {
+        StaticSelector meshEditorFunnel,
+        StaticSelector modelingDialogPanelConstructor,
+        StaticSelector modelingPopupDialogConstructor,
+        StaticSelector meshEditorPopupDialogConstructor) {
 
     /** Alias of the modeling-mode funnel owner class selector. */
     public static final String MODELING_FUNNEL_OWNER_ALIAS = "cubism.automesh.funnel.modeling-mode.owner";
@@ -45,6 +54,18 @@ public record AutoMeshHostProfile(
     /** Alias of the mesh-editor funnel method selector. */
     public static final String MESH_EDITOR_FUNNEL_ALIAS = "cubism.automesh.funnel.mesh-editor-mode.method";
 
+    /** Alias of the top-toolbar dialog panel constructor selector. */
+    public static final String MODELING_DIALOG_PANEL_CONSTRUCTOR_ALIAS =
+            "cubism.automesh.container.modeling-dialog-panel.constructor";
+
+    /** Alias of the modeling-mode popup dialog constructor selector. */
+    public static final String MODELING_POPUP_DIALOG_CONSTRUCTOR_ALIAS =
+            "cubism.automesh.container.modeling-popup-dialog.constructor";
+
+    /** Alias of the mesh-editor popup dialog constructor selector. */
+    public static final String MESH_EDITOR_POPUP_DIALOG_CONSTRUCTOR_ALIAS =
+            "cubism.automesh.container.mesh-editor-popup-dialog.constructor";
+
     private static final int ACCESS_PUBLIC = StaticSelector.ACCESS_PUBLIC;
 
     private static final String FUNNEL_PACKAGE = "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/";
@@ -52,6 +73,19 @@ public record AutoMeshHostProfile(
     private static final String AUTO_MESH_UTIL_IN_MESH_EDITOR = FUNNEL_PACKAGE + "AutoMeshUtil_InMeshEditor";
     private static final String MODELING_FUNNEL_NAME = "updateMeshFromInspector_inModelingMode";
     private static final String MESH_EDITOR_FUNNEL_NAME = "updateMeshFromInspector_inMeshEditorMode";
+
+    private static final String CONTAINER_PACKAGE =
+            "com/live2d/cubism/doc/model/extension/meshGenerator/ui/";
+    private static final String MODELING_DIALOG_PANEL =
+            CONTAINER_PACKAGE + "AutoMeshGenerate_DialogType$AutoGenerateMeshPanel";
+    private static final String MODELING_POPUP_DIALOG =
+            CONTAINER_PACKAGE + "AutoMeshGenerate_PopupType$AutoGenerateMeshDialog";
+    private static final String MESH_EDITOR_POPUP_DIALOG =
+            CONTAINER_PACKAGE + "AutoMeshGenerate_PopupType_InMeshEditor$AutoGenerateMeshDialog";
+
+    /** The only container constructor every reviewed build declares: the pack, and nothing else. */
+    private static final String CONTAINER_CONSTRUCTOR_DESCRIPTOR =
+            "(Lcom/live2d/cubism/pack/CECompletePack;)V";
 
     private static final String COMPLETE_PACK = "Lcom/live2d/cubism/pack/CECompletePack;";
     private static final String EVENT = "Lcom/live2d/ui/event/z;";
@@ -224,11 +258,38 @@ public record AutoMeshHostProfile(
         modelingFunnel = Objects.requireNonNull(modelingFunnel, "modelingFunnel");
         meshEditorFunnelOwner = Objects.requireNonNull(meshEditorFunnelOwner, "meshEditorFunnelOwner");
         meshEditorFunnel = Objects.requireNonNull(meshEditorFunnel, "meshEditorFunnel");
+        modelingDialogPanelConstructor =
+                Objects.requireNonNull(modelingDialogPanelConstructor, "modelingDialogPanelConstructor");
+        modelingPopupDialogConstructor =
+                Objects.requireNonNull(modelingPopupDialogConstructor, "modelingPopupDialogConstructor");
+        meshEditorPopupDialogConstructor =
+                Objects.requireNonNull(meshEditorPopupDialogConstructor, "meshEditorPopupDialogConstructor");
     }
 
     /** @return every pinned selector of this profile in installer order */
     public List<StaticSelector> selectors() {
-        return List.of(modelingFunnelOwner, modelingFunnel, meshEditorFunnelOwner, meshEditorFunnel);
+        return List.of(
+                modelingFunnelOwner,
+                modelingFunnel,
+                meshEditorFunnelOwner,
+                meshEditorFunnel,
+                modelingDialogPanelConstructor,
+                modelingPopupDialogConstructor,
+                meshEditorPopupDialogConstructor);
+    }
+
+    /**
+     * Returns the container constructor selector of one container.
+     *
+     * @param container the container to resolve
+     * @return the exact constructor selector this profile pins for that container
+     */
+    public StaticSelector containerConstructor(final AutoMeshContainer container) {
+        return switch (Objects.requireNonNull(container, "container")) {
+            case MODELING_DIALOG_PANEL -> modelingDialogPanelConstructor;
+            case MODELING_POPUP_DIALOG -> modelingPopupDialogConstructor;
+            case MESH_EDITOR_POPUP_DIALOG -> meshEditorPopupDialogConstructor;
+        };
     }
 
     /** @return the host versions whose reviewed artifacts carry an Auto Mesh funnel profile */
@@ -273,7 +334,32 @@ public record AutoMeshHostProfile(
                         AUTO_MESH_UTIL_IN_MESH_EDITOR,
                         MESH_EDITOR_FUNNEL_NAME,
                         MESH_EDITOR_FUNNEL_DESCRIPTOR,
-                        ACCESS_PUBLIC));
+                        ACCESS_PUBLIC),
+                containerConstructor(
+                        mappingIdPrefix + "modeling_dialog_panel_constructor",
+                        MODELING_DIALOG_PANEL_CONSTRUCTOR_ALIAS,
+                        MODELING_DIALOG_PANEL),
+                containerConstructor(
+                        mappingIdPrefix + "modeling_popup_dialog_constructor",
+                        MODELING_POPUP_DIALOG_CONSTRUCTOR_ALIAS,
+                        MODELING_POPUP_DIALOG),
+                containerConstructor(
+                        mappingIdPrefix + "mesh_editor_popup_dialog_constructor",
+                        MESH_EDITOR_POPUP_DIALOG_CONSTRUCTOR_ALIAS,
+                        MESH_EDITOR_POPUP_DIALOG));
+    }
+
+    private static StaticSelector containerConstructor(
+            final String mappingId, final String alias, final String ownerInternalName) {
+        return new StaticSelector(
+                mappingId,
+                alias,
+                StaticSelector.Kind.CONSTRUCTOR,
+                ownerInternalName,
+                "<init>",
+                CONTAINER_CONSTRUCTOR_DESCRIPTOR,
+                ACCESS_PUBLIC,
+                StaticSelector.ACCESS_STATIC);
     }
 
     private static String requireText(final String value, final String name) {

@@ -210,6 +210,21 @@
    "alias": "cubism.automesh.funnel.modeling-mode.owner",
    "file": "runtime/src/main/java/dev/turboism/automesh/host/AutoMeshHostProfile.java",
    "reason": "Auto mesh funnel selectors are verified against the exact reviewed artifact at install time, not by a reviewed record: no editor-model record declares this funnel yet, so the pin keeps the unreviewed surface visible."
+  },
+  {
+   "alias": "cubism.automesh.container.modeling-dialog-panel.constructor",
+   "file": "runtime/src/main/java/dev/turboism/automesh/host/AutoMeshHostProfile.java",
+   "reason": "Auto mesh container selectors are verified against the exact reviewed artifact at install time, not by a reviewed record: no editor-model record declares these constructors yet, so the pin keeps the unreviewed surface visible."
+  },
+  {
+   "alias": "cubism.automesh.container.modeling-popup-dialog.constructor",
+   "file": "runtime/src/main/java/dev/turboism/automesh/host/AutoMeshHostProfile.java",
+   "reason": "Auto mesh container selectors are verified against the exact reviewed artifact at install time, not by a reviewed record: no editor-model record declares these constructors yet, so the pin keeps the unreviewed surface visible."
+  },
+  {
+   "alias": "cubism.automesh.container.mesh-editor-popup-dialog.constructor",
+   "file": "runtime/src/main/java/dev/turboism/automesh/host/AutoMeshHostProfile.java",
+   "reason": "Auto mesh container selectors are verified against the exact reviewed artifact at install time, not by a reviewed record: no editor-model record declares these constructors yet, so the pin keeps the unreviewed surface visible."
   }
  ],
  "localVocabulary": [

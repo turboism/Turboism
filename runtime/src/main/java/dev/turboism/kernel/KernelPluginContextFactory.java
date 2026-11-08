@@ -321,6 +321,19 @@ final class KernelPluginContextFactory implements AutoCloseable {
     void bindExportSettingsAuthority(final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority) {
         servicesFactory.bindExportSettingsAuthority(authority);
     }
+
+    /**
+     * Returns the session auto-mesh catalog.
+     *
+     * <p>The native selector row and the dispatch guard read the same catalog, so the algorithm a
+     * user picks is exactly the algorithm a confirmation runs. The catalog outlives every plugin
+     * generation, which is what keeps the selection across a plugin reload.</p>
+     *
+     * @return the session catalog
+     */
+    dev.turboism.automesh.AutoMeshAlgorithmCatalog autoMeshCatalog() {
+        return autoMeshCatalog;
+    }
 }
 
 record PluginContextBundle(

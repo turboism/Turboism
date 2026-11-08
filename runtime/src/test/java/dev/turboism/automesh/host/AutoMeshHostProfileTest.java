@@ -29,6 +29,10 @@ class AutoMeshHostProfileTest {
             "(Lcom/live2d/cubism/pack/CECompletePack;Lcom/live2d/ui/event/z;Ljava/util/List;)V";
     private static final String GROUPED_DESCRIPTOR = "(Lcom/live2d/cubism/pack/CECompletePack;Lcom/live2d/ui/event/z;"
             + "Ljava/util/List;Lcom/live2d/undo/GroupUndo;Lkotlin/jvm/functions/Function0;)V";
+    private static final String CONTAINER_PACKAGE =
+            "com/live2d/cubism/doc/model/extension/meshGenerator/ui/";
+    private static final String CONTAINER_CONSTRUCTOR_DESCRIPTOR = "(Lcom/live2d/cubism/pack/CECompletePack;)V";
+    private static final int SELECTORS_PER_PROFILE = 7;
 
     @Test
     void theEarlyBuildsPinTheFunnelWithoutUndoGroupOrCallback() {
@@ -92,8 +96,57 @@ class AutoMeshHostProfileTest {
         for (final String version : AutoMeshHostProfile.supportedHostVersions()) {
             profileOf(version).selectors().forEach(selector -> mappingIds.add(selector.mappingId()));
         }
-        assertEquals(80, mappingIds.size(), "20 reviewed builds x 4 selectors");
-        assertEquals(80, mappingIds.stream().distinct().count());
+        assertEquals(
+                AutoMeshHostProfile.supportedHostVersions().size() * SELECTORS_PER_PROFILE,
+                mappingIds.size(),
+                "20 reviewed builds x " + SELECTORS_PER_PROFILE + " selectors");
+        assertEquals(mappingIds.size(), mappingIds.stream().distinct().count());
+    }
+
+    @Test
+    void everyBuildPinsTheSameThreeContainerConstructors() {
+        for (final String version : AutoMeshHostProfile.supportedHostVersions()) {
+            final AutoMeshHostProfile profile = profileOf(version);
+            for (final AutoMeshContainer container : AutoMeshContainer.values()) {
+                final StaticSelector selector = profile.containerConstructor(container);
+                assertEquals(StaticSelector.Kind.CONSTRUCTOR, selector.kind(), version);
+                assertEquals("<init>", selector.memberName(), version);
+                assertEquals(CONTAINER_CONSTRUCTOR_DESCRIPTOR, selector.descriptor(), version);
+                assertEquals(StaticSelector.ACCESS_PUBLIC, selector.requiredAccessFlags(), version);
+                assertNotEquals(
+                        0,
+                        selector.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC,
+                        "a container anchor must reject a static binding: " + version);
+            }
+        }
+    }
+
+    @Test
+    void theContainerSelectorsNameTheThreeNativeContainers() {
+        final AutoMeshHostProfile profile = profileOf("5.3.04");
+        assertEquals(
+                CONTAINER_PACKAGE + "AutoMeshGenerate_DialogType$AutoGenerateMeshPanel",
+                profile.containerConstructor(AutoMeshContainer.MODELING_DIALOG_PANEL).ownerInternalName());
+        assertEquals(
+                CONTAINER_PACKAGE + "AutoMeshGenerate_PopupType$AutoGenerateMeshDialog",
+                profile.containerConstructor(AutoMeshContainer.MODELING_POPUP_DIALOG).ownerInternalName());
+        assertEquals(
+                CONTAINER_PACKAGE + "AutoMeshGenerate_PopupType_InMeshEditor$AutoGenerateMeshDialog",
+                profile.containerConstructor(AutoMeshContainer.MESH_EDITOR_POPUP_DIALOG).ownerInternalName());
+    }
+
+    @Test
+    void everyContainerAliasIsDistinctAndPinned() {
+        assertEquals(
+                List.of(
+                        "cubism.automesh.container.modeling-dialog-panel.constructor",
+                        "cubism.automesh.container.modeling-popup-dialog.constructor",
+                        "cubism.automesh.container.mesh-editor-popup-dialog.constructor"),
+                List.of(
+                        AutoMeshHostProfile.MODELING_DIALOG_PANEL_CONSTRUCTOR_ALIAS,
+                        AutoMeshHostProfile.MODELING_POPUP_DIALOG_CONSTRUCTOR_ALIAS,
+                        AutoMeshHostProfile.MESH_EDITOR_POPUP_DIALOG_CONSTRUCTOR_ALIAS),
+                "the three container aliases are the reviewed vocabulary");
     }
 
     @Test

@@ -615,6 +615,10 @@
         "dev.turboism.permissions"
       ],
       [
+        "dev.turboism.automesh",
+        "dev.turboism.ui"
+      ],
+      [
         "dev.turboism.bootstrap",
         "dev.turboism.adapter"
       ],

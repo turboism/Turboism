@@ -1,7 +1,9 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.automesh.host.AutoMeshContainer;
 import dev.turboism.automesh.host.AutoMeshFunnelTransformer;
 import dev.turboism.automesh.host.AutoMeshHostProfile;
+import dev.turboism.automesh.host.AutoMeshPanelAttachTransformer;
 import dev.turboism.automesh.host.NativeAutoMeshBridge;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
@@ -15,7 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
- * Thin, reversible installer for the exact Auto Mesh funnel guards.
+ * Thin, reversible installer for the exact Auto Mesh funnel guards and container attaches.
  *
  * <p>The installer consumes an already verified selector tuple. It does not create a verification
  * record, infer host readiness from static selectors, or wire itself into global startup
@@ -31,9 +33,15 @@ final class VerifiedAutoMeshHookInstaller implements AutoCloseable {
     static final String MODELING_FUNNEL_ALIAS = AutoMeshHostProfile.MODELING_FUNNEL_ALIAS;
     static final String MESH_EDITOR_FUNNEL_OWNER_ALIAS = AutoMeshHostProfile.MESH_EDITOR_FUNNEL_OWNER_ALIAS;
     static final String MESH_EDITOR_FUNNEL_ALIAS = AutoMeshHostProfile.MESH_EDITOR_FUNNEL_ALIAS;
+    static final String MODELING_DIALOG_PANEL_CONSTRUCTOR_ALIAS =
+            AutoMeshHostProfile.MODELING_DIALOG_PANEL_CONSTRUCTOR_ALIAS;
+    static final String MODELING_POPUP_DIALOG_CONSTRUCTOR_ALIAS =
+            AutoMeshHostProfile.MODELING_POPUP_DIALOG_CONSTRUCTOR_ALIAS;
+    static final String MESH_EDITOR_POPUP_DIALOG_CONSTRUCTOR_ALIAS =
+            AutoMeshHostProfile.MESH_EDITOR_POPUP_DIALOG_CONSTRUCTOR_ALIAS;
 
     private final Instrumentation instrumentation;
-    private final List<AutoMeshFunnelTransformer> transformers;
+    private final List<java.lang.instrument.ClassFileTransformer> transformers;
     private final Set<String> targetClassNames;
     private final ClassLoader hostClassLoader;
     private final NativeAutoMeshBridge.Handler bridgeHandler;
@@ -66,11 +74,18 @@ final class VerifiedAutoMeshHookInstaller implements AutoCloseable {
         if (!supportsExactCubismVersion(requested.hostVersion())) {
             throw new IllegalArgumentException("auto mesh guard requires exact Cubism " + SUPPORTED_CUBISM_VERSIONS);
         }
-        this.transformers = List.of(
-                transformerFor(requested, requested.modelingFunnelOwner(), requested.modelingFunnel()),
-                transformerFor(requested, requested.meshEditorFunnelOwner(), requested.meshEditorFunnel()));
+        final List<java.lang.instrument.ClassFileTransformer> registered = new java.util.ArrayList<>();
+        registered.add(transformerFor(requested, requested.modelingFunnelOwner(), requested.modelingFunnel()));
+        registered.add(transformerFor(requested, requested.meshEditorFunnelOwner(), requested.meshEditorFunnel()));
+        for (final AutoMeshPanelAttachTransformer.Site site : AutoMeshPanelAttachTransformer.sitesOf(requested)) {
+            registered.add(new AutoMeshPanelAttachTransformer(site, hostClassLoader, diagnostics));
+        }
+        this.transformers = List.copyOf(registered);
         final Set<String> owners = new TreeSet<>();
         for (final AutoMeshFunnelTransformer.Site site : AutoMeshFunnelTransformer.sitesOf(requested)) {
+            owners.add(binaryNameOf(site.ownerInternalName()));
+        }
+        for (final AutoMeshPanelAttachTransformer.Site site : AutoMeshPanelAttachTransformer.sitesOf(requested)) {
             owners.add(binaryNameOf(site.ownerInternalName()));
         }
         this.targetClassNames = Set.copyOf(owners);
@@ -98,7 +113,7 @@ final class VerifiedAutoMeshHookInstaller implements AutoCloseable {
         }
         try {
             bridge = NativeAutoMeshBridge.install(bridgeHandler, diagnostics);
-            for (final AutoMeshFunnelTransformer transformer : transformers) {
+            for (final java.lang.instrument.ClassFileTransformer transformer : transformers) {
                 instrumentation.addTransformer(transformer, true);
             }
             transformersRemoved = false;
@@ -127,7 +142,7 @@ final class VerifiedAutoMeshHookInstaller implements AutoCloseable {
             return;
         }
         if (!transformersRemoved) {
-            for (final AutoMeshFunnelTransformer transformer : transformers) {
+            for (final java.lang.instrument.ClassFileTransformer transformer : transformers) {
                 instrumentation.removeTransformer(transformer);
             }
             transformersRemoved = true;
