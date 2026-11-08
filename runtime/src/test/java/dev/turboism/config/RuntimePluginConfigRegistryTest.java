@@ -309,10 +309,15 @@ class RuntimePluginConfigRegistryTest {
     /**
      * A parent directory redirected at the publication hook must not receive the document: the write
      * re-resolves its target under the lifecycle lock and the publication guard re-checks it again.
+     *
+     * <p>One temporary fixture owns both directories: {@code guarded-data} is the registry anchor and
+     * {@code outside} is its sibling, so the escape target never sits inside the guarded directory and
+     * the fixture cleans itself up.
      */
     @Test
-    void redirectedParentAtThePublicationHookCannotReceiveTheWrite(@TempDir Path dataDir) throws Exception {
-        final Path outside = Files.createTempDirectory("turboism-config-outside");
+    void redirectedParentAtThePublicationHookCannotReceiveTheWrite(@TempDir Path fixture) throws Exception {
+        final Path dataDir = Files.createDirectories(fixture.resolve("guarded-data"));
+        final Path outside = Files.createDirectories(fixture.resolve("outside"));
         final CountDownLatch publicationReached = new CountDownLatch(1);
         final CountDownLatch publicationRelease = new CountDownLatch(1);
         final RuntimePluginConfigRegistry registry =
@@ -332,23 +337,23 @@ class RuntimePluginConfigRegistryTest {
         Files.move(probe, dataDir.resolve("probe-moved"));
         final FileSystemFaults.ReparsePoint point = FileSystemFaults.createDirectoryReparsePoint(probe, outside);
         try {
+            FileSystemFaults.assertRedirectsOutside(point, dataDir);
             publicationRelease.countDown();
             writer.join(2_000L);
 
             assertFalse(writer.isAlive());
-            assertTrue(writeFailure.get() instanceof PluginConfigException, "the redirected write must fail closed");
+            final List<Path> escaped;
             try (var written = Files.walk(outside)) {
-                assertTrue(
-                        written.filter(Files::isRegularFile).toList().isEmpty(),
-                        "no staged or published document may land behind the redirected parent");
+                escaped = written.filter(Files::isRegularFile).toList();
             }
+            assertTrue(
+                    writeFailure.get() instanceof PluginConfigException,
+                    "the redirected write must fail closed; files behind the redirected parent: " + escaped);
+            assertTrue(
+                    escaped.isEmpty(),
+                    "no staged or published document may land behind the redirected parent: " + escaped);
         } finally {
             FileSystemFaults.deleteReparsePoint(point.link());
-            try {
-                Files.deleteIfExists(outside);
-            } catch (java.nio.file.DirectoryNotEmptyException leftover) {
-                // Keep the evidence on disk when the assertion above already reported a leak.
-            }
             scope.close();
         }
     }
