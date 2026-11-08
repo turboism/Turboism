@@ -27,6 +27,8 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import java.util.function.*;
 import java.util.jar.*;
+import javax.swing.JLabel;
+import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -37,6 +39,7 @@ class FrameworkUpdatesWindowTest {
     Path home;
 
     private static final String ID = "dev.turboism.plugin.demo";
+    private static final int CENTER_TOLERANCE_PX = 2;
     private static final PluginLocalization I18N = new PluginLocalization() {
         public Locale locale() {
             return Locale.ENGLISH;
@@ -310,6 +313,35 @@ class FrameworkUpdatesWindowTest {
             assertEquals(0, edt(() -> f.window.pluginTable().getRowCount()));
             assertFalse(edt(() -> f.window.releaseNotesPane().getText()).contains("Old framework notes"));
             assertFalse(edt(() -> f.window.installButton().isEnabled()));
+        }
+    }
+
+    @Test
+    void emptyUpdateMessageIsCenteredInTheAvailableUpdatesListRegion() throws Exception {
+        try (Fixture f = new Fixture(target -> List.of())) {
+            f.planned();
+            f.discovery.target = null;
+            edt(() -> {
+                f.window.render();
+                return null;
+            });
+            await(() -> "updates.list.empty".equals(f.window.emptyListLabel().getText()));
+            final JLabel message = edt(f.window::emptyListLabel);
+            final JScrollPane tableScroll = edt(
+                    () -> (JScrollPane) SwingUtilities.getAncestorOfClass(JScrollPane.class, f.window.pluginTable()));
+            assertNotNull(tableScroll, "available updates are listed in a scroll pane");
+            edt(() -> {
+                SwingUtilities.getRoot(message).validate();
+                return null;
+            });
+            final java.awt.Component region = edt(tableScroll::getParent);
+            final java.awt.Rectangle area =
+                    edt(() -> new java.awt.Rectangle(0, 0, region.getWidth(), region.getHeight()));
+            final java.awt.Rectangle placed =
+                    edt(() -> SwingUtilities.convertRectangle(message.getParent(), message.getBounds(), region));
+            assertTrue(area.width > 0 && area.height > 0, "the list region must be laid out before measuring");
+            assertEquals(area.getCenterX(), placed.getCenterX(), CENTER_TOLERANCE_PX, "horizontal list center");
+            assertEquals(area.getCenterY(), placed.getCenterY(), CENTER_TOLERANCE_PX, "vertical list center");
         }
     }
 
