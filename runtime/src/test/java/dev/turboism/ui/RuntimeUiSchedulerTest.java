@@ -1,8 +1,8 @@
 package dev.turboism.ui;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
@@ -112,7 +112,7 @@ class RuntimeUiSchedulerTest {
     }
 
     @Test
-    void throwingEdtCallbacksOpenTheRuntimeCircuit() {
+    void throwingEdtCallbacksEmitFailuresWithoutOpeningTheRuntimeCircuit() {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RuntimeScheduler runtimeScheduler = runtimeScheduler(events, 500L);
         RuntimeUiScheduler uiScheduler = new RuntimeUiScheduler(runtimeScheduler, "dev.turboism.plugin.demo");
@@ -127,14 +127,14 @@ class RuntimeUiSchedulerTest {
                         PluginWorkBudgetEvent.Phase.FAILED, events.get(index).phase(), events.toString());
             }
 
-            assertThrows(
-                    IllegalStateException.class,
-                    () -> uiScheduler.runOnUiThread(() -> {
-                        throw new AssertionError("circuit must reject this callback");
-                    }));
-
-            awaitEventCount(events, 5);
-            assertEquals(PluginWorkBudgetEvent.Phase.CIRCUIT_OPEN, events.get(4).phase(), events.toString());
+            // The breaker must stay closed: a failing callback is the plugin's bug, not a reason to
+            // disable the plugin's UI, and EDT latency must never be charged here at all.
+            AtomicInteger ran = new AtomicInteger();
+            assertDoesNotThrow(() -> uiScheduler.runOnUiThread(ran::incrementAndGet));
+            awaitCondition(() -> ran.get() == 1);
+            assertTrue(
+                    events.stream().noneMatch(event -> event.phase() == PluginWorkBudgetEvent.Phase.CIRCUIT_OPEN),
+                    events.toString());
         } finally {
             uiScheduler.close();
             runtimeScheduler.shutdown();
@@ -175,7 +175,7 @@ class RuntimeUiSchedulerTest {
     }
 
     @Test
-    void timedOutUiWorkDoesNotStartAfterTheEdtBecomesAvailable() throws InterruptedException {
+    void uiWorkQueuedDuringAnEdtStallStillRunsWhenTheEdtRecovers() throws InterruptedException {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RuntimeScheduler runtimeScheduler = runtimeScheduler(events, 50L);
         RuntimeUiScheduler uiScheduler = new RuntimeUiScheduler(runtimeScheduler, "dev.turboism.plugin.demo");
@@ -192,11 +192,9 @@ class RuntimeUiSchedulerTest {
         try {
             uiScheduler.runOnUiThread(executions::incrementAndGet);
 
-            awaitEvent(events, PluginWorkBudgetEvent.Phase.TIMED_OUT);
+            Thread.sleep(400L);
             releaseEdt.countDown();
-            flushEdt();
-
-            assertEquals(0, executions.get());
+            awaitCondition(() -> executions.get() == 1);
         } finally {
             releaseEdt.countDown();
             uiScheduler.close();
@@ -205,7 +203,7 @@ class RuntimeUiSchedulerTest {
     }
 
     @Test
-    void blockingEdtWorkFeedsTimeoutDiagnosticWithoutPreemptingEdt() throws InterruptedException {
+    void blockedEdtDoesNotChargeUiWorkToTheWorkBudget() throws InterruptedException {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         RuntimeScheduler runtimeScheduler = runtimeScheduler(events, 50L);
         RuntimeUiScheduler uiScheduler = new RuntimeUiScheduler(runtimeScheduler, "dev.turboism.plugin.demo");
@@ -221,8 +219,12 @@ class RuntimeUiSchedulerTest {
             });
 
             assertTrue(enteredEdt.await(1, TimeUnit.SECONDS));
-            awaitEvent(events, PluginWorkBudgetEvent.Phase.TIMED_OUT);
-            assertEquals(1, completedEdt.getCount(), "the timeout must not preempt running EDT work");
+            // Hold the EDT far past the work budget. A large model load looks exactly like this.
+            Thread.sleep(400L);
+            assertTrue(
+                    events.stream().noneMatch(event -> event.phase() == PluginWorkBudgetEvent.Phase.TIMED_OUT),
+                    "EDT queue latency is host-owned and must not be charged to the plugin: " + events);
+            assertEquals(1, completedEdt.getCount(), "the budget must never preempt running EDT work");
 
             releaseEdt.countDown();
             assertTrue(completedEdt.await(1, TimeUnit.SECONDS));
@@ -381,6 +383,17 @@ class RuntimeUiSchedulerTest {
         CountDownLatch flushed = new CountDownLatch(1);
         SwingUtilities.invokeLater(flushed::countDown);
         assertTrue(flushed.await(1, TimeUnit.SECONDS));
+    }
+
+    private static void awaitCondition(java.util.function.BooleanSupplier condition) {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline) {
+            if (condition.getAsBoolean()) {
+                return;
+            }
+            Thread.yield();
+        }
+        throw new AssertionError("condition was not met within 5 seconds");
     }
 
     private static void awaitEventCount(List<PluginWorkBudgetEvent> events, int expectedCount) {

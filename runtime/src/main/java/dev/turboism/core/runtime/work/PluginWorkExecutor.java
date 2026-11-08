@@ -168,8 +168,33 @@ public final class PluginWorkExecutor {
         return submitDecorated(task, work, () -> {}, false);
     }
 
+    /**
+     * Submits EDT-bound work outside the work budget and the circuit breaker.
+     *
+     * <p>This work spends most of its wall time queued for the host EDT, which the plugin does not
+     * own. Charging that queue latency to the plugin opened its breaker whenever a large model
+     * stalled the host: on the 763 MB reference model one session logged thousands of
+     * {@code CIRCUIT_OPEN} rejections and the plugin's UI never recovered. The bulkhead still
+     * bounds concurrency and shutdown still waits for the work, so containment is unchanged; only
+     * the timeout and the breaker accounting are skipped. The caller's own cancellation still
+     * applies, so abandoned UI work is dropped before it touches the host.</p>
+     *
+     * @param task the task being run, used to attribute diagnostics
+     * @param work the body to run on a bulkhead thread
+     * @return the admission decision plus a stage completing with the work's terminal result
+     * @throws NullPointerException if either argument is {@code null}
+     */
+    public PluginWorkSubmission submitUiBound(PluginTask task, Runnable work) {
+        return submitDecorated(task, work, () -> {}, false, false);
+    }
+
     private PluginWorkSubmission submitDecorated(
             PluginTask task, Runnable work, Runnable timeoutAction, boolean circuitProtected) {
+        return submitDecorated(task, work, timeoutAction, circuitProtected, true);
+    }
+
+    private PluginWorkSubmission submitDecorated(
+            PluginTask task, Runnable work, Runnable timeoutAction, boolean circuitProtected, boolean timeLimited) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(work, "work");
         Objects.requireNonNull(timeoutAction, "timeoutAction");
@@ -177,8 +202,14 @@ public final class PluginWorkExecutor {
             return rejected(PluginWorkStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
         }
         PluginWorkItem workItem = new PluginWorkItem(task, work, timeoutAction);
-        Supplier<CompletionStage<Void>> decorated =
-                circuitProtected ? decorate(workItem) : decorateCompletion(workItem);
+        final Supplier<CompletionStage<Void>> decorated;
+        if (!timeLimited) {
+            decorated = decoratePooled(workItem);
+        } else if (circuitProtected) {
+            decorated = decorate(workItem);
+        } else {
+            decorated = decorateCompletion(workItem);
+        }
         final CompletableFuture<PluginWorkResult> completion = new CompletableFuture<>();
         try {
             final CompletionStage<Void> stage = decorated.get();
@@ -263,6 +294,11 @@ public final class PluginWorkExecutor {
 
     private Supplier<CompletionStage<Void>> decorate(PluginWorkItem workItem) {
         return CircuitBreaker.decorateCompletionStage(circuitBreaker, decorateCompletion(workItem));
+    }
+
+    /** Runs on the bulkhead with no time limit and no breaker; used for EDT-bound work. */
+    private Supplier<CompletionStage<Void>> decoratePooled(final PluginWorkItem workItem) {
+        return () -> CompletableFuture.runAsync(workItem, workerPool);
     }
 
     private Supplier<CompletionStage<Void>> decorateCompletion(PluginWorkItem workItem) {

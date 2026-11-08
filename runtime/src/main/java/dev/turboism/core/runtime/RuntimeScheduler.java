@@ -96,6 +96,33 @@ public final class RuntimeScheduler {
     }
 
     /**
+     * Dispatches EDT-bound work outside the plugin work budget and its circuit breaker.
+     *
+     * <p>The wall time of this work is host EDT queue latency, which the plugin does not own.
+     * Charging it to the plugin opened the breaker whenever a large model stalled the host, and
+     * every later submission was then rejected for the rest of the session. The work still runs on
+     * the plugin's bulkhead, so concurrency stays bounded and shutdown still waits for it.</p>
+     *
+     * @param task the EDT-bound work to run
+     * @param callback the body to execute once the bulkhead accepts it
+     * @return {@code true} when the work was admitted; {@code false} when the scheduler is closed
+     *     or the bulkhead rejected it
+     * @throws NullPointerException if either argument is {@code null}
+     */
+    public boolean dispatchUiBound(final PluginTask task, final Runnable callback) {
+        Objects.requireNonNull(task, "task");
+        Objects.requireNonNull(callback, "callback");
+        if (closed.get()) {
+            emitRejected(task);
+            return false;
+        }
+        return executorRegistry
+                .get(task.pluginId())
+                .submitUiBound(task, bindCancellation(callback))
+                .accepted();
+    }
+
+    /**
      * Classifies and dispatches a task with an action invoked when lightweight work times out.
      * The timeout action runs before the worker is interrupted, allowing queued downstream work
      * to be cancelled before it becomes runnable.
