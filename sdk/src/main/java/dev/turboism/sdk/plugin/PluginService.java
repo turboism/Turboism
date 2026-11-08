@@ -143,6 +143,10 @@ public enum PluginService {
     /** Directory-only custom mesh tools; no {@link PluginContext} accessor. */
     @Incubating
     MESH_TOOLS(dev.turboism.sdk.cubism.mesh.MeshToolRegistry.class),
+
+    /** Directory-only auto-mesh algorithm registry; no {@link PluginContext} accessor. */
+    @Incubating
+    AUTOMESH_ALGORITHMS(dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithmRegistry.class),
     /** Directory-only ordinary modeling tools; no {@link PluginContext} accessor. */
     @Incubating
     MODELING_TOOLS(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class),
