@@ -173,7 +173,7 @@ class TurboMeshPluginTest {
     @Test
     void keyformMeshIsBlockedWithoutDialogService() {
         final RecordingContext context = new RecordingContext();
-        context.dialogServiceAvailable = false;
+        context.uiHost.dialogAvailable = false;
         final StubDrawable drawable = new KeyformStubDrawable("mesh-key");
         context.modelDrawables.add(drawable);
         final TurboMeshPlugin plugin = new TurboMeshPlugin();
@@ -381,7 +381,6 @@ class TurboMeshPluginTest {
         final RecordingContextMenu contextMenu = new RecordingContextMenu();
         final RecordingUiHost uiHost = new RecordingUiHost();
         final List<Drawable> modelDrawables = new ArrayList<>();
-        boolean dialogServiceAvailable = true;
         final PluginLogger logger = new PluginLogger() {
             @Override
             public void debug(final String message) {}
@@ -443,11 +442,6 @@ class TurboMeshPluginTest {
             @Override
             public boolean isHostPresent() {
                 return true;
-            }
-
-            @Override
-            public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                throw unsupported();
             }
 
             @Override
@@ -559,20 +553,7 @@ class TurboMeshPluginTest {
         }
 
         @Override
-        public ContextMenuRegistry contextMenu() {
-            return contextMenu;
-        }
-
-        @Override
-        public UiHostCapabilityService uiHost() {
-            return uiHost;
-        }
-
-        @Override
         public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
-            if (dialogServiceAvailable) {
-                return PluginContext.super.services();
-            }
             return new dev.turboism.sdk.plugin.PluginServiceDirectory() {
                 @Override
                 public java.util.Set<dev.turboism.sdk.plugin.PluginService> installed() {
@@ -580,9 +561,14 @@ class TurboMeshPluginTest {
                 }
 
                 @Override
-                @SuppressWarnings("unchecked")
-                public <T> T get(final Class<T> serviceType) {
-                    return null;
+                public <T> Optional<T> find(final Class<T> serviceType) {
+                    if (serviceType == ContextMenuRegistry.class) {
+                        return Optional.of(serviceType.cast(contextMenu));
+                    }
+                    if (serviceType == UiHostCapabilityService.class) {
+                        return Optional.of(serviceType.cast(uiHost));
+                    }
+                    return Optional.empty();
                 }
             };
         }
@@ -649,11 +635,15 @@ class TurboMeshPluginTest {
         final List<StatusNotification> notifications = new ArrayList<>();
         Optional<String> chooseResult = Optional.of("AUTO_BLEND");
         boolean confirmResult = true;
+        boolean dialogAvailable = true;
         int chooseCalls;
         int confirmCalls;
 
         @Override
         public Optional<String> choose(final dev.turboism.sdk.ui.ChoiceDialogRequest request) {
+            if (!dialogAvailable) {
+                throw new UnsupportedOperationException("dialog surface unavailable");
+            }
             chooseCalls++;
             if ("turbo-mesh.confirm".equals(request.id())) {
                 confirmCalls++;
