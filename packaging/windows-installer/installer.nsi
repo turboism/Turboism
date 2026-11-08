@@ -705,8 +705,9 @@ Function EulaAcknowledgementsLeave
 FunctionEnd
 
 ; ---------- 第一方插件选择页（nsDialogs + SysListView32 原生复选框 + RichEdit20W 渲染 README） ----------
+; Match LVITEM pointer alignment for both 32-bit and 64-bit installer targets.
 Function InsertPluginListViewItem
-  System::Call '*(i 1, i r0, i 0, i 0, i 0, t r2, i 0, i 0, p 0) p .r3'
+  System::Call '*(i 1, i r0, i 0, i 0, &i${NSIS_PTR_SIZE} 0, t r2, i 0, i 0, p 0) p .r3'
   ${If} $3 != 0
     SendMessage $PluginSelectionList 0x104D 0 $3
     System::Free $3
@@ -716,7 +717,7 @@ Function InsertPluginListViewItem
   ${Else}
     StrCpy $4 0x1000
   ${EndIf}
-  System::Call '*(i 8, i r0, i 0, i r4, i 0xF000, p 0, i 0, i 0, p 0) p .r3'
+  System::Call '*(i 8, i r0, i 0, i r4, &i${NSIS_PTR_SIZE} 0xF000, p 0, i 0, i 0, p 0) p .r3'
   ${If} $3 != 0
     SendMessage $PluginSelectionList 0x102B $0 $3
     System::Free $3
@@ -781,7 +782,7 @@ Function PluginSelectionPoll
   ${If} $5 >= 0
     ${If} $5 != $PluginCurrentIndex
       StrCpy $PluginCurrentIndex $5
-      System::Call '*(i 8, i $PluginCurrentIndex, i 0, i 3, i 3, p 0, i 0, i 0, p 0) p .r3'
+      System::Call '*(i 8, i $PluginCurrentIndex, i 0, i 3, &i${NSIS_PTR_SIZE} 3, p 0, i 0, i 0, p 0) p .r3'
       ${If} $3 != 0
         SendMessage $PluginSelectionList 0x102B $PluginCurrentIndex $3
         System::Free $3
@@ -864,6 +865,7 @@ Function PluginSelectionLeave
 FunctionEnd
 
 Function GraalCreate
+  !insertmacro MUI_HEADER_TEXT "$(GraalPageTitle)" ""
   nsDialogs::Create 1018
   Pop $GraalDialog
   ${If} $GraalDialog == error
