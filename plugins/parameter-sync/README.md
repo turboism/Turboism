@@ -57,7 +57,7 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 
 1. Right-click any parameter in the Parameters palette.
 2. Select **Parameter Synchronization...** to open the unified configuration dialog.
-3. Check the parameters you want to link together and click **Save & Close**.
+3. Check the parameters you want to link together. Every change is applied and saved immediately; close the window with the title-bar close control when you are done.
 4. Dragging any checked parameter in the palette or canvas will now sync all other checked parameters in real time.
 
 ## Capabilities

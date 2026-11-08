@@ -151,20 +151,8 @@ public class ParameterSyncDialog extends JDialog {
         tableScroll.setPreferredSize(new Dimension(680, 280));
         content.add(tableScroll, BorderLayout.CENTER);
 
-        // ── Bottom Panel: Action Buttons ──
-        final JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        final JButton saveBtn = new JButton(i18n.text("dialog.btn.save"));
-        saveBtn.addActionListener(e -> {
-            persist();
-            dispose();
-        });
-        final JButton closeBtn = new JButton(i18n.text("dialog.btn.close"));
-        closeBtn.addActionListener(e -> dispose());
-        buttonPanel.add(saveBtn);
-        buttonPanel.add(closeBtn);
-
-        content.add(buttonPanel, BorderLayout.SOUTH);
-
+        // Every checkbox and the global switch persist immediately, so the dialog has no
+        // confirm/close footer: the window close control is the only way out.
         updateCountLabel();
 
         setContentPane(content);
@@ -190,6 +178,7 @@ public class ParameterSyncDialog extends JDialog {
 
     private void initRows(final CubismModel model, final String focusedId) {
         allRows.clear();
+        boolean autoSelected = false;
         if (model != null) {
             try {
                 for (final Parameter p : model.parameters().all()) {
@@ -199,6 +188,7 @@ public class ParameterSyncDialog extends JDialog {
                     if (focusedId != null && focusedId.equals(id) && ruleSet != null && ruleSet.isEmpty()) {
                         sync = true;
                         ruleSet.setSynchronized(id, true);
+                        autoSelected = true;
                     }
                     allRows.add(new ParamRow(sync, id, name, p.getMinimumValue(), p.getMaximumValue(), p));
                 }
@@ -206,6 +196,11 @@ public class ParameterSyncDialog extends JDialog {
             }
         }
         applyFilter();
+        // The initial auto-selection of the focused parameter is a real change: persist it so the
+        // choice survives a restart even when the operator closes the dialog without touching it.
+        if (autoSelected) {
+            persist();
+        }
     }
 
     private void applyFilter() {

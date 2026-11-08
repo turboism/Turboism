@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.warpalt;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.awt.event.MouseEvent;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
@@ -103,6 +104,55 @@ final class ArtMeshMirrorRenderingTest {
         }
     }
 
+    /**
+     * A double-click that resets the axis must consume the whole gesture.
+     *
+     * <p>The operator double-clicks the axis centre to reset it. The press that resets the axis is
+     * consumed, but the matching release used to fall through to the native dispatcher, which then
+     * started its own mesh-edit gesture on the release. Resetting the axis must never leak a native
+     * mesh gesture.</p>
+     */
+    @Test
+    void doubleClickResetConsumesTheMatchingRelease() throws Exception {
+        try (var loader = host()) {
+            Object view = loader.loadClass("com.live2d.cubism.view.context.CEViewContext_ModelingView")
+                    .getConstructor()
+                    .newInstance();
+            NativeWarpAltMirrorBridge.install(true);
+            try (var participation = NativeArtMeshSymmetryBridge.service().participate()) {
+                NativeArtMeshSymmetryBridge.service().setEnabled(true);
+                // The fixture axis pivot (10000010, 10000010) projects to the component centre.
+                Object centre = mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 400, 2);
+                assertTrue(
+                        NativeArtMeshSymmetryBridge.input(view, event(loader, centre)),
+                        "the second press of the double-click must reset the axis");
+                Object release = mouse(loader, MouseEvent.MOUSE_RELEASED, 500, 400, 2);
+                assertTrue(
+                        NativeArtMeshSymmetryBridge.input(view, event(loader, release)),
+                        "the release of the reset gesture must be consumed, not passed to the host");
+                // The axis is rebuilt on the next press, so the bridge keeps owning the gesture.
+                Object press = mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 400, 1);
+                assertTrue(
+                        NativeArtMeshSymmetryBridge.input(view, event(loader, press)),
+                        "the axis must still own the next press after a reset");
+            }
+        }
+    }
+
+    private static Object mouse(final ClassLoader loader, final int id, final int x, final int y, final int clickCount)
+            throws Exception {
+        return loader.loadClass("com.live2d.cubism.view.context.CEViewContext_ModelingView$NativeMouse")
+                .getConstructor(int.class, int.class, int.class, int.class)
+                .newInstance(id, x, y, clickCount);
+    }
+
+    private static Object event(final ClassLoader loader, final Object mouse) throws Exception {
+        final Class<?> type = loader.loadClass("com.live2d.cubism.view.context.CEViewContext_ModelingView$NativeEvent");
+        final Class<?> mouseType =
+                loader.loadClass("com.live2d.cubism.view.context.CEViewContext_ModelingView$NativeMouse");
+        return type.getConstructor(mouseType).newInstance(mouse);
+    }
+
     private URLClassLoader host() throws Exception {
         var files = new ArrayList<String>();
         source(files, "com.live2d.graphics3d.type.GVector2", """
@@ -143,6 +193,14 @@ final class ArtMeshMirrorRenderingTest {
                 public final com.live2d.cubism.doc.modeling.CModelingEditMode_Main edit=new com.live2d.cubism.doc.modeling.CModelingEditMode_Main();
                 public final Camera camera=new Camera();public final Drawer drawer=new Drawer();
                 public Object getCurrentEditMode(){return edit;}public Camera getCameraManager(){return camera;}
+                public int repaints; public void repaintCanvas(){repaints++;}
+                public static class NativeMouse extends java.awt.event.MouseEvent {
+                    public NativeMouse(int id,int x,int y,int clicks){
+                        super(new java.awt.Canvas(),id,1L,0,x,y,clicks,false,java.awt.event.MouseEvent.BUTTON1);}}
+                public static class NativeEvent {
+                    public final NativeMouse mouse; public final CPoint point;
+                    public NativeEvent(NativeMouse m){mouse=m;point=new CPoint(m.getX(),m.getY());}
+                    public NativeMouse f(){return mouse;} public CPoint K(){return point;}}
                 public Render getRenderSystem(){return new Render();}public Scene getSceneGraph(){return new Scene();}
                 public class Render {public Drawer b(){return drawer;}}
                 public static class Scene {public Object getObjectsOnCanvas(){return this;}public Object getObjectsOnComponent(){return this;}}

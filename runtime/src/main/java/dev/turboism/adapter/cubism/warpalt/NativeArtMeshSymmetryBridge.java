@@ -38,6 +38,7 @@ public final class NativeArtMeshSymmetryBridge {
                 state.axis = null;
                 state.drag = 0;
                 state.vertexGesture = false;
+                state.resetGesture = false;
                 state.pairs.clear();
                 state.written.clear();
                 Object view = state.view == null ? null : state.view.get();
@@ -60,6 +61,13 @@ public final class NativeArtMeshSymmetryBridge {
         String angleLabel;
         int drag;
         boolean vertexGesture;
+        /**
+         * Set by the double-click reset. The matching release must be consumed as well: a reset is a
+         * complete gesture, and letting its release reach the native dispatcher starts a mesh edit
+         * the operator never asked for.
+         */
+        boolean resetGesture;
+
         NativeWarpPointGesture.Gesture movement;
         ArtMeshMirrorAxis.Point last;
         final Map<float[], Pairing> pairs = new IdentityHashMap<>();
@@ -76,6 +84,7 @@ public final class NativeArtMeshSymmetryBridge {
             for (State state : STATES.values()) {
                 state.drag = 0;
                 state.vertexGesture = false;
+                state.resetGesture = false;
                 state.pairs.clear();
                 state.written.clear();
             }
@@ -129,6 +138,7 @@ public final class NativeArtMeshSymmetryBridge {
                 state.movement = null;
                 state.vertexGesture = mouse.getButton() == MouseEvent.BUTTON1;
                 state.drag = 0;
+                state.resetGesture = false;
                 state.pairs.clear();
                 state.written.clear();
             }
@@ -164,6 +174,7 @@ public final class NativeArtMeshSymmetryBridge {
                     state.axis = null;
                     initialize(view, state);
                     state.drag = 0;
+                    state.resetGesture = true;
                     call(view, "repaintCanvas");
                     return true;
                 }
@@ -175,8 +186,9 @@ public final class NativeArtMeshSymmetryBridge {
             } else if (id == MouseEvent.MOUSE_RELEASED) {
                 state.movement = null;
                 state.vertexGesture = false;
-                boolean captured = state.drag != 0;
+                boolean captured = state.drag != 0 || state.resetGesture;
                 state.drag = 0;
+                state.resetGesture = false;
                 state.pairs.clear();
                 state.written.clear();
                 if (captured) {
@@ -229,6 +241,7 @@ public final class NativeArtMeshSymmetryBridge {
             state.axis = null;
             state.drag = 0;
             state.vertexGesture = false;
+            state.resetGesture = false;
             state.pairs.clear();
             state.written.clear();
         }
