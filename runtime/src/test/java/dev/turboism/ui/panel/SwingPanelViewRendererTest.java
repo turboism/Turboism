@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.action.UiActionEvent;
@@ -822,6 +823,144 @@ class SwingPanelViewRendererTest {
             assertEquals(4, insets.bottom);
             assertEquals(6, insets.right);
         });
+    }
+
+    @Test
+    void layoutChangesRetainTheHeaderAndItsActionControl() throws Exception {
+        final byte[] png = java.util.Base64.getDecoder()
+                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+        final List<String> actions = new ArrayList<>();
+        SwingUtilities.invokeAndWait(() -> {
+            final PanelView header = PanelView.spaceBetween(
+                    PanelView.text("Recent Files"), PanelView.iconButton("layout", png, "Six columns", "board.layout"));
+            final JComponent root = SwingPanelViewRenderer.render(
+                    PanelView.scroll(PanelView.column(header, PanelView.grid(6, PanelView.text("Project")))),
+                    (action, event) -> actions.add(action));
+            final JComponent column =
+                    (JComponent) ((JScrollPane) root).getViewport().getView();
+            final Component oldHeader = column.getComponent(0);
+            final AbstractButton button = (AbstractButton) named(root, "layout");
+            final PanelView updatedHeader = PanelView.spaceBetween(
+                    PanelView.text("Recent Files"),
+                    PanelView.iconButton("layout", png, "Three columns", "board.layout"));
+            final JComponent updated = SwingPanelViewRenderer.update(
+                    root,
+                    PanelView.scroll(PanelView.column(updatedHeader, PanelView.grid(3, PanelView.text("Project")))),
+                    (action, event) -> actions.add(action),
+                    java.util.Locale.ENGLISH);
+            assertSame(root, updated);
+            assertSame(column, ((JScrollPane) updated).getViewport().getView());
+            assertSame(oldHeader, column.getComponent(0));
+            assertSame(button, named(updated, "layout"));
+            assertEquals("Three columns", button.getToolTipText());
+            button.doClick();
+        });
+        assertEquals(List.of("board.layout"), actions);
+    }
+
+    @Test
+    void viewportOverlayFollowsTheNativeLayoutBeforeReturningToTheEventQueue() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JPanel frame = new JPanel(null);
+            final javax.swing.JLayeredPane layers = new javax.swing.JLayeredPane();
+            final JPanel nativeParent = new JPanel(new java.awt.BorderLayout());
+            final JPanel viewport = new JPanel();
+            frame.add(layers);
+            layers.setBounds(0, 0, 900, 700);
+            layers.add(nativeParent);
+            nativeParent.setBounds(20, 30, 700, 500);
+            nativeParent.add(viewport);
+            nativeParent.doLayout();
+            final EmbeddedPanelHostOperations.PanelHandle handle = ViewportPanelInstaller.install(
+                    frame, viewport, layers, boardDescriptor(), () -> false, descriptor -> new JPanel());
+            try {
+                final Component overlay = layers.getComponent(0);
+                nativeParent.setBounds(40, 50, 500, 320);
+                nativeParent.doLayout();
+                assertEquals(new java.awt.Rectangle(40, 50, 500, 320), overlay.getBounds());
+            } finally {
+                handle.close();
+            }
+        });
+    }
+
+    @Test
+    void viewportBackgroundAndLinkFollowThemeRefresh() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final Object originalBackground = javax.swing.UIManager.get("Panel.background");
+            final Object originalAccent = javax.swing.UIManager.get("Component.accentColor");
+            final JPanel frame = new JPanel();
+            final javax.swing.JLayeredPane layers = new javax.swing.JLayeredPane();
+            final JPanel parent = new JPanel();
+            final JPanel viewport = new JPanel();
+            parent.add(viewport);
+            layers.add(parent);
+            final EmbeddedPanelHostOperations.PanelHandle handle = ViewportPanelInstaller.install(
+                    frame,
+                    viewport,
+                    layers,
+                    boardDescriptor(),
+                    () -> false,
+                    descriptor -> SwingPanelViewRenderer.render(
+                            PanelView.link("create", "Create", "board.create"), (action, event) -> {}));
+            try {
+                final JComponent overlay = (JComponent) layers.getComponent(0);
+                final Color background = new Color(0x182432);
+                final Color accent = new Color(0xAABBCC);
+                javax.swing.UIManager.put("Panel.background", background);
+                javax.swing.UIManager.put("Component.accentColor", accent);
+                SwingUtilities.updateComponentTreeUI(overlay);
+                assertEquals(background, overlay.getBackground());
+                final JLabel link = (JLabel) named(overlay, "create");
+                assertFalse(link.getText().contains("#3B82F6"));
+                assertEquals(accent, link.getForeground());
+            } finally {
+                handle.close();
+                javax.swing.UIManager.put("Panel.background", originalBackground);
+                javax.swing.UIManager.put("Component.accentColor", originalAccent);
+            }
+        });
+    }
+
+    @Test
+    void supersededPanelRegistrationsDoNotRemoveTheCurrentSurface() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final ReplacingPanelRegistry registry = new ReplacingPanelRegistry();
+            final AtomicInteger installs = new AtomicInteger();
+            final AtomicInteger updates = new AtomicInteger();
+            final AtomicInteger closes = new AtomicInteger();
+            final java.util.function.Supplier<EmbeddedPanelHostOperations.PanelHandle> installer = () -> {
+                installs.incrementAndGet();
+                return new EmbeddedPanelHostOperations.PanelHandle() {
+                    @Override
+                    public void activate() {}
+
+                    @Override
+                    public void updateContent(EmbeddedPanelContributionDescriptor descriptor) {
+                        updates.incrementAndGet();
+                    }
+
+                    @Override
+                    public void close() {
+                        closes.incrementAndGet();
+                    }
+                };
+            };
+            final dev.turboism.sdk.plugin.Registration first = registry.replace(boardDescriptor(), installer);
+            final dev.turboism.sdk.plugin.Registration second = registry.replace(boardDescriptor(), installer);
+            first.close();
+            assertEquals(1, installs.get());
+            assertEquals(1, updates.get());
+            assertEquals(0, closes.get());
+            second.close();
+            second.close();
+            assertEquals(1, closes.get());
+        });
+    }
+
+    private static EmbeddedPanelContributionDescriptor boardDescriptor() {
+        return new EmbeddedPanelContributionDescriptor(
+                "board-plugin", "board", "Recent", "viewport", 20, PanelView.text("Recent"), false);
     }
 
     private static Component named(final Component component, final String name) {

@@ -43,6 +43,14 @@ import javax.swing.SwingUtilities;
 /** Renders immutable SDK panel values into runtime-owned Swing components. */
 public final class SwingPanelViewRenderer {
 
+    private static final String VIEW_STATE = "turboism.panel.view";
+    private static final String ACCENT_COLOR_KEY = "Component.accentColor";
+    private static final String LINK_COLOR_KEY = "Component.linkColor";
+    private static final String FOREGROUND_COLOR_KEY = "CubismCommon.foreground";
+    private static final String MUTED_COLOR_KEY = "CubismCommon.mutedForeground";
+    private static final int STACK_CHILD_STRIDE = 2;
+    private static final int ICON_SIZE = 20;
+    private static final java.awt.Color FALLBACK_MUTED_COLOR = new java.awt.Color(0x999999);
     private static final BiFunction<UiIconRef, Boolean, Optional<Icon>> EMPTY_ICON_RESOLVER =
             (reference, disabled) -> Optional.empty();
 
@@ -113,6 +121,89 @@ public final class SwingPanelViewRenderer {
         return renderNode(view, action, false, locale, iconResolver);
     }
 
+    /** Updates changed presentation nodes without replacing unchanged controls. */
+    public static JComponent update(
+            final JComponent current,
+            final PanelView view,
+            final BiConsumer<String, Optional<UiActionEvent>> action,
+            final java.util.Locale locale) {
+        Objects.requireNonNull(current, "current");
+        Objects.requireNonNull(view, "view");
+        Objects.requireNonNull(action, "action");
+        final Object previous = current.getClientProperty(VIEW_STATE);
+        if (view.equals(previous)) return current;
+        final boolean retained;
+        if (previous instanceof PanelView.Scroll
+                && view instanceof PanelView.Scroll next
+                && current instanceof JScrollPane scroll) {
+            final JComponent child = (JComponent) scroll.getViewport().getView();
+            final JComponent updated = update(child, next.child(), action, locale);
+            if (updated != child) scroll.setViewportView(updated);
+            retained = true;
+        } else if (previous instanceof PanelView.Column old
+                && view instanceof PanelView.Column next
+                && old.children().size() == next.children().size()
+                && current instanceof JPanel panel) {
+            updateStack(panel, next.children(), action, locale);
+            retained = true;
+        } else if (previous instanceof PanelView.SpaceBetween
+                && view instanceof PanelView.SpaceBetween next
+                && current instanceof JPanel panel) {
+            updateBorderChild(panel, BorderLayout.WEST, next.left(), action, locale);
+            updateBorderChild(panel, BorderLayout.EAST, next.right(), action, locale);
+            retained = true;
+        } else if (previous instanceof PanelView.IconButton old
+                && view instanceof PanelView.IconButton next
+                && old.id().equals(next.id())
+                && old.actionId().equals(next.actionId())
+                && current instanceof JButton button) {
+            button.setToolTipText(next.tooltip());
+            if (!java.util.Arrays.equals(old.pngBytes(), next.pngBytes())) {
+                button.setIcon(new ThemedMaskIcon(next.pngBytes(), ICON_SIZE));
+            }
+            retained = true;
+        } else {
+            retained = false;
+        }
+        if (!retained) return render(view, action, locale);
+        current.putClientProperty(VIEW_STATE, view);
+        current.revalidate();
+        current.repaint();
+        return current;
+    }
+
+    private static void updateStack(
+            final JPanel panel,
+            final java.util.List<PanelView> children,
+            final BiConsumer<String, Optional<UiActionEvent>> action,
+            final java.util.Locale locale) {
+        for (int index = 0; index < children.size(); index++) {
+            final int componentIndex = index * STACK_CHILD_STRIDE;
+            final JComponent child = (JComponent) panel.getComponent(componentIndex);
+            final JComponent updated = update(child, children.get(index), action, locale);
+            if (updated != child) {
+                updated.setAlignmentX(Component.LEFT_ALIGNMENT);
+                updated.setMaximumSize(new Dimension(Integer.MAX_VALUE, updated.getMaximumSize().height));
+                panel.remove(componentIndex);
+                panel.add(updated, componentIndex);
+            }
+        }
+    }
+
+    private static void updateBorderChild(
+            final JPanel panel,
+            final String constraint,
+            final PanelView view,
+            final BiConsumer<String, Optional<UiActionEvent>> action,
+            final java.util.Locale locale) {
+        final JComponent child = (JComponent) ((BorderLayout) panel.getLayout()).getLayoutComponent(constraint);
+        final JComponent updated = update(child, view, action, locale);
+        if (updated != child) {
+            panel.remove(child);
+            panel.add(updated, constraint);
+        }
+    }
+
     /**
      * Re-resolves typed inline icon runs in an existing rendered tree and drops stale icon
      * presentations. Call this on the Swing event dispatch thread after a cached provider,
@@ -143,6 +234,17 @@ public final class SwingPanelViewRenderer {
             final boolean chartTitleSuppressed,
             final java.util.Locale locale,
             final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver) {
+        final JComponent rendered = renderElement(view, action, chartTitleSuppressed, locale, iconResolver);
+        rendered.putClientProperty(VIEW_STATE, view);
+        return rendered;
+    }
+
+    private static JComponent renderElement(
+            final PanelView view,
+            final BiConsumer<String, Optional<UiActionEvent>> action,
+            final boolean chartTitleSuppressed,
+            final java.util.Locale locale,
+            final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver) {
         if (view instanceof PanelView.Column column) {
             return container(column.children(), BoxLayout.Y_AXIS, action, chartTitleSuppressed, locale, iconResolver);
         }
@@ -162,16 +264,12 @@ public final class SwingPanelViewRenderer {
             final String html = text.centered()
                     ? "<html><div style='text-align:center'>" + escaped + "</div></html>"
                     : "<html>" + escaped + "</html>";
-            final JLabel label = new JLabel(html);
+            final JLabel label = new ThemedLabel(html, text.grayed() ? LabelRole.MUTED : LabelRole.NORMAL);
             if (text.fontScale() != 1.0f) {
                 final java.awt.Font font = label.getFont();
                 if (font != null) {
                     label.setFont(font.deriveFont(font.getSize2D() * text.fontScale()));
                 }
-            }
-            if (text.grayed()) {
-                final java.awt.Color grayed = javax.swing.UIManager.getColor("Label.disabledForeground");
-                label.setForeground(grayed == null ? new java.awt.Color(0x999999) : grayed);
             }
             return label;
         }
@@ -218,8 +316,10 @@ public final class SwingPanelViewRenderer {
             return panel;
         }
         if (view instanceof PanelView.Link link) {
-            final JLabel label = new JLabel("<html><div style='text-align:center'><nobr><u><font color='#3B82F6'>"
-                    + htmlEscape(link.label()) + "</font></u></nobr></div></html>");
+            final JLabel label = new ThemedLabel(
+                    "<html><div style='text-align:center'><nobr><u>" + htmlEscape(link.label())
+                            + "</u></nobr></div></html>",
+                    LabelRole.LINK);
             label.setName(link.id());
             label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
             label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -264,7 +364,7 @@ public final class SwingPanelViewRenderer {
             component.setFocusPainted(false);
             component.setOpaque(false);
             component.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            component.setIcon(new ThemedMaskIcon(iconButton.pngBytes(), 20));
+            component.setIcon(new ThemedMaskIcon(iconButton.pngBytes(), ICON_SIZE));
             component.setPreferredSize(new Dimension(30, 30));
             component.addActionListener(ignored -> action.accept(iconButton.actionId(), Optional.empty()));
             return component;
@@ -355,8 +455,7 @@ public final class SwingPanelViewRenderer {
             panel.setBorder(
                     card.bordered()
                             ? javax.swing.BorderFactory.createCompoundBorder(
-                                    javax.swing.BorderFactory.createLineBorder(cardBorderColor(), 1, true),
-                                    javax.swing.BorderFactory.createEmptyBorder(6, 6, 6, 6))
+                                    new ThemedCardBorder(), javax.swing.BorderFactory.createEmptyBorder(6, 6, 6, 6))
                             : javax.swing.BorderFactory.createEmptyBorder(4, 6, 4, 6));
             panel.add(renderNode(card.content(), action, false, locale, iconResolver), BorderLayout.CENTER);
             installCardActivation(panel, card, action);
@@ -380,6 +479,65 @@ public final class SwingPanelViewRenderer {
         }
         throw new IllegalArgumentException(
                 "unsupported panel view: " + view.getClass().getName());
+    }
+
+    private enum LabelRole {
+        NORMAL,
+        MUTED,
+        LINK
+    }
+
+    /** Re-resolves semantic text colors when the host refreshes its theme. */
+    private static final class ThemedLabel extends JLabel {
+        private final LabelRole role;
+
+        private ThemedLabel(final String text, final LabelRole role) {
+            super(text);
+            this.role = role;
+            refreshColor();
+        }
+
+        @Override
+        public void updateUI() {
+            super.updateUI();
+            refreshColor();
+        }
+
+        private void refreshColor() {
+            final java.awt.Color color;
+            if (role == LabelRole.LINK) {
+                final java.awt.Color accent = javax.swing.UIManager.getColor(ACCENT_COLOR_KEY);
+                color = accent == null ? javax.swing.UIManager.getColor(LINK_COLOR_KEY) : accent;
+            } else if (role == LabelRole.MUTED) {
+                final java.awt.Color muted = javax.swing.UIManager.getColor(MUTED_COLOR_KEY);
+                final java.awt.Color disabled = javax.swing.UIManager.getColor("Label.disabledForeground");
+                color = muted == null ? disabled == null ? FALLBACK_MUTED_COLOR : disabled : muted;
+            } else {
+                color = javax.swing.UIManager.getColor(FOREGROUND_COLOR_KEY);
+            }
+            if (color != null) setForeground(new javax.swing.plaf.ColorUIResource(color));
+        }
+    }
+
+    /** Keeps card outlines consistent with live theme defaults. */
+    private static final class ThemedCardBorder extends javax.swing.border.LineBorder {
+        private static final int THICKNESS = 1;
+
+        private ThemedCardBorder() {
+            super(cardBorderColor(), THICKNESS, true);
+        }
+
+        @Override
+        public void paintBorder(
+                final Component component,
+                final java.awt.Graphics graphics,
+                final int x,
+                final int y,
+                final int width,
+                final int height) {
+            lineColor = cardBorderColor();
+            super.paintBorder(component, graphics, x, y, width, height);
+        }
     }
 
     /** Theme-tinted alpha-mask icon used by plugin icon buttons. */

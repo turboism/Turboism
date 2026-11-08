@@ -9,6 +9,7 @@ import dev.turboism.ui.action.EditorUiActionRouter;
 import dev.turboism.ui.host.EdtDispatch;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.swing.JComponent;
@@ -29,6 +30,7 @@ public final class RecentProjectBoardHostOperations {
     private final VerifiedMemberResolver resolver;
     private final EditorUiActionRouter actionRouter;
     private final Supplier<java.util.Locale> locale;
+    private final ReplacingPanelRegistry boards = new ReplacingPanelRegistry();
 
     public RecentProjectBoardHostOperations(
             final VerifiedMemberResolver resolver,
@@ -98,13 +100,24 @@ public final class RecentProjectBoardHostOperations {
                 contribution.priority(),
                 contribution.content(),
                 false);
-        final Function<EmbeddedPanelContributionDescriptor, JComponent> contentBuilder =
-                updated -> SwingPanelViewRenderer.render(
-                        updated.content(),
-                        (actionId, event) -> actionRouter.invoke(pluginId, actionId, event),
-                        locale.get());
-        // The installer reads the native open-document list itself; the fallback hides the
-        // board rather than risking it covering a live canvas.
-        return ViewportPanelInstaller.install(resolver, descriptor, () -> true, contentBuilder);
+        return boards.replace(descriptor, () -> {
+            final AtomicReference<JComponent> content = new AtomicReference<>();
+            final Function<EmbeddedPanelContributionDescriptor, JComponent> contentBuilder = updated -> {
+                final JComponent previous = content.get();
+                final JComponent next = previous == null
+                        ? SwingPanelViewRenderer.render(
+                                updated.content(),
+                                (actionId, event) -> actionRouter.invoke(pluginId, actionId, event),
+                                locale.get())
+                        : SwingPanelViewRenderer.update(
+                                previous,
+                                updated.content(),
+                                (actionId, event) -> actionRouter.invoke(pluginId, actionId, event),
+                                locale.get());
+                content.set(next);
+                return next;
+            };
+            return ViewportPanelInstaller.install(resolver, descriptor, () -> true, contentBuilder);
+        });
     }
 }
