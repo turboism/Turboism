@@ -76,7 +76,7 @@ private val runtimeCompositionLayers = setOf("shell", "kernel", "distribution", 
 private val runtimeFeatureImpls = setOf(
     "recentfile", "recentpreview", "screenshot", "script", "storage", "task", "config",
     "userfile", "hostread", "performance", "exportsettings", "filechooser", "mcp", "update",
-    "worktime", "keybinding"
+    "worktime", "keybinding", "automesh"
 )
 // Bottom-most packages: the JDK, the SDK and their leaf siblings only — every layer above
 // them is forbidden, which is what keeps runtime.log off the framework core.

@@ -28,6 +28,12 @@ final class KernelPluginContextFactory implements AutoCloseable {
     private final GraalHostConfiguration graalConfiguration;
     private final GraalHostManager graalHost;
     private final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
+    /**
+     * Session-wide auto-mesh catalog shared by every plugin generation. The native selection lives
+     * here, so reloading a plugin never resets which algorithm the Auto Mesh Generate entry runs.
+     */
+    private final dev.turboism.automesh.AutoMeshAlgorithmCatalog autoMeshCatalog =
+            new dev.turboism.automesh.AutoMeshAlgorithmCatalog();
 
     KernelPluginContextFactory(
             final Path home,
@@ -235,6 +241,27 @@ final class KernelPluginContextFactory implements AutoCloseable {
                     context.installModelingTools(modelingTools);
                 } catch (RuntimeException | Error failure) {
                     modelingTools.close();
+                    throw failure;
+                }
+            }
+            if (requestedDescriptor
+                    .capabilities()
+                    .contains(dev.turboism.automesh.RuntimeAutoMeshAlgorithmRegistry.REQUIRED_CAPABILITY)) {
+                final var autoMeshAlgorithms = new dev.turboism.automesh.RuntimeAutoMeshAlgorithmRegistry(
+                        requestedDescriptor.id(),
+                        eventOwner.key().generation(),
+                        dev.turboism.permissions.PermissionChecker.from(
+                                new dev.turboism.permissions.CubismPermissionGate(
+                                        requestedDescriptor.id(),
+                                        services.dependencies().permissions(),
+                                        services.dependencies().cubismAuditSink(),
+                                        services.dependencies().clock())),
+                        true,
+                        autoMeshCatalog);
+                try {
+                    context.installAutoMeshAlgorithms(autoMeshAlgorithms);
+                } catch (RuntimeException | Error failure) {
+                    autoMeshAlgorithms.close();
                     throw failure;
                 }
             }

@@ -146,6 +146,7 @@ class CompleteCubismModelReadApiContractTest {
                 "setUserData",
                 "setVisible",
                 "textureIndex",
+                "texturePixels",
                 "ui",
                 "userData",
                 "vertexPositions",

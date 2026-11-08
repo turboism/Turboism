@@ -65,6 +65,8 @@ public final class CorePluginContext implements PluginContext {
     private volatile dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService projectWorkTimeService;
     private final CorePluginInstallableService<MeshToolRegistry> meshTools =
             new CorePluginInstallableService<>("mesh tools");
+    private final CorePluginInstallableService<dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithmRegistry>
+            autoMeshAlgorithms = new CorePluginInstallableService<>("auto-mesh algorithms");
     private final CorePluginInstallableService<dev.turboism.sdk.cubism.modeling.ModelingToolRegistry> modelingTools =
             new CorePluginInstallableService<>("modeling tools");
     private final RuntimePluginServiceDirectory serviceDirectory = new RuntimePluginServiceDirectory();
@@ -368,6 +370,9 @@ public final class CorePluginContext implements PluginContext {
                 PluginService.MODELING_TOOLS, () -> disposableScope().isSealed() ? null : modelingTools.current());
         serviceDirectory.installWhenPresent(
                 PluginService.MESH_TOOLS, () -> disposableScope().isSealed() ? null : meshTools.current());
+        serviceDirectory.installWhenPresent(
+                PluginService.AUTOMESH_ALGORITHMS,
+                () -> disposableScope().isSealed() ? null : autoMeshAlgorithms.current());
         serviceDirectory.install(PluginService.SCRIPTS, () -> scriptService, ScriptService::unavailable);
         serviceDirectory.install(
                 PluginService.MCP_CONNECTIONS, () -> mcpConnectionService, McpConnectionService::unavailable);
@@ -444,6 +449,11 @@ public final class CorePluginContext implements PluginContext {
     /** Installs the independently verified, directory-only ordinary tool service once. */
     public void installModelingTools(final dev.turboism.sdk.cubism.modeling.ModelingToolRegistry service) {
         modelingTools.install(service, disposableScope());
+    }
+    /** Runtime composition seam; installs the independently verified auto-mesh algorithm service once. */
+    public void installAutoMeshAlgorithms(
+            final dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithmRegistry service) {
+        autoMeshAlgorithms.install(service, disposableScope());
     }
 
     @Override

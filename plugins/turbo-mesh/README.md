@@ -44,6 +44,13 @@ Custom ArtMesh point placement: curvature-aware boundary resampling, autonomous 
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** 5.2.00–5.2.03, 5.3.00–5.3.04（earlier Cubism versions lack the feature entirely）.
+Full feature set (reviewed versions): 5.2.00–5.2.03, 5.3.00–5.3.04.
+- Mesh geometry read only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 This official plugin is a **store candidate**, not yet a published store listing. Until marketplace publication, install it through Turboism's official release packaging, then enable it in **Plugin Management**. Disable or uninstall it from the same window when the workflow is not needed.
