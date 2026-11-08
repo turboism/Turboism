@@ -135,13 +135,17 @@ Section "-插件载荷" SecPluginPayload
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0031.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+    File "/oname=turbo-mesh.jar" "${STAGING_DIR}/plugins/turbo-mesh.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0032.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=warp-deformer-alt-symmetry.jar" "${STAGING_DIR}/plugins/warp-deformer-alt-symmetry.jar"
+    File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0033.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=warp-deformer-alt-symmetry.jar" "${STAGING_DIR}/plugins/warp-deformer-alt-symmetry.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0034.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
     File "/oname=webdav-backup.jar" "${STAGING_DIR}/plugins/webdav-backup.jar"
   ${EndIf}
@@ -191,6 +195,7 @@ Var PluginState_30
 Var PluginState_31
 Var PluginState_32
 Var PluginState_33
+Var PluginState_34
 
 LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_ENGLISH} "Turboism ACP 0.68.1"
 LangString PLUGIN_DESC_dev_turboism_plugin_acp ${LANG_ENGLISH} "ACP v1 Agent and Settings windows connecting a user-installed agent to the authenticated Turboism MCP server."
@@ -440,6 +445,14 @@ LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats ${LANG_JAPANESE} 
 LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats ${LANG_JAPANESE} "Turboism のテクスチャアトラス統計。"
 LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats ${LANG_KOREAN} "텍스처 아틀라스 통계 0.68.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats ${LANG_KOREAN} "Turboism 텍스처 아틀라스 통계 플러그인입니다."
+LangString PLUGIN_NAME_dev_turboism_plugin_turbo_mesh ${LANG_ENGLISH} "Turbo Mesh 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_turbo_mesh ${LANG_ENGLISH} "Custom ArtMesh point placement with region-aware constrained triangulation."
+LangString PLUGIN_NAME_dev_turboism_plugin_turbo_mesh ${LANG_SIMPCHINESE} "Turbo 网格 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_turbo_mesh ${LANG_SIMPCHINESE} "自定义 ArtMesh 布点：区域自治分割 + 曲率感知边界采样 + 约束 Delaunay 三角化。"
+LangString PLUGIN_NAME_dev_turboism_plugin_turbo_mesh ${LANG_JAPANESE} "ターボメッシュ 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_turbo_mesh ${LANG_JAPANESE} "カスタム ArtMesh 布点：領域自律分割 + 曲率認識の境界サンプリング + 拘束 Delaunay 三角形分割。"
+LangString PLUGIN_NAME_dev_turboism_plugin_turbo_mesh ${LANG_KOREAN} "터보 메시 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_turbo_mesh ${LANG_KOREAN} "사용자 정의 ArtMesh 배치: 영역 자율 분할 + 곡률 인식 경계 샘플링 + 제약 Delaunay 삼각 분할."
 LangString PLUGIN_NAME_dev_turboism_plugin_uitheme ${LANG_ENGLISH} "UI Theme Plugin 0.68.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_uitheme ${LANG_ENGLISH} "Legacy-compatible theme packages, built-in themes, theme manager workflow, and exact-version Cubism appearance application."
 LangString PLUGIN_NAME_dev_turboism_plugin_uitheme ${LANG_SIMPCHINESE} "UI 主题插件 0.68.0"
@@ -467,8 +480,8 @@ LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_KOREAN} "Turboism WebDA
 
 ; 初始化第一方插件选择状态（默认全选）
 Function InitPluginSelectionDefaults
-  StrCpy $PluginTotalCount "34"
-  StrCpy $PluginSelectedCount "34"
+  StrCpy $PluginTotalCount "35"
+  StrCpy $PluginSelectedCount "35"
   StrCpy $PluginCurrentIndex "0"
   StrCpy $PluginReadmeDir ""
   StrCpy $PluginState_0 1
@@ -505,6 +518,7 @@ Function InitPluginSelectionDefaults
   StrCpy $PluginState_31 1
   StrCpy $PluginState_32 1
   StrCpy $PluginState_33 1
+  StrCpy $PluginState_34 1
 FunctionEnd
 
 ; 按当前界面语言解压插件渲染后的 RTF README 到安装器私有临时目录
@@ -552,6 +566,7 @@ Function StagePluginReadmeFiles
     File "/oname=plugin-31.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0031-chn.rtf"
     File "/oname=plugin-32.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0032-chn.rtf"
     File "/oname=plugin-33.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0033-chn.rtf"
+    File "/oname=plugin-34.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0034-chn.rtf"
   ${ElseIf} $LANGUAGE == ${LANG_JAPANESE}
     File "/oname=plugin-0.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0000-jpn.rtf"
     File "/oname=plugin-1.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0001-jpn.rtf"
@@ -587,6 +602,7 @@ Function StagePluginReadmeFiles
     File "/oname=plugin-31.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0031-jpn.rtf"
     File "/oname=plugin-32.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0032-jpn.rtf"
     File "/oname=plugin-33.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0033-jpn.rtf"
+    File "/oname=plugin-34.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0034-jpn.rtf"
   ${ElseIf} $LANGUAGE == ${LANG_KOREAN}
     File "/oname=plugin-0.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0000-kor.rtf"
     File "/oname=plugin-1.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0001-kor.rtf"
@@ -622,6 +638,7 @@ Function StagePluginReadmeFiles
     File "/oname=plugin-31.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0031-kor.rtf"
     File "/oname=plugin-32.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0032-kor.rtf"
     File "/oname=plugin-33.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0033-kor.rtf"
+    File "/oname=plugin-34.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0034-kor.rtf"
   ${Else}
     File "/oname=plugin-0.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0000-eng.rtf"
     File "/oname=plugin-1.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0001-eng.rtf"
@@ -657,6 +674,7 @@ Function StagePluginReadmeFiles
     File "/oname=plugin-31.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0031-eng.rtf"
     File "/oname=plugin-32.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0032-eng.rtf"
     File "/oname=plugin-33.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0033-eng.rtf"
+    File "/oname=plugin-34.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0034-eng.rtf"
   ${EndIf}
 FunctionEnd
 
@@ -790,14 +808,18 @@ Function PopulatePluginSelectionList
   Call InsertPluginListViewItem
   StrCpy $0 31
   StrCpy $1 $PluginState_31
-  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_uitheme)"
+  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_turbo_mesh)"
   Call InsertPluginListViewItem
   StrCpy $0 32
   StrCpy $1 $PluginState_32
-  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_warp_deformer_alt_symmetry)"
+  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_uitheme)"
   Call InsertPluginListViewItem
   StrCpy $0 33
   StrCpy $1 $PluginState_33
+  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_warp_deformer_alt_symmetry)"
+  Call InsertPluginListViewItem
+  StrCpy $0 34
+  StrCpy $1 $PluginState_34
   StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_webdav)"
   Call InsertPluginListViewItem
   System::Call '*(i 8, i $PluginCurrentIndex, i 0, i 3, i 3, p 0, i 0, i 0, p 0) p .r3'
@@ -1219,6 +1241,18 @@ Function SyncPluginSelectionFromListView
     StrCpy $5 33
   ${EndIf}
   IntOp $4 $4 + $1
+  SendMessage $PluginSelectionList 0x102C 34 0xF000 $1
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
+    StrCpy $1 1
+  ${Else}
+    StrCpy $1 0
+  ${EndIf}
+  ${If} $1 != $PluginState_34
+    StrCpy $PluginState_34 $1
+    StrCpy $5 34
+  ${EndIf}
+  IntOp $4 $4 + $1
 FunctionEnd
 
 ; 全选 ($0=1) 或全不选 ($0=0) 全部第一方插件
@@ -1257,8 +1291,9 @@ Function SetAllPluginsSelected
   StrCpy $PluginState_31 $0
   StrCpy $PluginState_32 $0
   StrCpy $PluginState_33 $0
+  StrCpy $PluginState_34 $0
   ${If} $0 == 1
-    StrCpy $PluginSelectedCount "34"
+    StrCpy $PluginSelectedCount "35"
     StrCpy $4 0x2000
   ${Else}
     StrCpy $PluginSelectedCount "0"
@@ -1464,17 +1499,23 @@ Function WritePluginSelectionSkipMarkers
   ${If} $PluginState_31 == 0
     FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0031.skip" w
     FileClose $0
-    Delete "$INSTDIR\plugins\ui-theme.jar"
+    Delete "$INSTDIR\plugins\turbo-mesh.jar"
   ${EndIf}
   Delete "$PLUGINSDIR\Turboism-plugin-plan\0032.skip"
   ${If} $PluginState_32 == 0
     FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0032.skip" w
     FileClose $0
-    Delete "$INSTDIR\plugins\warp-deformer-alt-symmetry.jar"
+    Delete "$INSTDIR\plugins\ui-theme.jar"
   ${EndIf}
   Delete "$PLUGINSDIR\Turboism-plugin-plan\0033.skip"
   ${If} $PluginState_33 == 0
     FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0033.skip" w
+    FileClose $0
+    Delete "$INSTDIR\plugins\warp-deformer-alt-symmetry.jar"
+  ${EndIf}
+  Delete "$PLUGINSDIR\Turboism-plugin-plan\0034.skip"
+  ${If} $PluginState_34 == 0
+    FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0034.skip" w
     FileClose $0
     Delete "$INSTDIR\plugins\webdav-backup.jar"
   ${EndIf}
@@ -1482,7 +1523,7 @@ FunctionEnd
 
 ; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。
 Function SetBundledPluginIds
-  StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.artmesh-mirror;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.deformer-batch-rename;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.frame-animation-import;dev.turboism.plugin.geometric-mesh-layout;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.parameter-sync;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.project-work-time;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.recent-project-board;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-dalsoo;dev.turboism.plugin.texture-atlas-folders;dev.turboism.plugin.texture-atlas-nesting;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.webdav"
+  StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.artmesh-mirror;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.deformer-batch-rename;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.frame-animation-import;dev.turboism.plugin.geometric-mesh-layout;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.parameter-sync;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.project-work-time;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.recent-project-board;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-dalsoo;dev.turboism.plugin.texture-atlas-folders;dev.turboism.plugin.texture-atlas-nesting;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.turbo-mesh;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.webdav"
 FunctionEnd
 
 ; 卸载白名单：仅删除安装器部署的插件 JAR；未知文件与第三方 JAR 保留。
@@ -1518,6 +1559,7 @@ Function un.DeleteInstallerPluginJars
   Delete "$INSTDIR\plugins\scene-palette-enhancer.jar"
   Delete "$INSTDIR\plugins\selection-brush.jar"
   Delete "$INSTDIR\plugins\texture-atlas-stats.jar"
+  Delete "$INSTDIR\plugins\turbo-mesh.jar"
   Delete "$INSTDIR\plugins\ui-theme.jar"
   Delete "$INSTDIR\plugins\warp-deformer-alt-symmetry.jar"
   Delete "$INSTDIR\plugins\webdav-backup.jar"
