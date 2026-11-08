@@ -107,3 +107,39 @@ Not fixed yet: the fix needs a decision on the recovery policy (back off the pol
 instead of resubmitting at a fixed rate, and/or let a transient host stall not
 permanently disable a plugin's UI). That is a design change to shared scheduler
 policy, not a local plugin patch.
+
+
+## Update — circuit-breaker defect fixed, a second defect exposed
+
+Two commits address the blocker:
+
+- `73aaa5610` routes `ui.schedule` through `RuntimeScheduler.dispatchUiBound`
+  (`PluginWorkExecutor.submitUiBound`): the bulkhead still bounds concurrency and shutdown still
+  waits, but the 500 ms time limit and the breaker accounting are skipped.
+- `905...` extends the same treatment to the lightweight `action.handle` lane, because an action
+  handler runs from a menu click or shortcut and routinely hops to the host EDT. HEAVY, SIDECAR and
+  REJECTED classifications keep their own outcome, so this is not a blanket bypass.
+
+Verified on the same 763 MB 矢车菊 model, same host, same payload:
+
+| metric | before | after |
+|---|---:|---:|
+| `CIRCUIT_OPEN` rejections in one session | 9,261 | **0** |
+| `TIMED_OUT` events | 80 | 1 (project-work-time, unrelated) |
+
+The plugin no longer goes inert after a large-model load.
+
+### Second defect now visible — a hot action loop, previously masked by the breaker
+
+With the breaker closed, the same session instead logged **5,574** `REJECTED REJECTED` events
+(backpressure: the plugin bulkhead queue is full) at roughly 17/s. The flood starts when the
+Physics Settings window opens and **stops when that window is closed**, so it is driven by the
+physics preview panel or the control-strip path, not by the plugin at rest.
+
+The breaker previously masked this: the same loop that saturates the queue is what tripped it. The
+loop is therefore the remaining reason the recording strip does not appear, and it is not fixed.
+
+Also unresolved: no preview surface is registered for the Physics Settings preview in this build
+(`onPreviewConstructed` never fires), so even without the loop the strip would have nothing to
+attach to. `ViewerUI_Panel$DirectModelDrawingPanel` exists in the 5.3.04 host JAR with the exact
+expected name, so this looks like a transform-timing race rather than a wrong class name.
