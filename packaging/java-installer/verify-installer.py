@@ -77,6 +77,8 @@ import stat
 import zipfile
 
 JAVA = "java"
+PIPED_CONSOLE_TERMINAL_ARGUMENT = "-Djline.terminal=jline.UnsupportedTerminal"
+MANAGED_GRAAL_INSTALL_MODES = frozenset(("full", "lite"))
 TIMEOUT = 360  # generous; console installs extract ~8 MB
 
 # Verification-owned temporary root: passed as -Djava.io.tmpdir to every JVM
@@ -309,8 +311,9 @@ def java_cmd(extra_flags=()):
     subprocess decodes/encodes through JVM file.encoding=UTF-8 so the
     en/zh/ja console evidence is byte-deterministic on any host default
     charset (Windows cp1252, POSIX locales)."""
+    # Piped verification must not read input from the attached Windows console.
     return [JAVA, "-Djava.io.tmpdir=%s" % TASK_TMP,
-            "-Dfile.encoding=UTF-8"] + list(extra_flags)
+            "-Dfile.encoding=UTF-8", PIPED_CONSOLE_TERMINAL_ARGUMENT] + list(extra_flags)
 
 def clear_task_lock():
     """Removes a stale IzPack lock inside OUR task tmpdir only. The lock file
@@ -361,6 +364,8 @@ def assert_utf8_contract():
     cmd = java_cmd()
     check("base java command pins -Dfile.encoding=UTF-8",
           "-Dfile.encoding=UTF-8" in cmd, "cmd=%s" % cmd)
+    check("piped verification uses the stream-backed terminal",
+          PIPED_CONSOLE_TERMINAL_ARGUMENT in cmd, "cmd=%s" % cmd)
 
 
 def run_java_regression(regression_jar):
@@ -498,7 +503,7 @@ def install_answers(mode, target, lang_index=0, deselect=(), payload_plugins=Non
     answers += ["1"]  # group panel continue
     # The optional managed-Graal pack is Windows-only. It is available in
     # Full and Lite, default-unselected, and precedes plugin selection packs.
-    if os.name == "nt":
+    if os.name == "nt" and mode in MANAGED_GRAAL_INSTALL_MODES:
         answers.append("y" if install_graal else "n")
     if mode in ("full", "thin"):
         for p in payload_plugins:
