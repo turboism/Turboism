@@ -37,7 +37,9 @@ class AutoMeshSelectorControllerTest {
 
         assertFalse(controller.rowVisible(), "the native-only listing must not add a row");
         assertEquals(1, controller.algorithmEntries().size(), "the native entry still exists for the combo");
-        assertEquals(AutoMeshAlgorithm.NATIVE_ALGORITHM_ID, controller.algorithmEntries().get(0).id());
+        assertEquals(
+                AutoMeshAlgorithm.NATIVE_ALGORITHM_ID,
+                controller.algorithmEntries().get(0).id());
         assertFalse(controller.parametersAvailable(), "the native generator declares no parameter");
         assertTrue(controller.parameterModel().isEmpty(), "the native generator exposes no parameter model");
     }

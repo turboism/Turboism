@@ -1,7 +1,6 @@
 package dev.turboism.automesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -17,7 +16,6 @@ import dev.turboism.sdk.plugin.Registration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -32,8 +30,8 @@ class AutoMeshSelectorHostTest {
 
     private final AutoMeshAlgorithmCatalog catalog = new AutoMeshAlgorithmCatalog();
     private final List<String> diagnostics = new ArrayList<>();
-    private final AutoMeshSelectorHost host = new AutoMeshSelectorHost(
-            new Source(catalog), Locale.ENGLISH, diagnostics::add);
+    private final AutoMeshSelectorHost host =
+            new AutoMeshSelectorHost(new Source(catalog), Locale.ENGLISH, diagnostics::add);
 
     @AfterEach
     void closeHost() {
@@ -110,17 +108,19 @@ class AutoMeshSelectorHostTest {
     void theBridgeRoutesAnAttachToTheHostAndSwallowsFailures() {
         catalog.register(algorithm(), "plugin", 1L, () -> true);
         final Object container = new Object();
-        final Registration bridge = NativeAutoMeshBridge.install(new NativeAutoMeshBridge.Handler() {
-            @Override
-            public Boolean handle(final AutoMeshFunnel funnel, final Object[] hostArguments) {
-                return Boolean.FALSE;
-            }
+        final Registration bridge = NativeAutoMeshBridge.install(
+                new NativeAutoMeshBridge.Handler() {
+                    @Override
+                    public Boolean handle(final AutoMeshFunnel funnel, final Object[] hostArguments) {
+                        return Boolean.FALSE;
+                    }
 
-            @Override
-            public void attach(final AutoMeshContainer requested, final Object instance) {
-                host.attach(instance);
-            }
-        }, diagnostics::add);
+                    @Override
+                    public void attach(final AutoMeshContainer requested, final Object instance) {
+                        host.attach(instance);
+                    }
+                },
+                diagnostics::add);
         try {
             assertEquals(
                     null,
@@ -135,8 +135,8 @@ class AutoMeshSelectorHostTest {
     @Test
     void anUnknownContainerTokenIsRefusedWithoutDecorating() {
         catalog.register(algorithm(), "plugin", 1L, () -> true);
-        final Registration bridge = NativeAutoMeshBridge.install(
-                (funnel, hostArguments) -> Boolean.FALSE, diagnostics::add);
+        final Registration bridge =
+                NativeAutoMeshBridge.install((funnel, hostArguments) -> Boolean.FALSE, diagnostics::add);
         try {
             dispatchAttach(new Object[] {"absent-container", new Object()});
             assertEquals(0, host.attachedCount(), "an unknown container must not be decorated");

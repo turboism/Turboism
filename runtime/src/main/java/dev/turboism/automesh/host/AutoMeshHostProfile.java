@@ -74,8 +74,7 @@ public record AutoMeshHostProfile(
     private static final String MODELING_FUNNEL_NAME = "updateMeshFromInspector_inModelingMode";
     private static final String MESH_EDITOR_FUNNEL_NAME = "updateMeshFromInspector_inMeshEditorMode";
 
-    private static final String CONTAINER_PACKAGE =
-            "com/live2d/cubism/doc/model/extension/meshGenerator/ui/";
+    private static final String CONTAINER_PACKAGE = "com/live2d/cubism/doc/model/extension/meshGenerator/ui/";
     private static final String MODELING_DIALOG_PANEL =
             CONTAINER_PACKAGE + "AutoMeshGenerate_DialogType$AutoGenerateMeshPanel";
     private static final String MODELING_POPUP_DIALOG =
@@ -84,8 +83,7 @@ public record AutoMeshHostProfile(
             CONTAINER_PACKAGE + "AutoMeshGenerate_PopupType_InMeshEditor$AutoGenerateMeshDialog";
 
     /** The only container constructor every reviewed build declares: the pack, and nothing else. */
-    private static final String CONTAINER_CONSTRUCTOR_DESCRIPTOR =
-            "(Lcom/live2d/cubism/pack/CECompletePack;)V";
+    private static final String CONTAINER_CONSTRUCTOR_DESCRIPTOR = "(Lcom/live2d/cubism/pack/CECompletePack;)V";
 
     private static final String COMPLETE_PACK = "Lcom/live2d/cubism/pack/CECompletePack;";
     private static final String EVENT = "Lcom/live2d/ui/event/z;";

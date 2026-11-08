@@ -95,9 +95,7 @@ public final class AutoMeshPanelAttachTransformer implements ClassFileTransforme
      * @param diagnostics sink for a refused transformation; it must not throw
      */
     public AutoMeshPanelAttachTransformer(
-            final Site site,
-            final ClassLoader expectedClassLoader,
-            final Consumer<String> diagnostics) {
+            final Site site, final ClassLoader expectedClassLoader, final Consumer<String> diagnostics) {
         this.site = Objects.requireNonNull(site, "site");
         this.ownerInternalName = site.ownerInternalName();
         this.expectedClassLoader = Objects.requireNonNull(expectedClassLoader, "expectedClassLoader");
@@ -120,8 +118,7 @@ public final class AutoMeshPanelAttachTransformer implements ClassFileTransforme
     }
 
     private static Site siteOf(final AutoMeshContainer container, final StaticSelector selector) {
-        if (selector.kind() != StaticSelector.Kind.CONSTRUCTOR
-                || !CONSTRUCTOR_NAME.equals(selector.memberName())) {
+        if (selector.kind() != StaticSelector.Kind.CONSTRUCTOR || !CONSTRUCTOR_NAME.equals(selector.memberName())) {
             throw new IllegalArgumentException("container anchors must be constructors: " + selector.alias());
         }
         return new Site(container, selector.ownerInternalName(), selector.descriptor());

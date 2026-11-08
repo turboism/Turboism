@@ -1,8 +1,6 @@
 package dev.turboism.automesh;
 
-import dev.turboism.sdk.cubism.mesh.automesh.AlgorithmParameterDescriptor;
 import java.awt.BorderLayout;
-import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;

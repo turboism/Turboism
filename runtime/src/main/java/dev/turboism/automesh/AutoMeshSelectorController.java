@@ -121,7 +121,8 @@ public final class AutoMeshSelectorController {
         if (algorithm.isEmpty()) {
             return NO_PRESET_INDEX;
         }
-        final Optional<String> chosen = source.selection().selectedPresetName(algorithm.get().id());
+        final Optional<String> chosen =
+                source.selection().selectedPresetName(algorithm.get().id());
         if (chosen.isEmpty()) {
             return NO_PRESET_INDEX;
         }
@@ -159,7 +160,9 @@ public final class AutoMeshSelectorController {
      * @return {@code true} when the selected algorithm declares at least one parameter
      */
     public boolean parametersAvailable() {
-        return selectedAlgorithm().map(algorithm -> !algorithm.parameters().isEmpty()).orElse(false);
+        return selectedAlgorithm()
+                .map(algorithm -> !algorithm.parameters().isEmpty())
+                .orElse(false);
     }
 
     /** @return the algorithm the row currently describes, or empty for the Editor's generator */
@@ -174,8 +177,8 @@ public final class AutoMeshSelectorController {
      */
     public Optional<AutoMeshParameterModel> parameterModel() {
         return selectedAlgorithm()
-                .map(algorithm -> new AutoMeshParameterModel(
-                        algorithm, source.selection().parameterValues(algorithm)));
+                .map(algorithm ->
+                        new AutoMeshParameterModel(algorithm, source.selection().parameterValues(algorithm)));
     }
 
     /**

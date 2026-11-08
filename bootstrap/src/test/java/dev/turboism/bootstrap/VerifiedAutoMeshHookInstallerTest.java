@@ -59,9 +59,17 @@ class VerifiedAutoMeshHookInstallerTest {
 
         assertEquals(
                 List.of(
-                        "add:true", "add:true", "add:true", "add:true", "add:true",
+                        "add:true",
+                        "add:true",
+                        "add:true",
+                        "add:true",
+                        "add:true",
                         "scan",
-                        "remove", "remove", "remove", "remove", "remove",
+                        "remove",
+                        "remove",
+                        "remove",
+                        "remove",
+                        "remove",
                         "scan"),
                 calls,
                 "teardown must remove every transformer and restore the hosts before dropping callbacks");
@@ -122,9 +130,17 @@ class VerifiedAutoMeshHookInstallerTest {
         assertThrows(IllegalStateException.class, installer::install);
         assertEquals(
                 List.of(
-                        "add:true", "add:true", "add:true", "add:true", "add:true",
+                        "add:true",
+                        "add:true",
+                        "add:true",
+                        "add:true",
+                        "add:true",
                         "scan",
-                        "remove", "remove", "remove", "remove", "remove",
+                        "remove",
+                        "remove",
+                        "remove",
+                        "remove",
+                        "remove",
                         "scan"),
                 calls,
                 "a failed installation must remove every transformer and restore the hosts");
@@ -173,10 +189,19 @@ class VerifiedAutoMeshHookInstallerTest {
         installer.close();
         assertEquals(
                 List.of(
-                        "add:true", "add:true", "add:true", "add:true", "add:true",
+                        "add:true",
+                        "add:true",
+                        "add:true",
+                        "add:true",
+                        "add:true",
                         "scan",
-                        "remove", "remove", "remove", "remove", "remove",
-                        "scan", "scan"),
+                        "remove",
+                        "remove",
+                        "remove",
+                        "remove",
+                        "remove",
+                        "scan",
+                        "scan"),
                 calls,
                 "the retried teardown must not re-register a transformer");
         assertFalse(bridgeIsPublished(MODELING_KEY));

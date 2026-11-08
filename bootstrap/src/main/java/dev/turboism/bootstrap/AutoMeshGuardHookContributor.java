@@ -1,9 +1,9 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.automesh.AutoMeshAlgorithmCatalog;
+import dev.turboism.automesh.AutoMeshSelectionState;
 import dev.turboism.automesh.AutoMeshSelectorHost;
 import dev.turboism.automesh.AutoMeshSelectorSource;
-import dev.turboism.automesh.AutoMeshSelectionState;
 import dev.turboism.automesh.host.AutoMeshContainer;
 import dev.turboism.automesh.host.AutoMeshFunnel;
 import dev.turboism.automesh.host.AutoMeshHostProfile;
@@ -104,7 +104,9 @@ final class AutoMeshGuardHookContributor implements HookContributor {
         final AutoMeshSelectorSource source = new AutoMeshSelectorSource() {
             @Override
             public List<dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm> algorithms() {
-                return runtime.autoMeshCatalog().map(AutoMeshAlgorithmCatalog::algorithms).orElse(List.of());
+                return runtime.autoMeshCatalog()
+                        .map(AutoMeshAlgorithmCatalog::algorithms)
+                        .orElse(List.of());
             }
 
             @Override

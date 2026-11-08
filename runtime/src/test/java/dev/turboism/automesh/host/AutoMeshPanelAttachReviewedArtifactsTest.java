@@ -12,7 +12,6 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -63,8 +62,7 @@ class AutoMeshPanelAttachReviewedArtifactsTest {
                             transformer.transform(null, loader, site.ownerInternalName(), null, null, original);
 
                     assertNotNull(
-                            transformed,
-                            "the reviewed container " + site.container() + " must transform: " + version);
+                            transformed, "the reviewed container " + site.container() + " must transform: " + version);
                     assertFalse(
                             Arrays.equals(original, transformed),
                             "the attach call must change the sourced bytes: " + version);
@@ -75,8 +73,7 @@ class AutoMeshPanelAttachReviewedArtifactsTest {
                                             null, loader, site.ownerInternalName(), null, null, original)),
                             "the same host bytes must always produce the same decorated bytes: " + version);
                     assertNull(
-                            transformer.transform(
-                                    null, loader, site.ownerInternalName(), null, null, transformed),
+                            transformer.transform(null, loader, site.ownerInternalName(), null, null, transformed),
                             "already decorated host bytes must stay unchanged: " + version);
                     assertNull(
                             transformer.transform(
@@ -120,8 +117,7 @@ class AutoMeshPanelAttachReviewedArtifactsTest {
                     final byte[] transformed = new AutoMeshPanelAttachTransformer(site, loader, message -> {})
                             .transform(null, loader, site.ownerInternalName(), null, null, original);
                     assertNotNull(transformed, version + ": " + site.container());
-                    final List<String> instructions =
-                            AutoMeshFunnelTestSupport.instructions(transformed, CONSTRUCTOR);
+                    final List<String> instructions = AutoMeshFunnelTestSupport.instructions(transformed, CONSTRUCTOR);
                     assertTrue(
                             instructions.contains(PROPERTY_LOOKUP),
                             "the decorated constructor must read the bridge property: " + version);
@@ -176,7 +172,8 @@ class AutoMeshPanelAttachReviewedArtifactsTest {
                 "dev/turboism/automesh/host/AutoMeshPanelAttachTransformer",
                 "dev/turboism/automesh/host/NativeAutoMeshBridge",
                 "dev/turboism/automesh/host/AutoMeshContainer")) {
-            assertFalse(text.contains(forbidden), "transformed host bytecode must not name " + forbidden + ": " + version);
+            assertFalse(
+                    text.contains(forbidden), "transformed host bytecode must not name " + forbidden + ": " + version);
         }
     }
 
@@ -189,9 +186,8 @@ class AutoMeshPanelAttachReviewedArtifactsTest {
 
     private static AutoMeshHostProfile profileOf(final String version) {
         for (final HostArtifactDigest artifact : dev.turboism.mapping.verification.ReviewedHostArtifacts.all()) {
-            if (version.equals(
-                    dev.turboism.mapping.verification.ReviewedHostArtifacts.cubismVersionOf(artifact)
-                            .orElse(null))) {
+            if (version.equals(dev.turboism.mapping.verification.ReviewedHostArtifacts.cubismVersionOf(artifact)
+                    .orElse(null))) {
                 return AutoMeshHostProfile.forArtifact(artifact).orElseThrow();
             }
         }

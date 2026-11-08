@@ -134,12 +134,13 @@ public final class AutoMeshSelectorRow {
             invoke(mount, UNARY_PLUS, row);
             tryInvoke(mount, REVALIDATE);
             tryInvoke(mount, REPAINT);
-            diagnostic("auto mesh selector: row attached to " + container.getClass().getSimpleName());
+            diagnostic("auto mesh selector: row attached to "
+                    + container.getClass().getSimpleName());
         } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
             FatalErrors.rethrowIfFatal(failure);
             // Fail closed: the native popup keeps its own layout and its own controls.
-            diagnostic("auto mesh selector: attach failed with " + failure.getClass().getName()
-                    + ", the row is not added");
+            diagnostic("auto mesh selector: attach failed with "
+                    + failure.getClass().getName() + ", the row is not added");
         }
     }
 
@@ -155,7 +156,8 @@ public final class AutoMeshSelectorRow {
         if (center == null) {
             return null;
         }
-        final Class<?> containerType = Class.forName(CONTAINER_TYPE, false, container.getClass().getClassLoader());
+        final Class<?> containerType =
+                Class.forName(CONTAINER_TYPE, false, container.getClass().getClassLoader());
         return containerType.isInstance(center) ? center : null;
     }
 
@@ -212,7 +214,8 @@ public final class AutoMeshSelectorRow {
                 tryInvoke(presetCombo, SET_SELECTED_INDEX, controller.selectedPresetIndex());
                 tryInvoke(parametersButton, SET_ENABLED, controller.parametersAvailable());
             } catch (ReflectiveOperationException failure) {
-                diagnostic("auto mesh selector: preset list refresh failed with " + failure.getClass().getName());
+                diagnostic("auto mesh selector: preset list refresh failed with "
+                        + failure.getClass().getName());
             }
         };
 
@@ -239,9 +242,8 @@ public final class AutoMeshSelectorRow {
     }
 
     private void openParameters(final Object container) {
-        final Window owner = container instanceof java.awt.Component component
-                ? SwingUtilities.getWindowAncestor(component)
-                : null;
+        final Window owner =
+                container instanceof java.awt.Component component ? SwingUtilities.getWindowAncestor(component) : null;
         AutoMeshParameterDialog.show(owner, controller, locale);
     }
 
@@ -256,7 +258,8 @@ public final class AutoMeshSelectorRow {
             callback.run();
         } catch (RuntimeException | LinkageError failure) {
             FatalErrors.rethrowIfFatal(failure);
-            diagnostic("auto mesh selector: callback failed with " + failure.getClass().getName());
+            diagnostic("auto mesh selector: callback failed with "
+                    + failure.getClass().getName());
         }
     }
 

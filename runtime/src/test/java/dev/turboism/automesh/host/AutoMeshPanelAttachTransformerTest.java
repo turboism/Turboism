@@ -60,9 +60,7 @@ class AutoMeshPanelAttachTransformerTest {
 
         assertNotNull(transformed, "the exact constructor shape must transform");
         assertTrue(diagnostics.isEmpty(), "a proven shape reports no diagnostic");
-        assertFalse(
-                Arrays.equals(fixtureBytes(), transformed),
-                "the attach call must change the sourced bytes");
+        assertFalse(Arrays.equals(fixtureBytes(), transformed), "the attach call must change the sourced bytes");
         assertFalse(
                 new String(transformed, java.nio.charset.StandardCharsets.ISO_8859_1)
                         .contains("dev/turboism/automesh/host/AutoMeshPanelAttachTransformer"),
@@ -72,8 +70,9 @@ class AutoMeshPanelAttachTransformerTest {
                         .contains("dev/turboism/automesh/host/NativeAutoMeshBridge"),
                 "transformed host bytecode must not name the bridge");
         assertTrue(
-                Arrays.equals(transformed, transformer(loader, diagnostics)
-                        .transform(null, loader, OWNER, null, null, fixtureBytes())),
+                Arrays.equals(
+                        transformed,
+                        transformer(loader, diagnostics).transform(null, loader, OWNER, null, null, fixtureBytes())),
                 "the same host bytes must always produce the same decorated bytes");
     }
 
@@ -85,19 +84,21 @@ class AutoMeshPanelAttachTransformerTest {
         final AtomicReference<AutoMeshContainer> container = new AtomicReference<>();
         bridge = NativeAutoMeshBridge.install((funnel, arguments) -> Boolean.FALSE, message -> {});
         bridge.close();
-        bridge = NativeAutoMeshBridge.install(new NativeAutoMeshBridge.Handler() {
-            @Override
-            public Boolean handle(final AutoMeshFunnel funnel, final Object[] hostArguments) {
-                return Boolean.FALSE;
-            }
+        bridge = NativeAutoMeshBridge.install(
+                new NativeAutoMeshBridge.Handler() {
+                    @Override
+                    public Boolean handle(final AutoMeshFunnel funnel, final Object[] hostArguments) {
+                        return Boolean.FALSE;
+                    }
 
-            @Override
-            public void attach(final AutoMeshContainer requested, final Object instance) {
-                container.set(requested);
-                attached.set(instance);
-                attachCalls.incrementAndGet();
-            }
-        }, message -> {});
+                    @Override
+                    public void attach(final AutoMeshContainer requested, final Object instance) {
+                        container.set(requested);
+                        attached.set(instance);
+                        attachCalls.incrementAndGet();
+                    }
+                },
+                message -> {});
 
         final byte[] transformed =
                 transformer(loader, new ArrayList<>()).transform(null, loader, OWNER, null, null, fixtureBytes());
@@ -179,17 +180,19 @@ class AutoMeshPanelAttachTransformerTest {
     @Test
     void survivesAThrowingBridgeAndStillRunsTheConstructorBody() {
         final GuardedLoader loader = new GuardedLoader();
-        bridge = NativeAutoMeshBridge.install(new NativeAutoMeshBridge.Handler() {
-            @Override
-            public Boolean handle(final AutoMeshFunnel funnel, final Object[] hostArguments) {
-                return Boolean.FALSE;
-            }
+        bridge = NativeAutoMeshBridge.install(
+                new NativeAutoMeshBridge.Handler() {
+                    @Override
+                    public Boolean handle(final AutoMeshFunnel funnel, final Object[] hostArguments) {
+                        return Boolean.FALSE;
+                    }
 
-            @Override
-            public void attach(final AutoMeshContainer container, final Object instance) {
-                throw new IllegalStateException("plugin policy failed");
-            }
-        }, message -> {});
+                    @Override
+                    public void attach(final AutoMeshContainer container, final Object instance) {
+                        throw new IllegalStateException("plugin policy failed");
+                    }
+                },
+                message -> {});
 
         final byte[] transformed =
                 transformer(loader, new ArrayList<>()).transform(null, loader, OWNER, null, null, fixtureBytes());
@@ -241,8 +244,7 @@ class AutoMeshPanelAttachTransformerTest {
     private static AutoMeshPanelAttachTransformer transformer(
             final ClassLoader loader, final List<String> diagnostics) {
         return new AutoMeshPanelAttachTransformer(
-                new AutoMeshPanelAttachTransformer.Site(
-                        AutoMeshContainer.MODELING_DIALOG_PANEL, OWNER, DESCRIPTOR),
+                new AutoMeshPanelAttachTransformer.Site(AutoMeshContainer.MODELING_DIALOG_PANEL, OWNER, DESCRIPTOR),
                 loader,
                 diagnostics::add);
     }

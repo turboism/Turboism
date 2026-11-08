@@ -17,8 +17,13 @@ import org.junit.jupiter.api.Test;
 class AutoMeshTextTest {
 
     private static final Locale[] SHIPPED_LOCALES = {
-        Locale.ROOT, Locale.ENGLISH, Locale.JAPANESE, Locale.KOREAN,
-        Locale.forLanguageTag("zh-Hans"), Locale.forLanguageTag("zh-Hant"), Locale.forLanguageTag("zh")
+        Locale.ROOT,
+        Locale.ENGLISH,
+        Locale.JAPANESE,
+        Locale.KOREAN,
+        Locale.forLanguageTag("zh-Hans"),
+        Locale.forLanguageTag("zh-Hant"),
+        Locale.forLanguageTag("zh")
     };
 
     private static final String[] KEYS = {
@@ -90,7 +95,8 @@ class AutoMeshTextTest {
 
     private static java.util.Set<Integer> indexesOf(final String pattern) {
         final java.util.Set<Integer> indexes = new java.util.LinkedHashSet<>();
-        final java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\{(\\d+)\\}").matcher(pattern);
+        final java.util.regex.Matcher matcher =
+                java.util.regex.Pattern.compile("\\{(\\d+)\\}").matcher(pattern);
         while (matcher.find()) {
             indexes.add(Integer.parseInt(matcher.group(1)));
         }

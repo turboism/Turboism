@@ -1,6 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.automesh.host.AutoMeshContainer;
 import dev.turboism.automesh.host.AutoMeshFunnelTransformer;
 import dev.turboism.automesh.host.AutoMeshHostProfile;
 import dev.turboism.automesh.host.AutoMeshPanelAttachTransformer;

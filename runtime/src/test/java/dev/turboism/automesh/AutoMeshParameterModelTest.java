@@ -40,7 +40,9 @@ class AutoMeshParameterModelTest {
                 "each declared kind must map to its own control");
         assertEquals(
                 List.of("density", "smoothing", "weld", "mode", "tag"),
-                model.rows().stream().map(AutoMeshParameterModel.Row::parameterId).toList(),
+                model.rows().stream()
+                        .map(AutoMeshParameterModel.Row::parameterId)
+                        .toList(),
                 "rows must keep declaration order");
     }
 
@@ -201,7 +203,8 @@ class AutoMeshParameterModelTest {
                                 "density", "Density", "Vertices per region edge.", 8, 128, 8, 48),
                         new AlgorithmParameterDescriptor.DoubleParameter(
                                 "smoothing", "Smoothing", "Outline smoothing.", 0.0, 1.0, 0.25, 2, 0.5),
-                        new AlgorithmParameterDescriptor.BoolParameter("weld", "Weld", "Weld coincident vertices.", true),
+                        new AlgorithmParameterDescriptor.BoolParameter(
+                                "weld", "Weld", "Weld coincident vertices.", true),
                         new AlgorithmParameterDescriptor.EnumParameter(
                                 "mode",
                                 "Mode",

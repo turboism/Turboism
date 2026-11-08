@@ -143,19 +143,20 @@ final class AutoMeshFunnelTestSupport {
 
         @Override
         public void visitInsn(final int opcode) {
-            record(switch (opcode) {
-                case Opcodes.RETURN -> "RETURN";
-                case Opcodes.POP -> "POP";
-                case Opcodes.DUP -> "DUP";
-                case Opcodes.AASTORE -> "AASTORE";
-                case Opcodes.ICONST_0 -> "ICONST_0";
-                case Opcodes.ICONST_1 -> "ICONST_1";
-                case Opcodes.ICONST_2 -> "ICONST_2";
-                case Opcodes.ICONST_3 -> "ICONST_3";
-                case Opcodes.ICONST_4 -> "ICONST_4";
-                case Opcodes.ICONST_5 -> "ICONST_5";
-                default -> "INSN " + opcode;
-            });
+            record(
+                    switch (opcode) {
+                        case Opcodes.RETURN -> "RETURN";
+                        case Opcodes.POP -> "POP";
+                        case Opcodes.DUP -> "DUP";
+                        case Opcodes.AASTORE -> "AASTORE";
+                        case Opcodes.ICONST_0 -> "ICONST_0";
+                        case Opcodes.ICONST_1 -> "ICONST_1";
+                        case Opcodes.ICONST_2 -> "ICONST_2";
+                        case Opcodes.ICONST_3 -> "ICONST_3";
+                        case Opcodes.ICONST_4 -> "ICONST_4";
+                        case Opcodes.ICONST_5 -> "ICONST_5";
+                        default -> "INSN " + opcode;
+                    });
         }
 
         @Override
@@ -188,8 +189,7 @@ final class AutoMeshFunnelTestSupport {
         }
 
         @Override
-        public void visitTryCatchBlock(
-                final Label start, final Label end, final Label handler, final String type) {
+        public void visitTryCatchBlock(final Label start, final Label end, final Label handler, final String type) {
             if (structural) {
                 record("TRY " + type);
             }

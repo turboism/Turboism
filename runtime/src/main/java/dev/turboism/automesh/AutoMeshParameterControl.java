@@ -99,8 +99,8 @@ final class AutoMeshParameterControl {
             final AlgorithmParameterDescriptor.IntParameter descriptor,
             final String value,
             final Consumer<String> onEdit) {
-        final SpinnerNumberModel model = new SpinnerNumberModel(
-                Integer.parseInt(value), descriptor.min(), descriptor.max(), descriptor.step());
+        final SpinnerNumberModel model =
+                new SpinnerNumberModel(Integer.parseInt(value), descriptor.min(), descriptor.max(), descriptor.step());
         final JSpinner spinner = new JSpinner(model);
         final AutoMeshParameterControl[] self = new AutoMeshParameterControl[1];
         spinner.addChangeListener(event -> self[0].report(onEdit, String.valueOf(model.getNumber())));
@@ -156,10 +156,8 @@ final class AutoMeshParameterControl {
         final JComboBox<String> box = new JComboBox<>(labels.toArray(new String[0]));
         box.setSelectedIndex(Math.max(0, values.indexOf(value)));
         final AutoMeshParameterControl[] self = new AutoMeshParameterControl[1];
-        box.addActionListener(
-                event -> self[0].report(onEdit, values.get(Math.max(0, box.getSelectedIndex()))));
-        self[0] = new AutoMeshParameterControl(
-                box, next -> box.setSelectedIndex(Math.max(0, values.indexOf(next))));
+        box.addActionListener(event -> self[0].report(onEdit, values.get(Math.max(0, box.getSelectedIndex()))));
+        self[0] = new AutoMeshParameterControl(box, next -> box.setSelectedIndex(Math.max(0, values.indexOf(next))));
         return self[0];
     }
 
@@ -176,8 +174,7 @@ final class AutoMeshParameterControl {
         return self[0];
     }
 
-    private static int positionOf(
-            final AlgorithmParameterDescriptor.DoubleParameter descriptor, final String value) {
+    private static int positionOf(final AlgorithmParameterDescriptor.DoubleParameter descriptor, final String value) {
         final double span = descriptor.max() - descriptor.min();
         final double offset = Double.parseDouble(value) - descriptor.min();
         return (int) Math.round(offset / span * SLIDER_TICKS);
