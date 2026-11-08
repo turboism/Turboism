@@ -103,6 +103,12 @@ public final class RegionAlgorithm {
     private static final int MIN_SPACING_DECIMALS = 1;
     private static final double MIN_SPACING_DEFAULT = 4.0;
 
+    /**
+     * The compute returns one geometry for the current keyform only, so the runtime must refuse
+     * multi-keyform meshes instead of silently dropping their other keyforms.
+     */
+    private static final boolean SUPPORTS_MULTI_KEYFORM = false;
+
     private RegionAlgorithm() {}
 
     /**
@@ -119,6 +125,7 @@ public final class RegionAlgorithm {
                 localization.text(DESCRIPTION_KEY),
                 parameters,
                 presets(localization),
+                SUPPORTS_MULTI_KEYFORM,
                 new RegionCompute(localization, parameters));
     }
 

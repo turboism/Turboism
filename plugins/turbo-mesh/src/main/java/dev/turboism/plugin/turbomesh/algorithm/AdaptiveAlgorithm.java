@@ -68,6 +68,12 @@ public final class AdaptiveAlgorithm {
     private static final int MAX_POINTS_MAX = 65536;
     private static final int MAX_POINTS_STEP = 64;
 
+    /**
+     * The compute returns one geometry for the current keyform only, so the runtime must refuse
+     * multi-keyform meshes instead of silently dropping their other keyforms.
+     */
+    private static final boolean SUPPORTS_MULTI_KEYFORM = false;
+
     private AdaptiveAlgorithm() {}
 
     /**
@@ -95,6 +101,7 @@ public final class AdaptiveAlgorithm {
                 localization.text(DESCRIPTION_KEY),
                 parameters,
                 presets(localization),
+                SUPPORTS_MULTI_KEYFORM,
                 new AdaptiveCompute(localization, parameters, diagnostics));
     }
 
