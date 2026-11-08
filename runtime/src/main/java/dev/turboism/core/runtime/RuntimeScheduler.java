@@ -96,6 +96,39 @@ public final class RuntimeScheduler {
     }
 
     /**
+     * Dispatches a user-initiated action invocation.
+     *
+     * <p>An action handler runs because the operator clicked a menu entry, pressed a shortcut or
+     * used a toolbar button, and it routinely hops to the host EDT to open a dialog or touch host
+     * UI. Its wall time is therefore dominated by host EDT latency, which the plugin does not own:
+     * charging that to the plugin opened its breaker while a large model loaded and left the plugin
+     * inert for the rest of the session. Lightweight actions therefore run on the UI-bound path.
+     * Actions the budget policy classifies as heavy keep the ordinary protected path, so a genuinely
+     * expensive handler is still bounded and circuit-broken.</p>
+     *
+     * @param task the action work to run
+     * @param callback the body to execute once a lane accepts it
+     * @param timeoutAction idempotent cancellation for lightweight work that is abandoned
+     * @return {@code true} if some lane accepted the work
+     * @throws NullPointerException if any argument is {@code null}
+     */
+    public boolean dispatchAction(final PluginTask task, final Runnable callback, final Runnable timeoutAction) {
+        Objects.requireNonNull(task, "task");
+        Objects.requireNonNull(callback, "callback");
+        Objects.requireNonNull(timeoutAction, "timeoutAction");
+        if (closed.get()) {
+            emitRejected(task);
+            return false;
+        }
+        // Only the lightweight lane is re-routed. Heavy, sidecar and rejected classifications keep
+        // their own policy outcome, so this must not become a blanket bypass.
+        if (policy.classify(task) != WorkBudget.LIGHTWEIGHT) {
+            return dispatch(task, callback, timeoutAction);
+        }
+        return dispatchUiBound(task, callback);
+    }
+
+    /**
      * Dispatches EDT-bound work outside the plugin work budget and its circuit breaker.
      *
      * <p>The wall time of this work is host EDT queue latency, which the plugin does not own.
