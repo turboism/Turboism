@@ -201,9 +201,9 @@ class RuntimeSettingsServiceTest {
     }
 
     /**
-     * A managed Graal runtime that only exists behind a reparse point must never be offered as the
-     * host JVM. The host decides which reparse type can be created; the case asserts the contract it
-     * actually established instead of treating a junction and a symbolic link as interchangeable.
+     * The service must never offer a managed Graal runtime that only exists behind a reparse point.
+     * The host decides which reparse type it can create; the case asserts the contract this host
+     * established instead of treating a junction and a symbolic link as interchangeable.
      */
     @Test
     void ignoresManagedRuntimeBehindALinkedAncestor() throws Exception {

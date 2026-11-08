@@ -230,13 +230,13 @@ class TypedConfigRecoveryPointTest {
     }
 
     /**
-     * A reparse point that redirects the recovery root outside the store is rejected before the
-     * capture, so no pre-migration image is ever written through it.
+     * A reparse point that redirects the recovery root outside the store fails the capture, so no
+     * pre-migration image ever leaves the store through it.
      *
-     * <p>The host decides which rejection clause runs: a symbolic link is rejected by the store's
-     * link check, while a Windows directory junction is not a symbolic link and is rejected by the
-     * store's root-containment check. The case asserts the contract it actually established instead
-     * of treating the two reparse types as interchangeable.
+     * <p>The host decides which rejection clause runs. The store's link check rejects a symbolic
+     * link; its root-containment check rejects a Windows directory junction, which is not a symbolic
+     * link. The case asserts the contract this host established instead of treating the two reparse
+     * types as interchangeable.
      */
     @Test
     void linkedRecoveryRootIsRejectedBeforeCapture() throws Exception {

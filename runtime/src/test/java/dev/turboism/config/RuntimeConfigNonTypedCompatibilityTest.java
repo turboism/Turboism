@@ -210,9 +210,10 @@ class RuntimeConfigNonTypedCompatibilityTest {
     /**
      * A publication that cannot stage its sibling must fail closed and keep the readable bytes.
      *
-     * <p>The fault is injected through the host's own permission model — a lost write bit on POSIX,
-     * an owner denial entry on Windows — so the case runs everywhere and restores the directory in
-     * the {@code try-with-resources} exit path.
+     * <p>The case injects the fault through the host's own permission model: a lost write bit on
+     * POSIX, an owner denial entry on Windows. The {@code try-with-resources} exit path restores the
+     * directory. A POSIX root account bypasses mode bits, so that host fails this case with an
+     * explicit message instead of passing on a write that was never blocked.
      */
     @Test
     void failedIoWriteLeavesTheOriginalBytesInPlace() throws Exception {

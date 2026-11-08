@@ -80,9 +80,9 @@ class RuntimePluginConfigRegistryTest {
     }
 
     /**
-     * A reparse point substituted for a config scope must never carry a plugin write into another
-     * directory. The host decides which reparse type can be created; the case asserts the contract it
-     * actually established, and the registry rejects the junction through its real-path containment.
+     * A reparse point that replaces a config scope must never carry a plugin write into another
+     * directory. The host decides which reparse type it can create; the case asserts the contract this
+     * host established, and the registry rejects the junction through its real-path containment.
      */
     @Test
     void linkedConfigPathCannotEscapePluginDirectory(@TempDir Path dataDir) throws Exception {
@@ -304,6 +304,53 @@ class RuntimePluginConfigRegistryTest {
         assertTrue(writeFailure.get() instanceof PluginConfigException);
         assertFalse(Files.exists(dataDir.resolve("probe/config.properties")));
         scope.close();
+    }
+
+    /**
+     * A parent directory redirected at the publication hook must not receive the document: the write
+     * re-resolves its target under the lifecycle lock and the publication guard re-checks it again.
+     */
+    @Test
+    void redirectedParentAtThePublicationHookCannotReceiveTheWrite(@TempDir Path dataDir) throws Exception {
+        final Path outside = Files.createTempDirectory("turboism-config-outside");
+        final CountDownLatch publicationReached = new CountDownLatch(1);
+        final CountDownLatch publicationRelease = new CountDownLatch(1);
+        final RuntimePluginConfigRegistry registry =
+                registryWithPublicationBarrier(dataDir, publicationReached, publicationRelease);
+        final Registration scope = registry.writeScope("probe/config.properties");
+        final AtomicReference<Throwable> writeFailure = new AtomicReference<>();
+        final Thread writer = new Thread(() -> {
+            try {
+                registry.writeString("probe/config.properties", "name", "Turboism");
+            } catch (Throwable failure) {
+                writeFailure.set(failure);
+            }
+        });
+        writer.start();
+        assertTrue(publicationReached.await(2, TimeUnit.SECONDS));
+        final Path probe = dataDir.resolve("probe");
+        Files.move(probe, dataDir.resolve("probe-moved"));
+        final FileSystemFaults.ReparsePoint point = FileSystemFaults.createDirectoryReparsePoint(probe, outside);
+        try {
+            publicationRelease.countDown();
+            writer.join(2_000L);
+
+            assertFalse(writer.isAlive());
+            assertTrue(writeFailure.get() instanceof PluginConfigException, "the redirected write must fail closed");
+            try (var written = Files.walk(outside)) {
+                assertTrue(
+                        written.filter(Files::isRegularFile).toList().isEmpty(),
+                        "no staged or published document may land behind the redirected parent");
+            }
+        } finally {
+            FileSystemFaults.deleteReparsePoint(point.link());
+            try {
+                Files.deleteIfExists(outside);
+            } catch (java.nio.file.DirectoryNotEmptyException leftover) {
+                // Keep the evidence on disk when the assertion above already reported a leak.
+            }
+            scope.close();
+        }
     }
 
     @Test

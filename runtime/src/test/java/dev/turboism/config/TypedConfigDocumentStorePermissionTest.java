@@ -65,9 +65,34 @@ class TypedConfigDocumentStorePermissionTest {
     }
 
     /**
-     * A reparse point substituted for the config parent before the first write is rejected, so no
-     * document is created through it. The case asserts the contract the host could establish, as in
-     * {@link dev.turboism.testkit.FileSystemFaults#assertRedirectsOutside}.
+     * Injection refuses an occupied path instead of clearing it, so a caller can never lose an entry
+     * the injection call did not create. This boundary guards every suite that uses the seam.
+     */
+    @Test
+    void reparsePointInjectionRefusesAnOccupiedPathInsteadOfRemovingIt() throws Exception {
+        final Path target = Files.createDirectories(temporary.resolve("reparse-target"));
+        final Path occupiedFile = temporary.resolve("occupied-file");
+        Files.writeString(occupiedFile, "owned by the test");
+        final Path occupiedDirectory = Files.createDirectories(temporary.resolve("occupied-directory"));
+        Files.writeString(occupiedDirectory.resolve("keep.txt"), "owned by the test");
+
+        assertThrows(
+                java.io.IOException.class, () -> FileSystemFaults.createDirectoryReparsePoint(occupiedFile, target));
+        assertThrows(
+                java.io.IOException.class,
+                () -> FileSystemFaults.createDirectoryReparsePoint(occupiedDirectory, target));
+
+        assertEquals("owned by the test", Files.readString(occupiedFile), "an occupied file must survive");
+        assertEquals(
+                "owned by the test",
+                Files.readString(occupiedDirectory.resolve("keep.txt")),
+                "an occupied directory and its content must survive");
+    }
+
+    /**
+     * The store must reject a reparse point that replaces the config parent before the first write,
+     * so no document can appear behind it. The case asserts the contract this host could establish,
+     * as in {@link dev.turboism.testkit.FileSystemFaults#assertRedirectsOutside}.
      */
     @Test
     void firstWriteRejectsReparsePointSubstitutedForConfigParent() throws Exception {
