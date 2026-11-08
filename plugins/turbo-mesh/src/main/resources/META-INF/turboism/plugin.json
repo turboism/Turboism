@@ -50,11 +50,17 @@
       "id": "turboism.ui.status.notify",
       "scope": "application",
       "reason": "Report placement results and failures."
+    },
+    {
+      "id": "turboism.cubism.mesh.automesh.contribute",
+      "scope": "application",
+      "reason": "Offer the region and adaptive placement algorithms in the Editor's Auto Mesh Generate entry."
     }
   ],
   "capabilities": [
     "cubism.mesh.read",
     "cubism.mesh.write",
+    "cubism.mesh.automesh-algorithms",
     "ui.context-menu.contribute",
     "ui.dialog.contribute",
     "ui.status.notify"
