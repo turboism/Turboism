@@ -37,6 +37,7 @@ public final class KernelRuntime implements AutoCloseable {
     private volatile dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService;
     private volatile dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettingsAuthority;
     private volatile dev.turboism.exportsettings.ProtectedExportOrchestrator protectedExportOrchestrator;
+    private volatile dev.turboism.automesh.host.NativeAutoMeshBridge.Handler autoMeshGuard;
     private volatile List<ShutdownFailure> shutdownFailures = List.of();
 
     /** Package-private test composition seam; production startup uses {@link #start}. */
@@ -564,6 +565,28 @@ public final class KernelRuntime implements AutoCloseable {
         synchronized (this) {
             if (protectedExportOrchestrator == null) {
                 protectedExportOrchestrator = orchestrator;
+            }
+        }
+    }
+
+    /**
+     * Auto-mesh dispatch policy the transformed native funnels report to.
+     *
+     * <p>Empty until the milestone that resolves host targets binds it. The guard hook still
+     * installs against an unbound runtime, because an unbound policy answers "not handled" for
+     * every confirmation and therefore leaves the Editor's own Auto Mesh Generate untouched.</p>
+     *
+     * @return the bound guard policy, or empty when nothing has bound one yet
+     */
+    public java.util.Optional<dev.turboism.automesh.host.NativeAutoMeshBridge.Handler> autoMeshGuard() {
+        return java.util.Optional.ofNullable(autoMeshGuard);
+    }
+
+    /** Binds the auto-mesh dispatch policy; a no-op when a policy is already bound. */
+    void bindAutoMeshGuard(final dev.turboism.automesh.host.NativeAutoMeshBridge.Handler handler) {
+        synchronized (this) {
+            if (autoMeshGuard == null) {
+                autoMeshGuard = java.util.Objects.requireNonNull(handler, "handler");
             }
         }
     }

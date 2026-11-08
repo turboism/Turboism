@@ -463,6 +463,18 @@
         ":testing:test-support"
       ]
     },
+    ":plugins:turbo-mesh": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
     ":plugins:ui-theme": {
       "annotationProcessor": [
         ":event-processor"
@@ -585,6 +597,22 @@
       [
         "dev.turboism.adapter",
         "dev.turboism.ui"
+      ],
+      [
+        "dev.turboism.automesh",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.automesh",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.automesh",
+        "dev.turboism.mapping"
+      ],
+      [
+        "dev.turboism.automesh",
+        "dev.turboism.permissions"
       ],
       [
         "dev.turboism.bootstrap",
@@ -1053,6 +1081,7 @@
     ],
     "topPackages": [
       "dev.turboism.adapter",
+      "dev.turboism.automesh",
       "dev.turboism.bootstrap",
       "dev.turboism.cleanup",
       "dev.turboism.config",
