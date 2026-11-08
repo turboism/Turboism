@@ -14,7 +14,7 @@ import dev.turboism.sdk.CubismEditor;
  *
  * <p>Empty when the host cannot resolve the drawable's texture input or decode its pixels.</p>
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03", "5.3.04"})
 public record TexturePixels(int width, int height, int[] argb, double[] uvToPixel) {
 
     /**
