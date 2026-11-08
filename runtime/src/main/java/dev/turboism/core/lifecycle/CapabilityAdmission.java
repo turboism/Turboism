@@ -131,6 +131,30 @@ public final class CapabilityAdmission {
     }
 
     /**
+     * Returns the permissions a declared capability is gated on.
+     *
+     * <p>A capability is admitted by name and then permission-checked on every call, so a manifest
+     * that declares the capability without these permissions is admitted and then denied on every
+     * operation. Repository gates use this to reject that mismatch at build time instead of leaving
+     * the feature silently inert.</p>
+     *
+     * @param capability the capability id as declared in a plugin manifest
+     * @return the permissions every holder of {@code capability} must declare; empty when no row
+     *     gates it
+     */
+    public static Set<String> requiredPermissions(final String capability) {
+        if (capability == null || capability.isBlank()) {
+            return Set.of();
+        }
+        for (CapabilityRule rule : RULES) {
+            if (rule.anyOfCapabilities().contains(capability)) {
+                return rule.allOfPermissions();
+            }
+        }
+        return Set.of();
+    }
+
+    /**
      * Indexes a declared table, refusing a blank or duplicated hook id.
      *
      * @param declared the rows to validate

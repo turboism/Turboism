@@ -2,11 +2,14 @@ package dev.turboism.core.schema.plugin;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.core.lifecycle.CapabilityAdmission;
 import dev.turboism.core.schema.SchemaValidationError;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Command-line entry point used by the Gradle repository gate to validate plugin metadata
@@ -49,6 +52,7 @@ public final class PluginMetaValidationCli {
                     root.path("schemaVersion").asInt(2));
             List<SchemaValidationError> errors = validator.validate(root, path.toString());
             allErrors.addAll(errors);
+            allErrors.addAll(capabilityPermissionErrors(root, path.toString()));
         }
 
         if (!allErrors.isEmpty()) {
@@ -59,5 +63,48 @@ public final class PluginMetaValidationCli {
         }
 
         System.out.println("Plugin meta validation passed for " + args.length + " file(s).");
+    }
+
+    /**
+     * Rejects a manifest whose declared capability is gated on a permission it does not declare.
+     *
+     * <p>A runtime-gated surface is admitted by capability name and then permission-checked on every
+     * call. A plugin that declares the capability without the permission is therefore admitted and
+     * then denied on every operation: the feature silently never works, and the only trace is a
+     * WARNING audit event per attempt. Catching the mismatch here turns a silent runtime denial into
+     * a build failure.</p>
+     *
+     * @param root the parsed {@code plugin.json}
+     * @param source the descriptor path used in findings
+     * @return one finding per capability whose required permissions are not all declared
+     */
+    private static List<SchemaValidationError> capabilityPermissionErrors(final JsonNode root, final String source) {
+        final List<SchemaValidationError> errors = new ArrayList<>();
+        final Set<String> declared = new HashSet<>();
+        for (final JsonNode permission : root.path("permissions")) {
+            final String id = permission.path("id").asText("");
+            if (!id.isBlank()) {
+                declared.add(id);
+            }
+        }
+        for (final JsonNode capability : root.path("capabilities")) {
+            final String id = capability.asText("");
+            final Set<String> required = CapabilityAdmission.requiredPermissions(id);
+            if (required.isEmpty()) {
+                continue;
+            }
+            final Set<String> missing = new HashSet<>(required);
+            missing.removeAll(declared);
+            if (!missing.isEmpty()) {
+                errors.add(new SchemaValidationError(
+                        "capability-permission-mismatch",
+                        dev.turboism.core.schema.SchemaValidationError.Severity.ERROR,
+                        "capability '" + id + "' is gated on undeclared permission(s) " + missing
+                                + "; the surface would be admitted and then denied on every call",
+                        "/capabilities",
+                        source));
+            }
+        }
+        return errors;
     }
 }
