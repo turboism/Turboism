@@ -276,7 +276,7 @@ final class TurboMeshPlacement {
         for (final dev.turboism.plugin.turbomesh.domain.features.DensityPreset preset :
                 dev.turboism.plugin.turbomesh.domain.features.DensityPreset.values()) {
             options.add(new dev.turboism.sdk.ui.ChoiceDialogOption(
-                    preset.name(), text("turbo-mesh.preset." + preset.name()), "", true));
+                    preset.name(), text("turbo-mesh.preset." + preset.keyToken()), "", true));
         }
         return new dev.turboism.sdk.ui.ChoiceDialogRequest(
                 "turbo-mesh.mode",
@@ -356,7 +356,8 @@ final class TurboMeshPlacement {
                 + (stats.boundaryPoints() + stats.interiorPoints()) + " / "
                 + stats.triangleCount() + "\n"
                 + text("turbo-mesh.dialog.preset-label") + " "
-                + text("turbo-mesh.preset." + stats.presetName())
+                + text("turbo-mesh.preset."
+                        + dev.turboism.plugin.turbomesh.domain.features.DensityPreset.tokenOf(stats.presetName()))
                 + (keyformWarning.isEmpty() ? "" : "\n" + keyformWarning);
         final java.util.List<dev.turboism.sdk.ui.ChoiceDialogOption> options = java.util.List.of(
                 new dev.turboism.sdk.ui.ChoiceDialogOption("APPLY", text("turbo-mesh.dialog.confirm-apply"), "", true),
