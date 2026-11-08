@@ -5,7 +5,6 @@ import dev.turboism.automesh.host.AutoMeshTargetResolver;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.selector.MeshToolSessionSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
@@ -31,26 +30,19 @@ import java.util.Optional;
  * the user confirmed.</p>
  *
  * <p>The mesh-generator extension reaches its owner through the extension base class, so the
- * projection uses the verified base-class accessor of the reviewed record. The resolver checks the
- * receiver against the declaring class, which means an element of an unrelated type fails closed
- * instead of being read through a guessed member.</p>
+ * projection uses the verified base-class accessor of the reviewed record. The resolver refuses an
+ * alias the admitted plan does not carry and checks the receiver against the declaring class, so a
+ * build without the accessor or an element of an unrelated type fails closed instead of being read
+ * through a guessed member.</p>
  */
 public final class EditorAutoMeshTargetResolver implements AutoMeshTargetResolver {
 
-    /** Selector slice and capability that authorize the two element accessors. */
-    private static final String ADAPTER_SLICE_ID = EditorEditSessionSelectorContract.ADAPTER_SLICE_ID;
-
-    private static final String MESH_TOOL_CAPABILITY = MeshToolSessionSelectorContract.CAPABILITY_ID;
     private static final String MODELING_EXTENSION_OWNER = "cubism.editor-model.editable-mesh-extension.owner";
     private static final String MESH_EDIT_DATA_CLASS = "cubism.editor-model.mesh-edit-data.class";
     private static final String MESH_EDIT_DATA_SOURCE = MeshToolSessionSelectorContract.ARTMESH_EDIT_DATA_SOURCE;
     private static final String ART_MESH_SOURCE_CLASS = MeshToolSessionSelectorContract.ARTMESH_SOURCE_CLASS;
     private static final String SOURCE_ID = MeshToolSessionSelectorContract.ARTMESH_SOURCE_ID;
     private static final String ID_VALUE = MeshToolSessionSelectorContract.ID_VALUE;
-    private static final java.util.Set<String> MODELING_REQUIRED_ALIASES =
-            java.util.Set.of(MODELING_EXTENSION_OWNER, ART_MESH_SOURCE_CLASS, SOURCE_ID, ID_VALUE);
-    private static final java.util.Set<String> MESH_EDITOR_REQUIRED_ALIASES =
-            java.util.Set.of(MESH_EDIT_DATA_CLASS, MESH_EDIT_DATA_SOURCE, ART_MESH_SOURCE_CLASS, SOURCE_ID, ID_VALUE);
 
     /** Index of the first declared argument in the bridge's token-and-receiver-prefixed array. */
     private static final int FIRST_DECLARED_ARGUMENT = 2;
@@ -82,34 +74,11 @@ public final class EditorAutoMeshTargetResolver implements AutoMeshTargetResolve
         if (!(hostArguments[selectionIndex] instanceof List<?> entries)) {
             return Optional.empty();
         }
-        if (!authorized(funnel)) {
-            return Optional.empty();
-        }
         try {
             return project(funnel, entries);
         } catch (RuntimeException | LinkageError failure) {
             FatalErrors.rethrowIfFatal(failure);
             return Optional.empty();
-        }
-    }
-
-    /**
-     * Reports whether the reviewed record authorizes the accessors this funnel needs.
-     *
-     * <p>An unauthorized funnel answers "unresolvable" without touching the host, so an admitted
-     * build that lacks one accessor keeps the Editor's own generator instead of failing mid-read.</p>
-     */
-    private boolean authorized(final AutoMeshFunnel funnel) {
-        final java.util.Set<String> required =
-                switch (funnel) {
-                    case MODELING_MODE -> MODELING_REQUIRED_ALIASES;
-                    case MESH_EDITOR_MODE -> MESH_EDITOR_REQUIRED_ALIASES;
-                };
-        try {
-            return resolver.authorizesFeature(ADAPTER_SLICE_ID, MESH_TOOL_CAPABILITY, required);
-        } catch (RuntimeException | LinkageError failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            return false;
         }
     }
 
