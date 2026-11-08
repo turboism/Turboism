@@ -4,6 +4,9 @@ Status: audited scheduling specification. The audit performed no host runs.
 The main agent reports native 5.3.04 sessions; they are not Stage 1 to Stage 3 Core acceptance.
 This document does not claim behavior acceptance.
 
+The main agent later [acquired all eight official endpoint inputs](host-matrix-official-acquisition.md).
+That acquisition supersedes the missing-input status below, but it does not prove native behavior.
+
 ## Scope and rules
 
 This audit reads product source, installed Cubism inventories and compatibility records.
