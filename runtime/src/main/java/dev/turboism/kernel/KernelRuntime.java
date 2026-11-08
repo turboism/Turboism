@@ -591,6 +591,18 @@ public final class KernelRuntime implements AutoCloseable {
         }
     }
 
+    /**
+     * Session auto-mesh catalog the native selector row and the dispatch guard both read.
+     *
+     * <p>The catalog outlives every plugin generation, so a plugin reload never resets which
+     * algorithm the Auto Mesh Generate entry runs. Empty only before plugins are wired.</p>
+     *
+     * @return the session catalog, or empty when the plugin runtime has not been composed yet
+     */
+    public java.util.Optional<dev.turboism.automesh.AutoMeshAlgorithmCatalog> autoMeshCatalog() {
+        return java.util.Optional.ofNullable(pluginRuntime).map(LocalPluginRuntime::autoMeshCatalog);
+    }
+
     static dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService createFileChooserHistoryService(
             final Path home, final KernelLog log) {
         final dev.turboism.config.RuntimeConfigRepository config =

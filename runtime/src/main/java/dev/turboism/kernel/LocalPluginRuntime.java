@@ -406,6 +406,19 @@ public final class LocalPluginRuntime implements AutoCloseable {
     }
 
     /**
+     * Returns the session auto-mesh catalog.
+     *
+     * <p>The native selector row and the dispatch guard read the same catalog, so the algorithm a
+     * user picks is exactly the algorithm a confirmation runs. The catalog outlives every plugin
+     * generation, which is what keeps the selection across a plugin reload.</p>
+     *
+     * @return the session catalog
+     */
+    dev.turboism.automesh.AutoMeshAlgorithmCatalog autoMeshCatalog() {
+        return contextFactory.autoMeshCatalog();
+    }
+
+    /**
      * Starts the runtime-owned framework shell first — when a {@code ShellAdmission} was
      * wired by composition — then loads every discovered external plugin, exactly once
      * per runtime instance. A {@code null} admission is the supported headless mode:

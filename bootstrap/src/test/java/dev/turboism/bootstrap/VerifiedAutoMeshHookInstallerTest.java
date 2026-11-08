@@ -33,6 +33,7 @@ class VerifiedAutoMeshHookInstallerTest {
             "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/AutoMeshUtil_InMeshEditor";
     private static final String MODELING_KEY = "turboism.automesh.guard.modeling-mode";
     private static final String MESH_EDITOR_KEY = "turboism.automesh.guard.mesh-editor-mode";
+    private static final int TRANSFORMER_COUNT = 5;
 
     @Test
     void publishesTheCallbacksBeforeTheScanAndDropsThemOnlyAfterRestoration() throws Exception {
@@ -45,7 +46,10 @@ class VerifiedAutoMeshHookInstallerTest {
             installer.install();
             installer.install();
             assertTrue(callbacksDuringScan.get(0), "the callbacks must be live while the scan runs");
-            assertEquals(2, calls.stream().filter("add:true"::equals).count(), "one transformer per funnel");
+            assertEquals(
+                    TRANSFORMER_COUNT,
+                    calls.stream().filter("add:true"::equals).count(),
+                    "one transformer per funnel plus one per native container");
 
             assertTrue(bridgeIsPublished(MODELING_KEY));
             assertTrue(bridgeIsPublished(MESH_EDITOR_KEY));
@@ -54,9 +58,13 @@ class VerifiedAutoMeshHookInstallerTest {
         }
 
         assertEquals(
-                List.of("add:true", "add:true", "scan", "remove", "remove", "scan"),
+                List.of(
+                        "add:true", "add:true", "add:true", "add:true", "add:true",
+                        "scan",
+                        "remove", "remove", "remove", "remove", "remove",
+                        "scan"),
                 calls,
-                "teardown must remove both transformers and restore the hosts before dropping callbacks");
+                "teardown must remove every transformer and restore the hosts before dropping callbacks");
         assertTrue(callbacksDuringScan.get(1), "the callbacks must stay live while the hosts are restored");
         assertFalse(
                 bridgeIsPublished(MODELING_KEY) || bridgeIsPublished(MESH_EDITOR_KEY),
@@ -113,9 +121,13 @@ class VerifiedAutoMeshHookInstallerTest {
         final VerifiedAutoMeshHookInstaller installer = installer(instrumentation, AutoMeshHostProfile.CUBISM_5_3_04);
         assertThrows(IllegalStateException.class, installer::install);
         assertEquals(
-                List.of("add:true", "add:true", "scan", "remove", "remove", "scan"),
+                List.of(
+                        "add:true", "add:true", "add:true", "add:true", "add:true",
+                        "scan",
+                        "remove", "remove", "remove", "remove", "remove",
+                        "scan"),
                 calls,
-                "a failed installation must remove both transformers and restore the hosts");
+                "a failed installation must remove every transformer and restore the hosts");
         assertFalse(
                 bridgeIsPublished(MODELING_KEY) || bridgeIsPublished(MESH_EDITOR_KEY),
                 "the rollback must withdraw the callbacks");
@@ -160,7 +172,11 @@ class VerifiedAutoMeshHookInstallerTest {
                 "a failed restoration must keep the callbacks the transformed host still calls");
         installer.close();
         assertEquals(
-                List.of("add:true", "add:true", "scan", "remove", "remove", "scan", "scan"),
+                List.of(
+                        "add:true", "add:true", "add:true", "add:true", "add:true",
+                        "scan",
+                        "remove", "remove", "remove", "remove", "remove",
+                        "scan", "scan"),
                 calls,
                 "the retried teardown must not re-register a transformer");
         assertFalse(bridgeIsPublished(MODELING_KEY));
@@ -176,7 +192,10 @@ class VerifiedAutoMeshHookInstallerTest {
                 reviewed.modelingFunnelOwner(),
                 reviewed.modelingFunnel(),
                 reviewed.meshEditorFunnelOwner(),
-                reviewed.meshEditorFunnel());
+                reviewed.meshEditorFunnel(),
+                reviewed.modelingDialogPanelConstructor(),
+                reviewed.modelingPopupDialogConstructor(),
+                reviewed.meshEditorPopupDialogConstructor());
         assertThrows(
                 IllegalArgumentException.class,
                 () -> installer(instrumentation, unreviewed),
@@ -192,7 +211,10 @@ class VerifiedAutoMeshHookInstallerTest {
                         reviewed.modelingFunnel().descriptor(),
                         StaticSelector.ACCESS_PUBLIC),
                 reviewed.meshEditorFunnelOwner(),
-                reviewed.meshEditorFunnel());
+                reviewed.meshEditorFunnel(),
+                reviewed.modelingDialogPanelConstructor(),
+                reviewed.modelingPopupDialogConstructor(),
+                reviewed.meshEditorPopupDialogConstructor());
         assertThrows(
                 IllegalArgumentException.class,
                 () -> installer(instrumentation, crossedOwners),
