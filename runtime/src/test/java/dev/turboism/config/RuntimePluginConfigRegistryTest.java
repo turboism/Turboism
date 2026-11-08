@@ -15,6 +15,7 @@ import dev.turboism.sdk.config.PluginConfigException;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.WorkBudget;
+import dev.turboism.testkit.FileSystemFaults;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -78,29 +79,36 @@ class RuntimePluginConfigRegistryTest {
         assertThrows(IllegalArgumentException.class, () -> registry.readScope("../outside.properties"));
     }
 
+    /**
+     * A reparse point substituted for a config scope must never carry a plugin write into another
+     * directory. The host decides which reparse type can be created; the case asserts the contract it
+     * actually established, and the registry rejects the junction through its real-path containment.
+     */
     @Test
-    void symlinkedConfigPathCannotEscapePluginDirectory(@TempDir Path dataDir) throws Exception {
+    void linkedConfigPathCannotEscapePluginDirectory(@TempDir Path dataDir) throws Exception {
         final Path outside = Files.createTempDirectory("turboism-config-outside");
         try {
-            final Path link = dataDir.resolve("linked");
+            final FileSystemFaults.ReparsePoint point =
+                    FileSystemFaults.createDirectoryReparsePoint(dataDir.resolve("linked"), outside);
             try {
-                Files.createSymbolicLink(link, outside);
-            } catch (UnsupportedOperationException | java.nio.file.FileSystemException unavailable) {
-                org.junit.jupiter.api.Assumptions.abort("symbolic links are unavailable");
-            }
-            final RuntimePluginConfigRegistry registry =
-                    registry(dataDir, (permissionId, operation) -> {}, new RecordingPolicy());
-            final Registration read = registry.readScope("linked/config.properties");
-            final Registration write = registry.writeScope("linked/config.properties");
+                FileSystemFaults.assertRedirectsOutside(point, dataDir);
+                final RuntimePluginConfigRegistry registry =
+                        registry(dataDir, (permissionId, operation) -> {}, new RecordingPolicy());
+                final Registration read = registry.readScope("linked/config.properties");
+                final Registration write = registry.writeScope("linked/config.properties");
 
-            assertThrows(
-                    PluginConfigException.class,
-                    () -> registry.writeString("linked/config.properties", "name", "Turboism"));
-            assertTrue(registry.readString("linked/config.properties", "name").isEmpty());
-            assertFalse(Files.exists(outside.resolve("config.properties")));
-            write.close();
-            read.close();
-            registry.close();
+                assertThrows(
+                        PluginConfigException.class,
+                        () -> registry.writeString("linked/config.properties", "name", "Turboism"));
+                assertTrue(
+                        registry.readString("linked/config.properties", "name").isEmpty());
+                assertFalse(Files.exists(outside.resolve("config.properties")));
+                write.close();
+                read.close();
+                registry.close();
+            } finally {
+                FileSystemFaults.deleteReparsePoint(point.link());
+            }
         } finally {
             Files.deleteIfExists(outside.resolve("config.properties"));
             Files.deleteIfExists(outside);

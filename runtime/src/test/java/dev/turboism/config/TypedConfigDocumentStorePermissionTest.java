@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.persistence.config.StoredDocument;
 import dev.turboism.persistence.config.TypedConfigDocumentCodec;
+import dev.turboism.testkit.FileSystemFaults;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -63,18 +64,29 @@ class TypedConfigDocumentStorePermissionTest {
         assertFalse(Files.exists(temporary.resolve("outside.cfg")));
     }
 
+    /**
+     * A reparse point substituted for the config parent before the first write is rejected, so no
+     * document is created through it. The case asserts the contract the host could establish, as in
+     * {@link dev.turboism.testkit.FileSystemFaults#assertRedirectsOutside}.
+     */
     @Test
-    void firstWriteRejectsSymlinkSubstitutedForConfigParent() throws Exception {
+    void firstWriteRejectsReparsePointSubstitutedForConfigParent() throws Exception {
         final Path config = Files.createDirectories(temporary.resolve("config"));
         final Path root = config.resolve("plugin");
         final Path outside = Files.createDirectories(temporary.resolve("outside"));
         Files.createDirectories(outside.resolve("plugin"));
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
-        Files.move(config, temporary.resolve("original-config"));
-        Files.createSymbolicLink(config, outside);
+        final Path originalConfig = temporary.resolve("original-config");
+        Files.move(config, originalConfig);
+        final FileSystemFaults.ReparsePoint point = FileSystemFaults.createDirectoryReparsePoint(config, outside);
+        try {
+            FileSystemFaults.assertRedirectsOutside(point, originalConfig);
 
-        assertThrows(java.io.IOException.class, () -> store.writeAtomic("settings.cfg", document("line=value")));
-        assertFalse(Files.exists(outside.resolve("settings.cfg")));
+            assertThrows(java.io.IOException.class, () -> store.writeAtomic("settings.cfg", document("line=value")));
+            assertFalse(Files.exists(outside.resolve("settings.cfg")));
+        } finally {
+            FileSystemFaults.deleteReparsePoint(point.link());
+        }
     }
 
     @Test

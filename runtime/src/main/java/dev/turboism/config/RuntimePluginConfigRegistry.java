@@ -18,6 +18,7 @@ import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
@@ -325,12 +326,27 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
         }
     }
 
+    /**
+     * Resolves one scope to a path inside the plugin data directory and rejects every escape.
+     *
+     * <p>Each existing segment is checked twice: it must not be a symbolic link, and its real location
+     * must stay inside the real data directory. The second check is what rejects a Windows directory
+     * junction, which {@link Files#isSymbolicLink} does not report, so a plugin cannot write through a
+     * reparse point into another directory.
+     */
     private Path confinedPath(final String scope) throws IOException {
+        final Path dataDirReal =
+                Files.exists(pluginDataDir, LinkOption.NOFOLLOW_LINKS) ? pluginDataDir.toRealPath() : null;
         Path current = pluginDataDir;
         for (Path segment : Path.of(scope)) {
             current = current.resolve(segment);
             if (Files.isSymbolicLink(current)) {
                 throw new IOException("Plugin config path contains a symbolic link");
+            }
+            if (dataDirReal != null
+                    && Files.exists(current, LinkOption.NOFOLLOW_LINKS)
+                    && !current.toRealPath().startsWith(dataDirReal)) {
+                throw new IOException("Plugin config path resolves outside the plugin data directory");
             }
         }
         return current;

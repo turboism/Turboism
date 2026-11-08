@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.persistence.config.StoredDocument;
+import dev.turboism.testkit.FileSystemFaults;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,7 +26,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -229,47 +229,72 @@ class TypedConfigRecoveryPointTest {
         }
     }
 
-    /** Symlink attack on the recovery root: nothing is written through the link. */
+    /**
+     * A reparse point that redirects the recovery root outside the store is rejected before the
+     * capture, so no pre-migration image is ever written through it.
+     *
+     * <p>The host decides which rejection clause runs: a symbolic link is rejected by the store's
+     * link check, while a Windows directory junction is not a symbolic link and is rejected by the
+     * store's root-containment check. The case asserts the contract it actually established instead
+     * of treating the two reparse types as interchangeable.
+     */
     @Test
-    void symlinkedRecoveryRootIsRejectedBeforeCapture() throws Exception {
+    void linkedRecoveryRootIsRejectedBeforeCapture() throws Exception {
         final Path root = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
         final StoredDocument stored = document(1, 7, "enabled", "true");
         store.writeAtomic(DOCUMENT, stored);
         final byte[] original = Files.readAllBytes(root.resolve(DOCUMENT));
-        assumeSymlinksSupported();
         final Path outside = Files.createDirectories(temporary.resolve("outside"));
-        Files.createSymbolicLink(root.resolve(".recovery-points"), outside);
+        final FileSystemFaults.ReparsePoint point =
+                FileSystemFaults.createDirectoryReparsePoint(root.resolve(".recovery-points"), outside);
+        try {
+            FileSystemFaults.assertRedirectsOutside(point, root);
 
-        assertThrows(IOException.class, () -> store.recordRecoveryPoint(DOCUMENT, stored));
+            assertThrows(IOException.class, () -> store.recordRecoveryPoint(DOCUMENT, stored));
 
-        assertArrayEquals(original, Files.readAllBytes(root.resolve(DOCUMENT)));
-        try (Stream<Path> written = Files.walk(outside)) {
-            assertTrue(
-                    written.filter(Files::isRegularFile).toList().isEmpty(),
-                    "no recovery point may be written through a symlinked recovery root");
+            assertArrayEquals(original, Files.readAllBytes(root.resolve(DOCUMENT)));
+            try (Stream<Path> written = Files.walk(outside)) {
+                assertTrue(
+                        written.filter(Files::isRegularFile).toList().isEmpty(),
+                        "no recovery point may be written through a reparse point outside the root");
+            }
+        } finally {
+            FileSystemFaults.deleteReparsePoint(point.link());
         }
     }
 
-    /** Path replacement attack: the document parent becomes a link before the capture. */
+    /**
+     * Path replacement attack: the document parent becomes a reparse point before the capture, so
+     * the capture must fail closed and leave the pre-migration bytes where the operator can restore
+     * them. The asserted reparse contract is the one the host could establish, as in
+     * {@link #linkedRecoveryRootIsRejectedBeforeCapture()}.
+     */
     @Test
-    void parentDirectorySwappedForASymlinkIsRejectedBeforeCapture() throws Exception {
+    void parentDirectorySwappedForAReparsePointIsRejectedBeforeCapture() throws Exception {
         final Path root = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
         final StoredDocument stored = document(1, 7, "enabled", "true");
         store.writeAtomic(DOCUMENT, stored);
         final byte[] original = Files.readAllBytes(root.resolve(DOCUMENT));
-        assumeSymlinksSupported();
         final Path moved = temporary.resolve("settings-moved");
         Files.move(root.resolve("settings"), moved);
         final Path outside = Files.createDirectories(temporary.resolve("outside-settings"));
-        Files.createSymbolicLink(root.resolve("settings"), outside);
+        final FileSystemFaults.ReparsePoint point =
+                FileSystemFaults.createDirectoryReparsePoint(root.resolve("settings"), outside);
+        try {
+            FileSystemFaults.assertRedirectsOutside(point, root);
 
-        assertThrows(IOException.class, () -> store.recordRecoveryPoint(DOCUMENT, stored));
+            assertThrows(IOException.class, () -> store.recordRecoveryPoint(DOCUMENT, stored));
 
-        assertFalse(Files.exists(outside.resolve("sync.cfg")), "the capture must not write through the link");
-        assertArrayEquals(
-                original, Files.readAllBytes(moved.resolve("sync.cfg")), "the pre-migration bytes survive the attack");
+            assertFalse(Files.exists(outside.resolve("sync.cfg")), "the capture must not write through the link");
+            assertArrayEquals(
+                    original,
+                    Files.readAllBytes(moved.resolve("sync.cfg")),
+                    "the pre-migration bytes survive the attack");
+        } finally {
+            FileSystemFaults.deleteReparsePoint(point.link());
+        }
     }
 
     @Test
@@ -447,16 +472,6 @@ class TypedConfigRecoveryPointTest {
             return paths.filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().endsWith(".tmp"))
                     .toList();
-        }
-    }
-
-    private void assumeSymlinksSupported() {
-        try {
-            final Path probe = temporary.resolve("symlink-probe");
-            Files.createSymbolicLink(probe, temporary);
-            Files.delete(probe);
-        } catch (IOException | UnsupportedOperationException unsupported) {
-            Assumptions.abort("symbolic links are unavailable: " + unsupported.getMessage());
         }
     }
 }

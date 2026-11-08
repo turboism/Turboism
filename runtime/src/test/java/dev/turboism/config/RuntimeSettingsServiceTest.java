@@ -11,7 +11,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.internal.core.CubismJvmSettingsService.CubismJvm;
 import dev.turboism.internal.core.CubismJvmSettingsService.ManagedRuntimeState;
 import dev.turboism.sdk.runtime.RuntimeSettings;
-import java.io.IOException;
+import dev.turboism.testkit.FileSystemFaults;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -200,6 +200,11 @@ class RuntimeSettingsServiceTest {
         assertEquals(managed.toAbsolutePath().normalize(), service.graalVmJava().orElseThrow());
     }
 
+    /**
+     * A managed Graal runtime that only exists behind a reparse point must never be offered as the
+     * host JVM. The host decides which reparse type can be created; the case asserts the contract it
+     * actually established instead of treating a junction and a symbolic link as interchangeable.
+     */
     @Test
     void ignoresManagedRuntimeBehindALinkedAncestor() throws Exception {
         final Path outside = home.resolve("outside-graal");
@@ -207,15 +212,18 @@ class RuntimeSettingsServiceTest {
         Files.createDirectories(managed.getParent());
         Files.write(managed, new byte[] {1});
         writeGraalVmRelease(outside.resolve("runtime"));
+        final FileSystemFaults.ReparsePoint point =
+                FileSystemFaults.createDirectoryReparsePoint(home.resolve("graal"), outside);
         try {
-            Files.createSymbolicLink(home.resolve("graal"), outside);
-        } catch (UnsupportedOperationException | IOException unavailable) {
-            org.junit.jupiter.api.Assumptions.abort("symbolic links unavailable: " + unavailable);
-        }
-        final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
-                new RuntimeConfigRepository(home, ignored -> {}), home, java.util.Map.of());
+            FileSystemFaults.assertReparseContract(point);
 
-        assertTrue(service.graalVmJava().isEmpty());
+            final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
+                    new RuntimeConfigRepository(home, ignored -> {}), home, java.util.Map.of());
+
+            assertTrue(service.graalVmJava().isEmpty());
+        } finally {
+            FileSystemFaults.deleteReparsePoint(point.link());
+        }
     }
 
     @Test
