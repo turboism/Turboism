@@ -6,7 +6,9 @@ Base commit: `9994a3aa7` (permission fix and unoptimized-export fix included).
 The shared runtime, the scheduler, the panel runtime and `UiThemePlugin` were read only, never edited.
 
 Result: this review demonstrated no plugin defect. No source file changed. Only this note is added.
-A unit-test pass does not prove native acceptance. Section "Native acceptance checklist" owns that proof.
+GIF native acceptance stays **ACTIVE and NOT YET ACCEPTED**. A unit-test pass does not prove it.
+Section "Native acceptance checklist" owns that proof. Section "Unresolved acceptance risks"
+lists what still needs a native measurement.
 
 ## Environment
 
@@ -27,6 +29,7 @@ Three tests are therefore registered in `gradle/test-skip-allowlist.txt` (lines 
 For this review the executable was downloaded from the upstream distributor
 (`eternallybored.org/misc/gifsicle/releases/gifsicle-1.95-win64.zip`).
 It stays outside the repository and is not committed.
+Local executable path: `C:\Users\Tan\AppData\Local\Temp\gifsicle-195\gifsicle.exe`.
 
 | Artifact | SHA-256 | Bytes |
 |---|---|---|
@@ -89,11 +92,12 @@ It lives in `build/acceptance/070/gif-offline-probe/` (git-ignored) with `run.sh
 - One external optimizer run is bounded to 60 seconds and one frame capture to 30 seconds.
 - A fatal error, an interrupt and a plugin close all pass through the same cleanup path.
 
-## Observations not fixed in this review
+## Unresolved acceptance risks
 
-These items are real, but none blocks acceptance. Each stays visible for the main agent.
+These items carry no pass verdict yet. Each one needs native evidence before acceptance.
+Items 1 and 3 need a measurement, not a code reading.
 
-1. Dropped frames shorten the playback duration.
+1. Dropped frames shorten the playback duration. **Unresolved. Measure it.**
    The loop drops frames instead of stretching the frame delay when the host cannot sustain the
    requested rate. The GIF then plays faster than the recorded wall-clock time.
    The behaviour is deliberate in code (`Never burst to catch up after slow rendering/encoding`)
@@ -106,13 +110,38 @@ These items are real, but none blocks acceptance. Each stays visible for the mai
 3. Strip visibility while the modal export dialog is open is unverified.
    The preview reports focus only for the focused window. A modal export dialog takes that focus,
    so the poll can unbind the strip during export. The recording already stopped at that point and
-   the stored status renders again on the next bind. Confirm this on the host.
-4. The unused `gif.cancel` key stays in all five catalogs.
+   the stored status renders again on the next bind. **Unresolved. Observe it on the host.**
+   If the strip stays hidden after a successful export, the operator loses the save confirmation.
+4. The unused `gif.cancel` key stays in all five catalogs. Cosmetic only.
 
-## Deferred by user direction
+## Status of GIF acceptance
 
-The repeated-input investigation and the GIF visual acceptance stay deferred, not passed.
-Do not weaken queue limits to hide repeated input.
+GIF native acceptance is **ACTIVE and NOT YET ACCEPTED**.
+The user re-added it to the active Todo after an earlier deferral, so the deferral no longer applies.
+Do not report GIF readiness from this note, from the unit suite or from the offline harness.
+
+One restriction remains. Do not repeat the sustained-input investigation without new evidence.
+An earlier session observed 5,574 `action.handle REJECTED` events and a stuck F7 key state.
+Do not weaken queue limits to hide repeated input. Step 22 of the checklist records the
+observation only. Report it and stop there unless new evidence appears.
+
+## Re-run the covered suite
+
+Exact inputs, so the main agent can repeat the 14 cases before worktree archive:
+
+| Item | Value |
+|---|---|
+| Gifsicle executable | `C:\Users\Tan\AppData\Local\Temp\gifsicle-195\gifsicle.exe` (outside the repository, not committed) |
+| Gifsicle SHA-256 | `6f60cc7f696ab4b861bf9e6fb5b4fd940b3cb6b9731e2ef04708334af95a7de4` |
+| Command | `TURBOISM_TEST_GIFSICLE='C:\Users\Tan\AppData\Local\Temp\gifsicle-195\gifsicle.exe' ./gradlew --offline :plugins:physics-editor:test :plugins:physics-editor:spotlessCheck --rerun-tasks` |
+| Raw Gradle console log | `build/acceptance/070/gif-offline-probe/gradle-test.log` |
+| Raw JUnit XML | `build/worktree/acceptance-070-gif-review/physics-editor/test-results/test/TEST-*.xml` (4 files) |
+| HTML test report | `build/worktree/acceptance-070-gif-review/physics-editor/reports/tests/test/index.html` |
+| Harness console log | `build/acceptance/070/gif-offline-probe/probe.txt` |
+| Harness source and runner | `build/acceptance/070/gif-offline-probe/src/GifProbe.java`, `build/acceptance/070/gif-offline-probe/run.sh` |
+
+`build/` is git-ignored, so those logs never enter the commit.
+Re-run before archive, then delete `build/acceptance/070/gif-offline-probe/` with the worktree.
 
 ## Native acceptance checklist
 
@@ -137,7 +166,7 @@ Checks
 | 4 | Press Shift+F7 while recording | Status `Paused N`; F7 resumes |
 | 5 | Type `0`, Enter; then `51`, Enter; then `abc`, Enter | Each entry logs a warning and the field returns to the previous rate |
 | 6 | Type `50`, Enter, then record 5 seconds | Status counts about 250 frames; no error |
-| 7 | Press F8 | Export dialog appears with the preview pixel size, scale 100, lock on, optimize on, limit 20, the executable path, and the optimization hint |
+| 7 | Press F8 | Export dialog appears with the preview pixel size, scale 100, lock on, optimize on, limit 20, the executable path, and the optimization hint. Record whether the strip stays visible behind the dialog (risk 3) |
 | 8 | Press Cancel | No file written; status `Cancelled`; `%TEMP%` holds no `turboism-physics-*.gif` |
 | 9 | Record 3 seconds, press F8, keep optimize on, set a 2 MB limit, save | File exists, size ≤ 2,000,000 bytes, frame count equals the status count, playback duration matches the unoptimized reference, loops forever |
 | 10 | Repeat with a 0.01 MB limit | Error line appears in the dialog; the recording stays; raising the limit and confirming exports the same recording |
@@ -150,7 +179,7 @@ Checks
 | 17 | Reopen the preview, then start recording and resize the preview | Failure `Preview size changed; record again without resizing.`; no temporary left |
 | 18 | Export once, restart the Editor, start a new recording and press F8 | The file chooser opens in the last successful directory |
 | 19 | Inspect the saved frames | Model pixels only. No Physics Settings panel and no control strip in any frame |
-| 20 | Compare the wall-clock recording time with the GIF duration at 30 FPS | Report both numbers. A short GIF confirms observation 1 |
+| 20 | Compare the wall-clock recording time with the GIF duration at 30 FPS | Report both numbers. A short GIF confirms risk 1 and blocks acceptance until resolved |
 | 21 | Read the session log for `cubism.preview.capture` | Zero capability audit denials |
 | 22 | Read the session log for `action.handle` | No sustained `REJECTED` flood. One F7 press yields one command |
 | 23 | Record, then disable the plugin in Plugin Management | Recorder released, strip gone, no temporary left, no orphan shortcut |
@@ -159,3 +188,14 @@ Checks
 Pass criteria: checks 1-20 and 23-24 match the expected result, step 21 shows zero denials, and
 step 22 shows no sustained rejection flood. Report any deviation with the step number, the log
 excerpt and the saved file.
+
+GIF acceptance stays open until all of these hold:
+
+1. Step 20 records both durations. If the GIF is short, either resolve risk 1 or document the
+   limitation in the plugin README and the release notes before acceptance.
+2. Step 7 records strip visibility during export. If the strip stays hidden, resolve risk 3 or
+   document it.
+3. Step 21 and step 22 hold.
+4. The saved GIF opens in a viewer with the expected frame count, size, loop and playback.
+
+A skipped, cancelled or partial run does not satisfy any criterion.
