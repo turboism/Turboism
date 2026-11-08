@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -61,6 +62,26 @@ final class AutoMeshFunnelTestSupport {
 
     /** @return the first {@code limit} instruction events of one method, rendered as text */
     static List<String> firstInstructions(final byte[] bytes, final String methodName, final int limit) {
+        final List<String> captured = capture(bytes, methodName, limit, false);
+        return captured.isEmpty() ? List.of() : captured;
+    }
+
+    /**
+     * Returns every instruction event of one method, rendered as text.
+     *
+     * <p>The full body is what a structural assertion needs: the decorated constructor keeps its
+     * native code and gains the attach call, so the caller must see both.</p>
+     *
+     * @param bytes the class bytes to read
+     * @param methodName the method to capture
+     * @return every instruction event, in source order
+     */
+    static List<String> instructions(final byte[] bytes, final String methodName) {
+        return capture(bytes, methodName, Integer.MAX_VALUE, true);
+    }
+
+    private static List<String> capture(
+            final byte[] bytes, final String methodName, final int limit, final boolean structural) {
         final List<List<String>> captured = new ArrayList<>();
         new ClassReader(bytes)
                 .accept(
@@ -77,23 +98,32 @@ final class AutoMeshFunnelTestSupport {
                                 }
                                 final List<String> instructions = new ArrayList<>();
                                 captured.add(instructions);
-                                return new InstructionRecorder(instructions, limit);
+                                return new InstructionRecorder(instructions, limit, structural);
                             }
                         },
                         ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-        return captured.isEmpty() ? List.of() : captured.get(0);
+        return captured.isEmpty() ? List.of() : List.copyOf(captured.get(0));
     }
 
-    /** Records the leading instructions of one method as readable text. */
+    /**
+     * Records instruction events of one method as readable text.
+     *
+     * <p>Two modes exist because two questions are asked. The leading-instruction mode reports only
+     * the code a caller injected, which is what an "is the guard first" assertion needs. The
+     * structural mode also reports labels, try ranges and jumps, which is what a "the native body
+     * survived and the injected call precedes the return" assertion needs.</p>
+     */
     private static final class InstructionRecorder extends MethodVisitor {
 
         private final List<String> instructions;
         private final int limit;
+        private final boolean structural;
 
-        private InstructionRecorder(final List<String> instructions, final int limit) {
+        private InstructionRecorder(final List<String> instructions, final int limit, final boolean structural) {
             super(Opcodes.ASM9);
             this.instructions = instructions;
             this.limit = limit;
+            this.structural = structural;
         }
 
         @Override
@@ -109,6 +139,60 @@ final class AutoMeshFunnelTestSupport {
         @Override
         public void visitLdcInsn(final Object value) {
             record("LDC " + value);
+        }
+
+        @Override
+        public void visitInsn(final int opcode) {
+            record(switch (opcode) {
+                case Opcodes.RETURN -> "RETURN";
+                case Opcodes.POP -> "POP";
+                case Opcodes.DUP -> "DUP";
+                case Opcodes.AASTORE -> "AASTORE";
+                case Opcodes.ICONST_0 -> "ICONST_0";
+                case Opcodes.ICONST_1 -> "ICONST_1";
+                case Opcodes.ICONST_2 -> "ICONST_2";
+                case Opcodes.ICONST_3 -> "ICONST_3";
+                case Opcodes.ICONST_4 -> "ICONST_4";
+                case Opcodes.ICONST_5 -> "ICONST_5";
+                default -> "INSN " + opcode;
+            });
+        }
+
+        @Override
+        public void visitTypeInsn(final int opcode, final String type) {
+            if (!structural) {
+                return;
+            }
+            record((opcode == Opcodes.ANEWARRAY ? "ANEWARRAY " : "TYPED " + opcode + " ") + type);
+        }
+
+        @Override
+        public void visitVarInsn(final int opcode, final int varIndex) {
+            if (structural) {
+                record("VAR " + opcode + " " + varIndex);
+            }
+        }
+
+        @Override
+        public void visitJumpInsn(final int opcode, final Label label) {
+            if (structural) {
+                record("JUMP " + opcode);
+            }
+        }
+
+        @Override
+        public void visitLabel(final Label label) {
+            if (structural) {
+                record("LABEL");
+            }
+        }
+
+        @Override
+        public void visitTryCatchBlock(
+                final Label start, final Label end, final Label handler, final String type) {
+            if (structural) {
+                record("TRY " + type);
+            }
         }
 
         private void record(final String text) {

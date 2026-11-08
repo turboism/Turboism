@@ -21,11 +21,18 @@ import java.util.function.Function;
  * broken policy, a buggy plugin algorithm, or a re-entrant call must never deny the user the
  * Editor's own Auto Mesh Generate. Each failure also reaches the diagnostic sink, so a silent
  * fallback never hides the reason.</p>
+ *
+ * <p>The attach callback is the second half of the bridge. A constructor anchor reports the
+ * container it just built, and the runtime decorates it; the callback answers nothing, because a
+ * container that cannot be decorated must still construct exactly like the native one.</p>
  */
 public final class NativeAutoMeshBridge {
 
     /** Property prefix of every guard callback key; transformed bytecode embeds these literals. */
     public static final String PROPERTY_PREFIX = "turboism.automesh.guard.";
+
+    /** Property of the container attach callback; transformed bytecode embeds this literal. */
+    public static final String ATTACH_KEY = "turboism.automesh.attach";
 
     private static final AtomicReference<Handler> HANDLER = new AtomicReference<>();
     private static final AtomicReference<Consumer<String>> DIAGNOSTICS = new AtomicReference<>();
@@ -68,6 +75,7 @@ public final class NativeAutoMeshBridge {
         }
         final Properties properties = System.getProperties();
         final Function<Object, Object> callback = NativeAutoMeshBridge::dispatch;
+        final Function<Object, Object> attachCallback = NativeAutoMeshBridge::dispatchAttach;
         final String[] keys = {callbackKey(AutoMeshFunnel.MODELING_MODE), callbackKey(AutoMeshFunnel.MESH_EDITOR_MODE)};
         try {
             synchronized (properties) {
@@ -76,9 +84,13 @@ public final class NativeAutoMeshBridge {
                         throw new IllegalStateException("auto mesh guard callback property is already installed");
                     }
                 }
+                if (properties.containsKey(ATTACH_KEY)) {
+                    throw new IllegalStateException("auto mesh attach callback property is already installed");
+                }
                 for (final String key : keys) {
                     properties.put(key, callback);
                 }
+                properties.put(ATTACH_KEY, attachCallback);
             }
         } catch (RuntimeException | Error failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -87,6 +99,7 @@ public final class NativeAutoMeshBridge {
                 for (final String key : keys) {
                     properties.remove(key, callback);
                 }
+                properties.remove(ATTACH_KEY, attachCallback);
             }
             throw failure;
         }
@@ -103,6 +116,7 @@ public final class NativeAutoMeshBridge {
                     for (final String key : keys) {
                         properties.remove(key, callback);
                     }
+                    properties.remove(ATTACH_KEY, attachCallback);
                 }
                 DIAGNOSTICS.compareAndSet(requestedDiagnostics, null);
                 HANDLER.compareAndSet(requested, null);
@@ -168,6 +182,56 @@ public final class NativeAutoMeshBridge {
         return null;
     }
 
+    /**
+     * Answers one container construction.
+     *
+     * <p>The property value is the container token followed by the live container instance. A
+     * missing handler, an unexpected argument shape or a throwing handler all answer {@code null},
+     * so the container finishes its own constructor exactly like the native one.</p>
+     */
+    private static Object dispatchAttach(final Object arguments) {
+        final Handler handler = HANDLER.get();
+        if (handler == null) {
+            return null;
+        }
+        if (!(arguments instanceof Object[] hostArguments) || hostArguments.length == 0) {
+            diagnostic("auto mesh attach: container handed an unexpected argument, the row is not added");
+            return null;
+        }
+        if (!(hostArguments[0] instanceof String token)) {
+            diagnostic("auto mesh attach: container identity is missing, the row is not added");
+            return null;
+        }
+        final AutoMeshContainer container = containerOf(token);
+        if (container == null) {
+            diagnostic("auto mesh attach: container identity is unknown, the row is not added");
+            return null;
+        }
+        try {
+            handler.attach(container, hostArguments.length > 1 ? hostArguments[1] : null);
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            diagnostic("auto mesh attach: policy failed and the row is not added: "
+                    + failure.getClass().getName() + ": " + failure.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Returns the container the transformer encoded in the argument array, or {@code null}.
+     *
+     * <p>Transformed bytecode passes a private token as the first element, because one callback
+     * cannot know which container it serves from the arguments alone.</p>
+     */
+    private static AutoMeshContainer containerOf(final String token) {
+        for (final AutoMeshContainer container : AutoMeshContainer.values()) {
+            if (container.token().equals(token)) {
+                return container;
+            }
+        }
+        return null;
+    }
+
     private static void diagnostic(final String message) {
         final Consumer<String> sink = DIAGNOSTICS.get();
         if (sink == null) {
@@ -195,5 +259,16 @@ public final class NativeAutoMeshBridge {
          *     run; {@code null} and {@code false} both mean the native body runs
          */
         Boolean handle(AutoMeshFunnel funnel, Object[] hostArguments);
+
+        /**
+         * Decorates one freshly constructed native Auto Mesh Generate container.
+         *
+         * <p>The constructor has finished its own body, so the container is fully built but not
+         * yet shown. A failure here must leave the container exactly as the host built it.</p>
+         *
+         * @param container the container that was just constructed
+         * @param instance the live container widget; the values are opaque to this layer
+         */
+        default void attach(final AutoMeshContainer container, final Object instance) {}
     }
 }
