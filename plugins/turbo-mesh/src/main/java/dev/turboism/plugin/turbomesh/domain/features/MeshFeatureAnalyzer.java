@@ -340,7 +340,7 @@ public final class MeshFeatureAnalyzer {
     }
 
     /** sRGB (linearized) to CIELAB, D65 reference white; L in [0, 100], a/b in roughly [-128, 128]. */
-    static float[] srgbToLab(final float r, final float g, final float b) {
+    public static float[] srgbToLab(final float r, final float g, final float b) {
         final double lr = linearize(r);
         final double lg = linearize(g);
         final double lb = linearize(b);
