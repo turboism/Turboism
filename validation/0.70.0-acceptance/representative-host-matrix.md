@@ -1,15 +1,17 @@
 # 0.70.0 representative exact-host matrix
 
-Status: audited scheduling specification. No current-source host run exists for this matrix.
+Status: audited scheduling specification. The audit performed no host runs.
+The main agent reports native 5.3.04 sessions; they are not Stage 1 to Stage 3 Core acceptance.
 This document does not claim behavior acceptance.
 
 ## Scope and rules
 
 This audit reads product source, installed Cubism inventories and compatibility records.
-It writes only this file.
-The audit did not launch Cubism, edit an official installation or configuration, download an
-installer, touch a user model, alter a compatibility oracle or change product source.
+It writes this file and the retained raw inventory output.
+The audit did not launch Cubism, edit an official installation or configuration, acquire a
+missing installer, touch a user model, alter a compatibility oracle or change product source.
 The main agent owns host scheduling and final acceptance.
+This machine is Windows.
 
 The matrix uses the repository rule in
 [CONTRIBUTING.md](../../CONTRIBUTING.md#cubism-version-adaptation):
@@ -20,7 +22,7 @@ Offline gates and static records do not imply a host PASS.
 
 Source baseline: `9994a3aa7460485d452e8065e442a95703fddad9`
 (branch `acceptance/070-host-matrix-audit`).
-The worktree was clean before this file was added.
+The worktree was clean before this audit output was added.
 
 ## Reviewed release families
 
@@ -117,7 +119,10 @@ Missing stable patches:
 5.2.01, 5.2.02, 5.3.01 and 5.3.03.
 
 Four matrix endpoints are missing on this host: 5.0.00, 5.0.06, 5.1.03 and 5.2.00.
-The audit did not download or install them.
+The audit did not acquire or install them.
+This is an audit limit, not a release rule.
+The main agent may arrange reviewed official isolated acquisition or user-supplied exact
+inputs, and must verify the exact hash before use.
 
 ### Launch constraints
 
@@ -126,9 +131,13 @@ Every launch-capable reviewed 5.x stable installation has a Turboism-managed
 The 4.2, 5.3 alpha and 5.4 alpha installs use unmanaged BAT files.
 The managed BAT calls `%LOCALAPPDATA%\Turboism\launch-cubism-turboism.ps1`.
 The official bytes remain in `CubismEditor5.bat.turboism-original.bak`.
-A direct launch therefore uses the installed Turboism home, not the candidate build.
-Acceptance must not use these BAT files as candidate launchers.
-Do not edit these installations to restore the BAT.
+Do not invoke the official BAT directly into the user installation.
+That in-place launch uses the installed Turboism home, not the candidate build.
+The reviewed managed launcher may run with an explicit isolated `HomePath`.
+Its supported managed-header handling then delegates to the official
+`CubismEditor5.bat`.
+Do not bypass the required official-BAT path.
+Do not edit these installations to restore or replace the BAT.
 
 `F:/Live2D/Live2D Cubism 5.2` has only `.bak` launchers and no Editor EXE.
 It is an artifact copy, not a launchable installation.
@@ -139,7 +148,7 @@ The JAR bytes still match the reviewed record, but the installation is not prist
 
 `STATIC MATCH` means the installed Editor and Core hashes equal the reviewed records.
 `PRIOR EVIDENCE` means a recorded host run exists, but it is not bound to the 0.70.0 source.
-`NOT RUN` means no current-source run exists.
+`NOT RUN` means no current-source run for this matrix workload exists.
 `BLOCKED` means a required input is missing or unsafe.
 
 | Endpoint | Task code | Windows installation | Static identity | Prior evidence | Current-source smoke | Full behavior |
@@ -153,11 +162,15 @@ The JAR bytes still match the reviewed record, but the installation is not prist
 | 5.3.00 | 5300 | `F:` copy | STATIC MATCH | Yes, unbound | NOT RUN | NOT RUN |
 | 5.3.04 | 5304 | `C:` copy | STATIC MATCH | Yes, unbound | NOT RUN | NOT RUN |
 
+The main agent reports native 5.3.04 sessions.
+They are not this workload and do not satisfy Stage 1 to Stage 3.
+
 Endpoint readiness on this host:
 
 - Installation present: 5.1.00, 5.2.03, 5.3.00 and 5.3.04.
-  Schedule these only through a reviewed isolated launch path.
-  Do not launch the managed Windows BAT directly.
+  Use a reviewed isolated launch path.
+  Do not invoke the official BAT directly into the user installation.
+  The reviewed managed launcher may run with an explicit isolated `HomePath`.
 - BLOCKED by a missing installation: 5.0.00, 5.0.06, 5.1.03 and 5.2.00.
 
 The campaign record claims a 20-version Linux Proton golden prefix.
@@ -172,7 +185,15 @@ Do not replace a missing stage with evidence from another version or another fea
 
 ### Stage 0: offline preflight
 
-Run these commands on the candidate source before host scheduling:
+On this native Windows host, use native Gradle commands without X11 or xvfb:
+
+```bat
+.\gradlew.bat --console=plain :runtime:admissionPreflightTest
+.\gradlew.bat --console=plain checkReviewedReleases
+python scripts\materialize_verification_records.py
+```
+
+On a Linux host, use the X11 wrapper:
 
 ```sh
 env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 xvfb-run -a ./gradlew :runtime:admissionPreflightTest
@@ -180,7 +201,20 @@ env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 xvfb-run -a ./gradlew checkReviewedR
 python3 scripts/materialize_verification_records.py
 ```
 
-For each endpoint, verify the exact Editor and Core selector records:
+For each endpoint, verify the exact Editor and Core selector records.
+Native Windows commands:
+
+```bat
+.\gradlew.bat verifyStaticHostSelectors ^
+  -PturboismStaticVerificationRecord=build/generated/verification/cubism-<VERSION>-editor-model.json ^
+  -PturboismHostArtifact=<EDITOR_JAR>
+
+.\gradlew.bat verifyStaticHostSelectors ^
+  -PturboismStaticVerificationRecord=build/generated/verification/cubism-<VERSION>-core-model-read.json ^
+  -PturboismHostArtifact=<CORE_JAR>
+```
+
+Linux X11 commands:
 
 ```sh
 env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 xvfb-run -a ./gradlew verifyStaticHostSelectors \
@@ -349,11 +383,15 @@ Prior evidence has these limits:
 
 ### Current-source native smoke
 
-No current-source smoke exists.
-Stage 1 to Stage 3 are `NOT RUN` for all eight endpoints.
+The audit performed no runs.
+The main agent reports native 5.3.04 sessions.
+Those sessions are not Stage 1 to Stage 3 Core acceptance.
+They do not bind this matrix workload, the candidate JAR hash or the required assertions.
+Record them as 5.3.04 activity, not as matrix acceptance.
+Stage 1 to Stage 3 remain `NOT RUN` for all eight endpoints.
 A current-source smoke must bind the candidate agent hash, probe hash, prepared digest,
 source revision, exact host JAR hash, fixture hash and terminal supervisor result.
-Do not infer it from prior jobs, static records or offline tests.
+Do not infer it from prior jobs, static records, offline tests or unqualified sessions.
 
 ### Full behavior acceptance
 
@@ -365,16 +403,22 @@ Keep the two ledgers separate.
 ## Blockers
 
 1. Four endpoints are missing on native Windows: 5.0.00, 5.0.06, 5.1.03 and 5.2.00.
-   Do not download installers.
-   Use an existing exact installation or the verified Linux Proton prefix.
+   The audit did not acquire or install them.
+   The main agent may arrange reviewed official isolated acquisition or user-supplied
+   exact inputs.
+   Verify the exact hash before scheduling.
    Otherwise keep the endpoint `BLOCKED`.
 2. The Linux Proton golden prefix inventory is unverified in this audit.
    The campaign claims 20 installs.
    The main agent must hash-check each endpoint before scheduling.
-3. The Windows launchers are Turboism-managed.
+3. In-place invocation of the managed Windows BAT uses the user installation.
    `F:/Live2D/Live2D Cubism 5.2` is stripped and not launchable.
-   Direct Windows launch does not exercise the candidate build.
-4. No current-source host run exists.
+   Use the reviewed managed launcher with an explicit isolated `HomePath`, or the
+   Linux Proton queue.
+   Do not bypass the official-BAT path.
+4. The audit performed no host runs.
+   The main agent reports native 5.3.04 sessions, but they are not Stage 1 to Stage 3
+   Core acceptance.
    All tracked prior jobs lack a source revision binding.
 5. The raw result files cited by the matrix README are absent.
    The evidence chain is incomplete.
@@ -411,6 +455,8 @@ The comparison script read `reviewed-releases.json`,
 `core-api/observed/*.json` and every installed `app/lib` JAR.
 It printed the Editor and Core hash for each directory and the matching reviewed row.
 The installed inventory table records the output.
+The raw output is retained at
+[representative-host-inventory.txt](representative-host-inventory.txt).
 No host process started.
 
 ### Commands for the main agent
@@ -430,7 +476,7 @@ python3 scripts/preview/host_validation.py status <JOB_ID> --json
 python3 scripts/preview/host_validation.py wait <JOB_ID>
 ```
 
-Repeat for each ready endpoint and each stage.
+Repeat for each installation-present endpoint and each stage.
 Use `TURBOISM_ENV_FILE` for the private fixture and golden-prefix paths.
 The task manifest is [host-validation-tasks.json](../../scripts/preview/host-validation-tasks.json).
 The queue rules are in
@@ -438,6 +484,7 @@ The queue rules are in
 
 ## Evidence references
 
+- [representative-host-inventory.txt](representative-host-inventory.txt): retained raw inventory output.
 - [CONTRIBUTING.md](../../CONTRIBUTING.md#cubism-version-adaptation): representative matrix rule.
 - [reviewed-releases.json](../../compatibility/cubism/reviewed-releases.json): 20 Editor rows.
 - [core-api observed records](../../compatibility/cubism/core-api/observed/): exact Core JARs.
@@ -453,7 +500,8 @@ The queue rules are in
 
 ## Return summary
 
-Matrix state: specification complete; current-source execution `NOT RUN`.
-Ready endpoints on this Windows host: 5.1.00, 5.2.03, 5.3.00, 5.3.04.
-Blocked endpoints on this Windows host: 5.0.00, 5.0.06, 5.1.03, 5.2.00.
+Matrix state: specification complete; audit host runs: none.
+Main-agent native 5.3.04 sessions exist, but they are not Stage 1 to Stage 3 acceptance.
+Installation-present endpoints on this Windows host: 5.1.00, 5.2.03, 5.3.00, 5.3.04.
+Missing endpoints on this Windows host: 5.0.00, 5.0.06, 5.1.03, 5.2.00.
 No PASS is claimed.

@@ -1,0 +1,65 @@
+format=turboism.representative-host-inventory/v1
+baseline=9994a3aa7460485d452e8065e442a95703fddad9
+method=read-only sha256 of app/lib/Live2D_Cubism.jar and app/lib/Live2DCubismCore.jar
+path-display=forward slashes
+
+[reviewed]
+version=5.0.00	build=500000005	hostLabel=Live2D Cubism 5.0.00	editorSize=36091669	editorSha256=42ee222a05478f48739bb1fbf7e7bc7350b21004e506e1b555d1d55c584d99cd	coreTuple=5.0.0
+version=5.0.01	build=500010000	hostLabel=Live2D Cubism 5.0.01	editorSize=36099677	editorSha256=1aa93b1d9d8da88e8c28de06b680c41a73fc70243307d856d4a2967e6e487a0b	coreTuple=5.0.0
+version=5.0.02	build=500020000	hostLabel=Live2D Cubism 5.0.02	editorSize=36100830	editorSha256=39e73c8238acba5270422a6e0f228c66a733177d009c710721381285ab0af072	coreTuple=5.0.0
+version=5.0.03	build=500030001	hostLabel=Live2D Cubism 5.0.03	editorSize=36098490	editorSha256=05bc9b872527fed3dc2641ff833b03d86e6fdafbe6faa294eb3d0afcc0f88a66	coreTuple=5.0.0
+version=5.0.04	build=500040000	hostLabel=Live2D Cubism 5.0.04	editorSize=36098501	editorSha256=7298c5731525a2bd5ac4e6d5246f1f08603651b0ec37cf5dc3e8ad1802ad8758	coreTuple=5.0.0
+version=5.0.05	build=500050001	hostLabel=Live2D Cubism 5.0.05	editorSize=36644752	editorSha256=1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4	coreTuple=5.0.0
+version=5.0.06	build=500060001	hostLabel=Live2D Cubism 5.0.06	editorSize=36677328	editorSha256=cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2	coreTuple=5.0.0
+version=5.1.00	build=501000004	hostLabel=Live2D Cubism 5.1.00	editorSize=38664130	editorSha256=cdda37ed4105cf5e4ecb5811f7065df35b9b9a3319bcb74f8e9189d91e8d3f05	coreTuple=5.0.0
+version=5.1.01	build=501010000	hostLabel=Live2D Cubism 5.1.01	editorSize=38682375	editorSha256=ddb1f5569bc8da49f3c9f6b6eaec3fe57e4f7abec67c9c44079233ea51056c02	coreTuple=5.0.0
+version=5.1.02	build=501020001	hostLabel=Live2D Cubism 5.1.02	editorSize=38910839	editorSha256=0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca	coreTuple=5.0.0
+version=5.1.03	build=501030000	hostLabel=Live2D Cubism 5.1.03	editorSize=38910843	editorSha256=a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b	coreTuple=5.0.0
+version=5.2.00	build=502000003	hostLabel=Live2D Cubism 5.2.00	editorSize=40625430	editorSha256=25c41c81ddb3af884b7f0d61a02eba9b09f0412bdc025997c419de7ab7158cf1	coreTuple=5.0.256
+version=5.2.01	build=502010000	hostLabel=Live2D Cubism 5.2.01	editorSize=40625435	editorSha256=c1b70ca8c571c4f4df4ebce63b3381f6bed1b132ab0ed539046fd0609e2b00ac	coreTuple=5.0.256
+version=5.2.02	build=502020000	hostLabel=Live2D Cubism 5.2.02	editorSize=40626770	editorSha256=ba1f31a1846490c3f111a4ae99887c36bcc0c1bc1a3cf970eb5a7aeed7902aff	coreTuple=5.0.256
+version=5.2.03	build=502030002	hostLabel=Live2D Cubism 5.2	editorSize=40805584	editorSha256=bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd	coreTuple=5.0.256
+version=5.3.00	build=503000005	hostLabel=Live2D Cubism 5.3.00	editorSize=41859315	editorSha256=c89dcaf17b6bfad7227db30bffc2f29cdf49b8e4b0cec1f12af2d85b1c13e767	coreTuple=6.0.257
+version=5.3.01	build=503010000	hostLabel=Live2D Cubism 5.3.01	editorSize=41862401	editorSha256=694bb49c66ddcf15695dbd8f66e1cbaeb0097f651e2e77c327567244f801d2f4	coreTuple=6.0.257
+version=5.3.02	build=503020001	hostLabel=Live2D Cubism 5.3	editorSize=41922739	editorSha256=988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21	coreTuple=6.0.257
+version=5.3.03	build=503030001	hostLabel=Live2D Cubism 5.3.03	editorSize=42010633	editorSha256=bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166	coreTuple=6.0.257
+version=5.3.04	build=503040001	hostLabel=Live2D Cubism 5.3.04	editorSize=42203164	editorSha256=c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d	coreTuple=6.0.513
+
+[installed]
+path=F:/Live2D/Live2D Cubism 4.2	readme=Live2D Cubism Editor Version 4.2.04	launcher=CubismEditor4.bat:UNMANAGED+NO_OFFICIAL_BAK	editorSize=28015042	editorSha256=22d002239d6175ba040e5b0e48317351a3b7fc5272c1f0776e5873a24c9c2771	coreSize=29814	coreSha256=161bc50dd7963668d42976acb93309655cf865c7714fa25e01dc764472390b0a	matchedReviewed=NONE	matchedCore=NONE
+path=F:/Live2D/Live2D Cubism 5.0	readme=Live2D Cubism Editor Version 5.0.01	launcher=CubismEditor5.bat:MANAGED+OFFICIAL_BAK	editorSize=36099677	editorSha256=1aa93b1d9d8da88e8c28de06b680c41a73fc70243307d856d4a2967e6e487a0b	coreSize=29924	coreSha256=e8b99be96fddfe907e9c83878a6df5e9463a4d147b507f28e2aaaa973e2c090a	matchedReviewed=5.0.01	matchedCore=5.0.01
+path=F:/Live2D/Live2D Cubism 5.0.05	readme=Live2D Cubism Editor Version 5.0.05	launcher=CubismEditor5.bat:MANAGED+OFFICIAL_BAK	editorSize=36644752	editorSha256=1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4	coreSize=29918	coreSha256=b0b855389d388ab3fc79d3e6dbaeba1a13659b57f8f629a8758a9bf007964594	matchedReviewed=5.0.05	matchedCore=5.0.05
+path=F:/Live2D/Live2D Cubism 5.1	readme=Live2D Cubism Editor Version 5.1.00	launcher=CubismEditor5.bat:MANAGED+OFFICIAL_BAK	editorSize=38664130	editorSha256=cdda37ed4105cf5e4ecb5811f7065df35b9b9a3319bcb74f8e9189d91e8d3f05	coreSize=30153	coreSha256=0c67858efd261c2e5600ee8755b358d09deda5c63341a620aa64a6acbcce5de1	matchedReviewed=5.1.00	matchedCore=5.1.00
+path=F:/Live2D/Live2D Cubism 5.2	readme=NO_README	launcher=NO_BAT	editorSize=40805584	editorSha256=bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd	coreSize=36237	coreSha256=85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e	matchedReviewed=5.2.03	matchedCore=5.2.03
+path=F:/Live2D/Live2D Cubism 5.3	readme=Live2D Cubism Editor Version 5.3.00	launcher=CubismEditor5.bat:MANAGED+OFFICIAL_BAK	editorSize=41859315	editorSha256=c89dcaf17b6bfad7227db30bffc2f29cdf49b8e4b0cec1f12af2d85b1c13e767	coreSize=42471	coreSha256=98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4	matchedReviewed=5.3.00	matchedCore=5.3.00,5.3.01,5.3.02,5.3.03
+path=F:/Live2D/Live2D Cubism 5.3 alpha	readme=Live2D Cubism Editor Version 5.3.00 alpha1	launcher=CubismEditor5.bat:UNMANAGED+NO_OFFICIAL_BAK	editorSize=41025634	editorSha256=73de97602bc9f13f981f0e2ea52046dc3b2432f08767f811f27c045eafc17ef6	coreSize=36245	coreSha256=68ca508263d1638db9a74a82197a853b3f0a5f3554677dde6d69d1e1cf2a7a2d	matchedReviewed=NONE	matchedCore=NONE
+path=F:/Live2D/Live2D Cubism 5.3.02	readme=Live2D Cubism Editor Version 5.3.02	launcher=CubismEditor5.bat:MANAGED+OFFICIAL_BAK	editorSize=41922739	editorSha256=988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21	coreSize=42471	coreSha256=98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4	matchedReviewed=5.3.02	matchedCore=5.3.00,5.3.01,5.3.02,5.3.03
+path=C:/Program Files/Live2D Cubism 5.1	readme=Live2D Cubism Editor Version 5.1.00	launcher=CubismEditor5.bat:MANAGED+OFFICIAL_BAK	editorSize=38664130	editorSha256=cdda37ed4105cf5e4ecb5811f7065df35b9b9a3319bcb74f8e9189d91e8d3f05	coreSize=30153	coreSha256=0c67858efd261c2e5600ee8755b358d09deda5c63341a620aa64a6acbcce5de1	matchedReviewed=5.1.00	matchedCore=5.1.00
+path=C:/Program Files/Live2D Cubism 5.2.03	readme=Live2D Cubism Editor Version 5.2.03	launcher=CubismEditor5.bat:MANAGED+OFFICIAL_BAK	editorSize=40805584	editorSha256=bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd	coreSize=36237	coreSha256=85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e	matchedReviewed=5.2.03	matchedCore=5.2.03
+path=C:/Program Files/Live2D Cubism 5.3.04	readme=Live2D Cubism Editor Version 5.3.04	launcher=CubismEditor5.bat:MANAGED+OFFICIAL_BAK	editorSize=42203164	editorSha256=c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d	coreSize=43708	coreSha256=5458a64ebe33b38350de1437399343b0d502f2353a34a97da76d56d118c0d186	matchedReviewed=5.3.04	matchedCore=5.3.04
+path=C:/Program Files/Live2D Cubism 5.4 alpha	readme=Live2D Cubism Editor Version 5.4.00 alpha2	launcher=CubismEditor5.bat:UNMANAGED+NO_OFFICIAL_BAK	editorSize=44483377	editorSha256=a31aa0751bf474e867a81b5288c13b29b0ab3f1ee00ac17106270c0a96626675	coreSize=43708	coreSha256=5458a64ebe33b38350de1437399343b0d502f2353a34a97da76d56d118c0d186	matchedReviewed=NONE	matchedCore=5.3.04
+
+[missing-stable]
+5.0.00
+5.0.02
+5.0.03
+5.0.04
+5.0.06
+5.1.01
+5.1.02
+5.1.03
+5.2.00
+5.2.01
+5.2.02
+5.3.01
+5.3.03
+
+[representative-endpoints]
+version=5.0.00	installed=NO
+version=5.0.06	installed=NO
+version=5.1.00	installed=YES
+version=5.1.03	installed=NO
+version=5.2.00	installed=NO
+version=5.2.03	installed=YES
+version=5.3.00	installed=YES
+version=5.3.04	installed=YES
