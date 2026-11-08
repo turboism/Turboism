@@ -160,6 +160,7 @@ class RuntimeAutoMeshAlgorithmRegistryTest {
                 "",
                 List.of(SCALE),
                 List.of(new AlgorithmPreset("Fine", Map.of("scale", "1.20"))),
+                false,
                 (request, cancellation) -> AutoMeshResult.Cancelled.INSTANCE);
     }
 }

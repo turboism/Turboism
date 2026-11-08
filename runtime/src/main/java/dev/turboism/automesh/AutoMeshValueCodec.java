@@ -81,6 +81,7 @@ public final class AutoMeshValueCodec {
                         algorithm.description(),
                         algorithm.parameters(),
                         presets,
+                        algorithm.supportsMultiKeyform(),
                         algorithm.compute())
                 : algorithm;
     }

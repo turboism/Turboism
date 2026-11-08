@@ -1,7 +1,7 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "c094bc87c56630bb73d678e05f67de0564743d90dfa0a14a13e3b7f569c4b3f2",
+  "surfaceSha256": "a4e682d86d7e87250de4d029c14407c60e182ec166a3949e93d7cb3a1e94a476",
   "classes": {
     "dev.turboism.sdk.cubism.CubismActivitySnapshot": "0.68.1",
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
