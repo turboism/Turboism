@@ -32,6 +32,8 @@ final class HookManifestTest {
                         ProjectLifecycleHookContributor.class,
                         FileChooserHistoryHookContributor.class,
                         ExportSettingsHookContributor.class,
+                        // Entry guard of the two native Auto Mesh Generate funnels.
+                        AutoMeshGuardHookContributor.class,
                         ImageArchiveReuseHookContributor.class,
                         FloatArrayParseCacheHookContributor.class,
                         TextureUploadPreparationHookContributor.class,
