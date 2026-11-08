@@ -1,6 +1,7 @@
 {
  "format": "turboism.no-record-aliases/v1",
  "namespaces": [
+  "cubism.automesh.",
   "cubism.export-settings.",
   "cubism.scene-palette."
  ],
@@ -189,6 +190,26 @@
    "alias": "cubism.scene-palette.view-context.doc",
    "file": "runtime/src/main/java/dev/turboism/ui/table/SceneTableHostProfile.java",
    "reason": "Scene palette selectors are verified against the host at runtime by StaticSelectorVerifier.verifyRuntimeStructure, not by a reviewed record, so this alias has no version range or provenance yet; the pin keeps the unreviewed capability visible until a Lane C task reviews the profile into scene-palette records."
+  },
+  {
+   "alias": "cubism.automesh.funnel.mesh-editor-mode.method",
+   "file": "runtime/src/main/java/dev/turboism/automesh/host/AutoMeshHostProfile.java",
+   "reason": "Auto mesh funnel selectors are verified against the exact reviewed artifact at install time, not by a reviewed record: no editor-model record declares this funnel yet, so the pin keeps the unreviewed surface visible."
+  },
+  {
+   "alias": "cubism.automesh.funnel.mesh-editor-mode.owner",
+   "file": "runtime/src/main/java/dev/turboism/automesh/host/AutoMeshHostProfile.java",
+   "reason": "Auto mesh funnel selectors are verified against the exact reviewed artifact at install time, not by a reviewed record: no editor-model record declares this funnel yet, so the pin keeps the unreviewed surface visible."
+  },
+  {
+   "alias": "cubism.automesh.funnel.modeling-mode.method",
+   "file": "runtime/src/main/java/dev/turboism/automesh/host/AutoMeshHostProfile.java",
+   "reason": "Auto mesh funnel selectors are verified against the exact reviewed artifact at install time, not by a reviewed record: no editor-model record declares this funnel yet, so the pin keeps the unreviewed surface visible."
+  },
+  {
+   "alias": "cubism.automesh.funnel.modeling-mode.owner",
+   "file": "runtime/src/main/java/dev/turboism/automesh/host/AutoMeshHostProfile.java",
+   "reason": "Auto mesh funnel selectors are verified against the exact reviewed artifact at install time, not by a reviewed record: no editor-model record declares this funnel yet, so the pin keeps the unreviewed surface visible."
   }
  ],
  "localVocabulary": [

@@ -59,6 +59,10 @@
       "evidence": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
     },
     {
+      "path": "runtime/src/main/java/dev/turboism/automesh/host/AutoMeshHostProfile.java",
+      "evidence": "runtime/src/main/java/dev/turboism/automesh/host/AutoMeshHostProfile.java: Host profile artifact table derived from the reviewed release records; each reviewed digest binds the funnel selectors its exact build declares."
+    },
+    {
       "path": "runtime/src/main/java/dev/turboism/exportsettings/ProtectedExportChooserProfile.java",
       "evidence": "runtime/src/main/java/dev/turboism/exportsettings/ProtectedExportChooserProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
     },
