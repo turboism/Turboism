@@ -1,0 +1,59 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.turbo-mesh",
+  "name": "Windows Turbo Mesh Validation Probe",
+  "version": "0.1.0",
+  "description": "Manual-test-only public SDK probe for custom ArtMesh re-placement via Drawable.replaceGeometry with native Undo/Redo verification.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.WindowsTurboMeshValidationProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read the active model's drawables and geometry during exact-host validation."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Replace ArtMesh geometry and drive native Undo/Redo during validation."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Write the validation result properties file."
+    },
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register the interactive lifecycle-diagnostics action."
+    },
+    {
+      "id": "turboism.ui.context-menu.contribute",
+      "scope": "application",
+      "reason": "Expose the diagnostics action on ArtMesh context menus."
+    }
+  ],
+  "capabilities": [
+    "cubism.mesh.read",
+    "cubism.mesh.write",
+    "ui.context-menu.contribute"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  }
+}

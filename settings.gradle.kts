@@ -34,6 +34,7 @@ include(
     "plugins:atlas-bitmask-nesting",
     "plugins:protected-export",
     "plugins:texture-atlas-stats",
+    "plugins:turbo-mesh",
     "plugins:physics-editor",
     "plugins:history-panel",
     "plugins:perf-stats",

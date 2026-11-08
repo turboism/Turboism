@@ -142,6 +142,17 @@ public interface Drawable {
     /** Returns the index of the texture this ArtMesh samples. */
     int textureIndex();
 
+    /**
+     * Returns the pixel raster of the texture input this ArtMesh samples: the model image
+     * (PSD-layer composite) when the project has no texture atlas, or the atlas tile
+     * otherwise. {@link #vertexUvs()} are normalized coordinates over this image.
+     *
+     * <p>Empty when the backend cannot resolve the texture input or decode its pixels.</p>
+     */
+    default Optional<TexturePixels> texturePixels() {
+        return Optional.empty();
+    }
+
     /** Returns this ArtMesh's keyform draw order. */
     int drawOrder();
 
