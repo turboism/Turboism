@@ -35,6 +35,13 @@ final class KernelPluginContextFactory implements AutoCloseable {
     private final dev.turboism.automesh.AutoMeshAlgorithmCatalog autoMeshCatalog =
             new dev.turboism.automesh.AutoMeshAlgorithmCatalog();
 
+    /**
+     * Session-wide Auto Mesh selection bound to {@link #autoMeshCatalog}. The native entry reads the
+     * same instance the selector row writes, so a plugin reload keeps the user's choice.
+     */
+    private final dev.turboism.automesh.AutoMeshSelectionState autoMeshSelection =
+            new dev.turboism.automesh.AutoMeshSelectionState(autoMeshCatalog);
+
     KernelPluginContextFactory(
             final Path home,
             final RuntimeScheduler scheduler,
@@ -289,6 +296,14 @@ final class KernelPluginContextFactory implements AutoCloseable {
             }
             throw FatalErrors.propagate(toThrow);
         }
+    }
+
+    /**
+     * @return the session Auto Mesh selection the native entry and the selector row share; the
+     *     instance is stable for the runtime's lifetime
+     */
+    dev.turboism.automesh.AutoMeshSelectionState autoMeshSelection() {
+        return autoMeshSelection;
     }
 
     private dev.turboism.cleanup.RetryableCleanup cleanup;

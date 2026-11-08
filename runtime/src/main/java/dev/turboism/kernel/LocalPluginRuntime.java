@@ -406,6 +406,14 @@ public final class LocalPluginRuntime implements AutoCloseable {
     }
 
     /**
+     * @return the session Auto Mesh selection the native entry and the selector row share; the
+     *     instance is stable for the runtime's lifetime
+     */
+    dev.turboism.automesh.AutoMeshSelectionState autoMeshSelection() {
+        return contextFactory.autoMeshSelection();
+    }
+
+    /**
      * Starts the runtime-owned framework shell first — when a {@code ShellAdmission} was
      * wired by composition — then loads every discovered external plugin, exactly once
      * per runtime instance. A {@code null} admission is the supported headless mode:
