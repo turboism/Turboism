@@ -77,13 +77,34 @@ interface: embedded
 | `turboMesh.features.directionInfluence` | プリセット毎 | 方向場がサンプリングへ与える影響（0 で無効） |
 | `turboMesh.confirm` | `dialog` | `never` で確認ダイアログを省略（自動化/検証用） |
 | `turboMesh.alphaThreshold` | `8` | テクスチャ alpha ドメインのしきい値 |
+
+### 自動メッシュ生成のアルゴリズム
+
+エディタの「自動メッシュ生成」に 2 つのアルゴリズムを登録します。どちらもエディタ標準の生成器の
+隣に並び、標準の項目を選べばホストの生成器はそのまま動作します。
+
+| アルゴリズム | 内容 | プリセット |
+|---|---|---|
+| `turbo-mesh.region` | テクスチャを領域に分割し、領域の分界線を硬い辺として各領域を三角形分割します。 | 疎 / 詳細 / ハードサーフェス |
+| `turbo-mesh.adaptive` | 境界を曲率に応じて再サンプリングし、内部を領域ごとの点で埋めます。 | バランス / ソフトストリップ / ソフトシート / リジッド |
+
+領域アルゴリズムは ArtMesh のテクスチャ画素を読み取ります。ホストが画素を公開しない場合は、
+推測したメッシュではなく `no-texture` の理由で拒否します。自動の項目には切り替えスイッチが
+付きます。スイッチがオンのとき、プランナーはその値をシルエットの大きさから算出し、隣の数値は
+使いません。
+
+ランタイムが自動メッシュのレジストリを公開していない場合、プラグインは 1 行だけログを残し、
+ArtMesh のコンテキストメニュー動作をこれまで通り維持します。
+
 ## 機能
 
 | 宣言ケイパビリティ | ユーザーへの効果 |
 |---|---|
 | `cubism.mesh.read` | 布点計画のために選択した ArtMesh ジオメトリを読み取ります。 |
 | `cubism.mesh.write` | 生成したメッシュジオメトリを ArtMesh に書き戻します。 |
+| `cubism.mesh.automesh-algorithms` | エディタの「自動メッシュ生成」に領域方式とアダプティブ方式を提供します。 |
 | `ui.context-menu.contribute` | ArtMesh のコンテキストメニューに布点項目を追加します。 |
+| `ui.dialog.contribute` | 配置モードの選択とビフォー・アフターの確認ダイアログを表示します。 |
 | `ui.status.notify` | 布点結果と失敗をホストのステータス通知で報告します。 |
 
 ## 権限
@@ -94,7 +115,9 @@ interface: embedded
 | `turboism.cubism.model.write` | `application` | 生成したメッシュジオメトリを ArtMesh にコミットするため。 |
 | `turboism.action.register` | `application` | カスタム布点アクションを登録するため。 |
 | `turboism.ui.context-menu.contribute` | `application` | ArtMesh のコンテキストメニューに布点項目を追加するため。 |
+| `turboism.ui.dialog.contribute` | `application` | 配置モードの選択とビフォー・アフターの確認ダイアログを表示するため。 |
 | `turboism.ui.status.notify` | `application` | 布点結果と失敗を報告するため。 |
+| `turboism.cubism.mesh.automesh.contribute` | `application` | エディタの「自動メッシュ生成」に領域方式とアダプティブ方式を提供するため。 |
 
 ## プライバシーとデータ
 

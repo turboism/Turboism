@@ -77,13 +77,34 @@ Tuning currently happens through JVM system properties (a settings dialog is pla
 | `turboMesh.features.directionInfluence` | per preset | Direction-field influence on sampling (0 = off) |
 | `turboMesh.confirm` | `dialog` | `never` skips confirmation dialogs (automation/validation) |
 | `turboMesh.alphaThreshold` | `8` | Texture alpha domain threshold |
+
+### Auto Mesh Generate algorithms
+
+The plugin registers two algorithms for the Editor's Auto Mesh Generate entry. Both appear next to
+the Editor's own generator; picking the native entry keeps the host generator untouched.
+
+| Algorithm | What it does | Presets |
+|---|---|---|
+| `turbo-mesh.region` | Segments the texture into regions, keeps every region separator as a hard edge and triangulates each region. | Sparse, Detailed, Hard surface |
+| `turbo-mesh.adaptive` | Resamples the boundary by curvature and fills the interior with region-aware points. | Balanced, Soft strip, Soft sheet, Rigid geometry |
+
+The region algorithm reads the ArtMesh texture pixels, so a mesh whose host exposes no pixels is
+refused with the `no-texture` reason instead of a guessed mesh. Every automatic control carries a
+companion switch: while the switch is on, the planner derives that quantity from the silhouette span
+and ignores the number beside it.
+
+When the runtime exposes no auto-mesh registry, the plugin logs one line and keeps the ArtMesh
+context-menu actions exactly as before.
+
 ## Capabilities
 
 | Declared capability | User effect |
 |---|---|
 | `cubism.mesh.read` | Reads the selected ArtMesh geometry for placement planning. |
 | `cubism.mesh.write` | Writes the generated mesh geometry back to the ArtMesh. |
+| `cubism.mesh.automesh-algorithms` | Offers the region and adaptive algorithms in the Editor's Auto Mesh Generate entry. |
 | `ui.context-menu.contribute` | Adds the placement entry to ArtMesh context menus. |
+| `ui.dialog.contribute` | Shows the placement mode chooser and the before/after confirmation. |
 | `ui.status.notify` | Reports placement results and failures through host status notifications. |
 
 ## Permissions
@@ -94,7 +115,9 @@ Tuning currently happens through JVM system properties (a settings dialog is pla
 | `turboism.cubism.model.write` | `application` | Commit the generated mesh geometry back to the ArtMesh. |
 | `turboism.action.register` | `application` | Register the custom placement action. |
 | `turboism.ui.context-menu.contribute` | `application` | Contribute the placement entry to ArtMesh context menus. |
+| `turboism.ui.dialog.contribute` | `application` | Show the placement mode chooser and the before/after confirmation dialog. |
 | `turboism.ui.status.notify` | `application` | Report placement results and failures. |
+| `turboism.cubism.mesh.automesh.contribute` | `application` | Offer the region and adaptive placement algorithms in the Editor's Auto Mesh Generate entry. |
 
 ## Privacy and data
 
@@ -125,6 +148,12 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Menu entry is missing | Confirm the plugin is enabled and the selection contains an ArtMesh. |
 | Placement reports a failure | Check the status notification and session log for the planner diagnostic. |
 | Nothing changes on a mesh | Confirm the mesh has a valid triangle topology and is not locked. |
+
+## Changelog
+
+### 0.1.0
+
+- Initial release: context-menu re-placement, the region and adaptive auto-mesh algorithms, and the six-locale catalog.
 
 ## Support and license
 
