@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, artmesh, editing
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.68.1,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -24,7 +24,7 @@ interface: embedded
 | 插件 ID | `dev.turboism.plugin.turbo-mesh` |
 | 分类 | `modeling` |
 | 标签 | mesh, artmesh, editing |
-| Turboism API | `[0.1.0,0.2.0)` |
+| Turboism API | `[0.68.1,1.0.0)` |
 | 依赖 Cubism | 是 |
 | 界面模式 | `embedded` |
 | 许可证 | Project License |
@@ -39,7 +39,7 @@ interface: embedded
 
 ## 要求与兼容性
 
-- **Turboism API：**`[0.1.0,0.2.0)`。
+- **Turboism API：**`[0.68.1,1.0.0)`。
 - **Cubism：** 需要 Cubism。Turboism 当前仅承认经过审查的精确 Editor 工件 `5.2.03`、`5.3.02` 与 `5.3.03`；本插件只在其声明的服务与能力可用时才暴露对应宿主功能。
 - **界面模式：**`embedded`。
 - **插件依赖：** 未声明。
