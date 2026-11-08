@@ -70,9 +70,9 @@ The Windows packaging pass exercises the production generator and PowerShell pay
 It verifies plugin identity backup, skipped selections, failed-copy recovery, localized README generation, and offline engine pins.
 The Windows installer check verifies the script and payload simulation, not a running NSIS wizard.
 
-No `makensis` executable or native EXE artifact exists in the inspected tool locations.
-Native EXE plugin-selection and README interaction therefore remain unverified.
-Do not mark the complete Windows installer acceptance item as passed.
+The earlier pass had no native compiler or EXE artifact.
+The native wizard pass below now accepts plugin-selection and README interaction within its stated scope.
+Full native installation and signed-candidate acceptance remain separate.
 
 ## Fixed: Windows log filtering introduced incompatible document separators
 
@@ -123,3 +123,93 @@ Evidence:
 - `build/acceptance/070/shutdown/forced-close-results.json`
 
 Do not terminate other Java applications or restart Windows without separate authorization.
+
+## Native Windows wizard acceptance
+
+Commit `ad2adef20` contains the fixes from this pass.
+The production assembly builds the native EXE with `-WX`; no warning exemption applies.
+
+### Toolchain and artifact binding
+
+The task uses the official MSYS2 `mingw-w64-x86_64-nsis` package, version `3.13-2`.
+It extracts the compiler only into the ignored task directory.
+It does not modify the system toolchain or PATH permanently.
+
+Package origin:
+`https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-nsis-3.13-2-any.pkg.tar.zst`.
+
+The downloaded package matches the SHA-256 from the official package metadata page:
+
+```text
+92e4d39fff5acad5c314babc696d85cd94475831a84371bafff59f285a7a9aff
+```
+
+The native compiler selects `amd64-unicode`.
+The accepted EXE contains 89,758,453 bytes and has this SHA-256:
+
+```text
+f246d6a3338a24cd1cbec77c1feea5c8ad0511ee0c01db427daf24b440100548
+```
+
+`build/acceptance/070/native-installer/source-binding.json` records the source, generated compiler inputs, driver, result, and toolchain hashes.
+This artifact is unsigned and local only; it is not the final release candidate.
+
+### Fixed: native compiler source paths
+
+The native compiler could not resolve forward-slash source paths that referenced existing files.
+A minimal include probe reproduced the failure and succeeded with a backslash before the filename.
+
+The generator now creates compiler-local source copies with native Windows separators and UTF-8 BOMs.
+It changes only quoted paths rooted in the staging, generated, EULA, and output macros.
+It preserves runtime paths, URLs, checksum manifest paths, and payload bytes.
+Non-Windows generation retains the original separators.
+The assembly compiles the generated entry point and its adjacent plugin include.
+
+The existing packaging suite checks all three generated compiler sources.
+Linux compilation and native x86 wizard interaction remain outside this pass.
+
+### Fixed: empty plugin names on amd64
+
+The first native wizard showed 34 checked rows without names.
+The README pane still loaded, so successful document rendering did not prove usable plugin selection.
+
+The `LVITEM` layout placed its text pointer at the wrong offset on amd64.
+The fix sizes the preceding mask slot through `NSIS_PTR_SIZE`, matching the layout in NSIS `WinMessages.nsh`.
+The native replay verifies every localized row label against the staged plugin metadata.
+It also verifies checkbox operations and selection retention.
+
+### Fixed: stale strategy-page header
+
+The Graal strategy page retained the plugin-selection header and instructions.
+The fix publishes the localized strategy title and clears the previous subtitle.
+The replay captures the corrected page before returning to plugin selection.
+
+### Native interaction result
+
+Result: PASS, 22 structured checks in Simplified Chinese.
+
+- All 34 plugin names match their localized metadata and versions.
+- All 34 plugins start selected.
+- ACP, deformer rename, parameter transfer, recent-project board, and WebDAV show their own README content.
+- Every sampled README contains its final source heading; screenshots also capture the scrolled document.
+- Individual deselection updates the counter to 33 of 34.
+- Back navigation preserves the deselection and counter.
+- Select-all, select-none, and select-all again update every row and the counter.
+
+The driver requests cancellation before installation.
+The process exits through the normal cancellation path with code 1, without forced termination.
+The selected installation directory does not exist after exit.
+This pass makes no full native installation, uninstall, or host-launch claim.
+
+The evidence retains four earlier failed attempts and the initial empty-label observation.
+The final attempt uses a new process after source and driver corrections; it does not overwrite those failed reports.
+
+Evidence root: `build/acceptance/070/native-installer/`.
+
+- `final-gates.log`: packaging, installer-script, and localization gates pass.
+- `final-build.log`: complete production assembly and native compiler pass.
+- `native-gui-result.json`: checks, artifact hash, cancellation code, and target-directory check.
+- `native-readmes.json`: native RichEdit text for the five sampled plugins.
+- `08-fixed-plugin-selection.png`: visible plugin labels and initial selections.
+- `10-strategy.png`: corrected strategy-page header.
+- `11-select-all-restored.png`: restored complete selection.
