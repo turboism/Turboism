@@ -49,16 +49,20 @@ final class GifRecordingController implements AutoCloseable {
     private static final long STATUS_INTERVAL_NANOS = TimeUnit.MILLISECONDS.toNanos(250);
 
     /**
-     * Reserved status cell beside the frame-rate field: one text line, wide enough for the longest
-     * recording or paused status in the shipped catalogs.
+     * Reserved status cell at the end of the transport row: one text line.
      *
-     * <p>Both bounds are fixed so a longer message, such as a saved file name, is clipped inside the
-     * cell instead of resizing the strip. The recorder aborts when the preview size changes, so the
-     * strip must keep its height while only the status text changes.</p>
+     * <p>The width is a floor, not a cap: the cell stretches into the spare width of a wider pane.
+     * A longer message, such as a saved file name, is clipped inside the cell. The recorder aborts
+     * when the preview size changes, so the strip keeps one row and a constant height.</p>
      */
-    private static final int STATUS_CELL_WIDTH = 120;
+    private static final int STATUS_CELL_WIDTH = 96;
 
-    private static final int STATUS_CELL_HEIGHT = 18;
+    private static final int STATUS_CELL_HEIGHT = 24;
+
+    /** Frame rate carries two digits, so its field stays narrow and leaves width for the status. */
+    private static final int FPS_CELL_WIDTH = 84;
+
+    private static final int FPS_CELL_HEIGHT = 24;
 
     /** Bundled Lucide alpha masks; the runtime tints each mask with the active theme foreground. */
     private static final String ICON_DIRECTORY = "/icons/lucide/";
@@ -512,11 +516,10 @@ final class GifRecordingController implements AutoCloseable {
     }
 
     /**
-     * Renders the two-row strip: transport icon buttons above, frame rate and status below.
+     * Renders the strip as one row: transport icon buttons, frame rate and status.
      *
-     * <p>The host preview pane is narrow, so one row cannot hold every control. Both rows keep a
-     * constant height while the status text changes, because a taller strip shrinks the preview and
-     * the recorder then aborts on a preview that changed size.</p>
+     * <p>Every cell keeps a constant height while the status text changes, because a taller strip
+     * shrinks the preview and the recorder then aborts on a preview that changed size.</p>
      */
     private PanelView renderStrip() {
         final State current = state;
@@ -525,14 +528,15 @@ final class GifRecordingController implements AutoCloseable {
             statusText = status;
         }
         final boolean endable = canEndRecording(current);
-        return PanelView.column(
-                PanelView.row(
-                        control(ACTION_RECORD, recordIcon(current), recordLabel(current), canToggleRecording(current)),
-                        control(ACTION_STOP, ICON_STOP, i18n.text("gif.control.stop"), endable),
-                        control(ACTION_DISCARD, ICON_DISCARD, i18n.text("gif.control.discard"), endable)),
-                PanelView.row(
+        return PanelView.row(
+                control(ACTION_RECORD, recordIcon(current), recordLabel(current), canToggleRecording(current)),
+                control(ACTION_STOP, ICON_STOP, i18n.text("gif.control.stop"), endable),
+                control(ACTION_DISCARD, ICON_DISCARD, i18n.text("gif.control.discard"), endable),
+                PanelView.centered(
                         PanelView.textInput(ACTION_FPS, i18n.text("gif.fps"), Integer.toString(fps), ACTION_FPS),
-                        PanelView.centered(PanelView.text(statusText), STATUS_CELL_WIDTH, STATUS_CELL_HEIGHT)));
+                        FPS_CELL_WIDTH,
+                        FPS_CELL_HEIGHT),
+                PanelView.centered(PanelView.text(statusText), STATUS_CELL_WIDTH, STATUS_CELL_HEIGHT));
     }
 
     /** Stop and discard act only on a recording that is running or paused. */

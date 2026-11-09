@@ -151,24 +151,19 @@ class PhysicsEditorPluginTest {
         try {
             controller.bind(source);
             final PanelView idle = source.content.get();
-            final PanelView.Column stack = assertInstanceOf(PanelView.Column.class, idle);
-            assertEquals(2, stack.children().size(), "buttons and status share two rows instead of one");
-            assertInstanceOf(PanelView.Row.class, stack.children().get(0));
+            final PanelView.Row row = assertInstanceOf(PanelView.Row.class, idle);
             assertEquals(
-                    List.of("record", "stop", "discard"),
-                    actionIds(stack.children().get(0)),
-                    "the transport buttons fill the top row");
-            assertEquals(
-                    List.of("fps"), actionIds(stack.children().get(1)), "the frame-rate field is on the status row");
-            final List<PanelView.ColorIconButton> transport =
-                    iconButtons(stack.children().get(0));
+                    List.of("record", "stop", "discard", "fps"),
+                    actionIds(row),
+                    "transport buttons and the frame-rate field share one row");
+            final List<PanelView.ColorIconButton> transport = iconButtons(row);
             assertTrue(
                     transport.stream().allMatch(button -> button.pngBytes().length > 0),
                     "every transport control ships its bundled Lucide glyph");
             assertTrue(transport.get(0).enabled(), "record is available while idle");
             assertFalse(transport.get(1).enabled(), "stop is unavailable until a recording exists");
             assertFalse(transport.get(2).enabled(), "discard is unavailable until a recording exists");
-            final PanelView.Centered cell = statusCell(stack.children().get(1));
+            final PanelView.Centered cell = statusCell(row);
             assertTrue(cell.preferredWidth() > 0, "the status line reserves a fixed cell width");
             assertTrue(cell.preferredHeight() > 0, "the status line reserves one fixed text line");
 
@@ -215,20 +210,20 @@ class PhysicsEditorPluginTest {
     private static PanelView.Centered statusCell(final PanelView row) {
         final PanelView.Row cells = assertInstanceOf(PanelView.Row.class, row);
         for (PanelView child : cells.children()) {
-            if (child instanceof PanelView.Centered cell) return cell;
+            if (child instanceof PanelView.Centered cell && cell.child() instanceof PanelView.Text) return cell;
         }
         throw new AssertionError("the status row has no reserved status cell: " + cells.children());
     }
 
     private static PanelView row(final PanelView view) {
-        return assertInstanceOf(PanelView.Column.class, view).children().get(0);
+        return assertInstanceOf(PanelView.Row.class, view);
     }
 
     private static List<PanelView.ColorIconButton> iconButtons(final PanelView row) {
         final PanelView.Row cells = assertInstanceOf(PanelView.Row.class, row);
         final List<PanelView.ColorIconButton> buttons = new ArrayList<>();
         for (PanelView child : cells.children()) {
-            buttons.add(assertInstanceOf(PanelView.ColorIconButton.class, child));
+            if (child instanceof PanelView.ColorIconButton button) buttons.add(button);
         }
         return buttons;
     }
@@ -242,8 +237,7 @@ class PhysicsEditorPluginTest {
     }
 
     private static String statusValue(final PanelView view) {
-        final PanelView.Centered cell = statusCell(
-                assertInstanceOf(PanelView.Column.class, view).children().get(1));
+        final PanelView.Centered cell = statusCell(assertInstanceOf(PanelView.Row.class, view));
         return assertInstanceOf(PanelView.Text.class, cell.child()).value();
     }
 
@@ -391,6 +385,7 @@ class PhysicsEditorPluginTest {
     private static void collect(final PanelView view, final List<String> ids) {
         if (view instanceof PanelView.Row row) row.children().forEach(child -> collect(child, ids));
         else if (view instanceof PanelView.Column column) column.children().forEach(child -> collect(child, ids));
+        else if (view instanceof PanelView.Centered centered) collect(centered.child(), ids);
         else if (view instanceof PanelView.Button button) ids.add(button.actionId());
         else if (view instanceof PanelView.IconButton iconButton) ids.add(iconButton.actionId());
         else if (view instanceof PanelView.ColorIconButton colorIcon) ids.add(colorIcon.actionId());
