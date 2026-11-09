@@ -163,3 +163,19 @@ Still open after this round:
   the submitted edits and names the field before the form GUID, because the authoring
   diagnostic is cut at 128 characters.
 - Animated-WebP export stays unplanned: it needs a VP8 encoder that the JDK does not ship.
+
+### Instrumented evidence from the live session `host-5304-manual3`
+
+Observed through the attached UI observer, not by the operator:
+
+| Item | Observation |
+| --- | --- |
+| Status bar | Compact metrics read `累计 01:42:57` and `会话 00:00:08`; the timer mounts and keeps updating |
+| Scheduler | Zero `sidecar.complete` rejections and zero settlement timeouts; the previous session logged one every five seconds |
+| Theme manager | `Turboism 主题管理器` opens as a 480×340 dialog with reload, new, edit, open-directory and import buttons |
+| Update menu | The last entry is a flat `检查更新`, directly above it `关于` |
+| Rename preview | The footer shows `命名基准` with a `deformer.rename.base` combo at the left of the `取消` / `确认` row |
+
+One timeout remains in the log: the first `project-work-time` refresh still overran the work
+budget while plugin load owned the host event thread. The fix keeps the schedule, so the next
+tick published the metrics, as the status-bar values above show.
