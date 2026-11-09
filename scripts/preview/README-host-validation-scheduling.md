@@ -15,10 +15,22 @@ Two host classes are supported, and the toolchain must stay usable on both:
   isolated CoW prefix), and runs headless Gradle, lint and unit-test checks under
   **Xvfb** (`xvfb-run -a -s '-screen 0 1920x1080x24'`).
 
-`scripts/preview/hvq/common.py`, `scripts/preview/hvq/display.py` and
+`scripts/preview/hvq/hostos.py` owns the host primitives one import at a time:
+the advisory-lock backend, the numeric account owner, the interrupt signals and
+the optional open flags. Every module that needs one of them asks `HostOs`
+instead of probing the platform, so no module fails at import time.
+
+`scripts/preview/hvq/common.py`, `scripts/preview/hvq/store.py`,
+`scripts/preview/hvq/display.py`, `scripts/preview/host_validation_queue.py`,
+`scripts/preview/host_validation_disposition.py` and
 `scripts/preview/host_validation_containment.py` import and behave correctly on
 both classes: `fcntl`/`pwd`/`msvcrt`, `os.getuid`, `O_NOFOLLOW`, `O_DIRECTORY`,
-`AF_UNIX`, `/proc` and cgroup access are all optional rather than assumed. The
+`AF_UNIX`, `/proc` and cgroup access are all optional rather than assumed.
+
+`scripts/preview/host_validation_retention.py` and the task runner scripts remain
+POSIX-only: they use `dir_fd` descriptors, bash and Xvfb. A task therefore cannot
+complete on native Windows yet, even though the queue itself loads, locks and
+prepares there. The
 state root is the account home resolved for the current user (`pwd` on POSIX,
 the profile directory on Windows), so `HOME`/`XDG_STATE_HOME`/cwd still cannot
 split one user's lock domain; private-directory and lock ownership checks keep

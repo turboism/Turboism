@@ -13,6 +13,7 @@ from typing import Any, Iterator
 import uuid
 
 from . import common
+from .hostos import HostOs
 from . import display
 from .common import (
     ACTIVE,
@@ -43,7 +44,7 @@ class Store:
         self.database = self.root / "queue.sqlite3"
         if self.database.is_symlink():
             raise QueueError("queue database must not be a symlink")
-        fd = os.open(self.database, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        fd = os.open(self.database, os.O_RDWR | os.O_CREAT | HostOs.NO_FOLLOW, 0o600)
         os.close(fd)
         self._profiles: dict[str, tuple[str | None, list[str] | None, int]] = {}
         self.xvfb_processes: dict[str, subprocess.Popen] = {}

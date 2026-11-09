@@ -15,7 +15,6 @@ accepted.
 from __future__ import annotations
 
 import contextlib
-import fcntl
 import hashlib
 import json
 import math
@@ -28,6 +27,8 @@ import sys
 import time
 import unicodedata
 from typing import Any, Iterator
+
+from hvq.hostos import HostOs
 from urllib.parse import quote
 
 import host_validation_queue as queue
@@ -40,6 +41,20 @@ RELEASE_KIND = "operator-host-released"
 DISPOSITION = "ABANDONED_UNVERIFIED"
 PRESERVATION = "unverified-indefinite"
 MAX_REASON = 2048
+
+def _owned_by_operator(info: os.stat_result) -> bool:
+    """POSIX hosts carry a numeric owner; Windows reports none, so the check is inapplicable."""
+    if not hasattr(os, "getuid"):
+        return True
+    return info.st_uid == HostOs.current_uid()
+
+
+def _owner_only_mode(info: os.stat_result) -> bool:
+    """POSIX hosts carry permission bits; Windows controls access through ACLs instead."""
+    if not hasattr(os, "getuid"):
+        return True
+    return not info.st_mode & 0o077
+
 MAX_METADATA_BYTES = 4 * 1024 * 1024
 
 JOB_ID = re.compile(r"[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}")
@@ -97,7 +112,7 @@ def _identity(raw: Any, source: str) -> dict[str, Any]:
     if (identity["pid"] <= 0 or identity["startTicks"] < 0
             or not isinstance(identity["bootId"], str)
             or not JOB_ID.fullmatch(identity["bootId"])
-            or identity["uid"] != os.getuid()):
+            or identity["uid"] != HostOs.current_uid()):
         raise queue.QueueError(f"{source} identity is invalid")
     return identity
 
@@ -109,14 +124,14 @@ def _member(path: Path) -> tuple[dict[str, Any], bytes | None]:
     non-regular member is refused, never inventoried as evidence."""
     checked_path(path)
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        fd = os.open(path, os.O_RDONLY | HostOs.NO_FOLLOW | os.O_NONBLOCK)
     except FileNotFoundError:
         return {"exists": False}, None
     try:
         info = os.fstat(fd)
         if not stat.S_ISREG(info.st_mode):
             raise queue.QueueError(f"non-regular metadata member: {path}")
-        if info.st_uid != os.getuid() or info.st_size > MAX_METADATA_BYTES:
+        if not _owned_by_operator(info) or info.st_size > MAX_METADATA_BYTES:
             raise queue.QueueError(f"unsafe or oversized metadata: {path}")
         with os.fdopen(fd, "rb", closefd=False) as source:
             data = source.read(MAX_METADATA_BYTES + 1)
@@ -376,7 +391,7 @@ def _locks_missing(root: Path) -> list[str]:
         try:
             checked_path(root / name)
             info = (root / name).lstat()
-            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            if not stat.S_ISREG(info.st_mode) or not _owned_by_operator(info) or not _owner_only_mode(info):
                 missing.append(name)
         except (FileNotFoundError, queue.QueueError):
             missing.append(name)
@@ -666,7 +681,7 @@ def _bound_audit(view: Any, job: dict[str, Any]) -> dict[str, Any]:
         and payload["preservation"] == PRESERVATION
         and payload["verificationAccepted"] is False
         and type(payload["operatorUid"]) is int
-        and payload["operatorUid"] == os.getuid()
+        and payload["operatorUid"] == HostOs.current_uid()
         and type(payload["jobId"]) is str
         and JOB_ID.fullmatch(payload["jobId"]) is not None
         and type(payload["attemptId"]) is str
@@ -769,16 +784,16 @@ def _existing_lock(path: Path) -> Iterator[int]:
     """Acquire an already-created coordination lock; never recreates or
     silently adopts a replacement."""
     checked_path(path)
-    fd = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
+    fd = os.open(path, os.O_RDWR | HostOs.NO_FOLLOW | os.O_NONBLOCK)
     try:
         info = os.fstat(fd)
         current = path.lstat()
-        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
-                or info.st_mode & 0o077
+        if (not stat.S_ISREG(info.st_mode) or not _owned_by_operator(info)
+                or not _owner_only_mode(info)
                 or (info.st_dev, info.st_ino) != (current.st_dev, current.st_ino)):
             raise queue.QueueError(f"coordination lock is missing or replaced: {path.name}")
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            HostOs.try_lock(fd, exclusive=True)
         except BlockingIOError as failure:
             raise queue.QueueBusy(f"already owned: {path.name}") from failure
         current = path.lstat()
@@ -806,10 +821,10 @@ def _verify_held(locks: tuple[tuple[Path, int], ...]) -> None:
 def _open_existing(root: Path) -> sqlite3.Connection:
     """Attach to the pinned existing database file; mode=rw can never create."""
     database = checked_path(root / "queue.sqlite3")
-    pin = os.open(database, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
+    pin = os.open(database, os.O_RDWR | HostOs.NO_FOLLOW | os.O_NONBLOCK)
     try:
         pinned = os.fstat(pin)
-        if not stat.S_ISREG(pinned.st_mode) or pinned.st_uid != os.getuid():
+        if not stat.S_ISREG(pinned.st_mode) or not _owned_by_operator(pinned):
             raise queue.QueueError("unsafe queue database")
         try:
             db = sqlite3.connect(f"file:{quote(str(database))}?mode=rw",
@@ -916,7 +931,7 @@ def confirm(root: Path, job_id: str, approval: str, reason: Any, *, busy: Any = 
                            "runId": row["run_id"], "preparedDigest": row["digest"],
                            "fromState": row["state"], "previousReason": row["reason"],
                            "previousUpdatedAt": row["updated_at"], "toState": queue.ADMINISTRATIVE_STATE,
-                           "operatorUid": os.getuid(), "recordedAt": recorded_at,
+                           "operatorUid": HostOs.current_uid(), "recordedAt": recorded_at,
                            "reason": normalized, "approvalDigest": approval,
                            "historicalBootId": evaluation["assessment"]["historicalBootId"],
                            "currentBootId": current_boot, "rootIdentity": live.identity,
@@ -981,7 +996,7 @@ def _replay_release(view: Any, job: dict[str, Any],
         and type(payload["previousReason"]) is str
         and payload["toState"] == "idle"
         and type(payload["operatorUid"]) is int
-        and payload["operatorUid"] == os.getuid()
+        and payload["operatorUid"] == HostOs.current_uid()
         and _number(payload["recordedAt"])
         and _valid_reason(payload["reason"])
         and APPROVAL.fullmatch(payload["approvalDigest"]) is not None
@@ -1100,7 +1115,7 @@ def confirm_release(root: Path, job_id: str, approval: str, reason: Any,
                                "fromState": target["state"], "previousReason": target["reason"],
                                "previousUpdatedAt": target["updated_at"],
                                "toState": queue.ADMINISTRATIVE_STATE,
-                               "operatorUid": os.getuid(), "recordedAt": recorded_at,
+                               "operatorUid": HostOs.current_uid(), "recordedAt": recorded_at,
                                "reason": normalized, "approvalDigest": approval,
                                "historicalBootId": assessment["historicalBootId"],
                                "currentBootId": current_boot, "rootIdentity": live.identity,
@@ -1129,7 +1144,7 @@ def confirm_release(root: Path, job_id: str, approval: str, reason: Any,
                     "jobIds": [receipt["jobId"] for receipt in receipts],
                     "previousState": host["state"], "previousJobId": host["job_id"],
                     "previousReason": host["reason"], "toState": "idle",
-                    "operatorUid": os.getuid(), "recordedAt": recorded_at,
+                    "operatorUid": HostOs.current_uid(), "recordedAt": recorded_at,
                     "reason": normalized, "approvalDigest": approval,
                     "currentBootId": current_boot, "rootIdentity": live.identity,
                     "verificationAccepted": False}

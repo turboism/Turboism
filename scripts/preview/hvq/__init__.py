@@ -31,6 +31,7 @@ from .common import (  # noqa: E402
     canonical_json,
     digest_json,
     identity_alive,
+    interrupt_signals,
     private_directory,
     process_identity,
     storage_lock,

@@ -9,13 +9,11 @@ from __future__ import annotations
 
 import contextlib
 import errno
-import fcntl
 import hashlib
 import json
 import multiprocessing
 import os
 from pathlib import Path  # noqa: F401  # Retained for test fixture appends and callers
-import pwd
 import select
 import shutil
 import signal
@@ -26,6 +24,13 @@ import subprocess
 import sys
 import tempfile
 import time
+
+# Platform primitives keep one import path, so this module loads on every supported host.
+from hvq.hostos import HostOs
+
+# Re-exported for callers and tests that inspect the available lock backends.
+fcntl = HostOs.fcntl
+pwd = HostOs.pwd
 
 from hvq import (
     ACTIVE,
@@ -73,6 +78,7 @@ from hvq import (
     external_sessions,
     file_digest,
     identity_alive,
+    interrupt_signals,
     is_retryable_read_error,
     mcp_client_dependency,
     memory_observer_dependency,
@@ -151,6 +157,7 @@ __all__ = [
     "file_digest",
     "hashlib",
     "identity_alive",
+    "interrupt_signals",
     "is_retryable_read_error",
     "json",
     "mcp_client_dependency",
