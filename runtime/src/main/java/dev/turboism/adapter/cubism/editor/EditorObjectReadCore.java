@@ -3,15 +3,18 @@ package dev.turboism.adapter.cubism.editor;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
+import dev.turboism.sdk.cubism.model.CubismRenderedPixels;
 import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.IntSequence;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
+import dev.turboism.sdk.cubism.model.TexturePixels;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +22,31 @@ import java.util.Optional;
 
 /** Exact-version Editor read projection for ArtMesh, Deformer, and Glue object state. */
 final class EditorObjectReadCore {
+
+    private static final String DIAGNOSTIC_COMPONENT = "EditorTexturePixels";
+    private static final String ART_MESH_TEXTURE_INPUT_EXTENSION_ALIAS =
+            "cubism.editor-model.art-mesh-source.texture-input-extension";
+    private static final String CURRENT_TEXTURE_INPUT_ALIAS =
+            "cubism.editor-model.texture-input-extension.current-texture-input-data";
+    private static final String TEXTURE_INPUT_CACHED_IMAGE_ALIAS = "cubism.editor-model.texture-input.cached-image";
+    private static final String CACHED_IMAGE_PARAM_DEFAULT_ALIAS = "cubism.editor-model.cached-image-param.default";
+    private static final String CACHED_IMAGE_SIZE_ALIAS = "cubism.editor-model.cached-image.size";
+    private static final String CACHED_IMAGE_RESOURCE_ALIAS = "cubism.editor-model.cached-image.resource";
+    private static final String CACHED_IMAGE_RAW_TO_CACHED_ALIAS = "cubism.editor-model.cached-image.raw01-to-cached01";
+    private static final String C_SIZE_WIDTH_ALIAS = "cubism.editor-model.csize.width";
+    private static final String C_SIZE_HEIGHT_ALIAS = "cubism.editor-model.csize.height";
+    private static final String IMAGE_RESOURCE_IMAGE_ALIAS = "cubism.editor-model.image-resource.image";
+    private static final String C_AFFINE_MATRIX_ALIAS = "cubism.editor-model.caffine.matrix";
+    private static final String WRITABLE_IMAGE_WIDTH_ALIAS = "cubism.editor-model.writable-image.width";
+    private static final String WRITABLE_IMAGE_HEIGHT_ALIAS = "cubism.editor-model.writable-image.height";
+    private static final String WRITABLE_IMAGE_INT_BUFFER_ALIAS = "cubism.editor-model.writable-image.int-buffer";
+    private static final String WRITABLE_IMAGE_BUFFERED_ALIAS = "cubism.editor-model.writable-image.jbuffered";
+
+    /** Affine components the host's {@code CAffine.getMatrix()} returns, in x/y interleaved order. */
+    private static final int AFFINE_COMPONENT_COUNT = 6;
+
+    /** Smallest determinant an invertible raw-01 to cached-01 transform can have. */
+    private static final double MINIMUM_INVERTIBLE_DETERMINANT = 1.0e-12;
 
     private final VerifiedMemberResolver resolver;
     private final EditorObjectReadAccess.CurrentGuard currentGuard;
@@ -65,6 +93,151 @@ final class EditorObjectReadCore {
             throw new UnsupportedOperationException(
                     "Editor ArtMesh clip-mask reads require independent exact verified host evidence.");
         }
+    }
+
+    /**
+     * Reads the ARGB raster of the texture input the ArtMesh samples, with the affine that maps a
+     * mesh uv into raster coordinates. The host answers with the model image when the project has
+     * no atlas and with the atlas tile otherwise, so the raster matches the drawable's appearance
+     * in both cases. Callers degrade to geometry-only planning when this returns empty.
+     *
+     * @param source the ArtMesh source whose texture input to read
+     * @return the raster and uv affine, or empty when the host cannot resolve or decode them
+     */
+    Optional<TexturePixels> texturePixels(final Object source) {
+        if (!resolver.authorizesFeature(
+                EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorObjectReadSelectorContract.TEXTURE_PIXELS_CAPABILITY_ID,
+                EditorObjectReadSelectorContract.TEXTURE_PIXELS_ALIASES)) {
+            diagnose("the reviewed record does not admit the texture-pixel selectors");
+            return Optional.empty();
+        }
+        try {
+            return readTexturePixels(source);
+        } catch (RuntimeException unavailable) {
+            diagnose("the host refused the texture-pixel read: " + unavailable.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private Optional<TexturePixels> readTexturePixels(final Object source) {
+        final Object extension = resolver.invoke(ART_MESH_TEXTURE_INPUT_EXTENSION_ALIAS, source);
+        if (extension == null) {
+            diagnose("the ArtMesh carries no texture-input extension");
+            return Optional.empty();
+        }
+        final Object input = resolver.invoke(CURRENT_TEXTURE_INPUT_ALIAS, extension);
+        if (input == null) {
+            diagnose("the texture-input extension carries no current input");
+            return Optional.empty();
+        }
+        final Object parameter = resolver.invokeStatic(CACHED_IMAGE_PARAM_DEFAULT_ALIAS);
+        final Object cached = resolver.invoke(TEXTURE_INPUT_CACHED_IMAGE_ALIAS, input, parameter);
+        if (cached == null) {
+            diagnose("the texture input exposes no cached image");
+            return Optional.empty();
+        }
+        final Object size = resolver.invoke(CACHED_IMAGE_SIZE_ALIAS, cached);
+        final int rawWidth = integer(resolver.invoke(C_SIZE_WIDTH_ALIAS, size), "texture raw width");
+        final int rawHeight = integer(resolver.invoke(C_SIZE_HEIGHT_ALIAS, size), "texture raw height");
+        final Object resource = resolver.invoke(CACHED_IMAGE_RESOURCE_ALIAS, cached);
+        if (resource == null) {
+            diagnose("the cached image holds no image resource");
+            return Optional.empty();
+        }
+        final Object image = resolver.invoke(IMAGE_RESOURCE_IMAGE_ALIAS, resource);
+        if (image == null) {
+            diagnose("the image resource holds no writable image");
+            return Optional.empty();
+        }
+        final int width = integer(resolver.invoke(WRITABLE_IMAGE_WIDTH_ALIAS, image), "texture pixel width");
+        final int height = integer(resolver.invoke(WRITABLE_IMAGE_HEIGHT_ALIAS, image), "texture pixel height");
+        if (!withinPixelBudget(width, height)) {
+            diagnose("the texture raster exceeds the pixel budget: " + width + "x" + height);
+            return Optional.empty();
+        }
+        final int[] argb = argbRaster(image, width, height);
+        if (argb == null) {
+            diagnose("the writable image exposes no ARGB raster");
+            return Optional.empty();
+        }
+        final double[] uvToPixel = uvToPixelAffine(cached, rawWidth, rawHeight);
+        if (uvToPixel == null) {
+            diagnose("the cached image has no invertible raw-to-cached transform");
+            return Optional.empty();
+        }
+        return Optional.of(new TexturePixels(width, height, argb, uvToPixel));
+    }
+
+    /**
+     * Checks the raster against the SDK pixel limits that bound every Turboism-owned raster, so a
+     * pathological texture cannot exhaust the heap before the copy starts.
+     */
+    private static boolean withinPixelBudget(final int width, final int height) {
+        return width >= 1 && height >= 1 && (long) width * (long) height <= CubismRenderedPixels.MAX_PIXELS;
+    }
+
+    /**
+     * Copies the host raster into a Turboism-owned array. The int buffer is the fast path; the AWT
+     * image is the fallback for cached images that only expose a buffered surface.
+     */
+    private int[] argbRaster(final Object image, final int width, final int height) {
+        final Object buffer = resolver.invoke(WRITABLE_IMAGE_INT_BUFFER_ALIAS, image);
+        if (buffer instanceof int[] raster && (long) raster.length >= (long) width * height) {
+            return java.util.Arrays.copyOf(raster, width * height);
+        }
+        final Object buffered = resolver.invoke(WRITABLE_IMAGE_BUFFERED_ALIAS, image);
+        if (buffered instanceof java.awt.image.BufferedImage awt
+                && awt.getWidth() >= width
+                && awt.getHeight() >= height) {
+            return awt.getRGB(0, 0, width, height, null, 0, width);
+        }
+        return null;
+    }
+
+    /**
+     * Derives the mesh uv to raster pixel affine. The host expresses mesh uvs in the cached-image
+     * 0..1 space, which the raw-01 to cached-01 transform maps onto the raw image. Inverting that
+     * transform returns raw 0..1 coordinates, and scaling by the raw extent yields raw pixels. Raw
+     * pixels equal raster pixels for a 1:1 cached image, so callers clamp the padding remainder.
+     */
+    private double[] uvToPixelAffine(final Object cached, final int rawWidth, final int rawHeight) {
+        try {
+            final Object affine = resolver.invoke(CACHED_IMAGE_RAW_TO_CACHED_ALIAS, cached);
+            if (affine == null) return null;
+            final Object matrix = resolver.invoke(C_AFFINE_MATRIX_ALIAS, affine);
+            if (!(matrix instanceof float[] values) || values.length < AFFINE_COMPONENT_COUNT) return null;
+            final double m00 = values[0];
+            final double m01 = values[1];
+            final double m02 = values[2];
+            final double m10 = values[3];
+            final double m11 = values[4];
+            final double m12 = values[5];
+            final double determinant = m00 * m11 - m01 * m10;
+            if (!Double.isFinite(determinant) || Math.abs(determinant) < MINIMUM_INVERTIBLE_DETERMINANT) return null;
+            final double[] result = {
+                rawWidth * m11 / determinant,
+                -rawWidth * m01 / determinant,
+                rawWidth * (m01 * m12 - m11 * m02) / determinant,
+                -rawHeight * m10 / determinant,
+                rawHeight * m00 / determinant,
+                rawHeight * (m10 * m02 - m00 * m12) / determinant
+            };
+            for (double component : result) {
+                if (!Double.isFinite(component)) return null;
+            }
+            return result;
+        } catch (RuntimeException unavailable) {
+            return null;
+        }
+    }
+
+    /**
+     * Reports why the texture-pixel read degraded to empty. Callers receive an empty result either
+     * way, so the record must reach the framework log instead of failing the host call.
+     */
+    private static void diagnose(final String message) {
+        RuntimeDiagnostics.debug(DIAGNOSTIC_COMPONENT, message);
     }
 
     List<ObjectRef> artMeshes(final String identity, final Object source, final Object model) {

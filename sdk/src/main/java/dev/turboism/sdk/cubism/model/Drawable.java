@@ -145,7 +145,8 @@ public interface Drawable {
     /**
      * Returns the pixel raster of the texture input this ArtMesh samples: the model image
      * (PSD-layer composite) when the project has no texture atlas, or the atlas tile
-     * otherwise. {@link #vertexUvs()} are normalized coordinates over this image.
+     * otherwise. {@link #vertexUvs()} are normalized over the host's cached-image canvas, so
+     * apply {@link TexturePixels#uvToPixel()} before indexing the raster.
      *
      * <p>Empty when the backend cannot resolve the texture input or decode its pixels.</p>
      */

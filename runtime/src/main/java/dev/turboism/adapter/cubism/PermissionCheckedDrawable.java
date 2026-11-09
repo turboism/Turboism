@@ -252,6 +252,12 @@ final class PermissionCheckedDrawable implements dev.turboism.sdk.cubism.model.D
     }
 
     @Override
+    public Optional<dev.turboism.sdk.cubism.model.TexturePixels> texturePixels() {
+        facade.requireModelRead("artMesh.texturePixels");
+        return delegate.texturePixels();
+    }
+
+    @Override
     public int drawOrder() {
         facade.requireModelRead("artMesh.drawOrder");
         return delegate.drawOrder();

@@ -1671,6 +1671,7 @@ class EditorObjectReadAccessTest {
     private static java.util.HashSet<String> capabilities(final boolean includeWrite, final boolean includeMorph) {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
         capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
+        capabilities.add(EditorObjectReadSelectorContract.TEXTURE_PIXELS_CAPABILITY_ID);
         capabilities.add(EditorClipMaskReadSelectorContract.CAPABILITY_ID);
         capabilities.add(
                 dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract.CAPABILITY_ID);
@@ -1801,6 +1802,110 @@ class EditorObjectReadAccessTest {
         assertTrue(failure.getMessage().contains("Core evaluated data is unavailable"));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"5.0.00", "5.2.03", "5.3.02", "5.3.04"})
+    void texturePixelsReadsTheCurrentInputRaster(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var mesh = texturePixelMesh(version, fixture);
+
+        assertTrue(mesh.texturePixels().isEmpty(), "an ArtMesh without a texture input must degrade to empty");
+
+        final int[] argb = {0xFF000000, 0x80FF0000, 0, 0, 0xFF00FF00, 0xFF0000FF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        fixture.meshSource().textureInputExtension =
+                new PixelTexExtension(new PixelTexInput(new PixelCachedImage(4, 4, argb)));
+
+        final var pixels = mesh.texturePixels().orElseThrow();
+        assertEquals(4, pixels.width());
+        assertEquals(4, pixels.height());
+        assertArrayEquals(argb, pixels.argb());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.0.00", "5.2.03", "5.3.02", "5.3.04"})
+    void texturePixelsInvertsTheRawToCachedTransform(final String version) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var mesh = texturePixelMesh(version, fixture);
+
+        // The cached canvas is padded: content occupies the leading 0.75 x 0.5 of uv space, so a
+        // uv must scale up by 4 / 0.75 and 4 / 0.5 to reach the same raster pixel.
+        fixture.meshSource().textureInputExtension = new PixelTexExtension(
+                new PixelTexInput(new PixelCachedImage(4, 4, new int[16], new PixelCAffine().scale(0.75F, 0.5F))));
+
+        final var pixels = mesh.texturePixels().orElseThrow();
+        final double[] point = new double[2];
+        pixels.uvToPixel(0.75, 0.5, point);
+        assertEquals(4.0, point[0], 1.0e-6);
+        assertEquals(4.0, point[1], 1.0e-6);
+        pixels.uvToPixel(0.0, 0.0, point);
+        assertEquals(0.0, point[0], 1.0e-6);
+        assertEquals(0.0, point[1], 1.0e-6);
+        assertEquals(4.0 / 0.75, pixels.uvToPixel()[0], 1.0e-6);
+        assertEquals(4.0 / 0.5, pixels.uvToPixel()[4], 1.0e-6);
+    }
+
+    @Test
+    void texturePixelsRefusesAnOversizeRaster() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var mesh = texturePixelMesh("5.3.02", fixture);
+        final int oversize = dev.turboism.sdk.cubism.model.CubismRenderedPixels.MAX_PIXELS + 1;
+        fixture.meshSource().textureInputExtension =
+                new PixelTexExtension(new PixelTexInput(new PixelCachedImage(oversize, 1, new int[0])));
+
+        assertTrue(mesh.texturePixels().isEmpty(), "an oversize raster must be refused, not allocated");
+    }
+
+    @Test
+    void texturePixelsDegradesWhenTheReviewedRecordOmitsTheCapability() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        fixture.meshSource().textureInputExtension =
+                new PixelTexExtension(new PixelTexInput(new PixelCachedImage(2, 2, new int[4])));
+        final var resolver = TestVerifiedResolvers.create(
+                "5.3.02",
+                EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+                java.util.Set.of(EditorObjectReadSelectorContract.CAPABILITY_ID),
+                texturePixelResolvers(),
+                Host.class.getClassLoader());
+        final var access = new EditorObjectReadAccess(
+                resolver,
+                (identity, model) -> {},
+                new EditorMorphTargetAccess(resolver, (identity, model) -> {}),
+                null);
+        final var mesh = access.drawables("session-a", fixture.source, fixture.source.model)
+                .find(new ArtMeshId("ArtMeshFace"));
+
+        assertTrue(mesh.texturePixels().isEmpty(), "an unadmitted capability must fail closed to empty");
+    }
+
+    private static dev.turboism.sdk.cubism.model.Drawable texturePixelMesh(
+            final String version, final Fixture fixture) {
+        final var resolver = TestVerifiedResolvers.create(
+                version,
+                EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+                java.util.Set.of(
+                        EditorObjectReadSelectorContract.CAPABILITY_ID,
+                        EditorObjectReadSelectorContract.TEXTURE_PIXELS_CAPABILITY_ID),
+                texturePixelResolvers(),
+                Host.class.getClassLoader());
+        final var access = new EditorObjectReadAccess(
+                resolver,
+                (identity, model) -> {},
+                new EditorMorphTargetAccess(resolver, (identity, model) -> {}),
+                null);
+        return access.drawables("session-a", fixture.source, fixture.source.model)
+                .find(new ArtMeshId("ArtMeshFace"));
+    }
+
+    /** Selector roster the texture-pixel read resolves, plus the model binding it depends on. */
+    private static List<StaticSelector> texturePixelResolvers() {
+        final var all = new java.util.ArrayList<>(selectors());
+        all.addAll(texturePixelSelectors());
+        return List.copyOf(all);
+    }
+
     private static VerifiedMemberResolver textureResolver(final boolean textureRead) {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
         capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
@@ -1848,6 +1953,66 @@ class EditorObjectReadAccessTest {
                         TexInput.class,
                         "modelImageOrNull",
                         desc(TexImage.class)));
+    }
+
+    /**
+     * Selector roster of the texture-pixel read chain. The fake host keeps the host's own member
+     * names so the resolver binds the exact aliases the reviewed records carry.
+     */
+    private static List<StaticSelector> texturePixelSelectors() {
+        return List.of(
+                method(
+                        "cubism.editor-model.art-mesh-source.texture-input-extension",
+                        ArtMeshSource.class,
+                        "getTextureInputExtension",
+                        "()Ljava/lang/Object;"),
+                method(
+                        "cubism.editor-model.texture-input-extension.current-texture-input-data",
+                        PixelTexExtension.class,
+                        "getCurrentTextureInputData",
+                        desc(Object.class)),
+                method(
+                        "cubism.editor-model.texture-input.cached-image",
+                        PixelTexInput.class,
+                        "getCachedImage",
+                        "(" + type(PixelCachedImageParam.class) + ")" + type(PixelCachedImage.class)),
+                StaticSelector.staticMethod(
+                        "cubism.editor-model.cached-image-param.default",
+                        internal(PixelCachedImageParam.class),
+                        "b",
+                        desc(PixelCachedImageParam.class),
+                        StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
+                method("cubism.editor-model.cached-image.size", PixelCachedImage.class, "b", desc(PixelCSize.class)),
+                method(
+                        "cubism.editor-model.cached-image.resource",
+                        PixelCachedImage.class,
+                        "a",
+                        desc(PixelImageResource.class)),
+                method("cubism.editor-model.csize.width", PixelCSize.class, "getWidth", "()I"),
+                method("cubism.editor-model.csize.height", PixelCSize.class, "getHeight", "()I"),
+                method(
+                        "cubism.editor-model.image-resource.image",
+                        PixelImageResource.class,
+                        "getImage",
+                        desc(PixelWritableImage.class)),
+                method(
+                        "cubism.editor-model.cached-image.raw01-to-cached01",
+                        PixelCachedImage.class,
+                        "f",
+                        desc(PixelCAffine.class)),
+                method("cubism.editor-model.caffine.matrix", PixelCAffine.class, "getMatrix", "()[F"),
+                method("cubism.editor-model.writable-image.width", PixelWritableImage.class, "getWidth", "()I"),
+                method("cubism.editor-model.writable-image.height", PixelWritableImage.class, "getHeight", "()I"),
+                method(
+                        "cubism.editor-model.writable-image.int-buffer",
+                        PixelWritableImage.class,
+                        "getIntBuffer",
+                        "()[I"),
+                method(
+                        "cubism.editor-model.writable-image.jbuffered",
+                        PixelWritableImage.class,
+                        "getJBufferedImage",
+                        "()Ljava/awt/image/BufferedImage;"));
     }
 
     private static List<StaticSelector> selectors() {

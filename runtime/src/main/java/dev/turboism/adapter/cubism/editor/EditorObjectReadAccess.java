@@ -32,6 +32,7 @@ import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.RotationDeformers;
+import dev.turboism.sdk.cubism.model.TexturePixels;
 import dev.turboism.sdk.cubism.model.WarpDeformers;
 import java.util.ArrayList;
 import java.util.List;
@@ -453,6 +454,11 @@ final class EditorObjectReadAccess {
         public void replaceGeometry(final ArtMeshGeometry geometry) {
             final ObjectRef value = current();
             writes.replaceArtMeshGeometry(modelSource, value, geometry);
+        }
+
+        @Override
+        public Optional<TexturePixels> texturePixels() {
+            return core.texturePixels(current().source());
         }
 
         @Override

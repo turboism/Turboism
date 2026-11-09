@@ -1314,6 +1314,13 @@ final class CubismFacadeTestFixtures {
             }
 
             @Override
+            public java.util.Optional<dev.turboism.sdk.cubism.model.TexturePixels> texturePixels() {
+                calls.add("drawable.texturePixels");
+                return java.util.Optional.of(
+                        new dev.turboism.sdk.cubism.model.TexturePixels(1, 1, new int[] {0xFF102030}));
+            }
+
+            @Override
             public int drawOrder() {
                 return 0;
             }

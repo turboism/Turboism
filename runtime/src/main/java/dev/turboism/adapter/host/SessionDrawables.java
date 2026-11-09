@@ -13,9 +13,11 @@ import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Point2;
+import dev.turboism.sdk.cubism.model.TexturePixels;
 import dev.turboism.sdk.ui.appearance.model.DrawableAppearance;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 final class SessionDrawables implements Drawables {
     private final DynamicCubismModelAccess host;
@@ -313,6 +315,11 @@ final class SessionDrawable implements Drawable {
     @Override
     public int textureIndex() {
         return host.guarded(generation, delegate::textureIndex);
+    }
+
+    @Override
+    public Optional<TexturePixels> texturePixels() {
+        return host.guarded(generation, delegate::texturePixels);
     }
 
     @Override
