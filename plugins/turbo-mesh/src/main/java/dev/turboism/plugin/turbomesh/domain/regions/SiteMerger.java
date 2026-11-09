@@ -14,7 +14,7 @@ import java.util.Set;
  * <p>Two sites closer than the merge radius become one vertex at the mass-weighted mean of their
  * original positions, so repeated merges stay anchored to the sampled geometry. A merge is only
  * accepted while the plane graph keeps its face count, every ring keeps at least three distinct
- * vertices, and no edge starts to cross or overlap another one.</p>
+ * vertices and stays a simple loop, and no edge starts to cross or overlap another one.</p>
  */
 final class SiteMerger {
 
@@ -68,6 +68,9 @@ final class SiteMerger {
                 candidateXs[a] = newX;
                 candidateYs[a] = newY;
                 if (!remainsEmbedded(candidateXs, candidateYs, candidateEdges, a)) {
+                    continue;
+                }
+                if (!DomainRingAudit.acceptsRingRewrite(candidateXs, candidateYs, rings, candidateRings, b, a)) {
                     continue;
                 }
                 xs[a] = newX;

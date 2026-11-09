@@ -11,8 +11,15 @@ import java.util.List;
  * keeps the cropped label raster that produced them, so a caller can map any pixel back to the
  * region that owns it. Triangle indices refer to {@link #vertices()}.</p>
  *
- * <p>Domain rings are unoriented loops; the ring with the largest absolute area is the silhouette
- * and every other ring encloses a hole.</p>
+ * <p>Domain rings are unoriented loops. Triangle membership follows nesting depth: a ring inside an
+ * even number of other rings bounds material and an odd one bounds a hole, so disjoint opaque parts
+ * each keep their own silhouette ring.</p>
+ *
+ * <p>{@code triangleIou} compares the rasterised triangles with the alpha mask of the source
+ * texture. It therefore fails when the planner loses material, which an outline metric cannot.</p>
+ *
+ * <p>{@code fallback} names the stage the planner had to drop to satisfy the coverage contract, so
+ * a caller and its logs can see that the result differs from the requested pipeline.</p>
  */
 public record RegionPlacementPlan(
         List<Point2> vertices,
@@ -22,8 +29,9 @@ public record RegionPlacementPlan(
         RegionGrid regions,
         int vertexCountBeforeMerge,
         int vertexCountAfterMerge,
-        double alphaIou,
-        ShapeFamily shapeFamily) {
+        double triangleIou,
+        ShapeFamily shapeFamily,
+        Fallback fallback) {
 
     public RegionPlacementPlan {
         vertices = List.copyOf(vertices);
@@ -57,6 +65,19 @@ public record RegionPlacementPlan(
 
     /** One hard edge of the plan; {@code a} and {@code b} index {@link #vertices()}. */
     public record Constraint(int a, int b, ConstraintRole role) {}
+
+    /** Planning stage that the planner had to drop to keep the coverage contract. */
+    public enum Fallback {
+
+        /** Every configured stage ran. */
+        NONE,
+
+        /** Near-point averaging would have folded the domain, so it did not run. */
+        MERGE_DISABLED,
+
+        /** Border simplification and near-point averaging both damaged the domain, so neither ran. */
+        SIMPLIFICATION_DISABLED
+    }
 
     /**
      * Cropped label raster of the selected region level.

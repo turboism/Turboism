@@ -26,8 +26,20 @@ import org.junit.jupiter.api.Test;
  */
 class TextureRegionPlannerTest {
 
-    /** Lowest silhouette IoU the prototype accepted for any sample. */
-    private static final double MIN_ALPHA_IOU = 0.97;
+    /** Lowest triangle IoU the prototype expectation keeps for the checked-in samples. */
+    private static final double MIN_SAMPLE_TRIANGLE_IOU = 0.97;
+
+    /** Lowest triangle-area share of the opaque area a plan may leave uncovered. */
+    private static final double MIN_AREA_RATIO = 0.97;
+
+    /** Lowest triangle IoU a synthetic shape must reach against its own alpha mask. */
+    private static final double MIN_SYNTHETIC_TRIANGLE_IOU = 0.95;
+
+    /** Covered share every opaque component needs, well above zero and below a good mesh. */
+    private static final double MIN_COMPONENT_COVERAGE = 0.9;
+
+    /** Opaque components below this area are raster noise rather than real parts, in pixels. */
+    private static final int MIN_COMPONENT_PX = 200;
 
     /** Allowed uncovered or overlapping area, in square pixels. */
     private static final double AREA_TOLERANCE_PX2 = 1.0e-3;
@@ -100,18 +112,190 @@ class TextureRegionPlannerTest {
         assertConcentricRings(syntheticShape(512, 512, 256, 256, 220, 140), "ellipse");
     }
 
+    @Test
+    void bodyWithTaperingStrandsCoversTheWholeSilhouette() {
+        assertCoverageContract(strandBody(420, 460), "strands");
+    }
+
+    @Test
+    void disconnectedComponentsEachGetTriangles() {
+        assertCoverageContract(twoComponents(420, 260), "two-components");
+    }
+
+    @Test
+    void lobesJoinedByThinNeckKeepTheirCoverage() {
+        assertCoverageContract(linkedLobes(440, 400), "linked-lobes");
+    }
+
+    @Test
+    void annulusAndCrescentKeepTheirCoverage() {
+        assertCoverageContract(annulusAndCrescent(460, 300), "annulus-crescent");
+    }
+
+    /** The contract that failed on a real hair layer: the returned triangles must fill the shape. */
+    private static void assertCoverageContract(final Sample sample, final String name) {
+        final RegionPlacementPlan plan = RegionPlacementPlanner.plan(
+                sample.argb(), sample.width(), sample.height(), RegionPlacementParams.SPARSE);
+        final List<Point> vertices = points(plan);
+        final int[] indices = plan.triangleIndices();
+        report(name, plan);
+        assertTrue(vertices.size() > 0, name + " must publish vertices");
+        assertTrue(indices.length >= 3, name + " must publish triangles");
+        assertAllVerticesReferenced(name, plan);
+        final double maskArea = maskArea(sample);
+        final double triangleArea = triangleArea(vertices, indices);
+        final double ratio = triangleArea / maskArea;
+        assertTrue(
+                ratio >= MIN_AREA_RATIO,
+                name + " triangles cover " + ratio + " of the opaque area, below " + MIN_AREA_RATIO);
+        assertTrue(
+                plan.triangleIou() >= MIN_SYNTHETIC_TRIANGLE_IOU,
+                name + " triangle IoU " + plan.triangleIou() + " must reach " + MIN_SYNTHETIC_TRIANGLE_IOU);
+        assertEachComponentCovered(name, plan, sample);
+        assertOutlineRingsClosed(plan);
+        assertConstraintsCovered(plan);
+        assertNoTriangleCrossesRegionBorder(plan);
+        assertNoOverlap(plan);
+        assertTrianglesStayInsideDomain(name, plan);
+        RegionDumpWriter.dumpIfRequested(plan, sample, name);
+    }
+
+    /** No plan vertex may sit outside every triangle, because such a vertex moves no material. */
+    private static void assertAllVerticesReferenced(final String name, final RegionPlacementPlan plan) {
+        final boolean[] referenced = new boolean[plan.vertices().size()];
+        for (final int index : plan.triangleIndices()) {
+            referenced[index] = true;
+        }
+        int unused = 0;
+        for (final boolean value : referenced) {
+            if (!value) {
+                unused++;
+            }
+        }
+        assertEquals(0, unused, name + " must not publish unreferenced vertices");
+    }
+
+    /** Every opaque part above the noise floor must be covered by the returned triangles. */
+    private static void assertEachComponentCovered(
+            final String name, final RegionPlacementPlan plan, final Sample sample) {
+        final int width = sample.width();
+        final int height = sample.height();
+        final boolean[] mask = maskOf(sample);
+        final boolean[] covered = PixelCoverage.coveredPixels(plan.vertices(), plan.triangleIndices(), width, height);
+        final int[] component = components(mask, width, height);
+        final int[] sizes = new int[maxValue(component) + 1];
+        final int[] hits = new int[sizes.length];
+        for (int i = 0; i < mask.length; i++) {
+            if (component[i] == 0) {
+                continue;
+            }
+            sizes[component[i]]++;
+            if (covered[i]) {
+                hits[component[i]]++;
+            }
+        }
+        int checked = 0;
+        for (int id = 1; id < sizes.length; id++) {
+            if (sizes[id] < MIN_COMPONENT_PX) {
+                continue;
+            }
+            checked++;
+            final double share = (double) hits[id] / sizes[id];
+            assertTrue(
+                    share >= MIN_COMPONENT_COVERAGE,
+                    name + " covers only " + share + " of opaque component " + id + " with " + sizes[id] + " px");
+        }
+        assertTrue(checked > 0, name + " must contain at least one opaque component");
+    }
+
+    private static double triangleArea(final List<Point> vertices, final int[] indices) {
+        double area = 0.0;
+        for (int t = 0; t + 2 < indices.length; t += 3) {
+            final Point a = vertices.get(indices[t]);
+            final Point b = vertices.get(indices[t + 1]);
+            final Point c = vertices.get(indices[t + 2]);
+            area += Math.abs(cross(a, b, c)) * 0.5;
+        }
+        return area;
+    }
+
+    private static double maskArea(final Sample sample) {
+        double area = 0.0;
+        for (final boolean value : maskOf(sample)) {
+            if (value) {
+                area += 1.0;
+            }
+        }
+        return area;
+    }
+
+    /** Solid alpha pixels of a sample, using the planner's own solidity threshold. */
+    private static boolean[] maskOf(final Sample sample) {
+        final boolean[] mask = new boolean[sample.width() * sample.height()];
+        final int[] argb = sample.argb();
+        for (int i = 0; i < argb.length; i++) {
+            mask[i] = (argb[i] >>> 24) >= RegionRaster.ALPHA_SOLID;
+        }
+        return mask;
+    }
+
+    /** Eight-connected labelling of the opaque mask; {@code 0} marks background. */
+    private static int[] components(final boolean[] mask, final int width, final int height) {
+        final int[] labels = new int[mask.length];
+        final List<Integer> queue = new ArrayList<>();
+        int next = 0;
+        for (int start = 0; start < mask.length; start++) {
+            if (!mask[start] || labels[start] != 0) {
+                continue;
+            }
+            next++;
+            labels[start] = next;
+            queue.add(start);
+            for (int head = 0; head < queue.size(); head++) {
+                final int cell = queue.get(head);
+                final int x = cell % width;
+                final int y = cell / width;
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        final int nx = x + dx;
+                        final int ny = y + dy;
+                        if (nx < 0 || ny < 0 || nx >= width || ny >= height) {
+                            continue;
+                        }
+                        final int neighbour = ny * width + nx;
+                        if (mask[neighbour] && labels[neighbour] == 0) {
+                            labels[neighbour] = next;
+                            queue.add(neighbour);
+                        }
+                    }
+                }
+            }
+            queue.clear();
+        }
+        return labels;
+    }
+
+    private static int maxValue(final int[] values) {
+        int max = 0;
+        for (final int value : values) {
+            max = Math.max(max, value);
+        }
+        return max;
+    }
+
     /** Prints one metric line per sample, because the delivery record quotes these numbers. */
     private static void report(final String name, final RegionPlacementPlan plan) {
         System.out.printf(
-                "%s: regions=%d vertices=%d->%d triangles=%d iou=%.4f family=%s rings=%d%n",
+                "%s: regions=%d vertices=%d->%d triangles=%d triangleIou=%.4f family=%s rings=%d fallback=%s%n",
                 name,
                 plan.regions().regionCount(),
                 plan.vertexCountBeforeMerge(),
                 plan.vertexCountAfterMerge(),
                 plan.triangleCount(),
-                plan.alphaIou(),
+                plan.triangleIou(),
                 plan.shapeFamily(),
-                plan.domainRings().size());
+                plan.domainRings().size(),
+                plan.fallback());
     }
 
     private static void assertConcentricRings(final Sample sample, final String name) {
@@ -125,14 +309,17 @@ class TextureRegionPlannerTest {
         RegionDumpWriter.dumpIfRequested(plan, sample, name);
     }
 
-    /** Every published guarantee of the plan that holds for all samples. */
+    /** Verifies every published guarantee that holds for all samples. */
     private static void verify(final RegionPlacementPlan plan, final Integer prototypeVertexCount) {
         assertTrue(plan.triangleCount() > 0, "plan must contain triangles");
         assertTrue(plan.regions().regionCount() > 0, "plan must report texture regions");
+        assertAllVerticesReferenced("plan", plan);
         assertTrue(
                 plan.vertexCountAfterMerge() <= plan.vertexCountBeforeMerge(),
                 "average merging must not invent vertices");
-        assertTrue(plan.alphaIou() >= MIN_ALPHA_IOU, "alpha IoU " + plan.alphaIou() + " must reach " + MIN_ALPHA_IOU);
+        assertTrue(
+                plan.triangleIou() >= MIN_SAMPLE_TRIANGLE_IOU,
+                "triangle IoU " + plan.triangleIou() + " must reach " + MIN_SAMPLE_TRIANGLE_IOU);
         if (prototypeVertexCount != null) {
             final double low = prototypeVertexCount * (1.0 - VERTEX_COUNT_TOLERANCE);
             final double high = prototypeVertexCount * (1.0 + VERTEX_COUNT_TOLERANCE);
@@ -283,6 +470,16 @@ class TextureRegionPlannerTest {
 
     /** Triangles must tile the domain exactly: no double cover, no gap beyond the tolerance. */
     private static void assertNoOverlapOrHole(final RegionPlacementPlan plan) {
+        final double triangleArea = assertNoOverlap(plan);
+        final List<Point> vertices = points(plan);
+        final double domainArea = domainArea(vertices, plan.domainRings());
+        assertTrue(
+                Math.abs(triangleArea - domainArea) <= AREA_TOLERANCE_PX2,
+                "triangle area " + triangleArea + " must match domain area " + domainArea);
+    }
+
+    /** No triangle may be degenerate and no edge may carry more than two triangles. */
+    private static double assertNoOverlap(final RegionPlacementPlan plan) {
         final List<Point> vertices = points(plan);
         final int[] indices = plan.triangleIndices();
         final Map<Long, Integer> edgeUse = new HashMap<>();
@@ -301,40 +498,118 @@ class TextureRegionPlannerTest {
         for (final Map.Entry<Long, Integer> entry : edgeUse.entrySet()) {
             assertTrue(entry.getValue() <= 2, "edge " + entry.getKey() + " is covered more than twice");
         }
-        final double domainArea = domainArea(vertices, plan.domainRings());
-        assertTrue(
-                Math.abs(triangleArea - domainArea) <= AREA_TOLERANCE_PX2,
-                "triangle area " + triangleArea + " must match domain area " + domainArea);
+        return triangleArea;
     }
 
-    private static double domainArea(final List<Point> vertices, final List<int[]> rings) {
-        double largest = 0.0;
+    /**
+     * Share of the triangle area that has to lie inside the even-odd domain of the ring set.
+     *
+     * <p>The triangulator classifies triangles by centroid and keeps one carrier triangle per
+     * constraint edge, and a triangle that straddles a ring may therefore reach a little beyond the
+     * outline. Measuring the area instead of the centroid keeps that documented trade-off honest
+     * without hiding a shifted mesh. The bound matches the planner's own coverage contract.</p>
+     */
+    private static final double MIN_INSIDE_SHARE = 0.97;
+
+    /** Samples per triangle axis for the inside-share estimate. */
+    private static final int INSIDE_SAMPLES = 4;
+
+    private static void assertTrianglesStayInsideDomain(final String name, final RegionPlacementPlan plan) {
+        final List<Point> vertices = points(plan);
+        final List<int[]> rings = plan.domainRings();
+        final int[] indices = plan.triangleIndices();
         double total = 0.0;
-        for (final int[] ring : rings) {
-            double sum = 0.0;
-            for (int i = 0; i < ring.length; i++) {
-                final Point current = vertices.get(ring[i]);
-                final Point next = vertices.get(ring[(i + 1) % ring.length]);
-                sum += current.x() * next.y() - next.x() * current.y();
+        double inside = 0.0;
+        for (int t = 0; t + 2 < indices.length; t += 3) {
+            final Point a = vertices.get(indices[t]);
+            final Point b = vertices.get(indices[t + 1]);
+            final Point c = vertices.get(indices[t + 2]);
+            final double area = Math.abs(cross(a, b, c)) * 0.5;
+            if (area <= 0.0) {
+                continue;
             }
-            final double area = Math.abs(sum) * 0.5;
-            largest = Math.max(largest, area);
+            int samples = 0;
+            int hits = 0;
+            final double minX = Math.min(a.x(), Math.min(b.x(), c.x()));
+            final double maxX = Math.max(a.x(), Math.max(b.x(), c.x()));
+            final double minY = Math.min(a.y(), Math.min(b.y(), c.y()));
+            final double maxY = Math.max(a.y(), Math.max(b.y(), c.y()));
+            for (int row = 0; row < INSIDE_SAMPLES; row++) {
+                for (int column = 0; column < INSIDE_SAMPLES; column++) {
+                    final Point probe = new Point(
+                            minX + (column + 0.5) * (maxX - minX) / INSIDE_SAMPLES,
+                            minY + (row + 0.5) * (maxY - minY) / INSIDE_SAMPLES);
+                    if (!inTriangle(a, b, c, probe)) {
+                        continue;
+                    }
+                    samples++;
+                    boolean contained = false;
+                    for (final int[] ring : rings) {
+                        if (contains(vertices, ring, probe)) {
+                            contained = !contained;
+                        }
+                    }
+                    if (contained) {
+                        hits++;
+                    }
+                }
+            }
+            if (samples == 0) {
+                continue;
+            }
+            total += area;
+            inside += area * hits / samples;
         }
-        double holes = 0.0;
-        for (final int[] ring : rings) {
-            double sum = 0.0;
-            for (int i = 0; i < ring.length; i++) {
-                final Point current = vertices.get(ring[i]);
-                final Point next = vertices.get(ring[(i + 1) % ring.length]);
-                sum += current.x() * next.y() - next.x() * current.y();
+        final double share = total <= 0.0 ? 0.0 : inside / total;
+        System.out.printf("%s: insideShare=%.4f%n", name, share);
+        assertTrue(
+                share >= MIN_INSIDE_SHARE, name + " keeps only " + share + " of its triangle area inside the domain");
+    }
+
+    private static boolean inTriangle(final Point a, final Point b, final Point c, final Point probe) {
+        final double first = cross(a, b, probe);
+        final double second = cross(b, c, probe);
+        final double third = cross(c, a, probe);
+        final boolean negative = first < 0.0 || second < 0.0 || third < 0.0;
+        final boolean positive = first > 0.0 || second > 0.0 || third > 0.0;
+        return !(negative && positive);
+    }
+
+    /**
+     * Net enclosed area of the ring set, following the same nesting rule as the triangulator.
+     *
+     * <p>A ring inside an even number of other rings bounds material, an odd one bounds a hole.
+     * Ring order and the largest ring therefore say nothing about disjoint parts.</p>
+     */
+    private static double domainArea(final List<Point> vertices, final List<int[]> rings) {
+        double total = 0.0;
+        for (int i = 0; i < rings.size(); i++) {
+            final Point probe = ringCentroid(vertices, rings.get(i));
+            int depth = 0;
+            for (int j = 0; j < rings.size(); j++) {
+                if (i != j && contains(vertices, rings.get(j), probe)) {
+                    depth++;
+                }
             }
-            final double area = Math.abs(sum) * 0.5;
-            if (area < largest) {
-                holes += area;
-            }
+            final double area = Math.abs(ringArea(vertices, rings.get(i)));
+            total += depth % 2 == 0 ? area : -area;
         }
-        total += largest - holes;
         return total;
+    }
+
+    private static boolean contains(final List<Point> vertices, final int[] ring, final Point probe) {
+        boolean inside = false;
+        for (int i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            final Point current = vertices.get(ring[i]);
+            final Point previous = vertices.get(ring[j]);
+            if ((current.y() > probe.y()) != (previous.y() > probe.y())
+                    && probe.x()
+                            < (previous.x() - current.x()) * (probe.y() - current.y()) / (previous.y() - current.y())
+                                    + current.x()) {
+                inside = !inside;
+            }
+        }
+        return inside;
     }
 
     /** The USB sample must keep its two alpha holes as inner domain rings. */
@@ -458,6 +733,121 @@ class TextureRegionPlannerTest {
                 final double ny = (y + 0.5 - centerY) / radiusY;
                 final boolean inside = nx * nx + ny * ny <= 1.0;
                 argb[y * width + x] = inside ? 0xFF40_80C0 : 0;
+            }
+        }
+        return new Sample(argb, width, height);
+    }
+
+    /**
+     * Wide body with four tapering strands at different angles.
+     *
+     * <p>Each strand narrows to one pixel where it leaves the body, so the outline runs a long
+     * concave neck on both sides. That neck is the geometry that near-point merging and ring
+     * chaining used to fold, which dropped whole lobes of a real hair layer.</p>
+     */
+    private static Sample strandBody(final int width, final int height) {
+        final double bodyX = width * 0.42;
+        final double bodyY = height * 0.44;
+        final double bodyRadiusX = width * 0.17;
+        final double bodyRadiusY = height * 0.2;
+        final double[] strandAngles = {0.3, 0.95, 2.0, 2.7, 3.6};
+        final double[] strandLengths = {0.32, 0.26, 0.3, 0.22, 0.28};
+        final double rootHalfWidth = 0.9;
+        return painted(width, height, (x, y) -> {
+            final double nx = (x - bodyX) / bodyRadiusX;
+            final double ny = (y - bodyY) / bodyRadiusY;
+            if (nx * nx + ny * ny <= 1.0) {
+                return true;
+            }
+            for (int s = 0; s < strandAngles.length; s++) {
+                final double dirX = Math.cos(strandAngles[s]);
+                final double dirY = Math.sin(strandAngles[s]);
+                final double along = (x - bodyX) * dirX + (y - bodyY) * dirY;
+                final double across = -(x - bodyX) * dirY + (y - bodyY) * dirX;
+                final double length = strandLengths[s] * height;
+                if (along < 0.0 || along > length) {
+                    continue;
+                }
+                final double halfWidth = rootHalfWidth * (1.0 - along / length);
+                if (Math.abs(across) <= halfWidth) {
+                    return true;
+                }
+            }
+            return false;
+        });
+    }
+
+    /** Two opaque discs with a wide empty gap, which no single closing outline can enclose. */
+    private static Sample twoComponents(final int width, final int height) {
+        final double leftX = width * 0.26;
+        final double rightX = width * 0.72;
+        final double centerY = height * 0.5;
+        final double leftRadius = height * 0.32;
+        final double rightRadius = height * 0.2;
+        return painted(
+                width,
+                height,
+                (x, y) -> inDisc(x, y, leftX, centerY, leftRadius) || inDisc(x, y, rightX, centerY, rightRadius));
+    }
+
+    /**
+     * Two round lobes joined by a neck thinner than the near-point merge radius.
+     *
+     * <p>The neck is the outline's narrowest passage, so averaging its two sides collapses the
+     * only ring that encloses both lobes. That is the geometry that emptied a real hair layer.</p>
+     */
+    private static Sample linkedLobes(final int width, final int height) {
+        final double leftX = width * 0.3;
+        final double rightX = width * 0.7;
+        final double centerY = height * 0.5;
+        final double lobeRadius = height * 0.24;
+        final double neckHalfHeight = 0.6;
+        return painted(
+                width,
+                height,
+                (x, y) -> inDisc(x, y, leftX, centerY, lobeRadius)
+                        || inDisc(x, y, rightX, centerY, lobeRadius)
+                        || (x >= leftX && x <= rightX && Math.abs(y - centerY) <= neckHalfHeight));
+    }
+
+    /** Thick annulus next to a thin crescent; both shapes force inner rings and slivers. */
+    private static Sample annulusAndCrescent(final int width, final int height) {
+        final double ringX = width * 0.3;
+        final double ringY = height * 0.5;
+        final double ringOuter = height * 0.42;
+        final double ringInner = height * 0.2;
+        final double crescentX = width * 0.76;
+        final double crescentY = height * 0.5;
+        final double crescentOuter = height * 0.4;
+        final double crescentInner = height * 0.34;
+        final double crescentShift = height * 0.12;
+        return painted(width, height, (x, y) -> {
+            final boolean annulus = inDisc(x, y, ringX, ringY, ringOuter) && !inDisc(x, y, ringX, ringY, ringInner);
+            final boolean crescent = inDisc(x, y, crescentX, crescentY, crescentOuter)
+                    && !inDisc(x, y, crescentX + crescentShift, crescentY, crescentInner);
+            return annulus || crescent;
+        });
+    }
+
+    private static boolean inDisc(
+            final double x, final double y, final double centerX, final double centerY, final double radius) {
+        final double dx = x - centerX;
+        final double dy = y - centerY;
+        return dx * dx + dy * dy <= radius * radius;
+    }
+
+    /** Pixel-centre membership test of a painted synthetic shape. */
+    @FunctionalInterface
+    private interface Region {
+        boolean contains(double x, double y);
+    }
+
+    /** Fills every pixel whose centre the shape accepts, with one flat colour. */
+    private static Sample painted(final int width, final int height, final Region inside) {
+        final int[] argb = new int[width * height];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                argb[y * width + x] = inside.contains(x + 0.5, y + 0.5) ? 0xFF40_80C0 : 0;
             }
         }
         return new Sample(argb, width, height);
