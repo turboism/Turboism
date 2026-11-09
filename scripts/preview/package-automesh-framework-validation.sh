@@ -29,6 +29,8 @@ probe_classes=(
   AutoMeshProbeResult
   AutoMeshProbeStatus
   AutoMeshProbeBudget
+  AutoMeshProbeReadiness
+  AutoMeshHostVersionCode
   AutoMeshAlphaCoverage
   NativeAutoMeshFunnel
   NativeAutoMeshPopup
