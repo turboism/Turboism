@@ -21,9 +21,13 @@ import javax.swing.SwingUtilities;
  *
  * <p>The row is built from the host's own widgets ({@code CLabel}, {@code CComboBox},
  * {@code CButton}, {@code CHBox}, {@code CSpacer}) through the container's own class loader, so
- * theme, DPI and font match the surrounding native controls. Every reflection step resolves
- * through {@link MethodHandleCache}, and any failure leaves the container exactly as the host built
- * it.</p>
+ * theme, DPI and font match the surrounding native controls. Every reflection step resolves an
+ * exact signature through {@link MethodHandleCache}, and any failure leaves the container exactly
+ * as the host built it.</p>
+ *
+ * <p>Each host member is named by its full parameter types, because a host build that keeps a
+ * member name but changes a parameter is the mismatch that costs a debugging session. A refused
+ * lookup therefore reports the signature it wanted and the signatures the build declares.</p>
  *
  * <p>The row is appended, never inserted: the container keeps its own children in their own order,
  * and the row becomes the last child of the container's centre widget. A container whose centre is
@@ -43,9 +47,11 @@ public final class AutoMeshSelectorRow {
     private static final String ROW_TYPE = "com.live2d.ui.container.CHBox";
     private static final String SPACER_TYPE = "com.live2d.ui.container.CSpacer";
     private static final String CONTAINER_TYPE = "com.live2d.ui.container.CContainer";
+    private static final String WIDGET_TYPE = "com.live2d.ui.CWidget";
     private static final String FUNCTION1_TYPE = "kotlin.jvm.functions.Function1";
     private static final String UNIT_TYPE = "kotlin.Unit";
     private static final String UNIT_INSTANCE_FIELD = "INSTANCE";
+    private static final String CONSTRUCTOR_NAME = "<init>";
     private static final String INVOKE_METHOD = "invoke";
     private static final String CENTER_GETTER = "getCenter";
     private static final String UNARY_PLUS = "unaryPlus";
@@ -65,6 +71,16 @@ public final class AutoMeshSelectorRow {
     private static final int ROW_MARGIN = 6;
     private static final int SPACER_WIDTH = 4;
     private static final int SPACER_HEIGHT = 0;
+    private static final int MAX_DECLARED_HINTS = 4;
+    private static final String NO_DECLARED_MEMBERS = "none";
+    private static final String CAUSE_SEPARATOR = " caused by ";
+    private static final String DECLARED_SEPARATOR = "; declared: ";
+    private static final Class<?>[] NO_PARAMETERS = new Class<?>[0];
+    private static final Class<?>[] TEXT_PARAMETER = {String.class};
+    private static final Class<?>[] COUNT_PARAMETER = {int.class};
+    private static final Class<?>[] FLAG_PARAMETER = {boolean.class};
+    private static final Class<?>[] SIZE_PARAMETER = {int.class, int.class};
+    private static final Class<?>[] ITEM_PARAMETER = {List.class};
     private static final String ALGORITHM_LABEL_KEY = "selector.algorithm.label";
     private static final String ALGORITHM_TOOLTIP_KEY = "selector.algorithm.tooltip";
     private static final String PRESET_LABEL_KEY = "selector.preset.label";
@@ -131,16 +147,15 @@ public final class AutoMeshSelectorRow {
                 return;
             }
             final Object row = build(container);
-            invoke(mount, UNARY_PLUS, row);
-            tryInvoke(mount, REVALIDATE);
-            tryInvoke(mount, REPAINT);
+            invoke(mount, UNARY_PLUS, parameterTypes(container, WIDGET_TYPE), row);
+            tryInvoke(mount, REVALIDATE, NO_PARAMETERS);
+            tryInvoke(mount, REPAINT, NO_PARAMETERS);
             diagnostic("auto mesh selector: row attached to "
                     + container.getClass().getSimpleName());
         } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
             FatalErrors.rethrowIfFatal(failure);
             // Fail closed: the native popup keeps its own layout and its own controls.
-            diagnostic("auto mesh selector: attach failed with "
-                    + failure.getClass().getName() + ", the row is not added");
+            diagnostic("auto mesh selector: attach failed with " + describe(failure) + ", the row is not added");
         }
     }
 
@@ -152,7 +167,7 @@ public final class AutoMeshSelectorRow {
      * is refused instead of being guessed at.</p>
      */
     private static Object mountTarget(final Object container) throws ReflectiveOperationException {
-        final Object center = tryInvoke(container, CENTER_GETTER);
+        final Object center = invoke(container, CENTER_GETTER, NO_PARAMETERS);
         if (center == null) {
             return null;
         }
@@ -174,70 +189,89 @@ public final class AutoMeshSelectorRow {
                 .getField(UNIT_INSTANCE_FIELD)
                 .get(null);
         final Class<?> function1 = Class.forName(FUNCTION1_TYPE, false, loader);
+        final Class<?> widgetType = Class.forName(WIDGET_TYPE, false, loader);
+        final Class<?>[] widgetParameter = {widgetType};
+        final Class<?>[] callbackParameter = {function1};
 
-        final Object row = instantiate(loader, ROW_TYPE);
-        tryInvoke(row, MARGIN_METHOD, ROW_MARGIN);
+        final Object row = instantiate(loader, ROW_TYPE, NO_PARAMETERS);
+        tryInvoke(row, MARGIN_METHOD, COUNT_PARAMETER, ROW_MARGIN);
 
-        final Object algorithmLabel = instantiate(loader, LABEL_TYPE, AutoMeshText.text(locale, ALGORITHM_LABEL_KEY));
-        tryInvoke(algorithmLabel, SET_TOOLTIP, AutoMeshText.text(locale, ALGORITHM_TOOLTIP_KEY));
-        invoke(row, UNARY_PLUS, algorithmLabel);
+        final Object algorithmLabel =
+                instantiate(loader, LABEL_TYPE, TEXT_PARAMETER, AutoMeshText.text(locale, ALGORITHM_LABEL_KEY));
+        tryInvoke(algorithmLabel, SET_TOOLTIP, TEXT_PARAMETER, AutoMeshText.text(locale, ALGORITHM_TOOLTIP_KEY));
+        invoke(row, UNARY_PLUS, widgetParameter, algorithmLabel);
 
-        final Object algorithmCombo = instantiate(loader, COMBO_TYPE);
-        tryInvoke(algorithmCombo, SET_TOOLTIP, AutoMeshText.text(locale, ALGORITHM_TOOLTIP_KEY));
-        fillCombo(algorithmCombo, labels(controller.algorithmEntries()));
-        tryInvoke(algorithmCombo, SET_SELECTED_INDEX, controller.selectedAlgorithmIndex());
-        invoke(row, UNARY_PLUS, algorithmCombo);
+        final Object algorithmCombo =
+                instantiate(loader, COMBO_TYPE, ITEM_PARAMETER, labels(controller.algorithmEntries()));
+        tryInvoke(algorithmCombo, SET_TOOLTIP, TEXT_PARAMETER, AutoMeshText.text(locale, ALGORITHM_TOOLTIP_KEY));
+        tryInvoke(algorithmCombo, SET_SELECTED_INDEX, COUNT_PARAMETER, controller.selectedAlgorithmIndex());
+        invoke(row, UNARY_PLUS, widgetParameter, algorithmCombo);
 
-        invoke(row, UNARY_PLUS, instantiate(loader, SPACER_TYPE, SPACER_WIDTH, SPACER_HEIGHT));
+        invoke(
+                row,
+                UNARY_PLUS,
+                widgetParameter,
+                instantiate(loader, SPACER_TYPE, SIZE_PARAMETER, SPACER_WIDTH, SPACER_HEIGHT));
 
-        final Object presetLabel = instantiate(loader, LABEL_TYPE, AutoMeshText.text(locale, PRESET_LABEL_KEY));
-        tryInvoke(presetLabel, SET_TOOLTIP, AutoMeshText.text(locale, PRESET_TOOLTIP_KEY));
-        invoke(row, UNARY_PLUS, presetLabel);
+        final Object presetLabel =
+                instantiate(loader, LABEL_TYPE, TEXT_PARAMETER, AutoMeshText.text(locale, PRESET_LABEL_KEY));
+        tryInvoke(presetLabel, SET_TOOLTIP, TEXT_PARAMETER, AutoMeshText.text(locale, PRESET_TOOLTIP_KEY));
+        invoke(row, UNARY_PLUS, widgetParameter, presetLabel);
 
-        final Object presetCombo = instantiate(loader, COMBO_TYPE);
-        tryInvoke(presetCombo, SET_TOOLTIP, AutoMeshText.text(locale, PRESET_TOOLTIP_KEY));
-        fillCombo(presetCombo, controller.presetEntries());
-        tryInvoke(presetCombo, SET_SELECTED_INDEX, controller.selectedPresetIndex());
-        invoke(row, UNARY_PLUS, presetCombo);
+        final Object presetCombo = instantiate(loader, COMBO_TYPE, ITEM_PARAMETER, controller.presetEntries());
+        tryInvoke(presetCombo, SET_TOOLTIP, TEXT_PARAMETER, AutoMeshText.text(locale, PRESET_TOOLTIP_KEY));
+        tryInvoke(presetCombo, SET_SELECTED_INDEX, COUNT_PARAMETER, controller.selectedPresetIndex());
+        invoke(row, UNARY_PLUS, widgetParameter, presetCombo);
 
-        invoke(row, UNARY_PLUS, instantiate(loader, SPACER_TYPE, SPACER_WIDTH, SPACER_HEIGHT));
+        invoke(
+                row,
+                UNARY_PLUS,
+                widgetParameter,
+                instantiate(loader, SPACER_TYPE, SIZE_PARAMETER, SPACER_WIDTH, SPACER_HEIGHT));
 
-        final Object parametersButton = instantiate(loader, BUTTON_TYPE);
-        tryInvoke(parametersButton, SET_TEXT, AutoMeshText.text(locale, PARAMETERS_BUTTON_KEY));
-        tryInvoke(parametersButton, SET_TOOLTIP, AutoMeshText.text(locale, PARAMETERS_TOOLTIP_KEY));
-        tryInvoke(parametersButton, SET_ENABLED, controller.parametersAvailable());
-        invoke(row, UNARY_PLUS, parametersButton);
+        final Object parametersButton = instantiate(loader, BUTTON_TYPE, NO_PARAMETERS);
+        tryInvoke(parametersButton, SET_TEXT, TEXT_PARAMETER, AutoMeshText.text(locale, PARAMETERS_BUTTON_KEY));
+        tryInvoke(parametersButton, SET_TOOLTIP, TEXT_PARAMETER, AutoMeshText.text(locale, PARAMETERS_TOOLTIP_KEY));
+        tryInvoke(parametersButton, SET_ENABLED, FLAG_PARAMETER, controller.parametersAvailable());
+        invoke(row, UNARY_PLUS, widgetParameter, parametersButton);
 
         final Runnable syncPresets = () -> {
             try {
                 fillCombo(presetCombo, controller.presetEntries());
-                tryInvoke(presetCombo, SET_SELECTED_INDEX, controller.selectedPresetIndex());
-                tryInvoke(parametersButton, SET_ENABLED, controller.parametersAvailable());
+                tryInvoke(presetCombo, SET_SELECTED_INDEX, COUNT_PARAMETER, controller.selectedPresetIndex());
+                tryInvoke(parametersButton, SET_ENABLED, FLAG_PARAMETER, controller.parametersAvailable());
             } catch (ReflectiveOperationException failure) {
-                diagnostic("auto mesh selector: preset list refresh failed with "
-                        + failure.getClass().getName());
+                diagnostic("auto mesh selector: preset list refresh failed with " + describe(failure));
             }
         };
 
-        invoke(algorithmCombo, SET_ON_SELECTED, proxy(function1, unit, (proxy, method, arguments) -> {
-            if (INVOKE_METHOD.equals(method.getName())) {
-                guard(() -> controller.selectAlgorithm(selectedIndex(algorithmCombo)));
-                guard(syncPresets);
-            }
-            return unit;
-        }));
-        invoke(presetCombo, SET_ON_SELECTED, proxy(function1, unit, (proxy, method, arguments) -> {
+        invoke(
+                algorithmCombo,
+                SET_ON_SELECTED,
+                callbackParameter,
+                proxy(function1, unit, (proxy, method, arguments) -> {
+                    if (INVOKE_METHOD.equals(method.getName())) {
+                        guard(() -> controller.selectAlgorithm(selectedIndex(algorithmCombo)));
+                        guard(syncPresets);
+                    }
+                    return unit;
+                }));
+        invoke(presetCombo, SET_ON_SELECTED, callbackParameter, proxy(function1, unit, (proxy, method, arguments) -> {
             if (INVOKE_METHOD.equals(method.getName())) {
                 guard(() -> controller.selectPreset(selectedIndex(presetCombo)));
             }
             return unit;
         }));
-        invoke(parametersButton, ADD_ON_ACTION, proxy(function1, unit, (proxy, method, arguments) -> {
-            if (INVOKE_METHOD.equals(method.getName())) {
-                guard(() -> openParameters(container));
-            }
-            return unit;
-        }));
+        invoke(
+                parametersButton,
+                ADD_ON_ACTION,
+                callbackParameter,
+                proxy(function1, unit, (proxy, method, arguments) -> {
+                    if (INVOKE_METHOD.equals(method.getName())) {
+                        guard(() -> openParameters(container));
+                    }
+                    return unit;
+                }));
         return row;
     }
 
@@ -258,8 +292,7 @@ public final class AutoMeshSelectorRow {
             callback.run();
         } catch (RuntimeException | LinkageError failure) {
             FatalErrors.rethrowIfFatal(failure);
-            diagnostic("auto mesh selector: callback failed with "
-                    + failure.getClass().getName());
+            diagnostic("auto mesh selector: callback failed with " + describe(failure));
         }
     }
 
@@ -277,49 +310,77 @@ public final class AutoMeshSelectorRow {
      * <p>The host combo box keeps its items in its own list model, and that model class is the only
      * type {@code setModel} accepts. The model class is therefore read from the live combo and
      * instantiated through its {@code (List)} constructor, so no obfuscated host type is named.</p>
+     *
+     * <p>The read must not be softened: the host's {@code getModel} casts its Swing model to that
+     * own type, so a combo built without items answers a cast failure instead of a model.</p>
      */
     private static void fillCombo(final Object combo, final List<String> items) throws ReflectiveOperationException {
-        final Object model = tryInvoke(combo, GET_MODEL);
+        final Object model = invoke(combo, GET_MODEL, NO_PARAMETERS);
         if (model == null) {
-            throw new NoSuchMethodException("combo box exposes no model");
+            throw new NoSuchMethodException(combo.getClass().getName() + "#" + GET_MODEL + "() answered no model");
         }
-        final Object replacement = instantiate(model.getClass(), List.copyOf(items));
-        invoke(combo, SET_MODEL, replacement);
-        tryInvoke(combo, UPDATE_POPUP_WIDTH);
+        final Class<?> modelType = model.getClass();
+        final Object replacement = instantiate(modelType, ITEM_PARAMETER, List.copyOf(items));
+        invoke(combo, SET_MODEL, new Class<?>[] {modelType}, replacement);
+        tryInvoke(combo, UPDATE_POPUP_WIDTH, NO_PARAMETERS);
     }
 
     private static int selectedIndex(final Object combo) {
-        final Object value = tryInvoke(combo, GET_SELECTED_INDEX);
+        final Object value = tryInvoke(combo, GET_SELECTED_INDEX, NO_PARAMETERS);
         return value instanceof Number number ? number.intValue() : 0;
     }
 
     private void diagnostic(final String message) {
         try {
-            diagnostics.accept(message);
+            diagnostics.accept(singleLine(message));
         } catch (RuntimeException | Error failure) {
             FatalErrors.rethrowIfFatal(failure);
             // A diagnostic sink must never change whether the row is added.
         }
     }
 
-    private static Object instantiate(final Class<?> type, final Object... arguments)
+    /**
+     * Creates one host widget through its exact public constructor.
+     *
+     * <p>The constructor is named by its parameter types rather than selected by argument count,
+     * because a widget family declares overloads whose bodies differ. A host build that keeps the
+     * arity but changes a parameter is refused here with the signature it was asked for.</p>
+     */
+    private static Object instantiate(final Class<?> type, final Class<?>[] parameterTypes, final Object... arguments)
             throws ReflectiveOperationException {
-        for (final Constructor<?> constructor : type.getConstructors()) {
-            if (constructor.getParameterCount() != arguments.length) {
-                continue;
-            }
-            try {
-                return constructor.newInstance(arguments);
-            } catch (IllegalArgumentException | InvocationTargetException ignored) {
-                // Try the next public constructor (boxed or null arguments).
-            }
+        final Constructor<?> constructor;
+        try {
+            constructor = type.getConstructor(parameterTypes);
+        } catch (NoSuchMethodException missing) {
+            throw new NoSuchMethodException(type.getName() + "#" + CONSTRUCTOR_NAME + render(parameterTypes)
+                    + DECLARED_SEPARATOR + declaredConstructors(type));
         }
-        throw new NoSuchMethodException(type.getName() + " constructor with " + arguments.length + " arguments");
+        return constructor.newInstance(arguments);
     }
 
-    private static Object instantiate(final ClassLoader loader, final String className, final Object... arguments)
+    private static Object instantiate(
+            final ClassLoader loader,
+            final String className,
+            final Class<?>[] parameterTypes,
+            final Object... arguments)
             throws ReflectiveOperationException {
-        return instantiate(Class.forName(className, false, loader), arguments);
+        return instantiate(Class.forName(className, false, loader), parameterTypes, arguments);
+    }
+
+    /**
+     * Resolves one host widget type through the container's own loader.
+     *
+     * <p>A parameter type has to come from the loader that defines the widget, because the harness,
+     * a plugin loader and the Editor loader each define their own copy of every host type.</p>
+     */
+    private static Class<?>[] parameterTypes(final Object container, final String... typeNames)
+            throws ReflectiveOperationException {
+        final ClassLoader loader = container.getClass().getClassLoader();
+        final Class<?>[] types = new Class<?>[typeNames.length];
+        for (int index = 0; index < typeNames.length; index++) {
+            types[index] = Class.forName(typeNames[index], false, loader);
+        }
+        return types;
     }
 
     private static Object proxy(final Class<?> function1, final Object unit, final InvocationHandler body) {
@@ -338,26 +399,95 @@ public final class AutoMeshSelectorRow {
                 });
     }
 
-    private static Object tryInvoke(final Object target, final String name, final Object... arguments) {
+    private static Object tryInvoke(
+            final Object target, final String name, final Class<?>[] parameterTypes, final Object... arguments) {
         try {
-            return invoke(target, name, arguments);
+            return invoke(target, name, parameterTypes, arguments);
         } catch (ReflectiveOperationException ignored) {
             return null;
         }
     }
 
-    private static Object invoke(final Object target, final String name, final Object... arguments)
+    /**
+     * Invokes one host member by its exact signature.
+     *
+     * <p>A refused lookup reports the wanted signature and the signatures the build declares, which
+     * is the whole diagnosis a future mismatch needs from the log.</p>
+     */
+    private static Object invoke(
+            final Object target, final String name, final Class<?>[] parameterTypes, final Object... arguments)
             throws ReflectiveOperationException {
         if (target == null) {
-            throw new NoSuchMethodException(name);
+            throw new NoSuchMethodException(name + render(parameterTypes));
         }
-        for (final Method method : MethodHandleCache.overloads(target.getClass(), name, arguments.length)) {
-            try {
-                return method.invoke(target, arguments);
-            } catch (IllegalArgumentException ignored) {
-                // Try the next overload.
+        final Method method;
+        try {
+            method = MethodHandleCache.method(target.getClass(), name, parameterTypes);
+        } catch (NoSuchMethodException missing) {
+            throw new NoSuchMethodException(target.getClass().getName() + "#" + name + render(parameterTypes)
+                    + DECLARED_SEPARATOR + declaredMembers(target.getClass(), name));
+        }
+        return method.invoke(target, arguments);
+    }
+
+    /**
+     * Renders one failure as a single log line.
+     *
+     * <p>The wrapper exception an invocation always adds carries no information, so it is skipped.
+     * Everything below it names the host member and the host cause that refused the attach.</p>
+     */
+    private static String describe(final Throwable failure) {
+        final StringBuilder text = new StringBuilder();
+        Throwable current = failure;
+        while (current != null && current != current.getCause()) {
+            if (current instanceof InvocationTargetException && current.getCause() != null) {
+                current = current.getCause();
+                continue;
+            }
+            if (text.length() > 0) {
+                text.append(CAUSE_SEPARATOR);
+            }
+            text.append(current.getClass().getName());
+            if (current.getMessage() != null) {
+                text.append(": ").append(current.getMessage());
+            }
+            current = current.getCause();
+        }
+        return singleLine(text.toString());
+    }
+
+    private static String singleLine(final String message) {
+        return message.replace('\n', ' ').replace('\r', ' ');
+    }
+
+    private static String render(final Class<?>[] parameterTypes) {
+        final StringBuilder text = new StringBuilder("(");
+        for (int index = 0; index < parameterTypes.length; index++) {
+            if (index > 0) {
+                text.append(", ");
+            }
+            text.append(parameterTypes[index].getTypeName());
+        }
+        return text.append(')').toString();
+    }
+
+    private static String declaredMembers(final Class<?> type, final String name) {
+        final List<String> rendered = new ArrayList<>();
+        for (final Method method : type.getMethods()) {
+            if (name.equals(method.getName()) && rendered.size() < MAX_DECLARED_HINTS) {
+                rendered.add(name + render(method.getParameterTypes()));
             }
         }
-        throw new NoSuchMethodException(target.getClass().getName() + "#" + name);
+        return rendered.isEmpty() ? NO_DECLARED_MEMBERS : String.join(", ", rendered);
+    }
+
+    private static String declaredConstructors(final Class<?> type) {
+        final List<String> rendered = new ArrayList<>();
+        for (final Constructor<?> constructor : type.getConstructors()) {
+            if (rendered.size() < MAX_DECLARED_HINTS) {
+                rendered.add(CONSTRUCTOR_NAME + render(constructor.getParameterTypes()));
+            }
+        }
+        return rendered.isEmpty() ? NO_DECLARED_MEMBERS : String.join(", ", rendered);
     }
 }
