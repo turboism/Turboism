@@ -85,7 +85,8 @@ public class ParameterSyncDialog extends JDialog {
         gbc.weightx = 0.0;
         globalEnabledCheck =
                 new JCheckBox(i18n.text("dialog.top.enable"), ruleSet != null && ruleSet.isGlobalEnabled());
-        globalEnabledCheck.setFont(globalEnabledCheck.getFont().deriveFont(Font.PLAIN, 14f));
+        // The right-hand count and buttons keep the default look-and-feel size; match it.
+        globalEnabledCheck.setFont(globalEnabledCheck.getFont().deriveFont(Font.PLAIN));
         globalEnabledCheck.addActionListener(e -> {
             if (ruleSet != null) {
                 ruleSet.setGlobalEnabled(globalEnabledCheck.isSelected());

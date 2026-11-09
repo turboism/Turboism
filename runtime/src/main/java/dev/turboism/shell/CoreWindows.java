@@ -779,7 +779,11 @@ final class CoreWindows implements AutoCloseable {
                 ignored -> pluginCount.setText(i18n.format("plugins.count", pluginTableModel.installedPluginCount())));
         final JPanel header = new JPanel(new BorderLayout(8, 0));
         header.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 8));
-        header.add(pluginCount, BorderLayout.CENTER);
+        // The filter field and the auto-update toggle live here: the footer button row grows with
+        // the plugin actions, and a narrow window used to hide them behind those buttons.
+        final JPanel headerRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        header.add(pluginCount, BorderLayout.WEST);
+        header.add(headerRight, BorderLayout.EAST);
         dialog.add(header, BorderLayout.NORTH);
         pluginTable = new JTable(pluginTableModel);
         pluginTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -837,7 +841,6 @@ final class CoreWindows implements AutoCloseable {
                 },
                 code -> pluginStatus.setText(pendingChangesStatus(code)),
                 this::refreshPlugins);
-        header.add(pendingChangesAction.button(), BorderLayout.EAST);
         dialog.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentHidden(final java.awt.event.ComponentEvent event) {
@@ -898,7 +901,8 @@ final class CoreWindows implements AutoCloseable {
         filtering.add(new JLabel(text("plugins.filter")));
         filtering.add(filter);
         filtering.add(autoUpdate);
-        actions.add(filtering, BorderLayout.WEST);
+        headerRight.add(filtering);
+        headerRight.add(pendingChangesAction.button());
         final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         buttons.add(checkUpdates);
         buttons.add(openMarket);

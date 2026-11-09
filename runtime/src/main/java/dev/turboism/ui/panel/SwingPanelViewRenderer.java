@@ -476,6 +476,7 @@ public final class SwingPanelViewRenderer {
                                     new ThemedCardBorder(), javax.swing.BorderFactory.createEmptyBorder(6, 6, 6, 6))
                             : javax.swing.BorderFactory.createEmptyBorder(4, 6, 4, 6));
             panel.add(renderNode(card.content(), action, false, locale, iconResolver), BorderLayout.CENTER);
+            installCardHover(panel);
             installCardActivation(panel, card, action);
             return panel;
         }
@@ -673,6 +674,111 @@ public final class SwingPanelViewRenderer {
             return new ImageIcon(ImageIO.read(new ByteArrayInputStream(pngBytes)));
         } catch (Exception failure) {
             throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
+        }
+    }
+
+    /**
+     * Gives a card a visible hover and press state.
+     *
+     * <p>The board opens a card on double click, so a click without feedback reads as a missed
+     * target. The state is painted by {@link InteractiveCardBorder}; the child components stay
+     * untouched, so nested controls keep their own behaviour.</p>
+     */
+    private static void installCardHover(final JPanel panel) {
+        if (!(panel.getBorder() instanceof javax.swing.border.CompoundBorder compound)
+                || !(compound.getOutsideBorder() instanceof ThemedCardBorder themed)) {
+            return;
+        }
+        final InteractiveCardBorder interactive = new InteractiveCardBorder(panel, themed.getLineColor(), true);
+        panel.setBorder(javax.swing.BorderFactory.createCompoundBorder(interactive, compound.getInsideBorder()));
+        panel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(final MouseEvent event) {
+                interactive.setHovered(true);
+            }
+
+            @Override
+            public void mouseExited(final MouseEvent event) {
+                interactive.setHovered(false);
+                interactive.setPressed(false);
+            }
+
+            @Override
+            public void mousePressed(final MouseEvent event) {
+                if (SwingUtilities.isLeftMouseButton(event)) interactive.setPressed(true);
+            }
+
+            @Override
+            public void mouseReleased(final MouseEvent event) {
+                interactive.setPressed(false);
+            }
+        });
+    }
+
+    /** Card outline that brightens on hover and switches to the accent colour while pressed. */
+    private static final class InteractiveCardBorder extends javax.swing.border.AbstractBorder {
+        private static final int THICKNESS = 1;
+        private static final float HOVER_ALPHA = 0.55f;
+        private final JComponent owner;
+        private final java.awt.Color base;
+        private final boolean draw;
+        private boolean hovered;
+        private boolean pressed;
+
+        private InteractiveCardBorder(final JComponent owner, final java.awt.Color base, final boolean draw) {
+            this.owner = owner;
+            this.base = base;
+            this.draw = draw;
+        }
+
+        private void setHovered(final boolean value) {
+            if (hovered == value) return;
+            hovered = value;
+            owner.repaint();
+        }
+
+        private void setPressed(final boolean value) {
+            if (pressed == value) return;
+            pressed = value;
+            owner.repaint();
+        }
+
+        @Override
+        public java.awt.Insets getBorderInsets(final Component component) {
+            return new java.awt.Insets(THICKNESS, THICKNESS, THICKNESS, THICKNESS);
+        }
+
+        @Override
+        public void paintBorder(
+                final Component component,
+                final java.awt.Graphics graphics,
+                final int x,
+                final int y,
+                final int width,
+                final int height) {
+            if (!draw || width <= 0 || height <= 0) return;
+            java.awt.Color color = base;
+            if (pressed) {
+                final java.awt.Color accent = javax.swing.UIManager.getColor(ACCENT_COLOR_KEY);
+                color = accent == null ? brighten(base) : accent;
+            } else if (hovered) {
+                color = brighten(base);
+            }
+            final Graphics2D copy = (Graphics2D) graphics.create();
+            try {
+                copy.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                copy.setColor(color);
+                copy.setStroke(new java.awt.BasicStroke(THICKNESS));
+                copy.drawRoundRect(x, y, width - 1, height - 1, 8, 8);
+            } finally {
+                copy.dispose();
+            }
+        }
+
+        private static java.awt.Color brighten(final java.awt.Color color) {
+            final int alpha = Math.round(255 * HOVER_ALPHA);
+            return new java.awt.Color(
+                    color.getRed(), color.getGreen(), color.getBlue(), Math.max(color.getAlpha(), alpha));
         }
     }
 

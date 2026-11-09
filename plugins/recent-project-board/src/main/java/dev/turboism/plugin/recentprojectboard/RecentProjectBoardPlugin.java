@@ -68,6 +68,10 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
     static final int IMAGE_MAX_WIDTH = 220;
     static final int IMAGE_MAX_HEIGHT = 220;
     static final int PANEL_PRIORITY = 20;
+
+    /** Breathing room above the board title, so the header never touches the overlay edge. */
+    private static final int HEADER_TOP_INSET = 10;
+
     private static final StoragePath LAYOUT_PATH = new StoragePath(StorageRoot.DATA, "recent-project-board/layout.txt");
 
     private static final DateTimeFormatter MODIFIED_FORMAT =
@@ -313,7 +317,7 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
                 PanelView.padded(
                         PanelView.centered(
                                 PanelView.column(PanelView.text(title), PanelView.text(subtitle, true)), 360, 56),
-                        0,
+                        HEADER_TOP_INSET,
                         12,
                         0,
                         0),

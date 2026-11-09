@@ -43,8 +43,8 @@ final class ViewportPanelInstaller {
     private static final String OPENGL_VIEWPORT_CLASS = "com.jogamp.opengl.awt.GLJPanel";
     private static final long REFRESH_MILLIS = 750L;
     private static final int INITIAL_REFRESH_MILLIS = 250;
-    private static final int BOARD_VERTICAL_INSET = 28;
-    private static final int BOARD_HORIZONTAL_INSET = 36;
+    private static final int BOARD_VERTICAL_INSET = 16;
+    private static final int BOARD_HORIZONTAL_INSET = 16;
     private static final Color FALLBACK_BACKGROUND = new Color(0x2b2b2b);
     private static final String CONTENT_UPDATE_OPERATION = "viewport panel content update";
 
