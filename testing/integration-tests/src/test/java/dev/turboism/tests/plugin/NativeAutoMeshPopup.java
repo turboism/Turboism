@@ -40,7 +40,8 @@ final class NativeAutoMeshPopup {
     private static final String APP_CONTROLLER_INSTANCE = "_instance";
     private static final String APP_CONTROLLER_INSTANCE_ACCESSOR = "access$get_instance$cp";
     private static final String CENTER = "getCenter";
-    private static final String HOST_CHILD_COUNT = "getChildrenCount";
+    private static final String HOST_CHILDREN = "getChildren";
+    private static final int MAX_WIDGET_DEPTH = 24;
     private static final String DISPOSE = "dispose";
     private static final String SCREENSHOT_FILE = "automesh-selector-row.png";
     private static final String PNG_FORMAT = "png";
@@ -235,9 +236,23 @@ final class NativeAutoMeshPopup {
         if (center instanceof Container widget) {
             return widget.getComponentCount();
         }
-        // Editor widgets are not AWT containers; they count their own children.
-        final Object hostCount = invokeByName(center, HOST_CHILD_COUNT);
-        return hostCount instanceof Integer count ? count : -1;
+        // Editor widgets are not AWT containers. The row can mount below the centre, so the count
+        // covers the whole subtree and any depth of attachment shows as a change.
+        return descendantCount(center, 0);
+    }
+
+    private static int descendantCount(final Object widget, final int depth) {
+        if (widget == null || depth > MAX_WIDGET_DEPTH) {
+            return widget == null ? -1 : 0;
+        }
+        if (!(invokeByName(widget, HOST_CHILDREN) instanceof List<?> children)) {
+            return 0;
+        }
+        int total = children.size();
+        for (final Object child : children) {
+            total += Math.max(0, descendantCount(child, depth + 1));
+        }
+        return total;
     }
 
     private static Object appController() {

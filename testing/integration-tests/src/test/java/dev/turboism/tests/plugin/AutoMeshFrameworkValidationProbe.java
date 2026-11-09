@@ -929,7 +929,10 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
             final boolean historyChanged = historySize() != historyBefore;
             final boolean geometryChanged = !AutoMeshGeometryDigest.of(last).equals(beforeDigest);
             if (historyChanged || geometryChanged) {
-                return last;
+                // The transaction commits history and geometry together, but the poll that saw the
+                // history change may hold the previous geometry; sample once more after one tick.
+                Thread.sleep(POLL_MILLIS);
+                return geometryOf(id);
             }
             Thread.sleep(POLL_MILLIS);
             last = geometryOf(id);

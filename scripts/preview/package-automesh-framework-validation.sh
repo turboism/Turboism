@@ -57,7 +57,7 @@ cat > "$bundle_root/home-config.json" <<JSON
   "schemaVersion": 1,
   "worktreeId": "$worktree_id",
   "pluginDirs": ["plugins/"],
-  "logLevel": "INFO",
+  "logLevel": "DEBUG",
   "maxLogStorageMiB": 100,
   "safeMode": false,
   "hooks": {
