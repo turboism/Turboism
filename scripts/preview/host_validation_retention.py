@@ -20,6 +20,7 @@ import time
 from typing import Any, Iterator
 
 import host_validation_queue as queue
+from hvq.hostos import HostOs
 from host_validation_evidence import checked_path, layout
 
 DAY = 86400
@@ -109,7 +110,7 @@ def copied_database(database: Path):
                     if identity is None:
                         target.unlink(missing_ok=True)
                         continue
-                    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+                    fd = os.open(path, os.O_RDONLY | HostOs.NO_FOLLOW)
                     with os.fdopen(fd, "rb") as source, target.open("wb") as output:
                         shutil.copyfileobj(source, output)
                 if before != [signature(path) for path in names]:
@@ -203,12 +204,15 @@ def safe_outcome(snapshot: Snapshot, job: dict[str, Any]) -> dict[str, Any]:
 def walk_manifest(path: Path, *, links: bool = True) -> dict[str, list[Any]]:
     """lstat only: never follow Wine links; disallow mount crossings/special files."""
     checked_path(path)
-    # st_dev alone misses bind mounts of the same filesystem.
-    for line in Path("/proc/self/mountinfo").read_text().splitlines():
-        raw = line.split()[4]
-        mount = Path(re.sub(r"\\([0-7]{3})", lambda match: chr(int(match[1], 8)), raw))
-        if path == mount or path in mount.parents:
-            raise queue.QueueError("artifact contains a mount boundary")
+    # st_dev alone misses bind mounts of the same filesystem. Only Linux publishes that table, so
+    # a host without it relies on the device and identity checks below.
+    mountinfo = Path("/proc/self/mountinfo")
+    if mountinfo.is_file():
+        for line in mountinfo.read_text().splitlines():
+            raw = line.split()[4]
+            mount = Path(re.sub(r"\\([0-7]{3})", lambda match: chr(int(match[1], 8)), raw))
+            if path == mount or path in mount.parents:
+                raise queue.QueueError("artifact contains a mount boundary")
     base_device = path.stat().st_dev
     entries: dict[str, list[Any]] = {}
     stack = [(path, ".")]

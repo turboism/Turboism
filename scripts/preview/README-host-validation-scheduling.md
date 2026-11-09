@@ -32,10 +32,13 @@ On Windows, resolve the task shell through `HostOs.shell()` rather than a bare
 the WSL launcher instead of the MSYS shell the scripts need. With the resolved
 path the task scripts execute and reach their own configuration checks.
 
-`scripts/preview/host_validation_retention.py` and the task runner scripts remain
-POSIX-only: they use `dir_fd` descriptors and, per task, Xvfb or Proton tooling.
-A task therefore cannot complete on native Windows yet, even though the queue
-loads, locks, prepares and now launches the task script there. The
+`scripts/preview/host_validation_retention.py` reads `/proc/self/mountinfo` and its
+`O_NOFOLLOW` on an optional flag, but its artifact remover still deletes through
+`dir_fd` descriptors, and its regression suite builds identities with `os.getuid`
+and removes an open SQLite file. The generic task runner is the larger gap: it
+requires a golden Proton prefix and a Proton runner for every task, so it has no
+native Windows launch path. A task therefore cannot complete on native Windows
+yet, even though the queue loads, locks, prepares and launches the task script. The
 state root is the account home resolved for the current user (`pwd` on POSIX,
 the profile directory on Windows), so `HOME`/`XDG_STATE_HOME`/cwd still cannot
 split one user's lock domain; private-directory and lock ownership checks keep
