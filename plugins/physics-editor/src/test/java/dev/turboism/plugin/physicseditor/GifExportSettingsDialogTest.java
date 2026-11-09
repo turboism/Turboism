@@ -33,8 +33,8 @@ class GifExportSettingsDialogTest {
             final JSpinner width = spinner(controls, "Width (px)");
             final JSpinner height = spinner(controls, "Height (px)");
             final JSpinner limit = spinner(controls, "Target size (MB)");
-            final JCheckBox lock = (JCheckBox) controls.getComponent(6);
-            final JCheckBox optimize = (JCheckBox) controls.getComponent(8);
+            final JCheckBox lock = checkBox(controls, TestLocalization.ENGLISH.raw("gif.lock"));
+            final JCheckBox optimize = checkBox(controls, TestLocalization.ENGLISH.raw("gif.optimize"));
             assertTrue(lock.isSelected());
             assertTrue(optimize.isSelected());
             assertEquals(20.0, limit.getValue());

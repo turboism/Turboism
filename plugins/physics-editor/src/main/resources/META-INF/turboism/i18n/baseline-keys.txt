@@ -6,10 +6,14 @@ gif.control.pause
 gif.control.resume
 gif.control.stop
 gif.discard
+gif.encoding
 gif.executable
 gif.executable-hint
 gif.export
 gif.failed
+gif.format
+gif.format.apng
+gif.format.gif
 gif.fps
 gif.gifsicle.missing
 gif.height

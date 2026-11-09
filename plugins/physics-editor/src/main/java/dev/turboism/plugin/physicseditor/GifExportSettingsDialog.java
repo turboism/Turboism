@@ -48,6 +48,7 @@ final class GifExportSettingsDialog {
     private final JCheckBox optimize;
     private final JSpinner limit = new JSpinner(new SpinnerNumberModel(20.0, 0.01, 1024.0, 1.0));
     private final JTextField executable = new JTextField(System.getProperty("turboism.gifsicle.path", "gifsicle"), 24);
+    private final javax.swing.JComboBox<Format> format = new javax.swing.JComboBox<>(Format.values());
     private boolean updating;
     private javax.swing.JDialog activeDialog;
     private volatile javax.swing.JDialog activePrompt;
@@ -74,7 +75,21 @@ final class GifExportSettingsDialog {
             percent.setEnabled(lock.isSelected());
             updateFromPixels(true);
         });
-        optimize.addActionListener(event -> limit.setEnabled(optimize.isSelected()));
+        optimize.addActionListener(
+                event -> limit.setEnabled(format.getSelectedItem() == Format.GIF && optimize.isSelected()));
+        format.addActionListener(event -> refreshFormatControls());
+    }
+
+    /** APNG needs no optimizer, so the GIF-only controls are disabled while it is selected. */
+    private void refreshFormatControls() {
+        final boolean gif = format.getSelectedItem() == Format.GIF;
+        optimize.setEnabled(gif);
+        executable.setEnabled(gif && optimize.isSelected());
+        limit.setEnabled(gif && optimize.isSelected());
+    }
+
+    Format selectedFormat() {
+        return format.getSelectedItem() instanceof Format chosen ? chosen : Format.GIF;
     }
 
     private String tr(final String key) {
@@ -144,19 +159,21 @@ final class GifExportSettingsDialog {
         final JFileChooser chooser = createChooser();
         final Path previous = lastDirectory();
         if (previous != null && Files.isDirectory(previous)) chooser.setCurrentDirectory(previous.toFile());
-        chooser.setFileFilter(new FileNameExtensionFilter("GIF", "gif"));
-        chooser.setSelectedFile(new java.io.File(chooser.getCurrentDirectory(), "physics.gif"));
+        final Format chosen = selectedFormat();
+        chooser.setFileFilter(new FileNameExtensionFilter(chosen.name(), chosen.extension()));
+        chooser.setSelectedFile(new java.io.File(chooser.getCurrentDirectory(), "physics." + chosen.extension()));
         activeChooser = chooser;
         try {
             while (true) {
                 if (closed || chooser.showSaveDialog(parent) != JFileChooser.APPROVE_OPTION || closed) return null;
                 Path destination = chooser.getSelectedFile().toPath().toAbsolutePath();
+                final String suffix = "." + chosen.extension();
                 if (!destination
                         .getFileName()
                         .toString()
                         .toLowerCase(Locale.ROOT)
-                        .endsWith(".gif")) {
-                    destination = destination.resolveSibling(destination.getFileName() + ".gif");
+                        .endsWith(suffix)) {
+                    destination = destination.resolveSibling(destination.getFileName() + suffix);
                 }
                 if (Files.exists(destination)
                         && showPrompt(parent, tr("gif.overwrite"), JOptionPane.PLAIN_MESSAGE, JOptionPane.YES_NO_OPTION)
@@ -224,7 +241,9 @@ final class GifExportSettingsDialog {
      */
     void validateForExport() throws java.text.ParseException {
         commitSettingsEdits();
-        if (optimize.isSelected() && executable.getText().isBlank()) {
+        if (selectedFormat() == Format.GIF
+                && optimize.isSelected()
+                && executable.getText().isBlank()) {
             throw new IllegalArgumentException(tr("gif.executable-hint"));
         }
     }
@@ -236,13 +255,15 @@ final class GifExportSettingsDialog {
      * @return the policy, with an unlimited size ceiling when optimization is off
      */
     Settings exportSettings(final Path destination) {
-        final boolean optimized = optimize.isSelected();
+        final Format chosen = selectedFormat();
+        final boolean optimized = chosen == Format.GIF && optimize.isSelected();
         return new Settings(
                 destination,
                 ((Number) width.getValue()).intValue(),
                 ((Number) height.getValue()).intValue(),
                 optimized ? (long) (((Number) limit.getValue()).doubleValue() * 1_000_000) : Long.MAX_VALUE,
-                executable.getText().trim());
+                optimized ? executable.getText().trim() : "",
+                chosen);
     }
 
     void commitSettingsEdits() throws java.text.ParseException {
@@ -255,6 +276,7 @@ final class GifExportSettingsDialog {
 
     JPanel createSettingsPanel() {
         final JPanel settings = new JPanel(new GridLayout(0, 2, 8, 8));
+        addSetting(settings, "gif.format", format);
         addSetting(settings, "gif.scale", percent);
         addSetting(settings, "gif.width", width);
         addSetting(settings, "gif.height", height);
@@ -265,6 +287,7 @@ final class GifExportSettingsDialog {
         addSetting(settings, "gif.limit", limit);
         addSetting(settings, "gif.executable", executable);
         executable.setToolTipText(tr("gif.executable-hint"));
+        refreshFormatControls();
         return settings;
     }
 
@@ -353,5 +376,32 @@ final class GifExportSettingsDialog {
      * @param maxBytes the size ceiling, or {@link Long#MAX_VALUE} when optimization is off
      * @param executable the Gifsicle executable to run
      */
-    record Settings(Path destination, int width, int height, long maxBytes, String executable) {}
+    /** Export formats offered by this dialog; both run in process except GIF optimization. */
+    enum Format {
+        GIF("gif", "gif.format.gif"),
+        APNG("png", "gif.format.apng");
+
+        private final String extension;
+        private final String labelKey;
+
+        Format(final String extension, final String labelKey) {
+            this.extension = extension;
+            this.labelKey = labelKey;
+        }
+
+        String extension() {
+            return extension;
+        }
+
+        String labelKey() {
+            return labelKey;
+        }
+
+        @Override
+        public String toString() {
+            return labelKey;
+        }
+    }
+
+    record Settings(Path destination, int width, int height, long maxBytes, String executable, Format format) {}
 }

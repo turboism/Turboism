@@ -370,16 +370,23 @@ final class GifRecordingController implements AutoCloseable {
             Path optimized = null;
             try {
                 final Path destination = settings.destination();
-                optimized = Files.createTempFile(destination.getParent(), ".turboism-physics-", ".gif");
-                publishStatus(i18n.text("gif.optimizing"));
-                GifFrameEncoder.optimize(
-                        settings.executable(),
-                        raw,
-                        optimized,
-                        settings.maxBytes(),
-                        settings.width(),
-                        settings.height(),
-                        count);
+                if (settings.format() == GifExportSettingsDialog.Format.APNG) {
+                    // Animated PNG needs no optimizer: it is written straight from the recording.
+                    optimized = Files.createTempFile(destination.getParent(), ".turboism-physics-", ".png");
+                    publishStatus(i18n.text("gif.encoding"));
+                    ApngEncoder.write(raw, optimized, frameDelayMillis());
+                } else {
+                    optimized = Files.createTempFile(destination.getParent(), ".turboism-physics-", ".gif");
+                    publishStatus(i18n.text("gif.optimizing"));
+                    GifFrameEncoder.optimize(
+                            settings.executable(),
+                            raw,
+                            optimized,
+                            settings.maxBytes(),
+                            settings.width(),
+                            settings.height(),
+                            count);
+                }
                 checkCancelled();
                 synchronized (gate) {
                     checkCancelled();
@@ -454,6 +461,11 @@ final class GifRecordingController implements AutoCloseable {
             throw new IllegalStateException("export settings dialog failed", broken[0]);
         }
         return (GifExportSettingsDialog.Settings) answer[0];
+    }
+
+    /** Per-frame delay of the recording, in milliseconds. */
+    private int frameDelayMillis() {
+        return (int) Math.max(1L, Math.round(1000.0 / Math.max(1, fps)));
     }
 
     private void checkCancelled() throws InterruptedException {
