@@ -65,20 +65,28 @@ final class DomainRingAudit {
         return Verdict.PASSED;
     }
 
-    /** Net enclosed area of the ring set: silhouettes minus every ring nested inside them. */
+    /**
+     * Net enclosed area of the ring set: material rings count, hole rings subtract.
+     *
+     * <p>Nesting depth decides which is which, so disjoint parts each keep their own area. Ring order
+     * and ring size cannot answer that question.</p>
+     */
     static double enclosedArea(final SiteGraph.Snapshot snapshot, final List<int[]> rings) {
-        final List<Double> areas = new ArrayList<>(rings.size());
-        double largest = 0.0;
+        final List<double[][]> coordinates = new ArrayList<>(rings.size());
         for (final int[] ring : rings) {
-            final double area = Math.abs(ringArea(snapshot, ring));
-            areas.add(area);
-            largest = Math.max(largest, area);
-        }
-        double total = largest;
-        for (final double area : areas) {
-            if (area < largest) {
-                total -= area;
+            final double[] xs = new double[ring.length];
+            final double[] ys = new double[ring.length];
+            for (int i = 0; i < ring.length; i++) {
+                xs[i] = snapshot.xs()[ring[i]];
+                ys[i] = snapshot.ys()[ring[i]];
             }
+            coordinates.add(new double[][] {xs, ys});
+        }
+        final int[] depths = RingNesting.depths(coordinates);
+        double total = 0.0;
+        for (int i = 0; i < rings.size(); i++) {
+            final double area = Math.abs(ringArea(snapshot, rings.get(i)));
+            total += depths[i] % 2 == 0 ? area : -area;
         }
         return total;
     }

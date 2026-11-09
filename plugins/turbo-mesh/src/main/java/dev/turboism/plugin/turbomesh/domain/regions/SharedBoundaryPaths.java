@@ -11,38 +11,28 @@ import java.util.TreeMap;
 /**
  * Extracts every shared pixel border exactly once as polyline chains.
  *
- * <p>Region borders are cut into chains at junctions, lightly low-passed to remove single-pixel
- * staircase noise, simplified, and resampled. Each chain keeps the pair of labels it separates, so
- * the mesh builder never has to guess which regions two neighbouring cells belong to.</p>
+ * <p>Region borders are cut into chains at junctions, then handed to
+ * {@link CurvatureBoundarySampler}, which locks the junctions and the sharp corners and resamples
+ * the spans between them. Each chain keeps the pair of labels it separates, so the mesh builder
+ * never has to guess which regions two neighbouring cells belong to.</p>
  */
 final class SharedBoundaryPaths {
-
-    /** Cosine above which a vertex sits on a locally straight run and may be smoothed. */
-    static final double LOWPASS_MIN_COSINE = 0.65;
-
-    /** Vertices this close to a chain end stay untouched so junctions never move. */
-    static final int LOWPASS_END_SKIP = 4;
-
-    /** Shortest chain that receives low-pass filtering. */
-    static final int LOWPASS_MIN_POINTS = 9;
-
-    /** Half width of the smoothing window, in vertices. */
-    private static final int LOWPASS_REACH = 2;
-
-    /** Normalisation of the {1,2,3,2,1} staircase filter. */
-    private static final double LOWPASS_WEIGHT_SUM = 9.0;
-
-    private static final double COSINE_FLOOR = 1.0e-9;
 
     private SharedBoundaryPaths() {}
 
     /**
      * @param labels region labels of the selected level, {@code 0} outside the silhouette
-     * @param tolerance Douglas–Peucker tolerance in pixels
+     * @param tolerance chord deviation budget of the curve resampling, in pixels
+     * @param minSpacing lower bound of the emitted vertex distance in pixels
      * @param spacing upper bound of the distance between consecutive emitted points
      */
     static List<BoundaryPath> extract(
-            final int[] labels, final int width, final int height, final double tolerance, final double spacing) {
+            final int[] labels,
+            final int width,
+            final int height,
+            final double tolerance,
+            final double minSpacing,
+            final double spacing) {
         final Map<Long, List<int[]>> groups = new TreeMap<>();
         collectHorizontal(labels, width, height, groups);
         collectVertical(labels, width, height, groups);
@@ -52,7 +42,7 @@ final class SharedBoundaryPaths {
             final int labelB = (int) (group.getKey() & 0xFFFF_FFFFL);
             for (final int[] chain : traceChains(group.getValue())) {
                 final Polyline line =
-                        toPolyline(chain, width + 1).simplified(tolerance).resampled(spacing);
+                        CurvatureBoundarySampler.sample(toPolyline(chain, width + 1), tolerance, minSpacing, spacing);
                 if (line.size() >= 2 && line.length() > 0.0) {
                     paths.add(new BoundaryPath(labelA, labelB, line));
                 }
@@ -163,7 +153,7 @@ final class SharedBoundaryPaths {
         return out;
     }
 
-    /** Maps corner-lattice nodes to pixel-centre coordinates and smooths staircase noise. */
+    /** Maps corner-lattice nodes to pixel-centre coordinates. */
     private static Polyline toPolyline(final int[] chain, final int cornerWidth) {
         final double[] xs = new double[chain.length];
         final double[] ys = new double[chain.length];
@@ -172,55 +162,6 @@ final class SharedBoundaryPaths {
             ys[i] = (chain[i] / cornerWidth) - 0.5;
         }
         final boolean closed = chain.length > 2 && chain[0] == chain[chain.length - 1];
-        final Polyline raw = closed ? Polyline.closedFromRepeated(xs, ys) : new Polyline(xs, ys, false);
-        return lowPass(raw);
-    }
-
-    /**
-     * Replaces staircase steps with a light average, but only where the chain already runs
-     * straight; multi-pixel corners survive because their neighbour directions disagree.
-     */
-    private static Polyline lowPass(final Polyline line) {
-        final int size = line.size();
-        if (size < LOWPASS_MIN_POINTS) {
-            return line;
-        }
-        final double[] xs = new double[size];
-        final double[] ys = new double[size];
-        for (int i = 0; i < size; i++) {
-            xs[i] = line.x(i);
-            ys[i] = line.y(i);
-        }
-        for (int i = LOWPASS_END_SKIP; i < size - LOWPASS_END_SKIP; i++) {
-            final double ax = line.x(i) - line.x(i - LOWPASS_END_SKIP);
-            final double ay = line.y(i) - line.y(i - LOWPASS_END_SKIP);
-            final double bx = line.x(i + LOWPASS_END_SKIP) - line.x(i);
-            final double by = line.y(i + LOWPASS_END_SKIP) - line.y(i);
-            final double denominator = Math.max(COSINE_FLOOR, Math.hypot(ax, ay) * Math.hypot(bx, by));
-            if ((ax * bx + ay * by) / denominator <= LOWPASS_MIN_COSINE) {
-                continue;
-            }
-            xs[i] = smoothed(line, i, true);
-            ys[i] = smoothed(line, i, false);
-        }
-        return new Polyline(xs, ys, line.closed());
-    }
-
-    private static double smoothed(final Polyline line, final int index, final boolean horizontal) {
-        final int size = line.size();
-        double sum = 0.0;
-        for (int k = -LOWPASS_REACH; k <= LOWPASS_REACH; k++) {
-            final int source = resolve(index + k, size, line.closed());
-            final double weight = LOWPASS_REACH + 1 - Math.abs(k);
-            sum += weight * (horizontal ? line.x(source) : line.y(source));
-        }
-        return sum / LOWPASS_WEIGHT_SUM;
-    }
-
-    private static int resolve(final int index, final int size, final boolean closed) {
-        if (closed) {
-            return ((index % size) + size) % size;
-        }
-        return Math.max(0, Math.min(size - 1, index));
+        return closed ? Polyline.closedFromRepeated(xs, ys) : new Polyline(xs, ys, false);
     }
 }

@@ -146,25 +146,6 @@ final class RegionRaster {
         return count;
     }
 
-    /** Chamfer distance from every pixel to the nearest pixel that touches another label. */
-    double[] boundaryClearance(final int[] labels) {
-        final boolean[] boundary = new boolean[labels.length];
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                final int cell = y * width + x;
-                if (x + 1 < width && labels[cell] != labels[cell + 1]) {
-                    boundary[cell] = true;
-                    boundary[cell + 1] = true;
-                }
-                if (y + 1 < height && labels[cell] != labels[cell + width]) {
-                    boundary[cell] = true;
-                    boundary[cell + width] = true;
-                }
-            }
-        }
-        return chamfer(boundary, width, height);
-    }
-
     private static float[] filledColour(final int[] pixels, final int width, final int height) {
         final double[] distance = new double[pixels.length];
         final int[] nearest = new int[pixels.length];
@@ -238,49 +219,6 @@ final class RegionRaster {
         if (candidate < distance[target]) {
             distance[target] = candidate;
             nearest[target] = nearest[source];
-        }
-    }
-
-    private static double[] chamfer(final boolean[] blocked, final int width, final int height) {
-        final double[] distance = new double[blocked.length];
-        for (int i = 0; i < blocked.length; i++) {
-            distance[i] = blocked[i] ? 0.0 : Double.POSITIVE_INFINITY;
-        }
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                chamferRelax(distance, width, height, x, y, x - 1, y - 1, CHAMFER_DIAGONAL);
-                chamferRelax(distance, width, height, x, y, x, y - 1, CHAMFER_STRAIGHT);
-                chamferRelax(distance, width, height, x, y, x + 1, y - 1, CHAMFER_DIAGONAL);
-                chamferRelax(distance, width, height, x, y, x - 1, y, CHAMFER_STRAIGHT);
-            }
-        }
-        for (int y = height - 1; y >= 0; y--) {
-            for (int x = width - 1; x >= 0; x--) {
-                chamferRelax(distance, width, height, x, y, x + 1, y, CHAMFER_STRAIGHT);
-                chamferRelax(distance, width, height, x, y, x + 1, y + 1, CHAMFER_DIAGONAL);
-                chamferRelax(distance, width, height, x, y, x, y + 1, CHAMFER_STRAIGHT);
-                chamferRelax(distance, width, height, x, y, x - 1, y + 1, CHAMFER_DIAGONAL);
-            }
-        }
-        return distance;
-    }
-
-    private static void chamferRelax(
-            final double[] distance,
-            final int width,
-            final int height,
-            final int x,
-            final int y,
-            final int sourceX,
-            final int sourceY,
-            final double step) {
-        if (sourceX < 0 || sourceY < 0 || sourceX >= width || sourceY >= height) {
-            return;
-        }
-        final double candidate = distance[sourceY * width + sourceX] + step;
-        final int target = y * width + x;
-        if (candidate < distance[target]) {
-            distance[target] = candidate;
         }
     }
 

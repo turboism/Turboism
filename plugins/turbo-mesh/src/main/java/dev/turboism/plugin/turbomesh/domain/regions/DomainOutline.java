@@ -13,8 +13,11 @@ import java.util.Set;
  *
  * <p>Internal texture borders cut the silhouette into several chains, and an alpha hole inherits
  * the label pair of every region that touches it. Chaining all alpha border segments by their
- * shared endpoints therefore rebuilds the exterior ring and every hole ring, and each ring vertex is
- * a site the mesh will use.</p>
+ * shared endpoints therefore rebuilds every exterior ring and every hole ring, and each ring vertex
+ * is a site the mesh will use.</p>
+ *
+ * <p>The rings stay in one set. Nesting depth, not ring size, decides which of them bound material,
+ * so two parts of one layer and a hole inside one part are all described correctly.</p>
  */
 final class DomainOutline {
 
@@ -25,7 +28,7 @@ final class DomainOutline {
 
     /**
      * @param borders shared texture and alpha borders in pixel coordinates
-     * @return material outline with holes, or {@code null} when the alpha borders close no ring
+     * @return material outline with islands and holes, or {@code null} when no alpha border closes
      */
     static PolygonShape of(final List<BoundaryPath> borders) {
         final Nodes nodes = new Nodes();
@@ -60,22 +63,8 @@ final class DomainOutline {
         if (loops.isEmpty()) {
             return null;
         }
-        Polyline exterior = loops.get(0);
-        double largest = 0.0;
-        for (final Polyline loop : loops) {
-            final double area = Math.abs(loop.signedArea());
-            if (area > largest) {
-                largest = area;
-                exterior = loop;
-            }
-        }
-        final List<Polyline> holes = new ArrayList<>(loops.size() - 1);
-        for (final Polyline loop : loops) {
-            if (Math.abs(loop.signedArea()) < largest) {
-                holes.add(loop);
-            }
-        }
-        return new PolygonShape(exterior, holes);
+        loops.sort((first, second) -> Double.compare(Math.abs(second.signedArea()), Math.abs(first.signedArea())));
+        return new PolygonShape(loops);
     }
 
     /**

@@ -10,10 +10,12 @@ import java.util.concurrent.CancellationException;
 /**
  * Plans a texture-driven constraint mesh for one image.
  *
- * <p>Stages: alpha crop, nested region segmentation, shared border extraction, direction guides,
- * node unification, interior fill, near-point averaging, then constrained Delaunay triangulation
- * with the plugin's own triangulator. The planner keeps no static mutable state, so callers may
- * run it concurrently.</p>
+ * <p>Stages: alpha crop, crease-aware nested region segmentation, shared border extraction with
+ * corner-locked curvature resampling, node unification, distance-graded interior fill, near-point
+ * averaging, then constrained Delaunay triangulation with the plugin's own triangulator. No stage
+ * invents geometry that the texture does not show: the mesh follows the silhouette, the drawing
+ * creases, and the space between them. The planner keeps no static mutable state, so callers may run
+ * it concurrently.</p>
  *
  * <p>Every stage may damage the domain silently, so the planner verifies the domain rings and the
  * triangle coverage of each attempt and retries without the stage it suspects. A result that
@@ -76,28 +78,20 @@ public final class RegionPlacementPlanner {
         final boolean mergeEnabled = fallback == RegionPlacementPlan.Fallback.NONE;
         final boolean simplifyEnabled = fallback != RegionPlacementPlan.Fallback.SIMPLIFICATION_DISABLED;
         final double tolerance = simplifyEnabled ? resolved.simplifyTolerance() : 0.0;
-        final List<BoundaryPath> borders =
-                SharedBoundaryPaths.extract(labels, raster.width(), raster.height(), tolerance, resolved.maxSpacing());
+        final List<BoundaryPath> borders = SharedBoundaryPaths.extract(
+                labels, raster.width(), raster.height(), tolerance, resolved.minSpacing(), resolved.maxSpacing());
         final PolygonShape domain = DomainOutline.of(borders);
         if (domain == null) {
             throw new IllegalArgumentException("silhouette outline does not close, so no domain exists");
         }
-        final DirectionGuides.Guides guides =
-                DirectionGuides.generate(raster, domain, resolved.maxSpacing(), resolved.trackCount());
         checkInterrupted();
         final SiteGraph graph = new SiteGraph();
-        for (final BoundaryPath path : PolylineNoder.node(combined(borders, guides.paths()))) {
+        for (final BoundaryPath path : PolylineNoder.node(borders)) {
             graph.addPath(path.line(), path.role());
         }
         graph.sealBoundary();
         RegionInteriorFill.fill(
-                graph,
-                labels,
-                raster.width(),
-                raster.height(),
-                raster.boundaryClearance(labels),
-                resolved.interiorSpacing(),
-                domain);
+                graph, labels, raster.width(), raster.height(), domain, resolved.maxSpacing(), resolved.minSpacing());
         final List<int[]> domainLoops = domainRings(domain, graph);
         if (domainLoops == null) {
             return new Attempt(null, "a domain ring edge has no matching mesh edge chain");
@@ -114,7 +108,7 @@ public final class RegionPlacementPlanner {
         checkInterrupted();
         final ConstraintDelaunay.Result mesh = triangulate(merged, rings);
         final Candidate candidate =
-                Candidate.of(mesh, merged, rings, constraints(merged), beforeMerge, guides.family());
+                Candidate.of(mesh, merged, rings, constraints(merged), beforeMerge, ShapeFamily.NONE);
         if (candidate.triangleCount() == 0) {
             return new Attempt(null, "triangulation returned no triangle");
         }
@@ -129,13 +123,6 @@ public final class RegionPlacementPlanner {
                             candidate.droppedVertices()));
         }
         return new Attempt(candidate, null);
-    }
-
-    private static List<BoundaryPath> combined(final List<BoundaryPath> borders, final List<BoundaryPath> guides) {
-        final List<BoundaryPath> combined = new ArrayList<>(borders.size() + guides.size());
-        combined.addAll(borders);
-        combined.addAll(guides);
-        return combined;
     }
 
     private static ConstraintDelaunay.Result triangulate(final SiteGraph.Snapshot merged, final List<int[]> rings) {
