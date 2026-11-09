@@ -4,6 +4,8 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Window;
 import java.awt.image.BufferedImage;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -23,9 +25,10 @@ import javax.swing.SwingUtilities;
  * check meaningful: the attach hook runs inside the container constructor, which no test double can
  * reproduce.</p>
  *
- * <p>Every failure answers empty instead of throwing. A host that cannot build the popup reports a
- * skipped selector check rather than failing the framework verdict on a step the framework does not
- * own.</p>
+ * <p>Every step answers a diagnostic instead of throwing. The probe records that diagnostic, so a
+ * refused attach names the container it built, the child counts it observed and the exact failure
+ * the host raised. A host that cannot build the popup therefore reports a skipped selector check
+ * with a cause rather than failing the framework verdict on a step the framework does not own.</p>
  */
 final class NativeAutoMeshPopup {
 
@@ -41,42 +44,80 @@ final class NativeAutoMeshPopup {
     private static final String SCREENSHOT_FILE = "automesh-selector-row.png";
     private static final String PNG_FORMAT = "png";
     private static final int MINIMUM_POPUP_EDGE = 16;
+    private static final int MAXIMUM_STACK_LINES = 24;
 
     private NativeAutoMeshPopup() {}
+
+    /**
+     * One container construction attempt and everything the probe learned about it.
+     *
+     * <p>The centre child count is sampled right after the constructor returns. The runtime posts the
+     * attach to the Editor UI thread, so a construction that runs on that thread cannot have appended
+     * the row yet: the sample is the host's own child count.</p>
+     *
+     * @param container the live container, or {@code null} when the host could not build it
+     * @param containerClass the concrete container class name, or a stable reason token
+     * @param centerClass the concrete centre widget class name, or a stable reason token
+     * @param childrenBefore the centre child count the host itself produced
+     * @param failure the full stack trace of the construction failure, or empty when it succeeded
+     */
+    record Build(
+            Object container, String containerClass, String centerClass, int childrenBefore, Optional<String> failure) {
+
+        Build {
+            containerClass = containerClass == null ? "<unknown>" : containerClass;
+            centerClass = centerClass == null ? "<none>" : centerClass;
+            failure = failure == null ? Optional.empty() : failure;
+        }
+
+        /** @return whether the host produced a container */
+        boolean built() {
+            return container != null;
+        }
+    }
 
     /**
      * Builds one native Auto Mesh container.
      *
      * <p>Runs on the Editor UI thread. The container constructor is where the attach hook runs, so a
-     * successful construction is the moment the selector row is either added or refused.</p>
+     * successful construction is the moment the selector row is either added or refused. The child
+     * counts bracket the constructor, which separates "the hook never ran" from "the hook ran and
+     * refused".</p>
      *
-     * @return the live container, or empty when the host cannot build it
+     * @return the attempt, carrying the live container or the exact failure
      */
-    static Optional<Object> open() {
+    static Build open() {
         try {
             final Object app = appController();
             if (app == null) {
-                return Optional.empty();
+                return notBuilt("no-app-controller");
             }
             final Object pack = invokeByName(app, COMPLETE_PACK);
             if (pack == null) {
-                return Optional.empty();
+                return notBuilt("no-complete-pack");
             }
             final Class<?> containerType =
                     loadHostClass(MODELING_POPUP_DIALOG, pack.getClass().getClassLoader());
             if (containerType == null) {
-                return Optional.empty();
+                return notBuilt("no-container-class");
             }
             for (final Constructor<?> constructor : containerType.getDeclaredConstructors()) {
                 if (constructor.getParameterCount() != 1 || !constructor.getParameterTypes()[0].isInstance(pack)) {
                     continue;
                 }
                 constructor.setAccessible(true);
-                return Optional.of(constructor.newInstance(pack));
+                final Object container = constructor.newInstance(pack);
+                final Object center = invokeByName(container, CENTER);
+                return new Build(
+                        container,
+                        container.getClass().getName(),
+                        center == null ? null : center.getClass().getName(),
+                        childCountOf(center),
+                        Optional.empty());
             }
-            return Optional.empty();
+            return notBuilt("no-single-pack-constructor");
         } catch (ReflectiveOperationException | RuntimeException | LinkageError unavailable) {
-            return Optional.empty();
+            return new Build(null, MODELING_POPUP_DIALOG, null, -1, Optional.of(stackTrace(unavailable)));
         }
     }
 
@@ -87,11 +128,10 @@ final class NativeAutoMeshPopup {
      * observable evidence that the attach hook ran.</p>
      *
      * @param container the live container
-     * @return the child count, or {@code 0} when the centre is unreachable
+     * @return the child count, or {@code -1} when the centre is unreachable
      */
     static int childCount(final Object container) {
-        final Object center = invokeByName(container, CENTER);
-        return center instanceof Container widget ? widget.getComponentCount() : 0;
+        return childCountOf(invokeByName(container, CENTER));
     }
 
     /**
@@ -99,21 +139,20 @@ final class NativeAutoMeshPopup {
      *
      * <p>Painting through {@link Component#paint} works without window-compositor access, so the
      * capture succeeds on hosts where a screen grab would need extra tooling. A widget with no size
-     * yet answers empty instead of writing a blank image.</p>
+     * yet answers a reason instead of writing a blank image.</p>
      *
      * @param container the live container
      * @param dumpRoot the dump directory the image belongs to
-     * @return the written file, or empty when no image could be produced
+     * @return the written file, or the reason no image could be produced
      */
-    static Optional<Path> capture(final Object container, final Path dumpRoot) {
+    static Capture capture(final Object container, final Path dumpRoot) {
         if (!(container instanceof Component component)) {
-            return Optional.empty();
+            return Capture.failed("the container is not an AWT component");
         }
+        final int width = Math.max(MINIMUM_POPUP_EDGE, component.getWidth());
+        final int height = Math.max(MINIMUM_POPUP_EDGE, component.getHeight());
         try {
-            final BufferedImage image = new BufferedImage(
-                    Math.max(MINIMUM_POPUP_EDGE, component.getWidth()),
-                    Math.max(MINIMUM_POPUP_EDGE, component.getHeight()),
-                    BufferedImage.TYPE_INT_ARGB);
+            final BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
             final java.awt.Graphics2D graphics = image.createGraphics();
             try {
                 component.paint(graphics);
@@ -122,9 +161,31 @@ final class NativeAutoMeshPopup {
             }
             Files.createDirectories(dumpRoot);
             final Path file = dumpRoot.resolve(SCREENSHOT_FILE);
-            return ImageIO.write(image, PNG_FORMAT, file.toFile()) ? Optional.of(file) : Optional.empty();
+            if (!ImageIO.write(image, PNG_FORMAT, file.toFile())) {
+                return Capture.failed("no PNG writer accepted the image");
+            }
+            return new Capture(Optional.of(file), "", component.getWidth(), component.getHeight());
         } catch (java.io.IOException | RuntimeException | LinkageError unavailable) {
-            return Optional.empty();
+            return Capture.failed(stackTrace(unavailable));
+        }
+    }
+
+    /**
+     * One capture attempt.
+     *
+     * @param file the written PNG, or empty when nothing was written
+     * @param reason the failure detail; empty when {@code file} is present
+     * @param width the painted width
+     * @param height the painted height
+     */
+    record Capture(Optional<Path> file, String reason, int width, int height) {
+        Capture {
+            file = file == null ? Optional.empty() : file;
+            reason = reason == null ? "" : reason;
+        }
+
+        static Capture failed(final String reason) {
+            return new Capture(Optional.empty(), reason, 0, 0);
         }
     }
 
@@ -141,6 +202,36 @@ final class NativeAutoMeshPopup {
             return;
         }
         invokeByName(container, DISPOSE);
+    }
+
+    /**
+     * Renders one throwable with its causes and the frames that identify the failing host member.
+     *
+     * @param failure the throwable to render
+     * @return a single-line-safe stack trace, bounded to the leading frames
+     */
+    static String stackTrace(final Throwable failure) {
+        final StringWriter text = new StringWriter();
+        try (PrintWriter writer = new PrintWriter(text)) {
+            failure.printStackTrace(writer);
+        }
+        final List<String> kept = new ArrayList<>(MAXIMUM_STACK_LINES);
+        for (final String line : text.toString().lines().toList()) {
+            if (kept.size() >= MAXIMUM_STACK_LINES) {
+                kept.add("... truncated");
+                break;
+            }
+            kept.add(line.strip());
+        }
+        return String.join(" | ", kept);
+    }
+
+    private static Build notBuilt(final String reason) {
+        return new Build(null, reason, null, -1, Optional.empty());
+    }
+
+    private static int childCountOf(final Object center) {
+        return center instanceof Container widget ? widget.getComponentCount() : -1;
     }
 
     private static Object appController() {
