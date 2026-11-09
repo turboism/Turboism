@@ -720,107 +720,132 @@ public final class ModelImportPlugin implements TurboismPlugin {
         var transactions = context.cubism().authoringTransactions();
         final PreparedImport finalPrepared = prepared;
 
-        var result = transactions.execute(
-                dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Import 3D " + requestName), () -> {
-                    requireTarget(token, documentId, target);
-                    boolean fitCanvas = target.canvas().widthPixels() != 1024
-                            || target.canvas().heightPixels() != 1024;
-                    var existingDeformers = fitCanvas
-                            ? SurfacePlacementAuthoring.deformerIds(target)
-                            : java.util.Set.<dev.turboism.sdk.cubism.id.DeformerId>of();
-                    if (finalPrepared.character() != null) {
-                        var created = NativeModelImport.assemble(
-                                target,
-                                finalPrepared.character(),
-                                atlasPlan,
-                                stage -> context.logger().info("Native import stage: " + stage),
-                                transactions::batchStoredSourceWrites);
+        // The import writes the whole model inside one transaction; without a window the editor looks
+        // frozen for the whole write. The pipeline already reports its stages, so surface them.
+        final ImportProgress progress = new ImportProgress(
+                text("progress.title", "正在导入 3D 模型"),
+                text("progress.preparing", "正在准备…"),
+                step -> format("progress.step", "正在写入模型（{0}/{1}）", step[0], step[1]));
+        progress.show();
+        final dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult<Void> result;
+        try {
+            result = transactions.execute(
+                    dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Import 3D " + requestName),
+                    () -> {
+                        requireTarget(token, documentId, target);
+                        boolean fitCanvas = target.canvas().widthPixels() != 1024
+                                || target.canvas().heightPixels() != 1024;
+                        var existingDeformers = fitCanvas
+                                ? SurfacePlacementAuthoring.deformerIds(target)
+                                : java.util.Set.<dev.turboism.sdk.cubism.id.DeformerId>of();
+                        if (finalPrepared.character() != null) {
+                            var created = NativeModelImport.assemble(
+                                    target,
+                                    finalPrepared.character(),
+                                    atlasPlan,
+                                    stage -> {
+                                        context.logger().info("Native import stage: " + stage);
+                                        progress.stage(stage);
+                                    },
+                                    transactions::batchStoredSourceWrites);
+                            if (fitCanvas)
+                                SurfacePlacementAuthoring.fitCanvas(
+                                        target,
+                                        existingDeformers,
+                                        created.meshIds(),
+                                        finalPrepared
+                                                .character()
+                                                .geometry()
+                                                .request()
+                                                .placementName());
+                            requireTarget(token, documentId, target);
+                            return null;
+                        }
+                        var existingParameters = target.parameters().all().stream()
+                                .map(p -> p.id())
+                                .collect(java.util.stream.Collectors.toSet());
+                        var meshIds = new ArrayList<dev.turboism.sdk.cubism.id.ArtMeshId>();
+                        var bindingsBySourceId =
+                                new LinkedHashMap<String, dev.turboism.sdk.cubism.model.ModelImageBinding>();
+                        var meshImageBindings = new LinkedHashMap<
+                                dev.turboism.sdk.cubism.id.ArtMeshId,
+                                dev.turboism.sdk.cubism.model.ModelImageBinding>();
+
+                        if (finalPrepared.simple() != null) {
+                            var imported = SurfaceImport.assemble(
+                                    target,
+                                    finalPrepared.simple(),
+                                    stage -> progress.step(stage.ordinal(), SurfaceImport.Stage.values().length));
+                            for (var patch : imported.geometry().patches()) {
+                                meshIds.add(patch.meshId());
+                            }
+                            var patches = finalPrepared.simple().appearance.patches();
+                            var materials = finalPrepared.simple().appearance.materials();
+                            for (int i = 0; i < patches.size(); i++) {
+                                var mat = patches.get(i).material();
+                                int materialIndex = materials.indexOf(mat);
+                                var bound = imported.materials().get(i);
+                                bindingsBySourceId.putIfAbsent("mat-" + materialIndex, bound.binding());
+                                meshImageBindings.put(
+                                        imported.geometry().patches().get(i).meshId(), bound.binding());
+                            }
+                        } else if (finalPrepared.vertices() != null) {
+                            var created = SurfaceVertexAuthoring.assemble(target, finalPrepared.vertices());
+                            meshIds.addAll(created.meshes());
+                            var images = finalPrepared.vertices().images();
+                            for (int m = 0; m < created.meshes().size(); m++) {
+                                int imageIndex = images.meshImages.get(m);
+                                var binding = created.images().get(m);
+                                var meshId = created.meshes().get(m);
+                                bindingsBySourceId.putIfAbsent("vert-img-" + imageIndex, binding);
+                                meshImageBindings.put(meshId, binding);
+                            }
+                        } else {
+                            var created = SurfaceWarpLayerAuthoring.assemble(
+                                    target,
+                                    finalPrepared.layered(),
+                                    stage ->
+                                            progress.step(stage.ordinal(), SurfaceWarpAuthoring.Stage.values().length));
+                            meshIds.addAll(created.meshIds());
+                            var images = finalPrepared.layered().surface().images;
+                            for (int m = 0; m < created.meshIds().size(); m++) {
+                                int imageIndex = images.meshImages.get(m);
+                                var binding = created.imageBindings().get(m);
+                                var meshId = created.meshIds().get(m);
+                                bindingsBySourceId.putIfAbsent("layer-img-" + imageIndex, binding);
+                                meshImageBindings.put(meshId, binding);
+                            }
+                        }
+
+                        requireTarget(token, documentId, target);
                         if (fitCanvas)
                             SurfacePlacementAuthoring.fitCanvas(
                                     target,
                                     existingDeformers,
-                                    created.meshIds(),
-                                    finalPrepared
-                                            .character()
-                                            .geometry()
-                                            .request()
-                                            .placementName());
-                        requireTarget(token, documentId, target);
+                                    meshIds,
+                                    finalPrepared.simple() != null
+                                            ? finalPrepared.simple().request.placementName()
+                                            : finalPrepared.vertices() != null
+                                                    ? finalPrepared
+                                                            .vertices()
+                                                            .request()
+                                                            .placementName()
+                                                    : finalPrepared
+                                                            .layered()
+                                                            .surface()
+                                                            .request
+                                                            .placementName());
+                        ModelTextureAtlasAuthoring.apply(
+                                target, meshIds, bindingsBySourceId, meshImageBindings, atlasPlan);
+                        var group = target.parameterGroups().addGroup(requestName);
+                        for (var parameter : target.parameters().all())
+                            if (!existingParameters.contains(parameter.id()))
+                                target.parameterGroups().moveParameter(parameter.id(), group.id());
                         return null;
-                    }
-                    var existingParameters = target.parameters().all().stream()
-                            .map(p -> p.id())
-                            .collect(java.util.stream.Collectors.toSet());
-                    var meshIds = new ArrayList<dev.turboism.sdk.cubism.id.ArtMeshId>();
-                    var bindingsBySourceId =
-                            new LinkedHashMap<String, dev.turboism.sdk.cubism.model.ModelImageBinding>();
-                    var meshImageBindings = new LinkedHashMap<
-                            dev.turboism.sdk.cubism.id.ArtMeshId, dev.turboism.sdk.cubism.model.ModelImageBinding>();
-
-                    if (finalPrepared.simple() != null) {
-                        var imported = SurfaceImport.assemble(target, finalPrepared.simple(), stage -> {});
-                        for (var patch : imported.geometry().patches()) {
-                            meshIds.add(patch.meshId());
-                        }
-                        var patches = finalPrepared.simple().appearance.patches();
-                        var materials = finalPrepared.simple().appearance.materials();
-                        for (int i = 0; i < patches.size(); i++) {
-                            var mat = patches.get(i).material();
-                            int materialIndex = materials.indexOf(mat);
-                            var bound = imported.materials().get(i);
-                            bindingsBySourceId.putIfAbsent("mat-" + materialIndex, bound.binding());
-                            meshImageBindings.put(
-                                    imported.geometry().patches().get(i).meshId(), bound.binding());
-                        }
-                    } else if (finalPrepared.vertices() != null) {
-                        var created = SurfaceVertexAuthoring.assemble(target, finalPrepared.vertices());
-                        meshIds.addAll(created.meshes());
-                        var images = finalPrepared.vertices().images();
-                        for (int m = 0; m < created.meshes().size(); m++) {
-                            int imageIndex = images.meshImages.get(m);
-                            var binding = created.images().get(m);
-                            var meshId = created.meshes().get(m);
-                            bindingsBySourceId.putIfAbsent("vert-img-" + imageIndex, binding);
-                            meshImageBindings.put(meshId, binding);
-                        }
-                    } else {
-                        var created = SurfaceWarpLayerAuthoring.assemble(target, finalPrepared.layered(), stage -> {});
-                        meshIds.addAll(created.meshIds());
-                        var images = finalPrepared.layered().surface().images;
-                        for (int m = 0; m < created.meshIds().size(); m++) {
-                            int imageIndex = images.meshImages.get(m);
-                            var binding = created.imageBindings().get(m);
-                            var meshId = created.meshIds().get(m);
-                            bindingsBySourceId.putIfAbsent("layer-img-" + imageIndex, binding);
-                            meshImageBindings.put(meshId, binding);
-                        }
-                    }
-
-                    requireTarget(token, documentId, target);
-                    if (fitCanvas)
-                        SurfacePlacementAuthoring.fitCanvas(
-                                target,
-                                existingDeformers,
-                                meshIds,
-                                finalPrepared.simple() != null
-                                        ? finalPrepared.simple().request.placementName()
-                                        : finalPrepared.vertices() != null
-                                                ? finalPrepared
-                                                        .vertices()
-                                                        .request()
-                                                        .placementName()
-                                                : finalPrepared
-                                                        .layered()
-                                                        .surface()
-                                                        .request
-                                                        .placementName());
-                    ModelTextureAtlasAuthoring.apply(target, meshIds, bindingsBySourceId, meshImageBindings, atlasPlan);
-                    var group = target.parameterGroups().addGroup(requestName);
-                    for (var parameter : target.parameters().all())
-                        if (!existingParameters.contains(parameter.id()))
-                            target.parameterGroups().moveParameter(parameter.id(), group.id());
-                    return null;
-                });
+                    });
+        } finally {
+            progress.close();
+        }
         if (result.outcome() != AuthoringTransactionOutcome.COMMITTED) {
             String diag = result.diagnosticId().map(id -> "（" + id + "）").orElse("");
             throw new LocalizedIllegalStateException(

@@ -58,6 +58,9 @@ preset.square
 preset.tetrahedron
 preset.torus
 preset.triangle
+progress.preparing
+progress.step
+progress.title
 resource.chooser.title
 success.xyz-rotation
 success.yaw-pitch
