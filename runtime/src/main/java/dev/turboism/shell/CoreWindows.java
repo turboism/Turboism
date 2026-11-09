@@ -896,24 +896,30 @@ final class CoreWindows implements AutoCloseable {
         final JButton close = new JButton(text("common.close"));
         close.addActionListener(ignored -> dialog.setVisible(false));
 
-        final JPanel actions = new JPanel(new BorderLayout(8, 0));
         final JPanel filtering = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         filtering.add(new JLabel(text("plugins.filter")));
         filtering.add(filter);
         filtering.add(autoUpdate);
         headerRight.add(filtering);
         headerRight.add(pendingChangesAction.button());
-        final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
-        buttons.add(checkUpdates);
-        buttons.add(openMarket);
-        buttons.add(install);
-        buttons.add(enable);
-        buttons.add(disable);
-        buttons.add(uninstall);
-        buttons.add(details);
-        buttons.add(refresh);
-        buttons.add(close);
-        actions.add(buttons, BorderLayout.EAST);
+        // Acquisition actions read left to right on their own row; the per-selection actions keep
+        // the row below, right-aligned. Nine buttons in one right-aligned flow needed about 985
+        // pixels with the English labels, more than this window's fixed width, so the first three
+        // were pushed past the left edge and the rest clipped.
+        final JPanel acquire = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        acquire.add(checkUpdates);
+        acquire.add(openMarket);
+        acquire.add(install);
+        final JPanel selection = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        selection.add(enable);
+        selection.add(disable);
+        selection.add(uninstall);
+        selection.add(details);
+        selection.add(refresh);
+        selection.add(close);
+        final JPanel actions = new JPanel(new BorderLayout(0, 6));
+        actions.add(acquire, BorderLayout.NORTH);
+        actions.add(selection, BorderLayout.SOUTH);
 
         final JPanel bottom = new JPanel(new BorderLayout(8, 6));
         bottom.setBorder(BorderFactory.createEmptyBorder(4, 8, 8, 8));
