@@ -12,8 +12,6 @@ gif.executable-hint
 gif.export
 gif.failed
 gif.format
-gif.format.apng
-gif.format.gif
 gif.fps
 gif.gifsicle.missing
 gif.height

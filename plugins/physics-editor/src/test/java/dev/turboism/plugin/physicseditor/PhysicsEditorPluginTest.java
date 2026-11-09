@@ -133,6 +133,8 @@ class PhysicsEditorPluginTest {
         await(
                 () -> plugin.recording().state() == GifRecordingController.State.IDLE,
                 "a failed capture returns the state machine to idle");
+        assertTrue(
+                statusValue(source.content.get()).isBlank(), "a finished run leaves no notice in the frame-rate line");
         plugin.disable();
     }
 

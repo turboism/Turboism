@@ -60,7 +60,7 @@ final class GifRecordingController implements AutoCloseable {
     private static final int STATUS_CELL_HEIGHT = 24;
 
     /** Frame rate carries two digits, so its field stays narrow and leaves width for the status. */
-    private static final int FPS_CELL_WIDTH = 84;
+    private static final int FPS_CELL_WIDTH = 56;
 
     private static final int FPS_CELL_HEIGHT = 24;
 
@@ -87,6 +87,7 @@ final class GifRecordingController implements AutoCloseable {
     private final PluginLocalization i18n;
     private final PluginLogger logger;
     private final UiScheduler uiScheduler;
+    private final OutcomeSink outcomes;
     private final java.util.Map<String, byte[]> icons = new java.util.concurrent.ConcurrentHashMap<>();
     private final Object gate = new Object();
     private volatile State state = State.IDLE;
@@ -101,9 +102,18 @@ final class GifRecordingController implements AutoCloseable {
     private GifExportSettingsDialog exportDialog;
 
     GifRecordingController(final PluginLocalization i18n, final PluginLogger logger, final UiScheduler uiScheduler) {
+        this(i18n, logger, uiScheduler, (severity, message) -> {});
+    }
+
+    GifRecordingController(
+            final PluginLocalization i18n,
+            final PluginLogger logger,
+            final UiScheduler uiScheduler,
+            final OutcomeSink outcomes) {
         this.i18n = i18n;
         this.logger = logger;
         this.uiScheduler = uiScheduler;
+        this.outcomes = outcomes;
     }
 
     /** The recording states the strip and the commands drive. */
@@ -298,7 +308,7 @@ final class GifRecordingController implements AutoCloseable {
 
     private void runRecording(final PreviewFrameSource target, final int rate) {
         Path raw = null;
-        String result = i18n.text("gif.cancelled");
+        Outcome outcome = Outcome.silent(i18n.text("gif.cancelled"));
         try {
             raw = Files.createTempFile("turboism-physics-", ".gif");
             int width = 0;
@@ -323,26 +333,29 @@ final class GifRecordingController implements AutoCloseable {
             }
             checkCancelled();
             changeState(State.EXPORTING);
-            result = exportRecording(raw, width, height, recordedFrames);
+            outcome = exportRecording(raw, width, height, recordedFrames);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         } catch (ThreadDeath | VirtualMachineError fatal) {
             throw fatal;
         } catch (Throwable failure) {
-            result = i18n.text("gif.failed") + " " + failure.getMessage();
+            outcome = Outcome.warning(i18n.text("gif.failed") + " " + failure.getMessage());
             logger.error("GIF recording failed", failure);
         } finally {
             deleteTemporary(raw);
-            final String finalResult = result;
+            final Outcome finalOutcome = outcome;
             synchronized (gate) {
                 worker = null;
                 exportDialog = null;
                 if (!closed) {
                     state = State.IDLE;
-                    status = finalResult;
+                    // The strip carries live transport progress only. A finished export belongs on
+                    // the host status bar, where it does not sit in the frame-rate line.
+                    status = statusText(State.IDLE);
                 }
             }
             refreshStrip();
+            finalOutcome.publishTo(outcomes);
         }
     }
 
@@ -357,7 +370,7 @@ final class GifRecordingController implements AutoCloseable {
         return image;
     }
 
-    private String exportRecording(final Path raw, final int width, final int height, final int count)
+    private Outcome exportRecording(final Path raw, final int width, final int height, final int count)
             throws InterruptedException {
         String error = null;
         while (true) {
@@ -365,7 +378,10 @@ final class GifRecordingController implements AutoCloseable {
             publishStatus(i18n.text("gif.export"));
             final String previousFailure = error;
             final GifExportSettingsDialog.Settings settings = showDialog(width, height, previousFailure);
-            if (settings == null) return i18n.text("gif.cancelled");
+            if (settings == null) {
+                // A cancelled dialog is not news; a failure the operator dismissed still is.
+                return error == null ? Outcome.silent(i18n.text("gif.cancelled")) : Outcome.warning(error);
+            }
             checkCancelled();
             Path optimized = null;
             try {
@@ -394,8 +410,8 @@ final class GifRecordingController implements AutoCloseable {
                 }
                 final GifExportSettingsDialog dialog = exportDialog;
                 if (dialog != null) dialog.rememberDirectory(destination);
-                return i18n.text("gif.saved") + " " + destination.getFileName() + " (" + Files.size(destination)
-                        + " B)";
+                return Outcome.info(i18n.text("gif.saved") + " " + destination.getFileName() + " ("
+                        + Files.size(destination) + " B)");
             } catch (GifFrameEncoder.OptimizerUnavailableException missing) {
                 checkCancelled();
                 // Keep the recording and tell the operator how to recover; the unoptimized path
@@ -618,6 +634,42 @@ final class GifRecordingController implements AutoCloseable {
             throw fatal;
         } catch (RuntimeException alreadyGone) {
             // A source closed by its generation fence is already gone; nothing to release.
+        }
+    }
+
+    /**
+     * Publishes one finished export to the host status bar.
+     *
+     * <p>The strip is a transport control line; a saved-file notice there took the frame-rate cell
+     * and stayed until the next recording. The plugin binds this sink to the host status region.</p>
+     */
+    @FunctionalInterface
+    interface OutcomeSink {
+        void publish(String severity, String message);
+    }
+
+    /**
+     * Terminal result of one recording run.
+     *
+     * @param message the text to report
+     * @param severity the host status severity, or {@code null} when nothing should be published
+     */
+    record Outcome(String message, String severity) {
+
+        static Outcome info(final String message) {
+            return new Outcome(message, "INFO");
+        }
+
+        static Outcome warning(final String message) {
+            return new Outcome(message, "WARNING");
+        }
+
+        static Outcome silent(final String message) {
+            return new Outcome(message, null);
+        }
+
+        void publishTo(final OutcomeSink sink) {
+            if (severity != null) sink.publish(severity, message);
         }
     }
 }

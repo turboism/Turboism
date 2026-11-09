@@ -122,6 +122,33 @@ class GifExportSettingsDialogTest {
         });
     }
 
+    /**
+     * The format selector showed its resource key instead of a format name: the enum rendered the
+     * localization key, and a missing key reached the combo verbatim. A file-format acronym needs no
+     * translation, so the selector must show exactly the format names.
+     */
+    @Test
+    void formatSelectorShowsTheFormatNamesRatherThanLocalizationKeys() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final var dialog = new GifExportSettingsDialog(TestLocalization.ENGLISH, null, 800, 600);
+            final JPanel controls = dialog.createSettingsPanel();
+            final javax.swing.JComboBox<?> format = combo(controls);
+            final java.util.List<String> labels = new java.util.ArrayList<>();
+            for (int index = 0; index < format.getItemCount(); index++) {
+                labels.add(String.valueOf(format.getItemAt(index)));
+            }
+            assertEquals(java.util.List.of("GIF", "APNG"), labels);
+            assertSame(GifExportSettingsDialog.Format.GIF, dialog.selectedFormat());
+        });
+    }
+
+    private static javax.swing.JComboBox<?> combo(final JPanel panel) {
+        for (var component : panel.getComponents()) {
+            if (component instanceof javax.swing.JComboBox<?> choice) return choice;
+        }
+        throw new AssertionError("Missing format selector");
+    }
+
     private static JCheckBox checkBox(final JPanel panel, final String text) {
         for (var component : panel.getComponents()) {
             if (component instanceof JCheckBox box && box.getText().equals(text)) return box;

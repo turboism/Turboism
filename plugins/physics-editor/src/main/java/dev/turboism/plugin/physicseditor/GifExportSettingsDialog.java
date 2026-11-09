@@ -376,30 +376,29 @@ final class GifExportSettingsDialog {
      * @param maxBytes the size ceiling, or {@link Long#MAX_VALUE} when optimization is off
      * @param executable the Gifsicle executable to run
      */
-    /** Export formats offered by this dialog; both run in process except GIF optimization. */
+    /**
+     * Export formats offered by this dialog; both run in process except GIF optimization.
+     *
+     * <p>The format name is a file-format acronym, identical in every locale, so the selector shows
+     * it verbatim: a localized key here leaked the raw resource name into the dropdown.</p>
+     */
     enum Format {
-        GIF("gif", "gif.format.gif"),
-        APNG("png", "gif.format.apng");
+        GIF("gif"),
+        APNG("png");
 
         private final String extension;
-        private final String labelKey;
 
-        Format(final String extension, final String labelKey) {
+        Format(final String extension) {
             this.extension = extension;
-            this.labelKey = labelKey;
         }
 
         String extension() {
             return extension;
         }
 
-        String labelKey() {
-            return labelKey;
-        }
-
         @Override
         public String toString() {
-            return labelKey;
+            return name();
         }
     }
 
