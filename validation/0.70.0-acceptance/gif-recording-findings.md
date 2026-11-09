@@ -126,3 +126,66 @@ Continue the remaining acceptance checklist without requiring physical F7 inspec
 This deferral removes the GIF checks from the current acceptance scope; it does not establish GIF readiness.
 Preserve this limitation in the release-preparation PR.
 All other release gates remain in scope.
+
+## 2026-11-09 replay: repair integration and icon controls
+
+The user reactivated GIF acceptance, so the earlier deferral no longer applies.
+The main agent reviewed and integrated the strip-layout repair branch and closed one review finding.
+
+### Integrated repairs
+
+| Repair | Contract |
+| --- | --- |
+| Two-row strip | Transport controls occupy one row; the frame-rate field and the status cell occupy the second. |
+| Optimization gate | An unoptimized export no longer needs a Gifsicle path; an optimized export still does. |
+| Save chooser class | The chooser stays the bootstrap `JFileChooser`, so the host look and feel resolves its UI. |
+| Export prompts | The invalid-parameter and overwrite prompts are tracked and disposed by `close()`. |
+| Fixed cell overflow | A centered cell allocates its child to the fixed bounds, so a long status cannot paint outside it. |
+| Descriptor resources | The plugin declares `icons/`, so the JAR contract admits the bundled masks. |
+| Icon controls | Record, pause and resume share one control. Stop and discard use solid Lucide masks and a dimmed mask while no recording can end. |
+
+### Native evidence
+
+Both sessions used an isolated Windows Cubism 5.3.04 installation and the isolated fixture
+`dde355090445daecfe3196ab7ff78fb00fe1c9b2ef8f0f4e955e97a0664575d6`.
+
+| Item | Session r11 | Session r13 |
+| --- | --- | --- |
+| Source revision | `2cb5fcd49eb245de68cc8e2d7a936502c82e946e` | `db659f4bb1ed61b710889210a4ca55f73494794d` plus workspace patch `ac3439a1e038e71df7f6720c9b8c25ae92e62e9248675589c3b2d25a56ee3a1b` |
+| Agent SHA-256 | `c18d7e363b03f7028c9a8246076467d384a43ffc96fac0e4542fbe1144c6f653` | `80665d1bff5cf8d95e82e2cf41d36f849ac23e8270f941123b17378a1eb46b5f` |
+| Build kind | Local, unnumbered, dirty | Local, unnumbered, dirty |
+| Exit and cleanup | Exit 0, `cleanup=safe`, zero Job processes | Exit 0, `cleanup=safe`, zero Job processes |
+| Host and fixture | Unchanged | Unchanged |
+
+Session r11 observed the native strip at 1032–1313 logical pixels:
+`录制`, `停止` and `放弃` shared the top row at y=109, and the frame-rate field sat at y=134.
+The export settings dialog accepted a blank Gifsicle path with optimization off.
+
+The export wrote a GIF89a file of 3,592,182 bytes:
+137 frames, 422×930 pixels, infinite loop, per-frame delays of 30 or 40 ms and 4,570 ms total.
+99 of the 137 frames are distinct, and every frame carried 253–256 colours.
+The file hash is `1295afadbf5e7d7273130055d2ee867c8d41e235f10bb5515173ea28f6cb69f1`.
+
+Session r11 also exposed a status overflow: the saved-file message grew the status label to
+54 pixels inside a 23-pixel cell and painted over the preview.
+The renderer now allocates a fixed cell child to the cell bounds.
+
+Session r13 observed the icon strip:
+record `28×28` at 1032, stop at 1062 and discard at 1092.
+Idle: one solid circle and two dimmed controls.
+Recording: the pause bars, with stop and discard solid.
+Paused: the play triangle, with stop and discard still solid.
+Discard ended the recording without an export dialog and the status read `已取消`.
+Stop opened the `导出 GIF` dialog, so the recorded frames were kept.
+
+An earlier session, r12, failed closed: the descriptor did not declare the icon resources, so
+the runtime rejected the plugin and the strip never appeared.
+That failure is the reason the descriptor now declares `icons/`.
+
+### Remaining GIF acceptance
+
+- Optimized export through a real Gifsicle executable on the host.
+- Recorded duration against the requested active time, measured from input timestamps.
+- Large-model recovery with the 763 MB fixture.
+- Pixel comparison between the preview and the exported frames.
+- Cancellation while an export dialog is open, rather than only before it opens.
