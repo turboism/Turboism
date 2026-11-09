@@ -230,3 +230,45 @@ Every control stayed 28×28 in all five states.
 acceptance builds pass `-PturboismVersion=0.70.0`. The canonical version identity remains an
 outstanding acceptance item. Until it moves, the API-floor check cannot distinguish a framework
 that lacks this node, so do not publish a standalone plugin that uses it before that move.
+
+## Optimized export through Gifsicle
+
+Session r15 used the same isolated Windows Cubism 5.3.04 installation, the isolated fixture and
+the candidate from session r14.
+The host ran the real Gifsicle 1.95 executable at
+`D:/TurboismValidation/070-worthy-emu/tools/gifsicle.exe`; the export dialog carried that path.
+
+The run recorded about three seconds, stopped, and exported with optimization on and the default
+20 MB ceiling. The export wrote 89,905 bytes:
+
+| Property | Optimized | Unoptimized (session r11) |
+| --- | --- | --- |
+| Bytes | 89,905 | 3,592,182 |
+| Frames | 94 | 137 |
+| Canvas | 422×920 | 422×930 |
+| Per-frame colours | 234–240 | 253–256 |
+| Distinct frame delays | 30 and 40 ms | 30 and 40 ms |
+| Total delay | 3,130 ms | 4,570 ms |
+| Loop extension | Infinite | Infinite |
+| Frames covering only the changed region | 93 of 94 | 0 of 137 |
+| SHA-256 | `798c8dfec1d51dd3fec919e4bd60d47e887d8113fb959fd017acd4c97b658437` | `1295afadbf5e7d7273130055d2ee867c8d41e235f10bb5515173ea28f6cb69f1` |
+
+`GifFrameEncoder.optimize` requires the optimizer to keep the frame count, and the export kept it.
+The per-frame crop proves the optimizer ran: the in-process `rescale` path writes every frame at
+full canvas, which is exactly what the unoptimized sample shows.
+A 200 ms process poll did not catch the short-lived `gifsicle.exe`, so the crop and the palette
+ceiling are the evidence, not a process list.
+
+The recorded name came out as `optimized。gif.gif` because the driver typed the name through the
+host keyboard layout, which produced a full-width stop. The plugin appended `.gif` as designed,
+because the typed name did not end with `.gif`.
+The driver artefact does not affect the exported content.
+
+The session exited with code 0, `cleanup=safe`, zero Job processes, and unchanged host files and fixture.
+
+### Remaining GIF acceptance
+
+- Recorded duration against the requested active time, measured from input timestamps.
+- Large-model recovery with the 763 MB fixture.
+- Pixel comparison between the preview and the exported frames.
+- Cancellation while an export dialog is open.
