@@ -371,6 +371,22 @@ public final class SwingPanelViewRenderer {
             component.addActionListener(ignored -> action.accept(iconButton.actionId(), Optional.empty()));
             return component;
         }
+        if (view instanceof PanelView.ColorIconButton colorIcon) {
+            final JButton component = new JButton();
+            component.setName(colorIcon.id());
+            component.setToolTipText(colorIcon.tooltip());
+            component.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+            component.setContentAreaFilled(false);
+            component.setBorderPainted(false);
+            component.setFocusPainted(false);
+            component.setOpaque(false);
+            component.setIcon(new ColorImageIcon(colorIcon.pngBytes(), ICON_SIZE));
+            component.setPreferredSize(new Dimension(30, 30));
+            component.setEnabled(colorIcon.enabled());
+            if (colorIcon.enabled()) component.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            component.addActionListener(ignored -> action.accept(colorIcon.actionId(), Optional.empty()));
+            return component;
+        }
         if (view instanceof PanelView.Button button) {
             final JButton component = new JButton(button.label());
             component.setName(button.id());
@@ -597,6 +613,55 @@ public final class SwingPanelViewRenderer {
             try {
                 copy.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
                 copy.drawImage(tinted, x, y, size, size, null);
+            } finally {
+                copy.dispose();
+            }
+        }
+    }
+
+    /**
+     * Fixed-size icon that keeps the PNG colours.
+     *
+     * <p>A disabled control keeps the same silhouette and paints the glyph at reduced alpha, so the
+     * surrounding layout never changes when a control becomes available.</p>
+     */
+    private static final class ColorImageIcon implements Icon {
+        private static final float DISABLED_ALPHA = 0.35f;
+        private final BufferedImage glyph;
+        private final int size;
+
+        private ColorImageIcon(final byte[] pngBytes, final int size) {
+            try {
+                this.glyph = ImageIO.read(new ByteArrayInputStream(pngBytes));
+            } catch (Exception failure) {
+                throw new IllegalArgumentException("pngBytes must be a readable PNG", failure);
+            }
+            if (glyph == null) {
+                throw new IllegalArgumentException("pngBytes must be a readable PNG");
+            }
+            this.size = size;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return size;
+        }
+
+        @Override
+        public void paintIcon(final Component component, final java.awt.Graphics graphics, final int x, final int y) {
+            final Graphics2D copy = (Graphics2D) graphics.create();
+            try {
+                copy.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                if (component != null && !component.isEnabled()) {
+                    copy.setComposite(
+                            java.awt.AlphaComposite.getInstance(java.awt.AlphaComposite.SRC_OVER, DISABLED_ALPHA));
+                }
+                copy.drawImage(glyph, x, y, size, size, null);
             } finally {
                 copy.dispose();
             }

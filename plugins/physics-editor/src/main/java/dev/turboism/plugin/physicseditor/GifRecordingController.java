@@ -65,9 +65,6 @@ final class GifRecordingController implements AutoCloseable {
 
     private static final String ICON_SUFFIX = ".png";
 
-    /** Disabled controls keep the silhouette at reduced alpha, so the strip never changes size. */
-    private static final String ICON_DIM_SUFFIX = "-dim";
-
     private static final String ICON_RECORD = "circle";
 
     private static final String ICON_PAUSE = "pause";
@@ -555,10 +552,10 @@ final class GifRecordingController implements AutoCloseable {
      * reachable instead of showing an empty control.</p>
      */
     private PanelView control(final String actionId, final String iconName, final String label, final boolean enabled) {
-        final byte[] icon = icons.computeIfAbsent(enabled ? iconName : iconName + ICON_DIM_SUFFIX, this::loadIcon);
+        final byte[] icon = icons.computeIfAbsent(iconName, this::loadIcon);
         return icon.length == 0
                 ? PanelView.button(actionId, label, actionId)
-                : PanelView.iconButton(actionId, icon, label, actionId);
+                : PanelView.colorIconButton(actionId, icon, label, actionId, enabled);
     }
 
     private byte[] loadIcon(final String name) {

@@ -31,6 +31,7 @@ import javax.swing.AbstractButton;
 import javax.swing.Action;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
+import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
@@ -640,6 +641,54 @@ class SwingPanelViewRendererTest {
 
     private static Point centerOf(java.awt.Rectangle bounds) {
         return new Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    }
+
+    /**
+     * The strip needs a control that signals meaning by colour, so a coloured node must keep its own
+     * pixels. A disabled control keeps the same silhouette and paints the glyph muted, which keeps
+     * the row height steady when the control becomes available.
+     */
+    @Test
+    void colorIconButtonKeepsItsOwnColoursAndMutesWhenDisabled() throws Exception {
+        final BufferedImage source = new BufferedImage(24, 24, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < source.getHeight(); y++) {
+            for (int x = 0; x < source.getWidth(); x++) {
+                source.setRGB(x, y, 0xFFE5484D);
+            }
+        }
+        final ByteArrayOutputStream png = new ByteArrayOutputStream();
+        assertTrue(ImageIO.write(source, "png", png));
+        final byte[] glyph = png.toByteArray();
+
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent enabled = SwingPanelViewRenderer.render(
+                    PanelView.colorIconButton("stop", glyph, "Stop", "stop", true), (action, event) -> {});
+            final JButton enabledButton = assertInstanceOf(JButton.class, named(enabled, "stop"));
+            assertTrue(enabledButton.isEnabled(), "an enabled control accepts input");
+            final int activeAlpha = paintedAlpha(enabledButton);
+            assertEquals(255, activeAlpha, "an enabled control paints the glyph at full opacity");
+
+            final JComponent disabled = SwingPanelViewRenderer.render(
+                    PanelView.colorIconButton("stop", glyph, "Stop", "stop", false), (action, event) -> {});
+            final JButton disabledButton = assertInstanceOf(JButton.class, named(disabled, "stop"));
+            assertFalse(disabledButton.isEnabled(), "a disabled control rejects input");
+            assertTrue(paintedAlpha(disabledButton) < activeAlpha, "a disabled control paints the glyph muted");
+            assertEquals(
+                    enabledButton.getPreferredSize(),
+                    disabledButton.getPreferredSize(),
+                    "the disabled control keeps the same size");
+        });
+    }
+
+    private static int paintedAlpha(final JButton button) {
+        final BufferedImage target = new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB);
+        final java.awt.Graphics2D graphics = target.createGraphics();
+        try {
+            button.getIcon().paintIcon(button, graphics, 0, 0);
+        } finally {
+            graphics.dispose();
+        }
+        return (target.getRGB(10, 10) >>> 24) & 0xFF;
     }
 
     @Test

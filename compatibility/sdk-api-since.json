@@ -1,7 +1,7 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "33b5e0232c2cd0874052c6cb564473bb277eadd9b0f33fd95153d649bc87dbd8",
+  "surfaceSha256": "6ba2f8b65f284be14319657eb2aa5f57cb1b371120c3107f4a9aac9433ccb29d",
   "classes": {
     "dev.turboism.sdk.cubism.CubismActivitySnapshot": "0.68.1",
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
@@ -49,6 +49,7 @@
     "dev.turboism.sdk.ui.HostViewPanelHandle": "0.68.1",
     "dev.turboism.sdk.ui.PanelView$Card": "0.68.1",
     "dev.turboism.sdk.ui.PanelView$Centered": "0.68.1",
+    "dev.turboism.sdk.ui.PanelView$ColorIconButton": "0.68.1",
     "dev.turboism.sdk.ui.PanelView$Grid": "0.68.1",
     "dev.turboism.sdk.ui.PanelView$IconButton": "0.68.1",
     "dev.turboism.sdk.ui.PanelView$LeftRow": "0.68.1",
@@ -98,6 +99,7 @@
     "dev.turboism.sdk.ui.PanelView#card:(Ljava/lang/String;Ljava/lang/String;Ldev/turboism/sdk/ui/PanelView;)Ldev/turboism/sdk/ui/PanelView$Card;": "0.68.1",
     "dev.turboism.sdk.ui.PanelView#centered:(Ldev/turboism/sdk/ui/PanelView;)Ldev/turboism/sdk/ui/PanelView$Centered;": "0.68.1",
     "dev.turboism.sdk.ui.PanelView#centered:(Ldev/turboism/sdk/ui/PanelView;II)Ldev/turboism/sdk/ui/PanelView$Centered;": "0.68.1",
+    "dev.turboism.sdk.ui.PanelView#colorIconButton:(Ljava/lang/String;[BLjava/lang/String;Ljava/lang/String;Z)Ldev/turboism/sdk/ui/PanelView$ColorIconButton;": "0.68.1",
     "dev.turboism.sdk.ui.PanelView#flatCard:(Ljava/lang/String;Ljava/lang/String;Ldev/turboism/sdk/ui/PanelView;)Ldev/turboism/sdk/ui/PanelView$Card;": "0.68.1",
     "dev.turboism.sdk.ui.PanelView#grid:(I[Ldev/turboism/sdk/ui/PanelView;)Ldev/turboism/sdk/ui/PanelView$Grid;": "0.68.1",
     "dev.turboism.sdk.ui.PanelView#iconButton:(Ljava/lang/String;[BLjava/lang/String;Ljava/lang/String;)Ldev/turboism/sdk/ui/PanelView$IconButton;": "0.68.1",

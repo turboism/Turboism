@@ -160,11 +160,14 @@ class PhysicsEditorPluginTest {
                     "the transport buttons fill the top row");
             assertEquals(
                     List.of("fps"), actionIds(stack.children().get(1)), "the frame-rate field is on the status row");
-            final List<PanelView.IconButton> transport =
+            final List<PanelView.ColorIconButton> transport =
                     iconButtons(stack.children().get(0));
             assertTrue(
                     transport.stream().allMatch(button -> button.pngBytes().length > 0),
-                    "every transport control ships its bundled Lucide mask");
+                    "every transport control ships its bundled Lucide glyph");
+            assertTrue(transport.get(0).enabled(), "record is available while idle");
+            assertFalse(transport.get(1).enabled(), "stop is unavailable until a recording exists");
+            assertFalse(transport.get(2).enabled(), "discard is unavailable until a recording exists");
             final PanelView.Centered cell = statusCell(stack.children().get(1));
             assertTrue(cell.preferredWidth() > 0, "the status line reserves a fixed cell width");
             assertTrue(cell.preferredHeight() > 0, "the status line reserves one fixed text line");
@@ -192,13 +195,17 @@ class PhysicsEditorPluginTest {
                     java.util.Arrays.equals(recordMask(recording), recordMask(resumed)),
                     "resuming returns the record mask to the pause shape");
             for (int index : new int[] {1, 2}) {
-                assertFalse(
-                        java.util.Arrays.equals(transportMask(idle, index), transportMask(recording, index)),
-                        "stop and discard use the dimmed mask while nothing is recorded");
+                assertTrue(
+                        iconButtons(row(recording)).get(index).enabled(),
+                        "stop and discard accept input while a recording can be ended");
+                assertTrue(
+                        iconButtons(row(paused)).get(index).enabled(),
+                        "stop and discard stay available while the recording is paused");
                 assertTrue(
                         java.util.Arrays.equals(transportMask(recording, index), transportMask(paused, index)),
-                        "stop and discard keep one mask while a recording can be ended");
+                        "stop and discard keep one glyph while a recording can be ended");
             }
+            assertTrue(iconButtons(row(paused)).get(0).enabled(), "record stays available while paused");
         } finally {
             controller.command(GifRecordingController.Command.DISCARD);
             controller.close();
@@ -213,11 +220,15 @@ class PhysicsEditorPluginTest {
         throw new AssertionError("the status row has no reserved status cell: " + cells.children());
     }
 
-    private static List<PanelView.IconButton> iconButtons(final PanelView row) {
+    private static PanelView row(final PanelView view) {
+        return assertInstanceOf(PanelView.Column.class, view).children().get(0);
+    }
+
+    private static List<PanelView.ColorIconButton> iconButtons(final PanelView row) {
         final PanelView.Row cells = assertInstanceOf(PanelView.Row.class, row);
-        final List<PanelView.IconButton> buttons = new ArrayList<>();
+        final List<PanelView.ColorIconButton> buttons = new ArrayList<>();
         for (PanelView child : cells.children()) {
-            buttons.add(assertInstanceOf(PanelView.IconButton.class, child));
+            buttons.add(assertInstanceOf(PanelView.ColorIconButton.class, child));
         }
         return buttons;
     }
@@ -227,8 +238,7 @@ class PhysicsEditorPluginTest {
     }
 
     private static byte[] transportMask(final PanelView view, final int index) {
-        final PanelView.Column stack = assertInstanceOf(PanelView.Column.class, view);
-        return iconButtons(stack.children().get(0)).get(index).pngBytes();
+        return iconButtons(row(view)).get(index).pngBytes();
     }
 
     private static String statusValue(final PanelView view) {
@@ -383,6 +393,7 @@ class PhysicsEditorPluginTest {
         else if (view instanceof PanelView.Column column) column.children().forEach(child -> collect(child, ids));
         else if (view instanceof PanelView.Button button) ids.add(button.actionId());
         else if (view instanceof PanelView.IconButton iconButton) ids.add(iconButton.actionId());
+        else if (view instanceof PanelView.ColorIconButton colorIcon) ids.add(colorIcon.actionId());
         else if (view instanceof PanelView.TextInput input) ids.add(input.actionId());
         else if (view instanceof PanelView.Select select) ids.add(select.actionId());
         else if (view instanceof PanelView.Toggle toggle) ids.add(toggle.actionId());

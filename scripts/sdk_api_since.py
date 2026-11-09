@@ -25,6 +25,7 @@ HELPER = ROOT / "scripts/SdkApiRefs.java"
 FORMAT = "turboism.sdk-api-since"
 BASELINE = "0.67.0"
 TAG = re.compile(r"^v(\d+\.\d+\.\d+)(?:-beta\.(\d+))?$")
+NEWLINE = "\n"
 
 
 def version_key(version: str) -> tuple[int, ...]:
@@ -62,10 +63,27 @@ def run_helper(*args: str) -> list[str]:
 
 
 def compile_sdk(sources: Path, out: Path) -> None:
-    files = [str(path) for path in sources.rglob("*.java")]
+    """Compile one SDK snapshot through a javac argument file.
+
+    The SDK has more sources than a Windows command line can carry, so the file list always travels
+    in an argument file. Paths use forward slashes because javac treats a backslash as an escape.
+    """
+    files = sorted(str(path).replace("\\", "/") for path in sources.rglob("*.java"))
     out.mkdir(parents=True, exist_ok=True)
+    out_argument = str(out).replace("\\", "/")
+    argfile = out.parent / f"{out.name}-sources.txt"
+    argfile.write_text(NEWLINE.join(f'"{path}"' for path in files) + NEWLINE, encoding="utf-8")
     subprocess.run(
-        [str(Path(java_binary()).with_name("javac")), "-nowarn", "-proc:none", "-encoding", "UTF-8", "-d", str(out), *files],
+        [
+            str(Path(java_binary()).with_name("javac")),
+            "-nowarn",
+            "-proc:none",
+            "-encoding",
+            "UTF-8",
+            "-d",
+            out_argument,
+            f"@{str(argfile).replace(chr(92), '/')}",
+        ],
         check=True,
         capture_output=True,
     )

@@ -6,16 +6,21 @@ Bundled icons: `circle`, `pause`, `play`, `square` and `x`.
 Lucide is licensed under the ISC license, including the upstream Feather notice. The full text
 is in [Lucide-LICENSE.txt](Lucide-LICENSE.txt).
 
-The shipped SVG files stay byte-identical to upstream. Two PNG masks are derived from each SVG:
+The shipped SVG files stay byte-identical to upstream. Each PNG fills the upstream stroke geometry
+with one reviewed control colour, so a control can signal meaning by colour as well as by shape.
 
-| Mask | Purpose |
-|---|---|
-| `<name>.png` | Solid variant: the upstream stroke geometry with a filled interior |
-| `<name>-dim.png` | Same silhouette at 45% alpha, for a disabled control |
+| Glyph | Control | Colour |
+|---|---|---|
+| `circle` | Record | `#2FA36B` |
+| `pause` | Pause | `#F5A524` |
+| `play` | Resume | `#2FA36B` |
+| `square` | Stop and export | `#E5484D` |
+| `x` | Discard | `#8B8D98` |
 
-Each PNG is an 80×80 white alpha mask, so the runtime tints it with the active theme foreground
-and renders it at 20 logical pixels. This is the same mask format the `recent-project-board` and
-`acp` plugins ship.
+Record and resume share one colour because they are one control.
+
+Each PNG is an 80×80 glyph drawn at 20 logical pixels by the runtime's colour icon node. A disabled
+control paints the same glyph at 35% opacity, so its size never changes.
 
 Derivation, run from the repository root:
 
@@ -23,5 +28,5 @@ Derivation, run from the repository root:
 magick -background none -density 320 <name>.svg <name>-raw.png
 ```
 
-Filling the upstream stroke geometry gives the solid mask; scaling its alpha to 45% gives the
-dimmed mask. `build/acceptance/070/render-lucide-masks.py` performs both steps.
+The render step fills the stroke geometry with the control colour. `build/acceptance/070/render-lucide-masks.py`
+performs the rasterization and the colouring.
