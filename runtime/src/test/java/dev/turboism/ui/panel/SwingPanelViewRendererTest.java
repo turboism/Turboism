@@ -717,6 +717,21 @@ class SwingPanelViewRendererTest {
     }
 
     @Test
+    void centeredBoxKeepsALongChildInsideItsFixedCell() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final String status = "Saved " + "x".repeat(400);
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.centered(PanelView.text(status), 120, 18), (action, event) -> {});
+            final JPanel cell = assertInstanceOf(JPanel.class, rendered);
+            cell.setSize(120, 18);
+            cell.doLayout();
+            final Component child = cell.getComponent(0);
+            assertEquals(18, child.getHeight(), "a long status must not paint outside its reserved cell");
+            assertTrue(child.getWidth() <= 120, "the status stays inside the reserved width");
+        });
+    }
+
+    @Test
     void centeredLinkDispatchesOnLeftClick() throws Exception {
         final List<String> actions = new ArrayList<>();
         final List<Optional<UiActionEvent>> events = new ArrayList<>();

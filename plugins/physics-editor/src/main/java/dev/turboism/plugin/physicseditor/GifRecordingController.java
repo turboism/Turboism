@@ -60,12 +60,33 @@ final class GifRecordingController implements AutoCloseable {
 
     private static final int STATUS_CELL_HEIGHT = 18;
 
+    /** Bundled Lucide alpha masks; the runtime tints each mask with the active theme foreground. */
+    private static final String ICON_DIRECTORY = "/icons/lucide/";
+
+    private static final String ICON_SUFFIX = ".png";
+
+    /** Disabled controls keep the silhouette at reduced alpha, so the strip never changes size. */
+    private static final String ICON_DIM_SUFFIX = "-dim";
+
+    private static final String ICON_RECORD = "circle";
+
+    private static final String ICON_PAUSE = "pause";
+
+    private static final String ICON_RESUME = "play";
+
+    private static final String ICON_STOP = "square";
+
+    private static final String ICON_DISCARD = "trash-2";
+
+    private static final byte[] NO_ICON = new byte[0];
+
     /** Bound on one capability capture; a wedged host readback must not stall the recording. */
     private static final long CAPTURE_TIMEOUT_SECONDS = 30L;
 
     private final PluginLocalization i18n;
     private final PluginLogger logger;
     private final UiScheduler uiScheduler;
+    private final java.util.Map<String, byte[]> icons = new java.util.concurrent.ConcurrentHashMap<>();
     private final Object gate = new Object();
     private volatile State state = State.IDLE;
     private volatile boolean closed;
@@ -494,7 +515,7 @@ final class GifRecordingController implements AutoCloseable {
     }
 
     /**
-     * Renders the two-row strip: transport buttons above, frame rate and status below.
+     * Renders the two-row strip: transport icon buttons above, frame rate and status below.
      *
      * <p>The host preview pane is narrow, so one row cannot hold every control. Both rows keep a
      * constant height while the status text changes, because a taller strip shrinks the preview and
@@ -506,14 +527,61 @@ final class GifRecordingController implements AutoCloseable {
         synchronized (gate) {
             statusText = status;
         }
+        final boolean endable = canEndRecording(current);
         return PanelView.column(
                 PanelView.row(
-                        PanelView.button(ACTION_RECORD, recordLabel(current), ACTION_RECORD),
-                        PanelView.button(ACTION_STOP, i18n.text("gif.control.stop"), ACTION_STOP),
-                        PanelView.button(ACTION_DISCARD, i18n.text("gif.control.discard"), ACTION_DISCARD)),
+                        control(ACTION_RECORD, recordIcon(current), recordLabel(current), canToggleRecording(current)),
+                        control(ACTION_STOP, ICON_STOP, i18n.text("gif.control.stop"), endable),
+                        control(ACTION_DISCARD, ICON_DISCARD, i18n.text("gif.control.discard"), endable)),
                 PanelView.row(
                         PanelView.textInput(ACTION_FPS, i18n.text("gif.fps"), Integer.toString(fps), ACTION_FPS),
                         PanelView.centered(PanelView.text(statusText), STATUS_CELL_WIDTH, STATUS_CELL_HEIGHT)));
+    }
+
+    /** Stop and discard act only on a recording that is running or paused. */
+    private static boolean canEndRecording(final State current) {
+        return current == State.RECORDING || current == State.PAUSED;
+    }
+
+    /** The record control toggles only while no export or cancellation is running. */
+    private static boolean canToggleRecording(final State current) {
+        return current == State.IDLE || canEndRecording(current);
+    }
+
+    /**
+     * Builds one strip control from a bundled Lucide mask.
+     *
+     * <p>A missing mask falls back to a text button, so a stripped build keeps every command
+     * reachable instead of showing an empty control.</p>
+     */
+    private PanelView control(final String actionId, final String iconName, final String label, final boolean enabled) {
+        final byte[] icon = icons.computeIfAbsent(enabled ? iconName : iconName + ICON_DIM_SUFFIX, this::loadIcon);
+        return icon.length == 0
+                ? PanelView.button(actionId, label, actionId)
+                : PanelView.iconButton(actionId, icon, label, actionId);
+    }
+
+    private byte[] loadIcon(final String name) {
+        final String path = ICON_DIRECTORY + name + ICON_SUFFIX;
+        try (java.io.InputStream stream = GifRecordingController.class.getResourceAsStream(path)) {
+            if (stream == null) {
+                logger.warn("GIF control icon is missing: " + path);
+                return NO_ICON;
+            }
+            return stream.readAllBytes();
+        } catch (IOException failure) {
+            logger.warn("GIF control icon could not be read: " + name);
+            return NO_ICON;
+        }
+    }
+
+    /** The transport icon that matches what a press on the record control does next. */
+    private String recordIcon(final State current) {
+        return switch (current) {
+            case RECORDING -> ICON_PAUSE;
+            case PAUSED -> ICON_RESUME;
+            default -> ICON_RECORD;
+        };
     }
 
     private String recordLabel(final State current) {

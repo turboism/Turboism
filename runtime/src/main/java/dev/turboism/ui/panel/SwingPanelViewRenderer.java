@@ -308,8 +308,10 @@ public final class SwingPanelViewRenderer {
                 final Dimension fixed = new Dimension(centered.preferredWidth(), centered.preferredHeight());
                 panel.setPreferredSize(fixed);
                 panel.setMinimumSize(fixed);
-                constraints.fill = GridBagConstraints.HORIZONTAL;
+                // A child taller than the cell would paint outside it and grow the surrounding row.
+                constraints.fill = GridBagConstraints.BOTH;
                 constraints.weightx = 1.0;
+                constraints.weighty = 1.0;
             }
             panel.add(renderNode(centered.child(), action, false, locale, iconResolver), constraints);
             panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));

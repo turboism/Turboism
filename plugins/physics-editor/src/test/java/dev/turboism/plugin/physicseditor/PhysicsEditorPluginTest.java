@@ -1,6 +1,7 @@
 package dev.turboism.plugin.physicseditor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -137,8 +138,8 @@ class PhysicsEditorPluginTest {
 
     /**
      * The native preview pane is about 280 logical pixels wide, so the strip must stack the
-     * transport buttons above the frame-rate field and the status. Counter, pause and resume
-     * updates only change text; the node layout must stay identical, because a strip that grows by
+     * transport icon buttons above the frame-rate field and the status. Counter, pause and resume
+     * updates only change masks; the node layout must stay identical, because a strip that grows by
      * a line shrinks the preview and the recorder aborts on the changed preview size.
      */
     @Test
@@ -159,6 +160,11 @@ class PhysicsEditorPluginTest {
                     "the transport buttons fill the top row");
             assertEquals(
                     List.of("fps"), actionIds(stack.children().get(1)), "the frame-rate field is on the status row");
+            final List<PanelView.IconButton> transport =
+                    iconButtons(stack.children().get(0));
+            assertTrue(
+                    transport.stream().allMatch(button -> button.pngBytes().length > 0),
+                    "every transport control ships its bundled Lucide mask");
             final PanelView.Centered cell = statusCell(stack.children().get(1));
             assertTrue(cell.preferredWidth() > 0, "the status line reserves a fixed cell width");
             assertTrue(cell.preferredHeight() > 0, "the status line reserves one fixed text line");
@@ -176,6 +182,23 @@ class PhysicsEditorPluginTest {
             assertEquals(layoutShape(idle), layoutShape(recording), "a counter update must not reflow the strip");
             assertEquals(layoutShape(idle), layoutShape(paused), "pausing must not reflow the strip");
             assertEquals(layoutShape(idle), layoutShape(resumed), "resuming must not reflow the strip");
+            assertFalse(
+                    java.util.Arrays.equals(recordMask(idle), recordMask(recording)),
+                    "the record mask must show that the next press pauses");
+            assertFalse(
+                    java.util.Arrays.equals(recordMask(idle), recordMask(paused)),
+                    "the record mask must show that the next press resumes");
+            assertTrue(
+                    java.util.Arrays.equals(recordMask(recording), recordMask(resumed)),
+                    "resuming returns the record mask to the pause shape");
+            for (int index : new int[] {1, 2}) {
+                assertFalse(
+                        java.util.Arrays.equals(transportMask(idle, index), transportMask(recording, index)),
+                        "stop and discard use the dimmed mask while nothing is recorded");
+                assertTrue(
+                        java.util.Arrays.equals(transportMask(recording, index), transportMask(paused, index)),
+                        "stop and discard keep one mask while a recording can be ended");
+            }
         } finally {
             controller.command(GifRecordingController.Command.DISCARD);
             controller.close();
@@ -188,6 +211,24 @@ class PhysicsEditorPluginTest {
             if (child instanceof PanelView.Centered cell) return cell;
         }
         throw new AssertionError("the status row has no reserved status cell: " + cells.children());
+    }
+
+    private static List<PanelView.IconButton> iconButtons(final PanelView row) {
+        final PanelView.Row cells = assertInstanceOf(PanelView.Row.class, row);
+        final List<PanelView.IconButton> buttons = new ArrayList<>();
+        for (PanelView child : cells.children()) {
+            buttons.add(assertInstanceOf(PanelView.IconButton.class, child));
+        }
+        return buttons;
+    }
+
+    private static byte[] recordMask(final PanelView view) {
+        return transportMask(view, 0);
+    }
+
+    private static byte[] transportMask(final PanelView view, final int index) {
+        final PanelView.Column stack = assertInstanceOf(PanelView.Column.class, view);
+        return iconButtons(stack.children().get(0)).get(index).pngBytes();
     }
 
     private static String statusValue(final PanelView view) {
@@ -341,6 +382,7 @@ class PhysicsEditorPluginTest {
         if (view instanceof PanelView.Row row) row.children().forEach(child -> collect(child, ids));
         else if (view instanceof PanelView.Column column) column.children().forEach(child -> collect(child, ids));
         else if (view instanceof PanelView.Button button) ids.add(button.actionId());
+        else if (view instanceof PanelView.IconButton iconButton) ids.add(iconButton.actionId());
         else if (view instanceof PanelView.TextInput input) ids.add(input.actionId());
         else if (view instanceof PanelView.Select select) ids.add(select.actionId());
         else if (view instanceof PanelView.Toggle toggle) ids.add(toggle.actionId());
