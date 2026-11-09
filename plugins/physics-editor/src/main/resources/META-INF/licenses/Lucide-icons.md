@@ -1,7 +1,7 @@
 # Bundled icon sources
 
 The GIF control strip uses [Lucide v0.468.0](https://github.com/lucide-icons/lucide/tree/0.468.0/icons).
-Bundled icons: `circle`, `pause`, `play`, `square` and `trash-2`.
+Bundled icons: `circle`, `pause`, `play`, `square` and `x`.
 
 Lucide is licensed under the ISC license, including the upstream Feather notice. The full text
 is in [Lucide-LICENSE.txt](Lucide-LICENSE.txt).

@@ -76,7 +76,7 @@ final class GifRecordingController implements AutoCloseable {
 
     private static final String ICON_STOP = "square";
 
-    private static final String ICON_DISCARD = "trash-2";
+    private static final String ICON_DISCARD = "x";
 
     private static final byte[] NO_ICON = new byte[0];
 
