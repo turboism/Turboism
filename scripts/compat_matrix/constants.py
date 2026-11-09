@@ -246,6 +246,7 @@ TASK_PLUGIN_ALIASES = {
     "selection-brush-round-manual": "selection-brush",
     "boundingbox-warp-mirror-manual": "boundingbox-warp-mirror",
     "acp": "acp",
+    "automesh": "turbo-mesh",
 }
 
 # Campaign task base names -> capability group key for the developer matrix
