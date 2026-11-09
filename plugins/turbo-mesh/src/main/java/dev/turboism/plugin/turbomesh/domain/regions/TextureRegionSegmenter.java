@@ -66,7 +66,7 @@ final class TextureRegionSegmenter {
     static final double RIDGE_COST_WEIGHT = 0.45;
 
     /** CIELAB distance that a fully salient border adds to the merge dissimilarity. */
-    static final double RIDGE_MERGE_WEIGHT = 6.0;
+    static final double RIDGE_MERGE_WEIGHT = 8.0;
 
     /** Divisors of the Scharr kernel, which keeps the gradient on the 8-bit colour scale. */
     private static final double SCHARR_KERNEL_SUM = 32.0;

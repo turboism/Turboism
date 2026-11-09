@@ -52,9 +52,11 @@ public final class RegionPlacementPlanner {
         params.validate();
         final RegionRaster raster = RegionRaster.cropped(argb, width, height);
         final RegionPlacementParams.Resolved resolved = params.resolve(raster.silhouetteSpan());
+        // An absent contrast means the run follows the artwork gradient, not a fixed default.
+        final double contrast = params.contrast() == null ? raster.autoContrast() : resolved.contrast();
         checkInterrupted();
         final TextureRegionSegmenter.Levels levels =
-                TextureRegionSegmenter.segment(raster, resolved.minRegionRatio(), resolved.contrast());
+                TextureRegionSegmenter.segment(raster, resolved.minRegionRatio(), contrast);
         final int[] labels = levels.level(resolved.level());
         checkInterrupted();
         final List<String> rejections = new ArrayList<>(RETRY_LADDER.size());

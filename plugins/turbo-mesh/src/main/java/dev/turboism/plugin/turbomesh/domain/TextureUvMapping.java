@@ -29,15 +29,23 @@ public final class TextureUvMapping {
     private final double d;
     private final double tx;
     private final double ty;
+    private final double pixelsPerUv;
 
     private TextureUvMapping(
-            final double a, final double b, final double c, final double d, final double tx, final double ty) {
+            final double a,
+            final double b,
+            final double c,
+            final double d,
+            final double tx,
+            final double ty,
+            final double pixelsPerUv) {
         this.a = a;
         this.b = b;
         this.c = c;
         this.d = d;
         this.tx = tx;
         this.ty = ty;
+        this.pixelsPerUv = pixelsPerUv;
     }
 
     /**
@@ -73,7 +81,7 @@ public final class TextureUvMapping {
         final double d = m00 / determinant;
         final double tx = (m01 * m12 - m11 * m02) / determinant;
         final double ty = (m10 * m02 - m00 * m12) / determinant;
-        return new TextureUvMapping(a, b, c, d, tx, ty);
+        return new TextureUvMapping(a, b, c, d, tx, ty, scale(m00, m01, m10, m11));
     }
 
     /**
@@ -87,7 +95,24 @@ public final class TextureUvMapping {
         return new Point2((float) (a * pixelX + b * pixelY + tx), (float) (c * pixelX + d * pixelY + ty));
     }
 
+    /**
+     * Mean raster length of one uv unit.
+     *
+     * <p>Spacing knobs travel in uv, while a raster planner measures in pixels. This scale converts
+     * one to the other, so both directions of the affine stay in this type.</p>
+     *
+     * @return the mean pixel length of one uv unit, which is always positive
+     */
+    public double pixelsPerUv() {
+        return pixelsPerUv;
+    }
+
+    /** Mean length of the two column vectors of the uv-to-pixel affine. */
+    private static double scale(final double m00, final double m01, final double m10, final double m11) {
+        return 0.5 * (Math.hypot(m00, m10) + Math.hypot(m01, m11));
+    }
+
     private static TextureUvMapping normalized(final int width, final int height) {
-        return new TextureUvMapping(1.0 / width, 0.0, 0.0, 1.0 / height, 0.0, 0.0);
+        return new TextureUvMapping(1.0 / width, 0.0, 0.0, 1.0 / height, 0.0, 0.0, 0.5 * (width + height));
     }
 }

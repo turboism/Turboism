@@ -45,6 +45,15 @@ class TextureRegionPlannerTest {
     /** Allowed uncovered or overlapping area, in square pixels. */
     private static final double AREA_TOLERANCE_PX2 = 1.0e-3;
 
+    /**
+     * Allowed relative area deviation, which bounds the float32 uv round trip of the planning grid.
+     *
+     * <p>Vertices travel through {@code PIXELS_PER_UV} as float32 uv samples, and an area is
+     * quadratic in that rounding, so the absolute tolerance alone rejects a correct tiling once the
+     * ring edges get long.</p>
+     */
+    private static final double AREA_TOLERANCE_RATIO = 1.0e-5;
+
     /** Collinearity tolerance of constraint coverage, in pixels. */
     private static final double COLLINEAR_TOLERANCE_PX = 1.0e-4;
 
@@ -99,7 +108,7 @@ class TextureRegionPlannerTest {
         final Sample sample = load(HAIR);
         final RegionPlacementPlan plan = RegionPlacementPlanner.plan(
                 sample.argb(), sample.width(), sample.height(), RegionPlacementParams.SPARSE);
-        verify(plan, 315);
+        verify(plan, 196);
         report("hair-sparse", plan);
         RegionDumpWriter.dumpIfRequested(plan, sample, "hair-sparse");
     }
@@ -109,7 +118,7 @@ class TextureRegionPlannerTest {
         final Sample sample = load(HAIR);
         final RegionPlacementPlan plan = RegionPlacementPlanner.plan(
                 sample.argb(), sample.width(), sample.height(), RegionPlacementParams.DETAILED);
-        verify(plan, 501);
+        verify(plan, 488);
         report("hair-detailed", plan);
         RegionDumpWriter.dumpIfRequested(plan, sample, "hair-detailed");
     }
@@ -119,7 +128,7 @@ class TextureRegionPlannerTest {
         final Sample sample = load(USB);
         final RegionPlacementPlan plan = RegionPlacementPlanner.plan(
                 sample.argb(), sample.width(), sample.height(), RegionPlacementParams.HARD_SURFACE);
-        verify(plan, 239);
+        verify(plan, 182);
         assertAlphaHoles(plan, 2);
         report("usb-sparse", plan);
         RegionDumpWriter.dumpIfRequested(plan, sample, "usb-sparse");
@@ -133,7 +142,7 @@ class TextureRegionPlannerTest {
                 sample.width(),
                 sample.height(),
                 new RegionPlacementParams(0.01, null, 1, 3, null, null, null));
-        verify(plan, 413);
+        verify(plan, 210);
         assertAlphaHoles(plan, 2);
         report("usb-detailed", plan);
         RegionDumpWriter.dumpIfRequested(plan, sample, "usb-detailed");
@@ -669,8 +678,9 @@ class TextureRegionPlannerTest {
         final double triangleArea = assertNoOverlap(plan);
         final List<Point> vertices = points(plan);
         final double domainArea = domainArea(vertices, plan.domainRings());
+        final double tolerance = Math.max(AREA_TOLERANCE_PX2, AREA_TOLERANCE_RATIO * domainArea);
         assertTrue(
-                Math.abs(triangleArea - domainArea) <= AREA_TOLERANCE_PX2,
+                Math.abs(triangleArea - domainArea) <= tolerance,
                 "triangle area " + triangleArea + " must match domain area " + domainArea);
     }
 
