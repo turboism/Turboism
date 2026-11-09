@@ -50,6 +50,8 @@ final class GifExportSettingsDialog {
     private final JTextField executable = new JTextField(System.getProperty("turboism.gifsicle.path", "gifsicle"), 24);
     private boolean updating;
     private javax.swing.JDialog activeDialog;
+    private volatile javax.swing.JDialog activePrompt;
+    private volatile JFileChooser activeChooser;
     private volatile boolean closed;
 
     GifExportSettingsDialog(
@@ -133,46 +135,114 @@ final class GifExportSettingsDialog {
             }
             if (closed || !(pane.getValue() instanceof Integer value) || value != JOptionPane.OK_OPTION) return null;
             try {
-                commitSettingsEdits();
-                if (executable.getText().isBlank()) throw new IllegalArgumentException(tr("gif.executable-hint"));
+                validateForExport();
                 break;
             } catch (java.text.ParseException | IllegalArgumentException invalid) {
-                JOptionPane.showMessageDialog(parent, tr("gif.invalid"), tr("gif.export"), JOptionPane.ERROR_MESSAGE);
+                showPrompt(parent, tr("gif.invalid"), JOptionPane.ERROR_MESSAGE, JOptionPane.DEFAULT_OPTION);
             }
         }
-        final JFileChooser chooser = new JFileChooser() {
-            @Override
-            protected javax.swing.JDialog createDialog(final Component owner) throws java.awt.HeadlessException {
-                activeDialog = super.createDialog(owner);
-                return activeDialog;
-            }
-        };
+        final JFileChooser chooser = createChooser();
         final Path previous = lastDirectory();
         if (previous != null && Files.isDirectory(previous)) chooser.setCurrentDirectory(previous.toFile());
         chooser.setFileFilter(new FileNameExtensionFilter("GIF", "gif"));
         chooser.setSelectedFile(new java.io.File(chooser.getCurrentDirectory(), "physics.gif"));
-        while (true) {
-            if (closed || chooser.showSaveDialog(parent) != JFileChooser.APPROVE_OPTION || closed) return null;
-            activeDialog = null;
-            Path destination = chooser.getSelectedFile().toPath().toAbsolutePath();
-            if (!destination.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".gif")) {
-                destination = destination.resolveSibling(destination.getFileName() + ".gif");
+        activeChooser = chooser;
+        try {
+            while (true) {
+                if (closed || chooser.showSaveDialog(parent) != JFileChooser.APPROVE_OPTION || closed) return null;
+                Path destination = chooser.getSelectedFile().toPath().toAbsolutePath();
+                if (!destination
+                        .getFileName()
+                        .toString()
+                        .toLowerCase(Locale.ROOT)
+                        .endsWith(".gif")) {
+                    destination = destination.resolveSibling(destination.getFileName() + ".gif");
+                }
+                if (Files.exists(destination)
+                        && showPrompt(parent, tr("gif.overwrite"), JOptionPane.PLAIN_MESSAGE, JOptionPane.YES_NO_OPTION)
+                                != JOptionPane.YES_OPTION) {
+                    continue;
+                }
+                return exportSettings(destination);
             }
-            if (Files.exists(destination)
-                    && JOptionPane.showConfirmDialog(
-                                    parent, tr("gif.overwrite"), tr("gif.export"), JOptionPane.YES_NO_OPTION)
-                            != JOptionPane.YES_OPTION) {
-                continue;
-            }
-            return new Settings(
-                    destination,
-                    ((Number) width.getValue()).intValue(),
-                    ((Number) height.getValue()).intValue(),
-                    optimize.isSelected()
-                            ? (long) (((Number) limit.getValue()).doubleValue() * 1_000_000)
-                            : Long.MAX_VALUE,
-                    executable.getText().trim());
+        } finally {
+            activeChooser = null;
         }
+    }
+
+    /**
+     * Builds the save chooser.
+     *
+     * <p>The instance must stay exactly {@link JFileChooser}. {@code UIDefaults.getUI} resolves the
+     * installed FileChooserUI through the component class loader, and a plugin-defined subclass
+     * carries the plugin loader, which cannot see the host look-and-feel class. That lookup failed
+     * before this dialog could show the chooser at all.</p>
+     *
+     * @return a standard chooser owned by the host look and feel
+     */
+    static JFileChooser createChooser() {
+        return new JFileChooser();
+    }
+
+    /**
+     * Shows one short modal prompt and returns the chosen option.
+     *
+     * <p>The {@code JOptionPane} convenience methods own a dialog this class cannot reach, so a
+     * plugin shutdown during such a prompt left a modal window over the Editor. A tracked prompt
+     * lets {@link #close()} dispose it and release the event thread.</p>
+     *
+     * @return the chosen option, or {@link JOptionPane#CLOSED_OPTION} when no prompt ran
+     */
+    int showPrompt(final Component parent, final Object message, final int messageType, final int optionType) {
+        if (closed) return JOptionPane.CLOSED_OPTION;
+        final JOptionPane pane = new JOptionPane(message, messageType, optionType);
+        final javax.swing.JDialog dialog = pane.createDialog(parent, tr("gif.export"));
+        activePrompt = dialog;
+        try {
+            dialog.setVisible(true);
+        } finally {
+            activePrompt = null;
+            dialog.dispose();
+        }
+        return pane.getValue() instanceof Integer value ? value : JOptionPane.CLOSED_OPTION;
+    }
+
+    /** Test hook: the prompt window that is waiting for an answer, if any. */
+    javax.swing.JDialog activePromptWindow() {
+        return activePrompt;
+    }
+
+    /**
+     * Confirms the edited controls can produce an export before a destination is chosen.
+     *
+     * <p>Only an optimized export runs Gifsicle, so only that path requires an executable. An
+     * unoptimized export re-encodes the recording in process and accepts a blank or unusable path,
+     * because the path is never spawned.</p>
+     *
+     * @throws java.text.ParseException when an edited spinner value is not a number
+     * @throws IllegalArgumentException when optimization is on and the executable is blank
+     */
+    void validateForExport() throws java.text.ParseException {
+        commitSettingsEdits();
+        if (optimize.isSelected() && executable.getText().isBlank()) {
+            throw new IllegalArgumentException(tr("gif.executable-hint"));
+        }
+    }
+
+    /**
+     * Builds the export policy the recorder applies to the finished recording.
+     *
+     * @param destination where the finalized GIF is written
+     * @return the policy, with an unlimited size ceiling when optimization is off
+     */
+    Settings exportSettings(final Path destination) {
+        final boolean optimized = optimize.isSelected();
+        return new Settings(
+                destination,
+                ((Number) width.getValue()).intValue(),
+                ((Number) height.getValue()).intValue(),
+                optimized ? (long) (((Number) limit.getValue()).doubleValue() * 1_000_000) : Long.MAX_VALUE,
+                executable.getText().trim());
     }
 
     void commitSettingsEdits() throws java.text.ParseException {
@@ -207,10 +277,31 @@ final class GifExportSettingsDialog {
     }
 
     /** Disposes the open dialog, if any; safe from any thread. */
+    /** Disposes every open export window and rejects later prompts; safe from any thread. */
     void close() {
         closed = true;
         final javax.swing.JDialog dialog = activeDialog;
         if (dialog != null) dialog.dispose();
+        final javax.swing.JDialog prompt = activePrompt;
+        if (prompt != null) prompt.dispose();
+        dismissChooser();
+    }
+
+    /**
+     * Closes the save chooser and the window that shows it.
+     *
+     * <p>The chooser is a standard component, so the container that shows it is discovered from the
+     * component tree instead of a tracked subclass. The close is queued: the chooser window is a
+     * nested event loop, so the task runs while that window is showing and disposing it unblocks
+     * the caller.</p>
+     */
+    private void dismissChooser() {
+        final JFileChooser chooser = activeChooser;
+        if (chooser == null) return;
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            final Window window = javax.swing.SwingUtilities.getWindowAncestor(chooser);
+            if (window != null) window.dispose();
+        });
     }
 
     Path lastDirectory() {

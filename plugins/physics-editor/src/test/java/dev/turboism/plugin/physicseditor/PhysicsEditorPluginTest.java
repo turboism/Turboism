@@ -1,6 +1,7 @@
 package dev.turboism.plugin.physicseditor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -18,6 +19,8 @@ import dev.turboism.sdk.plugin.PluginServices;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.plugin.NoopPluginLogger;
+import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -132,6 +135,110 @@ class PhysicsEditorPluginTest {
         plugin.disable();
     }
 
+    /**
+     * The native preview pane is about 280 logical pixels wide, so the strip must stack the
+     * transport buttons above the frame-rate field and the status. Counter, pause and resume
+     * updates only change text; the node layout must stay identical, because a strip that grows by
+     * a line shrinks the preview and the recorder aborts on the changed preview size.
+     */
+    @Test
+    void stripStacksControlsAndKeepsItsLayoutWhileTheRecordingStatusChanges() throws Exception {
+        final byte[] png = previewPng();
+        final RecordingSource source = new RecordingSource(png);
+        final GifRecordingController controller = new GifRecordingController(
+                TestLocalization.ENGLISH, NoopPluginLogger.INSTANCE, FakeDirectUiScheduler.direct());
+        try {
+            controller.bind(source);
+            final PanelView idle = source.content.get();
+            final PanelView.Column stack = assertInstanceOf(PanelView.Column.class, idle);
+            assertEquals(2, stack.children().size(), "buttons and status share two rows instead of one");
+            assertInstanceOf(PanelView.Row.class, stack.children().get(0));
+            assertEquals(
+                    List.of("record", "stop", "discard"),
+                    actionIds(stack.children().get(0)),
+                    "the transport buttons fill the top row");
+            assertEquals(
+                    List.of("fps"), actionIds(stack.children().get(1)), "the frame-rate field is on the status row");
+            final PanelView.Centered cell = statusCell(stack.children().get(1));
+            assertTrue(cell.preferredWidth() > 0, "the status line reserves a fixed cell width");
+            assertTrue(cell.preferredHeight() > 0, "the status line reserves one fixed text line");
+
+            controller.command(GifRecordingController.Command.RECORD_PAUSE);
+            await(() -> statusValue(source.content.get()).startsWith("Recording"), "the counter reaches the strip");
+            final PanelView recording = source.content.get();
+            controller.command(GifRecordingController.Command.RECORD_PAUSE);
+            await(() -> statusValue(source.content.get()).startsWith("Paused"), "pausing reaches the strip");
+            final PanelView paused = source.content.get();
+            controller.command(GifRecordingController.Command.RECORD_PAUSE);
+            await(() -> statusValue(source.content.get()).startsWith("Recording"), "resuming reaches the strip");
+            final PanelView resumed = source.content.get();
+
+            assertEquals(layoutShape(idle), layoutShape(recording), "a counter update must not reflow the strip");
+            assertEquals(layoutShape(idle), layoutShape(paused), "pausing must not reflow the strip");
+            assertEquals(layoutShape(idle), layoutShape(resumed), "resuming must not reflow the strip");
+        } finally {
+            controller.command(GifRecordingController.Command.DISCARD);
+            controller.close();
+        }
+    }
+
+    private static PanelView.Centered statusCell(final PanelView row) {
+        final PanelView.Row cells = assertInstanceOf(PanelView.Row.class, row);
+        for (PanelView child : cells.children()) {
+            if (child instanceof PanelView.Centered cell) return cell;
+        }
+        throw new AssertionError("the status row has no reserved status cell: " + cells.children());
+    }
+
+    private static String statusValue(final PanelView view) {
+        final PanelView.Centered cell = statusCell(
+                assertInstanceOf(PanelView.Column.class, view).children().get(1));
+        return assertInstanceOf(PanelView.Text.class, cell.child()).value();
+    }
+
+    /** Layout identity of a strip: node kinds, fixed cell bounds and control ids, never text. */
+    private static String layoutShape(final PanelView view) {
+        final StringBuilder shape = new StringBuilder();
+        appendShape(view, shape);
+        return shape.toString();
+    }
+
+    private static void appendShape(final PanelView view, final StringBuilder shape) {
+        if (view instanceof PanelView.Column column) {
+            shape.append("column(");
+            column.children().forEach(child -> appendShape(child, shape));
+            shape.append(')');
+        } else if (view instanceof PanelView.Row row) {
+            shape.append("row(");
+            row.children().forEach(child -> appendShape(child, shape));
+            shape.append(')');
+        } else if (view instanceof PanelView.Centered cell) {
+            shape.append("cell(")
+                    .append(cell.preferredWidth())
+                    .append('x')
+                    .append(cell.preferredHeight())
+                    .append(',');
+            appendShape(cell.child(), shape);
+            shape.append(')');
+        } else if (view instanceof PanelView.Button button) {
+            shape.append("button:").append(button.actionId());
+        } else if (view instanceof PanelView.TextInput input) {
+            shape.append("input:").append(input.actionId()).append('=').append(input.value());
+        } else if (view instanceof PanelView.Text) {
+            shape.append("text");
+        } else {
+            shape.append(view.getClass().getSimpleName());
+        }
+    }
+
+    private static byte[] previewPng() throws java.io.IOException {
+        final java.awt.image.BufferedImage image =
+                new java.awt.image.BufferedImage(8, 8, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        final java.io.ByteArrayOutputStream png = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(image, "png", png);
+        return png.toByteArray();
+    }
+
     private static void await(final java.util.function.BooleanSupplier condition, final String message)
             throws InterruptedException {
         final long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
@@ -244,6 +351,53 @@ class PhysicsEditorPluginTest {
                 PluginLogger.class.getClassLoader(),
                 new Class<?>[] {PluginLogger.class},
                 (proxy, method, arguments) -> null);
+    }
+
+    /** A preview source that serves readable frames, so the strip can be observed in every state. */
+    private static final class RecordingSource implements PreviewFrameSource {
+
+        private final String id = "cubism.preview.frames";
+        private final byte[] png;
+        private final AtomicReference<PanelView> content = new AtomicReference<>();
+
+        private RecordingSource(final byte[] png) {
+            this.png = png;
+        }
+
+        @Override
+        public String surfaceId() {
+            return id;
+        }
+
+        @Override
+        public int width() {
+            return 8;
+        }
+
+        @Override
+        public int height() {
+            return 8;
+        }
+
+        @Override
+        public CompletionStage<PreviewFrame> capture() {
+            return CompletableFuture.completedFuture(new PreviewFrame(8, 8, png));
+        }
+
+        @Override
+        public Registration attachControls(
+                final PanelView view, final BiConsumer<String, Optional<UiActionEvent>> actions) {
+            content.set(view);
+            return () -> content.set(null);
+        }
+
+        @Override
+        public void updateControls(final PanelView view) {
+            content.set(view);
+        }
+
+        @Override
+        public void close() {}
     }
 
     /** A preview source the plugin can bind, edit and release without a host surface. */

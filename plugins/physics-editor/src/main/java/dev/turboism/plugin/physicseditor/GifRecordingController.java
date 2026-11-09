@@ -48,6 +48,18 @@ final class GifRecordingController implements AutoCloseable {
     /** Counter publishes at this interval; per-frame UI updates would rebuild the strip 30×/s. */
     private static final long STATUS_INTERVAL_NANOS = TimeUnit.MILLISECONDS.toNanos(250);
 
+    /**
+     * Reserved status cell beside the frame-rate field: one text line, wide enough for the longest
+     * recording or paused status in the shipped catalogs.
+     *
+     * <p>Both bounds are fixed so a longer message, such as a saved file name, is clipped inside the
+     * cell instead of resizing the strip. The recorder aborts when the preview size changes, so the
+     * strip must keep its height while only the status text changes.</p>
+     */
+    private static final int STATUS_CELL_WIDTH = 120;
+
+    private static final int STATUS_CELL_HEIGHT = 18;
+
     /** Bound on one capability capture; a wedged host readback must not stall the recording. */
     private static final long CAPTURE_TIMEOUT_SECONDS = 30L;
 
@@ -380,10 +392,14 @@ final class GifRecordingController implements AutoCloseable {
      * <p>The dialog is modal over the Editor, so the wait must stay interruptible: cancelling the
      * recording disposes the dialog, which makes the pending {@code show} return and this method
      * throw {@link InterruptedException} on its next poll.
+     *
+     * <p>A dialog that fails to open is reported as an export failure, not as a cancellation, so the
+     * user learns the recording could not be exported instead of reading a silent cancel.</p>
      */
     private GifExportSettingsDialog.Settings showDialog(final int width, final int height, final String previousFailure)
             throws InterruptedException {
         final Object[] answer = new Object[1];
+        final RuntimeException[] broken = new RuntimeException[1];
         final CountDownLatch settled = new CountDownLatch(1);
         uiScheduler.runOnUiThread(() -> {
             try {
@@ -395,13 +411,19 @@ final class GifRecordingController implements AutoCloseable {
             } catch (ThreadDeath | VirtualMachineError fatal) {
                 throw fatal;
             } catch (RuntimeException failure) {
+                // A broken dialog is a failure, not a cancel: the caller must report it instead of
+                // deleting the recording silently as if the operator had cancelled.
                 logger.error("GIF export dialog failed", failure);
+                broken[0] = failure;
             } finally {
                 settled.countDown();
             }
         });
         while (!settled.await(50, TimeUnit.MILLISECONDS)) {
             checkCancelled();
+        }
+        if (broken[0] != null) {
+            throw new IllegalStateException("export settings dialog failed", broken[0]);
         }
         return (GifExportSettingsDialog.Settings) answer[0];
     }
@@ -471,18 +493,27 @@ final class GifRecordingController implements AutoCloseable {
         }
     }
 
+    /**
+     * Renders the two-row strip: transport buttons above, frame rate and status below.
+     *
+     * <p>The host preview pane is narrow, so one row cannot hold every control. Both rows keep a
+     * constant height while the status text changes, because a taller strip shrinks the preview and
+     * the recorder then aborts on a preview that changed size.</p>
+     */
     private PanelView renderStrip() {
         final State current = state;
         final String statusText;
         synchronized (gate) {
             statusText = status;
         }
-        return PanelView.row(
-                PanelView.button(ACTION_RECORD, recordLabel(current), ACTION_RECORD),
-                PanelView.button(ACTION_STOP, i18n.text("gif.control.stop"), ACTION_STOP),
-                PanelView.button(ACTION_DISCARD, i18n.text("gif.control.discard"), ACTION_DISCARD),
-                PanelView.textInput(ACTION_FPS, i18n.text("gif.fps"), Integer.toString(fps), ACTION_FPS),
-                PanelView.text(statusText));
+        return PanelView.column(
+                PanelView.row(
+                        PanelView.button(ACTION_RECORD, recordLabel(current), ACTION_RECORD),
+                        PanelView.button(ACTION_STOP, i18n.text("gif.control.stop"), ACTION_STOP),
+                        PanelView.button(ACTION_DISCARD, i18n.text("gif.control.discard"), ACTION_DISCARD)),
+                PanelView.row(
+                        PanelView.textInput(ACTION_FPS, i18n.text("gif.fps"), Integer.toString(fps), ACTION_FPS),
+                        PanelView.centered(PanelView.text(statusText), STATUS_CELL_WIDTH, STATUS_CELL_HEIGHT)));
     }
 
     private String recordLabel(final State current) {
