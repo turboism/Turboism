@@ -10,7 +10,9 @@
   ],
   "turboismApi": "[0.68.1,1.0.0)",
   "authors": [
-    { "name": "Turboism Contributors" }
+    {
+      "name": "Turboism Contributors"
+    }
   ],
   "license": "Project License",
   "website": "https://turboism.dev",
@@ -50,5 +52,11 @@
   "environment": {
     "requiresCubism": true,
     "ui": "embedded"
-  }
+  },
+  "tags": [
+    "mesh",
+    "artmesh",
+    "validation"
+  ],
+  "category": "modeling"
 }
