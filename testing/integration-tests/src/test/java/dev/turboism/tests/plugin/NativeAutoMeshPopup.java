@@ -40,6 +40,7 @@ final class NativeAutoMeshPopup {
     private static final String APP_CONTROLLER_INSTANCE = "_instance";
     private static final String APP_CONTROLLER_INSTANCE_ACCESSOR = "access$get_instance$cp";
     private static final String CENTER = "getCenter";
+    private static final String HOST_CHILD_COUNT = "getChildrenCount";
     private static final String DISPOSE = "dispose";
     private static final String SCREENSHOT_FILE = "automesh-selector-row.png";
     private static final String PNG_FORMAT = "png";
@@ -231,7 +232,12 @@ final class NativeAutoMeshPopup {
     }
 
     private static int childCountOf(final Object center) {
-        return center instanceof Container widget ? widget.getComponentCount() : -1;
+        if (center instanceof Container widget) {
+            return widget.getComponentCount();
+        }
+        // Editor widgets are not AWT containers; they count their own children.
+        final Object hostCount = invokeByName(center, HOST_CHILD_COUNT);
+        return hostCount instanceof Integer count ? count : -1;
     }
 
     private static Object appController() {

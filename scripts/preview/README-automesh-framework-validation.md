@@ -13,7 +13,7 @@ records every check as a `PASS`, `FAIL`, `BLOCKED` or `INFO` assertion in one re
 | --- | --- | --- |
 | Registry | `registry.*` | `turbo-mesh.region` and `turbo-mesh.adaptive` are listed, the native generator is first, and the default selection is native. |
 | Guard | `guard.*` | The two funnel callbacks and the container attach callback are published, and the host version is an exact reviewed release. |
-| Native path | `native.*` | The native funnel produces one identical geometry digest across two runs, so a later difference cannot be host nondeterminism. |
+| Native path | `native.*` | The native funnel produces the same vertex and triangle counts across two runs. The digests are evidence only, because the Editor generator moves points by up to one pixel between runs. |
 | Custom path | `custom.<algorithm>.*` | One real funnel run per algorithm: geometry changed, no degenerate triangles, no unreferenced vertices, exactly one Undo entry labelled `Auto Mesh`, Alpha IoU above the floor, Undo restores the source digest and Redo re-applies the custom digest. |
 | Multi-keyform | `multiKeyform.*` | A multi-keyform target keeps its exact geometry, adds no Undo entry and never falls back to the native generator. |
 | Selector row | `selector.*` | The native Auto Mesh popup builds, its centre carries children, and the widget is painted to a PNG. |
@@ -78,7 +78,7 @@ Key records:
 - `assertions.verdict` — the number of assertions that decided the verdict.
 - `assertion.<name>.expected`, `assertion.<name>.actual`, `assertion.<name>.status` — one group per
   check.
-- `native.digest` — the deterministic native geometry digest.
+- `native.digest` — the first native geometry digest; evidence only, because the Editor generator is not bit-deterministic.
 - `custom.<algorithm>.digest`, `.vertices`, `.triangles`, `.alphaIou`, `.alphaRecall` — the custom
   result of each algorithm.
 - `funnel.invocation` — how the native funnel answered. `inspector` means the real modeling funnel

@@ -37,6 +37,14 @@ public final class AutoMeshGuardHandler implements NativeAutoMeshBridge.Handler 
     private final AutoMeshSelectionState selection;
     private final AutoMeshTargetResolver targets;
     private final AutoMeshDispatch dispatch;
+    private static final String ROUTE_TRACE = "auto mesh guard: route algorithm=%s outcome=%s";
+    private static final String RESULT_TRACE = "auto mesh guard: run settled status=%s written=%d message=%s";
+    private static final String OUTCOME_UNHANDLED = "unhandled";
+    private static final String OUTCOME_REFUSED = "refused:";
+    private static final String OUTCOME_STARTED = "started";
+    private static final String UNRESOLVED_TRACE =
+            "auto mesh guard: route algorithm=%s outcome=unresolvable-selection, the native algorithm runs";
+
     private final AutoMeshNoticeSink notices;
     private final Consumer<String> diagnostics;
     private final AutoMeshMessages messages;
@@ -85,18 +93,21 @@ public final class AutoMeshGuardHandler implements NativeAutoMeshBridge.Handler 
         }
         final Optional<List<Drawable>> resolved = targets.resolve(funnel, hostArguments);
         if (resolved.isEmpty()) {
-            diagnostic("auto mesh guard: the confirmed selection is unresolvable, the native algorithm runs");
+            diagnostic(UNRESOLVED_TRACE.formatted(selectedId.orElseThrow()));
             return Boolean.FALSE;
         }
         final DispatchOutcome outcome = dispatch.dispatch(selection, resolved.orElseThrow());
         if (outcome instanceof DispatchOutcome.Unhandled) {
+            diagnostic(ROUTE_TRACE.formatted(selectedId.orElseThrow(), OUTCOME_UNHANDLED));
             return Boolean.FALSE;
         }
         if (outcome instanceof DispatchOutcome.Refused refused) {
+            diagnostic(ROUTE_TRACE.formatted(selectedId.orElseThrow(), OUTCOME_REFUSED + refused.reasonCode()));
             notice(new AutoMeshNotice(AutoMeshNotice.Severity.WARNING, refused.message()));
             return Boolean.TRUE;
         }
         final DispatchOutcome.Started started = (DispatchOutcome.Started) outcome;
+        diagnostic(ROUTE_TRACE.formatted(selectedId.orElseThrow(), OUTCOME_STARTED));
         started.run().completion().whenComplete((result, failure) -> report(result, failure));
         return Boolean.TRUE;
     }
@@ -113,6 +124,8 @@ public final class AutoMeshGuardHandler implements NativeAutoMeshBridge.Handler 
                 notice(new AutoMeshNotice(AutoMeshNotice.Severity.ERROR, messages.runFailed()));
                 return;
             }
+            diagnostic(RESULT_TRACE.formatted(
+                    result.status(), result.writtenTargets().size(), result.message()));
             notice(noticeOf(result));
         } catch (Throwable reporting) {
             FatalErrors.rethrowIfFatal(reporting);
