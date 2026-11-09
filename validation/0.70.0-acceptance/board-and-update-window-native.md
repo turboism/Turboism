@@ -62,7 +62,12 @@ Native evidence covers three update-window sizes:
 
 The observer measured the label against its actual list-region parent.
 It did not substitute the whole dialog or the bottom button strip for that region.
-The visible text remained `没有可用更新。`.
+The visible text at measurement time was `没有可用更新。`.
+
+A later localization change removed the terminal full stop from `updates.list.empty` in all six
+catalogs, so the label now reads `没有可用更新` and its siblings keep the same label style.
+The placeholder card, its parent region and its layout are unchanged by that edit.
+A fresh native centering sample for the new wording remains outstanding.
 
 The native session used source `8064d69df` with agent:
 `a34653cda07fd9e3f64180c926dca89fab574d778ef41fc670fe231c8fbd813b`.
