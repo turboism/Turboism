@@ -362,4 +362,11 @@ class AutoMeshFrameworkValidationProbeTest {
         }
         return values;
     }
+
+    @Test
+    void nativeRunsAgreeWhenOnlyTheTriangleCountDriftsWithinOnePercent() {
+        assertTrue(AutoMeshFrameworkValidationProbe.nativeCountsStable(List.of(617, 617), List.of(1018, 1019)));
+        assertFalse(AutoMeshFrameworkValidationProbe.nativeCountsStable(List.of(617, 618), List.of(1018, 1018)));
+        assertFalse(AutoMeshFrameworkValidationProbe.nativeCountsStable(List.of(617, 617), List.of(1018, 1100)));
+    }
 }

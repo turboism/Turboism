@@ -116,6 +116,7 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
 
     private static final long POLL_MILLIS = 250L;
     private static final int NATIVE_RUN_ATTEMPTS = 2;
+    private static final double NATIVE_TRIANGLE_TOLERANCE_RATIO = 0.01;
     private static final String VARIANT_NATIVE = "native";
     private static final String KEY_SEPARATOR = ".";
     private static final String GUARD_MODELING_KEY = "turboism.automesh.guard.modeling-mode";
@@ -403,6 +404,8 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
 
         final List<String> digests = new ArrayList<>(NATIVE_RUN_ATTEMPTS);
         final List<String> counts = new ArrayList<>(NATIVE_RUN_ATTEMPTS);
+        final List<Integer> vertexCounts = new ArrayList<>(NATIVE_RUN_ATTEMPTS);
+        final List<Integer> triangleCounts = new ArrayList<>(NATIVE_RUN_ATTEMPTS);
         for (int attempt = 0; attempt < NATIVE_RUN_ATTEMPTS; attempt++) {
             final ArtMeshGeometry before = geometryOf(id);
             final Optional<ArtMeshGeometry> after = runFunnel(id, false);
@@ -416,6 +419,8 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
             digests.add(digest);
             counts.add(geometry.positions().size() + "/"
                     + geometry.triangleIndices().size() / 3);
+            vertexCounts.add(geometry.positions().size());
+            triangleCounts.add(geometry.triangleIndices().size() / 3);
             result.put(
                     "native.run" + attempt + ".vertices",
                     Integer.toString(geometry.positions().size()));
@@ -434,9 +439,10 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
         }
         record(
                 "native.stable",
-                "the same vertex and triangle counts across " + NATIVE_RUN_ATTEMPTS + " runs",
+                "the same vertex count and triangle counts within " + NATIVE_TRIANGLE_TOLERANCE_RATIO + " across "
+                        + NATIVE_RUN_ATTEMPTS + " runs",
                 counts.toString(),
-                statusOf(counts.size() == NATIVE_RUN_ATTEMPTS && counts.get(0).equals(counts.get(1))));
+                statusOf(nativeCountsStable(vertexCounts, triangleCounts)));
         // The Editor generator is not bit-deterministic (real host run: same counts, positions
         // differ by up to one pixel), so the digests stay evidence and never decide the verdict.
         record(
@@ -445,6 +451,27 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
                 digests.toString(),
                 AutoMeshProbeStatus.INFO);
         result.put("native.digest", digests.isEmpty() ? ABSENT : digests.get(0));
+    }
+
+    /**
+     * Judges whether repeated native runs agree on the mesh size.
+     *
+     * <p>The Editor generator moves points between runs and can differ by a triangle on large
+     * layers (real host run: 617 vertices both times, 1018 then 1019 triangles), so the triangle
+     * count may differ by a small ratio while the vertex count must match.</p>
+     *
+     * @param vertexCounts the vertex count of each run
+     * @param triangleCounts the triangle count of each run
+     * @return whether the runs agree within the tolerance
+     */
+    static boolean nativeCountsStable(final List<Integer> vertexCounts, final List<Integer> triangleCounts) {
+        if (vertexCounts.size() != NATIVE_RUN_ATTEMPTS || triangleCounts.size() != NATIVE_RUN_ATTEMPTS) {
+            return false;
+        }
+        final int first = triangleCounts.get(0);
+        final int second = triangleCounts.get(1);
+        final double allowed = Math.max(first, second) * NATIVE_TRIANGLE_TOLERANCE_RATIO;
+        return vertexCounts.get(0).equals(vertexCounts.get(1)) && Math.abs(first - second) <= allowed;
     }
 
     // --- d. Custom path ---------------------------------------------------
