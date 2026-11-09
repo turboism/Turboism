@@ -549,6 +549,7 @@
     "topPackageCycles": [
       [
         "dev.turboism.adapter",
+        "dev.turboism.automesh",
         "dev.turboism.config",
         "dev.turboism.core",
         "dev.turboism.home",
@@ -562,6 +563,10 @@
       ]
     ],
     "topPackageEdges": [
+      [
+        "dev.turboism.adapter",
+        "dev.turboism.automesh"
+      ],
       [
         "dev.turboism.adapter",
         "dev.turboism.config"
@@ -749,6 +754,10 @@
       [
         "dev.turboism.kernel",
         "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.automesh"
       ],
       [
         "dev.turboism.kernel",
