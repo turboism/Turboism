@@ -11,6 +11,7 @@ resilience4j = "2.1.0"
 asm = "9.7.1"
 graal = "25.2.4"
 shadow = "8.3.11"
+tinfour = "2.1.8"
 
 [libraries]
 # Error Prone
@@ -37,6 +38,9 @@ kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "
 resilience4j-bulkhead = { module = "io.github.resilience4j:resilience4j-bulkhead", version.ref = "resilience4j" }
 resilience4j-timelimiter = { module = "io.github.resilience4j:resilience4j-timelimiter", version.ref = "resilience4j" }
 resilience4j-circuitbreaker = { module = "io.github.resilience4j:resilience4j-circuitbreaker", version.ref = "resilience4j" }
+
+# Tinfour constrained Delaunay triangulation; embedded into the turbo-mesh plugin jar.
+tinfour-core = { module = "org.tinfour:TinfourCore", version.ref = "tinfour" }
 
 # GraalVM
 graal-polyglot = { module = "org.graalvm.polyglot:polyglot", version.ref = "graal" }
