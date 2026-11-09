@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.SwingUtilities;
 
@@ -74,6 +75,8 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
     static final String HOST_VERSION_PROPERTY = "turboism.validation.hostVersion";
     static final String RUN_ID_PROPERTY = "turboism.validation.runId";
     static final String FIXTURE_NAME_PROPERTY = "turboism.validation.fixtureName";
+    static final String READINESS_TIMEOUT_PROPERTY = "turboism.automeshValidation.readinessTimeoutSeconds";
+    static final String SELECTOR_ATTACH_TIMEOUT_PROPERTY = "turboism.automeshValidation.selectorAttachTimeoutSeconds";
 
     /** Default probe targets: a hair mesh with a dense silhouette, then a small ordinary mesh. */
     static final String DEFAULT_MESH_IDS = "ArtMesh342,hfa10";
@@ -101,21 +104,39 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
     private static final Duration DEFAULT_CUSTOM_SETTLE_TIMEOUT = Duration.ofSeconds(30);
 
     private static final Duration DEFAULT_STEP_TIMEOUT = Duration.ofSeconds(120);
+
+    /**
+     * Readiness budget. The Editor loads plugins before it opens the document, and a real host
+     * spends most of its startup inside Cubism itself, so the budget covers a slow cold start.
+     */
+    private static final Duration DEFAULT_READINESS_TIMEOUT = Duration.ofSeconds(240);
+
+    /** Budget of one selector-row attach, which the runtime posts to the Editor UI thread. */
+    private static final Duration DEFAULT_SELECTOR_ATTACH_TIMEOUT = Duration.ofSeconds(10);
+
     private static final long POLL_MILLIS = 250L;
     private static final int NATIVE_RUN_ATTEMPTS = 2;
     private static final String VARIANT_NATIVE = "native";
     private static final String KEY_SEPARATOR = ".";
     private static final String GUARD_MODELING_KEY = "turboism.automesh.guard.modeling-mode";
     private static final String GUARD_MESH_EDITOR_KEY = "turboism.automesh.guard.mesh-editor-mode";
+    /**
+     * Property the transformed container constructor reads. The runtime publishes this literal, and
+     * the plugin class loader refuses the runtime's own bridge type, so the probe names it here.
+     */
     private static final String GUARD_ATTACH_KEY = "turboism.automesh.attach";
+
     private static final String FUNCTION_TYPE = "java.util.function.Function";
     private static final String ABSENT = "<absent>";
     private static final String ABSENT_SKIPPED = "<absent: skipped>";
-    private static final String HOST_VERSION_PATTERN = "5\\.[0-9]\\.[0-9]{2}";
+    private static final String REVIEWED_RELEASE_CODE = "a reviewed compact release code";
+    private static final String ROW_EXPECTATION = "> 0 centre children";
     private static final String UNSAFE_PATH_CHARACTERS = "[^A-Za-z0-9._-]";
 
     private final List<AutoMeshProbeStatus> statuses = new ArrayList<>();
     private final AutoMeshProbeResult result = new AutoMeshProbeResult();
+    private final AtomicBoolean editorStarted = new AtomicBoolean();
+    private volatile boolean sessionReady;
     private PluginContext context;
     private Thread worker;
 
@@ -139,6 +160,18 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
         }
     }
 
+    /**
+     * Records that the runtime finished loading every plugin and admitted the host.
+     *
+     * <p>The runtime publishes startup only after the plugin load wave committed, so this callback is
+     * the probe's proof that a sibling plugin had its chance to register. The callback runs on a
+     * plugin worker, which is why the observation is a flag the probe worker polls.</p>
+     */
+    @Override
+    public void onEditorStarted(final dev.turboism.sdk.cubism.EditorLifecycleSnapshot editor) {
+        editorStarted.set(true);
+    }
+
     private void run() {
         Path dumpRoot = null;
         try {
@@ -147,6 +180,9 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
             result.put("runId", property(RUN_ID_PROPERTY, "unknown"));
             result.put("hostVersion", property(HOST_VERSION_PROPERTY, "unknown"));
             result.put("dumpDir", dumpRoot);
+            if (!awaitReady()) {
+                return;
+            }
             checkRegistry();
             checkGuardInstalled();
             checkNativePathDeterministic(dumpRoot);
@@ -161,6 +197,86 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
         } finally {
             publish(dumpRoot);
         }
+    }
+
+    // --- readiness ---------------------------------------------------------
+
+    /**
+     * Waits until the session can answer every later assertion.
+     *
+     * <p>Two preconditions must hold. First, the runtime must have published Editor startup, which
+     * happens only after the whole plugin load wave committed, so every plugin that registers an
+     * algorithm had its chance. Second, the active model must expose readable ArtMeshes, because a
+     * document that is still loading answers an empty drawable list.</p>
+     *
+     * <p>A timeout records one {@code BLOCKED} assertion with the last observed gap and stops the
+     * run. Continuing would judge a half-built session, which is exactly the defect this gate
+     * removes.</p>
+     *
+     * @return {@code true} when the run may continue
+     * @throws Exception when the host refuses a readiness read or the wait is interrupted
+     */
+    private boolean awaitReady() throws Exception {
+        final AutoMeshProbeReadiness.Outcome readiness =
+                AutoMeshProbeReadiness.await(this::readinessGap, readinessTimeout(), POLL_MILLIS);
+        result.put("readiness.waitedMillis", Long.toString(readiness.waitedMillis()));
+        if (readiness.ready()) {
+            sessionReady = true;
+            result.put("readiness.editorStarted", Boolean.toString(editorStarted.get()));
+            return true;
+        }
+        record(
+                "readiness.session",
+                "a loaded plugin wave and a readable model",
+                readiness.reason(),
+                AutoMeshProbeStatus.BLOCKED);
+        return false;
+    }
+
+    /**
+     * Reports the first precondition that does not hold yet.
+     *
+     * <p>The plugin load wave counts as committed when the runtime published Editor startup, or when
+     * the registry already lists both plugin algorithms: an algorithm can only be registered from a
+     * committed enable, so its presence proves the wave reached that plugin. The second route keeps
+     * the gate correct even when the startup notification is unavailable.</p>
+     *
+     * @return empty when every precondition holds, otherwise the blocking reason
+     * @throws Exception when the host refuses a read
+     */
+    private Optional<String> readinessGap() throws Exception {
+        if (!editorStarted.get() && !pluginAlgorithmsRegistered()) {
+            return Optional.of("the plugin load wave is not committed; no plugin algorithm is registered yet");
+        }
+        final int drawables = onUi(() -> {
+            try {
+                return context.cubism().model().active().drawables().all().size();
+            } catch (IllegalStateException | UnsupportedOperationException unavailable) {
+                return 0;
+            }
+        });
+        if (drawables == 0) {
+            return Optional.of("the active model exposes no readable ArtMesh");
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Reports whether the registry already lists both plugin algorithms.
+     *
+     * <p>These registrations outlive no plugin generation, so their presence is direct evidence that
+     * the owning plugin finished its enable step.</p>
+     *
+     * @return {@code true} when both plugin algorithms are registered
+     */
+    private boolean pluginAlgorithmsRegistered() {
+        final Optional<AutoMeshAlgorithmRegistry> available = context.services().find(AutoMeshAlgorithmRegistry.class);
+        if (available.isEmpty()) {
+            return false;
+        }
+        final AutoMeshAlgorithmRegistry live = available.orElseThrow();
+        return live.find(REGION_ALGORITHM_ID).isPresent()
+                && live.find(ADAPTIVE_ALGORITHM_ID).isPresent();
     }
 
     // --- a. Registry --------------------------------------------------------
@@ -231,6 +347,10 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
      * <p>The bridge publishes one callback property per funnel plus the attach callback, and removes
      * them again when the installer closes. Their presence is therefore the observable proof that the
      * transformed funnels and the three container hooks are active on this exact build.</p>
+     *
+     * <p>The published values are lambdas that implement {@link java.util.function.Function}, so the
+     * assertion is an {@code instanceof} test. The concrete lambda class is recorded as evidence only:
+     * its name carries a JVM-assigned suffix that changes on every run.</p>
      */
     private void checkGuardInstalled() {
         for (final Map.Entry<String, String> probe : Map.of(
@@ -238,20 +358,20 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
                         "guard.meshEditorFunnel", GUARD_MESH_EDITOR_KEY,
                         "guard.containerAttach", GUARD_ATTACH_KEY)
                 .entrySet()) {
-            final String type = callbackType(probe.getValue());
-            record(probe.getKey(), FUNCTION_TYPE, type, statusOf(FUNCTION_TYPE.equals(type)));
+            final Object callback = System.getProperties().get(probe.getValue());
+            final String type = callback == null ? ABSENT : callback.getClass().getName();
+            record(
+                    probe.getKey(),
+                    FUNCTION_TYPE + " instance",
+                    type,
+                    statusOf(callback instanceof java.util.function.Function<?, ?>));
         }
         final String version = property(HOST_VERSION_PROPERTY, "");
         record(
                 "guard.hostVersionAdmitted",
-                "an exact reviewed release code",
+                REVIEWED_RELEASE_CODE,
                 version.isBlank() ? ABSENT : version,
-                statusOf(version.matches(HOST_VERSION_PATTERN)));
-    }
-
-    private static String callbackType(final String key) {
-        final Object value = System.getProperties().get(key);
-        return value == null ? ABSENT : value.getClass().getName();
+                statusOf(AutoMeshHostVersionCode.admitted(version)));
     }
 
     // --- c. Native path untouched ------------------------------------------
@@ -527,39 +647,99 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
      * Proves the selector row is attached to a live native container.
      *
      * <p>The attach hook runs inside the container constructor, so only a real container proves it.
-     * The probe builds the native modeling popup, counts the centre children the row was appended to,
-     * captures the widget as a PNG, and disposes it again.</p>
+     * The probe builds the native modeling popup, records what it built, waits for the runtime's own
+     * attach callback to finish on the Editor UI thread, then counts the centre children the row was
+     * appended to and captures the widget as a PNG.</p>
+     *
+     * <p>The assertion stays strict: at least one algorithm plugin is registered, so the row must be
+     * attached. Every diagnostic exists to name the exact reason when it is not.</p>
      *
      * @param dumpRoot the dump directory the capture belongs to
      * @throws Exception when the host refuses a container operation
      */
     private void checkSelectorRow(final Path dumpRoot) throws Exception {
-        final Optional<Object> container = onUi(NativeAutoMeshPopup::open);
-        if (container.isEmpty()) {
-            record("selector.popup", "a native Auto Mesh container", ABSENT_SKIPPED, AutoMeshProbeStatus.INFO);
+        final NativeAutoMeshPopup.Build build = onUi(NativeAutoMeshPopup::open);
+        result.put("selector.containerClass", build.containerClass());
+        result.put("selector.centerClass", build.centerClass());
+        build.failure().ifPresent(failure -> result.put("selector.buildFailure", failure));
+        if (!build.built()) {
+            record(
+                    "selector.popup",
+                    "a native Auto Mesh container",
+                    build.containerClass() + (build.failure().isPresent() ? " (threw)" : ""),
+                    AutoMeshProbeStatus.BLOCKED);
             result.put("selector.screenshot", "<unavailable: the native popup could not be built>");
             return;
         }
-        final Object popup = container.orElseThrow();
+        final Object popup = build.container();
         try {
-            final int children = NativeAutoMeshPopup.childCount(popup);
+            final int children = awaitRowAttached(popup, build.childrenBefore());
+            result.put("selector.containerChildrenBefore", Integer.toString(build.childrenBefore()));
             result.put("selector.containerChildren", Integer.toString(children));
-            record("selector.rowAttached", "> 0 centre children", Integer.toString(children), statusOf(children > 0));
-            final Optional<Path> screenshot = NativeAutoMeshPopup.capture(popup, dumpRoot);
-            if (screenshot.isPresent()) {
-                result.put("selector.screenshot", screenshot.orElseThrow().toString());
+            result.put("selector.attachCallback", attachCallbackState());
+            record(
+                    "selector.rowAttached",
+                    ROW_EXPECTATION,
+                    Integer.toString(children),
+                    statusOf(children > build.childrenBefore()));
+            final NativeAutoMeshPopup.Capture capture = NativeAutoMeshPopup.capture(popup, dumpRoot);
+            if (capture.file().isPresent()) {
+                result.put("selector.screenshot", capture.file().orElseThrow().toString());
                 record(
                         "selector.screenshot",
                         "a PNG file",
-                        screenshot.orElseThrow().toString(),
+                        capture.file().orElseThrow().toString(),
                         AutoMeshProbeStatus.INFO);
             } else {
-                result.put("selector.screenshot", "<unavailable: the widget could not be painted>");
+                result.put("selector.screenshot", "<unavailable: " + capture.reason() + ">");
                 record("selector.screenshot", "a PNG file", "<unavailable>", AutoMeshProbeStatus.INFO);
             }
         } finally {
             NativeAutoMeshPopup.close(popup);
         }
+    }
+
+    /**
+     * Waits for the runtime's attach callback to append the row to the container centre.
+     *
+     * <p>The runtime posts the attach to the Editor UI thread, so the row appears shortly after the
+     * constructor returns. The wait is bounded and answers the last observed count, which keeps the
+     * assertion strict while the evidence stays truthful.</p>
+     *
+     * @param popup the live container
+     * @param childrenBefore the centre child count the host itself produced
+     * @return the centre child count after the wait
+     * @throws Exception when the host refuses a read
+     */
+    private int awaitRowAttached(final Object popup, final int childrenBefore) throws Exception {
+        final Duration budget =
+                AutoMeshProbeBudget.read(SELECTOR_ATTACH_TIMEOUT_PROPERTY, DEFAULT_SELECTOR_ATTACH_TIMEOUT);
+        final long deadline = System.nanoTime() + budget.toNanos();
+        int children = onUi(() -> NativeAutoMeshPopup.childCount(popup));
+        while (children <= childrenBefore && System.nanoTime() < deadline) {
+            Thread.sleep(POLL_MILLIS);
+            children = onUi(() -> NativeAutoMeshPopup.childCount(popup));
+        }
+        return children;
+    }
+
+    /**
+     * Reports whether the runtime still holds the container attach callback.
+     *
+     * <p>The bridge publishes the callback as a system property while its installer is open, so the
+     * property alone proves the attach route was live when the container was constructed. Its absence
+     * means no attach could ever have run.</p>
+     *
+     * @return the callback state as recorded evidence
+     */
+    private static String attachCallbackState() {
+        final Object callback = System.getProperties().get(GUARD_ATTACH_KEY);
+        if (callback == null) {
+            return "<absent: no attach route was installed>";
+        }
+        return callback instanceof java.util.function.Function<?, ?>
+                ? "installed as " + callback.getClass().getName()
+                : "installed but not a Function: " + callback.getClass().getName();
     }
 
     // --- host plumbing ----------------------------------------------------
@@ -752,6 +932,10 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
         return AutoMeshProbeBudget.read(CUSTOM_SETTLE_TIMEOUT_PROPERTY, DEFAULT_CUSTOM_SETTLE_TIMEOUT);
     }
 
+    private Duration readinessTimeout() {
+        return AutoMeshProbeBudget.read(READINESS_TIMEOUT_PROPERTY, DEFAULT_READINESS_TIMEOUT);
+    }
+
     private static List<String> splitProperty(final String name, final String fallback) {
         final String raw = System.getProperty(name, fallback);
         final Set<String> values = new LinkedHashSet<>();
@@ -798,6 +982,10 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
     }
 
     private void publish(final Path dumpRoot) {
+        final boolean exitRequested = Boolean.getBoolean(EXIT_PROPERTY);
+        if (exitRequested) {
+            recordHostCloseReadiness();
+        }
         final AutoMeshProbeStatus terminal = AutoMeshProbeResult.terminal(statuses);
         AutoMeshProbeResult.counters(statuses).forEach(result::put);
         result.put("status", terminal.name());
@@ -810,9 +998,51 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
         } catch (Exception failure) {
             context.logger().error("Auto mesh framework result could not be written", failure);
         } finally {
-            if (Boolean.getBoolean(EXIT_PROPERTY)) {
+            if (exitRequested) {
                 requestHostClose();
             }
+        }
+    }
+
+    /**
+     * Records whether the shared close path can identify its host window before the result is written.
+     *
+     * <p>The close runs after the result file is persisted, so its evidence must be collected first.
+     * A window that is still unidentified becomes a recorded {@code BLOCKED} assertion instead of an
+     * unactionable error line.</p>
+     */
+    private void recordHostCloseReadiness() {
+        if (!sessionReady) {
+            // A session that never loaded cannot publish the fixture title, so waiting again would
+            // only repeat the readiness timeout the run already reported.
+            record(
+                    "close.windowIdentity",
+                    "exactly one visible host window for the fixture",
+                    "the run never reached a loaded session",
+                    AutoMeshProbeStatus.BLOCKED);
+            return;
+        }
+        try {
+            final Optional<String> gap = awaitHostWindowIdentity();
+            result.put("close.windowIdentity", gap.orElse("identified"));
+            record(
+                    "close.windowIdentity",
+                    "exactly one visible host window for the fixture",
+                    gap.orElse("identified"),
+                    gap.isEmpty() ? AutoMeshProbeStatus.PASS : AutoMeshProbeStatus.BLOCKED);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            record(
+                    "close.windowIdentity",
+                    "exactly one visible host window for the fixture",
+                    "interrupted",
+                    AutoMeshProbeStatus.BLOCKED);
+        } catch (Exception unreadable) {
+            record(
+                    "close.windowIdentity",
+                    "exactly one visible host window for the fixture",
+                    describe(unreadable),
+                    AutoMeshProbeStatus.BLOCKED);
         }
     }
 
@@ -826,6 +1056,56 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
                     System.getProperty(HOST_VERSION_PROPERTY));
         } catch (Exception closeFailure) {
             context.logger().error("Auto mesh framework probe could not request the host close", closeFailure);
+        }
+    }
+
+    /**
+     * Waits until the shared close path can identify exactly one host window for the fixture.
+     *
+     * <p>The Editor publishes its frame title only after the document is open, so a close requested
+     * too early cannot name its own window. The wait is bounded and answers the last observed gap.</p>
+     *
+     * @return empty when the window is identifiable, otherwise the blocking reason
+     * @throws Exception when the host refuses a readiness read or the wait is interrupted
+     */
+    private Optional<String> awaitHostWindowIdentity() throws Exception {
+        final String fixtureName = System.getProperty(FIXTURE_NAME_PROPERTY);
+        final long deadline = System.nanoTime() + readinessTimeout().toNanos();
+        String gap = "";
+        while (System.nanoTime() < deadline) {
+            gap = onUi(() -> hostWindowGap(fixtureName));
+            if (gap.isEmpty()) {
+                return Optional.empty();
+            }
+            Thread.sleep(POLL_MILLIS);
+        }
+        return Optional.of(gap);
+    }
+
+    /**
+     * Describes why the shared close path cannot identify the host window right now.
+     *
+     * <p>Runs on the Editor UI thread, because window inspection is an EDT operation.</p>
+     *
+     * @param fixtureName the runner-provided fixture name
+     * @return empty when exactly one candidate matches, otherwise the reason
+     */
+    private static String hostWindowGap(final String fixtureName) {
+        final List<WindowsHistoryNativeUiHostClose.HostWindowCandidate> candidates = new ArrayList<>();
+        for (final java.awt.Window window : java.awt.Window.getWindows()) {
+            if (!(window instanceof java.awt.Frame frame) || !frame.isDisplayable() || !frame.isVisible()) {
+                continue;
+            }
+            candidates.add(new WindowsHistoryNativeUiHostClose.HostWindowCandidate(frame.getTitle(), frame.getName()));
+        }
+        if (candidates.isEmpty()) {
+            return "no visible Cubism frame is displayable";
+        }
+        try {
+            WindowsHistoryNativeUiHostClose.selectHostWindowCandidate(candidates, fixtureName);
+            return "";
+        } catch (IllegalStateException unidentified) {
+            return unidentified.getMessage();
         }
     }
 

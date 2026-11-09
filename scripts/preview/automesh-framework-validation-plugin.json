@@ -39,6 +39,11 @@
       "reason": "Select the probed algorithm through the session registry during validation."
     },
     {
+      "id": "turboism.cubism.model.observe",
+      "scope": "application",
+      "reason": "Wait for the Editor startup notification before the probe judges the session."
+    },
+    {
       "id": "turboism.file.write",
       "scope": "application",
       "reason": "Write the validation result properties file and the mesh dump."
