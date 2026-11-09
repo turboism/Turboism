@@ -106,3 +106,15 @@ GitHub API authentication was not rechecked. This handoff creates no PR and publ
 The ignored native evidence directory contains artifact, source, compiler-input, driver, and toolchain hashes.
 It also retains screenshots, native README text, the successful result, and failed attempts.
 The local EXE is unsigned and is not the final signed release candidate.
+
+## Progress log
+
+- Canonical version identity adopted: `gradle/common-java.gradle.kts` declares `0.70.0`; the SDK
+  API-since table and ten plugin API floors moved to match.
+- Configuration portability branch integrated: the plugin-config publication escape is closed and
+  the fault tests run on Windows. Five POSIX-only assertions still skip where no POSIX view exists.
+- Parameter transfer: the native dialog opens from the real deformer context menu and lists real
+  parameters with a target selector and an invert checkbox. Value-level transfer and self-inversion
+  remain unaccepted; the repository's `parameter-batch-transfer` host probe already asserts
+  transfer, invert, undo, redo and the source-as-default-target case, so the remaining work is a
+  queue run on the Linux host rather than more UI driving.
