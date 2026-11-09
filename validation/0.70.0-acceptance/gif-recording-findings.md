@@ -189,3 +189,44 @@ That failure is the reason the descriptor now declares `icons/`.
 - Large-model recovery with the 763 MB fixture.
 - Pixel comparison between the preview and the exported frames.
 - Cancellation while an export dialog is open, rather than only before it opens.
+
+## Colour icon strip and disabled transport controls
+
+The user asked for a colour strip and for stop and discard to be disabled while no recording exists.
+A mask icon only ever takes the theme foreground, so the SDK gained one node:
+
+- `PanelView.colorIconButton(id, png, tooltip, actionId, enabled)` keeps the PNG colours, rejects
+  input while disabled and paints the glyph at reduced opacity in that state.
+- `PanelView.iconButton` keeps its existing theme-tinted mask contract.
+
+The strip uses solid Lucide 0.468.0 glyphs in one reviewed palette: green record and resume,
+amber pause, red stop and a grey cross for discard.
+
+### Native evidence
+
+Session r14 used an isolated Windows Cubism 5.3.04 installation and the isolated fixture
+`dde355090445daecfe3196ab7ff78fb00fe1c9b2ef8f0f4e955e97a0664575d6`.
+The build was local, unnumbered and dirty; the agent SHA-256 is
+`692a68b013dc24d87b63f93451b78c4d9978b2d13b9e86252b1ff1b978955ca2`.
+The session exited with code 0, `cleanup=safe`, zero Job processes, and unchanged host files and fixture.
+
+| State | Record control | Stop | Discard | Observed status |
+| --- | --- | --- | --- | --- |
+| Idle | Green circle, enabled | Red square, disabled | Grey cross, disabled | — |
+| Recording | Amber pause bars, enabled | Enabled | Enabled | `正在录制 57` |
+| Paused | Green play triangle, enabled | Enabled | Enabled | `已暂停 297` |
+| After discard | Green circle, enabled | Disabled | Disabled | `已取消` |
+| During export | Disabled | Disabled | Disabled | `导出 GIF` |
+
+Discard ended the recording without an export dialog, so the frames were dropped.
+Stop opened the `导出 GIF` dialog, so the frames were kept.
+Cancelling that dialog returned the strip to idle with the status `已取消`.
+Every control stayed 28×28 in all five states.
+
+### API bookkeeping caveat
+
+`compatibility/sdk-api-since.json` records the new members as `0.68.1`, because
+`gradle/common-java.gradle.kts` still declares `turboismFrameworkVersion` as `0.68.1` while the
+acceptance builds pass `-PturboismVersion=0.70.0`. The canonical version identity remains an
+outstanding acceptance item. Until it moves, the API-floor check cannot distinguish a framework
+that lacks this node, so do not publish a standalone plugin that uses it before that move.
