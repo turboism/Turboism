@@ -16,6 +16,7 @@ fail at module import time.
 from __future__ import annotations
 
 import os
+import shutil
 import signal as _signal
 
 try:  # POSIX advisory locks; absent on Windows.
@@ -87,6 +88,17 @@ class HostOs:
             raise OSError("no advisory file lock backend is available on this host")
         os.lseek(descriptor, 0, os.SEEK_SET)
         _msvcrt.locking(descriptor, _msvcrt.LK_NBLCK if exclusive else _msvcrt.LK_NBRLCK, 1)
+
+    @classmethod
+    def shell(cls) -> str:
+        """Absolute path of the POSIX shell that runs the validation task scripts.
+
+        Windows resolves a bare ``bash`` through CreateProcess, which searches ``System32`` before
+        ``PATH`` and therefore starts the WSL launcher instead of the MSYS shell the scripts need.
+        ``shutil.which`` follows ``PATH`` order, so its answer is the one to pass explicitly.
+        """
+        found = shutil.which("bash")
+        return found if found is not None else "bash"
 
     @classmethod
     def interrupt_signals(cls) -> tuple[int, ...]:

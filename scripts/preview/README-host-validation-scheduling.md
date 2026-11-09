@@ -27,10 +27,15 @@ instead of probing the platform, so no module fails at import time.
 both classes: `fcntl`/`pwd`/`msvcrt`, `os.getuid`, `O_NOFOLLOW`, `O_DIRECTORY`,
 `AF_UNIX`, `/proc` and cgroup access are all optional rather than assumed.
 
+On Windows, resolve the task shell through `HostOs.shell()` rather than a bare
+`bash`: `CreateProcess` searches `System32` before `PATH`, so a bare name starts
+the WSL launcher instead of the MSYS shell the scripts need. With the resolved
+path the task scripts execute and reach their own configuration checks.
+
 `scripts/preview/host_validation_retention.py` and the task runner scripts remain
-POSIX-only: they use `dir_fd` descriptors, bash and Xvfb. A task therefore cannot
-complete on native Windows yet, even though the queue itself loads, locks and
-prepares there. The
+POSIX-only: they use `dir_fd` descriptors and, per task, Xvfb or Proton tooling.
+A task therefore cannot complete on native Windows yet, even though the queue
+loads, locks, prepares and now launches the task script there. The
 state root is the account home resolved for the current user (`pwd` on POSIX,
 the profile directory on Windows), so `HOME`/`XDG_STATE_HOME`/cwd still cannot
 split one user's lock domain; private-directory and lock ownership checks keep

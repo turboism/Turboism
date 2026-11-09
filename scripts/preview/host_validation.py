@@ -285,7 +285,7 @@ def render_command(request: Request, manifest: Manifest) -> list[str]:
     templates = request.task.variants[request.variant] if request.variant else request.task.arguments
     if templates is None:
         raise SchedulerError(f"cannot run blocked task: {request.task.blocked_reason}")
-    return ["bash", str(manifest.root / request.task.command),
+    return [queue.shell(), str(manifest.root / request.task.command),
             *(value.format(version=request.version, runLabel=request.run_label) for value in templates)]
 
 

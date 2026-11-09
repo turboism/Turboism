@@ -32,6 +32,7 @@ from .common import (  # noqa: E402
     digest_json,
     identity_alive,
     interrupt_signals,
+    shell,
     private_directory,
     process_identity,
     storage_lock,

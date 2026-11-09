@@ -17,6 +17,8 @@ never becomes release evidence. Legacy tasks keep their existing count-free cont
 """
 from __future__ import annotations
 
+from hvq import hostos
+
 from pathlib import Path
 import re
 import shutil
@@ -275,7 +277,7 @@ def finalize(job: dict[str, Any], descriptor: dict[str, Any], prepared_root: Pat
     home = checked_path(paths["task"] / "turboism-home")
     if home.is_dir():
         archiver = prepared_root / "tool/scripts/preview/archive-cubism-host-evidence.sh"
-        subprocess.run(["bash", str(archiver), str(home), str(output / "final-task")],
+        subprocess.run([hostos.HostOs.shell(), str(archiver), str(home), str(output / "final-task")],
                        check=True, timeout=30, stdin=subprocess.DEVNULL, capture_output=True)
     state = requested or ("succeeded" if evidence["validationStatus"] == "PASS" else "failed")
     if state == "succeeded" and not paths["keepPrefix"] and paths["prefix"].exists():

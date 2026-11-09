@@ -81,6 +81,11 @@ def digest_json(value: Any) -> str:
     return hashlib.sha256(canonical_json(value).encode()).hexdigest()
 
 
+def shell() -> str:
+    """Absolute POSIX shell that runs the validation task scripts on this host."""
+    return HostOs.shell()
+
+
 def interrupt_signals() -> tuple[int, ...]:
     """Signals that may carry a cooperative stop handler on this host."""
     return HostOs.interrupt_signals()
