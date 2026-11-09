@@ -2,6 +2,7 @@ package dev.turboism.tests.plugin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
@@ -12,6 +13,9 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -247,6 +251,83 @@ class AutoMeshFrameworkValidationProbeTest {
         System.setProperty(property, " 45 ");
         assertEquals(Duration.ofSeconds(45), AutoMeshProbeBudget.read(property, fallback));
         System.clearProperty(property);
+    }
+
+    @Test
+    void readinessProceedsWhenTheSignalReportsReadyOnTheFirstEvaluation() throws Exception {
+        final AtomicInteger evaluations = new AtomicInteger();
+        final AutoMeshProbeReadiness.Outcome outcome = AutoMeshProbeReadiness.await(
+                () -> {
+                    evaluations.incrementAndGet();
+                    return Optional.empty();
+                },
+                Duration.ofSeconds(5),
+                1L);
+        assertTrue(outcome.ready());
+        assertEquals("", outcome.reason());
+        assertEquals(1, evaluations.get());
+    }
+
+    @Test
+    void readinessBlocksWithTheLastReasonWhenTheDeadlineExpires() throws Exception {
+        final AtomicInteger evaluations = new AtomicInteger();
+        final AutoMeshProbeReadiness.Outcome outcome = AutoMeshProbeReadiness.await(
+                () -> {
+                    evaluations.incrementAndGet();
+                    return Optional.of("the active model exposes no readable ArtMesh");
+                },
+                Duration.ZERO,
+                1L);
+        assertFalse(outcome.ready());
+        assertEquals("the active model exposes no readable ArtMesh", outcome.reason());
+        assertEquals(1, evaluations.get());
+    }
+
+    @Test
+    void readinessProceedsOnceALaterEvaluationReportsReady() throws Exception {
+        final AtomicInteger evaluations = new AtomicInteger();
+        final AutoMeshProbeReadiness.Outcome outcome = AutoMeshProbeReadiness.await(
+                () -> evaluations.incrementAndGet() < 3
+                        ? Optional.of("the plugin load wave is not committed")
+                        : Optional.empty(),
+                Duration.ofSeconds(30),
+                1L);
+        assertTrue(outcome.ready());
+        assertEquals(3, evaluations.get());
+    }
+
+    @Test
+    void readinessRejectsANonPositivePollInterval() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AutoMeshProbeReadiness.await(Optional::<String>empty, Duration.ofSeconds(1), 0L));
+    }
+
+    @Test
+    void guardCallbackAssertionAcceptsAnyFunctionImplementation() {
+        final Function<Object, Object> lambda = arguments -> arguments;
+        assertTrue(lambda instanceof Function<?, ?>);
+        assertFalse("java.util.function.Function".equals(lambda.getClass().getName()));
+    }
+
+    @Test
+    void hostVersionCodeCompactsDottedReleasesAndRejectsOtherShapes() {
+        assertEquals("5302", AutoMeshHostVersionCode.compact("5.3.02"));
+        assertEquals("5203", AutoMeshHostVersionCode.compact("5.2.03"));
+        assertEquals("", AutoMeshHostVersionCode.compact("5302"));
+        assertEquals("", AutoMeshHostVersionCode.compact(""));
+        assertEquals("", AutoMeshHostVersionCode.compact(null));
+    }
+
+    @Test
+    void hostVersionCodeAdmitsOnlyReviewedCompactReleases() {
+        assertTrue(AutoMeshHostVersionCode.admitted("5302"));
+        assertTrue(AutoMeshHostVersionCode.admitted("5203"));
+        assertTrue(AutoMeshHostVersionCode.admitted("5303"));
+        assertFalse(AutoMeshHostVersionCode.admitted("5.3.02"));
+        assertFalse(AutoMeshHostVersionCode.admitted("9999"));
+        assertFalse(AutoMeshHostVersionCode.admitted(""));
+        assertFalse(AutoMeshHostVersionCode.admitted(null));
     }
 
     private static ArtMeshGeometry square() {
