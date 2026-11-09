@@ -118,3 +118,19 @@ The local EXE is unsigned and is not the final signed release candidate.
   remain unaccepted; the repository's `parameter-batch-transfer` host probe already asserts
   transfer, invert, undo, redo and the source-as-default-target case, so the remaining work is a
   queue run on the Linux host rather than more UI driving.
+
+## Operator manual acceptance (2026-11-09, session `host-5304-manual`)
+
+The operator drove the native host directly and reported these results.
+Agent `2d74efe07d1f3eebbba37dd27f1830a09a06b2126fbddef6fcac7d1bc116a223`,
+Cubism 5.3.04, isolated installation, fixture `physics-model.cmo3`.
+
+| Item | Operator result |
+| --- | --- |
+| Parameter sync | Normal |
+| Batch transfer parameter self-inversion | Normal |
+| Batch deformer rename undo/redo | Normal |
+
+These observations are unattended UI evidence, not instrumented assertions.
+They confirm the workflows complete and undo once; they do not measure values.
+The stale-preview refusal remains unobserved.
