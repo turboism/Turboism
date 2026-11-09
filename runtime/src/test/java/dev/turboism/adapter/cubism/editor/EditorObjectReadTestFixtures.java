@@ -558,6 +558,11 @@ public final class EditorObjectReadTestFixtures {
         public Object textureInputExtension() {
             return textureInputExtension;
         }
+
+        /** Host-shaped accessor the texture-pixel read resolves; the observation read uses the other. */
+        public Object getTextureInputExtension() {
+            return textureInputExtension;
+        }
     }
 
     /** {@code CTextureManager} stand-in: flattened model-image table in atlas order. */
@@ -607,6 +612,165 @@ public final class EditorObjectReadTestFixtures {
 
         public ClipGuidList(final java.util.Collection<? extends Id> values) {
             super(values);
+        }
+    }
+
+    /** {@code CTextureInputExtension} stand-in that answers with one current texture input. */
+    public static final class PixelTexExtension {
+        private final Object current;
+
+        PixelTexExtension(final Object current) {
+            this.current = current;
+        }
+
+        public Object getCurrentTextureInputData() {
+            return current;
+        }
+    }
+
+    /** {@code ACTextureInput} stand-in: the model-image and atlas-region inputs both answer here. */
+    public static final class PixelTexInput {
+        private final PixelCachedImage cached;
+
+        PixelTexInput(final PixelCachedImage cached) {
+            this.cached = cached;
+        }
+
+        public PixelCachedImage getCachedImage(final PixelCachedImageParam parameter) {
+            return cached;
+        }
+    }
+
+    /** {@code CachedImageParam} stand-in exposing the host's default parameter singleton. */
+    public static final class PixelCachedImageParam {
+        static final PixelCachedImageParam DEFAULT = new PixelCachedImageParam();
+
+        public static PixelCachedImageParam b() {
+            return DEFAULT;
+        }
+    }
+
+    /**
+     * {@code CCachedImage} stand-in. The raw extent and the raw-01 to cached-01 transform describe
+     * the cached canvas, which can be padded beyond the raster the resource holds.
+     */
+    public static final class PixelCachedImage {
+        private final PixelCSize rawSize;
+        private final PixelImageResource resource;
+        private final PixelCAffine rawToCached;
+
+        PixelCachedImage(final int rawWidth, final int rawHeight, final int[] argb) {
+            this(rawWidth, rawHeight, new PixelWritableImage(argb, rawWidth, rawHeight), new PixelCAffine());
+        }
+
+        PixelCachedImage(final int rawWidth, final int rawHeight, final int[] argb, final PixelCAffine rawToCached) {
+            this(rawWidth, rawHeight, new PixelWritableImage(argb, rawWidth, rawHeight), rawToCached);
+        }
+
+        PixelCachedImage(
+                final int rawWidth,
+                final int rawHeight,
+                final PixelWritableImage image,
+                final PixelCAffine rawToCached) {
+            this.rawSize = new PixelCSize(rawWidth, rawHeight);
+            this.resource = new PixelImageResource(image);
+            this.rawToCached = rawToCached;
+        }
+
+        public PixelCSize b() {
+            return rawSize;
+        }
+
+        public PixelImageResource a() {
+            return resource;
+        }
+
+        public PixelCAffine f() {
+            return rawToCached;
+        }
+    }
+
+    /** {@code CSize} stand-in reporting the cached canvas extent. */
+    public static final class PixelCSize {
+        private final int width;
+        private final int height;
+
+        PixelCSize(final int width, final int height) {
+            this.width = width;
+            this.height = height;
+        }
+
+        public int getWidth() {
+            return width;
+        }
+
+        public int getHeight() {
+            return height;
+        }
+    }
+
+    /** {@code CImageResource} stand-in holding the decoded writable image. */
+    public static final class PixelImageResource {
+        private final PixelWritableImage image;
+
+        PixelImageResource(final int[] argb) {
+            this(new PixelWritableImage(argb));
+        }
+
+        PixelImageResource(final PixelWritableImage image) {
+            this.image = image;
+        }
+
+        public PixelWritableImage getImage() {
+            return image;
+        }
+    }
+
+    /** {@code CWritableImage} stand-in: an int raster, optionally without the AWT fallback. */
+    public static final class PixelWritableImage {
+        private final int[] argb;
+        private final int width;
+        private final int height;
+        boolean intBufferUnavailable;
+
+        PixelWritableImage(final int[] argb) {
+            this(argb, 1, argb.length);
+        }
+
+        PixelWritableImage(final int[] argb, final int width, final int height) {
+            this.argb = argb;
+            this.width = width;
+            this.height = height;
+        }
+
+        public int getWidth() {
+            return width;
+        }
+
+        public int getHeight() {
+            return height;
+        }
+
+        public int[] getIntBuffer() {
+            return intBufferUnavailable ? null : argb;
+        }
+
+        public java.awt.image.BufferedImage getJBufferedImage() {
+            return null;
+        }
+    }
+
+    /** {@code CAffine} stand-in mirroring the host's six-element matrix surface. */
+    public static final class PixelCAffine {
+        private float[] matrix = {1, 0, 0, 0, 1, 0};
+
+        public float[] getMatrix() {
+            return matrix;
+        }
+
+        PixelCAffine scale(final float x, final float y) {
+            matrix = new float[] {x, 0, 0, 0, y, 0};
+            return this;
         }
     }
 

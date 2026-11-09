@@ -96,6 +96,29 @@ class PermissionCheckedModelForwardingTest {
     }
 
     @Test
+    void texturePixelsReadsThroughThePermissionGateLikeEveryOtherDrawableRead() {
+        final var calls = new ArrayList<String>();
+        final boolean[] read = {true}, active = {true};
+        final var model = facade(
+                        new RecordingModel(calls),
+                        List.of(readPermission(read), writePermission(true)),
+                        () -> active[0])
+                .model()
+                .active();
+        final var mesh = model.drawables().find(new ArtMeshId("ArtMeshA"));
+
+        assertEquals(0xFF102030, mesh.texturePixels().orElseThrow().argb()[0]);
+        assertEquals(List.of("drawable.texturePixels"), calls);
+
+        read[0] = false;
+        assertThrows(CubismPermissionException.class, mesh::texturePixels);
+        active[0] = false;
+        read[0] = true;
+        assertThrows(IllegalStateException.class, mesh::texturePixels);
+        assertEquals(1, calls.size(), "a denied or stale read must not reach the delegate");
+    }
+
+    @Test
     void interpolationChecksRevokedPermissionsAndActiveScopeOnRetainedOperations() {
         var calls = new ArrayList<String>();
         boolean[] read = {true}, write = {true}, active = {true};

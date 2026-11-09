@@ -13,8 +13,12 @@ import dev.turboism.sdk.CubismEditor;
  * {@code argb} is row-major {@code width * height} in {@code 0xAARRGGBB} format.
  *
  * <p>Empty when the host cannot resolve the drawable's texture input or decode its pixels.</p>
+ *
+ * <p>Every reviewed Editor release carries the texture-input chain this type describes, so the
+ * availability floor is the oldest reviewed release rather than the versions the first consumer
+ * needed.</p>
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03", "5.3.04"})
+@CubismEditor(from = "5.0.00")
 public record TexturePixels(int width, int height, int[] argb, double[] uvToPixel) {
 
     /**
