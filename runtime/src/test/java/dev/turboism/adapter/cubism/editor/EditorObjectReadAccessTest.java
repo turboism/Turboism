@@ -1976,12 +1976,17 @@ class EditorObjectReadAccessTest {
                         PixelTexInput.class,
                         "getCachedImage",
                         "(" + type(PixelCachedImageParam.class) + ")" + type(PixelCachedImage.class)),
-                StaticSelector.staticMethod(
-                        "cubism.editor-model.cached-image-param.default",
+                StaticSelector.field(
+                        "cubism.editor-model.cached-image-param.companion",
                         internal(PixelCachedImageParam.class),
-                        "b",
-                        desc(PixelCachedImageParam.class),
+                        "Companion",
+                        type(PixelCachedImageParam.Companion.class),
                         StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC),
+                method(
+                        "cubism.editor-model.cached-image-param.default",
+                        PixelCachedImageParam.Companion.class,
+                        "b",
+                        desc(PixelCachedImageParam.class)),
                 method("cubism.editor-model.cached-image.size", PixelCachedImage.class, "b", desc(PixelCSize.class)),
                 method(
                         "cubism.editor-model.cached-image.resource",

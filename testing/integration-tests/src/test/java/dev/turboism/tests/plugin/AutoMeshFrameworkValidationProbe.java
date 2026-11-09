@@ -668,6 +668,7 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
      * @throws Exception when the host refuses a container operation
      */
     private void checkSelectorRow(final Path dumpRoot) throws Exception {
+        final int nativeChildren = nativeContainerChildren();
         final NativeAutoMeshPopup.Build build = onUi(NativeAutoMeshPopup::open);
         result.put("selector.containerClass", build.containerClass());
         result.put("selector.centerClass", build.centerClass());
@@ -683,15 +684,15 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
         }
         final Object popup = build.container();
         try {
-            final int children = awaitRowAttached(popup, build.childrenBefore());
-            result.put("selector.containerChildrenBefore", Integer.toString(build.childrenBefore()));
+            final int children = awaitRowAttached(popup, nativeChildren);
+            result.put("selector.containerChildrenBefore", Integer.toString(nativeChildren));
             result.put("selector.containerChildren", Integer.toString(children));
             result.put("selector.attachCallback", attachCallbackState());
             record(
                     "selector.rowAttached",
                     ROW_EXPECTATION,
                     Integer.toString(children),
-                    statusOf(children > build.childrenBefore()));
+                    statusOf(children > nativeChildren));
             final NativeAutoMeshPopup.Capture capture = NativeAutoMeshPopup.capture(popup, dumpRoot);
             if (capture.file().isPresent()) {
                 result.put("selector.screenshot", capture.file().orElseThrow().toString());
@@ -707,6 +708,34 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
         } finally {
             NativeAutoMeshPopup.close(popup);
         }
+    }
+
+    /**
+     * Counts the widgets of a native container built without the runtime attach route.
+     *
+     * <p>The attach hook runs inside the container constructor, so any container built while the
+     * route is installed already carries the row. The only honest baseline is a container built
+     * while the route is absent. The probe lifts the route property for that one construction on
+     * the Editor UI thread and restores it in a finally block; no user popup exists during
+     * validation, so no other construction can observe the gap.</p>
+     *
+     * @return the widget count of an unmodified native container, or {@code -1} when none was built
+     * @throws Exception when the host refuses a container operation
+     */
+    private int nativeContainerChildren() throws Exception {
+        return onUi(() -> {
+            final Object route = System.getProperties().remove(GUARD_ATTACH_KEY);
+            try {
+                final NativeAutoMeshPopup.Build baseline = NativeAutoMeshPopup.open();
+                final int count = baseline.built() ? baseline.childrenBefore() : -1;
+                NativeAutoMeshPopup.close(baseline.container());
+                return count;
+            } finally {
+                if (route != null) {
+                    System.getProperties().put(GUARD_ATTACH_KEY, route);
+                }
+            }
+        });
     }
 
     /**

@@ -29,6 +29,7 @@ final class EditorObjectReadCore {
     private static final String CURRENT_TEXTURE_INPUT_ALIAS =
             "cubism.editor-model.texture-input-extension.current-texture-input-data";
     private static final String TEXTURE_INPUT_CACHED_IMAGE_ALIAS = "cubism.editor-model.texture-input.cached-image";
+    private static final String CACHED_IMAGE_PARAM_COMPANION_ALIAS = "cubism.editor-model.cached-image-param.companion";
     private static final String CACHED_IMAGE_PARAM_DEFAULT_ALIAS = "cubism.editor-model.cached-image-param.default";
     private static final String CACHED_IMAGE_SIZE_ALIAS = "cubism.editor-model.cached-image.size";
     private static final String CACHED_IMAGE_RESOURCE_ALIAS = "cubism.editor-model.cached-image.resource";
@@ -131,7 +132,9 @@ final class EditorObjectReadCore {
             diagnose("the texture-input extension carries no current input");
             return Optional.empty();
         }
-        final Object parameter = resolver.invokeStatic(CACHED_IMAGE_PARAM_DEFAULT_ALIAS);
+        // The host declares the default parameter on the Kotlin companion object, so it is an instance call.
+        final Object parameter = resolver.invoke(
+                CACHED_IMAGE_PARAM_DEFAULT_ALIAS, resolver.readStaticField(CACHED_IMAGE_PARAM_COMPANION_ALIAS));
         final Object cached = resolver.invoke(TEXTURE_INPUT_CACHED_IMAGE_ALIAS, input, parameter);
         if (cached == null) {
             diagnose("the texture input exposes no cached image");

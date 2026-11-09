@@ -27,6 +27,7 @@ public final class EditorObjectReadSelectorContract {
         "cubism.editor-model.art-mesh-source.texture-input-extension",
         "cubism.editor-model.texture-input-extension.current-texture-input-data",
         "cubism.editor-model.texture-input.cached-image",
+        "cubism.editor-model.cached-image-param.companion",
         "cubism.editor-model.cached-image-param.default",
         "cubism.editor-model.cached-image.size",
         "cubism.editor-model.cached-image.resource",

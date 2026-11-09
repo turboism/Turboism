@@ -641,12 +641,19 @@ public final class EditorObjectReadTestFixtures {
         }
     }
 
-    /** {@code CachedImageParam} stand-in exposing the host's default parameter singleton. */
+    /**
+     * {@code CachedImageParam} stand-in. The host keeps the default parameter on a Kotlin companion
+     * object, so the default is an instance method of {@link Companion} reached through a static field.
+     */
     public static final class PixelCachedImageParam {
+        public static final Companion Companion = new Companion();
         static final PixelCachedImageParam DEFAULT = new PixelCachedImageParam();
 
-        public static PixelCachedImageParam b() {
-            return DEFAULT;
+        /** {@code CachedImageParam$a} stand-in. */
+        public static final class Companion {
+            public PixelCachedImageParam b() {
+                return DEFAULT;
+            }
         }
     }
 
