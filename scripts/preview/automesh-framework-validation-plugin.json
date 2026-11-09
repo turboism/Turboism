@@ -1,0 +1,54 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.validation.automesh-framework",
+  "name": "Auto Mesh Framework Validation Probe",
+  "version": "0.1.0",
+  "description": "Manual-test-only public SDK probe for the Auto Mesh algorithm registry, the native funnel guard, custom dispatch, Undo/Redo and the selector row.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.AutoMeshFrameworkValidationProbe"
+  ],
+  "turboismApi": "[0.68.1,1.0.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read the probed ArtMesh geometry and texture pixels during exact-host validation."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Restore the probed ArtMesh geometry after each validation step."
+    },
+    {
+      "id": "turboism.cubism.mesh.automesh.contribute",
+      "scope": "application",
+      "reason": "Select the probed algorithm through the session registry during validation."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Write the validation result properties file and the mesh dump."
+    }
+  ],
+  "capabilities": [
+    "cubism.mesh.read",
+    "cubism.mesh.write",
+    "cubism.mesh.automesh-algorithms"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  }
+}

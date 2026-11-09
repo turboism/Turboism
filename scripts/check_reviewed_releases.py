@@ -1134,6 +1134,15 @@ r4_MANIFEST_PATH = HOST_TASKS
 r4_TASK_EXPLICIT_CAPABILITIES: dict[str, tuple[str, ...]] = {
     "atlas-folders": ("cubism.texture-atlas.layout.write", "cubism.editor-model.read", "cubism.editor-model.write", "cubism.editor-model.texture.read"),
     "atlas-image": ("cubism.texture-atlas.data-model-hook",),
+    # The probe reads and restores ArtMesh geometry, reads texture pixels for the Alpha IoU,
+    # and drives native Undo/Redo around one custom run.
+    "automesh": (
+        "cubism.editor-model.read",
+        "cubism.editor-model.write",
+        "cubism.editor-model.texture.read",
+        "cubism.editor-history.read",
+        "cubism.editor-history.move",
+    ),
     "backup-interactive": (
         "cubism.autobackup.backup",
         "cubism.autobackup.settings",

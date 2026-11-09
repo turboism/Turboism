@@ -5664,6 +5664,43 @@
         "host-slot": 1,
         "display-input": 1
       }
+    },
+    "automesh": {
+      "description": "Auto Mesh framework end-to-end validation: algorithm registry, native funnel guard, custom dispatch with Undo/Redo, multi-keyform refusal and the selector row.",
+      "command": "scripts/preview/run-automesh-framework-host-validation.sh",
+      "versions": [
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "resources": {
+        "host-slot": 1
+      },
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      }
     }
   }
 }
