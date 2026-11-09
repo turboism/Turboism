@@ -321,9 +321,13 @@ public final class RegionAlgorithm {
         }
 
         private static String summary(final RegionPlacementPlan plan) {
+            final String stages =
+                    plan.fallback() == RegionPlacementPlan.Fallback.NONE ? "" : ", fallback=" + plan.fallback();
             return "regions=" + plan.regions().regionCount()
                     + ", vertices=" + plan.vertexCountAfterMerge()
-                    + ", triangles=" + plan.triangleCount();
+                    + ", triangles=" + plan.triangleCount()
+                    + ", triangleIou=" + String.format(java.util.Locale.ROOT, "%.4f", plan.triangleIou())
+                    + stages;
         }
 
         /**

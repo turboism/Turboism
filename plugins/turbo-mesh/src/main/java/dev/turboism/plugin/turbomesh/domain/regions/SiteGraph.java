@@ -24,6 +24,7 @@ final class SiteGraph {
     private final List<int[]> edgeEnds = new ArrayList<>();
     private final List<ConstraintRole> edgeRoles = new ArrayList<>();
     private final Map<Long, Integer> edgeIndex = new HashMap<>();
+    private final List<List<Integer>> adjacency = new ArrayList<>(INITIAL_SITES);
 
     private int boundaryCount = -1;
 
@@ -70,6 +71,16 @@ final class SiteGraph {
         }
         edgeEnds.add(new int[] {Math.min(a, b), Math.max(a, b)});
         edgeRoles.add(role);
+        neighbours(a).add(b);
+        neighbours(b).add(a);
+    }
+
+    /** Sites that an existing edge connects to {@code site}, in edge insertion order. */
+    List<Integer> neighbours(final int site) {
+        while (adjacency.size() <= site) {
+            adjacency.add(new ArrayList<>(2));
+        }
+        return adjacency.get(site);
     }
 
     /** Marks the current site count as the boundary count; later sites count as interior. */

@@ -88,8 +88,9 @@ final class RegionDumpWriter {
         graphics.drawString(
                 name + "  regions=" + plan.regions().regionCount() + "  vertices="
                         + plan.vertexCountAfterMerge() + " (" + plan.vertexCountBeforeMerge()
-                        + ")  triangles=" + plan.triangleCount() + "  iou=" + String.format("%.4f", plan.alphaIou())
-                        + "  " + plan.shapeFamily(),
+                        + ")  triangles=" + plan.triangleCount() + "  triangleIou="
+                        + String.format("%.4f", plan.triangleIou())
+                        + "  " + plan.shapeFamily() + "  fallback=" + plan.fallback(),
                 6,
                 13);
         graphics.drawImage(sourcePanel(sample, scale), 0, HEADER_HEIGHT, null);
