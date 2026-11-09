@@ -11,6 +11,7 @@ gif.executable-hint
 gif.export
 gif.failed
 gif.fps
+gif.gifsicle.missing
 gif.height
 gif.invalid
 gif.limit

@@ -389,6 +389,12 @@ final class GifRecordingController implements AutoCloseable {
                 if (dialog != null) dialog.rememberDirectory(destination);
                 return i18n.text("gif.saved") + " " + destination.getFileName() + " (" + Files.size(destination)
                         + " B)";
+            } catch (GifFrameEncoder.OptimizerUnavailableException missing) {
+                checkCancelled();
+                // Keep the recording and tell the operator how to recover; the unoptimized path
+                // needs no optimizer at all.
+                error = i18n.format("gif.gifsicle.missing", missing.executable());
+                logger.warn("GIF optimizer is unavailable: " + missing.executable());
             } catch (IOException failure) {
                 checkCancelled();
                 error = i18n.text("gif.failed") + " " + failure.getMessage();

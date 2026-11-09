@@ -127,6 +127,25 @@ final class GifFrameEncoder implements AutoCloseable {
     }
 
     /**
+     * Signals that the configured optimizer executable could not be started.
+     *
+     * <p>The caller turns this into actionable guidance, because "CreateProcess error=2" tells an
+     * operator nothing and an unoptimized export needs no optimizer at all.</p>
+     */
+    static final class OptimizerUnavailableException extends IOException {
+        private final String executable;
+
+        OptimizerUnavailableException(final String executable, final IOException cause) {
+            super("Gifsicle is not available: " + executable, cause);
+            this.executable = executable;
+        }
+
+        String executable() {
+            return executable;
+        }
+    }
+
+    /**
      * Rewrites the recording at the requested pixel size without an external optimizer.
      *
      * <p>This is the unoptimized export path: the frames are resampled in-process, the delay
@@ -199,10 +218,16 @@ final class GifFrameEncoder implements AutoCloseable {
     }
 
     private static void run(final List<String> command) throws IOException, InterruptedException {
-        final Process process = new ProcessBuilder(command)
-                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                .redirectError(ProcessBuilder.Redirect.DISCARD)
-                .start();
+        final Process process;
+        try {
+            process = new ProcessBuilder(command)
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start();
+        } catch (IOException missing) {
+            // The host reports a bare "CreateProcess error=2" here; name the actual problem instead.
+            throw new OptimizerUnavailableException(command.get(0), missing);
+        }
         try {
             if (!process.waitFor(OPTIMIZER_TIMEOUT_SECONDS, TimeUnit.SECONDS))
                 throw new IOException("Gifsicle timed out");
