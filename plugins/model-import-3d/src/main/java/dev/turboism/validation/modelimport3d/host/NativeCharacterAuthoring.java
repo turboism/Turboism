@@ -578,9 +578,10 @@ public final class NativeCharacterAuthoring {
                                 .toList(),
                         bound.morphKeys());
 
-                if (!expected.equals(mesh.authoringSnapshot())) {
+                final String mismatch = ArtMeshAuthoringMatch.describe(expected, mesh.authoringSnapshot());
+                if (mismatch != null) {
                     throw new IllegalStateException(
-                            "ArtMesh keyform readback mismatch for partition " + partitionIndex);
+                            "ArtMesh keyform readback mismatch for partition " + partitionIndex + ": " + mismatch);
                 }
                 banks.add(expected);
             }
@@ -593,9 +594,11 @@ public final class NativeCharacterAuthoring {
 
         // Verify placement did not mutate stored authoring snapshots
         for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
-            if (!banks.get(pIdx)
-                    .equals(model.drawables().find(meshIds.get(pIdx)).authoringSnapshot())) {
-                throw new IllegalStateException("Placement changed direct source banks for partition " + pIdx);
+            final String moved = ArtMeshAuthoringMatch.describe(
+                    banks.get(pIdx), model.drawables().find(meshIds.get(pIdx)).authoringSnapshot());
+            if (moved != null) {
+                throw new IllegalStateException(
+                        "Placement changed direct source banks for partition " + pIdx + ": " + moved);
             }
         }
 
