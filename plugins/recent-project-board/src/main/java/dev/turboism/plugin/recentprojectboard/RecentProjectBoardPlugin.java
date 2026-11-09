@@ -68,6 +68,8 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
     static final int IMAGE_MAX_WIDTH = 220;
     static final int IMAGE_MAX_HEIGHT = 220;
     static final int PANEL_PRIORITY = 20;
+    /** Keeps every list row's text block the same width, so names line up across rows. */
+    static final int LIST_TEXT_BLOCK_WIDTH = 320;
 
     /** Breathing room above the board title, so the header never touches the overlay edge. */
     private static final int HEADER_TOP_INSET = 10;
@@ -372,12 +374,14 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
                 OPEN_ACTION_ID,
                 PanelView.leftRow(
                         preview,
+                        // Fixed width, natural height: the row then centers this block against the
+                        // preview. A fixed height made the labels sit at the top of a tall cell.
                         PanelView.centered(
                                 PanelView.column(
                                         PanelView.text(file.displayName(), false, layout.textScale()),
                                         PanelView.text(modified, true, layout.textScale())),
-                                320,
-                                imageSize)));
+                                LIST_TEXT_BLOCK_WIDTH,
+                                0)));
     }
 
     private PanelView detailsList(final List<PanelView> rows) {

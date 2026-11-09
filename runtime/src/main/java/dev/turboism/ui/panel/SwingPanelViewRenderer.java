@@ -304,8 +304,13 @@ public final class SwingPanelViewRenderer {
             final GridBagConstraints constraints = new GridBagConstraints();
             constraints.gridx = 0;
             constraints.gridy = 0;
-            if (centered.preferredWidth() > 0 && centered.preferredHeight() > 0) {
-                final Dimension fixed = new Dimension(centered.preferredWidth(), centered.preferredHeight());
+            final JComponent content = renderNode(centered.child(), action, false, locale, iconResolver);
+            if (centered.preferredWidth() > 0 || centered.preferredHeight() > 0) {
+                // A zero dimension keeps the child's natural size in that direction.
+                final Dimension natural = content.getPreferredSize();
+                final Dimension fixed = new Dimension(
+                        centered.preferredWidth() > 0 ? centered.preferredWidth() : natural.width,
+                        centered.preferredHeight() > 0 ? centered.preferredHeight() : natural.height);
                 panel.setPreferredSize(fixed);
                 panel.setMinimumSize(fixed);
                 // A child taller than the cell would paint outside it and grow the surrounding row.
@@ -313,7 +318,7 @@ public final class SwingPanelViewRenderer {
                 constraints.weightx = 1.0;
                 constraints.weighty = 1.0;
             }
-            panel.add(renderNode(centered.child(), action, false, locale, iconResolver), constraints);
+            panel.add(content, constraints);
             panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
             return panel;
         }
@@ -466,7 +471,7 @@ public final class SwingPanelViewRenderer {
         }
 
         if (view instanceof PanelView.Card card) {
-            final JPanel panel = new JPanel(new BorderLayout());
+            final CardSurface panel = new CardSurface();
             panel.setName(card.id());
             panel.setOpaque(false);
             panel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -476,7 +481,7 @@ public final class SwingPanelViewRenderer {
                                     new ThemedCardBorder(), javax.swing.BorderFactory.createEmptyBorder(6, 6, 6, 6))
                             : javax.swing.BorderFactory.createEmptyBorder(4, 6, 4, 6));
             panel.add(renderNode(card.content(), action, false, locale, iconResolver), BorderLayout.CENTER);
-            installCardHover(panel);
+            installCardFeedback(panel);
             installCardActivation(panel, card, action);
             return panel;
         }
@@ -678,41 +683,142 @@ public final class SwingPanelViewRenderer {
     }
 
     /**
-     * Gives a card a visible hover and press state.
+     * Gives a card a visible hover and press state across its whole surface.
      *
-     * <p>The board opens a card on double click, so a click without feedback reads as a missed
-     * target. The state is painted by {@link InteractiveCardBorder}; the child components stay
-     * untouched, so nested controls keep their own behaviour.</p>
+     * <p>The state is installed on the card and every rendered descendant. A container only receives
+     * a mouse-entered event for the pixels no child covers, and a board card is covered edge to edge
+     * by its preview and labels, so the card panel alone never saw the pointer. The tint is painted
+     * by {@link CardSurface}; the outline state is painted by {@link InteractiveCardBorder}.</p>
      */
-    private static void installCardHover(final JPanel panel) {
+    private static void installCardFeedback(final CardSurface panel) {
+        final InteractiveCardBorder interactive = borderedBorder(panel);
+        final CardFeedback feedback = new CardFeedback(panel, interactive);
+        feedback.attach(panel);
+    }
+
+    private static InteractiveCardBorder borderedBorder(final CardSurface panel) {
         if (!(panel.getBorder() instanceof javax.swing.border.CompoundBorder compound)
                 || !(compound.getOutsideBorder() instanceof ThemedCardBorder themed)) {
-            return;
+            return null;
         }
         final InteractiveCardBorder interactive = new InteractiveCardBorder(panel, themed.getLineColor(), true);
         panel.setBorder(javax.swing.BorderFactory.createCompoundBorder(interactive, compound.getInsideBorder()));
-        panel.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseEntered(final MouseEvent event) {
-                interactive.setHovered(true);
-            }
+        return interactive;
+    }
 
-            @Override
-            public void mouseExited(final MouseEvent event) {
-                interactive.setHovered(false);
-                interactive.setPressed(false);
-            }
+    /**
+     * Tracks the pointer over one card subtree.
+     *
+     * <p>Entering a child exits its parent, so the counter may touch zero between two events of the
+     * same dispatch cycle. The painted state is recomputed when the cycle ends, which keeps the
+     * highlight from flickering at every internal boundary.</p>
+     */
+    private static final class CardFeedback extends MouseAdapter {
+        private final CardSurface surface;
+        private final InteractiveCardBorder interactive;
+        private int hovered;
+        private boolean pressed;
 
-            @Override
-            public void mousePressed(final MouseEvent event) {
-                if (SwingUtilities.isLeftMouseButton(event)) interactive.setPressed(true);
-            }
+        private CardFeedback(final CardSurface surface, final InteractiveCardBorder interactive) {
+            this.surface = surface;
+            this.interactive = interactive;
+        }
 
-            @Override
-            public void mouseReleased(final MouseEvent event) {
-                interactive.setPressed(false);
+        private void attach(final Component component) {
+            component.addMouseListener(this);
+            if (component instanceof java.awt.Container container) {
+                for (Component child : container.getComponents()) {
+                    attach(child);
+                }
             }
-        });
+        }
+
+        @Override
+        public void mouseEntered(final MouseEvent event) {
+            hovered++;
+            schedule();
+        }
+
+        @Override
+        public void mouseExited(final MouseEvent event) {
+            hovered = Math.max(0, hovered - 1);
+            if (hovered == 0) pressed = false;
+            schedule();
+        }
+
+        @Override
+        public void mousePressed(final MouseEvent event) {
+            if (SwingUtilities.isLeftMouseButton(event)) {
+                pressed = true;
+                schedule();
+            }
+        }
+
+        @Override
+        public void mouseReleased(final MouseEvent event) {
+            if (pressed) {
+                pressed = false;
+                schedule();
+            }
+        }
+
+        private void schedule() {
+            if (pending) return;
+            pending = true;
+            SwingUtilities.invokeLater(this::apply);
+        }
+
+        private void apply() {
+            pending = false;
+            surface.setInteractionState(hovered > 0, pressed);
+            if (interactive != null) {
+                interactive.setHovered(hovered > 0);
+                interactive.setPressed(pressed);
+            }
+        }
+
+        private boolean pending;
+    }
+
+    /** Card container that paints the hover and press tint its border alone could not show. */
+    private static final class CardSurface extends JPanel {
+        private static final int CORNER_RADIUS = 8;
+        /** Accent coverage of the card area: light enough to keep text readable in either theme. */
+        private static final int HOVER_ALPHA = 28;
+
+        private static final int PRESS_ALPHA = 64;
+
+        private boolean hovered;
+        private boolean pressed;
+
+        private CardSurface() {
+            super(new BorderLayout());
+        }
+
+        private void setInteractionState(final boolean hovered, final boolean pressed) {
+            if (this.hovered == hovered && this.pressed == pressed) return;
+            this.hovered = hovered;
+            this.pressed = pressed;
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(final java.awt.Graphics graphics) {
+            if (hovered || pressed) {
+                java.awt.Color accent = javax.swing.UIManager.getColor(ACCENT_COLOR_KEY);
+                if (accent == null) accent = getForeground();
+                final int alpha = pressed ? PRESS_ALPHA : HOVER_ALPHA;
+                final Graphics2D copy = (Graphics2D) graphics.create();
+                try {
+                    copy.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    copy.setColor(new java.awt.Color(accent.getRed(), accent.getGreen(), accent.getBlue(), alpha));
+                    copy.fillRoundRect(0, 0, getWidth(), getHeight(), CORNER_RADIUS, CORNER_RADIUS);
+                } finally {
+                    copy.dispose();
+                }
+            }
+            super.paintComponent(graphics);
+        }
     }
 
     /** Card outline that brightens on hover and switches to the accent colour while pressed. */

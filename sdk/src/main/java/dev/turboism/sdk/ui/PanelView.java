@@ -529,14 +529,17 @@ public sealed interface PanelView
     }
 
     /** Centers one child block in the available width and height. */
+    /**
+     * Centers one child block inside the available space.
+     *
+     * <p>A zero dimension keeps the child's natural size in that direction, so a caller can pin the
+     * width of a text block and let its height follow the content.</p>
+     */
     record Centered(PanelView child, int preferredWidth, int preferredHeight) implements PanelView {
         public Centered {
             child = Objects.requireNonNull(child, "child");
             if (preferredWidth < 0 || preferredHeight < 0) {
                 throw new IllegalArgumentException("preferred dimensions must be non-negative");
-            }
-            if ((preferredWidth == 0) != (preferredHeight == 0)) {
-                throw new IllegalArgumentException("preferred width and height must both be zero or both be positive");
             }
         }
 

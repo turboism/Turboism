@@ -825,6 +825,96 @@ class SwingPanelViewRendererTest {
     }
 
     @Test
+    void centeredBoxPinsTheWidthAndLetsTheHeightFollowTheContent() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.centered(PanelView.column(PanelView.text("name"), PanelView.text("date")), 320, 0),
+                    (action, event) -> {});
+            final JPanel centered = assertInstanceOf(JPanel.class, rendered);
+            assertEquals(320, centered.getPreferredSize().width, "the pinned width survives");
+            assertTrue(
+                    centered.getPreferredSize().height < 96,
+                    "a zero height must follow the content, not inherit the row: " + centered.getPreferredSize());
+        });
+    }
+
+    @Test
+    void listRowCentersThePinnedTextBlockAgainstItsPreview() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.leftRow(
+                            PanelView.centered(PanelView.text("thumb"), 110, 96),
+                            PanelView.centered(
+                                    PanelView.column(PanelView.text("name"), PanelView.text("date")), 320, 0)),
+                    (action, event) -> {});
+            final JPanel row = assertInstanceOf(JPanel.class, rendered);
+            row.setSize(500, 96);
+            row.doLayout();
+            final JPanel right = assertInstanceOf(JPanel.class, row.getComponent(1));
+            right.doLayout();
+            final JPanel block = assertInstanceOf(JPanel.class, right.getComponent(0));
+            assertEquals(320, block.getWidth(), "the text block keeps its pinned width");
+            assertTrue(block.getY() > 0, "the text block is centered, not top-aligned: y=" + block.getY());
+            assertTrue(block.getY() + block.getHeight() < 96, "the text block stays inside the row");
+        });
+    }
+
+    /**
+     * A card is covered edge to edge by its own children, and a container only receives a
+     * mouse-entered event for pixels no child covers. Hover was installed on the card panel alone,
+     * so the board showed no feedback anywhere except its one-pixel outline.
+     */
+    @Test
+    void cardHoverReachesTheCardThroughItsChildren() throws Exception {
+        final java.util.concurrent.atomic.AtomicReference<JComponent> rendered =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> rendered.set(SwingPanelViewRenderer.render(
+                PanelView.card("card", "open", PanelView.text("recent-project")), (action, event) -> {})));
+        final JComponent card = rendered.get();
+        SwingUtilities.invokeAndWait(() -> {
+            card.setSize(240, 80);
+            card.doLayout();
+        });
+        final BufferedImage before = paint(card);
+
+        SwingUtilities.invokeAndWait(() -> {
+            final Component child = deepest(card);
+            child.dispatchEvent(
+                    new MouseEvent(child, MouseEvent.MOUSE_ENTERED, System.currentTimeMillis(), 0, 1, 1, 0, false));
+        });
+        // The highlight is coalesced onto the next dispatch cycle, so flush it first.
+        SwingUtilities.invokeAndWait(() -> {});
+        final BufferedImage hovered = paint(card);
+
+        assertFalse(
+                java.util.Arrays.equals(pixels(before), pixels(hovered)),
+                "a hovered card must paint a visible state change");
+    }
+
+    private static Component deepest(final Component component) {
+        if (component instanceof Container container && container.getComponentCount() > 0) {
+            return deepest(container.getComponent(container.getComponentCount() - 1));
+        }
+        return component;
+    }
+
+    private static BufferedImage paint(final JComponent component) {
+        final BufferedImage image =
+                new BufferedImage(component.getWidth(), component.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        final Graphics2D graphics = image.createGraphics();
+        try {
+            component.paint(graphics);
+        } finally {
+            graphics.dispose();
+        }
+        return image;
+    }
+
+    private static int[] pixels(final BufferedImage image) {
+        return image.getRGB(0, 0, image.getWidth(), image.getHeight(), null, 0, image.getWidth());
+    }
+
+    @Test
     void scaledTextUsesALargerFont() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             final JComponent rendered = SwingPanelViewRenderer.render(
