@@ -18,6 +18,13 @@ dialog.confirm.vertices-optimized
 dialog.message.error.title
 dialog.message.info.title
 dialog.preset.message
+dialog.preset.title
+dialog.preset.select
+dialog.preset.confirm
+dialog.preset.cancel
+dialog.preset.preparing
+dialog.preset.failed
+dialog.preset.prepared
 error.atlas-budget-exceeded
 error.atlas-layout-failed
 error.atlas-oversized

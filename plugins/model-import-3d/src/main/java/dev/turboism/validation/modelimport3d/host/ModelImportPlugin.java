@@ -13,6 +13,7 @@ import dev.turboism.sdk.ui.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import javax.swing.*;
 
 /** User-mediated static model import using the same bounded engine as the native validation. */
@@ -30,6 +31,41 @@ public final class ModelImportPlugin implements TurboismPlugin {
         int appearance();
 
         default Optional<ModelPreset> preset() {
+            return Optional.empty();
+        }
+
+        /**
+         * Summarizes one prepared import for the combined preset window.
+         *
+         * @param prepared the prepared import
+         * @param atlas the atlas the confirmed import would create
+         * @return the confirmation text
+         */
+        default String describePrepared(PreparedImport prepared, AtlasSummary atlas) {
+            return "";
+        }
+
+        /**
+         * @return {@code true} when this host shows the preset choice and its preview in one
+         *     window, so the caller must not run the separate choice and confirm steps
+         */
+        default boolean composesPresetPreview() {
+            return false;
+        }
+
+        /**
+         * Chooses one preset and confirms it in a single window whose preview follows the
+         * selection.
+         *
+         * <p>{@code build} prepares one preset off the event thread; {@code describe} turns a
+         * prepared import into the summary shown under the preview on the event thread.</p>
+         *
+         * @param build prepares one preset for preview
+         * @param describe summarizes one prepared import
+         * @return the confirmed import, or empty when the window closed without one
+         */
+        default Optional<PreparedImport> composePresetImport(
+                Function<ModelPreset, PreparedImport> build, Function<PreparedImport, String> describe) {
             return Optional.empty();
         }
 
@@ -494,6 +530,18 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     target.canvas().widthPixels(), target.canvas().heightPixels());
             if (!target.textures().supportsAppendTextureAtlasPages())
                 throw new LocalizedIllegalStateException("error.texture-atlas-unavailable", "当前环境不支持纹理图集功能。");
+            if (fromPreset && ui.composesPresetPreview()) {
+                // One window chooses the preset and confirms its preview, so the prepared import is
+                // the one the operator saw and the commit step must not ask again.
+                final Optional<PreparedImport> confirmed = preparePresetInteractively(token, target);
+                if (confirmed.isEmpty() || !active(token)) {
+                    release(token);
+                    return;
+                }
+                commit(token, document.documentId(), target, confirmed.orElseThrow(), true);
+                release(token);
+                return;
+            }
             Optional<ModelPreset> preset = fromPreset ? ui.preset() : Optional.empty();
             if (fromPreset && (preset.isEmpty() || !active(token))) {
                 release(token);
@@ -508,28 +556,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     ? SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL
                     : SurfaceBaseColorPlan.Appearance.FACE_COLORS;
             String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-            var request = new SurfaceImport.Request(
-                    text("model.default-name", "3D 模型"),
-                    new ParameterId("Param3DYaw" + suffix),
-                    new ParameterId("Param3DPitch" + suffix),
-                    new SurfaceProjection.Camera(512, 512, 200, new SurfaceProjection.Vertex(0, 0, 0)),
-                    180,
-                    180,
-                    SurfaceImportPlan.MAX_PROJECTED_VERTICES,
-                    Optional.of(new ParameterId("Param3DRoll" + suffix)),
-                    java.util.Map.of(
-                            "object.rotation.x",
-                            text("object.rotation.x", "X 旋转"),
-                            "object.rotation.y",
-                            text("object.rotation.y", "Y 旋转"),
-                            "object.rotation.z",
-                            text("object.rotation.z", "Z 旋转"),
-                            "object.placement",
-                            text("object.placement", "整体定位"),
-                            "object.warp",
-                            text("object.warp", "曲面变形"),
-                            "object.local-action",
-                            text("object.local-action", "分区 {0} 局部动作")));
+            var request = importRequest(suffix);
             CompletionStage<Optional<PreparedImport>> pendingImport;
             if (fromPreset) {
                 var selectedPreset = preset.orElseThrow();
@@ -640,7 +667,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
                 if (!active(token)) return;
                 try {
                     if (failure != null) throw new CompletionException(failure);
-                    if (prepared.isPresent()) commit(token, document.documentId(), target, prepared.orElseThrow());
+                    if (prepared.isPresent())
+                        commit(token, document.documentId(), target, prepared.orElseThrow(), false);
                 } catch (Exception error) {
                     show(error);
                 } finally {
@@ -651,6 +679,87 @@ public final class ModelImportPlugin implements TurboismPlugin {
             release(token);
             show(failure);
         }
+    }
+
+    /** Builds the shared import request; only the unique name suffix differs per run. */
+    private SurfaceImport.Request importRequest(String suffix) {
+        return new SurfaceImport.Request(
+                text("model.default-name", "3D 模型"),
+                new ParameterId("Param3DYaw" + suffix),
+                new ParameterId("Param3DPitch" + suffix),
+                new SurfaceProjection.Camera(512, 512, 200, new SurfaceProjection.Vertex(0, 0, 0)),
+                180,
+                180,
+                SurfaceImportPlan.MAX_PROJECTED_VERTICES,
+                Optional.of(new ParameterId("Param3DRoll" + suffix)),
+                java.util.Map.of(
+                        "object.rotation.x",
+                        text("object.rotation.x", "X 旋转"),
+                        "object.rotation.y",
+                        text("object.rotation.y", "Y 旋转"),
+                        "object.rotation.z",
+                        text("object.rotation.z", "Z 旋转"),
+                        "object.placement",
+                        text("object.placement", "整体定位"),
+                        "object.warp",
+                        text("object.warp", "曲面变形"),
+                        "object.local-action",
+                        text("object.local-action", "分区 {0} 局部动作")));
+    }
+
+    /**
+     * Runs the combined preset window and returns the import the operator confirmed.
+     *
+     * <p>Each selection rebuilds the import on the window's worker; the description is rebuilt on
+     * the event thread because it reports the atlas plan, which reads the open document.</p>
+     *
+     * @param token the enable-cycle token that bounds this request
+     * @param target the document the import would extend
+     * @return the confirmed prepared import, or empty when the window closed
+     */
+    private Optional<PreparedImport> preparePresetInteractively(long token, CubismModel target) {
+        final String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        final var request = importRequest(suffix);
+        final int existingPages = target.textures().textureAtlases().size();
+        return ui.composePresetImport(
+                preset -> {
+                    if (!active(token)) throw new IllegalStateException("import cancelled");
+                    final String presetName = text(preset.labelKey(), preset.fallbackLabel());
+                    final var presetRequest = requestForFile(request, presetName + ".glb", suffix);
+                    try {
+                        // Preserve the shared source image and UVs so it can be replaced after import.
+                        return new PreparedImport(
+                                null,
+                                null,
+                                null,
+                                null,
+                                NativeModelImport.prepare(preset.read(), presetRequest, () -> !active(token)));
+                    } catch (java.io.IOException failure) {
+                        throw new IllegalStateException(failure.getMessage(), failure);
+                    }
+                },
+                prepared -> ui.describePrepared(
+                        prepared, atlasSummary(target, prepared, preparedRequestName(prepared), existingPages)));
+    }
+
+    /** Plans the atlas a confirmed import would create, then reports its size only. */
+    private AtlasSummary atlasSummary(
+            CubismModel target, PreparedImport prepared, String requestName, int existingPages) {
+        java.util.function.IntFunction<String> pageNames =
+                pageIndex -> format("atlas.page-name", "{0} 图集 {1}", requestName, existingPages + pageIndex + 1);
+        final var plan = planAtlas(target, prepared, pageNames);
+        return new AtlasSummary(plan.pageCount(), plan.pageWidth(), plan.pageHeight());
+    }
+
+    /** @return the model name one prepared import would create */
+    private static String preparedRequestName(PreparedImport prepared) {
+        return prepared.character() != null
+                ? prepared.character().geometry().request().name()
+                : prepared.simple() != null
+                        ? prepared.simple().request.name()
+                        : prepared.vertices() != null
+                                ? prepared.vertices().request().name()
+                                : prepared.layered().surface().request.name();
     }
 
     private void release(long token) {
@@ -684,7 +793,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
         return ModelTextureAtlasPlanner.plan(items, ModelTextureAtlasPlanner.Options.DEFAULT, pageNameProvider);
     }
 
-    private void commit(long token, String documentId, CubismModel target, PreparedImport prepared) {
+    private void commit(
+            long token, String documentId, CubismModel target, PreparedImport prepared, boolean alreadyConfirmed) {
         requireTarget(token, documentId, target);
         if (prepared.vertices() != null) {
             prepared = finalizeEditableVertices(prepared, geometry -> {
@@ -694,13 +804,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                 return result;
             });
         }
-        String requestName = prepared.character() != null
-                ? prepared.character().geometry().request().name()
-                : prepared.simple() != null
-                        ? prepared.simple().request.name()
-                        : prepared.vertices() != null
-                                ? prepared.vertices().request().name()
-                                : prepared.layered().surface().request.name();
+        String requestName = preparedRequestName(prepared);
 
         int existingCount = target.textures().textureAtlases().size();
         java.util.function.IntFunction<String> pageNames =
@@ -709,7 +813,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
         var atlasPlan = planAtlas(target, prepared, pageNames);
         var atlasSummary = new AtlasSummary(atlasPlan.pageCount(), atlasPlan.pageWidth(), atlasPlan.pageHeight());
 
-        boolean confirmed = ui.confirmImport(prepared, atlasSummary);
+        boolean confirmed = alreadyConfirmed || ui.confirmImport(prepared, atlasSummary);
         if (!confirmed) return;
         requireTarget(token, documentId, target);
         java.util.function.Supplier<CubismModel> current = () -> {
@@ -1014,7 +1118,18 @@ public final class ModelImportPlugin implements TurboismPlugin {
         }
 
         @Override
+        public String describePrepared(PreparedImport prepared, AtlasSummary atlas) {
+            return prepared.character() == null
+                    ? text("dialog.preset.prepared", "准备完成。")
+                    : describeCharacter(prepared.character(), atlas);
+        }
+
+        @Override
         public boolean confirmCharacter(NativeModelImport.Prepared p, AtlasSummary atlas) {
+            return confirmDialog(describeCharacter(p, atlas));
+        }
+
+        private String describeCharacter(NativeModelImport.Prepared p, AtlasSummary atlas) {
             var geometry = p.geometry();
             String atlasInfo = format(
                     "dialog.confirm.atlas-info",
@@ -1032,13 +1147,36 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     "源形态与显隐：{0} 个融合参数；{1} 个源部位。",
                     p.controls().controls().size(),
                     partCount);
-            return confirmDialog(format(
+            return format(
                     "dialog.confirm.character",
                     "将创建 {0} 个原生网格，保留 {1} 个三角形。\nX / Y 参数各 {2} 个绑定点，Z 参数支持整圈旋转。\n遮挡采用分组排序，复杂交叠可能有偏差。\n{3}\n可用一次撤销撤回本次导入。继续？",
                     geometry.partitions().size(),
                     geometry.totalTriangles(),
                     geometry.keys().size(),
-                    atlasInfo + "\n" + sourceControls));
+                    atlasInfo + "\n" + sourceControls);
+        }
+
+        @Override
+        public boolean composesPresetPreview() {
+            return true;
+        }
+
+        @Override
+        public Optional<PreparedImport> composePresetImport(
+                final Function<ModelPreset, PreparedImport> build, final Function<PreparedImport, String> describe) {
+            final ModelPreset[] presets = ModelPreset.values();
+            try (var dialog = new PresetImportDialog(
+                    owner(), List.of(presets), presets[0], build::apply, describe::apply, key -> text(key, key), log)) {
+                return dialog.show();
+            }
+        }
+
+        private static java.awt.Window owner() {
+            for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
+                if (frame.isShowing() && frame.getTitle().contains("Live2D Cubism Editor")) return frame;
+            }
+            return java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .getActiveWindow();
         }
 
         @Override

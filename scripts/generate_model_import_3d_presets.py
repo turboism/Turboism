@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Rebuild the plugin's small, textured GLB primitives using only the standard library."""
+"""Rebuild the plugin's small, textured GLB primitives using only the standard library.
+
+Each logical face gets its own image tile: a distinct tint plus that face's number.
+The import keeps this image as the model's replaceable texture, so a face keeps its
+colour and number in the editor, in the preview, and after the operator swaps the
+image for their own art that keeps the same tile layout.
+"""
 
 import json
 import math
@@ -14,21 +20,85 @@ DESTINATION = (
 )
 
 
-def checker_png():
-    """256px UV grid; red U and blue V borders make orientation visible."""
+#: Pastel tints, one per logical face, ordered so neighbours differ.
+TILE_COLORS = (
+    (226, 138, 132),
+    (232, 176, 120),
+    (226, 211, 130),
+    (150, 206, 152),
+    (140, 176, 226),
+    (186, 158, 222),
+)
+
+#: 5x7 digits, one string per row, drawn large inside each tile.
+DIGITS = {
+    1: ("00100", "01100", "00100", "00100", "00100", "00100", "01110"),
+    2: ("01110", "10001", "00001", "00010", "00100", "01000", "11111"),
+    3: ("11110", "00001", "00001", "01110", "00001", "00001", "11110"),
+    4: ("00010", "00110", "01010", "10010", "11111", "00010", "00010"),
+    5: ("11111", "10000", "11110", "00001", "00001", "10001", "01110"),
+    6: ("00110", "01000", "10000", "11110", "10001", "10001", "01110"),
+}
+
+GRID_CELL = 32
+
+#: Largest digit pixel size, so one face's number cannot cover the whole surface.
+MAX_DIGIT_SCALE = 8
+GRID_DARKEN = 28
+
+
+def tile_pixels(tiles):
+    """Builds the 256 px texture: one tinted, gridded, numbered region per logical face."""
     side = 256
-    rows = bytearray()
+    pixels = [[(232, 232, 232)] * side for _ in range(side)]
+    for index, (u0, v0, u1, v1) in enumerate(tiles):
+        tint = TILE_COLORS[index % len(TILE_COLORS)]
+        x0, y0 = int(u0 * side), int(v0 * side)
+        x1, y1 = int(u1 * side), int(v1 * side)
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                on_grid = (x - x0) % GRID_CELL < 2 or (y - y0) % GRID_CELL < 2
+                pixels[y][x] = (
+                    tuple(max(0, channel - GRID_DARKEN) for channel in tint) if on_grid else tint
+                )
+        draw_number(pixels, index + 1, x0, y0, x1, y1)
+
     for y in range(side):
-        rows.append(0)
         for x in range(side):
-            value = 232 if (x // 32 + y // 32) % 2 == 0 else 168
-            rgb = (value, value, value)
-            if x % 32 < 2 or y % 32 < 2:
-                rgb = (96, 96, 96)
             if x < 4:
-                rgb = (220, 70, 60)
+                pixels[y][x] = (220, 70, 60)
             if y >= side - 4:
-                rgb = (60, 100, 220)
+                pixels[y][x] = (60, 100, 220)
+    return pixels
+
+
+def draw_number(pixels, number, x0, y0, x1, y1):
+    """Centres one digit in its tile, scaled to about a third of the shorter side."""
+    rows = DIGITS.get(number)
+    if rows is None:
+        return
+    # A single-face shape covers the whole image; an uncapped digit would cover it too.
+    scale = max(1, min(MAX_DIGIT_SCALE, min(x1 - x0, y1 - y0) // 3 // 7))
+    width, height = 5 * scale, 7 * scale
+    left = x0 + (x1 - x0 - width) // 2
+    top = y0 + (y1 - y0 - height) // 2
+    for row, line in enumerate(rows):
+        for column, bit in enumerate(line):
+            if bit != "1":
+                continue
+            for dy in range(scale):
+                for dx in range(scale):
+                    x, y = left + column * scale + dx, top + row * scale + dy
+                    if 0 <= x < len(pixels[0]) and 0 <= y < len(pixels):
+                        pixels[y][x] = (58, 58, 58)
+
+
+def png_bytes(pixels):
+    side = len(pixels)
+    rows = bytearray()
+    for line in pixels:
+        rows.append(0)
+        for rgb in line:
             rows.extend(rgb)
 
     def chunk(kind, payload):
@@ -87,7 +157,7 @@ class Mesh:
                 self.triangle(a, b, c)
                 self.triangle(a, c, d)
 
-    def write(self, name, double_sided=False):
+    def write(self, name, double_sided=False, tiles=None):
         binary = bytearray()
         views, accessors = [], []
 
@@ -111,7 +181,7 @@ class Mesh:
             accessors.append(accessor)
         view = append(struct.pack(f"<{len(self.indices)}H", *self.indices), 34963)
         accessors.append({"bufferView": view, "componentType": 5123, "count": len(self.indices), "type": "SCALAR"})
-        image_view = append(checker_png())
+        image_view = append(png_bytes(tile_pixels(tiles or [(0.0, 0.0, 1.0, 1.0)])))
         doc = {
             "asset": {"version": "2.0", "generator": "Turboism primitive presets"},
             "scene": 0,
@@ -153,7 +223,10 @@ def generate():
             for i in range(first, len(cube.uvs)):
                 u, v = cube.uvs[i]
                 cube.uvs[i] = ((tile % 3 + u) / 3, (tile // 3 + v) / 2)
-    cube.write("cube")
+    cube.write(
+        "cube",
+        tiles=[(column / 3, row / 2, (column + 1) / 3, (row + 1) / 2) for row in range(2) for column in range(3)],
+    )
 
     tetrahedron = Mesh()
     radius = math.sqrt(8 / 9)
@@ -170,7 +243,10 @@ def generate():
         for corner, (u, v) in zip(face, face_uvs):
             slots.append(tetrahedron.vertex(corners[corner], normal, ((tile % 2 + u) / 2, (tile // 2 + v) / 2)))
         tetrahedron.triangle(*slots)
-    tetrahedron.write("tetrahedron")
+    tetrahedron.write(
+        "tetrahedron",
+        tiles=[(column / 2, row / 2, (column + 1) / 2, (row + 1) / 2) for row in range(2) for column in range(2)],
+    )
 
     triangle = Mesh()
     for x, y in ((-math.sqrt(3) / 2, -0.5), (math.sqrt(3) / 2, -0.5), (0, 1)):
@@ -197,7 +273,10 @@ def generate():
             edge.append(cylinder.vertex((x, sign, z), (0, sign, 0), (center_u + x / 4, 0.75 + z / 4)))
         for i in range(16):
             cylinder.triangle(center, edge[i], edge[(i + 1) % 16])
-    cylinder.write("cylinder")
+    cylinder.write(
+        "cylinder",
+        tiles=[(0.0, 0.0, 1.0, 0.5), (0.0, 0.5, 0.5, 1.0), (0.5, 0.5, 1.0, 1.0)],
+    )
 
     sphere = Mesh()
 
