@@ -15,14 +15,27 @@ import java.util.List;
  */
 final class CurvatureBoundarySampler {
 
-    /** Chord arms of the multi-scale corner detector, in pixels. */
-    static final double[] CORNER_ARMS_PX = {3.5, 6.5, 10.0};
+    /**
+     * Chord arms of the multi-scale corner detector, in pixels.
+     *
+     * <p>Every arm must see the same turn. A single short arm locks the one-pixel staircase of a
+     * rasterised curve as a corner, which pins a vertex at every step.</p>
+     */
+    static final double[] CORNER_ARMS_PX = {4.0, 8.0};
 
     /** Turning angle from which a vertex counts as a drawn corner, in degrees. */
-    static final double CORNER_TURN_DEGREES = 42.0;
+    static final double CORNER_TURN_DEGREES = 38.0;
 
     /** Smallest distance between two locked corners, in pixels. */
-    static final double CORNER_SEPARATION_PX = 3.0;
+    static final double CORNER_SEPARATION_PX = 6.0;
+
+    /**
+     * Arc length that the curvature triple reads on each side, in pixels.
+     *
+     * <p>A one-pixel triple measures the staircase residue of the raster, not the drawn curve. The
+     * wider window describes the curve at the scale that the artist sees.</p>
+     */
+    static final double CURVATURE_WINDOW_PX = 6.0;
 
     /** Largest displacement of a faired vertex from its raw contour position, in pixels. */
     static final double FAIRING_CLAMP_PX = 0.80;
@@ -119,16 +132,18 @@ final class CurvatureBoundarySampler {
     }
 
     /**
-     * Largest multi-scale chord turning angle at every vertex, in degrees.
+     * Smallest multi-scale chord turning angle at every vertex, in degrees.
      *
      * <p>Every arm follows the chain for a fixed arc length, so a diagonal step does not count as
-     * two vertices and the angle stays comparable along the border.</p>
+     * two vertices and the angle stays comparable along the border. The minimum over the arms keeps
+     * a drawn corner locked, because every arm turns there, and lets a one-pixel staircase step pass
+     * as the straight run that the longer arm sees.</p>
      */
     private static double[] cornerScores(final double[] xs, final double[] ys, final boolean cyclic) {
         final int size = xs.length;
         final double[] scores = new double[size];
         for (int i = 0; i < size; i++) {
-            double best = 0.0;
+            double turning = Double.POSITIVE_INFINITY;
             for (final double arm : CORNER_ARMS_PX) {
                 final int back = walk(xs, ys, i, -arm, cyclic);
                 final int forward = walk(xs, ys, i, arm, cyclic);
@@ -141,9 +156,9 @@ final class CurvatureBoundarySampler {
                 final double by = ys[forward] - ys[i];
                 final double denominator = Math.max(COSINE_FLOOR, Math.hypot(ax, ay) * Math.hypot(bx, by));
                 final double cosine = Math.max(-1.0, Math.min(1.0, (ax * bx + ay * by) / denominator));
-                best = Math.max(best, Math.toDegrees(Math.acos(cosine)));
+                turning = Math.min(turning, Math.toDegrees(Math.acos(cosine)));
             }
-            scores[i] = best;
+            scores[i] = turning == Double.POSITIVE_INFINITY ? 0.0 : turning;
         }
         return scores;
     }
@@ -403,17 +418,25 @@ final class CurvatureBoundarySampler {
         return spacing;
     }
 
-    /** Menger curvature of the three consecutive span vertices around {@code index}. */
+    /**
+     * Menger curvature of the three vertices that sit {@link #CURVATURE_WINDOW_PX} apart.
+     *
+     * <p>The triple walks the span in both directions instead of reading its direct neighbours. A
+     * direct triple reports the half-pixel staircase step as a curvature of roughly 0.2, which
+     * clamps the target spacing to the curve floor along every border and hides the real shape.</p>
+     */
     private static double curvature(final double[] xs, final double[] ys, final int index) {
-        if (index <= 0 || index >= xs.length - 1) {
+        final int back = walk(xs, ys, index, -CURVATURE_WINDOW_PX, false);
+        final int forward = walk(xs, ys, index, CURVATURE_WINDOW_PX, false);
+        if (back == index || forward == index) {
             return 0.0;
         }
-        final double ax = xs[index] - xs[index - 1];
-        final double ay = ys[index] - ys[index - 1];
-        final double bx = xs[index + 1] - xs[index];
-        final double by = ys[index + 1] - ys[index];
-        final double cx = xs[index + 1] - xs[index - 1];
-        final double cy = ys[index + 1] - ys[index - 1];
+        final double ax = xs[index] - xs[back];
+        final double ay = ys[index] - ys[back];
+        final double bx = xs[forward] - xs[index];
+        final double by = ys[forward] - ys[index];
+        final double cx = xs[forward] - xs[back];
+        final double cy = ys[forward] - ys[back];
         final double denominator = Math.hypot(ax, ay) * Math.hypot(bx, by) * Math.hypot(cx, cy);
         if (denominator <= COSINE_FLOOR) {
             return 0.0;

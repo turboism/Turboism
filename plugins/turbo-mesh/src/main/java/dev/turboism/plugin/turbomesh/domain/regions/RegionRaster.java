@@ -20,6 +20,24 @@ final class RegionRaster {
     /** Crop margin around the silhouette, in pixels. */
     static final int CROP_MARGIN_PX = 4;
 
+    /** Percentile of the 4-neighbour CIELAB steps that fixes the automatic contrast. */
+    static final double AUTO_CONTRAST_PERCENTILE = 0.75;
+
+    /** Gain that turns the background step into a region merge threshold. */
+    static final double AUTO_CONTRAST_GAIN = 2.0;
+
+    /** Lowest automatic contrast; it keeps dark, low-contrast layers separated. */
+    static final double AUTO_CONTRAST_FLOOR = 3.5;
+
+    /** Highest automatic contrast; it keeps a shaded layer from shredding its soft ramps. */
+    static final double AUTO_CONTRAST_CEILING = 12.0;
+
+    /** Bin width of the CIELAB step histogram, in CIELAB units. */
+    private static final double AUTO_CONTRAST_BIN = 0.25;
+
+    /** Bin count that covers the automatic contrast range. */
+    private static final int AUTO_CONTRAST_BINS = (int) Math.ceil(AUTO_CONTRAST_CEILING / AUTO_CONTRAST_BIN) + 1;
+
     private static final double CHAMFER_STRAIGHT = 1.0;
     private static final double CHAMFER_DIAGONAL = Math.sqrt(2.0);
 
@@ -144,6 +162,72 @@ final class RegionRaster {
             }
         }
         return count;
+    }
+
+    /**
+     * Automatic contrast: the 75th percentile of the 4-neighbour CIELAB step, doubled.
+     *
+     * <p>A fixed threshold cannot serve a dark, low-contrast layer and a shaded one at the same
+     * time. The percentile of the local step follows the artwork: a soft airbrush ramp stays near
+     * the floor and merges, while a shaded layer lifts the threshold enough to keep its salient
+     * creases and colour blocks apart.</p>
+     *
+     * @return the merge threshold clamped into {@code [AUTO_CONTRAST_FLOOR, AUTO_CONTRAST_CEILING]}
+     */
+    double autoContrast() {
+        final int[] histogram = new int[AUTO_CONTRAST_BINS];
+        final int samples = histogramLocalSteps(histogram);
+        if (samples == 0) {
+            return AUTO_CONTRAST_FLOOR;
+        }
+        final int target = (int) Math.ceil(samples * AUTO_CONTRAST_PERCENTILE);
+        int seen = 0;
+        int bin = 0;
+        while (bin < histogram.length - 1 && seen + histogram[bin] < target) {
+            seen += histogram[bin];
+            bin++;
+        }
+        final double step = (bin + 0.5) * AUTO_CONTRAST_BIN;
+        return Math.min(AUTO_CONTRAST_CEILING, Math.max(AUTO_CONTRAST_FLOOR, AUTO_CONTRAST_GAIN * step));
+    }
+
+    /**
+     * Fills the step histogram and returns the sample count.
+     *
+     * <p>Only two solid pixels form a sample. A transparent neighbour carries the borrowed colour
+     * of the nearest opaque pixel, so its step says nothing about the artwork.</p>
+     */
+    private int histogramLocalSteps(final int[] histogram) {
+        int samples = 0;
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                final int cell = y * width + x;
+                if (!mask[cell]) {
+                    continue;
+                }
+                final double step = Math.max(
+                        Math.max(stepTo(cell, x - 1, y), stepTo(cell, x + 1, y)),
+                        Math.max(stepTo(cell, x, y - 1), stepTo(cell, x, y + 1)));
+                histogram[Math.min(histogram.length - 1, (int) (step / AUTO_CONTRAST_BIN))]++;
+                samples++;
+            }
+        }
+        return samples;
+    }
+
+    /** CIELAB distance from one cell to a solid 4-neighbour; zero outside the raster or the material. */
+    private double stepTo(final int cell, final int column, final int row) {
+        if (column < 0 || row < 0 || column >= width || row >= height) {
+            return 0.0;
+        }
+        final int neighbour = row * width + column;
+        if (!mask[neighbour]) {
+            return 0.0;
+        }
+        final double deltaL = lab[3 * cell] - lab[3 * neighbour];
+        final double deltaA = lab[3 * cell + 1] - lab[3 * neighbour + 1];
+        final double deltaB = lab[3 * cell + 2] - lab[3 * neighbour + 2];
+        return Math.sqrt(deltaL * deltaL + deltaA * deltaA + deltaB * deltaB);
     }
 
     private static float[] filledColour(final int[] pixels, final int width, final int height) {

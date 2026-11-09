@@ -23,13 +23,13 @@ public record RegionPlacementParams(
     public static final double DEFAULT_MIN_REGION_RATIO = 0.006;
 
     /**
-     * Auto contrast floor: CIELAB distance that separates regions when the caller states none.
+     * Default contrast: CIELAB distance that separates regions when the caller states none.
      *
-     * <p>The floor sits at 2.5 so dark and low-contrast layers keep their internal structure, which a
-     * coarser floor merged away. The value stays on the 0.5 grid that the parameter descriptor
-     * declares, because a default off that grid is rejected at declaration time.</p>
+     * <p>The value stays on the 0.5 grid that the parameter descriptor declares, because a default
+     * off that grid is rejected at declaration time. Automatic runs ignore it and derive the
+     * contrast from the artwork gradient; it only seeds the manual control.</p>
      */
-    public static final double DEFAULT_CONTRAST = 2.5;
+    public static final double DEFAULT_CONTRAST = 7.5;
 
     /** Coarsest region level, which the prototype used as its default. */
     public static final int DEFAULT_LEVEL = 1;
@@ -58,13 +58,23 @@ public record RegionPlacementParams(
     /** Auto near-point merge distance floor in pixels. */
     static final double AUTO_MIN_SPACING_FLOOR_PX = 1.5;
 
-    /** Sparse preset: the prototype run whose output the notes record as hair-sparse. */
-    public static final RegionPlacementParams SPARSE = new RegionPlacementParams(
-            DEFAULT_MIN_REGION_RATIO, DEFAULT_CONTRAST, 1, DEFAULT_TRACK_COUNT, null, null, null);
+    /**
+     * Sparse preset: the prototype run whose output the notes record as hair-sparse.
+     *
+     * <p>Every pixel-scaled value stays automatic, so the preset follows the silhouette span and the
+     * artwork gradient of the layer it runs on.</p>
+     */
+    public static final RegionPlacementParams SPARSE =
+            new RegionPlacementParams(DEFAULT_MIN_REGION_RATIO, null, 1, DEFAULT_TRACK_COUNT, null, null, null);
 
-    /** Detailed preset: the prototype run recorded as hair-detailed. */
-    public static final RegionPlacementParams DETAILED = new RegionPlacementParams(
-            DEFAULT_MIN_REGION_RATIO, DEFAULT_CONTRAST, 2, DEFAULT_TRACK_COUNT, 42.0, 2.0, 6.0);
+    /**
+     * Detailed preset: the prototype run recorded as hair-detailed.
+     *
+     * <p>Its fixed spacing stays below the automatic sparse spacing of the medium and larger layers
+     * it targets, so the detailed run is never coarser than the sparse one there.</p>
+     */
+    public static final RegionPlacementParams DETAILED =
+            new RegionPlacementParams(DEFAULT_MIN_REGION_RATIO, null, 2, DEFAULT_TRACK_COUNT, 26.0, 1.2, 4.0);
 
     /** Hard-surface preset: the prototype run recorded as usb-sparse. */
     public static final RegionPlacementParams HARD_SURFACE =
