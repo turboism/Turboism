@@ -1,6 +1,8 @@
 package dev.turboism.validation.modelimport3d.host;
 
 import dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot;
+import dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder;
+import dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions;
 import dev.turboism.sdk.cubism.model.Point2;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -63,6 +65,42 @@ final class ArtMeshAuthoringMatch {
         return describe(expected, actual) == null;
     }
 
+    /**
+     * Compares one compare-and-set batch with the snapshot the host stored.
+     *
+     * <p>Only the values this batch asked the host to store are compared. The snapshot also carries
+     * forms and draw orders the batch never touched, and predicting those turned a correct import
+     * into a rollback: the neutral form keeps the order it was created with, not the order the
+     * projection would have chosen. The failure text names the field first, because the authoring
+     * diagnostic is cut at 128 characters and a leading form GUID pushed the field out of it.</p>
+     *
+     * @param positions the position edits the batch submitted
+     * @param orders the draw-order edits the batch submitted
+     * @param actual the snapshot the host reported after the batch
+     * @return {@code null} when every submitted edit landed, otherwise the first difference
+     */
+    static String describeEdits(
+            final List<ArtMeshKeyformPositions> positions,
+            final List<ArtMeshKeyformDrawOrder> orders,
+            final ArtMeshAuthoringSnapshot actual) {
+        if (actual == null) return "snapshot missing";
+        final Map<String, ArtMeshAuthoringSnapshot.Form> read = byGuid(actual.forms());
+        for (ArtMeshKeyformPositions edit : positions) {
+            final ArtMeshAuthoringSnapshot.Form form = read.get(edit.formGuid());
+            if (form == null) return "form missing " + edit.formGuid();
+            final String delta = describePositions(edit.positions(), form.positions());
+            if (delta != null) return delta + " form " + edit.formGuid();
+        }
+        for (ArtMeshKeyformDrawOrder edit : orders) {
+            final ArtMeshAuthoringSnapshot.Form form = read.get(edit.formGuid());
+            if (form == null) return "form missing " + edit.formGuid();
+            if (form.drawOrder() != edit.drawOrder()) {
+                return DRAW_ORDER + " " + edit.drawOrder() + "!=" + form.drawOrder() + " form " + edit.formGuid();
+            }
+        }
+        return null;
+    }
+
     private static Map<String, ArtMeshAuthoringSnapshot.Form> byGuid(final List<ArtMeshAuthoringSnapshot.Form> forms) {
         final Map<String, ArtMeshAuthoringSnapshot.Form> result = new LinkedHashMap<>();
         for (ArtMeshAuthoringSnapshot.Form form : forms) {
@@ -81,6 +119,6 @@ final class ArtMeshAuthoringMatch {
             final Point2 right = Objects.requireNonNull(actual.get(index), POSITIONS);
             worst = Math.max(worst, Math.max(Math.abs(left.x() - right.x()), Math.abs(left.y() - right.y())));
         }
-        return worst <= POSITION_TOLERANCE ? null : POSITIONS + " delta " + worst + " > " + POSITION_TOLERANCE;
+        return worst <= POSITION_TOLERANCE ? null : POSITIONS + " delta " + worst;
     }
 }

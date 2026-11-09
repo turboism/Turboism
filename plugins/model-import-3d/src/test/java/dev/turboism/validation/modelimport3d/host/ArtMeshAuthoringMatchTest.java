@@ -37,6 +37,42 @@ class ArtMeshAuthoringMatchTest {
                 "a different draw order must fail");
     }
 
+    /**
+     * A compare-and-set batch owns only the forms it lists. The neutral form keeps the draw order it
+     * was created with, so predicting that order turned a correct sphere import into a rollback.
+     */
+    @Test
+    void editCheckIgnoresFormsTheBatchNeverTouched() {
+        final var readback = snapshotWith("form-a", 1.0f, 2.0f, 7);
+        final var positions = new dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions(
+                List.of(new ArtMeshAuthoringSnapshot.Coordinate("guid-yaw", -30.0f)),
+                "form-a",
+                List.of(new Point2(1.0f, 2.0f), new Point2(2.0f, 2.0f), new Point2(2.0f, 3.0f)));
+        assertNull(
+                ArtMeshAuthoringMatch.describeEdits(List.of(positions), List.of(), readback),
+                "a form the batch left alone must not be judged against a predicted order");
+    }
+
+    @Test
+    void editCheckNamesTheFieldBeforeTheFormGuid() {
+        final var readback = snapshotWith("form-a", 1.0f, 2.0f, 3);
+        final var order = new dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder(
+                List.of(new ArtMeshAuthoringSnapshot.Coordinate("guid-yaw", -30.0f)), "form-a", 9);
+        final String result = ArtMeshAuthoringMatch.describeEdits(List.of(), List.of(order), readback);
+        assertTrue(
+                result != null && result.startsWith("draw order"),
+                "the authoring diagnostic is cut at 128 characters, so the field must lead: " + result);
+
+        final var drifted = new dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions(
+                List.of(new ArtMeshAuthoringSnapshot.Coordinate("guid-yaw", -30.0f)),
+                "form-a",
+                List.of(new Point2(1.5f, 2.0f), new Point2(2.0f, 2.0f), new Point2(2.0f, 3.0f)));
+        final String positions = ArtMeshAuthoringMatch.describeEdits(List.of(drifted), List.of(), readback);
+        assertTrue(
+                positions != null && positions.startsWith("positions delta"),
+                "a real position drift must lead with the field: " + positions);
+    }
+
     private static ArtMeshAuthoringSnapshot snapshot(final float x, final float y) {
         return snapshotWith("form-a", x, y, 0);
     }

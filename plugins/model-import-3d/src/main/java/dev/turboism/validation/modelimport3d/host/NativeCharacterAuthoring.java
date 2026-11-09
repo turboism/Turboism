@@ -526,8 +526,6 @@ public final class NativeCharacterAuthoring {
 
                 var posEdits = new ArrayList<ArtMeshKeyformPositions>();
                 var orderEdits = new ArrayList<ArtMeshKeyformDrawOrder>();
-                var desiredPos = new HashMap<String, List<Point2>>();
-                var desiredOrders = new HashMap<String, Integer>();
 
                 for (var cell : bound.cells()) {
                     float y = cell.coordinates().stream()
@@ -545,45 +543,29 @@ public final class NativeCharacterAuthoring {
                             + NativeCharacterPlan.KEYS.indexOf(x);
                     int order = plan.orders().get(keyIdx).get(partitionIndex);
 
-                    List<Point2> positions;
+                    // The neutral cell keeps the positions the mesh was created with, so this batch
+                    // leaves it untouched and never predicts it.
                     if (y != 0 || x != 0) {
                         var sample = SurfaceProjection.project(
                                 partition.positions(), camera, new SurfaceProjection.Pose(y, x));
-                        positions = frame.normalize(hasRoll ? local(sample.positions(), ox, oy) : sample.positions());
+                        var positions =
+                                frame.normalize(hasRoll ? local(sample.positions(), ox, oy) : sample.positions());
                         positions = rotationLocalizer.apply(partitionIndex, positions);
                         posEdits.add(new ArtMeshKeyformPositions(cell.coordinates(), cell.formGuid(), positions));
                         orderEdits.add(new ArtMeshKeyformDrawOrder(cell.coordinates(), cell.formGuid(), order));
-                    } else {
-                        positions = bound.forms().stream()
-                                .filter(f -> f.formGuid().equals(cell.formGuid()))
-                                .findFirst()
-                                .orElseThrow()
-                                .positions();
                     }
-                    desiredPos.put(cell.formGuid(), positions);
-                    desiredOrders.put(cell.formGuid(), order);
                 }
 
                 mesh.setOrdinaryKeyforms(bound, posEdits, orderEdits);
 
-                var expected = new ArtMeshAuthoringSnapshot(
-                        bound.artMeshId(),
-                        bound.sourceGuid(),
-                        bound.sourceGeometry(),
-                        bound.axes(),
-                        bound.cells(),
-                        bound.forms().stream()
-                                .map(f -> new ArtMeshAuthoringSnapshot.Form(
-                                        f.formGuid(), desiredPos.get(f.formGuid()), desiredOrders.get(f.formGuid())))
-                                .toList(),
-                        bound.morphKeys());
-
-                final String mismatch = ArtMeshAuthoringMatch.describe(expected, mesh.authoringSnapshot());
+                // Verify only what this batch asked to store. Predicting the untouched forms as well
+                // compared the host's own neutral form against a projection it never received.
+                final var stored = mesh.authoringSnapshot();
+                final String mismatch = ArtMeshAuthoringMatch.describeEdits(posEdits, orderEdits, stored);
                 if (mismatch != null) {
-                    throw new IllegalStateException(
-                            "ArtMesh keyform readback mismatch for partition " + partitionIndex + ": " + mismatch);
+                    throw new IllegalStateException("ArtMesh p" + partitionIndex + " keyform readback: " + mismatch);
                 }
-                banks.add(expected);
+                banks.add(stored);
             }
         });
 
