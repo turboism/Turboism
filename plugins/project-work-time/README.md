@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: time, project, status-bar
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -37,7 +37,7 @@ Shows Editor session time and the active project's cumulative work time in Cubis
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.68.1,1.0.0)`.
+- **SDK API range:** `[0.70.0,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; the status bar requires a host surface that supports compact status metrics.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.

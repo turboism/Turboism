@@ -67,7 +67,8 @@ Do not relax timeouts, queue limits, signature checks, or lifecycle fences to co
 - [ ] Marketplace UI with an actually truncated explanation and localized README link.
 - [ ] Recent-project-board layouts and a genuine empty state.
 - [ ] Representative lowest/highest patch-version host matrix.
-- [ ] Final completed-tree gates and canonical version identity.
+- [x] Canonical version identity: `0.70.0` is the declared framework version and the SDK API-since table attributes the unreleased members to it.
+- [ ] Final completed-tree gates on that identity.
 - [ ] Signed candidate/source binding.
 - [ ] Final cumulative release-note and locale-binding approval.
 

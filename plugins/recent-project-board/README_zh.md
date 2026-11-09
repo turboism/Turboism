@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: recent-files, preview, viewport, navigation
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -42,7 +42,7 @@ interface: swing
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.68.1,1.0.0)`。
+- **SDK API 范围：** `[0.70.0,1.0.0)`。
 - **Cubism：** 需要 Cubism。Turboism 目前只接纳已审核的精确版本 `5.0.00`–`5.3.04`；只有在声明的服务和能力可用时才会启用对应功能。
 - **界面模式：** `swing`。
 - **插件依赖：** `dev.turboism.plugin.recent-preview`（必需，排在提供方之后加载）。

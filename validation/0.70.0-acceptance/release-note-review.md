@@ -70,9 +70,17 @@ Declared support spans reviewed Cubism versions 5.0.00 through 5.3.04.
 The representative minimum/maximum patch matrix still needs final acceptance.
 Declared compatibility does not replace those executions.
 
-The current builds use explicit 0.70.0 version overrides.
-Confirm the canonical source version before final completed-tree and candidate/source binding gates.
-Do not rename changelog sections or generate final localized release metadata before that review completes.
+`gradle/common-java.gradle.kts` now declares `turboismFrameworkVersion = 0.70.0`, so a default build
+reports 0.70.0 without a property override. The earlier builds needed `-PturboismVersion=0.70.0`.
+
+Regenerating `compatibility/sdk-api-since.json` after that change moved every still-unreleased SDK
+member from the old 0.68.1 attribution to 0.70.0. Ten first-party plugins link those members, so
+their `turboismApi` lower bound moved to 0.70.0 with their README declarations. The pre-change table
+had recorded unreleased API as 0.68.1, which let an API floor pass that could not detect a framework
+without the member.
+
+Do not rename changelog sections or generate final localized release metadata until the remaining
+review work completes.
 
 ## Remaining review work
 
