@@ -431,6 +431,42 @@ class PluginWorkExecutorTest {
         other.shutdown();
     }
 
+    @Test
+    void completionSettlesOnItsOwnLaneWhileTheWorkerWaitsForIt() throws Exception {
+        // A plugin action joins a runtime future and the settle body is that future's only
+        // completion path. Sharing the worker pool deadlocked the action forever: the settle body
+        // queued behind the very thread it had to release. The theme manager hung this way.
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(5_000, 1, 4, 50.0f));
+        final CountDownLatch actionReturned = new CountDownLatch(1);
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+
+        final PluginWorkSubmission action = executor.submitUiBound(task("action.handle"), () -> {
+            try {
+                final PluginWorkSubmission settle = executor.submitCompletion(task("sidecar.complete"), () -> {});
+                if (!settle.accepted()) {
+                    failure.set(new AssertionError("the completion lane must admit the settle body"));
+                    return;
+                }
+                settle.completion()
+                        .toCompletableFuture()
+                        .orTimeout(2, TimeUnit.SECONDS)
+                        .join();
+            } catch (Throwable thrown) {
+                failure.set(thrown);
+            } finally {
+                actionReturned.countDown();
+            }
+        });
+        assertTrue(action.accepted(), "the action must be admitted");
+
+        assertTrue(actionReturned.await(3, TimeUnit.SECONDS), "the settle body must not queue behind its own worker");
+        if (failure.get() != null) {
+            throw new AssertionError("the settle body did not complete", failure.get());
+        }
+        executor.shutdown();
+    }
+
     private static PluginTask task(String type) {
         return new PluginTask(type, PLUGIN_ID, "payload for " + type, "none");
     }

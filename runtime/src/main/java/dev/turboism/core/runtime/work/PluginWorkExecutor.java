@@ -39,6 +39,16 @@ public final class PluginWorkExecutor {
     private final PluginWorkExecutorConfiguration configuration;
     private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
     private final ThreadPoolExecutor workerPool;
+    /**
+     * Settles completions on a lane of its own.
+     *
+     * <p>A completion unblocks the very work whose result it carries. Sharing the worker pool
+     * deadlocked every plugin that joined a runtime future from its own worker: the storage thread
+     * finished the read, queued the continuation behind the blocked worker, and the join waited for
+     * a slot that could never free. The theme manager hung this way for whole sessions.</p>
+     */
+    private final ThreadPoolExecutor completionPool;
+
     private final TimeLimiter timeLimiter;
     private final CircuitBreaker circuitBreaker;
     private final ScheduledExecutorService timeoutScheduler;
@@ -88,6 +98,14 @@ public final class PluginWorkExecutor {
                 TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(configuration.queueCapacity()),
                 new PluginWorkThreadFactory(this.pluginId),
+                new ThreadPoolExecutor.AbortPolicy());
+        this.completionPool = new ThreadPoolExecutor(
+                1,
+                1,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(configuration.queueCapacity()),
+                new PluginWorkThreadFactory(this.pluginId + "-completion"),
                 new ThreadPoolExecutor.AbortPolicy());
         this.timeLimiter = TimeLimiter.of(
                 this.pluginId,
@@ -153,19 +171,21 @@ public final class PluginWorkExecutor {
     }
 
     /**
-     * Submits work under the bulkhead and time limiter but outside the circuit breaker, so repeated
-     * failures of this work neither trip the breaker nor are refused by it.
+     * Submits work to settle a completed runtime future, on the dedicated completion lane.
      *
-     * <p>Intended for work that must still be attempted while the plugin's breaker is open, such as
-     * completion and teardown paths. Bulkhead and timeout containment still apply.
+     * <p>The settle body is the only thing that can release a plugin worker blocked on that future,
+     * so it must never queue behind that worker. The lane is serial and untimed for the same
+     * reason: a settlement that overran a wall-clock budget would be retried forever while the
+     * caller stayed blocked, which is what flooded the scheduler log and stopped the theme manager
+     * from opening. Shutdown still drains the lane with the configured timeout.</p>
      *
-     * @param task the task being run, used to attribute diagnostics
-     * @param work the body to run on a bulkhead thread
+     * @param task the synthetic completion task, used to attribute diagnostics
+     * @param work the settle body
      * @return the admission decision plus a stage completing with the work's terminal result
      * @throws NullPointerException if either argument is {@code null}
      */
     public PluginWorkSubmission submitCompletion(PluginTask task, Runnable work) {
-        return submitDecorated(task, work, () -> {}, false);
+        return submitDecorated(task, work, () -> {}, false, false, true);
     }
 
     /**
@@ -190,11 +210,21 @@ public final class PluginWorkExecutor {
 
     private PluginWorkSubmission submitDecorated(
             PluginTask task, Runnable work, Runnable timeoutAction, boolean circuitProtected) {
-        return submitDecorated(task, work, timeoutAction, circuitProtected, true);
+        return submitDecorated(task, work, timeoutAction, circuitProtected, true, false);
     }
 
     private PluginWorkSubmission submitDecorated(
             PluginTask task, Runnable work, Runnable timeoutAction, boolean circuitProtected, boolean timeLimited) {
+        return submitDecorated(task, work, timeoutAction, circuitProtected, timeLimited, false);
+    }
+
+    private PluginWorkSubmission submitDecorated(
+            PluginTask task,
+            Runnable work,
+            Runnable timeoutAction,
+            boolean circuitProtected,
+            boolean timeLimited,
+            boolean completionLane) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(work, "work");
         Objects.requireNonNull(timeoutAction, "timeoutAction");
@@ -204,7 +234,8 @@ public final class PluginWorkExecutor {
         PluginWorkItem workItem = new PluginWorkItem(task, work, timeoutAction);
         final Supplier<CompletionStage<Void>> decorated;
         if (!timeLimited) {
-            decorated = decoratePooled(workItem);
+            final ThreadPoolExecutor pool = completionLane ? completionPool : workerPool;
+            decorated = () -> CompletableFuture.runAsync(workItem, pool);
         } else if (circuitProtected) {
             decorated = decorate(workItem);
         } else {
@@ -257,11 +288,12 @@ public final class PluginWorkExecutor {
             return;
         }
         shutdownPool(workerPool);
+        shutdownPool(completionPool);
         shutdownPool(timeoutScheduler);
     }
 
     boolean isTerminated() {
-        return workerPool.isTerminated() && timeoutScheduler.isTerminated();
+        return workerPool.isTerminated() && completionPool.isTerminated() && timeoutScheduler.isTerminated();
     }
 
     /**
@@ -276,6 +308,7 @@ public final class PluginWorkExecutor {
             return;
         }
         workerPool.shutdownNow();
+        completionPool.shutdownNow();
         timeoutScheduler.shutdownNow();
     }
 
@@ -294,11 +327,6 @@ public final class PluginWorkExecutor {
 
     private Supplier<CompletionStage<Void>> decorate(PluginWorkItem workItem) {
         return CircuitBreaker.decorateCompletionStage(circuitBreaker, decorateCompletion(workItem));
-    }
-
-    /** Runs on the bulkhead with no time limit and no breaker; used for EDT-bound work. */
-    private Supplier<CompletionStage<Void>> decoratePooled(final PluginWorkItem workItem) {
-        return () -> CompletableFuture.runAsync(workItem, workerPool);
     }
 
     private Supplier<CompletionStage<Void>> decorateCompletion(PluginWorkItem workItem) {
