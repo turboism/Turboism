@@ -3,6 +3,7 @@ package dev.turboism.ui;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.SelectionTableDialogRequest;
 import dev.turboism.sdk.ui.SelectionTableDialogResultListener;
+import dev.turboism.sdk.ui.SelectionTableFooter;
 import dev.turboism.sdk.ui.resource.UiResourceService;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import dev.turboism.ui.resource.RuntimeUiResourceService;
@@ -23,6 +24,15 @@ final class RuntimeSelectionTableDialog extends JDialog {
             SelectionTableDialogRequest request,
             SelectionTableDialogResultListener listener,
             UiResourceService resources) {
+        return openAsync(request, null, listener, resources);
+    }
+
+    static Registration openAsync(
+            SelectionTableDialogRequest request,
+            SelectionTableFooter footer,
+            SelectionTableDialogResultListener listener,
+            UiResourceService resources) {
+        if (footer != null) SelectionTableFooter.requireValid(footer);
         AtomicBoolean cancelled = new AtomicBoolean();
         AtomicReference<RuntimeSelectionTableDialog> active = new AtomicReference<>();
         SwingUtilities.invokeLater(() -> {
@@ -30,7 +40,7 @@ final class RuntimeSelectionTableDialog extends JDialog {
                 listener.onResult(false, List.of());
                 return;
             }
-            RuntimeSelectionTableDialog dialog = new RuntimeSelectionTableDialog(request, resources);
+            RuntimeSelectionTableDialog dialog = new RuntimeSelectionTableDialog(request, footer, resources);
             active.set(dialog);
             try {
                 dialog.setVisible(true);
@@ -49,7 +59,8 @@ final class RuntimeSelectionTableDialog extends JDialog {
         };
     }
 
-    RuntimeSelectionTableDialog(SelectionTableDialogRequest request, UiResourceService resources) {
+    RuntimeSelectionTableDialog(
+            SelectionTableDialogRequest request, SelectionTableFooter footer, UiResourceService resources) {
         super((Frame) null, request.title(), true);
         TurboismWindowFactory.style(this);
         Rows data = new Rows(request);
@@ -62,7 +73,7 @@ final class RuntimeSelectionTableDialog extends JDialog {
         table.getColumnModel().getColumn(2).setPreferredWidth(260);
         table.getColumnModel().getColumn(3).setPreferredWidth(125);
         table.getColumnModel().getColumn(0).setCellRenderer((t, value, selected, focused, row, column) -> {
-            SelectionTableDialogRequest.Row item = request.rows().get(t.convertRowIndexToModel(row));
+            SelectionTableDialogRequest.Row item = data.rowAt(t.convertRowIndexToModel(row));
             JLabel label = new JLabel();
             label.setHorizontalAlignment(SwingConstants.CENTER);
             label.setOpaque(true);
@@ -100,9 +111,12 @@ final class RuntimeSelectionTableDialog extends JDialog {
             dispose();
         });
         cancel.addActionListener(event -> dispose());
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        buttons.add(cancel);
-        buttons.add(confirm);
+        JPanel buttons = new JPanel(new BorderLayout(8, 0));
+        if (footer != null) buttons.add(footerControl(footer, data), BorderLayout.WEST);
+        JPanel decisions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        decisions.add(cancel);
+        decisions.add(confirm);
+        buttons.add(decisions, BorderLayout.EAST);
         JPanel root = new JPanel(new BorderLayout(0, 8));
         root.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
         if (!request.hint().isBlank()) root.add(new JLabel(request.hint()), BorderLayout.NORTH);
@@ -122,17 +136,56 @@ final class RuntimeSelectionTableDialog extends JDialog {
         sync.run();
     }
 
+    /**
+     * Builds the footer control and rebuilds the preview when its choice changes.
+     *
+     * <p>The rebuild runs on the event dispatch thread the dialog already owns, and the accept path
+     * reads the same model afterwards, so the confirmed rows are the ones the operator last saw.</p>
+     */
+    private static JPanel footerControl(SelectionTableFooter footer, Rows data) {
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        JLabel label = new JLabel(footer.label());
+        JComboBox<SelectionTableFooter.Choice> choices =
+                new JComboBox<>(footer.choices().toArray(SelectionTableFooter.Choice[]::new));
+        for (SelectionTableFooter.Choice choice : footer.choices()) {
+            if (choice.id().equals(footer.selectedChoiceId())) choices.setSelectedItem(choice);
+        }
+        label.setLabelFor(choices);
+        choices.setName(footer.id());
+        choices.addActionListener(event -> {
+            if (choices.getSelectedItem() instanceof SelectionTableFooter.Choice choice) {
+                data.replaceRows(footer.rows(choice.id()));
+            }
+        });
+        row.add(label);
+        row.add(choices);
+        return row;
+    }
+
     static final class Rows extends AbstractTableModel {
-        private final List<SelectionTableDialogRequest.Row> rows;
-        private final boolean[] selected;
+        private List<SelectionTableDialogRequest.Row> rows;
+        private boolean[] selected;
         private final String[] columns;
 
         Rows(SelectionTableDialogRequest request) {
-            List<SelectionTableDialogRequest.Row> rows = request.rows();
-            this.rows = List.copyOf(rows);
-            selected = new boolean[rows.size()];
-            columns = request.columns().toArray(String[]::new);
+            this.columns = request.columns().toArray(String[]::new);
+            applyRows(request.rows());
+        }
+
+        private void applyRows(List<SelectionTableDialogRequest.Row> replacement) {
+            this.rows = List.copyOf(replacement);
+            this.selected = new boolean[rows.size()];
             for (int i = 0; i < selected.length; i++) selected[i] = rows.get(i).selected();
+        }
+
+        SelectionTableDialogRequest.Row rowAt(int row) {
+            return rows.get(row);
+        }
+
+        /** Replaces every row, discarding the previous selection; used by a footer rebuild. */
+        void replaceRows(List<SelectionTableDialogRequest.Row> replacement) {
+            applyRows(java.util.Objects.requireNonNull(replacement, "replacement"));
+            fireTableDataChanged();
         }
 
         @Override

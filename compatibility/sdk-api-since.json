@@ -1,7 +1,7 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "6ba2f8b65f284be14319657eb2aa5f57cb1b371120c3107f4a9aac9433ccb29d",
+  "surfaceSha256": "27637caceea4ebe3d5a3b61347e4a6f0b021b27990b2c620366d8273f7d87f0d",
   "classes": {
     "dev.turboism.sdk.cubism.CubismActivitySnapshot": "0.70.0",
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
@@ -60,6 +60,8 @@
     "dev.turboism.sdk.ui.SelectionTableDialogRequest": "0.68.0",
     "dev.turboism.sdk.ui.SelectionTableDialogRequest$Row": "0.68.0",
     "dev.turboism.sdk.ui.SelectionTableDialogResultListener": "0.68.0",
+    "dev.turboism.sdk.ui.SelectionTableFooter": "0.70.0",
+    "dev.turboism.sdk.ui.SelectionTableFooter$Choice": "0.70.0",
     "dev.turboism.sdk.ui.settings.SettingsControl$FilePath": "0.67.2",
     "dev.turboism.sdk.ui.window.TurboismProgressDialog": "0.67.4"
   },
@@ -116,6 +118,7 @@
     "dev.turboism.sdk.ui.UiHostCapabilityService#contributeRecentProjectBoard:(Ldev/turboism/sdk/ui/EmbeddedPanelContribution;)Ldev/turboism/sdk/plugin/Registration;": "0.70.0",
     "dev.turboism.sdk.ui.UiHostCapabilityService#createNewAnimationProject:()Z": "0.70.0",
     "dev.turboism.sdk.ui.UiHostCapabilityService#openSelectionTableDialog:(Ldev/turboism/sdk/ui/SelectionTableDialogRequest;Ldev/turboism/sdk/ui/SelectionTableDialogResultListener;)Ldev/turboism/sdk/plugin/Registration;": "0.68.0",
+    "dev.turboism.sdk.ui.UiHostCapabilityService#openSelectionTableDialog:(Ldev/turboism/sdk/ui/SelectionTableDialogRequest;Ldev/turboism/sdk/ui/SelectionTableFooter;Ldev/turboism/sdk/ui/SelectionTableDialogResultListener;)Ldev/turboism/sdk/plugin/Registration;": "0.70.0",
     "dev.turboism.sdk.ui.UiScheduler#runUiTeardown:(Ljava/lang/Runnable;Ljava/time/Duration;)Z": "0.68.1",
     "dev.turboism.sdk.ui.UserFileAccessService#writeBytesAtomicBounded:(Ldev/turboism/sdk/ui/UserFileHandle;[BI)Ljava/util/concurrent/CompletionStage;": "0.68.0",
     "dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry#contributeStateButtons:(Ldev/turboism/sdk/ui/viewcontext/ViewContextMenuRegistry$StateButtonContribution;I)Ldev/turboism/sdk/plugin/Registration;": "0.70.0"

@@ -47,6 +47,60 @@ class RuntimeSelectionTableDialogTest {
         assertTrue(rows.selected().isEmpty());
     }
 
+    /**
+     * A footer choice rebuilds every proposed name, so the model must show the new rows and drop the
+     * selection that belonged to the old ones. Keeping a stale selection would confirm an identity
+     * the operator no longer sees.
+     */
+    @Test
+    void rebuildingRowsReplacesContentAndDropsThePreviousSelection() {
+        var rows = new RuntimeSelectionTableDialog.Rows(request());
+        assertEquals(List.of("a"), rows.selected());
+
+        rows.replaceRows(List.of(new SelectionTableDialogRequest.Row(
+                "c", new UiIconRef(CubismIcon.WARP_DEFORMER), "Warp", "old", "renamed", true, false)));
+
+        assertEquals(1, rows.getRowCount());
+        assertEquals("c", rows.rowAt(0).id());
+        assertTrue(rows.selected().isEmpty(), "the rebuild must not carry the previous selection");
+        assertFalse(rows.allSelected(), "an unselected row is not an all-selected table");
+    }
+
+    @Test
+    void footerContractRejectsAnEmptyOrUnmatchedChoiceSet() {
+        var choice = new dev.turboism.sdk.ui.SelectionTableFooter.Choice("minimal", "Minimal");
+        var footer = new dev.turboism.sdk.ui.SelectionTableFooter() {
+            @Override
+            public String id() {
+                return "base";
+            }
+
+            @Override
+            public String label() {
+                return "Base";
+            }
+
+            @Override
+            public List<dev.turboism.sdk.ui.SelectionTableFooter.Choice> choices() {
+                return List.of(choice);
+            }
+
+            @Override
+            public String selectedChoiceId() {
+                return "minimal";
+            }
+
+            @Override
+            public List<SelectionTableDialogRequest.Row> rows(final String choiceId) {
+                return List.of();
+            }
+        };
+        assertDoesNotThrow(() -> dev.turboism.sdk.ui.SelectionTableFooter.requireValid(footer));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new dev.turboism.sdk.ui.SelectionTableFooter.Choice(" ", "Minimal"));
+    }
+
     @Test
     void validatesPreviewBoundsAndUniqueRowIdentities() {
         var original = request();

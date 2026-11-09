@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: deformer, rename, batch-edit
-turboismApi: "[0.68.0,1.0.0)"
+turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---

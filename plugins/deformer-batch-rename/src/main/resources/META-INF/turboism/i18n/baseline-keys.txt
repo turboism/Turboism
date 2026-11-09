@@ -1,12 +1,7 @@
 action.rename
-base.accept
-base.cancel
+base.label
 base.minimal
-base.minimal.detail
-base.notice
 base.part
-base.part.detail
-base.title
 button.cancel
 button.confirm
 column.apply

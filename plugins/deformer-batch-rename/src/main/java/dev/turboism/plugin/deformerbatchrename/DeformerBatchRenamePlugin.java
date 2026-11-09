@@ -9,20 +9,14 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.ChoiceDialogOption;
-import dev.turboism.sdk.ui.ChoiceDialogRequest;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 /** One confirmed rename batch participates in one native Undo transaction. */
 public final class DeformerBatchRenamePlugin implements CubismPlugin {
     public static final String ACTION_ID = "deformer.rename.preview";
-    private static final String OPTION_BASE_MINIMAL = "minimal-common";
-    private static final String OPTION_BASE_PART = "part-name";
     private PluginContext context;
     private volatile boolean enabled;
     private volatile Registration dialog;
@@ -96,61 +90,36 @@ public final class DeformerBatchRenamePlugin implements CubismPlugin {
                 return;
             }
             var modelId = model.id();
-            var mode = chooseBaseNameMode();
-            if (mode == null) return;
-            baseNameMode = mode;
-            var rows = RenamePlanner.preview(model, mode);
-            if (rows.isEmpty()) {
+            var baseNames = new RenameBaseNameFooter(model, context.localization(), baseNameMode);
+            if (baseNames.rows().isEmpty()) {
                 notifyStatus("status.empty", "INFO");
                 return;
             }
             long current = generation;
             dialog = context.services()
                     .require(UiHostCapabilityService.class)
-                    .openSelectionTableDialog(RenameDialog.request(context.localization(), rows), (accepted, ids) -> {
-                        if (!enabled || current != generation) return;
-                        var handle = dialog;
-                        dialog = null;
-                        if (handle != null) handle.close();
-                        if (accepted && !ids.isEmpty()) apply(modelId, rows, ids, mode);
-                    });
+                    .openSelectionTableDialog(
+                            RenameDialog.request(context.localization(), baseNames.rows()),
+                            baseNames,
+                            (accepted, ids) -> {
+                                if (!enabled || current != generation) return;
+                                var handle = dialog;
+                                dialog = null;
+                                if (handle != null) handle.close();
+                                baseNameMode = baseNames.mode();
+                                if (accepted && !ids.isEmpty()) apply(modelId, baseNames.rows(), ids, baseNames.mode());
+                            });
         } catch (RuntimeException failure) {
             context.logger().warn("Deformer rename failed: " + failure);
             notifyStatus("status.failed", "ERROR");
         }
     }
 
-    /**
-     * Asks which name the batch derives from, before the preview is built.
-     *
-     * <p>The preview dialog is a static table, so the choice has to precede it; asking first keeps
-     * one confirmable list instead of a preview that silently changes under the operator.</p>
-     *
-     * @return the chosen mode, or {@code null} when the operator cancelled
-     */
-    private RenamePlanner.BaseNameMode chooseBaseNameMode() {
-        final ChoiceDialogRequest request = new ChoiceDialogRequest(
-                "deformer.rename.base",
-                text("base.title"),
-                text("base.notice"),
-                List.of(
-                        new ChoiceDialogOption(
-                                OPTION_BASE_MINIMAL, text("base.minimal"), text("base.minimal.detail"), true),
-                        new ChoiceDialogOption(OPTION_BASE_PART, text("base.part"), text("base.part.detail"), true)),
-                Optional.of(
-                        baseNameMode == RenamePlanner.BaseNameMode.PART_NAME ? OPTION_BASE_PART : OPTION_BASE_MINIMAL),
-                text("base.accept"),
-                text("base.cancel"));
-        final Optional<String> chosen =
-                context.services().require(UiHostCapabilityService.class).choose(request);
-        if (chosen.isEmpty()) return null;
-        return OPTION_BASE_PART.equals(chosen.get())
-                ? RenamePlanner.BaseNameMode.PART_NAME
-                : RenamePlanner.BaseNameMode.MINIMAL_COMMON;
-    }
-
     private void apply(
-            ModelId modelId, List<RenamePlanner.Row> rows, List<String> ids, RenamePlanner.BaseNameMode mode) {
+            ModelId modelId,
+            java.util.List<RenamePlanner.Row> rows,
+            java.util.List<String> ids,
+            RenamePlanner.BaseNameMode mode) {
         try {
             var selected = new HashSet<>(ids);
             var result = context.cubism()
