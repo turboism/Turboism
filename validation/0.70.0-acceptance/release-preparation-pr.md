@@ -134,3 +134,32 @@ Cubism 5.3.04, isolated installation, fixture `physics-model.cmo3`.
 These observations are unattended UI evidence, not instrumented assertions.
 They confirm the workflows complete and undo once; they do not measure values.
 The stale-preview refusal remains unobserved.
+
+## Operator findings from session `host-5304-manual2` (2026-11-09)
+
+The operator drove the native host and reported ten results. Two whole-session failures
+came from the runtime, and both are now fixed with regression tests:
+
+- **Theme manager never opened.** An action handler runs on the plugin's single worker,
+  joins a runtime future, and that future settles on the same pool. The settle body
+  queued behind the thread it had to release, so the join never returned and the
+  scheduler logged `sidecar.complete` timeouts every five seconds. Settlements now run
+  on a dedicated serial lane.
+- **Status-bar timer never appeared.** The first refresh calls the host status region,
+  which took longer than the five-second work budget while plugin load still owned the
+  event thread; the fixed-delay task then went terminal on one timed-out iteration. A
+  periodic refresh now records the overrun as a missed tick and keeps its schedule.
+
+Other accepted items: the update menu is a final flat entry; the plugin manager footer
+splits into an acquire row and a selection row; parameter-sync font size matches; the
+rename base-name choice moved into the preview footer with a live rebuild; the board
+gained hover and press feedback through its children, and list rows center their text.
+
+Still open after this round:
+
+- Theme-manager opening needs a fresh host session to confirm the deadlock fix.
+- The 3D preset import rolled back a second time. The readback check compared a predicted
+  snapshot, so every form the batch never wrote was judged as well. It now compares only
+  the submitted edits and names the field before the form GUID, because the authoring
+  diagnostic is cut at 128 characters.
+- Animated-WebP export stays unplanned: it needs a VP8 encoder that the JDK does not ship.
