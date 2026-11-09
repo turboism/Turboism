@@ -6,6 +6,9 @@ package dev.turboism.plugin.turbomesh.domain.regions;
  * <p>Optional values accept {@code null} and then inherit the silhouette-scaled defaults that the
  * offline prototype derived from the longest bounding-box extent. This type carries no resolved
  * pixels, so callers can reuse one instance for images of different sizes.</p>
+ *
+ * <p>{@code trackCount} stays for parameter compatibility; the planner no longer adds direction
+ * tracks, because every synthetic guide cut across the drawn strands.</p>
  */
 public record RegionPlacementParams(
         Double minRegionRatio,
@@ -19,13 +22,19 @@ public record RegionPlacementParams(
     /** Fraction of the solid area below which a region merges into its closest neighbour. */
     public static final double DEFAULT_MIN_REGION_RATIO = 0.006;
 
-    /** Base Lab colour distance for region merging; the three levels scale it. */
-    public static final double DEFAULT_CONTRAST = 6.0;
+    /**
+     * Auto contrast floor: CIELAB distance that separates regions when the caller states none.
+     *
+     * <p>The floor sits at 2.5 so dark and low-contrast layers keep their internal structure, which a
+     * coarser floor merged away. The value stays on the 0.5 grid that the parameter descriptor
+     * declares, because a default off that grid is rejected at declaration time.</p>
+     */
+    public static final double DEFAULT_CONTRAST = 2.5;
 
     /** Coarsest region level, which the prototype used as its default. */
     public static final int DEFAULT_LEVEL = 1;
 
-    /** Number of interior direction tracks per shape. */
+    /** Default of the retained direction track knob, which adds no geometry any more. */
     public static final int DEFAULT_TRACK_COUNT = 3;
 
     /** Upper bound of the direction track count. */
@@ -48,9 +57,6 @@ public record RegionPlacementParams(
 
     /** Auto near-point merge distance floor in pixels. */
     static final double AUTO_MIN_SPACING_FLOOR_PX = 1.5;
-
-    /** Scale from boundary spacing to the interior fill pitch. */
-    static final double INTERIOR_SPACING_SCALE = 1.4;
 
     /** Sparse preset: the prototype run whose output the notes record as hair-sparse. */
     public static final RegionPlacementParams SPARSE = new RegionPlacementParams(
@@ -115,13 +121,7 @@ public record RegionPlacementParams(
             int trackCount,
             double maxSpacing,
             double simplifyTolerance,
-            double minSpacing) {
-
-        /** Interior fill pitch; the hex lattice uses this pitch for its row and column steps. */
-        public double interiorSpacing() {
-            return INTERIOR_SPACING_SCALE * maxSpacing;
-        }
-    }
+            double minSpacing) {}
 
     private static void requirePositive(final String name, final Double value) {
         if (value == null) {

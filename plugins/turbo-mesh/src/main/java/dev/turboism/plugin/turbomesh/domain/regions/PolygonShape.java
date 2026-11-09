@@ -1,247 +1,105 @@
 package dev.turboism.plugin.turbomesh.domain.regions;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
- * Closed material region with optional holes, expressed in source-pixel coordinates.
+ * Closed material region with islands and holes, expressed in source-pixel coordinates.
  *
- * <p>The shape carries the exact geometry that becomes hard mesh constraints, so direction guides
- * can be clipped against it and their endpoints then land on real constraint edges.</p>
+ * <p>The shape owns a disjoint ring set rather than one silhouette plus holes: two opaque parts of
+ * one layer are both material, and a hole inside one of them is empty. Membership therefore follows
+ * the even-odd rule over every ring, which is the same rule the triangulator classifies triangles
+ * with.</p>
  */
 final class PolygonShape {
 
-    /** Chord pieces shorter than this length are numerical noise, in pixels. */
-    static final double MIN_PIECE_LENGTH = 1.0e-6;
+    private final List<Polyline> rings;
+    private final boolean[] materialRing;
 
-    private final Polyline exterior;
-    private final List<Polyline> holes;
-
-    PolygonShape(final Polyline exterior, final List<Polyline> holes) {
-        if (!exterior.closed()) {
-            throw new IllegalArgumentException("exterior ring must be closed");
+    /**
+     * @param rings closed rings in any order; nesting depth decides which of them bound material
+     */
+    PolygonShape(final List<Polyline> rings) {
+        for (final Polyline ring : rings) {
+            if (!ring.closed()) {
+                throw new IllegalArgumentException("every domain ring must be closed");
+            }
         }
-        this.exterior = exterior.signedArea() < 0.0 ? exterior.reversed() : exterior;
-        final List<Polyline> normalized = new ArrayList<>(holes.size());
-        for (final Polyline hole : holes) {
-            normalized.add(hole.signedArea() > 0.0 ? hole.reversed() : hole);
+        this.rings = List.copyOf(rings);
+        final List<double[][]> coordinates = new ArrayList<>(rings.size());
+        for (final Polyline ring : rings) {
+            final double[] xs = new double[ring.size()];
+            final double[] ys = new double[ring.size()];
+            for (int i = 0; i < ring.size(); i++) {
+                xs[i] = ring.x(i);
+                ys[i] = ring.y(i);
+            }
+            coordinates.add(new double[][] {xs, ys});
         }
-        this.holes = List.copyOf(normalized);
+        final int[] depths = RingNesting.depths(coordinates);
+        this.materialRing = new boolean[rings.size()];
+        for (int i = 0; i < materialRing.length; i++) {
+            materialRing[i] = depths[i] % 2 == 0;
+        }
     }
 
-    Polyline exterior() {
-        return exterior;
-    }
-
-    List<Polyline> holes() {
-        return holes;
-    }
-
+    /** Every ring of the shape, in construction order. */
     List<Polyline> rings() {
-        final List<Polyline> rings = new ArrayList<>(holes.size() + 1);
-        rings.add(exterior);
-        rings.addAll(holes);
         return rings;
     }
 
+    /** Enclosed material area in square pixels; holes subtract and islands add. */
     double area() {
-        double area = Math.abs(exterior.signedArea());
-        for (final Polyline hole : holes) {
-            area -= Math.abs(hole.signedArea());
+        double area = 0.0;
+        for (int i = 0; i < rings.size(); i++) {
+            final double ringArea = Math.abs(rings.get(i).signedArea());
+            area += materialRing[i] ? ringArea : -ringArea;
         }
         return area;
     }
 
-    boolean contains(final double x, final double y) {
-        if (!exterior.contains(x, y)) {
-            return false;
-        }
-        for (final Polyline hole : holes) {
-            if (hole.contains(x, y)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     /**
-     * Keeps only the parts of {@code path} that lie inside the material.
+     * Material membership of every raster cell centre.
      *
-     * @return one polyline per inside run, in path order; empty when the path misses the material
+     * <p>Interior sampling asks this question per pixel, and a point-by-point ring test would make
+     * that quadratic in the border length. One scanline pass over the rings answers the whole raster
+     * with the same even-odd rule.</p>
      */
-    List<Polyline> clip(final Polyline path) {
-        final int segments = path.segmentCount();
-        if (segments <= 0) {
-            return List.of();
+    boolean[] rasterize(final int width, final int height) {
+        final boolean[] mask = new boolean[width * height];
+        int segmentCount = 0;
+        for (final Polyline ring : rings) {
+            segmentCount += ring.segmentCount();
         }
-        final List<double[]> breaks = new ArrayList<>();
-        final List<Boolean> insideFlags = new ArrayList<>();
-        breaks.add(new double[] {path.x(0), path.y(0)});
-        for (int s = 0; s < segments; s++) {
-            final int next = path.nextIndex(s);
-            final double ax = path.x(s);
-            final double ay = path.y(s);
-            final double bx = path.x(next);
-            final double by = path.y(next);
-            for (final double t : crossingParameters(ax, ay, bx, by)) {
-                appendBreak(breaks, insideFlags, ax, ay, bx, by, t);
-            }
-            appendBreak(breaks, insideFlags, ax, ay, bx, by, 1.0);
-        }
-        return group(breaks, insideFlags, path.closed());
-    }
-
-    /**
-     * Longest inside chord of the infinite line through {@code (px, py)} with direction
-     * {@code (dx, dy)}.
-     *
-     * @return endpoints {@code {x1, y1, x2, y2}} or {@code null} when the line misses the material
-     */
-    double[] longestInsideChord(final double px, final double py, final double dx, final double dy) {
-        final List<Double> hits = new ArrayList<>();
-        for (final Polyline ring : rings()) {
-            for (int s = 0; s < ring.segmentCount(); s++) {
-                final int next = ring.nextIndex(s);
-                final double cx = ring.x(s);
-                final double cy = ring.y(s);
-                final double ex = ring.x(next);
-                final double ey = ring.y(next);
-                final double segX = ex - cx;
-                final double segY = ey - cy;
-                final double denominator = dx * segY - dy * segX;
-                if (Math.abs(denominator) <= 1.0e-12) {
-                    continue;
-                }
-                final double t = ((cx - px) * segY - (cy - py) * segX) / denominator;
-                final double u =
-                        Math.abs(segY) >= Math.abs(segX) ? (py + t * dy - cy) / segY : (px + t * dx - cx) / segX;
-                if (u >= -1.0e-9 && u <= 1.0 + 1.0e-9) {
-                    hits.add(t);
+        final double[] crossings = new double[segmentCount];
+        for (int row = 0; row < height; row++) {
+            final double scanY = row;
+            int found = 0;
+            for (final Polyline ring : rings) {
+                for (int i = 0; i < ring.segmentCount(); i++) {
+                    final int next = ring.nextIndex(i);
+                    final double y0 = ring.y(i);
+                    final double y1 = ring.y(next);
+                    if ((y0 > scanY) == (y1 > scanY)) {
+                        continue;
+                    }
+                    final double x0 = ring.x(i);
+                    crossings[found++] = x0 + (scanY - y0) * (ring.x(next) - x0) / (y1 - y0);
                 }
             }
-        }
-        if (hits.size() < 2) {
-            return null;
-        }
-        hits.sort(Double::compare);
-        double bestLength = 0.0;
-        double[] best = null;
-        for (int i = 0; i + 1 < hits.size(); i++) {
-            final double t0 = hits.get(i);
-            final double t1 = hits.get(i + 1);
-            if (t1 - t0 <= 0.0) {
+            if (found == 0) {
                 continue;
             }
-            final double mid = 0.5 * (t0 + t1);
-            if (!contains(px + mid * dx, py + mid * dy)) {
-                continue;
-            }
-            final double length = t1 - t0;
-            if (length > bestLength) {
-                bestLength = length;
-                best = new double[] {px + t0 * dx, py + t0 * dy, px + t1 * dx, py + t1 * dy};
-            }
-        }
-        return best;
-    }
-
-    private List<Double> crossingParameters(final double ax, final double ay, final double bx, final double by) {
-        final List<Double> ts = new ArrayList<>();
-        for (final Polyline ring : rings()) {
-            for (int s = 0; s < ring.segmentCount(); s++) {
-                final int next = ring.nextIndex(s);
-                final double[] hit = PixelGeometry.intersectionPoint(
-                        ax, ay, bx, by, ring.x(s), ring.y(s), ring.x(next), ring.y(next));
-                if (hit == null) {
-                    continue;
-                }
-                final double t = PixelGeometry.projection(ax, ay, bx, by, hit[0], hit[1]);
-                if (t > 0.0 && t < 1.0) {
-                    ts.add(t);
+            Arrays.sort(crossings, 0, found);
+            for (int i = 0; i + 1 < found; i += 2) {
+                final int from = Math.max(0, (int) Math.ceil(crossings[i]));
+                final int to = Math.min(width - 1, (int) Math.floor(crossings[i + 1]));
+                for (int column = from; column <= to; column++) {
+                    mask[row * width + column] = true;
                 }
             }
         }
-        ts.sort(Double::compare);
-        final List<Double> unique = new ArrayList<>(ts.size());
-        for (final double t : ts) {
-            if (unique.isEmpty() || t - unique.get(unique.size() - 1) > 1.0e-9) {
-                unique.add(t);
-            }
-        }
-        return unique;
-    }
-
-    private void appendBreak(
-            final List<double[]> breaks,
-            final List<Boolean> insideFlags,
-            final double ax,
-            final double ay,
-            final double bx,
-            final double by,
-            final double t) {
-        final double[] previous = breaks.get(breaks.size() - 1);
-        final double[] current =
-                t >= 1.0 ? new double[] {bx, by} : new double[] {ax + t * (bx - ax), ay + t * (by - ay)};
-        insideFlags.add(contains(0.5 * (previous[0] + current[0]), 0.5 * (previous[1] + current[1])));
-        breaks.add(current);
-    }
-
-    private List<Polyline> group(
-            final List<double[]> breaks, final List<Boolean> insideFlags, final boolean closedPath) {
-        final List<int[]> runs = new ArrayList<>();
-        int index = 0;
-        while (index < insideFlags.size()) {
-            if (!insideFlags.get(index)) {
-                index++;
-                continue;
-            }
-            final int start = index;
-            while (index < insideFlags.size() && insideFlags.get(index)) {
-                index++;
-            }
-            runs.add(new int[] {start, index});
-        }
-        final List<Polyline> pieces = new ArrayList<>(runs.size());
-        for (final int[] run : runs) {
-            pieces.add(piece(breaks, run[0], run[1]));
-        }
-        if (closedPath && runs.size() >= 2 && insideFlags.get(0) && insideFlags.get(insideFlags.size() - 1)) {
-            final Polyline tail = pieces.remove(pieces.size() - 1);
-            final Polyline head = pieces.remove(0);
-            pieces.add(0, join(tail, head));
-        }
-        pieces.removeIf(piece -> piece == null || piece.length() <= MIN_PIECE_LENGTH);
-        return pieces;
-    }
-
-    private static Polyline piece(final List<double[]> breaks, final int from, final int to) {
-        final int count = to - from + 1;
-        final double[] xs = new double[count];
-        final double[] ys = new double[count];
-        for (int i = 0; i < count; i++) {
-            xs[i] = breaks.get(from + i)[0];
-            ys[i] = breaks.get(from + i)[1];
-        }
-        final boolean closed = count > 2
-                && Math.abs(xs[0] - xs[count - 1]) <= Polyline.COINCIDENT_EPS
-                && Math.abs(ys[0] - ys[count - 1]) <= Polyline.COINCIDENT_EPS;
-        if (closed) {
-            return Polyline.closedFromRepeated(xs, ys);
-        }
-        return new Polyline(xs, ys, false);
-    }
-
-    private static Polyline join(final Polyline tail, final Polyline head) {
-        final double[] xs = new double[tail.size() + head.size()];
-        final double[] ys = new double[tail.size() + head.size()];
-        for (int i = 0; i < tail.size(); i++) {
-            xs[i] = tail.x(i);
-            ys[i] = tail.y(i);
-        }
-        for (int i = 0; i < head.size(); i++) {
-            xs[tail.size() + i] = head.x(i);
-            ys[tail.size() + i] = head.y(i);
-        }
-        return new Polyline(xs, ys, false);
+        return mask;
     }
 }

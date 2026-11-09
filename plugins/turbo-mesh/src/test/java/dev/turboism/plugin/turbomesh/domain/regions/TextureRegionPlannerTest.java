@@ -18,15 +18,16 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies the ported planner against the offline prototype record in
- * {@code prototypes/texture-regions/NOTES.md}.
+ * Verifies the ported planner against the reviewed record of
+ * {@code prototypes/texture-regions/NOTES.md}, updated for the corner-locked, distance-graded
+ * sampling.
  *
  * <p>Every sample check runs the published API only, so the assertions describe the contract the
  * algorithm SPI will expose later.</p>
  */
 class TextureRegionPlannerTest {
 
-    /** Lowest triangle IoU the prototype expectation keeps for the checked-in samples. */
+    /** Lowest triangle IoU the reference expectation keeps for the checked-in samples. */
     private static final double MIN_SAMPLE_TRIANGLE_IOU = 0.97;
 
     /** Lowest triangle-area share of the opaque area a plan may leave uncovered. */
@@ -50,8 +51,44 @@ class TextureRegionPlannerTest {
     /** Vertices belong to a triangle interior beyond this distance, in pixels. */
     private static final double INSIDE_EPSILON_PX = 1.0e-6;
 
-    /** Allowed relative deviation from the prototype vertex count. */
+    /** Allowed relative deviation from the reference vertex count. */
     private static final double VERTEX_COUNT_TOLERANCE = 0.25;
+
+    /** Depth from which a vertex counts as interior rather than boundary, in pixels. */
+    private static final double BOUNDARY_DEPTH_PX = 1.0;
+
+    /** Segment length below which a distance query treats both ends as one point, in pixels. */
+    private static final double SEGMENT_EPS_PX = 1.0e-9;
+
+    /** Depth band of the border statistics, as a fraction of the deepest interior site. */
+    private static final double BORDER_BAND_RATIO = 0.20;
+
+    /** Depth band of the flat middle statistics, as a fraction of the deepest interior site. */
+    private static final double CORE_BAND_RATIO = 0.60;
+
+    /** Factor by which the flat middle must out-space the border band. */
+    private static final double MIN_DENSITY_GRADIENT = 1.20;
+
+    /** Smallest vertex gap a resampled curve may keep, in pixels. */
+    private static final double MIN_CURVE_GAP_PX = 2.0;
+
+    /** Distance by which a locked corner may miss the drawn corner, in pixels. */
+    private static final double CORNER_TOLERANCE_PX = 0.75;
+
+    /** Half of one source pixel, which moves a pixel edge onto the corner lattice. */
+    private static final double HALF_PIXEL = 0.5;
+
+    /** Left drawn edge of the rectangle sample, in pixels. */
+    private static final int RECTANGLE_LEFT = 100;
+
+    /** Right drawn edge of the rectangle sample, in pixels. */
+    private static final int RECTANGLE_RIGHT = 300;
+
+    /** Top drawn edge of the rectangle sample, in pixels. */
+    private static final int RECTANGLE_TOP = 80;
+
+    /** Bottom drawn edge of the rectangle sample, in pixels. */
+    private static final int RECTANGLE_BOTTOM = 220;
 
     private static final String HAIR = "/texture-regions/sample.png";
 
@@ -62,7 +99,7 @@ class TextureRegionPlannerTest {
         final Sample sample = load(HAIR);
         final RegionPlacementPlan plan = RegionPlacementPlanner.plan(
                 sample.argb(), sample.width(), sample.height(), RegionPlacementParams.SPARSE);
-        verify(plan, 139);
+        verify(plan, 315);
         report("hair-sparse", plan);
         RegionDumpWriter.dumpIfRequested(plan, sample, "hair-sparse");
     }
@@ -72,7 +109,7 @@ class TextureRegionPlannerTest {
         final Sample sample = load(HAIR);
         final RegionPlacementPlan plan = RegionPlacementPlanner.plan(
                 sample.argb(), sample.width(), sample.height(), RegionPlacementParams.DETAILED);
-        verify(plan, 204);
+        verify(plan, 501);
         report("hair-detailed", plan);
         RegionDumpWriter.dumpIfRequested(plan, sample, "hair-detailed");
     }
@@ -82,7 +119,7 @@ class TextureRegionPlannerTest {
         final Sample sample = load(USB);
         final RegionPlacementPlan plan = RegionPlacementPlanner.plan(
                 sample.argb(), sample.width(), sample.height(), RegionPlacementParams.HARD_SURFACE);
-        verify(plan, 134);
+        verify(plan, 239);
         assertAlphaHoles(plan, 2);
         report("usb-sparse", plan);
         RegionDumpWriter.dumpIfRequested(plan, sample, "usb-sparse");
@@ -96,20 +133,67 @@ class TextureRegionPlannerTest {
                 sample.width(),
                 sample.height(),
                 new RegionPlacementParams(0.01, null, 1, 3, null, null, null));
-        verify(plan, 221);
+        verify(plan, 413);
         assertAlphaHoles(plan, 2);
         report("usb-detailed", plan);
         RegionDumpWriter.dumpIfRequested(plan, sample, "usb-detailed");
     }
 
     @Test
-    void filledCircleUsesConcentricRings() {
-        assertConcentricRings(syntheticShape(512, 512, 256, 256, 200, 200), "circle");
+    void filledCircleGradesDensityFromItsBorder() {
+        assertDistanceFieldGrading(syntheticShape(512, 512, 256, 256, 200, 200), "circle");
     }
 
     @Test
-    void filledEllipseUsesConcentricRings() {
-        assertConcentricRings(syntheticShape(512, 512, 256, 256, 220, 140), "ellipse");
+    void filledEllipseGradesDensityFromItsBorder() {
+        assertDistanceFieldGrading(syntheticShape(512, 512, 256, 256, 220, 140), "ellipse");
+    }
+
+    /**
+     * A drawn rectangle must keep its four corners and must not bow its straight edges.
+     *
+     * <p>Corner locking and corner-pinned fairing exist for this contract: an unpinned low pass
+     * rounds the corners, and a plain Douglas-Peucker run clusters the vertices beside them.</p>
+     */
+    @Test
+    void sharpCornersSurviveTheCornerLock() {
+        final Sample sample = painted(
+                400,
+                300,
+                (x, y) -> x >= RECTANGLE_LEFT && x < RECTANGLE_RIGHT && y >= RECTANGLE_TOP && y < RECTANGLE_BOTTOM);
+        final RegionPlacementPlan plan = RegionPlacementPlanner.plan(
+                sample.argb(), sample.width(), sample.height(), RegionPlacementParams.SPARSE);
+        verify(plan, null);
+        final List<Point> vertices = points(plan);
+        assertEquals(1, plan.domainRings().size(), "a rectangle must publish one domain ring");
+        final double left = RECTANGLE_LEFT - HALF_PIXEL;
+        final double right = RECTANGLE_RIGHT - HALF_PIXEL;
+        final double top = RECTANGLE_TOP - HALF_PIXEL;
+        final double bottom = RECTANGLE_BOTTOM - HALF_PIXEL;
+        assertTrue(nearestVertex(vertices, left, top) <= CORNER_TOLERANCE_PX, "top left corner must stay locked");
+        assertTrue(nearestVertex(vertices, right, top) <= CORNER_TOLERANCE_PX, "top right corner must stay locked");
+        assertTrue(
+                nearestVertex(vertices, right, bottom) <= CORNER_TOLERANCE_PX, "bottom right corner must stay locked");
+        assertTrue(nearestVertex(vertices, left, bottom) <= CORNER_TOLERANCE_PX, "bottom left corner must stay locked");
+        for (final int index : plan.domainRings().get(0)) {
+            final Point vertex = vertices.get(index);
+            final double toEdge = Math.min(
+                    Math.min(Math.abs(vertex.x() - left), Math.abs(vertex.x() - right)),
+                    Math.min(Math.abs(vertex.y() - top), Math.abs(vertex.y() - bottom)));
+            assertTrue(
+                    toEdge <= CORNER_TOLERANCE_PX,
+                    "ring vertex (" + vertex.x() + ", " + vertex.y() + ") left the drawn edge by " + toEdge);
+        }
+        report("rectangle", plan);
+    }
+
+    /** Distance from a position to the closest plan vertex, in pixels. */
+    private static double nearestVertex(final List<Point> vertices, final double x, final double y) {
+        double nearest = Double.POSITIVE_INFINITY;
+        for (final Point vertex : vertices) {
+            nearest = Math.min(nearest, Math.hypot(vertex.x() - x, vertex.y() - y));
+        }
+        return nearest;
     }
 
     @Test
@@ -298,19 +382,131 @@ class TextureRegionPlannerTest {
                 plan.fallback());
     }
 
-    private static void assertConcentricRings(final Sample sample, final String name) {
+    /**
+     * The contract of a round shape: the mesh follows the silhouette and the distance field, and no
+     * invented guide ring cuts across it.
+     *
+     * <p>The density must fall from the border towards the flat middle, which is what the graded
+     * inhibition radius produces. A uniform lattice, and any synthetic concentric ring, cannot.</p>
+     */
+    private static void assertDistanceFieldGrading(final Sample sample, final String name) {
         final RegionPlacementPlan plan = RegionPlacementPlanner.plan(
                 sample.argb(), sample.width(), sample.height(), RegionPlacementParams.SPARSE);
-        assertEquals(ShapeFamily.CONCENTRIC_RINGS, plan.shapeFamily(), name + " must use nested rings");
-        final int loops = closedDirectionLoops(plan);
-        assertTrue(loops >= 2, name + " must keep at least two closed direction rings but kept " + loops);
+        assertEquals(ShapeFamily.NONE, plan.shapeFamily(), name + " must not invent a shape family");
+        assertEquals(0, guideConstraintCount(plan), name + " must publish no synthetic guide constraint");
         verify(plan, null);
+        final List<Point> vertices = points(plan);
+        final double[] depth = outlineDepths(plan, vertices);
+        double deepest = 0.0;
+        for (final double value : depth) {
+            deepest = Math.max(deepest, value);
+        }
+        assertTrue(deepest > BOUNDARY_DEPTH_PX, name + " must publish interior sites");
+        final double borderLimit = deepest * BORDER_BAND_RATIO;
+        final double coreLimit = deepest * CORE_BAND_RATIO;
+        final double borderSpacing = meanNeighbourDistance(vertices, depth, BOUNDARY_DEPTH_PX, borderLimit);
+        final double coreSpacing = meanNeighbourDistance(vertices, depth, coreLimit, deepest);
+        System.out.printf(
+                "%s: borderSpacing=%.3f coreSpacing=%.3f deepest=%.3f%n", name, borderSpacing, coreSpacing, deepest);
+        assertTrue(
+                coreSpacing >= MIN_DENSITY_GRADIENT * borderSpacing,
+                name + " keeps " + borderSpacing + " px at the border but only " + coreSpacing + " px in the middle");
+        assertTrue(
+                minimumNeighbourDistance(vertices, depth, 0.0, BOUNDARY_DEPTH_PX) >= MIN_CURVE_GAP_PX,
+                name + " must not cluster boundary vertices");
         report(name, plan);
         RegionDumpWriter.dumpIfRequested(plan, sample, name);
     }
 
+    /** Depth of every vertex from the published outline, in pixels. */
+    private static double[] outlineDepths(final RegionPlacementPlan plan, final List<Point> vertices) {
+        final List<int[]> outline = new ArrayList<>();
+        for (final RegionPlacementPlan.Constraint constraint : plan.constraints()) {
+            if (constraint.role() == ConstraintRole.OUTLINE) {
+                outline.add(new int[] {constraint.a(), constraint.b()});
+            }
+        }
+        final double[] depth = new double[vertices.size()];
+        for (int i = 0; i < vertices.size(); i++) {
+            final Point vertex = vertices.get(i);
+            double nearest = Double.POSITIVE_INFINITY;
+            for (final int[] segment : outline) {
+                nearest =
+                        Math.min(nearest, segmentDistance(vertices.get(segment[0]), vertices.get(segment[1]), vertex));
+            }
+            depth[i] = nearest;
+        }
+        return depth;
+    }
+
+    private static double segmentDistance(final Point from, final Point to, final Point point) {
+        final double dx = to.x() - from.x();
+        final double dy = to.y() - from.y();
+        final double lengthSquared = dx * dx + dy * dy;
+        final double unclamped = lengthSquared <= SEGMENT_EPS_PX
+                ? 0.0
+                : ((point.x() - from.x()) * dx + (point.y() - from.y()) * dy) / lengthSquared;
+        final double t = Math.max(0.0, Math.min(1.0, unclamped));
+        return Math.hypot(point.x() - (from.x() + t * dx), point.y() - (from.y() + t * dy));
+    }
+
+    /** Mean distance to the closest other vertex, over the vertices inside one depth band. */
+    private static double meanNeighbourDistance(
+            final List<Point> vertices, final double[] depth, final double low, final double high) {
+        double sum = 0.0;
+        int count = 0;
+        for (int i = 0; i < vertices.size(); i++) {
+            if (depth[i] < low || depth[i] > high) {
+                continue;
+            }
+            sum += nearestNeighbourDistance(vertices, i);
+            count++;
+        }
+        assertTrue(count > 0, "depth band [" + low + ", " + high + "] must hold vertices");
+        return sum / count;
+    }
+
+    /** Smallest distance between two vertices of one depth band, in pixels. */
+    private static double minimumNeighbourDistance(
+            final List<Point> vertices, final double[] depth, final double low, final double high) {
+        double smallest = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < vertices.size(); i++) {
+            if (depth[i] < low || depth[i] > high) {
+                continue;
+            }
+            smallest = Math.min(smallest, nearestNeighbourDistance(vertices, i));
+        }
+        assertTrue(smallest < Double.POSITIVE_INFINITY, "depth band [" + low + ", " + high + "] must hold vertices");
+        return smallest;
+    }
+
+    private static double nearestNeighbourDistance(final List<Point> vertices, final int index) {
+        final Point vertex = vertices.get(index);
+        double nearest = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < vertices.size(); i++) {
+            if (i == index) {
+                continue;
+            }
+            nearest = Math.min(
+                    nearest,
+                    Math.hypot(vertices.get(i).x() - vertex.x(), vertices.get(i).y() - vertex.y()));
+        }
+        return nearest;
+    }
+
+    /** Number of published constraints that come from an invented direction guide. */
+    private static int guideConstraintCount(final RegionPlacementPlan plan) {
+        int count = 0;
+        for (final RegionPlacementPlan.Constraint constraint : plan.constraints()) {
+            if (constraint.role() == ConstraintRole.DIRECTION_LINE) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     /** Verifies every published guarantee that holds for all samples. */
-    private static void verify(final RegionPlacementPlan plan, final Integer prototypeVertexCount) {
+    private static void verify(final RegionPlacementPlan plan, final Integer referenceVertexCount) {
         assertTrue(plan.triangleCount() > 0, "plan must contain triangles");
         assertTrue(plan.regions().regionCount() > 0, "plan must report texture regions");
         assertAllVerticesReferenced("plan", plan);
@@ -320,9 +516,9 @@ class TextureRegionPlannerTest {
         assertTrue(
                 plan.triangleIou() >= MIN_SAMPLE_TRIANGLE_IOU,
                 "triangle IoU " + plan.triangleIou() + " must reach " + MIN_SAMPLE_TRIANGLE_IOU);
-        if (prototypeVertexCount != null) {
-            final double low = prototypeVertexCount * (1.0 - VERTEX_COUNT_TOLERANCE);
-            final double high = prototypeVertexCount * (1.0 + VERTEX_COUNT_TOLERANCE);
+        if (referenceVertexCount != null) {
+            final double low = referenceVertexCount * (1.0 - VERTEX_COUNT_TOLERANCE);
+            final double high = referenceVertexCount * (1.0 + VERTEX_COUNT_TOLERANCE);
             assertTrue(
                     plan.vertexCountAfterMerge() >= low && plan.vertexCountAfterMerge() <= high,
                     "vertex count " + plan.vertexCountAfterMerge() + " must stay within [" + low + ", " + high + "]");
@@ -653,45 +849,6 @@ class TextureRegionPlannerTest {
             sumY += vertices.get(index).y();
         }
         return new Point(sumX / ring.length, sumY / ring.length);
-    }
-
-    /** Counts closed loops formed by direction constraints; a ring vertex must have degree two. */
-    private static int closedDirectionLoops(final RegionPlacementPlan plan) {
-        final Map<Integer, List<Integer>> neighbours = new HashMap<>();
-        for (final RegionPlacementPlan.Constraint constraint : plan.constraints()) {
-            if (constraint.role() != ConstraintRole.DIRECTION_LINE) {
-                continue;
-            }
-            neighbours
-                    .computeIfAbsent(constraint.a(), ignored -> new ArrayList<>())
-                    .add(constraint.b());
-            neighbours
-                    .computeIfAbsent(constraint.b(), ignored -> new ArrayList<>())
-                    .add(constraint.a());
-        }
-        for (final Map.Entry<Integer, List<Integer>> entry : neighbours.entrySet()) {
-            assertEquals(2, entry.getValue().size(), "direction ring vertex must have degree two");
-        }
-        final Set<Integer> visited = new HashSet<>();
-        int loops = 0;
-        for (final int start : neighbours.keySet()) {
-            if (!visited.add(start)) {
-                continue;
-            }
-            loops++;
-            int current = start;
-            int previous = -1;
-            while (true) {
-                final List<Integer> options = neighbours.get(current);
-                final int next = options.get(0) == previous ? options.get(1) : options.get(0);
-                if (next == start || !visited.add(next)) {
-                    break;
-                }
-                previous = current;
-                current = next;
-            }
-        }
-        return loops;
     }
 
     private static List<Point> points(final RegionPlacementPlan plan) {
