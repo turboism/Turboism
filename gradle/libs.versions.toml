@@ -5,6 +5,7 @@ spotless = "8.9.0"
 junit = "5.10.3"
 izpack = "5.2.6"
 izpackGradle = "3.2.3"
+kotlin = "1.9.24"
 jackson = "2.18.9"
 resilience4j = "2.1.0"
 asm = "9.7.1"
@@ -27,6 +28,10 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
 jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }
+
+# Kotlin standard library: the reviewed Cubism Editor jars link against it, so the offline
+# host widget harness in :runtime tests needs the same API surface on its class path.
+kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
 
 # Resilience4j
 resilience4j-bulkhead = { module = "io.github.resilience4j:resilience4j-bulkhead", version.ref = "resilience4j" }
