@@ -28,10 +28,13 @@ probe_classes=(
   AutoMeshDumpWriter
   AutoMeshProbeResult
   AutoMeshProbeStatus
+  AutoMeshProbeBudget
   AutoMeshAlphaCoverage
   NativeAutoMeshFunnel
   NativeAutoMeshPopup
   WindowsHistoryNativeUiHostClose
+  WindowsProbeHarness
+  WindowsHistoryManagerValidationProbe
 )
 
 for required in "$agent_jar" "$turbo_mesh_jar" "$descriptor"; do

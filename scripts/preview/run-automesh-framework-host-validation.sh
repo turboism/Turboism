@@ -26,7 +26,6 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle="$repo_root/build/manual-test/$worktree_id/automesh-framework-validation"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
-evidence_hook="$repo_root/scripts/preview/collect-automesh-dump.sh"
 turboism_select_fixture "$version" || exit 2
 fixture="$fixture_src"
 
@@ -34,7 +33,6 @@ fixture="$fixture_src"
 [ -f "$bundle/plugins/turbo-mesh.jar" ] || { echo "turbo-mesh plugin missing: $bundle" >&2; exit 1; }
 [ -f "$bundle/plugins/automesh-framework-validation-probe.jar" ] \
   || { echo "auto mesh probe missing: $bundle" >&2; exit 1; }
-[ -f "$evidence_hook" ] || { echo "evidence hook missing: $evidence_hook" >&2; exit 1; }
 
 # The dump lives inside the task home so the runner collects it with the rest of the
 # evidence. The probe writes it through {HOME}, and the offline renderer reads the copy
@@ -57,9 +55,7 @@ exec bash "$runner" \
   --jvm-option '-Dturboism.validation.exitOnComplete=true' \
   --jvm-option "-Dturboism.automeshValidation.meshIds=$mesh_ids" \
   --jvm-option "-Dturboism.automeshValidation.multiKeyformMeshIds=$multi_keyform_ids" \
-  --jvm-option '-Dturboism.automeshValidation.dumpDir={HOME}\automesh-dump' \
   --jvm-option "-Dturboism.automeshValidation.customSettleTimeoutSeconds=${TURBOISM_AUTOMESH_SETTLE_SECONDS:-30}" \
-  --remote-pre-cleanup "$evidence_hook" \
   --ready-marker 'AUTOMESH_FRAMEWORK_PROBE_READY' \
   --ready-marker 'Plugin load complete' \
   --result-file 'state/dev.turboism.validation.automesh-framework/automesh-framework-validation.properties' \

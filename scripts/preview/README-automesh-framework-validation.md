@@ -87,9 +87,10 @@ Key records:
 
 ## Render the dump offline
 
-The probe writes one directory per probed mesh under the task home's `automesh-dump`, and the
-`collect-automesh-dump.sh` pre-cleanup hook copies it into the evidence directory. Each variant
-directory holds `meta.properties`, `positions.txt`, `uvs.txt`, `indices.txt` and `texture.bin` in the
+The probe writes one directory per probed mesh under its plugin state directory
+(`state/dev.turboism.validation.automesh-framework/automesh-dump`), which the runner collects with
+the rest of the task state. The queue admits only reviewed hooks, so no custom hook copies the dump.
+Extract it from the collected state archive before rendering. Each variant directory holds `meta.properties`, `positions.txt`, `uvs.txt`, `indices.txt` and `texture.bin` in the
 same layout the earlier Turbo Mesh probe used.
 
 ```bash
