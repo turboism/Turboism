@@ -9,6 +9,7 @@ import dev.turboism.sdk.cubism.mesh.automesh.AlgorithmParameterDescriptor;
 import dev.turboism.sdk.cubism.mesh.automesh.AlgorithmPreset;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshResult;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -222,6 +223,29 @@ class AutoMeshSelectionStateTest {
         assertEquals(
                 List.of("Wide"), presets.stream().map(AlgorithmPreset::name).toList());
         assertEquals(Map.of("density", "9"), presets.get(0).values());
+    }
+
+    @Test
+    void aTransientValueSetIsCurrentButWaitsForTheStoreUntilItIsPersisted() {
+        final AutoMeshPresetStore store =
+                new AutoMeshPresetStore(directory.resolve("automesh-presets.properties"), message -> {});
+        final AutoMeshSelectionState first = new AutoMeshSelectionState(catalog, store);
+
+        first.setParameterValuesTransient(algorithm, Map.of("density", "9"));
+
+        assertEquals("9", first.parameterValues(algorithm).get("density"), "a run must read the live value");
+        assertFalse(
+                Files.exists(directory.resolve("automesh-presets.properties")),
+                "a streamed value must not force the preset file");
+
+        first.setParameterValues(algorithm, Map.of("density", "9"));
+
+        assertEquals(
+                "9",
+                new AutoMeshSelectionState(catalog, store)
+                        .parameterValues(algorithm)
+                        .get("density"),
+                "the final set of one stream must persist");
     }
 
     @Test

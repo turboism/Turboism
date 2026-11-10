@@ -3,8 +3,6 @@ package dev.turboism.automesh;
 import dev.turboism.sdk.cubism.mesh.automesh.AlgorithmParameterDescriptor;
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -186,9 +184,6 @@ final class AutoMeshParameterControl {
         final double stepped =
                 descriptor.min() + Math.round((raw - descriptor.min()) / descriptor.step()) * descriptor.step();
         final double bounded = Math.min(descriptor.max(), Math.max(descriptor.min(), stepped));
-        return BigDecimal.valueOf(bounded)
-                .setScale(descriptor.decimals(), RoundingMode.HALF_UP)
-                .stripTrailingZeros()
-                .toPlainString();
+        return AutoMeshValueCodec.canonicalDecimal(bounded, descriptor.decimals());
     }
 }

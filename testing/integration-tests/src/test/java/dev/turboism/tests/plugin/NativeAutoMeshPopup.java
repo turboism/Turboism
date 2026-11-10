@@ -4,6 +4,8 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Window;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -16,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import javax.imageio.ImageIO;
+import javax.swing.JComboBox;
 import javax.swing.SwingUtilities;
 
 /**
@@ -34,8 +37,22 @@ import javax.swing.SwingUtilities;
 final class NativeAutoMeshPopup {
 
     private static final String CONTAINER_PACKAGE = "com.live2d.cubism.doc.model.extension.meshGenerator.ui.";
+
+    /**
+     * Primary container class: the modeling-mode dialog panel.
+     *
+     * <p>This panel is the container that carries the native Preset and Parameters groups, which is
+     * exactly the centre the plugin groups insert into.</p>
+     */
+    private static final String MODELING_DIALOG_PANEL =
+            CONTAINER_PACKAGE + "AutoMeshGenerate_DialogType$AutoGenerateMeshPanel";
+
+    /** Fallback container class, used only when the modeling panel is unavailable. */
     private static final String MODELING_POPUP_DIALOG =
             CONTAINER_PACKAGE + "AutoMeshGenerate_PopupType$AutoGenerateMeshDialog";
+
+    private static final List<String> CONTAINER_CLASSES = List.of(MODELING_DIALOG_PANEL, MODELING_POPUP_DIALOG);
+
     private static final String COMPLETE_PACK = "getCompletePack";
     private static final String APP_CONTROLLER = "com.live2d.cubism.CEAppCtrl";
     private static final String APP_CONTROLLER_INSTANCE = "_instance";
@@ -43,15 +60,32 @@ final class NativeAutoMeshPopup {
     private static final String CENTER = "getCenter";
     private static final String COMPONENT_GETTER = "getJComponent";
     private static final String HOST_CHILDREN = "getChildren";
+    private static final String COMBO = "com.live2d.ui.control.CComboBox";
+    private static final String COMBO_ITEMS = "getItems";
+    private static final String COMBO_SELECTED_INDEX = "getSelectedIndex";
+    private static final String COMBO_SET_SELECTED_INDEX = "setSelectedIndex";
+    private static final String STOP_POLLING = "stopPolling";
     private static final int MAX_WIDGET_DEPTH = 24;
     private static final String DISPOSE = "dispose";
     private static final String SCREENSHOT_FILE = "automesh-selector-row.png";
     private static final String PARAMETER_DIALOG_FILE = "automesh-parameter-dialog.png";
+    private static final String NATIVE_MODE_FILE = "automesh-native-mode.png";
     private static final String PNG_FORMAT = "png";
     private static final int MINIMUM_POPUP_EDGE = 16;
     private static final int MINIMUM_POPUP_WIDTH = 460;
     private static final int MINIMUM_POPUP_HEIGHT = 280;
     private static final int MAXIMUM_STACK_LINES = 24;
+
+    /**
+     * Index of the Editor's own generator in the algorithm combo.
+     *
+     * <p>The controller always lists the native generator first, so one entry names it without
+     * reading the host locale.</p>
+     */
+    private static final int NATIVE_ALGORITHM_ENTRY = 0;
+
+    /** Centre child index of the injected Algorithm group. */
+    private static final int ALGORITHM_GROUP_INDEX = 0;
 
     private NativeAutoMeshPopup() {}
 
@@ -103,14 +137,15 @@ final class NativeAutoMeshPopup {
             if (pack == null) {
                 return notBuilt("no-complete-pack");
             }
-            final Class<?> containerType =
-                    loadHostClass(MODELING_POPUP_DIALOG, pack.getClass().getClassLoader());
-            if (containerType == null) {
-                return notBuilt("no-container-class");
-            }
-            for (final Constructor<?> constructor : containerType.getDeclaredConstructors()) {
-                if (constructor.getParameterCount() != 1 || !constructor.getParameterTypes()[0].isInstance(pack)) {
+            for (final String className : CONTAINER_CLASSES) {
+                final Class<?> containerType =
+                        loadHostClass(className, pack.getClass().getClassLoader());
+                if (containerType == null) {
                     continue;
+                }
+                final Constructor<?> constructor = singlePackConstructor(containerType, pack);
+                if (constructor == null) {
+                    return notBuilt("no-single-pack-constructor");
                 }
                 constructor.setAccessible(true);
                 final Object container = constructor.newInstance(pack);
@@ -122,10 +157,27 @@ final class NativeAutoMeshPopup {
                         childCountOf(center),
                         Optional.empty());
             }
-            return notBuilt("no-single-pack-constructor");
+            return notBuilt("no-container-class");
         } catch (ReflectiveOperationException | RuntimeException | LinkageError unavailable) {
-            return new Build(null, MODELING_POPUP_DIALOG, null, -1, Optional.of(stackTrace(unavailable)));
+            return new Build(null, MODELING_DIALOG_PANEL, null, -1, Optional.of(stackTrace(unavailable)));
         }
+    }
+
+    /**
+     * Resolves the constructor that takes one complete pack.
+     *
+     * <p>Both reviewed containers declare exactly one such constructor, and that constructor is the
+     * only point where the container is reachable before the host shows it.</p>
+     *
+     * @return the constructor, or {@code null} when the class declares none
+     */
+    private static Constructor<?> singlePackConstructor(final Class<?> containerType, final Object pack) {
+        for (final Constructor<?> constructor : containerType.getDeclaredConstructors()) {
+            if (constructor.getParameterCount() == 1 && constructor.getParameterTypes()[0].isInstance(pack)) {
+                return constructor;
+            }
+        }
+        return null;
     }
 
     /**
@@ -142,31 +194,140 @@ final class NativeAutoMeshPopup {
     }
 
     /**
-     * Paints the container into a PNG file.
+     * Paints the container in three states into the dump directory.
      *
-     * <p>The native container is a host widget, not an AWT component, so the paint target is the
-     * Swing component the widget exposes. That component only paints when the tree above it was laid
-     * out, so a widget that no window ever realised is sized and laid out before the paint. Painting
-     * through {@link Component#printAll} works without window-compositor access, so the capture
-     * succeeds where a screen grab would need extra tooling.</p>
+     * <p>The first artifact is the selector state the user sees: the Algorithm group at the top, the
+     * plugin Preset group in the native layout, and the inline parameter controls of the selected
+     * plugin algorithm. The second artifact shows the other registered plugin algorithm, so its own
+     * parameter rows appear. The third shows the Editor's generator, where the native groups alone
+     * are visible.</p>
+     *
+     * <p>The algorithm combo is the first combo of the centre's first child, because the runtime
+     * inserts the Algorithm group exactly there. The host suppresses its own selection event for a
+     * programmatic pick, so the capture delivers the pick the way Swing delivers one. Every switch is
+     * restored afterwards.</p>
      *
      * @param container the live container
-     * @param dumpRoot the dump directory the image belongs to
-     * @return the written file, or the reason no image could be produced
+     * @param dumpRoot the dump directory the images belong to
+     * @return the selector capture, or the reason no image could be produced
      */
     static Capture capture(final Object container, final Path dumpRoot) {
         final Component component = asAwtComponent(container);
         if (component == null) {
             return Capture.failed("the container exposes no AWT component");
         }
-        return paint(component, dumpRoot.resolve(SCREENSHOT_FILE));
+        final Capture selector = paint(component, dumpRoot.resolve(SCREENSHOT_FILE));
+        if (selector.file().isEmpty()) {
+            return selector;
+        }
+        final Object combo = algorithmCombo(container);
+        if (combo == null) {
+            return Capture.failed("the container exposes no algorithm combo below its centre");
+        }
+        final int original = selectedIndexOf(combo);
+        try {
+            final int other = otherPluginIndex(combo, original);
+            if (other >= 0) {
+                selectAlgorithm(combo, other);
+                paint(component, dumpRoot.resolve(PARAMETER_DIALOG_FILE));
+            }
+            selectAlgorithm(combo, NATIVE_ALGORITHM_ENTRY);
+            paint(component, dumpRoot.resolve(NATIVE_MODE_FILE));
+        } finally {
+            selectAlgorithm(combo, original);
+        }
+        return selector;
     }
 
     /**
-     * Reports the parameter-dialog artifact the runtime paints during a validation run.
+     * Resolves the algorithm combo of one decorated container.
      *
-     * <p>The dialog content is runtime Swing code, and a plugin loader cannot link runtime classes, so
-     * the runtime paints it into the dump directory and this probe reads the result back.</p>
+     * <p>The runtime inserts the Algorithm group as the first child of the centre, so the first combo
+     * below that child is the algorithm combo. A container that carries no group answers
+     * {@code null}, and the capture then reports it instead of switching a preset combo.</p>
+     */
+    private static Object algorithmCombo(final Object container) {
+        final Object center = invokeByName(container, CENTER);
+        final Object children = invokeByName(center, HOST_CHILDREN);
+        if (!(children instanceof List<?> list) || list.size() <= ALGORITHM_GROUP_INDEX) {
+            return null;
+        }
+        return firstCombo(list.get(ALGORITHM_GROUP_INDEX), 0);
+    }
+
+    private static Object firstCombo(final Object widget, final int depth) {
+        if (widget == null || depth > MAX_WIDGET_DEPTH) {
+            return null;
+        }
+        if (widget.getClass().getName().equals(COMBO)) {
+            return widget;
+        }
+        final Object children = invokeByName(widget, HOST_CHILDREN);
+        if (children instanceof List<?> list) {
+            for (final Object child : list) {
+                final Object found = firstCombo(child, depth + 1);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the combo index of the registered algorithm that is not the selected one.
+     *
+     * <p>The Editor's generator leads the listing and the selected entry is the first artifact, so the
+     * remaining plugin entry is the one the parameter artifact must show. A listing without a second
+     * plugin entry answers {@code -1}.</p>
+     *
+     * @return the index of the other plugin algorithm, or {@code -1} when none exists
+     */
+    private static int otherPluginIndex(final Object combo, final int selected) {
+        final Object items = invokeByName(combo, COMBO_ITEMS);
+        if (!(items instanceof List<?> list)) {
+            return -1;
+        }
+        for (int index = NATIVE_ALGORITHM_ENTRY + 1; index < list.size(); index++) {
+            if (index != selected) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private static int selectedIndexOf(final Object combo) {
+        final Object index = invokeByName(combo, COMBO_SELECTED_INDEX);
+        return index instanceof Number number ? number.intValue() : NATIVE_ALGORITHM_ENTRY;
+    }
+
+    /**
+     * Selects one algorithm the way a user does.
+     *
+     * <p>The host suppresses its own selection callback while the index is written, so the Swing
+     * action listeners are then run explicitly. That is the same route a real click takes.</p>
+     */
+    private static void selectAlgorithm(final Object combo, final int index) {
+        if (invoke(combo, COMBO_SET_SELECTED_INDEX, index) == null) {
+            return;
+        }
+        final Object component = invokeByName(combo, COMPONENT_GETTER);
+        if (!(component instanceof JComboBox<?> swing)) {
+            return;
+        }
+        final ActionEvent event = new ActionEvent(
+                swing, ActionEvent.ACTION_PERFORMED, swing.getClass().getName());
+        for (final ActionListener listener : swing.getActionListeners()) {
+            listener.actionPerformed(event);
+        }
+    }
+
+    /**
+     * Reports the parameter artifact the validation run painted from the live container.
+     *
+     * <p>The capture paints the container itself, so the artifact is whatever the host dialog showed
+     * with the plugin algorithm selected. The runtime also paints its parameter dialog when a
+     * validation run names a dump directory, and this probe reads the file back either way.</p>
      *
      * @param dumpRoot the dump directory the image belongs to
      * @return the written file, or the reason no image exists
@@ -174,7 +335,7 @@ final class NativeAutoMeshPopup {
     static Capture parameterDialog(final Path dumpRoot) {
         final Path file = dumpRoot.resolve(PARAMETER_DIALOG_FILE);
         if (!Files.isRegularFile(file)) {
-            return Capture.failed("the runtime painted no parameter dialog at " + file);
+            return Capture.failed("no parameter dialog artifact exists at " + file);
         }
         try {
             final BufferedImage image = ImageIO.read(file.toFile());
@@ -208,7 +369,7 @@ final class NativeAutoMeshPopup {
 
     private static Capture paint(final Component component, final Path file) {
         try {
-            layoutTreeOf(component);
+            prepare(component);
             final int width = Math.max(MINIMUM_POPUP_EDGE, component.getWidth());
             final int height = Math.max(MINIMUM_POPUP_EDGE, component.getHeight());
             final BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
@@ -229,13 +390,14 @@ final class NativeAutoMeshPopup {
     }
 
     /**
-     * Gives an unrealised widget tree real bounds before it is painted.
+     * Gives the widget tree real bounds before it is painted.
      *
      * <p>A container built without a window keeps a zero size, and every child then paints into a
      * zero rectangle. The outermost non-window ancestor is sized from its preferred size, and each
-     * container in turn distributes that size to its children.</p>
+     * container in turn distributes that size to its children. The layout runs on every paint,
+     * because a capture that follows an algorithm switch must place the rows that switch added.</p>
      */
-    private static void layoutTreeOf(final Component component) {
+    private static void prepare(final Component component) {
         Component root = component;
         while (root.getParent() != null && !(root.getParent() instanceof Window)) {
             root = root.getParent();
@@ -244,8 +406,8 @@ final class NativeAutoMeshPopup {
             final Dimension preferred = root.getPreferredSize();
             root.setSize(
                     Math.max(MINIMUM_POPUP_WIDTH, preferred.width), Math.max(MINIMUM_POPUP_HEIGHT, preferred.height));
-            layout(root);
         }
+        layout(root);
     }
 
     private static void layout(final Component component) {
@@ -281,9 +443,17 @@ final class NativeAutoMeshPopup {
     /**
      * Releases one container the probe built.
      *
+     * <p>The modeling panel polls the Editor selection on a Swing timer, so the poll must stop before
+     * the container is dropped. Leaving the timer running keeps a disposed dialog reachable and keeps
+     * it updating from a selection it no longer owns.</p>
+     *
      * @param container the live container
      */
     static void close(final Object container) {
+        if (container == null) {
+            return;
+        }
+        invoke(container, STOP_POLLING);
         final Object window =
                 container instanceof Component component ? SwingUtilities.getWindowAncestor(component) : null;
         if (window instanceof Window ancestor) {
@@ -407,6 +577,34 @@ final class NativeAutoMeshPopup {
                     method.setAccessible(true);
                     return method.invoke(owner);
                 } catch (ReflectiveOperationException | RuntimeException absent) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Invokes one host method by name and argument count.
+     *
+     * <p>The probe cannot link host classes, so a member is matched by name and arity. The methods it
+     * calls declare no overload of the same arity, which keeps the match unambiguous.</p>
+     *
+     * @return the answer, or {@code null} when the host declares no such member or refused the call
+     */
+    private static Object invoke(final Object owner, final String name, final Object... arguments) {
+        if (owner == null) {
+            return null;
+        }
+        for (Class<?> type = owner.getClass(); type != null; type = type.getSuperclass()) {
+            for (final Method method : type.getDeclaredMethods()) {
+                if (!method.getName().equals(name) || method.getParameterCount() != arguments.length) {
+                    continue;
+                }
+                try {
+                    method.setAccessible(true);
+                    return method.invoke(owner, arguments);
+                } catch (ReflectiveOperationException | RuntimeException refused) {
                     return null;
                 }
             }

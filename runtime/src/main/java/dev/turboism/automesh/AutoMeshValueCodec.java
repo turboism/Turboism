@@ -3,6 +3,8 @@ package dev.turboism.automesh;
 import dev.turboism.sdk.cubism.mesh.automesh.AlgorithmParameterDescriptor;
 import dev.turboism.sdk.cubism.mesh.automesh.AlgorithmPreset;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -29,6 +31,24 @@ public final class AutoMeshValueCodec {
 
     private AutoMeshValueCodec(final Map<String, AlgorithmParameterDescriptor> parameters) {
         this.parameters = parameters;
+    }
+
+    /**
+     * Renders one decimal in the canonical text of a declared parameter.
+     *
+     * <p>A slider answers a wider value than the parameter declares, so the value is rounded to the
+     * declared decimals and stripped of trailing zeros. Every control therefore stores the same text
+     * a preset would carry, and a preset stays selected while its values are unchanged.</p>
+     *
+     * @param value the value the control produced
+     * @param decimals the declared fractional digits
+     * @return the canonical text of that value
+     */
+    public static String canonicalDecimal(final double value, final int decimals) {
+        return BigDecimal.valueOf(value)
+                .setScale(decimals, RoundingMode.HALF_UP)
+                .stripTrailingZeros()
+                .toPlainString();
     }
 
     /**
