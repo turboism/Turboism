@@ -1,4 +1,4 @@
-[English](CHANGELOG.md) / [简体中文](CHANGELOG.zh-CN.md) / [日本語](CHANGELOG.ja.md) / [한국어](CHANGELOG.ko.md)
+[English](../en/CHANGELOG.md) / [简体中文](../zh/CHANGELOG.md) / [日本語](../ja/CHANGELOG.md) / [한국어](../ko/CHANGELOG.md)
 
 # 更新日志
 

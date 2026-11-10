@@ -31,7 +31,9 @@ def write_tree(root: Path) -> None:
         ("ja", "# 更新履歴", "- 日文 WIP。", "- 日文旧版。"),
         ("ko", "# 변경 기록", "- 韩文 WIP。", "- 韩文旧版。"),
     ):
-        (root / rlc.LOCALE_CHANGELOGS[lang]).write_text(
+        locale_path = root / rlc.LOCALE_CHANGELOGS[lang]
+        locale_path.parent.mkdir(parents=True, exist_ok=True)
+        locale_path.write_text(
             f"{head}\n\n## [Unreleased]\n\n### X\n\n{wip}\n\n"
             f"## [1.0.0] - 2030-01-01\n\n### X\n\n- {lang} hand-written.\n\n"
             f"## [0.9.0] - 2029-01-01\n\n### X\n\n{legacy}\n",
