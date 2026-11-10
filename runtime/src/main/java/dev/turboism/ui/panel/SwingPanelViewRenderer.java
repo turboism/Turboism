@@ -972,6 +972,10 @@ public final class SwingPanelViewRenderer {
             final java.util.Locale locale,
             final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver) {
         final JPanel panel = axis == BoxLayout.X_AXIS ? new JPanel() : new ScrollableFillPanel();
+        // Panel views are content, not surfaces: an opaque stack paints a background box behind
+        // whatever it holds. The board's list rows showed a grey rectangle behind the file name
+        // because the text column was an opaque stack on top of the themed board.
+        panel.setOpaque(false);
         // A vertical stack must stretch children to the panel width (so HTML
         // labels wrap) and hand a trailing JScrollPane the remaining height;
         // BoxLayout does neither for the cross axis. ScrollableFillPanel also

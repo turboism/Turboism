@@ -327,7 +327,9 @@ public final class RuntimeProjectWorkTimeService implements ProjectWorkTimeServi
     }
 
     private void addElapsed(final long elapsedNanos) {
-        if (elapsedNanos <= 0L || !foreground) {
+        // Only a project in the foreground is measured. Counting idle editor time made the session
+        // timer keep running on an empty workspace, which reads as a wrong total.
+        if (elapsedNanos <= 0L || !foreground || activeProjectKey == null) {
             return;
         }
         sessionForegroundNanos = saturatedAdd(sessionForegroundNanos, elapsedNanos);
@@ -343,6 +345,11 @@ public final class RuntimeProjectWorkTimeService implements ProjectWorkTimeServi
     }
 
     private void clearActiveProject() {
+        if (activeProjectKey != null) {
+            // The session timer measures the open project, so closing it returns the reading to
+            // zero instead of leaving the previous project's foreground time on screen.
+            sessionForegroundNanos = 0L;
+        }
         activeProjectSessionId = null;
         activeProjectKey = null;
         activeProjectSnapshot = null;

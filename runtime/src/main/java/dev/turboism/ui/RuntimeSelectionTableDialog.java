@@ -152,6 +152,15 @@ final class RuntimeSelectionTableDialog extends JDialog {
         }
         label.setLabelFor(choices);
         choices.setName(footer.id());
+        // Without a renderer the combo prints the record's toString, so the operator read
+        // "Choice[id=part-name, label=...]" instead of the label.
+        choices.setRenderer((list, value, index, selected, focused) -> {
+            final JLabel cell = new JLabel(value == null ? "" : value.label());
+            cell.setOpaque(true);
+            cell.setBackground(selected ? list.getSelectionBackground() : list.getBackground());
+            cell.setForeground(selected ? list.getSelectionForeground() : list.getForeground());
+            return cell;
+        });
         choices.addActionListener(event -> {
             if (choices.getSelectedItem() instanceof SelectionTableFooter.Choice choice) {
                 data.replaceRows(footer.rows(choice.id()));
