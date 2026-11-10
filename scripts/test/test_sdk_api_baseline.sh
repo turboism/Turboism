@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
-TOOL="$ROOT/scripts/test/sdk_api_baseline_cli.py"
+TOOL="$ROOT/scripts/sdk-api/sdk_api_baseline_cli.py"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 

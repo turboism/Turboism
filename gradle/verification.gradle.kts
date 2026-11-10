@@ -831,9 +831,10 @@ val checkRepositoryHygiene by tasks.registering(Exec::class) {
  */
 tasks.register<Exec>("checkShellLint") {
     group = "verification"
-    description = "Runs shellcheck -S error over every tracked shell script."
+    description = "Runs shellcheck and its fail-closed regression fixtures over tracked shell scripts."
     workingDir(rootDir)
     inputs.file("scripts/check_shell_lint.sh")
+    inputs.file("scripts/dev/selftest-shell-lint.sh")
 
     val trackedShellScriptPaths = providers.exec {
         workingDir(rootDir)
@@ -857,6 +858,16 @@ tasks.register<Exec>("checkShellLint") {
         shellcheckBinPath.get().isNotEmpty()
     }
     commandLine("bash", "scripts/check_shell_lint.sh")
+    doFirst {
+        try {
+            project.exec {
+                workingDir(rootDir)
+                commandLine("bash", "scripts/dev/selftest-shell-lint.sh")
+            }
+        } catch (failure: GradleException) {
+            throw GradleException("checkShellLintRequiresShellcheck failed: shell lint must fail closed.", failure)
+        }
+    }
 }
 
 /*
@@ -865,15 +876,6 @@ tasks.register<Exec>("checkShellLint") {
  * or wiring that the fix introduced; a regression here means a gate silently
  * stopped proving its subject.
  */
-val checkShellLintRequiresShellcheck by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Proves the shell lint gate fails closed when shellcheck is unavailable or reports findings."
-    workingDir(rootDir)
-    inputs.files("scripts/check_shell_lint.sh", "scripts/dev/selftest-shell-lint.sh")
-    VerificationStamps.apply(this)
-    commandLine("bash", "scripts/dev/selftest-shell-lint.sh")
-}
-
 val checkCleanWorktreeSafety by tasks.registering(Exec::class) {
     group = "verification"
     description = "Proves clean-worktree.sh refuses dirty worktrees and unmerged branches without --force."
@@ -1565,6 +1567,11 @@ val modelImport3dHostToolingTest by tasks.registering(Exec::class) {
     group = "host verification"
     description = "Runs offline 3D import tooling suites in four processes; missing authorized inputs skip. Opt-in: ~42s exceeds the 30s regular-gate budget (JDK compile, dense matrices and byte-budget controls)."
     workingDir(rootDir)
+    val pluginJar = project(":plugins:model-import-3d").tasks.named<Jar>("jar")
+    dependsOn(pluginJar)
+    doFirst {
+        environment("TURBOISM_MI3D_PLUGIN_JAR", pluginJar.get().archiveFile.get().asFile.absolutePath)
+    }
     commandLine("python3", "validation/model-import-3d-host-probe/test-tooling.py", "test_model_import_3d_*.py")
 }
 

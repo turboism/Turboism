@@ -87,9 +87,9 @@ Large binary test assets (`*.cmo3`, `*.can3`, `*.psd`, `*.moc3`) are never commi
 | Gate | What it checks | When to run it |
 | --- | --- | --- |
 | focused compile/test | the narrowest affected `:module:compileJava`, `:module:test --tests '<class>'` | during implementation |
-generated subscriber-catalog verification, installer plugin-section freshness, ASM dependency-model and resolved-bytecode-graph admission, AST architecture rules (`checkArchitectureRules`), the immutable persistence golden-snapshot inventory and its replay (`checkGoldenSnapshotManifest`, `persistenceGoldenSnapshotsTest`), the module dependency inventory and `:runtime` package-cycle baseline (`checkDependencyInventory`), `scripts/` and `validation/` ruff lint, shell lint
+| `devCheck` | production compilation, focused admission suites, plugin and module boundaries, code quality, duplicate imports, package layout, fatal-error containment, generated catalogs, dependency inventories, AST architecture rules, golden snapshots, Python lint, shell lint and its fail-closed regression fixtures | structural, metadata, quality, or hygiene changes |
 | `checkIntegration` | `devCheck` plus packaged and cross-module behavior: async host-read foundation, Cubism Core API inventory/member/selector policies, plugin inspection runtime, first-party plugin metadata and READMEs, distribution protocol contract, preview bundle layout, packaged host-validation bundle checks, locale host-validation wrapper contract (`:testing:integration-tests:hostValidationScriptContractTest`), preview bootstrap bridge and plugin runtime, external plugin-template consumer check | when a change crosses module, packaging, or preview-agent seams |
-| `checkCompletedCommit` | `checkIntegration` plus every subproject `test`, `:sdk:javadoc`, `spotlessCheck`, `checkThrowableContainment`, `checkLocalizedChangelogs`, official-plugin i18n completeness and README checks, SDK API baseline tool and current-surface check, module-boundary/code-quality/hygiene/architecture-governance selftests, plugin event reference determinism | once, when a coherent change is ready to land |
+| `checkCompletedCommit` | `checkIntegration` plus every subproject `test`, `:sdk:javadoc`, `spotlessCheck`, localized changelogs, official-plugin i18n completeness and README checks, SDK API baseline tool and current-surface check, plugin event reference determinism | once, when a coherent change is ready to land |
 | `checkRelease` | `checkCompletedCommit` plus supply-chain and release-artifact checks: ASM admission and resolved bytecode dependency graph, release tooling selftests, SDK exact-API audits for every anchored baseline — all historical baselines plus the newest live one — and linkage, market release metadata, Java/Windows installer and localization checks | release work only; requires `-PinstallerVersion=<release-version> -PturboismRelease=true` matching the framework version |
 | host validation | exact-version Cubism runs through `validate*Host<version>` tasks (parameter, workspace, theme, clip-mask, PSD import, FPS, status bar, bounding-box overlay, separate save path) | explicitly selected per affected feature and Cubism version; needs a separately installed licensed Editor; never part of a default aggregate |
 
@@ -107,6 +107,17 @@ generated subscriber-catalog verification, installer plugin-section freshness, A
 - `image-archive-validation.gradle.kts` — builds the test-only native PNG/float validators and checks they stay out of product artifacts.
 
 `scripts/preview/` holds the local host-validation machinery those `validate*Host` tasks invoke: the `host_validation.py` admission queue and containment, packaging/launch scripts, and per-feature probes. It is opt-in, uses one UID-scoped queue root and host-admission lock, and is never installed or started by Gradle; see `scripts/preview/README-host-validation-scheduling.md`.
+
+`scripts/sdk-api/` contains the SDK baseline CLI and class-file tooling.
+Its mutation tests and Java fixture builder remain in `scripts/test/`.
+`test_reviewed_releases.py` covers trust roots, record indexes, range consumers, and host tasks.
+The R1, R2, and R3 suites retain their separate rule fixtures.
+
+`checkShellLint` runs the missing-tool, lint-failure, and clean-run fixtures before linting tracked shell scripts.
+The task preserves the former `checkShellLintRequiresShellcheck` rule and fails when shellcheck is absent.
+The four Java source gates remain separate because their inputs and harm contracts differ.
+Duplicate imports covers all `src` trees; package layout covers SDK and runtime production sources.
+Containment also covers generated templates; code quality also covers assets, tests, and tooling.
 
 The supported host and validation environments are **native Windows x64** and **Linux**. Windows x64 runs the full Cubism Editor host validation directly; on Linux the same validation runs through Proton (Wine), and headless Gradle, lint and unit-test checks run under Xvfb. The shared tooling modules (`scripts/preview/hvq/`, `scripts/preview/host_validation_containment.py`) import and run on both host classes — POSIX-only primitives are optional, and containment selects the host's backend. The queue entry point and the Runner admission gate still require Linux (systemd user scopes, unified cgroup v2, `/proc`), so a native Windows host runs the offline gates and the Windows Job Object containment backend, not the scheduled queue.
 

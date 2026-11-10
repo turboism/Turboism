@@ -44,13 +44,14 @@ member devCheck checkValidationToolsSync
 member devCheck checkPythonLint
 member devCheck checkCompatibilityMatrix
 member devCheck checkShellLint
+# rule checkShellLint owner="via:devCheck" harm="shell errors break installation or host validation"
+# rule checkShellLintRequiresShellcheck owner="via:devCheck" harm="missing shellcheck or ignored lint findings silently admit broken shell scripts" implementation="checkShellLint; scripts/dev/selftest-shell-lint.sh"
 member devCheck checkAsmDependencyModel
 member devCheck checkResolvedBytecodeDependencyGraph
 member devCheck checkInstallerPluginSections
 member devCheck checkProbeTerminalSelftest
 member devCheck checkHostProbeResultContract
 member devCheck checkCleanWorktreeSafety
-member devCheck checkShellLintRequiresShellcheck
 member devCheck checkHostCleanupEnvMerge
 member devCheck checkCleanupFailurePropagation
 member devCheck checkTestExecutionGuard
