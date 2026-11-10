@@ -28,6 +28,7 @@ public final class AutoMeshSelectorHost implements AutoCloseable {
     private final Consumer<String> diagnostics;
     private final Map<Object, AutoMeshSelectorRow> rows = new WeakHashMap<>();
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final AtomicBoolean evidencePainted = new AtomicBoolean();
 
     /**
      * Creates the session host.
@@ -84,6 +85,20 @@ public final class AutoMeshSelectorHost implements AutoCloseable {
             }
         }
         row.attach(instance);
+        paintEvidence();
+    }
+
+    /**
+     * Paints the dialog evidence once per session when a validation run asked for it.
+     *
+     * <p>The first container the host decorates is the point where a live algorithm listing exists,
+     * and a session paints one artifact: a second popup would only overwrite identical evidence.</p>
+     */
+    private void paintEvidence() {
+        if (!evidencePainted.compareAndSet(false, true)) {
+            return;
+        }
+        AutoMeshDialogEvidence.capture(source, locale, diagnostics);
     }
 
     /**

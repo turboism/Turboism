@@ -98,9 +98,13 @@ final class AutoMeshGuardHookContributor implements HookContributor {
      * <p>The host is created even while no algorithm is registered, because a plugin can register
      * one later and the containers are constructed lazily. A runtime without a composed plugin
      * runtime yields an empty listing, which adds no row.</p>
+     *
+     * <p>The row and the native guard must decide on one selection state, otherwise a preset the row
+     * applies never reaches the mesh the guard computes. The runtime's bound instance is therefore
+     * reused; only a runtime that has not bound one falls back to a catalog-backed state.</p>
      */
     private static AutoMeshSelectorHost selectorHostOf(final KernelRuntime runtime) {
-        final AutoMeshSelectionState selection = new AutoMeshSelectionState(new CatalogSession(runtime));
+        final AutoMeshSelectionState fallback = new AutoMeshSelectionState(new CatalogSession(runtime));
         final AutoMeshSelectorSource source = new AutoMeshSelectorSource() {
             @Override
             public List<dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm> algorithms() {
@@ -111,7 +115,11 @@ final class AutoMeshGuardHookContributor implements HookContributor {
 
             @Override
             public AutoMeshSelectionState selection() {
-                return selection;
+                try {
+                    return runtime.autoMeshSelection();
+                } catch (IllegalStateException unbound) {
+                    return fallback;
+                }
             }
         };
         return new AutoMeshSelectorHost(

@@ -160,6 +160,20 @@ class AutoMeshParameterModelTest {
     }
 
     @Test
+    void applyingAPresetFromTheUserListUsesTheGivenList() {
+        final AutoMeshParameterModel model = new AutoMeshParameterModel(ALGORITHM, Map.of());
+        final List<AlgorithmPreset> saved =
+                List.of(new AlgorithmPreset("Saved", Map.of("density", "64", "weld", "false")));
+
+        assertTrue(model.applyPreset(saved, "Saved"), "a preset the dialog lists must apply");
+        assertEquals("64", model.values().get("density"), "the listed preset value must reach the model");
+        assertEquals("false", model.values().get("weld"));
+        assertFalse(
+                model.applyPreset(saved, "Dense"),
+                "a name outside the given list must be refused even when the algorithm declares it");
+    }
+
+    @Test
     void anUndeclaredParameterIsRefused() {
         final AutoMeshParameterModel model = new AutoMeshParameterModel(ALGORITHM, Map.of());
 

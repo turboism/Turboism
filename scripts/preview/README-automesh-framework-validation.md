@@ -84,6 +84,7 @@ Key records:
 - `funnel.invocation` — how the native funnel answered. `inspector` means the real modeling funnel
   ran; any other value names the reason it did not.
 - `selector.screenshot` — the painted popup PNG, or the reason no image exists.
+- `selector.parameterDialogScreenshot` — the painted parameter/preset dialog PNG beside `selector.parameterDialogSize`, or the reason no image exists. The dialog is runtime Swing content and a plugin loader cannot link runtime classes, so the runtime paints it into the same dump directory the probe publishes; the probe reads the artifact back.
 
 ## Render the dump offline
 

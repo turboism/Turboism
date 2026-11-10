@@ -177,6 +177,7 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
         Path dumpRoot = null;
         try {
             dumpRoot = dumpRoot();
+            publishDumpDirectory(dumpRoot);
             result.put("schemaVersion", 1);
             result.put("runId", property(RUN_ID_PROPERTY, "unknown"));
             result.put("hostVersion", property(HOST_VERSION_PROPERTY, "unknown"));
@@ -688,6 +689,9 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
      * attach callback to finish on the Editor UI thread, then counts the centre children the row was
      * appended to and captures the widget as a PNG.</p>
      *
+     * <p>The probe selects the region algorithm first, so the dialog artifact the runtime paints shows
+     * a parameterised algorithm with its presets instead of the Editor's own generator.</p>
+     *
      * <p>The assertion stays strict: at least one algorithm plugin is registered, so the row must be
      * attached. Every diagnostic exists to name the exact reason when it is not.</p>
      *
@@ -695,6 +699,7 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
      * @throws Exception when the host refuses a container operation
      */
     private void checkSelectorRow(final Path dumpRoot) throws Exception {
+        registry().select(REGION_ALGORITHM_ID);
         final int nativeChildren = nativeContainerChildren();
         final NativeAutoMeshPopup.Build build = onUi(NativeAutoMeshPopup::open);
         result.put("selector.containerClass", build.containerClass());
@@ -732,9 +737,37 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
                 result.put("selector.screenshot", "<unavailable: " + capture.reason() + ">");
                 record("selector.screenshot", "a PNG file", "<unavailable>", AutoMeshProbeStatus.INFO);
             }
+            recordParameterDialog(dumpRoot);
         } finally {
             NativeAutoMeshPopup.close(popup);
         }
+    }
+
+    /**
+     * Records the parameter-dialog artifact the runtime paints for this validation run.
+     *
+     * <p>The dialog content is runtime Swing code, so the runtime paints it into the dump directory
+     * and the probe reads the result back. The record names the file, its size and the section that
+     * must be visible, which is what makes the artifact evidence instead of a file on disk.</p>
+     *
+     * @param dumpRoot the dump directory the artifact belongs to
+     */
+    private void recordParameterDialog(final Path dumpRoot) {
+        final NativeAutoMeshPopup.Capture capture = NativeAutoMeshPopup.parameterDialog(dumpRoot);
+        if (capture.file().isPresent()) {
+            result.put(
+                    "selector.parameterDialogScreenshot",
+                    capture.file().orElseThrow().toString());
+            result.put("selector.parameterDialogSize", capture.width() + "x" + capture.height());
+            record(
+                    "selector.parameterDialogScreenshot",
+                    "a PNG file",
+                    capture.file().orElseThrow() + " (" + capture.width() + "x" + capture.height() + ")",
+                    AutoMeshProbeStatus.INFO);
+            return;
+        }
+        result.put("selector.parameterDialogScreenshot", "<unavailable: " + capture.reason() + ">");
+        record("selector.parameterDialogScreenshot", "a PNG file", "<unavailable>", AutoMeshProbeStatus.INFO);
     }
 
     /**
@@ -819,6 +852,21 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
     private Path dumpRoot() {
         final String configured = System.getProperty(DUMP_DIR_PROPERTY, "");
         return configured.isBlank() ? context.paths().stateDir().resolve("automesh-dump") : Path.of(configured);
+    }
+
+    /**
+     * Publishes the dump directory the runtime paints its own evidence into.
+     *
+     * <p>The parameter dialog is runtime Swing content, and a plugin loader cannot link runtime
+     * classes. The runtime therefore reads this property and paints the dialog into the same dump
+     * directory, which keeps both artifacts in one place. An explicit runner value wins.</p>
+     *
+     * @param dumpRoot the dump directory this run writes
+     */
+    private static void publishDumpDirectory(final Path dumpRoot) {
+        if (System.getProperty(DUMP_DIR_PROPERTY, "").isBlank()) {
+            System.setProperty(DUMP_DIR_PROPERTY, dumpRoot.toString());
+        }
     }
 
     private Optional<Drawable> firstProbeTarget() throws Exception {

@@ -2,6 +2,7 @@ package dev.turboism.tests.plugin;
 
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Dimension;
 import java.awt.Window;
 import java.awt.image.BufferedImage;
 import java.io.PrintWriter;
@@ -40,12 +41,16 @@ final class NativeAutoMeshPopup {
     private static final String APP_CONTROLLER_INSTANCE = "_instance";
     private static final String APP_CONTROLLER_INSTANCE_ACCESSOR = "access$get_instance$cp";
     private static final String CENTER = "getCenter";
+    private static final String COMPONENT_GETTER = "getJComponent";
     private static final String HOST_CHILDREN = "getChildren";
     private static final int MAX_WIDGET_DEPTH = 24;
     private static final String DISPOSE = "dispose";
     private static final String SCREENSHOT_FILE = "automesh-selector-row.png";
+    private static final String PARAMETER_DIALOG_FILE = "automesh-parameter-dialog.png";
     private static final String PNG_FORMAT = "png";
     private static final int MINIMUM_POPUP_EDGE = 16;
+    private static final int MINIMUM_POPUP_WIDTH = 460;
+    private static final int MINIMUM_POPUP_HEIGHT = 280;
     private static final int MAXIMUM_STACK_LINES = 24;
 
     private NativeAutoMeshPopup() {}
@@ -139,37 +144,119 @@ final class NativeAutoMeshPopup {
     /**
      * Paints the container into a PNG file.
      *
-     * <p>Painting through {@link Component#paint} works without window-compositor access, so the
-     * capture succeeds on hosts where a screen grab would need extra tooling. A widget with no size
-     * yet answers a reason instead of writing a blank image.</p>
+     * <p>The native container is a host widget, not an AWT component, so the paint target is the
+     * Swing component the widget exposes. That component only paints when the tree above it was laid
+     * out, so a widget that no window ever realised is sized and laid out before the paint. Painting
+     * through {@link Component#printAll} works without window-compositor access, so the capture
+     * succeeds where a screen grab would need extra tooling.</p>
      *
      * @param container the live container
      * @param dumpRoot the dump directory the image belongs to
      * @return the written file, or the reason no image could be produced
      */
     static Capture capture(final Object container, final Path dumpRoot) {
-        if (!(container instanceof Component component)) {
-            return Capture.failed("the container is not an AWT component");
+        final Component component = asAwtComponent(container);
+        if (component == null) {
+            return Capture.failed("the container exposes no AWT component");
         }
-        final int width = Math.max(MINIMUM_POPUP_EDGE, component.getWidth());
-        final int height = Math.max(MINIMUM_POPUP_EDGE, component.getHeight());
+        return paint(component, dumpRoot.resolve(SCREENSHOT_FILE));
+    }
+
+    /**
+     * Reports the parameter-dialog artifact the runtime paints during a validation run.
+     *
+     * <p>The dialog content is runtime Swing code, and a plugin loader cannot link runtime classes, so
+     * the runtime paints it into the dump directory and this probe reads the result back.</p>
+     *
+     * @param dumpRoot the dump directory the image belongs to
+     * @return the written file, or the reason no image exists
+     */
+    static Capture parameterDialog(final Path dumpRoot) {
+        final Path file = dumpRoot.resolve(PARAMETER_DIALOG_FILE);
+        if (!Files.isRegularFile(file)) {
+            return Capture.failed("the runtime painted no parameter dialog at " + file);
+        }
         try {
+            final BufferedImage image = ImageIO.read(file.toFile());
+            if (image == null) {
+                return Capture.failed("the parameter dialog file is not a readable PNG: " + file);
+            }
+            return new Capture(Optional.of(file), "", image.getWidth(), image.getHeight());
+        } catch (java.io.IOException | RuntimeException unreadable) {
+            return Capture.failed(stackTrace(unreadable));
+        }
+    }
+
+    /**
+     * Resolves the Swing component the host widget paints through.
+     *
+     * <p>A host widget exposes its own {@code JComponent}, and a container that answers none is
+     * reached through its centre child, which is where the selector row attaches.</p>
+     */
+    private static Component asAwtComponent(final Object container) {
+        if (container instanceof Component component) {
+            return component;
+        }
+        final Object widget = invokeByName(container, COMPONENT_GETTER);
+        if (widget instanceof Component component) {
+            return component;
+        }
+        final Object center = invokeByName(container, CENTER);
+        final Object centerWidget = invokeByName(center, COMPONENT_GETTER);
+        return centerWidget instanceof Component component ? component : null;
+    }
+
+    private static Capture paint(final Component component, final Path file) {
+        try {
+            layoutTreeOf(component);
+            final int width = Math.max(MINIMUM_POPUP_EDGE, component.getWidth());
+            final int height = Math.max(MINIMUM_POPUP_EDGE, component.getHeight());
             final BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
             final java.awt.Graphics2D graphics = image.createGraphics();
             try {
-                component.paint(graphics);
+                component.printAll(graphics);
             } finally {
                 graphics.dispose();
             }
-            Files.createDirectories(dumpRoot);
-            final Path file = dumpRoot.resolve(SCREENSHOT_FILE);
+            Files.createDirectories(file.getParent());
             if (!ImageIO.write(image, PNG_FORMAT, file.toFile())) {
                 return Capture.failed("no PNG writer accepted the image");
             }
-            return new Capture(Optional.of(file), "", component.getWidth(), component.getHeight());
+            return new Capture(Optional.of(file), "", width, height);
         } catch (java.io.IOException | RuntimeException | LinkageError unavailable) {
             return Capture.failed(stackTrace(unavailable));
         }
+    }
+
+    /**
+     * Gives an unrealised widget tree real bounds before it is painted.
+     *
+     * <p>A container built without a window keeps a zero size, and every child then paints into a
+     * zero rectangle. The outermost non-window ancestor is sized from its preferred size, and each
+     * container in turn distributes that size to its children.</p>
+     */
+    private static void layoutTreeOf(final Component component) {
+        Component root = component;
+        while (root.getParent() != null && !(root.getParent() instanceof Window)) {
+            root = root.getParent();
+        }
+        if (root.getWidth() < MINIMUM_POPUP_EDGE || root.getHeight() < MINIMUM_POPUP_EDGE) {
+            final Dimension preferred = root.getPreferredSize();
+            root.setSize(
+                    Math.max(MINIMUM_POPUP_WIDTH, preferred.width), Math.max(MINIMUM_POPUP_HEIGHT, preferred.height));
+            layout(root);
+        }
+    }
+
+    private static void layout(final Component component) {
+        if (!(component instanceof Container container)) {
+            return;
+        }
+        container.doLayout();
+        for (final Component child : container.getComponents()) {
+            layout(child);
+        }
+        container.validate();
     }
 
     /**

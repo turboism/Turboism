@@ -152,6 +152,68 @@ class AutoMeshSelectorControllerTest {
                 "the hand-edited value must reach the model");
     }
 
+    @Test
+    void aSavedPresetBecomesAnEntryAndStaysSelected() {
+        catalog.register(algorithm(), "plugin", 1L, () -> true);
+        final AutoMeshSelectorController controller = controller();
+        controller.selectAlgorithm(1);
+
+        assertTrue(controller.savePreset("Mine", Map.of("density", "104")).isPresent());
+
+        assertEquals(List.of("Custom", "Dense", "Coarse", "Mine"), controller.presetEntries());
+        assertEquals(Optional.of("Mine"), controller.selectedPresetName());
+        assertEquals(3, controller.selectedPresetIndex(), "the combo must show the saved preset");
+        assertEquals(
+                List.of("Dense", "Coarse", "Mine"),
+                controller.presets().stream().map(AlgorithmPreset::name).toList());
+    }
+
+    @Test
+    void aRenamedPresetIsStillTheSelectedOne() {
+        catalog.register(algorithm(), "plugin", 1L, () -> true);
+        final AutoMeshSelectorController controller = controller();
+        controller.selectAlgorithm(1);
+        controller.selectPreset(1);
+
+        assertTrue(controller.renamePreset("Dense", "Denser").isPresent());
+
+        assertEquals(List.of("Custom", "Denser", "Coarse"), controller.presetEntries());
+        assertEquals(1, controller.selectedPresetIndex(), "a renamed preset keeps its position");
+        assertEquals(Optional.of("Denser"), controller.selectedPresetName());
+    }
+
+    @Test
+    void deletingAndRestoringPresetsRewritesTheCombo() {
+        catalog.register(algorithm(), "plugin", 1L, () -> true);
+        final AutoMeshSelectorController controller = controller();
+        controller.selectAlgorithm(1);
+        controller.selectPreset(1);
+
+        assertTrue(controller.deletePreset("Dense"), "the selected preset must delete");
+        assertEquals(List.of("Custom", "Coarse"), controller.presetEntries());
+        assertEquals(Optional.of("Coarse"), controller.selectedPresetName(), "the neighbour takes over");
+
+        assertEquals(
+                List.of("Dense", "Coarse"),
+                controller.restoreDefaultPresets().stream()
+                        .map(AlgorithmPreset::name)
+                        .toList(),
+                "restoring returns the plugin's own list");
+        assertEquals(Optional.of("Dense"), controller.selectedPresetName());
+    }
+
+    @Test
+    void presetActionsAnswerNothingWithoutASelectedAlgorithm() {
+        final AutoMeshSelectorController controller = controller();
+
+        assertTrue(controller.presets().isEmpty());
+        assertTrue(controller.selectedPresetName().isEmpty());
+        assertTrue(controller.savePreset("Mine", Map.of()).isEmpty());
+        assertTrue(controller.renamePreset("Dense", "Denser").isEmpty());
+        assertFalse(controller.deletePreset("Dense"));
+        assertTrue(controller.restoreDefaultPresets().isEmpty());
+    }
+
     private static AutoMeshAlgorithm algorithm() {
         return new AutoMeshAlgorithm(
                 ALGORITHM_ID,
