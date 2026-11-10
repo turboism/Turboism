@@ -167,6 +167,8 @@ final class PresetImportDialog implements AutoCloseable {
             try {
                 final ModelImportPlugin.PreparedImport built = preparer.prepare(preset);
                 SwingUtilities.invokeLater(() -> publish(ticket, preset, built, null));
+            } catch (ThreadDeath | VirtualMachineError fatal) {
+                throw fatal;
             } catch (Throwable failure) {
                 SwingUtilities.invokeLater(() -> publish(ticket, preset, null, failure));
             }
