@@ -1,10 +1,11 @@
 {
-  "_comment": "Git-reviewed manifest selecting first-party :plugins:* modules eligible for independent Plugin Directory publication. Derived from packaging/market-plugins.txt (or packaging/release-plugins.txt) and each plugin's cubism-versions.json; validated by scripts/release/prepare-market-release.py (project/channel/cubismVersions/repository/support, ASCII-sorted, unique).",
+  "_comment": "Git-reviewed manifest selecting first-party :plugins:* modules eligible for independent Plugin Directory publication. Derived from packaging/market-plugins.txt (or packaging/release-plugins.txt) and each plugin's cubism-versions.json; validated by scripts/release/prepare-market-release.py (project/channel/publication/cubismVersions/repository/support, ASCII-sorted, unique). New roster entries default to publication 'withheld'; a reviewer must set 'approved' before the plugin can reach the Plugin Directory.",
   "schemaVersion": 1,
   "plugins": [
     {
       "project": ":plugins:acp",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -33,6 +34,7 @@
     {
       "project": ":plugins:artmesh-mirror",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -61,6 +63,7 @@
     {
       "project": ":plugins:atlas-bitmask-nesting",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -89,6 +92,7 @@
     {
       "project": ":plugins:atlas-dalsoo-polygon",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -117,6 +121,7 @@
     {
       "project": ":plugins:atlas-folder-layout",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -145,6 +150,7 @@
     {
       "project": ":plugins:atlas-maxrects-bssf",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -173,6 +179,7 @@
     {
       "project": ":plugins:boundingbox-warp-mirror",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -201,6 +208,7 @@
     {
       "project": ":plugins:clipmask-viewer",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -229,6 +237,7 @@
     {
       "project": ":plugins:command-palette",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.1.00",
         "5.1.01",
@@ -250,6 +259,7 @@
     {
       "project": ":plugins:cubism-tab-filter",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -278,6 +288,7 @@
     {
       "project": ":plugins:deformer-batch-rename",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -306,6 +317,7 @@
     {
       "project": ":plugins:external-psd-edit",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -334,6 +346,7 @@
     {
       "project": ":plugins:frame-animation-import",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -362,6 +375,7 @@
     {
       "project": ":plugins:geometric-mesh-layout",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -390,6 +404,7 @@
     {
       "project": ":plugins:history-panel",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [],
       "repository": "https://github.com/turboism/Turboism",
       "support": "https://github.com/turboism/Turboism/issues"
@@ -397,6 +412,7 @@
     {
       "project": ":plugins:mcp",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -425,6 +441,7 @@
     {
       "project": ":plugins:mesh-edit-mirror-axis-enhance",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -453,6 +470,7 @@
     {
       "project": ":plugins:model-import-3d",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -481,6 +499,7 @@
     {
       "project": ":plugins:palette-label-style",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -509,6 +528,7 @@
     {
       "project": ":plugins:parameter-batch-transfer",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -537,6 +557,7 @@
     {
       "project": ":plugins:parameter-lock",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -565,6 +586,7 @@
     {
       "project": ":plugins:parameter-sync",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -593,6 +615,7 @@
     {
       "project": ":plugins:perf-stats",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -621,6 +644,7 @@
     {
       "project": ":plugins:physics-editor",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -649,6 +673,7 @@
     {
       "project": ":plugins:project-work-time",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -677,6 +702,7 @@
     {
       "project": ":plugins:protected-export",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.1.00",
         "5.1.01",
@@ -698,6 +724,7 @@
     {
       "project": ":plugins:psd-clip-mask-import",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -726,6 +753,7 @@
     {
       "project": ":plugins:recent-preview",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -754,6 +782,7 @@
     {
       "project": ":plugins:recent-project-board",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -782,6 +811,7 @@
     {
       "project": ":plugins:scene-palette-enhancer",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -810,6 +840,7 @@
     {
       "project": ":plugins:selection-brush",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -838,6 +869,7 @@
     {
       "project": ":plugins:texture-atlas-stats",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -866,6 +898,7 @@
     {
       "project": ":plugins:ui-theme",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [],
       "repository": "https://github.com/turboism/Turboism",
       "support": "https://github.com/turboism/Turboism/issues"
@@ -873,6 +906,7 @@
     {
       "project": ":plugins:warp-deformer-alt-symmetry",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
@@ -901,6 +935,7 @@
     {
       "project": ":plugins:webdav-backup",
       "channel": "stable",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",

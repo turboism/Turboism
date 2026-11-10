@@ -10,6 +10,10 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 추가
 
+- 플러그인 마켓이 백그라운드 자동 업데이터와 동일한 수용 규칙을 사용합니다. `PluginReleaseCompatibility`가 유일한 판정 지점이 되어, 마켓이 제공하는 릴리스는 업데이터도 수용하는 릴리스입니다. `stable` 설치에서는 `preview` 릴리스를 설치하지 않으며, `beta`와 `nightly` 설치에서는 두 채널을 모두 수용합니다. 마켓은 `windows-x64` 플랫폼이 없는 릴리스와 필수 플러그인 의존성을 충족할 수 없는 릴리스도 거부합니다. 설치된 플러그인에 호환 릴리스가 없으면 설치된 상태로 보고하고 다운로드를 제공하지 않으므로, 채널 제한이 플러그인 손상으로 오해되지 않습니다.
+- `packaging/market-plugins.json`에 플러그인별 `publication` 판단을 기록합니다. 새로 명부에 추가된 플러그인은 기본값이 `withheld`이므로, `packaging/market-plugins.txt`에 추가하는 것만으로는 게시되지 않으며 별도 커밋에서 검토자가 `approved`로 설정해야 합니다. 승인된 플러그인의 필수 의존성이 `withheld`이고 서명된 카탈로그에 호환 릴리스가 없으면 스테이징이 실패합니다.
+- 플러그인 빌드 내용이 바뀌지 않았고 카탈로그가 `preview` 채널에만 보관하고 있으면, 스테이징이 이를 `stable` 채널로 승격합니다. 이로써 Beta 회차에서 처음 게시된 플러그인이 무관한 소스 변경을 기다리지 않고 Stable 설치에 도달합니다. 카탈로그 버전은 고유하고 엄격히 오름차순이어야 하므로 승격은 패치 버전을 올립니다. 반대 방향의 강등은 암묵적으로 일어나지 않습니다.
+
 - 공식 `project-work-time` 플러그인과 공유 런타임 추적기를 추가했습니다. 상태 표시줄에 현재 편집기 세션의 전경 시간과 현재 프로젝트의 세션 간 누적 작업 시간을 표시합니다. 런타임은 Cubism이 데스크톱 전경에 있을 때만 측정하고 누적 시간을 세션 간 저장합니다. SDK에는 `CubismFacade.isEditorForeground()`, `CubismFacade.activity()`, `CubismActivityChangedEvent`, `ProjectWorkTimeService` 디렉터리 서비스를 추가해 다른 플러그인이 동일한 집계를 재사용할 수 있습니다.
 
 - SDK에 인큐베이팅 `PreviewFrameService` 기능(`PreviewFrameSource`, `PreviewFrame`, `PreviewFrameSourceClosedException`, `PluginService.PREVIEW_FRAMES` 디렉터리 멤버)과 `cubism.preview.capture` admission 행을 추가했습니다. 플러그인은 포커스된 미리보기의 프레임을 읽고 자체 `PanelView` 컨트롤 스트립을 배치할 수 있으며, 미리보기 표면 해석, 전용 스레드에서의 OpenGL 읽기, 플러그인 세대 종료 후 갱신 폐기는 런타임이 담당합니다.

@@ -10,6 +10,10 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 ### 追加
 
+- プラグインマーケットはバックグラウンド自動アップデーターと同じ受入規則を使うようになりました。`PluginReleaseCompatibility` が唯一の判定拠点となり、マーケットが提示するリリースはアップデーターも受け入れるリリースになります。`stable` インストールは `preview` リリースをインストールせず、`beta` と `nightly` インストールは両チャネルを受け入れます。マーケットは `windows-x64` プラットフォームを含まないリリース、および必須のプラグイン依存関係を満たせないリリースも拒否します。インストール済みのプラグインに互換リリースがない場合もインストール済みとして扱い、ダウンロードを提供しません。そのためチャネル制限がプラグインの破損と誤読されることはありません。
+- `packaging/market-plugins.json` にプラグイン単位の `publication` 判断を記録するようにしました。新しく名簿に加えたプラグインは既定で `withheld` になるため、`packaging/market-plugins.txt` への追記だけでは公開されません。別のコミットで査読者が `approved` に設定する必要があります。承認済みプラグインの必須依存関係が `withheld` であり、署名済みカタログに互換リリースがない場合、ステージングは失敗します。
+- プラグインのビルド内容が変わらず、カタログが `preview` チャネルでのみ保持している場合、ステージングはそれを `stable` チャネルへ昇格します。これにより、Beta 回で初回公開されたプラグインが無関係なソース変更を待たずに Stable インストールへ届きます。カタログのバージョンは一意かつ厳密に昇順でなければならないため、昇格はパッチバージョンを進めます。逆方向の降格は暗黙には行いません。
+
 - 公式 `project-work-time` プラグインと共有ランタイムトラッカーを追加しました。ステータスバーに現在のエディターセッションの前面時間と、現在のプロジェクトのセッションをまたぐ累計作業時間を表示します。ランタイムは Cubism がデスクトップの前面にある間だけ計測し、累計をセッションをまたいで保存します。SDK には `CubismFacade.isEditorForeground()`、`CubismFacade.activity()`、`CubismActivityChangedEvent`、`ProjectWorkTimeService` ディレクトリサービスを追加し、他のプラグインが同じ集計を再利用できます。
 
 - SDK にインキュベーティングな `PreviewFrameService` 機能（`PreviewFrameSource`、`PreviewFrame`、`PreviewFrameSourceClosedException`、`PluginService.PREVIEW_FRAMES` ディレクトリメンバー）と `cubism.preview.capture` の admission 行を追加しました。プラグインはフォーカス中のプレビューのフレームを読み取り、独自の `PanelView` コントロールストリップを配置できます。プレビュー面の解決、専用スレッドでの OpenGL 読み戻し、プラグイン世代終了後の更新の破棄はランタイムが行います。

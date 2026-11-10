@@ -190,6 +190,19 @@ The framework bundle roster and Plugin Directory roster are independent contract
 - `packaging/market-plugins.txt` controls which first-party plugins are published to the Plugin Directory (generating `packaging/market-plugins.json`).
 - `packaging/market-plugins.json` is the Git-reviewed publication manifest with derived compatibility and channel metadata.
 
+Each manifest entry carries a `publication` decision. `approved` lets the plugin enter the next
+publication batch; `withheld` keeps it in the roster while blocking publication. Regeneration
+preserves existing decisions and defaults every newly rostered plugin to `withheld`, so adding a
+plugin to `market-plugins.txt` never publishes it. An approved plugin whose `required` dependency
+is withheld fails staging unless the signed catalog already serves a compatible release.
+
+Staging publishes a channel promotion. When a plugin's built bytes already match its newest
+catalog release but that release carries a weaker channel, as when a plugin first shipped during
+a Beta round and never changed, the next Stable staging bumps the patch version and publishes it
+on `stable`. Catalog versions must be unique and strictly ascending, so a promotion cannot reuse
+the carried version. The reverse direction never happens implicitly, because it would withdraw a
+release from Stable installations.
+
 A plugin bundled in Full is not thereby published to the Plugin Directory, and a plugin published to the Plugin Directory does not need to be bundled in the Full installer.
 
 ## One-command dry run

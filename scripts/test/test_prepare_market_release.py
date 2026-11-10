@@ -52,10 +52,21 @@ def run_script(repo_root: Path, *args: str) -> subprocess.CompletedProcess:
         capture_output=True, text=True)
 
 
-def write_manifest(repo_root: Path, plugins: list) -> Path:
+def write_manifest(repo_root: Path, plugins: list, *, default_publication: str = "approved") -> Path:
+    """Write a manifest, defaulting omitted publication decisions.
+
+    Most fixtures exercise staging, not the approval gate, so they default to approved.
+    Tests for the fail-closed default pass ``default_publication=None``.
+    """
+    entries = []
+    for plugin in plugins:
+        entry = dict(plugin)
+        if default_publication is not None and "publication" not in entry:
+            entry["publication"] = default_publication
+        entries.append(entry)
     path = repo_root / "packaging" / "market-plugins.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"schemaVersion": 1, "plugins": plugins}) + "\n")
+    path.write_text(json.dumps({"schemaVersion": 1, "plugins": entries}) + "\n")
     return path
 
 
@@ -156,8 +167,8 @@ class Fixture:
         self.build_modules([("mcp", self.mcp_descriptor.read_bytes()),
                             ("webdav-backup", self.backup_descriptor.read_bytes())])
 
-    def write_manifest(self, plugins: list) -> Path:
-        return write_manifest(self.root, plugins)
+    def write_manifest(self, plugins: list, *, default_publication: str | None = "approved") -> Path:
+        return write_manifest(self.root, plugins, default_publication=default_publication)
 
     def build_modules(self, modules) -> None:
         build = self.root / "build" / self.build_id
@@ -573,6 +584,49 @@ class ManifestValidationTest(unittest.TestCase):
         result = run_script(self.tmp, "--manifest", str(path), "--plan")
         self.assertNotEqual(result.returncode, 0)
 
+    def test_publication_decision_selects_only_approved_plugins(self):
+        manifest = self.fixture.write_manifest([
+            {"project": ":plugins:mcp", "channel": "stable", "publication": "withheld",
+             "cubismVersions": ["5.3.02"],
+             "repository": "https://example.invalid/mcp",
+             "support": "https://example.invalid/mcp/support"},
+            {"project": ":plugins:webdav-backup", "channel": "stable", "publication": "approved",
+             "cubismVersions": ["5.3.02"],
+             "repository": "https://example.invalid/webdav-backup",
+             "support": "https://example.invalid/webdav-backup/support"},
+        ])
+        result = run_script(self.tmp, "--manifest", str(manifest), "--plan")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "selected=1")
+
+    def test_missing_publication_defaults_to_withheld(self):
+        manifest = self.fixture.write_manifest([
+            {"project": ":plugins:webdav-backup", "channel": "stable",
+             "cubismVersions": ["5.3.02"],
+             "repository": "https://example.invalid/webdav-backup",
+             "support": "https://example.invalid/webdav-backup/support"},
+        ], default_publication=None)
+        result = run_script(self.tmp, "--manifest", str(manifest), "--plan")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "selected=0")
+
+    def test_unknown_publication_value_rejected(self):
+        manifest = self.fixture.write_manifest([
+            {"project": ":plugins:webdav-backup", "channel": "stable", "publication": "maybe",
+             "cubismVersions": ["5.3.02"],
+             "repository": "https://example.invalid/webdav-backup",
+             "support": "https://example.invalid/webdav-backup/support"},
+        ])
+        result = run_script(self.tmp, "--manifest", str(manifest), "--plan")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("publication", result.stderr)
+
+    def test_committed_manifest_declares_every_publication_decision(self):
+        document = json.loads(
+            (REPO_ROOT / "packaging/market-plugins.json").read_text(encoding="utf-8"))
+        for entry in document["plugins"]:
+            self.assertIn(entry.get("publication"), ("approved", "withheld"), entry["project"])
+
 
 class StagingTest(unittest.TestCase):
     def setUp(self):
@@ -595,6 +649,53 @@ class StagingTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stdout.strip(), "selected=2")
         return result
+
+    def test_stage_skips_withheld_plugins(self):
+        self.fixture.write_manifest([
+            {"project": ":plugins:mcp", "channel": "preview", "publication": "withheld",
+             "cubismVersions": ["5.3.02"],
+             "repository": "https://example.invalid/mcp",
+             "support": "https://example.invalid/mcp/support"},
+            {"project": ":plugins:webdav-backup", "channel": "stable", "publication": "approved",
+             "cubismVersions": ["5.2.03", "5.3.02"],
+             "repository": "https://example.invalid/webdav-backup",
+             "support": "https://example.invalid/webdav-backup/support"},
+        ])
+        result = self.stage(False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "selected=1")
+        names = sorted(path.name for path in self.output.iterdir())
+        self.assertEqual(names, ["market-release.json", "webdav-backup-0.1.0.jar"])
+        sidecar = json.loads((self.output / "market-release.json").read_text())
+        self.assertEqual([a["project"] for a in sidecar["artifacts"]], [":plugins:webdav-backup"])
+
+    def test_approved_plugin_requiring_withheld_plugin_fails_closed(self):
+        dependent = make_module(
+            self.tmp, "dependent", "dev.turboism.plugin.dependent", requires_cubism=False,
+            dependencies=[{
+                "id": "dev.turboism.plugin.mcp",
+                "version": "[0.1.0,1.0.0)",
+                "type": "required",
+                "ordering": "after",
+            }])
+        (self.tmp / "settings.gradle.kts").write_text(
+            'rootProject.name = "fixture"\n'
+            'include("plugins:mcp", "plugins:webdav-backup", "plugins:dependent")\n')
+        self.fixture.build_modules([("dependent", dependent.read_bytes())])
+        self.fixture.write_manifest([
+            {"project": ":plugins:dependent", "channel": "stable", "publication": "approved",
+             "cubismVersions": [],
+             "repository": "https://example.invalid/dependent",
+             "support": "https://example.invalid/dependent/support"},
+            {"project": ":plugins:mcp", "channel": "preview", "publication": "withheld",
+             "cubismVersions": ["5.3.02"],
+             "repository": "https://example.invalid/mcp",
+             "support": "https://example.invalid/mcp/support"},
+        ])
+        result = self.stage(False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("withholds", result.stderr)
+        self.assertFalse(self.output.exists())
 
     def test_stage_outputs_and_sidecar(self):
         self.stage()
@@ -1038,6 +1139,72 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "selected=0")
         self.assertFalse(self.output.exists())
+
+    def publish_once_then_catalog(self, channel: str) -> dict:
+        """Publish the pristine build on one channel, then return a catalog claiming it."""
+        self.write_catalog([])
+        run_script(
+            self.tmp,
+            "--manifest", str(self.manifest),
+            "--build-root", str(self.build_root),
+            "--output", str(self.output),
+            "--source-revision", GIT_SHA,
+            "--catalog", str(self.catalog_path),
+        )
+        sidecar = json.loads((self.output / "market-release.json").read_text(encoding="utf-8"))
+        self.write_catalog([
+            {
+                "id": art["descriptor"]["id"],
+                "releases": [{
+                    "version": art["descriptor"]["version"],
+                    "channel": channel,
+                    "artifact": {
+                        "sha256": art["sha256"],
+                        "size": art["size"],
+                        "descriptorSha256": art["descriptorSha256"],
+                    },
+                }],
+            }
+            for art in sidecar["artifacts"]
+        ])
+        return sidecar
+
+    def test_unchanged_preview_content_is_promoted_to_stable(self):
+        self.publish_once_then_catalog("preview")
+        promoted_out = self.tmp / "release-promoted"
+        result = run_script(
+            self.tmp,
+            "--manifest", str(self.manifest),
+            "--build-root", str(self.build_root),
+            "--output", str(promoted_out),
+            "--source-revision", GIT_SHA,
+            "--catalog", str(self.catalog_path),
+            "--release-channel", "stable",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "selected=2")
+        sidecar = json.loads((promoted_out / "market-release.json").read_text(encoding="utf-8"))
+        for artifact in sidecar["artifacts"]:
+            # A promotion needs a fresh catalog version; the channel is the only intent.
+            self.assertEqual(artifact["descriptor"]["version"], "0.1.1")
+            self.assertEqual(artifact["policy"]["channel"], "stable")
+            self.assertTrue((promoted_out / artifact["asset"]).is_file())
+
+    def test_unchanged_stable_content_is_not_demoted_to_preview(self):
+        self.publish_once_then_catalog("stable")
+        demoted_out = self.tmp / "release-demoted"
+        result = run_script(
+            self.tmp,
+            "--manifest", str(self.manifest),
+            "--build-root", str(self.build_root),
+            "--output", str(demoted_out),
+            "--source-revision", GIT_SHA,
+            "--catalog", str(self.catalog_path),
+            "--release-channel", "beta",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "selected=0")
+        self.assertFalse(demoted_out.exists())
 
     def test_normalized_digest_skips_when_zip_order_or_timestamps_differ(self):
         pmr = load_script()

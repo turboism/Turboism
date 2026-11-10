@@ -1,8 +1,8 @@
 package dev.turboism.pluginmanagement;
 
+import dev.turboism.core.FrameworkBuildInfo;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.version.PluginVersion;
-import dev.turboism.core.version.VersionRange;
 import dev.turboism.distribution.LocalPluginJarPreparer;
 import dev.turboism.distribution.PreparedPluginJar;
 import dev.turboism.internal.core.CorePluginManagement.OperationResult;
@@ -123,6 +123,7 @@ public final class PluginMarketService implements AutoCloseable {
     private final RuntimePluginManagementService managementService;
     private final Supplier<Optional<String>> cubismVersionSupplier;
     private final PluginVersion turboismApiVersion;
+    private final FrameworkBuildInfo.Channel frameworkChannel;
     private final Consumer<String> logSink;
     private final ExecutorService marketExecutor;
     private final BlockingQueue<Runnable> taskQueue;
@@ -153,6 +154,7 @@ public final class PluginMarketService implements AutoCloseable {
                 managementService,
                 cubismVersionSupplier,
                 turboismApiVersion,
+                FrameworkBuildInfo.current().channel(),
                 logSink,
                 DEFAULT_QUEUE_CAPACITY);
     }
@@ -166,6 +168,32 @@ public final class PluginMarketService implements AutoCloseable {
             final RuntimePluginManagementService managementService,
             final Supplier<Optional<String>> cubismVersionSupplier,
             final PluginVersion turboismApiVersion,
+            final FrameworkBuildInfo.Channel frameworkChannel,
+            final Consumer<String> logSink) {
+        this(
+                home,
+                client,
+                verifier,
+                stateStore,
+                pending,
+                managementService,
+                cubismVersionSupplier,
+                turboismApiVersion,
+                frameworkChannel,
+                logSink,
+                DEFAULT_QUEUE_CAPACITY);
+    }
+
+    PluginMarketService(
+            final Path home,
+            final PluginCatalogClient client,
+            final PluginCatalogVerifier verifier,
+            final PluginCatalogStateStore stateStore,
+            final PendingPluginOperations pending,
+            final RuntimePluginManagementService managementService,
+            final Supplier<Optional<String>> cubismVersionSupplier,
+            final PluginVersion turboismApiVersion,
+            final FrameworkBuildInfo.Channel frameworkChannel,
             final Consumer<String> logSink,
             final int queueCapacity) {
         this.home = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
@@ -178,6 +206,7 @@ public final class PluginMarketService implements AutoCloseable {
         this.managementService = Objects.requireNonNull(managementService, "managementService");
         this.cubismVersionSupplier = Objects.requireNonNull(cubismVersionSupplier, "cubismVersionSupplier");
         this.turboismApiVersion = Objects.requireNonNull(turboismApiVersion, "turboismApiVersion");
+        this.frameworkChannel = Objects.requireNonNull(frameworkChannel, "frameworkChannel");
         this.logSink = Objects.requireNonNull(logSink, "logSink");
         if (queueCapacity <= 0) {
             throw new IllegalArgumentException("queueCapacity must be positive: " + queueCapacity);
@@ -234,9 +263,11 @@ public final class PluginMarketService implements AutoCloseable {
         final Map<String, PluginInfo> byId = new LinkedHashMap<>();
         installed.forEach(plugin -> byId.put(plugin.id(), plugin));
         final Optional<String> activeCubism = cubismVersionSupplier.get();
+        final Map<String, PluginVersion> catalogTargets = catalogTargets(catalog, activeCubism);
         final Map<String, PluginMarketStatus> statuses = new LinkedHashMap<>();
         for (CatalogPlugin plugin : catalog.plugins()) {
-            statuses.put(plugin.id(), resolveStatus(plugin, byId.get(plugin.id()), activeCubism));
+            statuses.put(
+                    plugin.id(), resolveStatus(plugin, byId.get(plugin.id()), installed, catalogTargets, activeCubism));
         }
         return new MarketSnapshot(catalog, installed, statuses);
     }
@@ -335,31 +366,50 @@ public final class PluginMarketService implements AutoCloseable {
                 .findFirst()
                 .orElse(null);
 
-        return resolveStatus(plugin, installed, cubismVersionSupplier.get());
+        return resolveStatus(
+                plugin,
+                installed,
+                installedList,
+                currentCatalog == null ? Map.of() : catalogTargets(currentCatalog, cubismVersionSupplier.get()),
+                cubismVersionSupplier.get());
     }
 
     private PluginMarketStatus resolveStatus(
-            final CatalogPlugin plugin, final PluginInfo installed, final Optional<String> activeCubism) {
-        final List<CatalogRelease> compatibleReleases = plugin.releases().stream()
-                .filter(CatalogRelease::isActive)
-                .filter(r -> isCompatible(r, activeCubism))
+            final CatalogPlugin plugin,
+            final PluginInfo installed,
+            final List<PluginInfo> installedList,
+            final Map<String, PluginVersion> catalogTargets,
+            final Optional<String> activeCubism) {
+        final List<CatalogRelease> activeReleases =
+                plugin.releases().stream().filter(CatalogRelease::isActive).toList();
+        final List<CatalogRelease> compatibleReleases = activeReleases.stream()
+                .filter(r -> isCompatible(plugin, r, installedList, catalogTargets, activeCubism))
                 .sorted(Comparator.comparing((CatalogRelease r) -> PluginVersion.parse(r.version()))
                         .reversed())
                 .toList();
 
         if (compatibleReleases.isEmpty()) {
-            final CatalogRelease latestActive = plugin.releases().stream()
-                    .filter(CatalogRelease::isActive)
+            final CatalogRelease latestActive = activeReleases.stream()
                     .max(Comparator.comparing(r -> PluginVersion.parse(r.version())))
                     .orElse(null);
+            // An installed plugin already runs here, so "no compatible catalog release" describes
+            // an unavailable update, not an unusable plugin. Reporting it as incompatible would
+            // wrongly condemn a working installation whose only releases are on another channel.
+            if (installed != null) {
+                return new PluginMarketStatus(
+                        StatusType.INSTALLED,
+                        Optional.of(installed.version()),
+                        Optional.empty(),
+                        latestActive == null
+                                ? Optional.empty()
+                                : Optional.of(incompatibilityReason(
+                                        plugin, latestActive, installedList, catalogTargets, activeCubism)));
+            }
             final String reason = latestActive != null
-                    ? incompatibilityReason(latestActive, activeCubism)
+                    ? incompatibilityReason(plugin, latestActive, installedList, catalogTargets, activeCubism)
                     : "No compatible releases available";
             return new PluginMarketStatus(
-                    StatusType.INCOMPATIBLE,
-                    installed != null ? Optional.of(installed.version()) : Optional.empty(),
-                    Optional.ofNullable(latestActive),
-                    Optional.of(reason));
+                    StatusType.INCOMPATIBLE, Optional.empty(), Optional.ofNullable(latestActive), Optional.of(reason));
         }
 
         final CatalogRelease bestRelease = compatibleReleases.get(0);
@@ -381,34 +431,80 @@ public final class PluginMarketService implements AutoCloseable {
                 StatusType.NOT_INSTALLED, Optional.empty(), Optional.of(bestRelease), Optional.empty());
     }
 
-    private boolean isCompatible(final CatalogRelease release, final Optional<String> activeCubism) {
-        if (!VersionRange.parse(release.turboismApi()).contains(turboismApiVersion)) {
+    private boolean isCompatible(
+            final CatalogPlugin plugin,
+            final CatalogRelease release,
+            final List<PluginInfo> installed,
+            final Map<String, PluginVersion> catalogTargets,
+            final Optional<String> activeCubism) {
+        if (!PluginReleaseCompatibility.evaluate(release, turboismApiVersion, frameworkChannel, activeCubism)
+                .compatible()) {
             return false;
         }
-        if (release.requiresCubism()) {
-            if (activeCubism.isEmpty()) {
-                return false;
-            }
-            if (!release.cubismVersions().contains(activeCubism.get())) {
-                return false;
-            }
-        }
-        return true;
+        return PluginReleaseCompatibility.evaluateDependencies(
+                        release, postInstallVersions(plugin.id(), release, installed, catalogTargets))
+                .compatible();
     }
 
-    private String incompatibilityReason(final CatalogRelease release, final Optional<String> activeCubism) {
-        if (!VersionRange.parse(release.turboismApi()).contains(turboismApiVersion)) {
-            return "Requires Turboism API " + release.turboismApi() + " (current is " + turboismApiVersion + ")";
+    private String incompatibilityReason(
+            final CatalogPlugin plugin,
+            final CatalogRelease release,
+            final List<PluginInfo> installed,
+            final Map<String, PluginVersion> catalogTargets,
+            final Optional<String> activeCubism) {
+        final PluginReleaseCompatibility.Verdict environment =
+                PluginReleaseCompatibility.evaluate(release, turboismApiVersion, frameworkChannel, activeCubism);
+        if (!environment.compatible()) {
+            return environment.detail().orElse("Release is incompatible");
         }
-        if (release.requiresCubism()) {
-            if (activeCubism.isEmpty()) {
-                return "Requires Cubism host";
-            }
-            if (!release.cubismVersions().contains(activeCubism.get())) {
-                return "Cubism " + activeCubism.get() + " is not in supported versions";
+        return PluginReleaseCompatibility.evaluateDependencies(
+                        release, postInstallVersions(plugin.id(), release, installed, catalogTargets))
+                .detail()
+                .orElse("Release is incompatible");
+    }
+
+    /**
+     * Highest catalog release of each plugin whose environment rules pass in this installation.
+     *
+     * <p>A required dependency that is absent locally but installable from the market still
+     * satisfies the requirement, so users are never blocked from a two-step install.</p>
+     */
+    private Map<String, PluginVersion> catalogTargets(
+            final PluginCatalog catalog, final Optional<String> activeCubism) {
+        final Map<String, PluginVersion> targets = new LinkedHashMap<>();
+        for (CatalogPlugin plugin : catalog.plugins()) {
+            plugin.releases().stream()
+                    .filter(CatalogRelease::isActive)
+                    .filter(release -> PluginReleaseCompatibility.evaluate(
+                                    release, turboismApiVersion, frameworkChannel, activeCubism)
+                            .compatible())
+                    .max(Comparator.comparing((CatalogRelease release) -> PluginVersion.parse(release.version())))
+                    .ifPresent(release -> targets.put(plugin.id(), PluginVersion.parse(release.version())));
+        }
+        return targets;
+    }
+
+    /**
+     * Resolves plugin versions that will be present once {@code release} installs.
+     *
+     * <p>Installed versions win over catalog targets: a user may keep an older plugin than the
+     * catalog offers, and a required dependency must be judged against what will actually run.</p>
+     */
+    private static Map<String, PluginVersion> postInstallVersions(
+            final String ownerId,
+            final CatalogRelease release,
+            final List<PluginInfo> installed,
+            final Map<String, PluginVersion> catalogTargets) {
+        final Map<String, PluginVersion> versions = new LinkedHashMap<>(catalogTargets);
+        for (PluginInfo entry : installed) {
+            try {
+                versions.put(entry.id(), PluginVersion.parse(entry.version()));
+            } catch (IllegalArgumentException invalid) {
+                // An unparsable installed version cannot satisfy any range, so it stays absent.
             }
         }
-        return "Release is incompatible";
+        versions.put(ownerId, PluginVersion.parse(release.version()));
+        return versions;
     }
 
     /**
@@ -442,8 +538,12 @@ public final class PluginMarketService implements AutoCloseable {
             return cancelledInstall();
         }
         final Optional<String> activeCubism = cubismVersionSupplier.get();
-        if (!isCompatible(release, activeCubism)) {
-            return OperationResult.rejected("PLUGIN_INCOMPATIBLE", incompatibilityReason(release, activeCubism));
+        final List<PluginInfo> installed = managementService.plugins();
+        final Map<String, PluginVersion> targets =
+                currentCatalog == null ? Map.of() : catalogTargets(currentCatalog, activeCubism);
+        if (!isCompatible(plugin, release, installed, targets, activeCubism)) {
+            return OperationResult.rejected(
+                    "PLUGIN_INCOMPATIBLE", incompatibilityReason(plugin, release, installed, targets, activeCubism));
         }
 
         final Path tempDownload;
