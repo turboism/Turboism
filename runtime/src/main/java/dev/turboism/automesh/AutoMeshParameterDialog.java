@@ -49,16 +49,38 @@ public final class AutoMeshParameterDialog {
     /** Preferred height of the previewed content, in pixels. */
     public static final int PREVIEW_HEIGHT = 520;
 
-    private static final String TITLE_KEY = "dialog.parameters.title";
     private static final String ALGORITHM_KEY = "dialog.parameters.algorithm";
     private static final String PRESET_KEY = "dialog.parameters.preset";
-    private static final String PRESET_ADD_KEY = "dialog.parameters.preset.add";
-    private static final String PRESET_SAVE_KEY = "dialog.parameters.preset.save";
-    private static final String PRESET_RENAME_KEY = "dialog.parameters.preset.rename";
-    private static final String PRESET_DELETE_KEY = "dialog.parameters.preset.delete";
-    private static final String PRESET_RESTORE_KEY = "dialog.parameters.preset.restoreDefaults";
-    private static final String PRESET_PROMPT_KEY = "dialog.parameters.preset.promptName";
-    private static final String PRESET_RENAME_PROMPT_KEY = "dialog.parameters.preset.promptRename";
+
+    /**
+     * Title of the parameter dialog, also the fallback title of the inline Parameters group.
+     *
+     * <p>The native Auto Mesh popup offers the same parameters inline, so both surfaces read one
+     * key. A second copy of the text could drift from the dialog it names.</p>
+     */
+    static final String TITLE_KEY = "dialog.parameters.title";
+
+    /** Save action of the current preset, shared with the inline Preset group. */
+    static final String PRESET_SAVE_KEY = "dialog.parameters.preset.save";
+
+    /** Add action that names a new preset, shared with the inline Preset group. */
+    static final String PRESET_ADD_KEY = "dialog.parameters.preset.add";
+
+    /** Rename action of the current preset, shared with the inline Preset group. */
+    static final String PRESET_RENAME_KEY = "dialog.parameters.preset.rename";
+
+    /** Delete action of the current preset, shared with the inline Preset group. */
+    static final String PRESET_DELETE_KEY = "dialog.parameters.preset.delete";
+
+    /** Restore action that returns the preset list to the declared one. */
+    static final String PRESET_RESTORE_KEY = "dialog.parameters.preset.restoreDefaults";
+
+    /** Prompt that asks for the name of a new preset, shared with the inline Preset group. */
+    static final String PRESET_PROMPT_KEY = "dialog.parameters.preset.promptName";
+
+    /** Prompt that asks for the new name of a renamed preset, shared with the inline Preset group. */
+    static final String PRESET_RENAME_PROMPT_KEY = "dialog.parameters.preset.promptRename";
+
     private static final String OK_KEY = "dialog.parameters.ok";
     private static final String CANCEL_KEY = "dialog.parameters.cancel";
     private static final String RESET_KEY = "dialog.parameters.reset";

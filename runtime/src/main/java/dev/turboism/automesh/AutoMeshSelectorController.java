@@ -263,6 +263,23 @@ public final class AutoMeshSelectorController {
         source.selection().setParameterValues(algorithm, values);
     }
 
+    /**
+     * Stores one intermediate value set without persisting it.
+     *
+     * <p>An inline control reports every step of a drag. The selection state must follow each step,
+     * because the next run reads it, but the preset file must not be forced on every step. The caller
+     * persists the final set with {@link #storeParameters}.</p>
+     *
+     * @param algorithm the algorithm the values belong to
+     * @param values the canonical values to store
+     * @throws IllegalArgumentException when a value fails its descriptor
+     */
+    public void storeParametersTransient(final AutoMeshAlgorithm algorithm, final Map<String, String> values) {
+        Objects.requireNonNull(algorithm, "algorithm");
+        Objects.requireNonNull(values, "values");
+        source.selection().setParameterValuesTransient(algorithm, values);
+    }
+
     private String labelOf(final AutoMeshAlgorithm algorithm) {
         return algorithm.isNative() ? AutoMeshText.text(locale, NATIVE_LABEL_KEY) : algorithm.displayName();
     }

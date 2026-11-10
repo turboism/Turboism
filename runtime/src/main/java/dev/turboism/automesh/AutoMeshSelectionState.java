@@ -183,6 +183,27 @@ public final class AutoMeshSelectionState {
      * @throws IllegalArgumentException when an id is undeclared or a value is invalid
      */
     public void setParameterValues(final AutoMeshAlgorithm algorithm, final Map<String, String> values) {
+        storeValues(algorithm, values);
+        persist();
+    }
+
+    /**
+     * Records a whole accepted value set without writing the preset store.
+     *
+     * <p>An inline control reports every step of one drag, and each store write forces the preset
+     * file. A caller that reports such a stream keeps the selection current here and persists the
+     * final set with {@link #setParameterValues} once the stream ends. The next run already sees the
+     * streamed value, so only the durability waits.</p>
+     *
+     * @param algorithm the algorithm that declares the parameters
+     * @param values the values to store; every id must be declared and every value valid
+     * @throws IllegalArgumentException when an id is undeclared or a value is invalid
+     */
+    public void setParameterValuesTransient(final AutoMeshAlgorithm algorithm, final Map<String, String> values) {
+        storeValues(algorithm, values);
+    }
+
+    private void storeValues(final AutoMeshAlgorithm algorithm, final Map<String, String> values) {
         Objects.requireNonNull(algorithm, "algorithm");
         Objects.requireNonNull(values, "values");
         final AutoMeshValueCodec codec = AutoMeshValueCodec.forAlgorithm(algorithm);
@@ -190,7 +211,6 @@ public final class AutoMeshSelectionState {
         values.forEach((parameterId, value) -> canonical.put(parameterId, codec.canonicalize(parameterId, value)));
         lastValues.put(algorithm.id(), Collections.unmodifiableMap(canonical));
         keepSelectedPreset(algorithm, codec);
-        persist();
     }
 
     /**

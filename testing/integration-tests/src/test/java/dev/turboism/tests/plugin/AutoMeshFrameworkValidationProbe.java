@@ -689,8 +689,10 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
      * attach callback to finish on the Editor UI thread, then counts the centre children the row was
      * appended to and captures the widget as a PNG.</p>
      *
-     * <p>The probe selects the region algorithm first, so the dialog artifact the runtime paints shows
-     * a parameterised algorithm with its presets instead of the Editor's own generator.</p>
+     * <p>The probe selects the region algorithm first, so the selector artifact shows a parameterised
+     * algorithm with its inline parameter rows. The same capture then paints the other plugin
+     * algorithm and the Editor's generator, so the parameter artifact and the native-mode artifact
+     * both come from the real dialog.</p>
      *
      * <p>The assertion stays strict: at least one algorithm plugin is registered, so the row must be
      * attached. Every diagnostic exists to name the exact reason when it is not.</p>
@@ -748,11 +750,12 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
     }
 
     /**
-     * Records the parameter-dialog artifact the runtime paints for this validation run.
+     * Records the parameter-dialog artifact the capture painted for this validation run.
      *
-     * <p>The dialog content is runtime Swing code, so the runtime paints it into the dump directory
-     * and the probe reads the result back. The record names the file, its size and the section that
-     * must be visible, which is what makes the artifact evidence instead of a file on disk.</p>
+     * <p>The capture paints the live container with the other registered algorithm selected, so the
+     * artifact shows the native dialog with the inline parameter controls. The record names the file,
+     * its size and the section that must be visible, which is what makes the artifact evidence instead
+     * of a file on disk.</p>
      *
      * @param dumpRoot the dump directory the artifact belongs to
      */
