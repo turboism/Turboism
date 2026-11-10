@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.warp-deformer-alt-symmetry
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -127,6 +127,10 @@ takes effect immediately and does not change mirror editing behavior.
 | Hint does not appear | Check that the canvas-hint permission is granted and the host exposes the native hint surface. |
 
 ## Changelog
+
+### 0.68.0
+
+- Align README metadata with the plugin descriptor.
 
 ### 0.1.0
 

@@ -2,7 +2,7 @@
 
 Two regression axes matter here:
 
-* the documented version may lag the descriptor but never lead it, and
+* the documented version must equal the descriptor version, and
 * a translated README is no longer rejected for translated wording, merged or
   reordered sections, or a missing changelog entry.
 """
@@ -79,13 +79,15 @@ version: 0.68.2
 
 
 class DocumentedVersionTest(unittest.TestCase):
-    def test_equal_or_older_documented_version_is_accepted(self):
+    def test_equal_documented_version_is_accepted(self):
         self.assertEqual(CHECK.documented_version_errors("0.68.0", "0.68.0"), [])
-        self.assertEqual(CHECK.documented_version_errors("0.1.0", "0.68.2"), [])
+
+    def test_older_documented_version_is_rejected(self):
+        self.assertTrue(CHECK.documented_version_errors("0.1.0", "0.68.2"))
 
     def test_newer_or_malformed_documented_version_is_rejected(self):
         self.assertTrue(CHECK.documented_version_errors("0.68.1", "0.68.0"))
-        self.assertTrue(CHECK.documented_version_errors("0.9.0", "0.10.0") == [])
+        self.assertTrue(CHECK.documented_version_errors("0.9.0", "0.10.0"))
         self.assertTrue(CHECK.documented_version_errors("abc", "0.68.0"))
         self.assertTrue(CHECK.documented_version_errors("0.68", "0.68.0"))
 
@@ -113,7 +115,7 @@ class LocalizedReadmeTest(unittest.TestCase):
         text = TRANSLATED_FRONT_MATTER.replace("version: 0.68.2", "version: 0.69.0")
         with ModuleFixture(README_zh__md=text) as module:
             errors = CHECK.validate_localized_readme(module, "README_zh.md", DESCRIPTOR)
-        self.assertTrue(any("not at or below descriptor" in error for error in errors), errors)
+        self.assertTrue(any("expected descriptor" in error for error in errors), errors)
 
     def test_translation_must_match_plugin_id_when_it_declares_one(self):
         text = TRANSLATED_FRONT_MATTER.replace("dev.turboism.plugin.demo", "dev.turboism.plugin.other")

@@ -9,7 +9,7 @@ Two tiers, because only one of them describes user-visible harm:
   changelog entry for the documented version.
 * ``README_zh.md`` / ``README_ja.md`` / ``README_ko.md`` are optional
   translations. When present they must be readable, titled, non-empty and must
-  not document a version ahead of the descriptor. They are deliberately *not*
+  match the descriptor version when they declare one. They are deliberately *not*
   gated on translated heading text, heading order, per-permission tokens or a
   changelog entry: a translator merging or reordering sections is not user harm,
   and enforcing it only produced build breaks that were fixed by rewording
@@ -62,20 +62,20 @@ REQUIRED_FRONT_MATTER = {
     "requiresCubism",
     "interface",
 }
+VERSION_COMPONENT_COUNT = 3
 
 
 def documented_version_errors(documented: str, current: str) -> list[str]:
-    """README text ships inside the plugin JAR, so it records the version of the last content change.
-
-    The descriptor version may move ahead of it without republishing, but never behind.
-    """
+    """Keep README version copies consistent with the authoritative plugin descriptor."""
     try:
         documented_key = tuple(int(part) for part in documented.split("."))
         current_key = tuple(int(part) for part in current.split("."))
     except ValueError:
         return [f"version: README {documented!r} or descriptor {current!r} is not MAJOR.MINOR.PATCH"]
-    if len(documented_key) != 3 or len(current_key) != 3 or documented_key > current_key:
-        return [f"version: README documents {documented!r}, which is not at or below descriptor {current!r}"]
+    if len(documented_key) != VERSION_COMPONENT_COUNT or len(current_key) != VERSION_COMPONENT_COUNT:
+        return [f"version: README {documented!r} or descriptor {current!r} is not MAJOR.MINOR.PATCH"]
+    if documented != current:
+        return [f"version: README documents {documented!r}; expected descriptor {current!r}"]
     return []
 
 

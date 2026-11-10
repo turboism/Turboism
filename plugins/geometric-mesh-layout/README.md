@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.geometric-mesh-layout
-version: 0.1.0
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
@@ -68,6 +68,10 @@ Operates exclusively within single-ArtMesh manual mesh-editing mode.
 If the tool button is not visible, ensure an ArtMesh is open in manual mesh-editing mode and the plugin is enabled.
 
 ## Changelog
+
+### 0.68.1
+
+- Align README metadata with the plugin descriptor.
 
 ### 0.1.0
 

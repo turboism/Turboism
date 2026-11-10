@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.protected-export
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -78,6 +78,10 @@ The plugin reads the active model in memory and writes export artifacts only to 
 - **Restore failures and vetoes** are logged with their phase; review the plugin log lines around the failure for the failing stage.
 
 ## Changelog
+
+### 0.68.0
+
+- Align README metadata with the plugin descriptor.
 
 ### 0.1.0
 
