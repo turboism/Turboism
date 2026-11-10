@@ -308,7 +308,7 @@ final class NativeAutoMeshPopup {
      * action listeners are then run explicitly. That is the same route a real click takes.</p>
      */
     private static void selectAlgorithm(final Object combo, final int index) {
-        if (invoke(combo, COMBO_SET_SELECTED_INDEX, index) == null) {
+        if (!invoke(combo, COMBO_SET_SELECTED_INDEX, index)) {
             return;
         }
         final Object component = invokeByName(combo, COMPONENT_GETTER);
@@ -402,11 +402,9 @@ final class NativeAutoMeshPopup {
         while (root.getParent() != null && !(root.getParent() instanceof Window)) {
             root = root.getParent();
         }
-        if (root.getWidth() < MINIMUM_POPUP_EDGE || root.getHeight() < MINIMUM_POPUP_EDGE) {
-            final Dimension preferred = root.getPreferredSize();
-            root.setSize(
-                    Math.max(MINIMUM_POPUP_WIDTH, preferred.width), Math.max(MINIMUM_POPUP_HEIGHT, preferred.height));
-        }
+        final Dimension preferred = root.getPreferredSize();
+        root.setSize(
+                Math.max(MINIMUM_POPUP_WIDTH, preferred.width), Math.max(MINIMUM_POPUP_HEIGHT, preferred.height));
         layout(root);
     }
 
@@ -592,9 +590,9 @@ final class NativeAutoMeshPopup {
      *
      * @return the answer, or {@code null} when the host declares no such member or refused the call
      */
-    private static Object invoke(final Object owner, final String name, final Object... arguments) {
+    private static boolean invoke(final Object owner, final String name, final Object... arguments) {
         if (owner == null) {
-            return null;
+            return false;
         }
         for (Class<?> type = owner.getClass(); type != null; type = type.getSuperclass()) {
             for (final Method method : type.getDeclaredMethods()) {
@@ -603,12 +601,13 @@ final class NativeAutoMeshPopup {
                 }
                 try {
                     method.setAccessible(true);
-                    return method.invoke(owner, arguments);
+                    method.invoke(owner, arguments);
+                    return true;
                 } catch (ReflectiveOperationException | RuntimeException refused) {
-                    return null;
+                    return false;
                 }
             }
         }
-        return null;
+        return false;
     }
 }
