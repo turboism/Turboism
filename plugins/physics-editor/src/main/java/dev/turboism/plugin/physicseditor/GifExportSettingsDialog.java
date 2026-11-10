@@ -52,7 +52,9 @@ final class GifExportSettingsDialog {
     private boolean updating;
     private javax.swing.JDialog activeDialog;
     private volatile javax.swing.JDialog activePrompt;
-    private volatile JFileChooser activeChooser;
+    /** The chooser shell this plugin owns while the save chooser is showing. */
+    private volatile javax.swing.JDialog activeChooser;
+
     private volatile boolean closed;
 
     GifExportSettingsDialog(
@@ -162,10 +164,9 @@ final class GifExportSettingsDialog {
         final Format chosen = selectedFormat();
         chooser.setFileFilter(new FileNameExtensionFilter(chosen.name(), chosen.extension()));
         chooser.setSelectedFile(new java.io.File(chooser.getCurrentDirectory(), "physics." + chosen.extension()));
-        activeChooser = chooser;
         try {
             while (true) {
-                if (closed || chooser.showSaveDialog(parent) != JFileChooser.APPROVE_OPTION || closed) return null;
+                if (closed || showChooser(chooser, parent) != JFileChooser.APPROVE_OPTION || closed) return null;
                 Path destination = chooser.getSelectedFile().toPath().toAbsolutePath();
                 final String suffix = "." + chosen.extension();
                 if (!destination
@@ -183,8 +184,44 @@ final class GifExportSettingsDialog {
                 return exportSettings(destination);
             }
         } finally {
-            activeChooser = null;
+            // showChooser owns and disposes its shell; nothing to release here.
         }
+    }
+
+    /**
+     * Shows the save chooser inside a dialog this plugin owns.
+     *
+     * <p>The chooser itself stays the plain {@link JFileChooser} the host look and feel resolves; only
+     * its container is ours, so a shutdown can dispose the window without discovering the host's
+     * window tree.</p>
+     *
+     * @return {@link JFileChooser#APPROVE_OPTION}, {@link JFileChooser#CANCEL_OPTION}, or
+     *     {@link JFileChooser#ERROR_OPTION} when nothing was approved
+     */
+    private int showChooser(final JFileChooser chooser, final Component parent) {
+        final javax.swing.JDialog shell =
+                new javax.swing.JDialog(parent instanceof java.awt.Frame frame ? frame : null, tr("gif.export"), true);
+        shell.setName("gif-export-chooser");
+        final java.util.concurrent.atomic.AtomicInteger result =
+                new java.util.concurrent.atomic.AtomicInteger(JFileChooser.ERROR_OPTION);
+        chooser.addActionListener(event -> {
+            result.set(
+                    JFileChooser.APPROVE_SELECTION.equals(event.getActionCommand())
+                            ? JFileChooser.APPROVE_OPTION
+                            : JFileChooser.CANCEL_OPTION);
+            shell.dispose();
+        });
+        shell.setContentPane(chooser);
+        shell.pack();
+        shell.setLocationRelativeTo(parent);
+        activeChooser = shell;
+        try {
+            shell.setVisible(true);
+        } finally {
+            activeChooser = null;
+            shell.dispose();
+        }
+        return result.get();
     }
 
     /**
@@ -311,20 +348,15 @@ final class GifExportSettingsDialog {
     }
 
     /**
-     * Closes the save chooser and the window that shows it.
+     * Closes the save chooser shell this plugin owns.
      *
-     * <p>The chooser is a standard component, so the container that shows it is discovered from the
-     * component tree instead of a tracked subclass. The close is queued: the chooser window is a
-     * nested event loop, so the task runs while that window is showing and disposing it unblocks
-     * the caller.</p>
+     * <p>The close is queued: the chooser shell is a nested event loop, so the task runs while it is
+     * showing and disposing it unblocks the caller.</p>
      */
     private void dismissChooser() {
-        final JFileChooser chooser = activeChooser;
-        if (chooser == null) return;
-        javax.swing.SwingUtilities.invokeLater(() -> {
-            final Window window = javax.swing.SwingUtilities.getWindowAncestor(chooser);
-            if (window != null) window.dispose();
-        });
+        final javax.swing.JDialog shell = activeChooser;
+        if (shell == null) return;
+        javax.swing.SwingUtilities.invokeLater(shell::dispose);
     }
 
     Path lastDirectory() {
