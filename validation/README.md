@@ -8,7 +8,7 @@
 - `<probe>/run.sh` — 场景驱动脚本；产出 `work/` 下证据与 verdict 日志。
 - `<probe>/tools/`、`fixture/`、`selfcheck/` — 场景私有源码。**共享工具一律用 `validation/shared/src/`**（见下）。
 - 证据文件（日期化 `*.md`/`*.json`/日志）随目录入库；`triangulation-tlindex/` 另见 `INDEX.md` 的保留/归档策略。
-- 一次性实验结束后删除，不新建归档目录：只保留仍被 build.sh/run.sh、`scripts/`、`gradle/` 或文档引用的文件。新探针一律放在 `validation/<probe>/`。
+- 一次性实验结束后删除，不新建归档目录：只保留仍被 build.sh/run.sh、`scripts/`、`gradle/` 或文档引用的文件。已删除目录见 `REMOVED.md`。新探针一律放在 `validation/<probe>/`。
 
 ## shared/ — 单一源工具箱
 
@@ -22,7 +22,7 @@
 
 `verdict/` 是四个终态探针的唯一判定来源；离线用例：`bash validation/shared/check-probe-terminal.sh`。
 
-历史：RelocateJar 曾四副本分叉（triweave 副本丢 module-info 剥离注释），FixtureLoader/CodeSourceUrl 双副本；2026-10 收敛为单一源。探针终态逻辑曾七份分叉，2026-11 收敛为 `verdict/` 共享实现（spec 066）。`checkValidationToolsSync`（`scripts/test/check_validation_tools_sync.py`，挂 `devCheck`）拒绝目录内再出现同名副本，并拒绝四个终态探针重新实现本地 `computeTerminal` 或漏编译共享源；有意例外（meshhash 字节数组 loader、T033/T035 私有 defineClass loader）在脚本内点名。SelfCheck/Probe 各目录实现本就不同，不在收敛范围。
+历史：RelocateJar 曾四副本分叉（triweave 副本丢 module-info 剥离注释），FixtureLoader/CodeSourceUrl 双副本；2026-10 收敛为单一源。探针终态逻辑曾七份分叉，2026-11 收敛为 `verdict/` 共享实现（spec 066）。`checkValidationToolsSync`（`scripts/test/check_validation_tools_sync.py`，挂 `devCheck`）拒绝目录内再出现同名副本，并拒绝四个终态探针重新实现本地 `computeTerminal` 或漏编译共享源；有意例外（meshhash 字节数组 loader）在脚本内点名。SelfCheck/Probe 各目录实现本就不同，不在收敛范围。
 
 ## 新探针放哪
 
