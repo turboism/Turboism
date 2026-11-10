@@ -3,6 +3,7 @@ package dev.turboism.automesh;
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.ui.host.EdtDispatch;
+import java.awt.Component;
 import java.awt.Window;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationHandler;
@@ -54,6 +55,7 @@ public final class AutoMeshSelectorRow {
     private static final String CONSTRUCTOR_NAME = "<init>";
     private static final String INVOKE_METHOD = "invoke";
     private static final String CENTER_GETTER = "getCenter";
+    private static final String COMPONENT_GETTER = "getJComponent";
     private static final String UNARY_PLUS = "unaryPlus";
     private static final String REVALIDATE = "revalidate";
     private static final String REPAINT = "repaint";
@@ -268,17 +270,41 @@ public final class AutoMeshSelectorRow {
                 callbackParameter,
                 proxy(function1, unit, (proxy, method, arguments) -> {
                     if (INVOKE_METHOD.equals(method.getName())) {
-                        guard(() -> openParameters(container));
+                        guard(() -> openParameters(container, syncPresets));
                     }
                     return unit;
                 }));
         return row;
     }
 
-    private void openParameters(final Object container) {
-        final Window owner =
-                container instanceof java.awt.Component component ? SwingUtilities.getWindowAncestor(component) : null;
-        AutoMeshParameterDialog.show(owner, controller, locale);
+    /**
+     * Opens the parameter dialog and republishes the preset list afterwards.
+     *
+     * <p>The dialog can add, rename, delete or restore presets, so the native popup's own preset
+     * combo is stale the moment the dialog closes. Republishing keeps both views on one list.</p>
+     */
+    private void openParameters(final Object container, final Runnable syncPresets) {
+        AutoMeshParameterDialog.show(ownerOf(container), controller, locale);
+        guard(syncPresets);
+    }
+
+    /**
+     * Resolves the window the dialog centres on.
+     *
+     * <p>An Editor container is a host widget, not an AWT component, so the window is reached through
+     * the widget's own Swing component. A container without one leaves the dialog screen-centred.</p>
+     */
+    private static Window ownerOf(final Object container) {
+        final Component component = awtComponentOf(container);
+        return component == null ? null : SwingUtilities.getWindowAncestor(component);
+    }
+
+    private static Component awtComponentOf(final Object container) {
+        if (container instanceof Component component) {
+            return component;
+        }
+        final Object widget = tryInvoke(container, COMPONENT_GETTER, NO_PARAMETERS);
+        return widget instanceof Component component ? component : null;
     }
 
     /**

@@ -104,14 +104,15 @@ public final class AutoMeshSelectorController {
      * preset. An algorithm that declares no preset therefore shows one entry instead of an empty
      * combo.</p>
      *
+     * <p>The entries come from the selection state, not from the algorithm's declaration, because
+     * the user's added and renamed presets are what the combo must offer.</p>
+     *
      * @return the preset entries, the custom placeholder first
      */
     public List<String> presetEntries() {
         final List<String> entries = new ArrayList<>();
         entries.add(AutoMeshText.text(locale, NO_PRESET_KEY));
-        selectedAlgorithm()
-                .ifPresent(algorithm ->
-                        algorithm.presets().stream().map(AlgorithmPreset::name).forEach(entries::add));
+        presets().stream().map(AlgorithmPreset::name).forEach(entries::add);
         return List.copyOf(entries);
     }
 
@@ -126,7 +127,7 @@ public final class AutoMeshSelectorController {
         if (chosen.isEmpty()) {
             return NO_PRESET_INDEX;
         }
-        final List<AlgorithmPreset> presets = algorithm.get().presets();
+        final List<AlgorithmPreset> presets = source.selection().presets(algorithm.get());
         for (int index = 0; index < presets.size(); index++) {
             if (presets.get(index).name().equals(chosen.get())) {
                 return index + 1;
@@ -146,12 +147,77 @@ public final class AutoMeshSelectorController {
         if (algorithm.isEmpty() || index <= NO_PRESET_INDEX) {
             return false;
         }
-        final List<AlgorithmPreset> presets = algorithm.get().presets();
+        final List<AlgorithmPreset> presets = source.selection().presets(algorithm.get());
         if (index > presets.size()) {
             return false;
         }
         source.selection().selectPreset(algorithm.get(), presets.get(index - 1).name());
         return true;
+    }
+
+    /** @return the presets the selected algorithm offers now, the user's list first */
+    public List<AlgorithmPreset> presets() {
+        return selectedAlgorithm()
+                .map(algorithm -> source.selection().presets(algorithm))
+                .orElse(List.of());
+    }
+
+    /**
+     * Reports the preset the selection state currently names.
+     *
+     * @return the active preset name, or empty for hand-edited values
+     */
+    public Optional<String> selectedPresetName() {
+        return selectedAlgorithm().flatMap(algorithm -> source.selection().selectedPresetName(algorithm.id()));
+    }
+
+    /**
+     * Saves the given values as a preset of the selected algorithm.
+     *
+     * @param presetName the preset name to write; it is trimmed and must not be blank
+     * @param values the values to save
+     * @return the saved preset, or empty when no algorithm is selected
+     * @throws IllegalArgumentException when the name is blank or a value fails its descriptor
+     */
+    public Optional<AlgorithmPreset> savePreset(final String presetName, final Map<String, String> values) {
+        Objects.requireNonNull(values, "values");
+        return selectedAlgorithm().map(algorithm -> source.selection().savePreset(algorithm, presetName, values));
+    }
+
+    /**
+     * Renames one preset of the selected algorithm.
+     *
+     * @param oldName the preset to rename
+     * @param newName the new name; it is trimmed and must not be blank
+     * @return the renamed preset, or empty when no algorithm is selected
+     * @throws IllegalArgumentException when a name is blank, {@code oldName} is unknown, or
+     *     {@code newName} already names another preset
+     */
+    public Optional<AlgorithmPreset> renamePreset(final String oldName, final String newName) {
+        return selectedAlgorithm().map(algorithm -> source.selection().renamePreset(algorithm, oldName, newName));
+    }
+
+    /**
+     * Deletes one preset of the selected algorithm.
+     *
+     * @param presetName the preset to delete
+     * @return {@code true} when the preset existed and is gone
+     */
+    public boolean deletePreset(final String presetName) {
+        return selectedAlgorithm()
+                .map(algorithm -> source.selection().deletePreset(algorithm, presetName))
+                .orElse(false);
+    }
+
+    /**
+     * Returns the selected algorithm to the preset list its plugin declares.
+     *
+     * @return the restored preset list, empty when no algorithm is selected
+     */
+    public List<AlgorithmPreset> restoreDefaultPresets() {
+        return selectedAlgorithm()
+                .map(algorithm -> source.selection().restoreDefaultPresets(algorithm))
+                .orElse(List.of());
     }
 
     /**
@@ -184,6 +250,9 @@ public final class AutoMeshSelectorController {
     /**
      * Stores the accepted values of one dialog session.
      *
+     * <p>The whole accepted set goes to the selection state at once, because only the complete set
+     * can tell whether the session still equals the preset it opened with.</p>
+     *
      * @param algorithm the algorithm the values belong to
      * @param values the canonical values to store
      * @throws IllegalArgumentException when a value fails its descriptor
@@ -191,7 +260,7 @@ public final class AutoMeshSelectorController {
     public void storeParameters(final AutoMeshAlgorithm algorithm, final Map<String, String> values) {
         Objects.requireNonNull(algorithm, "algorithm");
         Objects.requireNonNull(values, "values");
-        values.forEach((parameterId, value) -> source.selection().setParameterValue(algorithm, parameterId, value));
+        source.selection().setParameterValues(algorithm, values);
     }
 
     private String labelOf(final AutoMeshAlgorithm algorithm) {

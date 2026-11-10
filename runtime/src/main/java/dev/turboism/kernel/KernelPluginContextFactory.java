@@ -21,6 +21,11 @@ import java.util.Objects;
 /** Assembles the preview-only PluginContext services owned by one plugin scope. */
 final class KernelPluginContextFactory implements AutoCloseable {
 
+    private static final String STATE_DIRECTORY = "state";
+    private static final String RUNTIME_DIRECTORY = "runtime";
+    private static final String AUTOMESH_PRESET_FILE = "automesh-presets.properties";
+    private static final String AUTOMESH_LOG_COMPONENT = "automesh";
+
     private final RuntimeHostAdapterAccess hostAccess;
     private final Path home;
     private final KernelPluginServicesFactory servicesFactory;
@@ -37,10 +42,10 @@ final class KernelPluginContextFactory implements AutoCloseable {
 
     /**
      * Session-wide Auto Mesh selection bound to {@link #autoMeshCatalog}. The native entry reads the
-     * same instance the selector row writes, so a plugin reload keeps the user's choice.
+     * same instance the selector row writes, so a plugin reload keeps the user's choice. The preset
+     * list behind it is persisted, because a renamed preset outlives one Editor session.
      */
-    private final dev.turboism.automesh.AutoMeshSelectionState autoMeshSelection =
-            new dev.turboism.automesh.AutoMeshSelectionState(autoMeshCatalog);
+    private final dev.turboism.automesh.AutoMeshSelectionState autoMeshSelection;
 
     KernelPluginContextFactory(
             final Path home,
@@ -99,6 +104,11 @@ final class KernelPluginContextFactory implements AutoCloseable {
         this.hostAccess = Objects.requireNonNull(hostAccess, "hostAccess");
         this.home = Objects.requireNonNull(home, "home");
         this.log = Objects.requireNonNull(log, "log");
+        this.autoMeshSelection = new dev.turboism.automesh.AutoMeshSelectionState(
+                autoMeshCatalog,
+                new dev.turboism.automesh.AutoMeshPresetStore(
+                        home.resolve(STATE_DIRECTORY).resolve(RUNTIME_DIRECTORY).resolve(AUTOMESH_PRESET_FILE),
+                        message -> log.warn(AUTOMESH_LOG_COMPONENT, message)));
         this.fileChooserHistory = Objects.requireNonNull(fileChooserHistory, "fileChooserHistory");
         this.graalConfiguration = GraalHostConfiguration.resolve(home);
         this.graalHost = new GraalHostManager(graalConfiguration, diagnostic -> log.warn("graal", diagnostic));

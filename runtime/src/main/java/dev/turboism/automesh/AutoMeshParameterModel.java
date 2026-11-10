@@ -169,16 +169,31 @@ public final class AutoMeshParameterModel {
     }
 
     /**
-     * Applies one preset of the algorithm and makes it the new reset target.
-     *
-     * <p>Applying a preset is the user's explicit choice of a named value set, so "reset" must
-     * return to that set rather than to whatever the dialog opened with.</p>
+     * Applies one declared preset of the algorithm and makes it the new reset target.
      *
      * @param presetName the preset to apply
      * @return {@code true} when the algorithm declares that preset
      */
     public boolean applyPreset(final String presetName) {
-        final Optional<AlgorithmPreset> preset = algorithm.presets().stream()
+        return applyPreset(algorithm.presets(), presetName);
+    }
+
+    /**
+     * Applies one preset of the listed presets and makes it the new reset target.
+     *
+     * <p>The dialog lists whatever the selection state holds, which is the user's own list once a
+     * preset was added or renamed. Applying by name against that list keeps the two in step.</p>
+     *
+     * <p>Applying a preset is the user's explicit choice of a named value set, so "reset" must
+     * return to that set rather than to whatever the dialog opened with.</p>
+     *
+     * @param availablePresets the presets the dialog lists
+     * @param presetName the preset to apply
+     * @return {@code true} when {@code availablePresets} holds a preset with that name
+     */
+    public boolean applyPreset(final List<AlgorithmPreset> availablePresets, final String presetName) {
+        Objects.requireNonNull(availablePresets, "availablePresets");
+        final Optional<AlgorithmPreset> preset = availablePresets.stream()
                 .filter(candidate -> candidate.name().equals(presetName))
                 .findFirst();
         if (preset.isEmpty()) {
