@@ -765,6 +765,7 @@ scripts/test/test_release_details.py
 scripts/test/test_release_orchestrator.py
 scripts/test/test_release_promotion.py
 scripts/test/test_release_tooling.py
+scripts/test/test_render_automesh_dump.py
 scripts/test/test_reviewed_releases.py
 scripts/test/test_reviewed_releases_index.py
 scripts/test/test_reviewed_releases_r1.py

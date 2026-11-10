@@ -18,7 +18,6 @@ PATTERNS = (
     "test_turboism_dev.py",
     "test_plugin_package_builder.py",
     "test_host_task_processes.py",
-    "test_render_automesh_dump.py",
     "test_run_host_tooling_selftest.py",
 )
 SHELL_TESTS = (

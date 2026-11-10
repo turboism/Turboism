@@ -86,6 +86,7 @@ class KernelRuntimeCloseTest {
                         "STOP_LOG_FAILED",
                         "HOST_STATE_CAPTURE_FAILED",
                         "PLUGIN_RUNTIME_CLOSE_FAILED",
+                        "AUTO_MESH_GUARD_CLOSE_FAILED",
                         "HOST_INGRESS_CLOSE_FAILED",
                         "SCHEDULER_SHUTDOWN_FAILED",
                         "FINAL_REPORT_WRITE_FAILED",
