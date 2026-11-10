@@ -10,10 +10,9 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 新增
 
-- 插件市场改为使用与后台自动更新器一致的准入规则，新增 `PluginReleaseCompatibility` 作为唯一判定点：市场提供的版本即更新器会接受的版本。`stable` 安装不再安装 `preview` 版本，`beta` 与 `nightly` 安装可接受两个渠道；市场同时拒绝缺少 `windows-x64` 平台、以及必需插件依赖无法满足的版本。已安装插件若无兼容的 catalog 版本，仍报告为已安装且不提供下载，因此渠道限制不会被误读为插件损坏。
-- `packaging/market-plugins.json` 新增逐插件的 `publication` 决定。新加入名单的插件默认为 `withheld`，因此把插件写入 `packaging/market-plugins.txt` 不会顺带发布；需由审阅者单独提交设为 `approved`。已批准插件的必需依赖若被 `withheld` 且签名目录中没有兼容版本，暂存将失败。
-- 当插件构建产物未变、但 catalog 仅以 `preview` 渠道承载时，暂存会把它提升到 `stable` 渠道，使首次随 Beta 轮次发布的插件无需等源码变更即可触达 Stable 用户。因 catalog 版本必须唯一且严格递增，提升会递增补丁版本号；反向降级永不隐式发生。
-
+- 插件市场改用与后台自动更新相同的准入规则：`PluginReleaseCompatibility` 成为唯一判定点，市场提供的发布即为更新器会接受的发布。`stable` 安装不再安装 `preview` 发布，`beta` 与 `nightly` 接受两者。缺少 `windows-x64` 平台或 `required` 插件依赖无法满足的发布也会被拒绝。已安装插件若没有兼容的目录发布，仍显示为已安装且不提供下载，渠道限制不会被描述成损坏的插件。
+- `packaging/market-plugins.json` 记录每个插件的 `publication` 决定。新加入名册的插件默认 `withheld`，因此把插件写入 `packaging/market-plugins.txt` 不会自行发布，需要审阅者在单独提交中设为 `approved`。已批准但必需依赖仍被保留的插件在暂存阶段失败，除非签名目录已经提供兼容发布。
+- 暂存阶段在构建字节未变且目录只在 `preview` 渠道提供该字节时，把插件从 `preview` 提升为 `stable`，因此 Beta 期间首次发布的插件无需无关的源码改动即可到达 Stable 安装。提升会递增修订版本号，因为目录版本必须唯一且严格递增；不会隐式降级。
 - 新增官方 `project-work-time` 插件及共享运行时计时器：底部状态栏显示当前编辑器会话的前台用时与当前工程跨会话累计工作时间。只有 Cubism 位于前台时运行时才会计时，并按工程持久化累计数据。SDK 新增 `CubismFacade.isEditorForeground()`、`CubismFacade.activity()`、`CubismActivityChangedEvent` 与 `ProjectWorkTimeService` 目录服务，其他插件可直接复用同一份统计，避免重复实现计时逻辑。
 
 - SDK 新增孵化中的 `PreviewFrameService` 能力（含 `PreviewFrameSource`、`PreviewFrame`、`PreviewFrameSourceClosedException` 与 `PluginService.PREVIEW_FRAMES` 目录成员），并新增 `cubism.preview.capture` 准入规则：插件可读取聚焦预览的帧并在其上放置自己的 `PanelView` 控制条，由运行时负责解析预览表面、在独立线程上完成 OpenGL 回读，并在插件代际关闭后丢弃更新。

@@ -425,7 +425,8 @@ class HostValidationSchedulerTest(unittest.TestCase):
     def test_rendered_command_reuses_wrapper_and_common_placement_options(self) -> None:
         request = self.request("psd-clip-mask:5203@read")
         command = scheduler.render_command(request, self.manifest)
-        self.assertEqual("bash", command[0])
+        # Windows must name the MSYS shell explicitly; POSIX keeps the bare name.
+        self.assertTrue(command[0].lower().replace(".exe", "").endswith("bash"), command[0])
         self.assertTrue(command[1].endswith("run-psd-clip-mask-host-validation.sh"))
         self.assertEqual(["5203", "read", "test-run"], command[2:5])
         self.assertNotIn("--ssh-host", command)

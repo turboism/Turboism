@@ -50,6 +50,9 @@ class HostOs:
     #: Refuse to follow a final symbolic link when opening; Windows has no such flag.
     NO_FOLLOW = getattr(os, "O_NOFOLLOW", 0)
 
+    #: True on a Windows host, where process creation does not follow ``PATH`` order.
+    WINDOWS = os.name == "nt"
+
     def __init__(self) -> None:
         raise NotImplementedError("HostOs is a namespace; use its class methods")
 
@@ -91,12 +94,15 @@ class HostOs:
 
     @classmethod
     def shell(cls) -> str:
-        """Absolute path of the POSIX shell that runs the validation task scripts.
+        """POSIX shell that runs the validation task scripts.
 
         Windows resolves a bare ``bash`` through CreateProcess, which searches ``System32`` before
         ``PATH`` and therefore starts the WSL launcher instead of the MSYS shell the scripts need.
-        ``shutil.which`` follows ``PATH`` order, so its answer is the one to pass explicitly.
+        ``shutil.which`` follows ``PATH`` order, so Windows passes its answer explicitly. POSIX
+        keeps the bare name: its search order is the shell's own ``PATH``, which is correct.
         """
+        if not cls.WINDOWS:
+            return "bash"
         found = shutil.which("bash")
         return found if found is not None else "bash"
 
