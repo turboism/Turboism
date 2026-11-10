@@ -91,6 +91,7 @@ GIF 내보내기에는 로컬 **Gifsicle** 설치가 필요합니다. `gifsicle`
 | `turboism.cubism.model.write` | `application` | 検証済みの Editor トランザクションパスを通じて、物理演算グループを一括でアトミックに有効化または無効化します。 |
 | `turboism.file.read` | `application` | 기억한 GIF 내보내기 폴더와 내보낸 파일 크기를 확인합니다. |
 | `turboism.file.write` | `application` | 녹화, 인코더 임시 출력, 사용자가 내보낸 GIF를 기록합니다. |
+| `turboism.ui.viewport.read` | `application` | 포커스된 미리보기에서 프레임을 읽어 GIF를 녹화합니다. |
 | `turboism.process.run` | `application` | 사용자가 지정한 Gifsicle 실행 파일을 실행해 내보낸 GIF를 요청한 크기로 최적화합니다. |
 
 ## 개인정보 및 데이터

@@ -90,6 +90,7 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 | `turboism.cubism.model.write` | `application` | Atomically enables or disables Physics Settings groups through the verified Editor transaction path. |
 | `turboism.file.read` | `application` | Checks the remembered GIF export directory and the exported file size. |
 | `turboism.file.write` | `application` | Writes the recording, its temporary encoder output and the GIF the user exports. |
+| `turboism.ui.viewport.read` | `application` | Reads frames from the focused preview so the plugin can record a GIF. |
 | `turboism.process.run` | `application` | Runs the user-supplied Gifsicle executable to optimize an exported GIF to the requested size. |
 
 ## Privacy and data

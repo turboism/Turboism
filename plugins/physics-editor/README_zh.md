@@ -90,6 +90,7 @@ interface: swing
 | `turboism.cubism.model.write` | `application` | 通过已验证的 Editor 事务路径以原子方式批量启用或禁用物理运算组。 |
 | `turboism.file.read` | `application` | 检查记忆的 GIF 导出目录与导出文件大小。 |
 | `turboism.file.write` | `application` | 写入录制内容、编码器临时输出以及用户导出的 GIF。 |
+| `turboism.ui.viewport.read` | `application` | 读取聚焦预览的画面帧，用于录制 GIF。 |
 | `turboism.process.run` | `application` | 运行用户指定的 Gifsicle 可执行文件，将导出的 GIF 优化到目标大小。 |
 
 ## 隐私与数据

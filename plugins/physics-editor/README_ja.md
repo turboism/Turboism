@@ -90,6 +90,7 @@ GIF の書き出しには **Gifsicle** のローカルインストールが必�
 | `turboism.cubism.model.write` | `application` | 検証済みの Editor トランザクションパスを通じて、物理演算グループを一括でアトミックに有効化または無効化します。 |
 | `turboism.file.read` | `application` | 記憶した GIF 書き出しフォルダーと書き出したファイルサイズを確認します。 |
 | `turboism.file.write` | `application` | 録画、エンコーダーの中間出力、ユーザーが書き出した GIF を書き込みます。 |
+| `turboism.ui.viewport.read` | `application` | フォーカス中のプレビューからフレームを読み取り、GIF を録画します。 |
 | `turboism.process.run` | `application` | ユーザー指定の Gifsicle 実行ファイルを起動し、書き出した GIF を指定サイズに最適化します。 |
 
 ## プライバシーとデータ
