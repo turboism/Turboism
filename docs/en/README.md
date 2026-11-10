@@ -1,0 +1,109 @@
+[English](../en/README.md) / [简体中文](../zh/README.md) / [日本語](../ja/README.md) / [한국어](../ko/README.md)
+
+# Turboism
+
+## Copyright and notices
+
+Copyright © 2026 Turboism Contributors. Turboism is open source under the [AGPL-3.0-only license](../../LICENSE).
+
+This version is licensed under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`). Third-party components and files with separate license notices retain their respective licenses.
+
+Turboism is an **independent third-party project**, not affiliated with, endorsed by, or sponsored by Live2D Inc. Live2D, Cubism and related names and marks belong to Live2D Inc. or their respective owners. Turboism does not distribute Cubism Editor or grant, replace or bypass its license; a separately installed, lawfully licensed copy is required.
+
+Read the [End User Runtime Statement and Disclaimer](../../packaging/eula/EULA.en.txt) before installation. It does not reduce the rights granted by the AGPL-3.0-only license; its Simplified Chinese text is authoritative. The software is provided **as is**. Keep independent backups before using plugins or automation that change project content.
+
+## About
+
+Turboism is a Windows-first runtime enhancement tool and plugin framework for **Live2D Cubism Editor**. It uses a Java agent and a public SDK to provide modeling workflow improvements, including parameter and mesh tools, PSD utilities, palette enhancements and local automation. Available features depend on the installed plugins, permissions and exact Editor version.
+
+## Supported Cubism Editor versions
+
+| Cubism Editor | Support |
+| --- | --- |
+| **5.0.00 – 5.0.06** | Exact-version adapters. Missing: auto backup, auto sway read, geometry read, integration bridges, modeling custom tools, protected export, top-menu integration, MOC export read, part-inspector writes. Partial: animation/timeline |
+| **5.1.00 – 5.1.03** | Exact-version adapters. Missing: geometry read, modeling custom tools, MOC export read, part-inspector writes. Partial: animation/timeline; integration bridges before 5.1.02 |
+| **5.2.00 – 5.2.03** | Exact-version adapters. Only Cubism 5.3-only surfaces are missing: alpha composition, part-inspector writes, MOC export read, Core parameter repeat |
+| **5.3.00 – 5.3.04** | Exact-version adapters. Fully compatible: every verified capability group is available |
+
+**Windows x64** is the supported Cubism host platform. Unlisted Editor versions are not claimed compatible; unavailable adapters or features fail closed. Version support does not mean every plugin feature is available on every version; per-version capability details are listed in the [capability matrix](../../compatibility/cubism/capabilities.md).
+
+On macOS, download and extract either portable ZIP archive (`turboism-<version>.zip`). macOS packaging is preview-only with no verified Cubism host support.
+
+Supported host and validation environments are **native Windows x64** and **Linux**. Windows x64 runs the full Cubism Editor host validation directly. On Linux the same validation runs under Proton (Wine), while headless Gradle, lint and unit-test checks run under Xvfb. Both are supported environments for developing and validating Turboism; only Windows x64 is offered as an end-user Cubism host.
+
+## Installation
+
+Download a package and its matching `.sha256` file from the [latest GitHub Release](https://github.com/turboism/Turboism/releases/latest). The standard packages include every bundled first-party plugin:
+
+- **Windows installer**: `TurboismInstaller-<version>.exe`.
+- **Portable package**: `turboism-<version>.zip`.
+
+Both standard packages include the complete offline GraalJS engine. A compatible GraalVM runtime is installed separately through the configurator.
+
+Choose **one** installation format below. Close Cubism and back up your projects before installing or updating.
+
+Every Turboism installer ships in **English, Simplified Chinese, Japanese and Korean**. Choosing a language only changes the installer's own interface; the language Turboism uses at runtime still comes from `config.json` (`locale`).
+
+Installers are currently unsigned. The `.sha256` file is published next to the download, so it detects corruption but cannot prove the release was not replaced; only the Ed25519-signed plugin catalog is independently anchored. Compare the downloaded file against its checksum before running it. For example, in PowerShell (replace `<version>` with the downloaded version):
+
+```powershell
+Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
+```
+
+### EXE — recommended on Windows
+
+Run `TurboismInstaller-<version>.exe` and follow the setup wizard to choose the installation directory and launch options. All first-party plugins are included; enable or disable them through plugin management. Choose English, Simplified Chinese, Japanese or Korean before the welcome page. Use the generated Turboism shortcut afterward.
+
+Integration with the official Cubism startup BAT is **selected by default**. Clear it on the launch-options page if you do not want it. It uses hash-guarded backups, and uninstall restores the original BAT files. Later user edits can prevent automatic restoration. Keep your project backups separate from these installer-managed backups.
+
+The installer upgrades existing installations, installs the current first-party plugins and preserves existing `disabledPlugins` settings.
+
+### ZIP — manual setup on Windows
+
+1. Download `turboism-<version>.zip`, which includes the runtime and bundled first-party plugins.
+2. Extract the **whole archive** into a separate Turboism folder, not into the Cubism installation directory.
+3. From the extracted folder, open the configurator:
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File ".\configure_turboism.ps1"
+   ```
+
+   The execution-policy option applies only to that PowerShell process. Select the Cubism installations and plugins you want, then save.
+4. Start Cubism using the generated Turboism shortcut or `launch-cubism-turboism.bat` in that folder.
+
+No release package includes managed fx runtime bytes or the development-only Turboism with fx plugin.
+
+## Development
+
+You need **Git and JDK 17**. Use the repository's Gradle wrapper; no separate Gradle installation is required.
+
+```bash
+git clone https://github.com/turboism/Turboism.git
+cd Turboism
+./gradlew devCheck
+```
+
+On Windows, use `gradlew.bat` instead of `./gradlew`. Make changes on a separate feature branch or worktree.
+
+For plugin development, start with the [demo plugin](../../plugins/demo/README.md), its [build configuration](../../plugins/demo/build.gradle.kts) and [plugin descriptor](../../plugins/demo/src/main/resources/META-INF/turboism/plugin.json). Plugins depend on `:sdk` with `compileOnly` scope; do not directly depend on runtime internals or `com.live2d.*` classes.
+
+Building a plugin **outside** this repository does not require building Turboism. Every GitHub Release ships `turboism-sdk-<version>.jar` and `turboism-event-processor-<version>.jar` (with `.sha256` sidecars): copy [templates/plugin-template](../../templates/plugin-template/) as a standalone project, run its setup script (or drop the JARs into `libs/`) and follow its README. Framework contributors can also publish the SDK and the `@SubscribeEvent` annotation processor to the local Maven repository, then resolve `dev.turboism:sdk` and `dev.turboism:event-processor` from `mavenLocal()`:
+
+```bash
+./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal
+```
+
+```bash
+./gradlew :plugins:demo:test :plugins:demo:jar
+```
+
+The demo is development-only, not part of the release bundle. Run focused tests for your changes and `./gradlew devCheck` before submitting them. See the [architecture](../../ARCHITECTURE.md) for API, lifecycle, transaction and verification rules.
+
+## Documentation
+
+- [User and developer documentation](https://docs.turboism.dev)
+- [Architecture](../../ARCHITECTURE.md) and [roadmap](../../ROADMAP.md)
+- [SDK API contracts and compatibility](../../sdk/api-contracts/) and [current public SDK surface](../../sdk/api-contracts/current.txt)
+- [Demo plugin](../../plugins/demo/README.md) and the standalone [plugin template](../../templates/plugin-template/)
+- [Java installer details](../../packaging/java-installer/README-java-installer.md)
+- [Release process](../../RELEASING.md) and [changelog](../en/CHANGELOG.md)

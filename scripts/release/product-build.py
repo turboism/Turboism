@@ -50,7 +50,7 @@ def main(argv=None):
                 raise ValueError('This version already has a public tag; resume its existing candidate promotion instead of rebuilding')
             if args.channel == 'beta':
                 extractor = prerelease._load_script('preflight_beta_notes',prerelease.SCRIPTS/'extract-release-notes.py')
-                extractor.extract(Path('CHANGELOG.md').read_text(encoding='utf-8'),declared)
+                extractor.extract((Path.cwd()/'docs'/'en'/'CHANGELOG.md').read_text(encoding='utf-8'),declared)
         result.update(channel=args.channel,version=target,source_sha=args.source)
         if os.environ.get('GITHUB_OUTPUT'):
             with open(os.environ['GITHUB_OUTPUT'],'a') as f:

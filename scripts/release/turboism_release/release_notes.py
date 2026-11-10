@@ -285,7 +285,7 @@ def candidate_notes(root, receipt, context):
         base = framework_version(root)
         resolve_version(base, 'beta', receipt['version'])
         extractor = _load_script('localized_beta_notes', Path(__file__).parent.parent/'extract-release-notes.py')
-        english = extractor.extract((Path(root)/'CHANGELOG.md').read_text(encoding='utf-8'),base)
+        english = extractor.extract((Path(root)/'docs'/'en'/'CHANGELOG.md').read_text(encoding='utf-8'),base)
         locales = reviewed_locales(root, base, english)
         # Candidates publish to all four reviewed languages; stable_metadata stays
         # lenient so it can still reproduce the binding of pre-existing releases.

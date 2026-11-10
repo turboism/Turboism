@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract one version section from CHANGELOG.md for GitHub Releases."""
+"""Extract one version section from docs/en/CHANGELOG.md for GitHub Releases."""
 from __future__ import annotations
 
 import argparse

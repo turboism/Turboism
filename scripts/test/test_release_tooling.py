@@ -268,6 +268,16 @@ class ReleaseWorkflowTest(unittest.TestCase):
 
 
 class RootReadmeTest(unittest.TestCase):
+    # Root READMEs moved to docs/<lang>/README.md; the root README.md is a
+    # redirect stub pointing at docs/en/README.md.
+    README_FILES = {
+        "README.md": "docs/en/README.md",
+        "README.zh-CN.md": "docs/zh/README.md",
+        "README.ja.md": "docs/ja/README.md",
+        "README.ko.md": "docs/ko/README.md",
+    }
+    # The switcher links are sibling-relative, so all four pages share it.
+    SWITCHER_LINKS = ["../en/README.md", "../zh/README.md", "../ja/README.md", "../ko/README.md"]
     EULA_PATHS = {
         "README.md": "packaging/eula/EULA.en.txt",
         "README.zh-CN.md": "EULA.md",
@@ -291,11 +301,14 @@ class RootReadmeTest(unittest.TestCase):
         "README.ko.md": ["저작권 및 고지", "프로젝트 소개", "지원하는 Cubism Editor 버전", "설치", "개발", "문서"],
     }
 
+    def read_page(self, filename: str) -> str:
+        return (ROOT / self.README_FILES[filename]).read_text(encoding="utf-8")
+
     def test_default_english_and_four_way_navigation_at_top(self):
         for filename in self.PAGES:
             with self.subTest(page=filename):
-                first_line = (ROOT / filename).read_text(encoding="utf-8").splitlines()[0]
-                self.assertEqual(re.findall(r"\]\(([^)]+)\)", first_line), list(self.PAGES))
+                first_line = self.read_page(filename).splitlines()[0]
+                self.assertEqual(re.findall(r"\]\(([^)]+)\)", first_line), self.SWITCHER_LINKS)
                 labels = re.findall(r"\[([^\]]+)\]\(", first_line)
                 self.assertEqual(labels, ["English", "简体中文", "日本語", "한국어"])
                 self.assertIn(" / ", first_line)
@@ -303,21 +316,21 @@ class RootReadmeTest(unittest.TestCase):
     def test_requested_section_order_and_installation_formats(self):
         for filename, headings in self.PAGES.items():
             with self.subTest(page=filename):
-                text = (ROOT / filename).read_text(encoding="utf-8")
+                text = self.read_page(filename)
                 self.assertEqual(re.findall(r"(?m)^## (.+)$", text), headings)
                 self.assertEqual(re.findall(r"(?m)^### (EXE|ZIP)\b", text), ["EXE", "ZIP"])
                 copyright_section = text.split("## " + headings[1], 1)[0]
                 self.assertIn("Copyright © 2026 Turboism Contributors", copyright_section)
-                self.assertIn("(LICENSE)", copyright_section)
+                self.assertIn("(../../LICENSE)", copyright_section)
                 eula_path = self.EULA_PATHS[filename]
-                self.assertIn(f"({eula_path})", copyright_section)
+                self.assertIn(f"(../../{eula_path})", copyright_section)
                 self.assertTrue((ROOT / eula_path).is_file())
                 self.assertIn("Live2D Inc.", copyright_section)
 
     def test_shared_versions_artifacts_and_development_requirements(self):
         for filename in self.PAGES:
             with self.subTest(page=filename):
-                text = (ROOT / filename).read_text(encoding="utf-8")
+                text = self.read_page(filename)
                 self.assertEqual(
                     set(re.findall(r"\*\*(5\.\d+\.\d+.*?)\*\*", text)),
                     {
@@ -339,17 +352,17 @@ class RootReadmeTest(unittest.TestCase):
         from urllib.parse import urlsplit
         english_links = None
         for filename in self.PAGES:
-            links = re.findall(r"\[[^\]]+\]\(([^)]+)\)", (ROOT / filename).read_text(encoding="utf-8"))
-            # Localized docs (`*_zh.md`, `*_ja.md`, `*_ko.md`) are the per-language
-            # variant of the same underlying page; normalize the suffix so every
+            links = re.findall(r"\[[^\]]+\]\(([^)]+)\)", self.read_page(filename))
+            # Localized docs live in sibling language folders and reference the
+            # same underlying page per language; normalize the folder so every
             # language must reference the same doc families while keeping its
             # localized file, mirroring the per-language EULA normalization. The
-            # capability-matrix tokens match before the suffix is stripped, because
-            # `capabilities_zh.md` no longer equals its declared per-language path
-            # once the suffix is gone.
+            # capability-matrix tokens match before the folder is normalized,
+            # because `capabilities_zh.md` no longer equals its declared
+            # per-language path once the folder is stripped.
             normalized_links = [
-                "EULA" if link == self.EULA_PATHS[filename]
-                else "CAPABILITIES" if link == self.CAPABILITY_PATHS[filename]
+                "EULA" if link == f"../../{self.EULA_PATHS[filename]}"
+                else "CAPABILITIES" if link == f"../../{self.CAPABILITY_PATHS[filename]}"
                 else re.sub(r"_(?:zh|ja|ko)\.md$", ".md", link)
                 for link in links]
             if english_links is None:
@@ -358,7 +371,7 @@ class RootReadmeTest(unittest.TestCase):
             for link in links:
                 parsed = urlsplit(link)
                 if not parsed.scheme and parsed.path:
-                    self.assertTrue((ROOT / parsed.path).exists(), f"{filename}: broken link {link}")
+                    self.assertTrue((ROOT / "docs/en" / parsed.path).exists(), f"{filename}: broken link {link}")
             self.assertIn("https://docs.turboism.dev", links)
             self.assertIn("https://github.com/turboism/Turboism/releases/latest", links)
 
