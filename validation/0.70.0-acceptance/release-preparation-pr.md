@@ -196,3 +196,20 @@ remaining findings are resolved. Recorded from the operator's report, not instru
 
 The runtime evidence behind the earlier two whole-session failures (settlement lane and
 periodic-refresh survival) was captured in `host-5304-manual3` and is listed above.
+
+## Merge record
+
+PR #179 merged into `main` as `5bd7d319f` on 2026-11-10. Every required check passed:
+`devCheck`, `release-gates`, `verify`, the three channel packages (stable, beta, nightly)
+and both history scans. The branch was deleted after the merge.
+
+The merge required four follow-up fixes that the local Windows run could not surface:
+
+- `checkModuleBoundaries` rejected `SwingUtilities.getWindowAncestor` in the GIF export
+  prompt; the save chooser now lives in a dialog the plugin owns.
+- `checkThrowableContainment` rejected a blanket `catch (Throwable)` in the preset preview
+  worker; fatal loads now propagate.
+- `checkPythonLint` rejected two re-exports without `__all__` entries and an undefined
+  `HostOs` reference in the queue snapshot builder.
+- `checkLocalizedChangelogs` and the beta channel needed a `0.70.0` section with reviewed
+  zh/ja/ko bodies; the merge with `main` also folded three market notes into it.
