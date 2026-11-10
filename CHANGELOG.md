@@ -6,7 +6,7 @@ All notable changes to Turboism are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow Semantic Versioning.
 
-## [Unreleased]
+## [0.70.0] - 2026-11-10
 
 ### Added
 
@@ -21,6 +21,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Physics Settings preview GIF recording with record/pause/resume, stop/discard controls and registered shortcuts, post-recording size controls, optional Gifsicle optimization (20 MB by default), and a persistent GIF export directory. The recording state machine, the encoder, the export dialog, the scale/Gifsicle policy and the control strip live in `:plugins:physics-editor`; `:runtime` only exposes the generic preview capture capability they drive.
 
 - The SDK adds the incubating `MeshMirrorControl` and `MeshEditContributionSurface` capabilities with the `PluginService.MESH_MIRROR_CONTROL` and `PluginService.MESH_EDIT_CONTRIBUTION` directory members. Each consolidates released single-purpose services a plugin always needed together — the mirror axis, the counterpart rule, movement participation and the eligible-tool set on one side, host-edit participation and native tool-area contributions on the other — so mesh editing no longer costs six service lookups. Permissions and operation ids are unchanged.
+- The SDK adds `SelectionTableFooter` with an `openSelectionTableDialog(request, footer, listener)` overload: a preview table can carry one footer control and rebuild its rows when that control changes, so the batch-rename base-name choice sits in the preview it affects.
+- `project-work-time` measures only the open project: the status-bar session reading is zero and paused on an empty workspace, and returns to zero when the project closes.
+- GIF export offers animated PNG beside GIF, written in process without an external tool, and reports a finished export on the host status bar.
+- 3D preset import shows its chooser and its preview in one window whose preview follows the selection, and the bundled preset textures shade each logical face with its own colour and number.
 
 ### Deprecated
 
@@ -30,9 +34,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - `MeshMirrorAxisService`, `MeshMirrorCounterparts`, `MeshMirrorMoveParticipation`, `MeshMirrorToolEligibility`, `MeshEditParticipation` and `MeshEditUiService` (with their `PluginService` members and `MeshEditUiService.MirrorAxisAngleControl`) are deprecated for removal; all six keep working unchanged. Use `MeshMirrorControl` and `MeshEditContributionSurface` instead.
 
+### Changed
+
+- The plugin manager footer splits into an acquisition row and a selection row so its English labels fit, and the plugin manager and the market drop their redundant footer close buttons.
+- `PanelView.Centered` accepts a zero dimension, which keeps the child's natural size in that direction.
+
 ### Fixed
 
 - Runtime-owned shell startup has its own lifecycle deadline and waits out host event-queue startup work, so a briefly busy editor no longer produces an intermittent `Runtime-owned shell failed to start` failure.
+- A plugin completion no longer deadlocks behind the worker it has to release: settlements run on a dedicated lane, so the theme manager opens instead of timing out for the rest of the session.
+- A periodic refresh survives one over-budget iteration instead of ending its schedule, so the status-bar timer keeps publishing after a slow first tick.
+- Board cards show hover and press feedback through their children, list rows no longer paint a background box behind their text, and the board covers the native rail beside the canvas.
+- The batch-rename preview shows the base-name label instead of the control's internal record text.
+- Themes manage the canvas scrollbar keys, so the strip beside the empty-workspace board follows the theme.
+- The 3D import readback compares only the keyform edits it submitted and leads its failure text with the field name, so a correct preset import no longer rolls back.
 
 ## [0.68.1] - 2026-10-30
 

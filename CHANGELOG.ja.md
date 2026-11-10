@@ -6,7 +6,7 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 フォーマットは [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) に従い、バージョンはセマンティックバージョニングに従います。
 
-## [Unreleased]
+## [0.70.0] - 2026-11-10
 
 ### 追加
 
@@ -21,6 +21,10 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 - 物理演算プレビューに GIF 録画を追加。録画／一時停止／再開、停止／破棄とショートカット登録、録画後のサイズ変更、Gifsicle による目標サイズ最適化（既定 20 MB）、GIF 専用出力フォルダーの記憶に対応。録画の状態機械・エンコーダー・書き出しダイアログ・拡大率／Gifsicle のポリシー・コントロールストリップは `:plugins:physics-editor` が所有し、`:runtime` はそれらが駆動する汎用プレビュー取り込み機能のみを提供します。
 
 - SDK にインキュベーティングな `MeshMirrorControl` と `MeshEditContributionSurface` 機能、および `PluginService.MESH_MIRROR_CONTROL` と `PluginService.MESH_EDIT_CONTRIBUTION` ディレクトリメンバーを追加しました。前者はミラー軸・ミラー対応点の規則・移動参加・対象ツール集合を、後者はホスト編集への参加とネイティブツール領域へのコントリビューションを、それぞれプラグインが常に同時に必要とする公開済みの単一目的サービスとして統合します。メッシュ編集で 6 回のサービス参照が不要になります。権限と操作 ID は変わりません。
+- SDK に `SelectionTableFooter` と `openSelectionTableDialog(request, footer, listener)` のオーバーロードを追加しました。プレビュー表は 1 つのフッターコントロールを持ち、その値が変わると行を再構築します。一括リネームの命名基準は、影響するプレビューの中に置かれます。
+- `project-work-time` は開いているプロジェクトだけを計測します。空のワークスペースではステータスバーのセッション表示がゼロで停止し、プロジェクトを閉じるとゼロに戻ります。
+- GIF 書き出しは GIF に加えてアニメーション PNG を提供します。外部ツールを使わずプロセス内で書き出し、完了結果はホストのステータスバーに表示します。
+- 3D プリセット読み込みは選択とプレビューを 1 つのウィンドウにまとめ、選択に追従してプレビューを再構築します。同梱プリセットのテクスチャは論理面ごとに色と番号を持ちます。
 
 ### 非推奨
 
@@ -29,6 +33,20 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 - `TextureAtlasEditorUi` と `TextureAtlasEditorPanel` を削除予定として非推奨にしました。どちらも `HostViewPanel` 上の薄いアダプターとして引き続き動作します。代わりに `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)` と `HostViewPanelHandle.setContent(PanelView)` を使用してください。
 
 - `MeshMirrorAxisService`、`MeshMirrorCounterparts`、`MeshMirrorMoveParticipation`、`MeshMirrorToolEligibility`、`MeshEditParticipation`、`MeshEditUiService`（および対応する `PluginService` メンバーと `MeshEditUiService.MirrorAxisAngleControl`）を削除予定として非推奨にしました。6 つとも動作は変わりません。代わりに `MeshMirrorControl` と `MeshEditContributionSurface` を使用してください。
+
+### 変更
+
+- プラグインマネージャーのフッターを「取得操作」と「選択操作」の 2 行に分け、英語ラベルが見切れないようにしました。プラグインマネージャーとマーケットの重複した「閉じる」ボタンは削除しました。
+- `PanelView.Centered` は片方の次元に 0 を許容し、その方向は子の自然なサイズを保ちます。
+
+### 修正
+
+- プラグインの完了処理が、解放すべきワーカーの後ろでデッドロックしなくなりました。完了は専用レーンで実行されるため、テーママネージャーはセッション中ずっとタイムアウトせず開きます。
+- 定期更新は 1 回の予算超過でスケジュールを終了せず、ステータスバーのタイマーは遅い初回更新の後も公開を続けます。
+- ボードのカードは子要素を通じてホバーと押下のフィードバックを示し、リスト行はテキストの背後に背景ブロックを描かず、ボードはキャンバス脇のネイティブレールを覆います。
+- 一括リネームのプレビューは、コントロール内部の record 文字列ではなく命名基準のラベルを表示します。
+- テーマがキャンバスのスクロールバーのキーを管理し、空のワークスペースのボード脇の帯もテーマに従います。
+- 3D 読み込みの読み戻し検証は、送信したキーフォーム編集のみを比較し、失敗メッセージの先頭にフィールド名を出します。正しいプリセット読み込みはロールバックしません。
 
 ## [0.68.1] - 2026-10-30
 

@@ -6,7 +6,7 @@ Turboism 的所有重要变更都记录在本文件中。
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本规范。
 
-## [Unreleased]
+## [0.70.0] - 2026-11-10
 
 ### 新增
 
@@ -21,6 +21,10 @@ Turboism 的所有重要变更都记录在本文件中。
 - 物理模拟预览新增 GIF 录制：支持录制／暂停／继续、停止／放弃及注册快捷键、录制后调整导出尺寸、可选 Gifsicle 目标大小优化（默认 20 MB），并持久化 GIF 专用导出目录。录制状态机、编码器、导出对话框、缩放／Gifsicle 策略与控制条均由 `:plugins:physics-editor` 持有，`:runtime` 只提供它们所驱动的通用预览截帧能力。
 
 - SDK 新增孵化中的 `MeshMirrorControl` 与 `MeshEditContributionSurface` 能力，并新增 `PluginService.MESH_MIRROR_CONTROL` 与 `PluginService.MESH_EDIT_CONTRIBUTION` 目录成员。两者分别把插件总是同时需要的已发布单一职责服务合并在一起：一侧是镜像轴、镜像对应点规则、移动参与和可用工具集，另一侧是宿主编辑参与与原生工具区贡献，网格编辑不再需要六次服务查找。权限与操作标识保持不变。
+- SDK 新增 `SelectionTableFooter` 与 `openSelectionTableDialog(request, footer, listener)` 重载：预览表格可以携带一个页脚控件，并在该控件变化时重建行，因此批量重命名的命名基准直接置于它所影响的预览中。
+- `project-work-time` 只统计打开中的工程：空白工作区中状态栏的会话读数为零且暂停，工程关闭后立即回到零。
+- GIF 导出在 GIF 之外提供动画 PNG，进程内写出且不需要外部工具，结束后的结果报到宿主状态栏。
+- 3D 预设导入把选择与预览放在同一个窗口，预览随选择实时重建；内置预设纹理按逻辑面着色并编号。
 
 ### 已弃用
 
@@ -29,6 +33,20 @@ Turboism 的所有重要变更都记录在本文件中。
 - `TextureAtlasEditorUi` 与 `TextureAtlasEditorPanel` 已标记为待移除；两者仍作为 `HostViewPanel` 之上的薄适配器继续可用。请改用 `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)` 与 `HostViewPanelHandle.setContent(PanelView)`。
 
 - `MeshMirrorAxisService`、`MeshMirrorCounterparts`、`MeshMirrorMoveParticipation`、`MeshMirrorToolEligibility`、`MeshEditParticipation` 与 `MeshEditUiService`（连同其 `PluginService` 成员与 `MeshEditUiService.MirrorAxisAngleControl`）已标记为待移除；六者行为保持不变。请改用 `MeshMirrorControl` 与 `MeshEditContributionSurface`。
+
+### 变更
+
+- 插件管理窗口的底部拆成「获取动作」与「选择动作」两行，英文标签不再被挤出可视区；插件管理与插件市场去掉多余页脚「关闭」按钮。
+- `PanelView.Centered` 允许单个维度为 0，此时该方向保持子节点的自然尺寸。
+
+### 修复
+
+- 插件完成回调不再被它必须释放的 worker 阻塞：结算走独立通道，主题管理器可以正常打开，而不是整个会话持续超时。
+- 周期刷新在一次超预算后不再终止排期，因此状态栏计时器在首次缓慢刷新后仍会继续发布。
+- 看板卡片通过子树获得悬停与按下反馈，列表行不再在文字后绘制背景块，看板覆盖画布旁的原生轨道条。
+- 批量重命名预览显示命名基准的文字标签，而不是控件内部的 record 文本。
+- 主题接管画布滚动条颜色键，空白工作区看板旁的长条随主题变化。
+- 3D 导入的读回校验只比对本次提交的关键帧编辑，并让失败文案以字段名开头，正确的预设导入不再回滚。
 
 ## [0.68.1] - 2026-10-30
 

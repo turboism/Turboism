@@ -6,7 +6,7 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따르며, 버전은 시맨틱 버저닝을 따릅니다.
 
-## [Unreleased]
+## [0.70.0] - 2026-11-10
 
 ### 추가
 
@@ -21,6 +21,10 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 - 물리 시뮬레이션 미리보기에 GIF 녹화를 추가했습니다. 녹화/일시 정지/계속, 정지/버리기 및 단축키 등록, 녹화 후 크기 설정, Gifsicle 목표 크기 최적화 (기본 20 MB), GIF 내보내기 폴더 저장을 지원합니다. 녹화 상태 기계, 인코더, 내보내기 대화상자, 배율/Gifsicle 정책, 컨트롤 스트립은 `:plugins:physics-editor`가 소유하며 `:runtime`은 이들이 구동하는 범용 미리보기 캡처 기능만 제공합니다.
 
 - SDK에 인큐베이팅 `MeshMirrorControl` 및 `MeshEditContributionSurface` 기능과 `PluginService.MESH_MIRROR_CONTROL`, `PluginService.MESH_EDIT_CONTRIBUTION` 디렉터리 멤버를 추가했습니다. 전자는 미러 축, 미러 대응점 규칙, 이동 참여, 사용 가능 도구 집합을, 후자는 호스트 편집 참여와 네이티브 도구 영역 기여를 플러그인이 항상 함께 필요로 하는 공개된 단일 목적 서비스로 통합합니다. 메시 편집에 더 이상 여섯 번의 서비스 조회가 필요하지 않습니다. 권한과 작업 ID는 그대로입니다.
+- SDK에 `SelectionTableFooter`와 `openSelectionTableDialog(request, footer, listener)` 오버로드를 추가했습니다. 미리보기 표는 하나의 바닥글 컨트롤을 가질 수 있고 그 값이 바뀌면 행을 다시 만듭니다. 일괄 이름 변경의 기준 이름은 영향을 주는 미리보기 안에 있습니다.
+- `project-work-time`은 열려 있는 프로젝트만 측정합니다. 빈 작업 공간에서는 상태 표시줄의 세션 값이 0으로 멈추고, 프로젝트를 닫으면 0으로 돌아갑니다.
+- GIF 내보내기는 GIF와 함께 애니메이션 PNG를 제공합니다. 외부 도구 없이 프로세스 안에서 기록하고 완료 결과는 호스트 상태 표시줄에 표시합니다.
+- 3D 프리셋 가져오기는 선택과 미리보기를 한 창에 모으고 선택에 따라 미리보기를 다시 만듭니다. 내장 프리셋 텍스처는 논리 면마다 색과 번호를 가집니다.
 
 ### 폐기 예정
 
@@ -29,6 +33,20 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 - `TextureAtlasEditorUi`와 `TextureAtlasEditorPanel`을 제거 예정으로 폐기했습니다. 두 인터페이스는 `HostViewPanel` 위의 얇은 어댑터로 계속 동작합니다. 대신 `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)`와 `HostViewPanelHandle.setContent(PanelView)`를 사용하세요.
 
 - `MeshMirrorAxisService`, `MeshMirrorCounterparts`, `MeshMirrorMoveParticipation`, `MeshMirrorToolEligibility`, `MeshEditParticipation`, `MeshEditUiService`(해당 `PluginService` 멤버와 `MeshEditUiService.MirrorAxisAngleControl` 포함)를 제거 예정으로 폐기했습니다. 여섯 가지 모두 동작은 그대로입니다. 대신 `MeshMirrorControl`과 `MeshEditContributionSurface`를 사용하세요.
+
+### 변경
+
+- 플러그인 관리자 바닥글을 '가져오기 동작'과 '선택 동작' 두 줄로 나누어 영어 라벨이 잘리지 않게 했습니다. 플러그인 관리자와 마켓의 중복된 '닫기' 버튼은 제거했습니다.
+- `PanelView.Centered`는 한쪽 차원에 0을 허용하며, 그 방향은 자식의 자연 크기를 유지합니다.
+
+### 수정
+
+- 플러그인 완료 처리가 해제해야 할 워커 뒤에서 교착되지 않습니다. 완료는 전용 레인에서 실행되므로 테마 관리자가 세션 내내 시간 초과 없이 열립니다.
+- 주기 새로 고침은 한 번의 예산 초과로 일정을 끝내지 않으므로, 상태 표시줄 타이머는 느린 첫 갱신 이후에도 계속 게시합니다.
+- 보드 카드는 자식을 통해 호버와 누름 피드백을 보여 주고, 목록 행은 텍스트 뒤에 배경 블록을 그리지 않으며, 보드는 캔버스 옆 네이티브 레일을 덮습니다.
+- 일괄 이름 변경 미리보기는 컨트롤 내부의 record 문자열 대신 기준 이름 라벨을 표시합니다.
+- 테마가 캔버스 스크롤바 키를 관리하므로 빈 작업 공간 보드 옆 띠도 테마를 따릅니다.
+- 3D 가져오기 읽기 검증은 제출한 키폼 편집만 비교하고 실패 문구의 앞에 필드 이름을 둡니다. 올바른 프리셋 가져오기는 롤백되지 않습니다.
 
 ## [0.68.1] - 2026-10-30
 
