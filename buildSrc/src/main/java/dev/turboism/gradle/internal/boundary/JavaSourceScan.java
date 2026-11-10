@@ -20,6 +20,54 @@ import java.util.regex.Pattern;
  */
 public final class JavaSourceScan {
 
+    private static final String RUNTIME_MAIN = "runtime/src/main/";
+    private static final String RUNTIME_JAVA = RUNTIME_MAIN + "java/dev/turboism/";
+    private static final String HOST_DOTTED_PREFIX = "com.live2d";
+    private static final String HOST_RESOURCE_PREFIX = "com/live2d";
+    private static final Pattern JAVA_LITERAL = Pattern.compile(
+            "//[^\\r\\n]*|/\\*[\\s\\S]*?\\*/|'(?:\\\\.|[^'\\\\])*'|"
+                    + "(\"\"\"[\\s\\S]*?\"\"\"|\"(?:\\\\.|[^\"\\\\])*\")");
+    private static final List<HostPolicyConstant> HOST_POLICY_CONSTANTS = List.of(new HostPolicyConstant(
+            RUNTIME_JAVA + "internal/HostPackagePolicy.java",
+            "CUBISM_RESOURCE_PREFIX",
+            "com/live2d/"));
+
+    /** Rejects host lookup knowledge outside adapter, mapping and selector-contract packages. */
+    public static List<String> hostPackageLiterals(SourceFile file) {
+        String path = file.relativePath().replace('\\', '/');
+        if (!path.startsWith(RUNTIME_MAIN)
+                || path.startsWith(RUNTIME_JAVA + "adapter/")
+                || path.startsWith(RUNTIME_JAVA + "mapping/")
+                || path.startsWith(RUNTIME_JAVA + "automesh/host/")) {
+            return List.of();
+        }
+        String source = String.join("\n", file.lines());
+        Matcher tokens = JAVA_LITERAL.matcher(source);
+        List<String> violations = new ArrayList<>();
+        while (tokens.find()) {
+            String literal = tokens.group(1);
+            if (literal == null
+                    || (!literal.contains(HOST_DOTTED_PREFIX) && !literal.contains(HOST_RESOURCE_PREFIX))) {
+                continue;
+            }
+            int lineStart = source.lastIndexOf('\n', tokens.start()) + 1;
+            String declaration = source.substring(lineStart, tokens.start());
+            boolean policyConstant = HOST_POLICY_CONSTANTS.stream().anyMatch(policy ->
+                    policy.path().equals(path)
+                            && literal.equals("\"" + policy.value() + "\"")
+                            && declaration.strip().equals("public static final String " + policy.name() + " =")
+                            && source.startsWith(";", tokens.end()));
+            if (!policyConstant) {
+                long line = source.substring(0, tokens.start()).chars().filter(c -> c == '\n').count() + 1;
+                violations.add("Forbidden runtime host-package literal in " + path + ":" + line
+                        + ": move host access into adapter/ or mapping/");
+            }
+        }
+        return violations;
+    }
+
+    private record HostPolicyConstant(String path, String name, String value) {}
+
     private static final String INTERNAL_CONTRACT_NOTE = "internal management contracts are not a plugin API";
 
     private static final List<Rule> PACKAGE_DECLARATIONS = List.of(new Rule(

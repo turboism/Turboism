@@ -1,5 +1,6 @@
 package dev.turboism.ui.filter;
 
+import dev.turboism.adapter.cubism.profile.CubismPaletteHostProfile;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -104,7 +105,8 @@ final class PaletteSceneFilter {
             return reference.get();
         }
         for (java.awt.event.MouseListener listener : table.getMouseListeners()) {
-            if (listener != null && listener.getClass().getName().equals("com.live2d.cubism.view.palette.scene.m")) {
+            if (listener != null
+                    && listener.getClass().getName().equals(CubismPaletteHostProfile.SCENE_LISTENER_CLASS)) {
                 final Object palette = PaletteFilterHostOperations.field(listener, "a");
                 if (palette != null) {
                     return palette;

@@ -397,6 +397,7 @@ private fun checkSourceFile(root: Project, project: Project, file: java.io.File,
     val lines = file.readLines()
     val source = JavaSourceScan.SourceFile(file.relativeTo(root.projectDir).toString(), lines)
     JavaSourceScan.forbiddenPackageDeclarations(source).forEach(state::reject)
+    JavaSourceScan.hostPackageLiterals(source).forEach(state::reject)
     val restricted = project.path == ":sdk" || project.path.startsWith(":plugins:")
     if (restricted) {
         JavaSourceScan.restrictedImports(source).forEach(state::reject)
@@ -804,12 +805,6 @@ private class PluginBoundaryExtras(
 )
 
 private val pluginBoundaryExtras = mapOf(
-    // The model-import-3d validation plugin ships the frozen host-probe engine verbatim;
-    // its own classes intentionally live in dev.turboism.validation.modelimport3d so
-    // bytecode evidence stays byte-identical with the reviewed validation jar.
-    ":plugins:model-import-3d" to PluginBoundaryExtras(
-        allowedBinaryRoots = pluginBoundaryAllowedRoots + "validation"
-    ),
     ":plugins:selection-brush" to PluginBoundaryExtras(
         forbiddenSourceTokens = listOf(
             "java.awt", "javax.swing", "java.lang.reflect", "dev.turboism.runtime",

@@ -1,5 +1,6 @@
 package dev.turboism.ui.context;
 
+import dev.turboism.adapter.cubism.profile.CubismPaletteHostProfile;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
@@ -109,7 +110,11 @@ public final class ParameterPointContextMenuNativeMethodTransformer implements C
                             public void visitInsn(final int opcode) {
                                 if (opcode == Opcodes.RETURN) {
                                     super.visitMethodInsn(
-                                            Opcodes.INVOKESTATIC, owner, menuGetter, "()Lcom/live2d/ui/menu/k;", false);
+                                            Opcodes.INVOKESTATIC,
+                                            owner,
+                                            menuGetter,
+                                            CubismPaletteHostProfile.PARAMETER_MENU_DESCRIPTOR,
+                                            false);
                                     super.visitInsn(Opcodes.ACONST_NULL);
                                     super.visitVarInsn(Opcodes.ALOAD, 1);
                                     super.visitMethodInsn(

@@ -1,5 +1,6 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.adapter.cubism.profile.CubismExportHostProfile;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
@@ -53,13 +54,12 @@ public record ExportSettingsHostProfile(
     private static final int ACCESS_PUBLIC = StaticSelector.ACCESS_PUBLIC;
     private static final int FORBID_STATIC = StaticSelector.ACCESS_STATIC;
 
-    private static final String DIALOG_OWNER = "com/live2d/cubism/doc/model/exporter/e";
-    private static final String DIALOG_SETTING_DATA =
-            "com/live2d/cubism/doc/model/exporter/CModelExportSettingDialogData";
-    private static final String MODEL_SOURCE = "com/live2d/cubism/doc/model/CModelSource";
-    private static final String WINDOW_PANEL_5_2 = "com/live2d/ui/window/X";
-    private static final String WINDOW_PANEL_5_3 = "com/live2d/ui/window/V";
-    private static final String WINDOW_BASE = "com/live2d/ui/window/y";
+    private static final String DIALOG_OWNER = CubismExportHostProfile.SETTINGS_DIALOG_OWNER;
+    private static final String DIALOG_SETTING_DATA = CubismExportHostProfile.SETTINGS_DIALOG_SETTING_DATA;
+    private static final String MODEL_SOURCE = CubismExportHostProfile.SETTINGS_MODEL_SOURCE;
+    private static final String WINDOW_PANEL_5_2 = CubismExportHostProfile.SETTINGS_WINDOW_PANEL_5_2;
+    private static final String WINDOW_PANEL_5_3 = CubismExportHostProfile.SETTINGS_WINDOW_PANEL_5_3;
+    private static final String WINDOW_BASE = CubismExportHostProfile.SETTINGS_WINDOW_BASE;
 
     /** The exact reviewed 5.1.00 tuple: the {@code X} window panel on its own reviewed build. */
     public static final ExportSettingsHostProfile CUBISM_5_1_00 =

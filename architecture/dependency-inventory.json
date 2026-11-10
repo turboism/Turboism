@@ -605,6 +605,10 @@
       ],
       [
         "dev.turboism.automesh",
+        "dev.turboism.adapter"
+      ],
+      [
+        "dev.turboism.automesh",
         "dev.turboism.core"
       ],
       [
@@ -714,6 +718,10 @@
       [
         "dev.turboism.distribution",
         "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.distribution",
+        "dev.turboism.internal"
       ],
       [
         "dev.turboism.exportsettings",

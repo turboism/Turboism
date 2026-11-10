@@ -2,6 +2,7 @@ package dev.turboism.exportsettings;
 
 import static dev.turboism.exportsettings.ProtectedExportHostVocabulary.*;
 
+import dev.turboism.adapter.cubism.profile.CubismExportHostProfile;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.io.File;
 import java.util.ArrayList;
@@ -584,12 +585,7 @@ final class ProtectedExportHostModelReadWriteOps {
      * topology observer, extended interpolation, or an unknown future type)
      * is recorded as pass-through content the census pins.
      */
-    private static final Set<String> STANDARD_EXTENSION_CLASSES = Set.of(
-            "com.live2d.cubism.doc.model.extension.textureInput.CTextureInputExtension",
-            "com.live2d.cubism.doc.model.extension.editableMesh.CEditableMeshExtension",
-            "com.live2d.cubism.doc.model.extension.meshGenerator.CMeshGeneratorExtension",
-            "com.live2d.cubism.doc.model.extension.warpBezier.CWarpDeformerBezierExtension",
-            "com.live2d.cubism.doc.model.extension.deformerOriginalShape.CDeformerOriginalShapeExtension");
+    private static final Set<String> STANDARD_EXTENSION_CLASSES = CubismExportHostProfile.STANDARD_EXTENSION_CLASSES;
 
     /**
      * Structures embedded inside a controllable source that never appear in the
@@ -628,13 +624,7 @@ final class ProtectedExportHostModelReadWriteOps {
      * Classes absent from an admitted build (aliases do not exist on 5.2.03)
      * simply never match there.
      */
-    private static final List<Map.Entry<String, String>> FAMILY_PREFIXES = List.of(
-            Map.entry("com.live2d.cubism.doc.model.affecter.glue.deformPathSkinning.", "deform-path"),
-            Map.entry("com.live2d.cubism.doc.model.affecter.glue.", "glue"),
-            Map.entry("com.live2d.cubism.doc.model.drawable.artPath.", "art-path"),
-            Map.entry("com.live2d.cubism.doc.model.alias.", "alias"),
-            Map.entry("com.live2d.cubism.doc.model.motionSync.", "motion-sync"),
-            Map.entry("com.live2d.cubism.doc.gameData.physics.", "physics"));
+    private static final List<Map.Entry<String, String>> FAMILY_PREFIXES = CubismExportHostProfile.FAMILY_PREFIXES;
 
     /**
      * Classifies a census object by its class-hierarchy package — a pure
