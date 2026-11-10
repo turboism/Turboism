@@ -96,7 +96,9 @@ class PromotionTest(unittest.TestCase):
         (self.source / "packaging").mkdir()
         (self.source / "gradle/common-java.gradle.kts").write_text(
             'rootProject.extra["turboismFrameworkVersion"] = "1.2.3"\n')
-        (self.source / "CHANGELOG.md").write_text('## [1.2.3] - 2026-09-06\n\nTest notes\n')
+        changelog = self.source / "docs" / "en" / "CHANGELOG.md"
+        changelog.parent.mkdir(parents=True)
+        changelog.write_text('## [1.2.3] - 2026-09-06\n\nTest notes\n')
         (self.source / "packaging/release-plugins.txt").write_text(':plugins:core\n:plugins:mcp\n')
         reviewed = self.source / 'compatibility/cubism/reviewed-releases.json'
         reviewed.parent.mkdir(parents=True)

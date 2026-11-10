@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Renders localized CHANGELOG.<locale>.md files from release-notes JSON.
+"""Renders the localized changelogs under docs/<locale>/ from release-notes JSON.
 
 `release-notes/<version>.json` is the single reviewed source for localized
 release notes: each entry carries the reviewed zh/ja/ko bodies keyed to the
 English section it was translated from (`englishSha256`). This script walks the
-version list of the canonical English CHANGELOG.md and rewrites every
+version list of the canonical English changelog and rewrites every
 JSON-covered section in the localized changelogs to the JSON body verbatim.
 
 Sections a JSON does not cover — the header, `## [Unreleased]`, and releases
@@ -32,11 +32,11 @@ from turboism_dev.paths import repo_root
 ROOT = repo_root()
 LOCALES = ("zh", "ja", "ko")
 LOCALE_CHANGELOGS = {
-    "zh": "CHANGELOG.zh-CN.md",
-    "ja": "CHANGELOG.ja.md",
-    "ko": "CHANGELOG.ko.md",
+    "zh": "docs/zh/CHANGELOG.md",
+    "ja": "docs/ja/CHANGELOG.md",
+    "ko": "docs/ko/CHANGELOG.md",
 }
-ENGLISH = ROOT / "CHANGELOG.md"
+ENGLISH = ROOT / "docs" / "en" / "CHANGELOG.md"
 NOTES_DIR = ROOT / "distribution" / "release-notes"
 
 SECTION_RE = re.compile(r"^## \[(?P<version>[^\]]+)\][^\n]*$", re.M)

@@ -147,7 +147,7 @@ def verify_bundle(source_root, bundle_root, run, source_sha):
     # (guarded here) and only cross-checks the matrix when a build produced it, so
     # there is no committed matrix file whose stability this guard must hold.
     clean = subprocess.run(["git", "-C", str(source_root), "diff", "--quiet", "HEAD", "--",
-                            "gradle/common-java.gradle.kts", "CHANGELOG.md", "packaging/release-plugins.txt",
+                            "gradle/common-java.gradle.kts", "docs/en/CHANGELOG.md", "packaging/release-plugins.txt",
                             "distribution/release-notes", "scripts/release/turboism_release/release_notes.py",
                             "compatibility/cubism/reviewed-releases.json",
                             "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
@@ -164,7 +164,7 @@ def verify_bundle(source_root, bundle_root, run, source_sha):
     framework = document.get("framework")
     require(isinstance(framework, dict) and framework.get("eligible") is True
             and framework.get("version") == version, "candidate framework is not eligible")
-    text = (source_root / "CHANGELOG.md").read_text(encoding="utf-8")
+    text = (source_root / "docs" / "en" / "CHANGELOG.md").read_text(encoding="utf-8")
     dates = [m.group(2) for m in CHANGELOG_HEADING.finditer(text) if m.group(1) == version]
     require(len(dates) == 1, "candidate changelog section must be unique")
     extractor = _load_script("promotion_release_notes", SCRIPTS / "extract-release-notes.py")

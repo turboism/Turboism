@@ -1,16 +1,16 @@
-[English](README.md) / [简体中文](README.zh-CN.md) / [日本語](README.ja.md) / [한국어](README.ko.md)
+[English](../en/README.md) / [简体中文](../zh/README.md) / [日本語](../ja/README.md) / [한국어](../ko/README.md)
 
 # Turboism
 
 ## 저작권 및 고지
 
-Copyright © 2026 Turboism Contributors. Turboism은 [AGPL-3.0-only](LICENSE)에 따라 제공되는 오픈 소스 소프트웨어입니다.
+Copyright © 2026 Turboism Contributors. Turboism은 [AGPL-3.0-only](../../LICENSE)에 따라 제공되는 오픈 소스 소프트웨어입니다.
 
 이 버전에는 GNU Affero General Public License 버전 3만 적용됩니다(`AGPL-3.0-only`). 타사 구성 요소와 별도 라이선스가 명시된 파일에는 각각의 라이선스가 적용됩니다.
 
 Turboism은 **독립적인 서드파티 프로젝트**이며, Live2D Inc.와 제휴 관계가 없고 해당 회사의 보증이나 후원을 받지 않습니다. Live2D, Cubism 및 관련 명칭과 상표에 대한 권리는 Live2D Inc. 또는 각 권리자에게 있습니다. Turboism은 Cubism Editor를 배포하거나 해당 라이선스를 제공·대체·우회하지 않습니다. 적법한 라이선스를 취득한 Cubism Editor를 별도로 설치해야 합니다.
 
-설치 전에 [최종 사용자 실행 고지 및 면책 조항](packaging/eula/EULA.ko.txt)을 읽어 주세요. 이 고지는 AGPL-3.0-only가 부여한 권리를 제한하지 않으며, 중국어 간체 정식 문서가 기준입니다. 소프트웨어는 **있는 그대로** 제공됩니다. 프로젝트 내용을 변경하는 플러그인이나 자동화 기능을 사용하기 전에 독립적인 백업을 보관하세요.
+설치 전에 [최종 사용자 실행 고지 및 면책 조항](../../packaging/eula/EULA.ko.txt)을 읽어 주세요. 이 고지는 AGPL-3.0-only가 부여한 권리를 제한하지 않으며, 중국어 간체 정식 문서가 기준입니다. 소프트웨어는 **있는 그대로** 제공됩니다. 프로젝트 내용을 변경하는 플러그인이나 자동화 기능을 사용하기 전에 독립적인 백업을 보관하세요.
 
 ## 프로젝트 소개
 
@@ -25,7 +25,7 @@ Turboism은 **Live2D Cubism Editor**를 위한 Windows 중심의 런타임 확�
 | **5.2.00 – 5.2.03** | 해당 버전 전용 어댑터 제공. Cubism 5.3 전용 표면(알파 컴포지션, 파트 인스펙터 쓰기, MOC 내보내기 읽기, Core parameterRepeat)만 미지원 |
 | **5.3.00 – 5.3.04** | 해당 버전 전용 어댑터 제공. 완전 호환: 검증된 모든 기능 그룹 사용 가능 |
 
-지원하는 Cubism 호스트 플랫폼은 **Windows x64**입니다. 목록에 없는 Editor 버전의 호환성은 보장하지 않습니다. 필요한 어댑터나 기능이 없으면 안전을 위해 실행을 거부합니다. 지원 버전이라고 해서 모든 플러그인 기능을 사용할 수 있는 것은 아닙니다. 버전별 기능 상세는 [기능 매트릭스](compatibility/cubism/capabilities_ko.md)를 참고하세요.
+지원하는 Cubism 호스트 플랫폼은 **Windows x64**입니다. 목록에 없는 Editor 버전의 호환성은 보장하지 않습니다. 필요한 어댑터나 기능이 없으면 안전을 위해 실행을 거부합니다. 지원 버전이라고 해서 모든 플러그인 기능을 사용할 수 있는 것은 아닙니다. 버전별 기능 상세는 [기능 매트릭스](../../compatibility/cubism/capabilities_ko.md)를 참고하세요.
 
 macOS에서는 포터블 ZIP 압축 파일(`turboism-<version>.zip`)을 내려받아 압축을 풀어 사용할 수 있습니다. 다만 macOS 패키징은 미리 보기 단계이며 Cubism 호스트 지원은 검증되지 않았습니다.
 
@@ -85,9 +85,9 @@ cd Turboism
 
 Windows에서는 `./gradlew` 대신 `gradlew.bat`을 사용하세요. 변경 사항은 별도의 기능 브랜치나 worktree에서 작업하세요.
 
-플러그인을 개발하려면 [데모 플러그인](plugins/demo/README.md), 해당 [빌드 설정](plugins/demo/build.gradle.kts) 및 [플러그인 설명 파일](plugins/demo/src/main/resources/META-INF/turboism/plugin.json)을 참고하세요. 플러그인은 `compileOnly` 범위로 `:sdk`에 의존해야 하며, 런타임 내부 구현이나 `com.live2d.*` 클래스에 직접 의존해서는 안 됩니다.
+플러그인을 개발하려면 [데모 플러그인](../../plugins/demo/README.md), 해당 [빌드 설정](../../plugins/demo/build.gradle.kts) 및 [플러그인 설명 파일](../../plugins/demo/src/main/resources/META-INF/turboism/plugin.json)을 참고하세요. 플러그인은 `compileOnly` 범위로 `:sdk`에 의존해야 하며, 런타임 내부 구현이나 `com.live2d.*` 클래스에 직접 의존해서는 안 됩니다.
 
-이 저장소 **외부**에서 플러그인을 개발할 때는 Turboism 자체를 빌드할 필요가 없습니다. 모든 GitHub Release에는 `turboism-sdk-<version>.jar`와 `turboism-event-processor-<version>.jar`(`.sha256` 사이드카 포함)가 제공됩니다. [templates/plugin-template](templates/plugin-template/)을 독립 프로젝트로 복사한 뒤 설정 스크립트를 실행하거나 JAR을 `libs/` 디렉터리에 넣고 해당 README를 따르세요. 프레임워크 기여자는 SDK와 `@SubscribeEvent` 애너테이션 프로세서를 로컬 Maven 저장소에 게시한 뒤 `mavenLocal()`에서 `dev.turboism:sdk`와 `dev.turboism:event-processor`를 해석할 수도 있습니다.
+이 저장소 **외부**에서 플러그인을 개발할 때는 Turboism 자체를 빌드할 필요가 없습니다. 모든 GitHub Release에는 `turboism-sdk-<version>.jar`와 `turboism-event-processor-<version>.jar`(`.sha256` 사이드카 포함)가 제공됩니다. [templates/plugin-template](../../templates/plugin-template/)을 독립 프로젝트로 복사한 뒤 설정 스크립트를 실행하거나 JAR을 `libs/` 디렉터리에 넣고 해당 README를 따르세요. 프레임워크 기여자는 SDK와 `@SubscribeEvent` 애너테이션 프로세서를 로컬 Maven 저장소에 게시한 뒤 `mavenLocal()`에서 `dev.turboism:sdk`와 `dev.turboism:event-processor`를 해석할 수도 있습니다.
 
 ```bash
 ./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal
@@ -97,13 +97,13 @@ Windows에서는 `./gradlew` 대신 `gradlew.bat`을 사용하세요. 변경 사
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
 
-데모는 개발 전용이며 릴리스 패키지에 포함되지 않습니다. 변경 사항을 제출하기 전에 영향받는 부분의 테스트와 `./gradlew devCheck`를 실행하세요. API, 수명 주기, 트랜잭션 및 검증 규칙은 [아키텍처 문서](ARCHITECTURE.md)를 참고하세요.
+데모는 개발 전용이며 릴리스 패키지에 포함되지 않습니다. 변경 사항을 제출하기 전에 영향받는 부분의 테스트와 `./gradlew devCheck`를 실행하세요. API, 수명 주기, 트랜잭션 및 검증 규칙은 [아키텍처 문서](../../ARCHITECTURE.md)를 참고하세요.
 
 ## 문서
 
 - [사용자 및 개발자 문서](https://docs.turboism.dev)
-- [아키텍처](ARCHITECTURE.md)와 [로드맵](ROADMAP.md)
-- [SDK API 계약 및 호환성](sdk/api-contracts/)과 [현재 공개 SDK 표면](sdk/api-contracts/current.txt)
-- [데모 플러그인](plugins/demo/README.md)과 독립형 [플러그인 템플릿](templates/plugin-template/)
-- [Java 설치 프로그램 상세 안내](packaging/java-installer/README-java-installer.md)
-- [릴리스 절차](RELEASING.md)와 [변경 기록](CHANGELOG.md)
+- [아키텍처](../../ARCHITECTURE.md)와 [로드맵](../../ROADMAP.md)
+- [SDK API 계약 및 호환성](../../sdk/api-contracts/)과 [현재 공개 SDK 표면](../../sdk/api-contracts/current.txt)
+- [데모 플러그인](../../plugins/demo/README.md)과 독립형 [플러그인 템플릿](../../templates/plugin-template/)
+- [Java 설치 프로그램 상세 안내](../../packaging/java-installer/README-java-installer.md)
+- [릴리스 절차](../../RELEASING.md)와 [변경 기록](../en/CHANGELOG.md)

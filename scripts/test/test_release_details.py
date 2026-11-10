@@ -84,7 +84,8 @@ class ReleaseDetailsTests(unittest.TestCase):
         (self.root/'gradle/common-java.gradle.kts').write_text(
             'extra["turboismFrameworkVersion"] = "1.2.3"\n')
         english='### Added\n\n- Change'
-        (self.root/'CHANGELOG.md').write_text('## [1.2.3] - 2026-09-12\n\n'+english+'\n')
+        changelog=self.root/'docs'/'en'/'CHANGELOG.md';changelog.parent.mkdir(parents=True)
+        changelog.write_text('## [1.2.3] - 2026-09-12\n\n'+english+'\n')
         receipt={**identity('1.2.3-beta.1',self.head,'123',1),'buildNumber':7}
         # Missing translations file fails closed instead of shipping English-only.
         with self.assertRaises(ValueError):m.candidate_notes(self.root,receipt,None)

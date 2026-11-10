@@ -57,7 +57,7 @@ The frozen SDK and independent plugin versions are not product build counters.
 ### Request a source-bound candidate from a local terminal
 
 Choose the next stable **base** in `gradle/common-java.gradle.kts`, prepare the
-base's dated `CHANGELOG.md` section and merge the intended source to main. Beta
+base's dated `docs/en/CHANGELOG.md` section and merge the intended source to main. Beta
 release notes use that reviewed base section; Beta's precise prerelease version
 is selected in the workflow input, not by rewriting the stable base for every try.
 Do **not** push a public version tag to trigger a build.
@@ -69,7 +69,7 @@ generated from a frozen published baseline; they take no reviewed file.
 
 `distribution/release-notes/<version>.json` is the single source for localized changelog
 text: `scripts/release/render_localized_changelogs.py` rewrites every
-JSON-covered section of `CHANGELOG.zh-CN.md`/`CHANGELOG.ja.md`/`CHANGELOG.ko.md`
+JSON-covered section of `docs/zh/CHANGELOG.md`/`docs/ja/CHANGELOG.md`/`docs/ko/CHANGELOG.md`
 verbatim, keeps pre-JSON history and the `Unreleased` sections as committed,
 and `checkLocalizedChangelogs` fails on drift. Never hand-edit a
 JSON-covered section; sections predating the JSON scheme remain authored in
@@ -310,7 +310,7 @@ python3 scripts/release/verify-release.py \
   --windows-stage build/windows-installer/staging
 ```
 
-Release notes are always extracted from the exact version section of `CHANGELOG.md`.
+Release notes are always extracted from the exact version section of `docs/en/CHANGELOG.md`.
 
 ## Credentials and repository hygiene
 

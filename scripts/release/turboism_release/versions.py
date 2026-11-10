@@ -34,7 +34,7 @@ def framework_version(repo_root: Path) -> str:
 def changelog_entry(repo_root: Path, version: str) -> dict[str, str]:
     if not STRICT_VERSION.fullmatch(version):
         raise ReleaseError(f"invalid release version: {version}")
-    path = repo_root / "CHANGELOG.md"
+    path = repo_root / "docs" / "en" / "CHANGELOG.md"
     try:
         text = path.read_text(encoding="utf-8")
     except OSError as failure:
@@ -42,7 +42,7 @@ def changelog_entry(repo_root: Path, version: str) -> dict[str, str]:
     matches = [(match.group(1), match.group(2)) for match in CHANGELOG_HEADING.finditer(text)]
     version_dates = [date for candidate, date in matches if candidate == version]
     if len(version_dates) != 1:
-        raise ReleaseError(f"CHANGELOG.md must contain exactly one release section for {version}")
+        raise ReleaseError(f"docs/en/CHANGELOG.md must contain exactly one release section for {version}")
     extractor = repo_root / "scripts/release/extract-release-notes.py"
     completed = _run(
         ["python3", str(extractor), str(path), version],
