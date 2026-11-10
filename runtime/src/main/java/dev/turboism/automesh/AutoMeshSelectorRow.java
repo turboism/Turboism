@@ -1,5 +1,6 @@
 package dev.turboism.automesh;
 
+import dev.turboism.adapter.cubism.profile.CubismAutoMeshUiProfile;
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.mesh.automesh.AlgorithmParameterDescriptor;
@@ -52,13 +53,13 @@ import javax.swing.Timer;
  */
 public final class AutoMeshSelectorRow {
 
-    private static final String LABEL_TYPE = "com.live2d.ui.control.CLabel";
-    private static final String COMBO_TYPE = "com.live2d.ui.control.CComboBox";
-    private static final String BUTTON_TYPE = "com.live2d.ui.control.CButton";
-    private static final String ROW_TYPE = "com.live2d.ui.container.CHBox";
-    private static final String SPACER_TYPE = "com.live2d.ui.container.CSpacer";
-    private static final String CONTAINER_TYPE = "com.live2d.ui.container.CContainer";
-    private static final String WIDGET_TYPE = "com.live2d.ui.CWidget";
+    private static final String LABEL_TYPE = CubismAutoMeshUiProfile.LABEL_TYPE;
+    private static final String COMBO_TYPE = CubismAutoMeshUiProfile.COMBO_TYPE;
+    private static final String BUTTON_TYPE = CubismAutoMeshUiProfile.BUTTON_TYPE;
+    private static final String ROW_TYPE = CubismAutoMeshUiProfile.ROW_TYPE;
+    private static final String SPACER_TYPE = CubismAutoMeshUiProfile.SPACER_TYPE;
+    private static final String CONTAINER_TYPE = CubismAutoMeshUiProfile.CONTAINER_TYPE;
+    private static final String WIDGET_TYPE = CubismAutoMeshUiProfile.WIDGET_TYPE;
     private static final String FUNCTION1_TYPE = "kotlin.jvm.functions.Function1";
     private static final String UNIT_TYPE = "kotlin.Unit";
     private static final String UNIT_INSTANCE_FIELD = "INSTANCE";
@@ -103,20 +104,20 @@ public final class AutoMeshSelectorRow {
     private static final String PARAMETERS_BUTTON_KEY = "selector.parameters.button";
     private static final String PARAMETERS_TOOLTIP_KEY = "selector.parameters.tooltip";
 
-    private static final String VBOX_TYPE = "com.live2d.ui.container.CVBox";
-    private static final String TITLED_BORDER_TYPE = "com.live2d.ui.border.CTitledBorder";
-    private static final String BORDER_TYPE = "com.live2d.ui.border.CBorder";
-    private static final String DLG_BUTTON_TYPE = "com.live2d.ui.control.CDlgButton";
-    private static final String BUTTON_MENU_TYPE = "com.live2d.ui.menu.CButtonMenu";
-    private static final String MENU_ITEM_TYPE = "com.live2d.ui.menu.CMenuItem";
-    private static final String POPUP_MENU_TYPE = "com.live2d.ui.menu.k";
-    private static final String SLIDABLE_INT_TYPE = "com.live2d.ui.control.CSlidableInt";
-    private static final String SLIDABLE_FLOAT_TYPE = "com.live2d.ui.control.CSlidableFloat";
-    private static final String CHECK_BOX_TYPE = "com.live2d.ui.control.CCheckBox";
-    private static final String TEXT_FIELD_TYPE = "com.live2d.ui.control.CTextField";
-    private static final String INSETS_TYPE = "com.live2d.type.CInsets";
-    private static final String GROW_TYPE = "com.live2d.ui.container.a.c";
-    private static final String ALIGNMENT_TYPE = "com.live2d.ui.a.a";
+    private static final String VBOX_TYPE = CubismAutoMeshUiProfile.VBOX_TYPE;
+    private static final String TITLED_BORDER_TYPE = CubismAutoMeshUiProfile.TITLED_BORDER_TYPE;
+    private static final String BORDER_TYPE = CubismAutoMeshUiProfile.BORDER_TYPE;
+    private static final String DLG_BUTTON_TYPE = CubismAutoMeshUiProfile.DLG_BUTTON_TYPE;
+    private static final String BUTTON_MENU_TYPE = CubismAutoMeshUiProfile.BUTTON_MENU_TYPE;
+    private static final String MENU_ITEM_TYPE = CubismAutoMeshUiProfile.MENU_ITEM_TYPE;
+    private static final String POPUP_MENU_TYPE = CubismAutoMeshUiProfile.POPUP_MENU_TYPE;
+    private static final String SLIDABLE_INT_TYPE = CubismAutoMeshUiProfile.SLIDABLE_INT_TYPE;
+    private static final String SLIDABLE_FLOAT_TYPE = CubismAutoMeshUiProfile.SLIDABLE_FLOAT_TYPE;
+    private static final String CHECK_BOX_TYPE = CubismAutoMeshUiProfile.CHECK_BOX_TYPE;
+    private static final String TEXT_FIELD_TYPE = CubismAutoMeshUiProfile.TEXT_FIELD_TYPE;
+    private static final String INSETS_TYPE = CubismAutoMeshUiProfile.INSETS_TYPE;
+    private static final String GROW_TYPE = CubismAutoMeshUiProfile.GROW_TYPE;
+    private static final String ALIGNMENT_TYPE = CubismAutoMeshUiProfile.ALIGNMENT_TYPE;
     private static final String DEFAULT_MARKER_TYPE = "kotlin.jvm.internal.DefaultConstructorMarker";
 
     /** Field of {@link #GROW_TYPE} that always expands its widget. */
