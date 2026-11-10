@@ -31,6 +31,10 @@ dev.turboism.bootstrap.ParameterHookContributor
 dev.turboism.bootstrap.ProjectLifecycleHookContributor
 dev.turboism.bootstrap.FileChooserHistoryHookContributor
 dev.turboism.bootstrap.ExportSettingsHookContributor
+# Entry guard of the two native Auto Mesh Generate funnels. No other hook transforms
+# com.live2d.cubism.view.palette.tool.toolMode.meshEditor.AutoMeshUtil* , so this
+# registration order carries no constraint; it sits beside the other native dialog seam.
+dev.turboism.bootstrap.AutoMeshGuardHookContributor
 dev.turboism.bootstrap.ImageArchiveReuseHookContributor
 dev.turboism.bootstrap.FloatArrayParseCacheHookContributor
 dev.turboism.bootstrap.TextureUploadPreparationHookContributor

@@ -2422,6 +2422,24 @@
         "template": 14
       }
     ],
+    "cubism.editor-model.cached-image.raw01-to-cached01": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 14
+      }
+    ],
+    "cubism.editor-model.cached-image.resource": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 14
+      }
+    ],
+    "cubism.editor-model.cached-image.size": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 14
+      }
+    ],
     "cubism.editor-model.cached-image.texture": [
       {
         "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
@@ -2429,6 +2447,12 @@
       }
     ],
     "cubism.editor-model.caffine.create": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 14
+      }
+    ],
+    "cubism.editor-model.caffine.matrix": [
       {
         "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
         "template": 14
@@ -2552,6 +2576,18 @@
       {
         "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
         "template": 26
+      }
+    ],
+    "cubism.editor-model.csize.height": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 14
+      }
+    ],
+    "cubism.editor-model.csize.width": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 14
       }
     ],
     "cubism.editor-model.curve-type.bezier": [
@@ -6804,6 +6840,12 @@
         "template": 13
       }
     ],
+    "cubism.editor-model.texture-input.cached-image": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 14
+      }
+    ],
     "cubism.editor-model.texture-manager.all-model-images": [
       {
         "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
@@ -7338,10 +7380,34 @@
         "template": 8
       }
     ],
+    "cubism.editor-model.writable-image.height": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 14
+      }
+    ],
+    "cubism.editor-model.writable-image.int-buffer": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 14
+      }
+    ],
     "cubism.editor-model.writable-image.j-buffered-image": [
       {
         "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
         "template": 8
+      }
+    ],
+    "cubism.editor-model.writable-image.jbuffered": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 14
+      }
+    ],
+    "cubism.editor-model.writable-image.width": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "template": 14
       }
     ],
     "cubism.editor-model.yure-deform-config.class": [

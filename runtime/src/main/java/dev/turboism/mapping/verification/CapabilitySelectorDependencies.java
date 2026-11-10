@@ -386,6 +386,10 @@ final class CapabilitySelectorDependencies {
                 EditorObjectReadSelectorContract.STATISTICS_ALIASES);
         add(
                 result,
+                EditorObjectReadSelectorContract.TEXTURE_PIXELS_CAPABILITY_ID,
+                EditorObjectReadSelectorContract.TEXTURE_PIXELS_ALIASES);
+        add(
+                result,
                 EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID,
                 EditorObjectWriteSelectorContract.ART_MESH_REQUIRED_ALIASES);
         add(

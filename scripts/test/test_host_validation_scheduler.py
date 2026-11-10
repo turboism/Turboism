@@ -54,6 +54,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
             "atlas-nesting",
             "atlas-image",
             "atlas-polygon",
+            "automesh",
             "backup",
             "backup-interactive",
             "backup-webdav",

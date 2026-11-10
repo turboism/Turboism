@@ -115,7 +115,8 @@
       "cubism.editor-model.source-triangulation.read",
       "cubism.editor-model.art-mesh.parameter-interpolation.write",
       "cubism.editor-model.render.read",
-      "cubism.editor-model.texture.register-bind"
+      "cubism.editor-model.texture.register-bind",
+      "cubism.editor-model.texture-pixels.read"
     ],
     "evidenceType": "JAR_METADATA",
     "owner": "runtime-editor-model-adapter",
@@ -452,6 +453,9 @@
       ],
       "cubism.editor-model.texture.register-bind": [
         "declaredGeneration"
+      ],
+      "cubism.editor-model.texture-pixels.read": [
+        "structure"
       ]
     }
   },
@@ -571,7 +575,8 @@
         "cubism.editor-model.source-triangulation.read",
         "cubism.editor-model.art-mesh.parameter-interpolation.write",
         "cubism.editor-model.render.read",
-        "cubism.editor-model.texture.register-bind"
+        "cubism.editor-model.texture.register-bind",
+        "cubism.editor-model.texture-pixels.read"
       ]
     },
     {
@@ -690,7 +695,8 @@
         "cubism.editor-model.source-triangulation.read",
         "cubism.editor-model.art-mesh.parameter-interpolation.write",
         "cubism.editor-model.render.read",
-        "cubism.editor-model.texture.register-bind"
+        "cubism.editor-model.texture.register-bind",
+        "cubism.editor-model.texture-pixels.read"
       ]
     },
     {
@@ -812,7 +818,8 @@
         "cubism.editor-model.art-mesh.parameter-interpolation.write",
         "cubism.editor-model.render.read",
         "cubism.editor-model.source-triangulation.read",
-        "cubism.editor-model.texture.register-bind"
+        "cubism.editor-model.texture.register-bind",
+        "cubism.editor-model.texture-pixels.read"
       ]
     },
     {
@@ -934,7 +941,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "cubism.texture-atlas.native-layout-invocation",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture-pixels.read"
       ]
     },
     {
@@ -1059,7 +1067,8 @@
         "cubism.editor-model.moc-export.read",
         "cubism.editor-model.render.read",
         "cubism.editor-model.source-triangulation.read",
-        "cubism.editor-model.texture.register-bind"
+        "cubism.editor-model.texture.register-bind",
+        "cubism.editor-model.texture-pixels.read"
       ]
     },
     {
@@ -1184,7 +1193,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "cubism.texture-atlas.native-layout-invocation",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture-pixels.read"
       ]
     },
     {
@@ -1536,6 +1546,9 @@
         ],
         "cubism.editor-model.texture.register-bind": [
           "declaredGeneration"
+        ],
+        "cubism.editor-model.texture-pixels.read": [
+          "structure"
         ]
       }
     },
@@ -1881,6 +1894,9 @@
         ],
         "cubism.editor-model.texture.register-bind": [
           "declaredGeneration"
+        ],
+        "cubism.editor-model.texture-pixels.read": [
+          "structure"
         ]
       }
     },
@@ -2236,6 +2252,9 @@
         ],
         "cubism.editor-model.texture.register-bind": [
           "declaredGeneration"
+        ],
+        "cubism.editor-model.texture-pixels.read": [
+          "structure"
         ]
       }
     },
@@ -2591,6 +2610,9 @@
         ],
         "ui.object-context-menu.contribute": [
           "hook:object-context-menu"
+        ],
+        "cubism.editor-model.texture-pixels.read": [
+          "structure"
         ]
       }
     },
@@ -2955,6 +2977,9 @@
         ],
         "cubism.editor-model.texture.register-bind": [
           "declaredGeneration"
+        ],
+        "cubism.editor-model.texture-pixels.read": [
+          "structure"
         ]
       }
     },
@@ -3319,6 +3344,9 @@
         ],
         "ui.object-context-menu.contribute": [
           "hook:object-context-menu"
+        ],
+        "cubism.editor-model.texture-pixels.read": [
+          "structure"
         ]
       }
     }
@@ -48650,6 +48678,336 @@
           "id": "cubism.mapping.v5_3_02.texture_atlas.atlas_update_texture"
         }
       ]
+    },
+    {
+      "base": {
+        "alias": "cubism.editor-model.texture-input.cached-image",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/ACTextureInput",
+        "memberName": "getCachedImage",
+        "descriptor": "(Lcom/live2d/graphics/cachedImage/CachedImageParam;)Lcom/live2d/graphics/cachedImage/CCachedImage;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.3.04",
+          "id": "cubism.mapping.v5_3_03.editor_model.method.texture_input_cached_image"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.editor-model.cached-image.size",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/graphics/cachedImage/CCachedImage",
+        "memberName": "b",
+        "descriptor": "()Lcom/live2d/type/CSize;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.3.04",
+          "id": "cubism.mapping.v5_3_03.editor_model.method.cached_image_size"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.editor-model.cached-image.resource",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/graphics/cachedImage/CCachedImage",
+        "memberName": "a",
+        "descriptor": "()Lcom/live2d/graphics/CImageResource;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.3.04",
+          "id": "cubism.mapping.v5_3_03.editor_model.method.cached_image_resource"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.editor-model.csize.width",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/type/CSize",
+        "memberName": "getWidth",
+        "descriptor": "()I",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.3.04",
+          "id": "cubism.mapping.v5_3_03.editor_model.method.csize_width"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.editor-model.csize.height",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/type/CSize",
+        "memberName": "getHeight",
+        "descriptor": "()I",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.3.04",
+          "id": "cubism.mapping.v5_3_03.editor_model.method.csize_height"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.editor-model.cached-image.raw01-to-cached01",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/graphics/cachedImage/CCachedImage",
+        "memberName": "f",
+        "descriptor": "()Lcom/live2d/type/CAffine;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.3.04",
+          "id": "cubism.mapping.v5_3_03.editor_model.method.cached_image_raw01_to_cached01"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.editor-model.caffine.matrix",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/type/CAffine",
+        "memberName": "getMatrix",
+        "descriptor": "()[F",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.3.04",
+          "id": "cubism.mapping.v5_3_03.editor_model.method.caffine_matrix"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.editor-model.writable-image.width",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/graphics/CWritableImage",
+        "memberName": "getWidth",
+        "descriptor": "()I",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.3.04",
+          "id": "cubism.mapping.v5_3_03.editor_model.method.writable_image_width"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.editor-model.writable-image.height",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/graphics/CWritableImage",
+        "memberName": "getHeight",
+        "descriptor": "()I",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.3.04",
+          "id": "cubism.mapping.v5_3_03.editor_model.method.writable_image_height"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.editor-model.writable-image.int-buffer",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/graphics/CWritableImage",
+        "memberName": "getIntBuffer",
+        "descriptor": "()[I",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.3.04",
+          "id": "cubism.mapping.v5_3_03.editor_model.method.writable_image_int_buffer"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.editor-model.writable-image.jbuffered",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/graphics/CWritableImage",
+        "memberName": "getJBufferedImage",
+        "descriptor": "()Ljava/awt/image/BufferedImage;",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.3.04",
+          "id": "cubism.mapping.v5_3_03.editor_model.method.writable_image_jbuffered"
+        }
+      ]
     }
   ],
   "selectorOrder": [
@@ -49718,7 +50076,18 @@
         1059,
         1060,
         1215,
-        1216
+        1216,
+        1217,
+        1218,
+        1219,
+        1220,
+        1221,
+        1222,
+        1223,
+        1224,
+        1225,
+        1226,
+        1227
       ]
     },
     {
@@ -50788,7 +51157,18 @@
         1059,
         1060,
         1215,
-        1216
+        1216,
+        1217,
+        1218,
+        1219,
+        1220,
+        1221,
+        1222,
+        1223,
+        1224,
+        1225,
+        1226,
+        1227
       ]
     },
     {
@@ -51859,7 +52239,18 @@
         1059,
         1060,
         1215,
-        1216
+        1216,
+        1217,
+        1218,
+        1219,
+        1220,
+        1221,
+        1222,
+        1223,
+        1224,
+        1225,
+        1226,
+        1227
       ]
     },
     {
@@ -52932,7 +53323,18 @@
         1059,
         1060,
         1215,
-        1216
+        1216,
+        1217,
+        1218,
+        1219,
+        1220,
+        1221,
+        1222,
+        1223,
+        1224,
+        1225,
+        1226,
+        1227
       ]
     },
     {
@@ -54035,7 +54437,18 @@
         1059,
         1060,
         1215,
-        1216
+        1216,
+        1217,
+        1218,
+        1219,
+        1220,
+        1221,
+        1222,
+        1223,
+        1224,
+        1225,
+        1226,
+        1227
       ]
     },
     {
@@ -55145,7 +55558,18 @@
         1059,
         1060,
         1215,
-        1216
+        1216,
+        1217,
+        1218,
+        1219,
+        1220,
+        1221,
+        1222,
+        1223,
+        1224,
+        1225,
+        1226,
+        1227
       ]
     },
     {
@@ -56260,7 +56684,18 @@
         1059,
         1060,
         1215,
-        1216
+        1216,
+        1217,
+        1218,
+        1219,
+        1220,
+        1221,
+        1222,
+        1223,
+        1224,
+        1225,
+        1226,
+        1227
       ]
     },
     {
@@ -57375,7 +57810,18 @@
         1059,
         1060,
         1215,
-        1216
+        1216,
+        1217,
+        1218,
+        1219,
+        1220,
+        1221,
+        1222,
+        1223,
+        1224,
+        1225,
+        1226,
+        1227
       ]
     },
     {
@@ -58517,7 +58963,18 @@
         1059,
         1060,
         1215,
-        1216
+        1216,
+        1217,
+        1218,
+        1219,
+        1220,
+        1221,
+        1222,
+        1223,
+        1224,
+        1225,
+        1226,
+        1227
       ]
     },
     {
@@ -59659,7 +60116,18 @@
         591,
         624,
         718,
-        728
+        728,
+        1217,
+        1218,
+        1219,
+        1220,
+        1221,
+        1222,
+        1223,
+        1224,
+        1225,
+        1226,
+        1227
       ]
     },
     {
@@ -60801,7 +61269,18 @@
         1059,
         1060,
         1215,
-        1216
+        1216,
+        1217,
+        1218,
+        1219,
+        1220,
+        1221,
+        1222,
+        1223,
+        1224,
+        1225,
+        1226,
+        1227
       ]
     },
     {
@@ -61943,7 +62422,18 @@
         1059,
         1060,
         1215,
-        1216
+        1216,
+        1217,
+        1218,
+        1219,
+        1220,
+        1221,
+        1222,
+        1223,
+        1224,
+        1225,
+        1226,
+        1227
       ]
     }
   ],

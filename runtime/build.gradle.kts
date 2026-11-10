@@ -542,6 +542,9 @@ val checkHeadlessRuntimeClasspath by tasks.registering(JavaExec::class) {
 dependencies {
     testImplementation(project(":plugins:selection-brush"))
     testImplementation(project(":testing:test-support"))
+    // The reviewed Cubism Editor artifacts link against the Kotlin runtime. The offline host widget
+    // harness loads the real widget classes from those artifacts, so it needs the same API surface.
+    testImplementation(libs.kotlin.stdlib)
     implementation(project(":sdk"))
     // Pure typed-config codec/schema/migration kernel (#112). The runtime owns the
     // file store, I/O lane and failure presentation on top of it.

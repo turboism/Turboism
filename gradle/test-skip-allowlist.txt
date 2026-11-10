@@ -46,6 +46,10 @@ dev.turboism.adapter.cubism.optimization.deferred.DeferredGlErrorCheckArtifactTe
 dev.turboism.adapter.cubism.optimization.readback.AsyncReadbackArtifactTest.* # requires TURBOISM_UNIFORM_HOST_JAR (bundled JOGL) exact-host evidence.
 dev.turboism.adapter.cubism.warpalt.WarpAltMirrorReviewedArtifactsTest.* # requires TURBOISM_CUBISM_REF_ROOT; the opt-in :runtime:warpAltMirrorArtifactTest lane owns this evidence.
 dev.turboism.mapping.verification.ParameterLockReviewedArtifactsTest.* # requires TURBOISM_CUBISM_REF_ROOT; the opt-in :runtime:parameterLockArtifactTest lane owns this evidence.
+dev.turboism.automesh.host.AutoMeshFunnelReviewedArtifactsTest.* # requires TURBOISM_CUBISM_REF with the reviewed Editor jars; the licensed archive is never committed.
+dev.turboism.automesh.host.AutoMeshPanelAttachReviewedArtifactsTest.* # requires TURBOISM_CUBISM_REF with the reviewed Editor jars; the licensed archive is never committed.
+dev.turboism.automesh.host.AutoMeshFunnelElementTypeTest.* # requires TURBOISM_CUBISM_REF with the reviewed Editor jars; the licensed archive is never committed.
+dev.turboism.automesh.host.AutoMeshSelectorRowReviewedArtifactsTest.* # requires TURBOISM_CUBISM_REF with the reviewed Editor jars; the licensed archive is never committed.
 dev.turboism.tests.mapping.ExactArtifactRecordVerificationTest.everyPackagedProductionRecordVerifiesAgainstTheExactArtifact() # requires TURBOISM_EXACT_ARTIFACTS_DIR with the reviewed exact-artifact jars.
 # Opt-in interactive Swing/display cases. Each is gated behind its own environment
 # variable, so a default run skips them by design; enabling the variable executes them.

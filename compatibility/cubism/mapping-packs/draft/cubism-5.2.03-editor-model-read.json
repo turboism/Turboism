@@ -20561,6 +20561,215 @@
         "ownerInternalName": "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas"
       },
       "descriptor": "(ZZLcom/live2d/util/a/a;)V"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.texture_input_cached_image",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.texture-input.cached-image",
+      "runtime": "getCachedImage",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/ACTextureInput"
+      },
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/graphics/cachedImage/CachedImageParam;)Lcom/live2d/graphics/cachedImage/CCachedImage;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.cached_image_size",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.cached-image.size",
+      "runtime": "b",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/cachedImage/CCachedImage"
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/type/CSize;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.cached_image_resource",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.cached-image.resource",
+      "runtime": "a",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/cachedImage/CCachedImage"
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/graphics/CImageResource;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.csize_width",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.csize.width",
+      "runtime": "getWidth",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CSize"
+      },
+      "intermediary": "",
+      "descriptor": "()I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.csize_height",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.csize.height",
+      "runtime": "getHeight",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CSize"
+      },
+      "intermediary": "",
+      "descriptor": "()I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.cached_image_raw01_to_cached01",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.cached-image.raw01-to-cached01",
+      "runtime": "f",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/cachedImage/CCachedImage"
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/type/CAffine;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.caffine_matrix",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.caffine.matrix",
+      "runtime": "getMatrix",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CAffine"
+      },
+      "intermediary": "",
+      "descriptor": "()[F"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.writable_image_width",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.writable-image.width",
+      "runtime": "getWidth",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CWritableImage"
+      },
+      "intermediary": "",
+      "descriptor": "()I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.writable_image_height",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.writable-image.height",
+      "runtime": "getHeight",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CWritableImage"
+      },
+      "intermediary": "",
+      "descriptor": "()I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.writable_image_int_buffer",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.writable-image.int-buffer",
+      "runtime": "getIntBuffer",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CWritableImage"
+      },
+      "intermediary": "",
+      "descriptor": "()[I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.writable_image_jbuffered",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.writable-image.jbuffered",
+      "runtime": "getJBufferedImage",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CWritableImage"
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/awt/image/BufferedImage;"
     }
   ],
   "metadata": {
@@ -20572,8 +20781,8 @@
       "main": "b8c09b5a",
       "entryUnionCount": 1053
     },
-    "selectorCount": 1110,
-    "capabilityCount": 116,
+    "selectorCount": 1121,
+    "capabilityCount": 117,
     "capabilityIds": [
       "cubism.editor-history.move",
       "cubism.editor-history.read",
@@ -20690,9 +20899,10 @@
       "cubism.texture-atlas.dialog-injection",
       "cubism.texture-atlas.layout.write",
       "cubism.texture-atlas.native-layout-invocation",
-      "ui.object-context-menu.contribute"
+      "ui.object-context-menu.contribute",
+      "cubism.editor-model.texture-pixels.read"
     ],
-    "verificationRecordSha256": "088cff134402ca180d990000bffa4fd9bb734357373c1ddbf46d6c819baba094",
+    "verificationRecordSha256": "ff0dca18d3365cbcf45eb262bca70336a68cae72372a873f56ed8e2978babb7f",
     "artifactName": "Live2D_Cubism.jar",
     "artifactSize": 40805584,
     "profileId": "cubism-5.2.03",

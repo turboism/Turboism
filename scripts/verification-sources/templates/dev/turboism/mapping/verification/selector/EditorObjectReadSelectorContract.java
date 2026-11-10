@@ -16,6 +16,32 @@ public final class EditorObjectReadSelectorContract {
         "cubism.editor-model.part-source.use-offscreen"
     );
 
+    public static final String TEXTURE_PIXELS_CAPABILITY_ID = "cubism.editor-model.texture-pixels.read";
+
+    /**
+     * ArtMesh texture-pixel read chain: the drawable's current texture input (the model image
+     * when the project has no atlas, the atlas tile otherwise) to its cached image and ARGB
+     * raster. Mesh uvs are normalized over that cached-image canvas.
+     */
+    public static final Set<String> TEXTURE_PIXELS_ALIASES = Set.of(
+        "cubism.editor-model.art-mesh-source.texture-input-extension",
+        "cubism.editor-model.texture-input-extension.current-texture-input-data",
+        "cubism.editor-model.texture-input.cached-image",
+        "cubism.editor-model.cached-image-param.companion",
+        "cubism.editor-model.cached-image-param.default",
+        "cubism.editor-model.cached-image.size",
+        "cubism.editor-model.cached-image.resource",
+        "cubism.editor-model.csize.width",
+        "cubism.editor-model.csize.height",
+        "cubism.editor-model.image-resource.image",
+        "cubism.editor-model.cached-image.raw01-to-cached01",
+        "cubism.editor-model.caffine.matrix",
+        "cubism.editor-model.writable-image.width",
+        "cubism.editor-model.writable-image.height",
+        "cubism.editor-model.writable-image.int-buffer",
+        "cubism.editor-model.writable-image.jbuffered"
+    );
+
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.instance",
         "cubism.editor-model.app-controller.current-document",

@@ -40,6 +40,7 @@ public final class PermissionIds {
     public static final String TURBOISM_CUBISM_EDIT = "turboism.cubism.edit";
     public static final String TURBOISM_CUBISM_PARAMETER_READ = "turboism.cubism.parameter.read";
     public static final String TURBOISM_CUBISM_MESH_READ = "turboism.cubism.mesh.read";
+    public static final String TURBOISM_CUBISM_MESH_AUTOMESH_CONTRIBUTE = "turboism.cubism.mesh.automesh.contribute";
 
     public static final String TURBOISM_CUBISM_MODEL_OBSERVE = "turboism.cubism.model.observe";
     public static final String TURBOISM_CUBISM_MODEL_INTERCEPT = "turboism.cubism.model.intercept";
@@ -101,6 +102,7 @@ public final class PermissionIds {
             TURBOISM_CUBISM_EDIT,
             TURBOISM_CUBISM_PARAMETER_READ,
             TURBOISM_CUBISM_MESH_READ,
+            TURBOISM_CUBISM_MESH_AUTOMESH_CONTRIBUTE,
             TURBOISM_CUBISM_MODEL_OBSERVE,
             TURBOISM_CUBISM_MODEL_INTERCEPT,
             TURBOISM_CUBISM_BACKUP_OBSERVE,

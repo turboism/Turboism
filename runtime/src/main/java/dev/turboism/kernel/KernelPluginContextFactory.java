@@ -21,6 +21,11 @@ import java.util.Objects;
 /** Assembles the preview-only PluginContext services owned by one plugin scope. */
 final class KernelPluginContextFactory implements AutoCloseable {
 
+    private static final String STATE_DIRECTORY = "state";
+    private static final String RUNTIME_DIRECTORY = "runtime";
+    private static final String AUTOMESH_PRESET_FILE = "automesh-presets.properties";
+    private static final String AUTOMESH_LOG_COMPONENT = "automesh";
+
     private final RuntimeHostAdapterAccess hostAccess;
     private final Path home;
     private final KernelPluginServicesFactory servicesFactory;
@@ -28,6 +33,19 @@ final class KernelPluginContextFactory implements AutoCloseable {
     private final GraalHostConfiguration graalConfiguration;
     private final GraalHostManager graalHost;
     private final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
+    /**
+     * Session-wide auto-mesh catalog shared by every plugin generation. The native selection lives
+     * here, so reloading a plugin never resets which algorithm the Auto Mesh Generate entry runs.
+     */
+    private final dev.turboism.automesh.AutoMeshAlgorithmCatalog autoMeshCatalog =
+            new dev.turboism.automesh.AutoMeshAlgorithmCatalog();
+
+    /**
+     * Session-wide Auto Mesh selection bound to {@link #autoMeshCatalog}. The native entry reads the
+     * same instance the selector row writes, so a plugin reload keeps the user's choice. The preset
+     * list behind it is persisted, because a renamed preset outlives one Editor session.
+     */
+    private final dev.turboism.automesh.AutoMeshSelectionState autoMeshSelection;
 
     KernelPluginContextFactory(
             final Path home,
@@ -86,6 +104,11 @@ final class KernelPluginContextFactory implements AutoCloseable {
         this.hostAccess = Objects.requireNonNull(hostAccess, "hostAccess");
         this.home = Objects.requireNonNull(home, "home");
         this.log = Objects.requireNonNull(log, "log");
+        this.autoMeshSelection = new dev.turboism.automesh.AutoMeshSelectionState(
+                autoMeshCatalog,
+                new dev.turboism.automesh.AutoMeshPresetStore(
+                        home.resolve(STATE_DIRECTORY).resolve(RUNTIME_DIRECTORY).resolve(AUTOMESH_PRESET_FILE),
+                        message -> log.warn(AUTOMESH_LOG_COMPONENT, message)));
         this.fileChooserHistory = Objects.requireNonNull(fileChooserHistory, "fileChooserHistory");
         this.graalConfiguration = GraalHostConfiguration.resolve(home);
         this.graalHost = new GraalHostManager(graalConfiguration, diagnostic -> log.warn("graal", diagnostic));
@@ -238,6 +261,27 @@ final class KernelPluginContextFactory implements AutoCloseable {
                     throw failure;
                 }
             }
+            if (requestedDescriptor
+                    .capabilities()
+                    .contains(dev.turboism.automesh.RuntimeAutoMeshAlgorithmRegistry.REQUIRED_CAPABILITY)) {
+                final var autoMeshAlgorithms = new dev.turboism.automesh.RuntimeAutoMeshAlgorithmRegistry(
+                        requestedDescriptor.id(),
+                        eventOwner.key().generation(),
+                        dev.turboism.permissions.PermissionChecker.from(
+                                new dev.turboism.permissions.CubismPermissionGate(
+                                        requestedDescriptor.id(),
+                                        services.dependencies().permissions(),
+                                        services.dependencies().cubismAuditSink(),
+                                        services.dependencies().clock())),
+                        true,
+                        autoMeshCatalog);
+                try {
+                    context.installAutoMeshAlgorithms(autoMeshAlgorithms);
+                } catch (RuntimeException | Error failure) {
+                    autoMeshAlgorithms.close();
+                    throw failure;
+                }
+            }
             context.installScriptService(new dev.turboism.script.RuntimeScriptService(
                     home,
                     context,
@@ -264,6 +308,14 @@ final class KernelPluginContextFactory implements AutoCloseable {
         }
     }
 
+    /**
+     * @return the session Auto Mesh selection the native entry and the selector row share; the
+     *     instance is stable for the runtime's lifetime
+     */
+    dev.turboism.automesh.AutoMeshSelectionState autoMeshSelection() {
+        return autoMeshSelection;
+    }
+
     private dev.turboism.cleanup.RetryableCleanup cleanup;
 
     @Override
@@ -278,6 +330,19 @@ final class KernelPluginContextFactory implements AutoCloseable {
     /** Forwards the host-level export-settings authority to the per-plugin services factory. */
     void bindExportSettingsAuthority(final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority) {
         servicesFactory.bindExportSettingsAuthority(authority);
+    }
+
+    /**
+     * Returns the session auto-mesh catalog.
+     *
+     * <p>The native selector row and the dispatch guard read the same catalog, so the algorithm a
+     * user picks is exactly the algorithm a confirmation runs. The catalog outlives every plugin
+     * generation, which is what keeps the selection across a plugin reload.</p>
+     *
+     * @return the session catalog
+     */
+    dev.turboism.automesh.AutoMeshAlgorithmCatalog autoMeshCatalog() {
+        return autoMeshCatalog;
     }
 }
 

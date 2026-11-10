@@ -37,6 +37,8 @@ public final class KernelRuntime implements AutoCloseable {
     private volatile dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService;
     private volatile dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettingsAuthority;
     private volatile dev.turboism.exportsettings.ProtectedExportOrchestrator protectedExportOrchestrator;
+    private volatile dev.turboism.automesh.host.NativeAutoMeshBridge.Handler autoMeshGuard;
+    private volatile dev.turboism.automesh.AutoMeshSelectionState autoMeshSelection;
     private volatile List<ShutdownFailure> shutdownFailures = List.of();
 
     /** Package-private test composition seam; production startup uses {@link #start}. */
@@ -102,6 +104,11 @@ public final class KernelRuntime implements AutoCloseable {
             @Override
             public void closePluginRuntime() {
                 pluginRuntime.close();
+            }
+
+            @Override
+            public void closeAutoMeshGuard() {
+                KernelRuntime.this.closeAutoMeshGuard();
             }
 
             @Override
@@ -568,6 +575,67 @@ public final class KernelRuntime implements AutoCloseable {
         }
     }
 
+    /**
+     * Auto-mesh dispatch policy the transformed native funnels report to.
+     *
+     * <p>Empty until the milestone that resolves host targets binds it. The guard hook still
+     * installs against an unbound runtime, because an unbound policy answers "not handled" for
+     * every confirmation and therefore leaves the Editor's own Auto Mesh Generate untouched.</p>
+     *
+     * @return the bound guard policy, or empty when nothing has bound one yet
+     */
+    public java.util.Optional<dev.turboism.automesh.host.NativeAutoMeshBridge.Handler> autoMeshGuard() {
+        return java.util.Optional.ofNullable(autoMeshGuard);
+    }
+
+    /** Binds the auto-mesh dispatch policy; a no-op when a policy is already bound. */
+    void bindAutoMeshGuard(final dev.turboism.automesh.host.NativeAutoMeshBridge.Handler handler) {
+        synchronized (this) {
+            if (autoMeshGuard == null) {
+                autoMeshGuard = java.util.Objects.requireNonNull(handler, "handler");
+            }
+        }
+    }
+
+    /**
+     * Auto Mesh selection the native entry shows: the running algorithm plus its parameter values.
+     *
+     * <p>One instance serves the whole session, so the selector row and the guarded native entry
+     * read and write the same state. It is bound during {@link #start} together with the guard
+     * policy, and it survives a plugin reload because the catalog behind it does.</p>
+     *
+     * @return the session Auto Mesh selection
+     * @throws IllegalStateException if no selection was bound
+     */
+    public dev.turboism.automesh.AutoMeshSelectionState autoMeshSelection() {
+        final dev.turboism.automesh.AutoMeshSelectionState selection = autoMeshSelection;
+        if (selection == null) {
+            throw new IllegalStateException("auto mesh selection is not bound");
+        }
+        return selection;
+    }
+
+    /** Binds the session Auto Mesh selection; a no-op when one is already bound. */
+    void bindAutoMeshSelection(final dev.turboism.automesh.AutoMeshSelectionState selection) {
+        synchronized (this) {
+            if (autoMeshSelection == null) {
+                autoMeshSelection = java.util.Objects.requireNonNull(selection, "selection");
+            }
+        }
+    }
+
+    /**
+     * Session auto-mesh catalog the native selector row and the dispatch guard both read.
+     *
+     * <p>The catalog outlives every plugin generation, so a plugin reload never resets which
+     * algorithm the Auto Mesh Generate entry runs. Empty only before plugins are wired.</p>
+     *
+     * @return the session catalog, or empty when the plugin runtime has not been composed yet
+     */
+    public java.util.Optional<dev.turboism.automesh.AutoMeshAlgorithmCatalog> autoMeshCatalog() {
+        return java.util.Optional.ofNullable(pluginRuntime).map(LocalPluginRuntime::autoMeshCatalog);
+    }
+
     static dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService createFileChooserHistoryService(
             final Path home, final KernelLog log) {
         final dev.turboism.config.RuntimeConfigRepository config =
@@ -704,6 +772,19 @@ public final class KernelRuntime implements AutoCloseable {
     }
 
     /**
+     * Withdraws the Auto Mesh guard policy and drops the session selection.
+     *
+     * <p>Runs before the host ingress closes, so a funnel that is still transformed reports to an
+     * unbound runtime — which answers "not handled" — instead of to a policy whose collaborators
+     * are already gone. The transformed host bytes themselves are restored by the bootstrap
+     * installer that owns them.</p>
+     */
+    private void closeAutoMeshGuard() {
+        autoMeshGuard = null;
+        autoMeshSelection = null;
+    }
+
+    /**
      * Closes the host-level export-settings policy and drops every dialog attachment it owns.
      *
      * <p>Runs after the plugin runtime has closed, so no plugin registry is still bound, and before
@@ -753,6 +834,8 @@ public final class KernelRuntime implements AutoCloseable {
         HostSession.State hostState() throws Throwable;
 
         void closePluginRuntime() throws Throwable;
+
+        void closeAutoMeshGuard() throws Throwable;
 
         void closeHostIngress() throws Throwable;
 

@@ -332,6 +332,7 @@ final class KernelStartupSequence {
             runtime.bindFileChooserHistoryService(fileChooserHistory);
             runtime.bindExportSettingsAuthority(exportSettings);
             runtime.bindProtectedExportOrchestrator(protectedExport);
+            bindAutoMeshGuard(runtime, plugins, ingress, scheduler, effectiveLocale.get(), log);
             runtime.loadPluginsAfterBootstrap(beforePlugins, afterPlugins);
             startupTimer.completed("plugin-loading", message -> log.info("startup", message));
             // Only publish startup after the hooks and plugin listeners are ready.
@@ -353,6 +354,44 @@ final class KernelStartupSequence {
             RecentPreviewDiagnostics.uninstall();
             throw failure;
         }
+    }
+
+    /**
+     * Binds the Auto Mesh guard policy to the runtime services the Editor already runs.
+     *
+     * <p>The policy is bound before plugins load, so the transformed funnels never report to an
+     * unbound runtime once a custom algorithm is registered. A host whose Editor-model resolver is
+     * unavailable keeps the unbound state, which answers "not handled" for every confirmation and
+     * therefore leaves the Editor's own Auto Mesh Generate untouched.</p>
+     *
+     * <p>The session selection is bound even when the policy is not, because the selector row reads
+     * it independently of whether the guard can resolve host targets.</p>
+     */
+    private static void bindAutoMeshGuard(
+            final KernelRuntime runtime,
+            final LocalPluginRuntime plugins,
+            final HostRuntimeIngress ingress,
+            final RuntimeScheduler scheduler,
+            final java.util.Locale locale,
+            final KernelLog log) {
+        runtime.bindAutoMeshSelection(plugins.autoMeshSelection());
+        final dev.turboism.mapping.verification.VerifiedMemberResolver resolver;
+        try {
+            resolver = ingress.editorModelResolver();
+        } catch (IllegalStateException unavailable) {
+            log.warn("automesh", "Auto Mesh guard stays unbound: the Editor-model resolver is unavailable");
+            return;
+        }
+        runtime.bindAutoMeshGuard(KernelAutoMeshGuardFactory.create(
+                plugins.autoMeshSelection(),
+                resolver,
+                ingress.adapterAccess().modelAccess(),
+                notification ->
+                        ingress.adapterAccess().adapters().statusToolbar().notifyStatus(notification),
+                scheduler,
+                locale,
+                message -> log.warn("automesh", message)));
+        log.info("automesh", "Auto Mesh guard policy bound to the runtime dispatch");
     }
 
     /**

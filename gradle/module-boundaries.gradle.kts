@@ -1,6 +1,7 @@
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ProjectDependency
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.logging.Logger
 import dev.turboism.gradle.internal.VerificationStamps
@@ -76,7 +77,7 @@ private val runtimeCompositionLayers = setOf("shell", "kernel", "distribution", 
 private val runtimeFeatureImpls = setOf(
     "recentfile", "recentpreview", "screenshot", "script", "storage", "task", "config",
     "userfile", "hostread", "performance", "exportsettings", "filechooser", "mcp", "update",
-    "worktime", "keybinding"
+    "worktime", "keybinding", "automesh"
 )
 // Bottom-most packages: the JDK, the SDK and their leaf siblings only — every layer above
 // them is forbidden, which is what keeps runtime.log off the framework core.
@@ -271,6 +272,27 @@ private fun checkRuntimePluginDependencies(
     }
 }
 
+/*
+ * External artifacts a first-party plugin may link against, keyed by module path and written as
+ * `group:name:version`. The list is closed on purpose: an unlisted external dependency fails in
+ * both the declared and the resolved half of the gate, so embedding a third-party library in a
+ * plugin stays a reviewed decision instead of a build-file accident.
+ */
+private val pluginExternalComponents = mapOf(
+    // Turbo-mesh embeds the Tinfour constrained-Delaunay kernel into its own jar, so the plugin
+    // ships the triangulation code with no host-provided library on its class path.
+    ":plugins:turbo-mesh" to setOf("org.tinfour:TinfourCore:2.1.8")
+)
+
+private fun admittedPluginExternalComponents(project: Project): Set<String> =
+    pluginExternalComponents[project.path].orEmpty()
+
+/** `group:name:version` of a declared external module dependency, or an empty string. */
+private fun externalComponentIdentity(dependency: Dependency): String {
+    val group = dependency.group ?: return ""
+    return "$group:${dependency.name}:${dependency.version}"
+}
+
 private fun checkDeclaredBoundaryDependencies(
     project: Project,
     allowedProjectPaths: Set<String>,
@@ -294,7 +316,7 @@ private fun checkDeclaredBoundaryDependencies(
                                 "from ${configuration.name}"
                         )
                     }
-                } else {
+                } else if (externalComponentIdentity(dependency) !in admittedPluginExternalComponents(project)) {
                     state.reject(
                         "$ownerLabel ${project.path} may only declare approved project dependencies; " +
                             "found ${dependencyIdentity(dependency)} in ${configuration.name}"
@@ -322,7 +344,11 @@ private fun checkResolvedBoundaryComponents(
                     state.reject("${project.path} resolved forbidden project component ${id.projectPath}")
                 }
             } else {
-                state.reject("${project.path} resolved forbidden non-project component ${id.displayName}")
+                val admitted = id is ModuleComponentIdentifier
+                    && "${id.group}:${id.module}:${id.version}" in admittedPluginExternalComponents(project)
+                if (!admitted) {
+                    state.reject("${project.path} resolved forbidden non-project component ${id.displayName}")
+                }
             }
         }
     } catch (exception: Exception) {
@@ -852,10 +878,10 @@ private fun checkPluginBoundaries(root: Project, plugins: List<Project>) {
 
 /*
  * Declared-scope precision on top of checkModuleBoundaries: :sdk is compileOnly,
- * :event-processor is annotationProcessor, and no other or external dependency may
- * appear in any production configuration. An implementation-scoped :sdk would embed
- * the shared SDK identity into the plugin archive and break the single-typeidentity
- * contract the bootstrap layer depends on.
+ * :event-processor is annotationProcessor, and no other project or external dependency may
+ * appear in any production configuration except [pluginExternalComponents]. An
+ * implementation-scoped :sdk would embed the shared SDK identity into the plugin archive and
+ * break the single-typeidentity contract the bootstrap layer depends on.
  */
 private val pluginDependencyScopes = mapOf(
     "compileOnly" to setOf(":sdk"),
@@ -876,7 +902,7 @@ private fun checkPluginDependencyScopes(plugin: Project, state: BoundaryState) {
                                 "and :event-processor as annotationProcessor"
                         )
                     }
-                } else {
+                } else if (externalComponentIdentity(dependency) !in admittedPluginExternalComponents(plugin)) {
                     state.reject(
                         "Plugin ${plugin.path} may not declare non-project dependency " +
                             "${dependencyIdentity(dependency)} in ${configuration.name}"
