@@ -403,8 +403,7 @@ final class NativeAutoMeshPopup {
             root = root.getParent();
         }
         final Dimension preferred = root.getPreferredSize();
-        root.setSize(
-                Math.max(MINIMUM_POPUP_WIDTH, preferred.width), Math.max(MINIMUM_POPUP_HEIGHT, preferred.height));
+        root.setSize(Math.max(MINIMUM_POPUP_WIDTH, preferred.width), Math.max(MINIMUM_POPUP_HEIGHT, preferred.height));
         layout(root);
     }
 
