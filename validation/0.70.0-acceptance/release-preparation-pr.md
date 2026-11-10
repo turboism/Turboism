@@ -179,3 +179,20 @@ Observed through the attached UI observer, not by the operator:
 One timeout remains in the log: the first `project-work-time` refresh still overran the work
 budget while plugin load owned the host event thread. The fix keeps the schedule, so the next
 tick published the metrics, as the status-bar values above show.
+
+## Operator acceptance of the third round (2026-11-10, session `host-5304-manual6`)
+
+The operator re-tested the round after agent `0c11b368e908` and reported that the
+remaining findings are resolved. Recorded from the operator's report, not instrumented:
+
+| Item | Result |
+| --- | --- |
+| Rename footer combo | Shows the localized base-name label instead of the record text |
+| Board list rows | No background box behind the file name |
+| Status-bar timer | Zero and paused on an empty workspace; counts only the open project |
+| Board left seam | The native rail beside the canvas is covered; no untinted strip |
+| Plugin manager / market | Footer no longer ends with a redundant close button |
+| Theme coverage | Canvas scrollbar keys are part of the managed palette |
+
+The runtime evidence behind the earlier two whole-session failures (settlement lane and
+periodic-refresh survival) was captured in `host-5304-manual3` and is listed above.
