@@ -725,7 +725,7 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
                     ROW_EXPECTATION,
                     Integer.toString(children),
                     statusOf(children > nativeChildren));
-            final NativeAutoMeshPopup.Capture capture = NativeAutoMeshPopup.capture(popup, dumpRoot);
+            final NativeAutoMeshPopup.Capture capture = onUi(() -> NativeAutoMeshPopup.capture(popup, dumpRoot));
             if (capture.file().isPresent()) {
                 result.put("selector.screenshot", capture.file().orElseThrow().toString());
                 record(
@@ -739,7 +739,11 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
             }
             recordParameterDialog(dumpRoot);
         } finally {
-            NativeAutoMeshPopup.close(popup);
+            onUi(() -> {
+                NativeAutoMeshPopup.close(popup);
+                return null;
+            });
+            registry().select(NATIVE_ALGORITHM_ID);
         }
     }
 
