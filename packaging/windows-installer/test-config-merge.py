@@ -63,6 +63,7 @@ EXPECTED_PATHS = [
     ":plugins:scene-palette-enhancer",
     ":plugins:selection-brush",
     ":plugins:texture-atlas-stats",
+    ":plugins:turbo-mesh",
     ":plugins:ui-theme",
     ":plugins:warp-deformer-alt-symmetry",
     ":plugins:webdav-backup",
