@@ -6,6 +6,12 @@ All notable changes to Turboism are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+
+- The ACP composer now shows a random localized example request as its placeholder each time the window opens. The plugin catalog owns the example wording, so translators revise it without code changes.
+
 ## [0.70.0] - 2026-11-10
 
 ### Added
