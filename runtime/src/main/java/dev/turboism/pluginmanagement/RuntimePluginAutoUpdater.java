@@ -11,11 +11,9 @@ import dev.turboism.core.runtime.RuntimeTimerHandle;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.version.PluginVersion;
-import dev.turboism.core.version.VersionRange;
 import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.pluginmanagement.PluginAutoUpdatePlanner.PlannedUpdate;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogArtifact;
-import dev.turboism.pluginmanagement.PluginCatalog.CatalogDependency;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogRelease;
 import dev.turboism.pluginmanagement.PluginCatalogClient.CatalogFetchResult;
 import dev.turboism.pluginmanagement.PluginCatalogVerifier.PluginCatalogVerificationException;
@@ -802,19 +800,8 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
 
     private static boolean dependenciesSatisfied(
             final CatalogRelease release, final Map<String, PluginVersion> availableVersions) {
-        for (CatalogDependency dependency : release.dependencies()) {
-            if (!dependency.isRequired()) continue;
-            final PluginVersion available = availableVersions.get(dependency.id());
-            if (available == null) return false;
-            try {
-                if (!VersionRange.parse(dependency.version()).contains(available)) {
-                    return false;
-                }
-            } catch (IllegalArgumentException invalid) {
-                return false;
-            }
-        }
-        return true;
+        return PluginReleaseCompatibility.evaluateDependencies(release, availableVersions)
+                .compatible();
     }
 
     private static Path createPrivateTempJar() throws IOException {

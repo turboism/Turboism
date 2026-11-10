@@ -4,10 +4,36 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+MANIFEST_RELATIVE_PATH = "packaging/market-plugins.json"
+APPROVED = "approved"
+WITHHELD = "withheld"
+
+
+def _existing_publication(root: Path) -> dict[str, str]:
+    """Read per-plugin publication decisions from the committed manifest.
+
+    Regeneration must never approve a plugin on its own: a developer adds the plugin to the
+    roster, and a reviewer flips the decision in a separate commit.
+    """
+    path = root / MANIFEST_RELATIVE_PATH
+    if not path.is_file():
+        return {}
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    decisions = {}
+    for entry in document.get("plugins", []):
+        if isinstance(entry, dict) and isinstance(entry.get("project"), str):
+            decisions[entry["project"]] = entry.get("publication", WITHHELD)
+    return decisions
+
+
 def render_market_plugins(
     root: Path, roster_plugins_path: Path, matrix_plugins: list[dict]
 ) -> str:
     by_dir = {plugin["directory"]: plugin for plugin in matrix_plugins}
+    decisions = _existing_publication(root)
     projects = [
         line.strip()
         for line in roster_plugins_path.read_text(encoding="utf-8").splitlines()
@@ -29,6 +55,7 @@ def render_market_plugins(
             {
                 "project": project,
                 "channel": "stable",
+                "publication": decisions.get(project, WITHHELD),
                 "cubismVersions": cubism_versions,
                 "repository": "https://github.com/turboism/Turboism",
                 "support": "https://github.com/turboism/Turboism/issues",
@@ -40,7 +67,9 @@ def render_market_plugins(
             "independent Plugin Directory publication. Derived from packaging/market-plugins.txt "
             "(or packaging/release-plugins.txt) and each plugin's cubism-versions.json; "
             "validated by scripts/release/prepare-market-release.py "
-            "(project/channel/cubismVersions/repository/support, ASCII-sorted, unique)."
+            "(project/channel/publication/cubismVersions/repository/support, ASCII-sorted, unique). "
+            "New roster entries default to publication 'withheld'; a reviewer must set "
+            "'approved' before the plugin can reach the Plugin Directory."
         ),
         "schemaVersion": 1,
         "plugins": entries,
