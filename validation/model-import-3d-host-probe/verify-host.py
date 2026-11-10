@@ -105,8 +105,8 @@ def verify_probe_metadata(jar):
 
 
 WARP_AUTHORING_SOURCES_V1 = frozenset((
-    'plugins/model-import-3d/src/test/java/dev/turboism/validation/modelimport3d/host/EmbeddedTextureTest.java',
-    'plugins/model-import-3d/src/test/java/dev/turboism/validation/modelimport3d/host/PlanarImportTest.java',
+    'plugins/model-import-3d/src/test/java/dev/turboism/plugin/modelimport3d/EmbeddedTextureTest.java',
+    'plugins/model-import-3d/src/test/java/dev/turboism/plugin/modelimport3d/PlanarImportTest.java',
     'scripts/preview/host-validation-tasks.json',
     'scripts/preview/run-model-import-3d-host-validation.sh',
     'scripts/test/test_model_import_3d_cube_geometry.py',
@@ -125,7 +125,7 @@ WARP_AUTHORING_SOURCES_V1 = frozenset((
     'validation/model-import-3d-host-probe/README.md',
     'validation/model-import-3d-host-probe/build-host.py',
     'validation/model-import-3d-host-probe/input-src/README.md',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/ClosedConvexSurfaceProof.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/ClosedConvexSurfaceProof.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/CubeAtlasPersistenceProbe.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/CubeAtlasProbe.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/CubeGeometryProbe.java',
@@ -135,32 +135,32 @@ WARP_AUTHORING_SOURCES_V1 = frozenset((
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/CubePersistenceProbe.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/CubePersistenceRender.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/CubeRenderProbe.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/EmbeddedBaseColorTexture.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/EmbeddedBaseColorTexture.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/GlbInputMain.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/GlbProjectionMain.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/GlbSurfaceReader.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/ParallelSheetOrderPlan.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/GlbSurfaceReader.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/ParallelSheetOrderPlan.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/PlanarGeometryProbe.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/PlanarPixelCapture.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/PlanarQuadProof.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/PlanarQuadProof.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/PoseDriveHistory.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SheetGeometryProbe.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SheetPixelCapture.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceAtlasLayout.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceAutoCamera.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceBaseColorPlan.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceBspMerge.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceBspPlan.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceFixedIndexPlan.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceAutoCamera.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceBaseColorPlan.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceBspMerge.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceBspPlan.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceFixedIndexPlan.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceGeometryCapture.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceImport.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceImportAppearance.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceImportGeometry.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceImportPlan.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfacePatchPlan.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceSheetOrderBake.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceImport.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceImportAppearance.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceImportGeometry.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceImportPlan.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfacePatchPlan.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceSheetOrderBake.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceSnapshotFingerprint.java',
-    'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceSourceSplit.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceSourceSplit.java',
     'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/WholeImportProbe.java',
     'validation/model-import-3d-host-probe/input-test/dev/turboism/validation/modelimport3d/host/ClosedConvexSurfaceProofTest.java',
     'validation/model-import-3d-host-probe/input-test/dev/turboism/validation/modelimport3d/host/CubeGeometryProducerIntegrationTest.java',
@@ -197,10 +197,10 @@ WARP_AUTHORING_SOURCES_V1 = frozenset((
     'validation/model-import-3d-host-probe/native-src/dev/turboism/validation/modelimport3d/host/OrdinaryWriteProbe.java',
     'validation/model-import-3d-host-probe/native-src/dev/turboism/validation/modelimport3d/host/PixelSamplingProbe.java',
     'validation/model-import-3d-host-probe/native-src/dev/turboism/validation/modelimport3d/host/ShapeImportProbe.java',
-    'validation/model-import-3d-host-probe/native-src/dev/turboism/validation/modelimport3d/host/SurfaceKeyPlan.java',
-    'validation/model-import-3d-host-probe/native-src/dev/turboism/validation/modelimport3d/host/SurfaceKeyformBake.java',
-    'validation/model-import-3d-host-probe/native-src/dev/turboism/validation/modelimport3d/host/SurfaceProjection.java',
-    'validation/model-import-3d-host-probe/native-src/dev/turboism/validation/modelimport3d/host/SurfaceWarpKeyformBake.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceKeyPlan.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceKeyformBake.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceProjection.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceWarpKeyformBake.java',
     'validation/model-import-3d-host-probe/native-src/dev/turboism/validation/modelimport3d/host/WarpAuthoringProbe.java',
     'validation/model-import-3d-host-probe/native-test/dev/turboism/validation/modelimport3d/host/EvaluationAssertionsTest.java',
     'validation/model-import-3d-host-probe/native-test/dev/turboism/validation/modelimport3d/host/HostAssertionsTest.java',
@@ -251,7 +251,7 @@ SOURCE_WARP_CANDIDATE_SOURCES_V2 = SOURCE_WARP_CANDIDATE_SOURCES_V1 | frozenset(
 ))
 
 CANONICAL_WARP_SOURCES_V1 = SOURCE_WARP_CANDIDATE_SOURCES_V2 | frozenset(
-    'plugins/model-import-3d/src/main/java/dev/turboism/validation/modelimport3d/host/'+n+'.java'
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/'+n+'.java'
     for n in ('SurfaceWarpSpatialFit','SurfaceQuadChartDiscovery','SurfaceWarpChartPlan','SurfaceWarpImagePlan','SurfaceWarpAuthoring','SurfaceWarpImportCandidate')) | frozenset(
     'validation/model-import-3d-canonical-warp/src/dev/turboism/validation/modelimport3d/host/'+n+'.java'
     for n in ('CanonicalWarpProbe','CanonicalWarpPreparationTest'))
@@ -262,7 +262,7 @@ CANONICAL_WARP_SOURCES_V2 = CANONICAL_WARP_SOURCES_V1 | frozenset((
 ))
 
 CANONICAL_LAYERED_SOURCES_V1 = CANONICAL_WARP_SOURCES_V2 | frozenset(
- 'plugins/model-import-3d/src/main/java/dev/turboism/validation/modelimport3d/host/'+n+'.java'
+ 'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/'+n+'.java'
  for n in ('SurfaceWarpLayerPlan','SurfaceWarpLayerAuthoring')) | frozenset(
  'validation/model-import-3d-canonical-warp/src/dev/turboism/validation/modelimport3d/host/'+n+'.java'
  for n in ('CanonicalWarpLayerProbe','CanonicalWarpLayerPreparationTest')) | frozenset(
@@ -322,15 +322,16 @@ def verify_build(run):
     source_persistence = sheet_geometry or stage == 'mi3d-source-texture-persistence-v1'
     if sheet_geometry:
         prefix = 'validation/model-import-3d-host-probe/'
-        require(all(prefix + name in manifest for name in (
-            'verify-surface-geometry.py',
-            'input-src/dev/turboism/validation/modelimport3d/host/SheetGeometryProbe.java',
-            'input-src/dev/turboism/validation/modelimport3d/host/SurfaceGeometryCapture.java',
-            'input-src/dev/turboism/validation/modelimport3d/host/ParallelSheetOrderPlan.java',
-            'input-src/dev/turboism/validation/modelimport3d/host/SurfaceSheetOrderBake.java',
-            'input-test/dev/turboism/validation/modelimport3d/host/SheetGeometryInputTest.java',
-            'input-test/dev/turboism/validation/modelimport3d/host/SurfaceSheetImportTest.java',
-            'input-test/dev/turboism/validation/modelimport3d/host/SurfaceGeometryCaptureTest.java')), 'sheet dependencies missing')
+        require(all(name in manifest for name in (
+            'validation/model-import-3d-host-probe/verify-surface-geometry.py',
+            'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SheetGeometryProbe.java',
+            'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/SurfaceGeometryCapture.java',
+            'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/ParallelSheetOrderPlan.java',
+            'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceSheetOrderBake.java',
+            'validation/model-import-3d-host-probe/input-test/dev/turboism/validation/modelimport3d/host/SheetGeometryInputTest.java',
+            'validation/model-import-3d-host-probe/input-test/dev/turboism/validation/modelimport3d/host/SurfaceSheetImportTest.java',
+            'validation/model-import-3d-host-probe/input-test/dev/turboism/validation/modelimport3d/host/SurfaceGeometryCaptureTest.java',
+        )), 'sheet dependencies missing')
     planar_quad = source_persistence or stage == 'mi3d-planar-quad-v1'
     if source_persistence:
         require(all(name in manifest for name in (
@@ -341,13 +342,13 @@ def verify_build(run):
     embedded_texture = planar_quad or stage == 'mi3d-embedded-base-color-v1'
     if planar_quad:
         require(all(name in manifest for name in (
-            'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/PlanarQuadProof.java',
+            'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/PlanarQuadProof.java',
             'validation/model-import-3d-host-probe/input-test/dev/turboism/validation/modelimport3d/host/PlanarQuadProofTest.java',
-            'plugins/model-import-3d/src/test/java/dev/turboism/validation/modelimport3d/host/PlanarImportTest.java')), 'planar quad sources missing')
+            'plugins/model-import-3d/src/test/java/dev/turboism/plugin/modelimport3d/PlanarImportTest.java')), 'planar quad sources missing')
     atlas_persistence = embedded_texture or stage == 'mi3d-atlas-persistence-v1'
     if embedded_texture:
-        require('validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/EmbeddedBaseColorTexture.java' in manifest, 'embedded texture source missing')
-        require('plugins/model-import-3d/src/test/java/dev/turboism/validation/modelimport3d/host/EmbeddedTextureTest.java' in manifest, 'embedded texture test source missing')
+        require('plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/EmbeddedBaseColorTexture.java' in manifest, 'embedded texture source missing')
+        require('plugins/model-import-3d/src/test/java/dev/turboism/plugin/modelimport3d/EmbeddedTextureTest.java' in manifest, 'embedded texture test source missing')
     if atlas_persistence:
         prefix = 'validation/model-import-3d-host-probe/'
         require(all(prefix + name in manifest for name in (
@@ -361,20 +362,31 @@ def verify_build(run):
     require(set(manifest) == actual_sources and len(manifest) == (len(inventories[warp_inventory]) if warp_inventory else 125 if surface_render else 124 if pose_drive_geometry else 119 if planar_geometry else 117 if sheet_render else 113 if sheet_geometry else 105 if source_persistence else 99 if planar_quad else 96 if embedded_texture else 94 if atlas_persistence else 91 if stage == 'mi3d-official-export-v1' else 90 if stage in ('mi3d-cube-atlas-v1', 'mi3d-source-domains-v1', 'mi3d-official-export-v1') else 89 if stage == 'mi3d-cube-atlas-plan-v1' else 87 if stage in ('mi3d-cube-persistence-render-v1', 'mi3d-cube-persistence-pair-v1', 'mi3d-cube-persistence-pair-v2', 'mi3d-cube-atlas-plan-v1', 'mi3d-cube-atlas-v1', 'mi3d-source-domains-v1', 'mi3d-official-export-v1') else 86 if stage == 'mi3d-cube-persistence-v1' else 85 if stage in ('mi3d-cube-save-file-v1', 'mi3d-cube-save-file-v2', 'mi3d-cube-persistence-v1', 'mi3d-cube-persistence-render-v1', 'mi3d-cube-persistence-pair-v1', 'mi3d-cube-persistence-pair-v2', 'mi3d-cube-atlas-plan-v1', 'mi3d-cube-atlas-v1', 'mi3d-source-domains-v1', 'mi3d-official-export-v1') else 83 if stage == 'mi3d-whole-import-v1' else 80 if stage == 'mi3d-import-consumer-v1' else 78 if stage == 'mi3d-render-input-v1' else 73 if stage == 'mi3d-base-color-input-v1' else 70 if stage else 54), 'source inventory incomplete')
     if stage:
         prefix = 'validation/model-import-3d-host-probe/'
-        required_input = {'input-src/README.md', 'verify-cube-geometry.py'}
-        required_input.update('input-src/dev/turboism/validation/modelimport3d/host/' + n + '.java' for n in (
-            'GlbInputMain', 'GlbProjectionMain', 'GlbSurfaceReader', 'SurfacePatchPlan', 'SurfaceImportPlan',
-            'SurfaceImportGeometry', 'ClosedConvexSurfaceProof', 'CubeGeometryProbe'))
-        required_input.update('input-test/dev/turboism/validation/modelimport3d/host/' + n + '.java' for n in (
-            'GlbSurfaceReaderTest', 'SurfaceImportPlanTest', 'SurfaceImportGeometryTest',
-            'ClosedConvexSurfaceProofTest', 'CubeGeometryProducerIntegrationTest'))
-        require(all(prefix + n in manifest for n in required_input)
+        required_input = {
+            'validation/model-import-3d-host-probe/input-src/README.md',
+            'validation/model-import-3d-host-probe/verify-cube-geometry.py',
+            'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/GlbInputMain.java',
+            'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/GlbProjectionMain.java',
+            'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/GlbSurfaceReader.java',
+            'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfacePatchPlan.java',
+            'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceImportPlan.java',
+            'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceImportGeometry.java',
+            'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/ClosedConvexSurfaceProof.java',
+            'validation/model-import-3d-host-probe/input-src/dev/turboism/validation/modelimport3d/host/CubeGeometryProbe.java',
+            'validation/model-import-3d-host-probe/input-test/dev/turboism/validation/modelimport3d/host/GlbSurfaceReaderTest.java',
+            'validation/model-import-3d-host-probe/input-test/dev/turboism/validation/modelimport3d/host/SurfaceImportPlanTest.java',
+            'validation/model-import-3d-host-probe/input-test/dev/turboism/validation/modelimport3d/host/SurfaceImportGeometryTest.java',
+            'validation/model-import-3d-host-probe/input-test/dev/turboism/validation/modelimport3d/host/ClosedConvexSurfaceProofTest.java',
+            'validation/model-import-3d-host-probe/input-test/dev/turboism/validation/modelimport3d/host/CubeGeometryProducerIntegrationTest.java',
+        }
+        require(required_input.issubset(manifest)
                 and 'scripts/test/test_model_import_3d_cube_geometry.py' in manifest, 'cube input source missing')
     if stage in ('mi3d-base-color-input-v1', 'mi3d-render-input-v1', 'mi3d-import-consumer-v1', 'mi3d-whole-import-v1', 'mi3d-cube-save-file-v1', 'mi3d-cube-save-file-v2', 'mi3d-cube-persistence-v1', 'mi3d-cube-persistence-render-v1', 'mi3d-cube-persistence-pair-v1', 'mi3d-cube-persistence-pair-v2', 'mi3d-cube-atlas-plan-v1', 'mi3d-cube-atlas-v1', 'mi3d-source-domains-v1', 'mi3d-official-export-v1'):
-        require(all('validation/model-import-3d-host-probe/' + n in manifest for n in (
-            'input-src/dev/turboism/validation/modelimport3d/host/SurfaceBaseColorPlan.java',
-            'input-src/dev/turboism/validation/modelimport3d/host/SurfaceImportAppearance.java',
-            'input-test/dev/turboism/validation/modelimport3d/host/SurfaceImportAppearanceTest.java')),
+        require(all(n in manifest for n in (
+            'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceBaseColorPlan.java',
+            'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceImportAppearance.java',
+            'validation/model-import-3d-host-probe/input-test/dev/turboism/validation/modelimport3d/host/SurfaceImportAppearanceTest.java',
+        )),
             'base-color consumer source missing')
     if stage in ('mi3d-render-input-v1', 'mi3d-import-consumer-v1', 'mi3d-whole-import-v1', 'mi3d-cube-save-file-v1', 'mi3d-cube-save-file-v2', 'mi3d-cube-persistence-v1', 'mi3d-cube-persistence-render-v1', 'mi3d-cube-persistence-pair-v1', 'mi3d-cube-persistence-pair-v2', 'mi3d-cube-atlas-plan-v1', 'mi3d-cube-atlas-v1', 'mi3d-source-domains-v1', 'mi3d-official-export-v1'):
         require(all('validation/model-import-3d-host-probe/' + n in manifest for n in (
@@ -384,9 +396,10 @@ def verify_build(run):
             'input-test/dev/turboism/validation/modelimport3d/host/SurfaceSnapshotFingerprintTest.java'))
             and 'scripts/test/test_model_import_3d_cube_render.py' in manifest, 'render oracle sources missing')
     if stage in ('mi3d-import-consumer-v1', 'mi3d-whole-import-v1', 'mi3d-cube-save-file-v1', 'mi3d-cube-save-file-v2', 'mi3d-cube-persistence-v1', 'mi3d-cube-persistence-render-v1', 'mi3d-cube-persistence-pair-v1', 'mi3d-cube-persistence-pair-v2', 'mi3d-cube-atlas-plan-v1', 'mi3d-cube-atlas-v1', 'mi3d-source-domains-v1', 'mi3d-official-export-v1'):
-        require(all('validation/model-import-3d-host-probe/' + n in manifest for n in (
-            'input-src/dev/turboism/validation/modelimport3d/host/SurfaceImport.java',
-            'input-test/dev/turboism/validation/modelimport3d/host/SurfaceImportTest.java')),
+        require(all(n in manifest for n in (
+            'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceImport.java',
+            'validation/model-import-3d-host-probe/input-test/dev/turboism/validation/modelimport3d/host/SurfaceImportTest.java',
+        )),
             'whole import consumer sources missing')
     if stage == 'mi3d-official-export-v1':
         require(prefix + 'input-src/dev/turboism/validation/modelimport3d/host/CubeMocExportProbe.java' in manifest, 'export probe source missing')
@@ -407,15 +420,16 @@ def verify_build(run):
         require(all('validation/model-import-3d-host-probe/' + n in manifest for n in (
             'verify-whole-import.py', 'input-src/dev/turboism/validation/modelimport3d/host/WholeImportProbe.java'))
             and 'scripts/test/test_model_import_3d_whole_import.py' in manifest, 'whole import gate sources missing')
-    require(all('validation/model-import-3d-host-probe/' + n in manifest for n in (
-        'verify-joint-pose.py',
-        'native-src/dev/turboism/validation/modelimport3d/host/SurfaceProjection.java',
-        'native-src/dev/turboism/validation/modelimport3d/host/SurfaceKeyPlan.java',
-        'native-src/dev/turboism/validation/modelimport3d/host/SurfaceKeyformBake.java',
-        'native-src/dev/turboism/validation/modelimport3d/host/JointPoseProbe.java',
-        'native-test/dev/turboism/validation/modelimport3d/host/SurfaceProjectionTest.java',
-        'native-test/dev/turboism/validation/modelimport3d/host/SurfaceKeyformBakeTest.java',
-        'native-test/dev/turboism/validation/modelimport3d/host/JointPoseProducerIntegrationTest.java'))
+    require(all(n in manifest for n in (
+            'validation/model-import-3d-host-probe/verify-joint-pose.py',
+            'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceProjection.java',
+            'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceKeyPlan.java',
+            'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceKeyformBake.java',
+            'validation/model-import-3d-host-probe/native-src/dev/turboism/validation/modelimport3d/host/JointPoseProbe.java',
+            'validation/model-import-3d-host-probe/native-test/dev/turboism/validation/modelimport3d/host/SurfaceProjectionTest.java',
+            'validation/model-import-3d-host-probe/native-test/dev/turboism/validation/modelimport3d/host/SurfaceKeyformBakeTest.java',
+            'validation/model-import-3d-host-probe/native-test/dev/turboism/validation/modelimport3d/host/JointPoseProducerIntegrationTest.java',
+        ))
         and 'scripts/test/test_model_import_3d_joint_pose.py' in manifest, 'joint projection source missing')
     require('validation/model-import-3d-host-probe/native-src/dev/turboism/validation/modelimport3d/host/OrdinaryWriteProbe.java'
             in manifest, 'N3a source missing')
@@ -452,7 +466,7 @@ def verify_build(run):
         source = path_checked(p / 'source' / name)
         require(source.is_relative_to(p / 'source') and sha(source) == digest, 'source bytes differ')
     agent = run / 'bundle/turboism-agent.jar'; probe = run / 'bundle/plugins/model-import-3d-host-probe.jar'
-    for file, expected in ((p / 'sdk.jar', b['sdkSha256']), (agent, b['agentSha256']), (probe, b['probeSha256'])):
+    for file, expected in ((p / 'plugin.jar', b['pluginSha256']), (p / 'sdk.jar', b['sdkSha256']), (agent, b['agentSha256']), (probe, b['probeSha256'])):
         path_checked(file); require(sha(file) == expected, 'artifact hash mismatch')
     require(terminal['probeSha256'] == b['probeSha256'], 'terminal artifact mismatch')
     with zipfile.ZipFile(p / 'sdk.jar') as sdk, zipfile.ZipFile(agent) as runtime, zipfile.ZipFile(probe) as jar:
@@ -463,21 +477,21 @@ def verify_build(run):
         classes = {name: hashlib.sha256(jar.read(name)).hexdigest() for name in jar.namelist() if name.endswith('.class')}
         require(classes == b['classes'] and bool(classes), 'probe class inventory differs')
         if atlas_persistence:
-            require('dev/turboism/validation/modelimport3d/host/CubeAtlasPersistenceProbe.class' in classes,
+            require('dev/turboism/plugin/modelimport3d/CubeAtlasPersistenceProbe.class' in classes,
                     'atlas persistence class missing')
-        require(all(n.startswith('dev/turboism/validation/modelimport3d/host/') for n in classes), 'non-probe classes bundled')
-        require('dev/turboism/validation/modelimport3d/host/OrdinaryWriteProbe.class' in classes, 'N3a class missing')
-        require('dev/turboism/validation/modelimport3d/host/EvaluationProbe.class' in classes, 'N3b class missing')
-        require('dev/turboism/validation/modelimport3d/host/OrderProbe.class' in classes, 'N3c class missing')
-        require('dev/turboism/validation/modelimport3d/host/MorphProbe.class' in classes, 'N4a class missing')
-        require('dev/turboism/validation/modelimport3d/host/MorphOrderProbe.class' in classes, 'N4b class missing')
-        require('dev/turboism/validation/modelimport3d/host/ImageBindingProbe.class' in classes, 'N5a class missing')
-        require('dev/turboism/validation/modelimport3d/host/PixelSamplingProbe.class' in classes, 'T008 class missing')
+        require(all(n.startswith('dev/turboism/plugin/modelimport3d/') for n in classes), 'non-probe classes bundled')
+        require('dev/turboism/plugin/modelimport3d/OrdinaryWriteProbe.class' in classes, 'N3a class missing')
+        require('dev/turboism/plugin/modelimport3d/EvaluationProbe.class' in classes, 'N3b class missing')
+        require('dev/turboism/plugin/modelimport3d/OrderProbe.class' in classes, 'N3c class missing')
+        require('dev/turboism/plugin/modelimport3d/MorphProbe.class' in classes, 'N4a class missing')
+        require('dev/turboism/plugin/modelimport3d/MorphOrderProbe.class' in classes, 'N4b class missing')
+        require('dev/turboism/plugin/modelimport3d/ImageBindingProbe.class' in classes, 'N5a class missing')
+        require('dev/turboism/plugin/modelimport3d/PixelSamplingProbe.class' in classes, 'T008 class missing')
         require(runtime.read('dev/turboism/kernel/ValidationFileGrants.class'),
                 'T014 grant seam class missing from the bundled runtime')
         if stage:
-            require('dev/turboism/validation/modelimport3d/host/CubeGeometryProbe.class' in classes, 'cube producer missing')
-        cube_resource = 'dev/turboism/validation/modelimport3d/host/fixtures/cube.glb'
+            require('dev/turboism/plugin/modelimport3d/CubeGeometryProbe.class' in classes, 'cube producer missing')
+        cube_resource = 'dev/turboism/plugin/modelimport3d/fixtures/cube.glb'
         if b.get('cubeInputSha256') is not None:
             require(stage and b['cubeInputSha256'] == CUBE_GEOMETRY['INPUT_SHA256'], 'unauthorized cube input')
             cube = path_checked(p / 'cube.glb')
@@ -486,7 +500,7 @@ def verify_build(run):
             b['verifiedCubeInputPath'] = str(cube)
         else:
             require(cube_resource not in jar.namelist(), 'undeclared cube resource')
-        texture_resource = 'dev/turboism/validation/modelimport3d/host/fixtures/cube-textured.glb'
+        texture_resource = 'dev/turboism/plugin/modelimport3d/fixtures/cube-textured.glb'
         if source_persistence:
             texture = path_checked(p / 'cube-textured.glb')
             require(b.get('persistenceTextureSha256') == 'dee63d3d8dcf9f08adf302c6020486385e71929a81dfc674fa2c6aefbe997859'
@@ -503,28 +517,28 @@ def verify_build(run):
             for name, expected in planar_hashes.items():
                 file = path_checked(p / name)
                 require(0 < file.stat().st_size <= 1024*1024 and sha(file) == expected
-                        and jar.read('dev/turboism/validation/modelimport3d/host/fixtures/' + name) == file.read_bytes(),
+                        and jar.read('dev/turboism/plugin/modelimport3d/fixtures/' + name) == file.read_bytes(),
                         'packaged planar fixture differs')
-            require('dev/turboism/validation/modelimport3d/host/PlanarGeometryProbe.class' in classes, 'planar native entry missing')
+            require('dev/turboism/plugin/modelimport3d/PlanarGeometryProbe.class' in classes, 'planar native entry missing')
             b['verifiedPlanarInputPaths'] = {name:str(p / name) for name in planar_hashes}
         else:
             require(not b.get('planarInputs') and not any(
-                'dev/turboism/validation/modelimport3d/host/fixtures/' + name in jar.namelist()
+                'dev/turboism/plugin/modelimport3d/fixtures/' + name in jar.namelist()
                 for name in planar_hashes), 'undeclared planar resource')
-        sheet_resource = 'dev/turboism/validation/modelimport3d/host/fixtures/sheets.glb'
+        sheet_resource = 'dev/turboism/plugin/modelimport3d/fixtures/sheets.glb'
         if sheet_geometry:
             sheet = path_checked(p / 'sheets.glb')
             require(b.get('sheetInputSha256') == '0c0f716da082c9987ba580565a97ec81237c4e0333ae4023042b9c17b41a9984'
                     and 0 < sheet.stat().st_size <= 1024*1024 and sha(sheet) == b['sheetInputSha256']
                     and jar.read(sheet_resource) == sheet.read_bytes(), 'packaged sheets differ')
-            require('dev/turboism/validation/modelimport3d/host/SheetGeometryProbe.class' in classes
-                    and 'dev/turboism/validation/modelimport3d/host/SurfaceGeometryCapture.class' in classes, 'sheet native entry missing')
+            require('dev/turboism/plugin/modelimport3d/SheetGeometryProbe.class' in classes
+                    and 'dev/turboism/plugin/modelimport3d/SurfaceGeometryCapture.class' in classes, 'sheet native entry missing')
             b['verifiedSheetInputPath'] = str(sheet)
         else:
             require(b.get('sheetInputSha256') is None and sheet_resource not in jar.namelist(), 'undeclared sheet resource')
         verify_probe_metadata(jar)
         native = p / 'source/validation/model-import-3d-host-probe/native-src'
-        warp_resource='dev/turboism/validation/modelimport3d/host/fixtures/apple-warp.bin'
+        warp_resource='dev/turboism/plugin/modelimport3d/fixtures/apple-warp.bin'
         if source_warp:
             file=path_checked(p / 'apple-warp.bin')
             require(file.stat().st_size==73575376 and sha(file)==b.get('sourceWarpFixtureSha256')=='9320e7ae7a44f905cfab5827fe84f334b370e7e0f3ea9057fe05c01e4bd69360','source Warp fixture identity')
@@ -532,7 +546,7 @@ def verify_build(run):
             b['verifiedSourceWarpFixturePath']=str(file)
         else:
             require(b.get('sourceWarpFixtureSha256') is None and warp_resource not in jar.namelist(),'undeclared source Warp fixture')
-        texture_resource='dev/turboism/validation/modelimport3d/host/fixtures/apple-textured.glb'
+        texture_resource='dev/turboism/plugin/modelimport3d/fixtures/apple-textured.glb'
         if source_texture:
             file=path_checked(p / 'apple-textured.glb')
             require((source_warp or canonical_warp) and 0<file.stat().st_size<=16*1024*1024 and sha(file)==b['sourceWarpTextureSha256']=='3b31ef1167d6aa75c5746906838ad1e37447718ece116512c187337be0f87999' and jar.read(texture_resource)==file.read_bytes(),'source Warp texture identity')
@@ -544,7 +558,7 @@ def verify_build(run):
             descriptor_name = 'META-INF/turboism/plugin.json'
             expected_descriptor = loads(resources[descriptor_name])
             require(expected_descriptor['resources'] == [], 'unexpected source resource declarations')
-            expected_descriptor['resources'] = ['dev/turboism/validation/modelimport3d/host/fixtures/']
+            expected_descriptor['resources'] = ['dev/turboism/plugin/modelimport3d/fixtures/']
             packaged_descriptor = jar.read(descriptor_name)
             require(loads(packaged_descriptor) == expected_descriptor
                     and hashlib.sha256(packaged_descriptor).hexdigest() == b['packagedDescriptorSha256'],
@@ -593,7 +607,7 @@ def verify_build(run):
         require(set(b.get('canonicalPreparedArtifacts',{}))==expected_names and {f.name for f in prepared.iterdir() if f.is_file()}==expected_names,'canonical prepared inventory')
         require(all(sha(path_checked(prepared / n))==b['canonicalPreparedArtifacts'][n] for n in expected_names),'canonical prepared artifact hash')
         require((prepared / 'controls-xy-f32.bin').stat().st_size==66308160 and (prepared / 'attributed.bin').stat().st_size==8443916,'canonical complete sample/triangle inventory')
-        require(all('dev/turboism/validation/modelimport3d/host/'+n+'.class' in classes for n in ('CanonicalWarpProbe','SurfaceWarpImportCandidate','SurfaceQuadChartDiscovery','SurfaceWarpAuthoring')),'canonical assembly entry classes missing')
+        require(all('dev/turboism/plugin/modelimport3d/'+n+'.class' in classes for n in ('CanonicalWarpProbe','SurfaceWarpImportCandidate','SurfaceQuadChartDiscovery','SurfaceWarpAuthoring')),'canonical assembly entry classes missing')
     require([c['purpose'] for c in commands] == purposes and all(c['exitCode'] == 0 for c in commands), 'build commands incomplete')
     logs = []
     for i, c in enumerate(commands):
@@ -623,33 +637,33 @@ def verify_build(run):
         index = purposes.index('sheet-input-tests')
         require(commands[index]['argv'] == [tools['java'],'-Djava.awt.headless=true','-cp',
             os.pathsep.join(map(str,(p / 'sdk.jar',run / 'classes',run / 'test-classes'))),
-            'dev.turboism.validation.modelimport3d.host.SheetGeometryInputTest',str(p / 'sheets.glb')]
+            'dev.turboism.plugin.modelimport3d.SheetGeometryInputTest',str(p / 'sheets.glb')]
             and logs[index].strip() == '8 input/mode checks PASS; hostExecuted=false', 'sheet input test evidence')
     if sheet_render:
         index = purposes.index('sheet-pixel-encoding-tests')
         require(commands[index]['argv'] == [tools['java'],'-Djava.awt.headless=true','-cp',
             os.pathsep.join(map(str,(p / 'sdk.jar',run / 'classes',run / 'test-classes'))),
-            'dev.turboism.validation.modelimport3d.host.SheetPixelEncodingTest']
+            'dev.turboism.plugin.modelimport3d.SheetPixelEncodingTest']
             and logs[index].strip() == 'PASS 1048576 exact ARGB pixels, dimension rejection and nine pose inventory; nativeRenderExecuted=false',
             'sheet pixel encoding test evidence')
     if planar_geometry:
         index = purposes.index('planar-input-tests')
         require(commands[index]['argv'] == [tools['java'],'-Djava.awt.headless=true','-cp',
             os.pathsep.join(map(str,(p / 'sdk.jar',run / 'classes',run / 'test-classes'))),
-            'dev.turboism.validation.modelimport3d.host.PlanarGeometryInputTest',str(p)]
+            'dev.turboism.plugin.modelimport3d.PlanarGeometryInputTest',str(p)]
             and logs[index].strip() == '22 planar input/mode checks PASS; hostExecuted=false', 'planar input test evidence')
     if pose_drive_geometry:
         index = purposes.index('pose-drive-history-tests')
         require(commands[index]['argv'] == [tools['java'],'-Djava.awt.headless=true','-cp',
             os.pathsep.join(map(str,(p / 'sdk.jar',run / 'classes',run / 'test-classes'))),
-            'dev.turboism.validation.modelimport3d.host.PoseDriveHistoryTest']
+            'dev.turboism.plugin.modelimport3d.PoseDriveHistoryTest']
             and logs[index].strip() == '25 pose-driving history checks PASS; synthetic native-shaped history, hostExecuted=false',
             'pose drive history test evidence')
     if surface_render:
         index = purposes.index('planar-pixel-encoding-tests')
         require(commands[index]['argv'] == [tools['java'],'-Djava.awt.headless=true','-cp',
             os.pathsep.join(map(str,(p / 'sdk.jar',run / 'classes',run / 'test-classes'))),
-            'dev.turboism.validation.modelimport3d.host.PlanarPixelEncodingTest']
+            'dev.turboism.plugin.modelimport3d.PlanarPixelEncodingTest']
             and logs[index].strip() == 'PASS 1048576 exact ARGB pixels, dimension rejection and nine pose inventory and source profiles; nativeRenderExecuted=false',
             'planar pixel encoding test evidence')
     packaging_index = purposes.index('packaging-contract')
@@ -657,7 +671,7 @@ def verify_build(run):
         index = purposes.index('source-persistence-profile-tests')
         require(commands[index]['argv'] == [tools['java'],'-Xmx768m','-Djava.awt.headless=true','-cp',
                 os.pathsep.join(map(str,(p / 'sdk.jar',run / 'classes',run / 'test-classes'))),
-                'dev.turboism.validation.modelimport3d.host.CubePersistenceInputTest',str(p / 'cube.glb'),str(p / 'cube-textured.glb')]
+                'dev.turboism.plugin.modelimport3d.CubePersistenceInputTest',str(p / 'cube.glb'),str(p / 'cube-textured.glb')]
                 and logs[index].strip() == 'CubePersistenceInputTest: 113 checks PASS; hostExecuted=false',
                 'source persistence profile test evidence')
     require(commands[packaging_index]['argv'] == [tools['java'], '-Djava.awt.headless=true', '-cp',
@@ -669,7 +683,7 @@ def verify_build(run):
         index = purposes.index('cube-save-file-tests')
         require(commands[index]['argv'] == [tools['java'], '-Djava.awt.headless=true', '-cp',
                 os.pathsep.join(map(str, (p / 'sdk.jar', run / 'classes', run / 'test-classes'))),
-                'dev.turboism.validation.modelimport3d.host.CubePersistenceFileTest', str(run / 'cube-save-file-tests')],
+                'dev.turboism.plugin.modelimport3d.CubePersistenceFileTest', str(run / 'cube-save-file-tests')],
                 'wrong cube SAVE_AS file test executed')
         require(logs[index].strip() == f'CubePersistenceFileTest: {61 if stage in ("mi3d-cube-persistence-pair-v2","mi3d-cube-atlas-plan-v1","mi3d-cube-atlas-v1","mi3d-source-domains-v1","mi3d-official-export-v1") else 54 if stage in ("mi3d-cube-save-file-v2", "mi3d-cube-persistence-v1", "mi3d-cube-persistence-render-v1", "mi3d-cube-persistence-pair-v1") else 37} checks PASS; native command substituted; hostExecuted=false',
                 'missing cube SAVE_AS file test result')

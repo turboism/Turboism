@@ -60,7 +60,7 @@ class WholeImportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / 'producer.json'
             result = subprocess.run(['java','-Xmx768m','-Djava.awt.headless=true','-cp',cp,
-                'dev.turboism.validation.modelimport3d.host.SurfaceImportTest',cls.cube,str(output)],
+                'dev.turboism.plugin.modelimport3d.SurfaceImportTest',cls.cube,str(output)],
                 text=True,capture_output=True,timeout=120)
             if result.returncode:
                 raise AssertionError(result.stdout+result.stderr)

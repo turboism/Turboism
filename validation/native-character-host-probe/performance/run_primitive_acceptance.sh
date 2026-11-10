@@ -17,5 +17,5 @@ javac --release 17 -cp "$plugin_jar:$sdk_jar" -d "$output_dir/classes" \
   "$script_dir/NativeOcclusionDiagnostic.java" "$script_dir/PrimitiveAcceptance.java"
 sha256sum "$plugin_jar" "$sdk_jar" > "$output_dir/toolchain-sha256.txt"
 java -Xmx2g -cp "$output_dir/classes:$plugin_jar:$sdk_jar" \
-  dev.turboism.validation.modelimport3d.host.PrimitiveAcceptance \
+  dev.turboism.plugin.modelimport3d.PrimitiveAcceptance \
   "$output_dir/fixtures" "$output_dir/results" "${acceptance_args[@]}" > "$output_dir/run.log" 2>&1

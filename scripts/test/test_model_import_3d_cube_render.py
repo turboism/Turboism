@@ -255,7 +255,7 @@ class FingerprintTests(unittest.TestCase):
     def test_java_cross_language_vectors_and_field_mutations(self):
         classpath=os.environ.get('MI3D_RENDER_TEST_CLASSPATH')
         result=subprocess.run(['java','-cp',classpath,
-            'dev.turboism.validation.modelimport3d.host.SurfaceSnapshotFingerprintTest'],
+            'dev.turboism.plugin.modelimport3d.SurfaceSnapshotFingerprintTest'],
             check=True,text=True,capture_output=True)
         vectors=[json.loads(line) for line in result.stdout.splitlines()]
         self.assertEqual(len(vectors),5)

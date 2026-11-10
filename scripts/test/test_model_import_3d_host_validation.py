@@ -644,10 +644,13 @@ class ProtocolTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); sdk = root / 'build/sdk.jar'; sdk.parent.mkdir(); sdk.write_bytes(b'synthetic SDK')
             agent = root / 'build/agent.jar'; agent.write_bytes(b'synthetic agent')
+            plugin = root / 'build/plugin.jar'; plugin.write_bytes(b'synthetic plugin')
+            for name in BUILD.PLUGIN_ENGINE_SOURCES:
+                p = root / name; p.parent.mkdir(parents=True, exist_ok=True); p.write_text('synthetic')
             relative = Path('validation/model-import-3d-host-probe')
             for name in ('native-src/Test.java', 'native-test/Test.java', 'packaging-test/Test.java', 'build-host.py', 'verify-host.py', 'verify-evaluation.py', 'verify-order.py', 'verify-morph.py', 'verify-morph-order.py', 'verify-image-binding.py', 'verify-pixel-sampling.py', 'verify-persistence-pair.py', 'verify-atlas-persistence.py', 'test-atlas-persistence.py', 'verify-shape-import.py', 'verify-joint-pose.py', 'verify-warp-authoring.py', 'verify-source-warp-candidate.py', 'verify-cube-geometry.py', 'verify-cube-render.py', 'verify-whole-import.py', 'README.md'):
                 p = root / relative / name; p.parent.mkdir(parents=True, exist_ok=True); p.write_text('synthetic')
-            for name in ('plugins/model-import-3d/src/test/java/dev/turboism/validation/modelimport3d/host/PlanarImportTest.java', 'plugins/model-import-3d/src/test/java/dev/turboism/validation/modelimport3d/host/EmbeddedTextureTest.java', 'scripts/preview/run-model-import-3d-host-validation.sh', 'scripts/preview/host-validation-tasks.json',
+            for name in ('plugins/model-import-3d/src/test/java/dev/turboism/plugin/modelimport3d/PlanarImportTest.java', 'plugins/model-import-3d/src/test/java/dev/turboism/plugin/modelimport3d/EmbeddedTextureTest.java', 'scripts/preview/run-model-import-3d-host-validation.sh', 'scripts/preview/host-validation-tasks.json',
                          'scripts/test/test_model_import_3d_host_validation.py', 'scripts/test/test_model_import_3d_evaluation.py',
                          'scripts/test/test_model_import_3d_order.py', 'scripts/test/test_model_import_3d_morph.py',
                          'scripts/test/test_model_import_3d_morph_order.py',
@@ -659,7 +662,7 @@ class ProtocolTest(unittest.TestCase):
                 p = root / name; p.parent.mkdir(parents=True, exist_ok=True); p.write_text('synthetic')
             before = sorted(str(p.relative_to(root)) for p in root.rglob('*'))
             with patch.object(BUILD, 'ROOT', root), patch('builtins.print'):
-                BUILD.build(argparse.Namespace(run='dry', sdk=str(sdk), agent=str(agent), dry_run=True))
+                BUILD.build(argparse.Namespace(run='dry', sdk=str(sdk), agent=str(agent), plugin=str(plugin), dry_run=True))
             self.assertEqual(before, sorted(str(p.relative_to(root)) for p in root.rglob('*')))
 
     @unittest.skipUnless(HAS_PRESERVED_BUILD,
@@ -671,7 +674,7 @@ class ProtocolTest(unittest.TestCase):
         real = PRESERVED_BUILD
         self.assertIsNotNone(VERIFY.verify_build(real))
         dropped = 'validation/model-import-3d-host-probe/verify-pixel-sampling.py'
-        pixel_class = 'dev/turboism/validation/modelimport3d/host/PixelSamplingProbe.class'
+        pixel_class = 'dev/turboism/plugin/modelimport3d/PixelSamplingProbe.class'
 
         def mutant_copy():
             # A copied run is a DIFFERENT run directory: b['run'] must be

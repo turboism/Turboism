@@ -1,4 +1,4 @@
-package dev.turboism.validation.modelimport3d.host;
+package dev.turboism.plugin.modelimport3d;
 import java.util.*;
 import dev.turboism.sdk.cubism.history.*;
 public final class PoseDriveHandoffTest {

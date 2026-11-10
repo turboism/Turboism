@@ -25,7 +25,7 @@ def summarize(source: str, thread_name: str) -> str:
         if state != "RUNNABLE]":
             continue
         frames = [line.strip() for line in lines[2:] if line.startswith("  ")]
-        callers[next((f for f in frames if "dev.turboism.validation.modelimport3d.host." in f), "<outside importer>")] += count
+        callers[next((f for f in frames if "dev.turboism.plugin.modelimport3d." in f), "<outside importer>")] += count
         boundaries[next((f for f in frames if "dev.turboism.adapter.cubism.editor." in f and ".transaction." not in f), "<outside editor boundary>")] += count
         leaves[frames[0] if frames else "<empty stack>"] += count
     out = [f"thread={thread_name}", f"states={dict(states)}", "Wall-clock observations, NOT CPU percentages or stage durations.", "Schema 1 has no per-observation timestamps; stage attribution is unavailable.", "Tables below overlap; rows within each table are mutually exclusive."]

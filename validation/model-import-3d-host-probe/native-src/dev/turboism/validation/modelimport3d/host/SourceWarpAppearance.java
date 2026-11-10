@@ -1,4 +1,4 @@
-package dev.turboism.validation.modelimport3d.host;
+package dev.turboism.plugin.modelimport3d;
 
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.ArtMeshTextureInput;

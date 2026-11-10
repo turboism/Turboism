@@ -10,9 +10,34 @@ import shutil
 import subprocess
 import sys
 import time
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 PROBE = Path('validation/model-import-3d-host-probe')
+PLUGIN_ENGINE_SOURCES = (
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/ClosedConvexSurfaceProof.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/EmbeddedBaseColorTexture.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/GlbSurfaceReader.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/ParallelSheetOrderPlan.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/PlanarQuadProof.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceAutoCamera.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceBaseColorPlan.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceBspMerge.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceBspPlan.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceFixedIndexPlan.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceImport.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceImportAppearance.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceImportGeometry.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceImportPlan.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfacePatchPlan.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceSheetOrderBake.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceSourceSplit.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceKeyPlan.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceKeyformBake.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceProjection.java',
+    'plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/SurfaceWarpKeyformBake.java',
+)
+PLUGIN_CLASS_ROOT = 'dev/turboism/plugin/modelimport3d/'
 
 
 def digest(path):
@@ -41,18 +66,19 @@ def build(args):
     run = no_links(ROOT / 'build/model-import-3d-host' / args.run)
     if run.exists():
         raise ValueError('run already exists; no evidence may be replaced')
-    sdk, agent = no_links(Path(args.sdk)), no_links(Path(args.agent))
-    for file in (sdk, agent):
+    sdk, agent, plugin = (no_links(Path(value)) for value in (args.sdk, args.agent, args.plugin))
+    for file in (sdk, agent, plugin):
         if not file.is_file() or not file.is_relative_to(ROOT / 'build'):
-            raise ValueError('SDK/agent must be explicit existing worktree build files')
+            raise ValueError('SDK/agent/plugin must be explicit existing worktree build files')
     sources = sorted(p for base in ('native-src', 'native-test', 'packaging-test', 'input-src', 'input-test')
                      for p in (ROOT / PROBE / base).rglob('*') if p.is_file())
+    sources += [ROOT / name for name in PLUGIN_ENGINE_SOURCES]
     sources += [ROOT / PROBE / name for name in ('build-host.py', 'verify-host.py', 'verify-evaluation.py', 'verify-order.py',
                 'verify-morph.py', 'verify-morph-order.py', 'verify-image-binding.py',
                 'verify-pixel-sampling.py', 'verify-persistence-pair.py',
                 'verify-atlas-persistence.py', 'test-atlas-persistence.py',
                 'verify-shape-import.py', 'verify-joint-pose.py', 'verify-warp-authoring.py', 'verify-source-warp-candidate.py', 'verify-cube-geometry.py', 'verify-cube-render.py', 'verify-whole-import.py', 'README.md')]
-    sources += [ROOT / ('plugins/model-import-3d/src/test/java/dev/turboism/validation/modelimport3d/host/'+name+'.java') for name in ('EmbeddedTextureTest','PlanarImportTest')]
+    sources += [ROOT / ('plugins/model-import-3d/src/test/java/dev/turboism/plugin/modelimport3d/'+name+'.java') for name in ('EmbeddedTextureTest','PlanarImportTest')]
     if getattr(args,'persistence_texture',None):
         sources += [ROOT / 'validation/model-import-3d-user-entry' / name for name in ('verify-report.py','verify-texture-pixels.py')]
     if getattr(args,'sheet_input',None):
@@ -82,7 +108,7 @@ def build(args):
             raise ValueError('canonical Warp requires exact authorized source texture GLB')
         if any(getattr(args,k,None) for k in ('source_warp_fixture','source_warp_texture','warp_authoring','cube_input','persistence_texture','sheet_input','planar_inputs','surface_render','sheet_render','pose_drive_geometry')):
             raise ValueError('canonical Warp cannot mix unrelated profiles')
-        sources += [ROOT / ('plugins/model-import-3d/src/main/java/dev/turboism/validation/modelimport3d/host/'+n+'.java') for n in canonical_names]
+        sources += [ROOT / ('plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/'+n+'.java') for n in canonical_names]
         sources += [ROOT / ('validation/model-import-3d-canonical-warp/src/dev/turboism/validation/modelimport3d/host/'+n+'.java') for n in (('CanonicalWarpProbe','CanonicalWarpPreparationTest','CanonicalWarpLayerProbe','CanonicalWarpLayerPreparationTest') if layered else ('CanonicalWarpProbe','CanonicalWarpPreparationTest'))]
         sources += [ROOT / 'validation/model-import-3d-canonical-warp' / n for n in (('verify-canonical-warp.py','test-checker.py','verify-canonical-warp-layered.py','test-layered-checker.py') if layered else ('verify-canonical-warp.py','test-checker.py'))]
     for source in sources:
@@ -179,16 +205,17 @@ def build(args):
                 raise ValueError('source changed during snapshot')
             dest.chmod(0o444)
         sdk_copy = evidence / 'sdk.jar'; shutil.copyfile(sdk, sdk_copy)
+        plugin_copy = evidence / 'plugin.jar'; shutil.copyfile(plugin, plugin_copy)
         write_json(evidence / 'source-manifest.json', manifest)
         bundle = run / 'bundle'; (bundle / 'plugins').mkdir(parents=True)
         shutil.copyfile(agent, bundle / 'turboism-agent.jar')
-        inputs = {'sdkSha256': digest(sdk_copy), 'agentSha256': digest(bundle / 'turboism-agent.jar'),
+        inputs = {'pluginSha256': digest(plugin_copy), 'sdkSha256': digest(sdk_copy), 'agentSha256': digest(bundle / 'turboism-agent.jar'),
                   'sourceManifestSha256': digest(evidence / 'source-manifest.json'),
                   'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                   'gitStatus': subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True),
                   'run': args.run, 'sdkOriginal': str(sdk), 'agentOriginal': str(agent),
                   'toolchain': {'executables': tools, 'versions': versions}}
-        if digest(sdk) != inputs['sdkSha256'] or digest(agent) != inputs['agentSha256']:
+        if digest(sdk) != inputs['sdkSha256'] or digest(agent) != inputs['agentSha256'] or digest(plugin) != inputs['pluginSha256']:
             raise ValueError('build artifact changed during snapshot')
         if getattr(args, 'warp_authoring', False):
             inputs['sourceInventoryVersion'] = 'mi3d-warp-authoring-sources-v1'
@@ -236,25 +263,29 @@ def build(args):
         input_tests = evidence / 'source' / PROBE / 'input-test'
         tests = evidence / 'source' / PROBE / 'native-test'
         classes = run / 'classes'; classes.mkdir()
-        canonical_sources = [evidence / 'source' / p.relative_to(ROOT) for p in sources if p.suffix=='.java' and ('model-import-3d-canonical-warp' in p.parts or p.stem in canonical_names)] if canonical is not None else []
-        command('compile-probe', [tools['javac'], '--release', '17', '-encoding', 'UTF-8', '-cp', sdk_copy,
+        with zipfile.ZipFile(plugin_copy) as archive:
+            for name in archive.namelist():
+                if name.startswith(PLUGIN_CLASS_ROOT) and name.endswith('.class'):
+                    archive.extract(name, classes)
+        canonical_sources = [evidence / 'source' / p.relative_to(ROOT) for p in sources if p.suffix=='.java' and 'model-import-3d-canonical-warp' in p.parts] if canonical is not None else []
+        command('compile-probe', [tools['javac'], '--release', '17', '-encoding', 'UTF-8', '-cp', os.pathsep.join(map(str, (sdk_copy, plugin_copy))),
                  '-d', classes, *sorted(native.rglob('*.java')), *sorted(input_sources.rglob('*.java')), *canonical_sources])
         test_classes = run / 'test-classes'; test_classes.mkdir()
         command('compile-tests', [tools['javac'], '--release', '17', '-encoding', 'UTF-8', '-cp', str(sdk_copy) + os.pathsep + str(classes),
                  '-d', test_classes, *sorted(tests.rglob('*.java')), *sorted(input_tests.rglob('*.java'))])
         command('synthetic-tests', [tools['java'], '-Djava.awt.headless=true', '-cp', os.pathsep.join(map(str, (sdk_copy, classes, test_classes))),
-                 'dev.turboism.validation.modelimport3d.host.HostAssertionsTest'])
+                 'dev.turboism.plugin.modelimport3d.HostAssertionsTest'])
         if cube is not None:
             command('cube-producer-tests', [tools['java'], '-Xmx768m', '-Djava.awt.headless=true', '-cp',
                     os.pathsep.join(map(str, (sdk_copy, classes, test_classes))),
-                    'dev.turboism.validation.modelimport3d.host.CubeGeometryProducerIntegrationTest',
+                    'dev.turboism.plugin.modelimport3d.CubeGeometryProducerIntegrationTest',
                     evidence / 'cube.glb', run / 'cube-producer'])
             command('material-consumer-tests', [tools['java'], '-Xmx768m', '-Djava.awt.headless=true', '-cp',
                     os.pathsep.join(map(str, (sdk_copy, classes, test_classes))),
-                    'dev.turboism.validation.modelimport3d.host.SurfaceImportAppearanceTest', evidence / 'cube.glb'])
+                    'dev.turboism.plugin.modelimport3d.SurfaceImportAppearanceTest', evidence / 'cube.glb'])
             command('whole-import-consumer-tests', [tools['java'], '-Xmx768m', '-Djava.awt.headless=true', '-cp',
                     os.pathsep.join(map(str, (sdk_copy, classes, test_classes))),
-                    'dev.turboism.validation.modelimport3d.host.SurfaceImportTest', evidence / 'cube.glb'])
+                    'dev.turboism.plugin.modelimport3d.SurfaceImportTest', evidence / 'cube.glb'])
             render_env = os.environ.copy()
             render_env['MI3D_RENDER_TEST_CLASSPATH'] = os.pathsep.join(map(str, (sdk_copy, classes, test_classes)))
             render_env['MI3D_WHOLE_TEST_CLASSPATH'] = os.pathsep.join(map(str, (sdk_copy, classes, test_classes)))
@@ -265,7 +296,7 @@ def build(args):
             render_env['MI3D_RENDER_CUBE_INPUT'] = str(evidence / 'cube.glb')
             command('render-oracle-tests', [sys.executable, '-B',
                     evidence / 'source/scripts/test/test_model_import_3d_cube_render.py'], env=render_env)
-            fixture_dir = classes / 'dev/turboism/validation/modelimport3d/host/fixtures'
+            fixture_dir = classes / 'dev/turboism/plugin/modelimport3d/fixtures'
             fixture_dir.mkdir(parents=True)
             shutil.copyfile(evidence / 'cube.glb', fixture_dir / 'cube.glb')
             if texture is not None:
@@ -280,28 +311,28 @@ def build(args):
             metadata = json.loads(descriptor.read_text(encoding='utf-8'))
             if metadata['resources'] != []:
                 raise ValueError('unexpected base probe resources')
-            metadata['resources'] = ['dev/turboism/validation/modelimport3d/host/fixtures/']
+            metadata['resources'] = ['dev/turboism/plugin/modelimport3d/fixtures/']
             descriptor.chmod(0o644)  # Only the generated package copy; frozen sources stay read-only.
             descriptor.write_text(json.dumps(metadata, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
             inputs['packagedDescriptorSha256'] = digest(descriptor)
         if source_warp is not None:
-            fixture_dir=classes / 'dev/turboism/validation/modelimport3d/host/fixtures'
+            fixture_dir=classes / 'dev/turboism/plugin/modelimport3d/fixtures'
             fixture_dir.mkdir(parents=True,exist_ok=True)
             shutil.copyfile(evidence / 'apple-warp.bin',fixture_dir / 'apple-warp.bin')
             if source_texture is not None:shutil.copyfile(evidence / 'apple-textured.glb',fixture_dir / 'apple-textured.glb')
             descriptor=classes / 'META-INF/turboism/plugin.json'
             metadata=json.loads(descriptor.read_text(encoding='utf-8'))
             if metadata['resources'] != []:raise ValueError('unexpected source Warp base resources')
-            metadata['resources']=['dev/turboism/validation/modelimport3d/host/fixtures/']
+            metadata['resources']=['dev/turboism/plugin/modelimport3d/fixtures/']
             descriptor.chmod(0o644)
             descriptor.write_text(json.dumps(metadata,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
             inputs['packagedDescriptorSha256']=digest(descriptor)
         if canonical is not None:
-            fixture_dir=classes / 'dev/turboism/validation/modelimport3d/host/fixtures';fixture_dir.mkdir(parents=True,exist_ok=True)
+            fixture_dir=classes / 'dev/turboism/plugin/modelimport3d/fixtures';fixture_dir.mkdir(parents=True,exist_ok=True)
             shutil.copyfile(evidence / 'apple-textured.glb',fixture_dir / 'apple-textured.glb')
             descriptor=classes / 'META-INF/turboism/plugin.json';metadata=json.loads(descriptor.read_text(encoding='utf-8'))
             if metadata['resources']!=[]:raise ValueError('unexpected canonical resources')
-            metadata['resources']=['dev/turboism/validation/modelimport3d/host/fixtures/'];descriptor.chmod(0o644);descriptor.write_text(json.dumps(metadata,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
+            metadata['resources']=['dev/turboism/plugin/modelimport3d/fixtures/'];descriptor.chmod(0o644);descriptor.write_text(json.dumps(metadata,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
             inputs['packagedDescriptorSha256']=digest(descriptor)
         jar = bundle / 'plugins/model-import-3d-host-probe.jar'
         command('package-probe', [tools['jar'], '--create', '--file', jar, '-C', classes, '.'])
@@ -314,51 +345,51 @@ def build(args):
                  'dev.turboism.validation.modelimport3d.packaging.PluginJarCheck', jar])
         command('cube-save-file-tests', [tools['java'], '-Djava.awt.headless=true', '-cp',
                  os.pathsep.join(map(str, (sdk_copy, classes, test_classes))),
-                 'dev.turboism.validation.modelimport3d.host.CubePersistenceFileTest', run / 'cube-save-file-tests'])
+                 'dev.turboism.plugin.modelimport3d.CubePersistenceFileTest', run / 'cube-save-file-tests'])
         if texture is not None:
             command('source-persistence-profile-tests',[tools['java'],'-Xmx768m','-Djava.awt.headless=true','-cp',
                 os.pathsep.join(map(str,(sdk_copy,classes,test_classes))),
-                'dev.turboism.validation.modelimport3d.host.CubePersistenceInputTest',evidence / 'cube.glb',evidence / 'cube-textured.glb'])
+                'dev.turboism.plugin.modelimport3d.CubePersistenceInputTest',evidence / 'cube.glb',evidence / 'cube-textured.glb'])
         if sheets is not None:
             command('sheet-input-tests',[tools['java'],'-Djava.awt.headless=true','-cp',
                 os.pathsep.join(map(str,(sdk_copy,classes,test_classes))),
-                'dev.turboism.validation.modelimport3d.host.SheetGeometryInputTest',evidence / 'sheets.glb'])
+                'dev.turboism.plugin.modelimport3d.SheetGeometryInputTest',evidence / 'sheets.glb'])
         if sheet_render:
             command('sheet-pixel-encoding-tests',[tools['java'],'-Djava.awt.headless=true','-cp',
                 os.pathsep.join(map(str,(sdk_copy,classes,test_classes))),
-                'dev.turboism.validation.modelimport3d.host.SheetPixelEncodingTest'])
+                'dev.turboism.plugin.modelimport3d.SheetPixelEncodingTest'])
         if planar:
             command('planar-input-tests',[tools['java'],'-Djava.awt.headless=true','-cp',
                 os.pathsep.join(map(str,(sdk_copy,classes,test_classes))),
-                'dev.turboism.validation.modelimport3d.host.PlanarGeometryInputTest',evidence])
+                'dev.turboism.plugin.modelimport3d.PlanarGeometryInputTest',evidence])
         if pose_drive_geometry:
             command('pose-drive-history-tests',[tools['java'],'-Djava.awt.headless=true','-cp',
                 os.pathsep.join(map(str,(sdk_copy,classes,test_classes))),
-                'dev.turboism.validation.modelimport3d.host.PoseDriveHistoryTest'])
+                'dev.turboism.plugin.modelimport3d.PoseDriveHistoryTest'])
         if surface_render:
             command('planar-pixel-encoding-tests',[tools['java'],'-Djava.awt.headless=true','-cp',
                 os.pathsep.join(map(str,(sdk_copy,classes,test_classes))),
-                'dev.turboism.validation.modelimport3d.host.PlanarPixelEncodingTest'])
+                'dev.turboism.plugin.modelimport3d.PlanarPixelEncodingTest'])
         if source_warp is not None:
             command('source-warp-fixture-tests',[tools['java'],'-Xmx512m','-Djava.awt.headless=true','-cp',
                 os.pathsep.join(map(str,(sdk_copy,classes,test_classes))),
-                'dev.turboism.validation.modelimport3d.host.SourceWarpFixtureTest',evidence / 'apple-warp.bin'])
+                'dev.turboism.plugin.modelimport3d.SourceWarpFixtureTest',evidence / 'apple-warp.bin'])
             command('source-warp-provenance-tests',[tools['java'],'-Djava.awt.headless=true','-cp',
                 os.pathsep.join(map(str,(sdk_copy,classes,test_classes))),
-                'dev.turboism.validation.modelimport3d.host.SourceWarpAuthoringTest'])
+                'dev.turboism.plugin.modelimport3d.SourceWarpAuthoringTest'])
             if source_texture is not None:
                 command('source-warp-appearance-binding-tests',[tools['java'],'-Xmx512m','-Djava.awt.headless=true','-cp',
                     os.pathsep.join(map(str,(sdk_copy,classes,test_classes))),
-                    'dev.turboism.validation.modelimport3d.host.SourceWarpAppearanceBindingTest',evidence / 'apple-textured.glb',evidence / 'apple-warp.bin'])
+                    'dev.turboism.plugin.modelimport3d.SourceWarpAppearanceBindingTest',evidence / 'apple-textured.glb',evidence / 'apple-warp.bin'])
                 command('source-warp-appearance-tests',[tools['java'],'-Xmx512m','-Djava.awt.headless=true','-cp',
                     os.pathsep.join(map(str,(sdk_copy,classes,test_classes))),
-                    'dev.turboism.validation.modelimport3d.host.SourceWarpAppearanceTest',evidence / 'apple-textured.glb',evidence / 'apple-warp.bin',run / 'appearance-check'])
+                    'dev.turboism.plugin.modelimport3d.SourceWarpAppearanceTest',evidence / 'apple-textured.glb',evidence / 'apple-warp.bin',run / 'appearance-check'])
                 if digest(source_texture)!=inputs['sourceWarpTextureSha256']:raise ValueError('source texture changed during build')
             if digest(source_warp)!=inputs['sourceWarpFixtureSha256']:raise ValueError('source Warp input changed during build')
         if canonical is not None:
             prepared=run / 'canonical-prepare';prepared.mkdir()
             command('canonical-warp-prepare-tests',[tools['java'],'-Xmx1g','-Djava.awt.headless=true','-cp',os.pathsep.join(map(str,(sdk_copy,classes))),
-                'dev.turboism.validation.modelimport3d.host.'+('CanonicalWarpLayerPreparationTest' if layered else 'CanonicalWarpPreparationTest'),evidence / 'apple-textured.glb',prepared])
+                'dev.turboism.plugin.modelimport3d.'+('CanonicalWarpLayerPreparationTest' if layered else 'CanonicalWarpPreparationTest'),evidence / 'apple-textured.glb',prepared])
             inputs['canonicalPreparedArtifacts']={p.name:digest(p) for p in sorted(prepared.iterdir()) if p.is_file()}
             command('canonical-warp-checker-tests',[sys.executable,'-B',evidence / ('source/validation/model-import-3d-canonical-warp/'+('test-layered-checker.py' if layered else 'test-checker.py')),
                 '--prepared',prepared,'--output',run / 'canonical-checker-tests'])
@@ -395,6 +426,7 @@ def main():
     parser.add_argument('--source-warp-texture', help='exact frozen authored source GLB textures for candidate capture')
     parser.add_argument('--source-warp-fixture', help='exact frozen full-source Warp candidate; validation only')
     parser.add_argument('--warp-authoring', action='store_true', help='freeze exact Warp authoring source inventory')
+    parser.add_argument('--plugin', required=True, help='explicit model-import-3d module JAR')
     parser.add_argument('--sdk', required=True); parser.add_argument('--agent', required=True)
     parser.add_argument('--cube-input', help='exact authorized cube GLB to freeze and bundle')
     parser.add_argument('--persistence-texture', help='optional exact textured GLB for cube persistence/atlas validation; requires original cube')

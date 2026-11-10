@@ -1,4 +1,4 @@
-package dev.turboism.validation.modelimport3d.host;
+package dev.turboism.plugin.modelimport3d;
 
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.command.EditorCommand;
@@ -169,12 +169,12 @@ public final class HostProbe implements TurboismPlugin {
                 });
                 var section=new LinkedHashMap<String,Object>();report.data.put("canonicalWarp",section);
                 byte[] raw;
-                try(var input=HostProbe.class.getResourceAsStream("/dev/turboism/validation/modelimport3d/host/fixtures/apple-textured.glb")) {
+                try(var input=HostProbe.class.getResourceAsStream("/dev/turboism/plugin/modelimport3d/fixtures/apple-textured.glb")) {
                     NativeAssertions.require(input!=null,"missing canonical source GLB");raw=input.readNBytes(16*1024*1024+1);
                 }
                 NativeAssertions.require(raw.length<=16*1024*1024 && java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(raw)).equals("3b31ef1167d6aa75c5746906838ad1e37447718ece116512c187337be0f87999"),"canonical source GLB identity");
                 // Optional probe module is packaged only by the explicit canonical inventory.
-                var entry=Class.forName("dev.turboism.validation.modelimport3d.host."+("canonical-warp-layered-textured".equals(mode)?"CanonicalWarpLayerProbe":"CanonicalWarpProbe")).getDeclaredMethod("runSource",byte[].class,java.util.function.Supplier.class,java.util.function.Supplier.class,java.util.function.IntConsumer.class,dev.turboism.sdk.cubism.transaction.AuthoringTransactionService.class,java.nio.file.Path.class,java.util.Map.class);
+                var entry=Class.forName("dev.turboism.plugin.modelimport3d."+("canonical-warp-layered-textured".equals(mode)?"CanonicalWarpLayerProbe":"CanonicalWarpProbe")).getDeclaredMethod("runSource",byte[].class,java.util.function.Supplier.class,java.util.function.Supplier.class,java.util.function.IntConsumer.class,dev.turboism.sdk.cubism.transaction.AuthoringTransactionService.class,java.nio.file.Path.class,java.util.Map.class);
                 try {
                 entry.invoke(null,raw,(java.util.function.Supplier<CubismModel>)this::current,(java.util.function.Supplier<dev.turboism.sdk.cubism.history.HistorySnapshot>)this::history,(java.util.function.IntConsumer)this::restore,edt(()->context.cubism().authoringTransactions()),context.paths().stateDir(),section);
                 } catch (java.lang.reflect.InvocationTargetException wrapped) {
@@ -190,7 +190,7 @@ public final class HostProbe implements TurboismPlugin {
                 edt(()->{initialCounts=counts(current());initialHistory=history();
                     report.data.put("initialCounts",initialCounts);report.data.put("historyBefore",historyData(initialHistory));return null;});
                 var section=new LinkedHashMap<String,Object>();report.data.put("sourceWarpCandidate",section);
-                String resource="/dev/turboism/validation/modelimport3d/host/fixtures/apple-warp.bin";
+                String resource="/dev/turboism/plugin/modelimport3d/fixtures/apple-warp.bin";
                 var digest=java.security.MessageDigest.getInstance("SHA-256");long length=0;
                 try(var input=HostProbe.class.getResourceAsStream(resource)) {
                     NativeAssertions.require(input!=null,"missing authorized source Warp resource");
@@ -205,7 +205,7 @@ public final class HostProbe implements TurboismPlugin {
                 SourceWarpAppearance.Plan appearance=null;
                 if("source-warp-textured".equals(mode)) {
                     byte[] raw;
-                    try(var input=HostProbe.class.getResourceAsStream("/dev/turboism/validation/modelimport3d/host/fixtures/apple-textured.glb")) {
+                    try(var input=HostProbe.class.getResourceAsStream("/dev/turboism/plugin/modelimport3d/fixtures/apple-textured.glb")) {
                         NativeAssertions.require(input!=null,"missing apple source texture resource");
                         raw=input.readNBytes(16*1024*1024+1);
                     }

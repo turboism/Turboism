@@ -5,7 +5,7 @@
   "name": "3D Import N2 Native Probe",
   "version": "0.0.0",
   "description": "Task-only SDK probe for a new blank model, native ArtMesh creation, stored forms and ordinary grid Undo/Redo. Not a production importer.",
-  "entrypoints": ["dev.turboism.validation.modelimport3d.host.HostProbe"],
+  "entrypoints": ["dev.turboism.plugin.modelimport3d.HostProbe"],
   "turboismApi": "[0.67.0,1.0.0)",
   "authors": [{"name": "Turboism Validation"}],
   "license": "Project License",

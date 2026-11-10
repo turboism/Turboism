@@ -5,6 +5,10 @@ exercise the accepted **offline** locate/identity/digest/material protocol.
 They never load or connect to Cubism and their native sections remain NOT_RUN.
 `native-src/` and `build-host.py` implement the separately gated N2 investigation below.
 
+The plugin owns shipped importer sources under `plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/`.
+Probe sources remain here and share that package to access importer contracts.
+The host builder consumes the plugin module JAR and records its hash with the frozen build inputs.
+
 ## Build / run (offline only)
 
 From the repository root (Bash, Python 3 stdlib, JDK 17 required):
@@ -155,7 +159,7 @@ binding before restoration. The bounded 90-second wait keeps only the last
 observation, attempt count and phase (`SEED`/`NEW`), including honest missing,
 changed or errored states. A timeout never fabricates a seed or a new model.
 
-`native-src/` is compiled **only against the public SDK and JDK**, not runtime or
+`native-src/` compiles against the plugin module JAR, public SDK, and JDK, without runtime or
 Cubism jars. No reflective host access, simulated evaluation or new launcher.
 Its manifest declares model read/write; it is never part of release packaging.
 `native-test/` is a synthetic oracle self-test, not a host run.
@@ -166,11 +170,12 @@ JAR. Each build checks the real JAR and three rejected content mutations
 (missing base catalog, missing entrypoint, undeclared localized catalog).
 The implicit base i18n catalog is required even when `locales` is empty.
 
-Build explicit artifacts first (`./gradlew previewBundle :sdk:jar`). Then use the
+Build explicit artifacts first (`./gradlew previewBundle :sdk:jar :plugins:model-import-3d:jar`). Then use the
 actual SDK and agent paths from that build, not a guessed newest artifact:
 
 ```sh
 python3 validation/model-import-3d-host-probe/build-host.py \
+  --plugin /absolute/worktree/build/path/model-import-3d.jar \
   --sdk /absolute/worktree/build/path/sdk.jar \
   --agent /absolute/worktree/build/preview/path/turboism-agent.jar \
   --run unique-unused-label --dry-run
