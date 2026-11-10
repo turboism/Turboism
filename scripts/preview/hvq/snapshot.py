@@ -20,6 +20,7 @@ from reviewed_host_artifacts import compact, load
 from .common import (
     QUEUE_PROTOCOL,
     SCHEMA,
+    HostOs,
     QueueError,
     atomic_json,
     canonical_json,
