@@ -133,8 +133,11 @@ class PhysicsEditorPluginTest {
         await(
                 () -> plugin.recording().state() == GifRecordingController.State.IDLE,
                 "a failed capture returns the state machine to idle");
-        assertTrue(
-                statusValue(source.content.get()).isBlank(), "a finished run leaves no notice in the frame-rate line");
+        // The strip is republished after the state settles, so wait for the empty cell instead of
+        // sampling it once: a slower machine still showed the previous progress text.
+        await(
+                () -> statusValue(source.content.get()).isBlank(),
+                "a finished run leaves no notice in the frame-rate line");
         plugin.disable();
     }
 
