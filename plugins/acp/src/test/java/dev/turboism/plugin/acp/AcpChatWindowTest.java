@@ -5,10 +5,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.i18n.PluginLocalization;
 import java.awt.Dimension;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.text.AttributedString;
+import java.text.MessageFormat;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.swing.Action;
 import javax.swing.JComboBox;
@@ -155,5 +161,58 @@ final class AcpChatWindowTest {
         final String bounded = AcpChatWindow.boundedToolMetadata(prefix + "😀suffix");
         assertEquals(4095, bounded.length());
         assertFalse(Character.isHighSurrogate(bounded.charAt(bounded.length() - 1)));
+    }
+
+    @Test
+    void composerPlaceholderDrawsEveryLocalizedSuggestionInsteadOfTheGenericInvitation() {
+        final PluginLocalization localization = catalog(Map.of(
+                "composer.placeholder",
+                "Message the agent…",
+                "composer.suggestion.mask-import",
+                "Import PSD masks",
+                "composer.suggestion.folder-colors",
+                "Set folder colors",
+                "composer.suggestion.missing-display",
+                "Why is this hidden"));
+
+        final Set<String> drawn = new HashSet<>();
+        for (int seed = 0; seed < 200; seed++) {
+            drawn.add(AcpComposerPlaceholder.choose(localization, new java.util.Random(seed)));
+        }
+
+        assertEquals(Set.of("Import PSD masks", "Set folder colors", "Why is this hidden"), drawn);
+    }
+
+    @Test
+    void composerPlaceholderFallsBackToTheGenericInvitationForPartialCatalogs() {
+        assertEquals(
+                "Message the agent…",
+                AcpComposerPlaceholder.choose(
+                        catalog(Map.of("composer.placeholder", "Message the agent…")), new java.util.Random(1)));
+        assertEquals("", AcpComposerPlaceholder.choose(catalog(Map.of()), new java.util.Random(1)));
+    }
+
+    private static PluginLocalization catalog(final Map<String, String> entries) {
+        return new PluginLocalization() {
+            @Override
+            public Locale locale() {
+                return Locale.ENGLISH;
+            }
+
+            @Override
+            public String text(final String key) {
+                return entries.get(key);
+            }
+
+            @Override
+            public String format(final String key, final Object... arguments) {
+                return new MessageFormat(text(key), locale()).format(arguments);
+            }
+
+            @Override
+            public boolean contains(final String key) {
+                return entries.containsKey(key);
+            }
+        };
     }
 }

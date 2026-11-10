@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.random.RandomGenerator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.AbstractAction;
@@ -727,7 +728,7 @@ final class AcpChatWindow implements AcpChatController.View {
         customCommand.setText(Objects.requireNonNullElse(savedCustomCommand, ""));
         initialPrompt.setText(savedInitialPrompt);
         initialPrompt.putClientProperty(
-                "JTextField.placeholderText", localization.text("settings.initial-prompt-placeholder"));
+                AcpComposerPanel.PLACEHOLDER_PROPERTY, localization.text("settings.initial-prompt-placeholder"));
         send.setEnabled(false);
         cancel.setEnabled(false);
         newSession.setEnabled(false);
@@ -756,7 +757,9 @@ final class AcpChatWindow implements AcpChatController.View {
         }
         prompt.setLineWrap(true);
         prompt.setWrapStyleWord(true);
-        prompt.putClientProperty("JTextField.placeholderText", localization.text("composer.placeholder"));
+        prompt.putClientProperty(
+                AcpComposerPanel.PLACEHOLDER_PROPERTY,
+                AcpComposerPlaceholder.choose(localization, RandomGenerator.getDefault()));
         initialPrompt.setLineWrap(true);
         initialPrompt.setWrapStyleWord(true);
         updateAgentDetail();

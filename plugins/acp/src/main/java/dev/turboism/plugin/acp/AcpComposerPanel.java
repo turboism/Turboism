@@ -16,6 +16,10 @@ import javax.swing.SwingUtilities;
 
 /** Theme-colored input card and compact controls that wrap when the window narrows. */
 final class AcpComposerPanel extends JPanel {
+
+    /** Swing client-property name that both the window and this panel's prompt area read. */
+    static final String PLACEHOLDER_PROPERTY = "JTextField.placeholderText";
+
     AcpComposerPanel() {
         setOpaque(false);
     }
@@ -110,7 +114,7 @@ final class AcpComposerPanel extends JPanel {
         protected void paintComponent(final Graphics graphics) {
             super.paintComponent(graphics);
             if (getDocument().getLength() != 0) return;
-            final Object placeholder = getClientProperty("JTextField.placeholderText");
+            final Object placeholder = getClientProperty(PLACEHOLDER_PROPERTY);
             if (!(placeholder instanceof String text)) return;
             final Graphics2D g = (Graphics2D) graphics.create();
             try {
