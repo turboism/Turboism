@@ -75,56 +75,8 @@ public enum PluginService {
     /** {@link dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService} */
     FILE_CHOOSER_HISTORY(dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.class),
 
-    /**
-     * {@link dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService}
-     *
-     * @deprecated use {@link #MESH_MIRROR_CONTROL}
-     */
-    @Deprecated(forRemoval = true)
-    MESH_MIRROR_AXIS(dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService.class),
-
     /** {@link dev.turboism.sdk.cubism.mesh.MeshEditService} */
     MESH_EDIT(dev.turboism.sdk.cubism.mesh.MeshEditService.class),
-
-    /**
-     * {@link dev.turboism.sdk.cubism.mesh.MeshEditParticipation}
-     *
-     * @deprecated use {@link #MESH_EDIT_CONTRIBUTION}
-     */
-    @Deprecated(forRemoval = true)
-    MESH_EDIT_PARTICIPATION(dev.turboism.sdk.cubism.mesh.MeshEditParticipation.class),
-
-    /**
-     * {@link dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts}
-     *
-     * @deprecated use {@link #MESH_MIRROR_CONTROL}
-     */
-    @Deprecated(forRemoval = true)
-    MESH_MIRROR_COUNTERPARTS(dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts.class),
-
-    /**
-     * {@link dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility}
-     *
-     * @deprecated use {@link #MESH_MIRROR_CONTROL}
-     */
-    @Deprecated(forRemoval = true)
-    MESH_MIRROR_TOOL_ELIGIBILITY(dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility.class),
-
-    /**
-     * {@link dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation}
-     *
-     * @deprecated use {@link #MESH_MIRROR_CONTROL}
-     */
-    @Deprecated(forRemoval = true)
-    MESH_MIRROR_MOVE_PARTICIPATION(dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation.class),
-
-    /**
-     * {@link dev.turboism.sdk.cubism.mesh.MeshEditUiService}
-     *
-     * @deprecated use {@link #MESH_EDIT_CONTRIBUTION}
-     */
-    @Deprecated(forRemoval = true)
-    MESH_EDIT_UI(dev.turboism.sdk.cubism.mesh.MeshEditUiService.class),
 
     /**
      * Directory-only mesh mirror control: axis, counterparts, movement participation and

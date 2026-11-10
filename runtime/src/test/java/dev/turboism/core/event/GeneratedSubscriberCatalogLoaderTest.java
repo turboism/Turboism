@@ -4,14 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.core.event.failure.FailureBoundary;
+import dev.turboism.core.event.failure.NoFailureInterception;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.event.EventPriority;
 import dev.turboism.sdk.event.EventSubscriberRegistrar;
 import dev.turboism.sdk.event.GeneratedSubscriberCatalog;
 import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.event.TurboismEvent;
-import dev.turboism.sdk.failure.FailureBoundary;
-import dev.turboism.sdk.failure.NoFailureInterception;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService.MirrorAxisAngleControl;
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface.MirrorAxisAngleControl;
 import dev.turboism.sdk.plugin.Registration;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Proxy;

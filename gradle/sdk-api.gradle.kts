@@ -2,9 +2,9 @@ import org.gradle.api.tasks.Exec
 import org.gradle.jvm.tasks.Jar
 import dev.turboism.gradle.internal.VerificationStamps
 
-val sdkApiBaselineTool = layout.projectDirectory.file("scripts/test/sdk_api_baseline_cli.py")
+val sdkApiBaselineTool = layout.projectDirectory.file("scripts/sdk-api/sdk_api_baseline_cli.py")
 val sdkJarArtifact = project(":sdk").tasks.named<Jar>("jar").flatMap { it.archiveFile }
-val sdkApiHelperFiles = fileTree("scripts/test") {
+val sdkApiHelperFiles = fileTree("scripts/sdk-api") {
     include("sdk_api_baseline*.py")
 }
 
@@ -12,7 +12,12 @@ val checkSdkApiBaselineTool by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs deterministic SDK API baseline mutation and compatibility selftests."
     workingDir(rootDir)
-    inputs.files(sdkApiHelperFiles, "scripts/test/test_sdk_api_baseline.sh")
+    inputs.files(
+        sdkApiHelperFiles,
+        "scripts/test/test_sdk_api_baseline.sh",
+        "scripts/test/sdk_api_baseline_selftest.py",
+        "scripts/test/sdk_api_baseline_selftest_fixtures.py"
+    )
     VerificationStamps.apply(this)
     commandLine("bash", "scripts/test/test_sdk_api_baseline.sh")
 }
@@ -38,17 +43,21 @@ val generateSdkApiReport by tasks.registering(Exec::class) {
 
 val sdkApiCurrent = layout.projectDirectory.file("sdk/api-contracts/current.txt")
 val sdkApiCurrentReport = layout.buildDirectory.file("reports/sdk-api/current.txt")
+val sdkNoPluginConsumerList = layout.projectDirectory.file("sdk/api-contracts/no-plugin-consumer.txt")
 
 val checkSdkApiCurrent by tasks.registering(Exec::class) {
     group = "verification"
-    description = "Verifies the public SDK surface matches the reviewed current snapshot."
+    description = "Verifies the public SDK surface matches the reviewed current snapshot and keeps the plugin-consumer guard."
     dependsOn(generateSdkApiReport)
-    inputs.files(sdkApiCurrent, sdkApiCurrentReport, sdkApiHelperFiles)
+    inputs.files(sdkApiCurrent, sdkApiCurrentReport, sdkApiHelperFiles, sdkNoPluginConsumerList)
+    inputs.files(fileTree("plugins") { include("*/src/main/java/**/*.java") })
     workingDir(rootDir)
     commandLine(
         "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-current",
         "--input", sdkApiCurrentReport.get().asFile.absolutePath,
-        "--current", sdkApiCurrent.asFile.absolutePath
+        "--current", sdkApiCurrent.asFile.absolutePath,
+        "--plugins", rootDir.resolve("plugins").absolutePath,
+        "--no-consumer-list", sdkNoPluginConsumerList.asFile.absolutePath
     )
     VerificationStamps.apply(this)
 }

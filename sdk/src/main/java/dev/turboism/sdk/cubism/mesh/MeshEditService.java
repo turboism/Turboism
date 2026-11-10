@@ -7,7 +7,8 @@ import java.util.List;
  * Plugin-initiated mesh authoring.
  *
  * <p>Each mutation call is one host undo step of its own. To fold changes into an edit the host
- * started, use {@link MeshEditParticipation} instead — that joins the host's existing group.</p>
+ * started, use {@link MeshEditContributionSurface#participate} instead — that joins the host's
+ * existing group.</p>
  *
  * <p>Every operation dispatches to the host thread, validates before mutating, and rejects stale
  * references rather than guessing a replacement. Cubism assigns identities to added points; call

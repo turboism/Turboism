@@ -9,7 +9,6 @@ import dev.turboism.sdk.cubism.mesh.MeshDeletion;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
 import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
 import dev.turboism.sdk.cubism.mesh.MeshEditTool;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
 import dev.turboism.sdk.cubism.mesh.MeshPointRef;
 import dev.turboism.sdk.cubism.mesh.MeshSnapshot;
 import dev.turboism.sdk.cubism.mesh.MirrorAxisState;
@@ -560,7 +559,7 @@ public final class NativeMeshMirrorBridge {
      * Returns the per-plugin mirror-counterpart view that owns its own resolver override over
      * this session's shared resolution.
      */
-    public static MeshMirrorCounterparts pluginCounterparts() {
+    public static PluginMeshMirrorCounterparts pluginCounterparts() {
         return new PluginMeshMirrorCounterparts(counterparts());
     }
 

@@ -9,7 +9,7 @@ import java.util.Optional;
  * <p>This is the expensive path, and deliberately so: registering it makes the runtime
  * materialise a {@link MeshSnapshot} and call this method once per source point, synchronously,
  * on the host thread, inside a host mutation. The framework default in
- * {@link MeshMirrorCounterparts#mirrorOf} does none of that. Prefer the default unless the rule
+ * {@link MeshMirrorControl#mirrorOf} does none of that. Prefer the default unless the rule
  * genuinely has to differ.</p>
  */
 @FunctionalInterface

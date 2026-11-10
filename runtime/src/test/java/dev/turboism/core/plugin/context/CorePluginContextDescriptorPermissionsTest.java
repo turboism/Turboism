@@ -28,7 +28,7 @@ import dev.turboism.sdk.cubism.RenderStatusSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorControl;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -441,7 +441,7 @@ class CorePluginContextDescriptorPermissionsTest {
     }
 
     @Test
-    void exposesTheRuntimeOwnedMeshMirrorAxisService(@TempDir Path dataDir) {
+    void exposesTheRuntimeOwnedMeshMirrorControl(@TempDir Path dataDir) {
         CorePluginContext context = context(
                 dataDir,
                 descriptorWithPermissions(List.of(
@@ -450,15 +450,15 @@ class CorePluginContextDescriptorPermissionsTest {
                 RuntimeHostAdapters.safeMode());
 
         context.services()
-                .find(MeshMirrorAxisService.class)
-                .orElse(MeshMirrorAxisService.unavailable())
+                .find(MeshMirrorControl.class)
+                .orElse(MeshMirrorControl.unavailable())
                 .setCurrentAngleDegrees(225.0f);
 
         assertEquals(
                 -135.0f,
                 context.services()
-                        .find(MeshMirrorAxisService.class)
-                        .orElse(MeshMirrorAxisService.unavailable())
+                        .find(MeshMirrorControl.class)
+                        .orElse(MeshMirrorControl.unavailable())
                         .currentAngleDegrees());
     }
 

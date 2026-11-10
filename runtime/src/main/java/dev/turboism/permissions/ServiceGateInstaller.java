@@ -2,14 +2,8 @@ package dev.turboism.permissions;
 
 import dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService;
 import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface;
-import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
 import dev.turboism.sdk.cubism.mesh.MeshEditService;
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorControl;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -213,94 +207,8 @@ public final class ServiceGateInstaller {
             new ServiceGate(
                     MeshEditService.class, "isAvailable", null, "cubism.mesh.edit.available", ServiceGate.Access.READ),
 
-            // Participation folds deletions into a host edit, so it is a write, not an observation.
-            new ServiceGate(
-                    MeshEditParticipation.class,
-                    "participate",
-                    PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
-                    "cubism.mesh.edit.participate",
-                    ServiceGate.Access.WRITE),
-            new ServiceGate(
-                    MeshEditParticipation.class,
-                    "isAvailable",
-                    null,
-                    "cubism.mesh.edit-participation.available",
-                    ServiceGate.Access.READ),
-
-            // Counterpart resolution feeds a host deletion, so both verbs answer to the write
-            // permission; resolving itself observes, overriding replaces the plugin's own rule.
-            new ServiceGate(
-                    MeshMirrorCounterparts.class,
-                    "mirrorOf",
-                    PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
-                    "cubism.mesh.mirror-counterparts.resolve",
-                    ServiceGate.Access.READ),
-            new ServiceGate(
-                    MeshMirrorCounterparts.class,
-                    "overrideResolver",
-                    PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
-                    "cubism.mesh.mirror-counterparts.override",
-                    ServiceGate.Access.WRITE),
-            new ServiceGate(
-                    MeshMirrorCounterparts.class,
-                    "isAvailable",
-                    null,
-                    "cubism.mesh.mirror-counterparts.available",
-                    ServiceGate.Access.READ),
-            new ServiceGate(
-                    MeshMirrorMoveParticipation.class,
-                    "participate",
-                    PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
-                    "cubism.mesh.mirror-move.participate",
-                    ServiceGate.Access.WRITE),
-            new ServiceGate(
-                    MeshMirrorMoveParticipation.class,
-                    "isAvailable",
-                    null,
-                    "cubism.mesh.mirror-move.available",
-                    ServiceGate.Access.READ),
-            new ServiceGate(
-                    MeshMirrorToolEligibility.class,
-                    "extendEligibleTools",
-                    PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
-                    "cubism.mesh.mirror-tool-eligibility.extend",
-                    ServiceGate.Access.WRITE),
-            new ServiceGate(
-                    MeshMirrorToolEligibility.class,
-                    "isAvailable",
-                    null,
-                    "cubism.mesh.mirror-tool-eligibility.available",
-                    ServiceGate.Access.READ),
-            new ServiceGate(
-                    MeshMirrorAxisService.class,
-                    "currentAngleDegrees",
-                    PermissionIds.TURBOISM_CUBISM_MODEL_READ,
-                    "cubism.mesh.mirror-axis.read",
-                    ServiceGate.Access.READ),
-            new ServiceGate(
-                    MeshMirrorAxisService.class,
-                    "setCurrentAngleDegrees",
-                    PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
-                    "cubism.mesh.mirror-axis.write",
-                    ServiceGate.Access.WRITE),
-            new ServiceGate(
-                    MeshMirrorAxisService.class,
-                    "isAvailable",
-                    null,
-                    "cubism.mesh.mirror-axis.available",
-                    ServiceGate.Access.READ),
-            new ServiceGate(
-                    MeshEditUiService.class,
-                    "contributeMirrorAxisAngleControl",
-                    PermissionIds.TURBOISM_UI_PANEL_CONTRIBUTE,
-                    "ui.mesh-edit.mirror-axis-angle.contribute",
-                    ServiceGate.Access.WRITE),
-            new ServiceGate(
-                    MeshEditUiService.class, "isAvailable", null, "ui.mesh-edit.available", ServiceGate.Access.READ),
-
-            // The consolidated mirror control repeats the rows of the four single-purpose
-            // interfaces above operation for operation: same permissions, same operation ids,
-            // so a plugin migrating to the one surface keeps the audit trail it had.
+            // The consolidated mirror control keeps the permission and audit operation id of every
+            // single-purpose surface it replaced, so a migrated plugin keeps its former audit trail.
             new ServiceGate(
                     MeshMirrorControl.class,
                     "currentAngleDegrees",
@@ -344,9 +252,9 @@ public final class ServiceGateInstaller {
                     "cubism.mesh.mirror-control.available",
                     ServiceGate.Access.READ),
 
-            // The consolidated contribution surface repeats the rows of the two single-purpose
-            // interfaces above for the same reason: one participant is a host write, one
-            // tool-area control is a panel contribution.
+            // The consolidated contribution surface keeps the operation ids the two single-purpose
+            // surfaces used: one participant is a host write, one tool-area control is a panel
+            // contribution.
             new ServiceGate(
                     MeshEditContributionSurface.class,
                     "participate",

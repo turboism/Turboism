@@ -72,18 +72,6 @@ public enum EditorCommand {
     MODELING_REFLECTION_AXIS_FOR_MESH_EDIT(ReviewedVersions.since("5.0.00")),
     MODELING_REFLECTION_H(ReviewedVersions.since("5.0.00")),
     MODELING_REFLECTION_V(ReviewedVersions.since("5.0.00")),
-    /**
-     * @deprecated the {@code CMD_MOVE_End} id appears in no reviewed jar; the empty support
-     *     set means the command can never be issued. Kept only for SDK binary compatibility.
-     */
-    @Deprecated(forRemoval = true)
-    MOVE_END(Set.of()),
-    /**
-     * @deprecated the {@code CMD_MOVE_End_WORKSPACE} id appears in no reviewed jar; the empty
-     *     support set means the command can never be issued. Kept only for SDK binary compatibility.
-     */
-    @Deprecated(forRemoval = true)
-    MOVE_END_WORKSPACE(Set.of()),
     MOVE_START(ReviewedVersions.since("5.0.00")),
     MOVE_START_WORKSPACE(ReviewedVersions.since("5.0.00")),
     MOVE_TAB_NEXT(ReviewedVersions.since("5.0.00")),

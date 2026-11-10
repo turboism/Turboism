@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 class EditorCommandCatalogTest {
     @Test
     void exposesTheCompleteDirectSafeCatalogWithoutExcludedCommands() {
-        assertEquals(197, EditorCommand.values().length);
+        assertEquals(195, EditorCommand.values().length);
         assertTrue(Set.of(EditorCommand.values()).contains(EditorCommand.SAVE));
         assertTrue(Set.of(EditorCommand.values()).contains(EditorCommand.UNDO));
         assertTrue(Set.of(EditorCommand.values()).contains(EditorCommand.NEXT_FRAME));
@@ -26,6 +26,9 @@ class EditorCommandCatalogTest {
                 .anyMatch(command -> command.name().equals("CLOSE_ALL")));
         assertFalse(java.util.Arrays.stream(EditorCommand.values())
                 .anyMatch(command -> command.name().contains("LICENSE")));
+        // The released dead constants map to no reviewed jar id, so they can never be issued.
+        assertFalse(java.util.Arrays.stream(EditorCommand.values())
+                .anyMatch(command -> command.name().startsWith("MOVE_END")));
     }
 
     @Test

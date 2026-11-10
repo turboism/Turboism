@@ -14,6 +14,7 @@ import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
 import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
 import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHostProfile;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface.MirrorAxisAngleControl;
 import dev.turboism.test.Stubs;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Proxy;
@@ -260,8 +261,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
         installer.install();
         installer.bind();
         final var contribution = ui.contributeMirrorAxisAngleControl(
-                new dev.turboism.sdk.cubism.mesh.MeshEditUiService.MirrorAxisAngleControl(
-                        "test-mirror", "Mirror", "Reset", -180.0f, 180.0f, 1.0f, ignored -> {}));
+                new MirrorAxisAngleControl("test-mirror", "Mirror", "Reset", -180.0f, 180.0f, 1.0f, ignored -> {}));
         assertTrue(ui.contribution() != null);
 
         contribution.close();
@@ -617,7 +617,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
         final RuntimeMeshMirrorAxisService axis = new RuntimeMeshMirrorAxisService();
         axis.setCurrentAngleDegrees(45.0f);
         final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
-        ui.contributeMirrorAxisAngleControl(new dev.turboism.sdk.cubism.mesh.MeshEditUiService.MirrorAxisAngleControl(
+        ui.contributeMirrorAxisAngleControl(new MirrorAxisAngleControl(
                 "mesh.mirror-axis.angle", "Angle", "", -180.0f, 180.0f, 0.1f, ignored -> {}));
         final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
                 instrumentation, getClass().getClassLoader(), axis, ui, profile(), diagnostics::add);

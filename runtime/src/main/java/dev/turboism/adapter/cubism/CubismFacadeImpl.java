@@ -1202,13 +1202,6 @@ public final class CubismFacadeImpl implements CubismFacade {
     }
 
     @Override
-    public dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi textureAtlasEditorUi() {
-        requireActiveScope();
-        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi delegate = textureAtlasEditorUi;
-        return CubismFacadeAdapters.editorUiView(this, delegate);
-    }
-
-    @Override
     public dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
         requireActiveScope();
         final RuntimeTextureAtlasLayoutAlgorithmRegistry delegate = textureAtlasAlgorithms;

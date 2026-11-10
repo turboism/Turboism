@@ -84,6 +84,40 @@ def verify_current_surface(args: argparse.Namespace) -> None:
             fail(f"current surface mismatch diagnostic missing {fragment!r}")
     if current.read_bytes() != original:
         fail("current surface check refreshed the reviewed file")
+    verify_plugin_consumer_guard(args)
+
+
+def verify_plugin_consumer_guard(args: argparse.Namespace) -> None:
+    # A public type may not join the surface without a first-party plugin consumer,
+    # and a nested type never counts as its own type.
+    surface = args.tmp / "guard-surface.txt"
+    surface.write_text(
+        "sdk-api-schema\t1\n"
+        "class\tname=dev/sdk/Consumed\tflags=public\n"
+        "class\tname=dev/sdk/Unconsumed\tflags=public\n"
+        "class\tname=dev/sdk/Unconsumed$Nested\tflags=public\n",
+        encoding="utf-8",
+    )
+    plugins = args.tmp / "guard-plugins"
+    source = plugins / "demo" / "src" / "main" / "java" / "Demo.java"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("final class Demo { Consumed consumed; }\n", encoding="utf-8")
+    allow_list = args.tmp / "guard-list.txt"
+    allow_list.write_text("# reviewed entries\ndev.sdk.Unconsumed\n", encoding="utf-8")
+    arguments = (
+        "--input", str(surface), "--current", str(surface),
+        "--plugins", str(plugins), "--no-consumer-list", str(allow_list),
+    )
+    run(args.tool, "verify-current", *arguments)
+    surface.write_text(
+        surface.read_text(encoding="utf-8") + "class\tname=dev/sdk/Newcomer\tflags=public\n",
+        encoding="utf-8",
+    )
+    output = run_failure(args.tool, "verify-current", *arguments)
+    if "dev.sdk.Newcomer has no first-party plugin consumer" not in output:
+        fail("plugin-consumer guard accepted a public type without a plugin consumer")
+    if "dev.sdk.Consumed" in output:
+        fail("plugin-consumer guard reported a type a plugin source names")
 
 
 def verify_incubating_exclusion(args: argparse.Namespace) -> None:

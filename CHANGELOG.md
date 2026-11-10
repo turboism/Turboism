@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Removed
+
+- The SDK drops every released surface that no first-party plugin consumes, ahead of the pre-stable baseline refresh recorded for this change: the six single-purpose mesh services `MeshMirrorAxisService`, `MeshMirrorCounterparts`, `MeshMirrorMoveParticipation`, `MeshMirrorToolEligibility`, `MeshEditParticipation` and `MeshEditUiService` with their `PluginService` members and `MeshEditUiService.MirrorAxisAngleControl`; the texture-atlas editor pair `TextureAtlasEditorUi` and `TextureAtlasEditorPanel` with `CubismFacade.textureAtlasEditorUi()`; `UiHostCapabilityService.refreshOffCanvasAppearance()`; the `EditorCommand.MOVE_END` and `EditorCommand.MOVE_END_WORKSPACE` constants that map to no reviewed jar id; the `Motion3Validator`, `Motion3Issue` and `Motion3Report` trio; and the `dev.turboism.sdk.failure` annotations, which now live in the runtime as `dev.turboism.core.event.failure`. `MeshMirrorControl`, `MeshEditContributionSurface`, `HostViewPanel` with `HostViewAnchors.TEXTURE_ATLAS_EDITOR`, and `PreviewFrameService` replace them. Permissions, operation ids, the plugin API range and the framework version are unchanged.
+
 ### Added
 
 - The ACP composer now shows a random localized example request as its placeholder each time the window opens. The plugin catalog owns the example wording, so translators revise it without code changes.

@@ -168,9 +168,7 @@ public final class RuntimeEditorCommandService implements EditorCommandService {
             case OPEN_BACKUP_DIR, OPEN_LOG_FILE -> Set.of(READ_PERMISSION, PermissionIds.TURBOISM_PROCESS);
             case FOCUS_ON_SELECTED_OBJECTS,
                     MOVE_START,
-                    MOVE_END,
                     MOVE_START_WORKSPACE,
-                    MOVE_END_WORKSPACE,
                     MOVE_TAB_NEXT,
                     MOVE_TAB_PREV,
                     NEXT_FRAME,

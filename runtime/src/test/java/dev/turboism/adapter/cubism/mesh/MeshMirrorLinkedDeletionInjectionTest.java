@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface.MirrorAxisAngleControl;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -174,7 +174,7 @@ final class MeshMirrorLinkedDeletionInjectionTest {
     private static List<String> installBridge() {
         final List<String> diagnostics = new ArrayList<>();
         final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
-        ui.contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
+        ui.contributeMirrorAxisAngleControl(new MirrorAxisAngleControl(
                 "mesh.mirror-axis.angle", "Angle", "Reset", -180.0f, 180.0f, 0.1f, ignored -> {}));
         NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), ui);
         NativeMeshMirrorBridge.mirrorForTesting(new AlwaysEnabledMirror());

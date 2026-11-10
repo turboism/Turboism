@@ -26,9 +26,7 @@ import dev.turboism.sdk.cubism.command.EditorResizeModelRequest;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
-import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession;
-import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
@@ -91,8 +89,6 @@ class EditorCommandServiceLifecycleCompositionTest {
             CubismFacade facade = factory.create(dependencies).cubismFacade();
             TextureAtlasLayoutService layouts = facade.textureAtlasLayouts();
             TextureAtlasEditorSession editorSession = facade.textureAtlasEditorSession();
-            TextureAtlasEditorUi editorUi = facade.textureAtlasEditorUi();
-            TextureAtlasEditorPanel panel = editorUi.attach();
             TextureAtlasLayoutAlgorithmRegistry algorithms = facade.textureAtlasAlgorithms();
 
             scope.close();
@@ -100,9 +96,6 @@ class EditorCommandServiceLifecycleCompositionTest {
             assertThrows(IllegalStateException.class, layouts::current);
             assertThrows(IllegalStateException.class, editorSession::summary);
             assertThrows(IllegalStateException.class, editorSession::selectedTexture);
-            assertThrows(IllegalStateException.class, editorUi::attach);
-            assertThrows(IllegalStateException.class, () -> panel.setText("closed"));
-            assertThrows(IllegalStateException.class, panel::close);
             assertThrows(IllegalStateException.class, () -> algorithms.find("missing"));
             assertThrows(IllegalStateException.class, algorithms::algorithms);
         } finally {

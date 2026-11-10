@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.mesh;
 import dev.turboism.sdk.cubism.mesh.MeshDeletion;
 import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterpartResolver;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -17,8 +16,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * deletion. A second override from the same plugin is a programming error and refused, and
  * closing the returned registration restores the framework default.</p>
  */
-@SuppressWarnings("removal") // the released interface this per-plugin resolver view keeps serving
-final class PluginMeshMirrorCounterparts implements MeshMirrorCounterparts {
+final class PluginMeshMirrorCounterparts {
 
     private final RuntimeMeshMirrorCounterparts shared;
     private final AtomicReference<MeshMirrorCounterpartResolver> resolver = new AtomicReference<>();
@@ -30,12 +28,10 @@ final class PluginMeshMirrorCounterparts implements MeshMirrorCounterparts {
         this.shared = Objects.requireNonNull(shared, "shared");
     }
 
-    @Override
     public MeshEditContribution mirrorOf(final MeshDeletion deletion) {
         return shared.mirrorOf(deletion, resolver.get());
     }
 
-    @Override
     public Registration overrideResolver(final MeshMirrorCounterpartResolver replacement) {
         Objects.requireNonNull(replacement, "resolver");
         if (!resolver.compareAndSet(null, replacement)) {

@@ -5,16 +5,32 @@ import argparse
 import difflib
 import itertools
 import json
+import re
+from pathlib import Path
 
 from sdk_api_baseline import BaselineError, GENERATOR_VERSION, SCHEMA_VERSION, canonical_dump, sha256_bytes
 from sdk_api_baseline_cli_io import COMMIT_RE, FORMAT, load_baseline, write_output
 
+CLASS_RECORD = re.compile(r"^class\tname=(?P<name>[^\t]+)")
+SOURCE_IDENTIFIER = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*")
+PLUGIN_SOURCE_SUFFIX = "src/main/java"
+
 
 def verify_current(args: argparse.Namespace) -> None:
     expected, actual = args.current.read_bytes(), args.input.read_bytes()
-    if expected == actual:
-        print("SDK API current surface matches sdk/api-contracts/current.txt")
-        return
+    if expected != actual:
+        raise BaselineError(
+            "public SDK surface differs from sdk/api-contracts/current.txt\n" + _surface_diff(expected, actual)
+            + "\nRefresh with ./gradlew updateSdkApiCurrent and review the diff."
+        )
+    print("SDK API current surface matches sdk/api-contracts/current.txt")
+    if args.plugins is not None or args.no_consumer_list is not None:
+        if args.plugins is None or args.no_consumer_list is None:
+            raise BaselineError("--plugins and --no-consumer-list must be supplied together")
+        _verify_plugin_consumers(actual, args.plugins, args.no_consumer_list)
+
+
+def _surface_diff(expected: bytes, actual: bytes) -> str:
     diff = difflib.diff_bytes(
         difflib.unified_diff, expected.splitlines(keepends=True), actual.splitlines(keepends=True),
         fromfile=b"sdk/api-contracts/current.txt", tofile=b"build/reports/sdk-api/current.txt", n=2,
@@ -23,10 +39,50 @@ def verify_current(args: argparse.Namespace) -> None:
     detail = b"".join(lines[:60]).decode("utf-8", errors="replace")
     if len(lines) > 60:
         detail += "\n(diff truncated; compare the two files for the full diff)\n"
-    raise BaselineError(
-        "public SDK surface differs from sdk/api-contracts/current.txt\n" + detail
-        + "\nRefresh with ./gradlew updateSdkApiCurrent and review the diff."
-    )
+    return detail
+
+
+def _verify_plugin_consumers(surface: bytes, plugins: Path, allow_list: Path) -> None:
+    """Keep the count of public SDK types without a first-party plugin consumer from growing."""
+    public = _public_types(surface)
+    referenced = _plugin_identifiers(plugins)
+    unconsumed = {name for name in public if name.rsplit(".", 1)[-1] not in referenced}
+    committed = _committed_allow_list(allow_list)
+    grown, pruned = sorted(unconsumed - committed), sorted(committed - unconsumed)
+    if grown or pruned:
+        details = [f"plugin-consumer guard failed for {allow_list}"]
+        details += [f"+ {name} has no first-party plugin consumer; add one or keep the type out of the SDK" for name in grown]
+        details += [f"- {name} now has a first-party plugin consumer; delete its line" for name in pruned]
+        raise BaselineError("\n".join(details))
+    print(f"Plugin-consumer guard holds: {len(unconsumed)} public SDK types have no first-party plugin consumer")
+
+
+def _public_types(surface: bytes) -> set[str]:
+    names = set()
+    for line in surface.decode("utf-8").splitlines():
+        match = CLASS_RECORD.match(line)
+        if match is None or "$" in match.group("name"):
+            continue
+        name = match.group("name").replace("/", ".")
+        if not name.endswith("package-info"):
+            names.add(name)
+    return names
+
+
+def _plugin_identifiers(plugins: Path) -> set[str]:
+    identifiers: set[str] = set()
+    for source in sorted(plugins.glob(f"*/{PLUGIN_SOURCE_SUFFIX}/**/*.java")):
+        identifiers.update(SOURCE_IDENTIFIER.findall(source.read_text(encoding="utf-8")))
+    return identifiers
+
+
+def _committed_allow_list(allow_list: Path) -> set[str]:
+    names = set()
+    for line in allow_list.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            names.add(stripped)
+    return names
 
 
 def capture(args: argparse.Namespace) -> None:

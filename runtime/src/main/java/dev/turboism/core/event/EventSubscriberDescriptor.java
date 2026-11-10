@@ -1,11 +1,11 @@
 package dev.turboism.core.event;
 
+import dev.turboism.core.event.failure.FailureBoundary;
+import dev.turboism.core.event.failure.NoFailureInterception;
 import dev.turboism.core.runtime.ContextClassLoaderScope;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.EventPriority;
 import dev.turboism.sdk.event.EventSubscriberHandler;
-import dev.turboism.sdk.failure.FailureBoundary;
-import dev.turboism.sdk.failure.NoFailureInterception;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Objects;

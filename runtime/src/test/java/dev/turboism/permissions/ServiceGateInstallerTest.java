@@ -9,16 +9,11 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge;
+import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
+import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorControl;
 import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface;
-import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorControl;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterpartResolver;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -462,15 +457,15 @@ final class ServiceGateInstallerTest {
     void resolverOwnershipStaysPerPluginAcrossTheGate() throws Exception {
         final DisposableScope firstScope = new DisposableScope();
         final DisposableScope secondScope = new DisposableScope();
-        final MeshMirrorCounterparts first = install(
-                MeshMirrorCounterparts.class,
-                NativeMeshMirrorBridge.pluginCounterparts(),
+        final MeshMirrorControl first = install(
+                MeshMirrorControl.class,
+                RuntimeMeshMirrorControl.forSession(new RuntimeMeshMirrorAxisService()),
                 PermissionChecker.allowAll(),
                 firstScope,
                 null);
-        final MeshMirrorCounterparts second = install(
-                MeshMirrorCounterparts.class,
-                NativeMeshMirrorBridge.pluginCounterparts(),
+        final MeshMirrorControl second = install(
+                MeshMirrorControl.class,
+                RuntimeMeshMirrorControl.forSession(new RuntimeMeshMirrorAxisService()),
                 PermissionChecker.allowAll(),
                 secondScope,
                 null);
@@ -495,9 +490,9 @@ final class ServiceGateInstallerTest {
     void closedScopeDoesNotRetainARejectedResolver() throws Exception {
         final DisposableScope scope = new DisposableScope();
         scope.close();
-        final MeshMirrorCounterparts service = install(
-                MeshMirrorCounterparts.class,
-                NativeMeshMirrorBridge.pluginCounterparts(),
+        final MeshMirrorControl service = install(
+                MeshMirrorControl.class,
+                RuntimeMeshMirrorControl.forSession(new RuntimeMeshMirrorAxisService()),
                 PermissionChecker.allowAll(),
                 scope,
                 null);
@@ -512,54 +507,74 @@ final class ServiceGateInstallerTest {
         assertEquals(first.getMessage(), second.getMessage(), "the rejected resolver slot must have been released");
     }
 
-    // ------------------------------------------------------------------
-    // The consolidated mesh surfaces
-    // ------------------------------------------------------------------
-
-    /**
-     * The two consolidated surfaces re-declare the released rows operation for operation, so a
-     * plugin migrating to them keeps exactly the permission checks and audit operation ids it had.
-     */
     @Test
-    @SuppressWarnings("removal") // the released rows the consolidated surfaces repeat
-    void consolidatedMeshRowsRepeatTheReleasedPermissionsAndOperationIds() {
-        assertRepeatsRow(
-                MeshMirrorControl.class, "currentAngleDegrees", MeshMirrorAxisService.class, "currentAngleDegrees");
-        assertRepeatsRow(
+    void consolidatedMeshSurfacesKeepTheirPermissionChecksAndAuditOperationIds() {
+        assertRow(
+                MeshMirrorControl.class,
+                "currentAngleDegrees",
+                PermissionIds.TURBOISM_CUBISM_MODEL_READ,
+                "cubism.mesh.mirror-axis.read",
+                ServiceGate.Access.READ);
+        assertRow(
                 MeshMirrorControl.class,
                 "setCurrentAngleDegrees",
-                MeshMirrorAxisService.class,
-                "setCurrentAngleDegrees");
-        assertRepeatsRow(MeshMirrorControl.class, "mirrorOf", MeshMirrorCounterparts.class, "mirrorOf");
-        assertRepeatsRow(MeshMirrorControl.class, "overrideResolver", MeshMirrorCounterparts.class, "overrideResolver");
-        assertRepeatsRow(MeshMirrorControl.class, "participate", MeshMirrorMoveParticipation.class, "participate");
-        assertRepeatsRow(
-                MeshMirrorControl.class, "extendEligibleTools", MeshMirrorToolEligibility.class, "extendEligibleTools");
-        assertRepeatsRow(MeshEditContributionSurface.class, "participate", MeshEditParticipation.class, "participate");
-        assertRepeatsRow(
+                PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
+                "cubism.mesh.mirror-axis.write",
+                ServiceGate.Access.WRITE);
+        assertRow(
+                MeshMirrorControl.class,
+                "mirrorOf",
+                PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
+                "cubism.mesh.mirror-counterparts.resolve",
+                ServiceGate.Access.READ);
+        assertRow(
+                MeshMirrorControl.class,
+                "overrideResolver",
+                PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
+                "cubism.mesh.mirror-counterparts.override",
+                ServiceGate.Access.WRITE);
+        assertRow(
+                MeshMirrorControl.class,
+                "participate",
+                PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
+                "cubism.mesh.mirror-move.participate",
+                ServiceGate.Access.WRITE);
+        assertRow(
+                MeshMirrorControl.class,
+                "extendEligibleTools",
+                PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
+                "cubism.mesh.mirror-tool-eligibility.extend",
+                ServiceGate.Access.WRITE);
+        assertRow(
+                MeshEditContributionSurface.class,
+                "participate",
+                PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
+                "cubism.mesh.edit.participate",
+                ServiceGate.Access.WRITE);
+        assertRow(
                 MeshEditContributionSurface.class,
                 "contributeMirrorAxisAngleControl",
-                MeshEditUiService.class,
-                "contributeMirrorAxisAngleControl");
+                PermissionIds.TURBOISM_UI_PANEL_CONTRIBUTE,
+                "ui.mesh-edit.mirror-axis-angle.contribute",
+                ServiceGate.Access.WRITE);
 
-        // Availability probes admit without a permission either way; only their operation id is
-        // new, because one consolidated surface probes once instead of four times.
+        // Availability probes admit without a permission; the consolidated surfaces probe once
+        // each, so their operation ids are their own.
         assertNull(rowOf(MeshMirrorControl.class, "isAvailable").permissionId());
         assertNull(rowOf(MeshEditContributionSurface.class, "isAvailable").permissionId());
     }
 
-    private static void assertRepeatsRow(
-            final Class<?> consolidated,
-            final String consolidatedMethod,
-            final Class<?> released,
-            final String releasedMethod) {
-        final ServiceGate row = rowOf(consolidated, consolidatedMethod);
-        final ServiceGate original = rowOf(released, releasedMethod);
-        final String subject = consolidated.getName() + "." + consolidatedMethod;
+    private static void assertRow(
+            final Class<?> api,
+            final String method,
+            final String permissionId,
+            final String operationId,
+            final ServiceGate.Access access) {
+        final ServiceGate row = rowOf(api, method);
 
-        assertEquals(original.permissionId(), row.permissionId(), subject + " must demand the released permission");
-        assertEquals(original.operationId(), row.operationId(), subject + " must keep the released operation id");
-        assertEquals(original.access(), row.access(), subject + " must keep the released access class");
+        assertEquals(permissionId, row.permissionId(), api.getName() + "." + method + " permission");
+        assertEquals(operationId, row.operationId(), api.getName() + "." + method + " operation id");
+        assertEquals(access, row.access(), api.getName() + "." + method + " access class");
     }
 
     private static ServiceGate rowOf(final Class<?> api, final String method) {

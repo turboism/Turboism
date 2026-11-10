@@ -1,22 +1,24 @@
 package dev.turboism.adapter.cubism.mesh;
 
-import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
-
 /** Runtime-owned generation state used by the verified mesh-mirror hook path. */
-@SuppressWarnings("removal") // the released interface this registry keeps serving
-public final class RuntimeMeshMirrorAxisService implements MeshMirrorAxisService {
+public final class RuntimeMeshMirrorAxisService {
+
     private volatile float angleDegrees;
     private volatile AxisState axisState;
     private volatile long generation;
     private MeshMirrorGeometry.Line cachedLine;
     private long cachedGeneration = -1;
 
-    @Override
+    /** Returns the axis angle in degrees, normalized to one half-open turn. */
     public float currentAngleDegrees() {
         return angleDegrees;
     }
 
-    @Override
+    /**
+     * Stores a finite axis angle normalized to one half-open turn and advances the generation.
+     *
+     * @param angleDegrees the requested angle in degrees, never {@code NaN} or infinite
+     */
     public synchronized void setCurrentAngleDegrees(final float angleDegrees) {
         if (!Float.isFinite(angleDegrees)) {
             throw new IllegalArgumentException("angleDegrees must be finite");

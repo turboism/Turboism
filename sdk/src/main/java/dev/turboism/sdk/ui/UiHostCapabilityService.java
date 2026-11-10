@@ -258,18 +258,6 @@ public interface UiHostCapabilityService {
     }
 
     /**
-     * @deprecated Applying a theme requires restarting Cubism Editor; immediate
-     *     off-canvas repaint is not a supported capability.
-     * @return no refresh; this compatibility method always fails closed
-     * @throws UnsupportedOperationException on every call
-     */
-    @Deprecated(forRemoval = true)
-    default boolean refreshOffCanvasAppearance() {
-        throw new UnsupportedOperationException(
-                "off-canvas refresh is unavailable; restart Cubism Editor after applying a theme");
-    }
-
-    /**
      * Replaces the current ordinary bottom-status message and records the same
      * message through the calling plugin's framework logger. Compact resident
      * metrics retain their own keyed slots.

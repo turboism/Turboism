@@ -6,7 +6,6 @@ import dev.turboism.sdk.cubism.mesh.MeshEdgeKind;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
 import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterpartResolver;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
 import dev.turboism.sdk.cubism.mesh.MeshPointRef;
 import dev.turboism.sdk.cubism.mesh.MeshSnapshot;
 import dev.turboism.sdk.plugin.Registration;
@@ -15,15 +14,19 @@ import java.util.List;
 import java.util.Optional;
 
 /** Mirror counterpart resolution over the live host edit. */
-@SuppressWarnings("removal") // the released interface this registry keeps serving
-public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterparts {
+public final class RuntimeMeshMirrorCounterparts {
 
-    @Override
+    /**
+     * Refuses the override: a plugin replaces its rule through its own counterpart view.
+     *
+     * @param resolver the refused resolver, never used
+     * @return never returns; this session-wide registry keeps the framework default
+     */
     public Registration overrideResolver(final MeshMirrorCounterpartResolver resolver) {
         throw new UnsupportedOperationException("resolver overrides require a per-plugin counterpart service");
     }
 
-    @Override
+    /** Resolves counterparts for one host deletion with the framework default rule. */
     public MeshEditContribution mirrorOf(final MeshDeletion deletion) {
         return mirrorOf(deletion, null);
     }

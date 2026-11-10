@@ -1,4 +1,4 @@
-package dev.turboism.sdk.failure;
+package dev.turboism.core.event.failure;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;

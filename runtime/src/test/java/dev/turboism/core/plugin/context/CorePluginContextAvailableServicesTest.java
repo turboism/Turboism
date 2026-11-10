@@ -10,13 +10,9 @@ import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
-import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface;
 import dev.turboism.sdk.cubism.mesh.MeshEditService;
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorControl;
 import dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.mcp.McpConnectionService;
@@ -111,13 +107,7 @@ class CorePluginContextAvailableServicesTest {
                 PluginService.CUBISM_READ,
                 PluginService.MODEL_OBJECTS,
                 PluginService.CUBISM_CLIP_MASKS,
-                PluginService.MESH_MIRROR_AXIS,
                 PluginService.MESH_EDIT,
-                PluginService.MESH_EDIT_PARTICIPATION,
-                PluginService.MESH_MIRROR_COUNTERPARTS,
-                PluginService.MESH_MIRROR_TOOL_ELIGIBILITY,
-                PluginService.MESH_MIRROR_MOVE_PARTICIPATION,
-                PluginService.MESH_EDIT_UI,
                 PluginService.MESH_MIRROR_CONTROL,
                 PluginService.MESH_EDIT_CONTRIBUTION,
                 PluginService.WARP_ALT_MIRROR_PARTICIPATION,
@@ -270,32 +260,16 @@ class CorePluginContextAvailableServicesTest {
     void unconditionalMembersAreBackedByRealImplementations() {
         final CorePluginContext context = new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
         assertTrue(context.services()
-                .find(MeshMirrorAxisService.class)
-                .orElse(MeshMirrorAxisService.unavailable())
+                .find(MeshMirrorControl.class)
+                .orElse(MeshMirrorControl.unavailable())
                 .isAvailable());
         assertTrue(context.services()
                 .find(MeshEditService.class)
                 .orElse(MeshEditService.unavailable())
                 .isAvailable());
         assertTrue(context.services()
-                .find(MeshEditParticipation.class)
-                .orElse(MeshEditParticipation.unavailable())
-                .isAvailable());
-        assertTrue(context.services()
-                .find(MeshMirrorCounterparts.class)
-                .orElse(MeshMirrorCounterparts.unavailable())
-                .isAvailable());
-        assertTrue(context.services()
-                .find(MeshMirrorToolEligibility.class)
-                .orElse(MeshMirrorToolEligibility.unavailable())
-                .isAvailable());
-        assertTrue(context.services()
-                .find(MeshMirrorMoveParticipation.class)
-                .orElse(MeshMirrorMoveParticipation.unavailable())
-                .isAvailable());
-        assertTrue(context.services()
-                .find(MeshEditUiService.class)
-                .orElse(MeshEditUiService.unavailable())
+                .find(MeshEditContributionSurface.class)
+                .orElse(MeshEditContributionSurface.unavailable())
                 .isAvailable());
         assertTrue(context.services()
                 .find(WarpAltMirrorParticipation.class)

@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface.MirrorAxisAngleControl;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -132,8 +132,8 @@ final class NativeMeshMirrorBridgeTest {
         assertEquals(1, count(diagnostics, stage("DEFERRED_ATTACH_REPLAY")));
     }
 
-    private static MeshEditUiService.MirrorAxisAngleControl angleControl() {
-        return new MeshEditUiService.MirrorAxisAngleControl(
+    private static MirrorAxisAngleControl angleControl() {
+        return new MirrorAxisAngleControl(
                 "mesh.mirror-axis.angle", "Angle", "Reset", -180.0f, 180.0f, 0.1f, ignored -> {});
     }
 

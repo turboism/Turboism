@@ -14,6 +14,16 @@ def build_parser() -> argparse.ArgumentParser:
     current = sub.add_parser("verify-current")
     current.add_argument("--input", required=True, type=Path)
     current.add_argument("--current", required=True, type=Path)
+    current.add_argument(
+        "--plugins",
+        type=Path,
+        help="first-party plugin source root; enables the plugin-consumer guard with --no-consumer-list",
+    )
+    current.add_argument(
+        "--no-consumer-list",
+        type=Path,
+        help="committed list of public SDK types that no first-party plugin consumes",
+    )
     return parser
 
 

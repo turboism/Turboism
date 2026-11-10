@@ -15,13 +15,9 @@ import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
-import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface;
 import dev.turboism.sdk.cubism.mesh.MeshEditService;
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorControl;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
@@ -213,27 +209,16 @@ class PluginContextUnavailableContractTest {
                 context.services().find(EditorAutoBackupService.class).orElse(EditorAutoBackupService.unavailable()));
 
         assertSame(
-                MeshMirrorAxisService.unavailable(),
-                context.services().find(MeshMirrorAxisService.class).orElse(MeshMirrorAxisService.unavailable()));
+                MeshMirrorControl.unavailable(),
+                context.services().find(MeshMirrorControl.class).orElse(MeshMirrorControl.unavailable()));
         assertSame(
                 MeshEditService.unavailable(),
                 context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable()));
         assertSame(
-                MeshEditParticipation.unavailable(),
-                context.services().find(MeshEditParticipation.class).orElse(MeshEditParticipation.unavailable()));
-        assertSame(
-                MeshMirrorCounterparts.unavailable(),
-                context.services().find(MeshMirrorCounterparts.class).orElse(MeshMirrorCounterparts.unavailable()));
-        assertSame(
-                MeshMirrorToolEligibility.unavailable(),
+                MeshEditContributionSurface.unavailable(),
                 context.services()
-                        .find(MeshMirrorToolEligibility.class)
-                        .orElse(MeshMirrorToolEligibility.unavailable()));
-        assertSame(
-                MeshMirrorMoveParticipation.unavailable(),
-                context.services()
-                        .find(MeshMirrorMoveParticipation.class)
-                        .orElse(MeshMirrorMoveParticipation.unavailable()));
+                        .find(MeshEditContributionSurface.class)
+                        .orElse(MeshEditContributionSurface.unavailable()));
         assertSame(
                 WarpAltMirrorParticipation.unavailable(),
                 context.services()
@@ -242,9 +227,6 @@ class PluginContextUnavailableContractTest {
         assertSame(
                 ViewContextMenuRegistry.unavailable(),
                 context.services().find(ViewContextMenuRegistry.class).orElse(ViewContextMenuRegistry.unavailable()));
-        assertSame(
-                MeshEditUiService.unavailable(),
-                context.services().find(MeshEditUiService.class).orElse(MeshEditUiService.unavailable()));
 
         assertSame(
                 MainToolbarRegistry.unavailable(),
