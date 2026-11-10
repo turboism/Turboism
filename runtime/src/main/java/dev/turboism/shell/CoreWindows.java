@@ -893,8 +893,6 @@ final class CoreWindows implements AutoCloseable {
         details.addActionListener(ignored -> showSelectedPluginDetails());
         final JButton refresh = new JButton(text("common.refresh"));
         refresh.addActionListener(ignored -> refreshPlugins());
-        final JButton close = new JButton(text("common.close"));
-        close.addActionListener(ignored -> dialog.setVisible(false));
 
         final JPanel filtering = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         filtering.add(new JLabel(text("plugins.filter")));
@@ -916,7 +914,6 @@ final class CoreWindows implements AutoCloseable {
         selection.add(uninstall);
         selection.add(details);
         selection.add(refresh);
-        selection.add(close);
         final JPanel actions = new JPanel(new BorderLayout(0, 6));
         actions.add(acquire, BorderLayout.NORTH);
         actions.add(selection, BorderLayout.SOUTH);

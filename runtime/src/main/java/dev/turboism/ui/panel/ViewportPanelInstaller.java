@@ -46,6 +46,13 @@ final class ViewportPanelInstaller {
     private static final int BOARD_VERTICAL_INSET = 16;
     private static final int BOARD_HORIZONTAL_INSET = 16;
     private static final Color FALLBACK_BACKGROUND = new Color(0x2b2b2b);
+    /**
+     * Extra pixels the overlay may take beyond the GL surface to cover the native rails beside it.
+     * The rails are custom-painted host widgets that keep their own grey; a larger container is a
+     * different widget, so the overlay stays on the GL rectangle instead.
+     */
+    private static final int CONTAINER_COVER_MARGIN = 64;
+
     private static final String CONTENT_UPDATE_OPERATION = "viewport panel content update";
 
     private ViewportPanelInstaller() {}
@@ -234,19 +241,33 @@ final class ViewportPanelInstaller {
     }
 
     private static Rectangle computeViewportBounds(final Component viewport, final Container target) {
+        final Rectangle surface = surfaceBounds(viewport, target);
+        final Rectangle container = containerBounds(viewport, target);
+        if (container == null) return surface;
+        // The container holds the GL surface plus the native rails on its edges. Covering it hides
+        // the untinted seam beside the board, which no UI default can reach. A container that is
+        // much larger is a different widget, so the GL rectangle wins there.
+        final boolean bounded = container.width - surface.width <= 2 * CONTAINER_COVER_MARGIN
+                && container.height - surface.height <= 2 * CONTAINER_COVER_MARGIN;
+        return bounded ? container : surface;
+    }
+
+    private static Rectangle surfaceBounds(final Component viewport, final Container target) {
         if (viewport instanceof JComponent jc) {
             final Rectangle visible = jc.getVisibleRect();
             if (visible.width > 0 && visible.height > 0) {
                 return SwingUtilities.convertRectangle(viewport, visible, target);
             }
         }
-        final Component parent = viewport.getParent();
-        if (parent != null) {
-            final Rectangle parentRect = new Rectangle(0, 0, parent.getWidth(), parent.getHeight());
-            return SwingUtilities.convertRectangle(parent, parentRect, target);
-        }
         return SwingUtilities.convertRectangle(
                 viewport, new Rectangle(0, 0, viewport.getWidth(), viewport.getHeight()), target);
+    }
+
+    private static Rectangle containerBounds(final Component viewport, final Container target) {
+        final Component parent = viewport.getParent();
+        if (parent == null || parent.getWidth() <= 0 || parent.getHeight() <= 0) return null;
+        return SwingUtilities.convertRectangle(
+                parent, new Rectangle(0, 0, parent.getWidth(), parent.getHeight()), target);
     }
     /** Visible editor frame containing the largest native OpenGL viewport. */
     private static Window selectMainWindow() {

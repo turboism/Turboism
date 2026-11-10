@@ -1038,6 +1038,41 @@ class SwingPanelViewRendererTest {
         });
     }
 
+    /**
+     * The GL surface does not reach the container edges: the host keeps native rails beside it, and
+     * those rails paint their own grey that no UI default reaches. The overlay must cover the whole
+     * container so the board has no untinted seam.
+     */
+    @Test
+    void viewportOverlayCoversTheNativeRailsBesideTheGlSurface() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JPanel frame = new JPanel(null);
+            final javax.swing.JLayeredPane layers = new javax.swing.JLayeredPane();
+            final JPanel container = new JPanel(null);
+            final JPanel rail = new JPanel();
+            final JPanel viewport = new JPanel();
+            frame.add(layers);
+            layers.setBounds(0, 0, 900, 700);
+            layers.add(container);
+            container.setBounds(100, 100, 700, 500);
+            rail.setBounds(0, 0, 20, 500);
+            viewport.setBounds(20, 0, 680, 500);
+            container.add(rail);
+            container.add(viewport);
+            final EmbeddedPanelHostOperations.PanelHandle handle = ViewportPanelInstaller.install(
+                    frame, viewport, layers, boardDescriptor(), () -> false, descriptor -> new JPanel());
+            try {
+                final Component overlay = layers.getComponent(0);
+                assertEquals(
+                        new java.awt.Rectangle(100, 100, 700, 500),
+                        overlay.getBounds(),
+                        "the overlay must reach the rail, not stop at the GL surface");
+            } finally {
+                handle.close();
+            }
+        });
+    }
+
     @Test
     void viewportBackgroundAndLinkFollowThemeRefresh() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
