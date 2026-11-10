@@ -21,6 +21,13 @@ final class RuntimeTaskCompletionDispatcher {
     private static final Duration RETRY_DELAY = Duration.ofMillis(5);
     private static final Duration CLOSE_TIMEOUT = Duration.ofSeconds(5);
 
+    /**
+     * Ceiling on retries for one completion. A transient rejection recovers in a few milliseconds; a
+     * lane that refuses this many attempts is not going to accept the work, and retrying forever
+     * flooded the scheduler log and starved the plugin's ordinary actions.
+     */
+    private static final int MAX_DISPATCH_ATTEMPTS = 200;
+
     private final String pluginId;
     private final RuntimeScheduler runtimeScheduler;
     private final CleanupEvidenceCollector cleanupEvidence;
@@ -118,11 +125,20 @@ final class RuntimeTaskCompletionDispatcher {
     }
 
     private void attempt(final DispatchedAction dispatched) {
-        if (dispatched.started.get()) {
+        if (dispatched.started.get() || dispatchFailure.get() != null) {
+            return;
+        }
+        if (dispatched.attempts.incrementAndGet() > MAX_DISPATCH_ATTEMPTS) {
+            failDispatch();
             return;
         }
         final PluginWorkSubmission submission = runtimeScheduler.submitCompletion(pluginId, dispatched::run);
         if (!submission.accepted()) {
+            if (submission.rejectionStatus() == PluginWorkStatus.RUNTIME_UNAVAILABLE) {
+                // The lane is closed, so no later attempt can run the callback either.
+                failDispatch();
+                return;
+            }
             retry(dispatched);
             return;
         }
@@ -175,6 +191,7 @@ final class RuntimeTaskCompletionDispatcher {
         private final DispatchKind kind;
         private final Runnable action;
         private final AtomicBoolean started = new AtomicBoolean(false);
+        private final AtomicInteger attempts = new AtomicInteger();
 
         private DispatchedAction(final DispatchKind kind, final Runnable action) {
             this.kind = Objects.requireNonNull(kind, "kind");

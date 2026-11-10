@@ -221,6 +221,27 @@ public interface UiHostCapabilityService {
     }
 
     /**
+     * Opens the same preview table with a footer control at the left of the accept and cancel
+     * buttons, and rebuilds the rows whenever the footer choice changes.
+     *
+     * <p>Requires {@code turboism.ui.dialog.contribute}. A host without footer support shows the
+     * plain table, so a caller keeps one preview either way.</p>
+     *
+     * @param request the preview table description
+     * @param footer the footer control and its row rebuild
+     * @param listener receives the accepted flag and the accepted row ids
+     * @return a registration whose {@code close()} cancels the dialog
+     * @throws UnsupportedOperationException on implementations without a selection table surface
+     */
+    default Registration openSelectionTableDialog(
+            final SelectionTableDialogRequest request,
+            final SelectionTableFooter footer,
+            final SelectionTableDialogResultListener listener) {
+        SelectionTableFooter.requireValid(footer);
+        return openSelectionTableDialog(request, listener);
+    }
+
+    /**
      * Opens a bounded runtime-rendered color picker without blocking the caller.
      * The listener receives {@code true} with a canonical {@code #RRGGBB} value
      * when the user confirms, or {@code false} with {@code null} on cancel.

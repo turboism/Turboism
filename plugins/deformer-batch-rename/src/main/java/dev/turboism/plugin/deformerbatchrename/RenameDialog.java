@@ -20,17 +20,23 @@ final class RenameDialog {
                         text.text("column.original"),
                         text.text("column.target"),
                         text.text("column.apply")),
-                rows.stream()
-                        .map(row -> new SelectionTableDialogRequest.Row(
-                                row.id().value(),
-                                new UiIconRef(row.rotation() ? CubismIcon.ROTATION_DEFORMER : CubismIcon.WARP_DEFORMER),
-                                text.text(row.rotation() ? "type.rotation" : "type.warp"),
-                                row.original(),
-                                row.target(),
-                                row.changed(),
-                                row.changed()))
-                        .toList(),
+                rows(text, rows),
                 text.text("button.confirm"),
                 text.text("button.cancel"));
+    }
+
+    /** Maps planner rows onto the SDK table rows the runtime renders. */
+    static List<SelectionTableDialogRequest.Row> rows(
+            final PluginLocalization text, final List<RenamePlanner.Row> rows) {
+        return rows.stream()
+                .map(row -> new SelectionTableDialogRequest.Row(
+                        row.id().value(),
+                        new UiIconRef(row.rotation() ? CubismIcon.ROTATION_DEFORMER : CubismIcon.WARP_DEFORMER),
+                        text.text(row.rotation() ? "type.rotation" : "type.warp"),
+                        row.original(),
+                        row.target(),
+                        row.changed(),
+                        row.changed()))
+                .toList();
     }
 }

@@ -103,6 +103,46 @@ class RuntimeProjectWorkTimeServiceTest {
         assertEquals(Duration.ofSeconds(4), service.snapshot().sessionForegroundTime());
     }
 
+    /**
+     * The session reading is a project measurement. An empty workspace must show zero rather than
+     * accumulate idle editor time, and closing the project must clear the reading.
+     */
+    @Test
+    void sessionTimeCountsOnlyWhileAProjectIsOpen(@TempDir final Path home) {
+        scheduler();
+        final MutableSource source = new MutableSource();
+        final AtomicLong nanos = new AtomicLong();
+        source.foreground = true;
+        service = newService(source, home, nanos, Duration.ofSeconds(1));
+
+        service.tick();
+        nanos.addAndGet(Duration.ofSeconds(3).toNanos());
+        service.tick();
+        assertEquals(
+                Duration.ZERO,
+                service.snapshot().sessionForegroundTime(),
+                "an empty workspace must not accumulate session time");
+
+        source.project = project("session-a", "alpha.cmo3");
+        // The tick that observes a new project still attributes its elapsed time to the previous
+        // state, so the first counted second arrives on the tick after it.
+        nanos.addAndGet(Duration.ofSeconds(1).toNanos());
+        service.tick();
+        nanos.addAndGet(Duration.ofSeconds(1).toNanos());
+        service.tick();
+        nanos.addAndGet(Duration.ofSeconds(1).toNanos());
+        service.tick();
+        assertEquals(Duration.ofSeconds(2), service.snapshot().sessionForegroundTime());
+
+        source.project = Optional.empty();
+        nanos.addAndGet(Duration.ofSeconds(1).toNanos());
+        service.tick();
+        assertEquals(
+                Duration.ZERO,
+                service.snapshot().sessionForegroundTime(),
+                "closing the project returns the session reading to zero");
+    }
+
     @Test
     void totalsSurviveServiceReconstruction(@TempDir final Path home) {
         scheduler();

@@ -48,8 +48,13 @@ final class GifExportSettingsDialog {
     private final JCheckBox optimize;
     private final JSpinner limit = new JSpinner(new SpinnerNumberModel(20.0, 0.01, 1024.0, 1.0));
     private final JTextField executable = new JTextField(System.getProperty("turboism.gifsicle.path", "gifsicle"), 24);
+    private final javax.swing.JComboBox<Format> format = new javax.swing.JComboBox<>(Format.values());
     private boolean updating;
     private javax.swing.JDialog activeDialog;
+    private volatile javax.swing.JDialog activePrompt;
+    /** The chooser shell this plugin owns while the save chooser is showing. */
+    private volatile javax.swing.JDialog activeChooser;
+
     private volatile boolean closed;
 
     GifExportSettingsDialog(
@@ -72,7 +77,21 @@ final class GifExportSettingsDialog {
             percent.setEnabled(lock.isSelected());
             updateFromPixels(true);
         });
-        optimize.addActionListener(event -> limit.setEnabled(optimize.isSelected()));
+        optimize.addActionListener(
+                event -> limit.setEnabled(format.getSelectedItem() == Format.GIF && optimize.isSelected()));
+        format.addActionListener(event -> refreshFormatControls());
+    }
+
+    /** APNG needs no optimizer, so the GIF-only controls are disabled while it is selected. */
+    private void refreshFormatControls() {
+        final boolean gif = format.getSelectedItem() == Format.GIF;
+        optimize.setEnabled(gif);
+        executable.setEnabled(gif && optimize.isSelected());
+        limit.setEnabled(gif && optimize.isSelected());
+    }
+
+    Format selectedFormat() {
+        return format.getSelectedItem() instanceof Format chosen ? chosen : Format.GIF;
     }
 
     private String tr(final String key) {
@@ -133,46 +152,155 @@ final class GifExportSettingsDialog {
             }
             if (closed || !(pane.getValue() instanceof Integer value) || value != JOptionPane.OK_OPTION) return null;
             try {
-                commitSettingsEdits();
-                if (executable.getText().isBlank()) throw new IllegalArgumentException(tr("gif.executable-hint"));
+                validateForExport();
                 break;
             } catch (java.text.ParseException | IllegalArgumentException invalid) {
-                JOptionPane.showMessageDialog(parent, tr("gif.invalid"), tr("gif.export"), JOptionPane.ERROR_MESSAGE);
+                showPrompt(parent, tr("gif.invalid"), JOptionPane.ERROR_MESSAGE, JOptionPane.DEFAULT_OPTION);
             }
         }
-        final JFileChooser chooser = new JFileChooser() {
-            @Override
-            protected javax.swing.JDialog createDialog(final Component owner) throws java.awt.HeadlessException {
-                activeDialog = super.createDialog(owner);
-                return activeDialog;
-            }
-        };
+        final JFileChooser chooser = createChooser();
         final Path previous = lastDirectory();
         if (previous != null && Files.isDirectory(previous)) chooser.setCurrentDirectory(previous.toFile());
-        chooser.setFileFilter(new FileNameExtensionFilter("GIF", "gif"));
-        chooser.setSelectedFile(new java.io.File(chooser.getCurrentDirectory(), "physics.gif"));
-        while (true) {
-            if (closed || chooser.showSaveDialog(parent) != JFileChooser.APPROVE_OPTION || closed) return null;
-            activeDialog = null;
-            Path destination = chooser.getSelectedFile().toPath().toAbsolutePath();
-            if (!destination.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".gif")) {
-                destination = destination.resolveSibling(destination.getFileName() + ".gif");
+        final Format chosen = selectedFormat();
+        chooser.setFileFilter(new FileNameExtensionFilter(chosen.name(), chosen.extension()));
+        chooser.setSelectedFile(new java.io.File(chooser.getCurrentDirectory(), "physics." + chosen.extension()));
+        try {
+            while (true) {
+                if (closed || showChooser(chooser, parent) != JFileChooser.APPROVE_OPTION || closed) return null;
+                Path destination = chooser.getSelectedFile().toPath().toAbsolutePath();
+                final String suffix = "." + chosen.extension();
+                if (!destination
+                        .getFileName()
+                        .toString()
+                        .toLowerCase(Locale.ROOT)
+                        .endsWith(suffix)) {
+                    destination = destination.resolveSibling(destination.getFileName() + suffix);
+                }
+                if (Files.exists(destination)
+                        && showPrompt(parent, tr("gif.overwrite"), JOptionPane.PLAIN_MESSAGE, JOptionPane.YES_NO_OPTION)
+                                != JOptionPane.YES_OPTION) {
+                    continue;
+                }
+                return exportSettings(destination);
             }
-            if (Files.exists(destination)
-                    && JOptionPane.showConfirmDialog(
-                                    parent, tr("gif.overwrite"), tr("gif.export"), JOptionPane.YES_NO_OPTION)
-                            != JOptionPane.YES_OPTION) {
-                continue;
-            }
-            return new Settings(
-                    destination,
-                    ((Number) width.getValue()).intValue(),
-                    ((Number) height.getValue()).intValue(),
-                    optimize.isSelected()
-                            ? (long) (((Number) limit.getValue()).doubleValue() * 1_000_000)
-                            : Long.MAX_VALUE,
-                    executable.getText().trim());
+        } finally {
+            // showChooser owns and disposes its shell; nothing to release here.
         }
+    }
+
+    /**
+     * Shows the save chooser inside a dialog this plugin owns.
+     *
+     * <p>The chooser itself stays the plain {@link JFileChooser} the host look and feel resolves; only
+     * its container is ours, so a shutdown can dispose the window without discovering the host's
+     * window tree.</p>
+     *
+     * @return {@link JFileChooser#APPROVE_OPTION}, {@link JFileChooser#CANCEL_OPTION}, or
+     *     {@link JFileChooser#ERROR_OPTION} when nothing was approved
+     */
+    private int showChooser(final JFileChooser chooser, final Component parent) {
+        final javax.swing.JDialog shell =
+                new javax.swing.JDialog(parent instanceof java.awt.Frame frame ? frame : null, tr("gif.export"), true);
+        shell.setName("gif-export-chooser");
+        final java.util.concurrent.atomic.AtomicInteger result =
+                new java.util.concurrent.atomic.AtomicInteger(JFileChooser.ERROR_OPTION);
+        chooser.addActionListener(event -> {
+            result.set(
+                    JFileChooser.APPROVE_SELECTION.equals(event.getActionCommand())
+                            ? JFileChooser.APPROVE_OPTION
+                            : JFileChooser.CANCEL_OPTION);
+            shell.dispose();
+        });
+        shell.setContentPane(chooser);
+        shell.pack();
+        shell.setLocationRelativeTo(parent);
+        activeChooser = shell;
+        try {
+            shell.setVisible(true);
+        } finally {
+            activeChooser = null;
+            shell.dispose();
+        }
+        return result.get();
+    }
+
+    /**
+     * Builds the save chooser.
+     *
+     * <p>The instance must stay exactly {@link JFileChooser}. {@code UIDefaults.getUI} resolves the
+     * installed FileChooserUI through the component class loader, and a plugin-defined subclass
+     * carries the plugin loader, which cannot see the host look-and-feel class. That lookup failed
+     * before this dialog could show the chooser at all.</p>
+     *
+     * @return a standard chooser owned by the host look and feel
+     */
+    static JFileChooser createChooser() {
+        return new JFileChooser();
+    }
+
+    /**
+     * Shows one short modal prompt and returns the chosen option.
+     *
+     * <p>The {@code JOptionPane} convenience methods own a dialog this class cannot reach, so a
+     * plugin shutdown during such a prompt left a modal window over the Editor. A tracked prompt
+     * lets {@link #close()} dispose it and release the event thread.</p>
+     *
+     * @return the chosen option, or {@link JOptionPane#CLOSED_OPTION} when no prompt ran
+     */
+    int showPrompt(final Component parent, final Object message, final int messageType, final int optionType) {
+        if (closed) return JOptionPane.CLOSED_OPTION;
+        final JOptionPane pane = new JOptionPane(message, messageType, optionType);
+        final javax.swing.JDialog dialog = pane.createDialog(parent, tr("gif.export"));
+        activePrompt = dialog;
+        try {
+            dialog.setVisible(true);
+        } finally {
+            activePrompt = null;
+            dialog.dispose();
+        }
+        return pane.getValue() instanceof Integer value ? value : JOptionPane.CLOSED_OPTION;
+    }
+
+    /** Test hook: the prompt window that is waiting for an answer, if any. */
+    javax.swing.JDialog activePromptWindow() {
+        return activePrompt;
+    }
+
+    /**
+     * Confirms the edited controls can produce an export before a destination is chosen.
+     *
+     * <p>Only an optimized export runs Gifsicle, so only that path requires an executable. An
+     * unoptimized export re-encodes the recording in process and accepts a blank or unusable path,
+     * because the path is never spawned.</p>
+     *
+     * @throws java.text.ParseException when an edited spinner value is not a number
+     * @throws IllegalArgumentException when optimization is on and the executable is blank
+     */
+    void validateForExport() throws java.text.ParseException {
+        commitSettingsEdits();
+        if (selectedFormat() == Format.GIF
+                && optimize.isSelected()
+                && executable.getText().isBlank()) {
+            throw new IllegalArgumentException(tr("gif.executable-hint"));
+        }
+    }
+
+    /**
+     * Builds the export policy the recorder applies to the finished recording.
+     *
+     * @param destination where the finalized GIF is written
+     * @return the policy, with an unlimited size ceiling when optimization is off
+     */
+    Settings exportSettings(final Path destination) {
+        final Format chosen = selectedFormat();
+        final boolean optimized = chosen == Format.GIF && optimize.isSelected();
+        return new Settings(
+                destination,
+                ((Number) width.getValue()).intValue(),
+                ((Number) height.getValue()).intValue(),
+                optimized ? (long) (((Number) limit.getValue()).doubleValue() * 1_000_000) : Long.MAX_VALUE,
+                optimized ? executable.getText().trim() : "",
+                chosen);
     }
 
     void commitSettingsEdits() throws java.text.ParseException {
@@ -185,6 +313,7 @@ final class GifExportSettingsDialog {
 
     JPanel createSettingsPanel() {
         final JPanel settings = new JPanel(new GridLayout(0, 2, 8, 8));
+        addSetting(settings, "gif.format", format);
         addSetting(settings, "gif.scale", percent);
         addSetting(settings, "gif.width", width);
         addSetting(settings, "gif.height", height);
@@ -195,6 +324,7 @@ final class GifExportSettingsDialog {
         addSetting(settings, "gif.limit", limit);
         addSetting(settings, "gif.executable", executable);
         executable.setToolTipText(tr("gif.executable-hint"));
+        refreshFormatControls();
         return settings;
     }
 
@@ -207,10 +337,26 @@ final class GifExportSettingsDialog {
     }
 
     /** Disposes the open dialog, if any; safe from any thread. */
+    /** Disposes every open export window and rejects later prompts; safe from any thread. */
     void close() {
         closed = true;
         final javax.swing.JDialog dialog = activeDialog;
         if (dialog != null) dialog.dispose();
+        final javax.swing.JDialog prompt = activePrompt;
+        if (prompt != null) prompt.dispose();
+        dismissChooser();
+    }
+
+    /**
+     * Closes the save chooser shell this plugin owns.
+     *
+     * <p>The close is queued: the chooser shell is a nested event loop, so the task runs while it is
+     * showing and disposing it unblocks the caller.</p>
+     */
+    private void dismissChooser() {
+        final javax.swing.JDialog shell = activeChooser;
+        if (shell == null) return;
+        javax.swing.SwingUtilities.invokeLater(shell::dispose);
     }
 
     Path lastDirectory() {
@@ -262,5 +408,31 @@ final class GifExportSettingsDialog {
      * @param maxBytes the size ceiling, or {@link Long#MAX_VALUE} when optimization is off
      * @param executable the Gifsicle executable to run
      */
-    record Settings(Path destination, int width, int height, long maxBytes, String executable) {}
+    /**
+     * Export formats offered by this dialog; both run in process except GIF optimization.
+     *
+     * <p>The format name is a file-format acronym, identical in every locale, so the selector shows
+     * it verbatim: a localized key here leaked the raw resource name into the dropdown.</p>
+     */
+    enum Format {
+        GIF("gif"),
+        APNG("png");
+
+        private final String extension;
+
+        Format(final String extension) {
+            this.extension = extension;
+        }
+
+        String extension() {
+            return extension;
+        }
+
+        @Override
+        public String toString() {
+            return name();
+        }
+    }
+
+    record Settings(Path destination, int width, int height, long maxBytes, String executable, Format format) {}
 }

@@ -54,8 +54,8 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
     public Registration runOnUiThread(Runnable work) {
         Objects.requireNonNull(work, "work");
         AtomicBoolean cancelled = new AtomicBoolean();
-        final boolean accepted = scheduler.dispatch(
-                task("immediate UI work"), () -> dispatchOnEdt(work, cancelled), () -> cancelled.set(true));
+        final boolean accepted =
+                scheduler.dispatchUiBound(task("immediate UI work"), () -> dispatchOnEdt(work, cancelled));
         if (!accepted) {
             throw new IllegalStateException("UI_SCHEDULER_REJECTED");
         }
@@ -68,7 +68,7 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
         Objects.requireNonNull(delay, "delay");
         AtomicBoolean cancelled = new AtomicBoolean();
         ScheduledFuture<?> scheduled = timer.schedule(
-                () -> scheduler.dispatch(task("delayed UI work"), () -> dispatchOnEdt(work, cancelled)),
+                () -> scheduler.dispatchUiBound(task("delayed UI work"), () -> dispatchOnEdt(work, cancelled)),
                 Math.max(0L, delay.toMillis()),
                 TimeUnit.MILLISECONDS);
         return () -> {

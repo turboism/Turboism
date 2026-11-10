@@ -15,6 +15,7 @@ import dev.turboism.sdk.config.PluginConfigException;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.WorkBudget;
+import dev.turboism.testkit.FileSystemFaults;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -78,29 +79,36 @@ class RuntimePluginConfigRegistryTest {
         assertThrows(IllegalArgumentException.class, () -> registry.readScope("../outside.properties"));
     }
 
+    /**
+     * A reparse point that replaces a config scope must never carry a plugin write into another
+     * directory. The host decides which reparse type it can create; the case asserts the contract this
+     * host established, and the registry rejects the junction through its real-path containment.
+     */
     @Test
-    void symlinkedConfigPathCannotEscapePluginDirectory(@TempDir Path dataDir) throws Exception {
+    void linkedConfigPathCannotEscapePluginDirectory(@TempDir Path dataDir) throws Exception {
         final Path outside = Files.createTempDirectory("turboism-config-outside");
         try {
-            final Path link = dataDir.resolve("linked");
+            final FileSystemFaults.ReparsePoint point =
+                    FileSystemFaults.createDirectoryReparsePoint(dataDir.resolve("linked"), outside);
             try {
-                Files.createSymbolicLink(link, outside);
-            } catch (UnsupportedOperationException | java.nio.file.FileSystemException unavailable) {
-                org.junit.jupiter.api.Assumptions.abort("symbolic links are unavailable");
-            }
-            final RuntimePluginConfigRegistry registry =
-                    registry(dataDir, (permissionId, operation) -> {}, new RecordingPolicy());
-            final Registration read = registry.readScope("linked/config.properties");
-            final Registration write = registry.writeScope("linked/config.properties");
+                FileSystemFaults.assertRedirectsOutside(point, dataDir);
+                final RuntimePluginConfigRegistry registry =
+                        registry(dataDir, (permissionId, operation) -> {}, new RecordingPolicy());
+                final Registration read = registry.readScope("linked/config.properties");
+                final Registration write = registry.writeScope("linked/config.properties");
 
-            assertThrows(
-                    PluginConfigException.class,
-                    () -> registry.writeString("linked/config.properties", "name", "Turboism"));
-            assertTrue(registry.readString("linked/config.properties", "name").isEmpty());
-            assertFalse(Files.exists(outside.resolve("config.properties")));
-            write.close();
-            read.close();
-            registry.close();
+                assertThrows(
+                        PluginConfigException.class,
+                        () -> registry.writeString("linked/config.properties", "name", "Turboism"));
+                assertTrue(
+                        registry.readString("linked/config.properties", "name").isEmpty());
+                assertFalse(Files.exists(outside.resolve("config.properties")));
+                write.close();
+                read.close();
+                registry.close();
+            } finally {
+                FileSystemFaults.deleteReparsePoint(point.link());
+            }
         } finally {
             Files.deleteIfExists(outside.resolve("config.properties"));
             Files.deleteIfExists(outside);
@@ -296,6 +304,58 @@ class RuntimePluginConfigRegistryTest {
         assertTrue(writeFailure.get() instanceof PluginConfigException);
         assertFalse(Files.exists(dataDir.resolve("probe/config.properties")));
         scope.close();
+    }
+
+    /**
+     * A parent directory redirected at the publication hook must not receive the document: the write
+     * re-resolves its target under the lifecycle lock and the publication guard re-checks it again.
+     *
+     * <p>One temporary fixture owns both directories: {@code guarded-data} is the registry anchor and
+     * {@code outside} is its sibling, so the escape target never sits inside the guarded directory and
+     * the fixture cleans itself up.
+     */
+    @Test
+    void redirectedParentAtThePublicationHookCannotReceiveTheWrite(@TempDir Path fixture) throws Exception {
+        final Path dataDir = Files.createDirectories(fixture.resolve("guarded-data"));
+        final Path outside = Files.createDirectories(fixture.resolve("outside"));
+        final CountDownLatch publicationReached = new CountDownLatch(1);
+        final CountDownLatch publicationRelease = new CountDownLatch(1);
+        final RuntimePluginConfigRegistry registry =
+                registryWithPublicationBarrier(dataDir, publicationReached, publicationRelease);
+        final Registration scope = registry.writeScope("probe/config.properties");
+        final AtomicReference<Throwable> writeFailure = new AtomicReference<>();
+        final Thread writer = new Thread(() -> {
+            try {
+                registry.writeString("probe/config.properties", "name", "Turboism");
+            } catch (Throwable failure) {
+                writeFailure.set(failure);
+            }
+        });
+        writer.start();
+        assertTrue(publicationReached.await(2, TimeUnit.SECONDS));
+        final Path probe = dataDir.resolve("probe");
+        Files.move(probe, dataDir.resolve("probe-moved"));
+        final FileSystemFaults.ReparsePoint point = FileSystemFaults.createDirectoryReparsePoint(probe, outside);
+        try {
+            FileSystemFaults.assertRedirectsOutside(point, dataDir);
+            publicationRelease.countDown();
+            writer.join(2_000L);
+
+            assertFalse(writer.isAlive());
+            final List<Path> escaped;
+            try (var written = Files.walk(outside)) {
+                escaped = written.filter(Files::isRegularFile).toList();
+            }
+            assertTrue(
+                    writeFailure.get() instanceof PluginConfigException,
+                    "the redirected write must fail closed; files behind the redirected parent: " + escaped);
+            assertTrue(
+                    escaped.isEmpty(),
+                    "no staged or published document may land behind the redirected parent: " + escaped);
+        } finally {
+            FileSystemFaults.deleteReparsePoint(point.link());
+            scope.close();
+        }
     }
 
     @Test

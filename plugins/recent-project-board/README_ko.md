@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: recent-files, preview, viewport, navigation
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -39,7 +39,7 @@ interface: swing
 
 ## 요구 사항 및 호환성
 
-- **SDK API 범위:** `[0.68.1,1.0.0)`.
+- **SDK API 범위:** `[0.70.0,1.0.0)`.
 - **Cubism:** Cubism 필요 (5.0.00–5.3.04).
 - **인터페이스 모드:** `swing`。
 - **플러그인 종속성:** `dev.turboism.plugin.recent-preview` (필수).

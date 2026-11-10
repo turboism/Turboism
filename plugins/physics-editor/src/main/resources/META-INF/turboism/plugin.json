@@ -8,16 +8,26 @@
   "entrypoints": [
     "dev.turboism.plugin.physicseditor.PhysicsEditorPlugin"
   ],
-  "turboismApi": "[0.68.1,1.0.0)",
+  "turboismApi": "[0.70.0,1.0.0)",
   "authors": [
-    { "name": "Turboism Contributors" }
+    {
+      "name": "Turboism Contributors"
+    }
   ],
   "license": "Project License",
   "website": "https://turboism.dev",
-  "resources": [],
+  "resources": [
+    "icons/"
+  ],
   "i18n": {
     "baseName": "META-INF/turboism/i18n/messages",
-    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
+    "locales": [
+      "en",
+      "ja",
+      "ko",
+      "zh-Hans",
+      "zh-Hant"
+    ]
   },
   "dependencies": [],
   "permissions": [
@@ -42,12 +52,19 @@
       "reason": "Writes the recording, its temporary encoder output and the GIF the user exports."
     },
     {
+      "id": "turboism.ui.viewport.read",
+      "scope": "application",
+      "reason": "Reads the focused preview surface so the GIF recording strip can follow it and capture frames."
+    },
+    {
       "id": "turboism.process.run",
       "scope": "application",
       "reason": "Runs the user-supplied Gifsicle executable to optimize an exported GIF to the requested size."
     }
   ],
-  "capabilities": ["cubism.preview.capture"],
+  "capabilities": [
+    "cubism.preview.capture"
+  ],
   "environment": {
     "requiresCubism": true,
     "ui": "swing"

@@ -285,7 +285,7 @@ def render_command(request: Request, manifest: Manifest) -> list[str]:
     templates = request.task.variants[request.variant] if request.variant else request.task.arguments
     if templates is None:
         raise SchedulerError(f"cannot run blocked task: {request.task.blocked_reason}")
-    return ["bash", str(manifest.root / request.task.command),
+    return [queue.shell(), str(manifest.root / request.task.command),
             *(value.format(version=request.version, runLabel=request.run_label) for value in templates)]
 
 
@@ -648,7 +648,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if report["safe"] else 75
         if args.command == "serve":
             stop = threading.Event()
-            previous = {sig: signal.signal(sig, lambda *_: stop.set()) for sig in (signal.SIGINT, signal.SIGTERM)}
+            # A host without SIGTERM still stops on the signals it does define.
+            previous = {sig: signal.signal(sig, lambda *_: stop.set()) for sig in queue.interrupt_signals()}
             try:
                 queue.Worker(store).serve(stop=stop)
             finally:

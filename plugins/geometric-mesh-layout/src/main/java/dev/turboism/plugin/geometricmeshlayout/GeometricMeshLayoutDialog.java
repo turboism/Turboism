@@ -410,7 +410,7 @@ final class GeometricMeshLayoutDialog {
 
     void show() {
         if (dialog == null) {
-            dialog = TurboismWindowFactory.dialog(null, texts.title(), false);
+            dialog = TurboismWindowFactory.dialog(hostOwner(), texts.title(), false);
             if (dialog == null) {
                 return;
             }
@@ -434,6 +434,36 @@ final class GeometricMeshLayoutDialog {
         if (!dialog.isVisible()) {
             dialog.setVisible(true);
         }
+        // Placing the anchor hands focus to the modeling view, which raises the host window. The
+        // configuration dialog must stay reachable, so it is re-raised after every anchor update.
+        if (!dialog.isAlwaysOnTop()) {
+            dialog.toFront();
+        }
+    }
+
+    /**
+     * The visible host frame the dialog belongs to.
+     *
+     * <p>An ownerless modeless dialog is not kept above the Cubism window: clicking the canvas to
+     * place the anchor raises the host and buries the configuration dialog. Binding the dialog to the
+     * host frame keeps the window relationship native, so the dialog follows the editor instead of
+     * floating over unrelated applications.</p>
+     */
+    private static java.awt.Window hostOwner() {
+        java.awt.Frame fallback = null;
+        for (final java.awt.Frame frame : java.awt.Frame.getFrames()) {
+            if (!frame.isVisible()) {
+                continue;
+            }
+            final String title = frame.getTitle();
+            if (title != null && title.contains("Live2D Cubism Editor")) {
+                return frame;
+            }
+            if (fallback == null) {
+                fallback = frame;
+            }
+        }
+        return fallback;
     }
 
     void hide() {

@@ -131,6 +131,7 @@ class PaletteFilterHostOperationsTest {
         final String raw = "INFO loaded\nWARN missing texture\nERROR failed";
         assertEquals("WARN missing texture", PaletteLogFilter.filterLogText(raw, "missing", true, true, true));
         assertEquals(raw, PaletteLogFilter.filterLogText(raw, "", true, true, true));
+        assertEquals(raw, PaletteLogFilter.filterLogText(raw.replace("\n", "\r\n"), "", true, true, true));
         assertEquals("", PaletteLogFilter.filterLogText(null, "x", true, true, true));
         assertEquals("", PaletteLogFilter.filterLogText("", "x", true, true, true));
         assertEquals("", PaletteLogFilter.filterLogText(raw, "nonexistent", true, true, true));

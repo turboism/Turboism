@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: recent-files, preview, viewport, navigation
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -42,7 +42,7 @@ Replaces the empty Cubism modeling viewport with a board of recent project thumb
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.68.1,1.0.0)`.
+- **SDK API range:** `[0.70.0,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; each host-facing feature is exposed only when its declared services and capabilities are available.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** `dev.turboism.plugin.recent-preview` (required, ordered after the provider).

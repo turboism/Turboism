@@ -195,7 +195,14 @@ public final class ThemePaletteGenerator {
         values.put("background", List.of("CubismCommon.background", "Panel.background"));
         values.put(
                 "surface",
-                List.of("CubismCommon.surface", "Button.background", "ComboBox.background", "Table.background"));
+                List.of(
+                        "CubismCommon.surface",
+                        "Button.background",
+                        "ComboBox.background",
+                        "Table.background",
+                        // Cubism paints its canvas scrollbars through these keys; without them the
+                        // track beside the empty-workspace board kept the look-and-feel's grey.
+                        "ScrollBar.track"));
         values.put(
                 "inputBackground",
                 List.of("CubismCommon.inputBackground", "TextField.background", "TextArea.background"));
@@ -208,7 +215,7 @@ public final class ThemePaletteGenerator {
                         "ComboBox.foreground",
                         "TextField.foreground",
                         "TextArea.foreground"));
-        values.put("mutedForeground", List.of("CubismCommon.mutedForeground"));
+        values.put("mutedForeground", List.of("CubismCommon.mutedForeground", "ScrollBar.thumb"));
         values.put("selectionBackground", List.of("CubismCommon.selectionBackground", "Table.selectionBackground"));
         values.put("selectionForeground", List.of("CubismCommon.selectionForeground", "Table.selectionForeground"));
         values.put("border", List.of("CubismCommon.border", "Separator.foreground"));

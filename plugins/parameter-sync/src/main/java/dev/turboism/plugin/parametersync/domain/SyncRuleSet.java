@@ -13,6 +13,12 @@ public final class SyncRuleSet {
 
     private final Set<String> synchronizedIds = new LinkedHashSet<>();
     private volatile boolean globalEnabled = true;
+    /**
+     * Set once the operator edits this model's settings. A load that completes afterwards must not
+     * overwrite the newer in-memory state, which is exactly what happens when a dialog opens and the
+     * operator starts checking parameters before the asynchronous read returns.
+     */
+    private volatile boolean locallyModified;
 
     public SyncRuleSet() {}
 
@@ -37,6 +43,16 @@ public final class SyncRuleSet {
         this.globalEnabled = enabled;
     }
 
+    /** Returns whether the operator changed this model's settings since it was created. */
+    public boolean isLocallyModified() {
+        return locallyModified;
+    }
+
+    /** Marks this model's settings as operator-edited so a late load cannot overwrite them. */
+    public void markLocallyModified() {
+        locallyModified = true;
+    }
+
     /** Returns an immutable snapshot of selected parameter IDs. */
     public synchronized Set<String> synchronizedIds() {
         return Set.copyOf(synchronizedIds);
@@ -58,6 +74,7 @@ public final class SyncRuleSet {
     /** Adds or removes the parameter from the selected set. */
     public synchronized void setSynchronized(final String parameterId, final boolean sync) {
         Objects.requireNonNull(parameterId, "parameterId");
+        locallyModified = true;
         final String clean = parameterId.strip();
         if (sync) {
             synchronizedIds.add(clean);
@@ -68,6 +85,7 @@ public final class SyncRuleSet {
 
     /** Replaces selected IDs, discarding null and blank entries. */
     public synchronized void setAllSynchronized(final Set<String> ids) {
+        locallyModified = true;
         synchronizedIds.clear();
         if (ids != null) {
             for (final String id : ids) {
@@ -80,6 +98,7 @@ public final class SyncRuleSet {
 
     /** Clears the stored synchronization entries. */
     public synchronized void clear() {
+        locallyModified = true;
         synchronizedIds.clear();
     }
 

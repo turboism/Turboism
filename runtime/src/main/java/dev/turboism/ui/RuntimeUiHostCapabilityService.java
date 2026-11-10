@@ -503,6 +503,27 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     @Override
     public Registration openSelectionTableDialog(
             final dev.turboism.sdk.ui.SelectionTableDialogRequest request,
+            final dev.turboism.sdk.ui.SelectionTableFooter footer,
+            final dev.turboism.sdk.ui.SelectionTableDialogResultListener listener) {
+        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(listener, "listener");
+        dev.turboism.sdk.ui.SelectionTableFooter.requireValid(footer);
+        permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
+        return enrollAdapterRegistration(RuntimeSelectionTableDialog.openAsync(
+                request,
+                footer,
+                (accepted, ids) -> {
+                    if (!disposableScope.isSealed())
+                        callbackDispatcher.dispatch(request.id(), () -> {
+                            if (!disposableScope.isSealed()) listener.onResult(accepted, ids);
+                        });
+                },
+                uiResources));
+    }
+
+    @Override
+    public Registration openSelectionTableDialog(
+            final dev.turboism.sdk.ui.SelectionTableDialogRequest request,
             final dev.turboism.sdk.ui.SelectionTableDialogResultListener listener) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(listener, "listener");

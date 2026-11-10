@@ -289,8 +289,8 @@ final class PluginMarketWindow {
         final JPanel bottomBar = new JPanel(new BorderLayout(8, 0));
         bottomBar.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
         statusLabel = new JLabel(" ");
-        final JButton closeBtn = new JButton(i18n.text("common.close"));
-        closeBtn.addActionListener(e -> win.setVisible(false));
+        // No footer close button: the window's own close control already ends the session, and the
+        // footer is reserved for the actions that only exist here.
         cancelDownload = new JButton(i18n.text("common.cancel"));
         cancelDownload.setEnabled(false);
         cancelDownload.addActionListener(e -> {
@@ -301,7 +301,6 @@ final class PluginMarketWindow {
         });
         final JPanel bottomActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         bottomActions.add(cancelDownload);
-        bottomActions.add(closeBtn);
         bottomBar.add(statusLabel, BorderLayout.WEST);
         bottomBar.add(bottomActions, BorderLayout.EAST);
 

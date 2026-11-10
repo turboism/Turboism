@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: physics, editing, simulation
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -49,7 +49,7 @@ interface: swing
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.68.1,1.0.0)`。
+- **SDK API 范围：** `[0.70.0,1.0.0)`。
 - **Cubism：**需要 Cubism。Turboism 当前允许精确审核过的 Editor 构件 `5.0.00` 至 `5.3.04`（共 20 个精确版本）；本插件仅在其声明的服务和功能能力可用时公开各项面向主机的功能。
 - **界面模式：**`swing`。
 - **插件依赖：**未声明。
@@ -90,6 +90,7 @@ interface: swing
 | `turboism.cubism.model.write` | `application` | 通过已验证的 Editor 事务路径以原子方式批量启用或禁用物理运算组。 |
 | `turboism.file.read` | `application` | 检查记忆的 GIF 导出目录与导出文件大小。 |
 | `turboism.file.write` | `application` | 写入录制内容、编码器临时输出以及用户导出的 GIF。 |
+| `turboism.ui.viewport.read` | `application` | 读取聚焦预览的画面帧，用于录制 GIF。 |
 | `turboism.process.run` | `application` | 运行用户指定的 Gifsicle 可执行文件，将导出的 GIF 优化到目标大小。 |
 
 ## 隐私与数据

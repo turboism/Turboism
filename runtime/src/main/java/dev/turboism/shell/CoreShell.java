@@ -51,8 +51,8 @@ public final class CoreShell implements ShellHandle {
     private static final String PLUGIN_UPDATE_HINT_ID = "turboism-plugin-updates-ready";
     private static final String PLUGIN_UPDATE_CHECK_RESULT_HINT_ID = "turboism-plugin-update-check-result";
     private static final float CHECK_RESULT_HINT_SECONDS = 5.0f;
-    /** Sits after the core plugin management items, which occupy 10..14. */
-    private static final int UPDATE_MENU_ORDER = 20;
+    /** Last entry in the menu: core items occupy 10..14 and About uses 90. */
+    private static final int UPDATE_MENU_ORDER = 100;
 
     private Registration updateHint;
     /** Identity currently shown by the hint, so a newer build replaces the message. */
@@ -406,8 +406,8 @@ public final class CoreShell implements ShellHandle {
                     .register(context.menus().contribute(new dev.turboism.sdk.menu.MenuRegistry.MenuContribution() {
                         @Override
                         public String menuPath() {
-                            return root + "/" + localized("updates.install.title", "Updates") + "/"
-                                    + localized("updates.check", "Check for updates");
+                            // One direct command: an intermediate submenu hid it behind an extra click.
+                            return root + "/" + localized("updates.check", "Check for updates");
                         }
 
                         @Override

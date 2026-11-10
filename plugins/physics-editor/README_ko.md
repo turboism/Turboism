@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: physics, editing, simulation
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -48,7 +48,7 @@ GIF 내보내기에는 로컬 **Gifsicle** 설치가 필요합니다. `gifsicle`
 
 ## 요구 사항 및 호환성
 
-- **SDK API 範囲:** `[0.68.1,1.0.0)`。
+- **SDK API 範囲:** `[0.70.0,1.0.0)`。
 - **Cubism:** Cubism が必要です。Turboism は現在、正確にレビュー済みの Editor アーティファクト `5.0.00` から `5.3.04`（計20個の正確なバージョン）を受け入れています。このプラグインは、宣言されたサービスと機能が利用可能な場合にのみ、各ホスト向け機能を公開します。
 - **インターフェースモード:** `swing`。
 - **プラグイン依存関係:** 宣言されていません。
@@ -91,6 +91,7 @@ GIF 내보내기에는 로컬 **Gifsicle** 설치가 필요합니다. `gifsicle`
 | `turboism.cubism.model.write` | `application` | 検証済みの Editor トランザクションパスを通じて、物理演算グループを一括でアトミックに有効化または無効化します。 |
 | `turboism.file.read` | `application` | 기억한 GIF 내보내기 폴더와 내보낸 파일 크기를 확인합니다. |
 | `turboism.file.write` | `application` | 녹화, 인코더 임시 출력, 사용자가 내보낸 GIF를 기록합니다. |
+| `turboism.ui.viewport.read` | `application` | 포커스된 미리보기에서 프레임을 읽어 GIF를 녹화합니다. |
 | `turboism.process.run` | `application` | 사용자가 지정한 Gifsicle 실행 파일을 실행해 내보낸 GIF를 요청한 크기로 최적화합니다. |
 
 ## 개인정보 및 데이터

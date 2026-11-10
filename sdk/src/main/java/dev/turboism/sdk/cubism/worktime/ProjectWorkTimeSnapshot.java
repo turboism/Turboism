@@ -15,7 +15,8 @@ import java.util.Optional;
  * of the listed projects.</p>
  *
  * @param editorForeground whether the Cubism process was foreground at the observation
- * @param sessionForegroundTime total Editor foreground time since this process started
+ * @param sessionForegroundTime foreground time of the project that is open now; zero while no
+ *     project is open, because idle editor time is not project work
  * @param activeProject project whose tab was active, empty when none was open
  * @param projects all projects with recorded work time, ordered for display
  * @param observedAt the instant this snapshot was observed

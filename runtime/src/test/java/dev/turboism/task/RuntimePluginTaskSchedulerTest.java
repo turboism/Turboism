@@ -1115,6 +1115,53 @@ class RuntimePluginTaskSchedulerTest {
     }
 
     @Test
+    void fixedDelayIterationThatOverrunsTheBudgetKeepsScheduling() throws Exception {
+        delays = new ManualScheduledExecutor();
+        createScheduler(1, 8, 100L, ignored -> WorkBudget.LIGHTWEIGHT);
+        final AtomicInteger runs = new AtomicInteger();
+        final CountDownLatch firstRunStarted = new CountDownLatch(1);
+        final CountDownLatch releaseFirstRun = new CountDownLatch(1);
+        final TaskSubmission fixed = scheduler.scheduleWithFixedDelay(new FixedDelayTaskRequest(
+                new TaskId("overrun"),
+                PluginTaskKind.LOW_FREQUENCY_REFRESH,
+                PluginTaskPriority.LOW,
+                Duration.ZERO,
+                Duration.ofMillis(20),
+                token -> {
+                    if (runs.incrementAndGet() == 1) {
+                        firstRunStarted.countDown();
+                        awaitUninterruptibly(releaseFirstRun);
+                    }
+                }));
+        assertTrue(fixed.accepted());
+        delays.runDueTasks();
+        assertTrue(firstRunStarted.await(1, TimeUnit.SECONDS));
+
+        // One iteration overruns the work budget. A refresh task tolerates a late or missed run,
+        // so the schedule must survive: the status-bar metrics died for a whole session because
+        // the first CX status-region call landed while plugin load still owned the host EDT.
+        timeouts.advanceBy(Duration.ofMillis(100));
+        Await.condition(
+                "the overrun iteration must be reported as timed out",
+                () -> fixed.handle()
+                        .progress()
+                        .lastRunOutcome()
+                        .map(outcome -> outcome.status() == TaskRunOutcomeStatus.TIMED_OUT)
+                        .orElse(false));
+        assertFalse(
+                fixed.handle().completion().toCompletableFuture().isDone(),
+                "a timed-out refresh iteration must not end the schedule");
+
+        releaseFirstRun.countDown();
+        Await.condition("the schedule must run the next iteration after an overrun", () -> {
+            delays.advanceBy(Duration.ofMillis(20));
+            return runs.get() >= 2;
+        });
+        assertFalse(fixed.handle().completion().toCompletableFuture().isDone());
+        assertTrue(fixed.handle().cancel());
+    }
+
+    @Test
     void scopeCloseWaitsForCompletionContinuationQuiescence() throws Exception {
         createScheduler(1, 8);
         final CountDownLatch actionStarted = new CountDownLatch(1);

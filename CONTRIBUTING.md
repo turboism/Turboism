@@ -10,6 +10,23 @@ Review the containing surface, glyph contrast, interaction states, actual displa
 size/DPI, and live theme switching in both light and dark modes. For first-party
 icon sources and regeneration, see the [artwork guide](scripts/artwork/README.md#深浅色模式适配).
 
+### Plugin control icons
+
+A first-party `PanelView` control takes its icon from the bundled Lucide 0.468.0 set. Do not
+draw an ad-hoc glyph and do not add a second icon family.
+
+- Ship the unmodified upstream SVG next to an 80×80 glyph in
+  `plugins/<plugin>/src/main/resources/icons/lucide/`.
+- A transport or action control uses the solid variant: the same stroke geometry with a filled
+  interior. A passive indicator may keep the outline variant.
+- A control that signals meaning by colour uses `PanelView.colorIconButton` with a coloured glyph.
+  A theme-tinted `PanelView.iconButton` mask stays correct for a monochrome control.
+- A disabled control passes `enabled=false`. The runtime rejects its input and paints the glyph at
+  reduced opacity at the same size, so a state change never reflows the surrounding layout.
+- Record every icon source, colour and the rasterization command in the plugin's
+  `META-INF/licenses/` directory. The GIF control strip in `physics-editor` is the reference
+  implementation.
+
 ## Repository hygiene policy
 
 Remote history must never contain:
