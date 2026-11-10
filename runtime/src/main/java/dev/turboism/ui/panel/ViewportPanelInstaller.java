@@ -3,6 +3,8 @@ package dev.turboism.ui.panel;
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.ui.host.EdtDispatch;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -40,6 +42,18 @@ final class ViewportPanelInstaller {
     private static final String APP_INSTANCE = "cubism.ui-panel.app-controller.instance";
     private static final String OPENGL_VIEWPORT_CLASS = "com.jogamp.opengl.awt.GLJPanel";
     private static final long REFRESH_MILLIS = 750L;
+    private static final int INITIAL_REFRESH_MILLIS = 250;
+    private static final int BOARD_VERTICAL_INSET = 16;
+    private static final int BOARD_HORIZONTAL_INSET = 16;
+    private static final Color FALLBACK_BACKGROUND = new Color(0x2b2b2b);
+    /**
+     * Extra pixels the overlay may take beyond the GL surface to cover the native rails beside it.
+     * The rails are custom-painted host widgets that keep their own grey; a larger container is a
+     * different widget, so the overlay stays on the GL rectangle instead.
+     */
+    private static final int CONTAINER_COVER_MARGIN = 64;
+
+    private static final String CONTENT_UPDATE_OPERATION = "viewport panel content update";
 
     private ViewportPanelInstaller() {}
 
@@ -71,63 +85,81 @@ final class ViewportPanelInstaller {
             throw new IllegalStateException("Cubism OpenGL viewport is not ready");
         }
         final JLayeredPane layeredPane = rootPane.getRootPane().getLayeredPane();
+        return install(
+                frame,
+                viewport,
+                layeredPane,
+                descriptor,
+                () -> readDocumentOpen(resolver, documentOpen),
+                contentBuilder);
+    }
+
+    static EmbeddedPanelHostOperations.PanelHandle install(
+            final Container frame,
+            final Component viewport,
+            final JLayeredPane layeredPane,
+            final EmbeddedPanelContributionDescriptor descriptor,
+            final BooleanSupplier documentOpen,
+            final Function<EmbeddedPanelContributionDescriptor, JComponent> contentBuilder) {
         final AtomicReference<EmbeddedPanelContributionDescriptor> currentDescriptor =
                 new AtomicReference<>(descriptor);
         final AtomicBoolean closed = new AtomicBoolean();
 
         final JPanel contentHolder = new JPanel(new BorderLayout());
         contentHolder.setOpaque(false);
-        final JPanel host = new JPanel(new BorderLayout());
+        final JPanel host = new JPanel(new BorderLayout()) {
+            @Override
+            public void updateUI() {
+                super.updateUI();
+                setBackground(viewportBackground());
+            }
+        };
+        host.setName(descriptor.contributionId());
         host.setOpaque(true);
-        host.setBackground(viewportBackground());
-        host.setBorder(BorderFactory.createEmptyBorder(28, 36, 28, 36));
+        host.setBorder(BorderFactory.createEmptyBorder(
+                BOARD_VERTICAL_INSET, BOARD_HORIZONTAL_INSET, BOARD_VERTICAL_INSET, BOARD_HORIZONTAL_INSET));
         host.add(contentHolder, BorderLayout.CENTER);
         host.setVisible(false);
-        layeredPane.add(host, JLayeredPane.PALETTE_LAYER);
 
         final Runnable refreshContent = () -> {
             final JComponent rendered = contentBuilder.apply(currentDescriptor.get());
-            contentHolder.removeAll();
-            contentHolder.add(rendered, BorderLayout.CENTER);
+            if (rendered.getParent() != contentHolder) {
+                contentHolder.removeAll();
+                contentHolder.add(rendered, BorderLayout.CENTER);
+            }
             contentHolder.revalidate();
             contentHolder.repaint();
         };
         refreshContent.run();
+        layeredPane.add(host, JLayeredPane.PALETTE_LAYER);
 
+        final Runnable refreshBounds = () -> {
+            if (closed.get()) return;
+            final Rectangle bounds = computeViewportBounds(viewport, layeredPane);
+            if (bounds.width > 0 && bounds.height > 0 && !bounds.equals(host.getBounds())) {
+                host.setBounds(bounds);
+                host.validate();
+            }
+        };
+        final Registration layoutBinding = OverlayLayoutBinding.attach(viewport.getParent(), refreshBounds);
         final Timer timer = new Timer((int) REFRESH_MILLIS, ignored -> {
             if (closed.get()) {
                 return;
             }
-            boolean documentIsOpen;
-            try {
-                final Object app = resolver.invokeStatic(APP_INSTANCE);
-                documentIsOpen = app != null && hasOpenDocuments(app);
-            } catch (RuntimeException failure) {
-                FatalErrors.rethrowIfFatal(failure);
-                try {
-                    documentIsOpen = documentOpen.getAsBoolean();
-                } catch (RuntimeException fallbackFailure) {
-                    FatalErrors.rethrowIfFatal(fallbackFailure);
-                    // A failed host read must not expose the board over a live document.
-                    documentIsOpen = true;
-                }
-            }
+            final boolean documentIsOpen = documentOpen.getAsBoolean();
             if (documentIsOpen || !viewport.isShowing() || !frame.isShowing() || !layeredPane.isShowing()) {
                 if (host.isVisible()) {
                     host.setVisible(false);
                 }
                 return;
             }
-            final Rectangle bounds = computeViewportBounds(viewport, layeredPane);
-            if (bounds.width > 0 && bounds.height > 0 && !bounds.equals(host.getBounds())) {
-                host.setBounds(bounds);
-            }
+            refreshBounds.run();
             if (!host.isVisible()) {
                 host.setVisible(true);
                 layeredPane.setLayer(host, JLayeredPane.PALETTE_LAYER);
             }
         });
-        timer.setInitialDelay(250);
+        timer.setInitialDelay(INITIAL_REFRESH_MILLIS);
         timer.start();
 
         return new EmbeddedPanelHostOperations.PanelHandle() {
@@ -147,12 +179,12 @@ final class ViewportPanelInstaller {
             @Override
             public void updateContent(final EmbeddedPanelContributionDescriptor updated) {
                 Objects.requireNonNull(updated, "descriptor");
-                SwingUtilities.invokeLater(() -> {
-                    if (handleClosed) {
-                        return;
+                EdtDispatch.call(CONTENT_UPDATE_OPERATION, () -> {
+                    if (!handleClosed) {
+                        currentDescriptor.set(updated);
+                        refreshContent.run();
                     }
-                    currentDescriptor.set(updated);
-                    refreshContent.run();
+                    return null;
                 });
             }
 
@@ -164,6 +196,7 @@ final class ViewportPanelInstaller {
                 handleClosed = true;
                 VerifiedEmbeddedPanelHostOperations.runOnEdtLater(() -> {
                     timer.stop();
+                    layoutBinding.close();
                     layeredPane.remove(host);
                     layeredPane.revalidate();
                     layeredPane.repaint();
@@ -177,6 +210,21 @@ final class ViewportPanelInstaller {
      * document list stays non-empty while any document is open even if focus moves to a palette,
      * so the board cannot cover a live canvas after a title-bar or palette click.
      */
+    private static boolean readDocumentOpen(final VerifiedMemberResolver resolver, final BooleanSupplier fallback) {
+        try {
+            final Object app = resolver.invokeStatic(APP_INSTANCE);
+            return app != null && hasOpenDocuments(app);
+        } catch (RuntimeException failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            try {
+                return fallback.getAsBoolean();
+            } catch (RuntimeException fallbackFailure) {
+                FatalErrors.rethrowIfFatal(fallbackFailure);
+                return true;
+            }
+        }
+    }
+
     private static boolean hasOpenDocuments(final Object app) {
         try {
             final Object pack =
@@ -193,19 +241,33 @@ final class ViewportPanelInstaller {
     }
 
     private static Rectangle computeViewportBounds(final Component viewport, final Container target) {
+        final Rectangle surface = surfaceBounds(viewport, target);
+        final Rectangle container = containerBounds(viewport, target);
+        if (container == null) return surface;
+        // The container holds the GL surface plus the native rails on its edges. Covering it hides
+        // the untinted seam beside the board, which no UI default can reach. A container that is
+        // much larger is a different widget, so the GL rectangle wins there.
+        final boolean bounded = container.width - surface.width <= 2 * CONTAINER_COVER_MARGIN
+                && container.height - surface.height <= 2 * CONTAINER_COVER_MARGIN;
+        return bounded ? container : surface;
+    }
+
+    private static Rectangle surfaceBounds(final Component viewport, final Container target) {
         if (viewport instanceof JComponent jc) {
             final Rectangle visible = jc.getVisibleRect();
             if (visible.width > 0 && visible.height > 0) {
                 return SwingUtilities.convertRectangle(viewport, visible, target);
             }
         }
-        final Component parent = viewport.getParent();
-        if (parent != null) {
-            final Rectangle parentRect = new Rectangle(0, 0, parent.getWidth(), parent.getHeight());
-            return SwingUtilities.convertRectangle(parent, parentRect, target);
-        }
         return SwingUtilities.convertRectangle(
                 viewport, new Rectangle(0, 0, viewport.getWidth(), viewport.getHeight()), target);
+    }
+
+    private static Rectangle containerBounds(final Component viewport, final Container target) {
+        final Component parent = viewport.getParent();
+        if (parent == null || parent.getWidth() <= 0 || parent.getHeight() <= 0) return null;
+        return SwingUtilities.convertRectangle(
+                parent, new Rectangle(0, 0, parent.getWidth(), parent.getHeight()), target);
     }
     /** Visible editor frame containing the largest native OpenGL viewport. */
     private static Window selectMainWindow() {
@@ -258,6 +320,6 @@ final class ViewportPanelInstaller {
 
     private static Color viewportBackground() {
         final Color themed = UIManager.getColor("Panel.background");
-        return themed == null ? new Color(0x2b2b2b) : themed;
+        return themed == null ? FALLBACK_BACKGROUND : themed;
     }
 }

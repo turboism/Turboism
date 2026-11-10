@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.persistence.config.StoredDocument;
 import dev.turboism.persistence.config.TypedConfigDocumentCodec;
+import dev.turboism.testkit.FileSystemFaults;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -63,18 +64,54 @@ class TypedConfigDocumentStorePermissionTest {
         assertFalse(Files.exists(temporary.resolve("outside.cfg")));
     }
 
+    /**
+     * Injection refuses an occupied path instead of clearing it, so a caller can never lose an entry
+     * the injection call did not create. This boundary guards every suite that uses the seam.
+     */
     @Test
-    void firstWriteRejectsSymlinkSubstitutedForConfigParent() throws Exception {
+    void reparsePointInjectionRefusesAnOccupiedPathInsteadOfRemovingIt() throws Exception {
+        final Path target = Files.createDirectories(temporary.resolve("reparse-target"));
+        final Path occupiedFile = temporary.resolve("occupied-file");
+        Files.writeString(occupiedFile, "owned by the test");
+        final Path occupiedDirectory = Files.createDirectories(temporary.resolve("occupied-directory"));
+        Files.writeString(occupiedDirectory.resolve("keep.txt"), "owned by the test");
+
+        assertThrows(
+                java.io.IOException.class, () -> FileSystemFaults.createDirectoryReparsePoint(occupiedFile, target));
+        assertThrows(
+                java.io.IOException.class,
+                () -> FileSystemFaults.createDirectoryReparsePoint(occupiedDirectory, target));
+
+        assertEquals("owned by the test", Files.readString(occupiedFile), "an occupied file must survive");
+        assertEquals(
+                "owned by the test",
+                Files.readString(occupiedDirectory.resolve("keep.txt")),
+                "an occupied directory and its content must survive");
+    }
+
+    /**
+     * The store must reject a reparse point that replaces the config parent before the first write,
+     * so no document can appear behind it. The case asserts the contract this host could establish,
+     * as in {@link dev.turboism.testkit.FileSystemFaults#assertRedirectsOutside}.
+     */
+    @Test
+    void firstWriteRejectsReparsePointSubstitutedForConfigParent() throws Exception {
         final Path config = Files.createDirectories(temporary.resolve("config"));
         final Path root = config.resolve("plugin");
         final Path outside = Files.createDirectories(temporary.resolve("outside"));
         Files.createDirectories(outside.resolve("plugin"));
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
-        Files.move(config, temporary.resolve("original-config"));
-        Files.createSymbolicLink(config, outside);
+        final Path originalConfig = temporary.resolve("original-config");
+        Files.move(config, originalConfig);
+        final FileSystemFaults.ReparsePoint point = FileSystemFaults.createDirectoryReparsePoint(config, outside);
+        try {
+            FileSystemFaults.assertRedirectsOutside(point, originalConfig);
 
-        assertThrows(java.io.IOException.class, () -> store.writeAtomic("settings.cfg", document("line=value")));
-        assertFalse(Files.exists(outside.resolve("settings.cfg")));
+            assertThrows(java.io.IOException.class, () -> store.writeAtomic("settings.cfg", document("line=value")));
+            assertFalse(Files.exists(outside.resolve("settings.cfg")));
+        } finally {
+            FileSystemFaults.deleteReparsePoint(point.link());
+        }
     }
 
     @Test

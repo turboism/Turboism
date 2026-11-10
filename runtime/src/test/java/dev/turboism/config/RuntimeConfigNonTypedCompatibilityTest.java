@@ -9,16 +9,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.testkit.FileSystemFaults;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -208,24 +207,25 @@ class RuntimeConfigNonTypedCompatibilityTest {
                 "the unrelated change itself must still be written");
     }
 
+    /**
+     * A publication that cannot stage its sibling must fail closed and keep the readable bytes.
+     *
+     * <p>The case injects the fault through the host's own permission model: a lost write bit on
+     * POSIX, an owner denial entry on Windows. The {@code try-with-resources} exit path restores the
+     * directory. A POSIX root account bypasses mode bits, so that host fails this case with an
+     * explicit message instead of passing on a write that was never blocked.
+     */
     @Test
     void failedIoWriteLeavesTheOriginalBytesInPlace() throws Exception {
         final byte[] original = validDocument(root -> {});
         final RuntimeConfigRepository repository = new RuntimeConfigRepository(home, ignored -> {});
-        Assumptions.assumeTrue(
-                Files.getFileStore(home).supportsFileAttributeView("posix"), "POSIX permission semantics required");
-        Assumptions.assumeFalse("root".equals(System.getProperty("user.name")), "root bypasses directory permissions");
-        final var originalPermissions = Files.getPosixFilePermissions(home);
-        try {
-            Files.setPosixFilePermissions(home, PosixFilePermissions.fromString("r-x------"));
+        try (FileSystemFaults.WriteDenial denied = FileSystemFaults.denyDirectoryWrites(home)) {
             assertRejected(
                     "RUNTIME_CONFIG_WRITE_FAILED",
                     () -> repository.update(root -> {
                         root.put("safeMode", true);
                         return root;
                     }));
-        } finally {
-            Files.setPosixFilePermissions(home, originalPermissions);
         }
         assertArrayEquals(original, Files.readAllBytes(config()));
         try (var entries = Files.list(home)) {

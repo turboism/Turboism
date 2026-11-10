@@ -1,4 +1,7 @@
 action.rename
+base.label
+base.minimal
+base.part
 button.cancel
 button.confirm
 column.apply

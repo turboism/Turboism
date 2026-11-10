@@ -12,7 +12,6 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import java.util.HashSet;
-import java.util.List;
 import java.util.function.Consumer;
 
 /** One confirmed rename batch participates in one native Undo transaction. */
@@ -22,6 +21,8 @@ public final class DeformerBatchRenamePlugin implements CubismPlugin {
     private volatile boolean enabled;
     private volatile Registration dialog;
     private volatile long generation;
+    /** Naming base used by the last preview, so a repeat run starts where the operator left off. */
+    private volatile RenamePlanner.BaseNameMode baseNameMode = RenamePlanner.BaseNameMode.MINIMAL_COMMON;
 
     @Override
     public void init(PluginContext context) {
@@ -89,35 +90,43 @@ public final class DeformerBatchRenamePlugin implements CubismPlugin {
                 return;
             }
             var modelId = model.id();
-            var rows = RenamePlanner.preview(model);
-            if (rows.isEmpty()) {
+            var baseNames = new RenameBaseNameFooter(model, context.localization(), baseNameMode);
+            if (baseNames.rows().isEmpty()) {
                 notifyStatus("status.empty", "INFO");
                 return;
             }
             long current = generation;
             dialog = context.services()
                     .require(UiHostCapabilityService.class)
-                    .openSelectionTableDialog(RenameDialog.request(context.localization(), rows), (accepted, ids) -> {
-                        if (!enabled || current != generation) return;
-                        var handle = dialog;
-                        dialog = null;
-                        if (handle != null) handle.close();
-                        if (accepted && !ids.isEmpty()) apply(modelId, rows, ids);
-                    });
+                    .openSelectionTableDialog(
+                            RenameDialog.request(context.localization(), baseNames.rows()),
+                            baseNames,
+                            (accepted, ids) -> {
+                                if (!enabled || current != generation) return;
+                                var handle = dialog;
+                                dialog = null;
+                                if (handle != null) handle.close();
+                                baseNameMode = baseNames.mode();
+                                if (accepted && !ids.isEmpty()) apply(modelId, baseNames.rows(), ids, baseNames.mode());
+                            });
         } catch (RuntimeException failure) {
             context.logger().warn("Deformer rename failed: " + failure);
             notifyStatus("status.failed", "ERROR");
         }
     }
 
-    private void apply(ModelId modelId, List<RenamePlanner.Row> rows, List<String> ids) {
+    private void apply(
+            ModelId modelId,
+            java.util.List<RenamePlanner.Row> rows,
+            java.util.List<String> ids,
+            RenamePlanner.BaseNameMode mode) {
         try {
             var selected = new HashSet<>(ids);
             var result = context.cubism()
                     .authoringTransactions()
                     .execute(AuthoringTransactionOptions.of(text("action.rename")), () -> {
                         CubismModel active = context.cubism().model().active();
-                        if (!active.id().equals(modelId) || !rows.equals(RenamePlanner.preview(active)))
+                        if (!active.id().equals(modelId) || !rows.equals(RenamePlanner.preview(active, mode)))
                             throw new IllegalStateException("Rename preview is stale");
                         for (var row : rows)
                             if (row.changed() && selected.contains(row.id().value()))

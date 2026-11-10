@@ -96,6 +96,66 @@ public final class RuntimeScheduler {
     }
 
     /**
+     * Dispatches a user-initiated action invocation.
+     *
+     * <p>An action handler runs because the operator clicked a menu entry, pressed a shortcut or
+     * used a toolbar button, and it routinely hops to the host EDT to open a dialog or touch host
+     * UI. Its wall time is therefore dominated by host EDT latency, which the plugin does not own:
+     * charging that to the plugin opened its breaker while a large model loaded and left the plugin
+     * inert for the rest of the session. Lightweight actions therefore run on the UI-bound path.
+     * Actions the budget policy classifies as heavy keep the ordinary protected path, so a genuinely
+     * expensive handler is still bounded and circuit-broken.</p>
+     *
+     * @param task the action work to run
+     * @param callback the body to execute once a lane accepts it
+     * @param timeoutAction idempotent cancellation for lightweight work that is abandoned
+     * @return {@code true} if some lane accepted the work
+     * @throws NullPointerException if any argument is {@code null}
+     */
+    public boolean dispatchAction(final PluginTask task, final Runnable callback, final Runnable timeoutAction) {
+        Objects.requireNonNull(task, "task");
+        Objects.requireNonNull(callback, "callback");
+        Objects.requireNonNull(timeoutAction, "timeoutAction");
+        if (closed.get()) {
+            emitRejected(task);
+            return false;
+        }
+        // Only the lightweight lane is re-routed. Heavy, sidecar and rejected classifications keep
+        // their own policy outcome, so this must not become a blanket bypass.
+        if (policy.classify(task) != WorkBudget.LIGHTWEIGHT) {
+            return dispatch(task, callback, timeoutAction);
+        }
+        return dispatchUiBound(task, callback);
+    }
+
+    /**
+     * Dispatches EDT-bound work outside the plugin work budget and its circuit breaker.
+     *
+     * <p>The wall time of this work is host EDT queue latency, which the plugin does not own.
+     * Charging it to the plugin opened the breaker whenever a large model stalled the host, and
+     * every later submission was then rejected for the rest of the session. The work still runs on
+     * the plugin's bulkhead, so concurrency stays bounded and shutdown still waits for it.</p>
+     *
+     * @param task the EDT-bound work to run
+     * @param callback the body to execute once the bulkhead accepts it
+     * @return {@code true} when the work was admitted; {@code false} when the scheduler is closed
+     *     or the bulkhead rejected it
+     * @throws NullPointerException if either argument is {@code null}
+     */
+    public boolean dispatchUiBound(final PluginTask task, final Runnable callback) {
+        Objects.requireNonNull(task, "task");
+        Objects.requireNonNull(callback, "callback");
+        if (closed.get()) {
+            emitRejected(task);
+            return false;
+        }
+        return executorRegistry
+                .get(task.pluginId())
+                .submitUiBound(task, bindCancellation(callback))
+                .accepted();
+    }
+
+    /**
      * Classifies and dispatches a task with an action invoked when lightweight work times out.
      * The timeout action runs before the worker is interrupted, allowing queued downstream work
      * to be cancelled before it becomes runnable.

@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, artmesh, editing, symmetry
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -20,7 +20,7 @@ Independent mirror editing for ArtMesh vertices in ordinary modeling mode. The a
 
 ## Requirements and compatibility
 
-Turboism API: `[0.68.1,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
+Turboism API: `[0.70.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).

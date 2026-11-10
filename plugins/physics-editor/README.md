@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: physics, editing, simulation
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -49,7 +49,7 @@ GIF export requires **Gifsicle** installed locally: make `gifsicle` available on
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.68.1,1.0.0)`.
+- **SDK API range:** `[0.70.0,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.
@@ -90,6 +90,7 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 | `turboism.cubism.model.write` | `application` | Atomically enables or disables Physics Settings groups through the verified Editor transaction path. |
 | `turboism.file.read` | `application` | Checks the remembered GIF export directory and the exported file size. |
 | `turboism.file.write` | `application` | Writes the recording, its temporary encoder output and the GIF the user exports. |
+| `turboism.ui.viewport.read` | `application` | Reads frames from the focused preview so the plugin can record a GIF. |
 | `turboism.process.run` | `application` | Runs the user-supplied Gifsicle executable to optimize an exported GIF to the requested size. |
 
 ## Privacy and data

@@ -19,6 +19,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = ROOT / "packaging/windows-installer"
+NSIS_COMPILE_SOURCES = ("installer.nsi", "plugin-sections.nsh", "payload-extract.nsh")
+NSIS_FORWARD_SOURCE_PREFIXES = ('"${STAGING_DIR}/', '"${GENERATED_DIR}/', '"${EULA_DIR}/', '"${OUT_DIR}/')
+WINDOWS_HOST = "nt"
 
 
 def digest(path: Path) -> str:
@@ -131,6 +134,16 @@ def generate(stage: Path, work: Path, verification: Path | None = None) -> tuple
     return sections, generated
 
 
+def assert_compile_sources(generated: Path) -> None:
+    """Reject source paths that native Windows compiler wildcard matching cannot resolve."""
+    for name in NSIS_COMPILE_SOURCES:
+        source = generated / name
+        assert source.is_file(), f"missing compiler source: {source}"
+        if os.name == WINDOWS_HOST:
+            text = source.read_text(encoding="utf-8-sig")
+            assert not any(prefix in text for prefix in NSIS_FORWARD_SOURCE_PREFIXES), source
+
+
 def synthetic_test() -> None:
     with tempfile.TemporaryDirectory(prefix="turboism-packaging-test-") as temp:
         work = Path(temp)
@@ -175,6 +188,7 @@ def synthetic_test() -> None:
         for name in ("sdk-0.67.0.jar", "graal-host-0.67.0.jar", "polyglot-25.2.4.jar"):
             (stage / "graal/lib" / name).write_bytes(b"synthetic base library")
         _, generated = generate(stage, work, verification)
+        assert_compile_sources(generated)
         core = (generated / "payload-core.sha256").read_text(encoding="utf-8")
         extractor = (generated / "payload-extract.nsh").read_text(encoding="utf-8-sig")
         for entry in manifest["artifacts"]:

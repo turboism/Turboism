@@ -1,8 +1,6 @@
 action.open.sync
 action.toggle.global
 dialog.btn.clear
-dialog.btn.close
-dialog.btn.save
 dialog.search.label
 dialog.sync.title
 dialog.table.col.current

@@ -20,6 +20,7 @@ from reviewed_host_artifacts import compact, load
 from .common import (
     QUEUE_PROTOCOL,
     SCHEMA,
+    HostOs,
     QueueError,
     atomic_json,
     canonical_json,
@@ -799,5 +800,5 @@ class PreparedStore:
                 raise QueueError("host runtime dependency changed after preparation")
         root = self.store.root / "prepared" / prepared_id
         args = [arg.replace("@INPUT@", str(root)) for arg in descriptor["argv"]]
-        return ["bash", str(root / "tool/scripts/preview/run-cubism-host-validation.sh"),
+        return [HostOs.shell(), str(root / "tool/scripts/preview/run-cubism-host-validation.sh"),
                 *args, "--local-evidence-dir", str(evidence_dir)]

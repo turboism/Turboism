@@ -181,13 +181,20 @@ final class FixedDelayTaskHandle extends AbstractRuntimeTaskHandle {
             }
             switch (result.status()) {
                 case TIMED_OUT -> {
+                    // A fixed-delay task tolerates late and rare runs (see
+                    // PluginTaskKind.LOW_FREQUENCY_REFRESH): one over-budget iteration is a missed
+                    // tick, not the end of the schedule. Terminating here silently disabled the
+                    // status-bar metrics for the rest of the session, because the first refresh
+                    // waits on the host EDT while plugin load still occupies it.
                     token.cancel();
-                    failRunningLocked(
+                    lastRunOutcome = Optional.of(new TaskRunOutcome(
                             runCount,
                             TaskRunOutcomeStatus.TIMED_OUT,
-                            TaskOutcomeStatus.TIMED_OUT,
-                            "TASK_TIMED_OUT",
-                            "Scheduled plugin task exceeded the runtime work budget.");
+                            Optional.of(failure(
+                                    "TASK_TIMED_OUT", "Scheduled plugin task exceeded the runtime work budget."))));
+                    running = false;
+                    runningToken = null;
+                    scheduleNext(delay);
                 }
                 case FAILED, REJECTED_BACKPRESSURE, REJECTED_CIRCUIT_OPEN, POLICY_REJECTED, RUNTIME_UNAVAILABLE ->
                     failRunningLocked(

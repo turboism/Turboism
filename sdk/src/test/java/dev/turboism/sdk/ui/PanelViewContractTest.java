@@ -225,7 +225,10 @@ class PanelViewContractTest {
         final PanelView.Centered fixed = PanelView.centered(PanelView.text("x"), 220, 220);
         assertEquals(220, fixed.preferredWidth());
         assertEquals(220, fixed.preferredHeight());
-        assertThrows(IllegalArgumentException.class, () -> PanelView.centered(PanelView.text("x"), 220, 0));
+        // A zero dimension keeps the child's natural size in that direction.
+        final PanelView.Centered pinnedWidth = PanelView.centered(PanelView.text("x"), 220, 0);
+        assertEquals(220, pinnedWidth.preferredWidth());
+        assertEquals(0, pinnedWidth.preferredHeight());
         assertThrows(IllegalArgumentException.class, () -> PanelView.centered(PanelView.text("x"), -1, 220));
 
         final PanelView.Link link = PanelView.link("create", "Create New Project", "board.create");

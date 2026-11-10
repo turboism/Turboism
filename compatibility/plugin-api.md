@@ -51,3 +51,27 @@ python3 scripts/sdk_api_since.py --write
 ```
 
 The check covers linked classes, methods, constructors and fields, not behavior changes.
+
+## Market admission rules
+
+`PluginReleaseCompatibility` is the only decision point for whether a catalog release may run
+here. The market window and the background auto-updater both call it, so a release the market
+offers is one the updater would also accept. A release is admitted only when every rule passes:
+
+| Rule | Rejects when |
+| --- | --- |
+| `turboismApi` | the declared range excludes the running framework API |
+| Channel | a `stable` installation is offered a `preview` release |
+| Platform | `platforms` omits `windows-x64` |
+| Cubism host | `requiresCubism` is true and no host is attached |
+| Cubism version | the attached host is outside `cubismVersions` |
+| Dependency | a `required` inter-plugin dependency is missing or out of range |
+
+`beta` and `nightly` installations accept both `stable` and `preview` releases. `stable`
+accepts only `stable`. Dependency checks compare against installed versions, not catalog
+targets, because a user may deliberately keep an older plugin.
+
+An installed plugin never reports as incompatible only because no compatible catalog
+release exists. It reports installed, keeps the explanation as the status reason, and
+offers no download. Incompatible therefore means "cannot run here", not "no update for
+your channel".

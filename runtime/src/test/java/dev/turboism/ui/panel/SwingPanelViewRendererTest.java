@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.action.UiActionEvent;
@@ -30,6 +31,7 @@ import javax.swing.AbstractButton;
 import javax.swing.Action;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
+import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
@@ -641,6 +643,54 @@ class SwingPanelViewRendererTest {
         return new Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
     }
 
+    /**
+     * The strip needs a control that signals meaning by colour, so a coloured node must keep its own
+     * pixels. A disabled control keeps the same silhouette and paints the glyph muted, which keeps
+     * the row height steady when the control becomes available.
+     */
+    @Test
+    void colorIconButtonKeepsItsOwnColoursAndMutesWhenDisabled() throws Exception {
+        final BufferedImage source = new BufferedImage(24, 24, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < source.getHeight(); y++) {
+            for (int x = 0; x < source.getWidth(); x++) {
+                source.setRGB(x, y, 0xFFE5484D);
+            }
+        }
+        final ByteArrayOutputStream png = new ByteArrayOutputStream();
+        assertTrue(ImageIO.write(source, "png", png));
+        final byte[] glyph = png.toByteArray();
+
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent enabled = SwingPanelViewRenderer.render(
+                    PanelView.colorIconButton("stop", glyph, "Stop", "stop", true), (action, event) -> {});
+            final JButton enabledButton = assertInstanceOf(JButton.class, named(enabled, "stop"));
+            assertTrue(enabledButton.isEnabled(), "an enabled control accepts input");
+            final int activeAlpha = paintedAlpha(enabledButton);
+            assertEquals(255, activeAlpha, "an enabled control paints the glyph at full opacity");
+
+            final JComponent disabled = SwingPanelViewRenderer.render(
+                    PanelView.colorIconButton("stop", glyph, "Stop", "stop", false), (action, event) -> {});
+            final JButton disabledButton = assertInstanceOf(JButton.class, named(disabled, "stop"));
+            assertFalse(disabledButton.isEnabled(), "a disabled control rejects input");
+            assertTrue(paintedAlpha(disabledButton) < activeAlpha, "a disabled control paints the glyph muted");
+            assertEquals(
+                    enabledButton.getPreferredSize(),
+                    disabledButton.getPreferredSize(),
+                    "the disabled control keeps the same size");
+        });
+    }
+
+    private static int paintedAlpha(final JButton button) {
+        final BufferedImage target = new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB);
+        final java.awt.Graphics2D graphics = target.createGraphics();
+        try {
+            button.getIcon().paintIcon(button, graphics, 0, 0);
+        } finally {
+            graphics.dispose();
+        }
+        return (target.getRGB(10, 10) >>> 24) & 0xFF;
+    }
+
     @Test
     void scaledImageKeepsPopupSizeAndCarriesHighResolutionVariant() throws Exception {
         final BufferedImage source = new BufferedImage(213, 300, BufferedImage.TYPE_INT_RGB);
@@ -716,6 +766,21 @@ class SwingPanelViewRendererTest {
     }
 
     @Test
+    void centeredBoxKeepsALongChildInsideItsFixedCell() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final String status = "Saved " + "x".repeat(400);
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.centered(PanelView.text(status), 120, 18), (action, event) -> {});
+            final JPanel cell = assertInstanceOf(JPanel.class, rendered);
+            cell.setSize(120, 18);
+            cell.doLayout();
+            final Component child = cell.getComponent(0);
+            assertEquals(18, child.getHeight(), "a long status must not paint outside its reserved cell");
+            assertTrue(child.getWidth() <= 120, "the status stays inside the reserved width");
+        });
+    }
+
+    @Test
     void centeredLinkDispatchesOnLeftClick() throws Exception {
         final List<String> actions = new ArrayList<>();
         final List<Optional<UiActionEvent>> events = new ArrayList<>();
@@ -757,6 +822,96 @@ class SwingPanelViewRendererTest {
             assertTrue(text.getY() > 0);
             assertTrue(text.getY() + text.getHeight() < 96);
         });
+    }
+
+    @Test
+    void centeredBoxPinsTheWidthAndLetsTheHeightFollowTheContent() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.centered(PanelView.column(PanelView.text("name"), PanelView.text("date")), 320, 0),
+                    (action, event) -> {});
+            final JPanel centered = assertInstanceOf(JPanel.class, rendered);
+            assertEquals(320, centered.getPreferredSize().width, "the pinned width survives");
+            assertTrue(
+                    centered.getPreferredSize().height < 96,
+                    "a zero height must follow the content, not inherit the row: " + centered.getPreferredSize());
+        });
+    }
+
+    @Test
+    void listRowCentersThePinnedTextBlockAgainstItsPreview() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.leftRow(
+                            PanelView.centered(PanelView.text("thumb"), 110, 96),
+                            PanelView.centered(
+                                    PanelView.column(PanelView.text("name"), PanelView.text("date")), 320, 0)),
+                    (action, event) -> {});
+            final JPanel row = assertInstanceOf(JPanel.class, rendered);
+            row.setSize(500, 96);
+            row.doLayout();
+            final JPanel right = assertInstanceOf(JPanel.class, row.getComponent(1));
+            right.doLayout();
+            final JPanel block = assertInstanceOf(JPanel.class, right.getComponent(0));
+            assertEquals(320, block.getWidth(), "the text block keeps its pinned width");
+            assertTrue(block.getY() > 0, "the text block is centered, not top-aligned: y=" + block.getY());
+            assertTrue(block.getY() + block.getHeight() < 96, "the text block stays inside the row");
+        });
+    }
+
+    /**
+     * A card is covered edge to edge by its own children, and a container only receives a
+     * mouse-entered event for pixels no child covers. Hover was installed on the card panel alone,
+     * so the board showed no feedback anywhere except its one-pixel outline.
+     */
+    @Test
+    void cardHoverReachesTheCardThroughItsChildren() throws Exception {
+        final java.util.concurrent.atomic.AtomicReference<JComponent> rendered =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> rendered.set(SwingPanelViewRenderer.render(
+                PanelView.card("card", "open", PanelView.text("recent-project")), (action, event) -> {})));
+        final JComponent card = rendered.get();
+        SwingUtilities.invokeAndWait(() -> {
+            card.setSize(240, 80);
+            card.doLayout();
+        });
+        final BufferedImage before = paint(card);
+
+        SwingUtilities.invokeAndWait(() -> {
+            final Component child = deepest(card);
+            child.dispatchEvent(
+                    new MouseEvent(child, MouseEvent.MOUSE_ENTERED, System.currentTimeMillis(), 0, 1, 1, 0, false));
+        });
+        // The highlight is coalesced onto the next dispatch cycle, so flush it first.
+        SwingUtilities.invokeAndWait(() -> {});
+        final BufferedImage hovered = paint(card);
+
+        assertFalse(
+                java.util.Arrays.equals(pixels(before), pixels(hovered)),
+                "a hovered card must paint a visible state change");
+    }
+
+    private static Component deepest(final Component component) {
+        if (component instanceof Container container && container.getComponentCount() > 0) {
+            return deepest(container.getComponent(container.getComponentCount() - 1));
+        }
+        return component;
+    }
+
+    private static BufferedImage paint(final JComponent component) {
+        final BufferedImage image =
+                new BufferedImage(component.getWidth(), component.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        final Graphics2D graphics = image.createGraphics();
+        try {
+            component.paint(graphics);
+        } finally {
+            graphics.dispose();
+        }
+        return image;
+    }
+
+    private static int[] pixels(final BufferedImage image) {
+        return image.getRGB(0, 0, image.getWidth(), image.getHeight(), null, 0, image.getWidth());
     }
 
     @Test
@@ -822,6 +977,179 @@ class SwingPanelViewRendererTest {
             assertEquals(4, insets.bottom);
             assertEquals(6, insets.right);
         });
+    }
+
+    @Test
+    void layoutChangesRetainTheHeaderAndItsActionControl() throws Exception {
+        final byte[] png = java.util.Base64.getDecoder()
+                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+        final List<String> actions = new ArrayList<>();
+        SwingUtilities.invokeAndWait(() -> {
+            final PanelView header = PanelView.spaceBetween(
+                    PanelView.text("Recent Files"), PanelView.iconButton("layout", png, "Six columns", "board.layout"));
+            final JComponent root = SwingPanelViewRenderer.render(
+                    PanelView.scroll(PanelView.column(header, PanelView.grid(6, PanelView.text("Project")))),
+                    (action, event) -> actions.add(action));
+            final JComponent column =
+                    (JComponent) ((JScrollPane) root).getViewport().getView();
+            final Component oldHeader = column.getComponent(0);
+            final AbstractButton button = (AbstractButton) named(root, "layout");
+            final PanelView updatedHeader = PanelView.spaceBetween(
+                    PanelView.text("Recent Files"),
+                    PanelView.iconButton("layout", png, "Three columns", "board.layout"));
+            final JComponent updated = SwingPanelViewRenderer.update(
+                    root,
+                    PanelView.scroll(PanelView.column(updatedHeader, PanelView.grid(3, PanelView.text("Project")))),
+                    (action, event) -> actions.add(action),
+                    java.util.Locale.ENGLISH);
+            assertSame(root, updated);
+            assertSame(column, ((JScrollPane) updated).getViewport().getView());
+            assertSame(oldHeader, column.getComponent(0));
+            assertSame(button, named(updated, "layout"));
+            assertEquals("Three columns", button.getToolTipText());
+            button.doClick();
+        });
+        assertEquals(List.of("board.layout"), actions);
+    }
+
+    @Test
+    void viewportOverlayFollowsTheNativeLayoutBeforeReturningToTheEventQueue() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JPanel frame = new JPanel(null);
+            final javax.swing.JLayeredPane layers = new javax.swing.JLayeredPane();
+            final JPanel nativeParent = new JPanel(new java.awt.BorderLayout());
+            final JPanel viewport = new JPanel();
+            frame.add(layers);
+            layers.setBounds(0, 0, 900, 700);
+            layers.add(nativeParent);
+            nativeParent.setBounds(20, 30, 700, 500);
+            nativeParent.add(viewport);
+            nativeParent.doLayout();
+            final EmbeddedPanelHostOperations.PanelHandle handle = ViewportPanelInstaller.install(
+                    frame, viewport, layers, boardDescriptor(), () -> false, descriptor -> new JPanel());
+            try {
+                final Component overlay = layers.getComponent(0);
+                nativeParent.setBounds(40, 50, 500, 320);
+                nativeParent.doLayout();
+                assertEquals(new java.awt.Rectangle(40, 50, 500, 320), overlay.getBounds());
+            } finally {
+                handle.close();
+            }
+        });
+    }
+
+    /**
+     * The GL surface does not reach the container edges: the host keeps native rails beside it, and
+     * those rails paint their own grey that no UI default reaches. The overlay must cover the whole
+     * container so the board has no untinted seam.
+     */
+    @Test
+    void viewportOverlayCoversTheNativeRailsBesideTheGlSurface() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JPanel frame = new JPanel(null);
+            final javax.swing.JLayeredPane layers = new javax.swing.JLayeredPane();
+            final JPanel container = new JPanel(null);
+            final JPanel rail = new JPanel();
+            final JPanel viewport = new JPanel();
+            frame.add(layers);
+            layers.setBounds(0, 0, 900, 700);
+            layers.add(container);
+            container.setBounds(100, 100, 700, 500);
+            rail.setBounds(0, 0, 20, 500);
+            viewport.setBounds(20, 0, 680, 500);
+            container.add(rail);
+            container.add(viewport);
+            final EmbeddedPanelHostOperations.PanelHandle handle = ViewportPanelInstaller.install(
+                    frame, viewport, layers, boardDescriptor(), () -> false, descriptor -> new JPanel());
+            try {
+                final Component overlay = layers.getComponent(0);
+                assertEquals(
+                        new java.awt.Rectangle(100, 100, 700, 500),
+                        overlay.getBounds(),
+                        "the overlay must reach the rail, not stop at the GL surface");
+            } finally {
+                handle.close();
+            }
+        });
+    }
+
+    @Test
+    void viewportBackgroundAndLinkFollowThemeRefresh() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final Object originalBackground = javax.swing.UIManager.get("Panel.background");
+            final Object originalAccent = javax.swing.UIManager.get("Component.accentColor");
+            final JPanel frame = new JPanel();
+            final javax.swing.JLayeredPane layers = new javax.swing.JLayeredPane();
+            final JPanel parent = new JPanel();
+            final JPanel viewport = new JPanel();
+            parent.add(viewport);
+            layers.add(parent);
+            final EmbeddedPanelHostOperations.PanelHandle handle = ViewportPanelInstaller.install(
+                    frame,
+                    viewport,
+                    layers,
+                    boardDescriptor(),
+                    () -> false,
+                    descriptor -> SwingPanelViewRenderer.render(
+                            PanelView.link("create", "Create", "board.create"), (action, event) -> {}));
+            try {
+                final JComponent overlay = (JComponent) layers.getComponent(0);
+                final Color background = new Color(0x182432);
+                final Color accent = new Color(0xAABBCC);
+                javax.swing.UIManager.put("Panel.background", background);
+                javax.swing.UIManager.put("Component.accentColor", accent);
+                SwingUtilities.updateComponentTreeUI(overlay);
+                assertEquals(background, overlay.getBackground());
+                final JLabel link = (JLabel) named(overlay, "create");
+                assertFalse(link.getText().contains("#3B82F6"));
+                assertEquals(accent, link.getForeground());
+            } finally {
+                handle.close();
+                javax.swing.UIManager.put("Panel.background", originalBackground);
+                javax.swing.UIManager.put("Component.accentColor", originalAccent);
+            }
+        });
+    }
+
+    @Test
+    void supersededPanelRegistrationsDoNotRemoveTheCurrentSurface() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final ReplacingPanelRegistry registry = new ReplacingPanelRegistry();
+            final AtomicInteger installs = new AtomicInteger();
+            final AtomicInteger updates = new AtomicInteger();
+            final AtomicInteger closes = new AtomicInteger();
+            final java.util.function.Supplier<EmbeddedPanelHostOperations.PanelHandle> installer = () -> {
+                installs.incrementAndGet();
+                return new EmbeddedPanelHostOperations.PanelHandle() {
+                    @Override
+                    public void activate() {}
+
+                    @Override
+                    public void updateContent(EmbeddedPanelContributionDescriptor descriptor) {
+                        updates.incrementAndGet();
+                    }
+
+                    @Override
+                    public void close() {
+                        closes.incrementAndGet();
+                    }
+                };
+            };
+            final dev.turboism.sdk.plugin.Registration first = registry.replace(boardDescriptor(), installer);
+            final dev.turboism.sdk.plugin.Registration second = registry.replace(boardDescriptor(), installer);
+            first.close();
+            assertEquals(1, installs.get());
+            assertEquals(1, updates.get());
+            assertEquals(0, closes.get());
+            second.close();
+            second.close();
+            assertEquals(1, closes.get());
+        });
+    }
+
+    private static EmbeddedPanelContributionDescriptor boardDescriptor() {
+        return new EmbeddedPanelContributionDescriptor(
+                "board-plugin", "board", "Recent", "viewport", 20, PanelView.text("Recent"), false);
     }
 
     private static Component named(final Component component, final String name) {

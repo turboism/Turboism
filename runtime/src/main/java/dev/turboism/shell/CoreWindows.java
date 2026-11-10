@@ -779,7 +779,11 @@ final class CoreWindows implements AutoCloseable {
                 ignored -> pluginCount.setText(i18n.format("plugins.count", pluginTableModel.installedPluginCount())));
         final JPanel header = new JPanel(new BorderLayout(8, 0));
         header.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 8));
-        header.add(pluginCount, BorderLayout.CENTER);
+        // The filter field and the auto-update toggle live here: the footer button row grows with
+        // the plugin actions, and a narrow window used to hide them behind those buttons.
+        final JPanel headerRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        header.add(pluginCount, BorderLayout.WEST);
+        header.add(headerRight, BorderLayout.EAST);
         dialog.add(header, BorderLayout.NORTH);
         pluginTable = new JTable(pluginTableModel);
         pluginTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -837,7 +841,6 @@ final class CoreWindows implements AutoCloseable {
                 },
                 code -> pluginStatus.setText(pendingChangesStatus(code)),
                 this::refreshPlugins);
-        header.add(pendingChangesAction.button(), BorderLayout.EAST);
         dialog.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentHidden(final java.awt.event.ComponentEvent event) {
@@ -890,26 +893,30 @@ final class CoreWindows implements AutoCloseable {
         details.addActionListener(ignored -> showSelectedPluginDetails());
         final JButton refresh = new JButton(text("common.refresh"));
         refresh.addActionListener(ignored -> refreshPlugins());
-        final JButton close = new JButton(text("common.close"));
-        close.addActionListener(ignored -> dialog.setVisible(false));
 
-        final JPanel actions = new JPanel(new BorderLayout(8, 0));
         final JPanel filtering = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         filtering.add(new JLabel(text("plugins.filter")));
         filtering.add(filter);
         filtering.add(autoUpdate);
-        actions.add(filtering, BorderLayout.WEST);
-        final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
-        buttons.add(checkUpdates);
-        buttons.add(openMarket);
-        buttons.add(install);
-        buttons.add(enable);
-        buttons.add(disable);
-        buttons.add(uninstall);
-        buttons.add(details);
-        buttons.add(refresh);
-        buttons.add(close);
-        actions.add(buttons, BorderLayout.EAST);
+        headerRight.add(filtering);
+        headerRight.add(pendingChangesAction.button());
+        // Acquisition actions read left to right on their own row; the per-selection actions keep
+        // the row below, right-aligned. Nine buttons in one right-aligned flow needed about 985
+        // pixels with the English labels, more than this window's fixed width, so the first three
+        // were pushed past the left edge and the rest clipped.
+        final JPanel acquire = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        acquire.add(checkUpdates);
+        acquire.add(openMarket);
+        acquire.add(install);
+        final JPanel selection = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        selection.add(enable);
+        selection.add(disable);
+        selection.add(uninstall);
+        selection.add(details);
+        selection.add(refresh);
+        final JPanel actions = new JPanel(new BorderLayout(0, 6));
+        actions.add(acquire, BorderLayout.NORTH);
+        actions.add(selection, BorderLayout.SOUTH);
 
         final JPanel bottom = new JPanel(new BorderLayout(8, 6));
         bottom.setBorder(BorderFactory.createEmptyBorder(4, 8, 8, 8));

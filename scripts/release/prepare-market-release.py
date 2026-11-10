@@ -79,6 +79,10 @@ SIDECAR_NAME = "market-release.json"
 MAX_JAR_BYTES = 16 * 1024 * 1024  # 16 MiB contract ceiling
 STRICT_VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 SOURCE_SHA = re.compile(r"^[0-9a-f]{40}$")
+# Catalog v2 release channels, ordered by audience width: stable reaches every installation.
+CHANNEL_PREVIEW = "preview"
+CHANNEL_STABLE = "stable"
+CHANNEL_RANK = {CHANNEL_PREVIEW: 0, CHANNEL_STABLE: 1}
 REQUIRED_LOCALES = ("en", "ja", "ko", "zh-Hans", "zh-Hant")
 REQUIRED_KEYS = ("plugin.name", "plugin.description")
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -256,7 +260,7 @@ def load_manifest(path: Path) -> list:
         where = f"{path}: plugins[{index}]"
         if not isinstance(item, dict):
             raise MarketError(f"{where}: entry must be a JSON object")
-        unknown = sorted(set(item) - {"project", "channel", "cubismVersions", "repository", "support"})
+        unknown = sorted(set(item) - {"project", "channel", "cubismVersions", "repository", "support", "publication"})
         if unknown:
             raise MarketError(f"{where}: unknown entry keys: {', '.join(unknown)}")
         project = item.get("project")
@@ -265,6 +269,10 @@ def load_manifest(path: Path) -> list:
         channel = item.get("channel")
         if channel not in ("stable", "preview"):
             raise MarketError(f"{where}.channel: must be 'stable' or 'preview', got {channel!r}")
+        publication = item.get("publication", "withheld")
+        if publication not in ("approved", "withheld"):
+            raise MarketError(
+                f"{where}.publication: must be 'approved' or 'withheld', got {publication!r}")
         cubism_versions = item.get("cubismVersions")
         if not isinstance(cubism_versions, list):
             raise MarketError(f"{where}.cubismVersions: must be an array")
@@ -281,6 +289,7 @@ def load_manifest(path: Path) -> list:
         entries.append({
             "project": project,
             "channel": channel,
+            "publication": publication,
             "cubismVersions": list(cubism_versions),
             "repository": urls["repository"],
             "support": urls["support"],
@@ -491,6 +500,63 @@ def verify_release_roster_sync(repo_root: Path, manifest_path: Path, entries: li
                 raise MarketError(
                     f"{manifest_path}: {entry['project']} cubismVersions differs from {cubism_path}"
                 )
+
+
+def select_publishable(prepared: list) -> list:
+    """Filter validated entries down to those the manifest approves for publication.
+
+    Withholding is per plugin, so approving one candidate cannot publish a sibling that
+    the manifest still marks as withheld.
+    """
+    return [item for item in prepared if item["entry"]["publication"] == "approved"]
+
+
+def verify_withheld_dependencies(manifest_path: Path, prepared: list,
+                                 approved: list, catalog_by_id: dict | None) -> None:
+    """Fail closed when an approved plugin requires a plugin the manifest withholds.
+
+    A withheld plugin may still satisfy dependents when the catalog already carries a
+    compatible release, because withholding only stops new publication.
+    """
+    withheld = {
+        item["descriptor"]["id"]: item
+        for item in prepared
+        if item["entry"]["publication"] != "approved"
+    }
+    if not withheld:
+        return
+    approved_ids = {item["descriptor"]["id"] for item in approved}
+    for item in approved:
+        descriptor = item["descriptor"]
+        for dependency in descriptor.get("dependencies", []):
+            if dependency.get("type") != "required":
+                continue
+            dependency_id = dependency["id"]
+            if dependency_id in approved_ids or dependency_id not in withheld:
+                continue
+            if catalog_by_id is not None and _catalog_satisfies(
+                    catalog_by_id.get(dependency_id), dependency["version"]):
+                continue
+            raise MarketError(
+                f"{manifest_path}: {descriptor['id']} is approved for publication but requires "
+                f"{dependency_id} {dependency['version']}, which the manifest withholds and the "
+                f"catalog does not provide"
+            )
+
+
+def _catalog_satisfies(catalog_plugin: dict | None, dependency_range: str) -> bool:
+    """Return whether any active catalog release of a plugin falls inside a dependency range."""
+    if not isinstance(catalog_plugin, dict):
+        return False
+    for release in catalog_plugin.get("releases", []):
+        if not isinstance(release, dict) or release.get("status") != "active":
+            continue
+        try:
+            if dependency_range_contains(dependency_range, release.get("version", "")):
+                return True
+        except (MarketError, ValueError, TypeError):
+            continue
+    return False
 
 
 def validate_selection(repo_root: Path, manifest_path: Path) -> list:
@@ -1050,6 +1116,21 @@ def _normalize_release_channel(release_channel: str | None) -> str | None:
     return release_channel
 
 
+def channel_rank(channel: str) -> int:
+    """Order release channels by how widely they are offered.
+
+    A promotion moves a plugin to a channel with a higher rank, so preview content reaches
+    stable installations without waiting for an unrelated source change. The reverse move
+    would withdraw content from stable installations and must never happen implicitly.
+    """
+    return CHANNEL_RANK.get(channel, -1)
+
+
+def is_channel_promotion(existing_channel: str, target_channel: str) -> bool:
+    """Return whether the target channel outranks the channel already carrying this content."""
+    return channel_rank(target_channel) > channel_rank(existing_channel)
+
+
 def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
           revision: str, *, catalog: str | None = None,
           catalog_sig: str | None = None,
@@ -1058,7 +1139,8 @@ def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
     if channel == "nightly":
         return 0
     prepared = validate_selection(repo_root, manifest_path)
-    if not prepared:
+    approved = select_publishable(prepared)
+    if not approved:
         return 0
     if revision is None or not SOURCE_SHA.match(revision):
         raise MarketError("--source-revision must be a 40-character hex commit SHA")
@@ -1077,6 +1159,8 @@ def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
             if plugin["id"] in catalog_by_id:
                 raise MarketError(f"catalog contains duplicate plugin id {plugin['id']!r}")
             catalog_by_id[plugin["id"]] = plugin
+    verify_withheld_dependencies(
+        manifest_path, prepared, approved, catalog_by_id if catalog is not None else None)
 
     build_root = Path(os.path.abspath(build_root))
     output = Path(os.path.abspath(output))
@@ -1085,12 +1169,12 @@ def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
     staged_items = []
     published_descriptors = {}
     try:
-        for item in prepared:
+        for item in approved:
             module = item["module"]
             descriptor = dict(item["descriptor"])
             entry = dict(item["entry"])
             if channel in ("beta", "preview"):
-                entry["channel"] = "preview"
+                entry["channel"] = CHANNEL_PREVIEW
             _, tracked_raw = load_descriptor(repo_root, module)
             jar, descriptor_sha256, localizations = jar_artifact(
                 build_root, module, tracked_raw,
@@ -1114,9 +1198,15 @@ def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
                         key=lambda rel: parse_strict_version(rel.get("version", "")),
                     )
                     if jar_matches_catalog_release(data, tracked_raw, latest_release, artifact_loader):
-                        descriptor["version"] = latest_release["version"]
-                        published_descriptors[descriptor["id"]] = descriptor
-                        continue
+                        # Identical content already carries the target channel: nothing to publish.
+                        # A weaker channel would withdraw the release, so it is also skipped.
+                        if not is_channel_promotion(
+                                latest_release.get("channel", ""), entry["channel"]):
+                            descriptor["version"] = latest_release["version"]
+                            published_descriptors[descriptor["id"]] = descriptor
+                            continue
+                        # Catalog versions must be unique and strictly ascending, so a promotion
+                        # needs a new version that differs from the carried one only by channel.
                 target_version = resolve_next_plugin_version(
                     releases,
                     descriptor["version"],
@@ -1159,7 +1249,7 @@ def plan(repo_root: Path, manifest_path: Path, *, release_channel: str | None = 
     channel = _normalize_release_channel(release_channel)
     if channel == "nightly":
         return 0
-    return len(validate_selection(repo_root, manifest_path))
+    return len(select_publishable(validate_selection(repo_root, manifest_path)))
 
 
 # --------------------------------------------------------------------------

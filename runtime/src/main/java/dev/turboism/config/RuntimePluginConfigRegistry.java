@@ -18,6 +18,7 @@ import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
@@ -59,6 +60,15 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
     private static final String DIAGNOSTIC_LOCATION = "config://<redacted>";
     private static final long CONFIG_WAIT_TIMEOUT_MILLIS = 1_000L;
     private static final long CLOSE_TIMEOUT_SECONDS = 5L;
+
+    /** A scope segment is itself a link, which would carry the write to another directory. */
+    private static final String SYMBOLIC_LINK_SEGMENT = "Plugin config path contains a symbolic link";
+
+    /** A scope segment resolves outside the anchor, which is how a Windows junction is caught. */
+    private static final String ESCAPING_SEGMENT = "Plugin config path resolves outside the plugin data directory";
+
+    /** The publication guard saw a different target than the confinement check resolved. */
+    private static final String PUBLICATION_TARGET_CHANGED = "Plugin config target changed before publication";
 
     /**
      * Plugin config files keep the pre-migration tolerance for file systems that refuse
@@ -284,7 +294,9 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
                 if (writeRevoked(scope)) {
                     return revokedWrite(scope);
                 }
-                replaceConfig(confined, properties);
+                // The hook above can redirect a parent, so the publication target is resolved again
+                // under the lifecycle lock before any payload byte is staged.
+                replaceConfig(scope, confinedPath(scope), properties);
                 return null;
             } finally {
                 lifecycleLock.unlock();
@@ -315,22 +327,57 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
     /**
      * Publishes one plugin config file. The path monitor serializes two registries that name the same
      * plugin data directory, so neither stages a replacement over the other's write.
+     *
+     * <p>The publication guard resolves the scope once more between the durable staged file and the
+     * rename. A directory redirected inside that last window therefore fails the write instead of
+     * receiving the document.
      */
-    private static void replaceConfig(final Path target, final Properties properties) throws IOException {
+    private void replaceConfig(final String scope, final Path target, final Properties properties) throws IOException {
         synchronized (PathLocks.forPath(target)) {
             DurableFile.at(target)
                     .withOptions(CONFIG_WRITE)
+                    .guardedBy((staged, destination) -> requireStillConfined(scope, destination))
                     .replaceStreaming(out -> properties.store(
                             new OutputStreamWriter(out, StandardCharsets.UTF_8), "Turboism plugin config"));
         }
     }
 
+    /**
+     * Rejects a publication whose destination is no longer the confined path of its scope, so a
+     * parent redirected after the previous check cannot receive the document.
+     */
+    private void requireStillConfined(final String scope, final Path destination) throws IOException {
+        if (!destination.equals(confinedPath(scope))) {
+            throw new IOException(PUBLICATION_TARGET_CHANGED);
+        }
+    }
+
+    /**
+     * Resolves one scope to a path inside the plugin data directory.
+     *
+     * <p>The plugin data directory is the anchor the host supplies, and this registry trusts it as
+     * configured, so only the segments below it are checked. This method rejects a segment that is a
+     * symbolic link, and it rejects a segment whose real location leaves the anchor's real location.
+     * The second check rejects a Windows directory junction, which {@link Files#isSymbolicLink} does
+     * not report.
+     *
+     * <p>The check covers the moment it runs. A writer that redirects a directory later is caught by
+     * the re-resolution under the lifecycle lock and by the publication guard in
+     * {@link #replaceConfig}.
+     */
     private Path confinedPath(final String scope) throws IOException {
+        final Path dataDirReal =
+                Files.exists(pluginDataDir, LinkOption.NOFOLLOW_LINKS) ? pluginDataDir.toRealPath() : null;
         Path current = pluginDataDir;
         for (Path segment : Path.of(scope)) {
             current = current.resolve(segment);
             if (Files.isSymbolicLink(current)) {
-                throw new IOException("Plugin config path contains a symbolic link");
+                throw new IOException(SYMBOLIC_LINK_SEGMENT);
+            }
+            if (dataDirReal != null
+                    && Files.exists(current, LinkOption.NOFOLLOW_LINKS)
+                    && !current.toRealPath().startsWith(dataDirReal)) {
+                throw new IOException(ESCAPING_SEGMENT);
             }
         }
         return current;

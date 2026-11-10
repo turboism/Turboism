@@ -17,20 +17,12 @@ import stat
 from typing import Any, Iterator
 import uuid
 
-try:  # POSIX advisory locks; absent on Windows.
-    import fcntl
-except ImportError:  # pragma: no cover - platform dependent
-    fcntl = None  # type: ignore[assignment]
+from hvq.hostos import HostOs
 
-try:  # POSIX account database; absent on Windows.
-    import pwd
-except ImportError:  # pragma: no cover - platform dependent
-    pwd = None  # type: ignore[assignment]
-
-try:  # Windows byte-range locks; absent on POSIX.
-    import msvcrt
-except ImportError:  # pragma: no cover - platform dependent
-    msvcrt = None  # type: ignore[assignment]
+# Re-exported for callers and tests that inspect the available lock backends.
+fcntl = HostOs.fcntl
+pwd = HostOs.pwd
+msvcrt = HostOs.msvcrt
 
 SCHEMA = 1
 TERMINAL = frozenset({"succeeded", "failed", "cancelled", "timed_out", "blocked"})
@@ -89,18 +81,27 @@ def digest_json(value: Any) -> str:
     return hashlib.sha256(canonical_json(value).encode()).hexdigest()
 
 
+def shell() -> str:
+    """Absolute POSIX shell that runs the validation task scripts on this host."""
+    return HostOs.shell()
+
+
+def interrupt_signals() -> tuple[int, ...]:
+    """Signals that may carry a cooperative stop handler on this host."""
+    return HostOs.interrupt_signals()
+
+
 def _current_uid() -> int:
     """Effective uid on POSIX; Windows has no numeric owner, so report 0."""
-    getuid = getattr(os, "getuid", None)
-    return int(getuid()) if getuid is not None else 0
+    return HostOs.current_uid()
 
 
 def account_root() -> Path:
-    # HOME/XDG/cwd must not split one user's host into independent lock domains.
-    if pwd is not None and hasattr(os, "getuid"):
-        return Path(pwd.getpwuid(os.getuid()).pw_dir) / ".local/state/turboism/host-validation"
-    # Windows: the profile directory is the single per-user lock domain.
-    return Path.home() / ".local/state/turboism/host-validation"
+    # HOME/XDG/cwd must not split one user's host into independent lock domains, so the account
+    # home wins where the account database exists; Windows uses the profile directory instead.
+    home = HostOs.home_directory()
+    base = Path(home) if home is not None else Path.home()
+    return base / ".local/state/turboism/host-validation"
 
 
 def private_directory(path: Path) -> Path:
@@ -269,13 +270,12 @@ def _lock_fd(fd: int, *, exclusive: bool) -> None:
     host a reader also excludes other readers.  Both backends raise OSError
     when the lock is already held elsewhere.
     """
-    if fcntl is not None:
-        fcntl.flock(fd, (fcntl.LOCK_EX | fcntl.LOCK_NB) if exclusive else fcntl.LOCK_SH)
-        return
-    if msvcrt is None:  # pragma: no cover - no lock backend on this host
-        raise QueueError("no advisory file lock backend is available on this host")
-    os.lseek(fd, 0, os.SEEK_SET)
-    msvcrt.locking(fd, msvcrt.LK_NBLCK if exclusive else msvcrt.LK_NBRLCK, 1)
+    try:
+        HostOs.try_lock(fd, exclusive=exclusive)
+    except OSError as failure:
+        if HostOs.fcntl is not None or HostOs.msvcrt is not None:
+            raise
+        raise QueueError("no advisory file lock backend is available on this host") from failure
 
 
 @contextlib.contextmanager

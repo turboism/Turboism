@@ -114,6 +114,7 @@ JAR 必须与清单（不含运行时 core）逐项一致 —— 多出的 JAR�
 """
 import hashlib
 import json
+import os
 import re
 import sys
 import zipfile
@@ -147,6 +148,25 @@ staged = sorted(p.stem for p in stage.glob("plugins/*.jar"))
 if staged != sorted(modules):
     sys.exit(f"error: staged payload JARs do not match the release plugin manifest\n"
              f"  manifest: {sorted(modules)}\n  staged:   {staged}")
+
+NSIS_WINDOWS_HOST = "nt"
+NSIS_POSIX_SEPARATOR = "/"
+NSIS_WINDOWS_SEPARATOR = "\\"
+NSIS_COMPILE_PATH = re.compile(r'"\$\{(?:STAGING_DIR|GENERATED_DIR|EULA_DIR|OUT_DIR)\}/[^"\r\n]*"')
+NSIS_INSTALLER_SOURCE = "installer.nsi"
+NSIS_INSTALLER_DIRECTORY = "windows-installer"
+NSIS_PLUGIN_SOURCE = "plugin-sections.nsh"
+NSIS_UTF8_BOM = b"\xef\xbb\xbf"
+
+
+def nsis_compile_source(text: str) -> str:
+    """Preserve native compiler wildcard matching without changing runtime paths."""
+    if os.name != NSIS_WINDOWS_HOST:
+        return text
+    return NSIS_COMPILE_PATH.sub(
+        lambda match: match.group().replace(NSIS_POSIX_SEPARATOR, NSIS_WINDOWS_SEPARATOR), text
+    )
+
 
 def nsis_escape(s: str) -> str:
     return s.replace("$", "$$").replace('"', '$\\"').replace("\r", " ").replace("\n", " ")
@@ -430,7 +450,6 @@ for entry in engine_entries:
 # script-engine.json 是手工清单：与 Gradle 生成的 verification-metadata.xml
 # 一致性此前无机制保证。此处强制每个钉住工件都能在 Gradle 校验元数据中找到
 # 同名 artifact 且 sha256 相同 —— 手工清单漂移即组装失败。
-import os
 import xml.etree.ElementTree as _ET
 _verification = Path(os.environ.get(
     "TURBOISM_VERIFICATION_METADATA",
@@ -526,7 +545,7 @@ append_extractor(
     "Turboism-core-plan", "Turboism-core-payload",
 )
 (generated / "payload-extract.nsh").write_bytes(
-    b"\xef\xbb\xbf" + ("\n".join(extract_lines) + "\n").encode("utf-8")
+    NSIS_UTF8_BOM + nsis_compile_source("\n".join(extract_lines) + "\n").encode("utf-8")
 )
 
 # 隐藏载荷 Section：标准安装器携带全部插件 JAR。
@@ -699,7 +718,12 @@ lines.append("")
 
 content = "\n".join(lines) + "\n"
 # NSIS Unicode 模式：UTF-8 源文件需带 BOM
-out.write_bytes(b"\xef\xbb\xbf" + content.encode("utf-8"))
+out.write_bytes(NSIS_UTF8_BOM + content.encode("utf-8"))
+(generated / NSIS_PLUGIN_SOURCE).write_bytes(NSIS_UTF8_BOM + nsis_compile_source(content).encode("utf-8"))
+installer_source = (manifest.parent / NSIS_INSTALLER_DIRECTORY / NSIS_INSTALLER_SOURCE).read_text(encoding="utf-8-sig")
+(generated / NSIS_INSTALLER_SOURCE).write_bytes(
+    NSIS_UTF8_BOM + nsis_compile_source(installer_source).encode("utf-8")
+)
 print(f"[assemble] plugin-sections.nsh: {len(plugins)} sections -> {out}")
 for p in plugins:
     print(f"  {p['id']} | {p['name']} | {p['version']}")
@@ -856,7 +880,7 @@ else
     nsis_args+=(-DBOOTSTRAP_RECEIPT_DIR="$bootstrap_bundle_dir")
     echo "[assemble] bootstrap receipt bundled: $bootstrap_bundle_dir"
   fi
-  makensis "${nsis_args[@]}" "$pkg_dir/installer.nsi"
+  makensis "${nsis_args[@]}" "$generated/installer.nsi"
   (
     cd "$dist"
     sha256sum "TurboismInstaller-$VER.exe" > "TurboismInstaller-$VER.exe.sha256"

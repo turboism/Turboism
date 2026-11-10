@@ -6,9 +6,13 @@ All notable changes to Turboism are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow Semantic Versioning.
 
-## [Unreleased]
+## [0.70.0] - 2026-11-10
 
 ### Added
+
+- The Plugin Market admits a catalog release through the same rules the background auto-updater uses. `PluginReleaseCompatibility` is now the single decision point, so a release the market offers is one the updater would also accept. A `stable` installation no longer installs `preview` releases; `beta` and `nightly` installations accept both channels. The market also rejects releases that omit the `windows-x64` platform and releases whose `required` inter-plugin dependencies cannot be satisfied. An installed plugin with no compatible catalog release still reports as installed and offers no download, so a channel restriction is never shown as a broken plugin.
+- `packaging/market-plugins.json` records a per-plugin `publication` decision. Newly rostered plugins default to `withheld`, so adding a plugin to `packaging/market-plugins.txt` never publishes it on its own; a reviewer sets `approved` in a separate commit. An approved plugin whose required dependency is withheld fails staging unless the signed catalog already serves a compatible release.
+- Staging promotes a plugin from the `preview` channel to `stable` when its built bytes are unchanged and the catalog carries them only on `preview`, so a plugin first shipped during a Beta round reaches Stable installations without an unrelated source change. The promotion bumps the patch version because catalog versions must be unique and strictly ascending; demotion never happens implicitly.
 
 - Added the `recent-project-board` official preview plugin: while no Cubism document is open, it fills the native modeling viewport with recent-project thumbnails from the official `recent-preview` plugin and opens the selected project on double-click. The SDK adds `RecentFileService.open(RecentFileId)`, a verified viewport-board contribution surface, and `PanelView.Card` / `PanelView.Grid` / `PanelView.Centered` / `PanelView.Link` nodes; the board uses configurable 6-column, 3-column, and left-aligned details layouts with a persisted icon-only Lucide header layout control, scales text up in the 3-column and details layouts, vertically centers the details metadata and the header title/subtitle block (with a left inset), keeps the header title/subtitle left-aligned and the icon control right-aligned, normalizes viewport bounds through visible-rect intersection across Cubism 5.0.00 through 5.3.04, centers grid card names/timestamps and no-preview placeholders, shows a centered empty state with blue Create New Project and Create New Animation Project links backed by `NEW_MODEL` and the native New Animation flow, and `recent-preview` now also replays a bounded snapshot of its disk cache after startup.
 - Added the official `project-work-time` plugin and its shared runtime tracker: the bottom status bar shows the current Editor-session foreground time and the active project's cross-session cumulative work time. The runtime samples only while Cubism owns the desktop foreground and persists totals across sessions. The SDK adds `CubismFacade.isEditorForeground()`, `CubismFacade.activity()`, `CubismActivityChangedEvent`, and the `ProjectWorkTimeService` directory service so other plugins reuse the same accounting instead of duplicating timers.
@@ -21,6 +25,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Physics Settings preview GIF recording with record/pause/resume, stop/discard controls and registered shortcuts, post-recording size controls, optional Gifsicle optimization (20 MB by default), and a persistent GIF export directory. The recording state machine, the encoder, the export dialog, the scale/Gifsicle policy and the control strip live in `:plugins:physics-editor`; `:runtime` only exposes the generic preview capture capability they drive.
 
 - The SDK adds the incubating `MeshMirrorControl` and `MeshEditContributionSurface` capabilities with the `PluginService.MESH_MIRROR_CONTROL` and `PluginService.MESH_EDIT_CONTRIBUTION` directory members. Each consolidates released single-purpose services a plugin always needed together — the mirror axis, the counterpart rule, movement participation and the eligible-tool set on one side, host-edit participation and native tool-area contributions on the other — so mesh editing no longer costs six service lookups. Permissions and operation ids are unchanged.
+- The SDK adds `SelectionTableFooter` with an `openSelectionTableDialog(request, footer, listener)` overload: a preview table can carry one footer control and rebuild its rows when that control changes, so the batch-rename base-name choice sits in the preview it affects.
+- `project-work-time` measures only the open project: the status-bar session reading is zero and paused on an empty workspace, and returns to zero when the project closes.
+- GIF export offers animated PNG beside GIF, written in process without an external tool, and reports a finished export on the host status bar.
+- 3D preset import shows its chooser and its preview in one window whose preview follows the selection, and the bundled preset textures shade each logical face with its own colour and number.
 
 ### Deprecated
 
@@ -30,9 +38,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - `MeshMirrorAxisService`, `MeshMirrorCounterparts`, `MeshMirrorMoveParticipation`, `MeshMirrorToolEligibility`, `MeshEditParticipation` and `MeshEditUiService` (with their `PluginService` members and `MeshEditUiService.MirrorAxisAngleControl`) are deprecated for removal; all six keep working unchanged. Use `MeshMirrorControl` and `MeshEditContributionSurface` instead.
 
+### Changed
+
+- The plugin manager footer splits into an acquisition row and a selection row so its English labels fit, and the plugin manager and the market drop their redundant footer close buttons.
+- `PanelView.Centered` accepts a zero dimension, which keeps the child's natural size in that direction.
+
 ### Fixed
 
 - Runtime-owned shell startup has its own lifecycle deadline and waits out host event-queue startup work, so a briefly busy editor no longer produces an intermittent `Runtime-owned shell failed to start` failure.
+- A plugin completion no longer deadlocks behind the worker it has to release: settlements run on a dedicated lane, so the theme manager opens instead of timing out for the rest of the session.
+- A periodic refresh survives one over-budget iteration instead of ending its schedule, so the status-bar timer keeps publishing after a slow first tick.
+- Board cards show hover and press feedback through their children, list rows no longer paint a background box behind their text, and the board covers the native rail beside the canvas.
+- The batch-rename preview shows the base-name label instead of the control's internal record text.
+- Themes manage the canvas scrollbar keys, so the strip beside the empty-workspace board follows the theme.
+- The 3D import readback compares only the keyform edits it submitted and leads its failure text with the field name, so a correct preset import no longer rolls back.
 
 ## [0.68.1] - 2026-10-30
 

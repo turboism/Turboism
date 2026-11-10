@@ -1052,10 +1052,10 @@ public final class ConfigMergeRegression {
         Files.writeString(cubismRoot.resolve("sentinel.txt"), "unchanged", StandardCharsets.UTF_8);
         try {
             String valid = "{\"format\":\"turboism.cubism.installation-state\",\"schemaVersion\":1,"
-                    + "\"launchMode\":\"independent\",\"installations\":[{\"root\":\"" + cubismRoot + "\",\"version\":\"5.0.00\",\"selected\":true}],"
-                    + "\"managedShortcuts\":[\"" + managed + "\",\"" + modernManaged + "\"],"
-                    + "\"managedShortcutHashes\":[{\"path\":\"" + managed + "\",\"sha256\":\"" + sha256(managed) + "\"},"
-                    + "{\"path\":\"" + modernManaged + "\",\"sha256\":\"" + sha256(modernManaged) + "\"}]}";
+                    + "\"launchMode\":\"independent\",\"installations\":[{\"root\":\"" + jsonPath(cubismRoot) + "\",\"version\":\"5.0.00\",\"selected\":true}],"
+                    + "\"managedShortcuts\":[\"" + jsonPath(managed) + "\",\"" + jsonPath(modernManaged) + "\"],"
+                    + "\"managedShortcutHashes\":[{\"path\":\"" + jsonPath(managed) + "\",\"sha256\":\"" + sha256(managed) + "\"},"
+                    + "{\"path\":\"" + jsonPath(modernManaged) + "\",\"sha256\":\"" + sha256(modernManaged) + "\"}]}";
             Files.writeString(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE), valid, StandardCharsets.UTF_8);
             check("managed state cleanup removes owned shortcut", ConfigMerge.cleanupManagedState(home, shortcutDir));
             check("managed shortcut removed", !Files.exists(managed));
@@ -1071,7 +1071,7 @@ public final class ConfigMergeRegression {
             Files.write(takeover, managedBytes);
             String takeoverState = "{\"format\":\"turboism.cubism.installation-state\",\"schemaVersion\":1,"
                     + "\"launchMode\":\"takeover\",\"installations\":[],\"managedShortcuts\":[],\"shortcutTakeovers\":[{"
-                    + "\"shortcutPath\":\"" + takeover + "\",\"backupPath\":\"installer/shortcut-backups/" + HEX64 + ".lnk\","
+                    + "\"shortcutPath\":\"" + jsonPath(takeover) + "\",\"backupPath\":\"installer/shortcut-backups/" + HEX64 + ".lnk\","
                     + "\"originalSha256\":\"" + sha256Bytes(originalBytes) + "\",\"managedSha256\":\"" + sha256Bytes(managedBytes) + "\","
                     + "\"root\":\"C:/Cubism 5.2\",\"variant\":\"normal\",\"status\":\"active\"}]}";
             Files.writeString(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE), takeoverState, StandardCharsets.UTF_8);
@@ -1118,7 +1118,7 @@ public final class ConfigMergeRegression {
         try {
             String takeoverState = "{\"format\":\"turboism.cubism.installation-state\",\"schemaVersion\":1,"
                     + "\"launchMode\":\"takeover\",\"installations\":[],\"managedShortcuts\":[],\"shortcutTakeovers\":[{"
-                    + "\"shortcutPath\":\"" + takeover + "\",\"backupPath\":\"installer/shortcut-backups/" + HEX64 + ".lnk\","
+                    + "\"shortcutPath\":\"" + jsonPath(takeover) + "\",\"backupPath\":\"installer/shortcut-backups/" + HEX64 + ".lnk\","
                     + "\"originalSha256\":\"" + sha256Bytes(original) + "\",\"managedSha256\":\"" + sha256Bytes(managed) + "\","
                     + "\"root\":\"C:/Cubism 5.2\",\"variant\":\"normal\",\"status\":\"active\"}]}";
             Files.writeString(state, takeoverState, StandardCharsets.UTF_8);
@@ -1184,6 +1184,18 @@ public final class ConfigMergeRegression {
 
     private static String sha256(Path path) throws Exception {
         return sha256Bytes(Files.readAllBytes(path));
+    }
+
+    /**
+     * Renders a path as a JSON string body.
+     *
+     * <p>A Windows path contains backslashes, and embedding one raw turns every
+     * {@code C:\Users} into an invalid {@code \U} escape: the strict decoder then rejects the
+     * fixture and the cleanup assertions fail for a reason unrelated to the behaviour under test.
+     * Escaping here keeps the fixtures valid on every host platform.</p>
+     */
+    private static String jsonPath(Path path) {
+        return path.toString().replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private static String sha256Bytes(byte[] bytes) throws Exception {

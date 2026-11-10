@@ -7,6 +7,8 @@ import dev.turboism.sdk.cubism.preview.PreviewFrameSource;
 import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import java.time.Duration;
 import java.util.Optional;
@@ -27,6 +29,9 @@ public final class PhysicsEditorPlugin extends AbstractTurboismPlugin {
 
     private static final Duration PREVIEW_POLL_INTERVAL = Duration.ofMillis(400);
 
+    /** One status-region slot, so a later export replaces the previous notice instead of stacking. */
+    private static final String STATUS_NOTIFICATION_ID = "physics-editor.gif.export";
+
     private boolean enabled;
     private UiScheduler uiScheduler;
     private PreviewFrameService previewFrames;
@@ -41,7 +46,16 @@ public final class PhysicsEditorPlugin extends AbstractTurboismPlugin {
         final PluginContext active = context();
         uiScheduler = active.uiScheduler();
         previewFrames = active.services().find(PreviewFrameService.class).orElseGet(PreviewFrameService::unavailable);
-        recording = new GifRecordingController(active.localization(), active.logger(), uiScheduler);
+        // Reporting the finished export is optional: a context without a status region must still
+        // record and export, so a missing capability only drops the notice.
+        final UiHostCapabilityService hostUi =
+                active.services().find(UiHostCapabilityService.class).orElse(null);
+        recording =
+                new GifRecordingController(active.localization(), active.logger(), uiScheduler, (severity, message) -> {
+                    if (hostUi != null) {
+                        hostUi.notifyStatus(new StatusNotification(STATUS_NOTIFICATION_ID, severity, message));
+                    }
+                });
         disposalScope()
                 .register(active.services()
                         .require(PhysicsEditorService.class)

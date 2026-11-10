@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, artmesh, editing
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -24,7 +24,7 @@ interface: embedded
 | プラグイン ID | `dev.turboism.plugin.turbo-mesh` |
 | カテゴリ | `modeling` |
 | タグ | mesh, artmesh, editing |
-| Turboism API | `[0.68.1,1.0.0)` |
+| Turboism API | `[0.70.0,1.0.0)` |
 | Cubism 必須 | はい |
 | インターフェース | `embedded` |
 | ライセンス | Project License |
@@ -39,7 +39,7 @@ interface: embedded
 
 ## 要件と互換性
 
-- **Turboism API:**`[0.68.1,1.0.0)`。
+- **Turboism API:**`[0.70.0,1.0.0)`。
 - **Cubism:** Cubism が必要です。Turboism が現在認めるのはレビュー済みの正確な Editor アーティファクト `5.2.03`、`5.3.02`、`5.3.03` のみです。本プラグインは宣言したサービスとケイパビリティが利用可能な場合にのみ各機能を公開します。
 - **インターフェースモード:**`embedded`。
 - **プラグイン依存関係:** 宣言なし。

@@ -748,6 +748,8 @@ def check_managed_graal_installer_contract():
           "Java 17" not in text and "and the isolated host are verified" not in text)
     graal_create = text[text.index("Function GraalCreate"):
                         text.index("FunctionEnd", text.index("Function GraalCreate"))]
+    check("GI11a runtime strategy replaces the previous page header",
+          '!insertmacro MUI_HEADER_TEXT "$(GraalPageTitle)" ""' in graal_create)
     check("GI11 Graal page rows are contiguous at 12pt",
           '${NSD_CreateLabel} 0 0 100% 24u "$(GraalPageTitle)"' in graal_create
           and '${NSD_CreateLabel} 0 24u 100% 42u "$(GraalPageDescription)"' in graal_create
@@ -1107,6 +1109,10 @@ def check_plugin_selection_page_contract():
           and "== 0x2000" not in generated
           and ".skip" in generated
           and 'Write-Output "SKIP_UNSELECTED|$($entry.Relative)"' in helper)
+    check("PS5 native list items align text pointers for the installer target",
+          '&i${NSIS_PTR_SIZE} 0, t r2' in text
+          and '&i${NSIS_PTR_SIZE} 0xF000, p 0' in text
+          and '&i${NSIS_PTR_SIZE} 3, p 0' in text)
 
 
 def check_icon_contract():

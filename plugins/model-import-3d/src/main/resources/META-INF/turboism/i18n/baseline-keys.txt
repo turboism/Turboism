@@ -17,7 +17,14 @@ dialog.confirm.vertices
 dialog.confirm.vertices-optimized
 dialog.message.error.title
 dialog.message.info.title
+dialog.preset.cancel
+dialog.preset.confirm
+dialog.preset.failed
 dialog.preset.message
+dialog.preset.prepared
+dialog.preset.preparing
+dialog.preset.select
+dialog.preset.title
 error.atlas-budget-exceeded
 error.atlas-layout-failed
 error.atlas-oversized
@@ -58,6 +65,9 @@ preset.square
 preset.tetrahedron
 preset.torus
 preset.triangle
+progress.preparing
+progress.step
+progress.title
 resource.chooser.title
 success.xyz-rotation
 success.yaw-pitch

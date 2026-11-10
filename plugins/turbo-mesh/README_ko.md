@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, artmesh, editing
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -24,7 +24,7 @@ interface: embedded
 | 플러그인 ID | `dev.turboism.plugin.turbo-mesh` |
 | 카테고리 | `modeling` |
 | 태그 | mesh, artmesh, editing |
-| Turboism API | `[0.68.1,1.0.0)` |
+| Turboism API | `[0.70.0,1.0.0)` |
 | Cubism 필요 | 예 |
 | 인터페이스 | `embedded` |
 | 라이선스 | Project License |
@@ -39,7 +39,7 @@ interface: embedded
 
 ## 요구 사항 및 호환성
 
-- **Turboism API:** `[0.68.1,1.0.0)`.
+- **Turboism API:** `[0.70.0,1.0.0)`.
 - **Cubism:** Cubism이 필요합니다. 현재 Turboism은 검토된 정확한 Editor 아티팩트 `5.2.03`, `5.3.02`, `5.3.03`을 허용하며, 이 플러그인은 선언된 서비스와 기능이 모두 사용 가능할 때만 각 호스트 연동 기능을 노출합니다.
 - **인터페이스 모드:** `embedded`.
 - **플러그인 의존성:** 선언된 항목이 없습니다.

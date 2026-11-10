@@ -29,6 +29,7 @@ public sealed interface PanelView
                 PanelView.SpaceBetween,
                 PanelView.LeftRow,
                 PanelView.IconButton,
+                PanelView.ColorIconButton,
                 PanelView.Padded {
 
     /** Creates a vertical stack of the given children. */
@@ -95,6 +96,22 @@ public sealed interface PanelView
     /** Creates an icon-only button with tooltip text and no visible label. */
     static IconButton iconButton(final String id, final byte[] pngBytes, final String tooltip, final String actionId) {
         return new IconButton(id, pngBytes, tooltip, actionId);
+    }
+
+    /**
+     * Creates an icon-only button that keeps its own colours.
+     *
+     * <p>{@link IconButton} tints its mask with the theme foreground, so it cannot signal meaning by
+     * colour. A control that must do so supplies a coloured glyph here. A disabled control stays
+     * visible, rejects input and paints its glyph muted.</p>
+     */
+    static ColorIconButton colorIconButton(
+            final String id,
+            final byte[] pngBytes,
+            final String tooltip,
+            final String actionId,
+            final boolean enabled) {
+        return new ColorIconButton(id, pngBytes, tooltip, actionId, enabled);
     }
 
     /** Wraps a child in an empty inset; useful for standalone header alignment. */
@@ -344,6 +361,30 @@ public sealed interface PanelView
         }
     }
 
+    /**
+     * Icon-only button that keeps the PNG colours; a disabled control rejects input.
+     *
+     * @param id component name used for routing and observation
+     * @param pngBytes coloured glyph, drawn at the runtime icon size
+     * @param tooltip localized description of the action
+     * @param actionId action dispatched on click
+     * @param enabled whether the control accepts input
+     */
+    record ColorIconButton(String id, byte[] pngBytes, String tooltip, String actionId, boolean enabled)
+            implements PanelView {
+        public ColorIconButton {
+            id = requireText(id, "id");
+            pngBytes = checkedPngBytes(pngBytes);
+            tooltip = requireText(tooltip, "tooltip");
+            actionId = requireText(actionId, "actionId");
+        }
+
+        @Override
+        public byte[] pngBytes() {
+            return pngBytes.clone();
+        }
+    }
+
     /** Labeled text field whose edits dispatch {@code actionId}. */
     record TextInput(String id, String label, String value, String actionId) implements PanelView {
         public TextInput {
@@ -488,14 +529,17 @@ public sealed interface PanelView
     }
 
     /** Centers one child block in the available width and height. */
+    /**
+     * Centers one child block inside the available space.
+     *
+     * <p>A zero dimension keeps the child's natural size in that direction, so a caller can pin the
+     * width of a text block and let its height follow the content.</p>
+     */
     record Centered(PanelView child, int preferredWidth, int preferredHeight) implements PanelView {
         public Centered {
             child = Objects.requireNonNull(child, "child");
             if (preferredWidth < 0 || preferredHeight < 0) {
                 throw new IllegalArgumentException("preferred dimensions must be non-negative");
-            }
-            if ((preferredWidth == 0) != (preferredHeight == 0)) {
-                throw new IllegalArgumentException("preferred width and height must both be zero or both be positive");
             }
         }
 

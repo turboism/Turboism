@@ -13,8 +13,11 @@ import dev.turboism.pluginmanagement.RuntimePluginManagementService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.Registration;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -58,6 +61,9 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         CANCELLED
     }
 
+    private static final String LIST_TABLE_CARD = "table";
+    private static final String LIST_PLACEHOLDER_CARD = "placeholder";
+
     private final PluginLocalization i18n;
     private final CoreUpdateService discovery;
     private final CoreFrameworkUpdates updates;
@@ -90,7 +96,8 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private final PluginSelectionTableModel pluginTableModel;
     private final JTable pluginTable;
     private final JPanel pluginPanel = new JPanel(new BorderLayout(4, 4));
-    private final JLabel emptyList = new JLabel();
+    private final JPanel listRegion = new JPanel(new CardLayout());
+    private final JLabel emptyList = new JLabel("", JLabel.CENTER);
     private final JLabel notesTitle = new JLabel();
     private final JLabel notesComponentName = new JLabel("", JLabel.TRAILING);
     private final JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
@@ -111,6 +118,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private String displayedNotes;
     private boolean plannedFrameworkAvailable;
     private boolean pluginQueued;
+    private String shownListCard = LIST_TABLE_CARD;
     private long notesGeneration;
     private long completedPluginBytes;
     private long completedPluginTotalBytes;
@@ -256,9 +264,14 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                 Math.max(pluginTable.getRowHeight(), pluginTable.getFont().getSize() + 12));
         final JScrollPane tableScroll = new JScrollPane(pluginTable);
         tableScroll.setPreferredSize(new Dimension(540, 340));
+        // The card layout keeps a placeholder in the middle of the list area; a bottom strip
+        // read as a footer note instead of the state of the list itself.
+        final JPanel placeholder = new JPanel(new GridBagLayout());
+        placeholder.add(emptyList, new GridBagConstraints());
+        listRegion.add(tableScroll, LIST_TABLE_CARD);
+        listRegion.add(placeholder, LIST_PLACEHOLDER_CARD);
         pluginPanel.add(new JLabel(text("updates.plugins.header")), BorderLayout.NORTH);
-        pluginPanel.add(tableScroll, BorderLayout.CENTER);
-        pluginPanel.add(emptyList, BorderLayout.SOUTH);
+        pluginPanel.add(listRegion, BorderLayout.CENTER);
         pluginPanel.setMinimumSize(new Dimension(240, 96));
         final JPanel notesPanel = new JPanel(new BorderLayout(4, 4));
         final JPanel notesHeading = new JPanel(new BorderLayout(8, 0));
@@ -389,7 +402,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         progress.setString(megabytes(receivedBytes) + " / " + megabytes(totalBytes) + " MB");
         renderElapsed();
         renderNotes();
-        emptyList.setText(
+        renderListPlaceholder(
                 planState == PlanState.PLANNING
                         ? text("updates.plugins.planning")
                         : pluginTableModel.getRowCount() == 0 && planState == PlanState.PLANNED
@@ -413,6 +426,19 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                                                 ? "updates.install.unsupported"
                                                 : "updates.install.no-shutdown")
                                 + (state.detail().isBlank() ? "" : "\n" + state.detail()));
+    }
+
+    /**
+     * Shows a placeholder only while the list has nothing to browse; progress renders reuse the
+     * current card so that they never revalidate the list area.
+     */
+    private void renderListPlaceholder(final String message) {
+        final boolean placeholderVisible = !message.isEmpty() && pluginTableModel.getRowCount() == 0;
+        emptyList.setText(placeholderVisible ? message : "");
+        final String card = placeholderVisible ? LIST_PLACEHOLDER_CARD : LIST_TABLE_CARD;
+        if (card.equals(shownListCard)) return;
+        shownListCard = card;
+        ((CardLayout) listRegion.getLayout()).show(listRegion, card);
     }
 
     private void startPlanning(final String target) {
@@ -746,6 +772,10 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
 
     JTable pluginTable() {
         return pluginTable;
+    }
+
+    JLabel emptyListLabel() {
+        return emptyList;
     }
 
     JTextArea detailArea() {

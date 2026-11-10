@@ -36,8 +36,6 @@ public final class PluginAutoUpdatePlanner {
     /** Required prefix for first-party official Turboism plugin identifiers. */
     public static final String FIRST_PARTY_ID_PREFIX = "dev.turboism.plugin.";
 
-    private static final String REQUIRED_PLATFORM = "windows-x64";
-
     private final FrameworkBuildInfo.Channel channel;
     private final Optional<String> cubismVersion;
     private final PluginVersion turboismApiVersion;
@@ -200,7 +198,7 @@ public final class PluginAutoUpdatePlanner {
             if (!turboismApiAccepted(release)) {
                 continue;
             }
-            if (!release.platforms().contains(REQUIRED_PLATFORM)) {
+            if (!release.platforms().contains(PluginReleaseCompatibility.REQUIRED_PLATFORM)) {
                 continue;
             }
             matches.add(new PlannedUpdate(plugin, release, installedVersion, releaseVersion));
@@ -209,12 +207,7 @@ public final class PluginAutoUpdatePlanner {
     }
 
     private boolean channelAccepted(final String releaseChannel) {
-        return switch (channel) {
-            case BETA, NIGHTLY ->
-                CatalogRelease.CHANNEL_STABLE.equals(releaseChannel)
-                        || CatalogRelease.CHANNEL_PREVIEW.equals(releaseChannel);
-            case STABLE, UNKNOWN -> CatalogRelease.CHANNEL_STABLE.equals(releaseChannel);
-        };
+        return PluginReleaseCompatibility.channelAccepts(channel, releaseChannel);
     }
 
     private boolean cubismAccepted(final CatalogRelease release) {
@@ -278,19 +271,8 @@ public final class PluginAutoUpdatePlanner {
 
     private static boolean dependenciesSatisfied(
             final CatalogRelease release, final Map<String, PluginVersion> availableVersions) {
-        for (CatalogDependency dependency : release.dependencies()) {
-            if (!dependency.isRequired()) continue;
-            final PluginVersion available = availableVersions.get(dependency.id());
-            if (available == null) return false;
-            try {
-                if (!VersionRange.parse(dependency.version()).contains(available)) {
-                    return false;
-                }
-            } catch (IllegalArgumentException invalid) {
-                return false;
-            }
-        }
-        return true;
+        return PluginReleaseCompatibility.evaluateDependencies(release, availableVersions)
+                .compatible();
     }
 
     private static List<PlannedUpdate> orderByDependencies(final List<PlannedUpdate> updates) {

@@ -73,6 +73,27 @@ class GifFrameEncoderTest {
                 () -> GifFrameEncoder.optimize(gifsicle, raw, temporary.resolve("output.gif"), 1, 160, 100, 3));
     }
 
+    /**
+     * Turning optimization off must not require Gifsicle at all.
+     *
+     * <p>The export dialog lets the operator clear "optimize" and keep the recording at its original
+     * size. That path used to run Gifsicle anyway with an unlimited size ceiling, so a machine
+     * without Gifsicle could not export a GIF at all - the recording was retained and the export
+     * failed with a spawn error. With optimization off the encoder must publish the recording as-is.
+     */
+    @Test
+    void optimizationOffPublishesTheRecordingWithoutGifsicle() throws Exception {
+        final Path raw = temporary.resolve("raw.gif");
+        final Path output = temporary.resolve("output.gif");
+        writeRecording(raw, 6, 30, false);
+
+        GifFrameEncoder.optimize(
+                temporary.resolve("missing gifsicle").toString(), raw, output, Long.MAX_VALUE, 160, 100, 6);
+
+        assertGif(output, 6, 20, 160, 100);
+        assertArrayEquals(Files.readAllBytes(raw), Files.readAllBytes(output), "the recording must be published as-is");
+    }
+
     @Test
     void interruptionStopsOptimizationBeforeStartingAnotherProcess() throws Exception {
         Thread.currentThread().interrupt();

@@ -3,9 +3,12 @@ package dev.turboism.plugin.parametersync;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.plugin.parametersync.domain.ParameterSyncData;
 import dev.turboism.plugin.parametersync.domain.SyncRuleSet;
+import dev.turboism.plugin.parametersync.ui.ParameterSyncDialog;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
@@ -26,6 +29,7 @@ import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -37,6 +41,8 @@ import dev.turboism.sdk.plugin.PluginServiceDirectory;
 import dev.turboism.sdk.plugin.PluginServices;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.storage.PluginStorage;
+import dev.turboism.sdk.storage.StoragePath;
+import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
@@ -44,6 +50,8 @@ import dev.turboism.sdk.ui.context.ContextMenuSelection;
 import dev.turboism.test.storage.InMemoryPluginStorage;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import dev.turboism.test.ui.RecordingUiHost;
+import java.awt.Component;
+import java.awt.Container;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -52,7 +60,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import javax.swing.JButton;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -211,6 +221,104 @@ class ParameterSyncPluginTest {
         assertEquals(2, loaded.synchronizedCount());
         assertTrue(loaded.isSynchronized("ParamA"));
         assertTrue(loaded.isSynchronized("ParamB"));
+    }
+
+    @Test
+    void clearedSelectionAndPausedStateSurviveRestart() throws Exception {
+        // The operator clears every checkbox and pauses synchronization; the dialog has no save
+        // button, so this state is only ever written by the immediate-save path.
+        final SyncRuleSet ruleSet = plugin.getRuleSet("model-guid-1");
+        ruleSet.setSynchronized("ParamA", true);
+        ruleSet.setGlobalEnabled(false);
+        ruleSet.clear();
+        assertTrue(plugin.saveRules("model-guid-1").get());
+
+        final ParameterSyncPlugin freshPlugin = new ParameterSyncPlugin();
+        freshPlugin.init(context);
+        freshPlugin.enable();
+
+        final SyncRuleSet loaded = freshPlugin.ensureLoaded("model-guid-1").get();
+        assertEquals(0, loaded.synchronizedCount());
+        assertFalse(loaded.isGlobalEnabled(), "a paused model must stay paused after a restart");
+    }
+
+    @Test
+    void dialogPersistsEveryChangeWithoutAFooterButton() throws Exception {
+        final SyncRuleSet ruleSet = plugin.getRuleSet("model-guid-1");
+        final ParameterSyncDialog dialog = new ParameterSyncDialog(model, null, ruleSet, plugin, context.localization);
+        try {
+            assertNull(findButton(dialog, "dialog.btn.save"), "the save button must be gone");
+            assertNull(findButton(dialog, "dialog.btn.close"), "the close button must be gone");
+
+            dialog.table().setValueAt(true, 0, 0);
+            assertTrue(
+                    awaitStored(data -> data.synchronizedParameterIds().contains("ParamA")),
+                    "checking a parameter must persist immediately");
+
+            dialog.globalEnabledCheck().doClick();
+            assertTrue(awaitStored(data -> !data.globalEnabled()), "pausing must persist immediately");
+        } finally {
+            dialog.dispose();
+        }
+    }
+
+    @Test
+    void focusedParameterAutoSelectionIsPersistedOnOpen() throws Exception {
+        final SyncRuleSet ruleSet = plugin.getRuleSet("model-guid-1");
+        assertTrue(ruleSet.isEmpty());
+
+        final ParameterSyncDialog dialog =
+                new ParameterSyncDialog(model, "ParamB", ruleSet, plugin, context.localization);
+        try {
+            assertTrue(storedIds().contains("ParamB"), "the auto-selected parameter must be persisted");
+        } finally {
+            dialog.dispose();
+        }
+    }
+
+    private Set<String> storedIds() throws Exception {
+        final ParameterSyncData data = readStored();
+        return data == null ? Set.of() : data.synchronizedParameterIds();
+    }
+
+    /** Waits for the asynchronous save the dialog schedules on every change. */
+    private boolean awaitStored(final java.util.function.Predicate<ParameterSyncData> condition) throws Exception {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline) {
+            final ParameterSyncData data = readStored();
+            if (data != null && condition.test(data)) {
+                return true;
+            }
+            Thread.sleep(20);
+        }
+        return false;
+    }
+
+    private ParameterSyncData readStored() throws Exception {
+        final String json = context.storage.content(
+                new StoragePath(StorageRoot.STATE, "parameter-sync/" + sha256Hex("model-guid-1") + ".json"));
+        return json == null ? null : ParameterSyncData.fromMap(Json.parseObject(json));
+    }
+
+    private static String sha256Hex(final String value) throws Exception {
+        final byte[] hash = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return java.util.HexFormat.of().formatHex(hash);
+    }
+
+    private static JButton findButton(final Container root, final String label) {
+        for (final Component child : root.getComponents()) {
+            if (child instanceof JButton button && label.equals(button.getText())) {
+                return button;
+            }
+            if (child instanceof Container nested) {
+                final JButton found = findButton(nested, label);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     // ── Test Support Stubs ──

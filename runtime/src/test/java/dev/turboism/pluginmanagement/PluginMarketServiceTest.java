@@ -226,6 +226,255 @@ class PluginMarketServiceTest {
     }
 
     @Test
+    void stableInstallationDoesNotOfferPreviewRelease() {
+        final RuntimePluginManagementService mgmt =
+                new RuntimePluginManagementService(home, () -> Optional.empty(), List::of);
+        final CatalogRelease stableRelease = createRelease("1.0.0", "5.3.04", "[0.67.0,1.0.0)");
+        final CatalogRelease previewRelease = new CatalogRelease(
+                "2.0.0",
+                CatalogRelease.CHANNEL_PREVIEW,
+                CatalogRelease.STATUS_ACTIVE,
+                Instant.parse("2026-10-14T10:00:00Z"),
+                "workflow",
+                List.of("test"),
+                "[0.67.0,1.0.0)",
+                true,
+                List.of("5.3.04"),
+                List.of("windows-x64"),
+                List.of(),
+                List.of(new CatalogPermission("turboism.file.read", "application", "Reads files")),
+                "https://github.com/turboism/test/releases/tag/v2.0.0",
+                Optional.empty(),
+                new CatalogArtifact(
+                        "application/java-archive",
+                        "test-2.0.0.jar",
+                        "https://github.com/turboism/test/releases/download/v2.0.0/test-2.0.0.jar",
+                        "0".repeat(64),
+                        "1".repeat(64),
+                        1024L));
+        final CatalogPlugin plugin = new CatalogPlugin(
+                "dev.preview.only",
+                "preview-only",
+                "Preview Only",
+                "Summary",
+                "official",
+                "Author",
+                "MIT",
+                "https://github.com/turboism/test",
+                "https://github.com/turboism/test/issues",
+                Map.of(),
+                List.of(stableRelease, previewRelease));
+
+        try (var service = mgmt;
+                var market = new PluginMarketService(
+                        home,
+                        new PluginCatalogClient(),
+                        new PluginCatalogVerifier(),
+                        new PluginCatalogStateStore(home),
+                        new PendingPluginOperations(home),
+                        service,
+                        () -> Optional.of("5.3.04"),
+                        dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
+                        dev.turboism.core.FrameworkBuildInfo.Channel.STABLE,
+                        ignored -> {})) {
+            final PluginMarketStatus status = market.resolveStatus(plugin);
+            assertEquals(StatusType.NOT_INSTALLED, status.type());
+            assertEquals("1.0.0", status.targetRelease().orElseThrow().version());
+        }
+    }
+
+    @Test
+    void installedPluginWithoutCompatibleReleaseStaysInstalled() {
+        final List<PluginInfo> installed = List.of(new PluginInfo(
+                "dev.preview.only",
+                "Preview Only",
+                "0.68.1",
+                "",
+                "ENABLED",
+                "ENABLED",
+                false,
+                Optional.empty(),
+                "workflow",
+                List.of()));
+        final RuntimePluginManagementService mgmt =
+                new RuntimePluginManagementService(home, () -> Optional.empty(), () -> installed);
+        final CatalogRelease previewOnly = new CatalogRelease(
+                "0.68.1",
+                CatalogRelease.CHANNEL_PREVIEW,
+                CatalogRelease.STATUS_ACTIVE,
+                Instant.parse("2026-10-13T10:00:00Z"),
+                "workflow",
+                List.of("test"),
+                "[0.67.0,1.0.0)",
+                true,
+                List.of("5.3.04"),
+                List.of("windows-x64"),
+                List.of(),
+                List.of(new CatalogPermission("turboism.file.read", "application", "Reads files")),
+                "https://github.com/turboism/test/releases/tag/v0.68.1",
+                Optional.empty(),
+                new CatalogArtifact(
+                        "application/java-archive",
+                        "test-0.68.1.jar",
+                        "https://github.com/turboism/test/releases/download/v0.68.1/test-0.68.1.jar",
+                        "0".repeat(64),
+                        "1".repeat(64),
+                        1024L));
+        final CatalogPlugin plugin = new CatalogPlugin(
+                "dev.preview.only",
+                "preview-only",
+                "Preview Only",
+                "Summary",
+                "official",
+                "Author",
+                "MIT",
+                "https://github.com/turboism/test",
+                "https://github.com/turboism/test/issues",
+                Map.of(),
+                List.of(previewOnly));
+
+        try (var service = mgmt;
+                var market = new PluginMarketService(
+                        home,
+                        new PluginCatalogClient(),
+                        new PluginCatalogVerifier(),
+                        new PluginCatalogStateStore(home),
+                        new PendingPluginOperations(home),
+                        service,
+                        () -> Optional.of("5.3.04"),
+                        dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
+                        dev.turboism.core.FrameworkBuildInfo.Channel.STABLE,
+                        ignored -> {})) {
+            final PluginMarketStatus status = market.resolveStatus(plugin);
+            assertEquals(StatusType.INSTALLED, status.type());
+            assertEquals("0.68.1", status.installedVersion().orElseThrow());
+            assertTrue(status.targetRelease().isEmpty());
+            assertTrue(
+                    status.incompatibleReason().orElseThrow().contains("channel"),
+                    "the reason must explain that the only releases are on another channel");
+        }
+    }
+
+    @Test
+    void missingRequiredDependencyMarksReleaseIncompatible() {
+        final RuntimePluginManagementService mgmt =
+                new RuntimePluginManagementService(home, () -> Optional.empty(), List::of);
+        final CatalogRelease base = createRelease("1.0.0", "5.3.04", "[0.67.0,1.0.0)");
+        final CatalogRelease dependent = new CatalogRelease(
+                base.version(),
+                base.channel(),
+                base.status(),
+                base.publishedAt(),
+                base.category(),
+                base.tags(),
+                base.turboismApi(),
+                base.requiresCubism(),
+                base.cubismVersions(),
+                base.platforms(),
+                List.of(new PluginCatalog.CatalogDependency(
+                        "dev.missing.provider",
+                        "[0.1.0,1.0.0)",
+                        PluginCatalog.CatalogDependency.TYPE_REQUIRED,
+                        "after",
+                        Optional.empty())),
+                base.permissions(),
+                base.releaseUrl(),
+                base.sourceRevision(),
+                base.artifact());
+        final CatalogPlugin plugin = new CatalogPlugin(
+                "dev.needs.provider",
+                "needs-provider",
+                "Needs Provider",
+                "Summary",
+                "official",
+                "Author",
+                "MIT",
+                "https://github.com/turboism/test",
+                "https://github.com/turboism/test/issues",
+                Map.of(),
+                List.of(dependent));
+
+        try (var service = mgmt;
+                var market = new PluginMarketService(
+                        home,
+                        new PluginCatalogClient(),
+                        new PluginCatalogVerifier(),
+                        new PluginCatalogStateStore(home),
+                        new PendingPluginOperations(home),
+                        service,
+                        () -> Optional.of("5.3.04"),
+                        dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
+                        ignored -> {})) {
+            final PluginMarketStatus status = market.resolveStatus(plugin);
+            assertEquals(StatusType.INCOMPATIBLE, status.type());
+            assertTrue(status.incompatibleReason().orElseThrow().contains("dev.missing.provider"));
+        }
+    }
+
+    @Test
+    void requiredDependencyProvidedByCatalogDoesNotBlockInstall() throws Exception {
+        final RuntimePluginManagementService mgmt =
+                new RuntimePluginManagementService(home, () -> Optional.empty(), List::of);
+        final CatalogPlugin provider = createPlugin("dev.missing.provider", "0.5.0", "5.3.04", "[0.67.0,1.0.0)");
+        final CatalogRelease base = createRelease("1.0.0", "5.3.04", "[0.67.0,1.0.0)");
+        final CatalogRelease dependent = new CatalogRelease(
+                base.version(),
+                base.channel(),
+                base.status(),
+                base.publishedAt(),
+                base.category(),
+                base.tags(),
+                base.turboismApi(),
+                base.requiresCubism(),
+                base.cubismVersions(),
+                base.platforms(),
+                List.of(new PluginCatalog.CatalogDependency(
+                        "dev.missing.provider",
+                        "[0.1.0,1.0.0)",
+                        PluginCatalog.CatalogDependency.TYPE_REQUIRED,
+                        "after",
+                        Optional.empty())),
+                base.permissions(),
+                base.releaseUrl(),
+                base.sourceRevision(),
+                base.artifact());
+        final CatalogPlugin consumer = new CatalogPlugin(
+                "dev.needs.provider",
+                "needs-provider",
+                "Needs Provider",
+                "Summary",
+                "official",
+                "Author",
+                "MIT",
+                "https://github.com/turboism/test",
+                "https://github.com/turboism/test/issues",
+                Map.of(),
+                List.of(dependent));
+        final PluginCatalog catalog = new PluginCatalog(
+                PluginCatalog.FORMAT, 2, 1, Instant.now(), "0".repeat(64), "test-key", List.of(provider, consumer));
+
+        try (var service = mgmt;
+                var market = new PluginMarketService(
+                        home,
+                        new PluginCatalogClient(),
+                        new PluginCatalogVerifier(),
+                        new PluginCatalogStateStore(home),
+                        new PendingPluginOperations(home),
+                        service,
+                        () -> Optional.of("5.3.04"),
+                        dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
+                        ignored -> {})) {
+            final var snapshot = market.snapshot(catalog).toCompletableFuture().get(5, TimeUnit.SECONDS);
+            assertEquals(
+                    StatusType.NOT_INSTALLED,
+                    snapshot.statuses().get("dev.needs.provider").type());
+            assertEquals(
+                    StatusType.NOT_INSTALLED,
+                    snapshot.statuses().get("dev.missing.provider").type());
+        }
+    }
+
+    @Test
     void resolvesStatusCorrectlyAcrossAllStates() {
         final List<PluginInfo> installed = List.of(
                 new PluginInfo(
@@ -473,6 +722,7 @@ class PluginMarketServiceTest {
                         mgmt,
                         Optional::empty,
                         dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
+                        dev.turboism.core.FrameworkBuildInfo.current().channel(),
                         ignored -> {},
                         1)) {
 

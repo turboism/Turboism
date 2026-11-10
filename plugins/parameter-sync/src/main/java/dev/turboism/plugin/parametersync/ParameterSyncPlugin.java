@@ -439,7 +439,11 @@ public final class ParameterSyncPlugin implements CubismPlugin {
                 guid -> storage.load(guid)
                         .thenApply(data -> {
                             final SyncRuleSet set = getRuleSet(guid);
-                            if (data != null && !data.synchronizedParameterIds().isEmpty()) {
+                            // Restore the persisted state even when no parameter is selected: an
+                            // operator who clears every checkbox and pauses synchronization must
+                            // still see that paused state after a restart. A slow read never wins
+                            // over edits the operator already made in this session.
+                            if (data != null && !set.isLocallyModified()) {
                                 set.setAllSynchronized(data.synchronizedParameterIds());
                                 set.setGlobalEnabled(data.globalEnabled());
                             }

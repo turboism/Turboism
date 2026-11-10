@@ -166,6 +166,76 @@ class PluginWorkExecutorTest {
         executor.shutdown();
     }
 
+    /**
+     * EDT-bound work must not be charged for the time it spends queued.
+     *
+     * <p>The host EDT is shared with Cubism itself. Loading a large model stalls it for far longer
+     * than the plugin work budget, and charging that stall to the plugin opened its circuit breaker
+     * permanently: on the 763 MB reference model one session logged thousands of CIRCUIT_OPEN
+     * rejections and the plugin's UI never worked again. EDT queue latency is host-owned, so this
+     * work bypasses both the time limit and the breaker while keeping the bulkhead.</p>
+     */
+    @Test
+    void uiBoundWorkIsNotFailedByTheWorkBudgetAndCannotTripTheBreaker() throws InterruptedException {
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
+        // A 50 ms budget makes the over-budget condition deterministic through the manual timer.
+        final PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(50, 1, 4, 50.0f));
+
+        for (int index = 0; index < 4; index++) {
+            final CountDownLatch started = new CountDownLatch(1);
+            final CountDownLatch release = new CountDownLatch(1);
+            final PluginWorkSubmission submission = executor.submitUiBound(task("ui.schedule"), () -> {
+                started.countDown();
+                await(release);
+            });
+            assertTrue(submission.accepted(), "ui-bound work must be admitted");
+            assertTrue(started.await(1, TimeUnit.SECONDS));
+            // Well past the budget: the circuit-protected path would time out here.
+            timer.advanceBy(Duration.ofMillis(5_000));
+            release.countDown();
+            submission
+                    .completion()
+                    .toCompletableFuture()
+                    .orTimeout(5, TimeUnit.SECONDS)
+                    .join();
+        }
+
+        // No budget failure was charged, so ordinary work is still admitted.
+        final CountDownLatch ordinaryRan = new CountDownLatch(1);
+        final PluginWorkSubmission ordinary = executor.submit(task("action.handle"), ordinaryRan::countDown);
+        assertTrue(ordinary.accepted(), "the breaker must stay closed for circuit-protected work");
+        assertTrue(ordinaryRan.await(1, TimeUnit.SECONDS));
+
+        assertTrue(
+                events.stream()
+                        .noneMatch(event -> event.phase() == PluginWorkBudgetEvent.Phase.TIMED_OUT
+                                || event.phase() == PluginWorkBudgetEvent.Phase.CIRCUIT_OPEN),
+                "ui-bound work must charge neither the budget nor the breaker: " + events);
+        executor.shutdown();
+    }
+
+    @Test
+    void uiBoundWorkStillRunsOnTheBulkheadAndStillHonoursShutdown() throws Exception {
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f));
+        final AtomicReference<String> workerThread = new AtomicReference<>();
+        final CountDownLatch completed = new CountDownLatch(1);
+        final String callerThread = Thread.currentThread().getName();
+
+        executor.submitUiBound(task("ui.schedule"), () -> {
+                    workerThread.set(Thread.currentThread().getName());
+                    completed.countDown();
+                })
+                .completion()
+                .toCompletableFuture()
+                .orTimeout(5, TimeUnit.SECONDS)
+                .join();
+
+        assertTrue(completed.await(1, TimeUnit.SECONDS));
+        assertNotEquals(callerThread, workerThread.get(), "ui-bound work must not run on the caller thread");
+        executor.shutdown();
+    }
+
     @Test
     void circuitBreakerOpensAfterFailuresAndFurtherCallsFailFastWithDiagnostic() {
         // Given
@@ -359,6 +429,42 @@ class PluginWorkExecutorTest {
         assertNotSame(first, other);
         assertTrue(first.isTerminated());
         other.shutdown();
+    }
+
+    @Test
+    void completionSettlesOnItsOwnLaneWhileTheWorkerWaitsForIt() throws Exception {
+        // A plugin action joins a runtime future and the settle body is that future's only
+        // completion path. Sharing the worker pool deadlocked the action forever: the settle body
+        // queued behind the very thread it had to release. The theme manager hung this way.
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
+        final PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(5_000, 1, 4, 50.0f));
+        final CountDownLatch actionReturned = new CountDownLatch(1);
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+
+        final PluginWorkSubmission action = executor.submitUiBound(task("action.handle"), () -> {
+            try {
+                final PluginWorkSubmission settle = executor.submitCompletion(task("sidecar.complete"), () -> {});
+                if (!settle.accepted()) {
+                    failure.set(new AssertionError("the completion lane must admit the settle body"));
+                    return;
+                }
+                settle.completion()
+                        .toCompletableFuture()
+                        .orTimeout(2, TimeUnit.SECONDS)
+                        .join();
+            } catch (Throwable thrown) {
+                failure.set(thrown);
+            } finally {
+                actionReturned.countDown();
+            }
+        });
+        assertTrue(action.accepted(), "the action must be admitted");
+
+        assertTrue(actionReturned.await(3, TimeUnit.SECONDS), "the settle body must not queue behind its own worker");
+        if (failure.get() != null) {
+            throw new AssertionError("the settle body did not complete", failure.get());
+        }
+        executor.shutdown();
     }
 
     private static PluginTask task(String type) {

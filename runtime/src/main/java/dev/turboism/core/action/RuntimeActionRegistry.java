@@ -111,8 +111,8 @@ public final class RuntimeActionRegistry implements ActionRegistry {
         }
 
         PluginTask task = new PluginTask("action.handle", ownerPluginId, "action:" + key, "none");
-        final boolean accepted =
-                scheduler.dispatch(task, () -> registered.action().handler().accept(context));
+        final boolean accepted = scheduler.dispatchAction(
+                task, () -> registered.action().handler().accept(context), () -> {});
         final RuntimeEventBroker broker = eventBroker;
         if (accepted && broker != null) {
             broker.publishRuntime(new ActionInvocationEvent(

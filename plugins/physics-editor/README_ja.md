@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: physics, editing, simulation
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -49,7 +49,7 @@ GIF の書き出しには **Gifsicle** のローカルインストールが必�
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.68.1,1.0.0)`。
+- **SDK API 範囲:** `[0.70.0,1.0.0)`。
 - **Cubism:** Cubism が必要です。Turboism は現在、正確にレビュー済みの Editor アーティファクト `5.0.00` から `5.3.04`（計20個の正確なバージョン）を受け入れています。このプラグインは、宣言されたサービスと機能が利用可能な場合にのみ、各ホスト向け機能を公開します。
 - **インターフェースモード:** `swing`。
 - **プラグイン依存関係:** 宣言されていません。
@@ -90,6 +90,7 @@ GIF の書き出しには **Gifsicle** のローカルインストールが必�
 | `turboism.cubism.model.write` | `application` | 検証済みの Editor トランザクションパスを通じて、物理演算グループを一括でアトミックに有効化または無効化します。 |
 | `turboism.file.read` | `application` | 記憶した GIF 書き出しフォルダーと書き出したファイルサイズを確認します。 |
 | `turboism.file.write` | `application` | 録画、エンコーダーの中間出力、ユーザーが書き出した GIF を書き込みます。 |
+| `turboism.ui.viewport.read` | `application` | フォーカス中のプレビューからフレームを読み取り、GIF を録画します。 |
 | `turboism.process.run` | `application` | ユーザー指定の Gifsicle 実行ファイルを起動し、書き出した GIF を指定サイズに最適化します。 |
 
 ## プライバシーとデータ
