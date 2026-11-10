@@ -143,7 +143,7 @@ jobs:
           if git show-ref --verify --quiet "refs/tags/v$VERSION"; then
             test "$(git rev-parse "v$VERSION^{commit}")" = "$GITHUB_SHA"
           fi
-          grep -Fq "## [$VERSION] - " CHANGELOG.md
+          grep -Fq "## [$VERSION] - " docs/en/CHANGELOG.md
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up Java 17
@@ -310,7 +310,7 @@ jobs:
         if: needs.preflight.outputs.channel == 'stable'
         run: |
           python3 scripts/release/extract-release-notes.py \
-            CHANGELOG.md "${{ steps.version.outputs.version }}" \
+            docs/en/CHANGELOG.md "${{ steps.version.outputs.version }}" \
             > build/release-orchestrator/release-notes.md
 
       - name: Write allocated build identity into the candidate evidence

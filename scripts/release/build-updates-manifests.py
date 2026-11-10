@@ -115,7 +115,7 @@ def framework_manifest(args) -> dict:
         "sourceRevision": revision,
         "publishedAt": args.published_at,
         "githubReleaseUrl": f"https://github.com/turboism/Turboism/releases/tag/{tag}",
-        "changelogUrl": f"https://github.com/turboism/Turboism/blob/{revision}/CHANGELOG.md",
+        "changelogUrl": f"https://github.com/turboism/Turboism/blob/{revision}/docs/en/CHANGELOG.md",
         "provenance": {
             "repository": "turboism/Turboism",
             "workflow": ".github/workflows/release.yml",

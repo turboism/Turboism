@@ -34,7 +34,7 @@ def framework_version(repo_root: Path) -> str:
 def changelog_entry(repo_root: Path, version: str) -> dict[str, str]:
     if not STRICT_VERSION.fullmatch(version):
         raise ReleaseError(f"invalid release version: {version}")
-    path = repo_root / "CHANGELOG.md"
+    path = repo_root / "docs" / "en" / "CHANGELOG.md"
     try:
         text = path.read_text(encoding="utf-8")
     except OSError as failure:

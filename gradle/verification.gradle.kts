@@ -1514,13 +1514,13 @@ tasks.register<Exec>("checkExternalPluginTemplate") {
 
 tasks.register<Exec>("checkLocalizedChangelogs") {
     group = "verification"
-    description = "Verifies localized CHANGELOG.<locale>.md files render exactly from release-notes JSON."
+    description = "Verifies the localized changelogs under docs/<locale>/ render exactly from release-notes JSON."
     workingDir(rootDir)
     inputs.files(
-        "CHANGELOG.md",
-        "CHANGELOG.zh-CN.md",
-        "CHANGELOG.ja.md",
-        "CHANGELOG.ko.md",
+        "docs/en/CHANGELOG.md",
+        "docs/zh/CHANGELOG.md",
+        "docs/ja/CHANGELOG.md",
+        "docs/ko/CHANGELOG.md",
         fileTree("distribution/release-notes") { include("*.json") },
         "scripts/release/render_localized_changelogs.py"
     )
@@ -1633,7 +1633,7 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
         "scripts/test/test_release_promotion.py",
         ".github/workflows/release-github-only.yml",
         "RELEASING.md",
-        "CHANGELOG.md",
+        "docs/en/CHANGELOG.md",
         ".github/workflows/release.yml"
     )
     VerificationStamps.apply(this)

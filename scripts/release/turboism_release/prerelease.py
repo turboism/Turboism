@@ -87,7 +87,7 @@ def notes_for(source_root, receipt):
         base = framework_version(source_root)
         resolve_version(base, 'beta', version)
         extractor = _load_script('prerelease_notes', SCRIPTS/'extract-release-notes.py')
-        heading += '\n' + extractor.extract((Path(source_root)/'CHANGELOG.md').read_text(encoding='utf-8'), base)
+        heading += '\n' + extractor.extract((Path(source_root)/'docs'/'en'/'CHANGELOG.md').read_text(encoding='utf-8'), base)
     return (heading + f"\nSource: {receipt['sourceRevision']}\nBuild: {receipt['buildNumber']}\n"
             + '\n<!-- turboism-build-v1 '+json.dumps(receipt,sort_keys=True,separators=(',',':'))+' -->\n')
 

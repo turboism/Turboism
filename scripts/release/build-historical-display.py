@@ -14,7 +14,7 @@ BASE='e68698ecb9e93e9210b9ff63983456eff67189a9'
 def main():
     spec=importlib.util.spec_from_file_location('historical_extract',ROOT/'scripts/release/extract-release-notes.py')
     extractor=importlib.util.module_from_spec(spec);spec.loader.exec_module(extractor)
-    changelog=subprocess.check_output(['git','-C',str(ROOT),'show',SOURCE+':CHANGELOG.md'],text=True,encoding='utf-8')
+    changelog=subprocess.check_output(['git','-C',str(ROOT),'show',SOURCE+':docs/en/CHANGELOG.md'],text=True,encoding='utf-8')
     english=extractor.extract(changelog,'0.43.10').strip()
     locales=release_notes.reviewed_locales(ROOT,'0.43.10',english)
     assert set(locales)=={'en','zh','ja'},'Reviewed translations must exist'
