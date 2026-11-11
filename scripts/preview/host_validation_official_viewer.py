@@ -12,7 +12,7 @@ from pathlib import Path
 from host_validation_queue import QueueError,atomic_json,file_digest,tree_inventory,runtime_digest,validate_admission
 import runpy
 _CORE=runpy.run_path(str(Path(__file__).with_name('host_validation_official_core.py')))
-path,windows,wait_for_task_exit=(_CORE[k] for k in ('path','windows','wait_for_task_exit'))
+path,windows,wait_for_task_exit,xvfb_binary=(_CORE[k] for k in ('path','windows','wait_for_task_exit','xvfb_binary'))
 
 EDITOR_SHA='988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21'
 FLAGS={'--name','--version','--bundle-root','--golden-prefix','--host-root','--run-label','--proton-wrapper','--proton-runner','--transport'}
@@ -102,14 +102,14 @@ def run(argv):
         shutil.copytree(source,task/'bundle');require(bundle(task/'bundle')==m,'staged closure');(task/'home').mkdir()
         (task/'viewer-launch.cmd').write_bytes(launch_script(task,m));command=launch_argv(o,task)
         # A fresh, task-owned X server avoids all interaction with the user's desktop.
-        readfd,writefd=os.pipe()
+        xvfb=xvfb_binary();readfd,writefd=os.pipe()
         with (task/'display.log').open('xb') as display_log:
-            server=subprocess.Popen(['/usr/bin/Xvfb','-displayfd',str(writefd),'-screen','0','1440x1080x24','-nolisten','tcp','-noreset'],pass_fds=(writefd,),stdout=display_log,stderr=subprocess.STDOUT)
+            server=subprocess.Popen([xvfb,'-displayfd',str(writefd),'-screen','0','1440x1080x24','-nolisten','tcp','-noreset'],pass_fds=(writefd,),stdout=display_log,stderr=subprocess.STDOUT)
             os.close(writefd);writefd=None
             require(bool(select.select([readfd],[],[],15)[0]),'private display startup timeout')
             raw=os.read(readfd,32);require(re.fullmatch(rb'[0-9]+\n',raw) is not None,'private display number');display=':'+raw.decode().strip()
             os.close(readfd);readfd=None
-            atomic_json(task/'launch.json',dict(argv=command,identity=identity,display=display,xvfbPid=server.pid,xvfbSha256=file_digest(Path('/usr/bin/Xvfb'))))
+            atomic_json(task/'launch.json',dict(argv=command,identity=identity,display=display,xvfbPid=server.pid,xvfbSha256=file_digest(Path(xvfb))))
             injected={'CLASSPATH','JAVA_TOOL_OPTIONS','JDK_JAVA_OPTIONS','_JAVA_OPTIONS','LD_PRELOAD','LD_LIBRARY_PATH','BASH_ENV','ENV','PYTHONPATH','PYTHONHOME','XAUTHORITY'}
             env={k:v for k,v in os.environ.items() if k not in injected and not k.startswith(('TURBOISM_','BASH_FUNC_'))};env['DISPLAY']=display
             for k in ('JAVA_TOOL_OPTIONS','JDK_JAVA_OPTIONS','_JAVA_OPTIONS','CLASSPATH'):env[k]=''
@@ -148,7 +148,7 @@ def finalize(job,descriptor,prepared_root,directory,preliminary,proof,runner_exi
         launch=json.loads((task/'launch.json').read_text())
         require(launch['identity']==identity and launch['argv']==launch_argv(o,task),'launch plan')
         require(re.fullmatch(r':[0-9]+',launch['display']) and type(launch['xvfbPid']) is int and launch['xvfbPid']>0
-                and launch['xvfbSha256']==file_digest(Path('/usr/bin/Xvfb')),'private display evidence')
+                and launch['xvfbSha256']==file_digest(Path(xvfb_binary())),'private display evidence')
         require((task/'viewer-launch.cmd').read_bytes()==launch_script(task,source),'fixed Viewer launch script')
         capture=task/'capture';allowed={'launch.json','observation.json'}|{f'viewer-{i}.png' for i in range(3)}|{f'components-{i}.txt' for i in range(3)}
         require({p.name for p in capture.iterdir()}==allowed,'observation inventory or failure')

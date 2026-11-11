@@ -38,7 +38,9 @@ path the task scripts execute and reach their own configuration checks.
 and removes an open SQLite file. The generic task runner is the larger gap: it
 requires a golden Proton prefix and a Proton runner for every task, so it has no
 native Windows launch path. A task therefore cannot complete on native Windows
-yet, even though the queue loads, locks, prepares and launches the task script. The
+yet, even though the queue loads, locks, prepares and launches the task script. On
+a native Windows host collect exact-host evidence through the packaged
+PowerShell launchers instead (see "Native Windows evidence path" below). The
 state root is the account home resolved for the current user (`pwd` on POSIX,
 the profile directory on Windows), so `HOME`/`XDG_STATE_HOME`/cwd still cannot
 split one user's lock domain; private-directory and lock ownership checks keep
@@ -127,6 +129,14 @@ and exported values take precedence. Existing `--remote-root`/`--fixture-remote`
 Runner names are compatibility aliases for **local host paths**; prefer
 `--host-root`/`--fixture-host`. Explicit SSH and old wave/lease CLI options fail
 with a migration message rather than accessing another machine.
+
+The Proton wrapper is host-local tooling, not a repository artifact. Resolve it
+through `TURBOISM_HOST_VALIDATION_PROTON_WRAPPER` in `.env`, or leave the value
+unset and rely on the reviewed PATH fallback; a direct `--proton-wrapper` option
+wins over both. Every Runner launch call passes `-p/--prefix`, `--runner` and
+then the Windows executable with its arguments, forwards the wrapper's exit
+code, and may print a `Log: <path>` line for wrapper evidence. Without a
+wrapper the Runner fails closed before any host launch.
 
 Build the capability's bundle/probe first. The capability wrapper and Runner
 `--help` remain the authority for version, identity, fixture and assertion options.
@@ -424,6 +434,46 @@ python3 scripts/preview/host_validation.py abandon --confirm-all-cross-boot JOB_
   not evidence relaxation — no verdict is manufactured, `recover`'s
   requirements are unchanged, and a same-boot quarantine can never be
   released this way.
+
+## Native Windows evidence path
+
+The queue, the Runner and the `validate*Host<version>` Gradle tasks require the
+Linux Proton environment (golden prefix, Proton runner and wrapper, systemd
+cgroup scopes). A native Windows x64 host collects exact-host evidence without
+them:
+
+1. **Build and package on any host with Git Bash.** Run the packaging script for
+   the feature from the repository root, for example
+   `bash scripts/preview/package-windows-parameter-validation.sh`. The script
+   builds `previewBundle`, the plugin and the probe, stages
+   `build/manual-test/<worktree-id>/<feature>-validation/` with a `SHA256SUMS.txt`,
+   and performs its own fail-closed staging checks. Package scripts for the other
+   features follow the same pattern. Bundles with a direct launcher
+   (`parameter`, `history`, `workspace`) follow the steps below; the remaining
+   `package-windows-*.sh` bundles are queue-task inputs for the Linux Runner
+   flow and carry no standalone native launcher.
+2. **Probe offline first.** Run the bundle's launcher with `-ProbeOnly` where it
+   exists (for example the parameter launcher, with `-ProbeAgent`). These steps
+   never launch Cubism; the history and workspace launchers skip straight to the
+   exact-host run.
+3. **Launch through the official BAT.** The packaged PowerShell launcher (for
+   example `launch-cubism-parameter-validation.ps1`) resolves the installed
+   Editor, sets validation-scoped `JAVA_TOOL_OPTIONS`/`turboism.home`, calls the
+   official `CubismEditor5.bat` with an isolated fixture copy, waits for the
+   terminal result file, records the identity hashes and exits non-zero on any
+   failure. Always pass a disposable fixture copy; never the original model.
+4. **Workspace validation uses a BAT template**
+   (`launch-workspace-validation.bat.template`): edit the five `SET` lines,
+   rename to `.bat`, then run it. See `README-workspace-validation.md`.
+
+The evidence contract stays the same on both host classes: exact host JAR/BAT
+and agent hashes, an unchanged fixture, a normal official-launcher exit, and
+written result artifacts. What a native Windows host does not provide is the
+queue's admission/containment coordination: nothing enforces the one-session
+limit or the Job Object containment proof for these direct launches, so keep
+one Cubism session per version by hand and never launch two validations that
+share a fixture or a home directory. The queue's Windows Job Object backend
+covers only contained payloads it starts itself.
 
 ## Agent rollout
 

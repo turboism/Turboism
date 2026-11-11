@@ -41,6 +41,18 @@ python3 "$task/reviewed_host_artifacts.py" versions > /dev/null \
   || { echo "reviewed Cubism digests are not resolvable from $task" >&2; exit 64; }
 
 export DISPLAY=${DISPLAY:-:0}
+# The Proton wrapper is host-local tooling, not a repository artifact; resolve it from the .env contract before launch.
+proton_wrapper="${TURBOISM_HOST_VALIDATION_PROTON_WRAPPER:-shorin-proton-wrapper}"
+case "$proton_wrapper" in
+  */*)
+    [[ -x "$proton_wrapper" ]] \
+      || { echo "Proton wrapper is not executable: $proton_wrapper (set TURBOISM_HOST_VALIDATION_PROTON_WRAPPER in .env)" >&2; exit 64; }
+    ;;
+  *)
+    command -v -- "$proton_wrapper" >/dev/null 2>&1 \
+      || { echo "Proton wrapper not found on PATH: $proton_wrapper (set TURBOISM_HOST_VALIDATION_PROTON_WRAPPER in .env)" >&2; exit 64; }
+    ;;
+esac
 prefix="$task/prefix"
 fixture="$task/models/heavy.cmo3"
 install='C:\Program Files\Live2D Cubism 5.3'
@@ -154,7 +166,7 @@ call "$install\\CubismEditor5.bat" "$fixture_windows" > "$run_windows\\cubism-co
 EOF
 
 launch_epoch_ms=$(date +%s%3N)
-DISPLAY=:0 nohup /usr/bin/shorin-proton-wrapper --prefix "$prefix" \
+nohup "$proton_wrapper" --prefix "$prefix" \
   "$prefix/pfx/drive_c/windows/system32/cmd.exe" /d /s /c "$run_windows\\launch.bat" \
   > "$run/wrapper.out" 2>&1 &
 wrapper_pid=$!

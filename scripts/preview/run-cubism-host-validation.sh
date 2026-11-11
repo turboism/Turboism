@@ -53,7 +53,7 @@ Local-only options:
   --golden-prefix <local Proton prefix>
   --local-evidence-dir <local path>
   --display <X display, default :0>
-  --proton-wrapper <local executable, default shorin-proton-wrapper>
+  --proton-wrapper <local executable, default TURBOISM_HOST_VALIDATION_PROTON_WRAPPER, else shorin-proton-wrapper>
   --proton-runner <local executable>
   --graphics-device <inherit|nvidia>   task-local GPU selection before Proton (default inherit)
   --prepare-dir <path>                  write runner-request.json and exit
@@ -380,7 +380,7 @@ golden_prefix="$TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX"
 host_root="${TURBOISM_HOST_VALIDATION_HOST_ROOT:-${TURBOISM_HOST_VALIDATION_REMOTE_ROOT:-}}"
 local_evidence_dir=''
 display=':0'
-proton_wrapper='shorin-proton-wrapper'
+proton_wrapper="${TURBOISM_HOST_VALIDATION_PROTON_WRAPPER:-shorin-proton-wrapper}"
 proton_runner="$TURBOISM_HOST_VALIDATION_PROTON_RUNNER"
 graphics_device='inherit'
 prepare_dir=''
@@ -542,13 +542,17 @@ PY
 done
 if [ "$dry_run" = 0 ]; then
   if [[ "$proton_wrapper" != */* ]]; then
-    proton_wrapper="$(command -v -- "$proton_wrapper")" || fail "Proton wrapper executable not found"
+    proton_wrapper_name="$proton_wrapper"
+    proton_wrapper="$(command -v -- "$proton_wrapper")" \
+      || fail "Proton wrapper executable not found on PATH: $proton_wrapper_name (set TURBOISM_HOST_VALIDATION_PROTON_WRAPPER in .env or pass --proton-wrapper)"
   fi
   proton_wrapper="$(python3 - "$proton_wrapper" <<'PY'
 import os, sys
 print(os.path.abspath(sys.argv[1]))
 PY
 )"
+  [ -x "$proton_wrapper" ] \
+    || fail "Proton wrapper is not executable: $proton_wrapper (set TURBOISM_HOST_VALIDATION_PROTON_WRAPPER in .env or pass --proton-wrapper)"
 fi
 if [ -n "$home_config" ]; then
   require_safe_text "$home_config" "home config path"
