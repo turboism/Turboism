@@ -609,7 +609,12 @@ public final class PluginDescriptorParser {
             findings.add("PLUGIN_META_BAD_CAPABILITIES", "capabilities must be an array", "capabilities");
             return;
         }
-        descriptor.capabilities(texts(capabilities));
+        final List<String> declared = texts(capabilities);
+        // A retired synonym normalises to its canonical id here, so admission, reporting and the
+        // compatibility matrix read one vocabulary while an older descriptor still loads. The
+        // uniqueness finding stays keyed on the declared text: a manifest that repeats an id
+        // verbatim is still a manifest defect, whichever id it repeats.
+        descriptor.capabilities(CapabilityAliases.canonicalize(declared));
         final Set<String> seen = new HashSet<>();
         for (int index = 0; index < capabilities.size(); index++) {
             final JsonNode value = capabilities.get(index);

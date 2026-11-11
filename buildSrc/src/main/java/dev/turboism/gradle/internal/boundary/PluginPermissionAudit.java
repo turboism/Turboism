@@ -37,6 +37,10 @@ public final class PluginPermissionAudit {
 
     private static final byte[] CLASS_FILE_MAGIC = {(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE};
 
+    /*
+     * The boundary permissions are named by the shared vocabulary resource rather than by a second
+     * copy of the strings, so a rename in :sdk breaks this gate instead of silently disabling a rule.
+     */
     private static final String NETWORK_PERMISSION = "turboism.network.fetch";
 
     private static final String PROCESS_PERMISSION = "turboism.process.run";
@@ -373,6 +377,18 @@ public final class PluginPermissionAudit {
             ids.add(matcher.group(1));
         }
         return ids;
+    }
+
+    /**
+     * Every boundary permission this audit can require, in vocabulary order.
+     *
+     * <p>The gate asserts that each one is exported by the SDK vocabulary, so a rule cannot name an
+     * id the framework stopped publishing without failing the build.
+     *
+     * @return the immutable boundary permission set
+     */
+    public static Set<String> boundaryPermissions() {
+        return Set.of(NETWORK_PERMISSION, PROCESS_PERMISSION, FILE_READ_PERMISSION, FILE_WRITE_PERMISSION);
     }
 
     /** True when {@code owner}'s {@code name} is one of the tracked members of {@code rules}. */

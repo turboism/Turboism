@@ -49,9 +49,6 @@ class ScriptRegistry {
     // plugin-only. Keep the set a strict subset of PermissionIds.KNOWN_IDS —
     // ScriptRegistryPermissionContractTest enforces that invariant.
     static final Set<String> KNOWN_PERMISSIONS = Set.of(
-            PermissionIds.TURBOISM_UI_MENU,
-            PermissionIds.TURBOISM_UI_TOOLBAR,
-            PermissionIds.TURBOISM_UI_PALETTE,
             PermissionIds.TURBOISM_CUBISM_PROJECT_READ,
             PermissionIds.TURBOISM_CUBISM_MODEL_READ,
             PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,

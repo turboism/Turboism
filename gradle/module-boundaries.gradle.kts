@@ -6,6 +6,7 @@ import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.logging.Logger
 import dev.turboism.gradle.internal.VerificationStamps
 import dev.turboism.gradle.internal.boundary.JavaSourceScan
+import dev.turboism.gradle.internal.boundary.PermissionVocabulary
 import dev.turboism.gradle.internal.boundary.PluginClassReferences
 import dev.turboism.gradle.internal.boundary.PluginPermissionAudit
 
@@ -1014,6 +1015,13 @@ tasks.register("checkPluginPermissionAudit") {
 
 private fun checkPluginPermissionAudit(root: Project, plugins: List<Project>) {
     val state = BoundaryState(root.logger)
+    val vocabulary = PermissionVocabulary.read(root.projectDir.toPath())
+    val unexported = PluginPermissionAudit.boundaryPermissions() - vocabulary.toSet()
+    if (unexported.isNotEmpty()) {
+        state.reject(
+            "Plugin permission audit rules name ids the SDK vocabulary does not export: $unexported"
+        )
+    }
     plugins.forEach { plugin ->
         val descriptor = plugin.file("src/main/resources/META-INF/turboism/plugin.json")
         val declared = PluginPermissionAudit.declaredPermissionIds(descriptor.readText())

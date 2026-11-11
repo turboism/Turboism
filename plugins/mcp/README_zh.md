@@ -280,12 +280,12 @@ url = "http://127.0.0.1:43123/mcp"
 | `cubism.workspace.read` | 读取类型化工作区状态和停靠布局快照。 |
 | `cubism.model.objects.read` | 检查受支持的模型对象。 |
 | `cubism.model.objects.write` | 创建、重命名、重新设定父级和删除受支持的模型对象。 |
-| `cubism.parameters.read` | 读取活动模型参数。 |
-| `cubism.parameters.write` | 应用类型化的参数值和定义操作。 |
+| `cubism.parameter.read` | 读取活动模型参数。 |
+| `cubism.parameter.write` | 应用类型化的参数值和定义操作。 |
 | `cubism.parameter-bindings.read` | 读取参数绑定。 |
 | `cubism.parameter-bindings.write` | 应用类型化的绑定操作和原生原子传输。 |
-| `cubism.history.read` | 读取原生撤销历史。 |
-| `cubism.history.write` | 使用世代和修订版本防护移动原生撤销历史。 |
+| `cubism.editor-history.read` | 读取原生撤销历史。 |
+| `cubism.editor-history.move` | 使用世代和修订版本防护移动原生撤销历史。 |
 | `cubism.editor-commands.execute` | 执行有界的受支持 Editor 命令界面。 |
 
 ## 权限
