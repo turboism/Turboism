@@ -9,6 +9,7 @@ import java.awt.Color;
 import java.util.Locale;
 import javax.swing.AbstractButton;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JToggleButton;
@@ -120,6 +121,9 @@ class ThemedHostSurfaceTest {
         second.add(rendered);
         second.add(toggle);
         second.add(toolbarButton);
+        final JCheckBox checkBox = new JCheckBox("glue");
+        checkBox.putClientProperty(STYLE_KEY, HOST_STYLE);
+        second.add(checkBox);
         root.add(first);
         root.add(second);
         try {
@@ -152,6 +156,11 @@ class ThemedHostSurfaceTest {
             assertTrue(
                     String.valueOf(toolbarButton.getClientProperty(STYLE_KEY)).startsWith(HOST_STYLE),
                     "the host style stays intact while the theme is active");
+            assertEquals(
+                    HOST_STYLE,
+                    checkBox.getClientProperty(STYLE_KEY),
+                    "a check box rejects button state keys, so it keeps the host style");
+            assertEquals(FIRST_THEME, checkBox.getBackground(), "a check box still paints the themed surface");
 
             surfaces.releaseTree(root);
 

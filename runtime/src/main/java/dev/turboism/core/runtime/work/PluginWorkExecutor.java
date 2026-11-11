@@ -373,11 +373,13 @@ public final class PluginWorkExecutor {
                     PluginWorkBudgetEvent.Severity.WARNING);
             return new PluginWorkResult(PluginWorkStatus.REJECTED_BACKPRESSURE, "BACKPRESSURE");
         }
-        emit(
-                workItem.task(),
+        diagnosticSink.accept(new PluginWorkBudgetEvent(
+                pluginId,
+                workItem.task().taskType(),
                 PluginWorkBudgetEvent.Phase.FAILED,
                 PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
-                PluginWorkBudgetEvent.Severity.ERROR);
+                PluginWorkBudgetEvent.Severity.ERROR,
+                cause));
         return new PluginWorkResult(PluginWorkStatus.FAILED, "PLUGIN_WORK_FAILED");
     }
 

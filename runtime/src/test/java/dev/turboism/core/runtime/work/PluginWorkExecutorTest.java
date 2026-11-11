@@ -287,8 +287,9 @@ class PluginWorkExecutorTest {
         PluginWorkExecutor executor = executor(events, PluginWorkExecutorConfiguration.of(500, 1, 1, 50.0f));
 
         // When
+        IllegalStateException failure = new IllegalStateException("boom");
         executor.execute(task("action.handle"), () -> {
-            throw new IllegalStateException("boom");
+            throw failure;
         });
 
         // Then
@@ -299,7 +300,8 @@ class PluginWorkExecutorTest {
                         "action.handle",
                         PluginWorkBudgetEvent.Phase.FAILED,
                         PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
-                        PluginWorkBudgetEvent.Severity.ERROR)),
+                        PluginWorkBudgetEvent.Severity.ERROR,
+                        failure)),
                 events.toString());
         executor.shutdown();
     }

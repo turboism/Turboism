@@ -11,7 +11,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import javax.swing.AbstractButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComponent;
+import javax.swing.JRadioButton;
 import javax.swing.JToolBar;
 import javax.swing.UIManager;
 
@@ -162,6 +164,7 @@ final class ThemedNativeButtons {
 
     /** Keeps a host style intact and appends the theme pairs, because later pairs win. */
     private static void applyStyle(final AbstractButton button, final State state) {
+        if (!acceptsButtonStates(button)) return;
         final String themed = style(button);
         if (themed == null) {
             button.putClientProperty(STYLE_KEY, state.style());
@@ -216,6 +219,16 @@ final class ThemedNativeButtons {
             appendState(style, PLAIN_DISABLED_SELECTED_STYLE, selection);
         }
         return style.isEmpty() ? null : style.toString();
+    }
+
+    /**
+     * Tells whether FlatLaf styles this button with the button state colours.
+     *
+     * <p>A check box or radio button uses an indicator UI that rejects these keys with an exception.
+     * Such a button keeps its host style and receives only the themed surface.</p>
+     */
+    private static boolean acceptsButtonStates(final AbstractButton button) {
+        return !(button instanceof JCheckBox) && !(button instanceof JRadioButton);
     }
 
     private static void appendState(final StringBuilder style, final String key, final Color color) {
