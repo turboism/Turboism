@@ -124,7 +124,7 @@ class MeshToolbarContributionProviderTest {
                 EditorUiFamily.MESH_TOOLBAR,
                 generation,
                 new EditorUiProviderAdmission.VerificationEvidence(
-                        "5.3.03", 1, "a".repeat(64), "ui.mesh-toolbar.contribute", "b".repeat(64)));
+                        "5.3.03", 1, "a".repeat(64), "ui.mesh-toolbar.contribute"));
     }
 
     private static final class TestSession implements MeshToolCoordinator.Session {

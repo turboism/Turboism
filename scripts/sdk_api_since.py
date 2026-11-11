@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -89,10 +88,6 @@ def compile_sdk(sources: Path, out: Path) -> None:
     )
 
 
-def surface_hash(keys: list[str]) -> str:
-    return hashlib.sha256("\n".join(sorted(keys)).encode()).hexdigest()
-
-
 def class_of(key: str) -> str:
     return key.split("#", 1)[0]
 
@@ -111,7 +106,6 @@ def build_since(snapshots: list[tuple[str, list[str]]]) -> dict:
     return {
         "format": FORMAT,
         "baseline": BASELINE,
-        "surfaceSha256": surface_hash(snapshots[-1][1]),
         "classes": dict(sorted(classes.items())),
         "members": dict(sorted(members.items())),
     }
@@ -176,12 +170,6 @@ def check(sdk_classes: str, plugins: list[str]) -> int:
     table = json.loads(SINCE_FILE.read_text(encoding="utf-8"))
     if table.get("format") != FORMAT:
         raise ValueError(f"{SINCE_FILE}: unexpected format")
-    actual_surface = surface_hash(run_helper("enumerate", sdk_classes))
-    if actual_surface != table["surfaceSha256"]:
-        print(f"SDK compiled surfaceSha256={actual_surface}", file=sys.stderr)
-        print("SDK surface changed since compatibility/sdk-api-since.json was written; "
-              "run python3 scripts/sdk_api_since.py --write", file=sys.stderr)
-        return 1
     floors = plugin_floors(table, run_helper("refs", sdk_classes, *plugins))
     failures = []
     for entry in plugins:

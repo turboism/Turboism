@@ -2,7 +2,7 @@
 """Sync DRAFT mapping-pack metadata projections from hash-pinned verification records.
 
 A draft pack whose ``metadata.inventoryRef`` identifies a verification record
-restates four fields derived from materialized bytes in
+restates three fields derived from materialized bytes in
 ``build/generated/verification/``. Historical references spelled
 ``compatibility/cubism/verification/`` are mapped there before reading; the pack's
 provenance label is preserved. Run both materializers before standalone use. This tool checks/patches the generated
@@ -12,19 +12,16 @@ The projected fields are:
 - ``selectorCount``            == len(record.selectors)
 - ``capabilityCount``          == len(record.capabilityIds)
 - ``capabilityIds``            == record.capabilityIds (exact ordered list)
-- ``verificationRecordSha256`` == SHA-256 of the record file bytes
 
-Record bytes are the SHA-256-pinned audit chain and are never modified by this
-tool; only the pack's ``metadata`` object is patched, surgically, so untouched
-regions keep their bytes. Default mode rewrites out-of-sync packs; ``--check``
-reports mismatches and exits non-zero.
+Record bytes are never modified by this tool; only the pack's ``metadata`` object
+is patched, surgically, so untouched regions keep their bytes. Default mode
+rewrites out-of-sync packs; ``--check`` reports mismatches and exits non-zero.
 
 Usage: sync_draft_pack_metadata.py [repo-root] [--check]
 """
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 from pathlib import Path
@@ -41,7 +38,6 @@ MANAGED_FIELDS = (
     "selectorCount",
     "capabilityCount",
     "capabilityIds",
-    "verificationRecordSha256",
 )
 
 
@@ -120,8 +116,7 @@ def _indented(document: str, indent: int) -> str:
 
 
 def expected_metadata(record_path: Path) -> dict[str, Any]:
-    raw = record_path.read_bytes()
-    record = json.loads(raw)
+    record = json.loads(record_path.read_bytes())
     selectors = record.get("selectors")
     capabilities = record.get("capabilityIds")
     if not isinstance(selectors, list) or not isinstance(capabilities, list):
@@ -130,7 +125,6 @@ def expected_metadata(record_path: Path) -> dict[str, Any]:
         "selectorCount": len(selectors),
         "capabilityCount": len(capabilities),
         "capabilityIds": capabilities,
-        "verificationRecordSha256": hashlib.sha256(raw).hexdigest(),
     }
 
 
@@ -214,12 +208,6 @@ def metadata_violations(
                 f"{pack_path.name}: metadata.capabilityIds does not match record"
                 f" capabilityIds{detail or ' (order drift)'}"
             )
-    actual_sha = metadata.get("verificationRecordSha256")
-    if actual_sha != expected["verificationRecordSha256"]:
-        violations.append(
-            f"{pack_path.name}: metadata.verificationRecordSha256 {actual_sha!r} "
-            f"!= sha256(record bytes) {expected['verificationRecordSha256']!r}"
-        )
     return violations
 
 

@@ -33,7 +33,6 @@ class StatusBarVerificationManifestTest {
 
     private void assertRecord(final String name, final ReviewedSliceRecord expected) throws Exception {
         final Path record = repositoryPath("build/generated/verification/" + name);
-        assertEquals(expected.recordSha256(), sha256(record));
         final JsonNode root = mapper.readTree(record.toFile());
         assertEquals(expected.verificationId(), root.get("verificationId").asText());
         assertEquals(
@@ -100,10 +99,5 @@ class StatusBarVerificationManifestTest {
         while (root != null && !Files.exists(root.resolve("settings.gradle.kts"))) root = root.getParent();
         if (root == null) throw new IllegalStateException("repository root not found");
         return root.resolve(relative);
-    }
-
-    private static String sha256(final Path file) throws Exception {
-        return java.util.HexFormat.of()
-                .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(file)));
     }
 }

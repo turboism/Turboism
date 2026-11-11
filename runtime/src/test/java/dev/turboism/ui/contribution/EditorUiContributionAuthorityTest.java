@@ -365,8 +365,7 @@ class EditorUiContributionAuthorityTest {
                             "5.3.02",
                             42,
                             "a".repeat(64),
-                            "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT),
-                            "b".repeat(64)));
+                            "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT)));
         }
 
         private List<Install> liveInstalls() {
@@ -445,8 +444,7 @@ class EditorUiContributionAuthorityTest {
                             "5.3.02",
                             42,
                             "a".repeat(64),
-                            "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT),
-                            "b".repeat(64)));
+                            "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT)));
         }
 
         private List<Install> liveInstalls() {
@@ -494,7 +492,6 @@ class EditorUiContributionAuthorityTest {
 
     private static final class RecordingProvider implements EditorUiContributionProvider {
         private static final String ARTIFACT_SHA256 = "a".repeat(64);
-        private static final String RECORD_SHA256 = "b".repeat(64);
 
         private final EditorUiFamily family;
         private final List<Long> generations = new ArrayList<>();
@@ -515,8 +512,7 @@ class EditorUiContributionAuthorityTest {
                             "5.3.02",
                             42,
                             ARTIFACT_SHA256,
-                            "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT),
-                            RECORD_SHA256));
+                            "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT)));
         }
 
         @Override
@@ -551,7 +547,7 @@ class EditorUiContributionAuthorityTest {
                     EditorUiFamily.PANEL,
                     generation,
                     new EditorUiProviderAdmission.VerificationEvidence(
-                            "5.3.02", 42, "a".repeat(64), "adapter.editor-ui.panel", "b".repeat(64)));
+                            "5.3.02", 42, "a".repeat(64), "adapter.editor-ui.panel"));
         }
 
         @Override

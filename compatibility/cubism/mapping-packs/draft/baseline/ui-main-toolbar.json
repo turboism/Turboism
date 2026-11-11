@@ -2,7 +2,6 @@
   "schemaVersion": 1,
   "packId": "cubism-5.2.03-ui-main-toolbar",
   "cubismVersion": "${version}",
-  "exactArtifactSha256": "${artifactSha256}",
   "status": "DRAFT",
   "description": "Exact Cubism 5.2 native main-toolbar selector evidence.",
   "entries": [

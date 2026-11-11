@@ -122,8 +122,7 @@
           "inventoryRef": "${inventoryRef}",
           "profileId": "${profileId}",
           "selectorCount": "${selectorCount}",
-          "verificationId": "${verificationId}",
-          "verificationRecordSha256": "${verificationRecordSha256}"
+          "verificationId": "${verificationId}"
         },
         "schemaVersion": 1,
         "source": "derived-from-verified-record",

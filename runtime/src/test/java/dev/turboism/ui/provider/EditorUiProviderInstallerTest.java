@@ -56,8 +56,7 @@ class EditorUiProviderInstallerTest {
                         "5.3.02",
                         42,
                         "a".repeat(64),
-                        "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT),
-                        "b".repeat(64)));
+                        "adapter.editor-ui." + family.name().toLowerCase(java.util.Locale.ROOT)));
     }
 
     private static final class RecordingProvider implements EditorUiContributionProvider {

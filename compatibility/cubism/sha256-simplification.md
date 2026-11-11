@@ -14,9 +14,18 @@ it checks manifest fields and host selector structure instead. A compatibility
 contract carries the digest actually observed during probing to reject changes
 between probing and resolver construction.
 
-Generated record digests still exist as provenance metadata for reports and
-existing evidence interfaces. Removing those metadata fields is a separate format
-migration; they no longer supply the removed runtime self-hash admission gate.
+The remaining internal record digests are retired. `ReviewedSliceRecord`,
+`SliceContract`, `EditorUiProviderAdmission.VerificationEvidence`, the generated
+`*VerificationManifest` admission records and `CubismHostProbeCli` no longer carry
+`recordSha256`; `CubismSliceCatalog.Candidate` no longer pins a record digest.
+Draft packs no longer carry `exactArtifactSha256` or
+`metadata.verificationRecordSha256`; `metadata.artifactSha256` alone names the
+host artifact. `mapping-packs/draft/frozen.json` and its `check_frozen` gate are
+deleted: Git history and review govern the retained evidence.
+
+Only trust-boundary digests remain: the 20 host artifact SHA-256 values in
+`reviewed-releases.json`, the reviewed Core API roster bindings, and the
+dependency, signed-catalog and probe-evidence digests named above.
 
 All 290 DRAFT packs were compared with base `9bfd3c58a`. The 283 changed packs
 contain exactly the original data except for the approved changes: per-entry

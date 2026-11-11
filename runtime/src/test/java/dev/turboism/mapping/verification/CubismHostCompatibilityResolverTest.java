@@ -737,7 +737,7 @@ class CubismHostCompatibilityResolverTest {
     }
 
     @Test
-    void acceptsReserializedRecordAndBindsObservedBytes() throws Exception {
+    void acceptsReserializedRecord() throws Exception {
         final Path artifact = hostJar(DECLARED_VERSION, DECLARED_BUILD, DECLARED_DATE, true);
         final byte[] original = recordBytes(
                 "5.3.02",
@@ -757,11 +757,7 @@ class CubismHostCompatibilityResolverTest {
                         name -> formatted)
                 .resolution();
         assertEquals(CompatibilityResolution.SliceStatus.ADMITTED, slice.status());
-        assertEquals(
-                new StaticVerificationRecordLoader()
-                        .load(formatted, candidate.recordFileName())
-                        .sha256(),
-                slice.contract().orElseThrow().recordSha256());
+        assertEquals(candidate.verificationId(), slice.contract().orElseThrow().verificationId());
     }
 
     @Test
@@ -878,7 +874,6 @@ class CubismHostCompatibilityResolverTest {
                         sliceId,
                         sourceVersion,
                         "record.json",
-                        "a".repeat(64),
                         "synthetic." + sliceId,
                         "adapter." + sliceId,
                         DECLARED_VERSION,
@@ -898,18 +893,12 @@ class CubismHostCompatibilityResolverTest {
                 sliceId,
                 version,
                 "cubism-" + version + "-" + sliceId + ".json",
-                sha256(recordBytes),
                 verificationId,
                 new StaticVerificationRecordLoader()
                         .load(recordBytes, "synthetic.json")
                         .record()
                         .adapterSliceId(),
                 "synthetic-profile");
-    }
-
-    private static String sha256(final byte[] bytes) throws Exception {
-        final java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-        return java.util.HexFormat.of().formatHex(digest.digest(bytes));
     }
 
     private CubismHostIdentity identity(final Path artifact) throws Exception {

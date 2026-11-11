@@ -6,11 +6,10 @@ The ``*VerificationManifest`` classes and ``selector/*Contract`` classes under
 ``<Family>Aliases`` vocabulary class whose family declares an ``aliases`` block.
 Their source of truth is:
 
-- the byte-hashed verification records under
-  ``build/generated/verification/`` (record sha256, verificationId,
-  cubismVersion, profileId, adapterSliceId and artifact identity are substituted
-  from record bytes at render time, so a Java pin can never drift from the
-  audited record), and
+- the verification records under ``build/generated/verification/``
+  (verificationId, cubismVersion, profileId, adapterSliceId and artifact
+  identity are substituted from record bytes at render time, so a Java pin can
+  never drift from the audited record), and
 - per-family authoring files under ``scripts/verification-sources/`` that carry
   the data records do not model: class Javadoc, capability/alias grouping,
   method bodies and every other authored line, expressed as Java templates with
@@ -40,7 +39,6 @@ Usage: generate_verification_sources.py [repo-root] render --out DIR
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -87,10 +85,9 @@ EVIDENCE_CONSTANT = re.compile(
 EVIDENCE_NAME = re.compile(
     r"^(REQUIRED_ALIASES|[A-Z0-9_]*_ALIASES|[A-Z0-9_]*_ALIAS|[A-Z0-9_]*_CAPABILITY_ID"
     r"|CAPABILITY_ID|ADAPTER_SLICE_ID|VERIFICATION_ID[A-Z0-9_]*"
-    r"|RECORD_SHA256[A-Z0-9_]*|PROFILE_ID[A-Z0-9_]*|CUBISM_VERSION[A-Z0-9_]*)$"
+    r"|PROFILE_ID[A-Z0-9_]*|CUBISM_VERSION[A-Z0-9_]*)$"
 )
 SCALAR_FIELDS = (
-    "sha256",
     "verificationId",
     "cubismVersion",
     "profileId",
@@ -157,11 +154,10 @@ def mask_comments(text: str) -> str:
 
 
 def load_records(root: Path) -> dict[str, dict]:
-    """Returns record filename -> parsed record with byte sha256 and sets."""
+    """Returns record filename -> parsed record with its alias and capability sets."""
     records: dict[str, dict] = {}
     base = root / VERIFICATION_DIR
     for path in sorted(base.glob("*.json")):
-        raw = path.read_bytes()
         try:
             document = read_json(path)
         except Exception as exc:
@@ -169,7 +165,6 @@ def load_records(root: Path) -> dict[str, dict]:
         selectors = document.get("selectors") or []
         records[path.name] = {
             "document": document,
-            "sha256": hashlib.sha256(raw).hexdigest(),
             "aliases": {s.get("alias") for s in selectors},
             "capabilityIds": set(document.get("capabilityIds") or ()),
         }
@@ -222,8 +217,6 @@ def load_families(root: Path) -> list[dict]:
 
 def record_field(record: dict, field: str, name: str) -> str:
     document = record["document"]
-    if field == "sha256":
-        return record["sha256"]
     if field in ("verificationId", "cubismVersion", "profileId", "adapterSliceId"):
         value = document.get(field)
         if not isinstance(value, str):

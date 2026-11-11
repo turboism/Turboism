@@ -219,7 +219,7 @@ class EmbeddedPanelContributionProviderTest {
                 EditorUiFamily.PANEL,
                 generation,
                 new EditorUiProviderAdmission.VerificationEvidence(
-                        "5.3.02", 42, "a".repeat(64), "adapter.editor-ui.panel", "b".repeat(64)));
+                        "5.3.02", 42, "a".repeat(64), "adapter.editor-ui.panel"));
     }
 
     private static final class RecordingHost implements EmbeddedPanelHostOperations {

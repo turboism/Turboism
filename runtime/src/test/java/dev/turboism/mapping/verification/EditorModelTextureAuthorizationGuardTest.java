@@ -106,26 +106,6 @@ class EditorModelTextureAuthorizationGuardTest {
                 "5.2-derived manifest must not require the 5.3.02-only raw-image removal alias");
     }
 
-    @Test
-    void pinnedRecordSha256sMatchTheReviewedRecordFiles() throws Exception {
-        final Path record52 = projectRoot().resolve("build/generated/verification/cubism-5.2.03-editor-model.json");
-        final Path record5302 = projectRoot().resolve("build/generated/verification/cubism-5.3.02-editor-model.json");
-        org.junit.jupiter.api.Assertions.assertEquals(
-                EditorModelVerificationManifest.RECORD_5_2_03.recordSha256(), sha256(record52));
-        org.junit.jupiter.api.Assertions.assertEquals(
-                EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(), sha256(record5302));
-    }
-
-    private static String sha256(final Path file) throws Exception {
-        final java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-        digest.update(Files.readAllBytes(file));
-        final StringBuilder hex = new StringBuilder();
-        for (final byte value : digest.digest()) {
-            hex.append(String.format("%02x", value));
-        }
-        return hex.toString();
-    }
-
     private static Path projectRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {

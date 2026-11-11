@@ -14,7 +14,6 @@ mirrors the repository layout (`scripts/` plus `testing/fixtures/snapshots/`), s
 the checker's own path resolution is exercised rather than stubbed.
 """
 
-import hashlib
 import json
 import os
 import shutil
@@ -46,10 +45,6 @@ VERIFIED_PROVENANCE = {
 }
 
 
-def sha256(payload):
-    return hashlib.sha256(payload).hexdigest()
-
-
 class SnapshotTree:
     """Throwaway repository tree with a valid one-case inventory."""
 
@@ -61,7 +56,6 @@ class SnapshotTree:
         self.fixtures.mkdir(parents=True)
         self.checker = self.root / "scripts" / CHECKER.name
         case = dict(GOOD_CASE)
-        case["sha256"] = sha256(FIXTURE_BYTES)
         self.write_manifest([case])
         self.write_fixture(case["path"], FIXTURE_BYTES)
 
@@ -76,7 +70,6 @@ class SnapshotTree:
 
     def case(self, **overrides):
         case = dict(GOOD_CASE)
-        case["sha256"] = sha256(FIXTURE_BYTES)
         case.update(overrides)
         return case
 
@@ -113,10 +106,6 @@ class GoldenSnapshotManifestTest(unittest.TestCase):
         result = self.tree.run()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("1 immutable fixtures verified", result.stdout)
-
-    def test_changed_fixture_bytes_are_rejected(self):
-        self.tree.write_fixture(GOOD_CASE["path"], FIXTURE_BYTES + b" ")
-        self.assert_rejected(self.tree.run(), "snapshot hash changed")
 
     def test_unlisted_fixture_is_rejected(self):
         self.tree.write_fixture("typed-config/schema-v1/stray.cfg", b"schemaVersion=1\n")

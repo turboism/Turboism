@@ -839,9 +839,6 @@ def jar_matches_catalog_release(
         if sha256(rewritten_jar) == expected_jar_sha:
             return True
     candidate_digest = jar_content_digest(jar_bytes)
-    content_sha = artifact.get("contentSha256")
-    if isinstance(content_sha, str) and re.fullmatch(r"[0-9a-f]{64}", content_sha):
-        return candidate_digest == content_sha
     if artifact_loader is not None and isinstance(artifact.get("url"), str) and artifact["url"]:
         catalog_jar_bytes = artifact_loader(artifact)
         if catalog_jar_bytes is not None:

@@ -59,16 +59,6 @@ class PinnedVerifiedResolverWorkflowTest {
     }
 
     @Test
-    void acceptsRecordWithoutSelfHashPin() throws Exception {
-        Fixture fixture = fixture("verified");
-        var wrong = manifest(fixture, "0".repeat(64), fixture.digest(), fixture.aliases(), Set.of(CAPABILITY));
-        try (URLClassLoader loader = fixture.loader()) {
-            VerifiedMemberResolver resolver = workflow.create(fixture.record(), fixture.artifact(), loader, wrong);
-            assertEquals("verified", resolver.invoke(INSTANCE_ALIAS, resolver.invokeStatic(STATIC_ALIAS)));
-        }
-    }
-
-    @Test
     void rejectsArtifactDigestAndSizeMismatch() throws Exception {
         Fixture fixture = fixture("verified");
         Path tamperedArtifact = tempDir.resolve("tampered-size.jar");
@@ -111,24 +101,14 @@ class PinnedVerifiedResolverWorkflowTest {
                             fixture.record(),
                             fixture.artifact(),
                             loader,
-                            manifest(
-                                    fixture,
-                                    fixture.recordDigest(),
-                                    fixture.digest(),
-                                    fixture.aliases(),
-                                    Set.of("wrong.capability"))));
+                            manifest(fixture, fixture.digest(), fixture.aliases(), Set.of("wrong.capability"))));
             assertThrows(
                     IllegalArgumentException.class,
                     () -> workflow.create(
                             fixture.record(),
                             fixture.artifact(),
                             loader,
-                            manifest(
-                                    fixture,
-                                    fixture.recordDigest(),
-                                    fixture.digest(),
-                                    Set.of(CLASS_ALIAS),
-                                    Set.of(CAPABILITY))));
+                            manifest(fixture, fixture.digest(), Set.of(CLASS_ALIAS), Set.of(CAPABILITY))));
         }
     }
 
@@ -150,7 +130,6 @@ class PinnedVerifiedResolverWorkflowTest {
                 "synthetic",
                 VERSION,
                 "record.json",
-                fixture.recordDigest(),
                 "synthetic.static",
                 SLICE,
                 "9.8.8",
@@ -177,7 +156,6 @@ class PinnedVerifiedResolverWorkflowTest {
                 "synthetic",
                 VERSION,
                 "record.json",
-                fixture.recordDigest(),
                 "synthetic.static",
                 SLICE,
                 "9.8.8",
@@ -203,7 +181,6 @@ class PinnedVerifiedResolverWorkflowTest {
                 "synthetic",
                 VERSION,
                 "record.json",
-                fixture.recordDigest(),
                 "synthetic.static",
                 SLICE,
                 "9.8.8",
@@ -225,7 +202,6 @@ class PinnedVerifiedResolverWorkflowTest {
                     "synthetic",
                     VERSION,
                     "record.json",
-                    fixture.recordDigest(),
                     "synthetic.static",
                     SLICE,
                     "9.8.8",
@@ -267,17 +243,15 @@ class PinnedVerifiedResolverWorkflowTest {
         HostArtifactDigest digest = HostArtifactDigest.from(artifact);
         Path record = root.resolve("record.json");
         mapper.writeValue(record.toFile(), record(digest));
-        String recordDigest = HostArtifactDigest.from(record).sha256();
         Set<String> aliases = Set.of(CLASS_ALIAS, STATIC_ALIAS, INSTANCE_ALIAS);
-        Fixture fixture = new Fixture(record, artifact, digest.size(), digest.sha256(), recordDigest, aliases, null);
+        Fixture fixture = new Fixture(record, artifact, digest.size(), digest.sha256(), aliases, null);
         return new Fixture(
                 record,
                 artifact,
                 digest.size(),
                 digest.sha256(),
-                recordDigest,
                 aliases,
-                manifest(fixture, recordDigest, digest.sha256(), aliases, Set.of(CAPABILITY)));
+                manifest(fixture, digest.sha256(), aliases, Set.of(CAPABILITY)));
     }
 
     private ObjectNode record(final HostArtifactDigest digest) {
@@ -341,20 +315,11 @@ class PinnedVerifiedResolverWorkflowTest {
 
     private PinnedVerifiedResolverWorkflow.Manifest manifest(
             final Fixture fixture,
-            final String recordDigest,
             final String artifactDigest,
             final Set<String> aliases,
             final Set<String> capabilities) {
         return new PinnedVerifiedResolverWorkflow.Manifest(
-                "synthetic.static",
-                recordDigest,
-                VERSION,
-                PROFILE,
-                fixture.size(),
-                artifactDigest,
-                SLICE,
-                capabilities,
-                aliases);
+                "synthetic.static", VERSION, PROFILE, fixture.size(), artifactDigest, SLICE, capabilities, aliases);
     }
 
     private record Fixture(
@@ -362,7 +327,6 @@ class PinnedVerifiedResolverWorkflowTest {
             Path artifact,
             long size,
             String digest,
-            String recordDigest,
             Set<String> aliases,
             PinnedVerifiedResolverWorkflow.Manifest manifest) {
         URLClassLoader loader() throws Exception {

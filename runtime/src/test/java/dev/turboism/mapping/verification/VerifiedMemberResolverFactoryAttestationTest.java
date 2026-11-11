@@ -51,7 +51,6 @@ class VerifiedMemberResolverFactoryAttestationTest {
         final var data = loaded.record();
         final var manifest = new PinnedVerifiedResolverWorkflow.Manifest(
                 data.verificationId(),
-                loaded.sha256(),
                 data.cubismVersion(),
                 data.profileId(),
                 data.artifact().size(),

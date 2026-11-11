@@ -16,8 +16,7 @@
     "capabilityCount": "${capabilityCount}",
     "capabilityIds": [
       "turboism.performance.stats.read"
-    ],
-    "verificationRecordSha256": "${verificationRecordSha256}"
+    ]
   },
   "entries": [
     {

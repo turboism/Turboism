@@ -119,7 +119,7 @@ class CubismHostCompatibilityRealSampleTest {
     }
 
     @Test
-    void reviewedArtifactAcceptsReserializedRecordAndBindsObservedDigest() throws Exception {
+    void reviewedArtifactAcceptsReserializedRecord() throws Exception {
         final Path editorJar = reviewedEditorJar();
         final Function<String, byte[]> source = recordSource();
 
@@ -139,20 +139,6 @@ class CubismHostCompatibilityRealSampleTest {
         assertTrue(
                 resolution.slice("project-workspace").admitted(),
                 "a reserialized record must not invalidate unrelated verified records");
-
-        final SliceContract contract = resolution.contractFor("editor-model").orElseThrow();
-        final StaticVerificationRecordLoader loader = new StaticVerificationRecordLoader();
-        final byte[] catalogRecord = source.apply(contract.recordFileName());
-        final byte[] reserialized = java.util.Arrays.copyOf(catalogRecord, catalogRecord.length + 1);
-        reserialized[catalogRecord.length] = '\n';
-        assertNotEquals(
-                loader.load(catalogRecord, contract.recordFileName()).sha256(),
-                contract.recordSha256(),
-                "the contract must carry the bytes observed during probing");
-        assertEquals(
-                loader.load(reserialized, contract.recordFileName()).sha256(),
-                contract.recordSha256(),
-                "record admission binds observed bytes instead of treating the catalog self-hash as a trust anchor");
     }
 
     @Test

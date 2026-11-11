@@ -19,8 +19,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -547,7 +545,6 @@ public final class WorkspaceValidationAgent {
             identity.append("artifactSize=").append(digest.size()).append('\n');
             identity.append("artifactSha256=").append(digest.sha256()).append('\n');
             identity.append("record=").append(record).append('\n');
-            identity.append("recordSha256=").append(sha256(record)).append('\n');
             identity.append("hostClassLoader=")
                     .append(host.classLoader().toString())
                     .append('\n');
@@ -562,26 +559,6 @@ public final class WorkspaceValidationAgent {
             final String sanitized =
                     value == null ? "" : value.replace('\n', ' ').replace('\r', ' ');
             return SAFE_VALUE.matcher(sanitized).matches() ? sanitized : "unprintable-detail-redacted";
-        }
-
-        private static String sha256(final Path path) throws IOException {
-            try {
-                final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-                try (InputStream input = Files.newInputStream(path)) {
-                    final byte[] buffer = new byte[8192];
-                    int read;
-                    while ((read = input.read(buffer)) != -1) {
-                        digest.update(buffer, 0, read);
-                    }
-                }
-                final StringBuilder hex = new StringBuilder();
-                for (final byte value : digest.digest()) {
-                    hex.append(String.format("%02x", value & 0xFF));
-                }
-                return hex.toString();
-            } catch (NoSuchAlgorithmException impossible) {
-                throw new IllegalStateException("SHA-256 is unavailable", impossible);
-            }
         }
     }
 }

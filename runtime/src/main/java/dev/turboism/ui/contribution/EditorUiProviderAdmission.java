@@ -148,13 +148,9 @@ public record EditorUiProviderAdmission(
         ADMITTED
     }
 
-    /** Hash-anchored reviewed verification material for one exact provider implementation. */
+    /** Reviewed verification material for one exact provider implementation. */
     public record VerificationEvidence(
-            String hostVersion,
-            long artifactSize,
-            String artifactSha256,
-            String verificationSlice,
-            String verificationRecordSha256) {
+            String hostVersion, long artifactSize, String artifactSha256, String verificationSlice) {
         public VerificationEvidence {
             hostVersion = requireText(hostVersion, "hostVersion");
             if (artifactSize < 0) {
@@ -162,7 +158,6 @@ public record EditorUiProviderAdmission(
             }
             artifactSha256 = requireSha256(artifactSha256, "artifactSha256");
             verificationSlice = requireText(verificationSlice, "verificationSlice");
-            verificationRecordSha256 = requireSha256(verificationRecordSha256, "verificationRecordSha256");
         }
 
         private static String requireSha256(final String value, final String name) {

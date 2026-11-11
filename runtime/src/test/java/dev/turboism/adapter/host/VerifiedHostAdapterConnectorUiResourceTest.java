@@ -52,7 +52,7 @@ class VerifiedHostAdapterConnectorUiResourceTest {
     private static final UiIconRef ICON = new UiIconRef(CubismIcon.ART_MESH);
     private static final EmbeddedPanelVerificationManifest.AdmissionEvidence PANEL_ADMISSION =
             new EmbeddedPanelVerificationManifest.AdmissionEvidence(
-                    "5.3.02", 1, "a".repeat(64), "adapter.editor-ui.embedded-panel", "b".repeat(64));
+                    "5.3.02", 1, "a".repeat(64), "adapter.editor-ui.embedded-panel");
 
     @Test
     void nativeDialogIconsSurviveTheDynamicHostAdapterView() throws Exception {

@@ -94,7 +94,6 @@ public final class CubismHostProbeCli {
                 final ObjectNode bound = node.putObject("contract");
                 bound.put("sourceVersion", contract.sourceVersion());
                 bound.put("recordFileName", contract.recordFileName());
-                bound.put("recordSha256", contract.recordSha256());
                 bound.put("verificationId", contract.verificationId());
                 bound.put("compatible", contract.compatible());
                 bound.put("declaredGenerationBound", contract.declaredGenerationBound());

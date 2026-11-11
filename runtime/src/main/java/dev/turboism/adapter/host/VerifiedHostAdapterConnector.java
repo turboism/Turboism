@@ -676,11 +676,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             if (contract != null) {
                 final HostArtifactDigest actual = HostArtifactDigest.from(slice.verifiedArtifact());
                 return new dev.turboism.mapping.verification.EditorModelAdmissionEvidence(
-                        contract.declaredVersion(),
-                        actual.size(),
-                        actual.sha256(),
-                        contract.adapterSliceId(),
-                        contract.recordSha256());
+                        contract.declaredVersion(), actual.size(), actual.sha256(), contract.adapterSliceId());
             }
             return dev.turboism.mapping.verification.EditorModelAdmissionEvidence.forArtifact(
                     HostArtifactDigest.from(slice.verifiedArtifact()));
@@ -734,8 +730,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                                 contract.declaredVersion(),
                                 artifact.size(),
                                 artifact.sha256(),
-                                contract.adapterSliceId(),
-                                contract.recordSha256())));
+                                contract.adapterSliceId())));
     }
 
     private PanelMaterial panelMaterial(final HostVerificationEvidence evidence) throws Exception {
@@ -755,8 +750,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                                 contract.declaredVersion(),
                                 artifact.size(),
                                 artifact.sha256(),
-                                contract.adapterSliceId(),
-                                contract.recordSha256())));
+                                contract.adapterSliceId())));
     }
 
     private static RuntimeUiResourceService productionUiResourceOwner(
@@ -789,8 +783,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                                 contract.declaredVersion(),
                                 artifact.size(),
                                 artifact.sha256(),
-                                contract.adapterSliceId(),
-                                contract.recordSha256())));
+                                contract.adapterSliceId())));
     }
 
     private OverlayMaterial overlayMaterial(final HostVerificationEvidence evidence) throws Exception {
@@ -807,11 +800,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         slice,
                         BoundingBoxOverlayButtonVerificationManifest::admissionForArtifact,
                         (contract, artifact) -> new BoundingBoxOverlayButtonVerificationManifest.AdmissionEvidence(
-                                contract.declaredVersion(), artifact.size(), artifact.sha256())),
-                slice.contract()
-                        .filter(SliceContract::compatible)
-                        .map(SliceContract::recordSha256)
-                        .orElse(null));
+                                contract.declaredVersion(), artifact.size(), artifact.sha256())));
     }
 
     private static RuntimeHostAdapters boardHost(
@@ -1024,8 +1013,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                                             editorAdmission.cubismVersion(),
                                             editorAdmission.artifactSize(),
                                             editorAdmission.artifactSha256(),
-                                            editorAdmission.adapterSliceId(),
-                                            editorAdmission.recordSha256())),
+                                            editorAdmission.adapterSliceId())),
                             (dev.turboism.ui.context.ContextMenuHostOperations) menuHandler,
                             editorUiActionRouter,
                             panelTabMenus));
@@ -1037,8 +1025,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                                             editorAdmission.cubismVersion(),
                                             editorAdmission.artifactSize(),
                                             editorAdmission.artifactSha256(),
-                                            editorAdmission.adapterSliceId(),
-                                            editorAdmission.recordSha256())),
+                                            editorAdmission.adapterSliceId())),
                             new dev.turboism.ui.toolbar.VerifiedPaletteToolbarHostOperations(editorUiPluginResources),
                             editorUiActionRouter));
                     if (toolbar != null) {
@@ -1106,7 +1093,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                                 EditorUiProviderAdmission.admitted(
                                         EditorUiFamily.BOUNDING_BOX_OVERLAY_BUTTON,
                                         hostGeneration,
-                                        verificationEvidence(overlay.admission(), overlay.contractRecordSha256())),
+                                        verificationEvidence(overlay.admission())),
                                 new VerifiedBoundingBoxOverlayButtonHostOperations(
                                         overlay.resolver(), editorUiPluginResources)));
                     }
@@ -1281,8 +1268,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 evidence.cubismVersion(),
                 evidence.artifactSize(),
                 evidence.artifactSha256(),
-                evidence.adapterSliceId(),
-                evidence.recordSha256());
+                evidence.adapterSliceId());
     }
 
     private static EditorUiProviderAdmission.VerificationEvidence verificationEvidence(
@@ -1291,8 +1277,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 evidence.cubismVersion(),
                 evidence.artifactSize(),
                 evidence.artifactSha256(),
-                evidence.adapterSliceId(),
-                evidence.recordSha256());
+                evidence.adapterSliceId());
     }
 
     private static EditorUiProviderAdmission.VerificationEvidence verificationEvidence(
@@ -1301,22 +1286,16 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 evidence.cubismVersion(),
                 evidence.artifactSize(),
                 evidence.artifactSha256(),
-                evidence.adapterSliceId(),
-                evidence.recordSha256());
+                evidence.adapterSliceId());
     }
 
     private static EditorUiProviderAdmission.VerificationEvidence verificationEvidence(
-            final BoundingBoxOverlayButtonVerificationManifest.AdmissionEvidence evidence,
-            final String contractRecordSha256) {
+            final BoundingBoxOverlayButtonVerificationManifest.AdmissionEvidence evidence) {
         return new EditorUiProviderAdmission.VerificationEvidence(
                 evidence.cubismVersion(),
                 evidence.artifactSize(),
                 evidence.artifactSha256(),
-                evidence.adapterSliceId(),
-                contractRecordSha256 != null
-                        ? contractRecordSha256
-                        : BoundingBoxOverlayButtonVerificationManifest.recordSha256ForVersion(
-                                evidence.cubismVersion()));
+                evidence.adapterSliceId());
     }
 
     private record ToolbarMaterial(
@@ -1330,8 +1309,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
     private record OverlayMaterial(
             VerifiedMemberResolver resolver,
-            BoundingBoxOverlayButtonVerificationManifest.AdmissionEvidence admission,
-            String contractRecordSha256) {}
+            BoundingBoxOverlayButtonVerificationManifest.AdmissionEvidence admission) {}
 
     @FunctionalInterface
     interface PanelMaterialFactory {

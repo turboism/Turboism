@@ -60,25 +60,22 @@ class ReleaseDetailsTests(unittest.TestCase):
         self.assertEqual(m.render_nightly(self.receipt,context),original)
 
     def test_reviewed_locales_accept_korean_and_reject_unknown_languages(self):
-        import hashlib
         m=self.module();english='### Added\n\n- Change'
         self.assertEqual(m.stable_metadata(self.root,'1.2.3',self.head,english),'')
         marker=self.root/'scripts/release/turboism_release/release_notes.py';marker.parent.mkdir(parents=True);marker.write_text('# new pipeline')
         path=self.root/'release-notes/1.2.3.json';path.parent.mkdir()
-        digest=hashlib.sha256(english.encode()).hexdigest()
-        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':digest,'locales':{'zh':'新增改动','ja':'変更を追加','ko':'변경 사항 추가'}}))
+        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','locales':{'zh':'新增改动','ja':'変更を追加','ko':'변경 사항 추가'}}))
         locales=m.reviewed_locales(self.root,'1.2.3',english)
         self.assertEqual(locales['ko'],'변경 사항 추가');self.assertEqual(sorted(locales),['en','ja','ko','zh'])
         # A language outside the reviewed matrix must fail closed, not be dropped.
-        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':digest,'locales':{'zh':'新增改动','de':'Neuerungen'}}))
+        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','locales':{'zh':'新增改动','de':'Neuerungen'}}))
         with self.assertRaises(ValueError):m.stable_metadata(self.root,'1.2.3',self.head,english)
         # Korean stays optional at the reproduction layer: an older file without it
         # still verifies and falls back. candidate_notes enforces the full matrix.
-        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':digest,'locales':{'zh':'新增改动'}}))
+        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','locales':{'zh':'新增改动'}}))
         self.assertEqual(sorted(m.reviewed_locales(self.root,'1.2.3',english)),['en','zh'])
 
     def test_beta_candidate_requires_reviewed_zh_ja_ko_translations(self):
-        import hashlib
         m=self.module()
         (self.root/'gradle').mkdir()
         (self.root/'gradle/common-java.gradle.kts').write_text(
@@ -90,11 +87,10 @@ class ReleaseDetailsTests(unittest.TestCase):
         # Missing translations file fails closed instead of shipping English-only.
         with self.assertRaises(ValueError):m.candidate_notes(self.root,receipt,None)
         path=self.root/'release-notes/1.2.3.json';path.parent.mkdir()
-        digest=hashlib.sha256(english.encode()).hexdigest()
         # A partially translated file is not publishable either.
-        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':digest,'locales':{'zh':'新增改动','ja':'変更を追加'}}))
+        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','locales':{'zh':'新增改动','ja':'変更を追加'}}))
         with self.assertRaises(ValueError):m.candidate_notes(self.root,receipt,None)
-        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':digest,'locales':{'zh':'新增改动','ja':'変更を追加','ko':'변경 사항 추가'}}))
+        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','locales':{'zh':'新增改动','ja':'変更を追加','ko':'변경 사항 추가'}}))
         body=m.candidate_notes(self.root,receipt,None)
         self.assertIn('turboism-notes-v1',body);self.assertIn('변경 사항 추가',body)
         self.assertEqual(body.count('<!-- turboism-compatibility-v1 '),1)
@@ -117,25 +113,22 @@ class ReleaseDetailsTests(unittest.TestCase):
             self.assertEqual(notes.count('<!-- turboism-compatibility-v1 '),1)
 
     def test_v1_candidate_notes_still_verify_unchanged(self):
-        import hashlib
         bundle=self.root/'bundle';bundle.mkdir();notes=prerelease.notes_for(self.root,self.receipt)
         manifest={'version':self.receipt['version']}
-        value={'schemaVersion':1,'type':'turboism.prerelease-candidate','receipt':self.receipt,'manifest':manifest,'notesSha256':hashlib.sha256(notes.encode()).hexdigest()}
+        value={'schemaVersion':1,'type':'turboism.prerelease-candidate','receipt':self.receipt,'manifest':manifest}
         (bundle/'release-notes.md').write_text(notes);(bundle/'prerelease-candidate.json').write_text(json.dumps(value))
         with patch.object(prerelease,'verify_files',return_value=(manifest,self.receipt)):
             self.assertEqual(prerelease.verify_candidate(object(),self.root,bundle,self.head,'123',1)[2],notes)
 
-    def test_stable_locales_bind_to_reviewed_english_and_legacy_body_stays_identical(self):
-        import hashlib
+    def test_stable_locales_render_reviewed_bodies_and_legacy_body_stays_identical(self):
         m=self.module();english='### Added\n\n- Change'
         self.assertEqual(m.stable_metadata(self.root,'1.2.3',self.head,english),'')
         marker=self.root/'scripts/release/turboism_release/release_notes.py';marker.parent.mkdir(parents=True);marker.write_text('# new pipeline')
         path=self.root/'release-notes/1.2.3.json';path.parent.mkdir()
-        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':hashlib.sha256(english.encode()).hexdigest(),'locales':{'zh':'新增改动','ja':'変更を追加'}}))
+        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','locales':{'zh':'新增改动','ja':'変更を追加'}}))
         text=m.stable_metadata(self.root,'1.2.3',self.head,english)
         self.assertIn('新增改动',text);self.assertIn(self.head,text)
         self.assertEqual(text.count('<!-- turboism-compatibility-v1 '),1)
-        with self.assertRaises(ValueError):m.stable_metadata(self.root,'1.2.3',self.head,english+' changed')
 
     def test_first_nightly_uses_published_ancestral_stable_not_later_release(self):
         m=self.module();raws=[{'tag_name':'v1.2.2','draft':False,'prerelease':False,'published_at':'2026-09-01T00:00:00Z'},

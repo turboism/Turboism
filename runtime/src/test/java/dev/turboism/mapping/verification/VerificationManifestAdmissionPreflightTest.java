@@ -19,7 +19,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -234,8 +233,7 @@ final class VerificationManifestAdmissionPreflightTest {
     void recordMissingManifestCapabilityFailsLikeTheMeshToolbarRegression() throws Exception {
         // Hermetic replay of the pre-7ade4e071 wall: the ui-main-toolbar records
         // predating MeshToolbarSelectorContract lacked the ui.mesh-toolbar.contribute
-        // capability the manifest requires. Re-pinning the stripped bytes is exactly
-        // how that broken state looked: a consistent sha pin over mismatched fields.
+        // capability the manifest requires.
         final Path source = RECORD_DIR.resolve("cubism-5.2.01-ui-main-toolbar.json");
         final byte[] mutated = removeCapability(source, dev.turboism.ui.mesh.MeshToolbarSelectorContract.CAPABILITY_ID);
         final Path copy = tempDir.resolve(source.getFileName().toString());
@@ -245,10 +243,9 @@ final class VerificationManifestAdmissionPreflightTest {
         final PinnedVerifiedResolverWorkflow.Manifest reviewed =
                 MainToolbarVerificationManifest.forArtifact(new HostArtifactDigest(
                         record.artifact().size(), record.artifact().sha256()));
-        final PinnedVerifiedResolverWorkflow.Manifest repinned = repin(reviewed, sha256(mutated));
 
         final IllegalArgumentException failure =
-                assertThrows(IllegalArgumentException.class, () -> workflow.requireReviewedRecord(copy, repinned));
+                assertThrows(IllegalArgumentException.class, () -> workflow.requireReviewedRecord(copy, reviewed));
         assertEquals("verification record fields do not match the reviewed manifest", failure.getMessage());
     }
 
@@ -267,7 +264,7 @@ final class VerificationManifestAdmissionPreflightTest {
         final PinnedVerifiedResolverWorkflow.Manifest reviewed =
                 MainToolbarVerificationManifest.forArtifact(new HostArtifactDigest(
                         record.artifact().size(), record.artifact().sha256()));
-        workflow.requireReviewedRecord(copy, repin(reviewed, loaded.sha256()));
+        workflow.requireReviewedRecord(copy, reviewed);
 
         final VerifiedAccessPlan plan = VerifiedAccessPlan.from(record, fullyVerifiedReport(record));
         assertFalse(
@@ -280,7 +277,7 @@ final class VerificationManifestAdmissionPreflightTest {
     }
 
     /**
-     * Runs the production record gate ({@code requireReviewedRecord} — schema, byte pin,
+     * Runs the production record gate ({@code requireReviewedRecord} — schema and
      * field equality) and the production authorization predicates
      * ({@code authorizes}/{@code authorizesFeatureSet}) against a plan built from a
      * synthetic all-verified report, the strongest evidence an offline check can produce
@@ -365,9 +362,6 @@ final class VerificationManifestAdmissionPreflightTest {
             final Loaded loaded, final PinnedVerifiedResolverWorkflow.Manifest manifest, final Exception failure) {
         final StaticVerificationRecord record = loaded.record();
         final List<String> diffs = new ArrayList<>();
-        if (!loaded.sha256().equals(manifest.recordSha256())) {
-            diffs.add("recordSha256");
-        }
         if (!record.verificationId().equals(manifest.verificationId())) {
             diffs.add("verificationId");
         }
@@ -514,24 +508,6 @@ final class VerificationManifestAdmissionPreflightTest {
         selectors.removeAll();
         retained.forEach(selectors::add);
         return mapper.writeValueAsBytes(root);
-    }
-
-    private static PinnedVerifiedResolverWorkflow.Manifest repin(
-            final PinnedVerifiedResolverWorkflow.Manifest manifest, final String recordSha256) {
-        return new PinnedVerifiedResolverWorkflow.Manifest(
-                manifest.verificationId(),
-                recordSha256,
-                manifest.cubismVersion(),
-                manifest.profileId(),
-                manifest.artifactSize(),
-                manifest.artifactSha256(),
-                manifest.adapterSliceId(),
-                manifest.capabilityIds(),
-                manifest.requiredAliases());
-    }
-
-    private static String sha256(final byte[] bytes) {
-        return HexFormat.of().formatHex(HostArtifactDigest.sha256Digest().digest(bytes));
     }
 
     private static Set<String> selectorAliases(final StaticVerificationRecord record) {

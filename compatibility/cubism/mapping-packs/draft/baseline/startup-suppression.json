@@ -4,7 +4,6 @@
   "status": "DRAFT",
   "source": "jar-metadata-probe",
   "cubismVersion": "${version}",
-  "exactArtifactSha256": "${artifactSha256}",
   "metadata": {
     "validationNotes": "Exact metadata inventory for adapter.cubism.startup-suppression, taken verbatim from the premain transformer contract: the startup entry, the splash factory, and the update-check / information call targets the suppression rewrites. Every selector verified VERIFIED_STATIC against the exact artifact. Pack remains DRAFT; only its hash-anchored record is VERIFIED_STATIC.",
     "inventoryRef": "compatibility/cubism/verification/cubism-5.0.00-startup-suppression.json",
@@ -17,8 +16,7 @@
     "capabilityCount": "${capabilityCount}",
     "capabilityIds": [
       "cubism.startup.suppression"
-    ],
-    "verificationRecordSha256": "${verificationRecordSha256}"
+    ]
   },
   "entries": [
     {

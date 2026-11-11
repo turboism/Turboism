@@ -18,8 +18,8 @@ class EditorUiProviderAdmissionTest {
 
     @Test
     void admittedProviderRequiresExactEvidenceAndCurrentHostGeneration() {
-        EditorUiProviderAdmission.VerificationEvidence evidence = new EditorUiProviderAdmission.VerificationEvidence(
-                "5.3.02", 42, SHA_A, "adapter.editor-ui.menu", SHA_B);
+        EditorUiProviderAdmission.VerificationEvidence evidence =
+                new EditorUiProviderAdmission.VerificationEvidence("5.3.02", 42, SHA_A, "adapter.editor-ui.menu");
         EditorUiProviderAdmission admission = EditorUiProviderAdmission.admitted(EditorUiFamily.MENU, 7, evidence);
 
         assertEquals(7, admission.hostGeneration());

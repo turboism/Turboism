@@ -2,7 +2,6 @@
 """Fail-closed fixtures for DRAFT pack metadata synchronization."""
 from __future__ import annotations
 
-import hashlib
 import importlib.util
 import json
 import subprocess
@@ -68,7 +67,7 @@ def fixture_record() -> dict:
     }
 
 
-def fixture_pack(record_bytes: bytes, record: dict) -> dict:
+def fixture_pack(record: dict) -> dict:
     return {
         "format": "turboism.mapping.pack",
         "schemaVersion": 1,
@@ -81,22 +80,17 @@ def fixture_pack(record_bytes: bytes, record: dict) -> dict:
             "selectorCount": len(record["selectors"]),
             "capabilityCount": len(record["capabilityIds"]),
             "capabilityIds": list(record["capabilityIds"]),
-            "verificationRecordSha256": hashlib.sha256(record_bytes).hexdigest(),
         },
     }
 
 
-def write_tree(root: Path, pack: dict, record: dict, record_bytes: bytes | None = None) -> bytes:
-    raw = record_bytes if record_bytes is not None else (
-        json.dumps(record, indent=2).encode() + b"\n"
-    )
+def write_tree(root: Path, pack: dict, record: dict) -> None:
     record_path = root / RECORD_REL
     record_path.parent.mkdir(parents=True, exist_ok=True)
-    record_path.write_bytes(raw)
+    record_path.write_bytes(json.dumps(record, indent=2).encode() + b"\n")
     pack_path = root / PACK_DIR / "fixture-pack.json"
     pack_path.parent.mkdir(parents=True, exist_ok=True)
     pack_path.write_text(json.dumps(pack, indent=2) + "\n", encoding="utf-8")
-    return raw
 
 
 def checked(root: Path) -> int:
@@ -107,9 +101,8 @@ class DraftPackMetadataTest(unittest.TestCase):
     def make_root(self, directory: str) -> tuple[Path, dict, dict]:
         root = Path(directory)
         record = fixture_record()
-        raw = json.dumps(record, indent=2).encode() + b"\n"
-        pack = fixture_pack(raw, record)
-        write_tree(root, pack, record, raw)
+        pack = fixture_pack(record)
+        write_tree(root, pack, record)
         return root, pack, record
 
     def rewrite_pack(self, root: Path, pack: dict) -> None:
@@ -214,13 +207,6 @@ class DraftPackMetadataTest(unittest.TestCase):
             self.rewrite_pack(root, pack)
             self.assert_fails(root, "capabilityIds")
 
-    def test_tampered_record_digest_fails(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root, pack, _ = self.make_root(directory)
-            pack["metadata"]["verificationRecordSha256"] = "0" * 64
-            self.rewrite_pack(root, pack)
-            self.assert_fails(root, "verificationRecordSha256")
-
     def test_absent_managed_fields_fail(self):
         with tempfile.TemporaryDirectory() as directory:
             root, pack, _ = self.make_root(directory)
@@ -258,25 +244,23 @@ class DraftPackMetadataTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             record = fixture_record()
-            raw = json.dumps(record, indent=2).encode() + b"\n"
-            pack = fixture_pack(raw, record)
+            pack = fixture_pack(record)
             pack["metadata"] = {
                 "mergedFrom": ["a.json", "b.json"],
                 "inventoryRef": "compatibility/cubism/verification/fixture-record.json",
                 "selectorCount": 1,
                 "capabilityCount": 1,
                 "capabilityIds": [],
-                "verificationRecordSha256": "0" * 64,
                 "validationNotes": "tail stays last",
             }
-            write_tree(root, pack, record, raw)
+            write_tree(root, pack, record)
             self.assertEqual(0, SYNC.run(root, check=False))
             document = json.loads(
                 (root / PACK_DIR / "fixture-pack.json").read_text()
             )
             self.assertEqual(
                 ["mergedFrom", "inventoryRef", "selectorCount", "capabilityCount",
-                 "capabilityIds", "verificationRecordSha256", "validationNotes"],
+                 "capabilityIds", "validationNotes"],
                 list(document["metadata"].keys()),
             )
             self.assertEqual(3, document["metadata"]["selectorCount"])

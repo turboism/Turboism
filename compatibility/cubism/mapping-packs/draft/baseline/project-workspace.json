@@ -493,7 +493,6 @@
     "capabilityIds": [
       "cubism.project.read",
       "cubism.workspace.read"
-    ],
-    "verificationRecordSha256": "${verificationRecordSha256}"
+    ]
   }
 }

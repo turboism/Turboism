@@ -89,7 +89,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "${record:cubism-5.2.03-editor-model.json:verificationId}",
-        "${record:cubism-5.2.03-editor-model.json:sha256}",
         CUBISM_VERSION_5_2_03,
         "${record:cubism-5.2.03-editor-model.json:profileId}"
     );
@@ -98,7 +97,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "${record:cubism-5.3.02-editor-model.json:verificationId}",
-        "${record:cubism-5.3.02-editor-model.json:sha256}",
         CUBISM_VERSION_5_3_02,
         "${record:cubism-5.3.02-editor-model.json:profileId}"
     );
@@ -111,7 +109,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "${record:cubism-5.3.03-editor-model.json:verificationId}",
-        "${record:cubism-5.3.03-editor-model.json:sha256}",
         CUBISM_VERSION_5_3_03,
         "${record:cubism-5.3.03-editor-model.json:profileId}"
     );
@@ -161,7 +158,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_0_00 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_00,
         "${record:cubism-5.0.00-editor-model.json:verificationId}",
-        "${record:cubism-5.0.00-editor-model.json:sha256}",
         CUBISM_VERSION_5_0_00,
         "${record:cubism-5.0.00-editor-model.json:profileId}"
     );
@@ -169,7 +165,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_0_01 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_01,
         "${record:cubism-5.0.01-editor-model.json:verificationId}",
-        "${record:cubism-5.0.01-editor-model.json:sha256}",
         CUBISM_VERSION_5_0_01,
         "${record:cubism-5.0.01-editor-model.json:profileId}"
     );
@@ -177,7 +172,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_0_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_02,
         "${record:cubism-5.0.02-editor-model.json:verificationId}",
-        "${record:cubism-5.0.02-editor-model.json:sha256}",
         CUBISM_VERSION_5_0_02,
         "${record:cubism-5.0.02-editor-model.json:profileId}"
     );
@@ -185,7 +179,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_0_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_03,
         "${record:cubism-5.0.03-editor-model.json:verificationId}",
-        "${record:cubism-5.0.03-editor-model.json:sha256}",
         CUBISM_VERSION_5_0_03,
         "${record:cubism-5.0.03-editor-model.json:profileId}"
     );
@@ -193,7 +186,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_0_04 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_04,
         "${record:cubism-5.0.04-editor-model.json:verificationId}",
-        "${record:cubism-5.0.04-editor-model.json:sha256}",
         CUBISM_VERSION_5_0_04,
         "${record:cubism-5.0.04-editor-model.json:profileId}"
     );
@@ -201,7 +193,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_0_05 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_05,
         "${record:cubism-5.0.05-editor-model.json:verificationId}",
-        "${record:cubism-5.0.05-editor-model.json:sha256}",
         CUBISM_VERSION_5_0_05,
         "${record:cubism-5.0.05-editor-model.json:profileId}"
     );
@@ -209,7 +200,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_0_06 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_06,
         "${record:cubism-5.0.06-editor-model.json:verificationId}",
-        "${record:cubism-5.0.06-editor-model.json:sha256}",
         CUBISM_VERSION_5_0_06,
         "${record:cubism-5.0.06-editor-model.json:profileId}"
     );
@@ -217,7 +207,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_1_00 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_1_00,
         "${record:cubism-5.1.00-editor-model.json:verificationId}",
-        "${record:cubism-5.1.00-editor-model.json:sha256}",
         CUBISM_VERSION_5_1_00,
         "${record:cubism-5.1.00-editor-model.json:profileId}"
     );
@@ -225,7 +214,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_1_01 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_1_01,
         "${record:cubism-5.1.01-editor-model.json:verificationId}",
-        "${record:cubism-5.1.01-editor-model.json:sha256}",
         CUBISM_VERSION_5_1_01,
         "${record:cubism-5.1.01-editor-model.json:profileId}"
     );
@@ -233,7 +221,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_1_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_1_02,
         "${record:cubism-5.1.02-editor-model.json:verificationId}",
-        "${record:cubism-5.1.02-editor-model.json:sha256}",
         CUBISM_VERSION_5_1_02,
         "${record:cubism-5.1.02-editor-model.json:profileId}"
     );
@@ -241,7 +228,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_1_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_1_03,
         "${record:cubism-5.1.03-editor-model.json:verificationId}",
-        "${record:cubism-5.1.03-editor-model.json:sha256}",
         CUBISM_VERSION_5_1_03,
         "${record:cubism-5.1.03-editor-model.json:profileId}"
     );
@@ -249,7 +235,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_00 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_00,
         "${record:cubism-5.2.00-editor-model.json:verificationId}",
-        "${record:cubism-5.2.00-editor-model.json:sha256}",
         CUBISM_VERSION_5_2_00,
         "${record:cubism-5.2.00-editor-model.json:profileId}"
     );
@@ -257,7 +242,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_01 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_01,
         "${record:cubism-5.2.01-editor-model.json:verificationId}",
-        "${record:cubism-5.2.01-editor-model.json:sha256}",
         CUBISM_VERSION_5_2_01,
         "${record:cubism-5.2.01-editor-model.json:profileId}"
     );
@@ -265,7 +249,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_02,
         "${record:cubism-5.2.02-editor-model.json:verificationId}",
-        "${record:cubism-5.2.02-editor-model.json:sha256}",
         CUBISM_VERSION_5_2_02,
         "${record:cubism-5.2.02-editor-model.json:profileId}"
     );
@@ -273,7 +256,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_00 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_00,
         "${record:cubism-5.3.00-editor-model.json:verificationId}",
-        "${record:cubism-5.3.00-editor-model.json:sha256}",
         CUBISM_VERSION_5_3_00,
         "${record:cubism-5.3.00-editor-model.json:profileId}"
     );
@@ -281,7 +263,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_01 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_01,
         "${record:cubism-5.3.01-editor-model.json:verificationId}",
-        "${record:cubism-5.3.01-editor-model.json:sha256}",
         CUBISM_VERSION_5_3_01,
         "${record:cubism-5.3.01-editor-model.json:profileId}"
     );
@@ -289,7 +270,6 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_04 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_04,
         "${record:cubism-5.3.04-editor-model.json:verificationId}",
-        "${record:cubism-5.3.04-editor-model.json:sha256}",
         CUBISM_VERSION_5_3_04,
         "${record:cubism-5.3.04-editor-model.json:profileId}"
     );

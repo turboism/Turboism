@@ -56,7 +56,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_0_00 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_00,
         "${record:cubism-5.0.00-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.0.00-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_0_00,
         "${record:cubism-5.0.00-ui-main-toolbar.json:profileId}"
     );
@@ -64,7 +63,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_0_01 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_01,
         "${record:cubism-5.0.01-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.0.01-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_0_01,
         "${record:cubism-5.0.01-ui-main-toolbar.json:profileId}"
     );
@@ -72,7 +70,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_0_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_02,
         "${record:cubism-5.0.02-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.0.02-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_0_02,
         "${record:cubism-5.0.02-ui-main-toolbar.json:profileId}"
     );
@@ -80,7 +77,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_0_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_03,
         "${record:cubism-5.0.03-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.0.03-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_0_03,
         "${record:cubism-5.0.03-ui-main-toolbar.json:profileId}"
     );
@@ -88,7 +84,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_0_04 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_04,
         "${record:cubism-5.0.04-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.0.04-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_0_04,
         "${record:cubism-5.0.04-ui-main-toolbar.json:profileId}"
     );
@@ -96,7 +91,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_0_05 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_05,
         "${record:cubism-5.0.05-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.0.05-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_0_05,
         "${record:cubism-5.0.05-ui-main-toolbar.json:profileId}"
     );
@@ -104,7 +98,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_0_06 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_06,
         "${record:cubism-5.0.06-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.0.06-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_0_06,
         "${record:cubism-5.0.06-ui-main-toolbar.json:profileId}"
     );
@@ -112,7 +105,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_1_00 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_1_00,
         "${record:cubism-5.1.00-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.1.00-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_1_00,
         "${record:cubism-5.1.00-ui-main-toolbar.json:profileId}"
     );
@@ -120,7 +112,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_1_01 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_1_01,
         "${record:cubism-5.1.01-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.1.01-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_1_01,
         "${record:cubism-5.1.01-ui-main-toolbar.json:profileId}"
     );
@@ -128,7 +119,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_1_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_1_02,
         "${record:cubism-5.1.02-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.1.02-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_1_02,
         "${record:cubism-5.1.02-ui-main-toolbar.json:profileId}"
     );
@@ -136,7 +126,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_1_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_1_03,
         "${record:cubism-5.1.03-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.1.03-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_1_03,
         "${record:cubism-5.1.03-ui-main-toolbar.json:profileId}"
     );
@@ -144,7 +133,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_00 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_00,
         "${record:cubism-5.2.00-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.2.00-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_2_00,
         "${record:cubism-5.2.00-ui-main-toolbar.json:profileId}"
     );
@@ -152,7 +140,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_01 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_01,
         "${record:cubism-5.2.01-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.2.01-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_2_01,
         "${record:cubism-5.2.01-ui-main-toolbar.json:profileId}"
     );
@@ -160,7 +147,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_02,
         "${record:cubism-5.2.02-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.2.02-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_2_02,
         "${record:cubism-5.2.02-ui-main-toolbar.json:profileId}"
     );
@@ -168,7 +154,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "${record:cubism-5.2.03-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.2.03-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_2_03,
         "${record:cubism-5.2.03-ui-main-toolbar.json:profileId}"
     );
@@ -176,7 +161,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_00 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_00,
         "${record:cubism-5.3.00-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.3.00-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_3_00,
         "${record:cubism-5.3.00-ui-main-toolbar.json:profileId}"
     );
@@ -184,7 +168,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_01 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_01,
         "${record:cubism-5.3.01-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.3.01-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_3_01,
         "${record:cubism-5.3.01-ui-main-toolbar.json:profileId}"
     );
@@ -192,7 +175,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "${record:cubism-5.3.02-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.3.02-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_3_02,
         "${record:cubism-5.3.02-ui-main-toolbar.json:profileId}"
     );
@@ -200,7 +182,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "${record:cubism-5.3.03-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.3.03-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_3_03,
         "${record:cubism-5.3.03-ui-main-toolbar.json:profileId}"
     );
@@ -208,7 +189,6 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_04 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_04,
         "${record:cubism-5.3.04-ui-main-toolbar.json:verificationId}",
-        "${record:cubism-5.3.04-ui-main-toolbar.json:sha256}",
         CUBISM_VERSION_5_3_04,
         "${record:cubism-5.3.04-ui-main-toolbar.json:profileId}"
     );
@@ -304,8 +284,7 @@ public final class MainToolbarVerificationManifest {
             manifest.cubismVersion(),
             manifest.artifactSize(),
             manifest.artifactSha256(),
-            manifest.adapterSliceId(),
-            manifest.recordSha256()
+            manifest.adapterSliceId()
         );
     }
 
@@ -316,14 +295,12 @@ public final class MainToolbarVerificationManifest {
      * @param artifactSize the reviewed artifact byte size
      * @param artifactSha256 the reviewed artifact SHA-256
      * @param adapterSliceId the adapter slice identity
-     * @param recordSha256 SHA-256 of the reviewed record bytes
      */
     public record AdmissionEvidence(
         String cubismVersion,
         long artifactSize,
         String artifactSha256,
-        String adapterSliceId,
-        String recordSha256
+        String adapterSliceId
     ) {
     }
 
