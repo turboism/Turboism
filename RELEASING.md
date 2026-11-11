@@ -173,6 +173,148 @@ Release created with `GITHUB_TOKEN` does not itself start another ordinary workf
 The 15-minute reconciliation remains the fallback. The new pipeline does not read
 or update the legacy Updates service.
 
+## Version and digest model
+
+One rule governs every value below. An **independent root** changes only through
+an explicit committed edit (or CI ledger allocation for `buildNumber`). A
+**derived** value changes only when its root changes. No build step invents a
+root. `./gradlew -q printBuildInfo` prints the resolved identity of the current
+checkout.
+
+### First-party plugins are independent of the framework version
+
+A first-party plugin behaves exactly like a third-party plugin. Its `version` is
+independent of `turboismFrameworkVersion`. Raising the framework version never
+bumps an unchanged first-party plugin. A plugin bumps its own SemVer only when its
+own packaged code, resources or descriptor contract changes. Compatibility between
+framework and plugin is expressed only by `turboismApi` and the descriptor
+`schemaVersion`.
+
+Staging enforces this. `resolve_next_plugin_version` keeps the committed version
+when the built bytes already match the newest catalog release. Otherwise it
+advances one patch above the highest cataloged version. The build never rewrites
+`plugin.json`; only the staged copy carries the resolved version.
+
+### Version values and digests
+
+Kind codes: **root** = independent version root; **derived** = derived or bounded
+version value; **digest (a)** = security-relevant identity or integrity anchor;
+**digest (b)** = change detection only; **digest (c)** = removable or derivable.
+
+| Value / Digest | Kind | Owner (declared in) | Consumer | Bump / Update rule |
+| --- | --- | --- | --- | --- |
+| `turboismFrameworkVersion` | root | `gradle/common-java.gradle.kts` | Gradle build, `FrameworkBuildInfo`, update pipeline | One committed `X.Y.Z` edit per Stable base. Never a build counter. |
+| `buildNumber` | root | `build-ledger` branch (`allocate-build.yml`) | `FrameworkBuildInfo`, `UpdateDiscoveryParser`, installer | Monotonic global counter allocated once per CI source/run/attempt. Never hand-set. |
+| Plugin `version` | root | `plugins/*/src/main/resources/META-INF/turboism/plugin.json` | `PluginDescriptorParser`, `PluginMarketService`, `RuntimePluginAutoUpdater` | Plugin's own SemVer (independent of framework version). Bump only when that plugin's packaged code, resources or descriptor contract changes. |
+| Descriptor `schemaVersion` | root | same `plugin.json` | `PluginDescriptorParser` (`DescriptorSchemaTier`) | Monotonic. Increment only when the admitted descriptor field set changes. |
+| `turboismReadmeSchema` | root | `plugins/*/README.md` front matter | `checkOfficialPluginReadmes` | Monotonic. Increment only when the README front-matter field set changes. |
+| Format `schemaVersion` | root | each JSON contract (`turboism.mapping.pack`, `turboism.plugin.pending`, `turboism.runtime.config`, signed catalog, update manifest, incremental candidate, release notes) | format-specific reader/validator | One version per format, owned by its reader. Increment only with a reader that still accepts the previous version. |
+| Managed runtime pins | root | `packaging/managed-graal.json`, `packaging/windows-installer/script-engine.json` | `ManagedGraalRuntimeService`, Windows installer scripts | Bump version, URL and archive digest together. |
+| SDK API baseline | root | `compatibility/sdk-api-since.json` (`baseline`) | `scripts/sdk_api_since.py`, `checkPluginApiFloors` | Fixed at `0.67.0`. Advance only with a documented re-baseline. |
+| Runtime `version` | derived | `gradle/common-java.gradle.kts` + `TURBOISM_BUILD_VERSION` | `framework-version.properties`, JAR manifests, `FrameworkBuildInfo` | Derived from `turboismFrameworkVersion` (`-SNAPSHOT` locally unless `-PturboismRelease=true`). Never hand-edited. |
+| `apiVersion` | derived | `turboismFrameworkVersion.substringBefore('-')` | `KernelPluginDiscovery` | Derived automatically; prerelease suffixes never lower it. |
+| Plugin `turboismApi` | derived | `plugin.json` (bounded `[floor, 1.0.0)`) | `KernelPluginDiscovery`, `PluginMarketService`, `checkPluginApiFloors` | Lower bound is the oldest SDK version providing every linked member; raise only when linking newer SDK APIs, then sync via `python3 scripts/sync_plugin_api.py --write`. |
+| README `version`, `turboismApi` | derived | `plugins/*/README*.md` front matter | `checkOfficialPluginReadmes`, `checkPluginApiRanges`, market publisher | Exact copies of `plugin.json`. Never hand-edited independently. |
+| `minimumUpdaterVersion` | derived | signed framework update manifest | `FrameworkUpdateApplier`, `UpdateManifest` | Advance only when installed clients below the floor cannot apply the target update format. |
+| `turboismSdkVersion` | derived | plugin-template repository | `sync-from-turboism.yml`, template consumers | Written automatically from the published release tag. |
+| `catalogVersion` | derived | signed plugin catalog | `PluginCatalogVerifier`, `PluginCatalogStateStore` | Strictly increasing monotonic counter emitted per catalog publication. |
+| `catalogSha256` | digest (a) | signed catalog signature envelope | `PluginCatalogVerifier` (constant-time compare before JSON parse) | Written by the Plugin Directory signer only. |
+| Catalog artifact `sha256`, `descriptorSha256` | digest (a) | signed catalog `releases[].artifact` | `PluginCatalogVerifier`, `PluginCatalogClient`, `PluginMarketService`, `RuntimePluginAutoUpdater` | Written by the publisher. Never re-derived locally. |
+| `packageHash` | digest (a) | `META-INF/turboism/package.json` | `PluginManifestReader` (canonical self-hash) | Written by `scripts/release/package-plugin.py`. Same-origin: detects corruption, not tampering. |
+| `sha256` per update entry | digest (a) | signed framework update manifest | `UpdateManifest`, `FrameworkUpdateApplier`, `FrameworkInstallationReceiptLoader` | Written by `build-framework-update.py`. Every object and receipt byte is rehashed. |
+| `manifestSha256` | digest (a) | update signature envelope | `framework_update.sign`, `FrameworkInstallationReceiptLoader` | Written at signing time. |
+| `objectsSha256` | digest (a) | incremental candidate descriptor | `distribution/incremental.mjs` closure check | Derived from the signed manifest object closure. |
+| Receipt index `manifestSha256` | digest (a) | `state/installed-receipt.json` | `FrameworkInstallationReceiptLoader` | Derived from the authenticated manifest bytes. |
+| `agentSha256` | digest (a) | framework update journal | `FrameworkUpdateApplier` | Binds the journal to the agent that wrote it. |
+| `distributionSha256Sum` | digest (a) | `gradle/wrapper/gradle-wrapper.properties` | Gradle wrapper | Hand-pinned. Bump with the wrapper version. |
+| Dependency `sha256` (796 entries) | digest (a) | `gradle/verification-metadata.xml` | Gradle dependency verification | Regenerated by the documented verification task only. |
+| Managed archive `sha256` | digest (a) | `packaging/managed-graal.json`, `packaging/windows-installer/script-engine.json` | `ManagedGraalRuntimeService`, `install-managed-graal.ps1`, `install-script-engine.ps1` | Bump with the pin. |
+| Reviewed host artifact `sha256` (20 releases) | digest (a) | `compatibility/cubism/reviewed-releases.json` | `ReviewedHostArtifacts`, `ReviewedHostContract`, `CubismHostCompatibilityResolver` | One declaration per reviewed release. `scripts/generate_reviewed_releases.py` regenerates the Java table. |
+| Reviewed class pins (1816 digests) | digest (a) | `runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/*.json` | `ClassPinTable`, every `Verified*Installer` | Binds each hook to exact host class bytes before arming. Regenerate from a reviewed host. |
+| `reviewedSha256`, `admittedSha256` | digest (a) | transformer admission sets | `AtlasCacheReuseTransformer`, `AtlasTileBboxTransformer` | Same reviewed-class identity, read from the pin tables. |
+| `verifierSha256` | digest (a) | installer discovery snapshot | `cubism-launch-common.ps1` | Equals the digest of the installed `turboism-agent.jar`. |
+| Release asset `.sha256` sidecars | digest (a) | GitHub Release assets | `verify-release.py`, `mirror.mjs`, plugin-template `setup.sh` | Same-origin transfer integrity. Generated at packaging time. |
+| `englishSha256` (9 files) | digest (b) | `distribution/release-notes/<version>.json` | `release_notes.reviewed_locales`, `render_localized_changelogs.py` | Recompute when the trimmed English changelog section changes. A stale value fails promotion. |
+| Golden snapshot `sha256` (22 cases) | digest (b) | `testing/fixtures/snapshots/manifest.json` | `scripts/check_golden_snapshots.py` | Regenerate only with a reviewed format change. |
+| Frozen draft-pack `sha256` (77 rows) | digest (b) | `compatibility/cubism/mapping-packs/draft/frozen.json` | `scripts/materialize_draft_contracts.py` (`check_frozen`) | Pins shipped `5.0.x` and `5.1.x` retained evidence rows. Refresh via `--write-freeze` only for a reviewed compatibility change. |
+| `surfaceSha256` | digest (b) | `compatibility/sdk-api-since.json` | `scripts/sdk_api_since.py --check` | Regenerate via `python3 scripts/sdk_api_since.py --write` after a reviewed SDK surface change. |
+| `notesSha256` | digest (b) | prerelease candidate JSON | `prerelease.verify_candidate` | Derived from the generated notes. |
+| `planId` | digest (b) | release plan document | `contracts.py`, `executor.py` | Derived from the canonical plan. Detects resume drift, not tampering. |
+| `recordSha256` | digest (b) | verification records and manifest constants | `SliceContract`, `EditorUiProviderAdmission`, `CubismHostCompatibilityResolver` | Provenance metadata. Runtime admission checks schema and identity, not the self-hash. |
+| `fixtureSha256`, probe `agentSha256` | digest (b) | performance probe report and rollback manifest | `PerformanceProbeReportWriter`, `PerformanceProbeRollbackWriter` | Binds a report to the run that produced it. Rejects stale evidence. |
+| `sourceSha256` | digest (b) | script `manifest.json` | `ScriptRegistry` | Binds a user script to its reviewed source bytes. |
+| `digestSha256` | digest (b) | kernel report record entry | `KernelReportValidationSupport` | Provenance only. |
+| `contentSha256` | digest (c) | signed catalog `releases[].artifact` | `prepare-market-release.jar_matches_catalog_release` | No producer in this repository writes it. Removable. |
+| `rawSha256` | digest (c) | plugin staging journal `operations[]` | `PendingPluginOperations` | Always equals `jarSha256`. Derivable. |
+| `exactArtifactSha256` (24 expanded packs) | digest (c) | `compatibility/cubism/mapping-packs/draft/{baseline,overrides}/*.json` | `MappingPackValidator` allowlist only | Duplicates `metadata.artifactSha256` in 22 expanded packs; two carry it alone. Removable. |
+| `metadata.verificationRecordSha256` (100 expanded packs) | digest (c) | retained pack `metadata` (`${verificationRecordSha256}`) | `MappingPackDraftImportTest` only | No runtime reader. Removable. |
+| `contentId` | digest (c) | signed update manifest entry | `UpdateManifestEntry` | Always `sha256:` + `sha256`. Derivable. |
+| `abiSha256` (2 plugins) | digest (c) | `plugin.json` `eventExports[]`, `eventImports[]` | `PublicEventAbi`, `PublicEventRouteCatalog` | Fully derived from the SDK payload type, yet no generator writes it today. Generate it; never hand-copy it. |
+| Native icon pins (120 PNG digests) | digest (c) | `CubismNativeIconCatalog` | `CubismNativeIconResolver.decodePng` | Derivable from the reviewed artifact that already gates the JAR. Generate them; never hand-copy them. |
+| `pluginDescriptorSha256` | digest (c) | `META-INF/turboism/package.json` | `LocalPluginPackageInspector` | Same value as catalog `descriptorSha256` in a different container. Unify the name. |
+
+### Concrete removals and their compatibility effect
+
+Each item below is a separate change. Apply them in this order; the first three
+need no wire-format migration.
+
+1. **Delete the `contentSha256` reader branch.** No producer in this repository
+   writes the field, so no published catalog entry carries it. Removing
+   `prepare-market-release.jar_matches_catalog_release`'s branch changes no
+   published entry; the byte-identity and `artifact_loader` fallbacks stay.
+2. **Drop pack-level `exactArtifactSha256`.** Packs are build inputs, never
+   published artifacts, so no installed client reads them. Remove the field from
+   the retained baseline/override declarations for those 24 expanded packs, from
+   both validator allowlists, and move the `MappingPackDraftImportTest` assertion
+   to `metadata.artifactSha256`. Two packs carry the field without metadata; give
+   them the metadata value first.
+3. **Drop `metadata.verificationRecordSha256`.** Only an integration test reads
+   it. Remove the field, the generator write, and the test assertion together.
+4. **Retire `abiSha256`, or generate it.** This is a descriptor schema change.
+   Add schema v6 without the field, keep v4 and v5 read support in
+   `DescriptorSchemaTier`, and keep emitting `publishedEvents[].abiSha256` in the
+   catalog for every v4 descriptor. Installed clients reject an unknown
+   `schemaVersion`, so the writer must not emit v6 until the oldest supported
+   client reads it. Generating the value from the SDK at build time is the safer
+   first step: it keeps the wire format and removes the hand-copied digest.
+5. **Retire `rawSha256`.** The journal is local state. A new writer that omits the
+   field makes older clients reject the file, because `OPERATION_FIELDS` matches
+   the exact field set. Bump the journal `schemaVersion` to 2. Let the reader
+   accept v1 with `rawSha256` and v2 without it. Drop the writer field only after
+   one full release cycle.
+6. **Derive `contentId`.** It is a pure function of `sha256`. The signed update
+   manifest is a wire format, so keep the field for readers and stop treating it
+   as an independent value.
+7. **Rename `pluginDescriptorSha256` to `descriptorSha256`.** The package manifest
+   is a separate container, so the rename needs a dual-read window: accept both
+   names, write the new one.
+
+No removal touches the class (a) anchors. These stay as they are:
+
+- the Ed25519-signed plugin catalog;
+- the pinned Gradle verification metadata;
+- the wrapper and archive pins;
+- the reviewed host tables;
+- the R2 write verification.
+
+Each one anchors identity outside the released bytes.
+
+### Measured at this revision
+
+| Measure | Count |
+| --- | --- |
+| First-party plugins | 39 |
+| Distinct plugin `version` values | 4 (`0.1.0` ×4, `0.68.0` ×25, `0.68.1` ×9, `0.68.2` ×1) |
+| Distinct `turboismApi` values | 6 |
+| Descriptor `schemaVersion` in use | 3 (37 plugins) and 4 (2 plugins); the runtime admits 2 through 5 |
+| Distinct `(format, schemaVersion)` pairs | 44 (including retained baseline, override and freeze contracts) |
+| Reviewed host artifact digests | 20 |
+| Reviewed class-pin digests | 1816 |
+| Gradle dependency digests | 796 |
+| Golden snapshot digests | 22 |
+| Release-notes `englishSha256` | 9 |
+| Retained mapping-pack evidence | 20 baselines + 20 override tables + `frozen.json` (77 frozen rows), expanding to 166 retained packs (24 pack-level digests, 104 metadata digests, 22 identical pairs) |
+
 ## Legacy coordinated and independent plugin publication
 
 Existing successful product **push-tag** candidate runs can still be resumed through the protected publishers (the explicit attempt is optional for legacy GitHub-only calls). Plugin-only orchestration remains unchanged. The coordinated route below requires its external service credentials/contracts; it does not accept new manually dispatched product candidates. Do not manually tag a new product to use this legacy route.
