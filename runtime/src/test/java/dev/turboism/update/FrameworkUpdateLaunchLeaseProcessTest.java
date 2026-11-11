@@ -228,7 +228,7 @@ final class FrameworkUpdateLaunchLeaseProcessTest {
         Files.createDirectories(stage);
         Files.write(stage.resolve("turboism-agent.jar"), agent);
         final String hash = FrameworkUpdateTaskStore.hash(agent);
-        final var entry = new UpdateManifestEntry("turboism-agent.jar", agent.length, hash, "sha256:" + hash);
+        final var entry = new UpdateManifestEntry("turboism-agent.jar", agent.length, hash);
         final var manifest = new UpdateManifest(
                 1, "fixture", version, "stable", 50, "a".repeat(40), "0.1.0", "windows-x64", List.of(entry));
         final var applier = new FrameworkUpdateApplier(home, work);

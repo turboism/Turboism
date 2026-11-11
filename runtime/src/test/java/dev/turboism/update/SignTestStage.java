@@ -25,8 +25,7 @@ final class SignTestStage {
             entries.add(new UpdateManifestEntry(
                     node.get("relativePath").asText(),
                     node.get("bytes").asLong(),
-                    node.get("sha256").asText(),
-                    node.get("contentId").asText()));
+                    node.get("sha256").asText()));
         }
         final KeyPair keys = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
         final byte[] manifest = new UpdateManifest(

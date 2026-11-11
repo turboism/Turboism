@@ -43,7 +43,7 @@ final class FrameworkUpdateStageTest {
 
     private static UpdateManifestEntry entry(final String path, final byte[] bytes) {
         final String hash = FrameworkUpdateTaskStore.hash(bytes);
-        return new UpdateManifestEntry(path, bytes.length, hash, "sha256:" + hash);
+        return new UpdateManifestEntry(path, bytes.length, hash);
     }
 
     @Test

@@ -24,6 +24,11 @@ final class KernelReportValidationSupport {
     private static final Set<String> EVIDENCE_KINDS =
             Set.of("DECLARED", "STATIC_VERIFIED", "SYNTHETIC", "RUNTIME_OBSERVED", "MANUAL");
     private static final Set<String> EVIDENCE_STATES = Set.of("AVAILABLE", "UNAVAILABLE", "DEGRADED", "UNKNOWN");
+    /**
+     * Retired evidence provenance field. It was a digest of a record the report already names by
+     * path, so it is accepted on already-written reports and never emitted again.
+     */
+    private static final String RETIRED_EVIDENCE_DIGEST_FIELD = "digestSha256";
 
     private KernelReportValidationSupport() {}
 
@@ -149,17 +154,18 @@ final class KernelReportValidationSupport {
         boundedArray(evidence, "evidence");
         for (JsonNode item : evidence) {
             final ObjectNode entry = object(item, "BAD_EVIDENCE", "evidence entry");
+            // digestSha256 is a retired provenance field. Reports already on disk still carry it, so
+            // it is accepted and ignored instead of being written or required again.
             exact(
                     entry,
                     Set.of("kind", "state", "summary"),
-                    Set.of("relativeRecordPath", "digestSha256"),
+                    Set.of("relativeRecordPath", RETIRED_EVIDENCE_DIGEST_FIELD),
                     "UNKNOWN_FIELD",
                     "evidence");
             enumText(entry, "kind", EVIDENCE_KINDS, "BAD_EVIDENCE");
             enumText(entry, "state", EVIDENCE_STATES, "BAD_EVIDENCE");
             boundedText(entry, "summary", 1024, "BAD_EVIDENCE");
             optionalPath(entry, "relativeRecordPath");
-            optionalDigest(entry, "digestSha256");
         }
     }
 

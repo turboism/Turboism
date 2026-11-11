@@ -105,6 +105,10 @@ public record UpdateManifest(
      * Project deterministic UTF-8 JSON: alphabetic keys, path-sorted entries, no whitespace,
      * decimal Java integers, Jackson string escaping. This is not RFC 8785/JCS.
      * Signatures always cover the exact published bytes, including noncanonical input.
+     *
+     * <p>Entries carry no {@code contentId}: it was always {@code "sha256:"} plus the entry digest,
+     * so the manifest records the digest once. Readers still accept a published manifest that
+     * carries the derived field.</p>
      */
     public byte[] toCanonicalBytes() {
         final ObjectNode root = STRICT_MAPPER.createObjectNode();
@@ -114,7 +118,6 @@ public record UpdateManifest(
         for (final UpdateManifestEntry entry : entries) {
             final ObjectNode item = array.addObject();
             item.put("bytes", entry.bytes());
-            item.put("contentId", entry.contentId());
             item.put("relativePath", entry.relativePath());
             item.put("sha256", entry.sha256());
         }
@@ -151,9 +154,24 @@ public record UpdateManifest(
     }
 
     static void requireFields(final ObjectNode node, final Set<String> fields) throws IOException {
-        if (node.size() != fields.size()) throw new IOException("unknown or missing JSON fields");
-        for (final String field : fields) {
-            if (!node.has(field)) throw new IOException("missing JSON field: " + field);
+        requireFields(node, fields, Set.of(), "JSON object");
+    }
+
+    /**
+     * Enforces a closed field set with an explicit optional subset. An optional field may be absent,
+     * but it must never be an unknown one: a manifest is signed, so a reader must not guess.
+     */
+    static void requireFields(
+            final ObjectNode node, final Set<String> required, final Set<String> optional, final String label)
+            throws IOException {
+        for (final String field : required) {
+            if (!node.has(field)) throw new IOException("missing " + label + " field: " + field);
+        }
+        for (final var names = node.fieldNames(); names.hasNext(); ) {
+            final String field = names.next();
+            if (!required.contains(field) && !optional.contains(field)) {
+                throw new IOException("unknown " + label + " field: " + field);
+            }
         }
     }
 
@@ -213,12 +231,18 @@ public record UpdateManifest(
                 if (!(item instanceof ObjectNode entryObject)) {
                     throw new IOException("manifest entry at index " + i + " is not an object");
                 }
-                requireFields(entryObject, Set.of("relativePath", "bytes", "sha256", "contentId"));
+                requireFields(
+                        entryObject, Set.of("relativePath", "bytes", "sha256"), Set.of("contentId"), "manifest entry");
                 final String relativePath = requireString(entryObject, "relativePath");
                 final long bytes = requireLong(entryObject, "bytes");
                 final String sha256 = requireString(entryObject, "sha256");
-                final String contentId = requireString(entryObject, "contentId");
-                entries.add(new UpdateManifestEntry(relativePath, bytes, sha256, contentId));
+                // contentId is derived from sha256, so an already-published value is checked for
+                // agreement and then dropped instead of being stored a second time.
+                if (entryObject.has("contentId")
+                        && !("sha256:" + sha256).equals(requireString(entryObject, "contentId"))) {
+                    throw new IOException("manifest contentId disagrees with the entry digest: " + relativePath);
+                }
+                entries.add(new UpdateManifestEntry(relativePath, bytes, sha256));
             }
 
             return new UpdateManifest(

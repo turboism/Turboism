@@ -410,9 +410,7 @@ final class UpdateManifestVerifierTest {
                 "plugins/com1.jar"
             })
     void rejectsWindowsReservedDeviceNameInManifestEntries(final String badPath) {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new UpdateManifestEntry(badPath, 100, "a".repeat(64), "sha256:" + "a".repeat(64)));
+        assertThrows(IllegalArgumentException.class, () -> new UpdateManifestEntry(badPath, 100, "a".repeat(64)));
     }
 
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -665,13 +663,13 @@ final class UpdateManifestVerifierTest {
         final UpdateManifest manifest = UpdateManifest.parse(validManifestJson().getBytes(StandardCharsets.UTF_8));
         final String hash = "a".repeat(64);
         final String expected =
-                "{\"buildNumber\":50,\"channel\":\"stable\",\"entries\":[{\"bytes\":1024,\"contentId\":\"sha256:" + hash
-                        + "\",\"relativePath\":\"turboism-agent.jar\",\"sha256\":\"" + hash
+                "{\"buildNumber\":50,\"channel\":\"stable\",\"entries\":[{\"bytes\":1024,\"relativePath\":\"turboism-agent.jar\",\"sha256\":\""
+                        + hash
                         + "\"}],\"keyId\":\"test-key-v1\",\"minimumUpdaterVersion\":\"0.67.0\",\"schemaVersion\":1,\"sourceRevision\":\"0123456789abcdef0123456789abcdef01234567\",\"targetPlatform\":\"windows-x64\",\"version\":\"0.68.0\"}";
         assertArrayEquals(expected.getBytes(StandardCharsets.UTF_8), manifest.toCanonicalBytes());
         final var entries = new ArrayList<>(manifest.entries());
-        entries.add(new UpdateManifestEntry("graal/lib/b.jar", 0, hash, "sha256:" + hash));
-        entries.add(new UpdateManifestEntry("graal/lib/a.jar", 0, hash, "sha256:" + hash));
+        entries.add(new UpdateManifestEntry("graal/lib/b.jar", 0, hash));
+        entries.add(new UpdateManifestEntry("graal/lib/a.jar", 0, hash));
         byte[] first = null;
         for (int i = 0; i < entries.size(); i++) {
             Collections.rotate(entries, 1);
@@ -700,7 +698,7 @@ final class UpdateManifestVerifierTest {
                 .generatePublic(new java.security.spec.X509EncodedKeySpec(publicKey));
         final byte[] signature = HexFormat.of()
                 .parseHex(
-                        "1d9c460df3987afa98e4fcc4bf10f5978937ee51a942c3539e4c88106c73bd68b07417829d066f18e957e7660c08a306b619a19094cceb8739232f095286a80d");
+                        "b2b76f7ac698932b40eb77e7b062ce40274f1460c000644202f95d8755a61cfcee6de69005922c392cba18658e2d6685159c3ce1c4b9e19dc1237fadaa9a3b0b");
         final byte[] bytes = UpdateManifest.parse(validManifestJson().getBytes(StandardCharsets.UTF_8))
                 .toCanonicalBytes();
         final ObjectNode envelope = JSON.createObjectNode();
@@ -747,10 +745,7 @@ final class UpdateManifestVerifierTest {
         final var entries = new ArrayList<UpdateManifestEntry>();
         for (int i = 0; i < UpdateManifest.MAX_ENTRIES; i++) {
             entries.add(new UpdateManifestEntry(
-                    "graal/lib/" + "x".repeat(215) + i + ".jar",
-                    UpdateManifest.MAX_FILE_BYTES,
-                    "a".repeat(64),
-                    "sha256:" + "a".repeat(64)));
+                    "graal/lib/" + "x".repeat(215) + i + ".jar", UpdateManifest.MAX_FILE_BYTES, "a".repeat(64)));
         }
         final var manifest = new UpdateManifest(
                 1,
@@ -767,8 +762,7 @@ final class UpdateManifestVerifierTest {
         assertEquals(manifest, UpdateManifest.parse(bytes));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new UpdateManifestEntry(
-                        "graal/lib/" + "x".repeat(240) + ".jar", 0, "a".repeat(64), "sha256:" + "a".repeat(64)));
+                () -> new UpdateManifestEntry("graal/lib/" + "x".repeat(240) + ".jar", 0, "a".repeat(64)));
         entries.add(entries.get(0));
         assertThrows(
                 IllegalArgumentException.class,

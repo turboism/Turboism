@@ -1513,7 +1513,7 @@ final class FrameworkUpdateDownloaderTest {
 
     private static UpdateManifestEntry entry(final String path, final byte[] bytes) throws Exception {
         final String hash = sha(bytes);
-        return new UpdateManifestEntry(path, bytes.length, hash, "sha256:" + hash);
+        return new UpdateManifestEntry(path, bytes.length, hash);
     }
 
     private static String sha(final byte[] bytes) throws Exception {

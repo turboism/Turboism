@@ -114,7 +114,7 @@ record UpdateVerificationContext(
         }
         for (final var receipt : installedFrameworkHashes.entrySet()) {
             // Reuse exactly the manifest path/digest boundary, without implying name-based ownership.
-            new UpdateManifestEntry(receipt.getKey(), 0, receipt.getValue(), "sha256:" + receipt.getValue());
+            new UpdateManifestEntry(receipt.getKey(), 0, receipt.getValue());
         }
         if (expectedVersion.length() > 128
                 || expectedSourceRevision.length() > 40

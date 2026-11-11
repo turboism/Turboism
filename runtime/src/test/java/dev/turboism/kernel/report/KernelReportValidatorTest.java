@@ -1,6 +1,7 @@
 package dev.turboism.kernel.report;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.charset.StandardCharsets;
@@ -66,6 +67,25 @@ class KernelReportValidatorTest {
                                 "\"truncated\":false,\"droppedEntries\":1,\"reason\":\"ENTRY_LIMIT\""));
     }
 
+    /**
+     * The retired evidence digest was provenance only. Reports already on disk carry it, so the
+     * validator must keep accepting it while any other unknown field still fails closed.
+     */
+    @Test
+    void retiredEvidenceDigestIsAcceptedWhileOtherUnknownFieldsAreRejected() {
+        final String recordPath =
+                "\"relativeRecordPath\":\"state/verification/" + "cubism-5.3.02-project-workspace.json\"";
+        final String retired =
+                capability().replace(recordPath + "}", recordPath + ",\"digestSha256\":\"" + "a".repeat(64) + "\"}");
+        assertNotEquals(capability(), retired, "the fixture must really carry the retired field");
+        assertEquals(
+                KernelReportType.CAPABILITY,
+                KernelReportValidator.validate(bytes(retired)).reportType());
+
+        assertCode(
+                "UNKNOWN_FIELD", capability().replace(recordPath + "}", recordPath + ",\"futureEvidenceField\":true}"));
+    }
+
     @Test
     void rejectsPathCountDigestAndMixedRuntimeViolations() {
         assertCode(
@@ -74,10 +94,10 @@ class KernelReportValidatorTest {
         assertCode("BAD_REGISTRATION_COUNTS", capability().replace("\"total\":1", "\"total\":2"));
         assertCode(
                 "BAD_DIGEST",
-                capability()
+                pluginLoad()
                         .replace(
-                                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"));
+                                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                                "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"));
 
         final Map<KernelReportType, byte[]> reports = new EnumMap<>(KernelReportType.class);
         reports.put(KernelReportType.PREVIEW_RUNTIME, bytes(previewRuntime()));
@@ -177,8 +197,7 @@ class KernelReportValidatorTest {
                 "configSchemas":0,"userFileHandles":0,"total":1},
               "evidence":[{"kind":"STATIC_VERIFIED","state":"UNAVAILABLE",
                 "summary":"Exact-version static record is present but runtime host is unavailable.",
-                "relativeRecordPath":"state/verification/cubism-5.3.02-project-workspace.json",
-                "digestSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}],
+                "relativeRecordPath":"state/verification/cubism-5.3.02-project-workspace.json"}],
               "failures":[]}]}
             """);
     }

@@ -946,8 +946,11 @@ def check_configurator_flow_contract():
               'Get-CubismDiscoveryRoots', 'Get-CubismInstallations', 'Get-CubismVersionFromArtifact'))
           and 'Get-CubismSha256 $application' in cached_reader
           and 'Get-CubismSha256 $java' in cached_reader
-          and 'Get-CubismSha256 $agent' in cached_reader
           and 'Get-ConfiguratorCandidates -State $state' in configure)
+    check("CF2-cache snapshot import never hashes the 14 MB agent on every launch",
+          'Get-CubismSha256 $agent' not in cached_reader
+          and 'verifierSha256 =' not in common
+          and "cne 'verifierSha256'" in cached_reader)
     check("CF2b BAT integration elevates only the selected helper operation",
           "RequestExecutionLevel user" in text
           and "Start-Process" in configure

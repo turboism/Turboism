@@ -74,9 +74,10 @@ async function verifySnapshot(candidate,expected,trustedKeys,read,signal,objectC
  demand(Array.isArray(manifest.entries)&&manifest.entries.length>0&&manifest.entries.length<=512,'Entry bounds');
  const names=new Set(),objects=new Map();let total=0,previous='';
  for(const entry of manifest.entries){
-  demand(keys(entry,['relativePath','bytes','sha256','contentId']),'Entry fields');pathName(entry.relativePath);
+  // contentId is optional: it was always 'sha256:' + sha256, so a present value must agree.
+  demand(keys(entry,['relativePath','bytes','sha256'])||keys(entry,['relativePath','bytes','sha256','contentId']),'Entry fields');pathName(entry.relativePath);
   demand(!names.has(entry.relativePath.toLowerCase())&&entry.relativePath>previous,'Duplicate or unsorted path');previous=entry.relativePath;names.add(entry.relativePath.toLowerCase());
-  demand(integer(entry.bytes,536870912)&&sha(entry.sha256)&&entry.contentId==='sha256:'+entry.sha256,'Entry digest/size');
+  demand(integer(entry.bytes,536870912)&&sha(entry.sha256)&&(entry.contentId===undefined||entry.contentId==='sha256:'+entry.sha256),'Entry digest/size');
   demand(!objects.has(entry.sha256)||objects.get(entry.sha256)===entry.bytes,'Conflicting object size');objects.set(entry.sha256,entry.bytes);total+=entry.bytes;
  }
  demand(total<=1073741824,'Expanded payload bounds');

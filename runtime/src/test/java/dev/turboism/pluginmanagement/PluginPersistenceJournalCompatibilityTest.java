@@ -3,7 +3,6 @@ package dev.turboism.pluginmanagement;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 
@@ -147,6 +146,36 @@ class PluginPersistenceJournalCompatibilityTest {
                 PendingPluginOperations.Status.RECOVERY_REQUIRED,
                 pending.apply().status());
         assertArrayEquals(original, Files.readAllBytes(journal()));
+    }
+
+    /**
+     * The retired {@code rawSha256} field always repeated {@code jarSha256}. Released journals
+     * still carry it, so the reader must accept it without storing it again, while every other
+     * unknown operation field keeps failing closed.
+     */
+    @Test
+    void retiredRawSha256OperationFieldIsAcceptedAndDroppedOnRewrite() throws Exception {
+        final PendingPluginOperations pending = new PendingPluginOperations(home);
+        assertTrue(pending.stageUninstall("example.plugin").accepted());
+        final ObjectNode root = (ObjectNode) JSON.readTree(journal().toFile());
+        final ObjectNode operation = (ObjectNode) root.path("operations").get(0);
+        operation.put("rawSha256", "b".repeat(64));
+        Files.write(journal(), JSON.writerWithDefaultPrettyPrinter().writeValueAsBytes(root));
+
+        final PendingPluginOperations released = new PendingPluginOperations(home);
+        assertFalse(released.recoveryRequired(), "a released journal field must not look corrupt");
+        assertEquals("PLUGIN_PENDING_READY", released.pendingChanges().code());
+        assertEquals(
+                List.of("example.plugin"),
+                released.operations().stream()
+                        .map(PendingPluginOperations.Operation::pluginId)
+                        .toList());
+
+        assertTrue(released.stageUninstall("example.other").accepted());
+        final ObjectNode rewritten = (ObjectNode) JSON.readTree(journal().toFile());
+        for (final JsonNode entry : rewritten.path("operations")) {
+            assertFalse(entry.has("rawSha256"), "the current writer must never emit the retired field");
+        }
     }
 
     @Test
@@ -486,17 +515,13 @@ class PluginPersistenceJournalCompatibilityTest {
         assertEquals("INSTALL", install.type());
         assertEquals("dev.turboism.plugin.uitheme", install.pluginId());
         assertEquals("0.1.0", install.version());
-        assertTrue(install.rawSha256().matches("[0-9a-f]{64}"));
         assertTrue(install.jarSha256().matches("[0-9a-f]{64}"));
-        assertNotEquals(
-                install.rawSha256(),
+        assertEquals(
+                "9c26efa63293cbdb327609df481b57c7df3bb6ea679f18a8e8211c42a055d22b",
                 install.jarSha256(),
-                "the released journal records the package digest and the staged JAR digest separately");
+                "the retired rawSha256 field must not replace the staged JAR digest that verifies the package");
         assertEquals(130987L, install.jarSize());
         assertTrue(install.descriptorSha256().matches("[0-9a-f]{64}"));
-        assertTrue(
-                install.stagedJar().endsWith("dev.turboism.plugin.uitheme-" + install.rawSha256() + ".jar"),
-                "the staged file name is derived from the package digest: " + install.stagedJar());
         assertArrayEquals(original, Files.readAllBytes(journal()), "reading a released journal must not rewrite it");
     }
 }

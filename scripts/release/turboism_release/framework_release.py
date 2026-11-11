@@ -550,7 +550,10 @@ def _verify_manifest(manifest: dict, identity: dict, key_id: str) -> dict:
     for entry in entries:
         require(
             isinstance(entry, dict)
-            and set(entry) == {"relativePath", "bytes", "sha256", "contentId"},
+            and set(entry) in (
+                {"relativePath", "bytes", "sha256"},
+                {"relativePath", "bytes", "sha256", "contentId"},
+            ),
             "signed manifest entry has unexpected fields",
         )
         name = entry["relativePath"]
@@ -569,8 +572,11 @@ def _verify_manifest(manifest: dict, identity: dict, key_id: str) -> dict:
             and re.fullmatch(r"[a-f0-9]{64}", entry["sha256"]) is not None,
             "signed manifest entry digest is invalid",
         )
+        # Already-published manifests carry the derived identifier; new manifests omit it. Both
+        # forms are accepted, and a present value must still agree with the entry digest.
         require(
-            entry["contentId"] == "sha256:" + entry["sha256"],
+            "contentId" not in entry
+            or entry["contentId"] == "sha256:" + entry["sha256"],
             "signed manifest contentId mismatch",
         )
         owned[name] = entry
@@ -667,7 +673,7 @@ def verify(
             [
                 {
                     key: entry[key]
-                    for key in ("relativePath", "bytes", "sha256", "contentId")
+                    for key in ("relativePath", "bytes", "sha256")
                 }
                 for entry in sorted(
                     manifest.values(), key=lambda item: item["relativePath"]

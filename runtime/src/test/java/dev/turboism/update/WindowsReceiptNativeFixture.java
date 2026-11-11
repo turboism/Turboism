@@ -400,7 +400,7 @@ public final class WindowsReceiptNativeFixture {
                 Files.createDirectories(root.resolve(path).getParent());
                 Files.write(root.resolve(path), bytes);
                 final String hash = FrameworkUpdateTaskStore.hash(bytes);
-                entries.add(new UpdateManifestEntry(path, bytes.length, hash, "sha256:" + hash));
+                entries.add(new UpdateManifestEntry(path, bytes.length, hash));
             }
             Files.createDirectories(root.resolve("plugins"));
             Files.writeString(root.resolve("plugins/acp.jar"), "user");
@@ -418,7 +418,7 @@ public final class WindowsReceiptNativeFixture {
                     .put("keyId", "fixture")
                     .put("manifestSha256", FrameworkUpdateTaskStore.hash(manifest))
                     .put("signature", Base64.getEncoder().encodeToString(signer.sign())));
-            documents = index.getParent().resolve("receipts").resolve(FrameworkUpdateTaskStore.hash(manifest));
+            documents = index.getParent().resolve(FrameworkInstallationReceiptLoader.CURRENT_RECEIPT);
             Files.createDirectories(documents);
             Files.write(documents.resolve("manifest.json"), manifest);
             Files.write(documents.resolve("manifest.json.sig"), envelope);
@@ -433,7 +433,6 @@ public final class WindowsReceiptNativeFixture {
                             .put("format", FrameworkInstallationReceiptLoader.FORMAT)
                             .put("schemaVersion", 1)
                             .put("layout", FrameworkInstallationReceiptLoader.LAYOUT)
-                            .put("manifestSha256", FrameworkUpdateTaskStore.hash(manifest))
                             .put("rootIdentity", identity)));
         }
 

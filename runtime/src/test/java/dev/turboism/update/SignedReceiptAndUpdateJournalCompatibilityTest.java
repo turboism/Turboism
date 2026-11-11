@@ -200,7 +200,6 @@ class SignedReceiptAndUpdateJournalCompatibilityTest {
         document.put("format", FrameworkInstallationReceiptLoader.FORMAT);
         document.put("schemaVersion", 1);
         document.put("layout", FrameworkInstallationReceiptLoader.LAYOUT);
-        document.put("manifestSha256", "a".repeat(64));
         document.put("rootIdentity", "test-root");
         document.putObject("futureReceiptField").put("schemaVersion", 2);
         writePrivateFile(index, UpdateFileSupport.JSON.writeValueAsBytes(document));
@@ -558,10 +557,7 @@ class SignedReceiptAndUpdateJournalCompatibilityTest {
         payloads.put("graal/lib/graal-host-" + version + ".jar", ("host:" + version).getBytes(StandardCharsets.UTF_8));
         final List<UpdateManifestEntry> entries = payloads.entrySet().stream()
                 .map(entry -> new UpdateManifestEntry(
-                        entry.getKey(),
-                        entry.getValue().length,
-                        FrameworkUpdateTaskStore.hash(entry.getValue()),
-                        "sha256:" + FrameworkUpdateTaskStore.hash(entry.getValue())))
+                        entry.getKey(), entry.getValue().length, FrameworkUpdateTaskStore.hash(entry.getValue())))
                 .toList();
         final UpdateManifest manifest = new UpdateManifest(
                 1, TEST_KEY_ID, version, "stable", buildNumber, SOURCE_REVISION, "0.67.0", "windows-x64", entries);
@@ -581,10 +577,8 @@ class SignedReceiptAndUpdateJournalCompatibilityTest {
     }
 
     private static Path receiptDocument(final Path root, final Release release, final String name) {
-        final String digest = FrameworkUpdateTaskStore.hash(release.manifestBytes());
         return root.resolve(FrameworkInstallationReceiptLoader.STATE)
-                .resolve("receipts")
-                .resolve(digest)
+                .resolve(FrameworkInstallationReceiptLoader.CURRENT_RECEIPT)
                 .resolve(name);
     }
 

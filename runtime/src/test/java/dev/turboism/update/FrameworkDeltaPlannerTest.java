@@ -393,6 +393,6 @@ final class FrameworkDeltaPlannerTest {
             throw new IllegalStateException(impossible);
         }
         final String hex = HexFormat.of().formatHex(hash);
-        return new UpdateManifestEntry(path, bytes.length, hex, "sha256:" + hex);
+        return new UpdateManifestEntry(path, bytes.length, hex);
     }
 }

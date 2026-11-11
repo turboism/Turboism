@@ -162,7 +162,6 @@ class PluginMetadataPropagationTest {
                   "pluginId": "%s",
                   "stagedJar": "",
                   "version": "%s",
-                  "rawSha256": "",
                   "descriptorSha256": "",
                   "jarSha256": "",
                   "jarSize": 0
