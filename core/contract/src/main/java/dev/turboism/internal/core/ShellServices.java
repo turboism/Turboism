@@ -14,7 +14,8 @@ public record ShellServices(
         FloatingPanelActions floatingPanelActions,
         RuntimeLogReader logs,
         CoreUpdateService update,
-        KeybindingService keybindings) {
+        KeybindingService keybindings,
+        GuidePreferences guide) {
     public ShellServices(final RuntimeSettingsService settings, final CorePluginManagement plugins) {
         this(
                 settings,
@@ -25,7 +26,8 @@ public record ShellServices(
                 FloatingPanelActions.unavailable(),
                 RuntimeLogReader.unavailable(),
                 CoreUpdateService.unavailable(),
-                KeybindingService.unavailable());
+                KeybindingService.unavailable(),
+                GuidePreferences.unavailable());
     }
 
     /** Runtime-supplied panel docking actions for the framework shell. */
@@ -57,5 +59,6 @@ public record ShellServices(
         logs = Objects.requireNonNull(logs, "logs");
         update = Objects.requireNonNull(update, "update");
         keybindings = Objects.requireNonNull(keybindings, "keybindings");
+        guide = Objects.requireNonNull(guide, "guide");
     }
 }

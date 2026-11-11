@@ -50,6 +50,8 @@ public final class MainToolbarHomeEntryService {
     public static final String LOGS_ACTION_ID = "turboism.core.logs.open";
     public static final String KEYBINDINGS_ACTION_ID = "turboism.core.keybindings.open";
     public static final String ABOUT_ACTION_ID = "turboism.core.about.open";
+    public static final String GUIDE_ACTION_ID = "turboism.core.guide.open";
+    public static final String GUIDE_MENU_LABEL_KEY = "main-toolbar.guide-menu.label";
     public static final String INSTALL_ACTION_ID = "turboism.core.plugins.install";
     public static final EmbeddedPanelId TURBOISM_PANEL_ID = EmbeddedPanelId.of("turboism.panel.main");
 
@@ -176,6 +178,15 @@ public final class MainToolbarHomeEntryService {
                 icons,
                 MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                 ORDER));
+    }
+
+    /**
+     * Contributes the product guide item under the Turboism menu, before every other item.
+     *
+     * @return the menu registration; closing it removes the item
+     */
+    public Registration registerGuideMenu() {
+        return menu(localization.text(GUIDE_MENU_LABEL_KEY), GUIDE_ACTION_ID, ORDER - 1);
     }
 
     /**

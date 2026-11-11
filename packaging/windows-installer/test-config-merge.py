@@ -132,7 +132,7 @@ CURRENT_SCHEMA = 1
 V1_FIELDS = {
     "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
     "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-    "hooks", "launcher", "textureAtlas", "reduceAutoBackup",
+    "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
     "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
 }
 LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
@@ -142,6 +142,7 @@ STARTUP_FIELDS = {
     "skipUpdateCheck", "skipSplash", "skipInformation",
     "separateExportSaveDirectory",
 }
+GUIDE_FIELDS = {"showOnStartup"}
 LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath", "zgc", "memoryProfile", "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision", "meshSetupElision", "inputPathElision", "mesaGlThread", "asyncReadback", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision", "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass"}
 TEXTURE_ATLAS_FIELDS = {"algorithmId", "parallel"}
 LEGACY_ROOT_LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath"}
@@ -238,6 +239,12 @@ def validate_v1(doc):
                 raise ValueError("textureAtlas.algorithmId is invalid")
         if "parallel" in atlas and type(atlas["parallel"]) is not bool:
             raise ValueError("textureAtlas.parallel must be boolean")
+    if "guide" in doc:
+        guide = doc["guide"]
+        if not isinstance(guide, dict) or set(guide) - GUIDE_FIELDS:
+            raise ValueError("guide is invalid")
+        if "showOnStartup" in guide and type(guide["showOnStartup"]) is not bool:
+            raise ValueError("guide.showOnStartup must be boolean")
     return doc
 
 
@@ -314,6 +321,12 @@ def normalize_v1(doc):
         if type(doc["textureAtlas"].get("parallel")) is bool:
             atlas["parallel"] = doc["textureAtlas"]["parallel"]
         normalized["textureAtlas"] = atlas
+    if isinstance(doc.get("guide"), dict):
+        guide = {}
+        if type(doc["guide"].get("showOnStartup")) is bool:
+            guide["showOnStartup"] = doc["guide"]["showOnStartup"]
+        if guide:
+            normalized["guide"] = guide
     launcher = {}
     source_launcher = doc.get("launcher")
     if isinstance(source_launcher, dict):
@@ -364,6 +377,7 @@ def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_I
             "worktreeId": "turboism-runtime",
             "pluginDirs": ["plugins"],
             "useTextIcon": False,
+            "guide": {"showOnStartup": True},
             "launcher": {"cubismJvm": "graalvm"},
         }
     else:
@@ -1593,7 +1607,8 @@ def main():
     doc = json.loads(out)
     check("T1 模板字段", doc["worktreeId"] == "turboism-runtime" and doc["pluginDirs"] == ["plugins"]
           and doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1
-          and doc["launcher"] == {"cubismJvm": "graalvm"} and doc["useTextIcon"] is False)
+          and doc["launcher"] == {"cubismJvm": "graalvm"} and doc["useTextIcon"] is False
+          and doc["guide"] == {"showOnStartup": True})
     check("T1 无 disabledPlugins", "disabledPlugins" not in doc)
 
     # T2: Full、未勾选 2 个、无既有配置 → 升序写出
@@ -1604,6 +1619,20 @@ def main():
     expected_fragment = '"disabledPlugins":["' + a + '","' + c + '"]'
     check('T2b JSON 数组形状（无多余引号、"," 分隔）', expected_fragment in out,
           "fragment=%s" % expected_fragment + " out=%s" % out[:160])
+
+    # T10: 引导状态必须跨安装器升级保留 —— 丢失后“只看一次”的引导会再次弹出。
+    current_guide = ('{"format":"turboism.runtime.config","schemaVersion":1,'
+                     '"worktreeId":"guide-test","disabledPlugins":[],'
+                     '"guide":{"showOnStartup":false}}')
+    out = installer_write_config("full", [a], current_guide)
+    check("T10 current v1 更新保留引导状态",
+          json.loads(out)["guide"] == {"showOnStartup": False})
+    legacy_guide = '{"worktreeId":"legacy-guide","guide":{"showOnStartup":false},"future":1}'
+    out = installer_write_config("full", [], legacy_guide)
+    check("T10 归一化保留引导状态",
+          json.loads(out)["guide"] == {"showOnStartup": False})
+    out = installer_write_config("full", [], '{"guide":{"showOnStartup":"no"}}')
+    check("T10 非法引导状态被丢弃", "guide" not in json.loads(out))
 
     # T3: a Full install applies the current selection: a checked bundled plugin is enabled
     # and an unrelated disabled id survives.

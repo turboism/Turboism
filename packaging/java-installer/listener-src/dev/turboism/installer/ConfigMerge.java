@@ -843,7 +843,7 @@ final class ConfigMerge {
     private static final Set<String> V1_FIELDS = Set.of(
             "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
             "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-            "hooks", "launcher", "textureAtlas", "reduceAutoBackup",
+            "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
             "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex");
     private static final Set<String> LOG_LEVELS = Set.of(
             "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
@@ -853,6 +853,7 @@ final class ConfigMerge {
             "disabledIds", "denylistedClasses", "startup");
     private static final Set<String> STARTUP_FIELDS = Set.of(
             "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory");
+    private static final Set<String> GUIDE_FIELDS = Set.of("showOnStartup");
     private static final Set<String> LAUNCHER_FIELDS = Set.of(
             "cubismJvm", "graalVmPath", "zgc", "memoryProfile",
             "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision", "meshSetupElision",
@@ -1017,6 +1018,15 @@ final class ConfigMerge {
                     throw new ConfigException(
                             "existing config.json launcher.graalVmPath is invalid");
                 }
+            }
+        }
+
+        if (map.containsKey("guide")) {
+            final Map<?, ?> guide = requireObject(map.get("guide"), "guide");
+            requireAllowedFields(guide, GUIDE_FIELDS, "guide");
+            if (guide.containsKey("showOnStartup") && !(guide.get("showOnStartup") instanceof Boolean)) {
+                throw new ConfigException(
+                        "existing config.json guide.showOnStartup must be a boolean");
             }
         }
 
@@ -1195,6 +1205,16 @@ final class ConfigMerge {
                 hooks.put("startup", startup);
             }
             normalized.put("hooks", hooks);
+        }
+
+        if (source.get("guide") instanceof Map<?, ?> sourceGuide) {
+            final Map<String, Object> guide = new LinkedHashMap<>();
+            if (sourceGuide.get("showOnStartup") instanceof Boolean showOnStartup) {
+                guide.put("showOnStartup", showOnStartup);
+            }
+            if (!guide.isEmpty()) {
+                normalized.put("guide", guide);
+            }
         }
 
         if (source.get("textureAtlas") instanceof Map<?, ?>) {

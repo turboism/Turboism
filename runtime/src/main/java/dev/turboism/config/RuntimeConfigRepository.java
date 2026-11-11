@@ -331,6 +331,10 @@ public final class RuntimeConfigRepository {
         startup.put("skipUpdateCheck", true);
         startup.put("skipSplash", true);
         startup.put("skipInformation", true);
+        // Optional section: an absent value opens the one-time guide, exactly like an upgrade
+        // from a build that predates it. The runtime records the dismissal here.
+        root.putObject(RuntimeGuidePreferences.GUIDE_FIELD)
+                .put(RuntimeGuidePreferences.SHOW_ON_STARTUP_FIELD, RuntimeGuidePreferences.DEFAULT_SHOW_ON_STARTUP);
         root.putObject("launcher").put("cubismJvm", "graalvm");
         return root;
     }

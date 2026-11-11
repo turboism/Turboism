@@ -46,6 +46,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final dev.turboism.internal.core.CubismJvmSettingsService cubismJvmSettings;
     private final dev.turboism.internal.core.OptimizationSettingsService optimizationSettings;
     private final dev.turboism.internal.core.CoreUpdateService updateService;
+    private final dev.turboism.internal.core.GuidePreferences guidePreferences;
     private final KernelLog log;
     private final PluginLifecyclePolicy lifecyclePolicy;
     private final PluginLifecycleLane lifecycleLane;
@@ -375,6 +376,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this.cubismJvmSettings = resources.cubismJvmSettings();
         this.optimizationSettings = resources.optimizationSettings();
         this.updateService = resources.updateService();
+        this.guidePreferences =
+                new dev.turboism.config.RuntimeGuidePreferences(home, message -> log.warn("config", message));
         this.lifecyclePolicy = resources.lifecyclePolicy();
         this.lifecycleLane = resources.lifecycleLane();
         this.retention = resources.retention();
@@ -473,7 +476,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                                 dev.turboism.ui.panel.NativePanelTabFloatingBridge::toggle,
                                 log,
                                 updateService,
-                                keybindingService),
+                                keybindingService,
+                                guidePreferences),
                         lifecyclePolicy,
                         lifecycleLane,
                         retention,

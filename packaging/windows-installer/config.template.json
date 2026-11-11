@@ -4,6 +4,9 @@
   "worktreeId": "turboism-runtime",
   "pluginDirs": ["plugins"],
   "useTextIcon": false,
+  "guide": {
+    "showOnStartup": true
+  },
   "hooks": {
     "startup": {
       "skipUpdateCheck": true,

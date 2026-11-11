@@ -61,6 +61,21 @@ class RuntimeConfigValidatorTest {
     }
 
     @Test
+    void acceptsGuidePreferenceAndRejectsUnknownOrNonBooleanValues() {
+        final ObjectNode accepted = base();
+        accepted.withObject("guide").put("showOnStartup", false);
+        assertTrue(validator.validate(accepted, "test.json").isEmpty());
+
+        final ObjectNode nonBoolean = base();
+        nonBoolean.withObject("guide").put("showOnStartup", "false");
+        assertTrue(codes(nonBoolean).contains("RUNTIME_CONFIG_BAD_TYPE"));
+
+        final ObjectNode unknownChild = base();
+        unknownChild.withObject("guide").put("mystery", true);
+        assertTrue(codes(unknownChild).contains("RUNTIME_CONFIG_UNKNOWN_FIELD"));
+    }
+
+    @Test
     void acceptsEdgeIndexBooleansAndRejectsNonBooleanValues() {
         for (final boolean value : new boolean[] {false, true}) {
             final ObjectNode root = base();

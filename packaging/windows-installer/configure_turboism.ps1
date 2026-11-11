@@ -241,7 +241,7 @@ function Assert-RuntimeConfigV1 {
     Assert-RuntimeAllowedProperties $Document @(
         "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-        "hooks", "launcher", "textureAtlas", "reduceAutoBackup",
+        "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex"
     ) "config.json"
 
@@ -393,6 +393,18 @@ function Assert-RuntimeConfigV1 {
             throw "textureAtlas.parallel must be a boolean"
         }
     }
+
+    $guideProperty = $Document.PSObject.Properties["guide"]
+    if ($null -ne $guideProperty) {
+        $guide = $guideProperty.Value
+        Assert-RuntimeAllowedProperties $guide @(
+            "showOnStartup"
+        ) "guide"
+        $showOnStartup = $guide.PSObject.Properties["showOnStartup"]
+        if ($null -ne $showOnStartup -and $showOnStartup.Value -isnot [bool]) {
+            throw "config.json guide.showOnStartup must be a boolean"
+        }
+    }
 }
 
 function Test-RuntimeConfigGraalVmPathValue {
@@ -430,7 +442,7 @@ function Convert-RuntimeConfigToV1 {
     foreach ($name in @(
         "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-        "hooks", "launcher", "textureAtlas", "reduceAutoBackup",
+        "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
         "cubismJvm", "graalVmPath"
     )) { [void]$known.Add($name) }
@@ -574,6 +586,26 @@ function Convert-RuntimeConfigToV1 {
             $normalized["textureAtlas"] = [pscustomobject]$textureAtlas
         }
         else { [void]$dropped.Add("textureAtlas") }
+    }
+
+    $guideProperty = $Document.PSObject.Properties["guide"]
+    if ($null -ne $guideProperty) {
+        if ($guideProperty.Value -is [pscustomobject]) {
+            $guide = [ordered]@{}
+            foreach ($property in $guideProperty.Value.PSObject.Properties) {
+                if ($property.Name -cne "showOnStartup") {
+                    [void]$dropped.Add("guide." + $property.Name)
+                }
+                elseif ($property.Value -is [bool]) {
+                    $guide["showOnStartup"] = $property.Value
+                }
+                else { [void]$dropped.Add("guide.showOnStartup") }
+            }
+            if ($guide.Count -gt 0) {
+                $normalized["guide"] = [pscustomobject]$guide
+            }
+        }
+        else { [void]$dropped.Add("guide") }
     }
 
     $launcher = [ordered]@{}

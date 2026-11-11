@@ -106,6 +106,7 @@ document unreadable (§3.4). Per-release field admission, derived from
 | `v0.68.1-beta.1` (→ no stable) | — | `shaderUniform`, `matrixScratch`, `imageArchiveReuse`, `floatArrayParseCache`, `textureUploadPreparation`, `warpPositionProjection` |
 | `v0.68.1-0.nightly.87` | — | `incrementalUpdateAffecters` |
 | `v0.68.1-0.nightly.88` (current) | — | `clipMaskDeduplication`, `clipMaskScissorClear`, `extendedInterpolationIncrementalSetup`, `modelInstanceCoalesce`, `inspectorPropertyBypass`, `reinitPairElision` |
+| `v0.70.0` (unreleased) | `guide` | — |
 
 `hooks.startup` already carries `separateExportSaveDirectory` in `v0.42.0` and does not change after.
 `textureAtlas` has exactly `algorithmId` and `parallel`.
