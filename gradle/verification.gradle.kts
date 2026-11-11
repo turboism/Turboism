@@ -706,6 +706,24 @@ val checkOfficialPluginReadmes by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/check_official_plugin_readmes.py")
 }
 
+/*
+ * A mesh-toolbar icon without DPI variants makes the host enlarge the 32px bitmap on a scaled
+ * display, so the button turns blurry. The check is cheap: it reads only descriptors and PNG
+ * headers, so it stays in the daily gate.
+ */
+val checkToolbarIconScaleVariants by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Rejects a mesh-toolbar icon that ships without its 40, 48, 56 and 64 pixel variants."
+    workingDir(rootDir)
+    inputs.file("scripts/test/check_toolbar_icon_scale_variants.py")
+    inputs.files(fileTree("plugins") {
+        include("*/src/main/resources/META-INF/turboism/plugin.json")
+        include("*/src/main/resources/icons/**/*.png")
+    })
+    VerificationStamps.apply(this)
+    commandLine("python3", "scripts/test/check_toolbar_icon_scale_variants.py")
+}
+
 val pluginEventReferenceReport = layout.buildDirectory.file(
     "reports/plugin-events/plugin-public-events.md"
 )

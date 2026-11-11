@@ -3,6 +3,10 @@
 
 The six 32px states, each in a light and a "-dark" variant, retain the toolbar's neutral palette and pressed/selected
 contrast, with a Turboism corner signature to identify the plugin tool.
+
+The script writes the 32px base raster plus the 40/48/56/64px DPI variants that
+``ToolbarIconLoader.scaleVariantPath`` resolves as ``.scale-125`` through ``.scale-200``. Every size is
+downsampled from the same 8x working raster, and the corner badge keeps its proportional size.
 """
 
 import math
@@ -17,6 +21,8 @@ from plugin_icon_badge import with_plugin_badge
 
 SIZE = 32
 SCALE = 8
+# DPI variants the runtime resolves by name; each entry is the ToolbarIconLoader suffix and its pixel size.
+DPI_VARIANTS = (("125", 40), ("150", 48), ("175", 56), ("200", 64))
 OUTPUT = Path(__file__).resolve().parents[1] / "src/main/resources/icons"
 
 STATES = (
@@ -86,7 +92,7 @@ def glyph_mask():
     return mask
 
 
-def render(background, frame, foreground, mask):
+def render(background, frame, foreground, mask, size):
     image = Image.new("RGBA", (SIZE * SCALE, SIZE * SCALE))
     draw = ImageDraw.Draw(image)
     if background is not None:
@@ -101,18 +107,27 @@ def render(background, frame, foreground, mask):
             fill=background,
         )
     image.paste(foreground, (0, 0, SIZE * SCALE, SIZE * SCALE), mask)
-    return image.resize((SIZE, SIZE), Image.Resampling.LANCZOS)
+    return image.resize((size, size), Image.Resampling.LANCZOS)
 
 
 def main():
+    # The committed 32px raster is the reviewed artifact: a rerun refreshes the DPI variants from
+    # the same drawing, and rewrites the base only when the artwork itself changed.
+    redraw_base = "--base" in sys.argv[1:]
     OUTPUT.mkdir(parents=True, exist_ok=True)
     mask = glyph_mask()
     variants = [(s, "") for s in STATES] + [(s, "-dark") for s in DARK_STATES]
     for (suffix, background, frame, foreground), theme in variants:
-        path = OUTPUT / f"geometric-mesh-layout{suffix}{theme}.png"
-        image = render(background, frame, foreground, mask)
-        with_plugin_badge(image, disabled="disabled" in suffix).save(path, optimize=True)
-        print(path.relative_to(OUTPUT.parent))
+        stem = f"geometric-mesh-layout{suffix}{theme}"
+        sizes = [(SIZE, stem)] + [(size, f"{stem}.scale-{scale}") for scale, size in DPI_VARIANTS]
+        for size, name in sizes:
+            path = OUTPUT / f"{name}.png"
+            if size == SIZE and path.exists() and not redraw_base:
+                print(f"kept {path.relative_to(OUTPUT.parent)} (pass --base after an artwork change)")
+                continue
+            image = render(background, frame, foreground, mask, size)
+            with_plugin_badge(image, disabled="disabled" in suffix).save(path, optimize=True)
+            print(path.relative_to(OUTPUT.parent))
 
 
 if __name__ == "__main__":
