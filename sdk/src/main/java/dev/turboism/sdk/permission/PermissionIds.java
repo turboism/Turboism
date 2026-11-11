@@ -8,7 +8,6 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -131,8 +130,10 @@ public final class PermissionIds {
          * @throws IllegalStateException when the resource is absent, unreadable, empty or duplicated
          */
         private static List<String> load() {
-            final ClassLoader loader = Objects.requireNonNull(Vocabulary.class.getClassLoader(), "SDK class loader");
-            try (InputStream stream = loader.getResourceAsStream(RESOURCE)) {
+            final ClassLoader loader = Vocabulary.class.getClassLoader();
+            try (InputStream stream = loader != null
+                    ? loader.getResourceAsStream(RESOURCE)
+                    : ClassLoader.getSystemResourceAsStream(RESOURCE)) {
                 if (stream == null) {
                     throw new IllegalStateException("Permission vocabulary resource is missing: " + RESOURCE);
                 }

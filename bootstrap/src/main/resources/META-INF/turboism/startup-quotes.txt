@@ -1,0 +1,33 @@
+# Motto catalog for the startup loading window.
+#
+# One quote per line, shown under the title while Cubism starts. The window picks
+# one line at random on every launch. Lines starting with '#' and blank lines are
+# ignored, so a reviewer edits wording without touching code.
+#
+# Keep every line short: the window is undecorated and centered, so a long line
+# widens it. A line above the loader's character cap is elided, not rejected.
+Wake up, samurai.
+海内存知己，天涯若比邻。
+锟斤拷烫烫烫
+A.T.フィールド、全開！
+직면하라, 그리고 창조하라.
+일어나라.
+Ghost in the machine.
+It works on my machine.
+Protocol 3: Protect the Pilot.
+Wake up, Neo..
+Hello, World.
+Like tears in rain
+See you space cowboy.
+Link Start!
+El Psy Kongroo.
+ネットは広大だわ
+티나, 준비됐다.
+少女祈祷中
+one two three four
+私、私、言えないことばっかり
+アストロノーツ
+直到鲜花挂满枝头
+冰冷, 抖动
+下雨了, 在平原上
+雨夜, 高架桥, 迈巴赫

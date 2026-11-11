@@ -794,7 +794,7 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         @Override
         public Thread newThread(final Runnable task) {
             return RuntimeThreads.daemonThreadsWithFixedName(
-                            "turboism-update-check", RuntimeUpdateService.class.getClassLoader())
+                            "turboism-update-check", RuntimeThreads.contextClassLoader(RuntimeUpdateService.class))
                     .newThread(task);
         }
     }

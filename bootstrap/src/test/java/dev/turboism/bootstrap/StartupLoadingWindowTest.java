@@ -126,6 +126,9 @@ class StartupLoadingWindowTest {
             final Dialog window = awaitWindow();
             final AtomicReference<Dimension> initial = new AtomicReference<>();
             EventQueue.invokeAndWait(() -> initial.set(window.getSize()));
+            // The motto is drawn at random on every launch, so this loop is the regression guard
+            // for a short motto: the window must be sized for every progress message up front
+            // instead of jumping wider when the first phase replaces the motto.
             for (final StartupLoadingWindow.Phase phase : List.of(
                     StartupLoadingWindow.Phase.INITIALIZING,
                     StartupLoadingWindow.Phase.PLUGINS,
@@ -135,6 +138,30 @@ class StartupLoadingWindowTest {
                 final AtomicReference<Dimension> current = new AtomicReference<>();
                 EventQueue.invokeAndWait(() -> current.set(window.getSize()));
                 assertEquals(initial.get(), current.get(), "Progress phases must not resize the loading window");
+            }
+        }
+        assertNoWindow();
+    }
+
+    /**
+     * A short motto must not leave the window narrower than the widest progress message: the
+     * window is sized for every phase up front, so the first phase switch cannot resize it.
+     */
+    @Test
+    void shortestMottoStillFitsEveryProgressMessageWithoutResizing() throws Exception {
+        try (StartupLoadingWindow loading = StartupLoadingWindow.openWithMotto("x")) {
+            final Dialog window = awaitWindow();
+            final AtomicReference<Dimension> initial = new AtomicReference<>();
+            EventQueue.invokeAndWait(() -> initial.set(window.getSize()));
+            for (final StartupLoadingWindow.Phase phase : List.of(
+                    StartupLoadingWindow.Phase.INITIALIZING,
+                    StartupLoadingWindow.Phase.PLUGINS,
+                    StartupLoadingWindow.Phase.INTERFACE)) {
+                loading.phase(phase);
+                Thread.sleep(120L);
+                final AtomicReference<Dimension> current = new AtomicReference<>();
+                EventQueue.invokeAndWait(() -> current.set(window.getSize()));
+                assertEquals(initial.get(), current.get(), "A short motto must not resize the window later");
             }
         }
         assertNoWindow();
