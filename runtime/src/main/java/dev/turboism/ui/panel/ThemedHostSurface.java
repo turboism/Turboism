@@ -13,13 +13,14 @@ import javax.swing.UIManager;
  *
  * <p>A host container built by the editor keeps the background it resolved when it was created, so
  * a container that the runtime injects into after a theme change would otherwise show the native
- * colour. One surface paints exactly one themed background behind the host's own content; the
- * injected rows and labels stay transparent, so the host never draws a box behind each of them.</p>
+ * colour. One surface paints exactly one themed background behind the host's own content, and the
+ * same ownership recolours the plated icons of the hosted buttons, so the host never draws a light
+ * box behind each of them.</p>
  *
- * <p>The owner count keeps the original background safe when several controls share one host
+ * <p>The owner count keeps the original appearance safe when several controls share one host
  * container: the surface is restored only after the last owner releases it. Call the mutators on
  * the Swing event dispatch thread, and call {@link #refresh()} when the look and feel changes so a
- * live theme switch repaints the same surface.</p>
+ * live theme switch repaints the same surface and recolours the same icons.</p>
  */
 public final class ThemedHostSurface {
 
@@ -28,9 +29,11 @@ public final class ThemedHostSurface {
     private static final int FIRST_OWNER = 1;
 
     private final Map<JComponent, Surface> surfaces = new IdentityHashMap<>();
+    private final ThemedNativeIcons icons = new ThemedNativeIcons();
 
     /**
-     * Paints the themed background on one host surface and records its original appearance.
+     * Paints the themed background on one host surface, recolours its plated icons, and records the
+     * original appearance.
      *
      * <p>Repeated calls for the same component add owners instead of nesting state, so a control
      * that installs and uninstalls repeatedly never loses the appearance it must restore.</p>
@@ -47,6 +50,7 @@ public final class ThemedHostSurface {
             existing.owners++;
         }
         apply(surface);
+        icons.decorate(surface);
     }
 
     /**
@@ -64,18 +68,21 @@ public final class ThemedHostSurface {
         existing.owners--;
         if (existing.owners > 0) return;
         surfaces.remove(surface);
+        icons.restore(surface);
         surface.setBackground(existing.background);
         surface.setOpaque(existing.opaque);
         surface.repaint();
     }
 
     /**
-     * Reapplies the current themed background to every owned surface.
+     * Reapplies the current themed appearance to every owned surface.
      *
      * <p>Call this after the look and feel changed, because a component that was already resolved
-     * would otherwise keep the previous theme's colour.</p>
+     * would otherwise keep the previous theme's colour and the previous theme's glyph tint. A theme
+     * that left restores the shipped host icons.</p>
      */
     public void refresh() {
+        icons.refresh();
         for (JComponent surface : List.copyOf(surfaces.keySet())) {
             apply(surface);
             surface.repaint();
