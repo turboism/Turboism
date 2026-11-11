@@ -20,6 +20,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Routes one native Auto Mesh Generate confirmation to the Editor's generator or to a registered
@@ -34,6 +35,12 @@ import java.util.concurrent.TimeoutException;
  * holds in both directions: one rejected or missing result writes nothing, and a refused
  * transaction leaves every target untouched.</p>
  *
+ * <p>The plugin returns one layout. A target that stores ordinary keyforms receives that layout in
+ * every form: the write installs the new source topology and then submits the positions derived
+ * for each form in one compare-and-set batch, so the result equals the Editor's own generator and
+ * one Undo reverts it. A form the batch cannot address, or a stored bank that the topology write
+ * does not keep, refuses the write before or inside the transaction.</p>
+ *
  * <p>Two preconditions are checked, once before the compute and once before the write: no native
  * Undo group may be open, and the targets must be readable. The host binds the Undo precondition at
  * the milestone that injects the native entry, so the framework never nests its transaction inside
@@ -47,8 +54,8 @@ public final class AutoMeshDispatch {
     /** Reason code of a target whose SDK reads failed before the run started. */
     public static final String REASON_TARGET_UNREADABLE = "target-unreadable";
 
-    /** Reason code of a multi-keyform target the selected algorithm cannot remap. */
-    public static final String REASON_MULTI_KEYFORM = "multi-keyform";
+    /** Reason code of a keyformed target whose stored forms the host cannot expose. */
+    public static final String REASON_KEYFORM_UNREADABLE = "keyform-unreadable";
 
     /** Reason code of a selection whose algorithm disappeared before the run started. */
     public static final String REASON_ALGORITHM_UNAVAILABLE = "algorithm-unavailable";
@@ -62,7 +69,8 @@ public final class AutoMeshDispatch {
     private static final String MESSAGE_NO_TARGETS = "Select at least one ArtMesh.";
     private static final String MESSAGE_TARGET_UNREADABLE =
             "A selected ArtMesh cannot be read, so the run did not start.";
-    private static final String MESSAGE_MULTI_KEYFORM = "The algorithm cannot keep the keyforms of ";
+    private static final String MESSAGE_KEYFORM_UNREADABLE = "The Editor cannot read the keyforms of ";
+    private static final String MESSAGE_SUFFIX = ".";
     private static final String MESSAGE_ALGORITHM_UNAVAILABLE = "The selected algorithm is no longer available.";
     private static final String MESSAGE_NATIVE_UNDO_OPEN =
             "Finish the current Editor operation before generating a mesh.";
@@ -73,6 +81,9 @@ public final class AutoMeshDispatch {
     private static final String MESSAGE_UI_REJECTED = "The Editor refused the auto-mesh result.";
     private static final String DIAGNOSTIC_PREFIX = " (";
     private static final String DIAGNOSTIC_SUFFIX = ")";
+
+    /** Keyform count of a target that stores its neutral form only. */
+    private static final int SINGLE_KEYFORM_COUNT = 1;
 
     private final AutoMeshRequestBuilder requestBuilder;
     private final AutoMeshExecutor executor;
@@ -133,9 +144,9 @@ public final class AutoMeshDispatch {
             FatalErrors.rethrowIfFatal(unreadable);
             return new DispatchOutcome.Refused(REASON_TARGET_UNREADABLE, MESSAGE_TARGET_UNREADABLE);
         }
-        final DispatchOutcome refused = refuseMultiKeyform(algorithm, requests);
-        if (refused != null) {
-            return refused;
+        final DispatchOutcome unreadableKeyforms = refuseUnreadableKeyforms(requests, targets);
+        if (unreadableKeyforms != null) {
+            return unreadableKeyforms;
         }
         return start(algorithm, requests, targets);
     }
@@ -150,15 +161,26 @@ public final class AutoMeshDispatch {
         return List.copyOf(requests);
     }
 
-    private static DispatchOutcome refuseMultiKeyform(
-            final AutoMeshAlgorithm algorithm, final List<AutoMeshRequest> requests) {
-        if (algorithm.supportsMultiKeyform()) {
-            return null;
-        }
-        for (final AutoMeshRequest request : requests) {
-            if (request.keyformCount() > 1) {
+    /**
+     * Refuses a keyformed target whose stored forms the host cannot read.
+     *
+     * <p>The keyform-complete write needs the stored bank to derive each form's positions. A host
+     * without that read can only replace the form the Editor evaluates, so the run must not start
+     * and silently drop the other forms.</p>
+     */
+    private static DispatchOutcome refuseUnreadableKeyforms(
+            final List<AutoMeshRequest> requests, final List<Drawable> targets) {
+        for (int index = 0; index < requests.size(); index++) {
+            final AutoMeshRequest request = requests.get(index);
+            if (request.keyformCount() <= SINGLE_KEYFORM_COUNT) {
+                continue;
+            }
+            try {
+                targets.get(index).authoringSnapshot();
+            } catch (RuntimeException unavailable) {
+                FatalErrors.rethrowIfFatal(unavailable);
                 return new DispatchOutcome.Refused(
-                        REASON_MULTI_KEYFORM, MESSAGE_MULTI_KEYFORM + request.targetId() + ".");
+                        REASON_KEYFORM_UNREADABLE, MESSAGE_KEYFORM_UNREADABLE + request.targetId() + MESSAGE_SUFFIX);
             }
         }
         return null;
@@ -224,6 +246,21 @@ public final class AutoMeshDispatch {
 
     private void write(final RuntimeRun run, final List<ArtMeshGeometry> geometries, final String summary) {
         final List<Drawable> targets = run.targets();
+        // Derive before the transaction opens, so a form the batch cannot address leaves no Undo entry.
+        final List<Optional<AutoMeshKeyformLayout>> keyforms = new ArrayList<>(targets.size());
+        try {
+            for (int index = 0; index < targets.size(); index++) {
+                keyforms.add(AutoMeshKeyformLayout.of(targets.get(index), geometries.get(index)));
+            }
+        } catch (AutoMeshKeyformLayout.Refusal refused) {
+            run.settle(keyformRejection(refused));
+            return;
+        } catch (RuntimeException failed) {
+            FatalErrors.rethrowIfFatal(failed);
+            run.settle(new DispatchResult(DispatchResult.Status.FAILED, AutoMeshFailures.describe(failed), List.of()));
+            return;
+        }
+        final AtomicReference<AutoMeshKeyformLayout.Refusal> refusal = new AtomicReference<>();
         final AuthoringTransactionResult<List<ArtMeshId>> transaction;
         try {
             transaction = transactions.execute(AuthoringTransactionOptions.of(UNDO_LABEL), () -> {
@@ -231,21 +268,67 @@ public final class AutoMeshDispatch {
                 for (int index = 0; index < targets.size(); index++) {
                     final Drawable target = targets.get(index);
                     target.replaceGeometry(geometries.get(index));
+                    commitKeyforms(target, geometries.get(index), keyforms.get(index), refusal);
                     written.add(target.id());
                 }
                 return List.copyOf(written);
             });
         } catch (RuntimeException failed) {
             FatalErrors.rethrowIfFatal(failed);
+            final AutoMeshKeyformLayout.Refusal rejected = keyformRefusal(failed, refusal.get());
+            if (rejected != null) {
+                run.settle(keyformRejection(rejected));
+                return;
+            }
             run.settle(new DispatchResult(DispatchResult.Status.FAILED, AutoMeshFailures.describe(failed), List.of()));
             return;
         }
         final List<ArtMeshId> written = transaction.value().orElse(null);
         if (written == null) {
+            final AutoMeshKeyformLayout.Refusal rejected = refusal.get();
+            if (rejected != null) {
+                run.settle(keyformRejection(rejected));
+                return;
+            }
             run.settle(new DispatchResult(DispatchResult.Status.REJECTED, transactionRefused(transaction), List.of()));
             return;
         }
         run.settle(new DispatchResult(DispatchResult.Status.APPLIED, summary, written));
+    }
+
+    /**
+     * Applies one derived keyform batch after its topology write and aborts on a refusal.
+     *
+     * <p>The transaction must roll back a refusal, so the signal leaves the callback. The recorded
+     * reference survives services that convert the callback failure into a rolled-back result.</p>
+     */
+    private static void commitKeyforms(
+            final Drawable target,
+            final ArtMeshGeometry layout,
+            final Optional<AutoMeshKeyformLayout> keyforms,
+            final AtomicReference<AutoMeshKeyformLayout.Refusal> refusal) {
+        try {
+            keyforms.ifPresent(value -> value.apply(target, layout));
+        } catch (AutoMeshKeyformLayout.Refusal rejected) {
+            refusal.set(rejected);
+            throw rejected;
+        }
+    }
+
+    private static DispatchResult keyformRejection(final AutoMeshKeyformLayout.Refusal refused) {
+        return new DispatchResult(DispatchResult.Status.REJECTED, refused.getMessage(), List.of());
+    }
+
+    private static AutoMeshKeyformLayout.Refusal keyformRefusal(
+            final Throwable failure, final AutoMeshKeyformLayout.Refusal recorded) {
+        Throwable current = failure;
+        while (current != null) {
+            if (current instanceof AutoMeshKeyformLayout.Refusal rejected) {
+                return rejected;
+            }
+            current = current.getCause();
+        }
+        return recorded;
     }
 
     private static DispatchResult unsettledFailure(final Throwable failure) {

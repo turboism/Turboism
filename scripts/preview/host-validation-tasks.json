@@ -5666,7 +5666,7 @@
       }
     },
     "automesh": {
-      "description": "Auto Mesh framework end-to-end validation: algorithm registry, native funnel guard, custom dispatch with Undo/Redo, multi-keyform refusal and the selector row.",
+      "description": "Auto Mesh framework end-to-end validation: algorithm registry, native funnel guard, custom dispatch with Undo/Redo, multi-keyform bank preservation and the selector row.",
       "command": "scripts/preview/run-automesh-framework-host-validation.sh",
       "versions": [
         "5200",

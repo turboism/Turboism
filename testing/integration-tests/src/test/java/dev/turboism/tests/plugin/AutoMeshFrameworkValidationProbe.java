@@ -9,13 +9,16 @@ import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.mesh.automesh.AlgorithmPreset;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithmRegistry;
+import dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Drawable;
+import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.TexturePixels;
 import dev.turboism.sdk.plugin.PluginContext;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +51,7 @@ import javax.swing.SwingUtilities;
  *   <li>{@code turboism.automeshValidation.meshIds} — comma-separated ArtMesh ids to probe; an
  *       absent id is skipped with a recorded reason
  *   <li>{@code turboism.automeshValidation.multiKeyformMeshIds} — comma-separated ArtMesh ids that
- *       carry more than one keyform
+ *       carry more than one ordinary keyform and no morph target
  *   <li>{@code turboism.automeshValidation.dumpDir} — absolute dump directory the offline renderer
  *       reads
  *   <li>{@code turboism.automeshValidation.stepTimeoutSeconds} — budget of one host step
@@ -86,6 +89,9 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
 
     /** Absolute triangle area at or below which a triangle counts as degenerate. */
     static final double DEGENERATE_AREA_TOLERANCE = 1.0e-9;
+
+    /** Absolute position tolerance of the derived keyform bounds check. */
+    static final float KEYFORM_BOUNDS_TOLERANCE = 1.0e-3f;
 
     /** Native Undo label the framework publishes for one custom run. */
     static final String UNDO_LABEL = "Auto Mesh";
@@ -189,7 +195,7 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
             checkGuardInstalled();
             checkNativePathDeterministic(dumpRoot);
             checkCustomPath(dumpRoot);
-            checkMultiKeyformRefusal();
+            checkMultiKeyformBank();
             checkSelectorRow(dumpRoot);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
@@ -630,30 +636,31 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
                 statusOf(iou >= MINIMUM_ALPHA_IOU));
     }
 
-    // --- e. Multi-keyform refusal -----------------------------------------
+    // --- e. Multi-keyform bank --------------------------------------------
 
     /**
-     * Proves the framework refuses a multi-keyform target instead of collapsing its keyforms.
+     * Proves a custom run keeps every stored form of a keyformed ArtMesh.
      *
-     * <p>The check is a refusal check, not a run check: the geometry must be identical afterwards and
-     * no Undo entry may appear, because a native fallback would silently ignore the user's algorithm
-     * choice.</p>
+     * <p>The runtime derives each ordinary form from the one plugin layout, so an applied run must
+     * keep the form identities, give every form the new vertex count, and hold every form inside
+     * its own original bounds. Exactly one Undo entry must revert geometry and forms together; the
+     * check restores the fixture with that entry.</p>
      *
      * @throws Exception when the host refuses a read
      */
-    private void checkMultiKeyformRefusal() throws Exception {
+    private void checkMultiKeyformBank() throws Exception {
         final Optional<Drawable> target = multiKeyformTarget();
         if (target.isEmpty()) {
             record(
                     "multiKeyform.target",
-                    "an ArtMesh with more than one keyform",
+                    "an ArtMesh with more than one ordinary keyform",
                     ABSENT_SKIPPED,
                     AutoMeshProbeStatus.INFO);
             return;
         }
         final String id = target.orElseThrow().id().value();
-        final ArtMeshGeometry original = geometryOf(id);
-        final String originalDigest = AutoMeshGeometryDigest.of(original);
+        final ArtMeshAuthoringSnapshot before = authoringOf(id);
+        final String originalDigest = AutoMeshGeometryDigest.of(geometryOf(id));
         final int historyBefore = historySize();
         final Optional<AutoMeshAlgorithm> algorithm = registry().find(REGION_ALGORITHM_ID);
         if (algorithm.isEmpty()) {
@@ -663,20 +670,44 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
         registry().select(REGION_ALGORITHM_ID);
         runFunnel(id, true);
         registry().select(NATIVE_ALGORITHM_ID);
-        final String afterDigest = AutoMeshGeometryDigest.of(geometryOf(id));
+        final boolean applied = !originalDigest.equals(AutoMeshGeometryDigest.of(geometryOf(id)));
         record(
-                "multiKeyform.geometryUnchanged",
-                originalDigest,
-                afterDigest,
-                statusOf(originalDigest.equals(afterDigest)));
+                "multiKeyform.applied",
+                "a custom mesh over the stored forms",
+                applied ? "applied" : "refused",
+                statusOf(applied));
+        if (!applied) {
+            return;
+        }
+        final ArtMeshAuthoringSnapshot after = authoringOf(id);
+        final List<String> formGuids = formGuids(before);
+        record(
+                "multiKeyform.formSet",
+                formGuids.toString(),
+                formGuids(after).toString(),
+                statusOf(formGuids.equals(formGuids(after))));
+        final int vertexCount = after.sourceGeometry().positions().size();
+        final List<String> counts = vertexCounts(after);
+        record(
+                "multiKeyform.vertexCount",
+                "every form carries " + vertexCount + " vertices",
+                counts.toString(),
+                statusOf(
+                        after.forms().stream().allMatch(form -> form.positions().size() == vertexCount)));
+        final List<String> outsideBounds = formsOutsideOriginalBounds(before, after);
+        record(
+                "multiKeyform.bounds",
+                "every form inside its own original bounds",
+                outsideBounds.isEmpty() ? "inside" : outsideBounds.toString(),
+                statusOf(outsideBounds.isEmpty()));
         final int addedEntries = historySize() - historyBefore;
-        record("multiKeyform.undoEntries", "0", Integer.toString(addedEntries), statusOf(addedEntries == 0));
+        record("multiKeyform.undoEntries", "1", Integer.toString(addedEntries), statusOf(addedEntries == 1));
+        executeCommand("multiKeyform.undo", EditorCommand.UNDO);
         record(
-                "multiKeyform.noNativeFallback",
-                "the source geometry",
-                afterDigest,
-                statusOf(originalDigest.equals(afterDigest)));
-        restoreGeometry(id, original);
+                "multiKeyform.undoRestores",
+                "the original geometry and stored forms",
+                "reverted",
+                statusOf(before.equals(authoringOf(id))));
     }
 
     // --- g. Selector row ---------------------------------------------------
@@ -918,6 +949,60 @@ public final class AutoMeshFrameworkValidationProbe implements CubismPlugin {
             }
             return Optional.<Drawable>empty();
         });
+    }
+
+    private ArtMeshAuthoringSnapshot authoringOf(final String id) throws Exception {
+        return onUi(() -> drawableOf(id).authoringSnapshot());
+    }
+
+    private static List<String> formGuids(final ArtMeshAuthoringSnapshot snapshot) {
+        return snapshot.forms().stream()
+                .map(ArtMeshAuthoringSnapshot.Form::formGuid)
+                .toList();
+    }
+
+    private static List<String> vertexCounts(final ArtMeshAuthoringSnapshot snapshot) {
+        return snapshot.forms().stream()
+                .map(form -> form.positions().size())
+                .map(String::valueOf)
+                .toList();
+    }
+
+    /** Names every form whose derived positions leave the bounds of its own original form. */
+    private static List<String> formsOutsideOriginalBounds(
+            final ArtMeshAuthoringSnapshot before, final ArtMeshAuthoringSnapshot after) {
+        final Map<String, ArtMeshAuthoringSnapshot.Form> originals = new LinkedHashMap<>();
+        before.forms().forEach(form -> originals.put(form.formGuid(), form));
+        final List<String> outside = new ArrayList<>();
+        for (final ArtMeshAuthoringSnapshot.Form form : after.forms()) {
+            final ArtMeshAuthoringSnapshot.Form original = originals.get(form.formGuid());
+            if (original == null || !insideBounds(original.positions(), form.positions())) {
+                outside.add(form.formGuid());
+            }
+        }
+        return outside;
+    }
+
+    private static boolean insideBounds(final List<Point2> bounds, final List<Point2> positions) {
+        float minimumX = Float.MAX_VALUE;
+        float maximumX = -Float.MAX_VALUE;
+        float minimumY = Float.MAX_VALUE;
+        float maximumY = -Float.MAX_VALUE;
+        for (final Point2 point : bounds) {
+            minimumX = Math.min(minimumX, point.x());
+            maximumX = Math.max(maximumX, point.x());
+            minimumY = Math.min(minimumY, point.y());
+            maximumY = Math.max(maximumY, point.y());
+        }
+        for (final Point2 point : positions) {
+            if (point.x() < minimumX - KEYFORM_BOUNDS_TOLERANCE
+                    || point.x() > maximumX + KEYFORM_BOUNDS_TOLERANCE
+                    || point.y() < minimumY - KEYFORM_BOUNDS_TOLERANCE
+                    || point.y() > maximumY + KEYFORM_BOUNDS_TOLERANCE) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private ArtMeshGeometry geometryOf(final String id) throws Exception {

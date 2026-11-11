@@ -19,11 +19,9 @@ import java.util.Objects;
  * the listing: it has no parameters and no presets (those live in the native panel) and no compute
  * function, because the host performs the work.</p>
  *
- * <p>{@link #supportsMultiKeyform()} states whether the compute function produces a shape for
- * every keyform of a multi-keyform target. The framework refuses such a target while the flag is
- * false, because the runtime writes only the current keyform: applying a single-keyform result
- * would collapse the keyforms the user authored. A plugin sets the flag only when it consumes the
- * keyform data the request carries.</p>
+ * <p>{@link #supportsMultiKeyform()} states whether the compute function itself consumes the
+ * keyform data of a multi-keyform target. The runtime derives each ordinary form's positions from
+ * the one returned layout, so the flag reports a compute capability and never gates a run.</p>
  */
 @CubismEditor
 public record AutoMeshAlgorithm(
