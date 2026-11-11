@@ -27,6 +27,12 @@ import javax.swing.SwingUtilities;
  * the Undo group and the completion callback, so both shapes are accepted and the optional values
  * stay {@code null} for the host to create.</p>
  *
+ * <p>The mesh-editor entry is {@code AutoMeshGenerate_PopupType_InMeshEditor.a(owner, dialog,
+ * event)}. It takes the event alone and reaches the guarded mesh-editor funnel with the edit data
+ * the mesh editor holds, which is exactly what a preset change in that popup runs. The modeling
+ * entries mirror it for their own funnels. No second placement route exists on any reviewed
+ * build.</p>
+ *
  * <p>The call runs on the Editor UI thread. A container whose build does not expose the entry keeps
  * the stored selection and reports the refusal, so the next native Generate still uses it.</p>
  */
