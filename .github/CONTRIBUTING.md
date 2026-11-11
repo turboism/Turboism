@@ -1,14 +1,14 @@
 # Contributing to Turboism
 
-For third-party plugin development, start with the [plugin author guide](sdk/plugin-author-guide.md)
-and the [standalone template](templates/plugin-template/README.md).
+For third-party plugin development, start with the [plugin author guide](../sdk/plugin-author-guide.md)
+and the [standalone template](../templates/plugin-template/README.md).
 
 ## UI appearance
 
-New or changed UI must follow the [UI appearance and dark mode requirements](sdk/plugin-author-guide.md#ui-appearance-and-dark-mode).
+New or changed UI must follow the [UI appearance and dark mode requirements](../sdk/plugin-author-guide.md#ui-appearance-and-dark-mode).
 Review the containing surface, glyph contrast, interaction states, actual display
 size/DPI, and live theme switching in both light and dark modes. For first-party
-icon sources and regeneration, see the [artwork guide](scripts/artwork/README.md#深浅色模式适配).
+icon sources and regeneration, see the [artwork guide](../scripts/artwork/README.md#深浅色模式适配).
 
 ### Plugin control icons
 
@@ -70,7 +70,7 @@ push is refused.
 
 Large binary test assets (`*.cmo3`, `*.can3`, `*.psd`, `*.moc3`) are never committed to Git. They are tracked via `testing/assets/corpus.json` and distributed through versioned GitHub Release assets.
 
-- Overview, licenses, cache structure, and adding new datasets: see [`testing/assets/README.md`](testing/assets/README.md).
+- Overview, licenses, cache structure, and adding new datasets: see [`testing/assets/README.md`](../testing/assets/README.md).
 - Fetch test assets into shared cache and link to worktree:
   ```sh
   python3 scripts/test_corpus.py fetch --all
@@ -167,7 +167,7 @@ cached or up-to-date results. Later source changes need verification of the
 affected surface; an earlier gate must not be reported as covering them.
 Coordinate builds and formatting in a shared worktree so they do not race other
 writers. For selected real-host checks, follow the
-[local acceptance sequence](scripts/preview/README-host-validation-scheduling.md#acceptance-sequence)
+[local acceptance sequence](../scripts/preview/README-host-validation-scheduling.md#acceptance-sequence)
 after offline verification, and keep machine-specific configuration and raw
 evidence outside Git. Finish with the staged and outgoing hygiene checks above.
 
@@ -261,12 +261,12 @@ Use `--all` only for an explicit audit of all reachable repository history, not 
 - **Python lint**: `devCheck` runs `checkPythonLint` over `scripts/` and
   `validation/`, which needs the pinned ruff release
   (`python3 -m pip install "ruff==0.16.9"` or an equivalent `ruff` binary on
-  `PATH`). The rule set lives in `ruff.toml`.
+  `PATH`). The rule set lives in `tooling/ruff.toml`.
 - **AST architecture rules**: `devCheck` runs `checkArchitectureRules`, which needs the
   ast-grep CLI (`npm install --global '@ast-grep/cli'`). The gate fails
   closed when the binary is missing or an unrelated tool is first on `PATH`, so a
   missing install fails the gate instead of weakening it. See
-  [`ARCHITECTURE_GOVERNANCE.md`](ARCHITECTURE_GOVERNANCE.md) for the rule and codemod
+  [`docs/architecture/ARCHITECTURE_GOVERNANCE.md`](../docs/architecture/ARCHITECTURE_GOVERNANCE.md) for the rule and codemod
   policy.
 - **Shell lint**: `devCheck` runs `checkShellLint`, which requires `shellcheck`
   (`apt-get install shellcheck` on Debian/Ubuntu, `brew install shellcheck` on

@@ -1,7 +1,7 @@
 # Non-typed persistence audit: journals, installer state and signed receipts
 
 Analysis and regression coverage for **#69 / #111**. This document is the companion to
-`architecture/PERSISTENCE_FORMAT_INVENTORY.md` (#109): the inventory names *what was emitted*, this
+`docs/architecture/PERSISTENCE_FORMAT_INVENTORY.md` (#109): the inventory names *what was emitted*, this
 audit names *how the current tree reads, writes, updates and recovers it*, and which production
 paths are now pinned by tests.
 

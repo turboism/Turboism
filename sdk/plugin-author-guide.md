@@ -121,7 +121,7 @@ Missing or invalid declarations remain undeclared in Plugin Management.
 New features must adapt all reviewed Cubism versions and declare support in SDK
 annotations and plugin metadata. Evidence-backed host limitations must be
 recorded, not silently omitted. Follow
-[CONTRIBUTING: Cubism version adaptation](../CONTRIBUTING.md#cubism-version-adaptation)
+[CONTRIBUTING: Cubism version adaptation](../.github/CONTRIBUTING.md#cubism-version-adaptation)
 for the reviewed set, derivation tooling and first-party metadata generation.
 Use the generated [capability matrix](../compatibility/cubism/capabilities.md)
 when selecting APIs. Probe availability; catch
@@ -262,7 +262,7 @@ implementation. `devCheck` compiles production examples and checks metadata;
 `checkExternalPluginTemplate` builds the template as an external consumer and
 validates its packaged contract. Run `checkCompletedCommit` for final acceptance.
 See [testing](../testing/README.md) and
-[contributor gates](../CONTRIBUTING.md#verification) for host validation and
+[contributor gates](../.github/CONTRIBUTING.md#verification) for host validation and
 fixture requirements. Licensed host assets stay outside version control.
 
 ## Incubating APIs

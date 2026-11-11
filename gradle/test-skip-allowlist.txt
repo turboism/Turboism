@@ -57,7 +57,7 @@ dev.turboism.tests.mapping.ExactArtifactRecordVerificationTest.everyPackagedProd
 dev.turboism.shell.DeclarativeSettingsRendererTest.displaySessionKeepsActionsVisibleAndRevealsRealKeyboardFocus() # opt-in display test: requires TURBOISM_TEST_SETTINGS_DISPLAY=true and a real keyboard-focus session.
 dev.turboism.userfile.SwingUserFileGrantSourceDisplayTest.* # opt-in Swing chooser test: requires TURBOISM_TEST_SWING_CHOOSER=1 and an interactive display.
 # Model-import-3D suites pin gitignored local 3D fixtures (artifacts/, build/model-import-3d-inputs/)
-# and skip via Assumptions when they are absent (CONTRIBUTING.md "Test suite expectations").
+# and skip via Assumptions when they are absent (.github/CONTRIBUTING.md "Test suite expectations").
 dev.turboism.plugin.modelimport3d.viewer.GlbViewerLoaderFixtureTest.* # requires gitignored local 3D fixtures.
 dev.turboism.plugin.modelimport3d.EmbeddedTextureTest.* # requires gitignored local 3D fixtures.
 dev.turboism.plugin.modelimport3d.ModelImportPluginTest.* # requires gitignored local 3D fixtures.

@@ -63,7 +63,7 @@ class PathRuleTest(unittest.TestCase):
                   "packaging/plugin.json",
                   ".gitignore",
                   ".env.example",
-                  "CONTRIBUTING.md",
+                  ".github/CONTRIBUTING.md",
                   "scripts/dev/build-worktree.sh",
                   "compatibility/cubism/verification/cubism-5.3.02-core-model-read.json",
                   "sdk/api-contracts/baselines/sdk-api-v2-exact.json",

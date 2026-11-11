@@ -17,7 +17,7 @@ existed through fully qualified references without imports would be missed here
 and is still caught by the module-boundary gate.
 
 Modes (exactly one):
-  --write    regenerate `architecture/dependency-inventory.json`
+  --write    regenerate `docs/architecture/dependency-inventory.json`
   --check    fail closed when the committed inventory drifts from the tree
   --report   print the analysis (fan-in/out, edges, cycles) without writing
 
@@ -38,7 +38,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-INVENTORY = ROOT / "architecture/dependency-inventory.json"
+INVENTORY = ROOT / "docs/architecture/dependency-inventory.json"
 RUNTIME_SOURCES = ROOT / "runtime/src/main/java"
 FORMAT = "turboism-dependency-inventory-v1"
 PROJECT_GRAPH_FORMAT = "turboism-project-graph-v1"

@@ -97,13 +97,13 @@ Windows에서는 `./gradlew` 대신 `gradlew.bat`을 사용하세요. 변경 사
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
 
-데모는 개발 전용이며 릴리스 패키지에 포함되지 않습니다. 변경 사항을 제출하기 전에 영향받는 부분의 테스트와 `./gradlew devCheck`를 실행하세요. API, 수명 주기, 트랜잭션 및 검증 규칙은 [아키텍처 문서](../../ARCHITECTURE.md)를 참고하세요.
+데모는 개발 전용이며 릴리스 패키지에 포함되지 않습니다. 변경 사항을 제출하기 전에 영향받는 부분의 테스트와 `./gradlew devCheck`를 실행하세요. API, 수명 주기, 트랜잭션 및 검증 규칙은 [아키텍처 문서](../architecture/ARCHITECTURE.md)를 참고하세요.
 
 ## 문서
 
 - [사용자 및 개발자 문서](https://docs.turboism.dev)
-- [아키텍처](../../ARCHITECTURE.md)와 [로드맵](../../ROADMAP.md)
+- [아키텍처](../architecture/ARCHITECTURE.md)와 [로드맵](../ROADMAP.md)
 - [SDK API 계약 및 호환성](../../sdk/api-contracts/)과 [현재 공개 SDK 표면](../../sdk/api-contracts/current.txt)
 - [데모 플러그인](../../plugins/demo/README.md)과 독립형 [플러그인 템플릿](../../templates/plugin-template/)
 - [Java 설치 프로그램 상세 안내](../../packaging/java-installer/README-java-installer.md)
-- [릴리스 절차](../../RELEASING.md)와 [변경 기록](../en/CHANGELOG.md)
+- [릴리스 절차](../RELEASING.md)와 [변경 기록](../en/CHANGELOG.md)

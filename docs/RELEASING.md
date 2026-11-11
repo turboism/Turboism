@@ -507,7 +507,7 @@ Promotion with `framework_publish=initialize` registers the first candidate of a
 `admit`. The publisher uploads immutable objects, obtains a real GitHub OIDC identity, and verifies public
 reachability before completing the GitHub release. `framework_publish=none` publishes only the full packages.
 The setup and package contract are documented in
-[BOOTSTRAP_RECEIPT.md](packaging/windows-installer/BOOTSTRAP_RECEIPT.md).
+[BOOTSTRAP_RECEIPT.md](../packaging/windows-installer/BOOTSTRAP_RECEIPT.md).
 
 `writeFrameworkPayloadInventory` is an explicit, unsigned build-inventory task for
 numbered, clean CI builds. It depends on `stageInstallerPayload` and writes
@@ -559,7 +559,7 @@ Ordinary `checkCompletedCommit` reaches the offline tool tests and the Java test
 that consumes real producer output. `checkReleaseTooling` also retains the
 existing release tests. Signing and publication remain separate operations.
 
-The offline [incremental admission contract](distribution/INCREMENTAL.md) consumes
+The offline [incremental admission contract](../distribution/INCREMENTAL.md) consumes
 the descriptor, authenticates the exact manifest, recomputes its object closure,
 and verifies actual bytes before immutable registration and a final channel CAS.
 Its storage interface is exercised with an in-memory adapter by

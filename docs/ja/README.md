@@ -97,13 +97,13 @@ Windows では `./gradlew` の代わりに `gradlew.bat` を使用してくだ�
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
 
-デモは開発専用であり、リリースパッケージには含まれません。変更を提出する前に、影響範囲のテストと `./gradlew devCheck` を実行してください。API、ライフサイクル、トランザクション、検証の規則は[アーキテクチャ](../../ARCHITECTURE.md)を参照してください。
+デモは開発専用であり、リリースパッケージには含まれません。変更を提出する前に、影響範囲のテストと `./gradlew devCheck` を実行してください。API、ライフサイクル、トランザクション、検証の規則は[アーキテクチャ](../architecture/ARCHITECTURE.md)を参照してください。
 
 ## ドキュメント
 
 - [ユーザー・開発者向けドキュメント](https://docs.turboism.dev)
-- [アーキテクチャ](../../ARCHITECTURE.md)と[ロードマップ](../../ROADMAP.md)
+- [アーキテクチャ](../architecture/ARCHITECTURE.md)と[ロードマップ](../ROADMAP.md)
 - [SDK API 契約と互換性](../../sdk/api-contracts/)と[現在の公開 SDK サーフェス](../../sdk/api-contracts/current.txt)
 - [デモプラグイン](../../plugins/demo/README.md)とスタンドアロンの[プラグインテンプレート](../../templates/plugin-template/)
 - [Java インストーラーの詳細](../../packaging/java-installer/README-java-installer.md)
-- [リリース手順](../../RELEASING.md)と[変更履歴](../en/CHANGELOG.md)
+- [リリース手順](../RELEASING.md)と[変更履歴](../en/CHANGELOG.md)

@@ -1,6 +1,7 @@
 import dev.turboism.gradle.internal.VerificationStamps
 
 val goldenSnapshotFixtures = fileTree("testing/fixtures/snapshots") { include("**/*") }
+val astGrepConfig = "tooling/ast-grep/sgconfig.yml"
 
 tasks.register<Exec>("checkGoldenSnapshotManifest") {
     group = "verification"
@@ -17,7 +18,7 @@ tasks.register<Exec>("checkArchitectureRules") {
     description = "Runs ast-grep rule tests and enforces production AST guardrails."
     workingDir(rootDir)
     inputs.file("scripts/check_ast_grep.py")
-    inputs.file("sgconfig.yml")
+    inputs.file(astGrepConfig)
     inputs.files(fileTree("tooling/ast-grep/rules") { include("**/*.yml") })
     inputs.files(fileTree("tooling/ast-grep/tests") { include("**/*.yml") })
     inputs.files(fileTree("plugins") { include("**/src/main/java/**/*.java") })

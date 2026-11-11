@@ -97,13 +97,13 @@ Building a plugin **outside** this repository does not require building Turboism
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
 
-The demo is development-only, not part of the release bundle. Run focused tests for your changes and `./gradlew devCheck` before submitting them. See the [architecture](ARCHITECTURE.md) for API, lifecycle, transaction and verification rules.
+The demo is development-only, not part of the release bundle. Run focused tests for your changes and `./gradlew devCheck` before submitting them. See the [architecture](docs/architecture/ARCHITECTURE.md) for API, lifecycle, transaction and verification rules.
 
 ## Documentation
 
 - [User and developer documentation](https://docs.turboism.dev)
-- [Architecture](ARCHITECTURE.md) and [roadmap](ROADMAP.md)
+- [Architecture](docs/architecture/ARCHITECTURE.md) and [roadmap](docs/ROADMAP.md)
 - [SDK API contracts and compatibility](sdk/api-contracts/) and [current public SDK surface](sdk/api-contracts/current.txt)
 - [Demo plugin](plugins/demo/README.md) and the standalone [plugin template](templates/plugin-template/)
 - [Java installer details](packaging/java-installer/README-java-installer.md)
-- [Release process](RELEASING.md) and [changelog](docs/en/CHANGELOG.md)
+- [Release process](docs/RELEASING.md) and [changelog](docs/en/CHANGELOG.md)

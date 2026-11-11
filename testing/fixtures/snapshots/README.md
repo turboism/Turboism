@@ -24,7 +24,7 @@ when a fixture's family has no owning suite, so a new family cannot enter the co
 split is by package-private production readers, never by convenience: no reader was widened for a
 test.
 
-The compatibility contract these fixtures enforce is `architecture/PERSISTENCE_FORMAT_INVENTORY.md`
+The compatibility contract these fixtures enforce is `docs/architecture/PERSISTENCE_FORMAT_INVENTORY.md`
 §12: every format written by a published release since `v0.42.0` is read, migrated with a durable
 pre-image, or refused with its bytes preserved.
 
