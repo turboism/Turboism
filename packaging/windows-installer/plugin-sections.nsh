@@ -1521,6 +1521,256 @@ Function WritePluginSelectionSkipMarkers
   ${EndIf}
 FunctionEnd
 
+; Collect the unchecked plugin ids for the config merge, separated by ';'.
+Function CollectUncheckedPluginIds
+  StrCpy $uncheckedPluginIds ""
+  ${If} $PluginState_0 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.acp"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.acp"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_1 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.artmesh-mirror"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.artmesh-mirror"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_2 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.boundingbox-warp-mirror"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.boundingbox-warp-mirror"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_3 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.clipmask-viewer"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.clipmask-viewer"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_4 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.command-palette"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.command-palette"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_5 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.cubism-tab-filter"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.cubism-tab-filter"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_6 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.deformer-batch-rename"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.deformer-batch-rename"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_7 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.external-psd-edit"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.external-psd-edit"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_8 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.frame-animation-import"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.frame-animation-import"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_9 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.geometric-mesh-layout"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.geometric-mesh-layout"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_10 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.historypanel"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.historypanel"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_11 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.mcp"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.mcp"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_12 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.mesh-edit-mirror-axis-enhance"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.mesh-edit-mirror-axis-enhance"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_13 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.model-import-3d"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.model-import-3d"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_14 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.palette-label-style"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.palette-label-style"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_15 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.parameter-batch-transfer"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.parameter-batch-transfer"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_16 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.parameter-sync"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.parameter-sync"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_17 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.perf-stats"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.perf-stats"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_18 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.physics-editor"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.physics-editor"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_19 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.project-work-time"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.project-work-time"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_20 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.protected-export"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.protected-export"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_21 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.psd-clip-mask-import"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.psd-clip-mask-import"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_22 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.recent-preview"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.recent-preview"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_23 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.recent-project-board"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.recent-project-board"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_24 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.scene-palette-enhancer"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.scene-palette-enhancer"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_25 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.selection-brush"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.selection-brush"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_26 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.texture-atlas"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.texture-atlas"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_27 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.texture-atlas-dalsoo"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.texture-atlas-dalsoo"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_28 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.texture-atlas-folders"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.texture-atlas-folders"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_29 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.texture-atlas-nesting"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.texture-atlas-nesting"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_30 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.texture-atlas-stats"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.texture-atlas-stats"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_31 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.turbo-mesh"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.turbo-mesh"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_32 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.uitheme"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.uitheme"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_33 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.warp-deformer-alt-symmetry"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.warp-deformer-alt-symmetry"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_34 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.webdav"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.webdav"
+    ${EndIf}
+  ${EndIf}
+FunctionEnd
+
 ; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。
 Function SetBundledPluginIds
   StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.artmesh-mirror;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.deformer-batch-rename;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.frame-animation-import;dev.turboism.plugin.geometric-mesh-layout;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.parameter-sync;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.project-work-time;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.recent-project-board;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-dalsoo;dev.turboism.plugin.texture-atlas-folders;dev.turboism.plugin.texture-atlas-nesting;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.turbo-mesh;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.webdav"

@@ -923,9 +923,10 @@ function Invoke-InstallerPluginSelection {
     $retired = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     foreach ($id in Get-TurboismRetiredPluginIds) { [void]$retired.Add($id) }
     $desiredSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
-    # Full 安装覆盖安装/更新所有第一方插件，同时保留既有 disabledPlugins
+    # A full install applies the current checkbox selection: a checked bundled plugin is
+    # enabled, an unchecked one is disabled, and ids outside the bundle keep their state.
     foreach ($id in $existing) {
-        if (-not $retired.Contains($id)) {
+        if (-not $retired.Contains($id) -and -not $bundledSet.Contains($id)) {
             [void]$desiredSet.Add($id)
         }
     }

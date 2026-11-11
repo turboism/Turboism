@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /**
  * Decisions the native Auto Mesh selector row makes, with no Swing type.
@@ -278,6 +279,20 @@ public final class AutoMeshSelectorController {
         Objects.requireNonNull(algorithm, "algorithm");
         Objects.requireNonNull(values, "values");
         source.selection().setParameterValuesTransient(algorithm, values);
+    }
+
+    /**
+     * Places the current Editor selection with the container's own live-update route.
+     *
+     * <p>The row calls this after it stores a change the Editor would apply immediately: an
+     * algorithm or preset choice, or an accepted parameter set. The source owns the native route,
+     * so the row never grows a second placement path.</p>
+     *
+     * @param container the native Auto Mesh container the row decorates
+     * @param diagnostics sink for a refused route; it must not throw
+     */
+    public void placeCurrentSelection(final Object container, final Consumer<String> diagnostics) {
+        source.placeCurrentSelection(container, diagnostics);
     }
 
     private String labelOf(final AutoMeshAlgorithm algorithm) {

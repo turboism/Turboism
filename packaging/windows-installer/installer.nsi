@@ -580,6 +580,7 @@ Var StartMenuCheckbox
 Var DesktopShortcutCheckbox
 Var IntegrateBatCheckbox
 Var bundledPluginIds     ; 当前发布包内的全部插件 id，';' 分隔
+Var uncheckedPluginIds   ; plugin ids unchecked on the selection page, ';' separated (Full)
 Var pos
 Var ch
 Var len
@@ -1661,7 +1662,9 @@ Section "-写入配置" SecConfig
   File "/oname=retired-plugins.txt" "${STAGING_DIR}/retired-plugins.txt"
   StrCpy $bundledPluginIds ""
   Call SetBundledPluginIds
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-config\configure_turboism.ps1" -Home "$INSTDIR" -ApplyInstallerSelection -Variant "full" -BundledPluginIds "$bundledPluginIds"'
+  StrCpy $uncheckedPluginIds ""
+  Call CollectUncheckedPluginIds
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-config\configure_turboism.ps1" -Home "$INSTDIR" -ApplyInstallerSelection -Variant "full" -BundledPluginIds "$bundledPluginIds" -DisabledPluginIds "$uncheckedPluginIds"'
   Pop $0
   RMDir /r "$PLUGINSDIR\Turboism-config"
   ${If} $0 != 0

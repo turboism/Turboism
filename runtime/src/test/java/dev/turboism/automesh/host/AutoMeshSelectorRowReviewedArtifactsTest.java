@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import dev.turboism.adapter.cubism.profile.CubismAutoMeshUiProfile;
 import dev.turboism.automesh.AutoMeshAlgorithmCatalog;
 import dev.turboism.automesh.AutoMeshSelectionState;
 import dev.turboism.automesh.AutoMeshSelectorHost;
@@ -23,6 +24,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 
@@ -131,6 +134,8 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
     private static final int NATIVE_SETTINGS_GROUP = 3;
     private static final int PLUGIN_SETTINGS_GROUP = 4;
     private static final int NATIVE_ENTRY_INDEX = 0;
+    private static final int PLUGIN_ENTRY_INDEX = 1;
+    private static final int FIRST_PRESET_INDEX = 1;
     private static final int CONTROL_COLUMN = 1;
     private static final int TITLE_BORDER_MASK = 2;
 
@@ -241,6 +246,16 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
                         unresolved.add(version + " " + member.signature() + " -> " + failure);
                     }
                 }
+                for (final String container : List.of(
+                        CubismAutoMeshUiProfile.MODELING_PANEL_TYPE,
+                        CubismAutoMeshUiProfile.MODELING_POPUP_TYPE,
+                        CubismAutoMeshUiProfile.MESH_EDITOR_POPUP_TYPE)) {
+                    try {
+                        loader.resolvePlacementRoute(container);
+                    } catch (ReflectiveOperationException | LinkageError failure) {
+                        unresolved.add(version + " " + container + " -> " + failure);
+                    }
+                }
             }
         }
         assertTrue(inspected > 0, NO_ARCHIVE_MESSAGE);
@@ -319,6 +334,31 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
         assertEquals(attached, versions.size(), "all sampled releases must carry the inline groups");
     }
 
+    @Test
+    void aSelectionChangePlacesPointsThroughTheNativeRoute() throws Exception {
+        final Path root = AutoMeshFunnelTestSupport.refRoot();
+        assumeTrue(root != null, NO_ARCHIVE_MESSAGE);
+        final List<String> problems = new ArrayList<>();
+        int inspected = 0;
+        for (final String version : widgetVersions()) {
+            final Path jar = AutoMeshFunnelTestSupport.jar(root, version);
+            if (jar == null) {
+                continue;
+            }
+            inspected++;
+            try (HostLoader loader = new HostLoader(jar)) {
+                for (final String problem : loader.attachInline()) {
+                    problems.add(version + " " + problem);
+                }
+                if (loader.placements() != 2) {
+                    problems.add(version + " expected 2 placements, observed " + loader.placements());
+                }
+            }
+        }
+        assertTrue(inspected > 0, NO_ARCHIVE_MESSAGE);
+        assertEquals(List.of(), problems, "an algorithm or preset pick must place points immediately");
+    }
+
     /**
      * Returns the builds the inline case runs on: the bounds of every reviewed minor line.
      *
@@ -381,6 +421,7 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
 
         private final Path jar;
         private final Probe probe = new Probe();
+        private final AtomicInteger placements = new AtomicInteger();
 
         private HostLoader(final Path jar) throws Exception {
             super(new URL[] {jar.toUri().toURL()}, AutoMeshSelectorRowReviewedArtifactsTest.class.getClassLoader());
@@ -417,6 +458,11 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
             return Class.forName(name, false, this);
         }
 
+        /** @return the placement requests the attached row issued during the inline probe */
+        private int placements() {
+            return placements.get();
+        }
+
         /**
          * Resolves one member exactly as the row names it.
          *
@@ -444,6 +490,41 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
             }
         }
 
+        /**
+         * Resolves the live-update entry of one native container.
+         *
+         * <p>The runtime finds the entry by its first two parameter types, because the reviewed
+         * builds obfuscate its name. This check applies the same rule and requires every remaining
+         * parameter to be one the runtime can supply.</p>
+         */
+        private void resolvePlacementRoute(final String containerTypeName) throws ReflectiveOperationException {
+            final Class<?> container = type(containerTypeName);
+            final Class<?> owner = container.getEnclosingClass();
+            if (owner == null) {
+                throw new NoSuchMethodException(containerTypeName + " has no enclosing owner");
+            }
+            for (final java.lang.reflect.Method method : owner.getDeclaredMethods()) {
+                if (!java.lang.reflect.Modifier.isStatic(method.getModifiers()) || method.getParameterCount() < 3) {
+                    continue;
+                }
+                final Class<?>[] parameters = method.getParameterTypes();
+                if (parameters[0] != owner || !parameters[1].isAssignableFrom(container)) {
+                    continue;
+                }
+                for (int index = 2; index < parameters.length; index++) {
+                    final String name = parameters[index].getName();
+                    if (!name.equals(CubismAutoMeshUiProfile.EVENT_TYPE)
+                            && !name.equals(CubismAutoMeshUiProfile.GROUP_UNDO_TYPE)
+                            && !name.equals(CubismAutoMeshUiProfile.FUNCTION0_TYPE)
+                            && !name.equals(CubismAutoMeshUiProfile.INSPECTOR_EVENT_TYPE)) {
+                        throw new NoSuchMethodException(containerTypeName + " route takes " + name);
+                    }
+                }
+                return;
+            }
+            throw new NoSuchMethodException(containerTypeName + " exposes no live-update entry");
+        }
+
         private Optional<Class<?>> primitive(final String name) {
             return switch (name) {
                 case INT -> Optional.of(int.class);
@@ -468,7 +549,8 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
             final Object panel = type(CONTENT_PANEL).getConstructor().newInstance();
             final Object centre = type(ROW).getConstructor().newInstance();
             type(CONTENT_PANEL).getMethod("setCenter", type(WIDGET)).invoke(panel, centre);
-            final AutoMeshSelectorHost host = new AutoMeshSelectorHost(new Source(), Locale.ENGLISH, diagnostics::add);
+            final AutoMeshSelectorHost host =
+                    new AutoMeshSelectorHost(new Source(placements), Locale.ENGLISH, diagnostics::add);
             final List<String> problems = new ArrayList<>();
             try {
                 SwingUtilities.invokeAndWait(() -> {
@@ -579,7 +661,7 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
             final List<String> diagnostics = new ArrayList<>();
             final List<String> problems = new ArrayList<>();
             final AutoMeshSelectorHost host =
-                    new AutoMeshSelectorHost(new ParametricSource(), Locale.ENGLISH, diagnostics::add);
+                    new AutoMeshSelectorHost(new ParametricSource(placements), Locale.ENGLISH, diagnostics::add);
             try {
                 SwingUtilities.invokeAndWait(() -> {
                     try {
@@ -596,6 +678,7 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
                             problems.add("the host must record exactly one row, recorded " + host.attachedCount());
                         }
                         probeInline(panel, problems);
+                        probePlacements(panel, problems);
                     } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
                         problems.add("the inline groups could not be probed: " + describe(failure));
                     }
@@ -703,6 +786,32 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
             for (final java.awt.event.ActionListener listener : swing.getActionListeners()) {
                 listener.actionPerformed(event);
             }
+        }
+
+        /**
+         * Switches to a plugin algorithm and one of its presets through the row's own callbacks.
+         *
+         * <p>Both choices change what the next native Generate would run, so both must place the
+         * points immediately. The counter is reset here, after the earlier visibility probe already
+         * picked the Editor's generator.</p>
+         */
+        private void probePlacements(final Object panel, final List<String> problems)
+                throws ReflectiveOperationException {
+            placements.set(0);
+            final Object centre = type(CONTENT_PANEL).getMethod("getCenter").invoke(panel);
+            final List<Object> groups = childrenOf(centre);
+            final Object algorithmCombo = firstCombo(groups.get(ALGORITHM_GROUP));
+            if (algorithmCombo == null) {
+                problems.add("no algorithm combo for the placement probe");
+                return;
+            }
+            pick(algorithmCombo, PLUGIN_ENTRY_INDEX);
+            final Object presetCombo = firstCombo(groups.get(PLUGIN_PRESET_GROUP));
+            if (presetCombo == null) {
+                problems.add("no plugin preset combo for the placement probe");
+                return;
+            }
+            pick(presetCombo, FIRST_PRESET_INDEX);
         }
 
         private List<String> titlesOf(final List<Object> groups) throws ReflectiveOperationException {
@@ -830,8 +939,10 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
 
         private final AutoMeshAlgorithmCatalog catalog = new AutoMeshAlgorithmCatalog();
         private final AutoMeshSelectionState selection = new AutoMeshSelectionState(catalog);
+        private final AtomicInteger placements;
 
-        private Source() {
+        private Source(final AtomicInteger placements) {
+            this.placements = placements;
             catalog.register(region(), "plugin", 1L, () -> true);
             selection.selectAlgorithm(PLUGIN_ALGORITHM);
         }
@@ -844,6 +955,11 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
         @Override
         public AutoMeshSelectionState selection() {
             return selection;
+        }
+
+        @Override
+        public void placeCurrentSelection(final Object container, final Consumer<String> diagnostics) {
+            placements.incrementAndGet();
         }
 
         private static AutoMeshAlgorithm region() {
@@ -868,8 +984,10 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
 
         private final AutoMeshAlgorithmCatalog catalog = new AutoMeshAlgorithmCatalog();
         private final AutoMeshSelectionState selection = new AutoMeshSelectionState(catalog);
+        private final AtomicInteger placements;
 
-        private ParametricSource() {
+        private ParametricSource(final AtomicInteger placements) {
+            this.placements = placements;
             catalog.register(parametric(), "plugin", 1L, () -> true);
             selection.selectAlgorithm(PARAMETRIC_ALGORITHM);
         }
@@ -882,6 +1000,11 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
         @Override
         public AutoMeshSelectionState selection() {
             return selection;
+        }
+
+        @Override
+        public void placeCurrentSelection(final Object container, final Consumer<String> diagnostics) {
+            placements.incrementAndGet();
         }
 
         private static AutoMeshAlgorithm parametric() {

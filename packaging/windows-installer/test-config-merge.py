@@ -111,6 +111,7 @@ BUNDLED = [
 BUNDLED_IDS = [i for i, _ in BUNDLED]
 BUNDLED_MODULES = sorted(m for _, m in BUNDLED)
 UNRELATED = "dev.turboism.plugin.not-bundled"
+ACP_ID = "dev.turboism.plugin.acp"
 RETIRED_IDS = [
     "dev.turboism.plugin.clipmask",
     "dev.turboism.plugin.logfilter",
@@ -345,7 +346,12 @@ def desired_disabled(doc, mode="full", unchecked=None, bundled_ids=BUNDLED_IDS):
     requested = set(unchecked or [])
     if not requested <= set(bundled_ids):
         raise ValueError("unchecked plugin is not bundled")
-    return sorted((set(existing) - set(RETIRED_IDS)) | requested)
+    if mode == "thin":
+        # A thin install owns no bundled plugin, so it only prunes retired ids.
+        return sorted(set(existing) - set(RETIRED_IDS))
+    # A full install applies the page selection: a checked bundled id is enabled, an
+    # unchecked one is disabled, and ids outside the bundle keep their current state.
+    return sorted((set(existing) - set(bundled_ids) - set(RETIRED_IDS)) | requested)
 
 
 def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_IDS):
@@ -1568,17 +1574,36 @@ def main():
     check('T2b JSON 数组形状（无多余引号、"," 分隔）', expected_fragment in out,
           "fragment=%s" % expected_fragment + " out=%s" % out[:160])
 
-    # T3: current v1 更新保留既有 disabledPlugins 与用户字段。
+    # T3: a Full install applies the current selection: a checked bundled plugin is enabled
+    # and an unrelated disabled id survives.
     existing = json.dumps({"format": "turboism.runtime.config", "schemaVersion": 1,
                            "worktreeId": "user-runtime", "pluginDirs": ["custom"],
                            "disabledPlugins": [a, UNRELATED], "logLevel": "DEBUG", "useTextIcon": True}, indent=2)
     out = installer_write_config("full", [], existing)
     doc = json.loads(out)
-    check("T3 current schema 保留既有 disabledPlugins",
-          doc["disabledPlugins"] == sorted([a, UNRELATED]), str(doc.get("disabledPlugins")))
+    check("T3 current schema 勾选的捆绑插件被启用",
+          doc["disabledPlugins"] == [UNRELATED], str(doc.get("disabledPlugins")))
     check("T3 current schema 保留其他用户字段",
           doc["worktreeId"] == "user-runtime" and doc["pluginDirs"] == ["custom"]
           and doc["logLevel"] == "DEBUG" and doc["useTextIcon"] is True)
+
+    # T3b: a default all-checked Full install no longer keeps acp disabled.
+    acp_bundled = BUNDLED_IDS + [ACP_ID]
+    acp_disabled = json.dumps({"format": "turboism.runtime.config", "schemaVersion": 1,
+                               "worktreeId": "acp-default",
+                               "disabledPlugins": [ACP_ID, UNRELATED]}, indent=2)
+    out = installer_write_config("full", [], acp_disabled, bundled_ids=acp_bundled)
+    doc = json.loads(out)
+    check("T3b default full enables acp",
+          ACP_ID not in doc.get("disabledPlugins", []), str(doc.get("disabledPlugins")))
+    check("T3b default full keeps an unrelated disabled plugin",
+          UNRELATED in doc.get("disabledPlugins", []), str(doc.get("disabledPlugins")))
+
+    # T3c: an unchecked bundled plugin is still disabled.
+    out = installer_write_config("full", [ACP_ID], None, bundled_ids=acp_bundled)
+    doc = json.loads(out)
+    check("T3c unchecked acp is disabled", doc["disabledPlugins"] == [ACP_ID],
+          str(doc.get("disabledPlugins")))
 
     # T4: Thin 更新保留用户既有 disabledPlugins，同时保留无关禁用项和其他字段。
     out = installer_write_config("thin", [], existing)
@@ -1594,7 +1619,7 @@ def main():
     check("T5 fresh thin 无 disabledPlugins", "disabledPlugins" not in doc or doc["disabledPlugins"] == [],
           str(doc.get("disabledPlugins")))
 
-    # T6: schema-less v0 迁移到 v1，保留已知设置并保留插件选择。
+    # T6: a schema-less v0 document migrates to v1, keeps known settings, and applies the selection.
     legacy = json.dumps({"worktreeId": "legacy-runtime", "pluginDirs": ["custom"],
                          "disabledPlugins": [a, UNRELATED], "logLevel": "DEBUG",
                          "useTextIcon": True, "cubismJvm": "bundled"})
@@ -1605,7 +1630,8 @@ def main():
     check("T6 v0 保留用户设置",
           doc["worktreeId"] == "legacy-runtime" and doc["pluginDirs"] == ["custom"]
           and doc["logLevel"] == "DEBUG" and doc["useTextIcon"] is True)
-    check("T6 v0 保留既有插件选择", doc["disabledPlugins"] == [a, UNRELATED])
+    check("T6 v0 勾选的捆绑插件被启用", doc["disabledPlugins"] == [UNRELATED],
+          str(doc.get("disabledPlugins")))
     check("T6 v0 JVM 字段迁入 launcher", doc["launcher"]["cubismJvm"] == "bundled")
 
     # T7: 未知字段在归一化时被丢弃而不是失败关闭。
@@ -1687,18 +1713,20 @@ def main():
     doc = json.loads(out)
     check("TI1 disabledPlugins == 未勾选", doc["disabledPlugins"] == [a, c], str(doc.get("disabledPlugins")))
 
-    # TI2: 后续 Full 更新仍铺设完整 JAR，并保留既有 disabledPlugins。
+    # TI2: a later Full update lays every JAR and applies the current selection, so the two
+    # previously unchecked bundled plugins become enabled again.
     out = installer_write_config("full", [], out)
     doc = json.loads(out)
     jars = nsis_jars_after("full", jars)
     check("TI2 更新后 JAR 库存完整", jars == BUNDLED_MODULES, str(jars))
-    check("TI2 更新保留既有 disabledPlugins", doc["disabledPlugins"] == [a, c])
+    check("TI2 更新启用重新勾选的捆绑插件",
+          doc.get("disabledPlugins", []) == [], str(doc.get("disabledPlugins")))
 
-    # TI2b: legacy v0 迁移后同样保留既有 disabledPlugins。
+    # TI2b: a legacy v0 config also has its checked bundled id enabled.
     existing = '{"disabledPlugins": ["' + a + '","' + UNRELATED + '"]}'
     out = installer_write_config("full", [], existing)
     doc = json.loads(out)
-    check("TI2b v0 迁移保留既有 disabledPlugins", doc["disabledPlugins"] == sorted([a, UNRELATED]),
+    check("TI2b v0 迁移启用勾选的捆绑插件", doc["disabledPlugins"] == [UNRELATED],
           str(doc.get("disabledPlugins")))
 
     # TI3: 全新 Thin → 无插件 JAR；无 disabledPlugins

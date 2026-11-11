@@ -702,6 +702,20 @@ for index, p in enumerate(plugins):
 lines.append("FunctionEnd")
 lines.append("")
 
+lines.append("; Collect the unchecked plugin ids for the config merge, separated by ';'.")
+lines.append("Function CollectUncheckedPluginIds")
+lines.append('  StrCpy $uncheckedPluginIds ""')
+for index, p in enumerate(plugins):
+    lines.append(f"  ${{If}} $PluginState_{index} == 0")
+    lines.append('    ${If} $uncheckedPluginIds == ""')
+    lines.append(f'      StrCpy $uncheckedPluginIds "{p["id"]}"')
+    lines.append("    ${Else}")
+    lines.append(f'      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;{p["id"]}"')
+    lines.append("    ${EndIf}")
+    lines.append("  ${EndIf}")
+lines.append("FunctionEnd")
+lines.append("")
+
 lines.append("; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。")
 lines.append("Function SetBundledPluginIds")
 lines.append(f'  StrCpy $bundledPluginIds "{";".join(p["id"] for p in plugins)}"')

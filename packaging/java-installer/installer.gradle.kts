@@ -411,6 +411,7 @@ val installerRegressionJarTask = tasks.register<Jar>("installerRegressionJar") {
     dependsOn(tasks.named("compileInstallerRegressionJava"), stageInstallerPayload)
     from(installerRegressionSourceSet.output)
     from(payloadDir) {
+        include("config.template.json")
         include("retired-plugins.txt")
         into("turboism")
     }

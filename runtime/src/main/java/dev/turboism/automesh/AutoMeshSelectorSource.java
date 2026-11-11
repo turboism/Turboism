@@ -2,6 +2,7 @@ package dev.turboism.automesh;
 
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Everything the native Auto Mesh selector row reads: the session listing and its selection.
@@ -26,4 +27,19 @@ public interface AutoMeshSelectorSource {
      * @return the selection state of this Editor session
      */
     AutoMeshSelectionState selection();
+
+    /**
+     * Places the current Editor selection with the container's own live-update route.
+     *
+     * <p>The Editor re-places points when its own mode or parameter changes. The row asks for the
+     * same route after it stores a plugin change, so selecting an algorithm or a preset behaves like
+     * the Editor's own modes. A container that cannot answer the route reports the refusal and keeps
+     * the stored selection, which the next native Generate still uses.</p>
+     *
+     * @param container the native Auto Mesh container the row decorates
+     * @param diagnostics sink for a refused route; it must not throw
+     */
+    default void placeCurrentSelection(final Object container, final Consumer<String> diagnostics) {
+        AutoMeshLivePlacement.place(container, diagnostics);
+    }
 }

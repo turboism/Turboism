@@ -566,6 +566,24 @@ public final class ConfigMergeRegression {
         check("selection no-op comparison ignores disabled plugin order",
                 ConfigMerge.disabledSelectionMatches(sameSetDifferentOrder, disabled));
 
+        // A default full install selects every bundled plugin, so a persisted acp entry must be
+        // removed while an unrelated disabled id survives. The fresh template disables nothing.
+        final Map<String, Object> acpDisabled = validRuntimeConfig();
+        acpDisabled.put("disabledPlugins", List.of(
+                "dev.turboism.plugin.acp",
+                "dev.turboism.plugin.unrelated"));
+        final Set<String> defaultBundled = Set.of(
+                "dev.turboism.plugin.acp",
+                "dev.turboism.plugin.mcp");
+        final List<String> defaultFull =
+                ConfigMerge.mergeDisabled(acpDisabled, defaultBundled, defaultBundled, false);
+        check("a default full selection enables the bundled acp plugin",
+                !defaultFull.contains("dev.turboism.plugin.acp"));
+        check("a default full selection preserves an unrelated disabled plugin",
+                defaultFull.contains("dev.turboism.plugin.unrelated"));
+        check("the fresh config template disables no plugin",
+                !ConfigMerge.loadTemplate().containsKey("disabledPlugins"));
+
         Path oversizedHome = Files.createTempDirectory("cfg-write-limit-").resolve("new-home");
         Map<String, Object> oversized = validRuntimeConfig();
         oversized.put("diagnostics", Map.of("blob", "x".repeat(65_536)));

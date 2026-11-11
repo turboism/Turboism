@@ -347,7 +347,7 @@ public final class AutoMeshSelectorRow {
         private final Object presetGroup;
         private final Object settingsGroup;
         private final List<InlineRow> parameterRows = new ArrayList<>();
-        private final Timer commitTimer = new Timer(PARAMETER_COMMIT_DELAY_MILLIS, event -> commitParameters());
+        private final Timer commitTimer = new Timer(PARAMETER_COMMIT_DELAY_MILLIS, event -> guard(this::placeNow));
         private AutoMeshParameterModel model;
         private boolean writing;
 
@@ -541,6 +541,7 @@ public final class AutoMeshSelectorRow {
         private void selectAlgorithm(final int index) {
             controller.selectAlgorithm(index);
             refresh();
+            placeNow();
         }
 
         /**
@@ -552,6 +553,7 @@ public final class AutoMeshSelectorRow {
         private void selectPreset(final int index) {
             if (controller.selectPreset(index)) {
                 refresh();
+                placeNow();
                 return;
             }
             syncPresetState();
@@ -620,12 +622,14 @@ public final class AutoMeshSelectorRow {
             }
             if (controller.deletePreset(active.get())) {
                 refresh();
+                placeNow();
             }
         }
 
         private void restorePresets() {
             controller.restoreDefaultPresets();
             refresh();
+            placeNow();
         }
 
         private String prompt(final String key, final String initialValue) {
@@ -883,6 +887,18 @@ public final class AutoMeshSelectorRow {
             controller.storeParameters(model.algorithm(), model.values());
         }
 
+        /**
+         * Persists the pending edit stream and re-places the selection with the native route.
+         *
+         * <p>One entry point serves an accepted dialog, an algorithm or preset change and the end of
+         * an inline edit stream, so a change places points exactly once even when a timer and a
+         * combo callback follow each other.</p>
+         */
+        private void placeNow() {
+            commitParameters();
+            controller.placeCurrentSelection(container, diagnostics);
+        }
+
         private void restoreParameter(final String parameterId) {
             if (model == null) {
                 return;
@@ -1125,20 +1141,29 @@ public final class AutoMeshSelectorRow {
             }
         };
 
+        final Runnable placement = () -> controller.placeCurrentSelection(container, diagnostics);
+
         invoke(
                 algorithmCombo,
                 SET_ON_SELECTED,
                 callbackParameter,
                 proxy(function1, unit, (proxy, method, arguments) -> {
                     if (INVOKE_METHOD.equals(method.getName())) {
-                        guard(() -> controller.selectAlgorithm(selectedIndex(algorithmCombo)));
+                        guard(() -> {
+                            controller.selectAlgorithm(selectedIndex(algorithmCombo));
+                            placement.run();
+                        });
                         guard(syncPresets);
                     }
                     return unit;
                 }));
         invoke(presetCombo, SET_ON_SELECTED, callbackParameter, proxy(function1, unit, (proxy, method, arguments) -> {
             if (INVOKE_METHOD.equals(method.getName())) {
-                guard(() -> controller.selectPreset(selectedIndex(presetCombo)));
+                guard(() -> {
+                    if (controller.selectPreset(selectedIndex(presetCombo))) {
+                        placement.run();
+                    }
+                });
             }
             return unit;
         }));
@@ -1148,7 +1173,7 @@ public final class AutoMeshSelectorRow {
                 callbackParameter,
                 proxy(function1, unit, (proxy, method, arguments) -> {
                     if (INVOKE_METHOD.equals(method.getName())) {
-                        guard(() -> openParameters(container, syncPresets));
+                        guard(() -> openParameters(container, syncPresets, placement));
                     }
                     return unit;
                 }));
@@ -1156,13 +1181,16 @@ public final class AutoMeshSelectorRow {
     }
 
     /**
-     * Opens the parameter dialog and republishes the preset list afterwards.
+     * Opens the parameter dialog, places its accepted values, and republishes the preset list.
      *
      * <p>The dialog can add, rename, delete or restore presets, so the native popup's own preset
-     * combo is stale the moment the dialog closes. Republishing keeps both views on one list.</p>
+     * combo is stale the moment the dialog closes. Republishing keeps both views on one list. Only an
+     * accepted dialog changes the parameter values, so only then does the row ask for a placement.</p>
      */
-    private void openParameters(final Object container, final Runnable syncPresets) {
-        AutoMeshParameterDialog.show(ownerOf(container), controller, locale);
+    private void openParameters(final Object container, final Runnable syncPresets, final Runnable placement) {
+        if (AutoMeshParameterDialog.show(ownerOf(container), controller, locale)) {
+            guard(placement);
+        }
         guard(syncPresets);
     }
 
