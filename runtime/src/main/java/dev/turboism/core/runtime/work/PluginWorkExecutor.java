@@ -2,6 +2,7 @@ package dev.turboism.core.runtime.work;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.contract.PluginTask;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
@@ -9,13 +10,11 @@ import io.github.resilience4j.timelimiter.TimeLimiter;
 import io.github.resilience4j.timelimiter.TimeLimiterConfig;
 import java.time.Clock;
 import java.util.Objects;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -91,22 +90,12 @@ public final class PluginWorkExecutor {
         // admission (fixed workers + bounded queue + abort) but its threads are daemon and
         // named after the plugin, so a live executor can neither pin the JVM nor leak
         // unattributed threads.
-        this.workerPool = new ThreadPoolExecutor(
+        this.workerPool = RuntimeThreads.fixedLane(
                 configuration.bulkheadPoolSize(),
-                configuration.bulkheadPoolSize(),
-                0L,
-                TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(configuration.queueCapacity()),
-                new PluginWorkThreadFactory(this.pluginId),
-                new ThreadPoolExecutor.AbortPolicy());
-        this.completionPool = new ThreadPoolExecutor(
-                1,
-                1,
-                0L,
-                TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(configuration.queueCapacity()),
-                new PluginWorkThreadFactory(this.pluginId + "-completion"),
-                new ThreadPoolExecutor.AbortPolicy());
+                configuration.queueCapacity(),
+                new PluginWorkThreadFactory(this.pluginId));
+        this.completionPool = RuntimeThreads.fixedLane(
+                1, configuration.queueCapacity(), new PluginWorkThreadFactory(this.pluginId + "-completion"));
         this.timeLimiter = TimeLimiter.of(
                 this.pluginId,
                 TimeLimiterConfig.custom()
@@ -123,7 +112,7 @@ public final class PluginWorkExecutor {
     }
 
     static ScheduledExecutorService createTimeoutScheduler(String pluginId) {
-        return new ScheduledThreadPoolExecutor(1, new PluginWorkThreadFactory(pluginId + "-timeout"));
+        return RuntimeThreads.serialTimer(new PluginWorkThreadFactory(pluginId + "-timeout"));
     }
 
     /**

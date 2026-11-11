@@ -1,6 +1,7 @@
 package dev.turboism.core.runtime.psd;
 
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.psd.PsdEditFile;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
@@ -11,11 +12,9 @@ import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -76,19 +75,11 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
         this.activeScope = Objects.requireNonNull(activeScope, "activeScope");
         this.continuationDispatcher = Objects.requireNonNull(continuationDispatcher, "continuationDispatcher");
         this.registry = Objects.requireNonNull(registry, "registry");
-        this.executor = new ThreadPoolExecutor(
+        this.executor = RuntimeThreads.fixedLane(
                 WORKER_COUNT,
-                WORKER_COUNT,
-                0L,
-                TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(QUEUE_CAPACITY),
-                runnable -> {
-                    final Thread thread = new Thread(
-                            runnable, "turboism.psd-replace." + this.pluginId.replaceAll("[^A-Za-z0-9_.-]", "_"));
-                    thread.setDaemon(true);
-                    return thread;
-                },
-                new ThreadPoolExecutor.AbortPolicy());
+                QUEUE_CAPACITY,
+                RuntimeThreads.daemonThreads(
+                        "turboism.psd-replace." + RuntimeThreads.sanitizeNameFragment(this.pluginId)));
     }
 
     /**

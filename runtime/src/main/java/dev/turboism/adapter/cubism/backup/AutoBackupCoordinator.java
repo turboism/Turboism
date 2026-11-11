@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.backup;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.backup.BackupArtifactHandle;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
@@ -32,7 +33,6 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -179,7 +179,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
                 diagnostics,
                 pluginTasks,
                 permissions,
-                Executors.newSingleThreadExecutor(daemon("turboism-autobackup-host")));
+                RuntimeThreads.serialLane(RuntimeThreads.daemonThreadsWithFixedName("turboism-autobackup-host")));
     }
 
     AutoBackupCoordinator(
@@ -747,10 +747,6 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     }
 
     private static ThreadFactory daemon(final String name) {
-        return runnable -> {
-            final Thread thread = new Thread(runnable, name);
-            thread.setDaemon(true);
-            return thread;
-        };
+        return RuntimeThreads.daemonThreadsWithFixedName(name);
     }
 }

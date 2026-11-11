@@ -79,11 +79,14 @@ env -u WAYLAND_DISPLAY xvfb-run -a ./gradlew materializeDraftContracts
 
 Records live in `build/generated/verification/`; DRAFT packs and profiles live in
 `build/generated/draft/mapping-packs/` and `build/generated/draft/profiles/`.
-These outputs are not committed. Author draft alias/template/range declarations
-in `compatibility/cubism/draft-src/`; use `editor-model-read.json` for editor-model
+These outputs are not committed. Retained observation/legacy evidence lives in
+`compatibility/cubism/mapping-packs/draft/` as one `baseline/<family>.json` plus one
+`overrides/<family>.json` table per family; `frozen.json` pins the shipped `5.0.x`
+and `5.1.x` rows. Author draft alias/template/range declarations in
+`compatibility/cubism/draft-src/`; use `editor-model-read.json` for editor-model
 selectors. `scripts/materialize_draft_contracts.py` owns draft profile/pack
-assertions. Do not restore committed draft copies. See the family source READMEs
-for export/import and rollback commands.
+assertions. Do not restore committed per-version draft copies. See the family
+source READMEs for export/import and rollback commands.
 
 Verify each materialized family against its exact Editor/Core artifact:
 

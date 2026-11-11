@@ -1,13 +1,11 @@
 package dev.turboism.pluginmanagement;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.core.io.PathLocks;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -56,10 +54,7 @@ public final class PluginCatalogStateStore {
             "cachedSignatureBase64",
             "stagedUpdates");
     private static final Pattern SHA256_PATTERN = Pattern.compile("[0-9a-f]{64}");
-    private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
-                    .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                    .build())
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private static final ObjectMapper JSON = RuntimeJson.strict();
 
     private final Path home;
     private final Path staging;

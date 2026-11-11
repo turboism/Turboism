@@ -1,8 +1,5 @@
 package dev.turboism.pluginmanagement;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -12,6 +9,7 @@ import dev.turboism.distribution.LocalPluginJarPreparer;
 import dev.turboism.distribution.PluginJarPreflight;
 import dev.turboism.distribution.PreparedPluginJar;
 import dev.turboism.internal.core.CorePluginManagement;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -33,10 +31,7 @@ import java.util.stream.Collectors;
 
 /** Runtime-owned staging journal applied before plugin discovery. */
 public final class PendingPluginOperations {
-    private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
-                    .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                    .build())
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private static final ObjectMapper JSON = RuntimeJson.strict();
     private static final int MAX_JOURNAL_BYTES = 64 * 1024;
     private static final java.util.Set<String> JOURNAL_FIELDS =
             java.util.Set.of("format", "schemaVersion", "revision", "operations");

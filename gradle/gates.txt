@@ -62,6 +62,7 @@ member devCheck checkMaterializedRecords
 member devCheck checkReviewedReleases
 member devCheck checkSdkCubismEditorAnnotations
 member devCheck validatePluginMeta
+member devCheck checkToolbarIconScaleVariants
 member devCheck checkPluginApiRanges
 member devCheck checkPluginApiFloors
 member devCheck :runtime:checkHeadlessRuntimeClasspath

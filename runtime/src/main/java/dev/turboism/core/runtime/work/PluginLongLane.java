@@ -3,17 +3,16 @@ package dev.turboism.core.runtime.work;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -91,21 +90,12 @@ public final class PluginLongLane {
         this.longRunningThreshold = Objects.requireNonNull(longRunningThreshold, "longRunningThreshold");
         this.reportInterval = Objects.requireNonNull(reportInterval, "reportInterval");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
-        this.worker = new ThreadPoolExecutor(
-                concurrency,
-                concurrency,
-                0L,
-                TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(queueCapacity),
-                new PluginWorkThreadFactory(this.pluginId + "-long"),
-                new ThreadPoolExecutor.AbortPolicy());
+        this.worker = RuntimeThreads.fixedLane(
+                concurrency, queueCapacity, new PluginWorkThreadFactory(this.pluginId + "-long"));
     }
 
     private static ScheduledExecutorService createMonitor(String pluginId) {
-        ScheduledThreadPoolExecutor monitor =
-                new ScheduledThreadPoolExecutor(1, new PluginWorkThreadFactory(pluginId + "-long-monitor"));
-        monitor.setRemoveOnCancelPolicy(true);
-        return monitor;
+        return RuntimeThreads.serialTimer(new PluginWorkThreadFactory(pluginId + "-long-monitor"));
     }
 
     /**

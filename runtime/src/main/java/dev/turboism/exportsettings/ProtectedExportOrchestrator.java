@@ -1,6 +1,7 @@
 package dev.turboism.exportsettings;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.cubism.export.ProtectedExportCensus;
 import dev.turboism.sdk.cubism.export.ProtectedExportPlan;
 import dev.turboism.sdk.cubism.export.ProtectedExportPlanResult;
@@ -26,8 +27,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -186,12 +185,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         this.reporter = Objects.requireNonNull(reporter, "reporter");
         this.bindTimeoutMillis = bindTimeoutMillis;
         this.exportCallbackTimeoutMillis = exportCallbackTimeoutMillis;
-        final ThreadFactory daemon = task -> {
-            final Thread thread = new Thread(task, "turboism-protected-export");
-            thread.setDaemon(true);
-            return thread;
-        };
-        this.worker = Executors.newSingleThreadExecutor(daemon);
+        this.worker = RuntimeThreads.serialLane(RuntimeThreads.daemonThreadsWithFixedName("turboism-protected-export"));
     }
 
     /**

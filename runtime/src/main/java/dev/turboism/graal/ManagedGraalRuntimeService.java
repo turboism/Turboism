@@ -3,6 +3,8 @@ package dev.turboism.graal;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.exec.RuntimeThreads;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -36,7 +38,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -78,7 +79,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
     private static final Duration PROBE_TIMEOUT = Duration.ofSeconds(30);
     private static final String ACTIVATION_MARKER_NAME = ".runtime-activation";
     private static final String PREVIOUS_RUNTIME_NAME = ".runtime-previous";
-    private static final ObjectMapper PROTOCOL_JSON = new ObjectMapper();
+    private static final ObjectMapper PROTOCOL_JSON = RuntimeJson.standard();
     private static final Set<String> DOWNLOAD_HOSTS = Set.of("github.com", "release-assets.githubusercontent.com");
     private static final Set<String> INHERITED_JAVA_OPTIONS =
             Set.of("JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS");
@@ -144,7 +145,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             throw new IllegalArgumentException("downloadTimeout must be positive");
         }
         reconcileInterruptedActivation();
-        this.executor = Executors.newSingleThreadExecutor(new InstallerThreadFactory());
+        this.executor = RuntimeThreads.serialLane(new InstallerThreadFactory());
     }
 
     /** @return a point-in-time state of the managed runtime only */
@@ -1354,7 +1355,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
                 throw new IllegalStateException("bundled managed-graal manifest is missing");
             }
             // A fresh mapper: PROTOCOL_JSON is initialized later in the class body.
-            final JsonNode document = new ObjectMapper().readTree(in);
+            final JsonNode document = RuntimeJson.standard().readTree(in);
             if (document == null
                     || !"turboism.managed-graal".equals(document.path("format").asText(null))
                     || document.path("schemaVersion").asInt(-1) != 1
@@ -1437,9 +1438,8 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
     private static final class InstallerThreadFactory implements ThreadFactory {
         @Override
         public Thread newThread(final Runnable runnable) {
-            final Thread thread = new Thread(runnable, "turboism-graal-runtime-installer");
-            thread.setDaemon(true);
-            return thread;
+            return RuntimeThreads.daemonThreadsWithFixedName("turboism-graal-runtime-installer")
+                    .newThread(runnable);
         }
     }
 }

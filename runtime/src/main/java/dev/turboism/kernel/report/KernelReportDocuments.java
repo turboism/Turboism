@@ -1,10 +1,9 @@
 package dev.turboism.kernel.report;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.time.Instant;
 import java.util.EnumMap;
 import java.util.Map;
@@ -13,8 +12,7 @@ import java.util.Objects;
 /** Deterministic runtime-owned builders for closed preview report documents. */
 public final class KernelReportDocuments {
 
-    static final ObjectMapper JSON =
-            new ObjectMapper(new JsonFactory()).enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
+    static final ObjectMapper JSON = RuntimeJson.canonical();
 
     /** Shared deterministic mapper; the report snapshot factory lives one package up. */
     public static ObjectMapper json() {

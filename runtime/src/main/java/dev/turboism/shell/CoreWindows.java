@@ -4,6 +4,7 @@ import dev.turboism.core.net.HttpLinks;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.pluginmanagement.PluginAutoUpdateControl;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettings;
@@ -65,7 +66,7 @@ final class CoreWindows implements AutoCloseable {
     private JDialog aboutDialog;
     private FrameworkUpdatesWindow updatesWindow;
     private final java.util.concurrent.ExecutorService pluginDetailsExecutor =
-            java.util.concurrent.Executors.newSingleThreadExecutor(new PluginDetailsThreadFactory());
+            RuntimeThreads.serialLane(RuntimeThreads.daemonThreadsWithFixedName("turboism-plugin-details"));
     private final AtomicBoolean closed = new AtomicBoolean();
     private ActiveSettingsAction activeSettingsAction;
     private long pluginDetailsRequest;
@@ -1534,15 +1535,6 @@ final class CoreWindows implements AutoCloseable {
 
     private String text(final String key) {
         return i18n.text(key);
-    }
-
-    private static final class PluginDetailsThreadFactory implements java.util.concurrent.ThreadFactory {
-        @Override
-        public Thread newThread(final Runnable task) {
-            final Thread thread = new Thread(task, "turboism-plugin-details");
-            thread.setDaemon(true);
-            return thread;
-        }
     }
 
     static final class PluginTableModel extends AbstractTableModel {

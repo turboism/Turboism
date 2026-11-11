@@ -148,6 +148,43 @@ class PluginDescriptorParserTest {
     }
 
     @Test
+    void canonicalCapabilityIsDeclaredAsWritten() throws DescriptorParseException {
+        final PluginDescriptor descriptor = parser.parse(
+                toStream(validDescriptor().replace("\"resources\": [],", capabilities("cubism.parameter.read"))));
+
+        assertEquals(List.of("cubism.parameter.read"), descriptor.capabilities());
+    }
+
+    @Test
+    void retiredSynonymCapabilitiesMigrateToTheirCanonicalIds() throws DescriptorParseException {
+        final PluginDescriptor descriptor = parser.parse(toStream(validDescriptor()
+                .replace(
+                        "\"resources\": [],",
+                        capabilities(
+                                "cubism.parameters.read",
+                                "cubism.parameters.write",
+                                "cubism.history.read",
+                                "cubism.history.write",
+                                "cubism.editor-history.semantic-read"))));
+
+        assertEquals(
+                List.of(
+                        "cubism.parameter.read",
+                        "cubism.parameter.write",
+                        "cubism.editor-history.read",
+                        "cubism.editor-history.move"),
+                descriptor.capabilities());
+    }
+
+    @Test
+    void migratingASynonymNextToItsCanonicalIdDeclaresItOnce() throws DescriptorParseException {
+        final PluginDescriptor descriptor = parser.parse(toStream(validDescriptor()
+                .replace("\"resources\": [],", capabilities("cubism.parameters.read", "cubism.parameter.read"))));
+
+        assertEquals(List.of("cubism.parameter.read"), descriptor.capabilities());
+    }
+
+    @Test
     void rejectsV2DescriptorCarryingV3FieldsAsUnknown() {
         final String json = validDescriptor()
                 .replace(
@@ -658,6 +695,14 @@ class PluginDescriptorParserTest {
               "description": ""
             }
             """.formatted(classificationFields);
+    }
+
+    private static String capabilities(final String... ids) {
+        return "\"resources\": [],\n              \"capabilities\": ["
+                + java.util.Arrays.stream(ids)
+                        .map(id -> "\"" + id + "\"")
+                        .collect(java.util.stream.Collectors.joining(", "))
+                + "],";
     }
 
     private static String validDescriptor() {

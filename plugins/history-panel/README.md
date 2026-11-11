@@ -65,7 +65,6 @@ This plugin is included in Turboism Full releases. Install a Full package, then 
 | Declared capability | User effect |
 |---|---|
 | `cubism.editor-history.read` | Reads the active document's native Undo history snapshot. |
-| `cubism.editor-history.semantic-read` | Optionally decodes independently authorized native Undo families with strict depth/node/string budgets. |
 | `cubism.editor-history.move` | Requests movement through native Undo history entries. |
 | `ui.embedded-panel.contribute` | Contributes the History panel. |
 | `ui.status.notify` | Declares history-status notification support. |

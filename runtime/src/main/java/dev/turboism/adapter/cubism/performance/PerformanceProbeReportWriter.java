@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskScissorBridge;
 import dev.turboism.core.io.DurableFile;
 import dev.turboism.core.io.WriteOptions;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,7 +28,7 @@ public final class PerformanceProbeReportWriter {
     private static final WriteOptions PREFER_ATOMIC_REPLACE =
             WriteOptions.DEFAULT.withAtomicity(WriteOptions.Atomicity.PREFERRED);
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = RuntimeJson.standard();
 
     /**
      * Writes a {@code turboism.cubism.performance-probe} JSON document. Camera/edit retain

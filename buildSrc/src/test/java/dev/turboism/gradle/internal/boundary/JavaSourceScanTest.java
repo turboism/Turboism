@@ -251,6 +251,61 @@ class JavaSourceScanTest {
         assertEquals("      ", JavaSourceScan.stripCommentsAndStrings("\"\"\"x\"\"\""));
     }
 
+    @Test
+    void reportsDirectExecutorAndMapperConstructionOutsideTheCanonicalFactories() {
+        String root = "runtime/src/main/java/dev/turboism/";
+        String execNote = "use RuntimeThreads so thread naming, daemon flags and rejection stay canonical";
+        assertEquals(
+                List.of("Forbidden runtime construction 'Executors.new*' in " + root + "ui/Fixture.java:1: " + execNote),
+                JavaSourceScan.directRuntimeConstructions(new JavaSourceScan.SourceFile(
+                        root + "ui/Fixture.java", List.of("class F { Object e = Executors.newFixedThreadPool(2); }"))));
+        assertEquals(
+                List.of("Forbidden runtime construction 'new ThreadPoolExecutor' in " + root + "ui/Fixture.java:1: "
+                        + execNote),
+                JavaSourceScan.directRuntimeConstructions(new JavaSourceScan.SourceFile(
+                        root + "ui/Fixture.java",
+                        List.of("class F { Object e = new ThreadPoolExecutor(1, 1, 0L, null, null); }"))));
+        assertEquals(
+                List.of("Forbidden runtime construction 'new ScheduledThreadPoolExecutor' in " + root
+                        + "ui/Fixture.java:1: " + execNote),
+                JavaSourceScan.directRuntimeConstructions(new JavaSourceScan.SourceFile(
+                        root + "ui/Fixture.java",
+                        List.of("class F { Object e = new ScheduledThreadPoolExecutor(1); }"))));
+        assertEquals(
+                List.of("Forbidden runtime construction 'new ObjectMapper' in " + root + "ui/Fixture.java:1: "
+                        + "use RuntimeJson so Jackson hardening stays canonical"),
+                JavaSourceScan.directRuntimeConstructions(new JavaSourceScan.SourceFile(
+                        root + "ui/Fixture.java", List.of("class F { Object m = new ObjectMapper(); }"))));
+    }
+
+    @Test
+    void admitsTheCanonicalFactoriesAndIgnoresMentionsInCommentsAndStrings() {
+        String root = "runtime/src/main/java/dev/turboism/";
+        assertTrue(JavaSourceScan.directRuntimeConstructions(new JavaSourceScan.SourceFile(
+                        root + "runtime/exec/RuntimeThreads.java",
+                        List.of("class F { Object e = new ThreadPoolExecutor(1, 1, 0L, null, null); }")))
+                .isEmpty());
+        assertTrue(JavaSourceScan.directRuntimeConstructions(new JavaSourceScan.SourceFile(
+                        root + "runtime/json/RuntimeJson.java", List.of("class F { Object m = new ObjectMapper(); }")))
+                .isEmpty());
+        assertTrue(JavaSourceScan.directRuntimeConstructions(new JavaSourceScan.SourceFile(
+                        root + "ui/Fixture.java",
+                        List.of(
+                                "class F {",
+                                "    // new ObjectMapper() belongs in RuntimeJson",
+                                "    /* Executors.newFixedThreadPool(2) neither */",
+                                "    String note = \"new ThreadPoolExecutor(1, 1, 0L, null, null)\";",
+                                "}")))
+                .isEmpty());
+    }
+
+    @Test
+    void ignoresDirectConstructionOutsideTheRuntimeTree() {
+        assertTrue(JavaSourceScan.directRuntimeConstructions(new JavaSourceScan.SourceFile(
+                        "sdk/src/main/java/Fixture.java", List.of("class F { Object m = new ObjectMapper(); }")))
+                .isEmpty());
+    }
+
     private static JavaSourceScan.SourceFile source(String... lines) {
         return new JavaSourceScan.SourceFile(FIXTURE, List.of(lines));
     }

@@ -2,8 +2,8 @@ package dev.turboism.core.runtime.work;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.contract.PluginTask;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import java.util.Objects;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -34,14 +34,7 @@ public final class PluginEventLane {
     PluginEventLane(String pluginId, int queueCapacity, Consumer<PluginWorkBudgetEvent> diagnosticSink) {
         this.pluginId = requireText(pluginId, "pluginId");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
-        this.worker = new ThreadPoolExecutor(
-                1,
-                1,
-                0L,
-                TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(queueCapacity),
-                new PluginWorkThreadFactory(this.pluginId + "-event"),
-                new ThreadPoolExecutor.AbortPolicy());
+        this.worker = RuntimeThreads.fixedLane(1, queueCapacity, new PluginWorkThreadFactory(this.pluginId + "-event"));
     }
 
     /**

@@ -29,6 +29,7 @@ public final class MeshToolbarSelectorContract {
             "cubism.ui-main-toolbar.icon.create",
             "cubism.ui-main-toolbar.widget.class",
             "cubism.ui-main-toolbar.widget.parent",
+            "cubism.ui-main-toolbar.widget.jcomponent",
             "cubism.ui-main-toolbar.widget.name",
             "cubism.ui-main-toolbar.widget.set-name",
             "cubism.ui-main-toolbar.widget.set-tooltip",

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -53,7 +54,7 @@ public record RuntimeStartupConfig(
         return !safeMode && !disabledHookIds.contains(Objects.requireNonNull(hookId, "hookId"));
     }
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = RuntimeJson.standard();
     private static final RuntimeStartupConfig FAIL_CLOSED = new RuntimeStartupConfig(true, false, false, false);
     private static final RuntimeStartupConfig DEFAULTS = new RuntimeStartupConfig(false, true, true, true);
     private static final long MAX_CONFIG_BYTES = 64L * 1024L;

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Tiny synthetic regression for actionable DRAFT declaration diagnostics."""
+"""Synthetic regression for DRAFT declaration diagnostics and retained evidence expansion."""
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import tempfile
@@ -10,7 +11,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from materialize_draft_contracts import render
+from materialize_draft_contracts import (
+    FROZEN_MINOR_LINES,
+    OVERRIDES_FORMAT,
+    check_frozen,
+    load_evidence,
+    render,
+)
 from scripts.test.reviewed_releases_fixture import table
 
 
@@ -39,6 +46,108 @@ class DraftDeclarationDiagnosticTest(unittest.TestCase):
                 self.assertIn(f'version {version}', message)
                 self.assertIn(f'add entries.{alias} with a template index', message)
                 self.assertIn(str(Path(declaration)), message)
+
+
+class RetainedEvidenceExpansionTest(unittest.TestCase):
+    """Retained evidence must expand to the exact per-version pack bytes."""
+
+    FAMILY = 'ui-test'
+    VERSION = '9.9.99'
+    RECORD_NAME = f'cubism-{VERSION}-{FAMILY}.json'
+    ARTIFACT_SHA256 = 'a' * 64
+
+    def _root(self, directory: str) -> Path:
+        root = Path(directory)
+        baseline = {
+            'format': 'turboism.mapping.pack',
+            'schemaVersion': 1,
+            'status': 'DRAFT',
+            'cubismVersion': '${version}',
+            'entries': [{'profile': 'cubism-${version}', 'runtime': 'fixture/Old'}],
+            'metadata': {'artifactSha256': '${artifactSha256}', 'selectorCount': '${selectorCount}'},
+        }
+        baseline_path = root / 'compatibility/cubism/mapping-packs/draft/baseline' / f'{self.FAMILY}.json'
+        baseline_path.parent.mkdir(parents=True, exist_ok=True)
+        baseline_path.write_text(json.dumps(baseline, indent=2) + '\n', encoding='utf-8')
+        overrides = {
+            'format': OVERRIDES_FORMAT,
+            'schemaVersion': 1,
+            'family': self.FAMILY,
+            'baselineVersion': self.VERSION,
+            'overrides': {},
+        }
+        overrides_path = root / 'compatibility/cubism/mapping-packs/draft/overrides' / f'{self.FAMILY}.json'
+        overrides_path.parent.mkdir(parents=True, exist_ok=True)
+        overrides_path.write_text(json.dumps(overrides, indent=2) + '\n', encoding='utf-8')
+        records = {
+            self.RECORD_NAME: {
+                'artifact': {'name': 'Live2D_Cubism.jar', 'size': 1, 'sha256': self.ARTIFACT_SHA256},
+                'profileId': f'cubism-{self.VERSION}',
+                'verificationId': f'cubism-{self.VERSION}.{self.FAMILY}.static',
+                'selectors': [{'alias': 'fixture.selector'}],
+                'capabilityIds': ['fixture.capability'],
+            },
+        }
+        return root, records
+
+    def test_baseline_tokens_expand_to_record_derived_literals(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, records = self._root(directory)
+            evidence = load_evidence(root, records)
+            pack = json.loads(evidence[self.FAMILY][self.VERSION])
+            self.assertEqual(self.VERSION, pack['cubismVersion'])
+            self.assertEqual(f'cubism-{self.VERSION}', pack['entries'][0]['profile'])
+            self.assertEqual(self.ARTIFACT_SHA256, pack['metadata']['artifactSha256'])
+            self.assertEqual(1, pack['metadata']['selectorCount'])
+
+    def test_override_patches_rebuild_every_declared_version(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, records = self._root(directory)
+            newer = '9.9.100'
+            records[f'cubism-{newer}-{self.FAMILY}.json'] = dict(
+                records[self.RECORD_NAME], profileId=f'cubism-{newer}')
+            overrides_path = root / 'compatibility/cubism/mapping-packs/draft/overrides' / f'{self.FAMILY}.json'
+            overrides = json.loads(overrides_path.read_text(encoding='utf-8'))
+            overrides['overrides'] = {newer: [{'op': 'replace', 'path': '/entries/0/runtime', 'value': 'fixture/New'}]}
+            overrides_path.write_text(json.dumps(overrides, indent=2) + '\n', encoding='utf-8')
+
+            evidence = load_evidence(root, records)
+            self.assertEqual('fixture/Old', json.loads(evidence[self.FAMILY][self.VERSION])['entries'][0]['runtime'])
+            self.assertEqual('fixture/New', json.loads(evidence[self.FAMILY][newer])['entries'][0]['runtime'])
+
+
+class FrozenRowTest(unittest.TestCase):
+    """Shipped compatibility rows must not drift after they are pinned."""
+
+    def _evidence(self, runtime: str) -> dict:
+        return {'ui-test': {FROZEN_MINOR_LINES[0] + '.00': json.dumps({'runtime': runtime}).encode()}}
+
+    def _root(self, directory: str, digest: str) -> Path:
+        root = Path(directory)
+        frozen = root / 'compatibility/cubism/mapping-packs/draft/frozen.json'
+        frozen.parent.mkdir(parents=True, exist_ok=True)
+        frozen.write_text(json.dumps({
+            'format': 'turboism.mapping.pack.freeze',
+            'schemaVersion': 1,
+            'minorLines': list(FROZEN_MINOR_LINES),
+            'packs': {f'cubism-{FROZEN_MINOR_LINES[0]}.00-ui-test.json': digest},
+        }), encoding='utf-8')
+        return root
+
+    def test_matching_digest_passes(self):
+        evidence = self._evidence('fixture/Old')
+        digest = hashlib.sha256(evidence['ui-test'][f'{FROZEN_MINOR_LINES[0]}.00']).hexdigest()
+        with tempfile.TemporaryDirectory() as directory:
+            check_frozen(self._root(directory, digest), evidence)
+
+    def test_changed_shipped_row_fails(self):
+        evidence = self._evidence('fixture/New')
+        digest = hashlib.sha256(b'{"runtime": "fixture/Old"}').hexdigest()
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(ValueError) as failure:
+                check_frozen(self._root(directory, digest), evidence)
+            self.assertIn('frozen compatibility packs drifted', str(failure.exception))
+            self.assertIn(f'cubism-{FROZEN_MINOR_LINES[0]}.00-ui-test.json', str(failure.exception))
 
 
 if __name__ == '__main__':

@@ -132,23 +132,12 @@ tasks.register<JavaExec>("mappingReview") {
             val supplied = reviewArgs[packArgument]
             val generatedPrefix = "build/generated/draft/mapping-packs/"
             val sourcePrefix = "compatibility/cubism/mapping-packs/draft/"
-            val name = when {
-                supplied.startsWith(generatedPrefix) -> supplied.removePrefix(generatedPrefix)
-                supplied.startsWith(sourcePrefix) -> supplied.removePrefix(sourcePrefix)
-                else -> null
-            }
-            if (name != null && Regex("[^/\\\\:]+\\.json").matches(name) && !name.contains("..")) {
-                val generated = file(generatedPrefix + name)
-                val source = file(sourcePrefix + name)
-                if (generated.isFile) {
-                    val pack = groovy.json.JsonSlurper().parse(generated) as Map<*, *>
-                    if (pack["source"] in setOf("derived-from-verified-record", "exact-5.3.03-classfile-observation-and-semantic-remap")) {
-                        throw GradleException("Derived DRAFT pack: edit verification-src/draft-src and regenerate; mapping-review writes observation sources only.")
-                    }
-                    if (supplied.startsWith(generatedPrefix) && source.isFile) {
-                        reviewArgs[packArgument] = sourcePrefix + name
-                    }
-                }
+            if (supplied.startsWith(generatedPrefix) || supplied.startsWith(sourcePrefix)) {
+                throw GradleException(
+                    "Retained DRAFT evidence is a per-family baseline plus override table; " +
+                        "edit compatibility/cubism/mapping-packs/draft/{baseline,overrides}/<family>.json " +
+                        "and regenerate with materializeDraftContracts."
+                )
             }
         }
         setArgs(reviewArgs)
@@ -188,7 +177,7 @@ val materializeDraftContracts by tasks.registering(Exec::class) {
         "scripts/preview/reviewed_host_artifacts.py",
         "compatibility/cubism/reviewed-releases.json",
         fileTree("compatibility/cubism/draft-src") { include("*.json") },
-        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json") },
+        fileTree("compatibility/cubism/mapping-packs/draft") { include("*.json", "baseline/*.json", "overrides/*.json") },
         materializeVerificationRecords
     )
     outputs.dir(rootProject.file("build/generated/draft"))

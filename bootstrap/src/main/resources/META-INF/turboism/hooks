@@ -1,7 +1,22 @@
-# Declarative install-time hook manifest: one HookContributor class per line.
-# The agent scans this list, checks each contributor's own admission, and
+# Declarative install-time hook manifest: one entry per line.
+#
+# An entry is either a fully-qualified HookContributor class name or an "@"
+# token that names a DeclarativeHook entry in DeclarativeHooks. Both forms
+# coexist so a hook family migrates to a declarative entry without a flag day:
+# the agent scans this list, checks each contributor's own admission, and
 # forwards install/uninstall through the shared protocol. Adding a hook means
-# adding a contributor class plus one line here — TurboismAgent stays unchanged.
+# either a contributor class plus one line here, or one DeclarativeHook
+# constant plus one line here. TurboismAgent stays unchanged either way.
+#
+# Loading is fail-closed: a malformed line, an unknown token, a duplicate entry
+# or two entries reporting under one hook identity reject the whole manifest and
+# no hook installs.
+#
+# The "@verified-*" entries below are the verified native-optimization family.
+# Each one keeps its reviewed contract table, Admission row and WeaveSpec in its
+# installer; the entry supplies only the report label, the persisted-preference
+# gate and the installer factory, so the family needs no contributor class per
+# install.
 dev.turboism.bootstrap.MeshMirrorHookContributor
 dev.turboism.bootstrap.MeshToolSessionHookContributor
 dev.turboism.bootstrap.ModelingToolHookContributor
@@ -35,14 +50,14 @@ dev.turboism.bootstrap.ExportSettingsHookContributor
 # com.live2d.cubism.view.palette.tool.toolMode.meshEditor.AutoMeshUtil* , so this
 # registration order carries no constraint; it sits beside the other native dialog seam.
 dev.turboism.bootstrap.AutoMeshGuardHookContributor
-dev.turboism.bootstrap.ImageArchiveReuseHookContributor
-dev.turboism.bootstrap.FloatArrayParseCacheHookContributor
-dev.turboism.bootstrap.TextureUploadPreparationHookContributor
-dev.turboism.bootstrap.WarpPositionProjectionHookContributor
-dev.turboism.bootstrap.ModelUpdateSkipHookContributor
+@verified-image-archive-reuse
+@verified-float-array-parse-cache
+@verified-texture-upload-preparation
+@verified-warp-position-projection
+@verified-model-update-skip
 # Coalesces duplicate native model-instance publications inside one edit group.
 dev.turboism.bootstrap.ModelInstanceCoalesceHookContributor
-dev.turboism.bootstrap.IncrementalUpdateHookContributor
+@verified-incremental-update
 # Must install before the uniform-location cache: both transform
 # shader/A.a(GL,String,Z)I and retransformation replays the chain on original
 # bytes in registration order. With elision upstream, the uniform ERROR-role
@@ -73,7 +88,7 @@ dev.turboism.bootstrap.DeferredGlErrorCheckHookContributor
 # setters, which the lifecycle observer never touches.
 dev.turboism.bootstrap.RedundantStateElisionHookContributor
 dev.turboism.bootstrap.MatrixScratchHookContributor
-dev.turboism.bootstrap.ReinitPairElisionHookContributor
+@verified-reinit-pair-elision
 dev.turboism.bootstrap.NativeEditBeginHookContributor
 dev.turboism.bootstrap.EditApiDispatchHookContributor
 dev.turboism.bootstrap.TextureAtlasDataModelHookContributor

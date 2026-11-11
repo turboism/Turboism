@@ -2,6 +2,7 @@ package dev.turboism.update;
 
 import dev.turboism.core.FrameworkBuildInfo;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,7 +15,6 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -111,7 +111,7 @@ public final class HttpUpdateTransport implements UpdateTransport {
         private final Optional<String> etag;
         private final long deadlineNanos;
         private final Object resourceLock = new Object();
-        private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(2, requestThreadFactory());
+        private final ScheduledExecutorService executor = RuntimeThreads.scheduledLane(2, requestThreadFactory());
         private final RequestFuture result = new RequestFuture(this);
         private final AtomicBoolean cancelled = new AtomicBoolean();
         private final AtomicBoolean finished = new AtomicBoolean();
@@ -334,11 +334,7 @@ public final class HttpUpdateTransport implements UpdateTransport {
 
     private static ThreadFactory requestThreadFactory() {
         final long requestId = REQUEST_IDS.incrementAndGet();
-        return runnable -> {
-            final Thread thread = new Thread(runnable, "turboism-update-http-" + requestId);
-            thread.setDaemon(true);
-            return thread;
-        };
+        return RuntimeThreads.daemonThreadsWithFixedName("turboism-update-http-" + requestId);
     }
 
     private static long deadlineNanos(final Duration duration) {

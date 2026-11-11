@@ -6,6 +6,7 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.RecentPreviewAliases;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult;
@@ -34,7 +35,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.imageio.ImageIO;
@@ -96,11 +96,8 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
      * Daemon executor for pixel post-processing (solidity, crop, scale, PNG encode) so the EDT
      * never blocks on it. Captures are debounced upstream; a single thread is sufficient.
      */
-    private static final ExecutorService POST_PROCESS_EXECUTOR = Executors.newSingleThreadExecutor(runnable -> {
-        final Thread thread = new Thread(runnable, "turboism-capture-postprocess");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private static final ExecutorService POST_PROCESS_EXECUTOR =
+            RuntimeThreads.serialLane(RuntimeThreads.daemonThreadsWithFixedName("turboism-capture-postprocess"));
 
     private final Object debounceGate = new Object();
     private RecentFileId debouncedId;

@@ -280,12 +280,12 @@ url = "http://127.0.0.1:43123/mcp"
 | `cubism.workspace.read` | 型付きワークスペース状態とドックレイアウトのスナップショットを読み取ります。 |
 | `cubism.model.objects.read` | 対応するモデルオブジェクトを検査します。 |
 | `cubism.model.objects.write` | 対応するモデルオブジェクトを作成、名前変更、再親子付け、削除します。 |
-| `cubism.parameters.read` | アクティブモデルのパラメーターを読み取ります。 |
-| `cubism.parameters.write` | 型付きパラメーター値および定義操作を適用します。 |
+| `cubism.parameter.read` | アクティブモデルのパラメーターを読み取ります。 |
+| `cubism.parameter.write` | 型付きパラメーター値および定義操作を適用します。 |
 | `cubism.parameter-bindings.read` | パラメーターバインディングを読み取ります。 |
 | `cubism.parameter-bindings.write` | 型付きバインディング操作とネイティブのアトミック転送を適用します。 |
-| `cubism.history.read` | ネイティブ Undo 履歴を読み取ります。 |
-| `cubism.history.write` | 世代およびリビジョンガードを使ってネイティブ Undo 履歴を移動します。 |
+| `cubism.editor-history.read` | ネイティブ Undo 履歴を読み取ります。 |
+| `cubism.editor-history.move` | 世代およびリビジョンガードを使ってネイティブ Undo 履歴を移動します。 |
 | `cubism.editor-commands.execute` | 範囲が限定された、対応する Editor コマンド画面を実行します。 |
 
 ## 権限

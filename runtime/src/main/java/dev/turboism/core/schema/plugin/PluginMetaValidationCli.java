@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.lifecycle.CapabilityAdmission;
 import dev.turboism.core.schema.SchemaValidationError;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -42,7 +43,7 @@ public final class PluginMetaValidationCli {
             return;
         }
 
-        ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = RuntimeJson.standard();
         List<SchemaValidationError> allErrors = new ArrayList<>();
 
         for (String arg : args) {

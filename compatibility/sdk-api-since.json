@@ -1,7 +1,7 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "fefd53fdec067602e91631e40c6d5ed773fcd99ec19b9b6542902491a05620d0",
+  "surfaceSha256": "9d1be0a4bd86d23bbc205dff8ed7ea0599d90730afc850422ce1913da5068dc1",
   "classes": {
     "dev.turboism.sdk.cubism.CubismActivitySnapshot": "0.70.0",
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
@@ -63,6 +63,7 @@
     "dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService": "0.70.0",
     "dev.turboism.sdk.cubism.worktime.ProjectWorkTimeService$Unavailable": "0.70.0",
     "dev.turboism.sdk.cubism.worktime.ProjectWorkTimeSnapshot": "0.70.0",
+    "dev.turboism.sdk.permission.PermissionIds$Vocabulary": "0.70.0",
     "dev.turboism.sdk.ui.HostViewAnchors": "0.70.0",
     "dev.turboism.sdk.ui.HostViewPanel": "0.70.0",
     "dev.turboism.sdk.ui.HostViewPanel$Unavailable": "0.70.0",

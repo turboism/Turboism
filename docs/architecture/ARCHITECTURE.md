@@ -19,12 +19,21 @@ The authoritative project list is `settings.gradle.kts`.
 
 ```text
 :bootstrap
-  Thin Java Agent entrypoint and launch artifact. The shipped fat JAR relocates
-  every private implementation library (Jackson, ASM, Resilience4j, SLF4J) under
-  dev.turboism.agent.shaded.*, so its Boot-Class-Path entry no longer exposes
-  those package names to host or plugin classloaders. dev.turboism.* framework
-  types stay unrelocated: bootstrap-injected bridges and the single shared SDK
-  type identity depend on it. This is not a sandbox for untrusted plugins.
+  Java Agent entrypoint, launch artifact, and the install-time hook layer. It is
+  not a thin entrypoint: it holds the verified bytecode-weaving hooks, their
+  reviewed contract tables, and the admission protocol every hook shares.
+  Current size: ~16,300 main LOC across 127 main sources, of which 49
+  `*HookContributor` classes and 43 `Verified*Installer` classes carry the hook
+  surface. It depends on `:runtime` with `implementation` scope — 403 import
+  statements across 53 runtime packages — because a hook needs the runtime's
+  reviewed contracts, its 67 `*Transformer` classes and its bridges to weave the
+  host. That dependency is why the module is large, and it is one-way.
+  The shipped fat JAR relocates every private implementation library (Jackson,
+  ASM, Resilience4j, SLF4J) under dev.turboism.agent.shaded.*, so its
+  Boot-Class-Path entry no longer exposes those package names to host or plugin
+  classloaders. dev.turboism.* framework types stay unrelocated: bootstrap-injected
+  bridges and the single shared SDK type identity depend on it. This is not a
+  sandbox for untrusted plugins.
 
 :sdk
   The only public dependency for first-party and third-party plugins.
@@ -360,6 +369,68 @@ Every production hook requires:
 - manual performance evidence for critical paths.
 
 Plugins never register bytecode transformers directly.
+
+### Install-time verification and bytecode weaving
+
+`:bootstrap` is the only module that registers transformers. It runs as a Java Agent before the
+host loads, so its weave must be proven against the artifact it actually sees rather than assumed
+from a version string. The flow is one protocol, `VerifiedInstall`, shared by every hook:
+
+```text
+admit      request, JVM predicate, startup policy, then the hook's own reviewed-target expression
+attest     load each target without initialization; attest loader and CodeSource against the artifact
+bind       build the hook's slot bridge before any transformer is registered
+register   add every transformer in WeavePlan order, then one retransformClasses call
+prove      per-target match count, recorded failure, and the plan's post-check must all hold
+close      remove registrations, withdraw side effects, re-capture each class, compare its SHA-256
+```
+
+Two ordering rules are load-bearing. The bridge is installed before any transformer, because a woven
+site calling an unpublished slot is the one ordering that can fault inside the host. Registration
+follows `WeavePlan` order, because retransformation replays the chain on original bytes in that
+order; two hooks that touch one owner therefore declare their sequence in the manifest instead of
+relying on class-load timing.
+
+Admission is a value, not an exception: a refused host returns a refusal code and the contributor
+reports `installation=NOT_ADMITTED`, while a failed proof throws and reports
+`installation=FAILED`. A hook that fails either way leaves no transformer registered and cannot stop
+official startup. The close proof is the reason a hook may claim restoration: a class that does not
+hash back to the bytes the transformer observed before the rewrite keeps the handle open for a retry
+instead of reporting a settled weave.
+
+### Declarative hook entries over `HookManifest` and `WeavePlan`
+
+The install-time hook list lives in `META-INF/turboism/hooks`, and one line is one hook. A line is
+either a fully-qualified `HookContributor` class name or a `@` token that names a `DeclarativeHooks`
+entry. Both forms coexist on purpose: an unmigrated family keeps its contributor class, and a family
+that only restated three facts per install declares them as data instead.
+
+A `DeclarativeHook` carries exactly what a hand-written contributor added over its installer:
+
+```text
+reportId    the protocol id the outcome is recorded and logged under; the @ token derives from it
+hookId      the id hooks.disabledIds matches, read from the installer's own HOOK_ID constant
+preference  the persisted-preference gate, read from the launch plan and never from config.json
+installer   the installer factory, called once per start attempt
+```
+
+The installer keeps its reviewed contract table, its `Admission` row, its `WeaveSpec` and its static
+`admitted(...)` gate, so the admission truth table stays where `AdmissionParityTest` and
+`WeaveSpecTest` pin it. `DeclarativeHookContributor` extends the same base class the class-declared
+family used, so reporting, refusal codes and failure containment cannot drift between the two forms.
+Adding a declarative hook is one registry entry, one manifest token and the installer; `TurboismAgent`
+and the manifest reader stay unchanged.
+
+Manifest loading is fail-closed in both forms. A missing manifest, a malformed line, an unknown or
+malformed token, a duplicate entry, an unloadable class, a class that does not implement
+`HookContributor`, or two entries that report under one hook identity rejects the whole manifest and
+no hook installs. The identity rule exists because two contributors with one report id would silently
+overwrite each other's installation outcome.
+
+The verified native-optimization family is the pilot migration: seven hooks that differed only in
+their report label, preference and installer now declare one token each. The seven contributor
+classes they replaced are gone, and the installers gained only an `admits(InstallContext)` method and
+the `VerifiedHookInstaller` marker.
 
 ## 10. Transactions and writes
 

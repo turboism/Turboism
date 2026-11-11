@@ -3,6 +3,7 @@ package dev.turboism.mapping.verification;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.schema.SchemaValidationError;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,7 +20,7 @@ final class StaticVerificationRecordLoader {
     private final StaticVerificationRecordValidator validator;
 
     StaticVerificationRecordLoader() {
-        this(new ObjectMapper(), new StaticVerificationRecordValidator());
+        this(RuntimeJson.standard(), new StaticVerificationRecordValidator());
     }
 
     StaticVerificationRecordLoader(final ObjectMapper mapper, final StaticVerificationRecordValidator validator) {

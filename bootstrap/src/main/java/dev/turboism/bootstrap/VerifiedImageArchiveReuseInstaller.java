@@ -15,7 +15,7 @@ import java.util.Optional;
  * contract table. Its transformer reads the official bytes itself, so the target factory only
  * attests the two classes the weave and its bridge name.</p>
  */
-final class VerifiedImageArchiveReuseInstaller implements AutoCloseable {
+final class VerifiedImageArchiveReuseInstaller implements VerifiedHookInstaller {
     static final String HOOK_ID = "cubism.image-archive-reuse";
 
     /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
@@ -92,13 +92,19 @@ final class VerifiedImageArchiveReuseInstaller implements AutoCloseable {
                 owner -> transformer.beforeSha256()));
     }
 
+    @Override
+    public boolean admits(final InstallContext context) {
+        return admitted(context.artifact(), context.policy(), true);
+    }
+
     /**
      * Installs the weave through {@link VerifiedInstall}.
      *
      * @throws IllegalStateException when the artifact is not an admitted image-archive host
      * @throws Exception when registration, retransformation or the match proof fails
      */
-    synchronized void install() throws Exception {
+    @Override
+    public synchronized void install() throws Exception {
         if (hook != null) return;
         if (!(VerifiedInstall.install(SPEC, context)
                 instanceof VerifiedInstall.Attempt.Installed<ReviewedHostContract.Bound<String>> installed)) {
