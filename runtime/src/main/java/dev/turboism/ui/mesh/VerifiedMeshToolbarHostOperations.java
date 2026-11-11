@@ -7,6 +7,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.contribution.MeshToolbarContributionDescriptor;
 import dev.turboism.ui.contribution.MeshToolbarSliderContributionDescriptor;
 import dev.turboism.ui.host.EdtDispatch;
+import dev.turboism.ui.panel.ThemedHostSurface;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 import dev.turboism.ui.toolbar.ToolbarIconLoader;
 import java.awt.event.ActionListener;
@@ -17,6 +18,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.AbstractButton;
 import javax.swing.Icon;
+import javax.swing.JComponent;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
@@ -40,6 +42,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
     private static final String ABSTRACT_BUTTON_SET_DISABLED_SELECTED_ICON =
             "cubism.ui-main-toolbar.abstract-button.set-disabled-selected-icon";
     private static final String WIDGET_PARENT = "cubism.ui-main-toolbar.widget.parent";
+    private static final String WIDGET_JCOMPONENT = "cubism.ui-main-toolbar.widget.jcomponent";
     private static final String WIDGET_NAME = "cubism.ui-main-toolbar.widget.name";
     private static final String WIDGET_SET_NAME = "cubism.ui-main-toolbar.widget.set-name";
     private static final String WIDGET_SET_TOOLTIP = "cubism.ui-main-toolbar.widget.set-tooltip";
@@ -70,6 +73,8 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
     private final VerifiedMemberResolver resolver;
     private final EditorUiPluginResourceRegistry resources;
     private final MeshToolCoordinator coordinator;
+    /** Themed background of the native containers that receive the injected mesh-toolbar content. */
+    private final ThemedHostSurface hostSurfaces = new ThemedHostSurface();
 
     /** One framework-owned native-tool observer per mesh-toolbar host session. All session
      *  fields below are owned by the EDT: every install/close path serializes through
@@ -121,15 +126,17 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
         // The look-and-feel event is the only theme-change source: a polled duplicate of the
         // same comparison only re-read the identical value four times a second.
         final PropertyChangeListener lafListener = event -> {
-            if ("lookAndFeel".equals(event.getPropertyName())) {
-                SwingUtilities.invokeLater(() -> {
-                    if (closed.get()) return;
-                    final boolean currentDark = ToolbarIconLoader.isDarkTheme();
-                    if (currentDark == previousDark[0]) return;
-                    previousDark[0] = currentDark;
-                    reconcile.run();
-                });
-            }
+            if (!"lookAndFeel".equals(event.getPropertyName())) return;
+            SwingUtilities.invokeLater(() -> {
+                if (closed.get()) return;
+                // The injected host keeps a resolved background, so it repaints on every theme
+                // change even while the light/dark verdict itself stays the same.
+                hostSurfaces.refresh();
+                final boolean currentDark = ToolbarIconLoader.isDarkTheme();
+                if (currentDark == previousDark[0]) return;
+                previousDark[0] = currentDark;
+                reconcile.run();
+            });
         };
         UIManager.addPropertyChangeListener(lafListener);
         return () -> {
@@ -182,6 +189,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
         resolver.invoke(SLIDER_SET_ON_CHANGED, slider, callback);
 
         resolver.invoke(CONTAINER_ADD, panel, slider, children.size());
+        final JComponent themedHost = themeHost(panel);
         refresh(panel);
 
         final AtomicBoolean closed = new AtomicBoolean();
@@ -206,6 +214,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                 }
                 onEdtEventually(() -> {
                     resolver.invoke(CONTAINER_REMOVE, panel, slider);
+                    releaseHost(themedHost);
                     refresh(panel);
                 });
             }
@@ -298,6 +307,12 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
         resolver.invoke(ABSTRACT_BUTTON_SET_DISABLED_ICON, button, hostIcon(disabled));
         resolver.invoke(ABSTRACT_BUTTON_SET_DISABLED_SELECTED_ICON, button, hostIcon(disabledSelected));
         swingButton.setRolloverEnabled(true);
+        // The host container owns the only background; a per-button fill would paint a second
+        // box on top of the themed surface.
+        swingButton.setOpaque(false);
+        swingButton.setContentAreaFilled(false);
+        swingButton.setBorderPainted(false);
+        swingButton.setFocusPainted(false);
         resolver.invoke(WIDGET_SET_NAME, button, nativeId);
         resolver.invoke(WIDGET_SET_TOOLTIP, button, contribution.label());
         // No forced footprint: the host icon button adopts the native mesh-toolbar row sizing
@@ -319,6 +334,8 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
         captureNativePeers(container, arrow);
 
         resolver.invoke(CONTAINER_ADD, container, button, meshInsertionIndex(children, arrowIndex));
+        final JComponent themedHost = themeHost(container);
+        final JComponent themedPanel = themeHost(toolPanelOrNull());
         refresh(container);
 
         try {
@@ -338,6 +355,8 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
             // be returned and the container must not keep a button with no working observer.
             try {
                 resolver.invoke(CONTAINER_REMOVE, container, button);
+                releaseHost(themedHost);
+                releaseHost(themedPanel);
                 refresh(container);
             } catch (RuntimeException | Error cleanupFailure) {
                 // @containment-exempt: cleanup failure merged, prioritizing fatal error
@@ -381,6 +400,8 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                     Throwable primary = null;
                     try {
                         resolver.invoke(CONTAINER_REMOVE, container, button);
+                        releaseHost(themedHost);
+                        releaseHost(themedPanel);
                         refresh(container);
                     } catch (RuntimeException | Error failure) {
                         // @containment-exempt: primary removal failure captured and merged below
@@ -601,6 +622,61 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
 
     private Icon icon(final String pluginId, final long pluginGeneration, final String path) {
         return ToolbarIconLoader.load(resources, pluginId, pluginGeneration, path);
+    }
+
+    /**
+     * Paints the themed panel background on the native container that receives a contributed
+     * control.
+     *
+     * <p>The editor resolves a container background when it builds the container, so the ArtMesh
+     * tool-details area keeps the native colour when a theme changes later. The container owns one
+     * themed surface while a contributed control lives inside it; individual rows and labels stay
+     * transparent.</p>
+     *
+     * @param widget the native host container
+     * @return the Swing peer that paints the surface, or {@code null} when this host exposes none;
+     *     the contribution stays usable in that case
+     */
+    private JComponent themeHost(final Object widget) {
+        final JComponent peer = peer(widget);
+        if (peer != null) hostSurfaces.paint(peer);
+        return peer;
+    }
+
+    /**
+     * Drops one themed surface ownership, restoring the native appearance of the last one.
+     *
+     * @param peer the peer {@link #themeHost(Object)} returned; {@code null} is ignored
+     */
+    private void releaseHost(final JComponent peer) {
+        hostSurfaces.release(peer);
+    }
+
+    /** The Swing peer of a native widget, or {@code null} when this host exposes none. */
+    /**
+     * The native tool-panel container, or {@code null} while the host shows no mesh tool panel.
+     *
+     * <p>A button may be contributed before mesh editing starts, so this lookup is optional.</p>
+     */
+    private Object toolPanelOrNull() {
+        try {
+            return resolvePanel();
+        } catch (RuntimeException failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return null;
+        }
+    }
+
+    private JComponent peer(final Object widget) {
+        if (widget == null) return null;
+        try {
+            final Object value = resolver.invoke(WIDGET_JCOMPONENT, widget);
+            return value instanceof JComponent component ? component : null;
+        } catch (RuntimeException failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            // Themed presentation is optional: a host without the peer alias keeps native colours.
+            return null;
+        }
     }
 
     /**
