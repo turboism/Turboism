@@ -1,15 +1,12 @@
 package dev.turboism.automesh;
 
+import dev.turboism.automesh.host.AutoMeshResolvedTarget;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshRequest;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshResult;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
-import dev.turboism.sdk.cubism.model.Drawable;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -20,33 +17,28 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Routes one native Auto Mesh Generate confirmation to the Editor's generator or to a registered
- * algorithm, and applies a custom result as one Undo entry.
+ * algorithm, and applies a custom result the way the Editor's own generator applies its own.
  *
  * <p>The native path is the priority: a native selection returns {@link DispatchOutcome#UNHANDLED}
  * after the selection check alone, so the host body keeps its geometry, its Undo group and its
  * diagnostics untouched.</p>
  *
  * <p>A custom run reads its targets on the UI thread, computes off it, and returns to the UI thread
- * for one {@link AuthoringTransactionService#execute} that replaces every target. All-or-nothing
- * holds in both directions: one rejected or missing result writes nothing, and a refused
- * transaction leaves every target untouched.</p>
+ * for one {@link AutoMeshEditableWrite} that replaces the editable mesh of every target. All-or-
+ * nothing holds in both directions: one rejected or missing result writes nothing, and a refused
+ * write leaves every target untouched.</p>
  *
- * <p>The plugin returns one layout. A target that stores ordinary keyforms receives that layout in
- * every form: the write installs the new source topology, reads the stored bank again, and then
- * submits the positions derived from the correspondence captured before the write in one
- * compare-and-set batch against that fresh read. The batch therefore matches the topology the
- * write installed, so the result equals the Editor's own generator and one Undo reverts it. A form
- * the batch cannot address, or a stored bank that the topology write does not keep, refuses the
- * write before or inside the transaction.</p>
+ * <p>The write owns the whole Editor contract: canvas coordinates, the target's own editable mesh,
+ * the Undo envelope of the funnel, and the topology notifications. The plugin therefore returns one
+ * layout and never touches source geometry, stored keyforms or the Undo history itself, because the
+ * Editor derives all three from the editable mesh exactly as it does after its own run.</p>
  *
- * <p>Two preconditions are checked, once before the compute and once before the write: no native
- * Undo group may be open, and the targets must be readable. The host binds the Undo precondition at
- * the milestone that injects the native entry, so the framework never nests its transaction inside
- * the host's own edit group.</p>
+ * <p>The Undo precondition is checked once before the compute and once before the write. The host
+ * binds it at the milestone that injects the native entry, so the framework never nests its own
+ * envelope inside the host's open edit group.</p>
  */
 public final class AutoMeshDispatch {
 
@@ -65,7 +57,7 @@ public final class AutoMeshDispatch {
     /** Reason code of a confirmation that arrived while a native Undo group was open. */
     public static final String REASON_NATIVE_UNDO_OPEN = "native-undo-open";
 
-    /** Undo label of the one transaction that commits a whole selection. */
+    /** Undo label of the one Editor operation that commits a whole selection. */
     public static final String UNDO_LABEL = "Auto Mesh";
 
     private static final String MESSAGE_NO_TARGETS = "Select at least one ArtMesh.";
@@ -79,17 +71,14 @@ public final class AutoMeshDispatch {
     private static final String MESSAGE_GEOMETRY_EMPTY = "The algorithm produced a mesh without vertices.";
     private static final String MESSAGE_TIMEOUT = "The algorithm exceeded its time limit.";
     private static final String MESSAGE_RESULT_MISMATCH = "The algorithm returned an unexpected number of results.";
-    private static final String MESSAGE_TRANSACTION_REFUSED = "The Editor did not commit the mesh update";
     private static final String MESSAGE_UI_REJECTED = "The Editor refused the auto-mesh result.";
-    private static final String DIAGNOSTIC_PREFIX = " (";
-    private static final String DIAGNOSTIC_SUFFIX = ")";
 
     /** Keyform count of a target that stores its neutral form only. */
     private static final int SINGLE_KEYFORM_COUNT = 1;
 
     private final AutoMeshRequestBuilder requestBuilder;
     private final AutoMeshExecutor executor;
-    private final AuthoringTransactionService transactions;
+    private final AutoMeshEditableWrite editableWrite;
     private final AutoMeshUndoGroupProbe undoGroup;
     private final Executor uiThread;
 
@@ -98,19 +87,19 @@ public final class AutoMeshDispatch {
      *
      * @param requestBuilder reads selected targets on the UI thread
      * @param executor runs the algorithm off the UI thread
-     * @param transactions commits the whole selection as one Undo entry
+     * @param editableWrite replaces the editable mesh of every target as one Editor operation
      * @param undoGroup reports whether the host holds an open native Undo group
      * @param uiThread the Editor UI thread the write returns to
      */
     public AutoMeshDispatch(
             final AutoMeshRequestBuilder requestBuilder,
             final AutoMeshExecutor executor,
-            final AuthoringTransactionService transactions,
+            final AutoMeshEditableWrite editableWrite,
             final AutoMeshUndoGroupProbe undoGroup,
             final Executor uiThread) {
         this.requestBuilder = Objects.requireNonNull(requestBuilder, "requestBuilder");
         this.executor = Objects.requireNonNull(executor, "executor");
-        this.transactions = Objects.requireNonNull(transactions, "transactions");
+        this.editableWrite = Objects.requireNonNull(editableWrite, "editableWrite");
         this.undoGroup = Objects.requireNonNull(undoGroup, "undoGroup");
         this.uiThread = Objects.requireNonNull(uiThread, "uiThread");
     }
@@ -119,10 +108,11 @@ public final class AutoMeshDispatch {
      * Routes one confirmation of the native Auto Mesh Generate entry.
      *
      * @param selection the current session selection and its parameter values
-     * @param targets the selected ArtMeshes, in selection order
+     * @param targets the resolved targets, in selection order
      * @return the native hand-off, a refusal, or a started run
      */
-    public DispatchOutcome dispatch(final AutoMeshSelectionState selection, final List<Drawable> targets) {
+    public DispatchOutcome dispatch(
+            final AutoMeshSelectionState selection, final List<AutoMeshResolvedTarget> targets) {
         Objects.requireNonNull(selection, "selection");
         Objects.requireNonNull(targets, "targets");
         final Optional<String> selectedId = selection.selectedAlgorithmId();
@@ -154,11 +144,13 @@ public final class AutoMeshDispatch {
     }
 
     private List<AutoMeshRequest> buildRequests(
-            final AutoMeshSelectionState selection, final AutoMeshAlgorithm algorithm, final List<Drawable> targets) {
+            final AutoMeshSelectionState selection,
+            final AutoMeshAlgorithm algorithm,
+            final List<AutoMeshResolvedTarget> targets) {
         final Map<String, String> parameterValues = selection.parameterValues(algorithm);
         final List<AutoMeshRequest> requests = new ArrayList<>(targets.size());
-        for (final Drawable target : targets) {
-            requests.add(requestBuilder.build(target, parameterValues));
+        for (final AutoMeshResolvedTarget target : targets) {
+            requests.add(requestBuilder.build(target.drawable(), parameterValues));
         }
         return List.copyOf(requests);
     }
@@ -166,19 +158,20 @@ public final class AutoMeshDispatch {
     /**
      * Refuses a keyformed target whose stored forms the host cannot read.
      *
-     * <p>The keyform-complete write needs the stored bank to derive each form's positions. A host
-     * without that read can only replace the form the Editor evaluates, so the run must not start
-     * and silently drop the other forms.</p>
+     * <p>The Editor derives every stored form from the editable mesh after the topology change, so
+     * the run only starts when the host can expose those forms at all. A host without that read
+     * hides whether the topology write kept them, and the run would report a success the user
+     * cannot verify.</p>
      */
     private static DispatchOutcome refuseUnreadableKeyforms(
-            final List<AutoMeshRequest> requests, final List<Drawable> targets) {
+            final List<AutoMeshRequest> requests, final List<AutoMeshResolvedTarget> targets) {
         for (int index = 0; index < requests.size(); index++) {
             final AutoMeshRequest request = requests.get(index);
             if (request.keyformCount() <= SINGLE_KEYFORM_COUNT) {
                 continue;
             }
             try {
-                targets.get(index).authoringSnapshot();
+                targets.get(index).drawable().authoringSnapshot();
             } catch (RuntimeException unavailable) {
                 FatalErrors.rethrowIfFatal(unavailable);
                 return new DispatchOutcome.Refused(
@@ -189,9 +182,11 @@ public final class AutoMeshDispatch {
     }
 
     private DispatchOutcome start(
-            final AutoMeshAlgorithm algorithm, final List<AutoMeshRequest> requests, final List<Drawable> targets) {
+            final AutoMeshAlgorithm algorithm,
+            final List<AutoMeshRequest> requests,
+            final List<AutoMeshResolvedTarget> targets) {
         final AutoMeshExecutor.Handle handle = executor.submit(algorithm, requests);
-        final RuntimeRun run = new RuntimeRun(handle, targets);
+        final RuntimeRun run = new RuntimeRun(handle, targets, requests);
         handle.completion().whenComplete((results, failure) -> postToUiThread(run, results, failure));
         return new DispatchOutcome.Started(run);
     }
@@ -247,90 +242,19 @@ public final class AutoMeshDispatch {
     }
 
     private void write(final RuntimeRun run, final List<ArtMeshGeometry> geometries, final String summary) {
-        final List<Drawable> targets = run.targets();
-        // Capture before the transaction opens, so a form the batch cannot address leaves no Undo entry.
-        final List<Optional<AutoMeshKeyformLayout>> keyforms = new ArrayList<>(targets.size());
+        final List<AutoMeshWriteLayout> layouts = run.layouts(geometries);
+        final List<ArtMeshId> written;
         try {
-            for (final Drawable target : targets) {
-                keyforms.add(AutoMeshKeyformLayout.capture(target));
-            }
-        } catch (AutoMeshKeyformLayout.Refusal refused) {
-            run.settle(keyformRejection(refused));
+            written = editableWrite.write(new AutoMeshWrite(UNDO_LABEL, run.targets(), layouts));
+        } catch (AutoMeshWriteRefusal refused) {
+            run.settle(new DispatchResult(DispatchResult.Status.REJECTED, refused.getMessage(), List.of()));
             return;
         } catch (RuntimeException failed) {
             FatalErrors.rethrowIfFatal(failed);
             run.settle(new DispatchResult(DispatchResult.Status.FAILED, AutoMeshFailures.describe(failed), List.of()));
-            return;
-        }
-        final AtomicReference<AutoMeshKeyformLayout.Refusal> refusal = new AtomicReference<>();
-        final AuthoringTransactionResult<List<ArtMeshId>> transaction;
-        try {
-            transaction = transactions.execute(AuthoringTransactionOptions.of(UNDO_LABEL), () -> {
-                final List<ArtMeshId> written = new ArrayList<>(targets.size());
-                for (int index = 0; index < targets.size(); index++) {
-                    final Drawable target = targets.get(index);
-                    target.replaceGeometry(geometries.get(index));
-                    commitKeyforms(target, geometries.get(index), keyforms.get(index), refusal);
-                    written.add(target.id());
-                }
-                return List.copyOf(written);
-            });
-        } catch (RuntimeException failed) {
-            FatalErrors.rethrowIfFatal(failed);
-            final AutoMeshKeyformLayout.Refusal rejected = keyformRefusal(failed, refusal.get());
-            if (rejected != null) {
-                run.settle(keyformRejection(rejected));
-                return;
-            }
-            run.settle(new DispatchResult(DispatchResult.Status.FAILED, AutoMeshFailures.describe(failed), List.of()));
-            return;
-        }
-        final List<ArtMeshId> written = transaction.value().orElse(null);
-        if (written == null) {
-            final AutoMeshKeyformLayout.Refusal rejected = refusal.get();
-            if (rejected != null) {
-                run.settle(keyformRejection(rejected));
-                return;
-            }
-            run.settle(new DispatchResult(DispatchResult.Status.REJECTED, transactionRefused(transaction), List.of()));
             return;
         }
         run.settle(new DispatchResult(DispatchResult.Status.APPLIED, summary, written));
-    }
-
-    /**
-     * Applies one captured keyform layout after its topology write and aborts on a refusal.
-     *
-     * <p>The transaction must roll back a refusal, so the signal leaves the callback. The recorded
-     * reference survives services that convert the callback failure into a rolled-back result.</p>
-     */
-    private static void commitKeyforms(
-            final Drawable target,
-            final ArtMeshGeometry layout,
-            final Optional<AutoMeshKeyformLayout> keyforms,
-            final AtomicReference<AutoMeshKeyformLayout.Refusal> refusal) {
-        try {
-            keyforms.ifPresent(value -> value.apply(target, layout));
-        } catch (AutoMeshKeyformLayout.Refusal rejected) {
-            refusal.set(rejected);
-            throw rejected;
-        }
-    }
-
-    private static DispatchResult keyformRejection(final AutoMeshKeyformLayout.Refusal refused) {
-        return new DispatchResult(DispatchResult.Status.REJECTED, refused.getMessage(), List.of());
-    }
-
-    private static AutoMeshKeyformLayout.Refusal keyformRefusal(
-            final Throwable failure, final AutoMeshKeyformLayout.Refusal recorded) {
-        Throwable current = failure;
-        while (current != null) {
-            if (current instanceof AutoMeshKeyformLayout.Refusal rejected) {
-                return rejected;
-            }
-            current = current.getCause();
-        }
-        return recorded;
     }
 
     private static DispatchResult unsettledFailure(final Throwable failure) {
@@ -342,29 +266,26 @@ public final class AutoMeshDispatch {
         return new DispatchResult(DispatchResult.Status.FAILED, AutoMeshFailures.describe(cause), List.of());
     }
 
-    private static String transactionRefused(final AuthoringTransactionResult<List<ArtMeshId>> transaction) {
-        final String diagnostic = transaction
-                .diagnosticId()
-                .map(id -> DIAGNOSTIC_PREFIX + id + DIAGNOSTIC_SUFFIX)
-                .orElse("");
-        return MESSAGE_TRANSACTION_REFUSED + " (" + transaction.outcome() + ")" + diagnostic + ".";
-    }
-
     private static DispatchResult cancelled() {
         return new DispatchResult(DispatchResult.Status.CANCELLED, "", List.of());
     }
 
-    /** One started run: the executor handle, its targets, and the terminal result it settles once. */
+    /** One started run: the executor handle, its targets, its requests, and its terminal result. */
     private static final class RuntimeRun implements DispatchOutcome.Run {
 
         private final AutoMeshExecutor.Handle handle;
-        private final List<Drawable> targets;
+        private final List<AutoMeshResolvedTarget> targets;
+        private final List<AutoMeshRequest> requests;
         private final CompletableFuture<DispatchResult> settled = new CompletableFuture<>();
         private volatile boolean cancelled;
 
-        private RuntimeRun(final AutoMeshExecutor.Handle handle, final List<Drawable> targets) {
+        private RuntimeRun(
+                final AutoMeshExecutor.Handle handle,
+                final List<AutoMeshResolvedTarget> targets,
+                final List<AutoMeshRequest> requests) {
             this.handle = handle;
             this.targets = List.copyOf(targets);
+            this.requests = List.copyOf(requests);
         }
 
         @Override
@@ -387,8 +308,18 @@ public final class AutoMeshDispatch {
             return cancelled;
         }
 
-        private List<Drawable> targets() {
+        private List<AutoMeshResolvedTarget> targets() {
             return targets;
+        }
+
+        /** Pairs every returned layout with the texture its own request carried. */
+        private List<AutoMeshWriteLayout> layouts(final List<ArtMeshGeometry> geometries) {
+            final List<AutoMeshWriteLayout> layouts = new ArrayList<>(geometries.size());
+            for (int index = 0; index < geometries.size(); index++) {
+                layouts.add(new AutoMeshWriteLayout(
+                        geometries.get(index), requests.get(index).texture()));
+            }
+            return List.copyOf(layouts);
         }
     }
 }

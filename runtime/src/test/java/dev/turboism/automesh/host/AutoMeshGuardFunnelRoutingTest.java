@@ -10,7 +10,7 @@ import dev.turboism.automesh.AutoMeshExecutor;
 import dev.turboism.automesh.AutoMeshRequestBuilder;
 import dev.turboism.automesh.AutoMeshSelectionState;
 import dev.turboism.automesh.AutoMeshUndoGroupProbe;
-import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.automesh.FakeAutoMeshWrite;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshResult;
 import dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot;
@@ -18,11 +18,6 @@ import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.TexturePixels;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.test.fake.FakeDrawable;
 import java.io.IOException;
@@ -35,7 +30,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -65,7 +59,7 @@ class AutoMeshGuardFunnelRoutingTest {
     private static final long AWAIT_SECONDS = 5L;
 
     private final AutoMeshAlgorithmCatalog session = new AutoMeshAlgorithmCatalog();
-    private final CountingTransactions transactions = new CountingTransactions();
+    private final FakeAutoMeshWrite write = new FakeAutoMeshWrite();
     private final List<AutoMeshNotice> notices = new CopyOnWriteArrayList<>();
     private final List<String> diagnostics = new CopyOnWriteArrayList<>();
     private final ExecutorService computeLane =
@@ -92,7 +86,7 @@ class AutoMeshGuardFunnelRoutingTest {
         invoke(fixture, MODELING, new Object[] {new Object(), new Object(), List.of(new Object()), null, null});
 
         assertEquals(1, counter(fixture, "modelingCalls"), "the native body must run");
-        assertEquals(0, transactions.executions.get());
+        assertEquals(0, write.calls());
         assertTrue(notices.isEmpty());
     }
 
@@ -106,8 +100,7 @@ class AutoMeshGuardFunnelRoutingTest {
 
         assertEquals(0, counter(fixture, "modelingCalls"), "a handled confirmation must not reach the native body");
         awaitNotice(AutoMeshNotice.Severity.INFO);
-        assertEquals(1, transactions.executions.get());
-        assertEquals(1, target.writes.size());
+        assertEquals(1, write.calls());
     }
 
     @Test
@@ -120,7 +113,7 @@ class AutoMeshGuardFunnelRoutingTest {
 
         assertEquals(0, counter(fixture, "meshEditorCalls"));
         awaitNotice(AutoMeshNotice.Severity.INFO);
-        assertEquals(1, transactions.executions.get());
+        assertEquals(1, write.calls());
     }
 
     @Test
@@ -131,7 +124,7 @@ class AutoMeshGuardFunnelRoutingTest {
         invoke(fixture, MODELING, new Object[] {new Object(), new Object(), List.of(new Object()), null, null});
 
         assertEquals(1, counter(fixture, "modelingCalls"), "an unresolvable selection keeps the native algorithm");
-        assertEquals(0, transactions.executions.get());
+        assertEquals(0, write.calls());
         assertTrue(
                 diagnostics.stream().anyMatch(message -> message.contains("unresolvable")),
                 "the fallback must be diagnosable: " + diagnostics);
@@ -147,7 +140,7 @@ class AutoMeshGuardFunnelRoutingTest {
         assertEquals(0, counter(fixture, "modelingCalls"));
         assertEquals(1, notices.size());
         assertEquals(AutoMeshNotice.Severity.WARNING, notices.get(0).severity());
-        assertEquals(0, transactions.executions.get());
+        assertEquals(0, write.calls());
     }
 
     @Test
@@ -173,19 +166,21 @@ class AutoMeshGuardFunnelRoutingTest {
     // ------------------------------------------------------------------
 
     private Object guardedFixture(final List<Drawable> resolved) throws Exception {
-        return guardedFixture(Optional.of(resolved));
+        return guardedFixture(Optional.of(resolved.stream()
+                .map(drawable -> FakeAutoMeshWrite.target(AutoMeshFunnel.MODELING_MODE, drawable))
+                .toList()));
     }
 
-    private Object guardedFixture(final Optional<List<Drawable>> resolved) throws Exception {
+    private Object guardedFixture(final Optional<List<AutoMeshResolvedTarget>> resolved) throws Exception {
         bridge = NativeAutoMeshBridge.install(handler(resolved), diagnostics::add);
         return transformedFixture();
     }
 
-    private AutoMeshGuardHandler handler(final Optional<List<Drawable>> resolved) {
+    private AutoMeshGuardHandler handler(final Optional<List<AutoMeshResolvedTarget>> resolved) {
         final AutoMeshDispatch dispatch = new AutoMeshDispatch(
                 new AutoMeshRequestBuilder(),
                 new AutoMeshExecutor(computeLane),
-                transactions,
+                write,
                 AutoMeshUndoGroupProbe.CLOSED,
                 uiThread);
         return new AutoMeshGuardHandler(
@@ -285,7 +280,6 @@ class AutoMeshGuardFunnelRoutingTest {
     private static final class StubDrawable extends FakeDrawable {
 
         private final ArtMeshGeometry geometry = triangle();
-        private final List<ArtMeshGeometry> writes = new CopyOnWriteArrayList<>();
 
         private StubDrawable(final String id) {
             super(id);
@@ -315,34 +309,11 @@ class AutoMeshGuardFunnelRoutingTest {
 
         @Override
         public void replaceGeometry(final ArtMeshGeometry replaced) {
-            writes.add(replaced);
+            throw new AssertionError("the write port owns the replacement");
         }
     }
 
     /** Transaction double that counts executions and commits what the write callback produced. */
-    private static final class CountingTransactions implements AuthoringTransactionService {
-
-        private final AtomicInteger executions = new AtomicInteger();
-
-        @Override
-        public <T> AuthoringTransactionResult<T> execute(
-                final AuthoringTransactionOptions options, final AuthoringTransactionWork<T> work) {
-            executions.incrementAndGet();
-            final T value;
-            try {
-                value = work.run();
-            } catch (Exception failure) {
-                throw new IllegalStateException(failure);
-            }
-            final HistorySnapshot history =
-                    new HistorySnapshot(HistorySnapshot.Availability.AVAILABLE, 1L, 1L, 0, List.of(), false, false);
-            return AuthoringTransactionResult.committed(
-                    value,
-                    new AuthoringTransactionReceipt(
-                            "transaction-1", options.label(), history, history, Optional.of("entry-1")));
-        }
-    }
-
     /** Child-first loader: the guarded fixture is defined from the transformer's own output. */
     private static final class GuardedLoader extends ClassLoader {
 

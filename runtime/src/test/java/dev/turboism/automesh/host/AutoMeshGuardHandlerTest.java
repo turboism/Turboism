@@ -8,20 +8,22 @@ import dev.turboism.automesh.AutoMeshDispatch;
 import dev.turboism.automesh.AutoMeshRequestBuilder;
 import dev.turboism.automesh.AutoMeshSelectionState;
 import dev.turboism.automesh.AutoMeshUndoGroupProbe;
-import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.automesh.FakeAutoMeshWrite;
+import dev.turboism.sdk.cubism.id.ArtMeshId;
+import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
+import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.mesh.automesh.AlgorithmParameterDescriptor;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshResult;
 import dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Drawable;
+import dev.turboism.sdk.cubism.model.ParameterBinding;
+import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
+import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
+import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.TexturePixels;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork;
 import dev.turboism.test.fake.FakeDrawable;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,7 +56,7 @@ class AutoMeshGuardHandlerTest {
             new AlgorithmParameterDescriptor.DoubleParameter("scale", "Scale", "", 0.0d, 2.0d, 0.1d, 2, 1.0d);
 
     private final AutoMeshAlgorithmCatalog session = new AutoMeshAlgorithmCatalog();
-    private final CountingTransactions transactions = new CountingTransactions();
+    private final FakeAutoMeshWrite write = new FakeAutoMeshWrite();
     private final List<AutoMeshNotice> notices = new CopyOnWriteArrayList<>();
     private final List<String> diagnostics = new CopyOnWriteArrayList<>();
     private final ExecutorService computeLane =
@@ -76,7 +78,7 @@ class AutoMeshGuardHandlerTest {
         assertEquals(NO_ACCESS, targets.calls.get(), "the native path must resolve no host element");
         assertEquals(NO_ACCESS, targets.drawableReads.get(), "the native path must read no ArtMesh");
         assertTrue(notices.isEmpty(), "the native path reports nothing");
-        assertEquals(NO_ACCESS, transactions.executions.get());
+        assertEquals(NO_ACCESS, write.calls());
     }
 
     @Test
@@ -89,8 +91,7 @@ class AutoMeshGuardHandlerTest {
 
         assertEquals(Boolean.TRUE, handled, "a custom run owns the confirmation");
         awaitNotice(AutoMeshNotice.Severity.INFO);
-        assertEquals(ONE_ACCESS, transactions.executions.get(), "one Undo entry per confirmation");
-        assertEquals(1, target.writes.size());
+        assertEquals(ONE_ACCESS, write.calls(), "one Undo entry per confirmation");
         assertTrue(notices.get(0).message().contains("1"), notices.get(0).message());
     }
 
@@ -104,20 +105,35 @@ class AutoMeshGuardHandlerTest {
         assertEquals(Boolean.TRUE, handled, "the user asked for a custom algorithm, so the native one must not run");
         assertEquals(ONE_ACCESS, notices.size());
         assertEquals(AutoMeshNotice.Severity.WARNING, notices.get(0).severity());
-        assertEquals(NO_ACCESS, transactions.executions.get());
+        assertEquals(NO_ACCESS, write.calls());
     }
 
     @Test
-    void keyformBankThatCannotBeRewrittenIsReportedAsAWarning() throws Exception {
+    void keyformedTargetIsWrittenByTheEditorLikeItsOwnRun() throws Exception {
         select(algorithm((request, cancellation) -> new AutoMeshResult.Success(triangle(), "ok")));
 
         final Boolean handled = handler(new CountingTargets(List.of(new StubDrawable("ArtMesh1", 2))))
                 .handle(AutoMeshFunnel.MODELING_MODE, arguments());
 
         assertEquals(Boolean.TRUE, handled, "the custom algorithm owns the confirmation");
+        awaitNotice(AutoMeshNotice.Severity.INFO);
+        assertEquals(ONE_ACCESS, write.calls(), "the Editor derives every stored form from the editable mesh");
+    }
+
+    @Test
+    void keyformBankTheHostCannotReadIsReportedAsAWarning() throws Exception {
+        select(algorithm((request, cancellation) -> new AutoMeshResult.Success(triangle(), "ok")));
+        final StubDrawable unreadable = new StubDrawable("ArtMesh1", 2);
+        unreadable.unreadableSnapshot = true;
+        unreadable.bindings.add(binding("ArtMesh1"));
+
+        final Boolean handled =
+                handler(new CountingTargets(List.of(unreadable))).handle(AutoMeshFunnel.MODELING_MODE, arguments());
+
+        assertEquals(Boolean.TRUE, handled, "the user asked for a custom algorithm, so the native one must not run");
         awaitNotice(AutoMeshNotice.Severity.WARNING);
         assertTrue(notices.get(0).message().contains("ArtMesh1"), notices.get(0).message());
-        assertEquals(NO_ACCESS, transactions.executions.get(), "a refused keyform bank writes nothing");
+        assertEquals(NO_ACCESS, write.calls(), "a refused run writes nothing");
     }
 
     @Test
@@ -128,9 +144,29 @@ class AutoMeshGuardHandlerTest {
                 handler(new CountingTargets(Optional.empty())).handle(AutoMeshFunnel.MODELING_MODE, arguments());
 
         assertEquals(Boolean.FALSE, handled, "an unresolvable selection keeps the native algorithm reachable");
-        assertEquals(NO_ACCESS, transactions.executions.get());
+        assertEquals(NO_ACCESS, write.calls());
         assertTrue(notices.isEmpty());
         assertEquals(ONE_ACCESS, diagnostics.size());
+    }
+
+    @Test
+    void targetWithoutEditableMeshKeepsTheNativeAlgorithmReachable() {
+        final AtomicInteger computations = new AtomicInteger();
+        select(algorithm((request, cancellation) -> {
+            computations.incrementAndGet();
+            return new AutoMeshResult.Success(triangle(), "ok");
+        }));
+        final StubDrawable target = new StubDrawable("ArtMesh1");
+        final AutoMeshTargetResolver withoutMesh =
+                (funnel, hostArguments) -> Optional.of(List.of(FakeAutoMeshWrite.withoutEditableMesh(funnel, target)));
+
+        assertEquals(Boolean.FALSE, handler(withoutMesh).handle(AutoMeshFunnel.MODELING_MODE, arguments()));
+
+        assertTrue(
+                diagnostics.stream().anyMatch(message -> message.contains("no-editable-mesh")),
+                "the fallback must be diagnosable: " + diagnostics);
+        assertEquals(0, computations.get(), "the custom path must not start a run");
+        assertTrue(notices.isEmpty(), "a structural fallback is not a user-facing refusal");
     }
 
     @Test
@@ -145,7 +181,7 @@ class AutoMeshGuardHandlerTest {
         assertEquals(Boolean.FALSE, handled);
         assertEquals(ONE_ACCESS, diagnostics.size());
         assertTrue(diagnostics.get(0).contains("IllegalStateException"), diagnostics.get(0));
-        assertEquals(NO_ACCESS, transactions.executions.get());
+        assertEquals(NO_ACCESS, write.calls());
     }
 
     @Test
@@ -178,7 +214,7 @@ class AutoMeshGuardHandlerTest {
         assertTrue(
                 notices.get(0).message().contains("The texture is full."),
                 notices.get(0).message());
-        assertEquals(NO_ACCESS, transactions.executions.get());
+        assertEquals(NO_ACCESS, write.calls());
     }
 
     @Test
@@ -194,7 +230,7 @@ class AutoMeshGuardHandlerTest {
         // the Editor keeps the model untouched.
         awaitNotice(AutoMeshNotice.Severity.WARNING);
         assertTrue(notices.get(0).message().contains("boom"), notices.get(0).message());
-        assertEquals(NO_ACCESS, transactions.executions.get());
+        assertEquals(NO_ACCESS, write.calls());
     }
 
     @Test
@@ -205,31 +241,31 @@ class AutoMeshGuardHandlerTest {
                 .handle(AutoMeshFunnel.MODELING_MODE, arguments());
 
         awaitNotice(AutoMeshNotice.Severity.INFO);
-        assertEquals(NO_ACCESS, transactions.executions.get());
+        assertEquals(NO_ACCESS, write.calls());
     }
 
     @Test
-    void refusedTransactionIsReportedAsARejection() throws Exception {
+    void refusedWriteIsReportedAsARejection() throws Exception {
         select(algorithm((request, cancellation) -> new AutoMeshResult.Success(triangle(), "ok")));
-        transactions.refuse = true;
+        write.refuse = true;
 
         handler(new CountingTargets(List.of(new StubDrawable("ArtMesh1"))))
                 .handle(AutoMeshFunnel.MODELING_MODE, arguments());
 
         awaitNotice(AutoMeshNotice.Severity.WARNING);
-        assertEquals(ONE_ACCESS, transactions.executions.get());
+        assertEquals(ONE_ACCESS, write.calls());
     }
 
     @Test
-    void throwingTransactionIsReportedAsAnError() throws Exception {
+    void throwingWriteIsReportedAsAnError() throws Exception {
         select(algorithm((request, cancellation) -> new AutoMeshResult.Success(triangle(), "ok")));
-        transactions.fail = true;
+        write.fail = true;
 
         handler(new CountingTargets(List.of(new StubDrawable("ArtMesh1"))))
                 .handle(AutoMeshFunnel.MODELING_MODE, arguments());
 
         awaitNotice(AutoMeshNotice.Severity.ERROR);
-        assertEquals(ONE_ACCESS, transactions.executions.get());
+        assertEquals(ONE_ACCESS, write.calls());
     }
 
     // ------------------------------------------------------------------
@@ -250,7 +286,7 @@ class AutoMeshGuardHandlerTest {
         return new AutoMeshDispatch(
                 new AutoMeshRequestBuilder(),
                 new dev.turboism.automesh.AutoMeshExecutor(computeLane),
-                transactions,
+                write,
                 AutoMeshUndoGroupProbe.CLOSED,
                 uiThread);
     }
@@ -281,6 +317,14 @@ class AutoMeshGuardHandlerTest {
         return new AutoMeshAlgorithm("mesh", "Mesh", "", List.of(SCALE), List.of(), false, compute);
     }
 
+    private static ParameterBinding binding(final String artMeshId) {
+        return new ParameterBinding(
+                ParameterBindingTarget.artMesh(new ArtMeshId(artMeshId)),
+                new ParameterId("ParamAngleX"),
+                ParameterBindingFamily.KEYFORM_GRID,
+                List.of(new ParameterBindingPoint(new ParameterBindingPointId("point-1"), 0.0f)));
+    }
+
     private static ArtMeshGeometry triangle() {
         return new ArtMeshGeometry(
                 List.of(new Point2(0.0f, 0.0f), new Point2(1.0f, 0.0f), new Point2(0.0f, 1.0f)),
@@ -297,22 +341,26 @@ class AutoMeshGuardHandlerTest {
     /** Target resolver double that counts how often the guard asks it for the selection. */
     private static final class CountingTargets implements AutoMeshTargetResolver {
 
-        private final Optional<List<Drawable>> resolved;
+        private final Optional<List<AutoMeshResolvedTarget>> resolved;
         private final AtomicInteger calls = new AtomicInteger();
         private final AtomicInteger drawableReads = new AtomicInteger();
 
         private CountingTargets(final List<Drawable> resolved) {
-            this(Optional.of(List.copyOf(resolved)));
+            this(Optional.of(resolved.stream()
+                    .map(drawable -> FakeAutoMeshWrite.target(AutoMeshFunnel.MODELING_MODE, drawable))
+                    .toList()));
         }
 
-        private CountingTargets(final Optional<List<Drawable>> resolved) {
+        private CountingTargets(final Optional<List<AutoMeshResolvedTarget>> resolved) {
             this.resolved = resolved;
         }
 
         @Override
-        public Optional<List<Drawable>> resolve(final AutoMeshFunnel funnel, final Object[] hostArguments) {
+        public Optional<List<AutoMeshResolvedTarget>> resolve(
+                final AutoMeshFunnel funnel, final Object[] hostArguments) {
             calls.incrementAndGet();
-            resolved.ifPresent(values -> values.forEach(Drawable::id));
+            resolved.ifPresent(
+                    values -> values.forEach(target -> target.drawable().id()));
             drawableReads.addAndGet(resolved.map(List::size).orElse(0));
             return resolved;
         }
@@ -323,7 +371,7 @@ class AutoMeshGuardHandlerTest {
 
         private final ArtMeshGeometry geometry = triangle();
         private final int keyformCount;
-        private final List<ArtMeshGeometry> writes = new CopyOnWriteArrayList<>();
+        private boolean unreadableSnapshot;
 
         private StubDrawable(final String id) {
             this(id, 1);
@@ -346,6 +394,9 @@ class AutoMeshGuardHandlerTest {
 
         @Override
         public ArtMeshAuthoringSnapshot authoringSnapshot() {
+            if (unreadableSnapshot) {
+                throw new UnsupportedOperationException("stored authoring read unavailable");
+            }
             final List<ArtMeshAuthoringSnapshot.Form> forms = new ArrayList<>(keyformCount);
             for (int index = 0; index < keyformCount; index++) {
                 forms.add(new ArtMeshAuthoringSnapshot.Form("form-" + index, geometry.positions(), 0));
@@ -355,48 +406,7 @@ class AutoMeshGuardHandlerTest {
 
         @Override
         public void replaceGeometry(final ArtMeshGeometry replaced) {
-            writes.add(replaced);
-        }
-    }
-
-    /** Transaction double that counts executions and records the thread each callback ran on. */
-    private static final class CountingTransactions implements AuthoringTransactionService {
-
-        private final AtomicInteger executions = new AtomicInteger();
-        private final List<String> threads = new CopyOnWriteArrayList<>();
-        private volatile boolean refuse;
-        private volatile boolean fail;
-
-        @Override
-        public <T> AuthoringTransactionResult<T> execute(
-                final AuthoringTransactionOptions options, final AuthoringTransactionWork<T> work) {
-            executions.incrementAndGet();
-            threads.add(Thread.currentThread().getName());
-            if (fail) {
-                throw new IllegalStateException("transaction host unavailable");
-            }
-            final T value;
-            try {
-                value = work.run();
-            } catch (Exception failure) {
-                throw new IllegalStateException(failure);
-            }
-            if (refuse) {
-                final HistorySnapshot history =
-                        new HistorySnapshot(HistorySnapshot.Availability.AVAILABLE, 1L, 1L, 0, List.of(), false, false);
-                return AuthoringTransactionResult.rolledBack(
-                        new AuthoringTransactionReceipt(
-                                "transaction-1", options.label(), history, history, Optional.empty()),
-                        "automesh-test-rolled-back");
-            }
-            return AuthoringTransactionResult.committed(value, receipt(options));
-        }
-
-        private static AuthoringTransactionReceipt receipt(final AuthoringTransactionOptions options) {
-            final HistorySnapshot history =
-                    new HistorySnapshot(HistorySnapshot.Availability.AVAILABLE, 1L, 1L, 0, List.of(), false, false);
-            return new AuthoringTransactionReceipt(
-                    "transaction-1", options.label(), history, history, Optional.of("entry-1"));
+            throw new AssertionError("the write port owns the replacement");
         }
     }
 }

@@ -6,7 +6,6 @@ import dev.turboism.automesh.DispatchOutcome;
 import dev.turboism.automesh.DispatchResult;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm;
-import dev.turboism.sdk.cubism.model.Drawable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -25,7 +24,8 @@ import java.util.function.Consumer;
  *
  * <p>Every other failure answers "not handled" and reaches the diagnostic sink, so a broken
  * resolver, a throwing algorithm or an unreachable status surface never denies the user the
- * Editor's own Auto Mesh Generate.</p>
+ * Editor's own Auto Mesh Generate. A host that exposes no editable mesh for a confirmed target is
+ * the same case: the write would replace nothing, so the native algorithm runs.</p>
  *
  * <p>The guard is inert while the session selects the Editor's own generator: that path reads the
  * selection alone and resolves no target, no algorithm and no host member.</p>
@@ -44,6 +44,8 @@ public final class AutoMeshGuardHandler implements NativeAutoMeshBridge.Handler 
     private static final String OUTCOME_STARTED = "started";
     private static final String UNRESOLVED_TRACE =
             "auto mesh guard: route algorithm=%s outcome=unresolvable-selection, the native algorithm runs";
+    private static final String UNSUPPORTED_TRACE =
+            "auto mesh guard: route algorithm=%s outcome=no-editable-mesh, the native algorithm runs";
 
     private final AutoMeshNoticeSink notices;
     private final Consumer<String> diagnostics;
@@ -91,9 +93,13 @@ public final class AutoMeshGuardHandler implements NativeAutoMeshBridge.Handler 
         if (selectedId.isEmpty() || NATIVE_ID.equals(selectedId.orElseThrow())) {
             return Boolean.FALSE;
         }
-        final Optional<List<Drawable>> resolved = targets.resolve(funnel, hostArguments);
+        final Optional<List<AutoMeshResolvedTarget>> resolved = targets.resolve(funnel, hostArguments);
         if (resolved.isEmpty()) {
             diagnostic(UNRESOLVED_TRACE.formatted(selectedId.orElseThrow()));
+            return Boolean.FALSE;
+        }
+        if (!editableWriteSupported(resolved.orElseThrow())) {
+            diagnostic(UNSUPPORTED_TRACE.formatted(selectedId.orElseThrow()));
             return Boolean.FALSE;
         }
         final DispatchOutcome outcome = dispatch.dispatch(selection, resolved.orElseThrow());
@@ -110,6 +116,23 @@ public final class AutoMeshGuardHandler implements NativeAutoMeshBridge.Handler 
         diagnostic(ROUTE_TRACE.formatted(selectedId.orElseThrow(), OUTCOME_STARTED));
         started.run().completion().whenComplete((result, failure) -> report(result, failure));
         return Boolean.TRUE;
+    }
+
+    /**
+     * Reports whether every resolved target carries the mesh the write replaces.
+     *
+     * <p>A host that exposes no editable mesh for one target cannot take the Editor's own write, so
+     * the custom path stands aside and the native algorithm runs. This is a structural host
+     * mismatch, not a user-facing refusal: the user still gets a mesh, and the diagnostic states
+     * why the plugin algorithm did not serve it.</p>
+     */
+    private static boolean editableWriteSupported(final List<AutoMeshResolvedTarget> resolved) {
+        for (final AutoMeshResolvedTarget target : resolved) {
+            if (target.editableMesh() == null) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

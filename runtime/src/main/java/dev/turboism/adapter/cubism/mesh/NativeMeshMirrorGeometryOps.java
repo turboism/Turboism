@@ -33,11 +33,29 @@ final class NativeMeshMirrorGeometryOps {
     }
 
     static int addPoint(final Object mesh, final float x, final float y) throws ReflectiveOperationException {
+        return addPoint(mesh, x, y, "NORMAL");
+    }
+
+    /**
+     * Adds one point of the requested host point type.
+     *
+     * <p>The Editor's generator adds generated points as {@code AUTO}, which is what later
+     * regeneration replaces; an editing tool that adds user points keeps {@code NORMAL}.</p>
+     *
+     * @param mesh the editable mesh to extend
+     * @param x canvas x
+     * @param y canvas y
+     * @param pointTypeName the exact host point-type constant name
+     * @return the host point index
+     * @throws ReflectiveOperationException when the mesh carries no point addition or lacks the type
+     */
+    static int addPoint(final Object mesh, final float x, final float y, final String pointTypeName)
+            throws ReflectiveOperationException {
         final Method method = addPointMethod(mesh);
         if (method == null) throw new NoSuchMethodException("mesh point addition");
-        final Object normal = enumConstant(method.getParameterTypes()[2], "NORMAL");
-        if (normal == null) throw new NoSuchFieldException("NORMAL point type");
-        final Object result = method.invoke(mesh, x, y, normal, -1L);
+        final Object type = enumConstant(method.getParameterTypes()[2], pointTypeName);
+        if (type == null) throw new NoSuchFieldException(pointTypeName + " point type");
+        final Object result = method.invoke(mesh, x, y, type, -1L);
         return result instanceof Number number ? number.intValue() : -1;
     }
 
@@ -334,7 +352,7 @@ final class NativeMeshMirrorGeometryOps {
             if (parameters[0] == float.class
                     && parameters[1] == float.class
                     && parameters[3] == long.class
-                    && enumConstant(parameters[2], "NORMAL") != null) {
+                    && parameters[2].isEnum()) {
                 return method;
             }
         }
