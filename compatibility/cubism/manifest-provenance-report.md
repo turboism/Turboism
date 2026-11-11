@@ -23,7 +23,7 @@ licensed host artifacts (outside the repo; ignored cubism-ref/ boundary)
   |  (host-side observation tooling — not tracked here)
   v
 compatibility/cubism/verification/*.json        VERIFIED_STATIC records (38)
-compatibility/cubism/mapping-packs/draft/*.json DRAFT selector catalogues (49)
+compatibility/cubism/mapping-packs/draft/       DRAFT selector catalogues (20 baselines + 20 override tables)
 compatibility/cubism/profiles/draft/*.json      DRAFT profiles (3)
 compatibility/cubism/core-api/observed/*.json   OBSERVED Core inventories (2)
 compatibility/cubism/core-api/policy/*.json     member/selector policies (2)
@@ -52,7 +52,7 @@ selector re-verification + class-source attestation)
 | Family | Count | Verdict | Evidence |
 | --- | --- | --- | --- |
 | `verification/*.json` | 38 | Hand-maintained (sanitized public contracts) | No in-repo producer; `evidenceType: JAR_METADATA`, `verifiedBy: turboism-*-static-verifier`; imported by `44b446d3b`/`a09ddc0a0` |
-| `mapping-packs/draft/*.json` | 49 | Hand-maintained; surgical tool updates only | `mappingReview` supports only `UPDATE_CLASS_RUNTIME` on `kind=class` entries and refuses VERIFIED_STATIC-referenced selectors (`PACK_REFERENCED_BY_VERIFIED_STATIC`) |
+| `mapping-packs/draft/{baseline,overrides}/*.json` | 40 | Hand-maintained; one baseline plus one override table per family | `mappingReview` supports only `UPDATE_CLASS_RUNTIME` on `kind=class` entries and refuses VERIFIED_STATIC-referenced selectors (`PACK_REFERENCED_BY_VERIFIED_STATIC`); retained evidence is edited as baseline plus overrides |
 | `profiles/draft/*.json` | 3 | Hand-maintained | No generator; `ProfileValidator` + `ProfileDraftImportTest` only validate |
 | `core-api/observed/*.json` | 2 | Tool-produced, checked in | `scripts/cubism_core_api.py extract --jar <Live2DCubismCore.jar>` runs `javap -public -s -constants`; counts/digest pinned by `checkCubismCoreApiInventory` |
 | `core-api/policy/*.json` | 2 | Mixed: hand-authored rules + machine roster digests | `cubism_core_policy.py` / `cubism_core_selector_policy.py` `bootstrap`/`validate`/`render-java`; roster SHA-256s pinned in policy files and gate tests |
@@ -70,7 +70,7 @@ the bootstrap packaging list.
 
 Rough split across the audited surface: 2 tool-produced files (`core-api/observed`),
 2 mixed files (`core-api/policy`), 2 build-time generated Java sources — everything
-else, including all 38 verification records, 49 packs, 21 manifests, 44 selector
+else, including all 38 verification records, 40 retained draft evidence files, 21 manifests, 44 selector
 contracts, and every version pin, is hand-maintained (~97% of files by count).
 
 ## Drift register (ranked)
@@ -83,7 +83,8 @@ contracts, and every version pin, is hand-maintained (~97% of files by count).
    coordinated edits. This already broke once: `112a917aa` added the guarded
    `texture_atlas.native_item_scale` selector to all three editor-model records
    without updating packs or pins; `8ad4e5a69` and `648425ed2` repaired it.
-   *Live evidence on this branch:* `mapping-packs/draft/cubism-5.3.03-editor-model-read.json`
+   *Live evidence on this branch:* `mapping-packs/draft/baseline/editor-model-read.json`
+   plus `mapping-packs/draft/overrides/editor-model-read.json`
    still carries `selectorCount: 620` and `verificationRecordSha256: 7e03714a…`
    while the record has 621 selectors and hashes to `4e92ece4…`; the follow-up
    resync commit (`45cc8c27f`, also adds a negative tamper matrix) is not an

@@ -1,0 +1,2279 @@
+{
+  "format": "turboism.mapping.pack.overrides",
+  "schemaVersion": 1,
+  "family": "ui-embedded-panel",
+  "baselineVersion": "5.1.00",
+  "overrides": {
+    "5.0.00": [
+      {
+        "op": "replace",
+        "path": "/entries/9/semanticName",
+        "value": "cubism.mapping.v5_0_02.ui_embedded_panel.dock_update_window_menu"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/9/runtime",
+        "value": "updatePaletteMenuCheck"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/40/descriptor",
+        "value": "()Lcom/live2d/ui/window/Y;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/59/descriptor",
+        "value": "(Lcom/live2d/ui/dock/CPMPaletteManager;Lcom/live2d/ui/window/Y;)V"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/60/descriptor",
+        "value": "()Lcom/live2d/ui/window/Y;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/61/x.verification/ownerInternalName",
+        "value": "com/live2d/ui/window/Y"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/semanticName",
+        "value": "cubism.mapping.v5_0_02.ui_embedded_panel.menu_append"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/runtime",
+        "value": "b"
+      }
+    ],
+    "5.0.01": [
+      {
+        "op": "replace",
+        "path": "/entries/9/semanticName",
+        "value": "cubism.mapping.v5_0_02.ui_embedded_panel.dock_update_window_menu"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/9/runtime",
+        "value": "updatePaletteMenuCheck"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/40/descriptor",
+        "value": "()Lcom/live2d/ui/window/Y;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/59/descriptor",
+        "value": "(Lcom/live2d/ui/dock/CPMPaletteManager;Lcom/live2d/ui/window/Y;)V"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/60/descriptor",
+        "value": "()Lcom/live2d/ui/window/Y;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/61/x.verification/ownerInternalName",
+        "value": "com/live2d/ui/window/Y"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/semanticName",
+        "value": "cubism.mapping.v5_0_02.ui_embedded_panel.menu_append"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/runtime",
+        "value": "b"
+      }
+    ],
+    "5.0.02": [
+      {
+        "op": "replace",
+        "path": "/entries/9/semanticName",
+        "value": "cubism.mapping.v5_0_02.ui_embedded_panel.dock_update_window_menu"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/9/runtime",
+        "value": "updatePaletteMenuCheck"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/40/descriptor",
+        "value": "()Lcom/live2d/ui/window/Y;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/59/descriptor",
+        "value": "(Lcom/live2d/ui/dock/CPMPaletteManager;Lcom/live2d/ui/window/Y;)V"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/60/descriptor",
+        "value": "()Lcom/live2d/ui/window/Y;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/61/x.verification/ownerInternalName",
+        "value": "com/live2d/ui/window/Y"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/semanticName",
+        "value": "cubism.mapping.v5_0_02.ui_embedded_panel.menu_append"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/runtime",
+        "value": "b"
+      }
+    ],
+    "5.0.03": [
+      {
+        "op": "replace",
+        "path": "/entries/9/semanticName",
+        "value": "cubism.mapping.v5_0_05.ui_embedded_panel.dock_update_window_menu"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/9/runtime",
+        "value": "updatePaletteMenuCheck"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/semanticName",
+        "value": "cubism.mapping.v5_0_05.ui_embedded_panel.menu_append"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/runtime",
+        "value": "b"
+      }
+    ],
+    "5.0.04": [
+      {
+        "op": "replace",
+        "path": "/entries/9/semanticName",
+        "value": "cubism.mapping.v5_0_05.ui_embedded_panel.dock_update_window_menu"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/9/runtime",
+        "value": "updatePaletteMenuCheck"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/semanticName",
+        "value": "cubism.mapping.v5_0_05.ui_embedded_panel.menu_append"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/runtime",
+        "value": "b"
+      }
+    ],
+    "5.0.05": [
+      {
+        "op": "replace",
+        "path": "/entries/9/semanticName",
+        "value": "cubism.mapping.v5_0_05.ui_embedded_panel.dock_update_window_menu"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/9/runtime",
+        "value": "updatePaletteMenuCheck"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/semanticName",
+        "value": "cubism.mapping.v5_0_05.ui_embedded_panel.menu_append"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/runtime",
+        "value": "b"
+      }
+    ],
+    "5.0.06": [
+      {
+        "op": "replace",
+        "path": "/entries/65/semanticName",
+        "value": "cubism.mapping.v5_0_06.ui_embedded_panel.menu_append"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/runtime",
+        "value": "b"
+      }
+    ],
+    "5.1.01": [],
+    "5.1.02": [],
+    "5.1.03": [],
+    "5.2.00": [],
+    "5.2.01": [],
+    "5.2.02": [],
+    "5.2.03": [],
+    "5.3.00": [
+      {
+        "op": "replace",
+        "path": "/entries/0/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/1/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_instance"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_main_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/3/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_repaint"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/4/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/5/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_dock_manager"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/6/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/7/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_palette_manager"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/8/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_set_palette_visible"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/9/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_update_window_menu"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/10/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/11/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_get"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/12/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_add"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/13/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_close"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/14/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_current_workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/15/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/16/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_activate"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/17/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_id_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/18/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_id_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/19/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/20/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/21/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_set_panel"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/22/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.swing_container_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/23/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.swing_container_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/24/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/25/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.window_menu_bar"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/26/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_bar_menus"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/27/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_name"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/28/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_set_name"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/29/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_revalidate"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/30/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_repaint"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/31/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_items"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/32/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_add"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/33/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_swing"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/34/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/35/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_swing"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/36/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_palette_box_for"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/37/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/38/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_remove_tab"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/39/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_remove_update"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/40/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_main_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/40/descriptor",
+        "value": "()Lcom/live2d/ui/window/V;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/41/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_verify_cleanup"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/42/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_fire_state"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/43/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_add_palette_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/44/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_remove_palette_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/45/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_first_palette_box"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/46/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/47/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_add_tab"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/48/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_set_selected"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/49/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_palettes"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/50/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_tab_panel"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/51/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_panel_entries"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/52/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_entry_palette"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/53/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_entry_button"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/54/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_jcomponent"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/55/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_root"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/56/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_dispose"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/57/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_raw_disposed"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/58/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.root_set_component"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/59/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/59/descriptor",
+        "value": "(Lcom/live2d/ui/dock/CPMPaletteManager;Lcom/live2d/ui/window/V;)V"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/60/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/60/descriptor",
+        "value": "()Lcom/live2d/ui/window/V;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/61/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.window_set_visible"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/61/x.verification/ownerInternalName",
+        "value": "com/live2d/ui/window/V"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/62/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.id"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/63/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.operation"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/64/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_field"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_append"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/66/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.floating_tab_close_operation"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/67/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.floating_tab_close_palette_field"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/68/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_root_container"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/69/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.root_component"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/70/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/71/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_contents"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/72/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_remove"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/73/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.component_palette_count"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/74/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.check_menu_item_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/75/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_main_frame_ctrl"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/76/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_palette_menu_map"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/77/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_is_selected"
+      }
+    ],
+    "5.3.01": [
+      {
+        "op": "replace",
+        "path": "/entries/0/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/1/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_instance"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_main_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/3/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_repaint"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/4/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/5/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_dock_manager"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/6/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/7/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_palette_manager"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/8/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_set_palette_visible"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/9/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_update_window_menu"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/10/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/11/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_get"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/12/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_add"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/13/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_close"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/14/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_current_workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/15/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/16/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_activate"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/17/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_id_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/18/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_id_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/19/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/20/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/21/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_set_panel"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/22/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.swing_container_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/23/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.swing_container_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/24/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/25/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.window_menu_bar"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/26/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_bar_menus"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/27/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_name"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/28/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_set_name"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/29/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_revalidate"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/30/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_repaint"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/31/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_items"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/32/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_add"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/33/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_swing"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/34/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/35/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_swing"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/36/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_palette_box_for"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/37/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/38/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_remove_tab"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/39/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_remove_update"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/40/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_main_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/40/descriptor",
+        "value": "()Lcom/live2d/ui/window/V;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/41/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_verify_cleanup"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/42/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_fire_state"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/43/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_add_palette_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/44/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_remove_palette_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/45/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_first_palette_box"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/46/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/47/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_add_tab"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/48/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_set_selected"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/49/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_palettes"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/50/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_tab_panel"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/51/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_panel_entries"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/52/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_entry_palette"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/53/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_entry_button"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/54/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_jcomponent"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/55/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_root"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/56/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_dispose"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/57/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_raw_disposed"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/58/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.root_set_component"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/59/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/59/descriptor",
+        "value": "(Lcom/live2d/ui/dock/CPMPaletteManager;Lcom/live2d/ui/window/V;)V"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/60/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/60/descriptor",
+        "value": "()Lcom/live2d/ui/window/V;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/61/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.window_set_visible"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/61/x.verification/ownerInternalName",
+        "value": "com/live2d/ui/window/V"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/62/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.id"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/63/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.operation"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/64/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_field"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_append"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/66/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.floating_tab_close_operation"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/67/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.floating_tab_close_palette_field"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/68/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_root_container"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/69/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.root_component"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/70/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/71/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_contents"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/72/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_remove"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/73/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.component_palette_count"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/74/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.check_menu_item_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/75/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_main_frame_ctrl"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/76/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_palette_menu_map"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/77/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_is_selected"
+      }
+    ],
+    "5.3.02": [
+      {
+        "op": "replace",
+        "path": "/entries/0/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/1/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_instance"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_main_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/3/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_repaint"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/4/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/5/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_dock_manager"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/6/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/7/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_palette_manager"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/8/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_set_palette_visible"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/9/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_update_window_menu"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/10/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/11/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_get"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/12/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_add"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/13/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_close"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/14/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_current_workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/15/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/16/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_activate"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/17/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_id_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/18/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_id_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/19/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/20/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/21/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_set_panel"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/22/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.swing_container_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/23/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.swing_container_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/24/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/25/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.window_menu_bar"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/26/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_bar_menus"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/27/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_name"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/28/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_set_name"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/29/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_revalidate"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/30/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_repaint"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/31/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_items"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/32/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_add"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/33/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_swing"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/34/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/35/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_swing"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/36/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_palette_box_for"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/37/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/38/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_remove_tab"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/39/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_remove_update"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/40/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_main_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/40/descriptor",
+        "value": "()Lcom/live2d/ui/window/V;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/41/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_verify_cleanup"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/42/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_fire_state"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/43/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_add_palette_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/44/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_remove_palette_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/45/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_first_palette_box"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/46/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/47/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_add_tab"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/48/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_set_selected"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/49/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_palettes"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/50/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_tab_panel"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/51/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_panel_entries"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/52/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_entry_palette"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/53/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_entry_button"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/54/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_jcomponent"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/55/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_root"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/56/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_dispose"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/57/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_raw_disposed"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/58/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.root_set_component"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/59/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/59/descriptor",
+        "value": "(Lcom/live2d/ui/dock/CPMPaletteManager;Lcom/live2d/ui/window/V;)V"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/60/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/60/descriptor",
+        "value": "()Lcom/live2d/ui/window/V;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/61/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.window_set_visible"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/61/x.verification/ownerInternalName",
+        "value": "com/live2d/ui/window/V"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/62/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.id"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/63/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.operation"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/64/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_field"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_append"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/66/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.floating_tab_close_operation"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/67/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.floating_tab_close_palette_field"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/68/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_root_container"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/69/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.root_component"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/70/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/71/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_contents"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/72/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_remove"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/73/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.component_palette_count"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/74/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.check_menu_item_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/75/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_main_frame_ctrl"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/76/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_palette_menu_map"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/77/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_is_selected"
+      }
+    ],
+    "5.3.03": [
+      {
+        "op": "replace",
+        "path": "/entries/0/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/1/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_instance"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_main_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/3/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_repaint"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/4/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/5/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_dock_manager"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/6/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/7/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_palette_manager"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/8/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_set_palette_visible"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/9/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_update_window_menu"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/10/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/11/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_get"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/12/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_add"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/13/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_close"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/14/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_current_workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/15/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/16/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_activate"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/17/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_id_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/18/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_id_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/19/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/20/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/21/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_set_panel"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/22/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.swing_container_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/23/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.swing_container_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/24/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/25/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.window_menu_bar"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/26/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_bar_menus"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/27/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_name"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/28/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_set_name"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/29/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_revalidate"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/30/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_repaint"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/31/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_items"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/32/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_add"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/33/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_swing"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/34/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/35/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_swing"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/36/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_palette_box_for"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/37/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/38/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_remove_tab"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/39/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_remove_update"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/40/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_main_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/40/descriptor",
+        "value": "()Lcom/live2d/ui/window/V;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/41/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_verify_cleanup"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/42/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_fire_state"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/43/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_add_palette_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/44/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_remove_palette_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/45/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_first_palette_box"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/46/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/47/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_add_tab"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/48/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_set_selected"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/49/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_palettes"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/50/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_tab_panel"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/51/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_panel_entries"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/52/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_entry_palette"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/53/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_entry_button"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/54/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_jcomponent"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/55/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_root"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/56/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_dispose"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/57/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_raw_disposed"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/58/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.root_set_component"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/59/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/59/descriptor",
+        "value": "(Lcom/live2d/ui/dock/CPMPaletteManager;Lcom/live2d/ui/window/V;)V"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/60/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/60/descriptor",
+        "value": "()Lcom/live2d/ui/window/V;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/61/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.window_set_visible"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/61/x.verification/ownerInternalName",
+        "value": "com/live2d/ui/window/V"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/62/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.id"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/63/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.operation"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/64/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_field"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_append"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/66/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.floating_tab_close_operation"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/67/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.floating_tab_close_palette_field"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/68/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_root_container"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/69/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.root_component"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/70/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/71/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_contents"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/72/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_remove"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/73/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.component_palette_count"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/74/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.check_menu_item_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/75/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_main_frame_ctrl"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/76/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_palette_menu_map"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/77/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_is_selected"
+      }
+    ],
+    "5.3.04": [
+      {
+        "op": "replace",
+        "path": "/entries/0/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/1/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_instance"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_main_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/3/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.app_controller_repaint"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/4/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/5/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_dock_manager"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/6/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/7/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_palette_manager"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/8/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_set_palette_visible"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/9/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_update_window_menu"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/10/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/11/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_get"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/12/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_add"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/13/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_close"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/14/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_current_workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/15/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/16/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_activate"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/17/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_id_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/18/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_id_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/19/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/20/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/21/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_set_panel"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/22/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.swing_container_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/23/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.swing_container_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/24/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/25/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.window_menu_bar"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/26/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_bar_menus"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/27/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_name"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/28/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_set_name"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/29/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_revalidate"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/30/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_repaint"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/31/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_items"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/32/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_add"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/33/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_swing"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/34/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/35/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_swing"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/36/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_palette_box_for"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/37/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/38/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_remove_tab"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/39/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_remove_update"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/40/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_main_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/40/descriptor",
+        "value": "()Lcom/live2d/ui/window/V;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/41/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_verify_cleanup"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/42/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_manager_fire_state"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/43/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_add_palette_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/44/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_remove_palette_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/45/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_first_palette_box"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/46/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/47/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_add_tab"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/48/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_set_selected"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/49/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_palettes"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/50/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_box_tab_panel"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/51/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_panel_entries"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/52/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_entry_palette"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/53/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.tab_entry_button"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/54/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.widget_jcomponent"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/55/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_root"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/56/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_dispose"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/57/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_raw_disposed"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/58/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.root_set_component"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/59/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/59/descriptor",
+        "value": "(Lcom/live2d/ui/dock/CPMPaletteManager;Lcom/live2d/ui/window/V;)V"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/60/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_frame_window"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/60/descriptor",
+        "value": "()Lcom/live2d/ui/window/V;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/61/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.window_set_visible"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/61/x.verification/ownerInternalName",
+        "value": "com/live2d/ui/window/V"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/62/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.id"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/63/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.operation"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/64/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.palette_field"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/65/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_append"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/66/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.floating_tab_close_operation"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/67/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.floating_tab_close_palette_field"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/68/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.workspace_root_container"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/69/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.root_component"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/70/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_class"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/71/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_contents"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/72/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.split_remove"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/73/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.component_palette_count"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/74/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.check_menu_item_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/75/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.dock_main_frame_ctrl"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/76/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.main_frame_palette_menu_map"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/77/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_embedded_panel.menu_item_is_selected"
+      }
+    ]
+  }
+}
