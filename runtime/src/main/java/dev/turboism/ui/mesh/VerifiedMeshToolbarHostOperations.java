@@ -189,7 +189,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
         resolver.invoke(SLIDER_SET_ON_CHANGED, slider, callback);
 
         resolver.invoke(CONTAINER_ADD, panel, slider, children.size());
-        final JComponent themedHost = themeHost(panel);
+        final JComponent themedRoot = themeControls(panel);
         refresh(panel);
 
         final AtomicBoolean closed = new AtomicBoolean();
@@ -214,7 +214,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                 }
                 onEdtEventually(() -> {
                     resolver.invoke(CONTAINER_REMOVE, panel, slider);
-                    releaseHost(themedHost);
+                    releaseControls(themedRoot);
                     refresh(panel);
                 });
             }
@@ -334,8 +334,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
         captureNativePeers(container, arrow);
 
         resolver.invoke(CONTAINER_ADD, container, button, meshInsertionIndex(children, arrowIndex));
-        final JComponent themedHost = themeHost(container);
-        final JComponent themedPanel = themeHost(toolPanelOrNull());
+        final JComponent themedRoot = themeControls(container);
         refresh(container);
 
         try {
@@ -355,8 +354,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
             // be returned and the container must not keep a button with no working observer.
             try {
                 resolver.invoke(CONTAINER_REMOVE, container, button);
-                releaseHost(themedHost);
-                releaseHost(themedPanel);
+                releaseControls(themedRoot);
                 refresh(container);
             } catch (RuntimeException | Error cleanupFailure) {
                 // @containment-exempt: cleanup failure merged, prioritizing fatal error
@@ -400,8 +398,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                     Throwable primary = null;
                     try {
                         resolver.invoke(CONTAINER_REMOVE, container, button);
-                        releaseHost(themedHost);
-                        releaseHost(themedPanel);
+                        releaseControls(themedRoot);
                         refresh(container);
                     } catch (RuntimeException | Error failure) {
                         // @containment-exempt: primary removal failure captured and merged below
@@ -625,34 +622,39 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
     }
 
     /**
-     * Paints the themed panel background on the native container that receives a contributed
+     * Paints the themed surface on the whole native tool-details tree that hosts a contributed
      * control.
      *
      * <p>The editor resolves a container background when it builds the container, so the ArtMesh
-     * tool-details area keeps the native colour when a theme changes later. The container owns one
-     * themed surface while a contributed control lives inside it; individual rows and labels stay
-     * transparent.</p>
+     * tool-details tab keeps the native colour when a theme changes later. The tab content is one
+     * native tree, and theming only the container that receives a contributed control leaves every
+     * sibling panel of the same tab native. The tool panel owns the tree root; the anchor container
+     * is the fallback root while the host exposes no tool panel.</p>
      *
-     * @param widget the native host container
-     * @return the Swing peer that paints the surface, or {@code null} when this host exposes none;
-     *     the contribution stays usable in that case
+     * @param fallbackContainer the native container that receives the contributed control
+     * @return the Swing peer that roots the themed tree, or {@code null} when this host exposes
+     *     none; the contribution stays usable in that case
      */
-    private JComponent themeHost(final Object widget) {
-        final JComponent peer = peer(widget);
-        if (peer != null) hostSurfaces.paint(peer);
-        return peer;
+    private JComponent themeControls(final Object fallbackContainer) {
+        final JComponent root = peer(toolPanelOrNull());
+        if (root != null) {
+            hostSurfaces.paintTree(root);
+            return root;
+        }
+        final JComponent fallback = peer(fallbackContainer);
+        if (fallback != null) hostSurfaces.paintTree(fallback);
+        return fallback;
     }
 
     /**
-     * Drops one themed surface ownership, restoring the native appearance of the last one.
+     * Drops one themed tree ownership, restoring the native appearance of the last one.
      *
-     * @param peer the peer {@link #themeHost(Object)} returned; {@code null} is ignored
+     * @param root the peer {@link #themeControls(Object)} returned; {@code null} is ignored
      */
-    private void releaseHost(final JComponent peer) {
-        hostSurfaces.release(peer);
+    private void releaseControls(final JComponent root) {
+        hostSurfaces.releaseTree(root);
     }
 
-    /** The Swing peer of a native widget, or {@code null} when this host exposes none. */
     /**
      * The native tool-panel container, or {@code null} while the host shows no mesh tool panel.
      *
