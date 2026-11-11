@@ -31,4 +31,35 @@ public final class CubismAutoMeshUiProfile {
     public static final String INSETS_TYPE = "com.live2d.type.CInsets";
     public static final String GROW_TYPE = "com.live2d.ui.container.a.c";
     public static final String ALIGNMENT_TYPE = "com.live2d.ui.a.a";
+
+    /**
+     * Container classes whose own live-update route re-places the selected ArtMeshes.
+     *
+     * <p>Each container declares one static entry that resolves the current Editor selection and
+     * calls the guarded native funnel. The selector row calls that entry after it stores a change,
+     * so a plugin selection behaves like the Editor's own modes.</p>
+     */
+    public static final String MODELING_PANEL_TYPE =
+            "com.live2d.cubism.doc.model.extension.meshGenerator.ui.AutoMeshGenerate_DialogType$AutoGenerateMeshPanel";
+
+    public static final String MODELING_POPUP_TYPE =
+            "com.live2d.cubism.doc.model.extension.meshGenerator.ui.AutoMeshGenerate_PopupType$AutoGenerateMeshDialog";
+
+    public static final String MESH_EDITOR_POPUP_TYPE =
+            "com.live2d.cubism.doc.model.extension.meshGenerator.ui.AutoMeshGenerate_PopupType_InMeshEditor$AutoGenerateMeshDialog";
+
+    /** Event type the live-update entries pass to the guarded funnel. */
+    public static final String EVENT_TYPE = "com.live2d.ui.event.z";
+
+    /** Direct-update event instance the live-update entries read from {@link #EVENT_TYPE}. */
+    public static final String EVENT_DIRECT_UPDATE_FIELD = "d";
+
+    /** Undo group type of the modeling-mode live-update entry on builds that carry it. */
+    public static final String GROUP_UNDO_TYPE = "com.live2d.undo.GroupUndo";
+
+    /** Completion callback type of the modeling-mode live-update entry on builds that carry it. */
+    public static final String FUNCTION0_TYPE = "kotlin.jvm.functions.Function0";
+
+    /** Inspector event type the modeling popup's live-update entry consumes. */
+    public static final String INSPECTOR_EVENT_TYPE = "com.live2d.inspector.e";
 }
