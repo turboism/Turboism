@@ -116,7 +116,8 @@ final class WarpAltMirrorHookContributor implements HookContributor {
                 null,
                 hostArtifact.toAbsolutePath().normalize(),
                 profile,
-                WarpAltMirrorHostProfile.reviewedClassSha256().get(bound.sourceVersion()),
+                java.util.Set.copyOf(
+                        WarpAltMirrorHostProfile.reviewedClassSha256().get(bound.sourceVersion())),
                 code -> RuntimeDiagnostics.info("warp-alt-mirror", code));
         bound.requireUnchanged(hostArtifact);
         candidate.install();

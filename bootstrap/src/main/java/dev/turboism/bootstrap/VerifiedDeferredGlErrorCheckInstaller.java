@@ -11,7 +11,6 @@ import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * Exact deferred GL error-check admission and restoration for the production
@@ -133,22 +132,8 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
                 frameComposed,
                 source);
         return List.of(
-                new WeaveTarget(
-                        errorType,
-                        transformer,
-                        EXPECTED_MATCHES,
-                        transformer::matches,
-                        transformer::failure,
-                        Set.of(target.errorOwner()),
-                        transformer::beforeSha256),
-                new WeaveTarget(
-                        frameType,
-                        transformer,
-                        EXPECTED_MATCHES,
-                        transformer::matches,
-                        transformer::failure,
-                        Set.of(target.frameOwner()),
-                        transformer::beforeSha256));
+                new WeaveTarget(errorType, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure),
+                new WeaveTarget(frameType, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     /**

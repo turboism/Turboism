@@ -111,12 +111,7 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
             final SkippedFrameUploadElisionTransformer transformer = new SkippedFrameUploadElisionTransformer(
                     source.loader(), source.artifact(), source.referenceBytes(type), owner);
             targets.add(WeaveTarget.single(
-                    type,
-                    transformer,
-                    EXPECTED_MATCHES,
-                    transformer::matches,
-                    transformer::failure,
-                    hashOwner -> transformer.beforeSha256()));
+                    type, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
         }
         verify(source, SkippedFrameUploadElisionTarget.BASE_OWNER, "i", "()Ljava/nio/IntBuffer;");
         verify(source, SkippedFrameUploadElisionTarget.BASE_OWNER, "k", "()Z");

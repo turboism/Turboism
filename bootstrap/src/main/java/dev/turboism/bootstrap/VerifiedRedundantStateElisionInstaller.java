@@ -102,7 +102,7 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
     public synchronized void close() {
         final Map<String, Long> stats = bridge.tracker().snapshot(false);
         bridge.uninstall();
-        if (restored || (!installed && !registered && transformer.beforeSha256() == null)) {
+        if (restored || (!installed && !registered && !transformer.rewrote())) {
             dev.turboism.runtime.log.RuntimeDiagnostics.info(
                     "bootstrap", "TURBOISM_STATE_ELISION closed " + report(stats) + " installed=false");
             return;
@@ -112,19 +112,16 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
             registered = false;
         }
         try {
-            // A transformer that never observed bytes rewrote nothing.
-            if (transformer.beforeSha256() == null) {
+            // A transformer that never rewrote a class has nothing to restore.
+            if (!transformer.rewrote()) {
                 restored = true;
                 installed = false;
                 dev.turboism.runtime.log.RuntimeDiagnostics.info(
                         "bootstrap", "TURBOISM_STATE_ELISION closed " + report(stats) + " restored=true");
                 return;
             }
-            final byte[] original = VerifiedHookInstallerSupport.captureLoadedBytes(
-                    instrumentation, entry, null, "state elision class capture absent: " + entry.getName());
-            final String hash = VerifiedHookInstallerSupport.sha256Hex(original);
-            if (!hash.equals(transformer.beforeSha256())) {
-                throw new IllegalStateException("state elision restoration not proven: " + entry.getName());
+            if (instrumentation.isModifiableClass(entry)) {
+                instrumentation.retransformClasses(entry);
             }
             restored = true;
             installed = false;

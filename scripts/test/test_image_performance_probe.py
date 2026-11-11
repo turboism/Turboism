@@ -25,8 +25,6 @@ class ImagePerformanceProbeTest(unittest.TestCase):
             "schemaVersion": 2,
             "cubismVersion": VERIFIER.CUBISM_VERSION,
             "artifactSha256": VERIFIER.ARTIFACT_SHA256,
-            "agentSha256": "a" * 64,
-            "fixtureSha256": "b" * 64,
             "scenario": "images",
             "capture": {"startEpochMs": 1_700_000_000_000, "endEpochMs": 1_700_000_030_000,
                         "dropped": 0, "failures": 0},
@@ -42,7 +40,7 @@ class ImagePerformanceProbeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "report.json"
             path.write_text(json.dumps(report), encoding="utf-8")
-            VERIFIER.validate_report(path, "images", "a" * 64, "b" * 64, {
+            VERIFIER.validate_report(path, "images", {
                 "scenario_start_epoch_ms": 1_700_000_000_000,
                 "scenario_end_epoch_ms": 1_700_000_030_000,
             })
@@ -100,22 +98,19 @@ class ImagePerformanceProbeTest(unittest.TestCase):
             "format": VERIFIER.ROLLBACK_FORMAT, "schemaVersion": 1,
             "cubismVersion": VERIFIER.CUBISM_VERSION, "artifactSha256": VERIFIER.ARTIFACT_SHA256,
             "runId": "images-01", "variant": "on", "scenario": "images",
-            "agentSha256": "a" * 64, "fixtureSha256": "b" * 64,
-            "owners": [{"class": owner, "beforeSha256": "1" * 64,
-                        "instrumentedSha256": "2" * 64, "afterSha256": "1" * 64,
-                        "restorationMatches": 1} for owner in sorted({entry[0] for entry in selectors})],
+            "owners": sorted({entry[0] for entry in selectors}),
             "selectors": [{"owner": owner, "method": method, "descriptor": descriptor,
                            "metric": metric, "matches": 1} for owner, method, descriptor, metric in selectors],
         }
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "rollback.json"
             path.write_text(json.dumps(manifest), encoding="utf-8")
-            VERIFIER.validate_rollback_manifest(path, "images-01", "on", "images", "a" * 64, "b" * 64)
+            VERIFIER.validate_rollback_manifest(path, "images-01", "on", "images")
             missing = copy.deepcopy(manifest)
             missing["selectors"].pop()
             path.write_text(json.dumps(missing), encoding="utf-8")
             with self.assertRaises(VERIFIER.AdmissionError):
-                VERIFIER.validate_rollback_manifest(path, "images-01", "on", "images", "a" * 64, "b" * 64)
+                VERIFIER.validate_rollback_manifest(path, "images-01", "on", "images")
 
 
 class ProbeTaskDirectoryDigestTest(unittest.TestCase):

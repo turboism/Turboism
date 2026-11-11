@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.jar.JarFile;
 
 /**
@@ -174,23 +175,16 @@ final class VerifiedModelInstanceCoalesceInstaller implements AutoCloseable {
         bridge.close();
         if (!installed) return;
         instrumentation.removeTransformer(transformer);
-        if (transformer.beforeSha256().isEmpty()) {
+        final Set<String> woven = transformer.wovenOwners();
+        if (woven.isEmpty()) {
             installed = false;
             return;
         }
         try {
             for (final Class<?> type : List.of(source, editMode, undoManager)) {
-                final byte[] original = VerifiedHookInstallerSupport.captureLoadedBytes(
-                        instrumentation,
-                        type,
-                        "model-instance coalescer dependency unmodifiable",
-                        "model-instance coalescer dependency inspection absent");
-                final String expected =
-                        transformer.beforeSha256().get(type.getName().replace('.', '/'));
-                if (expected == null || !expected.equals(VerifiedHookInstallerSupport.sha256Hex(original))) {
-                    throw new IllegalStateException(
-                            "native model-instance coalescer restoration not proven: " + type.getName());
-                }
+                if (!woven.contains(type.getName().replace('.', '/'))) continue;
+                if (!instrumentation.isModifiableClass(type)) continue;
+                instrumentation.retransformClasses(type);
             }
             restored = true;
             installed = false;

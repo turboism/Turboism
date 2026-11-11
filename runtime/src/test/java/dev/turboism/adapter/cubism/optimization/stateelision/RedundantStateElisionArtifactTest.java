@@ -73,7 +73,7 @@ class RedundantStateElisionArtifactTest {
                         "glDelete* methods must be invalidators");
                 assertTrue(transformer.invalidatorNames().values().contains("glBindFramebuffer"));
                 assertTrue(transformer.invalidatorNames().values().contains("glBindVertexArray"));
-                assertNotNull(transformer.beforeSha256());
+                assertTrue(transformer.rewrote());
                 final Map<String, String> methods = methods(reference);
                 assertEquals(methods, methods(changed), "no added, removed or renamed methods");
             }

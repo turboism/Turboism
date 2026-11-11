@@ -3,16 +3,14 @@ package dev.turboism.adapter.cubism.performance;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.objectweb.asm.ClassReader;
@@ -51,8 +49,7 @@ public final class ClipMaskProbeMethodTransformer implements ClassFileTransforme
     private final Map<String, byte[]> references;
     private final List<ClipMaskProbeTargets.Slot> slots;
     private final Map<ClipMaskProbeTargets.Slot, AtomicInteger> matches = new ConcurrentHashMap<>();
-    private final Map<String, String> beforeSha256 = new ConcurrentHashMap<>();
-    private final Map<String, String> instrumentedSha256 = new ConcurrentHashMap<>();
+    private final Set<String> wovenOwners = ConcurrentHashMap.newKeySet();
     private final Map<String, String> failures = new ConcurrentHashMap<>();
     private volatile int sites;
 
@@ -90,14 +87,9 @@ public final class ClipMaskProbeMethodTransformer implements ClassFileTransforme
         return sites;
     }
 
-    /** @return the SHA-256 of the input bytes this transformer received, per owner */
-    public Map<String, String> beforeSha256() {
-        return Map.copyOf(beforeSha256);
-    }
-
-    /** @return the SHA-256 of the bytes this transformer returned, per owner */
-    public Map<String, String> instrumentedSha256() {
-        return Map.copyOf(instrumentedSha256);
+    /** @return the internal names this transformer actually wove */
+    public Set<String> wovenOwners() {
+        return Set.copyOf(wovenOwners);
     }
 
     /** @return the latest per-class refusal reason, or {@code null} */
@@ -187,8 +179,7 @@ public final class ClipMaskProbeMethodTransformer implements ClassFileTransforme
                 return null;
             }
             final byte[] result = writer.toByteArray();
-            beforeSha256.putIfAbsent(name, sha256(bytes));
-            instrumentedSha256.putIfAbsent(name, sha256(result));
+            wovenOwners.add(name);
             sites += woven[0];
             return result;
         } catch (Exception | LinkageError rejected) {
@@ -224,14 +215,6 @@ public final class ClipMaskProbeMethodTransformer implements ClassFileTransforme
                 },
                 ClassReader.SKIP_FRAMES);
         return result;
-    }
-
-    private static String sha256(final byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException unavailable) {
-            throw new IllegalStateException("SHA-256 is unavailable", unavailable);
-        }
     }
 
     /**

@@ -66,13 +66,8 @@ final class VerifiedExtendedInterpolationSetupInstaller implements AutoCloseable
         final Class<?> target = source.load(ExtendedInterpolationSetupTarget.MODEL_SOURCE);
         final ExtendedInterpolationSetupTransformer transformer = new ExtendedInterpolationSetupTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(target));
-        return List.of(WeaveTarget.single(
-                target,
-                transformer,
-                EXPECTED_MATCHES,
-                transformer::sites,
-                transformer::failure,
-                owner -> transformer.beforeSha256()));
+        return List.of(
+                WeaveTarget.single(target, transformer, EXPECTED_MATCHES, transformer::sites, transformer::failure));
     }
 
     int sites() {

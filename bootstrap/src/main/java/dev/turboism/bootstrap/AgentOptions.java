@@ -18,8 +18,6 @@ record AgentOptions(
         int performanceProbeDurationSeconds,
         Path performanceProbeOutput,
         String performanceProbeScenario,
-        String performanceProbeAgentSha256,
-        String performanceProbeFixtureSha256,
         String performanceProbeRunId,
         Path performanceProbeRollbackOutput) {
 
@@ -51,8 +49,6 @@ record AgentOptions(
                         && !key.equals("performanceProbeDurationSeconds")
                         && !key.equals("performanceProbeOutput")
                         && !key.equals("performanceProbeScenario")
-                        && !key.equals("performanceProbeAgentSha256")
-                        && !key.equals("performanceProbeFixtureSha256")
                         && !key.equals("performanceProbeRunId")
                         && !key.equals("performanceProbeRollbackOutput")) {
                     throw new IllegalArgumentException("Unknown Turboism agent option: " + key);
@@ -97,8 +93,6 @@ record AgentOptions(
                         .toAbsolutePath()
                         .normalize(),
                 values.getOrDefault("performanceProbeScenario", "camera"),
-                values.getOrDefault("performanceProbeAgentSha256", "unbound"),
-                values.getOrDefault("performanceProbeFixtureSha256", "unbound"),
                 values.getOrDefault("performanceProbeRunId", "unbound"),
                 rollbackOutput(values));
     }
@@ -155,16 +149,8 @@ record AgentOptions(
                 && !performanceProbeScenario.equals("images")) {
             throw new IllegalArgumentException("performanceProbeScenario must be camera, edit or images");
         }
-        performanceProbeAgentSha256 =
-                Objects.requireNonNull(performanceProbeAgentSha256, "performanceProbeAgentSha256");
-        performanceProbeFixtureSha256 =
-                Objects.requireNonNull(performanceProbeFixtureSha256, "performanceProbeFixtureSha256");
         if (performanceProbeCapture && !performanceProbeInstall) {
             throw new IllegalArgumentException("performanceProbeCapture requires performanceProbeInstall=true");
-        }
-        if (performanceProbeCapture) {
-            requireBoundSha256(performanceProbeAgentSha256, "performanceProbeAgentSha256");
-            requireBoundSha256(performanceProbeFixtureSha256, "performanceProbeFixtureSha256");
         }
         if (!performanceProbeRunId.equals("unbound")
                 && !RUN_ID_PATTERN.matcher(performanceProbeRunId).matches()) {
@@ -173,13 +159,6 @@ record AgentOptions(
         }
         if (performanceProbeRollbackOutput != null && performanceProbeRunId.equals("unbound")) {
             throw new IllegalArgumentException("performanceProbeRollbackOutput requires performanceProbeRunId");
-        }
-    }
-
-    private static void requireBoundSha256(final String value, final String key) {
-        if (value.equals("unbound") || !SHA256_PATTERN.matcher(value).matches()) {
-            throw new IllegalArgumentException(
-                    key + " must be a lowercase 64-character SHA-256 when capture is enabled");
         }
     }
 

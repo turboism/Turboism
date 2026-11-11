@@ -8,8 +8,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.Map;
 import javax.imageio.ImageIO;
 import javax.swing.SwingUtilities;
@@ -26,8 +24,8 @@ class CubismNativeIconResolverTest {
         for (var entry : CubismNativeIconCatalog.resources().entrySet()) {
             final NativeIconVariant key = entry.getKey();
             assertEquals(16 * key.scalePercent() / 100, key.physicalSize());
-            assertTrue(entry.getValue().matches("[0-9a-f]{64}"));
-            assertTrue(key.resourcePath().startsWith("res/image_"));
+            assertEquals(key.resourcePath(), entry.getValue());
+            assertTrue(entry.getValue().startsWith("res/image_"));
             assertFalse(key.resourcePath().contains(".."));
         }
         for (CubismIcon icon : CubismIcon.values()) {
@@ -89,7 +87,7 @@ class CubismNativeIconResolverTest {
     }
 
     @Test
-    void sameSizeIsNotAHashAttestationAndMissingFilesAreUnavailable() throws Exception {
+    void sameSizeIsNotAnArtifactAttestationAndMissingFilesAreUnavailable() throws Exception {
         final Path sameSize = temporary.resolve("same-size.jar");
         try (var file = new java.io.RandomAccessFile(sameSize.toFile(), "rw")) {
             file.setLength(
@@ -104,17 +102,14 @@ class CubismNativeIconResolverTest {
     }
 
     @Test
-    void decodingChecksDigestSignatureAndDimensionsBeforeAcceptingPixels() throws Exception {
+    void decodingChecksSignatureAndDimensionsBeforeAcceptingPixels() throws Exception {
         final byte[] png = png(16);
-        assertNotNull(CubismNativeIconResolver.decodePng(png, sha(png), 16));
-        assertThrows(java.io.IOException.class, () -> CubismNativeIconResolver.decodePng(png, "0".repeat(64), 16));
-        assertThrows(java.io.IOException.class, () -> CubismNativeIconResolver.decodePng(png, sha(png), 32));
+        assertNotNull(CubismNativeIconResolver.decodePng(png, 16));
+        assertThrows(java.io.IOException.class, () -> CubismNativeIconResolver.decodePng(png, 32));
         final byte[] malformed = new byte[32];
-        assertThrows(
-                java.io.IOException.class, () -> CubismNativeIconResolver.decodePng(malformed, sha(malformed), 16));
+        assertThrows(java.io.IOException.class, () -> CubismNativeIconResolver.decodePng(malformed, 16));
         final byte[] oversized = new byte[4097];
-        assertThrows(
-                java.io.IOException.class, () -> CubismNativeIconResolver.decodePng(oversized, sha(oversized), 16));
+        assertThrows(java.io.IOException.class, () -> CubismNativeIconResolver.decodePng(oversized, 16));
     }
 
     @Test
@@ -210,9 +205,5 @@ class CubismNativeIconResolverTest {
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         ImageIO.write(new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB), "png", output);
         return output.toByteArray();
-    }
-
-    private static String sha(final byte[] bytes) throws Exception {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 }

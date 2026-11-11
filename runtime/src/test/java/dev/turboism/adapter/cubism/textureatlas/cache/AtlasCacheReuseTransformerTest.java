@@ -27,8 +27,7 @@ final class AtlasCacheReuseTransformerTest {
     @Test
     void patchesTheReviewedShape() throws Exception {
         final byte[] fixture = fixtureBytes(TARGET.internalName() + ".class");
-        final AtlasCacheReuseTransformer transformer =
-                new AtlasCacheReuseTransformer(TARGET, java.util.Set.of(AtlasCacheReuseTransformer.sha256(fixture)));
+        final AtlasCacheReuseTransformer transformer = new AtlasCacheReuseTransformer(TARGET);
 
         final byte[] patched = transformer.transform(null, getLoader(), TARGET.internalName(), null, null, fixture);
 
@@ -37,63 +36,24 @@ final class AtlasCacheReuseTransformerTest {
     }
 
     @Test
-    void refusesClassesWhoseBytesAreNotTheReviewedDigest() throws Exception {
-        final AtlasCacheReuseTransformer transformer = new AtlasCacheReuseTransformer();
-        final byte[] fixture = fixtureBytes(TARGET.internalName() + ".class");
-        assertNull(transformer.transform(null, getLoader(), TARGET.internalName(), null, null, fixture));
-        assertEquals(AtlasCacheReuseTransformer.Outcome.HASH_MISMATCH, transformer.outcome());
-    }
-
-    @Test
-    void refusesAClassWithTheDigestButNotTheShape() throws Exception {
+    void refusesAClassWithoutTheReviewedShape() throws Exception {
         final byte[] alien = fixtureBytes("com/live2d/type/CModelImageGuid.class");
-        final String alienSha = AtlasCacheReuseTransformer.sha256(alien);
-        final AtlasCacheReuseTransformer transformer =
-                new AtlasCacheReuseTransformer(TARGET, java.util.Set.of(alienSha));
+        final AtlasCacheReuseTransformer transformer = new AtlasCacheReuseTransformer(TARGET);
         assertNull(transformer.transform(null, getLoader(), TARGET.internalName(), null, null, alien));
         assertEquals(AtlasCacheReuseTransformer.Outcome.SHAPE_REJECTED, transformer.outcome());
     }
 
     @Test
-    void admitsTheExtraDigestOnlyWhenThePropertyIsSet() throws Exception {
-        final byte[] fixture = fixtureBytes(TARGET.internalName() + ".class");
-        final String fixtureSha = AtlasCacheReuseTransformer.sha256(fixture);
-        final String property = AtlasCacheReuseTransformer.ADMIT_CLASS_SHA256_PROPERTY;
-        final String saved = System.getProperty(property);
-        try {
-            System.setProperty(property, fixtureSha);
-            final AtlasCacheReuseTransformer transformer = new AtlasCacheReuseTransformer();
-            assertNotNull(
-                    transformer.transform(null, getLoader(), TARGET.internalName(), null, null, fixture),
-                    "the admitted extra digest must patch like the reviewed one");
-            assertEquals(AtlasCacheReuseTransformer.Outcome.PATCHED, transformer.outcome());
-        } finally {
-            if (saved == null) System.clearProperty(property);
-            else System.setProperty(property, saved);
-        }
-    }
-
-    @Test
-    void ignoresMalformedExtraDigests() throws Exception {
-        final byte[] fixture = fixtureBytes(TARGET.internalName() + ".class");
-        final String property = AtlasCacheReuseTransformer.ADMIT_CLASS_SHA256_PROPERTY;
-        final String saved = System.getProperty(property);
-        try {
-            System.setProperty(property, "not-hex");
-            final AtlasCacheReuseTransformer transformer = new AtlasCacheReuseTransformer();
-            assertNull(transformer.transform(null, getLoader(), TARGET.internalName(), null, null, fixture));
-            assertEquals(AtlasCacheReuseTransformer.Outcome.HASH_MISMATCH, transformer.outcome());
-        } finally {
-            if (saved == null) System.clearProperty(property);
-            else System.setProperty(property, saved);
-        }
+    void ignoresEveryOtherClass() {
+        final AtlasCacheReuseTransformer transformer = new AtlasCacheReuseTransformer();
+        assertNull(transformer.transform(null, getLoader(), "com/example/Unrelated", null, null, new byte[] {1}));
+        assertEquals(AtlasCacheReuseTransformer.Outcome.NONE, transformer.outcome());
     }
 
     @Test
     void keepsDiagnosticsOffHostConsoleButPreservesOptInEvidence(@TempDir final Path temp) throws Exception {
         final byte[] fixture = fixtureBytes(TARGET.internalName() + ".class");
-        final AtlasCacheReuseTransformer transformer =
-                new AtlasCacheReuseTransformer(TARGET, java.util.Set.of(AtlasCacheReuseTransformer.sha256(fixture)));
+        final AtlasCacheReuseTransformer transformer = new AtlasCacheReuseTransformer(TARGET);
         final String property = "turboism.atlasCacheReuse.evidenceFile";
         final String saved = System.getProperty(property);
         final PrintStream originalErr = System.err;
@@ -115,10 +75,17 @@ final class AtlasCacheReuseTransformerTest {
                     Files.readString(evidence).contains("PATCHED"));
             assertEquals("", console.toString(StandardCharsets.UTF_8));
 
-            // Rejected hosts must still fall back safely without writing to the native log.
-            new AtlasCacheReuseTransformer().transform(null, getLoader(), TARGET.internalName(), null, null, fixture);
+            // A shape the gate refuses must still fall back safely without writing to the native log.
+            new AtlasCacheReuseTransformer(TARGET)
+                    .transform(
+                            null,
+                            getLoader(),
+                            TARGET.internalName(),
+                            null,
+                            null,
+                            fixtureBytes("com/live2d/type/CModelImageGuid.class"));
             org.junit.jupiter.api.Assertions.assertTrue(
-                    Files.readString(evidence).contains("HASH_MISMATCH"));
+                    Files.readString(evidence).contains("SHAPE_REJECTED"));
             assertEquals("", console.toString(StandardCharsets.UTF_8));
         } finally {
             System.setErr(originalErr);

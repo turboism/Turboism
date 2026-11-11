@@ -135,11 +135,6 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
         return failure;
     }
 
-    /** Per-class pre-rewrite SHA-256 for restoration evidence. */
-    public String beforeSha256(final String owner) {
-        return beforeHashes.get(owner);
-    }
-
     /** Every class this transformer rewrote. */
     public java.util.Set<String> touchedClasses() {
         return java.util.Set.copyOf(touched);

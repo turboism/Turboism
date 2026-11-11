@@ -68,13 +68,8 @@ final class VerifiedFloatArrayParseCacheInstaller implements VerifiedHookInstall
         final FloatArrayParseTransformer transformer =
                 new FloatArrayParseTransformer(source.loader(), source.artifact(), source.referenceBytes(target));
         contract.requireUnchanged(source.artifact());
-        return List.of(WeaveTarget.single(
-                target,
-                transformer,
-                EXPECTED_MATCHES,
-                transformer::matches,
-                transformer::failure,
-                owner -> transformer.beforeSha256()));
+        return List.of(
+                WeaveTarget.single(target, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     @Override

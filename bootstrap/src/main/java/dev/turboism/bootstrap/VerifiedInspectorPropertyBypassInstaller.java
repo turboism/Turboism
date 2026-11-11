@@ -12,7 +12,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.jar.JarFile;
 
 /**
@@ -103,14 +102,8 @@ final class VerifiedInspectorPropertyBypassInstaller implements AutoCloseable {
                 new InspectorPropertyBypassTransformer(source.loader(), source.artifact(), references);
         final List<WeaveTarget> targets = new ArrayList<>(seams.size());
         for (final Class<?> type : seams.values()) {
-            targets.add(new WeaveTarget(
-                    type,
-                    transformer,
-                    EXPECTED_MATCHES,
-                    transformer::matches,
-                    transformer::failure,
-                    Set.of(WeaveTarget.internalName(type)),
-                    owner -> transformer.beforeSha256().get(owner)));
+            targets.add(
+                    new WeaveTarget(type, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
         }
         return targets;
     }

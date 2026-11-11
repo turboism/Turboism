@@ -60,7 +60,6 @@ class AsyncReadbackArtifactTest {
                         transformer.transform(loader, AsyncReadbackTarget.OWNER, null, domain, reference);
                 assertNotNull(changed, transformer.failure());
                 assertEquals(1, transformer.matches());
-                assertNotNull(transformer.beforeSha256());
 
                 final List<String> calls = readbackCalls(changed);
                 assertEquals(2, calls.size(), "one pipelined and one native client readback expected");

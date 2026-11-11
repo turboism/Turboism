@@ -5,7 +5,6 @@ import dev.turboism.adapter.cubism.performance.PerformanceProbeMethodTransformer
 import dev.turboism.adapter.cubism.performance.PerformanceProbeMetric;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeRecorder;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeReportWriter;
-import dev.turboism.adapter.cubism.performance.PerformanceProbeRollbackObserver;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeRollbackWriter;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeTargets;
 import dev.turboism.bootstrap.carrier.PerformanceProbeCallback;
@@ -19,10 +18,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
@@ -46,7 +43,6 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     private final String artifactSha256;
     private final List<PerformanceProbeMethodTransformer.Target> targets;
     private final PerformanceProbeMethodTransformer transformer;
-    private final PerformanceProbeRollbackObserver rollbackObserver;
     private final PerformanceProbeRecorder recorder = new PerformanceProbeRecorder();
     private final PerformanceProbeCallback callback = new PerformanceProbeCallback() {
         @Override
@@ -71,8 +67,6 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     private volatile Path rollbackOutput;
     private volatile String variant;
     private volatile String scenario;
-    private volatile String agentSha256;
-    private volatile String fixtureSha256;
 
     VerifiedPerformanceProbeInstaller(
             final Instrumentation instrumentation,
@@ -113,7 +107,6 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
             throw new IllegalStateException("performance probe carrier identity mismatch");
         }
         this.transformer = new PerformanceProbeMethodTransformer(hostClassLoader, hostArtifact, targets);
-        this.rollbackObserver = new PerformanceProbeRollbackObserver(hostClassLoader, hostArtifact, targets);
     }
 
     static ProbeProfile profileForArtifact(final HostArtifactDigest artifact) {
@@ -181,8 +174,6 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     void install(
             final boolean capture,
             final String scenario,
-            final String agentSha256,
-            final String fixtureSha256,
             final Duration delay,
             final Duration duration,
             final Path output,
@@ -199,8 +190,6 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                 rollbackOutput == null ? null : rollbackOutput.toAbsolutePath().normalize();
         this.variant = capture ? "on" : "off";
         this.scenario = scenario;
-        this.agentSha256 = agentSha256;
-        this.fixtureSha256 = fixtureSha256;
         PerformanceProbeCarrier.install(callback);
         instrumentation.addTransformer(transformer, true);
         try {
@@ -218,7 +207,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
             }
             awaitAdmission();
             admitted.set(true);
-            if (capture) scheduleCapture(scenario, agentSha256, fixtureSha256, delay, duration, output);
+            if (capture) scheduleCapture(scenario, delay, duration, output);
             startTriggerWatch();
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -282,7 +271,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                 .collect(Collectors.toUnmodifiableSet());
         final long deadline = System.nanoTime() + ADMISSION_TIMEOUT.toNanos();
         while (true) {
-            final Set<String> transformedOwners = transformer.beforeSha256().keySet();
+            final Set<String> transformedOwners = transformer.wovenOwners();
             final boolean everySelectorSingle =
                     transformer.matchCounts().values().stream().allMatch(count -> count == 1);
             if (transformedOwners.containsAll(owners) && everySelectorSingle) return;
@@ -304,7 +293,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
 
     /** Currently loaded classes this transformer actually instrumented, pinned to the host loader. */
     private List<Class<?>> currentlyLoadedTargets() {
-        final Set<String> instrumentedOwners = transformer.beforeSha256().keySet();
+        final Set<String> instrumentedOwners = transformer.wovenOwners();
         final List<Class<?>> loaded = new ArrayList<>();
         for (Class<?> candidate : instrumentation.getAllLoadedClasses()) {
             if (instrumentedOwners.contains(candidate.getName().replace('.', '/'))
@@ -321,12 +310,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     }
 
     private void scheduleCapture(
-            final String scenario,
-            final String agentSha256,
-            final String fixtureSha256,
-            final Duration delay,
-            final Duration duration,
-            final Path output) {
+            final String scenario, final Duration delay, final Duration duration, final Path output) {
         reporter.schedule(
                 () -> {
                     final long started = System.currentTimeMillis();
@@ -347,8 +331,6 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                                                     output,
                                                     cubismVersion,
                                                     artifactSha256,
-                                                    agentSha256,
-                                                    fixtureSha256,
                                                     scenario,
                                                     started,
                                                     System.currentTimeMillis(),
@@ -401,11 +383,6 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
         instrumentation.removeTransformer(transformer);
         Throwable cleanupFailure = null;
         try {
-            // Register the non-mutating observer only now, last in the current
-            // transformer chain, so it observes the final restored bytes during
-            // cleanup retransformation after the mutating transformer is gone.
-            instrumentation.addTransformer(rollbackObserver, true);
-            rollbackObserver.beginRestoration();
             final Set<Class<?>> restoreTargets = new LinkedHashSet<>(transformed);
             restoreTargets.addAll(currentlyLoadedTargets());
             dev.turboism.runtime.log.RuntimeDiagnostics.debug(
@@ -420,7 +397,6 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
             }
             transformed.clear();
         } finally {
-            instrumentation.removeTransformer(rollbackObserver);
             PerformanceProbeCarrier.clear(callback);
         }
         if (cleanupFailure != null) {
@@ -430,30 +406,13 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     }
 
     /**
-     * Publishes the strict rollback-evidence manifest from the actual bytes
-     * observed during install and restoration. Throws on any partial,
-     * mismatched, or failed evidence so the failure stays visible through the
+     * Publishes the rollback-evidence manifest from the restoration the close sequence actually
+     * performed. Throws on any partial or failed evidence so the failure stays visible through the
      * probe cleanup diagnostic; nothing is written on failure.
      */
     private void publishRollbackManifest() {
         if (!admitted.get() || runId == null || rollbackOutput == null) return;
         try {
-            final Map<String, PerformanceProbeRollbackWriter.OwnerEvidence> owners = new LinkedHashMap<>();
-            final Map<String, String> before = transformer.beforeSha256();
-            final Map<String, String> instrumented = transformer.instrumentedSha256();
-            final Map<String, String> after = rollbackObserver.observedSha256();
-            for (PerformanceProbeMethodTransformer.Target target : targets) {
-                final String owner = target.ownerInternalName();
-                final String dotted = owner.replace('/', '.');
-                owners.put(
-                        dotted,
-                        new PerformanceProbeRollbackWriter.OwnerEvidence(
-                                before.get(owner), instrumented.get(owner), after.get(owner)));
-            }
-            final Map<String, Integer> restorationMatches = new LinkedHashMap<>();
-            rollbackObserver
-                    .observationCounts()
-                    .forEach((owner, count) -> restorationMatches.put(owner.replace('/', '.'), count));
             new PerformanceProbeRollbackWriter()
                     .write(
                             rollbackOutput,
@@ -462,12 +421,8 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                             runId,
                             variant,
                             scenario,
-                            agentSha256,
-                            fixtureSha256,
                             targets,
-                            owners,
-                            transformer.matchCounts(),
-                            restorationMatches);
+                            transformer.matchCounts());
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("performance probe rollback manifest failed", failure);

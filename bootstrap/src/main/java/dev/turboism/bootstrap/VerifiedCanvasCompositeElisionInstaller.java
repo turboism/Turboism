@@ -14,7 +14,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * Exact admission, dependency verification and restoration for the test-only
@@ -103,22 +102,8 @@ final class VerifiedCanvasCompositeElisionInstaller implements AutoCloseable {
                 new CanvasCompositeElisionTransformer(source.loader(), flatlaf, paintReference, fillReference);
         verifyCaller(source);
         return List.of(
-                new WeaveTarget(
-                        paintClass,
-                        transformer,
-                        EXPECTED_MATCHES,
-                        transformer::matches,
-                        transformer::failure,
-                        Set.of(CanvasCompositeElisionTarget.PAINT_OWNER),
-                        transformer::beforeSha256),
-                new WeaveTarget(
-                        fillClass,
-                        transformer,
-                        EXPECTED_MATCHES,
-                        transformer::matches,
-                        transformer::failure,
-                        Set.of(CanvasCompositeElisionTarget.FILL_OWNER),
-                        transformer::beforeSha256));
+                new WeaveTarget(paintClass, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure),
+                new WeaveTarget(fillClass, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     /**

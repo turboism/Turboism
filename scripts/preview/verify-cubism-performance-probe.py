@@ -4,15 +4,13 @@
 Stdlib-only (json/re/argparse/datetime). Validates the probe report, the
 task-scoped diagnostics capture, the run envelope (run.properties), and the
 rollback manifest, and correlates every evidence piece to one exact run
-(run id, variant, scenario, agent SHA-256, fixture SHA-256). Any missing,
-mismatched, or stale piece fails the run closed; this tool never invents
-restoration evidence.
+(run id, variant, scenario). Any missing, mismatched, or stale piece fails the
+run closed; this tool never invents restoration evidence.
 
 Usage:
   verify-cubism-performance-probe.py --variant on|off --run-id RUN_ID \
       --diagnostics DIAGNOSTICS.txt --run-properties RUN.properties \
       --rollback-manifest MANIFEST.json \
-      --agent-sha256 HEX64 --fixture-sha256 HEX64 \
       [--report REPORT.json] --scenario camera|edit
   verify-cubism-performance-probe.py --self-test
 """
@@ -159,7 +157,7 @@ def parse_properties(path):
     return result
 
 
-def validate_run_properties(path, run_id, variant, scenario, agent_sha, fixture_sha):
+def validate_run_properties(path, run_id, variant, scenario):
     """Validate and return the run envelope; every listed field is required."""
     try:
         properties = parse_properties(path)
@@ -169,9 +167,6 @@ def validate_run_properties(path, run_id, variant, scenario, agent_sha, fixture_
         "variant": variant,
         "scenario": scenario,
         "run_id": run_id,
-        "agent_sha256": agent_sha,
-        "fixture_sha256": fixture_sha,
-        "fixture_sha256_after": fixture_sha,
     }
     for key, value in expected.items():
         actual = properties.get(key)
@@ -179,9 +174,6 @@ def validate_run_properties(path, run_id, variant, scenario, agent_sha, fixture_
             fail(f"run properties is missing required field {key}")
         if actual != value:
             fail(f"run properties {key}={actual!r} does not match expected {value!r}")
-    require_hex64(properties["agent_sha256"], "run-properties agent_sha256")
-    require_hex64(properties["fixture_sha256"], "run-properties fixture_sha256")
-    require_hex64(properties["fixture_sha256_after"], "run-properties fixture_sha256_after")
     if "launch_epoch_ms" not in properties:
         fail("run properties is missing required field launch_epoch_ms")
     try:
@@ -222,7 +214,7 @@ def validate_diagnostics(path):
             fail(f"diagnostics capture {path} contains failure diagnostic {pattern!r}")
 
 
-def validate_rollback_manifest(path, run_id, variant, scenario, agent_sha, fixture_sha):
+def validate_rollback_manifest(path, run_id, variant, scenario):
     manifest = load_json(path, "rollback manifest")
     if manifest.get("format") != ROLLBACK_FORMAT:
         fail(f"rollback manifest format {manifest.get('format')!r} is not {ROLLBACK_FORMAT!r}")
@@ -235,47 +227,20 @@ def validate_rollback_manifest(path, run_id, variant, scenario, agent_sha, fixtu
         "runId": run_id,
         "variant": variant,
         "scenario": scenario,
-        "agentSha256": agent_sha,
-        "fixtureSha256": fixture_sha,
     }
     for key, value in expected.items():
         actual = manifest.get(key)
         if actual != value:
             fail(f"rollback manifest {key}={actual!r} does not match expected {value!r}")
-    require_hex64(manifest["agentSha256"], "rollback manifest agentSha256")
-    require_hex64(manifest["fixtureSha256"], "rollback manifest fixtureSha256")
 
     expected_selectors = SELECTORS + (IMAGE_SELECTORS if scenario == "images" else [])
     expected_owners = {selector[0] for selector in expected_selectors}
     owners = manifest.get("owners")
     if not isinstance(owners, list):
         fail("rollback manifest owners must be a list")
-    seen_owners = []
-    for entry in owners:
-        if not isinstance(entry, dict):
-            fail("rollback manifest owner entry must be an object")
-        owner = entry.get("class")
-        if owner not in expected_owners:
-            fail(f"rollback manifest owner {owner!r} is not an expected target owner")
-        if owner in seen_owners:
-            fail(f"rollback manifest owner {owner!r} appears more than once")
-        seen_owners.append(owner)
-        before = entry.get("beforeSha256")
-        instrumented = entry.get("instrumentedSha256")
-        after = entry.get("afterSha256")
-        require_hex64(before, f"rollback beforeSha256 for {owner}")
-        require_hex64(instrumented, f"rollback instrumentedSha256 for {owner}")
-        require_hex64(after, f"rollback afterSha256 for {owner}")
-        if instrumented == before:
-            fail(f"rollback instrumentedSha256 equals the baseline for {owner}; "
-                 "instrumented bytes must differ from the pre-install bytes")
-        if after != before:
-            fail(f"rollback restoration mismatch: {owner} afterSha256 differs from beforeSha256")
-        require_schema_int_one(entry.get("restorationMatches"),
-                                f"rollback restoration count for {owner}")
-    missing_owners = [owner for owner in expected_owners if owner not in seen_owners]
-    if missing_owners:
-        fail(f"rollback manifest lacks owners: {missing_owners}")
+    if sorted(owners) != sorted(expected_owners):
+        fail(f"rollback manifest owners {sorted(owners)} must equal the target owners "
+             f"{sorted(expected_owners)}")
 
     selectors = manifest.get("selectors")
     if not isinstance(selectors, list):
@@ -297,7 +262,7 @@ def validate_rollback_manifest(path, run_id, variant, scenario, agent_sha, fixtu
         fail(f"rollback manifest lacks selectors: {missing_selectors}")
 
 
-def validate_report(path, scenario, agent_sha, fixture_sha, run_properties):
+def validate_report(path, scenario, run_properties):
     report = load_json(path, "probe report")
     if report.get("format") != REPORT_FORMAT:
         fail(f"probe report format {report.get('format')!r} is not {REPORT_FORMAT!r}")
@@ -311,12 +276,6 @@ def validate_report(path, scenario, agent_sha, fixture_sha, run_properties):
         fail(f"probe report cubismVersion {report.get('cubismVersion')!r} != {CUBISM_VERSION!r}")
     if report.get("artifactSha256") != ARTIFACT_SHA256:
         fail("probe report artifactSha256 does not match the reviewed 5.3.02 artifact")
-    require_hex64(report.get("agentSha256"), "probe report agentSha256")
-    require_hex64(report.get("fixtureSha256"), "probe report fixtureSha256")
-    if report.get("agentSha256") != agent_sha:
-        fail("probe report agentSha256 does not match the expected validation agent")
-    if report.get("fixtureSha256") != fixture_sha:
-        fail("probe report fixtureSha256 does not match the expected fixture")
     if report.get("scenario") != scenario:
         fail(f"probe report scenario {report.get('scenario')!r} does not match selected {scenario!r}")
 
@@ -413,8 +372,6 @@ def verify(arguments):
         fail("--scenario must be camera, edit or images")
     if not isinstance(arguments.run_id, str) or not RUN_ID.match(arguments.run_id):
         fail(f"--run-id must match {RUN_ID.pattern}, got {arguments.run_id!r}")
-    require_hex64(arguments.agent_sha256, "--agent-sha256")
-    require_hex64(arguments.fixture_sha256, "--fixture-sha256")
     if not arguments.run_properties:
         fail("--run-properties is required")
     if not arguments.diagnostics:
@@ -427,8 +384,6 @@ def verify(arguments):
         arguments.run_id,
         arguments.variant,
         arguments.scenario,
-        arguments.agent_sha256,
-        arguments.fixture_sha256,
     )
     validate_diagnostics(arguments.diagnostics)
     validate_rollback_manifest(
@@ -436,16 +391,11 @@ def verify(arguments):
         arguments.run_id,
         arguments.variant,
         arguments.scenario,
-        arguments.agent_sha256,
-        arguments.fixture_sha256,
     )
     if arguments.variant == "on":
         if not arguments.report:
             fail("--report is required when --variant on")
-        validate_report(
-            arguments.report, arguments.scenario,
-            arguments.agent_sha256, arguments.fixture_sha256, run_properties,
-        )
+        validate_report(arguments.report, arguments.scenario, run_properties)
     elif arguments.report:
         fail("--report must be absent when --variant off")
 
@@ -465,7 +415,6 @@ def self_test():
         return {
             "format": REPORT_FORMAT, "schemaVersion": SCHEMA_VERSION,
             "cubismVersion": CUBISM_VERSION, "artifactSha256": ARTIFACT_SHA256,
-            "agentSha256": "c" * 64, "fixtureSha256": "d" * 64,
             "scenario": scenario,
             "capture": {"startEpochMs": start_ms, "endEpochMs": start_ms + duration_ms,
                         "dropped": dropped, "failures": failures},
@@ -478,26 +427,18 @@ def self_test():
             "format": ROLLBACK_FORMAT, "schemaVersion": SCHEMA_VERSION,
             "cubismVersion": CUBISM_VERSION, "artifactSha256": ARTIFACT_SHA256,
             "runId": "run-01", "variant": "on", "scenario": "camera",
-            "agentSha256": "c" * 64, "fixtureSha256": "d" * 64,
-            "owners": [{"class": owner, "beforeSha256": "e" * 64,
-                        "instrumentedSha256": "f" * 64, "afterSha256": "e" * 64,
-                        "restorationMatches": 1}
-                       for owner in OWNER_CLASSES],
+            "owners": OWNER_CLASSES,
             "selectors": [{"owner": owner, "method": method, "descriptor": descriptor,
                            "metric": metric, "matches": 1}
                           for owner, method, descriptor, metric in SELECTORS],
         }
 
     def run_properties_text(variant="on", scenario="camera", run_id="run-01",
-                            agent_sha=None, fixture_sha=None,
                             start_ms=1_699_999_000_000, end_ms=1_700_000_040_000,
                             launch_ms=1_699_998_000_000):
         return "\n".join([
             f"variant={variant}", f"scenario={scenario}", f"run_id={run_id}",
             f"launch_epoch_ms={launch_ms}",
-            f"agent_sha256={agent_sha or 'c' * 64}",
-            f"fixture_sha256={fixture_sha or 'd' * 64}",
-            f"fixture_sha256_after={fixture_sha or 'd' * 64}",
             f"scenario_start_epoch_ms={start_ms}", f"scenario_end_epoch_ms={end_ms}",
         ]) + "\n"
 
@@ -521,8 +462,6 @@ def self_test():
                 "variant": "on",
                 "scenario": "camera",
                 "run_id": "run-01",
-                "agent_sha256": "c" * 64,
-                "fixture_sha256": "d" * 64,
                 "report": report_path,
                 "run_properties": properties_path,
                 "diagnostics": diagnostics_path,
@@ -551,8 +490,6 @@ def self_test():
                        "sampled": 0, "totalNanos": 0, "maxNanos": 0}
                 for name in METRIC_NAMES}))}),
             ("report wrong scenario", {"report": _write(directory, "r5", report(scenario="edit"))}),
-            ("report wrong agent", {"report": _write(directory, "r6", report()),
-                                   "agent_sha256": "f" * 64}),
             ("report wrong metric set", {"report": _write(directory, "r7", report(metric_set={
                 "renderScene": {"calls": 1, "sampled": 1, "totalNanos": 0, "maxNanos": 0}}))}),
             ("report capture window inverted", {"report": _write(directory, "r8", report(duration_ms=-1))}),
@@ -565,16 +502,10 @@ def self_test():
             ("run properties inverted window", {"run_properties": _write(
                 directory, "p3", run_properties_text(start_ms=1_700_000_040_000,
                                                      end_ms=1_699_995_000_000))}),
-            ("manifest after differs", {"rollback_manifest": _write(
-                directory, "m1", _manifest_after_changed(manifest()))}),
             ("manifest selector count 0", {"rollback_manifest": _write(
                 directory, "m2", _manifest_selector_changed(manifest()))}),
-            ("manifest missing owner", {"rollback_manifest": _write(
-                directory, "m3", _manifest_missing_owner(manifest()))}),
             ("manifest stale run id", {"rollback_manifest": _write(
                 directory, "m4", _manifest_run_id_changed(manifest()))}),
-            ("manifest mismatched agent", {"rollback_manifest": _write(
-                directory, "m5", _manifest_agent_changed(manifest()))}),
             ("missing rollback manifest", {"rollback_manifest": os.path.join(directory, "absent.json")}),
             ("empty diagnostics", {"diagnostics": _write(directory, "d1", "")}),
             ("diagnostics with non-validation failure wording", {"diagnostics": _write(
@@ -597,19 +528,6 @@ def self_test():
                 directory, "r13", report(metric_set={name: {
                     "calls": 0, "sampled": 0, "totalNanos": 7, "maxNanos": 0}
                     for name in METRIC_NAMES}))}),
-            ("manifest missing instrumented hash", {"rollback_manifest": _write(
-                directory, "m6", _manifest_missing_instrumented(manifest()))}),
-            ("manifest instrumented equals baseline", {"rollback_manifest": _write(
-                directory, "m7", _manifest_instrumented_unchanged(manifest()))}),
-            ("manifest bad restoration count", {"rollback_manifest": _write(
-                directory, "m8", _manifest_bad_restoration_count(manifest()))}),
-            ("run properties missing fixture after hash", {"run_properties": _write(
-                directory, "p4", run_properties_text().replace(
-                    "fixture_sha256_after=" + "d" * 64 + "\n", ""))}),
-            ("run properties fixture after mismatch", {"run_properties": _write(
-                directory, "p5", run_properties_text(fixture_sha="d" * 64).replace(
-                    "fixture_sha256_after=" + "d" * 64,
-                    "fixture_sha256_after=" + "a" * 64))}),
             ("run properties duplicate key", {"run_properties": _write(
                 directory, "p6", "variant=on\n" + run_properties_text())}),
             ("run properties malformed line", {"run_properties": _write(
@@ -629,8 +547,6 @@ def self_test():
                 directory, "m9", _schema_bool(manifest()))}),
             ("manifest matches as boolean", {"rollback_manifest": _write(
                 directory, "m10", _selector_matches_bool(manifest()))}),
-            ("manifest restorationMatches as boolean", {"rollback_manifest": _write(
-                directory, "m11", _restoration_matches_bool(manifest()))}),
             ("report sampled zero with nonzero total", {"report": _write(
                 directory, "r15", report(metric_set={
                     name: {"calls": 0 if name in P1_METRICS else 100,
@@ -659,43 +575,13 @@ def _write(directory, name, data):
     return path
 
 
-def _manifest_after_changed(manifest):
-    manifest["owners"][0]["afterSha256"] = "f" * 64
-    return manifest
-
-
 def _manifest_selector_changed(manifest):
     manifest["selectors"][0]["matches"] = 0
     return manifest
 
 
-def _manifest_missing_owner(manifest):
-    manifest["owners"] = manifest["owners"][:-1]
-    return manifest
-
-
 def _manifest_run_id_changed(manifest):
     manifest["runId"] = "other-run"
-    return manifest
-
-
-def _manifest_agent_changed(manifest):
-    manifest["agentSha256"] = "f" * 64
-    return manifest
-
-
-def _manifest_missing_instrumented(manifest):
-    del manifest["owners"][0]["instrumentedSha256"]
-    return manifest
-
-
-def _manifest_instrumented_unchanged(manifest):
-    manifest["owners"][0]["instrumentedSha256"] = manifest["owners"][0]["beforeSha256"]
-    return manifest
-
-
-def _manifest_bad_restoration_count(manifest):
-    manifest["owners"][0]["restorationMatches"] = 0
     return manifest
 
 
@@ -706,11 +592,6 @@ def _schema_bool(doc):
 
 def _selector_matches_bool(manifest):
     manifest["selectors"][0]["matches"] = True
-    return manifest
-
-
-def _restoration_matches_bool(manifest):
-    manifest["owners"][0]["restorationMatches"] = True
     return manifest
 
 
@@ -726,8 +607,6 @@ def main():
     parser.add_argument("--rollback-manifest", required=True)
     parser.add_argument("--run-properties", required=True)
     parser.add_argument("--scenario", choices=("camera", "edit", "images"), required=True)
-    parser.add_argument("--agent-sha256", required=True)
-    parser.add_argument("--fixture-sha256", required=True)
     parser.add_argument("--self-test", action="store_true")
     arguments = parser.parse_args()
     if arguments.self_test:

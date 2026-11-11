@@ -159,8 +159,6 @@ public class CanvasCompositeElisionTransformerTest {
 
         assertEquals(2, transformer.matches());
         assertEquals(2, transformer.sites());
-        assertNotNull(transformer.beforeSha256(PAINT));
-        assertNotNull(transformer.beforeSha256(FILL));
     }
 
     @Test

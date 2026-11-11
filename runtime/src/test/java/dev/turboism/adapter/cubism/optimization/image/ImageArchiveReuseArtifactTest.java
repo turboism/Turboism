@@ -57,7 +57,6 @@ class ImageArchiveReuseArtifactTest {
             assertNotNull(result, transformer.failure());
             assertEquals(1, transformer.matches());
             assertFalse(java.util.Arrays.equals(bytes, result));
-            assertNotNull(transformer.beforeSha256());
         }
         assertEquals(expected, HostArtifactDigest.from(artifact));
     }

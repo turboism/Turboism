@@ -7,9 +7,7 @@ import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,12 +45,11 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
     static final String[] LIFECYCLE_METHODS = {"init_exe", "setGlProgramID"};
     static final String[] LIFECYCLE_DESCS = {"(Lcom/live2d/graphics3d/a;)V", "(I)V"};
     /**
-     * Reviewed GShader class digests per admitted Cubism version. Admission is
-     * exact and per version: the class bytes must equal the digest pinned for the
-     * version the whole-artifact digest resolves to, so an identical class shared
-     * by several versions never admits an artifact that was not reviewed.
+     * Reviewed GShader target class per admitted Cubism version. Admission is per
+     * version: the whole-artifact digest resolves the version, and the rewrite gate
+     * then verifies the exact {@code preDraw_exe} body it substitutes.
      */
-    private static final Map<String, Map<String, String>> REVIEWED_CLASSES = ClassPinTable.load("shader-uniform");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("shader-uniform");
 
     /**
      * Records a definition this rewrite actually patched. A later transformer in
@@ -152,14 +149,9 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
             return null;
         }
         try {
-            String classSha = digest(bytes);
-            if (!reviewedClassDigest(classSha)) {
-                report("DECLINED_CLASS_HASH");
-                return null;
-            }
             Path artifactPath = Path.of(domain.getCodeSource().getLocation().toURI());
             HostArtifactDigest artifact = HostArtifactDigest.from(artifactPath);
-            if (!admits(classSha, artifact)) {
+            if (!admits(artifact)) {
                 report("DECLINED_ARTIFACT_HASH");
                 return null;
             }
@@ -178,34 +170,24 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
         }
     }
 
-    static String digest(byte[] bytes) throws java.security.NoSuchAlgorithmException {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-    }
-
     /**
-     * Returns the reviewed GShader digest table, keyed by Cubism version.
+     * Returns the reviewed GShader target-class table, keyed by Cubism version.
      *
-     * @return the immutable {@code version -> class -> sha256} pin table
+     * @return the immutable {@code version -> target class names} table
      */
-    public static Map<String, Map<String, String>> reviewedClassSha256() {
+    public static Map<String, List<String>> reviewedClassSha256() {
         return REVIEWED_CLASSES;
     }
 
-    static boolean reviewedClassDigest(String classSha256) {
-        for (Map<String, String> block : REVIEWED_CLASSES.values())
-            if (classSha256.equals(block.get(OWNER))) return true;
-        return false;
-    }
-
-    static boolean admits(String classSha256, HostArtifactDigest artifact) {
+    static boolean admits(HostArtifactDigest artifact) {
         return ReviewedHostArtifacts.cubismVersionOf(artifact)
-                .map(version -> admitsVersion(classSha256, version))
+                .map(ShaderUniformTransformer::admitsVersion)
                 .orElse(false);
     }
 
-    static boolean admitsVersion(String classSha256, String version) {
-        Map<String, String> block = REVIEWED_CLASSES.get(version);
-        return block != null && classSha256.equals(block.get(OWNER));
+    static boolean admitsVersion(String version) {
+        final List<String> targets = REVIEWED_CLASSES.get(version);
+        return targets != null && targets.contains(OWNER);
     }
 
     static byte[] patch(byte[] bytes) {

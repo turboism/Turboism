@@ -5,25 +5,24 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Pattern;
 
 /**
- * Loads reviewed-class SHA-256 pin tables from JSON classpath resources.
+ * Loads reviewed target-class tables from JSON classpath resources.
  *
- * <p>Pin tables are stored as JSON files under {@code dev/turboism/adapter/cubism/class-pins/}
- * on the classpath. Each file maps a Cubism Editor version to a set of class-name → SHA-256
- * entries that the hook verifies before arming. Externalising these tables into resource files
- * removes hundreds of hard-coded hex literals from Java source, makes multi-branch development
- * less conflict-prone, and allows automated tooling to generate or update pin files without
- * touching compiled code.</p>
+ * <p>Each table names, per reviewed Cubism Editor version, the host classes a hook
+ * rewrites or reads. The whole-artifact identity in {@code ReviewedHostArtifacts} plus the
+ * per-hook method-shape gates admit the bytes; this table only scopes which classes a hook
+ * may touch, so a hook never inspects a class outside its reviewed contract.</p>
  *
  * <p>The JSON is parsed with a minimal hand-written reader — no external JSON library is
  * required — that accepts exactly the subset this format uses: a two-level nested object
- * whose leaves are JSON string values. Malformed input fails closed with an
+ * whose leaves are JSON arrays of strings. Malformed input fails closed with an
  * {@link IllegalStateException}.</p>
  *
  * <p>The returned map is deeply immutable and preserves insertion (file) order.</p>
@@ -31,18 +30,17 @@ import java.util.regex.Pattern;
 public final class ClassPinTable {
 
     private static final String RESOURCE_PREFIX = "dev/turboism/adapter/cubism/class-pins/";
-    private static final Pattern HEX_64 = Pattern.compile("[0-9a-f]{64}");
 
     private ClassPinTable() {}
 
     /**
-     * Loads a pin table from a classpath JSON resource.
+     * Loads a target-class table from a classpath JSON resource.
      *
      * @param name the resource base name without path prefix or extension, e.g. {@code "mesh-mirror"}
-     * @return an immutable {@code Map<version, Map<className, sha256>>} in file order
+     * @return an immutable {@code Map<version, List<className>>} in file order
      * @throws IllegalStateException if the resource is missing or malformed
      */
-    public static Map<String, Map<String, String>> load(final String name) {
+    public static Map<String, List<String>> load(final String name) {
         Objects.requireNonNull(name, "name");
         final String path = RESOURCE_PREFIX + name + ".json";
         // The distributed agent declares Boot-Class-Path, so its classes (including this
@@ -62,30 +60,23 @@ public final class ClassPinTable {
     }
 
     /**
-     * Loads a pin table and returns the pinned SHA-256 for one class under one version.
+     * Loads a table and returns the target classes one version declares.
      *
      * @param name the resource base name, as in {@link #load(String)}
      * @param version the Cubism Editor version key
-     * @param className the class key inside the version block
-     * @return the pinned lowercase hex SHA-256
-     * @throws IllegalStateException if the resource is missing, malformed, or lacks the entry
+     * @return the declared internal names, in file order
+     * @throws IllegalStateException if the resource is missing, malformed, or lacks the version
      */
-    public static String singleSha256(final String name, final String version, final String className) {
+    public static List<String> classes(final String name, final String version) {
         Objects.requireNonNull(version, "version");
-        Objects.requireNonNull(className, "className");
-        final Map<String, String> entries = load(name).get(version);
-        if (entries == null) {
+        final List<String> classes = load(name).get(version);
+        if (classes == null) {
             throw new IllegalStateException("class pin table '" + name + "' has no block for version " + version);
         }
-        final String sha256 = entries.get(className);
-        if (sha256 == null) {
-            throw new IllegalStateException(
-                    "class pin table '" + name + "' version " + version + " has no entry for class " + className);
-        }
-        return sha256;
+        return classes;
     }
 
-    // ---- minimal JSON parser for { "version": { "class": "sha256" } } ----
+    // ---- minimal JSON parser for { "version": [ "class", ... ] } ----
 
     private static String readFully(final InputStream input) throws IOException {
         final StringBuilder buffer = new StringBuilder(8192);
@@ -98,11 +89,11 @@ public final class ClassPinTable {
         return buffer.toString();
     }
 
-    private static Map<String, Map<String, String>> parseOuterObject(final String json, final String source) {
+    private static Map<String, List<String>> parseOuterObject(final String json, final String source) {
         final int[] pos = {0};
         skipWhitespace(json, pos);
         expect(json, pos, '{', source);
-        final Map<String, Map<String, String>> result = new LinkedHashMap<>();
+        final Map<String, List<String>> result = new LinkedHashMap<>();
         skipWhitespace(json, pos);
         if (pos[0] < json.length() && json.charAt(pos[0]) == '}') {
             pos[0]++;
@@ -114,11 +105,11 @@ public final class ClassPinTable {
             skipWhitespace(json, pos);
             expect(json, pos, ':', source);
             skipWhitespace(json, pos);
-            final Map<String, String> inner = parseInnerObject(json, pos, source);
+            final List<String> classes = parseClassArray(json, pos, source);
             if (result.containsKey(version)) {
                 throw new IllegalStateException("duplicate version key '" + version + "' in " + source);
             }
-            result.put(version, inner);
+            result.put(version, classes);
             skipWhitespace(json, pos);
             if (pos[0] >= json.length()) {
                 throw new IllegalStateException("unexpected end of JSON in " + source);
@@ -133,41 +124,35 @@ public final class ClassPinTable {
         return Collections.unmodifiableMap(result);
     }
 
-    private static Map<String, String> parseInnerObject(final String json, final int[] pos, final String source) {
-        expect(json, pos, '{', source);
-        final Map<String, String> entries = new LinkedHashMap<>();
+    private static List<String> parseClassArray(final String json, final int[] pos, final String source) {
+        expect(json, pos, '[', source);
+        final List<String> classes = new ArrayList<>();
         skipWhitespace(json, pos);
-        if (pos[0] < json.length() && json.charAt(pos[0]) == '}') {
+        if (pos[0] < json.length() && json.charAt(pos[0]) == ']') {
             pos[0]++;
-            return Collections.unmodifiableMap(entries);
+            return List.copyOf(classes);
         }
         while (true) {
             skipWhitespace(json, pos);
             final String className = parseString(json, pos, source);
-            skipWhitespace(json, pos);
-            expect(json, pos, ':', source);
-            skipWhitespace(json, pos);
-            final String sha256 = parseString(json, pos, source);
-            if (!HEX_64.matcher(sha256).matches()) {
-                throw new IllegalStateException(
-                        "invalid SHA-256 value for class '" + className + "' in " + source + ": " + sha256);
+            if (className.isBlank()) {
+                throw new IllegalStateException("blank class name in " + source);
             }
-            if (entries.containsKey(className)) {
-                throw new IllegalStateException(
-                        "duplicate class key '" + className + "' in version block in " + source);
+            if (classes.contains(className)) {
+                throw new IllegalStateException("duplicate class key '" + className + "' in " + source);
             }
-            entries.put(className, sha256);
+            classes.add(className);
             skipWhitespace(json, pos);
             if (pos[0] >= json.length()) {
                 throw new IllegalStateException("unexpected end of JSON in " + source);
             }
-            if (json.charAt(pos[0]) == '}') {
+            if (json.charAt(pos[0]) == ']') {
                 pos[0]++;
                 break;
             }
             expect(json, pos, ',', source);
         }
-        return Collections.unmodifiableMap(entries);
+        return List.copyOf(classes);
     }
 
     private static String parseString(final String json, final int[] pos, final String source) {

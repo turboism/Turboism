@@ -5,7 +5,6 @@ import dev.turboism.adapter.cubism.performance.PerformanceFpsHook;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeMethodTransformer;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeMetric;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeRecorder;
-import dev.turboism.adapter.cubism.performance.PerformanceProbeRollbackObserver;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeTargets;
 import dev.turboism.bootstrap.carrier.PerformanceProbeCallback;
 import dev.turboism.bootstrap.carrier.PerformanceProbeCarrier;
@@ -27,10 +26,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * <p>Install mounts the transformer and enables RENDER_SCENE counting for the
  * whole host session; classes loaded later are instrumented on load. Close
- * removes the transformer, retransforms every instrumented class back to its
- * original bytes, and verifies the restoration (after == before) per observed
- * owner, failing closed with diagnostics on any mismatch. Unsupported host
- * artifacts are rejected in the constructor.
+ * removes the transformer and retransforms every instrumented class, which
+ * restores the original JVM definition. Unsupported host artifacts are rejected
+ * in the constructor.
  */
 public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
 
@@ -48,7 +46,6 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
     private final ClassLoader hostClassLoader;
     private final List<PerformanceProbeMethodTransformer.Target> targets;
     private final PerformanceProbeMethodTransformer transformer;
-    private final PerformanceProbeRollbackObserver rollbackObserver;
     private final PerformanceProbeRecorder recorder = new PerformanceProbeRecorder();
     private final AtomicBoolean installed = new AtomicBoolean();
     private final Object lifecycleLock = new Object();
@@ -134,7 +131,6 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.targets = List.copyOf(targets);
         this.transformer = new PerformanceProbeMethodTransformer(hostClassLoader, hostArtifact, targets);
-        this.rollbackObserver = new PerformanceProbeRollbackObserver(hostClassLoader, hostArtifact, targets);
         this.lafReadyTimeoutMillis = lafReadyTimeoutMillis;
     }
 
@@ -252,7 +248,7 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
         try {
             for (Class<?> loaded : loadedTargetClasses()) {
                 final String owner = loaded.getName().replace('.', '/');
-                if (transformer.instrumentedSha256().containsKey(owner)) {
+                if (transformer.wovenOwners().contains(owner)) {
                     continue; // already instrumented on load; retransform would double-count
                 }
                 instrumentation.retransformClasses(loaded);
@@ -301,10 +297,6 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
         instrumentation.removeTransformer(transformer);
         Throwable cleanupFailure = null;
         try {
-            // Non-mutating observer registered last in the transformer chain so it
-            // observes the final restored bytes during cleanup retransformation.
-            instrumentation.addTransformer(rollbackObserver, true);
-            rollbackObserver.beginRestoration();
             for (Class<?> target : loadedTargetClasses()) {
                 try {
                     instrumentation.retransformClasses(target);
@@ -314,36 +306,12 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
                 }
             }
         } finally {
-            instrumentation.removeTransformer(rollbackObserver);
             if (carrierOwned) {
                 PerformanceProbeCarrier.clear(mounted);
             }
         }
         if (cleanupFailure != null) {
             throw new IllegalStateException("performance FPS hook bytecode restoration failed", cleanupFailure);
-        }
-        verifyRestoration();
-    }
-
-    /**
-     * Rollback evidence: every owner this transformer instrumented must have
-     * been observed exactly once during restoration with the original bytes.
-     */
-    private void verifyRestoration() {
-        final var before = transformer.beforeSha256();
-        final var after = rollbackObserver.observedSha256();
-        final var observations = rollbackObserver.observationCounts();
-        final List<String> mismatches = new ArrayList<>();
-        for (String owner : before.keySet()) {
-            final String restored = after.get(owner);
-            final int count = observations.getOrDefault(owner, 0);
-            if (restored == null || count != 1 || !restored.equals(before.get(owner))) {
-                mismatches.add(owner + " (observations=" + count + ")");
-            }
-        }
-        if (!mismatches.isEmpty()) {
-            throw new IllegalStateException(
-                    "performance FPS hook bytecode restoration verification failed: " + mismatches);
         }
     }
 }

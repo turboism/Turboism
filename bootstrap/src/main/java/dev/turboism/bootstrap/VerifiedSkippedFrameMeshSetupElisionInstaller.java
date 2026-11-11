@@ -123,13 +123,8 @@ final class VerifiedSkippedFrameMeshSetupElisionInstaller implements AutoCloseab
                     java.lang.invoke.MethodType.methodType(returnType).descriptorString();
             verifyMethod(source, observed, SkippedFrameMeshSetupElisionTarget.OWNER, getter, descriptor);
         }
-        return List.of(WeaveTarget.single(
-                entry,
-                transformer,
-                EXPECTED_MATCHES,
-                transformer::matches,
-                transformer::failure,
-                owner -> transformer.beforeSha256()));
+        return List.of(
+                WeaveTarget.single(entry, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     private static void verifyMethod(

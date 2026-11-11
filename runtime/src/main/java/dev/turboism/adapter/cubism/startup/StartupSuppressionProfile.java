@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -78,8 +79,8 @@ record StartupSuppressionProfile(
      * name, per reviewed generation. A repackaged or differently-declared artifact
      * is admissible only when exactly one generation's pins verify.
      */
-    static Map<String, Map<String, String>> reviewedClassSha256() {
-        return REVIEWED_CLASS_SHA256;
+    static Map<String, List<String>> reviewedClassSha256() {
+        return REVIEWED_CLASSES;
     }
 
     /** The reviewed Cubism versions carrying an admitted suppression profile. */
@@ -87,8 +88,7 @@ record StartupSuppressionProfile(
         return SHAPES.keySet();
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
-            ClassPinTable.load("startup-suppression");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("startup-suppression");
 
     /**
      * The reviewed suppression shape per admitted generation: the splash-factory

@@ -71,13 +71,7 @@ final class VerifiedGlGetErrorElisionInstaller implements AutoCloseable {
         final Class<?> entry = source.load(target.owner());
         final var transformer = new GlGetErrorElisionTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(entry), target);
-        return List.of(WeaveTarget.single(
-                entry,
-                transformer,
-                1,
-                transformer::matches,
-                transformer::failure,
-                owner -> transformer.beforeSha256()));
+        return List.of(WeaveTarget.single(entry, transformer, 1, transformer::matches, transformer::failure));
     }
 
     /**

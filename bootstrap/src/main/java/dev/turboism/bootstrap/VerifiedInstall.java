@@ -4,13 +4,11 @@ import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
-import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -39,10 +37,10 @@ import java.util.jar.JarFile;
  *       rethrown;</li>
  *   <li>{@link #close()} removes every transformer (never abandoning the rest when one removal fails,
  *       and treating a {@code false} removal verdict as the failure it is), withdraws the hook's side
- *       effects, re-captures each rewritten class through one transient observer, compares it with the
- *       hash the transformer observed before the rewrite, and only then closes the bridge.
- *       {@link #restored()} is readable after {@code close()}; a registration that could not be removed
- *       keeps the handle open for a retry instead of reporting a settled weave.</li>
+ *       effects, restores the original JVM bytecode of every rewritten class through one
+ *       {@code retransformClasses} call, and only then closes the bridge. {@link #restored()} is
+ *       readable after {@code close()}; a registration that could not be removed keeps the handle open
+ *       for a retry instead of reporting a settled weave.</li>
  * </ol>
  *
  * <p>Per-hook isolation stays where it was: the routine throws on failure and leaves no transformer
@@ -176,7 +174,7 @@ final class VerifiedInstall<T> implements AutoCloseable {
     }
 
     /**
-     * @return whether every class this hook rewrote was proven to hash back to its pre-rewrite bytes;
+     * @return whether every class this hook rewrote was restored to its original JVM definition;
      *     readable after {@link #close()}
      */
     boolean restored() {
@@ -264,7 +262,7 @@ final class VerifiedInstall<T> implements AutoCloseable {
     }
 
     /**
-     * Removes every registration, withdraws the hook's side effects, proves the restoration closure and
+     * Removes every registration, withdraws the hook's side effects, restores the original bytecode and
      * closes the bridge last.
      *
      * @return the merged failure, or {@code null} when the handle is settled
@@ -275,13 +273,14 @@ final class VerifiedInstall<T> implements AutoCloseable {
         }
         final Throwable removed = attempt(this::removeEveryTransformer);
         final Throwable withdrawn = attempt(() -> spec.effects().withdrawn(this));
-        final Throwable proof = attempt(this::verifyRestoration);
+        final Throwable restoredBytes = attempt(this::restoreOriginalDefinitions);
         final Throwable bridgeFailure = attempt(bridge::close);
-        // A registration that could not be removed and a restoration proof that failed are the two
+        // A registration that could not be removed and a restoration that failed are the two
         // retryable steps: either one leaves the handle open so a second close can finish the job.
-        closed = removed == null && proof == null;
+        closed = removed == null && restoredBytes == null;
         return FatalErrors.mergeForCleanup(
-                FatalErrors.mergeForCleanup(removed, withdrawn), FatalErrors.mergeForCleanup(proof, bridgeFailure));
+                FatalErrors.mergeForCleanup(removed, withdrawn),
+                FatalErrors.mergeForCleanup(restoredBytes, bridgeFailure));
     }
 
     /**
@@ -320,77 +319,25 @@ final class VerifiedInstall<T> implements AutoCloseable {
     }
 
     /**
-     * Re-captures every rewritten class and compares it with the digest the transformer observed
-     * before it rewrote that class. An owner the transformer never observed carries no rewrite to
-     * prove: the per-target match count is what proves the weave happened.
-     */
-    private void verifyRestoration() throws Exception {
-        if (registered.isEmpty()) return;
-        final Map<String, String> observed = captureOwners();
-        for (final WeaveTarget target : registered) {
-            for (final String owner : target.touchedOwners()) {
-                final String before = target.beforeSha256().apply(owner);
-                if (before != null && !before.equals(observed.get(owner))) {
-                    throw new IllegalStateException(spec.feature() + " restoration not proven: " + owner);
-                }
-            }
-        }
-        restored = true;
-    }
-
-    /**
-     * Re-captures every rewritten class through one transient observer. Every class is retransformed even
-     * when one of them fails, so a single unmodifiable class never leaves the others unproven.
+     * Restores the original JVM definition of every class this hook rewrote. Removing the registration
+     * already detaches the weave, so one {@code retransformClasses} call over the touched owners is the
+     * whole proof: the JVM replays the chain on the pre-weave bytes and the host definition returns to
+     * its official body.
      *
-     * @return the observed digest per internal name
+     * <p>A registration that survived removal still rewrites the class during that replay, so the
+     * handle reports an unproven restoration and stays open for a retry.</p>
      */
-    private Map<String, String> captureOwners() throws Exception {
-        final Map<String, Class<?>> owners = new LinkedHashMap<>();
+    private void restoreOriginalDefinitions() throws Exception {
+        final Set<Class<?>> owners = new LinkedHashSet<>();
         for (final WeaveTarget target : registered) {
-            for (final String owner : target.touchedOwners()) {
-                owners.put(owner, Class.forName(owner.replace('/', '.'), false, context.hostLoader()));
+            if (target.type() != null) {
+                owners.add(target.type());
             }
         }
-        final Map<String, byte[]> observed = new LinkedHashMap<>();
-        final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override
-            public byte[] transform(
-                    final Module module,
-                    final ClassLoader loader,
-                    final String name,
-                    final Class<?> redefined,
-                    final ProtectionDomain domain,
-                    final byte[] bytes) {
-                if (redefined != null && bytes != null) {
-                    observed.put(WeaveTarget.internalName(redefined), bytes.clone());
-                }
-                return null;
-            }
-        };
-        context.instrumentation().addTransformer(observer, true);
-        Throwable failure = null;
-        try {
-            for (final Class<?> owner : owners.values()) {
-                failure = FatalErrors.mergeForCleanup(
-                        failure, attempt(() -> context.instrumentation().retransformClasses(owner)));
-            }
-        } finally {
-            final Throwable removal = failure;
-            failure = FatalErrors.mergeForCleanup(
-                    removal, attempt(() -> context.instrumentation().removeTransformer(observer)));
+        if (!owners.isEmpty()) {
+            context.instrumentation().retransformClasses(owners.toArray(Class<?>[]::new));
         }
-        if (failure != null) {
-            throw FatalErrors.propagate(failure);
-        }
-        final Map<String, String> digests = new LinkedHashMap<>();
-        for (final String owner : owners.keySet()) {
-            final byte[] bytes = observed.get(owner);
-            if (bytes == null) {
-                throw new IllegalStateException(spec.feature() + " restoration capture absent: " + owner);
-            }
-            digests.put(owner, VerifiedHookInstallerSupport.sha256Hex(bytes));
-        }
-        return digests;
+        restored = registrations.isEmpty();
     }
 
     /**

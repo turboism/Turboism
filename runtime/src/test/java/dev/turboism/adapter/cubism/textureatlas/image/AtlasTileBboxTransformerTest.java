@@ -73,8 +73,7 @@ final class AtlasTileBboxTransformerTest {
 
     private static void assertPatchesReviewedShape(final AtlasTileBboxTarget target) throws Exception {
         final byte[] fixture = fixtureBytes(target.internalName() + ".class");
-        final AtlasTileBboxTransformer transformer =
-                new AtlasTileBboxTransformer(target, java.util.Set.of(AtlasTileBboxTransformer.sha256(fixture)));
+        final AtlasTileBboxTransformer transformer = new AtlasTileBboxTransformer(target);
 
         final byte[] patched = transformer.transform(
                 null, AtlasTileBboxTransformerTest.class.getClassLoader(), target.internalName(), null, null, fixture);
@@ -84,79 +83,12 @@ final class AtlasTileBboxTransformerTest {
     }
 
     @Test
-    void refusesClassesWhoseBytesAreNotTheReviewedDigest() throws Exception {
-        final AtlasTileBboxTransformer transformer = new AtlasTileBboxTransformer();
-        for (final AtlasTileBboxTarget target : new AtlasTileBboxTarget[] {F_G, E_G}) {
-            final byte[] fixture = fixtureBytes(target.internalName() + ".class");
-            assertNull(transformer.transform(null, getLoader(), target.internalName(), null, null, fixture));
-        }
-        assertEquals(AtlasTileBboxTransformer.Outcome.HASH_MISMATCH, transformer.outcome());
-    }
-
-    @Test
-    void refusesAClassWithTheDigestButNotTheShape() throws Exception {
+    void refusesAClassWithoutTheReviewedShape() throws Exception {
         final byte[] alien = fixtureBytes("com/live2d/util/f/Alien.class");
-        final String alienSha = AtlasTileBboxTransformer.sha256(alien);
         for (final AtlasTileBboxTarget target : new AtlasTileBboxTarget[] {F_G, E_G}) {
-            final AtlasTileBboxTransformer transformer =
-                    new AtlasTileBboxTransformer(target, java.util.Set.of(alienSha));
+            final AtlasTileBboxTransformer transformer = new AtlasTileBboxTransformer(target);
             assertNull(transformer.transform(null, getLoader(), target.internalName(), null, null, alien));
             assertEquals(AtlasTileBboxTransformer.Outcome.SHAPE_REJECTED, transformer.outcome());
-        }
-    }
-
-    @Test
-    void admitsTheExtraDigestOnlyWhenThePropertyIsSet() throws Exception {
-        final byte[] fixture = fixtureBytes("com/live2d/util/f/g.class");
-        final String fixtureSha = AtlasTileBboxTransformer.sha256(fixture);
-        final String property = AtlasTileBboxTransformer.ADMIT_CLASS_SHA256_PROPERTY;
-        final String saved = System.getProperty(property);
-        try {
-            System.setProperty(property, fixtureSha);
-            final AtlasTileBboxTransformer transformer = new AtlasTileBboxTransformer();
-            assertNotNull(
-                    transformer.transform(null, getLoader(), F_G.internalName(), null, null, fixture),
-                    "the admitted extra digest must patch like the reviewed one");
-            assertEquals(AtlasTileBboxTransformer.Outcome.PATCHED, transformer.outcome());
-        } finally {
-            if (saved == null) System.clearProperty(property);
-            else System.setProperty(property, saved);
-        }
-    }
-
-    @Test
-    void admitsCommaSeparatedExtraDigests() throws Exception {
-        final byte[] fixture = fixtureBytes("com/live2d/util/e/g.class");
-        final String fixtureSha = AtlasTileBboxTransformer.sha256(fixture);
-        final String filler = "a".repeat(64);
-        final String property = AtlasTileBboxTransformer.ADMIT_CLASS_SHA256_PROPERTY;
-        final String saved = System.getProperty(property);
-        try {
-            System.setProperty(property, filler + " , " + fixtureSha);
-            final AtlasTileBboxTransformer transformer = new AtlasTileBboxTransformer();
-            assertNotNull(
-                    transformer.transform(null, getLoader(), E_G.internalName(), null, null, fixture),
-                    "a digest later in the comma list must admit its target");
-            assertEquals(AtlasTileBboxTransformer.Outcome.PATCHED, transformer.outcome());
-        } finally {
-            if (saved == null) System.clearProperty(property);
-            else System.setProperty(property, saved);
-        }
-    }
-
-    @Test
-    void ignoresMalformedExtraDigests() throws Exception {
-        final byte[] fixture = fixtureBytes("com/live2d/util/f/g.class");
-        final String property = AtlasTileBboxTransformer.ADMIT_CLASS_SHA256_PROPERTY;
-        final String saved = System.getProperty(property);
-        try {
-            System.setProperty(property, "not-hex");
-            final AtlasTileBboxTransformer transformer = new AtlasTileBboxTransformer();
-            assertNull(transformer.transform(null, getLoader(), F_G.internalName(), null, null, fixture));
-            assertEquals(AtlasTileBboxTransformer.Outcome.HASH_MISMATCH, transformer.outcome());
-        } finally {
-            if (saved == null) System.clearProperty(property);
-            else System.setProperty(property, saved);
         }
     }
 
@@ -166,8 +98,7 @@ final class AtlasTileBboxTransformerTest {
         // transformer would face if the delegate's helpers were absent on a foreign host.
         for (final AtlasTileBboxTarget target : new AtlasTileBboxTarget[] {F_G, E_G}) {
             final byte[] fixture = fixtureBytes(target.internalName() + ".class");
-            final AtlasTileBboxTransformer transformer =
-                    new AtlasTileBboxTransformer(target, java.util.Set.of(AtlasTileBboxTransformer.sha256(fixture)));
+            final AtlasTileBboxTransformer transformer = new AtlasTileBboxTransformer(target);
             final ClassLoader orphan = new ClassLoader(null) {};
 
             assertNull(transformer.transform(null, orphan, target.internalName(), null, null, fixture));
@@ -194,8 +125,7 @@ final class AtlasTileBboxTransformerTest {
             throws Exception {
         final String binaryName = target.className();
         final byte[] fixture = fixtureBytes(target.internalName() + ".class");
-        final AtlasTileBboxTransformer transformer =
-                new AtlasTileBboxTransformer(target, java.util.Set.of(AtlasTileBboxTransformer.sha256(fixture)));
+        final AtlasTileBboxTransformer transformer = new AtlasTileBboxTransformer(target);
 
         final ClassLoader child = new ClassLoader(getLoader()) {
             @Override

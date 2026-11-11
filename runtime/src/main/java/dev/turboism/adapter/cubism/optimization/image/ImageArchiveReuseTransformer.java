@@ -3,11 +3,8 @@ package dev.turboism.adapter.cubism.optimization.image;
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -29,7 +26,7 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
     private final ClassLoader expectedLoader;
     private final Path artifact;
     private final AtomicInteger matches = new AtomicInteger();
-    private volatile String beforeSha256;
+
     private volatile String failure;
 
     /** Creates a transformer scoped to an attested host loader and artifact. */
@@ -98,7 +95,7 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
                     },
                     ClassReader.EXPAND_FRAMES);
             final byte[] output = writer.toByteArray();
-            if (beforeSha256 == null) beforeSha256 = sha256(bytes);
+
             matches.incrementAndGet();
             return output;
         } catch (RuntimeException | LinkageError rejected) {
@@ -110,10 +107,6 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
     /** Number of successfully transformed exact owner definitions. */
     public int matches() {
         return matches.get();
-    }
-    /** Hash of the first exact owner input bytes, for restoration verification. */
-    public String beforeSha256() {
-        return beforeSha256;
     }
     /** Last transformation failure, or null when there was none. */
     public String failure() {
@@ -131,14 +124,6 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
                 && owner.equals(IMAGE)
                 && method.equals("writeImageAsPng")
                 && descriptor.equals("(Ljava/io/OutputStream;)V");
-    }
-
-    private static String sha256(byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException failure) {
-            throw new IllegalStateException(failure);
-        }
     }
 
     private static final class CountingMethodVisitor extends MethodVisitor {
@@ -291,10 +276,9 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
      * repackaged or differently-declared artifact binds this hook only when
      * one distinct contract's pins match every class entry; identical contracts merge.
      */
-    public static Map<String, Map<String, String>> reviewedClassSha256() {
-        return REVIEWED_CLASS_SHA256;
+    public static Map<String, List<String>> reviewedClassSha256() {
+        return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
-            ClassPinTable.load("image-archive-reuse");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("image-archive-reuse");
 }

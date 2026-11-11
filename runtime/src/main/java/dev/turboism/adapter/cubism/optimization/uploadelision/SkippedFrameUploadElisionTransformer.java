@@ -3,9 +3,7 @@ package dev.turboism.adapter.cubism.optimization.uploadelision;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import org.objectweb.asm.ClassReader;
@@ -62,7 +60,7 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
     private final Path artifact;
     private final String owner;
     private final List<String> shape;
-    private volatile String beforeSha256, failure;
+    private volatile String failure;
     private volatile int matches, guarded;
 
     /**
@@ -98,10 +96,6 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
     /** Returns the guarded upload call-site count so far. */
     public int guarded() {
         return guarded;
-    }
-    /** Returns the original full class digest for restoration verification. */
-    public String beforeSha256() {
-        return beforeSha256;
     }
 
     @Override
@@ -165,10 +159,7 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
                 return null;
             }
             final byte[] result = writer.toByteArray();
-            if (beforeSha256 == null) {
-                beforeSha256 = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-            }
+
             matches++;
             guarded += applied[0].wrappedCalls;
             return result;

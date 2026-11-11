@@ -61,7 +61,6 @@ class FloatArrayParseArtifactTest {
                             null, loader, FloatArrayParseTransformer.TARGET, null, domain, rewritten.toByteArray()),
                     transformer.failure());
             assertEquals(1, transformer.matches());
-            assertNotNull(transformer.beforeSha256());
         }
         assertEquals(expected, HostArtifactDigest.from(artifact));
     }

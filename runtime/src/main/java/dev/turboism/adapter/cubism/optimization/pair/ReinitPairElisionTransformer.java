@@ -4,12 +4,10 @@ import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -65,7 +63,7 @@ public final class ReinitPairElisionTransformer implements ClassFileTransformer 
     private final List<Integer> creationSlots;
     private final int localBase;
     private volatile String failure;
-    private volatile String beforeSha256;
+
     private volatile int matches;
 
     private record Plan(List<Integer> creationSlots, int localBase) {}
@@ -92,12 +90,11 @@ public final class ReinitPairElisionTransformer implements ClassFileTransformer 
     }
 
     /** Reviewed CModel class SHA-256 pins, keyed by Cubism Editor version. */
-    public static Map<String, Map<String, String>> reviewedClassSha256() {
-        return REVIEWED_CLASS_SHA256;
+    public static Map<String, List<String>> reviewedClassSha256() {
+        return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
-            ClassPinTable.load("reinit-pair-elision");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("reinit-pair-elision");
 
     /** Most recent rejection, or null when none has occurred. */
     public String failure() {
@@ -107,11 +104,6 @@ public final class ReinitPairElisionTransformer implements ClassFileTransformer 
     /** Successful class transform count. */
     public int matches() {
         return matches;
-    }
-
-    /** Original full class SHA-256, available after the first successful rewrite. */
-    public String beforeSha256() {
-        return beforeSha256;
     }
 
     @Override
@@ -168,10 +160,7 @@ public final class ReinitPairElisionTransformer implements ClassFileTransformer 
                 failure = "kotlin.Pair references remain after rewrite";
                 return null;
             }
-            if (beforeSha256 == null) {
-                beforeSha256 = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-            }
+
             matches++;
             return result;
         } catch (Exception | LinkageError rejected) {

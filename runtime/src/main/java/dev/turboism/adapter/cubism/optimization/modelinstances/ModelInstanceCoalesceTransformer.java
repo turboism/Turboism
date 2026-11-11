@@ -3,10 +3,8 @@ package dev.turboism.adapter.cubism.optimization.modelinstances;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +41,7 @@ public final class ModelInstanceCoalesceTransformer implements ClassFileTransfor
     private final ClassLoader loader;
     private final Path artifact;
     private final Map<String, ClassSpec> specs;
-    private final Map<String, String> beforeSha256 = new ConcurrentHashMap<>();
+    private final java.util.Set<String> wovenOwners = ConcurrentHashMap.newKeySet();
     private final AtomicInteger matches = new AtomicInteger();
     private volatile String failure;
 
@@ -125,9 +123,9 @@ public final class ModelInstanceCoalesceTransformer implements ClassFileTransfor
         return new ClassSpec(owner, Map.copyOf(shapes), Map.copyOf(byMethod));
     }
 
-    /** SHA-256 of each rewritten class before this transformer touched it. */
-    public Map<String, String> beforeSha256() {
-        return Map.copyOf(beforeSha256);
+    /** Internal names this transformer actually rewrote. */
+    public java.util.Set<String> wovenOwners() {
+        return java.util.Set.copyOf(wovenOwners);
     }
 
     /** Rewritten methods observed so far. */
@@ -199,10 +197,7 @@ public final class ModelInstanceCoalesceTransformer implements ClassFileTransfor
                 failure = "coalescer seam cardinality mismatch: " + name;
                 return null;
             }
-            beforeSha256.putIfAbsent(
-                    name,
-                    HexFormat.of()
-                            .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
+            wovenOwners.add(name);
             matches.addAndGet(transformed[0]);
             return writer.toByteArray();
         } catch (Exception | LinkageError rejected) {

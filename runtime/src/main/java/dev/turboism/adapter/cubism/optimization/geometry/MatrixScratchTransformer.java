@@ -4,9 +4,7 @@ import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -41,7 +39,7 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
     private final Path artifact;
     private final List<String> shape;
     private final int localBase;
-    private volatile String failure, beforeSha256;
+    private volatile String failure;
     private volatile int matches;
 
     /**
@@ -90,10 +88,6 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
     public int matches() {
         return matches;
     }
-    /** Returns the original full class digest for restoration verification. */
-    public String beforeSha256() {
-        return beforeSha256;
-    }
 
     @Override
     public byte[] transform(
@@ -139,9 +133,7 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
                     },
                     ClassReader.EXPAND_FRAMES);
             byte[] result = writer.toByteArray();
-            if (beforeSha256 == null)
-                beforeSha256 = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+
             matches++;
             return result;
         } catch (Exception | LinkageError rejected) {
@@ -298,9 +290,9 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
      * repackaged or differently-declared artifact binds this hook only when
      * one distinct contract's pins match every class entry; identical contracts merge.
      */
-    public static Map<String, Map<String, String>> reviewedClassSha256() {
-        return REVIEWED_CLASS_SHA256;
+    public static Map<String, List<String>> reviewedClassSha256() {
+        return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = ClassPinTable.load("matrix-scratch");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("matrix-scratch");
 }

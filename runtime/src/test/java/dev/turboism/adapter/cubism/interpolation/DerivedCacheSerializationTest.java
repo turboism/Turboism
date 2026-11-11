@@ -195,7 +195,7 @@ final class DerivedCacheSerializationTest {
         var domain = new java.security.ProtectionDomain(source, null);
         assertNull(optedIn.transform(
                 getClass().getClassLoader(), DerivedCacheSerializationPatch.OWNER, null, domain, new byte[] {1}));
-        assertEquals(java.util.List.of("MESH_INTERPOLATION_DECLINED_CLASS_HASH"), reports);
+        assertEquals(java.util.List.of("MESH_INTERPOLATION_DECLINED_SHAPE_OR_SOURCE"), reports);
         assertFalse(optedIn.serializationPatched());
     }
 }

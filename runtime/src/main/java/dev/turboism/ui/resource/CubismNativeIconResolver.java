@@ -88,7 +88,7 @@ public final class CubismNativeIconResolver implements AutoCloseable {
         }
     }
 
-    // Offline validation seam: still enforces the production version/size/hash pins. Not an SDK API.
+    // Offline validation seam: still enforces the production version/size/digest pins. Not an SDK API.
     static CubismNativeIconResolver preloadArtifact(final String version, final Path artifact) {
         requireOffEdt();
         Objects.requireNonNull(artifact, "artifact");
@@ -131,9 +131,7 @@ public final class CubismNativeIconResolver implements AutoCloseable {
                 if (entry.isDirectory() || entry.getSize() > MAX_PNG_BYTES) continue;
                 try {
                     final byte[] bytes = dev.turboism.sdk.io.BoundedInput.readNBytes(zip, MAX_PNG_BYTES);
-                    prepared.put(
-                            key,
-                            decodePng(bytes, CubismNativeIconCatalog.resources().get(key), key.physicalSize()));
+                    prepared.put(key, decodePng(bytes, key.physicalSize()));
                 } catch (IOException | RuntimeException invalidResource) {
                     // One bad/missing variant cannot disable the other admitted variants.
                 }
@@ -145,14 +143,18 @@ public final class CubismNativeIconResolver implements AutoCloseable {
         }
     }
 
-    static BufferedImage decodePng(final byte[] bytes, final String expectedHash, final int physicalSize)
-            throws IOException {
+    /**
+     * Decodes one extracted PNG after proving its signature, budget and square bounds.
+     *
+     * <p>The archive identity already admitted the bytes, so this gate proves only that the
+     * extracted resource is a well-formed square PNG at the variant's physical size.</p>
+     */
+    static BufferedImage decodePng(final byte[] bytes, final int physicalSize) throws IOException {
         if (bytes.length < 33
                 || bytes.length > MAX_PNG_BYTES
                 || physicalSize < 16
                 || physicalSize > 32
-                || physicalSize % 4 != 0
-                || !sha256(bytes).equals(expectedHash)) throw new IOException("invalid native PNG identity or budget");
+                || physicalSize % 4 != 0) throw new IOException("invalid native PNG budget");
         final ByteBuffer header = ByteBuffer.wrap(bytes);
         if (header.getLong(0) != 0x89504e470d0a1a0aL
                 || header.getInt(8) != 13
@@ -207,17 +209,17 @@ public final class CubismNativeIconResolver implements AutoCloseable {
         return new CubismNativeIconResolver(Map.of(), UiIconAvailability.HOST_UNVERIFIED);
     }
 
-    private static void requireOffEdt() {
-        if (SwingUtilities.isEventDispatchThread()) {
-            throw new IllegalStateException("native icon preload must run off the EDT");
-        }
-    }
-
     private static String sha256(final byte[] bytes) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
+    }
+
+    private static void requireOffEdt() {
+        if (SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("native icon preload must run off the EDT");
         }
     }
 

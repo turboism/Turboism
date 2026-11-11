@@ -41,8 +41,6 @@ public final class PerformanceProbeReportWriter {
      * @param output             destination path; resolved to an absolute normalized path
      * @param cubismVersion      exact reviewed Cubism Editor version
      * @param artifactSha256     digest of the instrumented Cubism artifact
-     * @param agentSha256        digest of the probe agent that did the instrumenting
-     * @param fixtureSha256      digest of the model fixture the scenario ran against
      * @param scenario           name of the measured scenario
      * @param startedEpochMillis when the capture window opened
      * @param endedEpochMillis   when the capture window closed
@@ -54,8 +52,6 @@ public final class PerformanceProbeReportWriter {
             final Path output,
             final String cubismVersion,
             final String artifactSha256,
-            final String agentSha256,
-            final String fixtureSha256,
             final String scenario,
             final long startedEpochMillis,
             final long endedEpochMillis,
@@ -77,8 +73,6 @@ public final class PerformanceProbeReportWriter {
         report.put("schemaVersion", images ? 2 : 1);
         report.put("cubismVersion", requireText(cubismVersion, "cubismVersion"));
         report.put("artifactSha256", artifactSha256);
-        report.put("agentSha256", agentSha256);
-        report.put("fixtureSha256", fixtureSha256);
         report.put("scenario", scenario);
         report.put(
                 "capture",

@@ -88,7 +88,6 @@ def main():
             "turboism.validation.tlWeave.outputDir": str(home / "tl-weave"),
             "turboism.validation.tlWeave.expectCodeSource": official.as_uri(),
             "turboism.validation.settingsStartupExpectedEdgeIndex": str(enabled).lower(),
-            "turboism.atlasTileBbox.admitClassSha256": "800e3f6758e47bb1d8d974e72dcfed220f8773e15a5f05cac101ae2b56c1d160",
         })
         tl_sha = "f3427cec0e5c0c7d93c8a2cf72351a82a39b635b15682afc291eb3a62dc888f5" if enabled else "87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29"
         options["turboism.validation.tlWeave.expectClassSha256"] = tl_sha

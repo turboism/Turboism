@@ -69,8 +69,7 @@ final class ExtendedInterpolationSetupTransformerTest {
 
         assertNotNull(woven, String.valueOf(transformer.failure()));
         assertEquals(2, transformer.sites());
-        assertNotNull(transformer.beforeSha256());
-        assertNotNull(transformer.instrumentedSha256());
+
         final Class<?> type = loader.define(MODEL_SOURCE, woven);
         // Retransformation cannot add methods, so the rewrite must not declare one.
         assertEquals(

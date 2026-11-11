@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.optimization.stateelision;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -42,7 +41,8 @@ public final class RedundantStateElisionTransformer implements ClassFileTransfor
     private final Map<String, List<String>> shapes = new HashMap<>();
     private final Map<String, Integer> locals = new HashMap<>();
     private final Map<Integer, String> invalidatorNames = new LinkedHashMap<>();
-    private volatile String failure, beforeSha256;
+    private volatile String failure;
+    private volatile boolean rewrote;
     private volatile int matches, lastSites;
     private Runnable onRejection = () -> {};
 
@@ -113,9 +113,9 @@ public final class RedundantStateElisionTransformer implements ClassFileTransfor
         return matches;
     }
 
-    /** Returns the pre-rewrite class digest for restoration verification. */
-    public String beforeSha256() {
-        return beforeSha256;
+    /** Returns whether this transformer rewrote the class at least once. */
+    public boolean rewrote() {
+        return rewrote;
     }
 
     /** Returns the invalidator site-id → method-name map discovered during the last transform. */
@@ -196,9 +196,7 @@ public final class RedundantStateElisionTransformer implements ClassFileTransfor
                     },
                     ClassReader.EXPAND_FRAMES);
             final byte[] changed = writer.toByteArray();
-            if (beforeSha256 == null) {
-                beforeSha256 = HexFormatHolder.format(bytes);
-            }
+            rewrote = true;
             matches++;
             lastSites = sites[0];
             return changed;
@@ -206,17 +204,6 @@ public final class RedundantStateElisionTransformer implements ClassFileTransfor
             failure = problem.toString();
             onRejection.run();
             return null;
-        }
-    }
-
-    private static final class HexFormatHolder {
-        static String format(final byte[] bytes) {
-            try {
-                return java.util.HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-            } catch (final java.security.NoSuchAlgorithmException impossible) {
-                throw new IllegalStateException(impossible);
-            }
         }
     }
 

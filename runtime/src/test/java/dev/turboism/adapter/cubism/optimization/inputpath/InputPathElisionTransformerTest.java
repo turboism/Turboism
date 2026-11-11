@@ -123,7 +123,7 @@ public class InputPathElisionTransformerTest {
         assertNotNull(output, transformer.failure());
         assertEquals(1, transformer.matches());
         assertEquals(2, transformer.sites());
-        assertNotNull(transformer.beforeSha256());
+
         loader.define(CCURSOR, cursorStub());
         Class<?> type = loader.define(OWNER, output);
         Object instance = type.getDeclaredConstructor().newInstance();

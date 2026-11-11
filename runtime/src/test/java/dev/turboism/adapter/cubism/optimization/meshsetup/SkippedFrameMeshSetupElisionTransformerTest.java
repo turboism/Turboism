@@ -126,7 +126,6 @@ class SkippedFrameMeshSetupElisionTransformerTest {
         assertNotNull(output, transformer.failure());
         assertEquals(1, transformer.matches());
         assertEquals(1, transformer.guarded());
-        assertNotNull(transformer.beforeSha256());
 
         final Class<?> frameType = loader.define(FRAME, frame());
         final Class<?> type = loader.define(OWNER, output);

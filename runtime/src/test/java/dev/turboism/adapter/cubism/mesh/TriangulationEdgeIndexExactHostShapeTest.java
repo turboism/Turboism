@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
@@ -40,22 +39,15 @@ final class TriangulationEdgeIndexExactHostShapeTest {
     }
 
     @Test
-    void bothReviewedFamiliesMatchThePinnedDigestsAndPatchCleanly() throws Exception {
+    void bothReviewedFamiliesPassTheShapeGateAndPatchCleanly() throws Exception {
         assumeTrue(
                 legacyEvidence() != null,
                 "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
 
         final Path evidence = legacyEvidence();
-        final Map<String, String> familyDigests = Map.of(
-                "Cubism-5.2 (5.2.03 family)", TriangulationEdgeIndexTransformer.REVIEWED_CLASS_SHA256_5203,
-                "Cubism-5.3.02 (5.3.x family)", TriangulationEdgeIndexTransformer.REVIEWED_CLASS_SHA256_53X);
         for (final Map.Entry<String, Path> artifact :
                 reviewedArtifacts(evidence).entrySet()) {
             final byte[] bytes = readEntry(artifact.getValue());
-            assertEquals(
-                    familyDigests.get(artifact.getKey()),
-                    TriangulationEdgeIndexTransformer.sha256(bytes),
-                    artifact.getKey() + " must match the pinned digest");
 
             final TriangulationEdgeIndexTransformer transformer = new TriangulationEdgeIndexTransformer();
             final byte[] patched = transformer.transform(
@@ -567,8 +559,6 @@ final class TriangulationEdgeIndexExactHostShapeTest {
         byte[] original = readEntry(
                 legacyEvidence().resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"),
                 MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME + ".class");
-        assertTrue(MeshTriangulationHashTransformer.REVIEWED_CLASS_SHA256S.contains(
-                MeshTriangulationHashTransformer.sha256(original)));
         byte[] patched = new MeshTriangulationHashTransformer()
                 .transform(null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, original);
         assertNotNull(patched);

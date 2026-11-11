@@ -3,9 +3,7 @@ package dev.turboism.adapter.cubism.optimization.sorting;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import org.objectweb.asm.ClassReader;
@@ -43,7 +41,7 @@ public final class MeshContainerLookupTransformer implements ClassFileTransforme
     private final ClassLoader loader;
     private final Path artifact;
     private final List<String> shape;
-    private volatile String beforeSha256, failure;
+    private volatile String failure;
     private volatile int matches;
 
     /**
@@ -65,11 +63,6 @@ public final class MeshContainerLookupTransformer implements ClassFileTransforme
         if (shape == null) {
             throw new IllegalArgumentException("reviewed mesh-container method absent");
         }
-    }
-
-    /** SHA-256 of the first rewritten class bytes for restoration evidence. */
-    public String beforeSha256() {
-        return beforeSha256;
     }
 
     /** Most recent rejection, or null when none has occurred. */
@@ -144,10 +137,7 @@ public final class MeshContainerLookupTransformer implements ClassFileTransforme
                 failure = "mesh-container method was not replaced";
                 return null;
             }
-            if (beforeSha256 == null) {
-                beforeSha256 = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-            }
+
             matches++;
             return writer.toByteArray();
         } catch (Exception | LinkageError rejected) {

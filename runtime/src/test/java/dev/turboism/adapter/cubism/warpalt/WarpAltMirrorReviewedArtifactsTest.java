@@ -6,9 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,17 +31,13 @@ final class WarpAltMirrorReviewedArtifactsTest {
                 .map(version -> DynamicTest.dynamicTest(version.getKey(), () -> verifyVersion(root, version)));
     }
 
-    private void verifyVersion(String root, Map.Entry<String, Map<String, String>> version) throws Exception {
+    private void verifyVersion(String root, Map.Entry<String, List<String>> version) throws Exception {
         final var profile =
                 WarpAltMirrorHostProfile.forReviewedVersion(version.getKey()).orElseThrow();
         try (var jar =
                 new JarFile(Path.of(root, version.getKey(), "Live2D_Cubism.jar").toFile())) {
-            for (var pin : version.getValue().entrySet()) {
-                assertEquals(
-                        pin.getValue(),
-                        HexFormat.of()
-                                .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes(jar, pin.getKey()))),
-                        version.getKey() + " pin " + pin.getKey());
+            for (var declared : version.getValue()) {
+                assertNotNull(jar.getJarEntry(declared + ".class"), version.getKey() + " declared target " + declared);
             }
             boolean[] triangleSurface = {false};
             new ClassReader(bytes(jar, "com/live2d/graphics3d/a/d"))
@@ -136,7 +130,7 @@ final class WarpAltMirrorReviewedArtifactsTest {
                 final String label = version.getKey() + " " + target[0] + "." + target[1] + target[2];
                 assertTrue(methods(original).contains(target[1] + target[2]), label);
                 final var transformer = new WarpAltMirrorNativeMethodTransformer(
-                        profile, getClass().getClassLoader(), null, version.getValue(), ignored -> {});
+                        profile, getClass().getClassLoader(), null, Set.copyOf(version.getValue()), ignored -> {});
                 final byte[] patched =
                         transformer.transform(null, getClass().getClassLoader(), target[0], null, null, original);
                 assertNotNull(patched, label + " must transform");

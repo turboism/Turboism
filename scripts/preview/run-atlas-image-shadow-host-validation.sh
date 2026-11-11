@@ -450,7 +450,6 @@ fi
 # Production-on runs compose two instruments on the same class; the pairing flags are
 # resolved after the manifest is validated below.
 t039_before_main=0
-atlas_admit_sha256=''
 
 # Profiling is opt-in per run label so the default scene keeps its exact capture artifacts and
 # overhead. `-jfr` additionally starts a bounded JDK Flight Recording that dumps on exit; it
@@ -758,7 +757,6 @@ if [[ "$version" == 5303 && "$atlas_pref_off" == 0 ]]; then
       || fail 'production-on runs require the pinned T039 build that produced the admitted woven digest'
     t039_before_main=1
   fi
-  atlas_admit_sha256=800e3f6758e47bb1d8d974e72dcfed220f8773e15a5f05cac101ae2b56c1d160
 fi
 [[ "$version" != 5303 || "$tri_single_agent_flag" == 0 || "$atlas_pref_off" == 0 ]] \
   || fail 'single-agent 5303 requires the reviewed production Atlas composition'
@@ -862,7 +860,6 @@ if [[ "$tri_single_agent_flag" == 1 ]]; then
       --jvm-option '-Dturboism.validation.triSingleAgent.shadowPath={HOME}/validation/t039-shadow-agent.jar'
       --jvm-option "-Dturboism.validation.triSingleAgent.shadowSha256=${values[t039AgentSha256]}"
       --jvm-option '-Dturboism.validation.t039.ownerColdRemovalOptIn=T039_OWNED_COLD_REMOVAL_V1'
-      --jvm-option "-Dturboism.atlasTileBbox.admitClassSha256=$atlas_admit_sha256"
     )
   fi
 else
@@ -1056,7 +1053,6 @@ elif [[ "$tlindex_pref_off" == 1 ]]; then
 fi
 if [[ "$t039_before_main" == 1 ]]; then
   runner_args+=(--aux-agent-before-main t039-shadow-agent.jar)
-  runner_args+=(--jvm-option "-Dturboism.atlasTileBbox.admitClassSha256=$atlas_admit_sha256")
 fi
 
 if [[ -n "$timing_agent" ]]; then
@@ -1098,12 +1094,10 @@ elif [[ "$atlas_reuse_pref_off" == 1 ]]; then
     "$atlas_reuse_off_config_sha256" >&2
 elif [[ -n "$timing_agent" || "$tilepatch_mode" == hashOnly ]]; then
   # Self-describing evidence: a timing/digest run without -atlasoff measured the
-  # production-patched kernel (the comparison explicitly opts in). Under 5303 T039
-  # pre-weaves before the main agent and the woven digest is admitted explicitly;
-  # under 5203 the production transformer sees the pristine e/g bytes directly.
+  # production-patched kernel (the comparison explicitly opts in). The reviewed shape
+  # gate admits the composed body, so no digest override is passed.
   if [[ "$t039_before_main" == 1 ]]; then
-    printf 'atlasPreference=explicit-on\natlasAdmitClassSha256=%s\nt039BeforeMain=1\n' \
-      "$atlas_admit_sha256" >&2
+    printf 'atlasPreference=explicit-on\nt039BeforeMain=1\n' >&2
   else
     printf 'atlasPreference=explicit-on\n' >&2
   fi

@@ -170,7 +170,7 @@ public class GlGetErrorElisionTransformerTest {
         assertNotNull(output, transformer.failure());
         assertEquals(1, transformer.matches());
         assertEquals(1, transformer.elided());
-        assertNotNull(transformer.beforeSha256());
+
         Class<?> glType = loader.define(GL, glInterface());
         Class<?> implType = loader.define("FakeGL", glImpl());
         Class<?> type = loader.define(OWNER, output);

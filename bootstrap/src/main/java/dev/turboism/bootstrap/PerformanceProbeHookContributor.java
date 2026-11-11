@@ -32,8 +32,6 @@ final class PerformanceProbeHookContributor implements HookContributor {
         installer.install(
                 options.performanceProbeCapture(),
                 options.performanceProbeScenario(),
-                options.performanceProbeAgentSha256(),
-                options.performanceProbeFixtureSha256(),
                 java.time.Duration.ofSeconds(options.performanceProbeDelaySeconds()),
                 java.time.Duration.ofSeconds(options.performanceProbeDurationSeconds()),
                 options.performanceProbeOutput(),

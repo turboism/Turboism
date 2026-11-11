@@ -1,30 +1,33 @@
 #!/usr/bin/env python3
-"""Generate or check reviewed-class SHA-256 pin files from a host JAR.
+"""Generate or check reviewed target-class tables from a host JAR.
 
-The hook pin tables consumed by ``ClassPinTable`` live as JSON resources under
+The hook target tables consumed by ``ClassPinTable`` live as JSON resources under
 ``runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/``. Each
-file maps a Cubism Editor version to ``class-internal-name -> sha256`` entries.
+file maps a Cubism Editor version to the internal names of the host classes the
+hook rewrites or reads. The whole-artifact identity in ``ReviewedHostArtifacts``
+plus each hook's method-shape gate admit the bytes, so no per-class digest is
+recorded here.
 
-This tool removes the manual step of hashing host classes when a new reviewed
-host version arrives: point it at the host JAR and it rewrites the version
-block in every selected pin file. Class keys are JVM internal names
-(``com/live2d/...``); the JAR entry hashed is ``<key>.class``.
+This tool removes the manual step of locating host classes when a new reviewed
+host version arrives: point it at the host JAR and it rewrites the version block
+in every selected table. Class keys are JVM internal names (``com/live2d/...``);
+the JAR entry checked is ``<key>.class``.
 
 Modes:
 
-- ``update --jar HOST.jar --version X.Y.Z`` computes SHA-256 for every class
-  key known to the selected pin files and writes the version block. Other
-  version blocks are preserved byte-for-byte in semantics (re-serialised with
-  the same 2-space format). A missing class aborts that file unless
-  ``--allow-partial`` is given, in which case found classes are still written
-  and the missing ones reported.
-- ``check --jar HOST.jar --version X.Y.Z`` verifies every pinned class in the
-  given version block against the JAR and exits non-zero on any mismatch or
-  missing entry. Use this in CI to prove a new host build still matches the
-  pins before merging.
+- ``update --jar HOST.jar --version X.Y.Z`` writes the version block listing
+  every class key known to the selected tables. Other version blocks are
+  preserved byte-for-byte in semantics (re-serialised with the same 2-space
+  format). A missing class aborts that file unless ``--allow-partial`` is
+  given, in which case found classes are still written and the missing ones
+  reported.
+- ``check --jar HOST.jar --version X.Y.Z`` verifies every declared class in the
+  given version block exists in the JAR and exits non-zero on any missing entry.
+  Use this in CI to prove a new host build still carries the targets before
+  merging.
 - ``--pin NAME`` restricts either mode to ``NAME.json``; repeat for several.
-  Default is every ``*.json`` under the pin directory.
-- ``--new NAME --class INTERNAL [--class ...]`` creates a fresh pin file
+  Default is every ``*.json`` under the target-table directory.
+- ``--new NAME --class INTERNAL [--class ...]`` creates a fresh table
   containing only the given version block (implies ``--pin NAME`` and
   ``update`` semantics for that file).
 - ``--dry-run`` prints the resulting JSON without writing.
@@ -37,7 +40,6 @@ Usage: generate_class_pins.py update --jar cubism.jar --version 5.3.03
 from __future__ import annotations
 
 import argparse
-import hashlib
 import sys
 import zipfile
 from pathlib import Path
@@ -57,45 +59,41 @@ def _load_pin_files(selected: list[str]) -> dict[str, tuple[Path, dict]]:
         candidates = sorted(PIN_DIR.glob("*.json"))
     for path in candidates:
         if not path.is_file():
-            raise SystemExit(f"pin file not found: {path}")
+            raise SystemExit(f"target table not found: {path}")
         try:
             data = read_json(path)
         except Exception as failure:
-            raise SystemExit(f"pin file {path} is not valid JSON: {failure}")
+            raise SystemExit(f"target table {path} is not valid JSON: {failure}")
         if not isinstance(data, dict):
-            raise SystemExit(f"pin file {path} must contain a top-level object")
+            raise SystemExit(f"target table {path} must contain a top-level object")
         files[path.stem] = (path, data)
     if not files:
-        raise SystemExit(f"no pin files selected under {PIN_DIR}")
+        raise SystemExit(f"no target tables selected under {PIN_DIR}")
     return files
 
 
 def _collect_class_keys(tables: dict[str, dict], extra: list[str]) -> dict[str, set[str]]:
-    """Return pin-name -> set of class keys (union across versions, plus extras)."""
+    """Return table-name -> set of class keys (union across versions, plus extras)."""
     keys: dict[str, set[str]] = {}
     for name, data in tables.items():
         collected: set[str] = set()
         for version, block in data.items():
-            if not isinstance(block, dict):
+            if not isinstance(block, list):
                 raise SystemExit(
-                    f"pin file {name}.json version '{version}' is not an object")
+                    f"target table {name}.json version '{version}' is not a list")
             collected.update(block)
         keys[name] = collected
     return keys
 
 
-def _sha256_members(jar: zipfile.ZipFile, internal_names: set[str]) -> tuple[dict[str, str], list[str]]:
-    """Hash ``<name>.class`` entries; returns (digests, missing names)."""
-    names = jar.namelist()
-    digests: dict[str, str] = {}
+def _present_members(jar: zipfile.ZipFile, internal_names: set[str]) -> tuple[list[str], list[str]]:
+    """Check ``<name>.class`` entries; returns (present names, missing names)."""
+    names = set(jar.namelist())
+    present: list[str] = []
     missing: list[str] = []
     for internal in sorted(internal_names):
-        entry = internal + ".class"
-        if entry not in names:
-            missing.append(internal)
-            continue
-        digests[internal] = hashlib.sha256(jar.read(entry)).hexdigest()
-    return digests, missing
+        (present if internal + ".class" in names else missing).append(internal)
+    return present, missing
 
 
 def _write_table(path: Path, data: dict) -> None:
@@ -120,7 +118,7 @@ def _cmd_update(args: argparse.Namespace) -> int:
     with zipfile.ZipFile(args.jar) as jar:
         exit_code = 0
         for name, (path, data) in tables.items():
-            digests, missing = _sha256_members(jar, class_keys[name])
+            present, missing = _present_members(jar, class_keys[name])
             if missing:
                 print(f"{name}: {len(missing)} class(es) absent from JAR:", file=sys.stderr)
                 for internal in missing:
@@ -130,7 +128,7 @@ def _cmd_update(args: argparse.Namespace) -> int:
                           file=sys.stderr)
                     exit_code = 1
                     continue
-            block = {key: digests[key] for key in sorted(digests)}
+            block = sorted(present)
             updated = dict(data)
             updated[args.version] = block
             # Deterministic order: version keys sorted ascending.
@@ -140,7 +138,7 @@ def _cmd_update(args: argparse.Namespace) -> int:
                 print(dump_json(ordered, indent=2).rstrip("\n"))
             else:
                 _write_table(path, ordered)
-                print(f"{name}: wrote {len(block)} pin(s) for {args.version} -> {path}")
+                print(f"{name}: wrote {len(block)} target(s) for {args.version} -> {path}")
         return exit_code
 
 
@@ -151,24 +149,15 @@ def _cmd_check(args: argparse.Namespace) -> int:
         for name, (path, data) in tables.items():
             block = data.get(args.version)
             if block is None:
-                print(f"{name}: no pins recorded for version {args.version}", file=sys.stderr)
+                print(f"{name}: no targets recorded for version {args.version}", file=sys.stderr)
                 failures += 1
                 continue
-            digests, missing = _sha256_members(jar, set(block))
+            _, missing = _present_members(jar, set(block))
             for internal in missing:
                 print(f"{name}: missing {internal}.class", file=sys.stderr)
                 failures += 1
-            for internal, expected in sorted(block.items()):
-                observed = digests.get(internal)
-                if observed is not None and observed != expected:
-                    print(
-                        f"{name}: MISMATCH {internal}\n"
-                        f"  expected {expected}\n"
-                        f"  observed {observed}",
-                        file=sys.stderr)
-                    failures += 1
-            if failures == 0:
-                print(f"{name}: {len(block)} pin(s) verified for {args.version}")
+            if not missing:
+                print(f"{name}: {len(block)} target(s) verified for {args.version}")
     if failures:
         print(f"check failed: {failures} problem(s)", file=sys.stderr)
         return 1
@@ -183,13 +172,13 @@ def main() -> int:
     parser.add_argument("--version", required=True,
                         help="Cubism Editor version label, e.g. 5.3.03")
     parser.add_argument("--pin", action="append", default=[],
-                        help="pin file base name to process; repeatable; default is all")
+                        help="target table base name to process; repeatable; default is all")
     parser.add_argument("--new", metavar="NAME",
-                        help="create a new pin file NAME.json (requires --class)")
+                        help="create a new target table NAME.json (requires --class)")
     parser.add_argument("--class", dest="classes", action="append", default=[],
-                        help="internal class name to pin when using --new; repeatable")
+                        help="internal class name to declare when using --new; repeatable")
     parser.add_argument("--allow-partial", action="store_true",
-                        help="write pins for classes found even if others are missing")
+                        help="write targets found even if others are missing")
     parser.add_argument("--dry-run", action="store_true",
                         help="print resulting JSON instead of writing files")
     args = parser.parse_args()

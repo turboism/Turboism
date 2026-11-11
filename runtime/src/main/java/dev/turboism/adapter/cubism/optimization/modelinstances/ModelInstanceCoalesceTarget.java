@@ -1,7 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.modelinstances;
 
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -51,24 +53,23 @@ public record ModelInstanceCoalesceTarget(String version) {
     }
 
     /**
-     * Class digests for the three rewritten/read-adjacent host classes, filtered from
-     * the already reviewed model-update pin table.
+     * Target classes for the three rewritten/read-adjacent host classes, filtered from
+     * the already reviewed model-update table.
      *
-     * @return version to (internal name to SHA-256) evidence
+     * @return version to declared internal names
      */
-    public static Map<String, Map<String, String>> reviewedClassSha256() {
-        final Map<String, Map<String, String>> all = ClassPinTable.load("model-update-skip");
-        final Map<String, Map<String, String>> filtered = new LinkedHashMap<>();
-        for (final Map.Entry<String, Map<String, String>> entry : all.entrySet()) {
-            final Map<String, String> classes = new LinkedHashMap<>();
+    public static Map<String, List<String>> reviewedClassSha256() {
+        final Map<String, List<String>> all = ClassPinTable.load("model-update-skip");
+        final Map<String, List<String>> filtered = new LinkedHashMap<>();
+        for (final Map.Entry<String, List<String>> entry : all.entrySet()) {
+            final List<String> classes = new ArrayList<>();
             for (final String name : PINNED_CLASSES) {
-                final String sha256 = entry.getValue().get(name);
-                if (sha256 == null) {
+                if (!entry.getValue().contains(name)) {
                     throw new IllegalStateException("model-update pin table lacks " + name + " for " + entry.getKey());
                 }
-                classes.put(name, sha256);
+                classes.add(name);
             }
-            filtered.put(entry.getKey(), Map.copyOf(classes));
+            filtered.put(entry.getKey(), List.copyOf(classes));
         }
         return Map.copyOf(filtered);
     }

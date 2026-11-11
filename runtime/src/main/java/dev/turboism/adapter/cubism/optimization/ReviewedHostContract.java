@@ -5,14 +5,11 @@ import dev.turboism.mapping.verification.CubismEditorReleaseDetector;
 import dev.turboism.mapping.verification.CubismHostIdentity;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.HostIdentityProbe;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -22,49 +19,39 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 /**
- * Per-hook reviewed-contract binding: the mechanism that replaces whole-artifact
- * digest admission for the bytecode hooks.
+ * Per-hook reviewed-contract binding: which host classes a bytecode hook may touch, and on
+ * which declared Cubism generation.
  *
- * <p>A hook contributes one {@link Candidate} per reviewed generation: the profile or
- * target record to bind plus the SHA-256 of every host class the hook's contract
- * touches, keyed by internal class name. {@link #resolve} probes the actual artifact
- * for its declared product/version/build and then:</p>
+ * <p>A hook contributes one {@link Candidate} per reviewed generation: the profile or target
+ * record to bind plus the internal names of every host class the hook's contract touches.
+ * {@link #resolve} probes the actual artifact for its declared product/version/build and then
+ * binds a candidate only when its target classes exist in the artifact.</p>
  *
- * <ul>
- *   <li>when the declared version+build is a reviewed release, the candidates of that
- *       generation must verify — a repackaged reviewed artifact keeps every feature
- *       whose classes are byte-identical even though the archive digest changed, while
- *       a tampered target class refuses that hook alone;</li>
- *   <li>when the artifact declares a self-consistent Cubism identity whose release is
- *       not reviewed, every candidate is tried; exactly one distinct contract may
- *       match — zero matches or several distinct matching contracts refuse the hook
- *       with a bounded reason. A candidate whose whole-class pins no longer match may
- *       still bind through its reviewed {@link MethodShapeSpec method shapes}: every
- *       changed pinned class must be covered by a method whose instructions, operands
- *       and branches are identical, which admits same-line zero-day patches without
- *       accepting a changed hook target.</li>
- * </ul>
+ * <p>Identity is the external trust boundary: a reviewed release is admitted by its
+ * whole-artifact digest in {@link ReviewedHostArtifacts}, and an unreviewed declaration is
+ * admitted only through its own self-consistent Cubism identity. Class bytes are never
+ * re-digested here — the weave gates verify the exact method shapes they rewrite, so a
+ * changed body refuses that hook alone without a per-class pin table.</p>
  *
- * <p>A declaration is mandatory: class digests never substitute for product and
- * version identity. {@code UNREADABLE}, {@code NOT_CUBISM},
- * {@code DECLARATION_MISSING}, {@code DECLARATION_MALFORMED} and
- * {@code DECLARATION_AMBIGUOUS} probes refuse before any class is inspected, so a
- * premain hook can never patch a host whose identity the runtime itself would
- * reject.</p>
+ * <p>A declaration is mandatory: target classes never substitute for product and version
+ * identity. {@code UNREADABLE}, {@code NOT_CUBISM}, {@code DECLARATION_MISSING},
+ * {@code DECLARATION_MALFORMED} and {@code DECLARATION_AMBIGUOUS} probes refuse before any
+ * class is inspected, so a premain hook can never patch a host whose identity the runtime
+ * itself would reject.</p>
  *
  * <p>The observed artifact identity is never rewritten to a reviewed digest: the bound
- * {@link Bound#sourceVersion()} is the reviewed generation the contract was taken
- * from, {@link Bound#probe()} keeps the artifact's own digest, and callers keep
- * passing the real artifact path to the transformers so {@code CodeSource}
- * attestation still binds to the loaded host.</p>
+ * {@link Bound#sourceVersion()} is the reviewed generation the contract was taken from,
+ * {@link Bound#probe()} keeps the artifact's own digest, and callers keep passing the real
+ * artifact path to the transformers so {@code CodeSource} attestation still binds to the
+ * loaded host.</p>
  */
 public final class ReviewedHostContract {
 
     private ReviewedHostContract() {}
 
     /**
-     * One reviewed class method, identified by the constant-pool-independent shape
-     * captured by {@link ReviewedMethodShape#read}.
+     * One reviewed class method, identified by the constant-pool-independent shape captured
+     * by {@link ReviewedMethodShape#read}.
      *
      * @param owner internal class name, such as {@code "com/live2d/cubism/foo"}
      * @param method method name
@@ -96,26 +83,31 @@ public final class ReviewedHostContract {
      *
      * @param version reviewed Cubism version this contract was recovered from
      * @param contract the profile/target object the hook installs with
-     * @param pinnedClassSha256 SHA-256 of each reviewed class entry, keyed by internal
-     *     name (the jar entry path minus {@code .class})
-     * @param methodShapes reviewed target-method shapes that may admit a candidate when
-     *     a whole-class digest changed; empty keeps the exact-digest-only rule
+     * @param targetClasses internal names of every host class the hook rewrites or reads
+     * @param methodShapes reviewed target-method shapes that gate the weave on an unreviewed
+     *     build; empty keeps the declared-release rule
      */
     public record Candidate<T>(
-            String version, T contract, Map<String, String> pinnedClassSha256, List<MethodShapeSpec> methodShapes) {
+            String version, T contract, List<String> targetClasses, List<MethodShapeSpec> methodShapes) {
         public Candidate {
             Objects.requireNonNull(version, "version");
             Objects.requireNonNull(contract, "contract");
-            pinnedClassSha256 = Map.copyOf(Objects.requireNonNull(pinnedClassSha256, "pinnedClassSha256"));
+            targetClasses = List.copyOf(Objects.requireNonNull(targetClasses, "targetClasses"));
             methodShapes = List.copyOf(Objects.requireNonNull(methodShapes, "methodShapes"));
-            if (pinnedClassSha256.isEmpty()) {
-                throw new IllegalArgumentException("a candidate must pin at least one class");
+            if (targetClasses.isEmpty()) {
+                throw new IllegalArgumentException("a candidate must name at least one target class");
+            }
+            for (final MethodShapeSpec shape : methodShapes) {
+                if (!targetClasses.contains(shape.owner())) {
+                    throw new IllegalArgumentException(
+                            "method shape owner " + shape.owner() + " is not a declared target class");
+                }
             }
         }
 
-        /** A candidate that requires every pinned class to match its exact digest. */
-        public Candidate(final String version, final T contract, final Map<String, String> pinnedClassSha256) {
-            this(version, contract, pinnedClassSha256, List.of());
+        /** A candidate that binds on its declared generation alone. */
+        public Candidate(final String version, final T contract, final List<String> targetClasses) {
+            this(version, contract, targetClasses, List.of());
         }
     }
 
@@ -129,7 +121,7 @@ public final class ReviewedHostContract {
      *     (the host's declared version only when the host is that generation)
      * @param contract the verified profile/target object
      * @param probe the host identity probe, including the artifact's own digest
-     * @param matchedVersions every candidate version whose pins verified
+     * @param matchedVersions every candidate version whose target classes were present
      * @param declaredRelease whether the host declared a reviewed version+build
      */
     public record Bound<T>(
@@ -169,31 +161,31 @@ public final class ReviewedHostContract {
     }
 
     /**
-     * Builds one candidate per reviewed version from a version-keyed pin table.
+     * Builds one candidate per reviewed version from a version-keyed target-class table.
      *
-     * @param pins version to (internal name to SHA-256) pin maps
+     * @param targets version to declared target internal names
      * @param contractFor contract factory for each version
-     * @return candidates in the pin table's iteration order
+     * @return candidates in the table's iteration order
      */
     public static <T> List<Candidate<T>> candidates(
-            final Map<String, Map<String, String>> pins, final Function<String, T> contractFor) {
-        return candidates(pins, contractFor, version -> List.of());
+            final Map<String, List<String>> targets, final Function<String, T> contractFor) {
+        return candidates(targets, contractFor, version -> List.of());
     }
 
     /**
      * Builds one candidate per reviewed version with optional method-shape evidence.
      *
-     * @param pins version to (internal name to SHA-256) pin maps
+     * @param targets version to declared target internal names
      * @param contractFor contract factory for each version
      * @param methodShapesFor method-shape factory for each version; must not return null
-     * @return candidates in the pin table's iteration order
+     * @return candidates in the table's iteration order
      */
     public static <T> List<Candidate<T>> candidates(
-            final Map<String, Map<String, String>> pins,
+            final Map<String, List<String>> targets,
             final Function<String, T> contractFor,
             final Function<String, List<MethodShapeSpec>> methodShapesFor) {
-        final List<Candidate<T>> candidates = new ArrayList<>(pins.size());
-        for (final Map.Entry<String, Map<String, String>> entry : pins.entrySet()) {
+        final List<Candidate<T>> candidates = new ArrayList<>(targets.size());
+        for (final Map.Entry<String, List<String>> entry : targets.entrySet()) {
             final T contract = contractFor.apply(entry.getKey());
             if (contract != null) {
                 candidates.add(new Candidate<>(
@@ -287,7 +279,7 @@ public final class ReviewedHostContract {
         final List<Candidate<T>> matched = new ArrayList<>();
         final List<String> mismatch = new ArrayList<>();
         for (final Candidate<T> candidate : own) {
-            final String failed = firstMismatch(jar, candidate.pinnedClassSha256());
+            final String failed = firstMissingTarget(jar, candidate.targetClasses());
             if (failed == null) {
                 matched.add(candidate);
             } else {
@@ -314,28 +306,27 @@ public final class ReviewedHostContract {
         final List<Candidate<T>> matched = new ArrayList<>();
         final List<String> mismatch = new ArrayList<>();
         for (final Candidate<T> candidate : candidates) {
-            final String failed = firstMismatch(jar, candidate.pinnedClassSha256());
-            if (failed == null) {
-                matched.add(candidate);
+            final String missing = firstMissingTarget(jar, candidate.targetClasses());
+            if (missing != null) {
+                mismatch.add(candidate.version() + ":" + missing);
                 continue;
             }
-            // A changed class digest may still carry the reviewed contract when the
-            // candidate pins the target method shape. This admits same-minor zero-day
-            // patches, and an explicitly pinned shape may also carry across lines.
+            // An unreviewed declaration must also prove every method shape it declares, so a
+            // changed hook body refuses that hook alone instead of riding the class names.
             final String shapeFailed = firstMethodShapeMismatch(jar, candidate);
             if (shapeFailed == null) {
                 matched.add(candidate);
             } else {
-                mismatch.add(candidate.version() + ":" + failed + " (" + shapeFailed + ")");
+                mismatch.add(candidate.version() + ":" + shapeFailed);
             }
         }
-        // Candidates that pin different class sets cannot merge; equal contracts
+        // Candidates that name different target sets cannot merge; equal contracts
         // behind the same evidence describe one bound feature, so they merge.
         final List<Candidate<T>> distinct = new ArrayList<>();
         for (final Candidate<T> candidate : matched) {
             final boolean duplicate = distinct.stream()
                     .anyMatch(other -> Objects.equals(other.contract(), candidate.contract())
-                            && other.pinnedClassSha256().equals(candidate.pinnedClassSha256()));
+                            && other.targetClasses().equals(candidate.targetClasses()));
             if (!duplicate) {
                 distinct.add(candidate);
             }
@@ -399,63 +390,42 @@ public final class ReviewedHostContract {
     }
 
     /**
-     * Verifies bytes supplied by Instrumentation against a bound hook's class pins.
+     * Verifies that a class presented to a transformer belongs to the bound hook's contract.
      *
-     * @param pins reviewed class hashes of the selected contract
+     * <p>An empty declaration means the caller established admission by another route — an
+     * isolated bytecode fixture or a hook that scopes owners itself — so it never narrows.</p>
+     *
+     * @param targets internal names of the bound contract's target classes
      * @param owner internal class name supplied by the defining loader
-     * @param bytes actual class definition presented to the transformer
-     * @return whether this owner is pinned and these bytes match that pin
+     * @return whether this owner is one the reviewed contract names, or the contract names none
      */
-    public static boolean matchesClassBytes(final Map<String, String> pins, final String owner, final byte[] bytes) {
-        final String expected = pins.get(owner);
-        return expected != null && bytes != null && expected.equals(sha256(bytes));
+    public static boolean declaresTarget(final Set<String> targets, final String owner) {
+        return targets.isEmpty() || (owner != null && targets.contains(owner));
     }
 
     /**
-     * The first pinned class the artifact violates, or {@code null} when every pinned
-     * class entry exists with the reviewed digest.
+     * The first declared target class the artifact lacks, or {@code null} when every entry exists.
      */
-    private static String firstMismatch(final JarFile jar, final Map<String, String> pins) {
-        for (final Map.Entry<String, String> pin : pins.entrySet()) {
-            final String failed = classMismatch(jar, pin.getKey(), pin.getValue());
-            if (failed != null) {
-                return failed;
+    private static String firstMissingTarget(final JarFile jar, final List<String> targets) {
+        for (final String owner : targets) {
+            if (jar.getJarEntry(owner + ".class") == null) {
+                return owner + " absent";
             }
         }
         return null;
     }
 
-    private static String classMismatch(final JarFile jar, final String owner, final String expectedSha256) {
-        final JarEntry entry = jar.getJarEntry(owner + ".class");
-        if (entry == null) {
-            return owner + " absent";
-        }
-        try (InputStream input = jar.getInputStream(entry)) {
-            if (!expectedSha256.equals(sha256(input.readAllBytes()))) {
-                return owner + " digest mismatch";
-            }
-        } catch (IOException | RuntimeException failure) {
-            return owner + " unreadable";
-        }
-        return null;
-    }
-
     /**
-     * Verifies the candidate's reviewed method shapes when its whole-class pins changed.
-     * Every changed pinned class must be covered by a matching shape, so an unrelated
-     * class change cannot ride along with one unchanged target method.
+     * Verifies the candidate's reviewed method shapes. Every declared shape must match, so an
+     * unreviewed build is admitted only when the exact bodies the hook rewrites are identical.
+     * A candidate that declares no shape binds on its target classes alone.
      */
     private static String firstMethodShapeMismatch(final JarFile jar, final Candidate<?> candidate) {
         final List<MethodShapeSpec> shapes = candidate.methodShapes();
         if (shapes.isEmpty()) {
-            return "no reviewed method shape";
+            return null;
         }
-        final Set<String> shapedOwners = new LinkedHashSet<>();
         for (final MethodShapeSpec shape : shapes) {
-            if (!candidate.pinnedClassSha256().containsKey(shape.owner())) {
-                return shape.owner() + " method shape is not pinned";
-            }
-            shapedOwners.add(shape.owner());
             final byte[] bytes;
             try {
                 final JarEntry entry = jar.getJarEntry(shape.owner() + ".class");
@@ -478,22 +448,6 @@ public final class ReviewedHostContract {
                 return shape.owner() + "#" + shape.method() + shape.descriptor() + " shape mismatch";
             }
         }
-        for (final Map.Entry<String, String> pin : candidate.pinnedClassSha256().entrySet()) {
-            if (!shapedOwners.contains(pin.getKey())) {
-                final String failed = classMismatch(jar, pin.getKey(), pin.getValue());
-                if (failed != null) {
-                    return failed + " without a reviewed method shape";
-                }
-            }
-        }
         return null;
-    }
-
-    private static String sha256(final byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException failure) {
-            throw new IllegalStateException("SHA-256 unavailable", failure);
-        }
     }
 }

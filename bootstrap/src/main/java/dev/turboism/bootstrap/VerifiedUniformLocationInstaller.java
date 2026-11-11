@@ -87,7 +87,6 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
         }
         bridge = new UniformLocationHookBridge(loader);
         Map<Class<?>, byte[]> observed = new HashMap<>();
-        Map<String, String> beforeSha256 = new HashMap<>();
         try (JarFile cubism = new JarFile(artifact.toFile());
                 JarFile jogl = new JarFile(joglArtifact.toFile())) {
             verifyMutationInventory(jogl);
@@ -100,7 +99,6 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                     "uniform target is not modifiable: " + shader.getName(),
                     "uniform class capture absent: " + shader.getName());
             observed.put(shader, before);
-            beforeSha256.put(WeaveTarget.internalName(shader), VerifiedHookInstallerSupport.sha256Hex(before));
             byte[] shaderReference = VerifiedHookInstallerSupport.readReferenceBytes(
                     cubism, shader, "uniform reference class missing: " + shader.getName());
             final List<String> composedQuery = composedQueryShape(loader, shaderReference);
@@ -121,8 +119,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                         ShaderUniformTransformer.BRIDGE_LOOKUP,
                         ShaderUniformTransformer.BRIDGE_LOOKUP_DESCRIPTOR);
             }
-            targets.add(WeaveTarget.single(
-                    shader, query, EXPECTED_MATCHES, query::matches, query::failure, beforeSha256::get));
+            targets.add(WeaveTarget.single(shader, query, EXPECTED_MATCHES, query::matches, query::failure));
             for (var role : UniformLocationLifecycleTransformer.Role.values()) {
                 Class<?> type =
                         Class.forName(role.ownerForVersion(editorVersion).replace('/', '.'), false, loader);
@@ -136,7 +133,6 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                         "uniform target is not modifiable: " + type.getName(),
                         "uniform class capture absent: " + type.getName());
                 observed.put(type, actual);
-                beforeSha256.put(WeaveTarget.internalName(type), VerifiedHookInstallerSupport.sha256Hex(actual));
                 JarFile jar = role.programMutations() ? jogl : cubism;
                 Map<String, List<String>> composed = composedShapes(jar, type, source, ownerLoader, role, editor);
                 for (var method : role.methods().entrySet())
@@ -151,12 +147,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                 composed.forEach(transformer::acceptComposedShape);
                 transformer.onRejection(bridge::retire);
                 targets.add(WeaveTarget.single(
-                        type,
-                        transformer,
-                        EXPECTED_MATCHES,
-                        transformer::matches,
-                        transformer::failure,
-                        beforeSha256::get));
+                        type, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
             }
             verifyDependency(
                     cubism, artifact, loader, "com.live2d.graphics3d.a", "a", "()Lcom/jogamp/opengl/GL3;", observed);

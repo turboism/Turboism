@@ -3,10 +3,8 @@ package dev.turboism.adapter.cubism.optimization.serialization;
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +24,7 @@ public final class FloatArrayParseTransformer implements ClassFileTransformer {
     private final ClassLoader expectedLoader;
     private final Path artifact;
     private final List<String> reviewedShape;
-    private volatile String beforeSha256;
+
     private volatile String failure;
     private volatile int matches;
 
@@ -132,9 +130,7 @@ public final class FloatArrayParseTransformer implements ClassFileTransformer {
                     },
                     ClassReader.EXPAND_FRAMES);
             byte[] output = writer.toByteArray();
-            if (beforeSha256 == null)
-                beforeSha256 = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+
             matches++;
             return output;
         } catch (Exception | LinkageError rejected) {
@@ -146,10 +142,6 @@ public final class FloatArrayParseTransformer implements ClassFileTransformer {
     /** Successful transformations in the attested loader. */
     public int matches() {
         return matches;
-    }
-    /** First retransformation input hash for restoration evidence. */
-    public String beforeSha256() {
-        return beforeSha256;
     }
     /** Admission/transformation failure, if any. */
     public String failure() {
@@ -282,10 +274,9 @@ public final class FloatArrayParseTransformer implements ClassFileTransformer {
      * repackaged or differently-declared artifact binds this hook only when
      * one distinct contract's pins match every class entry; identical contracts merge.
      */
-    public static Map<String, Map<String, String>> reviewedClassSha256() {
-        return REVIEWED_CLASS_SHA256;
+    public static Map<String, List<String>> reviewedClassSha256() {
+        return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
-            ClassPinTable.load("float-array-parse");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("float-array-parse");
 }

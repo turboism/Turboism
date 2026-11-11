@@ -4,10 +4,8 @@ import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -37,7 +35,6 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
     private final List<String> reviewedShape;
     private volatile int matches;
     private volatile String failure;
-    private volatile String beforeSha256;
 
     /** Reference bytes come from the installer's verified target-class snapshot. */
     public TextureUploadPreparationTransformer(ClassLoader loader, Path artifact, byte[] reference) {
@@ -58,16 +55,16 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
     }
 
     /**
-     * The factory owner pinned for one reviewed generation. Each pin block carries exactly
+     * The factory owner pinned for one reviewed generation. Each block names exactly
      * one class — {@link #TARGET} on 5.3.x, {@link #TARGET_52} on 5.2.x — so the owner is
      * recovered from the table rather than restated here.
      */
     public static String ownerForVersion(String version) {
-        Map<String, String> block = reviewedClassSha256().get(version);
+        List<String> block = reviewedClassSha256().get(version);
         if (block == null || block.size() != 1) {
             throw new IllegalArgumentException("no single texture factory pin for version " + version);
         }
-        return block.keySet().iterator().next();
+        return block.get(0);
     }
 
     @Override
@@ -130,9 +127,7 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
                     },
                     ClassReader.EXPAND_FRAMES);
             byte[] output = writer.toByteArray();
-            if (beforeSha256 == null)
-                beforeSha256 = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+
             matches++;
             return output;
         } catch (Exception | LinkageError rejected) {
@@ -144,10 +139,6 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
     /** Successful exact-owner transformations. */
     public int matches() {
         return matches;
-    }
-    /** First native input hash used for verified restoration. */
-    public String beforeSha256() {
-        return beforeSha256;
     }
     /** Last admission/transform failure. */
     public String failure() {
@@ -252,14 +243,13 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
     private record Handler(Label start, Label end, Label target, String type) {}
 
     /**
-     * SHA-256 of the texture factory class this hook rewrites, keyed by internal name, per reviewed generation. A
+     * Target classes this hook rewrites, keyed by internal name, per reviewed generation. A
      * repackaged or differently-declared artifact binds this hook only when
-     * one distinct contract's pins match every class entry; identical contracts merge.
+     * one distinct contract's targets exist; identical contracts merge.
      */
-    public static Map<String, Map<String, String>> reviewedClassSha256() {
-        return REVIEWED_CLASS_SHA256;
+    public static Map<String, List<String>> reviewedClassSha256() {
+        return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
-            ClassPinTable.load("texture-upload-preparation");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("texture-upload-preparation");
 }

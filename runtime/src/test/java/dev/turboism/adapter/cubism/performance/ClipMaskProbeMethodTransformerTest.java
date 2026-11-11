@@ -564,7 +564,7 @@ class ClipMaskProbeMethodTransformerTest {
         transformer
                 .matchCounts()
                 .forEach((slot, count) -> assertEquals(1, count, "selector " + slot.owner() + "." + slot.method()));
-        assertFalse(transformer.beforeSha256().isEmpty());
+        assertFalse(transformer.wovenOwners().isEmpty());
         assertEquals(6, transformer.sites());
     }
 }

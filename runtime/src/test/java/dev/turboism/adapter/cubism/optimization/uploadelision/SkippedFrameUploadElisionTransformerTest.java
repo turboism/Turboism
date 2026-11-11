@@ -292,7 +292,6 @@ public class SkippedFrameUploadElisionTransformerTest {
         assertNotNull(output, t.failure());
         assertEquals(1, t.matches());
         assertEquals(2, t.guarded());
-        assertNotNull(t.beforeSha256());
 
         Class<?> glType = loader.define(GL, glInterface());
         Class<?> impl = loader.define(IMPL, glImpl());

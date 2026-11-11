@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -175,11 +176,11 @@ public record MeshMirrorHostProfile(
      * additionally pin the linked-deletion action and edit-mode classes their
      * backport weaves.
      */
-    public static Map<String, Map<String, String>> reviewedClassSha256() {
-        return REVIEWED_CLASS_SHA256;
+    public static Map<String, List<String>> reviewedClassSha256() {
+        return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = ClassPinTable.load("mesh-mirror");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("mesh-mirror");
 
     /**
      * 5.0/5.1 uses the 5.2 mirror selectors with the linked-deletion backport, but the

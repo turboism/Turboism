@@ -382,7 +382,7 @@ attest     load each target without initialization; attest loader and CodeSource
 bind       build the hook's slot bridge before any transformer is registered
 register   add every transformer in WeavePlan order, then one retransformClasses call
 prove      per-target match count, recorded failure, and the plan's post-check must all hold
-close      remove registrations, withdraw side effects, re-capture each class, compare its SHA-256
+close      remove registrations, withdraw side effects, retransform every rewritten class
 ```
 
 Two ordering rules are load-bearing. The bridge is installed before any transformer, because a woven

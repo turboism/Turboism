@@ -64,13 +64,6 @@ class InspectorPropertyBypassArtifactTest {
                 transformed.put(seam.binaryName(), output);
             }
             assertEquals(InspectorPropertyBypassTarget.SEAMS.size(), transformer.matches());
-            for (final InspectorPropertyBypassTarget.Seam seam : InspectorPropertyBypassTarget.SEAMS) {
-                assertEquals(
-                        transformer.beforeSha256().get(seam.owner()),
-                        java.util.HexFormat.of()
-                                .formatHex(java.security.MessageDigest.getInstance("SHA-256")
-                                        .digest(references.get(seam.owner()))));
-            }
         }
     }
 

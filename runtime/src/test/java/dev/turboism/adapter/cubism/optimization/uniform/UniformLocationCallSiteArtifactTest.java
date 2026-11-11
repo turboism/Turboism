@@ -59,7 +59,7 @@ class UniformLocationCallSiteArtifactTest {
             byte[] changed = transformer.transform(null, loader, owner, null, domain, original);
             assertNotNull(changed, transformer.failure());
             assertEquals(1, transformer.matches());
-            assertNotNull(transformer.beforeSha256());
+
             Map<String, String> methods = methods(original);
             assertEquals(methods, methods(changed), "no added, removed or renamed methods");
             int unchanged = 0;

@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.mesh;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -26,9 +25,7 @@ final class MeshTriangulationHashTransformerTest {
     @Test
     void patchesTheReviewedShapeAndKeepsHashesPermutationInvariant() throws Exception {
         final byte[] fixture = fixtureClassBytes();
-        final String digest = MeshTriangulationHashTransformer.sha256(fixture);
-        final MeshTriangulationHashTransformer transformer =
-                new MeshTriangulationHashTransformer(java.util.Set.of(digest));
+        final MeshTriangulationHashTransformer transformer = new MeshTriangulationHashTransformer();
 
         final byte[] patched =
                 transformer.transform(null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, fixture);
@@ -62,13 +59,13 @@ final class MeshTriangulationHashTransformerTest {
     }
 
     @Test
-    void refusesClassesWhoseBytesAreNotTheReviewedDigest() {
+    void refusesClassesWhoseBodyIsNotTheReviewedShape() {
         final MeshTriangulationHashTransformer transformer = new MeshTriangulationHashTransformer();
-        final byte[] fixture = fixtureClassBytes();
+        final byte[] alien = new ClassWriter(0).toByteArray();
 
-        assertNull(transformer.transform(
-                null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, fixture));
-        assertEquals(MeshTriangulationHashTransformer.Outcome.HASH_MISMATCH, transformer.outcome());
+        assertNull(
+                transformer.transform(null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, alien));
+        assertEquals(MeshTriangulationHashTransformer.Outcome.SHAPE_REJECTED, transformer.outcome());
     }
 
     @Test
@@ -82,17 +79,15 @@ final class MeshTriangulationHashTransformerTest {
     }
 
     @Test
-    void refusesTheReviewedDigestWhenTheShapeIsUnexpected() {
-        // Same pinned digest, but the class no longer has the reviewed constant-return body.
+    void refusesAClassWithoutTheReviewedConstantReturnBody() {
         final byte[] unexpected = new ClassWriter(0).toByteArray();
-        final MeshTriangulationHashTransformer transformer = new MeshTriangulationHashTransformer(
-                java.util.Set.of(MeshTriangulationHashTransformer.sha256(unexpected)));
+        final MeshTriangulationHashTransformer transformer = new MeshTriangulationHashTransformer();
 
         assertNull(transformer.transform(
                 null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, unexpected));
-        assertTrue(
-                transformer.outcome() == MeshTriangulationHashTransformer.Outcome.SHAPE_REJECTED
-                        || transformer.outcome() == MeshTriangulationHashTransformer.Outcome.HASH_MISMATCH,
+        assertEquals(
+                MeshTriangulationHashTransformer.Outcome.SHAPE_REJECTED,
+                transformer.outcome(),
                 "an unexpected shape must be reported, never silently patched");
     }
 

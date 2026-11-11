@@ -21,7 +21,7 @@ final class WarpAltMirrorHostProfileTest {
                     : "com/live2d/cubism/view/context/a/b";
             assertEquals(expected, profile.stripOwner(), version);
             assertTrue(
-                    WarpAltMirrorHostProfile.reviewedClassSha256().get(version).containsKey(expected), version);
+                    WarpAltMirrorHostProfile.reviewedClassSha256().get(version).contains(expected), version);
             assertEquals(version.startsWith("5.3.") ? "R" : "L", profile.stripMountMethod(), version);
             assertEquals(version.startsWith("5.3.") ? "H" : "E", profile.stripGroupField(), version);
             assertEquals("com/live2d/cubism/view/context/guiEntity/q", profile.stripIconSetOwner(), version);

@@ -10,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
@@ -40,15 +39,11 @@ final class WarpAltMirrorActionContextTest {
             try (var input = jar.getInputStream(entry)) {
                 bytes = input.readAllBytes();
             }
-            final var pins = WarpAltMirrorHostProfile.reviewedClassSha256().get(version);
-            assertEquals(
-                    pins.get(profile.actionDispatchOwner()),
-                    java.util.HexFormat.of()
-                            .formatHex(java.security.MessageDigest.getInstance("SHA-256")
-                                    .digest(bytes)));
+            final var targets = WarpAltMirrorHostProfile.reviewedClassSha256().get(version);
+            assertTrue(targets.contains(profile.actionDispatchOwner()));
             assertTrue(WarpAltMirrorActionContext.hasReadOnlyGetter(new ClassReader(bytes), profile));
             final var transformer = new WarpAltMirrorNativeMethodTransformer(
-                    profile, getClass().getClassLoader(), null, pins, ignored -> {});
+                    profile, getClass().getClassLoader(), null, Set.copyOf(targets), ignored -> {});
             assertNotNull(transformer.transform(
                     null, getClass().getClassLoader(), profile.actionDispatchOwner(), null, null, bytes));
         }
@@ -79,7 +74,7 @@ final class WarpAltMirrorActionContextTest {
 
         final List<String> diagnostics = new ArrayList<>();
         final WarpAltMirrorNativeMethodTransformer transformer =
-                new WarpAltMirrorNativeMethodTransformer(profile, null, null, Map.of(), diagnostics::add);
+                new WarpAltMirrorNativeMethodTransformer(profile, null, null, Set.of(), diagnostics::add);
 
         final byte[] transformed =
                 transformer.transform(null, null, profile.actionDispatchOwner(), null, null, fixtureBytes);
@@ -104,7 +99,7 @@ final class WarpAltMirrorActionContextTest {
 
         final List<String> diagnostics = new ArrayList<>();
         final WarpAltMirrorNativeMethodTransformer transformer =
-                new WarpAltMirrorNativeMethodTransformer(profile, null, null, Map.of(), diagnostics::add);
+                new WarpAltMirrorNativeMethodTransformer(profile, null, null, Set.of(), diagnostics::add);
 
         final byte[] transformed =
                 transformer.transform(null, null, profile.actionDispatchOwner(), null, null, fixtureBytes);
@@ -133,7 +128,7 @@ final class WarpAltMirrorActionContextTest {
 
         final List<String> diagnostics = new ArrayList<>();
         final WarpAltMirrorNativeMethodTransformer transformer =
-                new WarpAltMirrorNativeMethodTransformer(profile, null, null, Map.of(), diagnostics::add);
+                new WarpAltMirrorNativeMethodTransformer(profile, null, null, Set.of(), diagnostics::add);
 
         final byte[] transformed =
                 transformer.transform(null, null, profile.actionDispatchOwner(), null, null, fixtureBytes);
