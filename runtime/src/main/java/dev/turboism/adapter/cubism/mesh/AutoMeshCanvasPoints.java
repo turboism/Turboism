@@ -2,26 +2,21 @@ package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.automesh.AutoMeshWriteLayout;
 import dev.turboism.sdk.cubism.model.Point2;
-import dev.turboism.sdk.cubism.model.TexturePixels;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Converts one plugin layout into the canvas geometry the Editor's own Auto Mesh writes.
+ * Converts one plugin layout into the mesh-space geometry the Editor's own Auto Mesh writes.
  *
- * <p>The Editor's generator writes canvas points into the editable mesh and derives uvs, keyforms
- * and triangulation from them. A plugin layout therefore travels back through the published
- * uv-to-pixel affine of the texture it was planned on, and the resulting image-local pixel reaches
- * the canvas through the model image transform. A geometry-only run has no affine, so its uvs scale
- * by the image extent, which is the documented shape of the default affine.</p>
+ * <p>The Editor's editable mesh shares the ArtMesh base position space: its generator places each
+ * point there and the source keeps the same space in {@code getPositions}. The plugin plans in uv,
+ * so every layout uv maps into that space through the ArtMesh's current uvs, base positions and
+ * triangles. A raster or canvas transform would place the points outside the mesh.</p>
  *
  * <p>Edges are undirected and appear once. Native code adds them with an "if not exists" call, so
  * a pair shared by two triangles must not be offered twice.</p>
  */
 final class AutoMeshCanvasPoints {
-
-    /** Components of the row-major 2x3 affine the conversion consumes. */
-    private static final int AFFINE_COMPONENTS = 6;
 
     /** Vertices one triangle names; every triangle block consumes this many indices. */
     private static final int TRIANGLE_VERTICES = 3;
@@ -35,29 +30,31 @@ final class AutoMeshCanvasPoints {
     }
 
     /**
-     * Converts one layout into canvas points and the unique triangle edges that reference them.
+     * Converts one layout into base-space points and the unique triangle edges that reference them.
      *
-     * @param layout the plugin layout and the texture it was planned on
-     * @param imageExtent the model image pixel extent, used when the layout carries no texture
-     * @param localToCanvas the row-major 2x3 model-image-local to canvas affine
-     * @return the canvas geometry
-     * @throws IllegalArgumentException when the inputs cannot describe finite canvas points
+     * @param layout the plugin layout
+     * @param sourceUvs the ArtMesh uvs as {@code u0, v0, u1, v1, ...}
+     * @param sourcePositions the ArtMesh base positions in the same vertex order
+     * @param sourceIndices the ArtMesh triangle indices
+     * @return the mesh-space geometry
+     * @throws IllegalArgumentException when the source cannot describe finite mesh points
      */
     static AutoMeshCanvasPoints of(
-            final AutoMeshWriteLayout layout, final double[] imageExtent, final double[] localToCanvas) {
-        requireAffine(localToCanvas, "local-to-canvas");
+            final AutoMeshWriteLayout layout,
+            final float[] sourceUvs,
+            final float[] sourcePositions,
+            final int[] sourceIndices) {
+        final AutoMeshUvMapping mapping =
+                AutoMeshUvMapping.of(points(sourceUvs), points(sourcePositions), boxed(sourceIndices));
         final List<Point2> uvs = layout.geometry().uvs();
         final float[] points = new float[uvs.size() * 2];
-        final double[] pixel = new double[2];
         for (int index = 0; index < uvs.size(); index++) {
-            pixelOf(layout.texture().orElse(null), imageExtent, uvs.get(index), pixel);
-            final double x = localToCanvas[0] * pixel[0] + localToCanvas[1] * pixel[1] + localToCanvas[2];
-            final double y = localToCanvas[3] * pixel[0] + localToCanvas[4] * pixel[1] + localToCanvas[5];
-            if (!Double.isFinite(x) || !Double.isFinite(y)) {
-                throw new IllegalArgumentException("the layout resolves to a non-finite canvas point");
+            final Point2 mapped = mapping.map(uvs.get(index).x(), uvs.get(index).y());
+            if (!Float.isFinite(mapped.x()) || !Float.isFinite(mapped.y())) {
+                throw new IllegalArgumentException("the layout resolves to a non-finite mesh point");
             }
-            points[index * 2] = (float) x;
-            points[index * 2 + 1] = (float) y;
+            points[index * 2] = mapped.x();
+            points[index * 2 + 1] = mapped.y();
         }
         return new AutoMeshCanvasPoints(points, uniqueEdges(layout.geometry().triangleIndices(), uvs.size()));
     }
@@ -72,23 +69,26 @@ final class AutoMeshCanvasPoints {
         return edgePairs.clone();
     }
 
-    private static void pixelOf(
-            final TexturePixels texture, final double[] imageExtent, final Point2 uv, final double[] out) {
-        if (texture != null) {
-            texture.uvToPixel(uv.x(), uv.y(), out);
-            return;
+    private static List<Point2> points(final float[] values) {
+        if (values == null || (values.length & 1) != 0 || values.length < TRIANGLE_VERTICES * 2) {
+            throw new IllegalArgumentException("the ArtMesh carries no usable coordinate pairs");
         }
-        if (imageExtent == null || imageExtent.length != 2) {
-            throw new IllegalArgumentException("a geometry-only layout needs the image pixel extent");
+        final List<Point2> points = new ArrayList<>(values.length / 2);
+        for (int index = 0; index + 1 < values.length; index += 2) {
+            points.add(new Point2(values[index], values[index + 1]));
         }
-        out[0] = uv.x() * imageExtent[0];
-        out[1] = uv.y() * imageExtent[1];
+        return points;
     }
 
-    private static void requireAffine(final double[] values, final String name) {
-        if (values == null || values.length != AFFINE_COMPONENTS) {
-            throw new IllegalArgumentException(name + " must carry " + AFFINE_COMPONENTS + " components");
+    private static List<Integer> boxed(final int[] values) {
+        if (values == null || values.length < TRIANGLE_VERTICES) {
+            throw new IllegalArgumentException("the ArtMesh carries no triangles");
         }
+        final List<Integer> boxed = new ArrayList<>(values.length);
+        for (final int value : values) {
+            boxed.add(value);
+        }
+        return boxed;
     }
 
     /**

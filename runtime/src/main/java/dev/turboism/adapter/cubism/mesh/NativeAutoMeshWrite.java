@@ -44,9 +44,40 @@ final class NativeAutoMeshWrite {
     static final String TOPOLOGY_OBSERVER =
             "com.live2d.cubism.doc.model.extension.structureObserver.CTopologyObserverExtension";
 
+    /**
+     * Native action that rebuilds an ArtMesh source from an editable mesh.
+     *
+     * <p>Modeling-mode Auto Mesh never edits the drawable's editable mesh alone: it hands the fresh
+     * mesh to this action, which remaps every keyform and the uvs, writes positions, uvs and
+     * indices into the source, and then copies the mesh into the editable-mesh extension. The class
+     * name is obfuscated per release, so each reviewed generation names its own owner.</p>
+     */
+    static final List<String> SOURCE_UPDATE_ACTIONS = List.of(
+            "com.live2d.cubism.view.context.action.action_meshEditor.r",
+            "com.live2d.cubism.view.context.action.action_meshEditor.j");
+
     /** Every host class this write loads by name; the reviewed-artifact contract test resolves each one. */
     static final java.util.List<String> HOST_CLASS_NAMES =
             java.util.List.of(COPY_BRIDGE, VERIFY_BRIDGE, TOPOLOGY_OBSERVER, VERIFIABLE, COPYABLE);
+
+    /** Kotlin singleton field of an obfuscated host object. */
+    private static final String SINGLETON_FIELD = "a";
+
+    /** Parameter count of the source-update default-argument bridge. */
+    private static final int SOURCE_UPDATE_BRIDGE_ARITY = 8;
+
+    /** Default bit of the keyform remapper map in the source-update bridge. */
+    private static final int DEFAULT_KEYFORM_REMAPPER = 1 << 2;
+
+    /** Default bit of the uv remapper in the source-update bridge. */
+    private static final int DEFAULT_UV_REMAPPER = 1 << 3;
+
+    /** Default bit of the progress handle in the source-update bridge. */
+    private static final int DEFAULT_PROGRESS = 1 << 4;
+
+    /** Lets the action build both remappers and its progress handle from the fresh mesh. */
+    private static final int SOURCE_UPDATE_DEFAULTS_MASK =
+            DEFAULT_KEYFORM_REMAPPER | DEFAULT_UV_REMAPPER | DEFAULT_PROGRESS;
 
     /** Point type the Editor gives every point it generates. */
     private static final String GENERATED_POINT_TYPE = "AUTO";
@@ -76,6 +107,101 @@ final class NativeAutoMeshWrite {
         invoke(fresh, "setPositionUpdated");
         invoke(fresh, "setEdgeUpdated");
         copyInto(target, fresh);
+    }
+
+    /**
+     * Rebuilds one ArtMesh source from the layout through the Editor's own source-update action.
+     *
+     * <p>This is the modeling-mode write. The fresh mesh carries the layout in the source's base
+     * position space; the action derives uvs and every keyform from it exactly as it does for the
+     * Editor's own Auto Mesh result, so no plugin code computes a keyform.</p>
+     *
+     * @param source the ArtMesh source to rebuild
+     * @param editableMesh the drawable's editable mesh, used for its guid
+     * @param pointsXY the base-space points as {@code x0, y0, x1, y1, ...}
+     * @param edgePairs the unique triangle edges as {@code first0, second0, ...}
+     * @throws ReflectiveOperationException when the host carries no source-update action
+     */
+    static void applyToSource(
+            final Object source, final Object editableMesh, final float[] pointsXY, final int[] edgePairs)
+            throws ReflectiveOperationException {
+        if (editableMesh == null) throw new NoSuchMethodException("editable mesh");
+        final Object fresh = freshMesh(editableMesh);
+        addPoints(fresh, pointsXY, GENERATED_POINT_TYPE);
+        addEdges(fresh, edgePairs);
+        invoke(fresh, "setPositionUpdated");
+        invoke(fresh, "setEdgeUpdated");
+        final Method action = sourceUpdateAction(source.getClass().getClassLoader(), source, fresh);
+        final Object owner =
+                action.getParameterTypes()[0].getField(SINGLETON_FIELD).get(null);
+        action.invoke(null, owner, source, fresh, null, null, null, SOURCE_UPDATE_DEFAULTS_MASK, null);
+    }
+
+    /**
+     * Returns the source uvs the layout maps through.
+     *
+     * @param source the ArtMesh source
+     * @return the uvs as {@code u0, v0, ...}
+     * @throws ReflectiveOperationException when the host carries no uv accessor
+     */
+    static float[] sourceUvs(final Object source) throws ReflectiveOperationException {
+        return (float[]) call(source, "getUvs", NO_PARAMS);
+    }
+
+    /**
+     * Returns the source base positions, the space the editable mesh shares.
+     *
+     * @param source the ArtMesh source
+     * @return the positions as {@code x0, y0, ...}
+     * @throws ReflectiveOperationException when the host carries no position accessor
+     */
+    static float[] sourcePositions(final Object source) throws ReflectiveOperationException {
+        return (float[]) call(source, "getPositions", NO_PARAMS);
+    }
+
+    /**
+     * Returns the source triangle indices.
+     *
+     * @param source the ArtMesh source
+     * @return the indices, three per triangle
+     * @throws ReflectiveOperationException when the host carries no index accessor
+     */
+    static int[] sourceIndices(final Object source) throws ReflectiveOperationException {
+        return (int[]) call(source, "getIndices", NO_PARAMS);
+    }
+
+    /**
+     * Finds the Kotlin default-argument bridge of the source-update action.
+     *
+     * <p>The bridge takes the action singleton, the source, the mesh, the keyform remapper map, the
+     * uv remapper and the progress handle, then the default mask. Passing {@code null} remappers
+     * with their mask bits set lets the action build them from the mesh, as the Editor does when
+     * its generator carries no cached remapper.</p>
+     */
+    private static Method sourceUpdateAction(final ClassLoader loader, final Object source, final Object mesh)
+            throws ReflectiveOperationException {
+        for (final String name : SOURCE_UPDATE_ACTIONS) {
+            final Class<?> owner;
+            try {
+                owner = Class.forName(name, false, loader);
+            } catch (ClassNotFoundException absent) {
+                continue;
+            }
+            for (final Method candidate : owner.getDeclaredMethods()) {
+                final Class<?>[] parameters = candidate.getParameterTypes();
+                if (Modifier.isStatic(candidate.getModifiers())
+                        && parameters.length == SOURCE_UPDATE_BRIDGE_ARITY
+                        && parameters[0] == owner
+                        && parameters[1].isInstance(source)
+                        && parameters[2].isInstance(mesh)
+                        && parameters[3] == java.util.Map.class
+                        && parameters[6] == int.class) {
+                    ReflectAccess.open(candidate);
+                    return candidate;
+                }
+            }
+        }
+        throw new NoSuchMethodException("ArtMesh source update from an editable mesh");
     }
 
     /**

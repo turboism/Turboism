@@ -11,10 +11,8 @@ import com.live2d.core.a;
 import dev.turboism.automesh.AutoMeshWriteLayout;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Point2;
-import dev.turboism.sdk.cubism.model.TexturePixels;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -27,23 +25,38 @@ import org.junit.jupiter.api.Test;
  */
 class NativeAutoMeshWriteTest {
 
-    /** Raster width the texture double describes. */
-    private static final int TEXTURE_WIDTH = 8;
+    /** Left edge of the ArtMesh rectangle, far from the canvas origin like a real part. */
+    private static final float MESH_LEFT = 1531.0f;
 
-    /** Raster height the texture double describes. */
-    private static final int TEXTURE_HEIGHT = 4;
+    /** Top edge of the ArtMesh rectangle. */
+    private static final float MESH_TOP = 1774.0f;
 
-    /** uv-to-pixel scale of the texture double, chosen so pixels differ from uvs. */
-    private static final double UV_TO_PIXEL_SCALE = 3.0d;
+    /** Width of the ArtMesh rectangle. */
+    private static final float MESH_WIDTH = 275.0f;
 
-    /** Local-to-canvas scale of the transform double, chosen so it is not the identity. */
-    private static final double LOCAL_TO_CANVAS_SCALE = 2.5d;
+    /** Height of the ArtMesh rectangle. */
+    private static final float MESH_HEIGHT = 280.0f;
 
-    /** Local-to-canvas offset of the transform double. */
-    private static final double LOCAL_TO_CANVAS_OFFSET = 7.0d;
+    /** Uvs of the two-triangle source quad. */
+    private static final float[] SOURCE_UVS = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f};
 
-    /** Canvas tolerance far below one drawn pixel; the conversion stores 32-bit floats. */
-    private static final float TOLERANCE = 1.0e-4f;
+    /** Base positions of the source quad, in the same vertex order as its uvs. */
+    private static final float[] SOURCE_POSITIONS = {
+        MESH_LEFT,
+        MESH_TOP,
+        MESH_LEFT + MESH_WIDTH,
+        MESH_TOP,
+        MESH_LEFT + MESH_WIDTH,
+        MESH_TOP + MESH_HEIGHT,
+        MESH_LEFT,
+        MESH_TOP + MESH_HEIGHT
+    };
+
+    /** Triangles of the source quad. */
+    private static final int[] SOURCE_INDICES = {0, 1, 2, 0, 2, 3};
+
+    /** Mesh-space tolerance far below one drawn pixel; the conversion stores 32-bit floats. */
+    private static final float MESH_TOLERANCE = 1.0e-2f;
 
     @BeforeEach
     void resetCounters() {
@@ -94,73 +107,41 @@ class NativeAutoMeshWriteTest {
     }
 
     @Test
-    void layoutUvsReachTheCanvasThroughTheTextureAndImageTransforms() {
-        final AutoMeshWriteLayout layout = new AutoMeshWriteLayout(
-                new ArtMeshGeometry(
-                        List.of(new Point2(0.0f, 0.0f), new Point2(1.0f, 1.0f)),
-                        List.of(new Point2(0.0f, 0.0f), new Point2(1.0f, 1.0f)),
-                        List.of()),
-                Optional.of(texture()));
+    void layoutUvsLandInsideTheArtMeshBasePositionsNotAtTheOrigin() {
+        // The live defect wrote every point near the canvas origin; the layout must reuse the
+        // ArtMesh base space, so a centre uv lands at the centre of the mesh rectangle.
+        final AutoMeshWriteLayout layout = AutoMeshWriteLayout.of(new ArtMeshGeometry(
+                List.of(new Point2(0.0f, 0.0f), new Point2(0.0f, 0.0f), new Point2(0.0f, 0.0f)),
+                List.of(new Point2(0.25f, 0.25f), new Point2(0.5f, 0.5f), new Point2(0.75f, 0.25f)),
+                List.of(0, 1, 2)));
 
-        final AutoMeshCanvasPoints canvas = AutoMeshCanvasPoints.of(layout, null, localToCanvas());
+        final AutoMeshCanvasPoints mesh = AutoMeshCanvasPoints.of(layout, SOURCE_UVS, SOURCE_POSITIONS, SOURCE_INDICES);
 
         assertArrayEquals(
                 new float[] {
-                    (float) LOCAL_TO_CANVAS_OFFSET,
-                    (float) LOCAL_TO_CANVAS_OFFSET,
-                    (float) (TEXTURE_WIDTH * UV_TO_PIXEL_SCALE * LOCAL_TO_CANVAS_SCALE + LOCAL_TO_CANVAS_OFFSET),
-                    (float) (TEXTURE_HEIGHT * UV_TO_PIXEL_SCALE * LOCAL_TO_CANVAS_SCALE + LOCAL_TO_CANVAS_OFFSET)
+                    MESH_LEFT + MESH_WIDTH * 0.25f, MESH_TOP + MESH_HEIGHT * 0.25f,
+                    MESH_LEFT + MESH_WIDTH * 0.5f, MESH_TOP + MESH_HEIGHT * 0.5f,
+                    MESH_LEFT + MESH_WIDTH * 0.75f, MESH_TOP + MESH_HEIGHT * 0.25f
                 },
-                canvas.pointsXY(),
-                TOLERANCE,
-                "the layout pixel travels through the texture affine and the image transform");
+                mesh.pointsXY(),
+                MESH_TOLERANCE,
+                "every layout uv maps through the ArtMesh uv-to-base-position correspondence");
+        assertArrayEquals(new int[] {0, 1, 1, 2, 2, 0}, mesh.edgePairs(), "each triangle side appears once");
     }
 
     @Test
-    void geometryOnlyLayoutScalesByTheImageExtentAndListsEveryEdgeOnce() {
-        final AutoMeshWriteLayout layout = AutoMeshWriteLayout.of(new ArtMeshGeometry(
-                List.of(new Point2(0.0f, 0.0f), new Point2(1.0f, 0.0f), new Point2(0.0f, 1.0f)),
-                List.of(new Point2(0.0f, 0.0f), new Point2(1.0f, 0.0f), new Point2(0.0f, 1.0f)),
-                List.of(0, 1, 2)));
+    void aSourceWithoutTrianglesCannotMapTheLayout() {
+        final AutoMeshWriteLayout layout = AutoMeshWriteLayout.of(
+                new ArtMeshGeometry(List.of(new Point2(0.0f, 0.0f)), List.of(new Point2(0.5f, 0.5f)), List.of()));
 
-        final AutoMeshCanvasPoints canvas =
-                AutoMeshCanvasPoints.of(layout, new double[] {TEXTURE_WIDTH, TEXTURE_HEIGHT}, identity());
-
-        assertArrayEquals(
-                new float[] {0.0f, 0.0f, TEXTURE_WIDTH, 0.0f, 0.0f, TEXTURE_HEIGHT}, canvas.pointsXY(), TOLERANCE);
-        assertArrayEquals(new int[] {0, 1, 1, 2, 2, 0}, canvas.edgePairs(), "each triangle side appears once");
-    }
-
-    @Test
-    void aLayoutWithoutPixelExtentCannotBeScaled() {
-        final AutoMeshWriteLayout layout = AutoMeshWriteLayout.of(new ArtMeshGeometry(
-                List.of(new Point2(0.0f, 0.0f), new Point2(1.0f, 0.0f)),
-                List.of(new Point2(0.0f, 0.0f), new Point2(1.0f, 0.0f)),
-                List.of()));
-
-        assertThrows(IllegalArgumentException.class, () -> AutoMeshCanvasPoints.of(layout, null, identity()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AutoMeshCanvasPoints.of(layout, SOURCE_UVS, SOURCE_POSITIONS, new int[0]));
     }
 
     private static int[] edgesOfSquare() {
         // Two triangles over one square; the shared diagonal is already offered once.
         return new int[] {0, 1, 1, 2, 0, 2, 2, 3, 0, 3};
-    }
-
-    private static TexturePixels texture() {
-        final double[] uvToPixel = {
-            TEXTURE_WIDTH * UV_TO_PIXEL_SCALE, 0.0d, 0.0d, 0.0d, TEXTURE_HEIGHT * UV_TO_PIXEL_SCALE, 0.0d
-        };
-        return new TexturePixels(TEXTURE_WIDTH, TEXTURE_HEIGHT, new int[TEXTURE_WIDTH * TEXTURE_HEIGHT], uvToPixel);
-    }
-
-    private static double[] localToCanvas() {
-        return new double[] {
-            LOCAL_TO_CANVAS_SCALE, 0.0d, LOCAL_TO_CANVAS_OFFSET, 0.0d, LOCAL_TO_CANVAS_SCALE, LOCAL_TO_CANVAS_OFFSET
-        };
-    }
-
-    private static double[] identity() {
-        return new double[] {1.0d, 0.0d, 0.0d, 0.0d, 1.0d, 0.0d};
     }
 
     /** Mesh guid stand-in; the writer only carries it from the target to the fresh mesh. */
@@ -313,6 +294,40 @@ class NativeAutoMeshWriteTest {
         assertEquals(List.of(), missing, "every host class the write loads must exist in each reviewed artifact");
     }
 
+    @Test
+    void eachReviewedArtifactCarriesOneSourceUpdateActionTheModelingWriteNames() throws Exception {
+        final java.nio.file.Path root = referenceRoot();
+        org.junit.jupiter.api.Assumptions.assumeTrue(root != null, NO_ARCHIVE_MESSAGE);
+        final List<String> missing = new ArrayList<>();
+        int inspected = 0;
+        for (final String version : dev.turboism.automesh.host.AutoMeshHostProfile.supportedHostVersions()) {
+            final java.nio.file.Path jar = root.resolve(version).resolve(EDITOR_JAR);
+            if (!java.nio.file.Files.isRegularFile(jar)) {
+                continue;
+            }
+            inspected++;
+            try (java.net.URLClassLoader loader =
+                    new java.net.URLClassLoader(new java.net.URL[] {jar.toUri().toURL()}, null)) {
+                boolean found = false;
+                for (final String name : NativeAutoMeshWrite.SOURCE_UPDATE_ACTIONS) {
+                    final byte[] bytes;
+                    try (java.io.InputStream input =
+                            loader.getResourceAsStream(name.replace('.', '/') + CLASS_SUFFIX)) {
+                        bytes = input == null ? null : input.readAllBytes();
+                    }
+                    if (bytes != null
+                            && new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1)
+                                    .contains(SOURCE_UPDATE_DESCRIPTOR)) {
+                        found = true;
+                    }
+                }
+                if (!found) missing.add(version);
+            }
+        }
+        assertTrue(inspected > 0, NO_ARCHIVE_MESSAGE);
+        assertEquals(List.of(), missing, "each reviewed artifact must carry the ArtMesh source-update action");
+    }
+
     private static java.nio.file.Path referenceRoot() {
         for (final String candidate :
                 new String[] {System.getProperty(REFERENCE_PROPERTY), System.getenv(REFERENCE_ENVIRONMENT)}) {
@@ -329,6 +344,11 @@ class NativeAutoMeshWriteTest {
     private static final String REFERENCE_ENVIRONMENT = "TURBOISM_CUBISM_REF";
     private static final String EDITOR_JAR = "Live2D_Cubism.jar";
     private static final String CLASS_SUFFIX = ".class";
+    /** Descriptor prefix of the action that rebuilds an ArtMesh source from an editable mesh. */
+    private static final String SOURCE_UPDATE_DESCRIPTOR =
+            "(Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;"
+                    + "Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/Map;";
+
     private static final String NO_ARCHIVE_MESSAGE =
             "reviewed Cubism artifact archive is not configured; set TURBOISM_CUBISM_REF";
 }

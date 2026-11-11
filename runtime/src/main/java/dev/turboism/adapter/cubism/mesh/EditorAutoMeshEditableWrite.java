@@ -39,9 +39,6 @@ public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite 
     /** Reason code of a target the host exposed without an editable mesh. */
     public static final String REASON_NO_EDITABLE_MESH = "no-editable-mesh";
 
-    /** Reason code of a target whose image-local to canvas transform the host does not expose. */
-    public static final String REASON_NO_CANVAS_TRANSFORM = "no-canvas-transform";
-
     /** Reason code of a confirmation that mixed the two funnels. */
     public static final String REASON_MIXED_FUNNELS = "mixed-funnels";
 
@@ -54,8 +51,6 @@ public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite 
     private static final String MESSAGE_NO_EDIT_MODE =
             "The Editor is not in an edit mode that can receive an auto-mesh result.";
     private static final String MESSAGE_NO_EDITABLE_MESH = "The Editor exposes no editable mesh for ";
-    private static final String MESSAGE_NO_CANVAS_TRANSFORM =
-            "The Editor cannot map the layout of this ArtMesh onto the canvas: ";
     private static final String MESSAGE_MIXED_FUNNELS =
             "The selected ArtMeshes did not come from the same Auto Mesh entry.";
     private static final String MESSAGE_INVALID_LAYOUT = "The generated layout cannot be drawn on the canvas: ";
@@ -66,18 +61,8 @@ public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite 
     private static final String MODE_FOR_MESH_EDITOR = "getEditMode_meshEdit";
 
     private static final String CURRENT_EDIT_MODE = "cubism.editor-model.modeling-document.current-edit-mode";
-    private static final String TEXTURE_INPUT_EXTENSION = "cubism.editor-model.art-mesh-source.texture-input-extension";
-    private static final String CURRENT_TEXTURE_INPUT =
-            "cubism.editor-model.texture-input-extension.current-texture-input-data";
-    private static final String MODEL_IMAGE_INPUT_CLASS = "cubism.editor-model.texture-input-model-image.class";
-    private static final String MODEL_IMAGE = "cubism.editor-model.texture-input-model-image.model-image";
-    private static final String MODEL_IMAGE_LOCAL_TO_CANVAS = "cubism.texture-atlas.image.local-to-canvas";
-    private static final String CAFFINE_MATRIX = "cubism.editor-model.caffine.matrix";
-    private static final String MODEL_IMAGE_WIDTH = "cubism.editor-model.model-image.width";
-    private static final String MODEL_IMAGE_HEIGHT = "cubism.editor-model.model-image.height";
 
     /** Components of the row-major 2x3 affine the canvas conversion consumes. */
-    private static final int AFFINE_COMPONENTS = 6;
 
     /** Index of the pack among the bridge's token-and-receiver-prefixed arguments. */
     private static final int PACK_ARGUMENT = 2;
@@ -153,15 +138,13 @@ public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite 
         for (int index = 0; index < write.targets().size(); index++) {
             final AutoMeshResolvedTarget target = write.targets().get(index);
             final AutoMeshWriteLayout layout = write.layouts().get(index);
-            final Object modelImage = modelImageOf(target);
-            if (modelImage == null) {
-                throw new AutoMeshWriteRefusal(
-                        REASON_NO_CANVAS_TRANSFORM,
-                        MESSAGE_NO_CANVAS_TRANSFORM + target.drawable().id().value() + MESSAGE_SUFFIX);
-            }
             try {
-                geometries.add(AutoMeshCanvasPoints.of(layout, imageExtent(modelImage), localToCanvas(modelImage)));
-            } catch (RuntimeException invalid) {
+                geometries.add(AutoMeshCanvasPoints.of(
+                        layout,
+                        NativeAutoMeshWrite.sourceUvs(target.source()),
+                        NativeAutoMeshWrite.sourcePositions(target.source()),
+                        NativeAutoMeshWrite.sourceIndices(target.source())));
+            } catch (ReflectiveOperationException | RuntimeException invalid) {
                 FatalErrors.rethrowIfFatal(invalid);
                 throw new AutoMeshWriteRefusal(
                         REASON_INVALID_LAYOUT,
@@ -181,7 +164,13 @@ public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite 
                     MESSAGE_NO_EDITABLE_MESH + target.drawable().id().value() + MESSAGE_SUFFIX);
         }
         NativeAutoMeshWrite.verifySource(target.source(), false);
-        NativeAutoMeshWrite.replaceGeometry(editableMesh, geometry.pointsXY(), geometry.edgePairs());
+        switch (target.funnel()) {
+            case MESH_EDITOR_MODE ->
+                NativeAutoMeshWrite.replaceGeometry(editableMesh, geometry.pointsXY(), geometry.edgePairs());
+            case MODELING_MODE ->
+                NativeAutoMeshWrite.applyToSource(
+                        target.source(), editableMesh, geometry.pointsXY(), geometry.edgePairs());
+        }
         verifyAfterReplace(target.source());
         NativeAutoMeshWrite.publishSourceChange(target.source(), target.completePack());
     }
@@ -274,47 +263,6 @@ public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite 
         return pack == null
                 ? null
                 : NativeMeshMirrorReflectionOps.call(pack, "getCurrentDoc", NativeMeshMirrorReflectionOps.NO_PARAMS);
-    }
-
-    /** Returns the model image the target samples, or {@code null} when the host exposes none. */
-    private Object modelImageOf(final AutoMeshResolvedTarget target) {
-        try {
-            final Object extension = resolver.invoke(TEXTURE_INPUT_EXTENSION, target.source());
-            final Object input = extension == null ? null : resolver.invoke(CURRENT_TEXTURE_INPUT, extension);
-            if (input == null || !resolver.isInstance(MODEL_IMAGE_INPUT_CLASS, input)) {
-                return null;
-            }
-            return resolver.invoke(MODEL_IMAGE, input);
-        } catch (RuntimeException | LinkageError unavailable) {
-            FatalErrors.rethrowIfFatal(unavailable);
-            diagnose("auto mesh write: the model image is unavailable: " + unavailable.getMessage());
-            return null;
-        }
-    }
-
-    private double[] localToCanvas(final Object modelImage) {
-        final Object affine = resolver.invoke(MODEL_IMAGE_LOCAL_TO_CANVAS, modelImage);
-        if (affine == null) {
-            throw new IllegalArgumentException("the model image carries no local-to-canvas transform");
-        }
-        final Object matrix = resolver.invoke(CAFFINE_MATRIX, affine);
-        if (!(matrix instanceof float[] values) || values.length < AFFINE_COMPONENTS) {
-            throw new IllegalArgumentException("the local-to-canvas transform carries no matrix");
-        }
-        final double[] copied = new double[AFFINE_COMPONENTS];
-        for (int index = 0; index < AFFINE_COMPONENTS; index++) {
-            copied[index] = values[index];
-        }
-        return copied;
-    }
-
-    private double[] imageExtent(final Object modelImage) {
-        final Object width = resolver.invoke(MODEL_IMAGE_WIDTH, modelImage);
-        final Object height = resolver.invoke(MODEL_IMAGE_HEIGHT, modelImage);
-        if (!(width instanceof Number wide) || !(height instanceof Number tall)) {
-            throw new IllegalArgumentException("the model image carries no pixel extent");
-        }
-        return new double[] {wide.doubleValue(), tall.doubleValue()};
     }
 
     private void cancel(final Object mode) {
