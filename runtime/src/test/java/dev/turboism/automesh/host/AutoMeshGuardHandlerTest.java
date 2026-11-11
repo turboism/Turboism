@@ -108,16 +108,16 @@ class AutoMeshGuardHandlerTest {
     }
 
     @Test
-    void multiKeyformRefusalIsHandledAndReported() {
+    void keyformBankThatCannotBeRewrittenIsReportedAsAWarning() throws Exception {
         select(algorithm((request, cancellation) -> new AutoMeshResult.Success(triangle(), "ok")));
 
         final Boolean handled = handler(new CountingTargets(List.of(new StubDrawable("ArtMesh1", 2))))
                 .handle(AutoMeshFunnel.MODELING_MODE, arguments());
 
-        assertEquals(Boolean.TRUE, handled);
-        assertEquals(AutoMeshNotice.Severity.WARNING, notices.get(0).severity());
+        assertEquals(Boolean.TRUE, handled, "the custom algorithm owns the confirmation");
+        awaitNotice(AutoMeshNotice.Severity.WARNING);
         assertTrue(notices.get(0).message().contains("ArtMesh1"), notices.get(0).message());
-        assertEquals(NO_ACCESS, transactions.executions.get());
+        assertEquals(NO_ACCESS, transactions.executions.get(), "a refused keyform bank writes nothing");
     }
 
     @Test

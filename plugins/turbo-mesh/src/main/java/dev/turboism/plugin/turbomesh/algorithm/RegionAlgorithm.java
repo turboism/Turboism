@@ -104,8 +104,8 @@ public final class RegionAlgorithm {
     private static final double MIN_SPACING_DEFAULT = 4.0;
 
     /**
-     * The compute returns one geometry for the current keyform only, so the runtime must refuse
-     * multi-keyform meshes instead of silently dropping their other keyforms.
+     * The compute returns one layout for the whole mesh and reads no stored keyform data, so it
+     * declares no per-keyform capability.
      */
     private static final boolean SUPPORTS_MULTI_KEYFORM = false;
 
