@@ -11,7 +11,7 @@
 #
 # `owner` names the workflow that launches the aggregate and the line that does it, or `via:` the
 # aggregate that launches it. `harm` cites the concrete user-harm mode when the gate is absent
-# (ARCHITECTURE_GOVERNANCE.md); both are mandatory, and a member must name a declared aggregate.
+# (docs/architecture/ARCHITECTURE_GOVERNANCE.md); both are mandatory, and a member must name a declared aggregate.
 # Member order is the registration order, so reordering a member list is a behaviour change.
 #
 # `@token` members are the dynamic collections the script binds (see verification.gradle.kts); an

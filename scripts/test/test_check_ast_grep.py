@@ -22,6 +22,7 @@ from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 CHECKER = SCRIPTS_DIR / "check_ast_grep.py"
+EXPECTED_CONFIG = "tooling/ast-grep/sgconfig.yml"
 
 FAKE_BINARY = '''#!{python}
 import json, os, sys
@@ -134,8 +135,8 @@ class AstGrepGateTest(unittest.TestCase):
             [call[1:] for call in self.path.calls()],
             [
                 ["--version"],
-                ["test", "--config", "sgconfig.yml", "--skip-snapshot-tests"],
-                ["scan", "--config", "sgconfig.yml", "--error"],
+                ["test", "--config", EXPECTED_CONFIG, "--skip-snapshot-tests"],
+                ["scan", "--config", EXPECTED_CONFIG, "--error"],
             ],
         )
 

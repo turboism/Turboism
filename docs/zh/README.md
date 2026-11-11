@@ -97,13 +97,13 @@ cd Turboism
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
 
-示例插件仅供开发使用，不随发行包提供。提交前请运行受影响的针对性测试和 `./gradlew devCheck`。API、生命周期、事务和验证规则请参阅[架构说明](../../ARCHITECTURE.md)。
+示例插件仅供开发使用，不随发行包提供。提交前请运行受影响的针对性测试和 `./gradlew devCheck`。API、生命周期、事务和验证规则请参阅[架构说明](../architecture/ARCHITECTURE.md)。
 
 ## 文档
 
 - [用户与开发者文档](https://docs.turboism.dev)
-- [架构说明](../../ARCHITECTURE.md)与[路线图](../../ROADMAP.md)
+- [架构说明](../architecture/ARCHITECTURE.md)与[路线图](../ROADMAP.md)
 - [SDK API 契约与兼容性](../../sdk/api-contracts/)及[当前公开 SDK 表面](../../sdk/api-contracts/current.txt)
 - [示例插件](../../plugins/demo/README.md)与独立的[插件模板](../../templates/plugin-template/)
 - [Java 安装器详细说明](../../packaging/java-installer/README-java-installer.md)
-- [发布流程](../../RELEASING.md)与[更新日志](../en/CHANGELOG.md)
+- [发布流程](../RELEASING.md)与[更新日志](../en/CHANGELOG.md)

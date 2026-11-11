@@ -6,7 +6,7 @@ runtime format, no migration, no support claim and no fixture.
 
 Read it with the two existing contracts:
 
-- `ARCHITECTURE_GOVERNANCE.md` — golden snapshot contract and recovery point contract.
+- `docs/architecture/ARCHITECTURE_GOVERNANCE.md` — golden snapshot contract and recovery point contract.
 - `testing/fixtures/snapshots/manifest.json` + `scripts/check_golden_snapshots.py` — the immutable
   fixture inventory and its checker.
 

@@ -11,7 +11,7 @@
 # a second reviewer with write access exists.
 #
 # The paths that actually need care (persisted formats, migration gates, API
-# baselines, verification wiring) are named in ARCHITECTURE_GOVERNANCE.md and are
+# baselines, verification wiring) are named in docs/architecture/ARCHITECTURE_GOVERNANCE.md and are
 # enforced by gates, not by a routing table: centralized gate wiring is checked by
 # `scripts/test/test_ci_coverage.py`, not by a reviewer ping.
 

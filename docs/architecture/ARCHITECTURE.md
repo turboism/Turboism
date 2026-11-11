@@ -156,7 +156,7 @@ it authorizes no Core or Editor operation. The exception is closed, not a preced
 SDK type may expose a native handle, neither method may gain overloads or companion accessors,
 and the shape stays frozen in the published API baselines.
 
-Turboism publishes one public SDK tier. Before the first formal release, maintainers review the generated public classfile surface without treating a pre-release snapshot as a compatibility promise. The first released SDK artifact establishes the compatibility baseline for later releases. Cubism Editor version restrictions are declared separately with `@CubismEditor` and exact-version catalogs. The full version-adaptation contract — coverage targets, evidence requirements, derivation tooling, and the `devCheck` gates that enforce it — lives in `CONTRIBUTING.md` under "Cubism version adaptation".
+Turboism publishes one public SDK tier. Before the first formal release, maintainers review the generated public classfile surface without treating a pre-release snapshot as a compatibility promise. The first released SDK artifact establishes the compatibility baseline for later releases. Cubism Editor version restrictions are declared separately with `@CubismEditor` and exact-version catalogs. The full version-adaptation contract — coverage targets, evidence requirements, derivation tooling, and the `devCheck` gates that enforce it — lives in `.github/CONTRIBUTING.md` under "Cubism version adaptation".
 
 Exact API baselines accumulate one per reviewed SDK revision and stay in release verification. A baseline may be retired only once a stable (1.x) SDK baseline supersedes it, and the retirement must be recorded in that release's notes; the newest baseline is never retired.
 
@@ -463,4 +463,4 @@ Turboism uses short-form SDD rather than mandatory project-wide TDD. Before impl
 
 TDD may be used locally for pure algorithms, parsers, and reproducible bug fixes. It is not a requirement to produce one test or contract per method, and broad suites are not rerun after every edit.
 
-M1–M16, M13/M14-style stages, migration boards, capability/readiness ledgers, and closure reports do not define current work or completion. Tracked authority is this architecture, `ROADMAP.md`, the current task specification, executable tests, and exact-host results. A local ignored `AGENTS.md` may describe operator workflow but is not a repository contract.
+M1–M16, M13/M14-style stages, migration boards, capability/readiness ledgers, and closure reports do not define current work or completion. Tracked authority is this architecture, `docs/ROADMAP.md`, the current task specification, executable tests, and exact-host results. A local ignored `AGENTS.md` may describe operator workflow but is not a repository contract.

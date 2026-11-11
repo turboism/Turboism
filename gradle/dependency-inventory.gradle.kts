@@ -11,7 +11,7 @@ import org.gradle.api.artifacts.ProjectDependency
  * `scripts/dev/dependency_inventory.py`, which adds the `:runtime` package graph
  * and its dependency cycles.
  *
- * The committed baseline is `architecture/dependency-inventory.json`. The gate
+ * The committed baseline is `docs/architecture/dependency-inventory.json`. The gate
  * fails closed when the graph drifts, so a new module edge or a new package
  * cycle is a reviewed change instead of an accident.
  */
@@ -28,6 +28,7 @@ private val inventoryConfigurations = listOf(
     "testRuntimeOnly"
 )
 
+val committedDependencyInventory = "docs/architecture/dependency-inventory.json"
 val dependencyInventoryProjectGraph =
     layout.buildDirectory.file("architecture/dependency-inventory-project-graph.json")
 
@@ -73,7 +74,7 @@ tasks.register<Exec>("checkDependencyInventory") {
     workingDir(rootDir)
     dependsOn(dependencyInventoryRaw)
     inputs.file("scripts/dev/dependency_inventory.py")
-    inputs.file("architecture/dependency-inventory.json")
+    inputs.file(committedDependencyInventory)
     inputs.files(fileTree("runtime/src/main/java") { include("**/*.java") })
     VerificationStamps.apply(this)
     commandLine(

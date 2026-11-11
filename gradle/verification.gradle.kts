@@ -827,7 +827,7 @@ val checkRepositoryHygiene by tasks.registering(Exec::class) {
  * shellcheck runs at error severity only: warnings stay advisory so the gate only
  * blocks on real error-class findings. A missing shellcheck binary fails the gate
  * instead of silently skipping it; CI installs it via apt (see .github/workflows/ci.yml)
- * and CONTRIBUTING.md lists it as a local build requirement.
+ * and .github/CONTRIBUTING.md lists it as a local build requirement.
  */
 tasks.register<Exec>("checkShellLint") {
     group = "verification"
@@ -1060,15 +1060,17 @@ tasks.register<JacocoReport>("jacocoAggregateReport") {
 }
 
 /*
- * scripts/ and validation/ probe lint is part of the daily gate: ruff.toml pins the
+ * scripts/ and validation/ probe lint is part of the daily gate: tooling/ruff.toml pins the
  * rule set and the wrapper pins the ruff release, so the baseline cannot drift with
  * ambient tools.
  */
+val ruffConfig = "tooling/ruff.toml"
+
 tasks.register<Exec>("checkPythonLint") {
     group = "verification"
-    description = "Lints scripts/ and validation/ with the pinned ruff ruleset in ruff.toml."
+    description = "Lints scripts/ and validation/ with the pinned ruff ruleset in tooling/ruff.toml."
     workingDir(rootDir)
-    inputs.file("ruff.toml")
+    inputs.file(ruffConfig)
     inputs.files("scripts/check_python_lint.py")
     inputs.files(fileTree("scripts") { include("**/*.py") })
     inputs.files(fileTree("validation") { include("**/*.py") })
@@ -1639,7 +1641,7 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
         "scripts/test/test_release_orchestrator.py",
         "scripts/test/test_release_promotion.py",
         ".github/workflows/release-github-only.yml",
-        "RELEASING.md",
+        "docs/RELEASING.md",
         "docs/en/CHANGELOG.md",
         ".github/workflows/release.yml"
     )

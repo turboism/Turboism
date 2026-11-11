@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fail-closed Python lint gate for scripts/ and validation/ probes.
 
-Runs `ruff check` against the repo's ruff.toml. The pinned release keeps results
+Runs `ruff check` against the repo's tooling/ruff.toml. The pinned release keeps results
 identical across machines — a different ruff version fails with an install hint
 rather than silently widening or narrowing the rule set.
 
@@ -17,6 +17,7 @@ from typing import NoReturn
 from turboism_dev.paths import repo_root
 
 ROOT = repo_root()
+RUFF_CONFIG = ROOT / "tooling/ruff.toml"
 PINNED_RUFF = "0.16.9"
 
 
@@ -49,7 +50,7 @@ def main() -> int:
         fail(f"ruff {observed} found, expected {PINNED_RUFF}; "
              f"install with: python3 -m pip install \"ruff=={PINNED_RUFF}\"")
     result = subprocess.run(
-        command + ["check", "--config", str(ROOT / "ruff.toml"), "scripts/", "validation/"],
+        command + ["check", "--config", str(RUFF_CONFIG), "scripts/", "validation/"],
         cwd=ROOT,
     )
     return result.returncode

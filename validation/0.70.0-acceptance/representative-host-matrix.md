@@ -17,7 +17,7 @@ The main agent owns host scheduling and final acceptance.
 This machine is Windows.
 
 The matrix uses the repository rule in
-[CONTRIBUTING.md](../../CONTRIBUTING.md#cubism-version-adaptation):
+[CONTRIBUTING.md](../../.github/CONTRIBUTING.md#cubism-version-adaptation):
 validate the lowest and highest reviewed patch of each affected minor line.
 Offline preflight runs first.
 A host PASS requires exact-host identity, fixture hashes, terminal evidence and safe cleanup.
@@ -488,7 +488,7 @@ The queue rules are in
 ## Evidence references
 
 - [representative-host-inventory.txt](representative-host-inventory.txt): retained raw inventory output.
-- [CONTRIBUTING.md](../../CONTRIBUTING.md#cubism-version-adaptation): representative matrix rule.
+- [CONTRIBUTING.md](../../.github/CONTRIBUTING.md#cubism-version-adaptation): representative matrix rule.
 - [reviewed-releases.json](../../compatibility/cubism/reviewed-releases.json): 20 Editor rows.
 - [core-api observed records](../../compatibility/cubism/core-api/observed/): exact Core JARs.
 - [core-model-read.json](../../compatibility/cubism/verification-src/core-model-read.json): Core profiles and selectors.
