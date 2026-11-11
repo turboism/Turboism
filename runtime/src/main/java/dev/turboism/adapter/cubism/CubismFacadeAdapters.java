@@ -218,42 +218,6 @@ final class CubismFacadeAdapters {
         };
     }
 
-    static dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi editorUiView(
-            final CubismFacadeImpl facade, final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi delegate) {
-        return new dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi() {
-            @Override
-            public boolean isAvailable() {
-                return delegate.isAvailable();
-            }
-
-            @Override
-            public dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel attach() {
-                facade.requireActiveScope();
-                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel panel = delegate.attach();
-                return new dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel() {
-                    @Override
-                    public void setText(final String text) {
-                        facade.requireActiveScope();
-                        panel.setText(text);
-                    }
-
-                    @Override
-                    public boolean isVisible() {
-                        // Plain visibility query: it must stay answerable so a polling
-                        // plugin can skip host reads, and it never touches host state.
-                        return panel.isVisible();
-                    }
-
-                    @Override
-                    public void close() {
-                        facade.requireActiveScope();
-                        panel.close();
-                    }
-                };
-            }
-        };
-    }
-
     static dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry algorithmRegistryView(
             final CubismFacadeImpl facade,
             final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry delegate) {

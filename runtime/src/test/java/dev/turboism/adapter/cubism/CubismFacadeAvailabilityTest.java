@@ -157,26 +157,6 @@ class CubismFacadeAvailabilityTest {
         assertTrue(facade.textureAtlasLayouts().isAvailable(), "layout view must report a connected provider");
         assertTrue(facade.textureAtlasPolygonLayouts().isAvailable(), "polygon view must follow the layout delegate");
         assertTrue(facade.textureAtlasEditorSession().isAvailable(), "session view must report a live binding");
-        assertTrue(facade.textureAtlasEditorUi().isAvailable(), "editor UI view must report an open surface");
-    }
-
-    @Test
-    void editorUiViewReportsClosedDelegate() {
-        final RuntimeTextureAtlasEditorUi ui = new RuntimeTextureAtlasEditorUi();
-        final CubismFacadeImpl facade = facade(
-                CubismModelAccess.unavailable(),
-                dev.turboism.sdk.cubism.core.CoreRuntimeInfo.unavailable(),
-                new TextureAtlasLayoutCoordinator(),
-                new TextureAtlasNativeInvocationCoordinator(),
-                () -> true,
-                ui,
-                RuntimeTextureAtlasEditorSession.unavailable(),
-                new RuntimeTextureAtlasLayoutAlgorithmRegistry());
-
-        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi view = facade.textureAtlasEditorUi();
-        assertTrue(view.isAvailable());
-        ui.close();
-        assertFalse(view.isAvailable(), "closing the backing UI must flip the view's probe");
     }
 
     /**

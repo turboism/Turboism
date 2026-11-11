@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
 import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface;
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface.MirrorAxisAngleControl;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
@@ -51,7 +51,7 @@ final class RuntimeMeshEditContributionSurfaceTest {
                 surface.contributeMirrorAxisAngleControl(new MeshEditContributionSurface.MirrorAxisAngleControl(
                         "mesh.mirror-axis.angle", "Label", "Reset", -180.0f, 180.0f, 0.5f, reported::set));
 
-        final MeshEditUiService.MirrorAxisAngleControl contributed = ui.contribution();
+        final MirrorAxisAngleControl contributed = ui.contribution();
         assertNotNull(contributed);
         assertEquals("mesh.mirror-axis.angle", contributed.contributionId());
         assertEquals("Label", contributed.label());

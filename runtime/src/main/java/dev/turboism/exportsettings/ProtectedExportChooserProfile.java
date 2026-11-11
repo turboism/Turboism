@@ -1,5 +1,6 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.adapter.cubism.profile.CubismExportHostProfile;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StaticSelector;
@@ -45,10 +46,10 @@ public record ProtectedExportChooserProfile(
     private static final int ACCESS_PRIVATE = 0x0002;
     private static final int FORBID_STATIC = StaticSelector.ACCESS_STATIC;
 
-    private static final String EXPORTER = "com/live2d/cubism/doc/model/exporter/b";
-    private static final String WINDOW_PANEL_5_2 = "com/live2d/ui/window/X";
-    private static final String WINDOW_PANEL_5_3 = "com/live2d/ui/window/V";
-    private static final String MODEL_SOURCE = "com/live2d/cubism/doc/model/CModelSource";
+    private static final String EXPORTER = CubismExportHostProfile.CHOOSER_EXPORTER;
+    private static final String WINDOW_PANEL_5_2 = CubismExportHostProfile.SETTINGS_WINDOW_PANEL_5_2;
+    private static final String WINDOW_PANEL_5_3 = CubismExportHostProfile.SETTINGS_WINDOW_PANEL_5_3;
+    private static final String MODEL_SOURCE = CubismExportHostProfile.SETTINGS_MODEL_SOURCE;
     private static final String FUNCTION2 = "kotlin/jvm/functions/Function2";
 
     /** The exact reviewed 5.1.00 tuple: the {@code X} window panel on its own reviewed build. */

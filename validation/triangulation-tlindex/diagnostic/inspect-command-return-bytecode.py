@@ -8,7 +8,7 @@ import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / 'scripts/test'))
+sys.path.insert(0, str(ROOT / 'scripts/sdk-api'))
 from sdk_api_baseline_model import ConstantPool, Reader
 
 

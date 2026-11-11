@@ -767,12 +767,9 @@ scripts/test/test_release_promotion.py
 scripts/test/test_release_tooling.py
 scripts/test/test_render_automesh_dump.py
 scripts/test/test_reviewed_releases.py
-scripts/test/test_reviewed_releases_index.py
 scripts/test/test_reviewed_releases_r1.py
 scripts/test/test_reviewed_releases_r2.py
 scripts/test/test_reviewed_releases_r3.py
-scripts/test/test_reviewed_releases_r4.py
-scripts/test/test_reviewed_releases_ranges.py
 scripts/test/test_status_bar_host_probe_packaging.sh
 scripts/test/test_sync_draft_pack_metadata.py
 scripts/test/test_test_corpus.py

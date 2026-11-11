@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.model-import-3d
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -55,7 +55,8 @@ interface: embedded
 
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
-完整功能（审核版本）：5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
+完整功能（审核版本）：5.3.00–5.3.04。
+- 部件不透明度写入 仅 5.3.00–5.3.04（[Cubism 5.3.00 新增部件离屏绘制（可设部件不透明度与剪贴蒙版）](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 

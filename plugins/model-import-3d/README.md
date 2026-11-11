@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.model-import-3d
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -72,7 +72,8 @@ corpus has not been rerun on every admitted version.
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
-Full feature set (reviewed versions): 5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04.
+Full feature set (reviewed versions): 5.3.00–5.3.04.
+- Part opacity writes only on 5.3.00–5.3.04（[Cubism 5.3.00 added Part offscreen drawing (part opacity and clipping masks)](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 
@@ -122,6 +123,10 @@ Plugin metadata names and descriptions have five language catalogs; the import d
 If the menu is missing, confirm that this development JAR is installed and enabled. If import is rejected, check the canvas size, file size and supported geometry/material limits above. Open the intended target model and start again after switching documents. At 0 / 0, adjust both angle parameters to see the side faces. File-picker cancellation makes no model changes.
 
 ## Changelog
+
+### 0.68.0
+
+- Align README metadata with the plugin descriptor.
 
 ### 0.1.0
 

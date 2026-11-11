@@ -1,5 +1,6 @@
 package dev.turboism.ui.filter;
 
+import dev.turboism.adapter.cubism.profile.CubismPaletteHostProfile;
 import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.ui.host.LogPaletteHostStructure;
 import java.awt.Component;
@@ -31,7 +32,7 @@ final class PaletteComponentFinder {
         final Window window = SwingUtilities.getWindowAncestor(component);
         return window != null
                 && window.isVisible()
-                && window.getClass().getName().startsWith("com.live2d.ui.window.CFrame");
+                && window.getClass().getName().startsWith(CubismPaletteHostProfile.FRAME_PREFIX);
     }
 
     static Object findPaletteRoot(
@@ -64,7 +65,7 @@ final class PaletteComponentFinder {
     static boolean matchesPaletteRoot(final Component component, final PaletteFilterHostOperations.PaletteKind kind) {
         final String name = component.getClass().getName();
         if (kind == PaletteFilterHostOperations.PaletteKind.DEFORMER) {
-            return name.startsWith("com.live2d.cubism.view.palette.deformer.CDeformerTreeTable");
+            return name.startsWith(CubismPaletteHostProfile.DEFORMER_TABLE_PREFIX);
         }
         return name.contains(kind.classHint);
     }
@@ -90,7 +91,7 @@ final class PaletteComponentFinder {
             // Native scene row listener (exact 5.3.02 class) carrying the palette in field "a".
             for (java.awt.event.MouseListener listener : table.getMouseListeners()) {
                 if (listener != null
-                        && listener.getClass().getName().equals("com.live2d.cubism.view.palette.scene.m")) {
+                        && listener.getClass().getName().equals(CubismPaletteHostProfile.SCENE_LISTENER_CLASS)) {
                     return table;
                 }
             }

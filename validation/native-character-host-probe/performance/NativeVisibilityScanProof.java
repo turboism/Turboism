@@ -1,4 +1,4 @@
-package dev.turboism.validation.modelimport3d.host;
+package dev.turboism.plugin.modelimport3d;
 import java.util.*;
 public class NativeVisibilityScanProof {
  static long[][] before(float[][] z,int pixels){

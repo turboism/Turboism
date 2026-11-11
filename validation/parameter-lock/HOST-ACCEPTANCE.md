@@ -7,11 +7,10 @@ status remains development-only; this document does not record a release.
 
 ## Procedure
 
-Build `previewBundle`, `:plugins:parameter-lock:jar`,
-`validation/shared/build-startup-assistance.sh` and
-`validation/parameter-lock-host-probe/build.sh`. Run through
-`scripts/preview/run-parameter-lock-host-validation.sh`; that wrapper delegates to
-the managed exact-host queue. The probe is validation tooling, not a release plugin.
+Build `previewBundle`, `:plugins:parameter-lock:jar` and
+`validation/shared/build-startup-assistance.sh`. The toolbar exerciser and its queue wrapper
+that produced the runs below are removed; [REMOVED.md](../REMOVED.md) names the commit
+that restores them. The recorded runs remain valid evidence for the release they cover.
 
 The production plugin and probe are separate JARs. Each run uses the reviewed
 official BAT, a task-owned CoW prefix and home, and a hash-verified model copy.

@@ -1,5 +1,6 @@
 package dev.turboism.ui.host;
 
+import dev.turboism.adapter.cubism.profile.CubismPaletteHostProfile;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
@@ -22,7 +23,7 @@ public final class LogPaletteHostStructure {
     /** Finds the non-editable Log text pane in the visible Cubism main frame. */
     public static JTextPane findLogTextPane() {
         for (Window window : Window.getWindows()) {
-            if (!window.isVisible() || !window.getClass().getName().startsWith("com.live2d.ui.window.CFrame")) {
+            if (!window.isVisible() || !window.getClass().getName().startsWith(CubismPaletteHostProfile.FRAME_PREFIX)) {
                 continue;
             }
             final JTextPane pane = findLogTextPane(window);

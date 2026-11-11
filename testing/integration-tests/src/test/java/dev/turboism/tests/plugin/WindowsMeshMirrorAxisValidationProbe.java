@@ -1,7 +1,7 @@
 package dev.turboism.tests.plugin;
 
 import dev.turboism.sdk.cubism.CubismPlugin;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorControl;
 import dev.turboism.sdk.plugin.PluginContext;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -76,7 +76,7 @@ public final class WindowsMeshMirrorAxisValidationProbe implements CubismPlugin 
         try {
             Files.createDirectories(outputDir);
             final var service =
-                    context.services().find(MeshMirrorAxisService.class).orElse(MeshMirrorAxisService.unavailable());
+                    context.services().find(MeshMirrorControl.class).orElse(MeshMirrorControl.unavailable());
             final float initial = service.currentAngleDegrees();
             service.setCurrentAngleDegrees(45.0f);
             final float afterSet = service.currentAngleDegrees();
@@ -109,7 +109,7 @@ public final class WindowsMeshMirrorAxisValidationProbe implements CubismPlugin 
         try {
             Files.createDirectories(outputDir);
             final var service =
-                    context.services().find(MeshMirrorAxisService.class).orElse(MeshMirrorAxisService.unavailable());
+                    context.services().find(MeshMirrorControl.class).orElse(MeshMirrorControl.unavailable());
             final StringBuilder report = new StringBuilder()
                     .append("status=")
                     .append(status)

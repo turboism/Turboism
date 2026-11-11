@@ -71,7 +71,6 @@
 |---|---|---|
 | `dev.turboism.sdk.cubism.CubismFacade#edit()` | method | 5.1.02–5.3.04 |
 | `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorSession()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorUi()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.CubismFacade#textureAtlasPolygonLayouts()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()` | method | 5.1.00–5.3.04 |
@@ -147,9 +146,7 @@
 | `dev.turboism.sdk.cubism.modeling.ModelingBrush` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.modeling.ModelingToolContext` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.modeling.ModelingToolRegistry` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.ui.HostViewPanel` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.ui.HostViewPanelHandle` | type | 5.2.00–5.3.04 |
@@ -166,8 +163,6 @@
 | `EXPAND_WARPDEFORMER` | EditorCommand | 5.3.00–5.3.04 | 真实边界 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
 | `HIDE_OR_RESTORE_PALETTE` | EditorCommand | 5.0.03–5.3.04 | 真实边界 | [5.0.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/) |
 | `MESH_EDIT_RESET` | EditorCommand | 5.3.02–5.3.04 | 真实边界 | [5.3.02](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
-| `MOVE_END` | EditorCommand | — | 真实边界 | — |
-| `MOVE_END_WORKSPACE` | EditorCommand | — | 真实边界 | — |
 | `OPEN_FAQ_PAGE` | EditorCommand | 5.0.00–5.2.03 | 真实边界 | — |
 | `PARAM_CONTROLLER_CONVERT_TO_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 | 真实边界 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
 | `PARAM_CONTROLLER_LINE_PARAM_CTRL_REVERSE_DIRECTION` | EditorCommand | 5.2.00–5.3.04 | 真实边界 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
@@ -233,8 +228,6 @@ Cubism Editor 本身缺少相应功能的已确认宿主边界，均经官方更
 | `command:SHOW_LABEL_COPY_DIALOG` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | 5.3 rename of the 5.2 SHOW_SHOW_LABEL_COPY_DIALOG command. |
 | `command:MESH_EDIT_RESET` | 5.0.00–5.3.01 | [5.3.02](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Command added in Cubism 5.3.02. |
 | `command:OPEN_FAQ_PAGE` | 5.3.00–5.3.04 | — | Command was dropped in Cubism 5.3 (present through 5.2.03). |
-| `command:MOVE_END` | 5.0.00–5.3.04 | — | Dead constant: the id exists in no reviewed jar. |
-| `command:MOVE_END_WORKSPACE` | 5.0.00–5.3.04 | — | Dead constant: the id exists in no reviewed jar. |
 | `cubism.autobackup.settings` | 5.0.00–5.0.06 | — | com/live2d/cubism/doc/modeling/CModelingDocument::getDocumentUID()Ljava/lang/String; is absent on every 5.0.x jar (MEMBER_MISSING); the document-UID identity chain the autobackup session depends on was introduced in 5.1 — 5.0.x exposes only getFileContentInstanceGuid(). |
 | `cubism.autobackup.backup` | 5.0.00–5.0.06 | — | com/live2d/cubism/doc/modeling/CModelingDocument::getDocumentUID()Ljava/lang/String; is absent on every 5.0.x jar (MEMBER_MISSING); the document-UID identity chain the autobackup session depends on was introduced in 5.1 — 5.0.x exposes only getFileContentInstanceGuid(). |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService` | 5.0.00–5.0.06 | — | Auto-backup service requires the document-UID identity chain introduced in Cubism 5.1.00. |

@@ -4,8 +4,8 @@ These test-only command-line harnesses do not enter release packaging or modify 
 
 ```bash
 javac --release 17 -cp "$plugin_jar:$sdk_jar" -d /tmp/native-import-performance-proof validation/native-character-host-probe/performance/*.java
-java -Xmx1g -cp "/tmp/native-import-performance-proof:$plugin_jar:$sdk_jar" dev.turboism.validation.modelimport3d.host.NativeVisibilityScanProof
-java -Xmx4g -cp "/tmp/native-import-performance-proof:$plugin_jar:$sdk_jar" dev.turboism.validation.modelimport3d.host.NativePreparationProof "$fixture_path"
+java -Xmx1g -cp "/tmp/native-import-performance-proof:$plugin_jar:$sdk_jar" dev.turboism.plugin.modelimport3d.NativeVisibilityScanProof
+java -Xmx4g -cp "/tmp/native-import-performance-proof:$plugin_jar:$sdk_jar" dev.turboism.plugin.modelimport3d.NativePreparationProof "$fixture_path"
 ```
 
 The scan proof compares the original pixel-major vote traversal with the production row-major traversal on a deterministic sparse 39,950,000-entry depth table. It checks exact equality before reporting medians after two warm-ups. This isolates memory locality; its speedup is not a full import speedup.
@@ -21,7 +21,7 @@ For native host stacks, opt into `-Dturboism.character.sampleStacks=true` throug
 This is a geometry diagnostic, **not native rendered RGBA acceptance**: it uses exact projected source vertices rather than Cubism's interpolated vertices, thresholds source alpha, and does not simulate full alpha blending. Counts must not be described as final visual-error percentages. `-Ddiagnostic.culling=true` is an explicitly test-only paint candidate: it culls painted back faces while the nearest-depth reference retains the original material's double-sided semantics. `missing` counts source-visible pixels left uncovered by the candidate, and remains part of `wrong`/`external`. Complete holes have an infinite depth gap. This option is never a production default. Earlier culling reports that also changed the reference coverage are not comparable to the original source and cannot establish a visual improvement. Input selection is explicit and the input is read-only.
 
 ```bash
-java -Xmx4g -cp "/tmp/native-import-performance-proof:$plugin_jar:$sdk_jar" dev.turboism.validation.modelimport3d.host.NativeOcclusionDiagnostic "$fixture_path" /tmp/native-occlusion-check
+java -Xmx4g -cp "/tmp/native-import-performance-proof:$plugin_jar:$sdk_jar" dev.turboism.plugin.modelimport3d.NativeOcclusionDiagnostic "$fixture_path" /tmp/native-occlusion-check
 ```
 
 ## Shared-vertex interpolation regression
@@ -39,7 +39,7 @@ The original adaptive-density implementation separated the shared vertex by 2.96
 The diagnostic includes a public synthetic culling-reference regression:
 
 ```bash
-java -Xmx1g -cp "/tmp/native-import-performance-proof:$plugin_jar:$sdk_jar" dev.turboism.validation.modelimport3d.host.NativeOcclusionDiagnostic --self-test
+java -Xmx1g -cp "/tmp/native-import-performance-proof:$plugin_jar:$sdk_jar" dev.turboism.plugin.modelimport3d.NativeOcclusionDiagnostic --self-test
 ```
 
 A source-visible double-sided back face covers 22,472 reference pixels. The culled candidate must retain that reference coverage and report 22,472 missing/wrong pixels. A faulty reference that applies the candidate culling policy reports zero reference pixels and is rejected by the test. This protects the diagnostic; it does not establish correct final native character rendering.

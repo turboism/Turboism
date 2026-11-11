@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface.MirrorAxisAngleControl;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -31,7 +31,7 @@ final class MeshMirrorLinkedDeletionTest {
     void deletesNothingWhenNoPluginHasRegisteredThePolicy() {
         final List<String> diagnostics = new ArrayList<>();
         final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
-        ui.contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
+        ui.contributeMirrorAxisAngleControl(new MirrorAxisAngleControl(
                 "mesh.mirror-axis.angle", "Angle", "Reset", -180.0f, 180.0f, 0.1f, ignored -> {}));
         NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), ui);
         NativeMeshMirrorBridge.mirrorForTesting(new Mirror(true));
@@ -462,7 +462,7 @@ final class MeshMirrorLinkedDeletionTest {
     private static List<String> install(final boolean mirrorEnabled) {
         final List<String> diagnostics = new ArrayList<>();
         final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
-        ui.contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
+        ui.contributeMirrorAxisAngleControl(new MirrorAxisAngleControl(
                 "mesh.mirror-axis.angle", "Angle", "Reset", -180.0f, 180.0f, 0.1f, ignored -> {}));
         NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), ui);
         NativeMeshMirrorBridge.mirrorForTesting(new Mirror(mirrorEnabled));

@@ -1,104 +1,21 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel;
 import java.awt.BorderLayout;
-import java.awt.GraphicsEnvironment;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 class RuntimeTextureAtlasEditorUiTest {
-
-    @Test
-    void rebindMovesPanelsToTheLatestViewAndCloseDetachesThem() throws Exception {
-        final RuntimeTextureAtlasEditorUi ui = boundUi();
-        final JPanel first = new JPanel(new BorderLayout());
-        final JPanel second = new JPanel(new BorderLayout());
-        ui.ingress().accept(first);
-        final var panel = ui.attach();
-        panel.setText("Atlas statistics");
-
-        final JPanel panelContainer = (JPanel) first.getComponent(0);
-        final JLabel label = (JLabel) panelContainer.getComponent(0);
-        assertEquals("<html>Atlas statistics</html>", label.getText());
-        assertSame(panelContainer, label.getParent());
-        assertSame(first, ui.view());
-
-        ui.ingress().accept(second);
-
-        assertEquals(0, first.getComponentCount());
-        assertEquals(1, second.getComponentCount());
-        assertSame(label, ((JPanel) second.getComponent(0)).getComponent(0));
-        assertSame(second, ((JPanel) label.getParent()).getParent());
-        assertSame(second, ui.view());
-
-        ui.close();
-
-        assertEquals(0, second.getComponentCount());
-        assertNull(label.getParent());
-        assertNull(ui.view());
-        assertThrows(IllegalStateException.class, ui::attach);
-    }
-
-    @Test
-    void pluginPanelsShareOneSouthContainerRatherThanReplacingEachOther() {
-        final RuntimeTextureAtlasEditorUi ui = boundUi();
-        final JPanel view = new JPanel(new BorderLayout());
-        final var first = ui.attach();
-        final var second = ui.attach();
-        ui.ingress().accept(view);
-        assertEquals(1, view.getComponentCount());
-        assertEquals(2, ((JPanel) view.getComponent(0)).getComponentCount());
-
-        first.close();
-        first.close();
-
-        assertEquals(1, view.getComponentCount());
-        assertEquals(1, ((JPanel) view.getComponent(0)).getComponentCount());
-        second.setText("remaining");
-        assertEquals("<html>remaining</html>", ((JLabel) ((JPanel) view.getComponent(0)).getComponent(0)).getText());
-        ui.close();
-        assertEquals(0, view.getComponentCount());
-    }
-
-    @Test
-    void deactivateDetachesButPreservesPanelsForTheNextHostGeneration() {
-        final RuntimeTextureAtlasEditorUi ui = boundUi();
-        final JPanel first = new JPanel(new BorderLayout());
-        final JPanel second = new JPanel(new BorderLayout());
-        final var panel = ui.attach();
-        panel.setText("Atlas statistics");
-        ui.ingress().accept(first);
-        final JLabel label = (JLabel) ((JPanel) first.getComponent(0)).getComponent(0);
-
-        ui.deactivate();
-
-        assertEquals(0, first.getComponentCount());
-        assertNull(ui.view());
-        ui.bind(2, resolver());
-        ui.ingress().accept(second);
-        assertSame(second, ui.view());
-        assertSame(label, ((JPanel) second.getComponent(0)).getComponent(0));
-        assertEquals("<html>Atlas statistics</html>", label.getText());
-
-        ui.close();
-    }
 
     @Test
     void bindingWithoutPluginPanelsDoesNotDisturbNativeLayout() {
@@ -119,90 +36,46 @@ class RuntimeTextureAtlasEditorUiTest {
     }
 
     @Test
-    void closeBeforeBindingRejectsLateIngressAndAttachment() {
+    void bindingCapturesTheGenerationResolverAndView() {
+        final RuntimeTextureAtlasEditorUi ui = boundUi();
+        final JPanel view = new JPanel(new BorderLayout());
+
+        ui.ingress().accept(view);
+
+        final var binding = ui.binding();
+        assertNotNull(binding);
+        assertSame(view, binding.view());
+        ui.close();
+    }
+
+    @Test
+    void closeBeforeBindingRejectsLateIngress() {
         final RuntimeTextureAtlasEditorUi ui = boundUi();
         final JPanel view = new JPanel(new BorderLayout());
 
         ui.close();
         ui.ingress().accept(view);
 
-        assertEquals(0, view.getComponentCount());
         assertNull(ui.view());
-        assertThrows(IllegalStateException.class, ui::attach);
+        assertNull(ui.binding());
     }
 
     @Test
-    void swingMutationsRunOnTheEventDispatchThread() {
+    void deactivateDetachesTheViewAndAcceptsTheNextHostGeneration() {
         final RuntimeTextureAtlasEditorUi ui = boundUi();
-        final ThreadCheckingPanel view = new ThreadCheckingPanel();
+        final JPanel first = new JPanel(new BorderLayout());
+        final JPanel second = new JPanel(new BorderLayout());
+        ui.ingress().accept(first);
+        assertSame(first, ui.view());
 
-        ui.ingress().accept(view);
-        final var panel = ui.attach();
-        panel.setText("Atlas statistics");
-        panel.close();
+        ui.deactivate();
 
-        assertFalse(view.offEdtMutation.get());
+        assertNull(ui.view());
+        assertNull(ui.binding());
+        ui.bind(2, resolver());
+        ui.ingress().accept(second);
+        assertSame(second, ui.view());
         ui.close();
-    }
-
-    @Test
-    void panelReportsHiddenWhileTheHostViewIsNotOnScreen() {
-        final RuntimeTextureAtlasEditorUi ui = boundUi();
-        final JPanel view = new JPanel(new BorderLayout());
-        final var panel = ui.attach();
-        ui.ingress().accept(view);
-
-        assertFalse(panel.isVisible(), "a panel in a view that was never shown reports hidden");
-
-        panel.close();
-
-        assertFalse(panel.isVisible(), "a detached panel never reports visible");
-        ui.close();
-    }
-
-    @Test
-    void panelVisibilityFollowsTheShowingHostView() throws Exception {
-        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless(), "requires a displayable host window");
-        final RuntimeTextureAtlasEditorUi ui = boundUi();
-        final JPanel view = new JPanel(new BorderLayout());
-        ui.ingress().accept(view);
-        final var panel = ui.attach();
-        final JFrame frame = new JFrame("atlas host fixture");
-        try {
-            SwingUtilities.invokeAndWait(() -> {
-                frame.setContentPane(view);
-                frame.pack();
-                frame.setVisible(true);
-            });
-            assertTrue(awaitVisible(panel, true), "a panel in a showing host view reports visible");
-
-            SwingUtilities.invokeAndWait(() -> frame.setVisible(false));
-
-            assertTrue(awaitVisible(panel, false), "hiding the host view reports hidden again so polling stops");
-        } finally {
-            SwingUtilities.invokeAndWait(frame::dispose);
-            ui.close();
-        }
-    }
-
-    /** Drains queued EDT hierarchy events until the panel reports the expected visibility. */
-    private static boolean awaitVisible(final TextureAtlasEditorPanel panel, final boolean expected) throws Exception {
-        for (int attempt = 0; attempt < 100; attempt++) {
-            if (panel.isVisible() == expected) return true;
-            SwingUtilities.invokeAndWait(() -> {});
-            Thread.sleep(10L);
-        }
-        return panel.isVisible() == expected;
-    }
-
-    @Test
-    void isAvailableReflectsTheClosedState() {
-        final RuntimeTextureAtlasEditorUi ui = new RuntimeTextureAtlasEditorUi();
-
-        assertTrue(ui.isAvailable(), "an open editor UI surface reports available");
-
-        ui.close();
-        assertFalse(ui.isAvailable(), "a closed surface reports unavailable");
     }
 
     private static RuntimeTextureAtlasEditorUi boundUi() {
@@ -242,45 +115,6 @@ class RuntimeTextureAtlasEditorUiTest {
         private void reset() {
             revalidations = 0;
             repaints = 0;
-        }
-    }
-
-    private static final class ThreadCheckingPanel extends JPanel {
-        private final AtomicBoolean offEdtMutation;
-
-        private ThreadCheckingPanel() {
-            super(new BorderLayout());
-            offEdtMutation = new AtomicBoolean();
-        }
-
-        @Override
-        public void add(final java.awt.Component component, final Object constraints) {
-            checkEdt();
-            super.add(component, constraints);
-        }
-
-        @Override
-        public void remove(final java.awt.Component component) {
-            checkEdt();
-            super.remove(component);
-        }
-
-        @Override
-        public void revalidate() {
-            checkEdt();
-            super.revalidate();
-        }
-
-        @Override
-        public void repaint() {
-            checkEdt();
-            super.repaint();
-        }
-
-        private void checkEdt() {
-            if (offEdtMutation != null && !SwingUtilities.isEventDispatchThread()) {
-                offEdtMutation.set(true);
-            }
         }
     }
 }

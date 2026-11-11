@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface;
 import dev.turboism.sdk.cubism.mesh.MeshEditParticipant;
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.Objects;
 
@@ -37,23 +36,6 @@ public final class RuntimeMeshEditContributionSurface implements MeshEditContrib
     @Override
     public Registration contributeMirrorAxisAngleControl(final MirrorAxisAngleControl contribution) {
         Objects.requireNonNull(contribution, "contribution");
-        return ui.contributeMirrorAxisAngleControl(releasedForm(contribution));
-    }
-
-    /**
-     * Adapts the consolidated control definition to the released record the native injection
-     * path is keyed on. Both records validate their own arguments, so one conversion keeps the
-     * two surfaces from drifting.
-     */
-    @SuppressWarnings("removal") // the native injection path is keyed on the released record
-    private static MeshEditUiService.MirrorAxisAngleControl releasedForm(final MirrorAxisAngleControl contribution) {
-        return new MeshEditUiService.MirrorAxisAngleControl(
-                contribution.contributionId(),
-                contribution.label(),
-                contribution.resetToolTip(),
-                contribution.minimumDegrees(),
-                contribution.maximumDegrees(),
-                contribution.stepDegrees(),
-                contribution.onAngleChanged());
+        return ui.contributeMirrorAxisAngleControl(contribution);
     }
 }

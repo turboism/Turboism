@@ -1,7 +1,7 @@
 {
   "format": "turboism.sdk-api-since",
   "baseline": "0.67.0",
-  "surfaceSha256": "266bec3055c22bda9a99a20afbafa1feb2b7c4dfc7633fadeb091e4ccadc3888",
+  "surfaceSha256": "fefd53fdec067602e91631e40c6d5ed773fcd99ec19b9b6542902491a05620d0",
   "classes": {
     "dev.turboism.sdk.cubism.CubismActivitySnapshot": "0.70.0",
     "dev.turboism.sdk.cubism.command.ReviewedVersions": "0.67.2",
@@ -103,7 +103,6 @@
     "dev.turboism.sdk.cubism.physics.PhysicsEditorService#gifCommand:(Ldev/turboism/sdk/cubism/physics/PhysicsEditorService$GifCommand;)V": "0.70.0",
     "dev.turboism.sdk.cubism.psd.PsdEditFile#openInApplication:(Ljava/lang/String;)Ljava/util/concurrent/CompletionStage;": "0.67.2",
     "dev.turboism.sdk.cubism.recentfile.RecentFileService#open:(Ldev/turboism/sdk/cubism/recentfile/RecentFileId;)Z": "0.70.0",
-    "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel#isVisible:()Z": "0.70.0",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem#<init>:(Ljava/lang/String;IILdev/turboism/sdk/cubism/textureatlas/TextureAtlasOutline;)V": "0.67.4",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem#outline:()Ldev/turboism/sdk/cubism/textureatlas/TextureAtlasOutline;": "0.67.4",
     "dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan#<init>:(IIILjava/util/List;Ljava/util/List;DLjava/util/List;)V": "0.67.2",

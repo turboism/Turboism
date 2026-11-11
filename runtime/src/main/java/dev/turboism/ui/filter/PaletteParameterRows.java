@@ -1,5 +1,6 @@
 package dev.turboism.ui.filter;
 
+import dev.turboism.adapter.cubism.profile.CubismPaletteHostProfile;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.awt.Component;
 import java.awt.Container;
@@ -113,7 +114,8 @@ final class PaletteParameterRows {
     }
 
     static JComponent parameterRowComponent(final Component label, final boolean folder) {
-        final String expected = folder ? "com.live2d.ui.swingImpl.n" : "com.live2d.ui.swingImpl.p";
+        final String expected =
+                folder ? CubismPaletteHostProfile.PARAMETER_FOLDER_CLASS : CubismPaletteHostProfile.PARAMETER_ROW_CLASS;
         Component current = label;
         while (current != null && !(current instanceof JViewport)) {
             if (current instanceof JComponent component

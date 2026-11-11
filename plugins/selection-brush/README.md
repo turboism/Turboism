@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.selection-brush
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -90,6 +90,10 @@ The plugin has Preview status and is included in official release packages. Its 
 | Radius change takes effect later | Radius is locked when the stroke starts; the new value applies to the next stroke. |
 
 ## Changelog
+
+### 0.68.0
+
+- Align README metadata with the plugin descriptor.
 
 ### 0.1.0
 

@@ -148,6 +148,15 @@ def run_gradle(
 def main() -> None:
     tasks = [
         lambda: run_gradle(
+            "runtime-host-package-literal",
+            "class Fixture {}\n",
+            runtime_sources=((
+                "ui/Fixture.java",
+                'package dev.turboism.ui;\nclass Fixture { String owner = "com.live2d.fixture.Host"; }\n',
+            ),),
+            expected="Forbidden runtime host-package literal",
+        ),
+        lambda: run_gradle(
             "plugin-host-ui-traversal-whitespace",
             "import javax.swing.SwingUtilities;\n"
             "class Fixture { void inspect(javax.swing.JComponent c) "

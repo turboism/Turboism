@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -223,6 +223,10 @@ Offline follow-up: parallel requests below 32 items try serial packing first and
 | Layout is not applied | Check the Turboism log for packing or validation failure and verify that a texture-atlas session is active. |
 
 ## Changelog
+
+### 0.68.0
+
+- Align README metadata with the plugin descriptor.
 
 ### 0.1.0
 

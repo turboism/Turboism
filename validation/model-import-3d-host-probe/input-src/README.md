@@ -1,8 +1,9 @@
 # GLB input stage
 
-This directory contains input planning and the SDK creation consumer for the
-native importer. It is not included in the frozen joint-pose r2 or bulk r3 host
-packages. Decoding and planning use the SDK artifact's strict JSON codec and
+This directory contains probe consumers for the native importer.
+The plugin owns decoding, planning, and authoring sources under `plugins/model-import-3d/src/main/java/dev/turboism/plugin/modelimport3d/`.
+The probes compile against the plugin module JAR and the public SDK.
+Decoding and planning use the SDK artifact's strict JSON codec and
 shared projection values without document access. The creation consumer writes
 through public SDK operations when invoked by a caller; no code reads host internals.
 

@@ -4,7 +4,6 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.mesh.MeshDeletion;
 import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
 import dev.turboism.sdk.cubism.mesh.MeshEditParticipant;
-import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,13 +17,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * plugin-supplied code beyond that single call, and a participant that throws is dropped rather
  * than allowed to affect the host's own edit.</p>
  */
-@SuppressWarnings("removal") // the released interface this registry keeps serving
-public final class RuntimeMeshEditParticipation implements MeshEditParticipation {
+public final class RuntimeMeshEditParticipation {
 
     private static final long CALLBACK_BUDGET_NANOS = 10_000_000L;
     private final List<MeshEditParticipant> participants = new CopyOnWriteArrayList<>();
 
-    @Override
+    /** Registers one participant; closing the returned handle removes it again. */
     public Registration participate(final MeshEditParticipant participant) {
         Objects.requireNonNull(participant, "participant");
         participants.add(participant);

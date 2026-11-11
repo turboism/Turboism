@@ -93,15 +93,6 @@ LOCAL_PUBLICATION_RE = re.compile(
 PUBLICATION_CALL = "appendPublication("
 
 
-# Files allowed to declare a same-named class because theirs is a different
-# mechanism by design (private byte-array loaders inside offline harnesses).
-DECLARED_EXCEPTIONS = {
-    "FixtureLoader": (
-        "validation/atlas-image-kernel-probe/src/dev/turboism/validation/atlasimage/t033/T033OfflineHarness.java",
-        "validation/atlas-image-kernel-probe/src/dev/turboism/validation/atlasimage/t035/T035OfflineHarness.java",
-    ),
-}
-
 # A copy renamed to a different basename would still declare the same class.
 CLASS_RE = re.compile(
     r"\b(?:final\s+)?class\s+(RelocateJar|FixtureLoader|CodeSourceUrl|ProbeTerminal|ProbeAssertions)\b"
@@ -137,7 +128,7 @@ def findings(root: Path):
         relative = path.relative_to(root).as_posix()
         for match in CLASS_RE.finditer(path.read_text(encoding="utf-8")):
             declared = match.group(1) + ".java"
-            allowed = CANONICAL.get(declared, ()) + DECLARED_EXCEPTIONS.get(match.group(1), ())
+            allowed = CANONICAL.get(declared, ())
             if relative not in allowed:
                 violations.append(
                     f"{relative}: declares class {match.group(1)} outside the allowed set; "

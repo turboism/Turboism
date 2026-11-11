@@ -6,10 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
 import java.awt.Window;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -18,6 +21,14 @@ import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 
 class TurboismProgressDialogTest {
+    private static final int EDITOR_WIDTH = 800;
+    private static final int EDITOR_HEIGHT = 600;
+    private static final int EDITOR_INSET_X = 90;
+    private static final int EDITOR_INSET_Y = 80;
+    private static final int CENTER_TOLERANCE_PIXELS = 1;
+    private static final long PLACEMENT_SETTLE_TIMEOUT_MILLIS = 2_000L;
+    private static final long PLACEMENT_POLL_MILLIS = 10L;
+
     @Test
     void rejectsInvalidProgress() {
         try (var progress = new TurboismProgressDialog("Progress", "Preparing")) {
@@ -30,20 +41,27 @@ class TurboismProgressDialogTest {
     @Test
     void centersOnEditorAndSupportsWorkerUpdatesAndTerminalClose() throws Exception {
         assumeFalse(GraphicsEnvironment.isHeadless());
+        final Rectangle display = displayBounds();
+        final Rectangle editorBounds = editorBounds(display);
         JFrame[] editor = new JFrame[1];
         var progress = new TurboismProgressDialog("Shared progress test", "Preparing");
         try {
             SwingUtilities.invokeAndWait(() -> {
                 editor[0] = new JFrame("Live2D Cubism Editor - progress test");
-                editor[0].setBounds(90, 80, 800, 600);
+                editor[0].setBounds(editorBounds);
                 editor[0].setVisible(true);
             });
             progress.show();
+            final Rectangle dialogBounds = progressDialogBounds();
+            assumeTrue(
+                    display.contains(editorBounds) && display.contains(dialogBounds),
+                    "exact centering requires both windows inside the display " + display);
+            awaitCenteredOnEditor(editor[0]);
             SwingUtilities.invokeAndWait(() -> {
                 JDialog dialog = visibleProgress();
                 assertSame(editor[0], dialog.getOwner());
-                assertEquals(editor[0].getX() + editor[0].getWidth() / 2, dialog.getX() + dialog.getWidth() / 2, 1);
-                assertEquals(editor[0].getY() + editor[0].getHeight() / 2, dialog.getY() + dialog.getHeight() / 2, 1);
+                assertEquals(centerX(editor[0]), centerX(dialog), CENTER_TOLERANCE_PIXELS);
+                assertEquals(centerY(editor[0]), centerY(dialog), CENTER_TOLERANCE_PIXELS);
                 assertTrue(bar(dialog).isIndeterminate());
             });
             progress.setMessage("Applying");
@@ -77,6 +95,55 @@ class TurboismProgressDialogTest {
                 if (editor[0] != null) editor[0].dispose();
             });
         }
+    }
+
+    private static Rectangle displayBounds() {
+        return GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+    }
+
+    /**
+     * Fits the simulated editor inside the display. AWT clamps a centered top-level
+     * location to the display, so an oversized editor hides the real centering result.
+     */
+    private static Rectangle editorBounds(final Rectangle display) {
+        return new Rectangle(
+                display.x + EDITOR_INSET_X,
+                display.y + EDITOR_INSET_Y,
+                Math.min(EDITOR_WIDTH, Math.max(0, display.width - 2 * EDITOR_INSET_X)),
+                Math.min(EDITOR_HEIGHT, Math.max(0, display.height - 2 * EDITOR_INSET_Y)));
+    }
+
+    private static Rectangle progressDialogBounds() throws Exception {
+        final Rectangle[] bounds = new Rectangle[1];
+        SwingUtilities.invokeAndWait(() -> bounds[0] = visibleProgress().getBounds());
+        return bounds[0];
+    }
+
+    /** Waits for AWT to apply the requested location, which happens after the window maps. */
+    private static void awaitCenteredOnEditor(final JFrame editor) throws Exception {
+        final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(PLACEMENT_SETTLE_TIMEOUT_MILLIS);
+        while (!isCenteredOn(editor)) {
+            if (System.nanoTime() >= deadline) return;
+            Thread.sleep(PLACEMENT_POLL_MILLIS);
+        }
+    }
+
+    private static boolean isCenteredOn(final JFrame editor) throws Exception {
+        final boolean[] centered = new boolean[1];
+        SwingUtilities.invokeAndWait(() -> {
+            final JDialog dialog = visibleProgress();
+            centered[0] = Math.abs(centerX(dialog) - centerX(editor)) <= CENTER_TOLERANCE_PIXELS
+                    && Math.abs(centerY(dialog) - centerY(editor)) <= CENTER_TOLERANCE_PIXELS;
+        });
+        return centered[0];
+    }
+
+    private static int centerX(final Window window) {
+        return window.getX() + window.getWidth() / 2;
+    }
+
+    private static int centerY(final Window window) {
+        return window.getY() + window.getHeight() / 2;
     }
 
     private static JDialog visibleProgress() {

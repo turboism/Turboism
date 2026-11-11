@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.boundingbox-warp-mirror
-version: 0.1.0
+version: 0.68.0
 kind: feature
 status: preview
 delivery: store-candidate
@@ -103,6 +103,10 @@ nothing anywhere.
   presence, interpolated edit context, or unsolvable compensation).
 
 ## Changelog
+
+### 0.68.0
+
+- Align README metadata with the plugin descriptor.
 
 ### 0.1.0
 

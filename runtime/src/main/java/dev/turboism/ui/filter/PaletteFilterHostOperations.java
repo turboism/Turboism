@@ -1,5 +1,6 @@
 package dev.turboism.ui.filter;
 
+import dev.turboism.adapter.cubism.profile.CubismPaletteHostProfile;
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedAccessException;
@@ -503,8 +504,8 @@ public class PaletteFilterHostOperations
                 }
             }
             case DEFORMER -> {
-                final JTable table = PaletteComponentFinder.findTreeTable(
-                        "com.live2d.cubism.view.palette.deformer.CDeformerTreeTable");
+                final JTable table =
+                        PaletteComponentFinder.findTreeTable(CubismPaletteHostProfile.DEFORMER_TABLE_PREFIX);
                 if (table != null) {
                     return table;
                 }

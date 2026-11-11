@@ -183,12 +183,6 @@ public interface CubismFacade {
     }
 
     /** Returns UI contribution access to the native texture-atlas editor window. */
-    @dev.turboism.sdk.CubismEditor({
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
-    })
-    default dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi textureAtlasEditorUi() {
-        return dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi.unavailable();
-    }
 
     /** Returns the registry of registered texture-atlas layout algorithms. */
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {

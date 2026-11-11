@@ -2,7 +2,7 @@ package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.reflect.ReflectAccess;
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface.MirrorAxisAngleControl;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.host.EdtDispatch;
 import java.lang.reflect.Constructor;
@@ -25,15 +25,19 @@ import java.util.concurrent.atomic.AtomicReference;
  * the panel's own class loader, mirroring the reviewed legacy injection. Any
  * reflection failure fails closed and leaves the native UI unchanged.
  */
-@SuppressWarnings("removal") // the released interface this native control owner keeps serving
-public final class RuntimeMeshEditUiService implements MeshEditUiService {
+public final class RuntimeMeshEditUiService {
 
     private final AtomicReference<MirrorAxisAngleControl> contribution = new AtomicReference<>();
     private final List<Attachment> attachments = new ArrayList<>();
     private final AtomicReference<java.util.function.Consumer<Boolean>> contributionObserver = new AtomicReference<>();
     private final java.util.concurrent.atomic.AtomicLong epoch = new java.util.concurrent.atomic.AtomicLong();
 
-    @Override
+    /**
+     * Mounts the requested control on the native tool area; one contribution may be active.
+     *
+     * @param requested the control definition the plugin contributes, never {@code null}
+     * @return a handle that unmounts the control when it closes
+     */
     public Registration contributeMirrorAxisAngleControl(final MirrorAxisAngleControl requested) {
         Objects.requireNonNull(requested, "contribution");
         if (!contribution.compareAndSet(null, requested)) {

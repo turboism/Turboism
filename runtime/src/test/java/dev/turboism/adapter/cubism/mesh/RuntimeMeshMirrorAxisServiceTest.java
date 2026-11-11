@@ -5,14 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 import org.junit.jupiter.api.Test;
 
 class RuntimeMeshMirrorAxisServiceTest {
 
     @Test
     void storesTheCurrentAngleNormalizedToOneTurn() {
-        final MeshMirrorAxisService service = new RuntimeMeshMirrorAxisService();
+        final RuntimeMeshMirrorAxisService service = new RuntimeMeshMirrorAxisService();
 
         service.setCurrentAngleDegrees(225.0f);
 

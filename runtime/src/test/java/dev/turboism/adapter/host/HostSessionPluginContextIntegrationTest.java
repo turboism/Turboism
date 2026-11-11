@@ -2,6 +2,8 @@ package dev.turboism.adapter.host;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -398,9 +400,8 @@ class HostSessionPluginContextIntegrationTest {
             assertEquals(editorSession, session.textureAtlasEditorSession());
 
             final javax.swing.JPanel first = new javax.swing.JPanel(new java.awt.BorderLayout());
-            ui.attach().setText("Atlas statistics");
             ui.ingress().accept(first);
-            assertEquals(1, first.getComponentCount());
+            assertSame(first, ui.view());
 
             current.set(dualDescriptor("atlas-session-b", "atlas-session-b"));
             assertEquals(HostSession.State.ACTIVE, session.refresh());
@@ -410,7 +411,7 @@ class HostSessionPluginContextIntegrationTest {
 
             final javax.swing.JPanel second = new javax.swing.JPanel(new java.awt.BorderLayout());
             ui.ingress().accept(second);
-            assertEquals(1, second.getComponentCount());
+            assertSame(second, ui.view());
 
             current.set(null);
             assertEquals(HostSession.State.SAFE_MODE, session.refresh());
@@ -420,7 +421,7 @@ class HostSessionPluginContextIntegrationTest {
         } finally {
             session.close();
         }
-        assertThrows(IllegalStateException.class, ui::attach);
+        assertNull(ui.view());
     }
 
     @Test

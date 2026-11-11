@@ -29,6 +29,29 @@ class JavaSourceScanTest {
     private static final String INTERNAL_NOTE = "internal management contracts are not a plugin API";
 
     @Test
+    void confinesHostLiteralsToAdaptersAndTheExactPolicyConstant() {
+        String root = "runtime/src/main/java/dev/turboism/";
+        String access = "class Fixture { String owner = \"com.live2d.fixture.Host\"; }";
+        assertEquals(1, JavaSourceScan.hostPackageLiterals(
+                new JavaSourceScan.SourceFile(root + "ui/Fixture.java", List.of(access))).size());
+        assertTrue(JavaSourceScan.hostPackageLiterals(
+                new JavaSourceScan.SourceFile(root + "adapter/Fixture.java", List.of(access))).isEmpty());
+        assertTrue(JavaSourceScan.hostPackageLiterals(
+                new JavaSourceScan.SourceFile(root + "mapping/Fixture.java", List.of(access))).isEmpty());
+        assertTrue(JavaSourceScan.hostPackageLiterals(new JavaSourceScan.SourceFile(
+                root + "automesh/host/Fixture.java", List.of(access))).isEmpty());
+        assertTrue(JavaSourceScan.hostPackageLiterals(new JavaSourceScan.SourceFile(
+                root + "ui/Fixture.java", List.of("// com.live2d.fixture.Host", "/* \"com/live2d/fixture/Host\" */"))).isEmpty());
+        String policy = "public static final String CUBISM_RESOURCE_PREFIX = \"com/live2d/\";";
+        assertTrue(JavaSourceScan.hostPackageLiterals(new JavaSourceScan.SourceFile(
+                root + "internal/HostPackagePolicy.java", List.of(policy))).isEmpty());
+        assertEquals(1, JavaSourceScan.hostPackageLiterals(new JavaSourceScan.SourceFile(
+                root + "internal/HostPackagePolicy.java", List.of(access))).size());
+        assertEquals(1, JavaSourceScan.hostPackageLiterals(new JavaSourceScan.SourceFile(
+                root + "ui/Fixture.java", List.of(policy))).size());
+    }
+
+    @Test
     void reportsAForbiddenImport() {
         assertEquals(
                 List.of("Forbidden import in " + FIXTURE + ":1: SDK/plugins must not import runtime parameter internals"),

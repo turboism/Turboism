@@ -26,7 +26,7 @@ final class ImportStackSampler implements AutoCloseable {
                     var target = entry.getKey();
                     var stack = entry.getValue();
                     boolean importer = Arrays.stream(stack).anyMatch(f ->
-                            f.getClassName().startsWith("dev.turboism.validation.modelimport3d.host."));
+                            f.getClassName().startsWith("dev.turboism.plugin.modelimport3d."));
                     if (!target.getName().startsWith("AWT-EventQueue") && !importer) continue;
                     var key = new StringBuilder(target.getName()).append(" [").append(target.getState()).append("]\n");
                     for (var frame : stack) key.append("  ").append(frame).append('\n');

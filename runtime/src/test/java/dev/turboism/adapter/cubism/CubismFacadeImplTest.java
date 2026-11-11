@@ -552,8 +552,6 @@ class CubismFacadeImplTest {
                 algorithms);
         final var retainedLayouts = facade.textureAtlasLayouts();
         final var retainedSession = facade.textureAtlasEditorSession();
-        final var retainedUi = facade.textureAtlasEditorUi();
-        final var retainedPanel = retainedUi.attach();
         final var retainedAlgorithms = facade.textureAtlasAlgorithms();
         final var algorithm =
                 new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm("test", "Test", false, null);
@@ -563,8 +561,6 @@ class CubismFacadeImplTest {
 
         assertThrows(IllegalStateException.class, retainedLayouts::current);
         assertThrows(IllegalStateException.class, retainedSession::summary);
-        assertThrows(IllegalStateException.class, retainedUi::attach);
-        assertThrows(IllegalStateException.class, () -> retainedPanel.setText("stale"));
         assertThrows(IllegalStateException.class, () -> retainedAlgorithms.find("test"));
         assertThrows(IllegalStateException.class, retainedAlgorithms::algorithms);
         assertThrows(IllegalStateException.class, retainedRegistration::close);

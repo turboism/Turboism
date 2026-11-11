@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface.MirrorAxisAngleControl;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -45,15 +45,14 @@ final class RuntimeMeshEditUiServiceNativeTest {
             final RuntimeMeshEditUiService service = new RuntimeMeshEditUiService();
             final RuntimeMeshMirrorAxisService axis = new RuntimeMeshMirrorAxisService();
             final AtomicReference<Float> changed = new AtomicReference<>();
-            final var registration =
-                    service.contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
-                            "mesh.mirror-axis.angle",
-                            "Mirror Axis Rotation",
-                            "Reset to 0°",
-                            -180.0f,
-                            180.0f,
-                            0.1f,
-                            changed::set));
+            final var registration = service.contributeMirrorAxisAngleControl(new MirrorAxisAngleControl(
+                    "mesh.mirror-axis.angle",
+                    "Mirror Axis Rotation",
+                    "Reset to 0°",
+                    -180.0f,
+                    180.0f,
+                    0.1f,
+                    changed::set));
             // The host widget (createWidgetMirrorEditForMeshEdit's CVBox return value) is
             // the mount target; the panel's mirrorEditFoldingPane field is assigned only
             // after that method returns, so it is not available at hook time.
@@ -118,15 +117,8 @@ final class RuntimeMeshEditUiServiceNativeTest {
 
             final RuntimeMeshEditUiService service = new RuntimeMeshEditUiService();
             final RuntimeMeshMirrorAxisService axis = new RuntimeMeshMirrorAxisService();
-            final var registration =
-                    service.contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
-                            "mesh.mirror-axis.angle",
-                            "Mirror Axis Rotation",
-                            "",
-                            -180.0f,
-                            180.0f,
-                            0.1f,
-                            ignored -> {}));
+            final var registration = service.contributeMirrorAxisAngleControl(new MirrorAxisAngleControl(
+                    "mesh.mirror-axis.angle", "Mirror Axis Rotation", "", -180.0f, 180.0f, 0.1f, ignored -> {}));
             final Object widget = invoke(panel, "widgetForTesting");
             service.attachNative(panel, widget, axis);
             SwingUtilities.invokeAndWait(() -> {});
@@ -146,7 +138,7 @@ final class RuntimeMeshEditUiServiceNativeTest {
     void attachFailsClosedWhenHostControlClassesAreUnavailable() throws Exception {
         final RuntimeMeshEditUiService service = new RuntimeMeshEditUiService();
         final RuntimeMeshMirrorAxisService axis = new RuntimeMeshMirrorAxisService();
-        final var registration = service.contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
+        final var registration = service.contributeMirrorAxisAngleControl(new MirrorAxisAngleControl(
                 "mesh.mirror-axis.angle", "Mirror Axis Rotation", null, -180.0f, 180.0f, 0.1f, ignored -> {}));
         // A plain panel: no folding pane, and its loader cannot provide com.live2d classes.
         service.attachNative(new Object(), new Object(), axis);
@@ -164,7 +156,7 @@ final class RuntimeMeshEditUiServiceNativeTest {
         final RuntimeMeshEditUiService service = new RuntimeMeshEditUiService();
         final java.util.List<Boolean> changes = new ArrayList<>();
         final var observer = service.observeContribution(changes::add);
-        final var registration = service.contributeMirrorAxisAngleControl(new MeshEditUiService.MirrorAxisAngleControl(
+        final var registration = service.contributeMirrorAxisAngleControl(new MirrorAxisAngleControl(
                 "mesh.mirror-axis.angle", "Mirror Axis Rotation", "", -180.0f, 180.0f, 0.1f, ignored -> {}));
         registration.close();
         observer.close();

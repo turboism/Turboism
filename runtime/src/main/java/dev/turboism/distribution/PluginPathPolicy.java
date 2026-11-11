@@ -3,6 +3,7 @@ package dev.turboism.distribution;
 import dev.turboism.core.archive.ArchivePathPolicy;
 import dev.turboism.core.archive.ArchivePaths;
 import dev.turboism.core.archive.ArchiveStructureException;
+import dev.turboism.internal.HostPackagePolicy;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.List;
@@ -78,7 +79,8 @@ final class PluginPathPolicy {
                 || lower.startsWith("dev/turboism/test/")
                 || lower.startsWith("dev/turboism/testframework/")
                 || lower.startsWith("testframework/")) return true;
-        if (lower.startsWith("com/live2d/") || hostPrefix(lower) || nativeSuffix(lower)) return true;
+        if (lower.startsWith(HostPackagePolicy.CUBISM_RESOURCE_PREFIX) || hostPrefix(lower) || nativeSuffix(lower))
+            return true;
         return installer(lower);
     }
 

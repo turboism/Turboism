@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.sdk.cubism.mesh.MeshEditTool;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.EnumMap;
 import java.util.Map;
@@ -9,12 +8,16 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Shared registry consulted synchronously by the exact-host mirror eligibility hook. */
-@SuppressWarnings("removal") // the released interface this registry keeps serving
-public final class RuntimeMeshMirrorToolEligibility implements MeshMirrorToolEligibility {
+public final class RuntimeMeshMirrorToolEligibility {
 
     private final Map<MeshEditTool, Integer> registrations = new EnumMap<>(MeshEditTool.class);
 
-    @Override
+    /**
+     * Adds plugin-eligible tools to the shared set the eligibility hook consults.
+     *
+     * @param tools the tools to admit, nonempty and free of {@link MeshEditTool#UNKNOWN}
+     * @return a handle that withdraws the admission when it closes
+     */
     public Registration extendEligibleTools(final Set<MeshEditTool> tools) {
         final Set<MeshEditTool> contribution = Set.copyOf(Objects.requireNonNull(tools, "tools"));
         if (contribution.isEmpty() || contribution.contains(MeshEditTool.UNKNOWN)) {

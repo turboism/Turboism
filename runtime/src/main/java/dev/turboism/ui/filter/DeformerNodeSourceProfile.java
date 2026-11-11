@@ -1,5 +1,6 @@
 package dev.turboism.ui.filter;
 
+import dev.turboism.adapter.cubism.profile.CubismPaletteHostProfile;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.util.Objects;
@@ -27,7 +28,7 @@ import java.util.Optional;
 record DeformerNodeSourceProfile(String cubismVersion, String accessorName) {
 
     /** Exact generic tree-table node class pinned by the ui-control-appearance records. */
-    static final String OWNER_BINARY_NAME = "com.live2d.ui.treeTable.c";
+    static final String OWNER_BINARY_NAME = CubismPaletteHostProfile.DEFORMER_NODE_CLASS;
 
     /** Pinned accessor descriptor on {@link #OWNER_BINARY_NAME}. */
     static final String ACCESSOR_DESCRIPTOR = "()Ljava/lang/Object;";

@@ -64,7 +64,7 @@ def build(args):
         with (out/'build.log').open('ab') as log:subprocess.run(list(map(str,argv)),check=True,stdout=log,stderr=subprocess.STDOUT)
     run(['javac','--release','17','-encoding','UTF-8','-cp',out/'sdk.jar','-d',classes,*[snapshot/p.relative_to(ROOT) for p in sources]])
     shutil.copytree(snapshot/(HERE/'resources').relative_to(ROOT),classes,dirs_exist_ok=True)
-    fixture=classes/('dev/turboism/validation/modelimport3d/host/'+('surface.glb' if args.surface_fixture else 'cat.zip' if optimized else 'cat.glb' if args.cat else 'apple.glb' if args.apple else 'cube.glb'));shutil.copyfile(source,fixture)
+    fixture=classes/('dev/turboism/plugin/modelimport3d/'+('surface.glb' if args.surface_fixture else 'cat.zip' if optimized else 'cat.glb' if args.cat else 'apple.glb' if args.apple else 'cube.glb'));shutil.copyfile(source,fixture)
     if args.apple_editability:
         # Lossless source material copy for the isolated mesh-edit document.
         # Both source images use unit factors and the importer preserves texels at (1,1).
@@ -81,29 +81,29 @@ def build(args):
             if pixels.size!=(256,128) or any(p[3]!=255 for p in pixels.getdata()):raise ValueError('opaque exact source image required')
             for y in range(256):
                 for x in range(512):image.putpixel((tile*512+x,y),pixels.getpixel((max(0,min(255,x-1)),max(0,min(127,y-1)))))
-        image.save(classes/'dev/turboism/validation/modelimport3d/host/mesh-edit-copy.png')
-    if args.equivalent_chart_fixture:shutil.copyfile(args.equivalent_chart_fixture,classes/'dev/turboism/validation/modelimport3d/host/equivalent-chart26.bin')
-    if args.derived_source_fixture:shutil.copyfile(args.derived_source_fixture,classes/'dev/turboism/validation/modelimport3d/host/derived-bound-all98.bin')
+        image.save(classes/'dev/turboism/plugin/modelimport3d/mesh-edit-copy.png')
+    if args.equivalent_chart_fixture:shutil.copyfile(args.equivalent_chart_fixture,classes/'dev/turboism/plugin/modelimport3d/equivalent-chart26.bin')
+    if args.derived_source_fixture:shutil.copyfile(args.derived_source_fixture,classes/'dev/turboism/plugin/modelimport3d/derived-bound-all98.bin')
     if args.reject_fixtures:
         for p,name,digest in zip(fixture_paths,('intersecting-sheets.glb','cyclic-sheets.glb'),('dfae2a74e43fb58ac7faf76ab43230fa84293df8f1dc16017665a147da6232fc','6374ee20102596be9f0d9fb25536b9631ccb0202471acf125ffedbd2002f474a')):
-            require_file=classes/'dev/turboism/validation/modelimport3d/host'/name
+            require_file=classes/'dev/turboism/plugin/modelimport3d'/name
             if sha(p)!=digest:raise ValueError('rejection input identity')
             shutil.copyfile(p,require_file)
     if sha(fixture)!=source_sha or sha(source)!=source_sha:raise ValueError('input changed during freeze')
     jar=out/'model-import-3d-user-entry-probe.jar';run(['jar','--create','--file',jar,'-C',classes,'.'])
     with zipfile.ZipFile(jar) as z:
         names=z.namelist()
-        if any(n.endswith('.class') and not n.startswith('dev/turboism/validation/modelimport3d/host/') for n in names):raise ValueError('non-SDK consumer packaging')
+        if any(n.endswith('.class') and not n.startswith('dev/turboism/plugin/modelimport3d/') for n in names):raise ValueError('non-SDK consumer packaging')
         if any(n.endswith(('ModelImportPlugin.class','SurfaceImport.class','HostProbe.class')) for n in names):raise ValueError('production engine must not be embedded in driver')
     tests=out/'test-classes';tests.mkdir()
     run(['javac','--release','17','-encoding','UTF-8','-cp',out/'agent.jar','-d',tests,snapshot/packaging.relative_to(ROOT)])
     run(['java','-cp',str(tests)+':'+str(out/'agent.jar'),'dev.turboism.validation.modelimport3d.packaging.PluginJarCheck',jar])
     run(['javac','--release','17','-encoding','UTF-8','-cp',str(classes)+':'+str(out/'sdk.jar'),'-d',tests,snapshot/inputs[-1].relative_to(ROOT)])
-    run(['java','-Djava.awt.headless=true','-cp',str(tests)+':'+str(classes)+':'+str(out/'sdk.jar'),'dev.turboism.validation.modelimport3d.host.UserEntryProbeSelfTest'])
+    run(['java','-Djava.awt.headless=true','-cp',str(tests)+':'+str(classes)+':'+str(out/'sdk.jar'),'dev.turboism.plugin.modelimport3d.UserEntryProbeSelfTest'])
     run(['javac','--release','17','-encoding','UTF-8','-cp',str(classes)+':'+str(out/'sdk.jar'),'-d',tests,snapshot/inputs[-2].relative_to(ROOT)])
-    run(['java','-Djava.awt.headless=true','-cp',str(tests)+':'+str(classes)+':'+str(out/'sdk.jar'),'dev.turboism.validation.modelimport3d.host.ApplePersistenceFileTest',out/'apple-save-tests'])
+    run(['java','-Djava.awt.headless=true','-cp',str(tests)+':'+str(classes)+':'+str(out/'sdk.jar'),'dev.turboism.plugin.modelimport3d.ApplePersistenceFileTest',out/'apple-save-tests'])
     run(['javac','--release','17','-encoding','UTF-8','-cp',str(classes)+':'+str(out/'sdk.jar'),'-d',tests,snapshot/surface_test.relative_to(ROOT)])
-    run(['java','-Djava.awt.headless=true','-cp',str(tests)+':'+str(classes)+':'+str(out/'sdk.jar'),'dev.turboism.validation.modelimport3d.host.SurfacePersistenceFileTest',out/'surface-save-tests'])
+    run(['java','-Djava.awt.headless=true','-cp',str(tests)+':'+str(classes)+':'+str(out/'sdk.jar'),'dev.turboism.plugin.modelimport3d.SurfacePersistenceFileTest',out/'surface-save-tests'])
     manifest={str(p.relative_to(ROOT)):sha(snapshot/p.relative_to(ROOT)) for p in inputs}
     if any(sha(ROOT/name)!=digest for name,digest in manifest.items()):raise ValueError('sources changed during build')
     if sha(agent)!=sha(out/'agent.jar') or sha(sdk)!=sha(out/'sdk.jar'):raise ValueError('build dependencies changed')

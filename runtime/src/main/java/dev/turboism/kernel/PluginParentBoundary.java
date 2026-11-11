@@ -1,5 +1,6 @@
 package dev.turboism.kernel;
 
+import dev.turboism.internal.HostPackagePolicy;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Collections;
@@ -87,7 +88,7 @@ final class PluginParentBoundary extends ClassLoader {
         if (path.startsWith("dev/turboism/")) {
             return !path.startsWith("dev/turboism/sdk/");
         }
-        return path.startsWith("com/live2d/")
+        return path.startsWith(HostPackagePolicy.CUBISM_RESOURCE_PREFIX)
                 || path.startsWith("jp/noids/")
                 || path.startsWith("META-INF/turboism/")
                 || path.startsWith("META-INF/services/");

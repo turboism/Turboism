@@ -2,6 +2,7 @@
 """Synthetic N5a image registration/binding protocol controls; no host, queue, or exact-host evidence."""
 import copy
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -12,6 +13,7 @@ sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parents[2]
 PROBE = ROOT / 'validation/model-import-3d-host-probe'
+PLUGIN_JAR_ENV = 'TURBOISM_MI3D_PLUGIN_JAR'
 
 CHECKS = ['registerBindExecuted', 'handleIdentityFields', 'registrationProjection',
           'bindingHandleArtMesh', 'shareSecondMeshBound', 'rebindNoChange',
@@ -370,15 +372,17 @@ class ImageBindingProtocolTest(unittest.TestCase):
             dump = Path(temp) / 'image-binding-report.json'
             sources = [str(p) for base in ('native-src', 'native-test', 'input-src', 'input-test')
                        for p in (PROBE / base).rglob('*.java')]
+            plugin = os.environ[PLUGIN_JAR_ENV]
+            compile_classpath = os.pathsep.join((str(ROOT / 'sdk/src/main/java'), plugin))
             build = subprocess.run(
                 ['javac', '--release', '17', '-encoding', 'UTF-8',
-                 '-cp', str(ROOT / 'sdk/src/main/java'), '-d', str(classes), *sources],
+                 '-cp', compile_classpath, '-d', str(classes), *sources],
                 capture_output=True, text=True)
             self.assertEqual(0, build.returncode, build.stderr)
             run = subprocess.run(
                 ['java', '-Djava.awt.headless=true',
-                 '-Dmi3d.imageBindingReport=' + str(dump), '-cp', str(classes),
-                 'dev.turboism.validation.modelimport3d.host.HostAssertionsTest'],
+                 '-Dmi3d.imageBindingReport=' + str(dump), '-cp', os.pathsep.join((str(classes), plugin)),
+                 'dev.turboism.plugin.modelimport3d.HostAssertionsTest'],
                 capture_output=True, text=True, timeout=300)
             self.assertEqual(0, run.returncode, run.stderr + run.stdout)
             report = json.loads(dump.read_text())

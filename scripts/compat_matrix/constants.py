@@ -390,13 +390,7 @@ FEATURE_LABELS: dict[str, dict[str, str]] = {
         "ja": "ネイティブアトラスエディタセッションへのアクセス",
         "ko": "네이티브 아틀라스 편집기 세션 액세스",
     },
-    "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi": {
-        "en": "Native atlas editor UI contribution",
-        "zh": "原生纹理图集编辑器 UI 贡献",
-        "ja": "ネイティブアトラスエディタ UI 贡献",
-        "ko": "네이티브 아틀라스 편집기 UI 기여",
-    },
-    "dev.turboism.sdk.cubism.model.AlphaComposition": {
+        "dev.turboism.sdk.cubism.model.AlphaComposition": {
         "en": "Alpha composition (blend modes)",
         "zh": "Alpha 合成（混合模式）",
         "ja": "アルファ合成（ブレンドモード）",
@@ -780,12 +774,6 @@ FEATURE_LABELS: dict[str, dict[str, str]] = {
         "ja": "ネイティブアトラスエディタセッションへのアクセス",
         "ko": "네이티브 아틀라스 편집기 세션 액세스",
     },
-    "dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorUi": {
-        "en": "Native atlas editor UI contribution",
-        "zh": "原生纹理图集编辑器 UI 贡献",
-        "ja": "ネイティブアトラスエディタ UI 贡献",
-        "ko": "네이티브 아틀라스 편집기 UI 기여",
-    },
     "dev.turboism.sdk.cubism.CubismFacade#history": {
         "en": "Editor history",
         "zh": "编辑历史",
@@ -809,12 +797,6 @@ FEATURE_LABELS: dict[str, dict[str, str]] = {
         "zh": "导出设置贡献",
         "ja": "エクスポート設定贡献",
         "ko": "내보내기 설정 기여",
-    },
-    "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel": {
-        "en": "Atlas editor panel",
-        "zh": "图集编辑器面板",
-        "ja": "アトラスエディタパネル",
-        "ko": "아틀라스 편집기 패널",
     },
     "dev.turboism.sdk.cubism.command.EditorCommandService#available": {
         "en": "Editor command availability",

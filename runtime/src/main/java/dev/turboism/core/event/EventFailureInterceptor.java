@@ -1,10 +1,10 @@
 package dev.turboism.core.event;
 
+import dev.turboism.core.event.failure.ExceptionAdvice;
+import dev.turboism.core.event.failure.FailureContext;
+import dev.turboism.core.event.failure.HandlesException;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.failure.ExceptionAdvice;
-import dev.turboism.sdk.failure.FailureContext;
-import dev.turboism.sdk.failure.HandlesException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;

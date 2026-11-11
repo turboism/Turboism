@@ -95,8 +95,6 @@ final class NativeEditorCommandIds {
                     EditorCommand.MODELING_REFLECTION_AXIS_FOR_MESH_EDIT, "CMD_MODELING_REFLECTION_AXIS_FOR_MESH_EDIT"),
             Map.entry(EditorCommand.MODELING_REFLECTION_H, "CMD_MODELING_REFLECTION_H"),
             Map.entry(EditorCommand.MODELING_REFLECTION_V, "CMD_MODELING_REFLECTION_V"),
-            Map.entry(EditorCommand.MOVE_END, "CMD_MOVE_End"),
-            Map.entry(EditorCommand.MOVE_END_WORKSPACE, "CMD_MOVE_End_WORKSPACE"),
             Map.entry(EditorCommand.MOVE_START, "CMD_MOVE_START"),
             Map.entry(EditorCommand.MOVE_START_WORKSPACE, "CMD_MOVE_START_WORKSPACE"),
             Map.entry(EditorCommand.MOVE_TAB_NEXT, "CMD_MOVE_TAB_NEXT"),
