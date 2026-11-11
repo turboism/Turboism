@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -29,6 +30,13 @@ import java.util.stream.Collectors;
  * A keyformed ArtMesh needs the same layout in every ordinary form, or the write collapses the
  * forms the user authored. This class maps each layout uv through the mesh source uvs and
  * triangles together with one form's own stored positions, so every form keeps its own shape.</p>
+ *
+ * <p>Two calls frame the topology write. {@link #capture} runs before the transaction and keeps
+ * only state that survives the write: each form's identity, cell coordinates and stored positions,
+ * plus the source uv and triangle arrays. {@link #apply} runs after the write, reads the stored
+ * bank again, derives every form from the captured correspondence, and submits one batch against
+ * that fresh read. The batch therefore describes the topology the write installed, not the one it
+ * replaced.</p>
  *
  * <p>The default form stays out of the batch: the Editor owns it and refuses stored position edits
  * on it. A form that the batch cannot address, a vertex count the layout cannot fill, or a mapping
@@ -53,33 +61,34 @@ final class AutoMeshKeyformLayout {
     private static final String MESSAGE_SUFFIX = ".";
 
     private final String targetId;
-    private final List<ArtMeshKeyformPositions> positions;
-    private final List<ArtMeshKeyformDrawOrder> drawOrders;
+    private final List<Point2> sourceUvs;
+    private final List<Integer> sourceTriangles;
+    private final List<FormCorrespondence> correspondences;
     private final Set<String> formGuids;
 
     private AutoMeshKeyformLayout(
             final String targetId,
-            final List<ArtMeshKeyformPositions> positions,
-            final List<ArtMeshKeyformDrawOrder> drawOrders,
+            final List<Point2> sourceUvs,
+            final List<Integer> sourceTriangles,
+            final List<FormCorrespondence> correspondences,
             final Set<String> formGuids) {
         this.targetId = targetId;
-        this.positions = positions;
-        this.drawOrders = drawOrders;
+        this.sourceUvs = sourceUvs;
+        this.sourceTriangles = sourceTriangles;
+        this.correspondences = correspondences;
         this.formGuids = formGuids;
     }
 
     /**
-     * Reads one target and derives the layout of every ordinary form.
+     * Reads one target before its topology write and captures the per-form correspondence.
      *
-     * @param target the ArtMesh the run replaced; must be read on the Editor UI thread
-     * @param layout the plugin result the topology write installs
-     * @return the batch to write after the topology write, or empty when the host stores one form
-     *     only and the topology write already covers it
+     * @param target the ArtMesh the run will replace; must be read on the Editor UI thread
+     * @return the captured correspondence, or empty when the host stores one form only and the
+     *     topology write already covers it
      * @throws Refusal when the stored forms cannot receive the layout
      */
-    static Optional<AutoMeshKeyformLayout> of(final Drawable target, final ArtMeshGeometry layout) {
+    static Optional<AutoMeshKeyformLayout> capture(final Drawable target) {
         Objects.requireNonNull(target, "target");
-        Objects.requireNonNull(layout, "layout");
         final ArtMeshAuthoringSnapshot before;
         try {
             before = target.authoringSnapshot();
@@ -92,11 +101,10 @@ final class AutoMeshKeyformLayout {
             }
             throw refusal(MESSAGE_NOT_ORDINARY, before.artMeshId().value());
         }
-        return Optional.of(derive(before, target.geometry(), layout));
+        return Optional.of(capture(before));
     }
 
-    private static AutoMeshKeyformLayout derive(
-            final ArtMeshAuthoringSnapshot before, final ArtMeshGeometry current, final ArtMeshGeometry layout) {
+    private static AutoMeshKeyformLayout capture(final ArtMeshAuthoringSnapshot before) {
         final String targetId = before.artMeshId().value();
         final Map<String, List<Coordinate>> coordinatesByForm = new LinkedHashMap<>();
         for (final Cell cell : before.cells()) {
@@ -107,9 +115,8 @@ final class AutoMeshKeyformLayout {
         final Set<String> morphForms = new HashSet<>();
         before.morphKeys().forEach(key -> morphForms.add(key.formGuid()));
         final String defaultFormGuid = defaultFormGuid(before, targetId);
-        final List<ArtMeshKeyformPositions> positions =
-                new ArrayList<>(before.forms().size());
-        final List<ArtMeshKeyformDrawOrder> drawOrders =
+        final List<Point2> sourceUvs = before.sourceGeometry().uvs();
+        final List<FormCorrespondence> correspondences =
                 new ArrayList<>(before.forms().size());
         final Set<String> formGuids = new HashSet<>(before.forms().size());
         for (final Form form : before.forms()) {
@@ -118,18 +125,21 @@ final class AutoMeshKeyformLayout {
             if (coordinates == null || morphForms.contains(form.formGuid())) {
                 throw refusal(MESSAGE_NOT_ORDINARY, targetId);
             }
-            if (form.positions().size() != current.uvs().size()) {
+            if (form.positions().size() != sourceUvs.size()) {
                 throw refusal(MESSAGE_VERTEX_COUNT, targetId);
             }
             if (form.formGuid().equals(defaultFormGuid)) {
                 continue;
             }
-            positions.add(
-                    new ArtMeshKeyformPositions(coordinates, form.formGuid(), mapped(current, form, layout, targetId)));
-            drawOrders.add(new ArtMeshKeyformDrawOrder(coordinates, form.formGuid(), form.drawOrder()));
+            requireSpan(form.positions(), targetId);
+            correspondences.add(new FormCorrespondence(form.formGuid(), coordinates, form.positions()));
         }
         return new AutoMeshKeyformLayout(
-                targetId, List.copyOf(positions), List.copyOf(drawOrders), Set.copyOf(formGuids));
+                targetId,
+                sourceUvs,
+                before.sourceGeometry().triangleIndices(),
+                List.copyOf(correspondences),
+                Set.copyOf(formGuids));
     }
 
     private static String defaultFormGuid(final ArtMeshAuthoringSnapshot before, final String targetId) {
@@ -149,28 +159,12 @@ final class AutoMeshKeyformLayout {
         throw refusal(MESSAGE_NOT_ORDINARY, targetId);
     }
 
-    private static List<Point2> mapped(
-            final ArtMeshGeometry current, final Form form, final ArtMeshGeometry layout, final String targetId) {
-        requireSpan(form, targetId);
-        final AutoMeshUvMapping mapping =
-                AutoMeshUvMapping.of(current.uvs(), form.positions(), current.triangleIndices());
-        final List<Point2> mapped = new ArrayList<>(layout.uvs().size());
-        try {
-            for (final Point2 sample : layout.uvs()) {
-                mapped.add(mapping.map(sample.x(), sample.y()));
-            }
-        } catch (IllegalArgumentException nonFinite) {
-            throw refusal(MESSAGE_MAPPING, targetId);
-        }
-        return List.copyOf(mapped);
-    }
-
-    private static void requireSpan(final Form form, final String targetId) {
+    private static void requireSpan(final List<Point2> positions, final String targetId) {
         float minimumX = Float.MAX_VALUE;
         float maximumX = -Float.MAX_VALUE;
         float minimumY = Float.MAX_VALUE;
         float maximumY = -Float.MAX_VALUE;
-        for (final Point2 point : form.positions()) {
+        for (final Point2 point : positions) {
             minimumX = Math.min(minimumX, point.x());
             maximumX = Math.max(maximumX, point.x());
             minimumY = Math.min(minimumY, point.y());
@@ -184,17 +178,18 @@ final class AutoMeshKeyformLayout {
     /**
      * Writes the derived batch after the topology write.
      *
-     * <p>The stored bank is read again because the batch covers the source geometry the topology
-     * write installed: only the state after that write can serve as its compare-and-set base. The
-     * read also proves that the host kept every form, so a host that resizes none of them refuses
-     * the write instead of receiving positions at the wrong vertex count.</p>
+     * <p>The stored bank is read again because the batch replaces the source geometry the topology
+     * write installed: only the state after that write can serve as its compare-and-set base, and
+     * only that state reports the draw orders the forms now hold. The read also proves that the
+     * host kept every form, so a host that resizes none of them refuses the write instead of
+     * receiving positions at the wrong vertex count.</p>
      *
      * @param target the ArtMesh the topology write just replaced
      * @param layout the geometry the topology write installed
-     * @throws Refusal when the stored bank no longer matches the derived layout
+     * @throws Refusal when the stored bank no longer matches the captured correspondence
      */
     void apply(final Drawable target, final ArtMeshGeometry layout) {
-        if (positions.isEmpty()) {
+        if (correspondences.isEmpty()) {
             return;
         }
         final ArtMeshAuthoringSnapshot after;
@@ -205,7 +200,21 @@ final class AutoMeshKeyformLayout {
             throw refusal(MESSAGE_UNCHANGED, targetId);
         }
         requireComplete(after, layout);
-        target.setOrdinaryKeyforms(after, positions, drawOrders);
+        final Map<String, FormCorrespondence> byFormGuid =
+                correspondences.stream().collect(Collectors.toMap(FormCorrespondence::formGuid, Function.identity()));
+        final List<ArtMeshKeyformPositions> positions = new ArrayList<>(correspondences.size());
+        final List<ArtMeshKeyformDrawOrder> drawOrders = new ArrayList<>(correspondences.size());
+        for (final Form form : after.forms()) {
+            final FormCorrespondence correspondence = byFormGuid.get(form.formGuid());
+            if (correspondence == null) {
+                continue;
+            }
+            positions.add(new ArtMeshKeyformPositions(
+                    correspondence.coordinates(), form.formGuid(), mapped(correspondence.positions(), layout)));
+            drawOrders.add(
+                    new ArtMeshKeyformDrawOrder(correspondence.coordinates(), form.formGuid(), form.drawOrder()));
+        }
+        target.setOrdinaryKeyforms(after, List.copyOf(positions), List.copyOf(drawOrders));
     }
 
     private void requireComplete(final ArtMeshAuthoringSnapshot after, final ArtMeshGeometry layout) {
@@ -223,9 +232,25 @@ final class AutoMeshKeyformLayout {
         }
     }
 
+    private List<Point2> mapped(final List<Point2> formPositions, final ArtMeshGeometry layout) {
+        final AutoMeshUvMapping mapping = AutoMeshUvMapping.of(sourceUvs, formPositions, sourceTriangles);
+        final List<Point2> mapped = new ArrayList<>(layout.uvs().size());
+        try {
+            for (final Point2 sample : layout.uvs()) {
+                mapped.add(mapping.map(sample.x(), sample.y()));
+            }
+        } catch (IllegalArgumentException nonFinite) {
+            throw refusal(MESSAGE_MAPPING, targetId);
+        }
+        return List.copyOf(mapped);
+    }
+
     private static Refusal refusal(final String message, final String targetId) {
         return new Refusal(message + targetId + MESSAGE_SUFFIX);
     }
+
+    /** One ordinary stored form: its batch address and the shape it held before the write. */
+    private record FormCorrespondence(String formGuid, List<Coordinate> coordinates, List<Point2> positions) {}
 
     /** Fail-closed signal of one layout that the stored forms cannot accept. */
     static final class Refusal extends RuntimeException {

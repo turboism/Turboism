@@ -36,10 +36,12 @@ import java.util.concurrent.atomic.AtomicReference;
  * transaction leaves every target untouched.</p>
  *
  * <p>The plugin returns one layout. A target that stores ordinary keyforms receives that layout in
- * every form: the write installs the new source topology and then submits the positions derived
- * for each form in one compare-and-set batch, so the result equals the Editor's own generator and
- * one Undo reverts it. A form the batch cannot address, or a stored bank that the topology write
- * does not keep, refuses the write before or inside the transaction.</p>
+ * every form: the write installs the new source topology, reads the stored bank again, and then
+ * submits the positions derived from the correspondence captured before the write in one
+ * compare-and-set batch against that fresh read. The batch therefore matches the topology the
+ * write installed, so the result equals the Editor's own generator and one Undo reverts it. A form
+ * the batch cannot address, or a stored bank that the topology write does not keep, refuses the
+ * write before or inside the transaction.</p>
  *
  * <p>Two preconditions are checked, once before the compute and once before the write: no native
  * Undo group may be open, and the targets must be readable. The host binds the Undo precondition at
@@ -246,11 +248,11 @@ public final class AutoMeshDispatch {
 
     private void write(final RuntimeRun run, final List<ArtMeshGeometry> geometries, final String summary) {
         final List<Drawable> targets = run.targets();
-        // Derive before the transaction opens, so a form the batch cannot address leaves no Undo entry.
+        // Capture before the transaction opens, so a form the batch cannot address leaves no Undo entry.
         final List<Optional<AutoMeshKeyformLayout>> keyforms = new ArrayList<>(targets.size());
         try {
-            for (int index = 0; index < targets.size(); index++) {
-                keyforms.add(AutoMeshKeyformLayout.of(targets.get(index), geometries.get(index)));
+            for (final Drawable target : targets) {
+                keyforms.add(AutoMeshKeyformLayout.capture(target));
             }
         } catch (AutoMeshKeyformLayout.Refusal refused) {
             run.settle(keyformRejection(refused));
@@ -297,7 +299,7 @@ public final class AutoMeshDispatch {
     }
 
     /**
-     * Applies one derived keyform batch after its topology write and aborts on a refusal.
+     * Applies one captured keyform layout after its topology write and aborts on a refusal.
      *
      * <p>The transaction must roll back a refusal, so the signal leaves the callback. The recorded
      * reference survives services that convert the callback failure into a rolled-back result.</p>

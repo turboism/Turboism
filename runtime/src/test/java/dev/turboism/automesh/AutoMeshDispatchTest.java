@@ -1,6 +1,7 @@
 package dev.turboism.automesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -67,6 +68,15 @@ class AutoMeshDispatchTest {
 
     /** Bounds tolerance far below one drawn pixel; stored positions are 32-bit floats. */
     private static final float BOUNDS_TOLERANCE = 1.0e-3f;
+
+    /** Areas at or below this value mean all three vertices share one line. */
+    private static final float MINIMUM_TRIANGLE_AREA = 0.0f;
+
+    /** Vertices one triangle names; every triangle block consumes this many indices. */
+    private static final int TRIANGLE_VERTICES = 3;
+
+    /** Draw order the Editor adds to every stored form when it rebuilds the source topology. */
+    private static final int TOPOLOGY_DRAW_ORDER_SHIFT = 7;
 
     /** Vertex count of the plugin layout; it differs from the source quad on purpose. */
     private static final int LAYOUT_VERTEX_COUNT = 9;
@@ -204,6 +214,30 @@ class AutoMeshDispatchTest {
         target.formPositions().forEach((formGuid, positions) -> {
             assertEquals(LAYOUT_VERTEX_COUNT, positions.size(), formGuid + " keeps every layout vertex");
             assertInsideBounds(positions, original.get(formGuid), formGuid);
+        });
+
+        transactions.undo();
+
+        assertEquals(original, target.formPositions(), "one Undo restores every stored form");
+        assertEquals(quad(), target.geometry(), "one Undo restores the previous geometry");
+    }
+
+    @Test
+    void keyformedBatchIsDerivedAfterTheTopologyWriteThatReshapesEveryForm() throws Exception {
+        select(algorithm((request, cancellation) -> new AutoMeshResult.Success(refinedLayout(), "one")));
+        final BankDrawable target = keyformBank("ArtMesh1");
+        transactions.participants.add(target);
+        final Map<String, List<Point2>> original = target.formPositions();
+
+        final DispatchResult result = await(dispatch().dispatch(selection, List.of(target)));
+
+        assertEquals(DispatchResult.Status.APPLIED, result.status());
+        assertEquals(1, target.keyformBatches.size());
+        assertFalse(target.batchUsedPreWriteSnapshot, "the batch targets the bank the topology write leaves");
+        assertEquals(target.postWriteOrders(), target.formOrders(), "the batch keeps the stored draw orders");
+        target.formPositions().forEach((formGuid, positions) -> {
+            assertEquals(LAYOUT_VERTEX_COUNT, positions.size(), formGuid + " keeps every layout vertex");
+            assertNoCollapsedTriangle(positions, formGuid);
         });
 
         transactions.undo();
@@ -441,6 +475,20 @@ class AutoMeshDispatchTest {
         }
     }
 
+    /** Asserts that every triangle of the installed layout keeps a non-zero area in one form. */
+    private static void assertNoCollapsedTriangle(final List<Point2> positions, final String formGuid) {
+        for (int block = 0; block + TRIANGLE_VERTICES <= LAYOUT_INDICES.size(); block += TRIANGLE_VERTICES) {
+            final Point2 first = positions.get(LAYOUT_INDICES.get(block));
+            final Point2 second = positions.get(LAYOUT_INDICES.get(block + 1));
+            final Point2 third = positions.get(LAYOUT_INDICES.get(block + 2));
+            final float doubleArea = (second.x() - first.x()) * (third.y() - first.y())
+                    - (third.x() - first.x()) * (second.y() - first.y());
+            assertTrue(
+                    Math.abs(doubleArea) > MINIMUM_TRIANGLE_AREA,
+                    formGuid + " triangle " + block / TRIANGLE_VERTICES + " keeps its area: " + doubleArea);
+        }
+    }
+
     private static ParameterBinding binding(final String artMeshId) {
         return new ParameterBinding(
                 ParameterBindingTarget.artMesh(new ArtMeshId(artMeshId)),
@@ -532,6 +580,10 @@ class AutoMeshDispatchTest {
         private Map<String, List<Point2>> capturedForms = Map.of();
         private Map<String, Integer> capturedOrders = Map.of();
         private ArtMeshGeometry capturedGeometry;
+        private volatile ArtMeshAuthoringSnapshot lastSnapshot;
+        private volatile ArtMeshAuthoringSnapshot preWriteSnapshot;
+        private volatile Map<String, Integer> postWriteOrders = Map.of();
+        private volatile boolean batchUsedPreWriteSnapshot;
 
         private BankDrawable(
                 final String id,
@@ -558,7 +610,7 @@ class AutoMeshDispatchTest {
 
         @Override
         public ArtMeshAuthoringSnapshot authoringSnapshot() {
-            return new ArtMeshAuthoringSnapshot(
+            final ArtMeshAuthoringSnapshot snapshot = new ArtMeshAuthoringSnapshot(
                     id(),
                     "source-guid",
                     new ArtMeshGeometry(sourcePositions, sourceUvs, sourceIndices),
@@ -569,23 +621,39 @@ class AutoMeshDispatchTest {
                                     entry.getKey(), entry.getValue(), orders.get(entry.getKey())))
                             .toList(),
                     List.of());
+            lastSnapshot = snapshot;
+            return snapshot;
         }
 
         /**
-         * Applies a topology write. The Editor projects every stored form onto the new source shape
-         * when it keeps the one-vertex-count invariant; {@code keepFormVertexCounts = false} models
-         * a host that leaves the other forms at the previous count.
+         * Applies a topology write. The Editor replaces the source arrays and the evaluated form,
+         * resizes every stored form to the new vertex count, and rebuilds the stored draw orders.
+         * Only the state after this write can describe the bank the batch must address, so
+         * {@code keepFormVertexCounts = false} models a host that resizes none of the forms.
          */
         @Override
         public void replaceGeometry(final ArtMeshGeometry replaced) {
             writes.add(replaced);
+            preWriteSnapshot = lastSnapshot;
             sourcePositions = replaced.positions();
             sourceUvs = replaced.uvs();
             sourceIndices = replaced.triangleIndices();
             forms.put(DEFAULT_FORM_GUID, replaced.positions());
             if (keepFormVertexCounts) {
-                forms.replaceAll((formGuid, ignored) -> replaced.positions());
+                forms.replaceAll((formGuid, stored) ->
+                        resizedTo(stored, replaced.positions().size()));
             }
+            orders.replaceAll((formGuid, order) -> order + TOPOLOGY_DRAW_ORDER_SHIFT);
+            postWriteOrders = Map.copyOf(orders);
+        }
+
+        /** Stored array the Editor resizes; the added vertices start on one stored point. */
+        private static List<Point2> resizedTo(final List<Point2> stored, final int vertexCount) {
+            final List<Point2> resized = new ArrayList<>(vertexCount);
+            for (int index = 0; index < vertexCount; index++) {
+                resized.add(stored.get(Math.min(index, stored.size() - 1)));
+            }
+            return List.copyOf(resized);
         }
 
         @Override
@@ -593,6 +661,7 @@ class AutoMeshDispatchTest {
                 final ArtMeshAuthoringSnapshot expected,
                 final List<ArtMeshKeyformPositions> positions,
                 final List<ArtMeshKeyformDrawOrder> drawOrders) {
+            batchUsedPreWriteSnapshot = expected.equals(preWriteSnapshot);
             if (!expected.equals(authoringSnapshot())) {
                 throw new IllegalStateException("stale keyform bank");
             }
@@ -624,6 +693,14 @@ class AutoMeshDispatchTest {
 
         private Map<String, List<Point2>> formPositions() {
             return Map.copyOf(forms);
+        }
+
+        private Map<String, Integer> formOrders() {
+            return Map.copyOf(orders);
+        }
+
+        private Map<String, Integer> postWriteOrders() {
+            return postWriteOrders;
         }
 
         @Override
