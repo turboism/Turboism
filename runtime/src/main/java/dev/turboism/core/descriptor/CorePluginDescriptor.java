@@ -116,17 +116,11 @@ public record CorePluginDescriptor(
     public record CorePermissionRef(String id, String scope, Optional<String> reason) implements PermissionRef {}
 
     /** One provider-owned public event contract. */
-    public record CoreEventExport(String id, String contractVersion, String eventType, String abiSha256)
-            implements EventExport {}
+    public record CoreEventExport(String id, String contractVersion, String eventType) implements EventExport {}
 
     /** One dependency-owned public event contract consumed by this plugin. */
     public record CoreEventImport(
-            String providerId,
-            String eventId,
-            String contractVersion,
-            String eventType,
-            String abiSha256,
-            boolean required)
+            String providerId, String eventId, String contractVersion, String eventType, boolean required)
             implements EventImport {}
 
     /** One published public event contract artifact embedded in the plugin JAR. */

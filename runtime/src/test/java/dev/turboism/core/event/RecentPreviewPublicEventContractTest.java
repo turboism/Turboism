@@ -99,7 +99,7 @@ class RecentPreviewPublicEventContractTest {
                 List.of(),
                 List.of(),
                 List.of(new CorePluginDescriptor.CoreEventImport(
-                        provider.id(), export.id(), "[1.0.0,2.0.0)", export.eventType(), export.abiSha256(), true)),
+                        provider.id(), export.id(), "[1.0.0,2.0.0)", export.eventType(), true)),
                 List.of(),
                 false);
     }

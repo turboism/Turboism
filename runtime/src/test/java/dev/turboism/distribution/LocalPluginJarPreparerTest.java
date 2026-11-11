@@ -487,13 +487,12 @@ class LocalPluginJarPreparerTest {
     }
 
     static String v5Descriptor(final String pluginId, final String declaredSha256) {
-        final String contracts =
-                declaredSha256 == null ? "" : """
+        final String contracts = declaredSha256 == null ? "" : """
             ,"eventExports":[{"id":"greeting","contractVersion":"1.0.0",
-              "eventType":"com.acme.events.Greeting","abiSha256":"%s"}],
+              "eventType":"com.acme.events.Greeting"}],
             "eventContracts":[{"id":"acme.events","version":"1.0.0",
               "artifact":"%s","sha256":"%s"}]
-            """.formatted("a".repeat(64), CONTRACT_ARTIFACT_PATH, declaredSha256);
+            """.formatted(CONTRACT_ARTIFACT_PATH, declaredSha256);
         return """
             {"format":"turboism.plugin.meta","schemaVersion":5,
             "id":"%s","name":"%s","version":"0.1.0",

@@ -355,11 +355,6 @@ class PluginJarContractTest {
                 public String eventType() {
                     return PublicEventDescriptor.this.eventType;
                 }
-
-                @Override
-                public String abiSha256() {
-                    return "a".repeat(64);
-                }
             });
         }
     }

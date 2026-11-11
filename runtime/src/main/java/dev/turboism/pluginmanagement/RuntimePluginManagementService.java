@@ -772,8 +772,8 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                 shell.i18n().baseName(),
                 List.copyOf(shell.i18n().locales()),
                 shell.eventExports().stream()
-                        .map(exported -> new EventExport(
-                                exported.id(), exported.contractVersion(), exported.eventType(), exported.abiSha256()))
+                        .map(exported ->
+                                new EventExport(exported.id(), exported.contractVersion(), exported.eventType()))
                         .toList(),
                 shell.eventImports().stream()
                         .map(imported -> new EventImport(
@@ -781,7 +781,6 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                                 imported.eventId(),
                                 imported.contractVersion(),
                                 imported.eventType(),
-                                imported.abiSha256(),
                                 imported.required()))
                         .toList(),
                 Optional.empty(),

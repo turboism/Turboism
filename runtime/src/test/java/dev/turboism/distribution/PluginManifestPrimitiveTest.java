@@ -5,56 +5,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-class PluginManifestCanonicalAndPrimitiveTest {
+class PluginManifestPrimitiveTest {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     @Test
-    void canonicalHashIgnoresTopLevelAndNestedObjectOrderButPreservesArrayOrder() throws Exception {
-        ObjectNode base = manifest();
-        String hash = canonicalHash(base);
-        base.put("packageHash", hash);
-        assertDoesNotThrow(() -> read(base.toString()));
+    void retiredSelfHashFieldsRemainAcceptedAsIgnoredLegacyFields() throws Exception {
+        ObjectNode withSelfHashes = manifest();
+        withSelfHashes.put("packageHash", "a".repeat(64));
+        withSelfHashes.put("pluginDescriptorSha256", "not-even-a-digest");
+        assertDoesNotThrow(() -> read(withSelfHashes.toString()));
 
-        String reordered = "{\"version\":\"0.1.0\",\"schemaVersion\":1,\"pluginDescriptorSha256\":\""
-                + "b".repeat(64) + "\",\"pluginDescriptorPath\":\"plugin/plugin.jar!/META-INF/turboism/plugin.json\","
-                + "\"packageKind\":\"PLUGIN\",\"packageId\":\"dev.turboism.plugin.sample\",\"packageHash\":\"" + hash
-                + "\",\"format\":\"turboism.distribution.plugin-package\",\"files\":[{\"size\":4096,\"sha256\":\""
-                + "c".repeat(64) + "\",\"role\":\"PLUGIN_JAR\",\"path\":\"plugin/plugin.jar\"}],"
-                + "\"createdAt\":\"2026-07-12T18:00:00Z\"}";
-        assertDoesNotThrow(() -> read(reordered));
-
-        ObjectNode inputOrder = JSON.createObjectNode();
-        inputOrder.set("version", manifest().get("version"));
-        manifest().fields().forEachRemaining(entry -> {
-            if (!entry.getKey().equals("version")) inputOrder.set(entry.getKey(), entry.getValue());
-        });
-        inputOrder.put("packageHash", rawHash(inputOrder.toString().getBytes(StandardCharsets.UTF_8)));
-        DistributionValidationException error =
-                assertThrows(DistributionValidationException.class, () -> read(inputOrder.toString()));
-        assertEquals("PACKAGE_HASH_MISMATCH", error.code());
-    }
-
-    @Test
-    void canonicalJsonOwnsRequiredStringEscapesForKeysValuesAndArrays() throws Exception {
-        ObjectNode root = JSON.createObjectNode();
-        root.putArray("array").add("\u0002").add("plain/é😀");
-        root.put("key\u0001", "value\u0000\b\t\n\f\r\u001f\"\\/");
-
-        String expected = "{\"array\":[\"\\u0002\",\"plain/é😀\"],\"key\\u0001\":\"value\\u0000\\u0008"
-                + "\\u0009\\u000a\\u000c\\u000d\\u001f\\\"\\\\/\"}";
-
-        assertEquals(expected, new String(CanonicalJson.bytes(root), StandardCharsets.UTF_8));
+        assertDoesNotThrow(() -> read(manifest().toString()));
     }
 
     @Test
@@ -88,7 +57,7 @@ class PluginManifestCanonicalAndPrimitiveTest {
     void schemaVersionMustBeArbitraryPrecisionIntegerOne() throws Exception {
         assertValid(withSchemaVersion("1"));
         for (String invalid : List.of("4294967297", "-4294967295", "2147483648", "1.0", "\"1\"")) {
-            assertHeaderInvalid(withSchemaVersion(invalid), "schemaVersion");
+            assertInvalid(withSchemaVersion(invalid), "schemaVersion");
         }
     }
 
@@ -114,7 +83,6 @@ class PluginManifestCanonicalAndPrimitiveTest {
         ObjectNode root = manifest();
         root.withArray("files").add(file(first, BigInteger.ZERO));
         root.withArray("files").add(file(second, BigInteger.ZERO));
-        root.put("packageHash", canonicalHash(root));
         DistributionValidationException error =
                 assertThrows(DistributionValidationException.class, () -> read(root.toString()));
         assertEquals("MANIFEST_FILE_PATH_COLLISION", error.code());
@@ -134,21 +102,10 @@ class PluginManifestCanonicalAndPrimitiveTest {
     }
 
     private static void assertValid(ObjectNode root) throws Exception {
-        root.put("packageHash", canonicalHash(root));
         assertDoesNotThrow(() -> read(root.toString()));
     }
 
     private static void assertInvalid(ObjectNode root, String path) throws Exception {
-        root.put("packageHash", canonicalHash(root));
-        assertInvalidManifest(root, path);
-    }
-
-    private static void assertHeaderInvalid(ObjectNode root, String path) throws Exception {
-        root.put("packageHash", "0".repeat(64));
-        assertInvalidManifest(root, path);
-    }
-
-    private static void assertInvalidManifest(ObjectNode root, String path) throws Exception {
         DistributionValidationException error =
                 assertThrows(DistributionValidationException.class, () -> read(root.toString()));
         assertEquals(path, error.problemPath());
@@ -162,7 +119,6 @@ class PluginManifestCanonicalAndPrimitiveTest {
         root.put("packageId", "dev.turboism.plugin.sample");
         root.put("packageKind", "PLUGIN");
         root.put("pluginDescriptorPath", "plugin/plugin.jar!/META-INF/turboism/plugin.json");
-        root.put("pluginDescriptorSha256", "b".repeat(64));
         root.put("schemaVersion", 1);
         root.put("version", "0.1.0");
         return root;
@@ -175,14 +131,6 @@ class PluginManifestCanonicalAndPrimitiveTest {
         file.put("sha256", "c".repeat(64));
         file.put("size", size);
         return file;
-    }
-
-    private static String canonicalHash(JsonNode node) throws Exception {
-        return CanonicalJson.sha256Without(node, "packageHash");
-    }
-
-    private static String rawHash(byte[] bytes) throws Exception {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 
     private static void read(String json) throws Exception {

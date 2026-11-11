@@ -56,7 +56,6 @@ final class RuntimeScriptServiceTest {
               "version": "1.0.0",
               "language": "js",
               "entry": "main.js",
-              "sourceSha256": "9abe467768bc9d800bade17932132b7703b34c7d18635e43f0d2f83019e0587e",
               "permissions": []
             }
             """);

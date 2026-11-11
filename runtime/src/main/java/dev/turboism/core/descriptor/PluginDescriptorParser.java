@@ -702,7 +702,6 @@ public final class PluginDescriptorParser {
             final String id = readEventId(export, "id", base, findings);
             readContractVersion(export, "contractVersion", base, findings);
             final String type = readEventType(export, "eventType", base, findings);
-            readSha256(export, "abiSha256", base, findings);
             if (id != null && !ids.add(id)) {
                 findings.add("PLUGIN_META_DUPLICATE_EVENT_EXPORT", "Event export ids must be unique", base + ".id");
             }
@@ -710,11 +709,7 @@ public final class PluginDescriptorParser {
                 findings.add(
                         "PLUGIN_META_DUPLICATE_EVENT_TYPE", "Event export types must be unique", base + ".eventType");
             }
-            declared.add(new CoreEventExport(
-                    orEmpty(id),
-                    orEmpty(text(export, "contractVersion")),
-                    orEmpty(type),
-                    orEmpty(text(export, "abiSha256"))));
+            declared.add(new CoreEventExport(orEmpty(id), orEmpty(text(export, "contractVersion")), orEmpty(type)));
         }
     }
 
@@ -756,7 +751,6 @@ public final class PluginDescriptorParser {
             final String eventId = readEventId(imported, "eventId", base, findings);
             readContractVersionRange(imported, "contractVersion", base, findings);
             readEventType(imported, "eventType", base, findings);
-            readSha256(imported, "abiSha256", base, findings);
             final JsonNode required = imported.get("required");
             if (required != null && !required.isBoolean()) {
                 findings.add("PLUGIN_META_BAD_EVENT_IMPORT", "required must be boolean", base + ".required");
@@ -769,7 +763,6 @@ public final class PluginDescriptorParser {
                     orEmpty(eventId),
                     orEmpty(text(imported, "contractVersion")),
                     orEmpty(text(imported, "eventType")),
-                    orEmpty(text(imported, "abiSha256")),
                     required == null || required.asBoolean()));
         }
     }

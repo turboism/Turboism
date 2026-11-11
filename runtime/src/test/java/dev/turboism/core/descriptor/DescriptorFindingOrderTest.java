@@ -24,15 +24,13 @@ import org.junit.jupiter.params.provider.MethodSource;
 class DescriptorFindingOrderTest {
 
     private static final String DIGEST = "a".repeat(64);
-    private static final String OTHER_DIGEST = "b".repeat(64);
 
     private static final String EXPORT = """
         {
               "id": "demo.ready",
               "contractVersion": "1.0.0",
-              "eventType": "dev.turboism.plugin.demo.DemoReadyEvent",
-              "abiSha256": "%s"
-            }""".formatted(DIGEST);
+              "eventType": "dev.turboism.plugin.demo.DemoReadyEvent"
+            }""";
 
     private static final String IMPORT = """
         {
@@ -40,9 +38,8 @@ class DescriptorFindingOrderTest {
               "eventId": "provider.ready",
               "contractVersion": "[1.0.0,2.0.0)",
               "eventType": "dev.turboism.plugin.provider.ProviderReadyEvent",
-              "abiSha256": "%s",
               "required": false
-            }""".formatted(OTHER_DIGEST);
+            }""";
 
     private static final String CONTRACT = """
         {
@@ -467,9 +464,9 @@ class DescriptorFindingOrderTest {
                         "eventExports[0]"),
                 row(
                         "unknown export field",
-                        mutate(EXPORT, EXPORT.replace("\"abiSha256\"", "\"abi\"")),
+                        mutate(EXPORT, EXPORT.replace("\"eventType\"", "\"payloadType\"")),
                         "PLUGIN_META_UNKNOWN_EVENT_EXPORT_FIELD",
-                        "eventExports[0].abi"),
+                        "eventExports[0].payloadType"),
                 row(
                         "malformed export id",
                         mutate(EXPORT, EXPORT.replace("demo.ready", "Demo.Ready")),
@@ -487,11 +484,6 @@ class DescriptorFindingOrderTest {
                         mutate(EXPORT, EXPORT.replace("dev.turboism.plugin.demo.DemoReadyEvent", "DemoReadyEvent!")),
                         "PLUGIN_META_BAD_EVENT_TYPE",
                         "eventExports[0].eventType"),
-                row(
-                        "malformed export abi",
-                        mutate(EXPORT, EXPORT.replace(DIGEST, "not-a-digest")),
-                        "PLUGIN_META_BAD_EVENT_ABI",
-                        "eventExports[0].abiSha256"),
                 row(
                         "duplicate export id",
                         mutate(EXPORTS, "\"eventExports\": [" + EXPORT + ", " + EXPORT + "],"),
@@ -548,11 +540,6 @@ class DescriptorFindingOrderTest {
                         mutate(IMPORT, IMPORT.replace("ProviderReadyEvent", "ProviderReadyEvent!")),
                         "PLUGIN_META_BAD_EVENT_TYPE",
                         "eventImports[0].eventType"),
-                row(
-                        "malformed import abi",
-                        mutate(IMPORT, IMPORT.replace(OTHER_DIGEST, "not-a-digest")),
-                        "PLUGIN_META_BAD_EVENT_ABI",
-                        "eventImports[0].abiSha256"),
                 row(
                         "non-boolean import required",
                         mutate(IMPORT, IMPORT.replace("\"required\": false", "\"required\": \"no\"")),

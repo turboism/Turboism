@@ -168,7 +168,7 @@ record PluginArchiveMetadata(
                 List.copyOf(descriptor.i18n().locales()),
                 descriptor.eventExports().stream()
                         .map(exported -> new CorePluginManagement.EventExport(
-                                exported.id(), exported.contractVersion(), exported.eventType(), exported.abiSha256()))
+                                exported.id(), exported.contractVersion(), exported.eventType()))
                         .toList(),
                 descriptor.eventImports().stream()
                         .map(imported -> new CorePluginManagement.EventImport(
@@ -176,7 +176,6 @@ record PluginArchiveMetadata(
                                 imported.eventId(),
                                 imported.contractVersion(),
                                 imported.eventType(),
-                                imported.abiSha256(),
                                 imported.required()))
                         .toList(),
                 readme,

@@ -414,7 +414,6 @@ class ManifestValidationTest(unittest.TestCase):
         ], expect_ok=False)
 
     def test_schema_v4_event_routes_accepted(self):
-        digest = "a" * 64
         provider = make_module(
             self.tmp,
             "provider",
@@ -425,7 +424,6 @@ class ManifestValidationTest(unittest.TestCase):
                 "id": "model.ready",
                 "contractVersion": "1.0.0",
                 "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
-                "abiSha256": digest,
             }],
         )
         consumer = make_module(
@@ -440,7 +438,6 @@ class ManifestValidationTest(unittest.TestCase):
                 "eventId": "model.ready",
                 "contractVersion": "[1.0.0,2.0.0)",
                 "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
-                "abiSha256": digest,
                 "required": True,
             }],
         )
@@ -471,7 +468,6 @@ class ManifestValidationTest(unittest.TestCase):
                 "eventId": "model.ready",
                 "contractVersion": "[1.0.0,2.0.0)",
                 "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
-                "abiSha256": "a" * 64,
                 "required": True,
             }],
         )
@@ -496,7 +492,6 @@ class ManifestValidationTest(unittest.TestCase):
                 "eventId": "model.ready",
                 "contractVersion": "[1.0.0,2.0.0)",
                 "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
-                "abiSha256": "a" * 64,
                 "required": False,
             }],
         )
@@ -743,7 +738,6 @@ class StagingTest(unittest.TestCase):
         self.assertEqual(backup["policy"]["cubismVersions"], ["5.2.03", "5.3.02"])
 
     def test_schema_v4_sidecar_publishes_event_metadata(self):
-        digest = "a" * 64
         provider = make_module(
             self.tmp,
             "provider",
@@ -754,7 +748,6 @@ class StagingTest(unittest.TestCase):
                 "id": "model.ready",
                 "contractVersion": "1.0.0",
                 "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
-                "abiSha256": digest,
             }],
         )
         consumer = make_module(
@@ -769,7 +762,6 @@ class StagingTest(unittest.TestCase):
                 "eventId": "model.ready",
                 "contractVersion": "[1.0.0,2.0.0)",
                 "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
-                "abiSha256": digest,
                 "required": True,
             }],
         )
@@ -794,14 +786,12 @@ class StagingTest(unittest.TestCase):
             "id": "model.ready",
             "contractVersion": "1.0.0",
             "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
-            "abiSha256": digest,
         }])
         self.assertEqual(by_id["dev.turboism.plugin.consumer"]["subscribedEvents"], [{
             "provider": "dev.turboism.plugin.provider",
             "eventId": "model.ready",
             "contractVersion": "[1.0.0,2.0.0)",
             "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
-            "abiSha256": digest,
             "required": True,
         }])
 

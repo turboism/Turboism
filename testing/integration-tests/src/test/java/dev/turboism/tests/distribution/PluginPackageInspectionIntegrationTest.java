@@ -39,9 +39,6 @@ class PluginPackageInspectionIntegrationTest {
         assertEquals(PluginPackageFixtures.VERSION, plan.packageIdentity().version());
         assertEquals(
                 PluginPackageFixtures.sha256(archive), plan.packageIdentity().rawArchiveSha256());
-        assertFalse(plan.packageIdentity()
-                .packageHash()
-                .equals(plan.packageIdentity().rawArchiveSha256()));
         assertEquals("[0.67.0,1.0.0)", plan.descriptor().turboismApi());
         assertEquals(
                 List.of(PluginPackageFixtures.ENTRYPOINT), plan.descriptor().entrypoints());

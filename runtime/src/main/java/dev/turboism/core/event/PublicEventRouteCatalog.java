@@ -4,6 +4,7 @@ import dev.turboism.core.version.PluginVersion;
 import dev.turboism.core.version.VersionRange;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.plugin.PluginDescriptor;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -21,8 +22,8 @@ final class PublicEventRouteCatalog {
 
     void preflight(final PluginDescriptor descriptor) {
         final PluginDescriptor value = Objects.requireNonNull(descriptor, "descriptor");
-        value.eventExports().forEach(exported -> PublicEventAbi.resolve(exported.eventType(), exported.abiSha256()));
-        value.eventImports().forEach(imported -> PublicEventAbi.resolve(imported.eventType(), imported.abiSha256()));
+        value.eventExports().forEach(exported -> requireSharedSdkType(exported.eventType()));
+        value.eventImports().forEach(imported -> requireSharedSdkType(imported.eventType()));
     }
 
     synchronized void admit(final PluginEventOwnerKey owner, final PluginDescriptor descriptor) {
@@ -34,7 +35,7 @@ final class PublicEventRouteCatalog {
         final Map<String, Export> exports = new HashMap<>();
         final Set<String> exportedTypes = new HashSet<>();
         for (PluginDescriptor.EventExport exported : value.eventExports()) {
-            PublicEventAbi.resolve(exported.eventType(), exported.abiSha256());
+            requireSharedSdkType(exported.eventType());
             final Export contract = Export.of(value.id(), exported);
             if (exports.put(contract.id(), contract) != null) {
                 throw new IllegalArgumentException(
@@ -47,7 +48,7 @@ final class PublicEventRouteCatalog {
         }
         final Map<RouteKey, Import> imports = new HashMap<>();
         for (PluginDescriptor.EventImport imported : value.eventImports()) {
-            PublicEventAbi.resolve(imported.eventType(), imported.abiSha256());
+            requireSharedSdkType(imported.eventType());
             final Import contract = Import.of(imported);
             if (imports.put(contract.route(), contract) != null) {
                 throw new IllegalArgumentException("Duplicate public event import: " + contract.route());
@@ -147,9 +148,8 @@ final class PublicEventRouteCatalog {
         if (imported == null) {
             throw new IllegalArgumentException("Plugin has not imported public event " + route.key());
         }
-        if (!imported.eventType().equals(type.getName())
-                || !imported.abiSha256().equals(route.abiSha256())) {
-            throw new IllegalArgumentException("Public event contract ABI does not match: " + imported.route());
+        if (!imported.eventType().equals(type.getName())) {
+            throw new IllegalArgumentException("Public event contract type does not match: " + imported.route());
         }
         final Provider provider = effectiveProvider(route.key().providerId());
         if (provider != null) {
@@ -198,12 +198,7 @@ final class PublicEventRouteCatalog {
                 }
                 continue;
             }
-            requireCompatible(
-                    consumer,
-                    imported,
-                    exported,
-                    provider,
-                    PublicEventAbi.resolve(imported.eventType(), imported.abiSha256()));
+            requireCompatible(consumer, imported, exported, provider, requireSharedSdkType(imported.eventType()));
         }
     }
 
@@ -224,12 +219,7 @@ final class PublicEventRouteCatalog {
                     }
                     continue;
                 }
-                requireCompatible(
-                        consumer,
-                        imported,
-                        exported,
-                        provider,
-                        PublicEventAbi.resolve(imported.eventType(), imported.abiSha256()));
+                requireCompatible(consumer, imported, exported, provider, requireSharedSdkType(imported.eventType()));
             }
         }
     }
@@ -242,14 +232,12 @@ final class PublicEventRouteCatalog {
                     continue;
                 }
                 if (current.eventType().equals(claim.eventType())
-                        && (!current.route().equals(claim.route())
-                                || !current.abiSha256().equals(claim.abiSha256()))) {
+                        && !current.route().equals(claim.route())) {
                     throw new IllegalArgumentException(
                             "Public event type is already claimed by " + current.route() + ": " + claim.eventType());
                 }
                 if (current.route().equals(claim.route())
-                        && (!current.eventType().equals(claim.eventType())
-                                || !current.abiSha256().equals(claim.abiSha256()))) {
+                        && !current.eventType().equals(claim.eventType())) {
                     throw new IllegalArgumentException(
                             "Public event route has conflicting contracts: " + claim.route());
                 }
@@ -269,14 +257,11 @@ final class PublicEventRouteCatalog {
         provider.exports()
                 .values()
                 .forEach(exported -> claims.add(new PublicClaim(
-                        provider.owner(),
-                        new RouteKey(exported.providerId(), exported.id()),
-                        exported.eventType(),
-                        exported.abiSha256())));
+                        provider.owner(), new RouteKey(exported.providerId(), exported.id()), exported.eventType())));
         provider.imports()
                 .values()
-                .forEach(imported -> claims.add(new PublicClaim(
-                        provider.owner(), imported.route(), imported.eventType(), imported.abiSha256())));
+                .forEach(imported ->
+                        claims.add(new PublicClaim(provider.owner(), imported.route(), imported.eventType())));
         return claims;
     }
 
@@ -289,10 +274,7 @@ final class PublicEventRouteCatalog {
                 }
                 matched = mergeRoute(
                         matched,
-                        new PublicRoute(
-                                new RouteKey(exported.providerId(), exported.id()),
-                                exported.eventType(),
-                                exported.abiSha256()));
+                        new PublicRoute(new RouteKey(exported.providerId(), exported.id()), exported.eventType()));
             }
         }
         for (Provider consumer : admitted.values()) {
@@ -300,8 +282,7 @@ final class PublicEventRouteCatalog {
                 if (!imported.eventType().equals(eventType)) {
                     continue;
                 }
-                matched = mergeRoute(
-                        matched, new PublicRoute(imported.route(), imported.eventType(), imported.abiSha256()));
+                matched = mergeRoute(matched, new PublicRoute(imported.route(), imported.eventType()));
             }
         }
         return matched;
@@ -360,9 +341,8 @@ final class PublicEventRouteCatalog {
             throw new IllegalArgumentException("Public event contract version is incompatible: " + imported.route());
         }
         if (!imported.eventType().equals(exported.eventType())
-                || !imported.eventType().equals(eventType.getName())
-                || !imported.abiSha256().equals(exported.abiSha256())) {
-            throw new IllegalArgumentException("Public event contract ABI does not match: " + imported.route());
+                || !imported.eventType().equals(eventType.getName())) {
+            throw new IllegalArgumentException("Public event contract type does not match: " + imported.route());
         }
         final ClassLoader required = EventBus.class.getClassLoader();
         if (eventType.getClassLoader() != required) {
@@ -378,28 +358,48 @@ final class PublicEventRouteCatalog {
             Map<RouteKey, Import> imports,
             Map<String, PluginDescriptor.DependencyRef> dependencies) {}
 
-    private record Export(String providerId, String id, String contractVersion, String eventType, String abiSha256) {
+    // Public event payload types are SDK-owned. Resolving them through the shared SDK
+    // loader keeps one payload class per event route across every plugin generation.
+    private static Class<? extends EventBus.TurboismEvent> requireSharedSdkType(final String eventType) {
+        final ClassLoader sdkLoader = EventBus.class.getClassLoader();
+        final Class<?> type;
+        try {
+            type = Class.forName(eventType, false, sdkLoader);
+        } catch (ClassNotFoundException failure) {
+            throw new IllegalArgumentException(
+                    "Public event payload type is not available from the shared SDK: " + eventType, failure);
+        }
+        if (!EventBus.TurboismEvent.class.isAssignableFrom(type)
+                || !type.isRecord()
+                || !Modifier.isFinal(type.getModifiers())
+                || type.getClassLoader() != sdkLoader) {
+            throw new IllegalArgumentException(
+                    "Public event payload type must be a final shared SDK event record: " + eventType);
+        }
+        @SuppressWarnings("unchecked")
+        final Class<? extends EventBus.TurboismEvent> eventClass = (Class<? extends EventBus.TurboismEvent>) type;
+        return eventClass;
+    }
+
+    private record Export(String providerId, String id, String contractVersion, String eventType) {
         private static Export of(final String providerId, final PluginDescriptor.EventExport exported) {
-            return new Export(
-                    providerId, exported.id(), exported.contractVersion(), exported.eventType(), exported.abiSha256());
+            return new Export(providerId, exported.id(), exported.contractVersion(), exported.eventType());
         }
     }
 
-    private record Import(
-            RouteKey route, String contractVersion, String eventType, String abiSha256, boolean required) {
+    private record Import(RouteKey route, String contractVersion, String eventType, boolean required) {
         private static Import of(final PluginDescriptor.EventImport imported) {
             return new Import(
                     new RouteKey(imported.providerId(), imported.eventId()),
                     imported.contractVersion(),
                     imported.eventType(),
-                    imported.abiSha256(),
                     imported.required());
         }
     }
 
-    private record PublicClaim(PluginEventOwnerKey owner, RouteKey route, String eventType, String abiSha256) {}
+    private record PublicClaim(PluginEventOwnerKey owner, RouteKey route, String eventType) {}
 
-    private record PublicRoute(RouteKey key, String eventType, String abiSha256) {}
+    private record PublicRoute(RouteKey key, String eventType) {}
 
     private record RouteKey(String providerId, String eventId) {
         private RouteKey {

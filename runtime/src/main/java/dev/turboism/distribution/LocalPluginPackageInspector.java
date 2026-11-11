@@ -154,20 +154,12 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
                         && manifest.path("version").textValue().equals(descriptor.version()),
                 "PLUGIN_IDENTITY_MISMATCH",
                 "packageId/version");
-        require(
-                manifest.path("pluginDescriptorSha256").textValue().equals(plugin.descriptorSha256()),
-                "PLUGIN_DESCRIPTOR_HASH_MISMATCH",
-                "pluginDescriptorSha256");
         require(strictApi(descriptor.turboismApi()), "PLUGIN_META_BAD_VERSION_RANGE", "turboismApi");
     }
 
     private static PluginPackageIdentity identity(JsonNode manifest, RawObservation raw) {
         return new PluginPackageIdentity(
-                manifest.path("packageHash").textValue(),
-                manifest.path("packageId").textValue(),
-                manifest.path("version").textValue(),
-                raw.sha256(),
-                raw.size());
+                manifest.path("packageId").textValue(), manifest.path("version").textValue(), raw.sha256(), raw.size());
     }
 
     private RawObservation snapshot(Path source, Path target) throws Exception {

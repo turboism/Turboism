@@ -24,7 +24,6 @@ class PluginManifestFixtureTest {
 
     @Test
     void productionParserRejectsPersistedInvalidFixturesWithStableProblems() throws Exception {
-        assertProblem("bad-package-hash.json", "PACKAGE_HASH_MISMATCH", "packageHash");
         assertProblem("legacy-format.json", "MANIFEST_UNKNOWN_FIELD", "artifacts");
         assertProblem("unknown-field.json", "MANIFEST_UNKNOWN_FIELD", "extra");
         assertProblem("unsorted-files.json", "MANIFEST_FILE_ORDER_INVALID", "files");

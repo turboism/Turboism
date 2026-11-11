@@ -24,7 +24,6 @@ class PublicEventRouteCatalogTest {
     private static final String PROVIDER = "dev.example.provider";
     private static final String CONSUMER = "dev.example.consumer";
     private static final String EVENT_ID = "provider.ready";
-    private static final String ABI = PublicEventAbi.sha256(PublicFixtureEvent.class);
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC);
 
     @Test
@@ -32,7 +31,7 @@ class PublicEventRouteCatalogTest {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
-        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", ABI, true));
+        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true));
         final CountDownLatch delivered = new CountDownLatch(1);
         broker.subscribe(consumer.key(), PublicFixtureEvent.class, ignored -> delivered.countDown());
         provider.activate();
@@ -81,7 +80,7 @@ class PublicEventRouteCatalogTest {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
-        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", ABI, true));
+        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true));
         provider.activate();
         consumer.activate();
 
@@ -91,14 +90,12 @@ class PublicEventRouteCatalogTest {
     }
 
     @Test
-    void incompatibleContractAbiRejectsSubscription() {
+    void incompatibleContractVersionRejectsSubscription() {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         broker.admit(providerDescriptor());
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> broker.admit(consumerDescriptor("[1.0.0,2.0.0)", "b".repeat(64), true)));
+        assertThrows(IllegalArgumentException.class, () -> broker.admit(consumerDescriptor("[2.0.0,3.0.0)", true)));
         scheduler.shutdown();
     }
 
@@ -107,8 +104,7 @@ class PublicEventRouteCatalogTest {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
 
-        assertThrows(
-                IllegalArgumentException.class, () -> broker.admit(consumerDescriptor("[1.0.0,2.0.0)", ABI, true)));
+        assertThrows(IllegalArgumentException.class, () -> broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true)));
         scheduler.shutdown();
     }
 
@@ -117,7 +113,7 @@ class PublicEventRouteCatalogTest {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
 
-        broker.admit(consumerDescriptor("[1.0.0,2.0.0)", ABI, false));
+        broker.admit(consumerDescriptor("[1.0.0,2.0.0)", false));
 
         scheduler.shutdown();
     }
@@ -132,7 +128,7 @@ class PublicEventRouteCatalogTest {
                 "1.0.0",
                 List.of(),
                 List.of(new CorePluginDescriptor.CoreEventExport(
-                        "other.ready", "1.0.0", PublicFixtureEvent.class.getName(), ABI)),
+                        "other.ready", "1.0.0", PublicFixtureEvent.class.getName())),
                 List.of());
 
         assertThrows(IllegalArgumentException.class, () -> broker.admit(duplicate));
@@ -144,7 +140,7 @@ class PublicEventRouteCatalogTest {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
-        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", ABI, true));
+        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true));
         final CountDownLatch delivered = new CountDownLatch(1);
         broker.subscribe(consumer.key(), PublicFixtureEvent.class, ignored -> delivered.countDown());
         provider.activate();
@@ -166,7 +162,7 @@ class PublicEventRouteCatalogTest {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
-        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", ABI, true));
+        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true));
         final CountDownLatch delivered = new CountDownLatch(1);
         broker.subscribe(consumer.key(), PublicFixtureEvent.class, ignored -> delivered.countDown());
         provider.activate();
@@ -213,7 +209,7 @@ class PublicEventRouteCatalogTest {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         broker.admit(providerDescriptor());
-        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", ABI, true));
+        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true));
 
         assertThrows(IllegalArgumentException.class, consumer::activate);
         scheduler.shutdown();
@@ -229,8 +225,7 @@ class PublicEventRouteCatalogTest {
         assertTrue(provider.awaitQuiescence(Duration.ZERO));
         provider.close();
 
-        assertThrows(
-                IllegalArgumentException.class, () -> broker.admit(consumerDescriptor("[1.0.0,2.0.0)", ABI, true)));
+        assertThrows(IllegalArgumentException.class, () -> broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true)));
         scheduler.shutdown();
     }
 
@@ -242,7 +237,7 @@ class PublicEventRouteCatalogTest {
         provider.activate();
         broker.admit(providerDescriptor("2.0.0"));
 
-        assertDoesNotThrow(() -> broker.admit(consumerDescriptor("[1.0.0,2.0.0)", ABI, true)));
+        assertDoesNotThrow(() -> broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true)));
         scheduler.shutdown();
     }
 
@@ -251,7 +246,7 @@ class PublicEventRouteCatalogTest {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
-        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", ABI, true));
+        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true));
         provider.activate();
         consumer.activate();
         final RuntimeEventBroker.Owner replacement = broker.admit(providerDescriptor("2.0.0"));
@@ -265,7 +260,7 @@ class PublicEventRouteCatalogTest {
     void publicImportRetainsRoutingPolicyWhileProviderIsAbsent() {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", ABI, false));
+        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", false));
         final RuntimeEventBroker.Owner undeclared = broker.admit("dev.example.undeclared");
 
         broker.subscribe(consumer.key(), PublicFixtureEvent.class, ignored -> {});
@@ -285,12 +280,11 @@ class PublicEventRouteCatalogTest {
                 version,
                 List.of(),
                 List.of(new CorePluginDescriptor.CoreEventExport(
-                        EVENT_ID, "1.2.0", PublicFixtureEvent.class.getName(), ABI)),
+                        EVENT_ID, "1.2.0", PublicFixtureEvent.class.getName())),
                 List.of());
     }
 
-    private static PluginDescriptor consumerDescriptor(
-            final String contractVersion, final String abi, final boolean required) {
+    private static PluginDescriptor consumerDescriptor(final String contractVersion, final boolean required) {
         return descriptor(
                 CONSUMER,
                 "1.0.0",
@@ -298,7 +292,7 @@ class PublicEventRouteCatalogTest {
                         PROVIDER, "required", "[1.0.0,2.0.0)", "after", Optional.empty())),
                 List.of(),
                 List.of(new CorePluginDescriptor.CoreEventImport(
-                        PROVIDER, EVENT_ID, contractVersion, PublicFixtureEvent.class.getName(), abi, required)));
+                        PROVIDER, EVENT_ID, contractVersion, PublicFixtureEvent.class.getName(), required)));
     }
 
     private static PluginDescriptor descriptor(

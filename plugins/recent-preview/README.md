@@ -76,7 +76,6 @@ A consumer declares a dependency on `dev.turboism.plugin.recent-preview` with `o
   "eventId": "thumbnail.captured",
   "contractVersion": "[1.0.0,2.0.0)",
   "eventType": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent",
-  "abiSha256": "e4791126d565f94153f3580974ea179f1fd46fa69a638ed52cabdb359a4f4109",
   "required": true
 }]
 ```

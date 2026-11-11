@@ -199,10 +199,8 @@ class PluginPackageRaceRegressionTest {
         String wrongSha256 = "0".repeat(64);
         byte[] pluginJar = LocalPluginJarPreparerTest.v5ContractPluginJar(
                 "dev.turboism.plugin.sample", artifact, wrongSha256, Map.of());
-        byte[] descriptor = LocalPluginJarPreparerTest.v5Descriptor("dev.turboism.plugin.sample", wrongSha256)
-                .getBytes(StandardCharsets.UTF_8);
         Path input = tempDir.resolve("wronghash.tplugin");
-        Files.write(input, pluginPackage("dev.turboism.plugin.sample", pluginJar, descriptor));
+        Files.write(input, pluginPackage("dev.turboism.plugin.sample", pluginJar));
         PluginPackageInspector.Rejected rejected = assertInstanceOf(
                 PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(input));
         assertEquals(
@@ -225,10 +223,8 @@ class PluginPackageRaceRegressionTest {
         String declaredSha256 = LocalPluginJarPreparerTest.sha256Hex(artifact);
         byte[] pluginJar = LocalPluginJarPreparerTest.v5ContractPluginJar(
                 "dev.turboism.plugin.sample", artifact, declaredSha256, Map.of());
-        byte[] descriptor = LocalPluginJarPreparerTest.v5Descriptor("dev.turboism.plugin.sample", declaredSha256)
-                .getBytes(StandardCharsets.UTF_8);
         Path input = tempDir.resolve("badpayload.tplugin");
-        Files.write(input, pluginPackage("dev.turboism.plugin.sample", pluginJar, descriptor));
+        Files.write(input, pluginPackage("dev.turboism.plugin.sample", pluginJar));
         PluginPackageInspector.Rejected rejected = assertInstanceOf(
                 PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(input));
         assertEquals(
@@ -241,10 +237,8 @@ class PluginPackageRaceRegressionTest {
         byte[] nested = new byte[] {1, 2, 3};
         byte[] pluginJar = LocalPluginJarPreparerTest.v5ContractPluginJar(
                 "dev.turboism.plugin.sample", null, null, Map.of("lib/smuggled.jar", nested));
-        byte[] descriptor = LocalPluginJarPreparerTest.v5Descriptor("dev.turboism.plugin.sample", null)
-                .getBytes(StandardCharsets.UTF_8);
         Path input = tempDir.resolve("nestedlib.tplugin");
-        Files.write(input, pluginPackage("dev.turboism.plugin.sample", pluginJar, descriptor));
+        Files.write(input, pluginPackage("dev.turboism.plugin.sample", pluginJar));
         PluginPackageInspector.Rejected rejected = assertInstanceOf(
                 PluginPackageInspector.Rejected.class, new LocalPluginPackageInspector().inspect(input));
         assertEquals("PLUGIN_CONTENT_CONTAMINATION", rejected.problems().get(0).code());
@@ -263,9 +257,7 @@ class PluginPackageRaceRegressionTest {
         String declaredSha256 = declareContract ? LocalPluginJarPreparerTest.sha256Hex(artifact) : null;
         byte[] pluginJar = LocalPluginJarPreparerTest.v5ContractPluginJar(
                 "dev.turboism.plugin.sample", artifact, declaredSha256, Map.of());
-        byte[] descriptor = LocalPluginJarPreparerTest.v5Descriptor("dev.turboism.plugin.sample", declaredSha256)
-                .getBytes(StandardCharsets.UTF_8);
-        return pluginPackage("dev.turboism.plugin.sample", pluginJar, descriptor);
+        return pluginPackage("dev.turboism.plugin.sample", pluginJar);
     }
 
     private static byte[] fixture(String marker) throws Exception {
@@ -283,10 +275,10 @@ class PluginPackageRaceRegressionTest {
             add(jar, "META-INF/turboism/i18n/messages.properties", new byte[0]);
             add(jar, entrypoint.replace('.', '/') + ".class", marker.getBytes(StandardCharsets.UTF_8));
         }
-        return pluginPackage(id, jarBytes.toByteArray(), descriptor.getBytes(StandardCharsets.UTF_8));
+        return pluginPackage(id, jarBytes.toByteArray());
     }
 
-    private static byte[] pluginPackage(String id, byte[] payload, byte[] descriptor) throws Exception {
+    private static byte[] pluginPackage(String id, byte[] payload) throws Exception {
         String hash =
                 HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(payload));
         Map<String, Object> manifest = new LinkedHashMap<>();
@@ -299,11 +291,9 @@ class PluginPackageRaceRegressionTest {
         manifest.put("packageId", id);
         manifest.put("packageKind", "PLUGIN");
         manifest.put("pluginDescriptorPath", "plugin/plugin.jar!/META-INF/turboism/plugin.json");
-        manifest.put("pluginDescriptorSha256", sha256(descriptor));
         manifest.put("schemaVersion", 1);
         manifest.put("version", "0.1.0");
         ObjectMapper canonical = new ObjectMapper().enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
-        manifest.put("packageHash", sha256(canonical.writeValueAsBytes(manifest)));
         byte[] manifestBytes = canonical.writeValueAsBytes(manifest);
         ByteArrayOutputStream archive = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(archive)) {
