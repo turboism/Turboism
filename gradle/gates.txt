@@ -121,7 +121,6 @@ member checkCompletedCommit @all-module-spotless
 member checkCompletedCommit checkSdkApiCurrent
 # Registered later in verification.gradle.kts (forward references stay lazy by name).
 member checkCompletedCommit checkFrameworkUpdateTooling
-member checkCompletedCommit checkWindowsUpdateNativeSources
 member checkCompletedCommit checkBootstrapReceipt
 member checkCompletedCommit :bootstrap:checkBootstrapLaunchLeasePremain
 # Registered by gradle/architecture-governance.gradle.kts and duplicated from checkRelease below so
