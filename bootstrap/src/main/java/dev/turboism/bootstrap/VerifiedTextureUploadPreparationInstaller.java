@@ -19,7 +19,7 @@ import java.util.Optional;
  * contract table and its JOGL-artifact gate. Its JVM predicate stays {@code == 17}: the launcher can
  * start a user-supplied GraalVM, and this weave was never measured on one.</p>
  */
-final class VerifiedTextureUploadPreparationInstaller implements AutoCloseable {
+final class VerifiedTextureUploadPreparationInstaller implements VerifiedHookInstaller {
     static final String HOOK_ID = "cubism.texture-upload-preparation";
 
     /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
@@ -95,13 +95,19 @@ final class VerifiedTextureUploadPreparationInstaller implements AutoCloseable {
         return artifact.toAbsolutePath().normalize().getParent().resolve("jogl/jogl-all.jar");
     }
 
+    @Override
+    public boolean admits(final InstallContext context) {
+        return admitted(context.artifact(), context.policy(), true, context.jvmFeature());
+    }
+
     /**
      * Installs the weave through {@link VerifiedInstall}.
      *
      * @throws IllegalStateException when the artifact is not an admitted texture-preparation host
      * @throws Exception when registration, retransformation or the match proof fails
      */
-    synchronized void install() throws Exception {
+    @Override
+    public synchronized void install() throws Exception {
         if (hook != null) return;
         if (!(VerifiedInstall.install(SPEC, context)
                 instanceof VerifiedInstall.Attempt.Installed<ReviewedHostContract.Bound<String>> installed)) {
