@@ -308,12 +308,12 @@ Prompts accept no arguments. The two diagnostic prompts explicitly prohibit muta
 | `cubism.workspace.read` | Reads typed workspace status and dock-layout snapshots. |
 | `cubism.model.objects.read` | Inspects supported model objects. |
 | `cubism.model.objects.write` | Creates, renames, reparents, and deletes supported model objects. |
-| `cubism.parameters.read` | Reads active-model parameters. |
-| `cubism.parameters.write` | Applies typed parameter value and definition operations. |
+| `cubism.parameter.read` | Reads active-model parameters. |
+| `cubism.parameter.write` | Applies typed parameter value and definition operations. |
 | `cubism.parameter-bindings.read` | Reads parameter bindings. |
 | `cubism.parameter-bindings.write` | Applies typed binding operations and native atomic transfers. |
-| `cubism.history.read` | Reads native Undo history. |
-| `cubism.history.write` | Moves native Undo history with generation and revision guards. |
+| `cubism.editor-history.read` | Reads native Undo history. |
+| `cubism.editor-history.move` | Moves native Undo history with generation and revision guards. |
 | `cubism.editor-commands.execute` | Executes the bounded supported Editor-command surface. |
 
 ## Permissions

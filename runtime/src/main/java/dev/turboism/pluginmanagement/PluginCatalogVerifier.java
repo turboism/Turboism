@@ -1,9 +1,6 @@
 package dev.turboism.pluginmanagement;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -17,6 +14,7 @@ import dev.turboism.pluginmanagement.PluginCatalog.CatalogLocalization;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogPermission;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogPlugin;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogRelease;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -196,10 +194,7 @@ public final class PluginCatalogVerifier {
     private static final Set<String> ORDERING_VALUES = Set.of("none", "before", "after");
     private static final Set<String> PERMISSION_SCOPES = Set.of("application", "user");
 
-    private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
-                    .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                    .build())
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private static final ObjectMapper JSON = RuntimeJson.strict();
 
     private final Map<String, TrustedKey> trustedKeys;
     private final boolean requireProduction;

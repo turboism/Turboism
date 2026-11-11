@@ -76,7 +76,9 @@ class VerifiedModelUpdateSkipInstallerTest {
                     .build();
             assertFalse(NativeOptimizationPolicy.modelUpdateSkipEnabled(env));
             assertFalse(ModelUpdateSkipBridge.flagEnabled());
-            assertNotNull(new ModelUpdateSkipHookContributor().installAdmitted(env));
+            assertNotNull(DeclarativeHookContributor.of(
+                            DeclarativeHooks.byKey("verified-model-update-skip").orElseThrow())
+                    .install(env));
         } finally {
             ModelUpdateSkipBridge.setConfiguredDefault(true);
             if (prior == null) System.clearProperty(ModelUpdateSkipBridge.ENABLE_PROPERTY);

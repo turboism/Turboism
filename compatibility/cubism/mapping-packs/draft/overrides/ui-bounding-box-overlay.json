@@ -1,0 +1,80 @@
+{
+  "format": "turboism.mapping.pack.overrides",
+  "schemaVersion": 1,
+  "family": "ui-bounding-box-overlay",
+  "baselineVersion": "5.2.03",
+  "overrides": {
+    "5.3.02": [
+      {
+        "op": "replace",
+        "path": "/packId",
+        "value": "cubism-5.3.02-ui-bounding-box-overlay"
+      },
+      {
+        "op": "replace",
+        "path": "/description",
+        "value": "Exact Cubism 5.3.02 red-box overlay native setup and cleanup selector evidence."
+      },
+      {
+        "op": "replace",
+        "path": "/entries/0/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.bounding_box_update"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/1/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.bounding_box_setup_button"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.button_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/3/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.vector_times"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/4/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.vector_plus"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/5/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.button_set_enabled"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/6/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.scene_component_objects"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/7/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.entity_children"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/8/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.scene_remove_volatile"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/9/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.entities_remove"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/10/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.writable_image_create"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/11/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.icon_set_create"
+      }
+    ]
+  }
+}

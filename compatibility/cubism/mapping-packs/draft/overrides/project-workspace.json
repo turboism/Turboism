@@ -1,0 +1,394 @@
+{
+  "format": "turboism.mapping.pack.overrides",
+  "schemaVersion": 1,
+  "family": "project-workspace",
+  "baselineVersion": "5.0.00",
+  "overrides": {
+    "5.0.01": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.0.01-project-workspace.json"
+      }
+    ],
+    "5.0.02": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.0.02-project-workspace.json"
+      }
+    ],
+    "5.0.03": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.0.03-project-workspace.json"
+      }
+    ],
+    "5.0.04": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.0.04-project-workspace.json"
+      }
+    ],
+    "5.0.05": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.0.05-project-workspace.json"
+      }
+    ],
+    "5.0.06": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.0.06-project-workspace.json"
+      }
+    ],
+    "5.1.00": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.1.00-project-workspace.json"
+      }
+    ],
+    "5.1.01": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.1.01-project-workspace.json"
+      }
+    ],
+    "5.1.02": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.1.02-project-workspace.json"
+      }
+    ],
+    "5.1.03": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.1.03-project-workspace.json"
+      }
+    ],
+    "5.2.00": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.2.00-project-workspace.json"
+      }
+    ],
+    "5.2.01": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.2.01-project-workspace.json"
+      }
+    ],
+    "5.2.02": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.2.02-project-workspace.json"
+      }
+    ],
+    "5.2.03": [
+      {
+        "op": "replace",
+        "path": "/entries/0/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.class.app_ctrl"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/0/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/1/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.app_ctrl_instance"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/1/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.current_project"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/3/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.current_document"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/3/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/4/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.field.view_context_history"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/4/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/5/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.class.view_context"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/5/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/6/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.view_context_document"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/6/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/7/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.main_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/7/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/8/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.class.project"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/8/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/9/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.project_docs"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/9/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/10/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.class.document"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/10/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/11/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.document_file_content"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/11/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/12/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.class.file_content"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/12/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/13/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.file_content_file"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/13/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/14/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.class.main_frame"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/14/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/15/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.dock_manager"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/15/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/16/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.class.dock_wrapper"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/16/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/17/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.last_workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/17/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/18/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.class.workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/18/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/19/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.workspace_id"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/19/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/20/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.workspace_name"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/20/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/21/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.workspace_guid"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/21/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/22/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.class.id"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/22/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/23/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.id_string"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/23/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/24/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.class.guid"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/24/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/25/semanticName",
+        "value": "cubism.mapping.v5_2_03.m14.project_workspace.method.guid_string"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/25/owner",
+        "value": "m14-project-workspace"
+      },
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.2.03-project-workspace.json"
+      }
+    ],
+    "5.3.00": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.3.00-project-workspace.json"
+      }
+    ],
+    "5.3.01": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.3.01-project-workspace.json"
+      }
+    ],
+    "5.3.03": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.3.03-project-workspace.json"
+      }
+    ],
+    "5.3.04": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.3.04-project-workspace.json"
+      }
+    ]
+  }
+}

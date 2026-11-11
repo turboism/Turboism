@@ -1,9 +1,9 @@
 package dev.turboism.shell;
 
 import dev.turboism.internal.core.CorePluginManagement;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -29,11 +29,14 @@ final class PendingPluginChangesAction implements AutoCloseable {
             final Predicate<CorePluginManagement.PendingChanges> confirm,
             final Consumer<String> status,
             final Runnable refresh) {
-        this(label, plugins, confirm, status, refresh, Executors.newSingleThreadExecutor(task -> {
-            final Thread thread = new Thread(task, "turboism-pending-plugin-changes");
-            thread.setDaemon(true);
-            return thread;
-        }));
+        this(
+                label,
+                plugins,
+                confirm,
+                status,
+                refresh,
+                RuntimeThreads.serialLane(
+                        RuntimeThreads.daemonThreadsWithFixedName("turboism-pending-plugin-changes")));
     }
 
     PendingPluginChangesAction(

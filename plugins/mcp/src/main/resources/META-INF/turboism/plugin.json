@@ -98,12 +98,12 @@
     "cubism.model.objects.read",
     "cubism.workspace.read",
     "cubism.model.objects.write",
-    "cubism.parameters.read",
-    "cubism.parameters.write",
+    "cubism.parameter.read",
+    "cubism.parameter.write",
     "cubism.parameter-bindings.read",
     "cubism.parameter-bindings.write",
-    "cubism.history.read",
-    "cubism.history.write",
+    "cubism.editor-history.read",
+    "cubism.editor-history.move",
     "cubism.editor-commands.execute"
   ],
   "environment": {

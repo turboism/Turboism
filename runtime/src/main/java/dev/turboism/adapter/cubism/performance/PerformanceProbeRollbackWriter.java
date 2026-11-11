@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.performance;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.io.DurableFile;
 import dev.turboism.core.io.WriteOptions;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,7 +33,7 @@ public final class PerformanceProbeRollbackWriter {
     private static final WriteOptions PREFER_ATOMIC_REPLACE =
             WriteOptions.DEFAULT.withAtomicity(WriteOptions.Atomicity.PREFERRED);
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = RuntimeJson.standard();
 
     /**
      * Validates a complete rollback evidence set and, only if every check holds, publishes

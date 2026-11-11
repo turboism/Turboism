@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.performance.PerformanceFpsHook;
 import dev.turboism.adapter.cubism.performance.PerformanceFpsHookRegistry;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.performance.PerformanceSnapshot;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -22,7 +23,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -198,11 +198,8 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
                         "performance", "Performance FPS hook disabled safely", failure);
             }
         }
-        sampler = Executors.newSingleThreadScheduledExecutor(runnable -> {
-            final Thread thread = new Thread(runnable, "turboism-perf-stats-" + pluginId);
-            thread.setDaemon(true);
-            return thread;
-        });
+        sampler = RuntimeThreads.serialTimer(
+                RuntimeThreads.daemonThreadsWithFixedName("turboism-perf-stats-" + pluginId));
         lastRenderCalls = renderCalls();
         // The first window starts after hook installation: retransformation time
         // must never dilute the first FPS sample, and the window is monotonic.

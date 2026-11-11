@@ -1,15 +1,14 @@
 package dev.turboism.hostread;
 
+import dev.turboism.runtime.exec.RuntimeThreads;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,33 +36,15 @@ public final class SharedAsyncHostReadLane implements AutoCloseable {
         if (queueCapacity < 1) {
             throw new IllegalArgumentException("queueCapacity must be positive");
         }
-        this.executor = new ThreadPoolExecutor(
-                1,
-                1,
-                0L,
-                TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(queueCapacity),
-                runnable -> {
-                    final Thread thread = new Thread(
-                            () -> {
-                                workerThreadName.set(Thread.currentThread().getName());
-                                runnable.run();
-                            },
-                            "turboism-host-read-shared");
-                    thread.setDaemon(true);
-                    return thread;
-                },
-                new ThreadPoolExecutor.AbortPolicy());
+        this.executor = RuntimeThreads.serialLane(
+                queueCapacity,
+                RuntimeThreads.daemonThreads(
+                        "turboism-host-read-shared",
+                        () -> workerThreadName.set(Thread.currentThread().getName())));
     }
 
     private static ScheduledExecutorService createTimer() {
-        ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1, runnable -> {
-            final Thread thread = new Thread(runnable, "turboism-host-read-deadline");
-            thread.setDaemon(true);
-            return thread;
-        });
-        timer.setRemoveOnCancelPolicy(true);
-        return timer;
+        return RuntimeThreads.serialTimer(RuntimeThreads.daemonThreadsWithFixedName("turboism-host-read-deadline"));
     }
 
     Admission admit(final RuntimeAsyncHostReadHandle handle, final Duration timeout, final Runnable action) {

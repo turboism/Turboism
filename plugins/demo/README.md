@@ -66,7 +66,6 @@ No capabilities are declared in the plugin manifest.
 
 | Permission | Scope | Why it is requested |
 |---|---|---|
-| `turboism.ui.menu` | `application` | Declares access for the demo menu integration. |
 | `turboism.action.register` | `application` | Registers the `demo.hello` action. |
 | `turboism.ui.menu.contribute` | `application` | Adds the Tools/Demo menu contribution. |
 | `turboism.ui.toolbar.main.contribute` | `application` | Adds the main-toolbar button. |

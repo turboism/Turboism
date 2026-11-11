@@ -15,7 +15,7 @@ import java.util.Optional;
  * contract payload is the {@link ReviewedHostContract.Bound bound} resolution itself, because the
  * reference bytes are read after binding and must still come from the bound snapshot.</p>
  */
-final class VerifiedReinitPairElisionInstaller implements AutoCloseable {
+final class VerifiedReinitPairElisionInstaller implements VerifiedHookInstaller {
     static final String HOOK_ID = "cubism.model.reinit-pair-elision";
 
     static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.ANY);
@@ -68,13 +68,19 @@ final class VerifiedReinitPairElisionInstaller implements AutoCloseable {
                 owner -> transformer.beforeSha256()));
     }
 
+    @Override
+    public boolean admits(final InstallContext context) {
+        return admitted(context.artifact(), context.policy(), true);
+    }
+
     /**
      * Installs the weave through {@link VerifiedInstall}.
      *
      * @throws IllegalStateException when the artifact is not an admitted reinit Pair host
      * @throws Exception when registration, retransformation or the match proof fails
      */
-    synchronized void install() throws Exception {
+    @Override
+    public synchronized void install() throws Exception {
         if (hook != null) return;
         if (!(VerifiedInstall.install(SPEC, context)
                 instanceof VerifiedInstall.Attempt.Installed<ReviewedHostContract.Bound<String>> installed)) {

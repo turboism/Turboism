@@ -24,11 +24,6 @@
   "dependencies": [],
   "permissions": [
     {
-      "id": "turboism.ui.menu",
-      "scope": "application",
-      "reason": "Adds a demo menu item."
-    },
-    {
       "id": "turboism.action.register",
       "scope": "application",
       "reason": "Registers the demo hello action."

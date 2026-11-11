@@ -1,6 +1,7 @@
 package dev.turboism.ui.filter;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -216,11 +217,7 @@ final class PaletteTreeFilter {
      * installs the model and expands rows once the (read-only) reflection traversal is done.
      */
     static final java.util.concurrent.ExecutorService TREE_FILTER_EXECUTOR =
-            java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
-                final Thread thread = new Thread(runnable, "turboism-palette-tree-filter");
-                thread.setDaemon(true);
-                return thread;
-            });
+            RuntimeThreads.serialLane(RuntimeThreads.daemonThreadsWithFixedName("turboism-palette-tree-filter"));
 
     /**
      * Debounced deformer-tree filter application (last change wins within the debounce window).

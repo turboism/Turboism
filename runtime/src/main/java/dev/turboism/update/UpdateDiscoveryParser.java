@@ -1,12 +1,11 @@
 package dev.turboism.update;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.core.FrameworkBuildInfo;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
@@ -39,10 +38,7 @@ public final class UpdateDiscoveryParser {
             "(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-(?:alpha|beta|rc)\\.(?:0|[1-9][0-9]*))?");
     private static final Pattern NIGHTLY_VERSION =
             Pattern.compile("(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-0\\.nightly\\.(?:[1-9][0-9]*))?");
-    private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
-                    .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                    .build())
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private static final ObjectMapper JSON = RuntimeJson.strict();
 
     private final String expectedChannel;
 

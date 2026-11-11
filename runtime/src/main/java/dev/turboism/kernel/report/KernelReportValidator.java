@@ -11,13 +11,11 @@ import static dev.turboism.kernel.report.KernelReportValidationSupport.validateB
 import static dev.turboism.kernel.report.KernelReportValidationSupport.validateTimestamp;
 import static dev.turboism.kernel.report.KernelReportValidationSupport.validateTruncation;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
@@ -30,10 +28,7 @@ public final class KernelReportValidator {
     private static final String FORMAT = "turboism.preview.report";
     private static final Set<String> ENVELOPE_FIELDS =
             Set.of("format", "schemaVersion", "reportType", "runtimeId", "createdAt", "truncation", "payload");
-    private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
-                    .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                    .build())
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private static final ObjectMapper JSON = RuntimeJson.strict();
 
     private KernelReportValidator() {}
 

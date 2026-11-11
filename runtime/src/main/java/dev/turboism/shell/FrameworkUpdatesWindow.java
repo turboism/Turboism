@@ -10,6 +10,7 @@ import dev.turboism.pluginmanagement.CoordinatedPluginUpdateService.PluginUpdate
 import dev.turboism.pluginmanagement.PluginCatalogClient;
 import dev.turboism.pluginmanagement.PluginUpdateGate;
 import dev.turboism.pluginmanagement.RuntimePluginManagementService;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.Registration;
 import java.awt.BorderLayout;
@@ -26,7 +27,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import javax.swing.JButton;
@@ -71,17 +71,11 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private final CoordinatedPluginUpdateService coordinatedService;
     private final Function<String, List<PluginUpdateRow>> planner;
     private final Function<PluginUpdateRow, String> notesLoader;
-    private final ExecutorService notesWorker = Executors.newSingleThreadExecutor(r -> {
-        final Thread thread = new Thread(r, "turboism-update-notes");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final ExecutorService notesWorker =
+            RuntimeThreads.serialLane(RuntimeThreads.daemonThreadsWithFixedName("turboism-update-notes"));
     private final Map<PluginUpdateRow, CompletableFuture<String>> notesCache = new HashMap<>();
-    private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
-        final Thread thread = new Thread(r, "turboism-framework-updates-window");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final ExecutorService worker =
+            RuntimeThreads.serialLane(RuntimeThreads.daemonThreadsWithFixedName("turboism-framework-updates-window"));
     private final List<Registration> subscriptions = new ArrayList<>();
     private final JLabel version = new JLabel();
     private final JLabel targetVersion = new JLabel("", JLabel.TRAILING);

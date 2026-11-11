@@ -1,6 +1,7 @@
 package dev.turboism.userfile;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 import java.util.ArrayList;
@@ -8,7 +9,6 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -28,19 +28,8 @@ final class UserFileIoExecutor implements AutoCloseable {
 
     UserFileIoExecutor(final String pluginId, final RuntimePluginTaskScheduler tasks) {
         this.tasks = Objects.requireNonNull(tasks, "tasks");
-        this.executor = new ThreadPoolExecutor(
-                1,
-                1,
-                0L,
-                TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(64),
-                runnable -> {
-                    final Thread thread =
-                            new Thread(runnable, "turboism-user-file-" + requireText(pluginId, "pluginId"));
-                    thread.setDaemon(true);
-                    return thread;
-                },
-                new ThreadPoolExecutor.AbortPolicy());
+        this.executor = RuntimeThreads.serialLane(
+                64, RuntimeThreads.daemonThreads("turboism-user-file-" + requireText(pluginId, "pluginId")));
     }
 
     <T> CompletionStage<T> submit(

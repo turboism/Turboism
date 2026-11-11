@@ -1,6 +1,7 @@
 package dev.turboism.update;
 
 import dev.turboism.internal.core.CoreFrameworkUpdates;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -91,16 +92,9 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
                 throw new java.io.IOException("Update cache must be outside the installation");
             }
             java.nio.file.Files.createDirectories(area);
-            worker = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
-                final Thread thread = new Thread(r, "turboism-framework-update");
-                thread.setDaemon(true);
-                return thread;
-            });
-            timer = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
-                final Thread thread = new Thread(r, "turboism-framework-update-timeout");
-                thread.setDaemon(true);
-                return thread;
-            });
+            worker = RuntimeThreads.serialLane(RuntimeThreads.daemonThreadsWithFixedName("turboism-framework-update"));
+            timer = RuntimeThreads.serialTimer(
+                    RuntimeThreads.daemonThreadsWithFixedName("turboism-framework-update-timeout"));
             final var verifier = new UpdateManifestVerifier(keys);
             final var downloader =
                     new FrameworkUpdateDownloader(area.resolve("resources"), policy.source(), verifier, worker, timer);

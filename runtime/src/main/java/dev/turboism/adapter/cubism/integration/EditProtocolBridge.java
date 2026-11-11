@@ -2,8 +2,8 @@ package dev.turboism.adapter.cubism.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -61,7 +61,7 @@ public final class EditProtocolBridge {
         INTERCEPTED_SEND_FAILED
     }
 
-    private static final ObjectMapper JSON = JsonMapper.builder().build();
+    private static final ObjectMapper JSON = RuntimeJson.standard();
 
     private static final int TRACE_LIMIT = 64;
     private final java.util.concurrent.atomic.AtomicLong traceCount = new java.util.concurrent.atomic.AtomicLong();

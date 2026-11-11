@@ -1,0 +1,1815 @@
+{
+  "format": "turboism.mapping.pack.overrides",
+  "schemaVersion": 1,
+  "family": "startup-suppression",
+  "baselineVersion": "5.0.00",
+  "overrides": {
+    "5.0.01": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.0.01-startup-suppression.json"
+      }
+    ],
+    "5.0.02": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.0.02-startup-suppression.json"
+      }
+    ],
+    "5.0.03": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.0.03-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/0/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.class.app"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/1/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.method.startup"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.method.splash_factory"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/runtime",
+        "value": "e"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/descriptor",
+        "value": "()Lcom/live2d/ui/window/X;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/3/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.class.app_ctrl"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/4/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.method.update_check"
+      }
+    ],
+    "5.0.04": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.0.04-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/0/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.class.app"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/1/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.method.startup"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.method.splash_factory"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/runtime",
+        "value": "e"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/descriptor",
+        "value": "()Lcom/live2d/ui/window/X;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/3/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.class.app_ctrl"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/4/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.method.update_check"
+      }
+    ],
+    "5.0.05": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.0.05-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/0/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.class.app"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/1/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.method.startup"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.method.splash_factory"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/runtime",
+        "value": "e"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/descriptor",
+        "value": "()Lcom/live2d/ui/window/X;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/3/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.class.app_ctrl"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/4/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.method.update_check"
+      }
+    ],
+    "5.0.06": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.0.06-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/0/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.class.app"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/1/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.method.startup"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.method.splash_factory"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/runtime",
+        "value": "e"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/descriptor",
+        "value": "()Lcom/live2d/ui/window/X;"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/3/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.class.app_ctrl"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/4/semanticName",
+        "value": "cubism.mapping.v5_0_06.startup_suppression.method.update_check"
+      }
+    ],
+    "5.1.00": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.1.00-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries",
+        "value": [
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.class",
+            "runtime": "com/live2d/cubism/CECubismEditorApp",
+            "intermediary": "",
+            "profile": "cubism-5.1.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.startup",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.startup",
+            "runtime": "a",
+            "intermediary": "",
+            "descriptor": "([Ljava/lang/String;)V",
+            "profile": "cubism-5.1.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.splash_factory",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.splash-factory",
+            "runtime": "e",
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/ui/window/X;",
+            "profile": "cubism-5.1.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app_ctrl",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.class",
+            "runtime": "com/live2d/cubism/CEAppCtrl",
+            "intermediary": "",
+            "profile": "cubism-5.1.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.update_check",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.update-check",
+            "runtime": "command_checkUpdate",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.1.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.show_information",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.show-information",
+            "runtime": "showInformation",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.1.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          }
+        ]
+      }
+    ],
+    "5.1.01": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.1.01-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries",
+        "value": [
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.class",
+            "runtime": "com/live2d/cubism/CECubismEditorApp",
+            "intermediary": "",
+            "profile": "cubism-5.1.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.startup",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.startup",
+            "runtime": "a",
+            "intermediary": "",
+            "descriptor": "([Ljava/lang/String;)V",
+            "profile": "cubism-5.1.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.splash_factory",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.splash-factory",
+            "runtime": "e",
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/ui/window/X;",
+            "profile": "cubism-5.1.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app_ctrl",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.class",
+            "runtime": "com/live2d/cubism/CEAppCtrl",
+            "intermediary": "",
+            "profile": "cubism-5.1.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.update_check",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.update-check",
+            "runtime": "command_checkUpdate",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.1.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.show_information",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.show-information",
+            "runtime": "showInformation",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.1.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          }
+        ]
+      }
+    ],
+    "5.1.02": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.1.02-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries",
+        "value": [
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.class",
+            "runtime": "com/live2d/cubism/CECubismEditorApp",
+            "intermediary": "",
+            "profile": "cubism-5.1.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.startup",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.startup",
+            "runtime": "a",
+            "intermediary": "",
+            "descriptor": "([Ljava/lang/String;)V",
+            "profile": "cubism-5.1.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.splash_factory",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.splash-factory",
+            "runtime": "e",
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/ui/window/X;",
+            "profile": "cubism-5.1.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app_ctrl",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.class",
+            "runtime": "com/live2d/cubism/CEAppCtrl",
+            "intermediary": "",
+            "profile": "cubism-5.1.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.update_check",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.update-check",
+            "runtime": "command_checkUpdate",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.1.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.show_information",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.show-information",
+            "runtime": "showInformation",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.1.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          }
+        ]
+      }
+    ],
+    "5.1.03": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.1.03-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries",
+        "value": [
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.class",
+            "runtime": "com/live2d/cubism/CECubismEditorApp",
+            "intermediary": "",
+            "profile": "cubism-5.1.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.startup",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.startup",
+            "runtime": "a",
+            "intermediary": "",
+            "descriptor": "([Ljava/lang/String;)V",
+            "profile": "cubism-5.1.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.splash_factory",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.splash-factory",
+            "runtime": "e",
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/ui/window/X;",
+            "profile": "cubism-5.1.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app_ctrl",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.class",
+            "runtime": "com/live2d/cubism/CEAppCtrl",
+            "intermediary": "",
+            "profile": "cubism-5.1.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.update_check",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.update-check",
+            "runtime": "command_checkUpdate",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.1.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.show_information",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.show-information",
+            "runtime": "showInformation",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.1.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          }
+        ]
+      }
+    ],
+    "5.2.00": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.2.00-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries",
+        "value": [
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.class",
+            "runtime": "com/live2d/cubism/CECubismEditorApp",
+            "intermediary": "",
+            "profile": "cubism-5.2.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.startup",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.startup",
+            "runtime": "a",
+            "intermediary": "",
+            "descriptor": "([Ljava/lang/String;)V",
+            "profile": "cubism-5.2.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.splash_factory",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.splash-factory",
+            "runtime": "e",
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/ui/window/X;",
+            "profile": "cubism-5.2.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app_ctrl",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.class",
+            "runtime": "com/live2d/cubism/CEAppCtrl",
+            "intermediary": "",
+            "profile": "cubism-5.2.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.update_check",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.update-check",
+            "runtime": "command_checkUpdate",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.2.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.show_information",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.show-information",
+            "runtime": "showInformation",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.2.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          }
+        ]
+      }
+    ],
+    "5.2.01": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.2.01-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries",
+        "value": [
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.class",
+            "runtime": "com/live2d/cubism/CECubismEditorApp",
+            "intermediary": "",
+            "profile": "cubism-5.2.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.startup",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.startup",
+            "runtime": "a",
+            "intermediary": "",
+            "descriptor": "([Ljava/lang/String;)V",
+            "profile": "cubism-5.2.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.splash_factory",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.splash-factory",
+            "runtime": "e",
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/ui/window/X;",
+            "profile": "cubism-5.2.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app_ctrl",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.class",
+            "runtime": "com/live2d/cubism/CEAppCtrl",
+            "intermediary": "",
+            "profile": "cubism-5.2.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.update_check",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.update-check",
+            "runtime": "command_checkUpdate",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.2.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.show_information",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.show-information",
+            "runtime": "showInformation",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.2.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          }
+        ]
+      }
+    ],
+    "5.2.02": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.2.02-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries",
+        "value": [
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.class",
+            "runtime": "com/live2d/cubism/CECubismEditorApp",
+            "intermediary": "",
+            "profile": "cubism-5.2.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.startup",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.startup",
+            "runtime": "a",
+            "intermediary": "",
+            "descriptor": "([Ljava/lang/String;)V",
+            "profile": "cubism-5.2.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.splash_factory",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.splash-factory",
+            "runtime": "e",
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/ui/window/X;",
+            "profile": "cubism-5.2.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app_ctrl",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.class",
+            "runtime": "com/live2d/cubism/CEAppCtrl",
+            "intermediary": "",
+            "profile": "cubism-5.2.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.update_check",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.update-check",
+            "runtime": "command_checkUpdate",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.2.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.show_information",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.show-information",
+            "runtime": "showInformation",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.2.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          }
+        ]
+      }
+    ],
+    "5.2.03": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.2.03-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries",
+        "value": [
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.class",
+            "runtime": "com/live2d/cubism/CECubismEditorApp",
+            "intermediary": "",
+            "profile": "cubism-5.2.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.startup",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.startup",
+            "runtime": "a",
+            "intermediary": "",
+            "descriptor": "([Ljava/lang/String;)V",
+            "profile": "cubism-5.2.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.splash_factory",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.splash-factory",
+            "runtime": "e",
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/ui/window/X;",
+            "profile": "cubism-5.2.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app_ctrl",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.class",
+            "runtime": "com/live2d/cubism/CEAppCtrl",
+            "intermediary": "",
+            "profile": "cubism-5.2.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.update_check",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.update-check",
+            "runtime": "command_checkUpdate",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.2.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.show_information",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.show-information",
+            "runtime": "showInformation",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.2.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          }
+        ]
+      }
+    ],
+    "5.3.00": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.3.00-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries",
+        "value": [
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.class.app",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.class",
+            "runtime": "com/live2d/cubism/CECubismEditorApp",
+            "intermediary": "",
+            "profile": "cubism-5.3.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.method.startup",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.startup",
+            "runtime": "a",
+            "intermediary": "",
+            "descriptor": "([Ljava/lang/String;)V",
+            "profile": "cubism-5.3.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.method.splash_factory",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.splash-factory",
+            "runtime": "e",
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/ui/window/V;",
+            "profile": "cubism-5.3.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.class.app_ctrl",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.class",
+            "runtime": "com/live2d/cubism/CEAppCtrl",
+            "intermediary": "",
+            "profile": "cubism-5.3.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.method.update_check",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.update-check",
+            "runtime": "command_checkUpdate",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.3.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.method.show_information",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.show-information",
+            "runtime": "showInformation",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.3.00",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          }
+        ]
+      }
+    ],
+    "5.3.01": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.3.01-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries",
+        "value": [
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.class.app",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.class",
+            "runtime": "com/live2d/cubism/CECubismEditorApp",
+            "intermediary": "",
+            "profile": "cubism-5.3.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.method.startup",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.startup",
+            "runtime": "a",
+            "intermediary": "",
+            "descriptor": "([Ljava/lang/String;)V",
+            "profile": "cubism-5.3.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.method.splash_factory",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.splash-factory",
+            "runtime": "e",
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/ui/window/V;",
+            "profile": "cubism-5.3.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.class.app_ctrl",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.class",
+            "runtime": "com/live2d/cubism/CEAppCtrl",
+            "intermediary": "",
+            "profile": "cubism-5.3.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.method.update_check",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.update-check",
+            "runtime": "command_checkUpdate",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.3.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.method.show_information",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.show-information",
+            "runtime": "showInformation",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.3.01",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          }
+        ]
+      }
+    ],
+    "5.3.02": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.3.02-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries",
+        "value": [
+          {
+            "semanticName": "cubism.mapping.v5_3_02.startup_suppression.class.app",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.class",
+            "runtime": "com/live2d/cubism/CECubismEditorApp",
+            "intermediary": "",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_02.startup_suppression.method.startup",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.startup",
+            "runtime": "a",
+            "intermediary": "",
+            "descriptor": "([Ljava/lang/String;)V",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_02.startup_suppression.method.splash_factory",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.splash-factory",
+            "runtime": "e",
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/ui/window/V;",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_02.startup_suppression.class.app_ctrl",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.class",
+            "runtime": "com/live2d/cubism/CEAppCtrl",
+            "intermediary": "",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_02.startup_suppression.method.update_check",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.update-check",
+            "runtime": "command_checkUpdate",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_02.startup_suppression.method.show_information",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.show-information",
+            "runtime": "showInformation",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          }
+        ]
+      }
+    ],
+    "5.3.03": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.3.03-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries",
+        "value": [
+          {
+            "semanticName": "cubism.mapping.v5_3_03.startup_suppression.class.app",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.class",
+            "runtime": "com/live2d/cubism/CECubismEditorApp",
+            "intermediary": "",
+            "profile": "cubism-5.3.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_03.startup_suppression.method.startup",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.startup",
+            "runtime": "a",
+            "intermediary": "",
+            "descriptor": "([Ljava/lang/String;)V",
+            "profile": "cubism-5.3.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_03.startup_suppression.method.splash_factory",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.splash-factory",
+            "runtime": "e",
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/ui/window/V;",
+            "profile": "cubism-5.3.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_03.startup_suppression.class.app_ctrl",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.class",
+            "runtime": "com/live2d/cubism/CEAppCtrl",
+            "intermediary": "",
+            "profile": "cubism-5.3.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_03.startup_suppression.method.update_check",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.update-check",
+            "runtime": "command_checkUpdate",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.3.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_03.startup_suppression.method.show_information",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.show-information",
+            "runtime": "showInformation",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.3.03",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          }
+        ]
+      }
+    ],
+    "5.3.04": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.3.04-startup-suppression.json"
+      },
+      {
+        "op": "replace",
+        "path": "/entries",
+        "value": [
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.class.app",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.class",
+            "runtime": "com/live2d/cubism/CECubismEditorApp",
+            "intermediary": "",
+            "profile": "cubism-5.3.04",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.method.startup",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.startup",
+            "runtime": "a",
+            "intermediary": "",
+            "descriptor": "([Ljava/lang/String;)V",
+            "profile": "cubism-5.3.04",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.method.splash_factory",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app.splash-factory",
+            "runtime": "e",
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/ui/window/V;",
+            "profile": "cubism-5.3.04",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.class.app_ctrl",
+            "kind": "class",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.class",
+            "runtime": "com/live2d/cubism/CEAppCtrl",
+            "intermediary": "",
+            "profile": "cubism-5.3.04",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.method.update_check",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.update-check",
+            "runtime": "command_checkUpdate",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.3.04",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_04.startup_suppression.method.show_information",
+            "kind": "method",
+            "owner": "startup-suppression-hook",
+            "name": "cubism.startup-suppression.app-controller.show-information",
+            "runtime": "showInformation",
+            "intermediary": "",
+            "descriptor": "()V",
+            "profile": "cubism-5.3.04",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-public-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

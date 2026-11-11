@@ -91,8 +91,10 @@ EDT_DISPATCH_TOKEN = re.compile(r"\binvokeAndWait\b")
 # digests -- a governance action that breaks the audit chain for a cosmetic gain. The rule's
 # purpose is to stop NEW retired-governance names from appearing.
 GRANDFATHERED_ASSETS = (
-    "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-m14-project-workspace.json",
-    "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-m15-clipmask.json",
+    "compatibility/cubism/mapping-packs/draft/baseline/m14-project-workspace.json",
+    "compatibility/cubism/mapping-packs/draft/baseline/m15-clipmask.json",
+    "compatibility/cubism/mapping-packs/draft/overrides/m14-project-workspace.json",
+    "compatibility/cubism/mapping-packs/draft/overrides/m15-clipmask.json",
 )
 
 # A Cubism version fused into a type name appears as a digit run shaped like the governed

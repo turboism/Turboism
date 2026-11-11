@@ -23,7 +23,7 @@ import java.util.Optional;
  * <p>The protocol itself lives in {@link VerifiedInstall}; this class keeps the hook's reviewed
  * contract table and its dependency-body proof.</p>
  */
-final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
+final class VerifiedModelUpdateSkipInstaller implements VerifiedHookInstaller {
 
     static final String HOOK_ID = "cubism.model-update.unchanged-frame-skip";
 
@@ -140,13 +140,19 @@ final class VerifiedModelUpdateSkipInstaller implements AutoCloseable {
                 "abstract model-update dependency absent or concrete: " + type.getName() + "." + name + descriptor);
     }
 
+    @Override
+    public boolean admits(final InstallContext context) {
+        return admitted(context.artifact(), context.policy(), true, context.jvmFeature());
+    }
+
     /**
      * Installs the weave through {@link VerifiedInstall}.
      *
      * @throws IllegalStateException when the artifact is not an admitted model-update host
      * @throws Exception when registration, retransformation or the match proof fails
      */
-    synchronized void install() throws Exception {
+    @Override
+    public synchronized void install() throws Exception {
         if (hook != null) return;
         if (!(VerifiedInstall.install(SPEC, context)
                 instanceof

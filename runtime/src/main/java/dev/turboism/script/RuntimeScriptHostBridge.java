@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.graal.GraalHostManager;
+import dev.turboism.runtime.json.RuntimeJson;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -32,7 +33,7 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
     private static final long UI_TIMEOUT_SECONDS = 15L;
     private static final int MAX_BATCH_ITEMS = 256;
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = RuntimeJson.standard();
     private final PluginContext context;
     private final Set<String> scriptPermissions;
     private final long uiTimeout;

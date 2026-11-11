@@ -4,6 +4,7 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerHandle;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
 import dev.turboism.internal.core.CoreUpdateService;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import java.nio.file.Path;
@@ -19,7 +20,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -120,7 +120,7 @@ public final class RuntimeUpdateService implements CoreUpdateService {
                 new UpdatePreferencesStoreState(preferencesStore.read().automaticChecksEnabled());
         this.state = sanitizeState(stateStore.read());
         this.snapshot = Snapshot.idle(installed.versionText());
-        this.executor = Executors.newSingleThreadExecutor(new UpdateThreadFactory());
+        this.executor = RuntimeThreads.serialLane(new UpdateThreadFactory());
     }
 
     @Override
@@ -793,10 +793,9 @@ public final class RuntimeUpdateService implements CoreUpdateService {
     private static final class UpdateThreadFactory implements ThreadFactory {
         @Override
         public Thread newThread(final Runnable task) {
-            final Thread thread = new Thread(task, "turboism-update-check");
-            thread.setDaemon(true);
-            thread.setContextClassLoader(RuntimeUpdateService.class.getClassLoader());
-            return thread;
+            return RuntimeThreads.daemonThreadsWithFixedName(
+                            "turboism-update-check", RuntimeUpdateService.class.getClassLoader())
+                    .newThread(task);
         }
     }
 }
