@@ -6,6 +6,7 @@ import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.i18n.LocalizationDiagnosticSink;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.internal.core.CoreUpdateService;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import dev.turboism.ui.host.EdtDispatch;
@@ -26,7 +27,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -163,7 +163,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                 runtimePlugins,
                 metadataLocale,
                 diagnostics,
-                Executors.newSingleThreadExecutor(new InstallThreadFactory()));
+                RuntimeThreads.serialLane(new InstallThreadFactory()));
     }
 
     private RuntimePluginManagementService(
@@ -942,9 +942,8 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     private static final class InstallThreadFactory implements ThreadFactory {
         @Override
         public Thread newThread(final Runnable work) {
-            final Thread thread = new Thread(work, "turboism-plugin-install");
-            thread.setDaemon(true);
-            return thread;
+            return RuntimeThreads.daemonThreadsWithFixedName("turboism-plugin-install")
+                    .newThread(work);
         }
     }
 }

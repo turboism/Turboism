@@ -1,13 +1,12 @@
 package dev.turboism.update;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.core.io.DurableFile;
 import dev.turboism.core.io.PathLocks;
 import dev.turboism.core.io.WriteOptions;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -18,10 +17,7 @@ import java.util.function.Consumer;
 
 /** Atomic file replacement and bounded, symlink-rejecting update state IO. */
 public final class UpdateFileSupport {
-    static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
-                    .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                    .build())
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    static final ObjectMapper JSON = RuntimeJson.strict();
     private static final long MAX_FILE_BYTES = 1024L * 1024L;
 
     /**

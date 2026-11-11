@@ -5,6 +5,7 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
@@ -13,7 +14,6 @@ import dev.turboism.ui.host.HostReadEpoch;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
@@ -47,7 +47,7 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
     public RuntimeUiScheduler(RuntimeScheduler scheduler, String pluginId) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.pluginId = requireText(pluginId, "pluginId");
-        this.timer = Executors.newSingleThreadScheduledExecutor(new UiTimerThreadFactory(pluginId));
+        this.timer = RuntimeThreads.serialTimer(new UiTimerThreadFactory(pluginId));
     }
 
     @Override
@@ -239,9 +239,8 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
 
         @Override
         public Thread newThread(Runnable runnable) {
-            Thread thread = new Thread(runnable, "turboism-ui-timer-" + pluginId);
-            thread.setDaemon(true);
-            return thread;
+            return RuntimeThreads.daemonThreadsWithFixedName("turboism-ui-timer-" + pluginId)
+                    .newThread(runnable);
         }
     }
 }

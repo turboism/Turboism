@@ -9,6 +9,7 @@ import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureDomain;
 import dev.turboism.failure.RuntimeFailureSink;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.config.PluginConfigException;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -30,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -149,18 +149,7 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
     }
 
     private static ThreadPoolExecutor newIoExecutor(final String pluginId) {
-        return new ThreadPoolExecutor(
-                1,
-                1,
-                0L,
-                TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(64),
-                runnable -> {
-                    final Thread thread = new Thread(runnable, "turboism-legacy-config-" + pluginId);
-                    thread.setDaemon(true);
-                    return thread;
-                },
-                new ThreadPoolExecutor.AbortPolicy());
+        return RuntimeThreads.serialLane(64, RuntimeThreads.daemonThreads("turboism-legacy-config-" + pluginId));
     }
 
     @Override

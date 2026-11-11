@@ -1,11 +1,10 @@
 package dev.turboism.update;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CodingErrorAction;
@@ -45,10 +44,7 @@ public record UpdateManifest(
     private static final Pattern SOURCE_REVISION_PATTERN = Pattern.compile("[0-9a-f]{40}");
     private static final Pattern TARGET_PLATFORM_PATTERN = Pattern.compile("windows-x64|all");
 
-    private static final ObjectMapper STRICT_MAPPER = new ObjectMapper(JsonFactory.builder()
-                    .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                    .build())
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private static final ObjectMapper STRICT_MAPPER = RuntimeJson.strict();
 
     public UpdateManifest {
         if (schemaVersion != CURRENT_SCHEMA_VERSION) {

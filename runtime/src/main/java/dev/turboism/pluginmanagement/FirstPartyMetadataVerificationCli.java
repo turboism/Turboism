@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.descriptor.DescriptorParseException;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.core.plugin.PluginJarContract;
+import dev.turboism.runtime.json.RuntimeJson;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,7 +29,7 @@ import java.util.jar.JarFile;
  */
 public final class FirstPartyMetadataVerificationCli {
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = RuntimeJson.standard();
 
     private FirstPartyMetadataVerificationCli() {}
 

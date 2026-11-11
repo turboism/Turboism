@@ -16,6 +16,7 @@ import dev.turboism.pluginmanagement.PluginCatalogClient.DownloadControl;
 import dev.turboism.pluginmanagement.PluginCatalogClient.DownloadFailure;
 import dev.turboism.pluginmanagement.PluginCatalogClient.DownloadProgress;
 import dev.turboism.pluginmanagement.PluginCatalogVerifier.PluginCatalogVerificationException;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.update.UpdateFileSupport;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,7 +30,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -37,8 +37,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -211,19 +209,9 @@ public final class PluginMarketService implements AutoCloseable {
         if (queueCapacity <= 0) {
             throw new IllegalArgumentException("queueCapacity must be positive: " + queueCapacity);
         }
-        this.taskQueue = new ArrayBlockingQueue<>(queueCapacity);
-        this.marketExecutor = new ThreadPoolExecutor(
-                1,
-                1,
-                0L,
-                TimeUnit.MILLISECONDS,
-                this.taskQueue,
-                r -> {
-                    final Thread t = new Thread(r, "Turboism-PluginMarket");
-                    t.setDaemon(true);
-                    return t;
-                },
-                new ThreadPoolExecutor.AbortPolicy());
+        this.taskQueue = RuntimeThreads.arrayQueue(queueCapacity);
+        this.marketExecutor = RuntimeThreads.serialLane(
+                this.taskQueue, RuntimeThreads.daemonThreadsWithFixedName("Turboism-PluginMarket"));
     }
 
     /** Returns the number of tasks currently waiting in the executor queue. */

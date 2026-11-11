@@ -1,6 +1,7 @@
 package dev.turboism.core.runtime.psd;
 
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.psd.PsdExportResult;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
@@ -14,17 +15,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
@@ -86,17 +83,11 @@ public final class RuntimePsdExportService implements AutoCloseable {
         this.continuationDispatcher = Objects.requireNonNull(continuationDispatcher, "continuationDispatcher");
         this.temporaryFileFactory = Objects.requireNonNull(temporaryFileFactory, "temporaryFileFactory");
         this.launcher = Objects.requireNonNull(launcher, "launcher");
-        this.executor = new ThreadPoolExecutor(
-                WORKER_COUNT,
-                WORKER_COUNT,
-                0L,
-                TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(QUEUE_CAPACITY),
-                new PsdExportThreadFactory(this.pluginId),
-                new ThreadPoolExecutor.AbortPolicy());
+        this.executor =
+                RuntimeThreads.fixedLane(WORKER_COUNT, QUEUE_CAPACITY, new PsdExportThreadFactory(this.pluginId));
         // One bounded lane per plugin serializes every handle's save observation, so two documents
         // of one plugin can never interleave inside a watcher pass.
-        this.watchLane = Executors.newSingleThreadScheduledExecutor(new PsdWatchThreadFactory(this.pluginId));
+        this.watchLane = RuntimeThreads.serialTimer(new PsdWatchThreadFactory(this.pluginId));
         this.saveScheduler = (task, delayMillis) -> {
             final java.util.concurrent.ScheduledFuture<?> future =
                     watchLane.schedule(task, delayMillis, TimeUnit.MILLISECONDS);
@@ -405,34 +396,31 @@ public final class RuntimePsdExportService implements AutoCloseable {
     }
 
     private static final class PsdExportThreadFactory implements ThreadFactory {
-        private final String threadName;
-        private final AtomicInteger sequence = new AtomicInteger();
+        private final ThreadFactory delegate;
 
         private PsdExportThreadFactory(final String pluginId) {
-            this.threadName = "turboism.psd-export." + pluginId.replaceAll("[^A-Za-z0-9_.-]", "_");
+            this.delegate = RuntimeThreads.daemonThreads(
+                    "turboism.psd-export." + RuntimeThreads.sanitizeNameFragment(pluginId));
         }
 
         @Override
         public Thread newThread(final Runnable task) {
-            final Thread thread = new Thread(task, threadName + "-" + sequence.incrementAndGet());
-            thread.setDaemon(true);
-            return thread;
+            return delegate.newThread(task);
         }
     }
 
     /** Daemon lane for save observation; one per plugin so documents cannot interleave. */
     private static final class PsdWatchThreadFactory implements ThreadFactory {
-        private final String threadName;
+        private final ThreadFactory delegate;
 
         private PsdWatchThreadFactory(final String pluginId) {
-            this.threadName = "turboism.psd-watch." + pluginId.replaceAll("[^A-Za-z0-9_.-]", "_");
+            this.delegate = RuntimeThreads.daemonThreadsWithFixedName(
+                    "turboism.psd-watch." + RuntimeThreads.sanitizeNameFragment(pluginId));
         }
 
         @Override
         public Thread newThread(final Runnable task) {
-            final Thread thread = new Thread(task, threadName);
-            thread.setDaemon(true);
-            return thread;
+            return delegate.newThread(task);
         }
     }
 

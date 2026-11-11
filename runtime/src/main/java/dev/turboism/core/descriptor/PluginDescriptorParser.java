@@ -11,6 +11,7 @@ import dev.turboism.core.descriptor.CorePluginDescriptor.CoreEventImport;
 import dev.turboism.core.descriptor.CorePluginDescriptor.CoreI18n;
 import dev.turboism.core.descriptor.CorePluginDescriptor.CorePermissionRef;
 import dev.turboism.core.schema.SchemaValidationError;
+import dev.turboism.runtime.json.RuntimeJson;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
@@ -60,7 +61,7 @@ public final class PluginDescriptorParser {
     private static final String MUST_BE_ARRAY = " must be an array";
 
     // Configuration is fixed before publication; Jackson can safely reuse its caches across plugins.
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = RuntimeJson.standard();
 
     /**
      * Reads and validates a manifest from a stream. The stream is consumed but not closed.

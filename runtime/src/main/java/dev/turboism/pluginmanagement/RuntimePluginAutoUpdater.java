@@ -17,6 +17,7 @@ import dev.turboism.pluginmanagement.PluginCatalog.CatalogArtifact;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogRelease;
 import dev.turboism.pluginmanagement.PluginCatalogClient.CatalogFetchResult;
 import dev.turboism.pluginmanagement.PluginCatalogVerifier.PluginCatalogVerificationException;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
@@ -45,7 +46,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -162,7 +162,7 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
         this.stateStore = new PluginCatalogStateStore(this.home, this.diagnostic);
         this.pending = new PendingPluginOperations(this.home);
         this.automaticEnabled = preferencesStore.automaticPluginUpdatesEnabled();
-        this.executor = Executors.newSingleThreadExecutor(new PluginUpdaterThreadFactory());
+        this.executor = RuntimeThreads.serialLane(new PluginUpdaterThreadFactory());
     }
 
     /** Binds the runtime hot-reload coordinator to apply updates without restart when safe. */
@@ -881,9 +881,8 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
     private static final class PluginUpdaterThreadFactory implements ThreadFactory {
         @Override
         public Thread newThread(final Runnable runnable) {
-            final Thread thread = new Thread(runnable, "turboism-plugin-auto-updater");
-            thread.setDaemon(true);
-            return thread;
+            return RuntimeThreads.daemonThreadsWithFixedName("turboism-plugin-auto-updater")
+                    .newThread(runnable);
         }
     }
 }

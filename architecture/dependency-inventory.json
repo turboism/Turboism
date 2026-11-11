@@ -724,6 +724,10 @@
         "dev.turboism.internal"
       ],
       [
+        "dev.turboism.distribution",
+        "dev.turboism.runtime"
+      ],
+      [
         "dev.turboism.exportsettings",
         "dev.turboism.adapter"
       ],
@@ -741,6 +745,10 @@
       ],
       [
         "dev.turboism.exportsettings",
+        "dev.turboism.runtime"
+      ],
+      [
+        "dev.turboism.exportsettings",
         "dev.turboism.ui"
       ],
       [
@@ -752,8 +760,16 @@
         "dev.turboism.core"
       ],
       [
+        "dev.turboism.graal",
+        "dev.turboism.runtime"
+      ],
+      [
         "dev.turboism.home",
         "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.hostread",
+        "dev.turboism.runtime"
       ],
       [
         "dev.turboism.hostread",
@@ -860,6 +876,10 @@
         "dev.turboism.internal"
       ],
       [
+        "dev.turboism.mapping",
+        "dev.turboism.runtime"
+      ],
+      [
         "dev.turboism.mcp",
         "dev.turboism.permissions"
       ],
@@ -874,6 +894,10 @@
       [
         "dev.turboism.performance",
         "dev.turboism.permissions"
+      ],
+      [
+        "dev.turboism.performance",
+        "dev.turboism.runtime"
       ],
       [
         "dev.turboism.performance",
@@ -906,6 +930,10 @@
       [
         "dev.turboism.pluginmanagement",
         "dev.turboism.kernel"
+      ],
+      [
+        "dev.turboism.pluginmanagement",
+        "dev.turboism.runtime"
       ],
       [
         "dev.turboism.pluginmanagement",
@@ -961,6 +989,10 @@
       ],
       [
         "dev.turboism.script",
+        "dev.turboism.runtime"
+      ],
+      [
+        "dev.turboism.script",
         "dev.turboism.ui"
       ],
       [
@@ -989,6 +1021,10 @@
       ],
       [
         "dev.turboism.shell",
+        "dev.turboism.runtime"
+      ],
+      [
+        "dev.turboism.shell",
         "dev.turboism.ui"
       ],
       [
@@ -1006,6 +1042,10 @@
       [
         "dev.turboism.storage",
         "dev.turboism.home"
+      ],
+      [
+        "dev.turboism.storage",
+        "dev.turboism.runtime"
       ],
       [
         "dev.turboism.storage",
@@ -1060,6 +1100,10 @@
         "dev.turboism.internal"
       ],
       [
+        "dev.turboism.update",
+        "dev.turboism.runtime"
+      ],
+      [
         "dev.turboism.userfile",
         "dev.turboism.adapter"
       ],
@@ -1074,6 +1118,10 @@
       [
         "dev.turboism.userfile",
         "dev.turboism.failure"
+      ],
+      [
+        "dev.turboism.userfile",
+        "dev.turboism.runtime"
       ],
       [
         "dev.turboism.userfile",

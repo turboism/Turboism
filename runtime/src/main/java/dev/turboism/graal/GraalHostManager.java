@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.exec.RuntimeThreads;
+import dev.turboism.runtime.json.RuntimeJson;
 import dev.turboism.sdk.io.BoundedLineReader;
 import dev.turboism.sdk.script.ScriptExecutionId;
 import java.io.BufferedWriter;
@@ -15,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,7 +25,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
@@ -49,30 +49,12 @@ public final class GraalHostManager implements AutoCloseable {
     private final Object lifecycleLock = new Object();
     private final Object writeLock = new Object();
     private final Map<String, PendingExecution> pending = new ConcurrentHashMap<>();
-    private final ThreadPoolExecutor submissions = new ThreadPoolExecutor(
-            1,
-            1,
-            0L,
-            TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(SUBMISSION_QUEUE_CAPACITY),
-            daemonThreadFactory("turboism-graal-host-submit"),
-            new ThreadPoolExecutor.AbortPolicy());
-    private final ThreadPoolExecutor hostCalls = new ThreadPoolExecutor(
-            HOST_CALL_THREADS,
-            HOST_CALL_THREADS,
-            0L,
-            TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(HOST_CALL_QUEUE_CAPACITY),
-            daemonThreadFactory("turboism-graal-host-call"),
-            new ThreadPoolExecutor.AbortPolicy());
-    private final ThreadPoolExecutor hostResponses = new ThreadPoolExecutor(
-            1,
-            1,
-            0L,
-            TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(HOST_RESPONSE_QUEUE_CAPACITY),
-            daemonThreadFactory("turboism-graal-host-response"),
-            new ThreadPoolExecutor.AbortPolicy());
+    private final ThreadPoolExecutor submissions =
+            RuntimeThreads.fixedLane(1, SUBMISSION_QUEUE_CAPACITY, daemonThreadFactory("turboism-graal-host-submit"));
+    private final ThreadPoolExecutor hostCalls = RuntimeThreads.fixedLane(
+            HOST_CALL_THREADS, HOST_CALL_QUEUE_CAPACITY, daemonThreadFactory("turboism-graal-host-call"));
+    private final ThreadPoolExecutor hostResponses = RuntimeThreads.fixedLane(
+            1, HOST_RESPONSE_QUEUE_CAPACITY, daemonThreadFactory("turboism-graal-host-response"));
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private volatile HostGeneration host;
@@ -80,7 +62,7 @@ public final class GraalHostManager implements AutoCloseable {
     private long nextStartupAttemptNanos;
 
     public GraalHostManager(final GraalHostConfiguration configuration, final Consumer<String> diagnostics) {
-        this(configuration, diagnostics, new ObjectMapper());
+        this(configuration, diagnostics, RuntimeJson.standard());
     }
 
     GraalHostManager(
@@ -738,12 +720,7 @@ public final class GraalHostManager implements AutoCloseable {
     }
 
     private static java.util.concurrent.ThreadFactory daemonThreadFactory(final String prefix) {
-        final AtomicInteger nextThread = new AtomicInteger();
-        return runnable -> {
-            final Thread thread = new Thread(runnable, prefix + "-" + nextThread.incrementAndGet());
-            thread.setDaemon(true);
-            return thread;
-        };
+        return RuntimeThreads.daemonThreads(prefix);
     }
 
     private static String text(final JsonNode node, final String field) {

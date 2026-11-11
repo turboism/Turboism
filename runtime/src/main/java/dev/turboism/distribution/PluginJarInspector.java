@@ -1,8 +1,5 @@
 package dev.turboism.distribution;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.archive.ArchiveStructureException;
@@ -10,6 +7,7 @@ import dev.turboism.core.archive.StrictZipArchive;
 import dev.turboism.core.descriptor.DescriptorParseException;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.core.plugin.PluginJarContract;
+import dev.turboism.runtime.json.RuntimeJson;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Path;
@@ -135,12 +133,7 @@ final class PluginJarInspector {
 
     private static PluginDescriptor parse(final byte[] bytes) throws Exception {
         try {
-            final var factory = com.fasterxml.jackson.core.JsonFactory.builder()
-                    .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                    .build();
-            final ObjectMapper mapper = new ObjectMapper(factory)
-                    .enable(JsonParser.Feature.AUTO_CLOSE_SOURCE)
-                    .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+            final ObjectMapper mapper = RuntimeJson.strict();
             final JsonNode root = mapper.readTree(bytes);
             return new PluginDescriptorParser().parse(root, DESCRIPTOR);
         } catch (DescriptorParseException exception) {

@@ -3,6 +3,7 @@ package dev.turboism.exportsettings;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.json.RuntimeJson;
 import dev.turboism.sdk.cubism.core.MocData;
 import dev.turboism.sdk.cubism.core.MocLoader;
 import dev.turboism.sdk.cubism.core.OwnedCanvasInfo;
@@ -162,7 +163,7 @@ public final class ProtectedExportStaging {
     private final MocLoader mocLoader;
     private final CoreParameterWriter parameterWriter;
     private final MoveOp moveOp;
-    private final ObjectMapper json = new ObjectMapper();
+    private final ObjectMapper json = RuntimeJson.standard();
 
     public ProtectedExportStaging(final MocLoader mocLoader) {
         this(mocLoader, null);
