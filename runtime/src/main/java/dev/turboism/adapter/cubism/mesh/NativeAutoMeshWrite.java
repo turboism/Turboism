@@ -29,14 +29,24 @@ import java.util.List;
 final class NativeAutoMeshWrite {
 
     /** Kotlin default-argument bridge that performs the host's {@code copyFrom} contract. */
-    private static final String COPY_BRIDGE = "com.live2d.core.ICopyable$b";
+    static final String COPY_BRIDGE = "com.live2d.core.ICopyable$b";
 
     /** Kotlin default-argument bridge of the host's verifiable-source contract. */
-    private static final String VERIFY_BRIDGE = "com.live2d.util.verify.IVerifiable$a";
+    static final String VERIFY_BRIDGE = "com.live2d.util.verify.IVerifiable$a";
+
+    /** Host contract of a source the Editor verifies after a topology write. */
+    static final String VERIFIABLE = "com.live2d.util.verify.IVerifiable";
+
+    /** Host contract that copies one editable mesh into another. */
+    static final String COPYABLE = "com.live2d.core.ICopyable";
 
     /** Host extension that publishes a topology change to the model instances. */
-    private static final String TOPOLOGY_OBSERVER =
-            "com.live2d.doc.model.extension.structureObserver.CTopologyObserverExtension";
+    static final String TOPOLOGY_OBSERVER =
+            "com.live2d.cubism.doc.model.extension.structureObserver.CTopologyObserverExtension";
+
+    /** Every host class this write loads by name; the reviewed-artifact contract test resolves each one. */
+    static final java.util.List<String> HOST_CLASS_NAMES =
+            java.util.List.of(COPY_BRIDGE, VERIFY_BRIDGE, TOPOLOGY_OBSERVER, VERIFIABLE, COPYABLE);
 
     /** Point type the Editor gives every point it generates. */
     private static final String GENERATED_POINT_TYPE = "AUTO";
@@ -78,7 +88,7 @@ final class NativeAutoMeshWrite {
     static void verifySource(final Object source, final boolean complete) throws ReflectiveOperationException {
         final ClassLoader loader = source.getClass().getClassLoader();
         final Class<?> bridge = Class.forName(VERIFY_BRIDGE, false, loader);
-        final Class<?> verifiable = loader.loadClass("com.live2d.util.verify.IVerifiable");
+        final Class<?> verifiable = loader.loadClass(VERIFIABLE);
         for (final Method candidate : MethodHandleCache.overloads(bridge, "a", 5)) {
             final Class<?>[] parameters = candidate.getParameterTypes();
             if (!Modifier.isStatic(candidate.getModifiers())
@@ -217,7 +227,7 @@ final class NativeAutoMeshWrite {
     private static void copyInto(final Object target, final Object fresh) throws ReflectiveOperationException {
         final ClassLoader loader = target.getClass().getClassLoader();
         final Class<?> bridge = Class.forName(COPY_BRIDGE, false, loader);
-        final Class<?> copyable = loader.loadClass("com.live2d.core.ICopyable");
+        final Class<?> copyable = loader.loadClass(COPYABLE);
         for (final Method candidate : MethodHandleCache.overloads(bridge, "a", 5)) {
             final Class<?>[] parameters = candidate.getParameterTypes();
             if (!Modifier.isStatic(candidate.getModifiers())

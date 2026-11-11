@@ -282,4 +282,53 @@ class NativeAutoMeshWriteTest {
             edgeUpdated = fresh.edgeUpdated;
         }
     }
+
+    /**
+     * Pins every host class name the production write loads to the reviewed artifact archive.
+     *
+     * <p>The write fails closed on a missing class, so a mistyped name refuses every live run while
+     * fake-mesh tests stay green. This case reads the production constants, not a test copy.</p>
+     */
+    @Test
+    void everyHostClassNameTheWriteLoadsExistsInEachReviewedArtifact() throws Exception {
+        final java.nio.file.Path root = referenceRoot();
+        org.junit.jupiter.api.Assumptions.assumeTrue(root != null, NO_ARCHIVE_MESSAGE);
+        final List<String> missing = new ArrayList<>();
+        int inspected = 0;
+        for (final String version : dev.turboism.automesh.host.AutoMeshHostProfile.supportedHostVersions()) {
+            final java.nio.file.Path jar = root.resolve(version).resolve(EDITOR_JAR);
+            if (!java.nio.file.Files.isRegularFile(jar)) {
+                continue;
+            }
+            inspected++;
+            try (java.util.jar.JarFile archive = new java.util.jar.JarFile(jar.toFile())) {
+                for (final String name : NativeAutoMeshWrite.HOST_CLASS_NAMES) {
+                    if (archive.getJarEntry(name.replace('.', '/') + CLASS_SUFFIX) == null) {
+                        missing.add(version + " " + name);
+                    }
+                }
+            }
+        }
+        assertTrue(inspected > 0, NO_ARCHIVE_MESSAGE);
+        assertEquals(List.of(), missing, "every host class the write loads must exist in each reviewed artifact");
+    }
+
+    private static java.nio.file.Path referenceRoot() {
+        for (final String candidate :
+                new String[] {System.getProperty(REFERENCE_PROPERTY), System.getenv(REFERENCE_ENVIRONMENT)}) {
+            if (candidate != null && !candidate.isBlank()) {
+                final java.nio.file.Path root =
+                        java.nio.file.Path.of(candidate).toAbsolutePath().normalize();
+                return java.nio.file.Files.isDirectory(root) ? root : null;
+            }
+        }
+        return null;
+    }
+
+    private static final String REFERENCE_PROPERTY = "turboism.test.cubismRefDir";
+    private static final String REFERENCE_ENVIRONMENT = "TURBOISM_CUBISM_REF";
+    private static final String EDITOR_JAR = "Live2D_Cubism.jar";
+    private static final String CLASS_SUFFIX = ".class";
+    private static final String NO_ARCHIVE_MESSAGE =
+            "reviewed Cubism artifact archive is not configured; set TURBOISM_CUBISM_REF";
 }
