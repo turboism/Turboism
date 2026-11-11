@@ -1,11 +1,8 @@
 package dev.turboism.plugin.turbomesh.domain.regions;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -15,6 +12,11 @@ import java.util.TreeMap;
  * {@link CurvatureBoundarySampler}, which locks the junctions and the sharp corners and resamples
  * the spans between them. Each chain keeps the pair of labels it separates, so the mesh builder
  * never has to guess which regions two neighbouring cells belong to.</p>
+ *
+ * <p>Every segment is oriented with the lower label of its pair on the algebraic left. That
+ * orientation makes each border a directed chain, so a junction has exactly one continuation:
+ * the one that keeps the same face on the left. An arbitrary pairing at a junction folds the
+ * silhouette into a spiral and loses the thin spikes of high-frequency artwork.</p>
  */
 final class SharedBoundaryPaths {
 
@@ -40,7 +42,8 @@ final class SharedBoundaryPaths {
         for (final Map.Entry<Long, List<int[]>> group : groups.entrySet()) {
             final int labelA = (int) (group.getKey() >>> 32);
             final int labelB = (int) (group.getKey() & 0xFFFF_FFFFL);
-            for (final int[] chain : traceChains(group.getValue())) {
+            for (final int[] chain :
+                    DirectedBoundary.chains(group.getValue(), node -> node % (width + 1), node -> node / (width + 1))) {
                 final Polyline line =
                         CurvatureBoundarySampler.sample(toPolyline(chain, width + 1), tolerance, minSpacing, spacing);
                 if (line.size() >= 2 && line.length() > 0.0) {
@@ -58,7 +61,8 @@ final class SharedBoundaryPaths {
                 final int above = y > 0 ? labels[(y - 1) * width + x] : 0;
                 final int below = y < height ? labels[y * width + x] : 0;
                 if (above != below) {
-                    add(groups, above, below, y * (width + 1) + x, y * (width + 1) + x + 1);
+                    // The collected direction is +x, so the algebraically left pixel is "below".
+                    add(groups, above, below, false, y * (width + 1) + x, y * (width + 1) + x + 1);
                 }
             }
         }
@@ -71,86 +75,31 @@ final class SharedBoundaryPaths {
                 final int left = x > 0 ? labels[y * width + x - 1] : 0;
                 final int right = x < width ? labels[y * width + x] : 0;
                 if (left != right) {
-                    add(groups, left, right, y * (width + 1) + x, (y + 1) * (width + 1) + x);
+                    // The collected direction is +y, so the algebraically left pixel is "left".
+                    add(groups, left, right, true, y * (width + 1) + x, (y + 1) * (width + 1) + x);
                 }
             }
         }
-    }
-
-    private static void add(
-            final Map<Long, List<int[]>> groups, final int first, final int second, final int from, final int to) {
-        final int low = Math.min(first, second);
-        final int high = Math.max(first, second);
-        groups.computeIfAbsent(((long) low << 32) | (high & 0xFFFF_FFFFL), ignored -> new ArrayList<>())
-                .add(new int[] {from, to});
     }
 
     /**
-     * Walks each border chain once, starting at junction nodes so a shared border stays unsplit
-     * beyond the junction it actually meets at.
+     * Registers one border segment with the lower label on the algebraic left.
+     *
+     * @param firstIsLeft whether the first label sits on the algebraic left of {@code from -> to}
      */
-    private static List<int[]> traceChains(final List<int[]> edges) {
-        final Map<Integer, List<Integer>> adjacency = new HashMap<>();
-        for (final int[] edge : edges) {
-            adjacency.computeIfAbsent(edge[0], ignored -> new ArrayList<>()).add(edge[1]);
-            adjacency.computeIfAbsent(edge[1], ignored -> new ArrayList<>()).add(edge[0]);
-        }
-        final List<Integer> starts = new ArrayList<>(adjacency.keySet());
-        starts.sort((first, second) -> {
-            final boolean looseFirst = adjacency.get(first).size() != 2;
-            final boolean looseSecond = adjacency.get(second).size() != 2;
-            if (looseFirst != looseSecond) {
-                return looseFirst ? -1 : 1;
-            }
-            return Integer.compare(first, second);
-        });
-        final Set<Long> unused = new HashSet<>();
-        for (final int[] edge : edges) {
-            unused.add(edgeKey(edge[0], edge[1]));
-        }
-        final List<int[]> chains = new ArrayList<>();
-        for (final int start : starts) {
-            for (final int next : adjacency.get(start)) {
-                if (!unused.remove(edgeKey(start, next))) {
-                    continue;
-                }
-                final List<Integer> chain = new ArrayList<>();
-                chain.add(start);
-                int current = next;
-                while (true) {
-                    chain.add(current);
-                    if (current == start || adjacency.get(current).size() != 2) {
-                        break;
-                    }
-                    int chosen = -1;
-                    for (final int candidate : adjacency.get(current)) {
-                        if (unused.contains(edgeKey(current, candidate))) {
-                            chosen = candidate;
-                            break;
-                        }
-                    }
-                    if (chosen < 0) {
-                        break;
-                    }
-                    unused.remove(edgeKey(chain.get(chain.size() - 1), chosen));
-                    current = chosen;
-                }
-                chains.add(toArray(chain));
-            }
-        }
-        return chains;
-    }
-
-    private static long edgeKey(final int a, final int b) {
-        return ((long) Math.min(a, b) << 32) | (Math.max(a, b) & 0xFFFF_FFFFL);
-    }
-
-    private static int[] toArray(final List<Integer> values) {
-        final int[] out = new int[values.size()];
-        for (int i = 0; i < out.length; i++) {
-            out[i] = values.get(i);
-        }
-        return out;
+    private static void add(
+            final Map<Long, List<int[]>> groups,
+            final int first,
+            final int second,
+            final boolean firstIsLeft,
+            final int from,
+            final int to) {
+        final int low = Math.min(first, second);
+        final int high = Math.max(first, second);
+        final boolean lowIsLeft = firstIsLeft == (first == low);
+        final int[] segment = lowIsLeft ? new int[] {from, to} : new int[] {to, from};
+        groups.computeIfAbsent(((long) low << 32) | (high & 0xFFFF_FFFFL), ignored -> new ArrayList<>())
+                .add(segment);
     }
 
     /** Maps corner-lattice nodes to pixel-centre coordinates. */

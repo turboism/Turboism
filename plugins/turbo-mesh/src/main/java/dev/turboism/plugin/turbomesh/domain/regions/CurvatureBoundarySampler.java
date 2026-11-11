@@ -64,6 +64,16 @@ final class CurvatureBoundarySampler {
     /** Share of the local spacing that a resampled vertex keeps from a pinned span end. */
     static final double END_GAP_RATIO = 0.5;
 
+    /**
+     * Closed border chains below this perimeter multiple of the maximum spacing keep their raw
+     * shape.
+     *
+     * <p>Corner suppression and endpoint spacing are scale-free only above a minimum size. On a
+     * small loop they would drop the corners that describe it, so a hole or a spike narrower than
+     * one sampling step would collapse into a chord and leave the material domain.</p>
+     */
+    static final double SHORT_LOOP_SPACING_RATIO = 1.0;
+
     /** Distance below which two emitted points count as one, in pixels. */
     private static final double MERGE_EPS_PX = 1.0e-9;
 
@@ -83,6 +93,9 @@ final class CurvatureBoundarySampler {
     static Polyline sample(
             final Polyline raw, final double tolerance, final double minSpacing, final double maxSpacing) {
         if (raw.size() < 2) {
+            return raw;
+        }
+        if (raw.closed() && raw.size() > 2 && raw.length() <= SHORT_LOOP_SPACING_RATIO * maxSpacing) {
             return raw;
         }
         final int size = raw.size();
@@ -127,6 +140,9 @@ final class CurvatureBoundarySampler {
         for (int i = 0; i < points.size(); i++) {
             sampledX[i] = points.get(i)[0];
             sampledY[i] = points.get(i)[1];
+        }
+        if (cyclic && points.size() < 3) {
+            return raw;
         }
         return new Polyline(sampledX, sampledY, raw.closed());
     }

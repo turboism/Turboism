@@ -29,6 +29,21 @@ public final class RegionPlacementPlanner {
     /** Lowest share of the domain area that the returned triangles must cover. */
     static final double MIN_COVERAGE_RATIO = 0.97;
 
+    /**
+     * Highest share of the covered pixels that the triangles may claim twice.
+     *
+     * <p>A planar triangulation claims each pixel at most once, so any overlap above the raster
+     * noise floor is a broken plan. A star fan that covers the silhouette with stacked triangles
+     * reaches far above this bound.</p>
+     */
+    static final double MAX_TRIANGLE_OVERLAP_RATIO = 0.01;
+
+    /** Reason fragment that names an overlap rejection in the retry log. */
+    static final String OVERLAP_REJECTION = "triangles overlap";
+
+    /** Scale that turns a ratio into a percentage for the rejection message. */
+    private static final double PERCENT_SCALE = 100.0;
+
     /** Retry ladder: each entry names the stage the attempt leaves out. */
     private static final List<RegionPlacementPlan.Fallback> RETRY_LADDER = List.of(
             RegionPlacementPlan.Fallback.NONE,
@@ -123,6 +138,13 @@ public final class RegionPlacementPlanner {
                             candidate.meshArea(),
                             candidate.ringArea(),
                             candidate.droppedVertices()));
+        }
+        final double overlap = PixelCoverage.overlapRatio(
+                candidate.rasterVertices(), candidate.triangles(), raster.width(), raster.height());
+        if (overlap > MAX_TRIANGLE_OVERLAP_RATIO) {
+            return new Attempt(
+                    null,
+                    String.format("%s on %.1f%% of the covered pixels", OVERLAP_REJECTION, PERCENT_SCALE * overlap));
         }
         return new Attempt(candidate, null);
     }

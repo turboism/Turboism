@@ -12,6 +12,9 @@ final class PixelGeometry {
     /** Perpendicular distance below which a point counts as lying on a segment, in pixels. */
     static final double ON_SEGMENT_EPS = 1.0e-7;
 
+    /** One full counter-clockwise revolution, in radians. */
+    private static final double FULL_TURN_RADIANS = 2.0 * Math.PI;
+
     private PixelGeometry() {}
 
     static double cross(
@@ -51,6 +54,23 @@ final class PixelGeometry {
         final double length = Math.hypot(bx - ax, by - ay);
         final double slack = length <= 0.0 ? ON_SEGMENT_EPS : ON_SEGMENT_EPS / length;
         return t >= -slack && t <= 1.0 + slack;
+    }
+
+    /**
+     * Counter-clockwise turn from one direction to the next, in {@code (0, 2*PI]}.
+     *
+     * <p>Face tracing needs one answer at a junction: the outgoing edge that turns furthest left
+     * keeps the face on the left of the incoming edge. A straight continuation reports
+     * {@code 2*PI}, so it loses to every real left turn.</p>
+     *
+     * @return turn angle in radians, strictly positive
+     */
+    static double leftTurn(
+            final double incomingX, final double incomingY, final double outgoingX, final double outgoingY) {
+        final double cross = incomingX * outgoingY - incomingY * outgoingX;
+        final double dot = incomingX * outgoingX + incomingY * outgoingY;
+        final double turn = Math.atan2(cross, dot);
+        return turn <= 0.0 ? turn + FULL_TURN_RADIANS : turn;
     }
 
     /** True when the two segments cross at a single point that lies inside both of them. */
