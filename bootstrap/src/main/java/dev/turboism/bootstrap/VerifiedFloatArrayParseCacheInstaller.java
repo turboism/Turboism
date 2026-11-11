@@ -14,7 +14,7 @@ import java.util.Optional;
  * <p>The protocol itself lives in {@link VerifiedInstall}; this class keeps the hook's reviewed
  * contract table and owns the one slot bridge the rewritten parser calls.</p>
  */
-final class VerifiedFloatArrayParseCacheInstaller implements AutoCloseable {
+final class VerifiedFloatArrayParseCacheInstaller implements VerifiedHookInstaller {
     static final String HOOK_ID = "cubism.float-array-parse-cache";
 
     /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
@@ -77,13 +77,19 @@ final class VerifiedFloatArrayParseCacheInstaller implements AutoCloseable {
                 owner -> transformer.beforeSha256()));
     }
 
+    @Override
+    public boolean admits(final InstallContext context) {
+        return admitted(context.artifact(), context.policy(), true);
+    }
+
     /**
      * Installs the weave through {@link VerifiedInstall}.
      *
      * @throws IllegalStateException when the artifact is not an admitted float-array host
      * @throws Exception when registration, retransformation or the match proof fails
      */
-    synchronized void install() throws Exception {
+    @Override
+    public synchronized void install() throws Exception {
         if (hook != null) return;
         if (!(VerifiedInstall.install(SPEC, context)
                 instanceof VerifiedInstall.Attempt.Installed<ReviewedHostContract.Bound<String>> installed)) {

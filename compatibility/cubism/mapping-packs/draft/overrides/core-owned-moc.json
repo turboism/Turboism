@@ -1,0 +1,65 @@
+{
+  "format": "turboism.mapping.pack.overrides",
+  "schemaVersion": 1,
+  "family": "core-owned-moc",
+  "baselineVersion": "5.2.03",
+  "overrides": {
+    "5.3.02": [
+      {
+        "op": "replace",
+        "path": "/entries/0/semanticName",
+        "value": "cubism.mapping.v5_3_02.core.class.moc"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/1/semanticName",
+        "value": "cubism.mapping.v5_3_02.core.method.moc_instantiate"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/2/semanticName",
+        "value": "cubism.mapping.v5_3_02.core.method.moc_instantiate_model"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/3/semanticName",
+        "value": "cubism.mapping.v5_3_02.core.method.moc_get_native_handle"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/4/semanticName",
+        "value": "cubism.mapping.v5_3_02.core.method.moc_close"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/5/semanticName",
+        "value": "cubism.mapping.v5_3_02.core.method.model_get_native_handle"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/6/semanticName",
+        "value": "cubism.mapping.v5_3_02.core.method.model_update"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/7/semanticName",
+        "value": "cubism.mapping.v5_3_02.core.method.model_close"
+      },
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/core-api/observed/cubism-core-5.3.02.json"
+      },
+      {
+        "op": "replace",
+        "path": "/metadata/artifactSha256",
+        "value": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
+      },
+      {
+        "op": "replace",
+        "path": "/metadata/validationNotes",
+        "value": "Owned-Moc lifecycle selectors (CubismMoc.instantiate/instantiateModel/getNativeHandle/close, CubismModel.getNativeHandle/update/close). CubismMoc.getMocVersion exists in the 5.3.02 public surface, but the owned loader uses byte-level Live2DCubismCore.getMocVersion instead (present in both versions, so the 5.2 profile never fails closed on version reads). Dedicated pack: not part of the selector-policy roster until promoted after host validation."
+      }
+    ]
+  }
+}

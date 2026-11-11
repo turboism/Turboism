@@ -2,6 +2,7 @@ package dev.turboism.script;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.runtime.json.RuntimeJson;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.script.ScriptDescriptor;
 import dev.turboism.sdk.script.ScriptId;
@@ -48,9 +49,6 @@ class ScriptRegistry {
     // plugin-only. Keep the set a strict subset of PermissionIds.KNOWN_IDS —
     // ScriptRegistryPermissionContractTest enforces that invariant.
     static final Set<String> KNOWN_PERMISSIONS = Set.of(
-            PermissionIds.TURBOISM_UI_MENU,
-            PermissionIds.TURBOISM_UI_TOOLBAR,
-            PermissionIds.TURBOISM_UI_PALETTE,
             PermissionIds.TURBOISM_CUBISM_PROJECT_READ,
             PermissionIds.TURBOISM_CUBISM_MODEL_READ,
             PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
@@ -88,7 +86,7 @@ class ScriptRegistry {
             PermissionIds.TURBOISM_PERFORMANCE_STATS_READ,
             PermissionIds.TURBOISM_HOST_UNSAFE);
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = RuntimeJson.standard();
     private final Path confinementRoot;
     private final Path scriptsRoot;
     private final Consumer<String> diagnostics;

@@ -2,6 +2,7 @@ package dev.turboism.gradle.internal.boundary;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -128,6 +129,77 @@ public final class JavaSourceScan {
 
     private static final Pattern INTERNAL_CONTRACT_REFERENCE =
             Pattern.compile("(?<![\\w$])dev\\.turboism\\.internal(?:\\.[A-Za-z_$][\\w$]*)+(?![\\w$])");
+
+    /*
+     * Runtime thread and JSON construction is owned by two canonical factories. Every other
+     * runtime source must call them, so thread ownership, daemon flags, shutdown order and
+     * Jackson hardening stay reviewable in one place instead of thirty.
+     */
+    private static final String RUNTIME_EXEC_FACTORY =
+            RUNTIME_JAVA + "runtime/exec/RuntimeThreads.java";
+    private static final String RUNTIME_JSON_FACTORY = RUNTIME_JAVA + "runtime/json/RuntimeJson.java";
+
+    private static final List<OwnedConstruction> OWNED_CONSTRUCTIONS = List.of(
+            new OwnedConstruction(
+                    Pattern.compile("\\bExecutors\\s*\\.\\s*new[A-Za-z]*\\s*\\("),
+                    "Executors.new*",
+                    Set.of(RUNTIME_EXEC_FACTORY),
+                    "use RuntimeThreads so thread naming, daemon flags and rejection stay canonical"),
+            new OwnedConstruction(
+                    Pattern.compile("\\bnew\\s+ThreadPoolExecutor\\s*\\("),
+                    "new ThreadPoolExecutor",
+                    Set.of(RUNTIME_EXEC_FACTORY),
+                    "use RuntimeThreads so thread naming, daemon flags and rejection stay canonical"),
+            new OwnedConstruction(
+                    Pattern.compile("\\bnew\\s+ScheduledThreadPoolExecutor\\s*\\("),
+                    "new ScheduledThreadPoolExecutor",
+                    Set.of(RUNTIME_EXEC_FACTORY),
+                    "use RuntimeThreads so thread naming, daemon flags and rejection stay canonical"),
+            new OwnedConstruction(
+                    Pattern.compile("\\bnew\\s+ObjectMapper\\s*\\("),
+                    "new ObjectMapper",
+                    Set.of(RUNTIME_JSON_FACTORY),
+                    "use RuntimeJson so Jackson hardening stays canonical"),
+            new OwnedConstruction(
+                    Pattern.compile("\\bJsonMapper\\s*\\.\\s*builder\\s*\\("),
+                    "JsonMapper.builder()",
+                    Set.of(RUNTIME_JSON_FACTORY),
+                    "use RuntimeJson so Jackson hardening stays canonical"));
+
+    /**
+     * Rejects direct executor and {@code ObjectMapper} construction inside {@code :runtime}.
+     *
+     * <p>Only {@code runtime/exec/RuntimeThreads.java} may build a thread pool and only
+     * {@code runtime/json/RuntimeJson.java} may build a mapper. Comments and string literals are
+     * stripped first, so a Javadoc mention of {@code new ObjectMapper()} stays legal while a real
+     * construction does not.
+     *
+     * @param file a source file already read from disk
+     * @return one message per construction, in source order
+     */
+    public static List<String> directRuntimeConstructions(SourceFile file) {
+        String path = file.relativePath().replace('\\', '/');
+        if (!path.startsWith(RUNTIME_MAIN)) {
+            return List.of();
+        }
+        String source = stripCommentsAndStrings(String.join("\n", file.lines()));
+        List<String> violations = new ArrayList<>();
+        for (OwnedConstruction construction : OWNED_CONSTRUCTIONS) {
+            if (construction.owners().contains(path)) {
+                continue;
+            }
+            Matcher match = construction.pattern().matcher(source);
+            while (match.find()) {
+                long line = source.substring(0, match.start()).chars().filter(c -> c == '\n').count() + 1;
+                violations.add("Forbidden runtime construction '" + construction.token() + "' in " + path + ":" + line
+                        + ": " + construction.message());
+            }
+        }
+        return violations;
+    }
+
+    /** A construction form only one canonical factory may use. */
+    private record OwnedConstruction(Pattern pattern, String token, Set<String> owners, String message) {}
 
     private static final List<TokenRule> HOST_UI_TRAVERSAL = List.of(
             new TokenRule(

@@ -10,7 +10,7 @@ Copyright © 2026 Turboism Contributors. Turboism은 [AGPL-3.0-only](../../LICEN
 
 Turboism은 **독립적인 서드파티 프로젝트**이며, Live2D Inc.와 제휴 관계가 없고 해당 회사의 보증이나 후원을 받지 않습니다. Live2D, Cubism 및 관련 명칭과 상표에 대한 권리는 Live2D Inc. 또는 각 권리자에게 있습니다. Turboism은 Cubism Editor를 배포하거나 해당 라이선스를 제공·대체·우회하지 않습니다. 적법한 라이선스를 취득한 Cubism Editor를 별도로 설치해야 합니다.
 
-설치 전에 [최종 사용자 실행 고지 및 면책 조항](../../packaging/eula/EULA.ko.txt)을 읽어 주세요. 이 고지는 AGPL-3.0-only가 부여한 권리를 제한하지 않으며, 중국어 간체 정식 문서가 기준입니다. 소프트웨어는 **있는 그대로** 제공됩니다. 프로젝트 내용을 변경하는 플러그인이나 자동화 기능을 사용하기 전에 독립적인 백업을 보관하세요.
+설치 전에 [최종 사용자 실행 고지 및 면책 조항](EULA.md)을 읽어 주세요. 이 고지는 AGPL-3.0-only가 부여한 권리를 제한하지 않으며, 중국어 간체 정식 문서가 기준입니다. 소프트웨어는 **있는 그대로** 제공됩니다. 프로젝트 내용을 변경하는 플러그인이나 자동화 기능을 사용하기 전에 독립적인 백업을 보관하세요.
 
 ## 프로젝트 소개
 
@@ -97,13 +97,13 @@ Windows에서는 `./gradlew` 대신 `gradlew.bat`을 사용하세요. 변경 사
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
 
-데모는 개발 전용이며 릴리스 패키지에 포함되지 않습니다. 변경 사항을 제출하기 전에 영향받는 부분의 테스트와 `./gradlew devCheck`를 실행하세요. API, 수명 주기, 트랜잭션 및 검증 규칙은 [아키텍처 문서](../../ARCHITECTURE.md)를 참고하세요.
+데모는 개발 전용이며 릴리스 패키지에 포함되지 않습니다. 변경 사항을 제출하기 전에 영향받는 부분의 테스트와 `./gradlew devCheck`를 실행하세요. API, 수명 주기, 트랜잭션 및 검증 규칙은 [아키텍처 문서](../architecture/ARCHITECTURE.md)를 참고하세요.
 
 ## 문서
 
 - [사용자 및 개발자 문서](https://docs.turboism.dev)
-- [아키텍처](../../ARCHITECTURE.md)와 [로드맵](../../ROADMAP.md)
+- [아키텍처](../architecture/ARCHITECTURE.md)와 [로드맵](../ROADMAP.md)
 - [SDK API 계약 및 호환성](../../sdk/api-contracts/)과 [현재 공개 SDK 표면](../../sdk/api-contracts/current.txt)
 - [데모 플러그인](../../plugins/demo/README.md)과 독립형 [플러그인 템플릿](../../templates/plugin-template/)
 - [Java 설치 프로그램 상세 안내](../../packaging/java-installer/README-java-installer.md)
-- [릴리스 절차](../../RELEASING.md)와 [변경 기록](../en/CHANGELOG.md)
+- [릴리스 절차](../RELEASING.md)와 [변경 기록](../en/CHANGELOG.md)

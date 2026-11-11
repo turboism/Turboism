@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+AST_GREP_CONFIG = "tooling/ast-grep/sgconfig.yml"
 VERSION_LINE = re.compile(
     r"^(?:ast-grep|sg)\s+\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$", re.IGNORECASE
 )
@@ -46,8 +47,8 @@ def binary() -> str:
 def main() -> int:
     executable = binary()
     for args in (
-        ("test", "--config", "sgconfig.yml", "--skip-snapshot-tests"),
-        ("scan", "--config", "sgconfig.yml", "--error"),
+        ("test", "--config", AST_GREP_CONFIG, "--skip-snapshot-tests"),
+        ("scan", "--config", AST_GREP_CONFIG, "--error"),
     ):
         result = subprocess.run([executable, *args], cwd=ROOT, check=False)
         if result.returncode != 0:

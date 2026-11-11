@@ -28,6 +28,9 @@ abstract class NativeOptimizationHookContributor implements ReportedHookContribu
     private String refusalReason = "not-admitted";
     private static final AutoCloseable NOT_INSTALLED = () -> {};
 
+    /** Refusal code a hook reports when its persisted preference is off. */
+    static final String REFUSED_PREFERENCE_DISABLED = "preference-disabled";
+
     NativeOptimizationHookContributor(final String protocolId) {
         this(protocolId, protocolId);
     }

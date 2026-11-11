@@ -1,11 +1,14 @@
 # Cubism Compatibility Contracts
 
-This directory contains the public, reproducible contracts required to build and verify Turboism's exact-version Cubism adapters. It contains no Cubism installation, binary, method body, private member, proprietary resource, host log, screenshot, or machine-specific path.
+This directory contains the public, reproducible contracts required to build and verify Turboism's exact-version Cubism adapters. It contains no Cubism installation, binary, method body, proprietary resource, host log, screenshot, or machine-specific path. `clusters.json` is the one exception to the no-private-member rule: it records obfuscated reachability roots (for example `com/live2d/cubism/util/a.h()`) because a reachability cluster cannot name its roots otherwise. Every such name is already public bytecode of the shipped artifact.
 
 ## Structure
 
 - `verification/` — hash-pinned static records packaged into the agent under `META-INF/turboism/verification/`.
-- `mapping-packs/draft/` — retained observation/legacy evidence. `materializeDraftContracts` combines it with `draft-src/` annotations and materialized records into `build/generated/draft/mapping-packs/`.
+- `mapping-packs/draft/baseline/` — one retained observation/legacy pack per family. Record-derived literals appear as `${artifactSha256}`, `${verificationId}`, `${selectorCount}` and similar tokens.
+- `mapping-packs/draft/overrides/` — one override table per family. It names the baseline version and lists ordered JSON-pointer replacements for every other version.
+- `mapping-packs/draft/frozen.json` — SHA-256 pins for the shipped `5.0.x` and `5.1.x` rows. `materializeDraftContracts` fails when a pinned row changes.
+- `build/generated/draft/mapping-packs/` — the expanded per-version packs. `materializeDraftContracts` combines retained evidence with `draft-src/` annotations and materialized records.
 - `build/generated/draft/profiles/` — generated exact-version mapping-pack catalogues for 5.0.00, 5.0.01, 5.0.02, 5.0.03, 5.0.04, 5.0.05, 5.0.06, 5.1.00, 5.1.01, 5.1.02, 5.1.03, 5.2.00, 5.2.01, 5.2.02, 5.2.03, 5.3.00, 5.3.01, 5.3.02, 5.3.03, and 5.3.04.
 - `build/generated/compatibility/cubism/compatibility-matrix.json` — the generated
   machine-readable matrix. It is a build product, not a tracked fact: the

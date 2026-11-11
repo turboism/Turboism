@@ -10,7 +10,7 @@ Copyright © 2026 Turboism Contributors。Turboism は [AGPL-3.0-only](../../LIC
 
 Turboism は**独立したサードパーティープロジェクト**であり、Live2D Inc. との提携関係はなく、同社による推奨やスポンサー提供も受けていません。Live2D、Cubism および関連する名称・標章の権利は、Live2D Inc. またはそれぞれの権利者に帰属します。Turboism は Cubism Editor を配布せず、そのライセンスを付与・代替したり、認証を回避したりするものではありません。別途、正規のライセンスを取得した Cubism Editor をインストールする必要があります。
 
-インストール前に[エンドユーザー実行声明・免責事項](../../packaging/eula/EULA.ja.txt)をお読みください。この声明は AGPL-3.0-only が付与する権利を制限するものではなく、簡体字中国語の正式文書が優先されます。本ソフトウェアは**現状のまま**提供されます。プロジェクトの内容を変更するプラグインや自動化機能を使う前に、独立したバックアップを保存してください。
+インストール前に[エンドユーザー実行声明・免責事項](EULA.md)をお読みください。この声明は AGPL-3.0-only が付与する権利を制限するものではなく、簡体字中国語の正式文書が優先されます。本ソフトウェアは**現状のまま**提供されます。プロジェクトの内容を変更するプラグインや自動化機能を使う前に、独立したバックアップを保存してください。
 
 ## プロジェクト概要
 
@@ -97,13 +97,13 @@ Windows では `./gradlew` の代わりに `gradlew.bat` を使用してくだ�
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
 
-デモは開発専用であり、リリースパッケージには含まれません。変更を提出する前に、影響範囲のテストと `./gradlew devCheck` を実行してください。API、ライフサイクル、トランザクション、検証の規則は[アーキテクチャ](../../ARCHITECTURE.md)を参照してください。
+デモは開発専用であり、リリースパッケージには含まれません。変更を提出する前に、影響範囲のテストと `./gradlew devCheck` を実行してください。API、ライフサイクル、トランザクション、検証の規則は[アーキテクチャ](../architecture/ARCHITECTURE.md)を参照してください。
 
 ## ドキュメント
 
 - [ユーザー・開発者向けドキュメント](https://docs.turboism.dev)
-- [アーキテクチャ](../../ARCHITECTURE.md)と[ロードマップ](../../ROADMAP.md)
+- [アーキテクチャ](../architecture/ARCHITECTURE.md)と[ロードマップ](../ROADMAP.md)
 - [SDK API 契約と互換性](../../sdk/api-contracts/)と[現在の公開 SDK サーフェス](../../sdk/api-contracts/current.txt)
 - [デモプラグイン](../../plugins/demo/README.md)とスタンドアロンの[プラグインテンプレート](../../templates/plugin-template/)
 - [Java インストーラーの詳細](../../packaging/java-installer/README-java-installer.md)
-- [リリース手順](../../RELEASING.md)と[変更履歴](../en/CHANGELOG.md)
+- [リリース手順](../RELEASING.md)と[変更履歴](../en/CHANGELOG.md)

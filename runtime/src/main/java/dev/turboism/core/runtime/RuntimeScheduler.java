@@ -8,6 +8,7 @@ import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.work.PluginWorkResult;
 import dev.turboism.core.runtime.work.PluginWorkStatus;
 import dev.turboism.core.runtime.work.PluginWorkSubmission;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.plugin.WorkBudget;
 import java.time.Duration;
 import java.util.Objects;
@@ -15,7 +16,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -71,13 +71,8 @@ public final class RuntimeScheduler {
     }
 
     private static ScheduledExecutorService createTimer() {
-        ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1, runnable -> {
-            Thread thread = new Thread(runnable, "turboism-runtime-scheduler-timer");
-            thread.setDaemon(true);
-            return thread;
-        });
-        timer.setRemoveOnCancelPolicy(true);
-        return timer;
+        return RuntimeThreads.serialTimer(
+                RuntimeThreads.daemonThreadsWithFixedName("turboism-runtime-scheduler-timer"));
     }
 
     /**

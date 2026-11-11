@@ -1,10 +1,8 @@
 package dev.turboism.core.descriptor;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -40,10 +38,7 @@ public final class CubismVersionSidecar {
     private static final Pattern VERSION = Pattern.compile("[0-9]+\\.[0-9]+\\.[0-9]+");
 
     /** Duplicate keys and trailing tokens are rejected: one document, one reading. */
-    private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
-                    .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                    .build())
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private static final ObjectMapper JSON = RuntimeJson.strict();
 
     private CubismVersionSidecar() {}
 

@@ -1,0 +1,81 @@
+{
+  "format": "turboism.mapping.pack",
+  "schemaVersion": 1,
+  "status": "DRAFT",
+  "source": "jar-metadata-probe",
+  "cubismVersion": "${version}",
+  "metadata": {
+    "validationNotes": "Exact metadata inventory for adapter.cubism.performance.fps-hook, taken verbatim from the targets the probe transformer binds. Every selector is VERIFIED_STATIC against the exact artifact. Pack remains DRAFT; its hash-anchored record does not admit the ${version} FPS installer.",
+    "inventoryRef": "compatibility/cubism/verification/cubism-5.0.00-performance-render-scene.json",
+    "artifactName": "${artifactName}",
+    "artifactSize": "${artifactSize}",
+    "artifactSha256": "${artifactSha256}",
+    "profileId": "${profileId}",
+    "verificationId": "${verificationId}",
+    "selectorCount": "${selectorCount}",
+    "capabilityCount": "${capabilityCount}",
+    "capabilityIds": [
+      "turboism.performance.stats.read"
+    ],
+    "verificationRecordSha256": "${verificationRecordSha256}"
+  },
+  "entries": [
+    {
+      "semanticName": "cubism.mapping.v5_2_03.performance.render_scene",
+      "kind": "method",
+      "owner": "performance-fps-hook",
+      "name": "cubism.performance.render-scene",
+      "runtime": "renderScene_exe",
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V",
+      "profile": "cubism-${version}",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.performance.reinit_model_instance",
+      "kind": "method",
+      "owner": "performance-fps-hook",
+      "name": "cubism.performance.reinit-model-instance",
+      "runtime": "reinitModelInstance_exe",
+      "intermediary": "",
+      "descriptor": "()V",
+      "profile": "cubism-${version}",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModel"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.performance.update_model_instances",
+      "kind": "method",
+      "owner": "performance-fps-hook",
+      "name": "cubism.performance.update-model-instances",
+      "runtime": "updateModelInstances",
+      "intermediary": "",
+      "descriptor": "()V",
+      "profile": "cubism-${version}",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
+      }
+    }
+  ]
+}

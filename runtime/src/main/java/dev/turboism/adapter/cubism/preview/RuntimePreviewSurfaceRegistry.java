@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.preview;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.cubism.preview.PreviewFrame;
 import dev.turboism.sdk.cubism.preview.PreviewFrameSourceClosedException;
@@ -22,7 +23,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
@@ -50,11 +50,8 @@ public final class RuntimePreviewSurfaceRegistry implements AutoCloseable {
 
     private final Object lock = new Object();
     private final List<Entry> entries = new ArrayList<>();
-    private final ExecutorService readback = Executors.newSingleThreadExecutor(runnable -> {
-        final Thread thread = new Thread(runnable, "turboism-preview-readback");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final ExecutorService readback =
+            RuntimeThreads.serialLane(RuntimeThreads.daemonThreadsWithFixedName("turboism-preview-readback"));
     private final Predicate<JComponent> focusProbe;
     private boolean closed;
 

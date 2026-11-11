@@ -1,10 +1,9 @@
 package dev.turboism.update;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
@@ -37,10 +36,7 @@ public final class UpdateManifestVerifier {
     private static final Set<String> REQUIRED_ENVELOPE_KEYS =
             Set.of("format", "schemaVersion", "algorithm", "keyId", "manifestSha256", "signature");
 
-    private static final ObjectMapper STRICT_MAPPER = new ObjectMapper(JsonFactory.builder()
-                    .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                    .build())
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private static final ObjectMapper STRICT_MAPPER = RuntimeJson.strict();
 
     private final Map<String, PublicKey> trustedKeys;
     private final Set<String> revokedKeys;

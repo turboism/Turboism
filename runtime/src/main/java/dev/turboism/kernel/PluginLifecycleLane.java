@@ -1,9 +1,9 @@
 package dev.turboism.kernel;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import java.time.Duration;
 import java.util.Objects;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -27,25 +27,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 final class PluginLifecycleLane {
 
     private final ThreadPoolExecutor executor;
-    private final AtomicInteger workerSequence = new AtomicInteger();
     private final AtomicBoolean accepting = new AtomicBoolean(true);
 
     PluginLifecycleLane(final PluginLifecyclePolicy policy) {
         Objects.requireNonNull(policy, "policy");
-        executor = new ThreadPoolExecutor(
+        executor = RuntimeThreads.fixedLane(
                 policy.workerCount(),
-                policy.workerCount(),
-                0L,
-                TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(policy.queueCapacity()),
-                runnable -> {
-                    final Thread thread =
-                            new Thread(runnable, "turboism-plugin-lifecycle-" + workerSequence.incrementAndGet());
-                    thread.setDaemon(true);
-                    thread.setContextClassLoader(PluginLifecycleLane.class.getClassLoader());
-                    return thread;
-                },
-                new ThreadPoolExecutor.AbortPolicy());
+                policy.queueCapacity(),
+                RuntimeThreads.daemonThreads("turboism-plugin-lifecycle", PluginLifecycleLane.class.getClassLoader()));
     }
 
     /**

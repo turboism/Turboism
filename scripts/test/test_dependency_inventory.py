@@ -57,7 +57,7 @@ class InventoryTree:
         self.graph = self.root / "build" / "project-graph.json"
         self.graph.parent.mkdir(parents=True, exist_ok=True)
         self.write_graph(graph or GRAPH)
-        self.inventory = self.root / "architecture" / "dependency-inventory.json"
+        self.inventory = self.root / "docs" / "architecture" / "dependency-inventory.json"
 
     def write_graph(self, payload):
         self.graph.write_text(json.dumps(payload), encoding="utf-8")

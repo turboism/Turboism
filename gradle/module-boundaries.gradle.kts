@@ -6,6 +6,7 @@ import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.logging.Logger
 import dev.turboism.gradle.internal.VerificationStamps
 import dev.turboism.gradle.internal.boundary.JavaSourceScan
+import dev.turboism.gradle.internal.boundary.PermissionVocabulary
 import dev.turboism.gradle.internal.boundary.PluginClassReferences
 import dev.turboism.gradle.internal.boundary.PluginPermissionAudit
 
@@ -389,15 +390,17 @@ private fun scanProductionSources(root: Project, project: Project, state: Bounda
 
 /*
  * The source-level rules (retired package, restricted imports, fully-qualified references,
- * internal management contracts, host UI traversal) live in buildSrc as JavaSourceScan, next to
- * the comment/string lexer they depend on and the fixtures that pin it. This script decides
- * which module a file belongs to and which families therefore apply.
+ * internal management contracts, host UI traversal, direct executor/JSON construction) live in
+ * buildSrc as JavaSourceScan, next to the comment/string lexer they depend on and the fixtures
+ * that pin it. This script decides which module a file belongs to and which families therefore
+ * apply.
  */
 private fun checkSourceFile(root: Project, project: Project, file: java.io.File, state: BoundaryState) {
     val lines = file.readLines()
     val source = JavaSourceScan.SourceFile(file.relativeTo(root.projectDir).toString(), lines)
     JavaSourceScan.forbiddenPackageDeclarations(source).forEach(state::reject)
     JavaSourceScan.hostPackageLiterals(source).forEach(state::reject)
+    JavaSourceScan.directRuntimeConstructions(source).forEach(state::reject)
     val restricted = project.path == ":sdk" || project.path.startsWith(":plugins:")
     if (restricted) {
         JavaSourceScan.restrictedImports(source).forEach(state::reject)
@@ -1012,6 +1015,13 @@ tasks.register("checkPluginPermissionAudit") {
 
 private fun checkPluginPermissionAudit(root: Project, plugins: List<Project>) {
     val state = BoundaryState(root.logger)
+    val vocabulary = PermissionVocabulary.read(root.projectDir.toPath())
+    val unexported = PluginPermissionAudit.boundaryPermissions() - vocabulary.toSet()
+    if (unexported.isNotEmpty()) {
+        state.reject(
+            "Plugin permission audit rules name ids the SDK vocabulary does not export: $unexported"
+        )
+    }
     plugins.forEach { plugin ->
         val descriptor = plugin.file("src/main/resources/META-INF/turboism/plugin.json")
         val declared = PluginPermissionAudit.declaredPermissionIds(descriptor.readText())

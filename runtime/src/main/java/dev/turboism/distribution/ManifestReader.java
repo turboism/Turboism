@@ -1,9 +1,8 @@
 package dev.turboism.distribution;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
@@ -51,12 +50,7 @@ final class ManifestReader {
     }
 
     private static ObjectMapper strictMapper() {
-        var factory = com.fasterxml.jackson.core.JsonFactory.builder()
-                .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                .build();
-        return new ObjectMapper(factory)
-                .enable(JsonParser.Feature.AUTO_CLOSE_SOURCE)
-                .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+        return RuntimeJson.strict();
     }
 
     private static void validateHeader(JsonNode root) throws DistributionValidationException {

@@ -30,7 +30,7 @@ import java.util.Set;
  * and re-captures each of them on close. The glue-affecter sub-mode is reported from
  * {@link WeaveEffects}, i.e. only once the weave is proven and never after the handle closed.</p>
  */
-final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
+final class VerifiedIncrementalUpdateInstaller implements VerifiedHookInstaller {
 
     static final String HOOK_ID = "cubism.model-update.incremental";
 
@@ -213,13 +213,19 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
                 OptimizationCatalog.PROTOCOL_INCREMENTAL_UPDATE_AFFECTERS, "not-installed", "closed");
     }
 
+    @Override
+    public boolean admits(final InstallContext context) {
+        return admitted(context.artifact(), context.policy(), true, context.jvmFeature());
+    }
+
     /**
      * Installs the weave through {@link VerifiedInstall}.
      *
      * @throws IllegalStateException when the artifact is not an admitted incremental-update host
      * @throws Exception when registration, retransformation or the match proof fails
      */
-    synchronized void install() throws Exception {
+    @Override
+    public synchronized void install() throws Exception {
         if (hook != null) return;
         if (!(VerifiedInstall.install(spec(), context)
                 instanceof

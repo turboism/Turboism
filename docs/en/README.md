@@ -10,7 +10,7 @@ This version is licensed under the GNU Affero General Public License, version 3 
 
 Turboism is an **independent third-party project**, not affiliated with, endorsed by, or sponsored by Live2D Inc. Live2D, Cubism and related names and marks belong to Live2D Inc. or their respective owners. Turboism does not distribute Cubism Editor or grant, replace or bypass its license; a separately installed, lawfully licensed copy is required.
 
-Read the [End User Runtime Statement and Disclaimer](../../packaging/eula/EULA.en.txt) before installation. It does not reduce the rights granted by the AGPL-3.0-only license; its Simplified Chinese text is authoritative. The software is provided **as is**. Keep independent backups before using plugins or automation that change project content.
+Read the [End User Runtime Statement and Disclaimer](EULA.md) before installation. It does not reduce the rights granted by the AGPL-3.0-only license; its Simplified Chinese text is authoritative. The software is provided **as is**. Keep independent backups before using plugins or automation that change project content.
 
 ## About
 
@@ -97,13 +97,13 @@ Building a plugin **outside** this repository does not require building Turboism
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
 
-The demo is development-only, not part of the release bundle. Run focused tests for your changes and `./gradlew devCheck` before submitting them. See the [architecture](../../ARCHITECTURE.md) for API, lifecycle, transaction and verification rules.
+The demo is development-only, not part of the release bundle. Run focused tests for your changes and `./gradlew devCheck` before submitting them. See the [architecture](../architecture/ARCHITECTURE.md) for API, lifecycle, transaction and verification rules.
 
 ## Documentation
 
 - [User and developer documentation](https://docs.turboism.dev)
-- [Architecture](../../ARCHITECTURE.md) and [roadmap](../../ROADMAP.md)
+- [Architecture](../architecture/ARCHITECTURE.md) and [roadmap](../ROADMAP.md)
 - [SDK API contracts and compatibility](../../sdk/api-contracts/) and [current public SDK surface](../../sdk/api-contracts/current.txt)
 - [Demo plugin](../../plugins/demo/README.md) and the standalone [plugin template](../../templates/plugin-template/)
 - [Java installer details](../../packaging/java-installer/README-java-installer.md)
-- [Release process](../../RELEASING.md) and [changelog](../en/CHANGELOG.md)
+- [Release process](../RELEASING.md) and [changelog](../en/CHANGELOG.md)

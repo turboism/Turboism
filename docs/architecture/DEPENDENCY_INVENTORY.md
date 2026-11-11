@@ -1,0 +1,110 @@
+# Dependency inventory baseline (`#70`, step 1)
+
+This inventory records what the module graph and the `:runtime` package graph
+actually look like, so that a change is reviewed instead of discovered late. It
+started as the pre-extraction baseline and now carries the two extracted
+modules (`:persistence-core`, `#112`; `:compatibility-policy`, `#113`). It is **not**
+a proposal to split `:runtime`, and it does not replace the authoritative boundary gates.
+
+## Authority
+
+| Question | Owner |
+| --- | --- |
+| Is this dependency direction allowed? | `checkModuleBoundaries`, `checkResolvedBytecodeDependencyGraph`, SDK ABI gates |
+| What do the directions look like today? | this inventory |
+| Is this Java AST pattern acceptable? | `checkArchitectureRules` (ast-grep) |
+
+The inventory reads package declarations and imports. Fully qualified references
+without imports, reflected names, service wiring and classloader sharing are
+**not** visible here; those stay with the bytecode and module-boundary gates.
+The module half is authoritative because Gradle reports it, including edges that
+convention plugins add and that no `build.gradle.kts` scan can see.
+
+## Regenerating
+
+```bash
+./gradlew dependencyInventoryRaw                      # authoritative module graph
+python3 scripts/dev/dependency_inventory.py --report \
+    --project-graph build/architecture/dependency-inventory-project-graph.json
+python3 scripts/dev/dependency_inventory.py --write \
+    --project-graph build/architecture/dependency-inventory-project-graph.json   # reviewed change
+```
+
+`checkDependencyInventory` runs the `--check` mode inside `devCheck`: a new
+module edge, a new `:runtime` package cycle, or a removed cycle fails the build
+until `docs/architecture/dependency-inventory.json` is regenerated in a reviewed
+commit. `--report` prints the fan-in/fan-out analysis without writing.
+
+## Recorded baseline
+
+- 47 Gradle modules, including convention-supplied edges (plugins declare
+  `compileOnly :sdk`, `annotationProcessor :event-processor`, and
+  `testImplementation :sdk`, `:testing:test-support`). The two modules added
+  since the first baseline are `:event-processor` (compile-time `@SubscribeEvent`
+  subscriber-catalog generator) and `:graal-host` (standalone GraalVM Polyglot
+  host); both depend only on `:sdk`.
+- Two extracted modules: `:persistence-core` (typed-config codec/schema/migration
+  kernel) and `:compatibility-policy` (reviewed release matrix, exact
+  reviewed-release predicate, `@CubismEditor` rules and selector admission), both
+  with `api :sdk` and consumed by `:runtime implementation`. Neither has a
+  dependency back on `:runtime`, and `checkModuleBoundaries` proves both the
+  declared/resolved edges and the compiled bytecode. The package-graph sections
+  below still describe `:runtime` only; each extracted module is a single package,
+  so its cycle surface is the module edge itself. `:bootstrap` declares
+  `:compatibility-policy` only as a `testImplementation` for the repacked-host
+  admission test.
+- `:runtime`: 34 top-level `dev.turboism.*` packages, 125 top-level package
+  edges, 1 top-level cycle, **0 leaf-package cycles** (6 before the `#70` step 3a
+  pilot; see below for how each was removed).
+- Production code has no dependency on `:plugins:*`; runtime test code does
+  (`testImplementation` only), which the inventory keeps as a separate
+  configuration instead of folding into the production graph.
+
+## Cycles to break before any extraction
+
+None. At leaf-package granularity the `:runtime` package graph is **acyclic**, so
+the extraction steps of #70 no longer risk moving a cycle across a module
+boundary. The gate keeps it that way: any new cycle fails `checkDependencyInventory`.
+
+The inventory still records one **top-level** cycle over eleven packages
+(`adapter`, `config`, `core`, `home`, `hostread`, `mapping`, `recentfile`,
+`recentpreview`, `screenshot`, `task`, `ui`). `home` is in the aggregate SCC
+because `config -> home -> core` (via `core.io`) closes a path back into the
+cluster; leaf-package granularity still adds no cycle for it. That is an
+aggregation artifact, not an actionable cycle: different leaves of the same
+top-level package legitimately depend on each other in both directions (for
+example the UI surface uses adapter primitives while one adapter leaf consumes UI
+descriptors). Leaf-package granularity is the enforced one, and it is empty.
+
+### Resolved
+
+| Cycle | How it was broken | Contract |
+| --- | --- | --- |
+| `adapter` ↔ `adapter.host` | `HostVerificationEvidence` (shared input) moved down into `dev.turboism.adapter` | `docs/architecture/MODULE_CONTRACTS.md` |
+| `kernel` ↔ `kernel.report` | the runtime→document bridge moved up into `dev.turboism.kernel`, leaving `report` a pure formatter | `docs/architecture/MODULE_CONTRACTS.md` |
+| `runtime.log` → `core.*` (half of a 5-package cycle) | `CubismLogServiceHost` is a Cubism host adapter, not infrastructure; it moved to `dev.turboism.adapter.cubism.service.log`, leaving `runtime.log` strictly below `core` | `docs/architecture/MODULE_CONTRACTS.md` |
+| `core.runtime` ↔ `core.runtime.work` | `PluginTask` and `RuntimeCancellationToken` moved into `dev.turboism.core.runtime.contract`, below both the scheduler and the executors | `docs/architecture/MODULE_CONTRACTS.md` |
+| `adapter.cubism.{mesh,modeling,optimization}` ↔ `mapping.verification` ↔ `ui.*` (8 packages) | `LogPaletteHostStructure` moved into `ui.host`, the two mesh toolbar descriptors into `ui.contribution`, the two selector contracts into `mapping.selector` (the planned consolidation), and their resolver-dependent `authorizes(...)` helpers into `mapping.verification.SelectorAdmission` | `docs/architecture/MODULE_CONTRACTS.md` |
+| `adapter.cubism.{edit,editor,editor.history,editor.transaction}` | `EditorHostThread` moved into `adapter.cubism.editor.host`, and authoring transactions take an `AuthoringHistoryPort` instead of importing the recorder | `docs/architecture/MODULE_CONTRACTS.md` |
+| `adapter.cubism` ↔ `adapter.cubism.service.read` ↔ `hostread` | the adapter→port bridge moved into the adapter layer (`ProjectWorkspaceReadSources`) and `CubismReadPermissionGate` moved up into `adapter.cubism`; `hostread` now imports no adapter package | `docs/architecture/MODULE_CONTRACTS.md` |
+
+The last remaining cycle is the adapter/UI/mapping cluster. At
+top-level granularity they merge into a single 11-package cycle (`adapter`,
+`config`, `core`, `home`, `hostread`, `mapping`, `recentfile`, `recentpreview`,
+`screenshot`, `task`, `ui`; `home` joins through `config -> home -> core` (via
+`core.io`), and
+`runtime` left that cycle once `runtime.log` stopped depending on core), so a
+"break one edge at the top level" reading is misleading — the leaf list above is
+the actionable one.
+
+## Extraction order this inventory supports
+
+1. Pure persistence codec/migration kernel (already covered by the golden
+   snapshots) — it has no cycle today, only composition-layer reach-through.
+2. Compatibility policy, after the `hostread`/`adapter` direction is inverted.
+3. Nothing else until a new contract proves host/UI/classloader behavior is not
+   being moved across the boundary.
+
+Every extraction adds one reviewable module contract (owner, allowed compile and
+runtime dependencies, public API, forbidden imports, threading/IO semantics,
+tests) and must keep this inventory green in the same commit.

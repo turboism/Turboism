@@ -1,0 +1,15 @@
+[English](../en/EULA.md) / [简体中文](../zh/EULA.md) / [日本語](../ja/EULA.md) / [한국어](../ko/EULA.md)
+
+# TURBOISM END USER RUNTIME STATEMENT AND DISCLAIMER
+
+Version 2.2 · Release date: 2026-09-23
+
+Turboism is open-source software licensed under AGPL-3.0-only. Third-party components retain their own licenses. This statement does not limit rights granted by those licenses.
+
+Turboism is not affiliated with or endorsed by Live2D Inc. and is not an official Cubism product. Cubism requires a separate valid license; Turboism does not provide, replace, or bypass its license verification.
+
+The software is provided "AS IS", without guarantees of security, freedom from errors, compatibility, or data recovery. You use it at your own risk and are responsible for backing up your projects and other data.
+
+To the maximum extent permitted by applicable law, authors, contributors, and distributors are not liable for losses arising from use of or inability to use the software, including data loss, file corruption, and business interruption, and have no obligation to provide support or data recovery. This statement does not exclude liability that cannot legally be excluded.
+
+The Simplified Chinese text is authoritative; translations are for reference, except where mandatory applicable law provides otherwise.

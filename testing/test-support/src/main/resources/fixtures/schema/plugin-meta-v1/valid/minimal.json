@@ -19,7 +19,7 @@
   "dependencies": [],
   "permissions": [
     {
-      "id": "turboism.ui.menu",
+      "id": "turboism.ui.menu.contribute",
       "scope": "application",
       "reason": "Adds a demo menu item."
     }

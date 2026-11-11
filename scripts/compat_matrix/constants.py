@@ -118,8 +118,6 @@ DECLARED_CAPABILITY_ALIASES: dict[str, dict[str, list[str]]] = {
         "pins": ["warp-alt-mirror"],
     },
     "cubism.editor-commands.execute": {"capabilities": ["cubism.editor-ui.top-menu"]},
-    "cubism.history.read": {"capabilities": ["cubism.editor-history.read"]},
-    "cubism.history.write": {"capabilities": ["cubism.editor-history.move"]},
     "cubism.model.objects.read": {"capabilities": ["cubism.editor-model.objects.read"]},
     "cubism.model.objects.write": {
         "capabilities": ["cubism.editor-model.object-hierarchy.edit"]
@@ -141,18 +139,6 @@ DECLARED_CAPABILITY_ALIASES: dict[str, dict[str, list[str]]] = {
         ],
     },
     "cubism.model.write": {"capabilities": ["cubism.editor-model.write"]},
-    "cubism.parameters.read": {
-        "capabilities": [
-            "cubism.editor-model.edit.parameter-structure.get-parameter-structure",
-            "cubism.editor-model.parameter-groups.read",
-        ]
-    },
-    "cubism.parameters.write": {
-        "capabilities": [
-            "cubism.editor-model.write",
-            "cubism.editor-model.parameter-structure.write",
-        ]
-    },
     "cubism.parameter.read": {
         "capabilities": [
             "cubism.editor-model.edit.parameter-structure.get-parameter-structure",

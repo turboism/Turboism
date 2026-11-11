@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.compatibility.policy.ReviewedCubismReleases;
+import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
@@ -44,7 +45,7 @@ public final class CubismHostProbeCli {
 
     /** Renders a resolution as the schema-versioned JSON document. */
     static ObjectNode render(final CompatibilityResolution resolution) {
-        final ObjectMapper mapper = new ObjectMapper();
+        final ObjectMapper mapper = RuntimeJson.standard();
         final ObjectNode root = mapper.createObjectNode();
         root.put("schemaVersion", SCHEMA_VERSION);
         root.put("evidenceStage", "STATIC_PREFLIGHT");

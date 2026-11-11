@@ -1,10 +1,7 @@
 package dev.turboism.worktime;
 
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.HostSnapshots;
@@ -15,6 +12,7 @@ import dev.turboism.core.runtime.RuntimeTimerHandle;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
+import dev.turboism.runtime.json.RuntimeJson;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.cubism.CubismActivitySnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
@@ -85,10 +83,7 @@ public final class RuntimeProjectWorkTimeService implements ProjectWorkTimeServi
     private final Path persistenceFile;
     private final Clock clock;
     private final LongSupplier nanoClock;
-    private final ObjectMapper mapper = JsonMapper.builder()
-            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-            .build();
+    private final ObjectMapper mapper = RuntimeJson.strict();
     private final Object lifecycle = new Object();
     private final Duration interval;
     private final Map<String, MutableProjectWorkTime> projects = new HashMap<>();

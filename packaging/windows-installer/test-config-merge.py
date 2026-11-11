@@ -1294,26 +1294,57 @@ def check_eula_contract():
     en = eula_files["en"].read_text(encoding="utf-8")
     zh = eula_files["zh"].read_text(encoding="utf-8")
     ja = eula_files["ja"].read_text(encoding="utf-8")
+    ko = eula_files["ko"].read_text(encoding="utf-8")
+
+    def clean_md_eula(content: str) -> str:
+        body = re.sub(r"^\[.*?\]\(.*?\).*?\n\n", "", content)
+        body = re.sub(r"^#{1,6}\s+", "", body, flags=re.MULTILINE)
+        return body.replace("**", "").replace("  \n", "\n")
+
     root_eula = (EULA_DIR.parent.parent / "EULA.md").read_text(encoding="utf-8")
-    derived_root = re.sub(r"^#{1,6}\s+", "", root_eula, flags=re.MULTILINE)
-    derived_root = derived_root.replace("**", "").replace("  \n", "\n")
-    check("root EULA is authoritative and packaging copy is derived exactly",
-          derived_root == zh)
-    check("EULA is version 2.2 and final",
-          "版本：2.2" in root_eula
-          and "发布日期：2026-09-23" in root_eula
-          and "草案" not in root_eula)
-    check("EULA retains the concise license, independence, and liability notice",
-          "TURBOISM 最终用户运行声明与免责声明" in root_eula
+    derived_root = clean_md_eula(root_eula)
+    check("root EULA is English and matches packaging copy exactly",
+          derived_root == en)
+    check("root EULA is version 2.2 and final",
+          "Version 2.2" in root_eula
+          and "Release date: 2026-09-23" in root_eula
+          and "DRAFT" not in root_eula)
+    check("root EULA retains the concise license, independence, and liability notice",
+          "TURBOISM END USER RUNTIME STATEMENT AND DISCLAIMER" in root_eula
           and "AGPL-3.0-only" in root_eula
-          and "并非 Cubism 官方产品" in root_eula
-          and "数据丢失、文件损坏" in root_eula
-          and "不排除依法不得免除的责任" in root_eula
-          and "本版本以简体中文文本为正式文本" in root_eula)
+          and "not an official Cubism product" in root_eula
+          and "data loss, file corruption" in root_eula
+          and "cannot legally be excluded" in root_eula
+          and "The Simplified Chinese text is authoritative" in root_eula)
+
+    docs_zh_eula = (EULA_DIR.parent.parent / "docs/zh/EULA.md").read_text(encoding="utf-8")
+    derived_zh = clean_md_eula(docs_zh_eula)
+    check("docs zh EULA is authoritative and packaging copy is derived exactly",
+          derived_zh == zh)
+    check("docs zh EULA is version 2.2 and final",
+          "版本：2.2" in docs_zh_eula
+          and "发布日期：2026-09-23" in docs_zh_eula
+          and "草案" not in docs_zh_eula)
+    check("docs zh EULA retains the concise license, independence, and liability notice",
+          "TURBOISM 最终用户运行声明与免责声明" in docs_zh_eula
+          and "AGPL-3.0-only" in docs_zh_eula
+          and "并非 Cubism 官方产品" in docs_zh_eula
+          and "数据丢失、文件损坏" in docs_zh_eula
+          and "不排除依法不得免除的责任" in docs_zh_eula
+          and "本版本以简体中文文本为正式文本" in docs_zh_eula)
+
+    docs_en_eula = (EULA_DIR.parent.parent / "docs/en/EULA.md").read_text(encoding="utf-8")
+    docs_ja_eula = (EULA_DIR.parent.parent / "docs/ja/EULA.md").read_text(encoding="utf-8")
+    docs_ko_eula = (EULA_DIR.parent.parent / "docs/ko/EULA.md").read_text(encoding="utf-8")
+    check("docs en EULA matches packaging English copy", clean_md_eula(docs_en_eula) == en)
+    check("docs ja EULA matches packaging Japanese copy", clean_md_eula(docs_ja_eula) == ja)
+    check("docs ko EULA matches packaging Korean copy", clean_md_eula(docs_ko_eula) == ko)
+
     check("localized notices identify Simplified Chinese as authoritative",
           "The Simplified Chinese text is authoritative" in en
           and "本版本以简体中文文本为正式文本" in zh
-          and "簡体字中国語文を正文とします" in ja)
+          and "簡体字中国語文を正文とします" in ja
+          and "중국어 간체 본문이 정본이며" in ko)
     first = text.index('!insertmacro MUI_PAGE_LICENSE "${LICENSE_FILE}"')
     statement = text.index('!insertmacro MUI_PAGE_LICENSE "$(EulaFile)"')
     acknowledgements_page = text.index(

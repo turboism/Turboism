@@ -70,7 +70,7 @@ to schedule Cubism runs there.
    tasks that exercise the changed API. A task's name alone does not establish
    coverage: a model scope-close assertion does not prove that a service-directory
    handle is fenced. Follow the version policy in
-   [CONTRIBUTING](../../CONTRIBUTING.md#cubism-version-adaptation); record any
+   [CONTRIBUTING](../../.github/CONTRIBUTING.md#cubism-version-adaptation); record any
    narrower smoke matrix as limited coverage.
 2. **Verify local inputs.** Check installed official JAR/BAT identities and fixture
    hashes. An existing `.env` may describe only a subset of installed versions.
