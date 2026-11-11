@@ -279,10 +279,10 @@ class RootReadmeTest(unittest.TestCase):
     # The switcher links are sibling-relative, so all four pages share it.
     SWITCHER_LINKS = ["../en/README.md", "../zh/README.md", "../ja/README.md", "../ko/README.md"]
     EULA_PATHS = {
-        "README.md": "packaging/eula/EULA.en.txt",
-        "README.zh-CN.md": "EULA.md",
-        "README.ja.md": "packaging/eula/EULA.ja.txt",
-        "README.ko.md": "packaging/eula/EULA.ko.txt",
+        "README.md": "docs/en/EULA.md",
+        "README.zh-CN.md": "docs/zh/EULA.md",
+        "README.ja.md": "docs/ja/EULA.md",
+        "README.ko.md": "docs/ko/EULA.md",
     }
 
     CAPABILITY_PATHS = {
@@ -322,8 +322,8 @@ class RootReadmeTest(unittest.TestCase):
                 copyright_section = text.split("## " + headings[1], 1)[0]
                 self.assertIn("Copyright © 2026 Turboism Contributors", copyright_section)
                 self.assertIn("(../../LICENSE)", copyright_section)
+                self.assertIn("(EULA.md)", copyright_section)
                 eula_path = self.EULA_PATHS[filename]
-                self.assertIn(f"(../../{eula_path})", copyright_section)
                 self.assertTrue((ROOT / eula_path).is_file())
                 self.assertIn("Live2D Inc.", copyright_section)
 
@@ -361,7 +361,7 @@ class RootReadmeTest(unittest.TestCase):
             # because `capabilities_zh.md` no longer equals its declared
             # per-language path once the folder is stripped.
             normalized_links = [
-                "EULA" if link == f"../../{self.EULA_PATHS[filename]}"
+                "EULA" if link == "EULA.md"
                 else "CAPABILITIES" if link == f"../../{self.CAPABILITY_PATHS[filename]}"
                 else re.sub(r"_(?:zh|ja|ko)\.md$", ".md", link)
                 for link in links]
@@ -374,6 +374,32 @@ class RootReadmeTest(unittest.TestCase):
                     self.assertTrue((ROOT / "docs/en" / parsed.path).exists(), f"{filename}: broken link {link}")
             self.assertIn("https://docs.turboism.dev", links)
             self.assertIn("https://github.com/turboism/Turboism/releases/latest", links)
+
+    def test_root_readme_and_eula_links_resolve(self):
+        from urllib.parse import urlsplit
+        root_eula = (ROOT / "EULA.md").read_text(encoding="utf-8")
+        self.assertIn("TURBOISM END USER RUNTIME STATEMENT AND DISCLAIMER", root_eula)
+        self.assertIn("The Simplified Chinese text is authoritative", root_eula)
+
+        for filename in ("README.md", "EULA.md"):
+            content = (ROOT / filename).read_text(encoding="utf-8")
+            links = re.findall(r"\[[^\]]+\]\(([^)]+)\)", content)
+            for link in links:
+                parsed = urlsplit(link)
+                if not parsed.scheme and parsed.path:
+                    target = ROOT / parsed.path
+                    self.assertTrue(target.exists(), f"root {filename}: broken link {link}")
+
+        for lang in ("en", "zh", "ja", "ko"):
+            eula_path = ROOT / f"docs/{lang}/EULA.md"
+            self.assertTrue(eula_path.is_file(), f"missing localized EULA: {eula_path}")
+            content = eula_path.read_text(encoding="utf-8")
+            links = re.findall(r"\[[^\]]+\]\(([^)]+)\)", content)
+            for link in links:
+                parsed = urlsplit(link)
+                if not parsed.scheme and parsed.path:
+                    target = (eula_path.parent / parsed.path).resolve()
+                    self.assertTrue(target.exists(), f"docs/{lang}/EULA.md: broken link {link}")
 
 
 class ReleaseVerifierTest(unittest.TestCase):

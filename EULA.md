@@ -1,13 +1,15 @@
-# TURBOISM 最终用户运行声明与免责声明
+[English](docs/en/EULA.md) / [简体中文](docs/zh/EULA.md) / [日本語](docs/ja/EULA.md) / [한국어](docs/ko/EULA.md)
 
-版本：2.2 · 发布日期：2026-09-23
+# TURBOISM END USER RUNTIME STATEMENT AND DISCLAIMER
 
-Turboism 是采用 AGPL-3.0-only 许可的开源软件；第三方组件适用各自许可。本声明不限制开源许可授予的权利。
+Version 2.2 · Release date: 2026-09-23
 
-Turboism 与 Live2D Inc. 无隶属关系，未获其背书，并非 Cubism 官方产品。使用 Cubism 仍需另行取得合法授权；Turboism 不提供、替代或绕过其许可校验。
+Turboism is open-source software licensed under AGPL-3.0-only. Third-party components retain their own licenses. This statement does not limit rights granted by those licenses.
 
-软件按“现状”提供，不保证安全、无错误、兼容性或数据恢复。用户自行承担使用风险，并负责备份工程及其他数据。
+Turboism is not affiliated with or endorsed by Live2D Inc. and is not an official Cubism product. Cubism requires a separate valid license; Turboism does not provide, replace, or bypass its license verification.
 
-在适用法律允许的最大范围内，作者、贡献者和分发者不对使用或无法使用本软件造成的损失承担责任，包括数据丢失、文件损坏及业务中断，也无义务提供支持或数据恢复。本声明不排除依法不得免除的责任。
+The software is provided "AS IS", without guarantees of security, freedom from errors, compatibility, or data recovery. You use it at your own risk and are responsible for backing up your projects and other data.
 
-本版本以简体中文文本为正式文本，译文仅供参考；适用法律另有强制规定的除外。
+To the maximum extent permitted by applicable law, authors, contributors, and distributors are not liable for losses arising from use of or inability to use the software, including data loss, file corruption, and business interruption, and have no obligation to provide support or data recovery. This statement does not exclude liability that cannot legally be excluded.
+
+The Simplified Chinese text is authoritative; translations are for reference, except where mandatory applicable law provides otherwise.

@@ -1,16 +1,16 @@
-[English](../en/README.md) / [简体中文](../zh/README.md) / [日本語](../ja/README.md) / [한국어](../ko/README.md)
+[English](docs/en/README.md) / [简体中文](docs/zh/README.md) / [日本語](docs/ja/README.md) / [한국어](docs/ko/README.md)
 
 # Turboism
 
 ## Copyright and notices
 
-Copyright © 2026 Turboism Contributors. Turboism is open source under the [AGPL-3.0-only license](../../LICENSE).
+Copyright © 2026 Turboism Contributors. Turboism is open source under the [AGPL-3.0-only license](LICENSE).
 
 This version is licensed under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`). Third-party components and files with separate license notices retain their respective licenses.
 
 Turboism is an **independent third-party project**, not affiliated with, endorsed by, or sponsored by Live2D Inc. Live2D, Cubism and related names and marks belong to Live2D Inc. or their respective owners. Turboism does not distribute Cubism Editor or grant, replace or bypass its license; a separately installed, lawfully licensed copy is required.
 
-Read the [End User Runtime Statement and Disclaimer](../../packaging/eula/EULA.en.txt) before installation. It does not reduce the rights granted by the AGPL-3.0-only license; its Simplified Chinese text is authoritative. The software is provided **as is**. Keep independent backups before using plugins or automation that change project content.
+Read the [End User Runtime Statement and Disclaimer](EULA.md) before installation. It does not reduce the rights granted by the AGPL-3.0-only license; its Simplified Chinese text is authoritative. The software is provided **as is**. Keep independent backups before using plugins or automation that change project content.
 
 ## About
 
@@ -25,7 +25,7 @@ Turboism is a Windows-first runtime enhancement tool and plugin framework for **
 | **5.2.00 – 5.2.03** | Exact-version adapters. Only Cubism 5.3-only surfaces are missing: alpha composition, part-inspector writes, MOC export read, Core parameter repeat |
 | **5.3.00 – 5.3.04** | Exact-version adapters. Fully compatible: every verified capability group is available |
 
-**Windows x64** is the supported Cubism host platform. Unlisted Editor versions are not claimed compatible; unavailable adapters or features fail closed. Version support does not mean every plugin feature is available on every version; per-version capability details are listed in the [capability matrix](../../compatibility/cubism/capabilities.md).
+**Windows x64** is the supported Cubism host platform. Unlisted Editor versions are not claimed compatible; unavailable adapters or features fail closed. Version support does not mean every plugin feature is available on every version; per-version capability details are listed in the [capability matrix](compatibility/cubism/capabilities.md).
 
 On macOS, download and extract either portable ZIP archive (`turboism-<version>.zip`). macOS packaging is preview-only with no verified Cubism host support.
 
@@ -85,9 +85,9 @@ cd Turboism
 
 On Windows, use `gradlew.bat` instead of `./gradlew`. Make changes on a separate feature branch or worktree.
 
-For plugin development, start with the [demo plugin](../../plugins/demo/README.md), its [build configuration](../../plugins/demo/build.gradle.kts) and [plugin descriptor](../../plugins/demo/src/main/resources/META-INF/turboism/plugin.json). Plugins depend on `:sdk` with `compileOnly` scope; do not directly depend on runtime internals or `com.live2d.*` classes.
+For plugin development, start with the [demo plugin](plugins/demo/README.md), its [build configuration](plugins/demo/build.gradle.kts) and [plugin descriptor](plugins/demo/src/main/resources/META-INF/turboism/plugin.json). Plugins depend on `:sdk` with `compileOnly` scope; do not directly depend on runtime internals or `com.live2d.*` classes.
 
-Building a plugin **outside** this repository does not require building Turboism. Every GitHub Release ships `turboism-sdk-<version>.jar` and `turboism-event-processor-<version>.jar` (with `.sha256` sidecars): copy [templates/plugin-template](../../templates/plugin-template/) as a standalone project, run its setup script (or drop the JARs into `libs/`) and follow its README. Framework contributors can also publish the SDK and the `@SubscribeEvent` annotation processor to the local Maven repository, then resolve `dev.turboism:sdk` and `dev.turboism:event-processor` from `mavenLocal()`:
+Building a plugin **outside** this repository does not require building Turboism. Every GitHub Release ships `turboism-sdk-<version>.jar` and `turboism-event-processor-<version>.jar` (with `.sha256` sidecars): copy [templates/plugin-template](templates/plugin-template/) as a standalone project, run its setup script (or drop the JARs into `libs/`) and follow its README. Framework contributors can also publish the SDK and the `@SubscribeEvent` annotation processor to the local Maven repository, then resolve `dev.turboism:sdk` and `dev.turboism:event-processor` from `mavenLocal()`:
 
 ```bash
 ./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal
@@ -97,13 +97,13 @@ Building a plugin **outside** this repository does not require building Turboism
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
 
-The demo is development-only, not part of the release bundle. Run focused tests for your changes and `./gradlew devCheck` before submitting them. See the [architecture](../../ARCHITECTURE.md) for API, lifecycle, transaction and verification rules.
+The demo is development-only, not part of the release bundle. Run focused tests for your changes and `./gradlew devCheck` before submitting them. See the [architecture](ARCHITECTURE.md) for API, lifecycle, transaction and verification rules.
 
 ## Documentation
 
 - [User and developer documentation](https://docs.turboism.dev)
-- [Architecture](../../ARCHITECTURE.md) and [roadmap](../../ROADMAP.md)
-- [SDK API contracts and compatibility](../../sdk/api-contracts/) and [current public SDK surface](../../sdk/api-contracts/current.txt)
-- [Demo plugin](../../plugins/demo/README.md) and the standalone [plugin template](../../templates/plugin-template/)
-- [Java installer details](../../packaging/java-installer/README-java-installer.md)
-- [Release process](../../RELEASING.md) and [changelog](../en/CHANGELOG.md)
+- [Architecture](ARCHITECTURE.md) and [roadmap](ROADMAP.md)
+- [SDK API contracts and compatibility](sdk/api-contracts/) and [current public SDK surface](sdk/api-contracts/current.txt)
+- [Demo plugin](plugins/demo/README.md) and the standalone [plugin template](templates/plugin-template/)
+- [Java installer details](packaging/java-installer/README-java-installer.md)
+- [Release process](RELEASING.md) and [changelog](docs/en/CHANGELOG.md)
