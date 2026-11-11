@@ -4,10 +4,13 @@ import dev.turboism.sdk.cubism.mesh.automesh.AlgorithmPreset;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.GraphicsEnvironment;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.Rectangle;
 import java.awt.Window;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -86,14 +89,19 @@ public final class AutoMeshParameterDialog {
     private static final String RESET_KEY = "dialog.parameters.reset";
     private static final String INVALID_KEY = "dialog.parameters.invalid";
     private static final String EMPTY_STATUS = " ";
-    private static final int LABEL_COLUMN_WIDTH = 180;
-    private static final int DIALOG_MIN_WIDTH = 420;
-    private static final int DIALOG_MIN_HEIGHT = 260;
     private static final int ROW_INSET = 4;
     private static final int LABEL_GAP = 12;
     private static final int GROUP_GAP = 8;
     private static final int BUTTON_GAP = 6;
     private static final int NO_PRESET_INDEX = 0;
+
+    /**
+     * Largest share of the usable screen one dialog edge may take.
+     *
+     * <p>A long parameter list must scroll instead of pushing the dialog past the task bar or off a
+     * small display. The content's own preferred size still decides every edge below this bound.</p>
+     */
+    private static final double MAX_DIALOG_SCREEN_RATIO = 0.9d;
 
     private AutoMeshParameterDialog() {}
 
@@ -126,13 +134,38 @@ public final class AutoMeshParameterDialog {
         };
         view.onCancelled = dialog::dispose;
         dialog.getContentPane().add(view.content());
-        dialog.setMinimumSize(new Dimension(DIALOG_MIN_WIDTH, DIALOG_MIN_HEIGHT));
         dialog.pack();
+        dialog.setSize(boundedDialogSize(dialog.getSize(), usableScreenBounds()));
         dialog.setLocationRelativeTo(parent);
         dialog.getRootPane().setDefaultButton(view.defaultButton());
         dialog.setVisible(true);
         dialog.dispose();
         return accepted[0];
+    }
+
+    /**
+     * Bounds a packed dialog size to the usable screen without shrinking below its content.
+     *
+     * @param preferred the size the dialog packed to
+     * @param usableScreen the screen area the window manager leaves for an ordinary window
+     * @return the preferred size, capped at the named screen ratio on each edge
+     */
+    static Dimension boundedDialogSize(final Dimension preferred, final Rectangle usableScreen) {
+        if (usableScreen == null || usableScreen.width <= 0 || usableScreen.height <= 0) {
+            return new Dimension(preferred);
+        }
+        final int maximumWidth = (int) Math.floor(usableScreen.width * MAX_DIALOG_SCREEN_RATIO);
+        final int maximumHeight = (int) Math.floor(usableScreen.height * MAX_DIALOG_SCREEN_RATIO);
+        return new Dimension(Math.min(preferred.width, maximumWidth), Math.min(preferred.height, maximumHeight));
+    }
+
+    private static Rectangle usableScreenBounds() {
+        try {
+            return GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        } catch (RuntimeException | LinkageError unavailable) {
+            // A headless or refusing environment keeps the packed size instead of failing the dialog.
+            return null;
+        }
     }
 
     /**
@@ -169,6 +202,7 @@ public final class AutoMeshParameterDialog {
         private final JPanel content = new JPanel(new BorderLayout());
         private final JLabel statusLabel = new JLabel(EMPTY_STATUS);
         private final Map<String, AutoMeshParameterControl> controls = new LinkedHashMap<>();
+        private final List<JLabel> labels = new ArrayList<>();
         private final JComboBox<String> presetCombo = new JComboBox<>();
         private final JButton savePresetButton;
         private final JButton renamePresetButton;
@@ -252,6 +286,13 @@ public final class AutoMeshParameterDialog {
                 rows.add(buildRow(row));
                 rows.add(Box.createVerticalStrut(ROW_INSET));
             }
+            final int labelWidth = labels.stream()
+                    .mapToInt(label -> label.getPreferredSize().width)
+                    .max()
+                    .orElse(0);
+            for (final JLabel label : labels) {
+                label.setPreferredSize(new Dimension(labelWidth, label.getPreferredSize().height));
+            }
             final JScrollPane scroll = new JScrollPane(rows);
             scroll.setBorder(BorderFactory.createEmptyBorder());
             return scroll;
@@ -265,7 +306,7 @@ public final class AutoMeshParameterDialog {
             labelConstraints.gridx = 0;
             labelConstraints.gridy = 0;
             final JLabel label = new JLabel(row.label());
-            label.setPreferredSize(new Dimension(LABEL_COLUMN_WIDTH, label.getPreferredSize().height));
+            labels.add(label);
             if (!row.descriptor().description().isEmpty()) {
                 label.setToolTipText(row.descriptor().description());
             }
