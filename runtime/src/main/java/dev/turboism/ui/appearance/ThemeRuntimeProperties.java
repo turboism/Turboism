@@ -33,6 +33,18 @@ public final class ThemeRuntimeProperties {
     }
 
     /**
+     * Reports whether a Turboism theme currently publishes overrides.
+     *
+     * <p>Applying a theme writes the file and restoring the native look deletes it, so the file
+     * is the one marker that distinguishes a themed session from the native appearance.</p>
+     *
+     * @return {@code true} while the shared custom-defaults file exists
+     */
+    public static boolean isPublished() {
+        return Files.isRegularFile(path());
+    }
+
+    /**
      * Replaces the shared properties file with one {@code key=value} line per entry, in
      * iteration order, UTF-8 encoded. Any previous content is discarded; the write is not
      * atomic.
