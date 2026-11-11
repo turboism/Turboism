@@ -91,9 +91,10 @@ class RuntimeUiSchedulerTest {
         RuntimeScheduler runtimeScheduler = runtimeScheduler(events, 500L);
         RuntimeUiScheduler uiScheduler = new RuntimeUiScheduler(runtimeScheduler, "dev.turboism.plugin.demo");
 
+        IllegalStateException failure = new IllegalStateException("boom");
         try {
             uiScheduler.runOnUiThread(() -> {
-                throw new IllegalStateException("boom");
+                throw failure;
             });
 
             awaitEvent(events, PluginWorkBudgetEvent.Phase.FAILED);
@@ -103,7 +104,8 @@ class RuntimeUiSchedulerTest {
                             "ui.schedule",
                             PluginWorkBudgetEvent.Phase.FAILED,
                             PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
-                            PluginWorkBudgetEvent.Severity.ERROR)),
+                            PluginWorkBudgetEvent.Severity.ERROR,
+                            failure)),
                     events.toString());
         } finally {
             uiScheduler.close();
