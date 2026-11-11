@@ -1,6 +1,5 @@
 package dev.turboism.automesh;
 
-import dev.turboism.automesh.host.AutoMeshResolvedTarget;
 import java.util.List;
 import java.util.Objects;
 
@@ -15,7 +14,8 @@ import java.util.Objects;
  * @param targets the resolved targets, in selection order
  * @param layouts the plugin layout of each target, in the same order
  */
-public record AutoMeshWrite(String undoLabel, List<AutoMeshResolvedTarget> targets, List<AutoMeshWriteLayout> layouts) {
+public record AutoMeshWrite<T extends AutoMeshTarget>(
+        String undoLabel, List<T> targets, List<AutoMeshWriteLayout> layouts) {
 
     public AutoMeshWrite {
         undoLabel = Objects.requireNonNull(undoLabel, "undoLabel");

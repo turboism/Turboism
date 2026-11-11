@@ -11,6 +11,7 @@ import dev.turboism.automesh.host.AutoMeshGuardHandler;
 import dev.turboism.automesh.host.AutoMeshMessages;
 import dev.turboism.automesh.host.AutoMeshNotice;
 import dev.turboism.automesh.host.AutoMeshNoticeSink;
+import dev.turboism.automesh.host.AutoMeshResolvedTarget;
 import dev.turboism.automesh.host.NativeAutoMeshBridge;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
@@ -81,7 +82,7 @@ final class KernelAutoMeshGuardFactory {
         Objects.requireNonNull(statusSink, "statusSink");
         Objects.requireNonNull(scheduler, "scheduler");
         Objects.requireNonNull(diagnostics, "diagnostics");
-        final AutoMeshDispatch dispatch = new AutoMeshDispatch(
+        final AutoMeshDispatch<AutoMeshResolvedTarget> dispatch = new AutoMeshDispatch<>(
                 new AutoMeshRequestBuilder(),
                 new AutoMeshExecutor(computeLane(scheduler)),
                 new EditorAutoMeshEditableWrite(resolver, diagnostics),

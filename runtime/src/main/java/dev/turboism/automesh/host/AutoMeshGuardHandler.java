@@ -36,7 +36,7 @@ public final class AutoMeshGuardHandler implements NativeAutoMeshBridge.Handler 
 
     private final AutoMeshSelectionState selection;
     private final AutoMeshTargetResolver targets;
-    private final AutoMeshDispatch dispatch;
+    private final AutoMeshDispatch<AutoMeshResolvedTarget> dispatch;
     private static final String ROUTE_TRACE = "auto mesh guard: route algorithm=%s outcome=%s";
     private static final String RESULT_TRACE = "auto mesh guard: run settled status=%s written=%d message=%s";
     private static final String OUTCOME_UNHANDLED = "unhandled";
@@ -64,7 +64,7 @@ public final class AutoMeshGuardHandler implements NativeAutoMeshBridge.Handler 
     public AutoMeshGuardHandler(
             final AutoMeshSelectionState selection,
             final AutoMeshTargetResolver targets,
-            final AutoMeshDispatch dispatch,
+            final AutoMeshDispatch<AutoMeshResolvedTarget> dispatch,
             final AutoMeshNoticeSink notices,
             final Consumer<String> diagnostics,
             final AutoMeshMessages messages) {

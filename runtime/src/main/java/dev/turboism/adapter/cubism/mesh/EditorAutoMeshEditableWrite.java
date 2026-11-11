@@ -31,7 +31,7 @@ import java.util.function.Consumer;
  * a texture atlas has no reviewed image-local transform, so the write refuses it with a reason
  * that names the ArtMesh instead of drawing the layout in the wrong space.</p>
  */
-public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite {
+public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite<AutoMeshResolvedTarget> {
 
     /** Reason code of a funnel call the write cannot follow back to an edit mode. */
     public static final String REASON_NO_EDIT_MODE = "no-edit-mode";
@@ -82,7 +82,7 @@ public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite 
     }
 
     @Override
-    public List<ArtMeshId> write(final AutoMeshWrite write) throws AutoMeshWriteRefusal {
+    public List<ArtMeshId> write(final AutoMeshWrite<AutoMeshResolvedTarget> write) throws AutoMeshWriteRefusal {
         Objects.requireNonNull(write, "write");
         final AutoMeshFunnel funnel = funnelOf(write);
         final List<AutoMeshCanvasPoints> geometries = convert(write);
@@ -116,7 +116,8 @@ public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite 
     }
 
     /** Returns the single funnel behind the selection, or refuses a mixed confirmation. */
-    private static AutoMeshFunnel funnelOf(final AutoMeshWrite write) throws AutoMeshWriteRefusal {
+    private static AutoMeshFunnel funnelOf(final AutoMeshWrite<AutoMeshResolvedTarget> write)
+            throws AutoMeshWriteRefusal {
         final AutoMeshFunnel funnel = write.targets().get(0).funnel();
         for (final AutoMeshResolvedTarget target : write.targets()) {
             if (target.funnel() != funnel) {
@@ -132,7 +133,8 @@ public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite 
      * <p>A layout the host cannot map must leave the model untouched, so every transform resolves
      * first; only a complete set reaches the write.</p>
      */
-    private List<AutoMeshCanvasPoints> convert(final AutoMeshWrite write) throws AutoMeshWriteRefusal {
+    private List<AutoMeshCanvasPoints> convert(final AutoMeshWrite<AutoMeshResolvedTarget> write)
+            throws AutoMeshWriteRefusal {
         final List<AutoMeshCanvasPoints> geometries =
                 new ArrayList<>(write.targets().size());
         for (int index = 0; index < write.targets().size(); index++) {
@@ -192,7 +194,11 @@ public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite 
         }
     }
 
-    private void snapshot(final AutoMeshFunnel funnel, final AutoMeshWrite write, final int index, final Object group)
+    private void snapshot(
+            final AutoMeshFunnel funnel,
+            final AutoMeshWrite<AutoMeshResolvedTarget> write,
+            final int index,
+            final Object group)
             throws ReflectiveOperationException, AutoMeshWriteRefusal {
         final AutoMeshResolvedTarget target = write.targets().get(index);
         switch (funnel) {
@@ -274,7 +280,7 @@ public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite 
         }
     }
 
-    private static List<ArtMeshId> ids(final AutoMeshWrite write) {
+    private static List<ArtMeshId> ids(final AutoMeshWrite<AutoMeshResolvedTarget> write) {
         final List<ArtMeshId> ids = new ArrayList<>(write.targets().size());
         for (final AutoMeshResolvedTarget target : write.targets()) {
             ids.add(target.drawable().id());

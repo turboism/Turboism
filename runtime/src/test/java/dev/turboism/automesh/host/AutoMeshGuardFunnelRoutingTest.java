@@ -177,7 +177,7 @@ class AutoMeshGuardFunnelRoutingTest {
     }
 
     private AutoMeshGuardHandler handler(final Optional<List<AutoMeshResolvedTarget>> resolved) {
-        final AutoMeshDispatch dispatch = new AutoMeshDispatch(
+        final AutoMeshDispatch<AutoMeshResolvedTarget> dispatch = new AutoMeshDispatch<AutoMeshResolvedTarget>(
                 new AutoMeshRequestBuilder(),
                 new AutoMeshExecutor(computeLane),
                 write,

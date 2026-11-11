@@ -1,5 +1,6 @@
 package dev.turboism.automesh.host;
 
+import dev.turboism.automesh.AutoMeshTarget;
 import dev.turboism.sdk.cubism.model.Drawable;
 import java.util.Objects;
 
@@ -18,7 +19,8 @@ import java.util.Objects;
  * @param completePack the host pack of the funnel call, or {@code null} when the call carried none
  */
 public record AutoMeshResolvedTarget(
-        AutoMeshFunnel funnel, Drawable drawable, Object source, Object editableMesh, Object completePack) {
+        AutoMeshFunnel funnel, Drawable drawable, Object source, Object editableMesh, Object completePack)
+        implements AutoMeshTarget {
 
     public AutoMeshResolvedTarget {
         funnel = Objects.requireNonNull(funnel, "funnel");

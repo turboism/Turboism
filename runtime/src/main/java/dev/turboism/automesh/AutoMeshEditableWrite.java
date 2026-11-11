@@ -15,7 +15,7 @@ import java.util.List;
  * layer that knows what the opaque target handles mean.</p>
  */
 @FunctionalInterface
-public interface AutoMeshEditableWrite {
+public interface AutoMeshEditableWrite<T extends AutoMeshTarget> {
 
     /**
      * Writes one confirmed selection.
@@ -25,5 +25,5 @@ public interface AutoMeshEditableWrite {
      * @throws AutoMeshWriteRefusal when the host cannot accept the write, in which case no target
      *     changed
      */
-    List<ArtMeshId> write(AutoMeshWrite write) throws AutoMeshWriteRefusal;
+    List<ArtMeshId> write(AutoMeshWrite<T> write) throws AutoMeshWriteRefusal;
 }

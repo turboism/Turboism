@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>Tests assert what the dispatcher asked the Editor to replace, and the double answers the
  * three outcomes the Editor can produce: committed, refused with a reason, or failing.</p>
  */
-public final class FakeAutoMeshWrite implements AutoMeshEditableWrite {
+public final class FakeAutoMeshWrite implements AutoMeshEditableWrite<AutoMeshResolvedTarget> {
 
     /** Reason code of the refusal this double raises when {@link #refuse} is set. */
     public static final String REFUSAL_REASON = "editor-refused";
@@ -23,7 +23,7 @@ public final class FakeAutoMeshWrite implements AutoMeshEditableWrite {
     /** Message of the refusal and of the failure this double raises. */
     private static final String MESSAGE = "The Editor refused the write.";
 
-    private final List<AutoMeshWrite> writes = new CopyOnWriteArrayList<>();
+    private final List<AutoMeshWrite<AutoMeshResolvedTarget>> writes = new CopyOnWriteArrayList<>();
     private final List<String> threads = new CopyOnWriteArrayList<>();
     private final AtomicInteger calls = new AtomicInteger();
 
@@ -37,7 +37,7 @@ public final class FakeAutoMeshWrite implements AutoMeshEditableWrite {
     public List<ArtMeshId> override = null;
 
     @Override
-    public List<ArtMeshId> write(final AutoMeshWrite write) throws AutoMeshWriteRefusal {
+    public List<ArtMeshId> write(final AutoMeshWrite<AutoMeshResolvedTarget> write) throws AutoMeshWriteRefusal {
         calls.incrementAndGet();
         threads.add(Thread.currentThread().getName());
         writes.add(write);
@@ -63,7 +63,7 @@ public final class FakeAutoMeshWrite implements AutoMeshEditableWrite {
     }
 
     /** @return every write the dispatcher requested, in request order */
-    public List<AutoMeshWrite> writes() {
+    public List<AutoMeshWrite<AutoMeshResolvedTarget>> writes() {
         return List.copyOf(writes);
     }
 

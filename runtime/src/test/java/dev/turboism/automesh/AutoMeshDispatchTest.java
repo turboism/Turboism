@@ -120,7 +120,7 @@ class AutoMeshDispatchTest {
 
         await(dispatch().dispatch(selection, targets));
 
-        final AutoMeshWrite requested = write.writes().get(0);
+        final AutoMeshWrite<AutoMeshResolvedTarget> requested = write.writes().get(0);
         assertEquals(AutoMeshDispatch.UNDO_LABEL, requested.undoLabel());
         assertEquals(2, requested.targets().size());
         assertSame(targets.get(0), requested.targets().get(0), "the resolved handles reach the write unchanged");
@@ -142,7 +142,7 @@ class AutoMeshDispatchTest {
 
         await(dispatch().dispatch(selection, targetsOf(textured, plain)));
 
-        final AutoMeshWrite requested = write.writes().get(0);
+        final AutoMeshWrite<AutoMeshResolvedTarget> requested = write.writes().get(0);
         final TexturePixels written = requested.layouts().get(0).texture().orElseThrow();
         assertEquals(TEXTURE_WIDTH, written.width());
         assertEquals(TEXTURE_HEIGHT, written.height());
@@ -275,7 +275,7 @@ class AutoMeshDispatchTest {
         final RecordingAlgorithm algorithm = new RecordingAlgorithm();
         select(algorithm(algorithm.compute()));
         final AtomicInteger probeCalls = new AtomicInteger();
-        final AutoMeshDispatch dispatch = dispatch(() -> {
+        final AutoMeshDispatch<AutoMeshResolvedTarget> dispatch = dispatch(() -> {
             probeCalls.incrementAndGet();
             return true;
         });
@@ -313,20 +313,21 @@ class AutoMeshDispatchTest {
         catalog.select(algorithm.id());
     }
 
-    private AutoMeshDispatch dispatch() {
+    private AutoMeshDispatch<AutoMeshResolvedTarget> dispatch() {
         return dispatch(Duration.ofSeconds(AWAIT_SECONDS));
     }
 
-    private AutoMeshDispatch dispatch(final Duration timeout) {
+    private AutoMeshDispatch<AutoMeshResolvedTarget> dispatch(final Duration timeout) {
         return dispatch(AutoMeshUndoGroupProbe.CLOSED, timeout);
     }
 
-    private AutoMeshDispatch dispatch(final AutoMeshUndoGroupProbe probe) {
+    private AutoMeshDispatch<AutoMeshResolvedTarget> dispatch(final AutoMeshUndoGroupProbe probe) {
         return dispatch(probe, Duration.ofSeconds(AWAIT_SECONDS));
     }
 
-    private AutoMeshDispatch dispatch(final AutoMeshUndoGroupProbe probe, final Duration timeout) {
-        return new AutoMeshDispatch(
+    private AutoMeshDispatch<AutoMeshResolvedTarget> dispatch(
+            final AutoMeshUndoGroupProbe probe, final Duration timeout) {
+        return new AutoMeshDispatch<AutoMeshResolvedTarget>(
                 new AutoMeshRequestBuilder(), new AutoMeshExecutor(computeLane, timeout), write, probe, uiThread);
     }
 

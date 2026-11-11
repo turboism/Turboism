@@ -1,6 +1,5 @@
 package dev.turboism.automesh;
 
-import dev.turboism.automesh.host.AutoMeshResolvedTarget;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm;
@@ -40,7 +39,7 @@ import java.util.concurrent.TimeoutException;
  * binds it at the milestone that injects the native entry, so the framework never nests its own
  * envelope inside the host's open edit group.</p>
  */
-public final class AutoMeshDispatch {
+public final class AutoMeshDispatch<T extends AutoMeshTarget> {
 
     /** Reason code of a confirmation that selected no target. */
     public static final String REASON_NO_TARGETS = "no-targets";
@@ -78,7 +77,7 @@ public final class AutoMeshDispatch {
 
     private final AutoMeshRequestBuilder requestBuilder;
     private final AutoMeshExecutor executor;
-    private final AutoMeshEditableWrite editableWrite;
+    private final AutoMeshEditableWrite<T> editableWrite;
     private final AutoMeshUndoGroupProbe undoGroup;
     private final Executor uiThread;
 
@@ -94,7 +93,7 @@ public final class AutoMeshDispatch {
     public AutoMeshDispatch(
             final AutoMeshRequestBuilder requestBuilder,
             final AutoMeshExecutor executor,
-            final AutoMeshEditableWrite editableWrite,
+            final AutoMeshEditableWrite<T> editableWrite,
             final AutoMeshUndoGroupProbe undoGroup,
             final Executor uiThread) {
         this.requestBuilder = Objects.requireNonNull(requestBuilder, "requestBuilder");
@@ -111,8 +110,7 @@ public final class AutoMeshDispatch {
      * @param targets the resolved targets, in selection order
      * @return the native hand-off, a refusal, or a started run
      */
-    public DispatchOutcome dispatch(
-            final AutoMeshSelectionState selection, final List<AutoMeshResolvedTarget> targets) {
+    public DispatchOutcome dispatch(final AutoMeshSelectionState selection, final List<T> targets) {
         Objects.requireNonNull(selection, "selection");
         Objects.requireNonNull(targets, "targets");
         final Optional<String> selectedId = selection.selectedAlgorithmId();
@@ -144,12 +142,10 @@ public final class AutoMeshDispatch {
     }
 
     private List<AutoMeshRequest> buildRequests(
-            final AutoMeshSelectionState selection,
-            final AutoMeshAlgorithm algorithm,
-            final List<AutoMeshResolvedTarget> targets) {
+            final AutoMeshSelectionState selection, final AutoMeshAlgorithm algorithm, final List<T> targets) {
         final Map<String, String> parameterValues = selection.parameterValues(algorithm);
         final List<AutoMeshRequest> requests = new ArrayList<>(targets.size());
-        for (final AutoMeshResolvedTarget target : targets) {
+        for (final T target : targets) {
             requests.add(requestBuilder.build(target.drawable(), parameterValues));
         }
         return List.copyOf(requests);
@@ -164,7 +160,7 @@ public final class AutoMeshDispatch {
      * cannot verify.</p>
      */
     private static DispatchOutcome refuseUnreadableKeyforms(
-            final List<AutoMeshRequest> requests, final List<AutoMeshResolvedTarget> targets) {
+            final List<AutoMeshRequest> requests, final List<? extends AutoMeshTarget> targets) {
         for (int index = 0; index < requests.size(); index++) {
             final AutoMeshRequest request = requests.get(index);
             if (request.keyformCount() <= SINGLE_KEYFORM_COUNT) {
@@ -182,16 +178,14 @@ public final class AutoMeshDispatch {
     }
 
     private DispatchOutcome start(
-            final AutoMeshAlgorithm algorithm,
-            final List<AutoMeshRequest> requests,
-            final List<AutoMeshResolvedTarget> targets) {
+            final AutoMeshAlgorithm algorithm, final List<AutoMeshRequest> requests, final List<T> targets) {
         final AutoMeshExecutor.Handle handle = executor.submit(algorithm, requests);
-        final RuntimeRun run = new RuntimeRun(handle, targets, requests);
+        final RuntimeRun<T> run = new RuntimeRun<>(handle, targets, requests);
         handle.completion().whenComplete((results, failure) -> postToUiThread(run, results, failure));
         return new DispatchOutcome.Started(run);
     }
 
-    private void postToUiThread(final RuntimeRun run, final List<AutoMeshResult> results, final Throwable failure) {
+    private void postToUiThread(final RuntimeRun<T> run, final List<AutoMeshResult> results, final Throwable failure) {
         try {
             uiThread.execute(() -> settle(run, results, failure));
         } catch (RuntimeException rejected) {
@@ -200,7 +194,7 @@ public final class AutoMeshDispatch {
         }
     }
 
-    private void settle(final RuntimeRun run, final List<AutoMeshResult> results, final Throwable failure) {
+    private void settle(final RuntimeRun<T> run, final List<AutoMeshResult> results, final Throwable failure) {
         if (run.cancelled()) {
             run.settle(cancelled());
             return;
@@ -241,11 +235,11 @@ public final class AutoMeshDispatch {
         write(run, geometries, summary);
     }
 
-    private void write(final RuntimeRun run, final List<ArtMeshGeometry> geometries, final String summary) {
+    private void write(final RuntimeRun<T> run, final List<ArtMeshGeometry> geometries, final String summary) {
         final List<AutoMeshWriteLayout> layouts = run.layouts(geometries);
         final List<ArtMeshId> written;
         try {
-            written = editableWrite.write(new AutoMeshWrite(UNDO_LABEL, run.targets(), layouts));
+            written = editableWrite.write(new AutoMeshWrite<>(UNDO_LABEL, run.targets(), layouts));
         } catch (AutoMeshWriteRefusal refused) {
             run.settle(new DispatchResult(DispatchResult.Status.REJECTED, refused.getMessage(), List.of()));
             return;
@@ -271,18 +265,16 @@ public final class AutoMeshDispatch {
     }
 
     /** One started run: the executor handle, its targets, its requests, and its terminal result. */
-    private static final class RuntimeRun implements DispatchOutcome.Run {
+    private static final class RuntimeRun<T extends AutoMeshTarget> implements DispatchOutcome.Run {
 
         private final AutoMeshExecutor.Handle handle;
-        private final List<AutoMeshResolvedTarget> targets;
+        private final List<T> targets;
         private final List<AutoMeshRequest> requests;
         private final CompletableFuture<DispatchResult> settled = new CompletableFuture<>();
         private volatile boolean cancelled;
 
         private RuntimeRun(
-                final AutoMeshExecutor.Handle handle,
-                final List<AutoMeshResolvedTarget> targets,
-                final List<AutoMeshRequest> requests) {
+                final AutoMeshExecutor.Handle handle, final List<T> targets, final List<AutoMeshRequest> requests) {
             this.handle = handle;
             this.targets = List.copyOf(targets);
             this.requests = List.copyOf(requests);
@@ -308,7 +300,7 @@ public final class AutoMeshDispatch {
             return cancelled;
         }
 
-        private List<AutoMeshResolvedTarget> targets() {
+        private List<T> targets() {
             return targets;
         }
 

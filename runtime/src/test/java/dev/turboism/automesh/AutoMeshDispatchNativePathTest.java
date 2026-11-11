@@ -95,8 +95,8 @@ class AutoMeshDispatchNativePathTest {
                 () -> true);
     }
 
-    private AutoMeshDispatch dispatch() {
-        return new AutoMeshDispatch(
+    private AutoMeshDispatch<AutoMeshResolvedTarget> dispatch() {
+        return new AutoMeshDispatch<AutoMeshResolvedTarget>(
                 new AutoMeshRequestBuilder(),
                 new AutoMeshExecutor(forbiddenLane),
                 write,

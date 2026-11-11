@@ -187,7 +187,7 @@ class AutoMeshGuardHandlerTest {
     @Test
     void throwingStatusSinkDoesNotChangeTheAnswer() {
         select(algorithm((request, cancellation) -> new AutoMeshResult.Success(triangle(), "ok")));
-        final AutoMeshDispatch dispatch = dispatch(new CountingTargets(List.of()));
+        final AutoMeshDispatch<AutoMeshResolvedTarget> dispatch = dispatch(new CountingTargets(List.of()));
         final AutoMeshGuardHandler failing = new AutoMeshGuardHandler(
                 new AutoMeshSelectionState(session),
                 new CountingTargets(List.of()),
@@ -282,8 +282,8 @@ class AutoMeshGuardHandlerTest {
                 AutoMeshMessages.forLocale(null));
     }
 
-    private AutoMeshDispatch dispatch(final AutoMeshTargetResolver targets) {
-        return new AutoMeshDispatch(
+    private AutoMeshDispatch<AutoMeshResolvedTarget> dispatch(final AutoMeshTargetResolver targets) {
+        return new AutoMeshDispatch<AutoMeshResolvedTarget>(
                 new AutoMeshRequestBuilder(),
                 new dev.turboism.automesh.AutoMeshExecutor(computeLane),
                 write,
