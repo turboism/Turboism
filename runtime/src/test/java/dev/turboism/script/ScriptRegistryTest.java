@@ -317,7 +317,7 @@ final class ScriptRegistryTest {
         final ScriptRegistry.InstalledScript script =
                 registry.find(new ScriptId("rewritten.example")).orElseThrow();
 
-        Files.writeString(source, "print('after!');");
+        Files.writeString(source, "print('after discovery');");
 
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, script::source);
     }

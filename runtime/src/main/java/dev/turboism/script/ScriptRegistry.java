@@ -15,9 +15,8 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -276,7 +275,7 @@ class ScriptRegistry {
                     maxBytes,
                     () -> new IllegalArgumentException("Script " + label + " exceeded " + maxBytes + " bytes"));
         }
-        return new StableFile(path, identity, digest(bytes), bytes);
+        return new StableFile(path, identity, bytes);
     }
 
     private FileIdentity regularFileIdentity(final Path path, final String label) throws IOException {
@@ -366,14 +365,6 @@ class ScriptRegistry {
         return text;
     }
 
-    private static byte[] digest(final byte[] bytes) {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(bytes);
-        } catch (NoSuchAlgorithmException unavailable) {
-            throw new IllegalStateException("SHA-256 is unavailable", unavailable);
-        }
-    }
-
     private static String safeMessage(final Throwable failure) {
         final String raw = failure.getMessage();
         if (raw == null || raw.isBlank()) {
@@ -420,13 +411,11 @@ class ScriptRegistry {
     private final class StableFile {
         private final Path path;
         private final FileIdentity identity;
-        private final byte[] digest;
         private final byte[] bytes;
 
-        private StableFile(final Path path, final FileIdentity identity, final byte[] digest, final byte[] bytes) {
+        private StableFile(final Path path, final FileIdentity identity, final byte[] bytes) {
             this.path = path;
             this.identity = identity;
-            this.digest = digest;
             this.bytes = bytes;
         }
 
@@ -454,7 +443,7 @@ class ScriptRegistry {
                         bytes.length,
                         () -> new IllegalArgumentException("Script " + label + " changed while reading"));
             }
-            if (current.length != bytes.length || !MessageDigest.isEqual(digest, ScriptRegistry.digest(current))) {
+            if (!Arrays.equals(bytes, current)) {
                 throw new IllegalArgumentException("Script " + label + " changed while reading");
             }
         }
