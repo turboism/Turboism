@@ -104,3 +104,7 @@ dev.turboism.plugin.physicseditor.GifFrameEncoderTest.rejectsImpossibleLimitAndM
 
 # Symlink creation needs Developer Mode or elevation on Windows; the test asserts real link behavior.
 dev.turboism.pluginmanagement.PendingPluginOperationsSecurityTest.stagingSymlinkFailsClosedWithoutWritingOutsideHome() # requires symbolic-link creation privilege; Windows hosts without Developer Mode skip by design.
+dev.turboism.adapter.cubism.mesh.NativeAutoMeshWriteTest.eachReviewedArtifactCarriesOneSourceUpdateActionTheModelingWriteNames() # requires TURBOISM_CUBISM_REF with the reviewed Editor jars; the licensed archive is never committed.
+dev.turboism.adapter.cubism.mesh.NativeAutoMeshWriteTest.everyHostClassNameTheWriteLoadsExistsInEachReviewedArtifact() # requires TURBOISM_CUBISM_REF with the reviewed Editor jars; the licensed archive is never committed.
+dev.turboism.automesh.host.AutoMeshLiveRouteTest.theMeshEditorPopupPlacesThroughTheGuardedFunnel() # requires TURBOISM_CUBISM_REF with the reviewed Editor jars; the licensed archive is never committed.
+dev.turboism.automesh.host.AutoMeshWriteContractTest.everyReviewedArtifactCarriesTheMembersTheWriteNames() # requires TURBOISM_CUBISM_REF with the reviewed Editor jars; the licensed archive is never committed.
