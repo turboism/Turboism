@@ -84,6 +84,8 @@ final class AcpChatWindow implements AcpChatController.View {
     private static final Pattern GRAPHEME = Pattern.compile("\\X");
     private static final String SEND_ACTION = "turboism-acp.send-prompt";
     private static final String DISCLOSURE = "turboism-acp.disclosure";
+    private static final String DETECTED_MARKER = "  ✓";
+    private static final String AGENT_MENU_CARET = " ▾";
     private static final Dimension PERMISSION_DIALOG_MINIMUM = new Dimension(620, 360);
     private static final AgentItem CUSTOM_ITEM = new AgentItem(AgentCatalog.CUSTOM_AGENT_ID, null);
 
@@ -876,21 +878,30 @@ final class AcpChatWindow implements AcpChatController.View {
     }
 
     private String agentItemLabel(final AgentItem item) {
+        return agentName(item) + detectionMarker(item);
+    }
+
+    /** Resolves the display name shared by the agent menu and the composer button. */
+    private String agentName(final AgentItem item) {
         if (AgentCatalog.CUSTOM_AGENT_ID.equals(item.id())) {
             return localization.text("agent.custom");
         }
         final AgentProfile profile = AgentCatalog.profile(item.id()).orElse(null);
-        final String name = profile == null
+        return profile == null
                 ? item.id()
                 : profile.displayName().replace(" (ACP)", "").replace(" (agy-acp)", "");
+    }
+
+    /** Marks menu entries with a detected executable; the composer button stays unmarked. */
+    private String detectionMarker(final AgentItem item) {
         final String path = detectedPaths.get(item.id());
-        return path == null ? name : name + (path.isEmpty() ? "" : "  ✓");
+        return path == null || path.isEmpty() ? "" : DETECTED_MARKER;
     }
 
     private void updateAgentDetail() {
         final String selected = agentId();
         composerAgent.setIcon(AcpAgentIcons.icon(selected));
-        composerAgent.setText(agentItemLabel((AgentItem) agentSelector.getSelectedItem()) + " ▾");
+        composerAgent.setText(agentName((AgentItem) agentSelector.getSelectedItem()) + AGENT_MENU_CARET);
         composerAgent.setToolTipText(localization.text("label.agent"));
         composerAgent
                 .getAccessibleContext()

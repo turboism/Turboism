@@ -22,6 +22,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A one-time product guide opens after the shell starts and never opens again once the user closes it. It introduces the framework and its updates, plugin installation, plugin management and the plugin market, and the official feedback channels. The Turboism menu reopens it at any time. `config.json` records the choice as `guide.showOnStartup`, and the installers preserve the recorded value so an upgrade does not repeat a guide the user already closed.
 - The ACP composer now shows a random localized example request as its placeholder each time the window opens. The plugin catalog owns the example wording, so translators revise it without code changes.
 
+### Fixed
+
+- The ACP composer's agent button shows the agent name alone. The agent menu keeps the check mark that identifies a detected installation.
+
 ## [0.70.0] - 2026-11-10
 
 ### Added

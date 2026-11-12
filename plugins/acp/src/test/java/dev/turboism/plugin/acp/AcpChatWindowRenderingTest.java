@@ -603,8 +603,10 @@ final class AcpChatWindowRenderingTest {
                 window.showDetectedAgents(java.util.Map.of("claude", "/bin/claude", "codex", "/bin/codex", "pi", ""));
                 assertEquals(AcpChatTheme.foreground(), agent.getForeground());
                 assertEquals(3, window.agentSelector().getItemCount());
+                assertEquals("Claude Code ▾", agent.getText());
                 final javax.swing.JPopupMenu agentMenu = agent.getComponentPopupMenu();
                 assertEquals(4, agentMenu.getComponentCount());
+                assertEquals("Claude Code  ✓", ((JMenuItem) agentMenu.getComponent(0)).getText());
                 for (int i = 0; i < 2; i++) {
                     assertEquals(
                             AcpAgentIcons.icon(AgentCatalog.profiles().get(i).id()),
