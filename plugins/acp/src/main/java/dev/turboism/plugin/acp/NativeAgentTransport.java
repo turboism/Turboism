@@ -226,6 +226,16 @@ final class NativeAgentTransport implements AcpTransport {
         if (!text.isEmpty()) update(Map.of("sessionUpdate", kind, "content", Map.of("type", "text", "text", text)));
     }
 
+    void plan(final List<?> entries) {
+        update(Map.of("sessionUpdate", "plan", "entries", entries));
+    }
+
+    void usage(final long outputTokens) {
+        if (outputTokens > 0L) {
+            update(Map.of("sessionUpdate", "usage_update", "outputTokens", outputTokens));
+        }
+    }
+
     void permission(
             final CompletableFuture<?> scope,
             final String title,
@@ -240,7 +250,9 @@ final class NativeAgentTransport implements AcpTransport {
         final String id = "native-permission-" + nextId();
         final var permission = new PendingPermission(scope, result -> {
             final var outcome = object(result.get("outcome"));
-            decision.accept("selected".equals(outcome.get("outcome")) && "allow".equals(outcome.get("optionId")));
+            final Object selectedOption = outcome.get("optionId");
+            decision.accept("selected".equals(outcome.get("outcome"))
+                    && ("allow".equals(selectedOption) || "allow_always".equals(selectedOption)));
         });
         permissions.put(id, permission);
         scope.whenComplete((result, failure) -> retirePermission(id, permission));
@@ -261,6 +273,13 @@ final class NativeAgentTransport implements AcpTransport {
                         "options",
                         List.of(
                                 Map.of("optionId", "allow", "name", "Allow once", "kind", "allow_once"),
+                                Map.of(
+                                        "optionId",
+                                        "allow_always",
+                                        "name",
+                                        "Allow for this session",
+                                        "kind",
+                                        "allow_always"),
                                 Map.of("optionId", "reject", "name", "Reject", "kind", "reject_once")))));
     }
 

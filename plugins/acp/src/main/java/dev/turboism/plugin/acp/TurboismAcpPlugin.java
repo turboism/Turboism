@@ -242,6 +242,7 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
                         next::logout,
                         () -> next.saveSettings(
                                 currentSettings.agentId(), currentSettings.customCommand(), created.initialPrompt()));
+                created.bindExtendedControls(next::setPermissionMode);
                 window = created;
                 controller = next;
                 next.detectAgents();

@@ -103,13 +103,104 @@ final class AcpChatWindowTest {
     @Test
     void permissionDialogHasAConcreteMinimumSize() {
         final Dimension minimum = AcpChatWindow.permissionDialogMinimum();
-        assertTrue(minimum.width >= 620);
-        assertTrue(minimum.height >= 360);
+        assertTrue(minimum.width >= 460);
+        assertTrue(minimum.height >= 200);
 
         final JPanel panel = new JPanel();
         panel.setSize(12, 0);
         AcpChatWindow.ensureMinimumSize(panel, minimum);
         assertEquals(minimum, panel.getSize());
+    }
+
+    @Test
+    void turnMeterComputesLiveAndDecodeSpeedsExcludesUserWaitAndCalibratesExactTokens() {
+        final java.util.concurrent.atomic.AtomicLong clock = new java.util.concurrent.atomic.AtomicLong(1_000_000_000L);
+        final AcpTurnMeter meter = new AcpTurnMeter(clock::get);
+
+        meter.startTurn();
+        clock.addAndGet(200_000_000L);
+        meter.recordOutputChars(36);
+        clock.addAndGet(500_000_000L);
+        meter.recordOutputChars(72);
+        AcpTurnMeter.Snapshot running = meter.snapshot();
+        assertTrue(running.visible());
+        assertTrue(running.running());
+        assertTrue(running.approximate());
+        assertEquals(200L, running.ttftMillis());
+        assertTrue(running.liveTokPerSec() > 25.0);
+        assertTrue(running.pillText().startsWith("≈"));
+
+        // Pause for 5 seconds on a permission prompt: decode rate must exclude user wait.
+        meter.beginUserWait();
+        clock.addAndGet(5_000_000_000L);
+        meter.endUserWait();
+        clock.addAndGet(500_000_000L);
+        meter.recordOutputChars(72);
+        meter.recordUsageOutputTokens(50L);
+        meter.finishTurn();
+
+        final AcpTurnMeter.Snapshot settled = meter.snapshot();
+        assertFalse(settled.running());
+        assertFalse(settled.approximate());
+        assertEquals(50L, settled.outputTokens());
+        assertEquals(1_000L, settled.activeMillis());
+        assertEquals("50.0 tok/s", settled.pillText());
+    }
+
+    @Test
+    void planTrackerNormalizesAcpPlansAndClaudeCodexPiTodoPayloads() {
+        final AcpPlanTracker tracker = new AcpPlanTracker();
+        assertTrue(
+                tracker.observeToolInput(
+                        "TodoWrite",
+                        "{\"todos\":[{\"content\":\"Read model\",\"status\":\"completed\"},{\"content\":\"Edit deformers\",\"activeForm\":\"Editing deformers\",\"status\":\"in_progress\"}]}"));
+        assertEquals(2, tracker.items().size());
+        assertEquals(AcpPlanTracker.Status.COMPLETED, tracker.items().get(0).status());
+        assertEquals("Editing deformers", tracker.items().get(1).displayText());
+
+        assertTrue(tracker.observeToolInput("todo", "{\"action\":\"clear\"}"));
+        assertTrue(tracker.items().isEmpty());
+
+        assertTrue(tracker.observeToolInput(
+                "todo",
+                "{\"action\":\"create\",\"tasks\":[{\"subject\":\"Inspect mesh\"},{\"subject\":\"Apply rig\"}]}"));
+        assertTrue(tracker.observeToolInput(
+                "todo",
+                "{\"action\":\"update\",\"id\":1,\"status\":\"in_progress\",\"activeForm\":\"Inspecting mesh\"}"));
+        assertEquals(2, tracker.items().size());
+        assertEquals("Inspecting mesh", tracker.items().get(0).displayText());
+        assertEquals(AcpPlanTracker.Status.IN_PROGRESS, tracker.items().get(0).status());
+    }
+
+    @Test
+    void permissionFormatterUnwrapsNestedJsonAndMessageTimestampsUseHostClock() {
+        final PluginLocalization i18n = catalog(Map.of(
+                "permission.desc.parameters", "Modify model parameters and folders",
+                "permission.field.project", "Project",
+                "permission.field.operation", "Operation",
+                "sender.tool", "Tool",
+                "permission.desc.generic", "Run {0}"));
+        final AcpListener.PermissionRequest request = new AcpListener.PermissionRequest(
+                "turboism: turboism.parameters.structure.apply",
+                "other",
+                "call-1",
+                "{\"message\":\"{\\\"documentId\\\":\\\"document-session-4\\\",\\\"modelId\\\":\\\"model-session-5\\\",\\\"operationId\\\":\\\"setup-eyes\\\",\\\"planId\\\":\\\"90343b91-b50f\\\"}\"}",
+                new AcpClient.PermissionOptionSet("allow", null, "reject"));
+
+        final AcpPermissionFormatter.FormattedPermission formatted = AcpPermissionFormatter.format(i18n, request);
+        assertEquals("turboism.parameters.structure.apply", AcpPermissionFormatter.approvalKey(request));
+        assertEquals("Modify model parameters and folders", formatted.headline());
+        assertEquals("turboism.parameters.structure.apply", formatted.toolBadge());
+        assertEquals("document-session-4", formatted.summaryRows().get(0).value());
+        assertFalse(formatted.rawDetails().contains("\\\"documentId\\\""));
+        assertTrue(formatted.rawDetails().contains("\"documentId\": \"document-session-4\""));
+
+        assertEquals(
+                "Thursday 23:05",
+                AcpChatWindow.formatMessageTimestamp(
+                        java.time.Instant.parse("2026-08-27T15:05:00Z"),
+                        java.time.ZoneId.of("Asia/Shanghai"),
+                        Locale.ENGLISH));
     }
 
     @Test

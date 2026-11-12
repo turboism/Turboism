@@ -145,6 +145,29 @@ class HostSessionCompositionApiTest {
         assertExactAdapterAccessReturn(HostRuntimeIngress.class);
     }
 
+    @Test
+    void productionCompositionSharesSingleCoordinatorInstancesWithVerifiedConnector() throws Exception {
+        try (HostSession session = new HostSession(java.util.Optional::empty)) {
+            final java.lang.reflect.Field connectorField = HostSession.class.getDeclaredField("connector");
+            connectorField.setAccessible(true);
+            final Object connector = connectorField.get(session);
+
+            assertSameField(connector, "editorUiPluginResources", session.editorUiPluginResources());
+            assertSameField(connector, "editorUiActionRouter", session.editorUiActionRouter());
+            assertSameField(connector, "embeddedPanelActivation", session.embeddedPanelActivation());
+            assertSameField(connector, "dockMaintenance", session.dockMaintenance());
+            assertSameField(connector, "meshToolCoordinator", session.meshToolCoordinator());
+            assertSameField(connector, "modelingToolCoordinator", session.modelingToolCoordinator());
+        }
+    }
+
+    private static void assertSameField(final Object owner, final String fieldName, final Object expected)
+            throws ReflectiveOperationException {
+        final java.lang.reflect.Field field = owner.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        org.junit.jupiter.api.Assertions.assertSame(expected, field.get(owner), () -> "Mismatched " + fieldName);
+    }
+
     private static Set<String> publicConstructorSignatures(final Class<?> owner) {
         return Arrays.stream(owner.getConstructors())
                 .map(Constructor::getParameterTypes)

@@ -69,6 +69,40 @@ class ProjectLifecycleNativeMethodTransformerTest {
     }
 
     @Test
+    void fileInvocationLinkageFailureDoesNotBlockTransformedHostOpen() throws Exception {
+        final ProjectLifecycleNativeMethodTransformer transformer = new ProjectLifecycleNativeMethodTransformer(
+                List.of(ProjectLifecycleNativeMethodTransformer.Binding.modelOpen(
+                        OWNER,
+                        "openModel",
+                        "(Ljava/lang/String;Ljava/lang/Object;Ljava/io/File;ZLjava/lang/Object;)Ljava/lang/Object;")),
+                null);
+        final Class<?> hostType = new FixtureLoader()
+                .define("fixture.LifecycleHost", transformer.transform(null, null, OWNER, null, null, fixtureClass()));
+        final Object host = hostType.getConstructor().newInstance();
+        try (ProjectFileLifecycleCoordinator projectFiles = new ProjectFileLifecycleCoordinator();
+                EditorLifecycleCoordinator editor = new EditorLifecycleCoordinator()) {
+            final NativeProjectLifecycleBridge bridge =
+                    new NativeProjectLifecycleBridge(projectFiles, editor, "5.3.02");
+            final var files = NativeProjectLifecycleBridge.class.getDeclaredField("files");
+            files.setAccessible(true);
+            ThreadLocal.class.getMethod("set", Object.class).invoke(files.get(bridge), new ArrayDeque<Object>() {
+                @Override
+                public void push(final Object frame) {
+                    throw new NoClassDefFoundError("file invocation frame unavailable");
+                }
+            });
+            NativeProjectLifecycleBridge.install(bridge);
+            try {
+                final Method openModel = hostType.getMethod(
+                        "openModel", String.class, Object.class, File.class, boolean.class, Object.class);
+                assertEquals(host, openModel.invoke(host, "Haru", null, new File("Haru.cmo3"), false, null));
+            } finally {
+                NativeProjectLifecycleBridge.uninstall(bridge);
+            }
+        }
+    }
+
+    @Test
     void transformationDoesNotPrintHostClassMethodOrDescriptorIdentities() {
         final PrintStream originalOut = System.out;
         final PrintStream originalErr = System.err;

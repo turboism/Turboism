@@ -12,6 +12,7 @@ import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
+import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
 /** Theme-colored input card and compact controls that wrap when the window narrows. */
@@ -19,6 +20,14 @@ final class AcpComposerPanel extends JPanel {
 
     /** Swing client-property name that both the window and this panel's prompt area read. */
     static final String PLACEHOLDER_PROPERTY = "JTextField.placeholderText";
+
+    static final String ACTIVE_MODE_PROPERTY = "acp.active-mode";
+    private static final int CARD_CORNER_ARC = 20;
+    private static final int SUBMIT_ICON_SIZE = 36;
+    private static final int SUBMIT_DISC_DIAMETER = 34;
+    private static final int SUBMIT_GLYPH_OFFSET = 8;
+    private static final int OPTION_CORNER_ARC = 8;
+    private static final int ACTIVE_FILL_ALPHA = 36;
 
     AcpComposerPanel() {
         setOpaque(false);
@@ -30,9 +39,9 @@ final class AcpComposerPanel extends JPanel {
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setColor(AcpChatTheme.inputBackground());
-            g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 20, 20);
+            g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, CARD_CORNER_ARC, CARD_CORNER_ARC);
             g.setColor(AcpChatTheme.border());
-            g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 20, 20);
+            g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, CARD_CORNER_ARC, CARD_CORNER_ARC);
         } finally {
             g.dispose();
         }
@@ -42,11 +51,11 @@ final class AcpComposerPanel extends JPanel {
     static Icon submitIcon(final boolean stop) {
         return new Icon() {
             public int getIconWidth() {
-                return 36;
+                return SUBMIT_ICON_SIZE;
             }
 
             public int getIconHeight() {
-                return 36;
+                return SUBMIT_ICON_SIZE;
             }
 
             public void paintIcon(final Component component, final Graphics graphics, final int x, final int y) {
@@ -58,12 +67,12 @@ final class AcpComposerPanel extends JPanel {
                             !component.isEnabled()
                                     ? AcpChatTheme.surface()
                                     : stop ? AcpChatTheme.error() : AcpChatTheme.foreground());
-                    g.fillOval(1, 1, 34, 34);
+                    g.fillOval(1, 1, SUBMIT_DISC_DIAMETER, SUBMIT_DISC_DIAMETER);
                     g.setColor(!component.isEnabled() ? AcpChatTheme.muted() : AcpChatTheme.inputBackground());
                     final javax.swing.JLabel glyph = new javax.swing.JLabel();
                     glyph.setForeground(g.getColor());
                     AcpIcons.icon(stop ? AcpIcons.Kind.STOP : AcpIcons.Kind.SEND)
-                            .paintIcon(glyph, g, 8, 8);
+                            .paintIcon(glyph, g, SUBMIT_GLYPH_OFFSET, SUBMIT_GLYPH_OFFSET);
                 } finally {
                     g.dispose();
                 }
@@ -125,18 +134,56 @@ final class AcpComposerPanel extends JPanel {
                 final int width = getWidth() - insets.left - insets.right;
                 if (width <= 0) return;
                 final StringBuilder line = new StringBuilder();
+                int lineWidth = 0;
                 int y = insets.top + metrics.getAscent();
                 for (int point : text.codePoints().toArray()) {
-                    final String next = new String(Character.toChars(point));
-                    if (point == '\n' || (line.length() > 0 && metrics.stringWidth(line + next) > width)) {
+                    if (point == '\n') {
                         g.drawString(line.toString(), insets.left, y);
                         y += metrics.getHeight();
                         line.setLength(0);
-                        if (point == '\n') continue;
+                        lineWidth = 0;
+                        continue;
                     }
-                    line.append(next);
+                    final int charWidth = metrics.charWidth(point);
+                    if (line.length() > 0 && lineWidth + charWidth > width) {
+                        g.drawString(line.toString(), insets.left, y);
+                        y += metrics.getHeight();
+                        line.setLength(0);
+                        lineWidth = 0;
+                    }
+                    line.appendCodePoint(point);
+                    lineWidth += charWidth;
                 }
-                g.drawString(line.toString(), insets.left, y);
+                if (line.length() > 0) {
+                    g.drawString(line.toString(), insets.left, y);
+                }
+            } finally {
+                g.dispose();
+            }
+        }
+    }
+
+    /** Single-line filter field that paints muted placeholder text when empty. */
+    static final class PromptSearchField extends JTextField {
+        private final String placeholder;
+
+        PromptSearchField(final String placeholder) {
+            this.placeholder = placeholder == null ? "" : placeholder;
+        }
+
+        @Override
+        protected void paintComponent(final Graphics graphics) {
+            super.paintComponent(graphics);
+            if (getDocument().getLength() != 0 || placeholder.isEmpty()) return;
+            final Graphics2D g = (Graphics2D) graphics.create();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g.setFont(getFont());
+                g.setColor(AcpChatTheme.muted());
+                final Insets insets = getInsets();
+                final var metrics = g.getFontMetrics();
+                final int y = (getHeight() - metrics.getHeight()) / 2 + metrics.getAscent();
+                g.drawString(placeholder, insets.left, y);
             } finally {
                 g.dispose();
             }
@@ -155,13 +202,21 @@ final class AcpComposerPanel extends JPanel {
             final Graphics2D g = (Graphics2D) graphics.create();
             try {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                if (isEnabled() && (getModel().isRollover() || getModel().isPressed())) {
+                final boolean active = Boolean.TRUE.equals(getClientProperty(ACTIVE_MODE_PROPERTY));
+                if (active) {
+                    final java.awt.Color accent = AcpChatTheme.accent();
+                    g.setColor(new java.awt.Color(
+                            accent.getRed(), accent.getGreen(), accent.getBlue(), ACTIVE_FILL_ALPHA));
+                    g.fillRoundRect(0, 0, getWidth(), getHeight(), OPTION_CORNER_ARC, OPTION_CORNER_ARC);
+                    g.setColor(accent);
+                    g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, OPTION_CORNER_ARC, OPTION_CORNER_ARC);
+                } else if (isEnabled() && (getModel().isRollover() || getModel().isPressed())) {
                     g.setColor(AcpChatTheme.surface());
-                    g.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                    g.fillRoundRect(0, 0, getWidth(), getHeight(), OPTION_CORNER_ARC, OPTION_CORNER_ARC);
                 }
                 if (hasFocus()) {
                     g.setColor(AcpChatTheme.accent());
-                    g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8);
+                    g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, OPTION_CORNER_ARC, OPTION_CORNER_ARC);
                 }
                 g.setFont(getFont());
                 final Insets insets = getInsets();

@@ -216,6 +216,10 @@ final class NativeClaudeProvider extends NativeAgentProvider {
                 }
             }
             case "result" -> {
+                final Object outTokens = object(message.get("usage")).get("output_tokens");
+                if (outTokens instanceof Number n && n.longValue() > 0L) {
+                    host.usage(n.longValue());
+                }
                 if (cancelled) complete("cancelled");
                 else if (Boolean.TRUE.equals(message.get("is_error"))
                         || text(message.get("subtype")).startsWith("error"))

@@ -165,6 +165,10 @@ final class NativePiProvider extends NativeAgentProvider {
             case "message_end" -> {
                 final var value = object(message.get("message"));
                 if (!"assistant".equals(value.get("role"))) break;
+                final Object outTokens = object(value.get("usage")).get("output");
+                if (outTokens instanceof Number n && n.longValue() > 0L) {
+                    host.usage(n.longValue());
+                }
                 for (Object raw : list(value.get("content"))) {
                     final var block = object(raw);
                     if ("text".equals(block.get("type")) && !textStreamed)
@@ -202,7 +206,7 @@ final class NativePiProvider extends NativeAgentProvider {
                             text(message.get("title")),
                             "other",
                             text(message.get("id")),
-                            Map.of("message", text(message.get("message"))),
+                            unwrappedConfirmDetails(text(message.get("message"))),
                             allow -> {
                                 synchronized (this) {
                                     uiResponse(message, allow && ownsPrompt(future) && !cancelled);
@@ -213,6 +217,19 @@ final class NativePiProvider extends NativeAgentProvider {
             }
             default -> {}
         }
+    }
+
+    private static Object unwrappedConfirmDetails(final String rawMessage) {
+        final String trimmed = rawMessage == null ? "" : rawMessage.strip();
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+            try {
+                return dev.turboism.sdk.json.Json.parseObject(
+                        trimmed.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } catch (RuntimeException keepString) {
+                // Fall back to plain message wrapper when confirmation text is not JSON.
+            }
+        }
+        return Map.of("message", rawMessage == null ? "" : rawMessage);
     }
 
     private void uiResponse(final Map<String, Object> request, final boolean allow) {

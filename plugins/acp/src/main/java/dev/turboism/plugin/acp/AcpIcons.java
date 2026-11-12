@@ -24,7 +24,12 @@ final class AcpIcons {
         }
     }
 
-    private static final Map<Kind, Icon> ICONS = loadIcons();
+    private static final int COMPACT_ICON_SIZE = 14;
+    private static final int MODE_ICON_SIZE = 16;
+    private static final int DEFAULT_ICON_SIZE = 20;
+
+    private static final Map<Kind, Icon> ICONS = loadIcons(DEFAULT_ICON_SIZE);
+    private static final Map<Kind, Icon> COMPACT_ICONS = loadIcons(COMPACT_ICON_SIZE);
 
     private AcpIcons() {}
 
@@ -32,10 +37,17 @@ final class AcpIcons {
         return ICONS.get(kind);
     }
 
-    private static Map<Kind, Icon> loadIcons() {
+    /** Returns a compact 14px themed glyph for composer pills and inline selectors. */
+    static Icon compactIcon(final Kind kind) {
+        return COMPACT_ICONS.get(kind);
+    }
+
+    private static Map<Kind, Icon> loadIcons(final int defaultSize) {
         final Map<Kind, Icon> result = new EnumMap<>(Kind.class);
         for (Kind kind : Kind.values()) {
-            final int size = kind == Kind.FAST || kind == Kind.PLAN ? 16 : 20;
+            final int size = defaultSize == COMPACT_ICON_SIZE
+                    ? COMPACT_ICON_SIZE
+                    : (kind == Kind.FAST || kind == Kind.PLAN ? MODE_ICON_SIZE : defaultSize);
             result.put(kind, AcpThemedIcon.load("/icons/lucide/" + kind.asset + ".png", size));
         }
         return Map.copyOf(result);
