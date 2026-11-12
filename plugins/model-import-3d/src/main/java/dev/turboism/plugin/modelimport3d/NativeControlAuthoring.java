@@ -51,20 +51,24 @@ final class NativeControlAuthoring {
             java.util.function.Consumer<String> progress,
             Optional<ParameterGroupId> parameterGroup,
             String prefix) {
+        var parents = new ArrayList<Optional<DeformerId>>(created.meshIds().size());
+        for (int i = 0; i < created.meshIds().size(); i++)
+            parents.add(created.mesh(i).parentDeformerId());
         var hierarchy = new NativeCharacterAuthoring.Hierarchy(
                 created.rootPartId(),
                 created.meshIds().stream().map(created.meshToSourceIndex()::get).toList(),
-                created.meshIds().stream()
-                        .map(id -> model.drawables().find(id).parentDeformerId())
-                        .toList());
+                parents);
         var prepared = prepareHierarchy(model, hierarchy, scene, plan, progress, parameterGroup, prefix);
         var patches = new HashMap<Integer, NativeControlWarpPlan.Patch>();
         for (var patch : plan.patches()) patches.put(patch.partition(), patch);
         for (int i = 0; i < created.meshIds().size(); i++) {
-            var mesh = model.drawables().find(created.meshIds().get(i));
-            if (mesh.parentDeformerId().equals(prepared.parents().get(i))) continue;
+            // Creation already returned this handle; resolving it again rescans every ArtMesh.
+            // The parent read above is still current because nothing reparented in between.
+            var mesh = created.mesh(i);
+            if (parents.get(i).equals(prepared.parents().get(i))) continue;
             var before = mesh.authoringSnapshot();
             mesh.setTargetDeformer(prepared.parents().get(i));
+            // Reparenting converts coordinates; one readback proves the layout survived it.
             var after = mesh.authoringSnapshot();
             requireSameLayout(before, after);
             var patch = patches.get(i);
