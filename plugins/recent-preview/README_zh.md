@@ -59,7 +59,10 @@ interface: swing
 
 ## 插件间事件契约
 
-本插件导出公共事件 `thumbnail.captured`（契约版本 `1.0.0`）。其 SDK 载荷 `RecentPreviewCapturedEvent` 包含不透明的最近文件 ID、显示名称、捕获的 `ScreenshotImage`，以及可直接使用的缩略图 `PanelView`。
+本插件导出两个公共事件（契约版本均为 `1.0.0`）：
+
+- `thumbnail.captured`：SDK 载荷 `RecentPreviewCapturedEvent` 包含不透明的最近文件 ID、显示名称、捕获的 `ScreenshotImage`，以及可直接使用的缩略图 `PanelView`。
+- `thumbnail.deleted`：SDK 载荷 `RecentPreviewDeletedEvent` 只包含不透明的最近文件 ID，表示该缩略图已从缓存中删除。
 
 消费方插件需要声明对 `dev.turboism.plugin.recent-preview` 的依赖（`ordering: after`）、导入该事件，并声明 `turboism.event.subscribe` 权限：
 
@@ -80,11 +83,15 @@ interface: swing
 }]
 ```
 
-可通过 `@SubscribeEvent` 或 `context.eventBus().subscribe(RecentPreviewCapturedEvent.class, ...)` 订阅。`event.image().png()` 获取图片流，`event.thumbnail()` 获取 `PanelView` 部件。新捕获会实时发布；提供方还会在启动后延迟重放一次现有磁盘缓存的有界快照，方便依赖插件在本次会话首次新捕获前渲染最近工程看板。若订阅方启动得更晚，应保留自己的副本或请求新的捕获。
+两个事件都可通过 `@SubscribeEvent` 或 `context.eventBus().subscribe(...)` 订阅。`event.image().png()` 获取图片流，`event.thumbnail()` 获取 `PanelView` 部件。新捕获会实时发布；提供方还会在启动后延迟重放一次现有磁盘缓存的有界快照，方便依赖插件在本次会话首次新捕获前渲染最近工程看板。若订阅方启动得更晚，应保留自己的副本或请求新的捕获。
 
 ## 功能能力
 
 插件清单中未声明任何功能能力。
+
+## 缓存提供方
+
+本插件通过运行时中介的 `RecentPreviewCacheService` 注册为预览缓存提供方：依赖插件按不透明最近文件 ID 请求删除，本插件执行删除并发布 `thumbnail.deleted`。缓存始终由写入它的插件持有。
 
 ## 权限
 
@@ -93,10 +100,10 @@ interface: swing
 | `turboism.cubism.model.observe` | `application` | 接收模型打开/保存生命周期回调以触发受限预览捕获；未声明时，生命周期注册表会将这些回调过滤掉。 |
 | `turboism.cubism.recent-file.read` | `application` | 列出主机的 Recent Files 投影，以不透明文件 ID 作为预览缓存的键。 |
 | `turboism.ui.viewport.read` | `application` | 为最近文件捕获受限的建模画布预览缩略图。 |
-| `turboism.ui.recent-preview.contribute` | `application` | 向主机的 Recent Files 悬停桥接贡献缩略图弹窗内容。 |
+| `turboism.ui.recent-preview.contribute` | `application` | 向主机的 Recent Files 悬停桥接贡献缩略图弹窗内容，并注册本插件为预览缓存提供方。 |
 | `turboism.file.read` | `application` | 从插件隔离的缓存存储中读取缓存的预览 PNG。 |
 | `turboism.file.write` | `application` | 将预览 PNG 和不含路径的索引以原子方式写入插件隔离的缓存存储。 |
-| `turboism.event.publish` | `application` | 向导入公共 `thumbnail.captured` 事件的依赖插件发布已提交的缩略图。 |
+| `turboism.event.publish` | `application` | 向导入公共 `thumbnail.captured`/`thumbnail.deleted` 事件的依赖插件发布已提交的缩略图与删除结果。 |
 
 ## 隐私与数据
 

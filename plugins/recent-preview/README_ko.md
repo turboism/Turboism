@@ -58,7 +58,10 @@ interface: swing
 
 ## 플러그인 간 이벤트 계약
 
-이 플러그인은 공개 이벤트 `thumbnail.captured`(계약 `1.0.0`)를 내보냅니다. SDK 소유 페이로드 `RecentPreviewCapturedEvent`에는 불투명 최근 파일 ID, 표시 이름, 캡처된 `ScreenshotImage`, 바로 사용할 수 있는 썸네일 `PanelView`가 포함됩니다.
+이 플러그인은 공개 이벤트 두 개(각 계약 `1.0.0`)를 내보냅니다.
+
+- `thumbnail.captured`: SDK 소유 페이로드 `RecentPreviewCapturedEvent`에는 불투명 최근 파일 ID, 표시 이름, 캡처된 `ScreenshotImage`, 바로 사용할 수 있는 썸네일 `PanelView`가 포함됩니다.
+- `thumbnail.deleted`: SDK 소유 페이로드 `RecentPreviewDeletedEvent`는 불투명 최근 파일 ID만 포함하며 캐시된 썸네일 삭제를 알립니다.
 
 소비 플러그인은 `dev.turboism.plugin.recent-preview`에 대한 의존성(`ordering: after`)과 이벤트 가져오기를 선언하고 `turboism.event.subscribe` 권한을 추가합니다. `@SubscribeEvent` 또는 `context.eventBus().subscribe(RecentPreviewCapturedEvent.class, ...)`로 구독합니다. `event.image().png()`는 이미지 스트림, `event.thumbnail()`은 `PanelView` 부품을 제공합니다. 이벤트는 실시간 전용이며 캡처 후 구독을 시작한 플러그인에 과거 이미지를 재생하지 않습니다.
 
@@ -78,7 +81,7 @@ interface: swing
 | `turboism.ui.recent-preview.contribute` | `application` | ホストの Recent Files ホバーブリッジにサムネイルポップアップのコンテンツを提供します。 |
 | `turboism.file.read` | `application` | プラグインに限定されたキャッシュストレージから、キャッシュ済みプレビュー PNG を読み取ります。 |
 | `turboism.file.write` | `application` | プレビュー PNG とパスを含まないインデックスを、プラグインに限定されたキャッシュストレージへアトミックに書き込みます。 |
-| `turboism.event.publish` | `application` | 공개 `thumbnail.captured` 이벤트를 가져온 종속 플러그인에 커밋된 썸네일을 게시합니다. |
+| `turboism.event.publish` | `application` | 공개 `thumbnail.captured`/`thumbnail.deleted` 이벤트를 가져온 종속 플러그인에 커밋된 썸네일과 삭제 결과를 게시합니다. |
 
 ## 개인정보 및 데이터
 

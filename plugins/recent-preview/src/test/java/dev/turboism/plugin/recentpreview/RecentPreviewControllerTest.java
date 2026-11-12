@@ -44,6 +44,31 @@ final class RecentPreviewControllerTest {
         assertTrue(controller.image(file.id()).isPresent());
     }
 
+    /**
+     * A deletion is the provider's own cache operation: the memory copy, the dedupe mark and the
+     * disk entry all drop, and dependents learn about it through the published deletion event.
+     */
+    @Test
+    void deletionDropsTheMemoryCopyAndPublishesTheDeletion() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
+        final RecordingCapture captures = new RecordingCapture();
+        final RecordingCache cache = new RecordingCache();
+        final AtomicReference<dev.turboism.sdk.cubism.recentpreview.RecentPreviewDeletedEvent> deleted =
+                new AtomicReference<>();
+        final RecentPreviewController controller =
+                new RecentPreviewController(() -> List.of(file), captures, cache, ignored -> {}, deleted::set);
+
+        controller.enable();
+        controller.refresh().toCompletableFuture().join();
+        controller.capture(file.id()).toCompletableFuture().join();
+        assertTrue(controller.image(file.id()).isPresent());
+
+        assertTrue(controller.delete(file.id()).toCompletableFuture().join());
+        assertFalse(controller.image(file.id()).isPresent(), "the memory copy must drop");
+        assertEquals(file.id(), cache.deleted, "the disk entry must be deleted");
+        assertEquals(file.id(), deleted.get().id());
+    }
+
     @Test
     void publishesACommittedCaptureForDependentPlugins() {
         final RecentFileSummary file = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
@@ -483,6 +508,7 @@ final class RecentPreviewControllerTest {
     private static final class RecordingCache implements PreviewCache {
         private PreviewCacheWriteResult result = PreviewCacheWriteResult.STORED;
         private RecentFileSummary file;
+        private RecentFileId deleted;
         private byte[] png;
         private CompletableFuture<java.util.Map<RecentFileId, byte[]>> pendingLoad;
 
@@ -491,6 +517,12 @@ final class RecentPreviewControllerTest {
                 final RecentFileSummary value, final ScreenshotImage image) {
             file = value;
             return CompletableFuture.completedStage(result);
+        }
+
+        @Override
+        public CompletionStage<Boolean> delete(final RecentFileId id) {
+            deleted = id;
+            return CompletableFuture.completedStage(true);
         }
 
         @Override

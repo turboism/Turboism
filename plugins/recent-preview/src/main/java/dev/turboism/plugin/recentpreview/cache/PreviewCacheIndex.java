@@ -150,6 +150,26 @@ public final class PreviewCacheIndex implements PreviewCache {
     }
 
     /**
+     * Deletes the cached image and index entry of one recent file.
+     *
+     * <p>Both deletions are attempted even when the first fails, so a partial entry cannot
+     * survive a retry. A missing entry reports {@code false} rather than failing.</p>
+     */
+    public CompletionStage<Boolean> delete(final RecentFileId id) {
+        Objects.requireNonNull(id, "id");
+        final String key = key(id.value());
+        final StoragePath imagePath = path("recent-preview/images/" + key + ".png");
+        final StoragePath indexPath = path("recent-preview/index/" + key + ".entry");
+        return storage.list(path("recent-preview/images"), MAX_INDEXED_FILES).thenCompose(listed -> {
+            final boolean cached = listed.entries().stream()
+                    .anyMatch(entry -> entry.path().relativePath().equals(imagePath.relativePath()));
+            return storage.delete(imagePath, false)
+                    .thenCompose(ignored -> storage.delete(indexPath, false))
+                    .thenApply(ignored -> cached);
+        });
+    }
+
+    /**
      * Loads the cached PNG bytes for the given recent files, in input order.
      * Corrupt, unbounded, or missing entries are silently skipped.
      */

@@ -8,8 +8,10 @@ import dev.turboism.sdk.cubism.ProjectFileOperation;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCacheService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewDeletedEvent;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
@@ -47,6 +49,7 @@ public final class RecentPreviewPlugin implements CubismPlugin {
     private PreviewCacheIndex cacheIndex;
     private RecentPreviewRendererImpl renderer;
     private Registration contribution;
+    private Registration deletionRegistration;
     private volatile boolean enabled;
     private volatile Optional<String> fileNameHint = Optional.empty();
     /** Fixed-delay cadence of the poll-track fallback. */
@@ -75,7 +78,8 @@ public final class RecentPreviewPlugin implements CubismPlugin {
                         .find(ScreenshotCaptureService.class)
                         .orElseGet(ScreenshotCaptureService::unavailable),
                 cacheIndex,
-                this::publishCaptured);
+                this::publishCaptured,
+                this::publishDeleted);
         renderer =
                 new RecentPreviewRendererImpl(controller, this::requestCapture, context.logger(), loadingText(context));
         context.disposableScope().register(() -> closeContribution());
@@ -94,6 +98,7 @@ public final class RecentPreviewPlugin implements CubismPlugin {
             refreshPopup();
         });
         contributeRenderer();
+        provideCacheDeletion();
         startPoller();
         scheduleCacheReplay();
     }
@@ -107,6 +112,7 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         stopPoller();
         stopCacheReplay();
         closeContribution();
+        closeDeletionRegistration();
         if (controller != null) controller.disable();
         if (renderer != null) renderer.clearTransientState();
         fileNameHint = Optional.empty();
@@ -386,6 +392,15 @@ public final class RecentPreviewPlugin implements CubismPlugin {
 
     /** Publishes the committed capture to dependent plugins without affecting the cache path. */
     private void publishCaptured(final RecentPreviewCapturedEvent event) {
+        publishEvent(event);
+    }
+
+    /** Publishes a committed deletion so dependents drop their copy of the thumbnail. */
+    private void publishDeleted(final RecentPreviewDeletedEvent event) {
+        publishEvent(event);
+    }
+
+    private void publishEvent(final dev.turboism.sdk.event.TurboismEvent event) {
         final PluginContext current = context;
         if (!enabled || current == null) {
             return;
@@ -431,6 +446,50 @@ public final class RecentPreviewPlugin implements CubismPlugin {
             context.logger()
                     .warn("Recent preview popup contribution unavailable: "
                             + unavailable.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Registers this plugin as the preview cache provider. The runtime broker calls back here for
+     * every dependent deletion, so the cache stays owned by the plugin that writes it.
+     *
+     * <p>A host without the broker keeps capture and popup behavior unchanged; deletion is then
+     * simply unavailable, which is why this stays a quiet no-op instead of a warning.</p>
+     */
+    private void provideCacheDeletion() {
+        final RecentPreviewCacheService service = context.services()
+                .find(RecentPreviewCacheService.class)
+                .orElseGet(RecentPreviewCacheService::unavailable);
+        if (!service.isAvailable()) {
+            return;
+        }
+        final RecentPreviewController active = controller;
+        if (active == null) return;
+        try {
+            deletionRegistration = context.disposableScope()
+                    .register(service.provide(id -> active.delete(id).thenApply(removed -> {
+                        if (Boolean.TRUE.equals(removed)) {
+                            refreshPopup();
+                        }
+                        return removed;
+                    })));
+        } catch (RuntimeException unavailable) {
+            context.logger()
+                    .warn("Recent preview cache deletion registration failed: "
+                            + unavailable.getClass().getSimpleName());
+        }
+    }
+
+    /** Ends this plugin's cache-provider registration; idempotent. */
+    private void closeDeletionRegistration() {
+        final Registration active = deletionRegistration;
+        deletionRegistration = null;
+        if (active != null) {
+            try {
+                active.close();
+            } catch (RuntimeException ignored) {
+                // The runtime already cleaned up; closing is best effort.
+            }
         }
     }
 
