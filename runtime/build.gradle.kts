@@ -433,7 +433,7 @@ val admissionUnitTests by tasks.registering(Test::class) {
         includeTestsMatching("dev.turboism.mapping.*")
         includeTestsMatching("dev.turboism.adapter.*")
         includeTestsMatching("dev.turboism.core.lifecycle.*")
-        includeTestsMatching("dev.turboism.core.plugin.context.*")
+        includeTestsMatching("dev.turboism.kernel.context.*")
         legacyEvidenceTests.forEach { excludeTestsMatching(it) }
         isFailOnNoMatchingTests = true
     }

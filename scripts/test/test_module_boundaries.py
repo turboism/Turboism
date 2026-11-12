@@ -191,6 +191,36 @@ def main() -> None:
             ),
             expected="Runtime layering violation in runtime/.../runtime/log/Fixture.java",
         ),
+        # ``core.schema`` sits below ``core.descriptor``: the manifest reader reports its
+        # findings through the schema vocabulary, so the schema package may never import back.
+        lambda: run_gradle(
+            "core-schema-descriptor-import",
+            "class Fixture {}\n",
+            runtime_sources=(
+                (
+                    "core/schema/Fixture.java",
+                    "package dev.turboism.core.schema;\n\n"
+                    "import dev.turboism.core.descriptor.PluginDescriptorParser;\n\n"
+                    "final class Fixture {}\n",
+                ),
+            ),
+            expected="Runtime sub-package violation in runtime/.../core/schema/Fixture.java",
+        ),
+        # A core source that imports a composition layer needs no exemption: the plugin
+        # service wiring lives in ``kernel.context``, so ``core`` stays below every surface.
+        lambda: run_gradle(
+            "core-composition-layer-import",
+            "class Fixture {}\n",
+            runtime_sources=(
+                (
+                    "core/plugin/Fixture.java",
+                    "package dev.turboism.core.plugin;\n\n"
+                    "import dev.turboism.adapter.host.RuntimeHostAdapterAccess;\n\n"
+                    "final class Fixture {}\n",
+                ),
+            ),
+            expected="Runtime layering violation in runtime/.../core/plugin/Fixture.java",
+        ),
     ]
     with ThreadPoolExecutor(max_workers=min(len(tasks), 4)) as executor:
         for _ in executor.map(lambda fn: fn(), tasks):

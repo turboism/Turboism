@@ -1,6 +1,6 @@
 package dev.turboism.kernel;
 
-import dev.turboism.core.plugin.context.SdkCarrierTraversal;
+import dev.turboism.kernel.context.SdkCarrierTraversal;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginServiceDirectory;
 import dev.turboism.sdk.ui.UiScheduler;

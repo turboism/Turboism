@@ -81,7 +81,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
     private static final String EDITOR_DRAWABLE_CLASS =
         "dev.turboism.adapter.cubism.editor.EditorObjectReadAccess$EditorDrawable";
     private static final String AVAILABILITY_HANDLER_CLASS =
-        "dev.turboism.core.plugin.context.CubismEditorApiAvailabilityInterceptor$Handler";
+        "dev.turboism.kernel.context.CubismEditorApiAvailabilityInterceptor$Handler";
     private static final String GENERATION_GUARD_HANDLER_CLASS =
         "dev.turboism.kernel.PluginGenerationGuard$Handler";
     private static final int MAX_DRAWABLE_UNWRAP_DEPTH = 5;

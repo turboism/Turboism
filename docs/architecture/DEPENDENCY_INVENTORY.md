@@ -37,7 +37,7 @@ commit. `--report` prints the fan-in/fan-out analysis without writing.
 
 ## Recorded baseline
 
-- 47 Gradle modules, including convention-supplied edges (plugins declare
+- 48 Gradle modules, including convention-supplied edges (plugins declare
   `compileOnly :sdk`, `annotationProcessor :event-processor`, and
   `testImplementation :sdk`, `:testing:test-support`). The two modules added
   since the first baseline are `:event-processor` (compile-time `@SubscribeEvent`
@@ -53,9 +53,12 @@ commit. `--report` prints the fan-in/fan-out analysis without writing.
   so its cycle surface is the module edge itself. `:bootstrap` declares
   `:compatibility-policy` only as a `testImplementation` for the repacked-host
   admission test.
-- `:runtime`: 34 top-level `dev.turboism.*` packages, 125 top-level package
+- `:runtime`: 35 top-level `dev.turboism.*` packages, 144 top-level package
   edges, 1 top-level cycle, **0 leaf-package cycles** (6 before the `#70` step 3a
-  pilot; see below for how each was removed).
+  pilot; see below for how each was removed). `dev.turboism.core` imports neither
+  `dev.turboism.adapter` nor `dev.turboism.ui`: the plugin service wiring lives in
+  `dev.turboism.kernel.context`, so the framework core needs no layering
+  exemption.
 - Production code has no dependency on `:plugins:*`; runtime test code does
   (`testImplementation` only), which the inventory keeps as a separate
   configuration instead of folding into the production graph.
@@ -66,9 +69,9 @@ None. At leaf-package granularity the `:runtime` package graph is **acyclic**, s
 the extraction steps of #70 no longer risk moving a cycle across a module
 boundary. The gate keeps it that way: any new cycle fails `checkDependencyInventory`.
 
-The inventory still records one **top-level** cycle over eleven packages
-(`adapter`, `config`, `core`, `home`, `hostread`, `mapping`, `recentfile`,
-`recentpreview`, `screenshot`, `task`, `ui`). `home` is in the aggregate SCC
+The inventory still records one **top-level** cycle over nine packages
+(`adapter`, `automesh`, `config`, `core`, `home`, `hostread`, `mapping`, `task`,
+`ui`). `home` is in the aggregate SCC
 because `config -> home -> core` (via `core.io`) closes a path back into the
 cluster; leaf-package granularity still adds no cycle for it. That is an
 aggregation artifact, not an actionable cycle: different leaves of the same
@@ -87,11 +90,13 @@ descriptors). Leaf-package granularity is the enforced one, and it is empty.
 | `adapter.cubism.{mesh,modeling,optimization}` ↔ `mapping.verification` ↔ `ui.*` (8 packages) | `LogPaletteHostStructure` moved into `ui.host`, the two mesh toolbar descriptors into `ui.contribution`, the two selector contracts into `mapping.selector` (the planned consolidation), and their resolver-dependent `authorizes(...)` helpers into `mapping.verification.SelectorAdmission` | `docs/architecture/MODULE_CONTRACTS.md` |
 | `adapter.cubism.{edit,editor,editor.history,editor.transaction}` | `EditorHostThread` moved into `adapter.cubism.editor.host`, and authoring transactions take an `AuthoringHistoryPort` instead of importing the recorder | `docs/architecture/MODULE_CONTRACTS.md` |
 | `adapter.cubism` ↔ `adapter.cubism.service.read` ↔ `hostread` | the adapter→port bridge moved into the adapter layer (`ProjectWorkspaceReadSources`) and `CubismReadPermissionGate` moved up into `adapter.cubism`; `hostread` now imports no adapter package | `docs/architecture/MODULE_CONTRACTS.md` |
+| `core.plugin.context` → `adapter` / `ui` (the `core` exemption) | the plugin service wiring moved to `kernel.context`, inside the kernel composition seam, so `dev.turboism.core` imports neither `adapter` nor `ui` and the `core` layering rule needs no exemption | `docs/architecture/MODULE_CONTRACTS.md` |
+| `core.descriptor` ↔ `core.schema` | `PluginMetaValidator` and `PluginMetaValidationCli` moved from `core.schema.plugin` to `core.descriptor.validation`, so `core.descriptor -> core.schema` is one-way | `docs/architecture/MODULE_CONTRACTS.md` |
 
 The last remaining cycle is the adapter/UI/mapping cluster. At
-top-level granularity they merge into a single 11-package cycle (`adapter`,
-`config`, `core`, `home`, `hostread`, `mapping`, `recentfile`, `recentpreview`,
-`screenshot`, `task`, `ui`; `home` joins through `config -> home -> core` (via
+top-level granularity they merge into a single 9-package cycle (`adapter`,
+`automesh`, `config`, `core`, `home`, `hostread`, `mapping`, `task`, `ui`;
+`home` joins through `config -> home -> core` (via
 `core.io`), and
 `runtime` left that cycle once `runtime.log` stopped depending on core), so a
 "break one edge at the top level" reading is misleading — the leaf list above is

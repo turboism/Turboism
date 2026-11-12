@@ -248,6 +248,73 @@ became `SelectorAdmission`, because leaving them in the contract classes was the
 edge that made the selector package depend on the resolver. Leaf-package cycles:
 1 → **0**.
 
+## `:runtime` core ↔ plugin service wiring (kernel.context)
+
+- **Owner**: runtime kernel maintainers (see `.github/CODEOWNERS`).
+- **Purpose**: `dev.turboism.kernel.context` owns the plugin service wiring: it
+  assembles one `PluginContext` from adapter, UI and feature services, and it
+  selects which capability bundle a descriptor admits. `dev.turboism.core` owns
+  the framework contracts those services implement, and it never assembles them.
+- **Allowed dependencies**: `kernel.context` may depend on `adapter`, `ui`,
+  `hook`, the feature implementations and `core`. `core` may depend only on the
+  JDK, the SDK, `runtime`, `task`, `config`, `permissions` and its own
+  sub-packages.
+- **Forbidden**: any import in `dev.turboism.core.*` of `dev.turboism.adapter`,
+  `dev.turboism.hook`, `dev.turboism.ui` or a composition layer (`shell`,
+  `kernel`, `distribution`, `pluginmanagement`, `bootstrap`).
+- **Public API**: `CorePluginContext`, `PluginContextEnvironment`,
+  `PluginCapabilityBundle` and `SdkCarrierTraversal` are the wiring surface the
+  kernel and the host adapter use; every other type in the package is
+  package-private.
+- **Threading / IO**: the wiring runs once per plugin generation on the host
+  thread; the services it hands out own their own threading contract.
+- **Tests**: `runtime/src/test/java/dev/turboism/kernel/context/**` pins the
+  composition contracts; `scripts/test/test_module_boundaries.py` pins the
+  layering rule itself.
+- **Backward compatibility**: none on disk. The package is internal, so the move
+  changes no plugin-visible type.
+- **Enforcement**: `checkModuleBoundaries` in
+  `gradle/module-boundaries.gradle.kts` — the `core` rule now has no source
+  exclusion at all.
+
+**What changed (`#192`)**: `dev.turboism.core.plugin.context` held the wiring that
+reaches into `adapter`, `ui` and feature services, so the `core` rule needed a
+`core/plugin/context/` exemption. The whole package moved to
+`dev.turboism.kernel.context` inside the existing kernel composition seam. The
+`core` rule now has no exemption, and `runtimePackageWaivers` stays empty.
+
+## `:runtime` core.schema ↔ core.descriptor (one-way)
+
+- **Owner**: plugin metadata maintainers (see `.github/CODEOWNERS`).
+- **Purpose**: `dev.turboism.core.schema` owns the JSON schema vocabulary — the
+  validator interface, the shared finding record and the per-domain validators.
+  `dev.turboism.core.descriptor` owns the manifest reader that produces those
+  findings. The reader reports through the vocabulary, so the vocabulary must not
+  know the reader.
+- **Allowed dependencies**: `core.descriptor` may depend on `core.schema`;
+  `core.schema` may depend on the JDK, Jackson and its own sub-packages only.
+- **Forbidden**: any import in `dev.turboism.core.schema.*` of
+  `dev.turboism.core.descriptor.*`.
+- **Public API**: `JsonSchemaValidator`, `SchemaValidationError` and the per-domain
+  validators. `PluginMetaValidator` and `PluginMetaValidationCli` are the
+  descriptor-side adapters that bind the parser to a schema version.
+- **Threading / IO**: validators are stateless and safe from any thread; the CLI
+  reads files and exits the process.
+- **Tests**: `testing/integration-tests/.../SchemaFixtureValidationTest` pins the
+  fixture verdicts; `scripts/test/test_module_boundaries.py` pins the direction.
+- **Backward compatibility**: the `validatePluginMeta` Gradle task main class
+  changed with the move; nothing on disk and no plugin ABI changed.
+- **Enforcement**: the `runtimeSubPackageRules` entry in
+  `gradle/module-boundaries.gradle.kts`, which the top-level rules cannot express
+  because `core` imports `core` freely.
+
+**What changed (`#192`)**: `PluginMetaValidator` and `PluginMetaValidationCli` lived
+in `dev.turboism.core.schema.plugin` and imported `PluginDescriptorParser`, while
+`PluginDescriptorParser` and `Findings` imported `SchemaValidationError` — an
+unlisted sub-package cycle. Both moved to
+`dev.turboism.core.descriptor.validation`, so `core.descriptor -> core.schema` is
+strictly one-way.
+
 ## `:persistence-core` ↔ `:runtime` typed config
 
 - **Owner**: typed-config and persistence maintainers (see `.github/CODEOWNERS`).

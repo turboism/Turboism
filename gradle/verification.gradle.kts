@@ -447,7 +447,7 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
         "scripts/version-monotonicity-exceptions.json",
         "compatibility/cubism/reviewed-releases.json",
         "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
-        "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorApiAvailabilityInterceptor.java",
+        "runtime/src/main/java/dev/turboism/kernel/context/CubismEditorApiAvailabilityInterceptor.java",
         "validation/cubism-version-matrix/campaign-jobs.json",
         "compatibility/cubism/version-boundaries.json",
         "compatibility/cubism/official-feature-timeline.json",

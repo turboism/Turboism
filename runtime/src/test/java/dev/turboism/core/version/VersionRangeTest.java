@@ -3,7 +3,7 @@ package dev.turboism.core.version;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.turboism.core.schema.plugin.PluginMetaValidator;
+import dev.turboism.core.descriptor.validation.PluginMetaValidator;
 import org.junit.jupiter.api.Test;
 
 class VersionRangeTest {
