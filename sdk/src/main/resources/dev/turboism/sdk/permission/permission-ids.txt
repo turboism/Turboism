@@ -44,6 +44,7 @@ turboism.action.invocation.observe
 turboism.plugin.lifecycle.observe
 turboism.cubism.recent-file.read
 turboism.ui.recent-preview.contribute
+turboism.ui.recent-preview.manage
 turboism.event.publish
 turboism.event.subscribe
 turboism.file.read

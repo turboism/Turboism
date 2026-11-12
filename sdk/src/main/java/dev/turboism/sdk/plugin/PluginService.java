@@ -65,6 +65,9 @@ public enum PluginService {
     /** {@link dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService} */
     RECENT_PREVIEWS(dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService.class),
 
+    /** {@link dev.turboism.sdk.cubism.recentpreview.RecentPreviewCacheService} */
+    RECENT_PREVIEW_CACHE(dev.turboism.sdk.cubism.recentpreview.RecentPreviewCacheService.class),
+
     /** {@link dev.turboism.sdk.cubism.physics.PhysicsEditorService} */
     PHYSICS_EDITOR(dev.turboism.sdk.cubism.physics.PhysicsEditorService.class),
 
