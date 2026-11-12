@@ -115,6 +115,16 @@ final class NativeModelImport {
             ModelTextureAtlasPlanner.PlannedAtlas atlas,
             java.util.function.Consumer<String> progress,
             java.util.function.Consumer<Runnable> sourceBatch) {
+        return assemble(model, prepared, atlas, progress, sourceBatch, (done, count) -> {});
+    }
+
+    static NativeCharacterAuthoring.Created assemble(
+            CubismModel model,
+            Prepared prepared,
+            ModelTextureAtlasPlanner.PlannedAtlas atlas,
+            java.util.function.Consumer<String> progress,
+            java.util.function.Consumer<Runnable> sourceBatch,
+            java.util.function.ObjIntConsumer<Integer> meshProgress) {
         var parameterGroup = java.util.Optional.of(model.parameterGroups()
                 .addGroup(prepared.geometry().request().name())
                 .id());
@@ -181,6 +191,7 @@ final class NativeModelImport {
                     progress.accept("source-geometry");
                     return controls.parents();
                 },
-                NativeControlAuthoring.rotationRestorer(prepared.controls()));
+                NativeControlAuthoring.rotationRestorer(prepared.controls()),
+                meshProgress);
     }
 }
