@@ -2,7 +2,6 @@
 """Fail-closed fixtures for the class-pin generator."""
 from __future__ import annotations
 
-import hashlib
 import importlib.util
 import json
 import subprocess
@@ -46,10 +45,10 @@ class GenerateClassPinsTest(unittest.TestCase):
         }
         write_jar(self.jar, self.classes)
         self.tables = {
-            "hook-one": {"5.3.02": {"com/example/A": "0" * 64}},
+            "hook-one": {"5.3.02": ["com/example/A"]},
             "hook-two": {
-                "5.3.02": {"com/example/B": "1" * 64},
-                "5.3.03": {"com/example/C$D": "2" * 64},
+                "5.3.02": ["com/example/B"],
+                "5.3.03": ["com/example/C$D"],
             },
         }
         write_pin_dir(self.root, self.tables)
@@ -71,17 +70,16 @@ class GenerateClassPinsTest(unittest.TestCase):
     def test_update_adds_version_block_to_all_tables(self):
         rc = GEN._cmd_update(self._args("update"))
         self.assertEqual(0, rc)
-        expected_a = hashlib.sha256(self.classes["com/example/A"]).hexdigest()
         for name, table in self.tables.items():
             written = json.loads((GEN.PIN_DIR / f"{name}.json").read_text())
-            # every class key ever named by the table is pinned under the new version
+            # every class key ever named by the table is declared under the new version
             keys = {k for block in table.values() for k in block}
             self.assertEqual(sorted(keys), sorted(written["9.9.99"]))
             # pre-existing blocks survive untouched
             for version, block in table.items():
                 self.assertEqual(block, written[version])
         written = json.loads((GEN.PIN_DIR / "hook-one.json").read_text())
-        self.assertEqual(expected_a, written["9.9.99"]["com/example/A"])
+        self.assertIn("com/example/A", written["9.9.99"])
 
     def test_update_selected_pin_only(self):
         GEN._cmd_update(self._args("update", pin=["hook-one"]))
@@ -92,7 +90,7 @@ class GenerateClassPinsTest(unittest.TestCase):
 
     def test_missing_class_aborts_file(self):
         write_pin_dir(self.root, {
-            "hook-gap": {"5.3.02": {"com/example/Absent": "0" * 64}},
+            "hook-gap": {"5.3.02": ["com/example/Absent"]},
         })
         rc = GEN._cmd_update(self._args("update", pin=["hook-gap"]))
         self.assertEqual(1, rc)
@@ -102,10 +100,7 @@ class GenerateClassPinsTest(unittest.TestCase):
     def test_allow_partial_writes_found_classes(self):
         write_pin_dir(self.root, {
             "hook-gap": {
-                "5.3.02": {
-                    "com/example/A": "0" * 64,
-                    "com/example/Absent": "0" * 64,
-                }
+                "5.3.02": ["com/example/A", "com/example/Absent"],
             },
         })
         rc = GEN._cmd_update(self._args(
@@ -120,20 +115,16 @@ class GenerateClassPinsTest(unittest.TestCase):
             classes=["com/example/A", "com/example/C$D"]))
         self.assertEqual(0, rc)
         written = json.loads((GEN.PIN_DIR / "hook-fresh.json").read_text())
-        self.assertEqual(2, len(written["9.9.99"]))
         self.assertEqual(
-            hashlib.sha256(self.classes["com/example/C$D"]).hexdigest(),
-            written["9.9.99"]["com/example/C$D"],
-        )
+            ["com/example/A", "com/example/C$D"], sorted(written["9.9.99"]))
 
     def test_check_passes_on_matching_jar(self):
         GEN._cmd_update(self._args("update"))
         self.assertEqual(0, GEN._cmd_check(self._args("check")))
 
-    def test_check_fails_on_digest_mismatch(self):
+    def test_check_fails_on_absent_declared_class(self):
         GEN._cmd_update(self._args("update"))
-        write_jar(self.jar, {"com/example/A": b"tampered", "com/example/B": b"b",
-                             "com/example/C$D": b"inner"})
+        write_jar(self.jar, {"com/example/B": b"b", "com/example/C$D": b"inner"})
         self.assertEqual(1, GEN._cmd_check(self._args("check")))
 
     def test_check_fails_on_absent_version(self):

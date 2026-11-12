@@ -8212,7 +8212,6 @@
       "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
       "value": {
         "cubismVersion": "${version}",
-        "exactArtifactSha256": "${artifactSha256}",
         "format": "turboism.mapping.pack",
         "metadata": {
           "artifactName": "${artifactName}",
@@ -8224,8 +8223,7 @@
           "profileId": "${profileId}",
           "selectorCount": "${selectorCount}",
           "validationNotes": "DRAFT only. Every selector is statically checked against the exact ${version} JAR by kind/owner/name/descriptor/access. Runtime/host behavior is not claimed because no host was started.",
-          "verificationId": "${verificationId}",
-          "verificationRecordSha256": "${verificationRecordSha256}"
+          "verificationId": "${verificationId}"
         },
         "schemaVersion": 1,
         "source": "exact-5.3.03-classfile-observation-and-semantic-remap",

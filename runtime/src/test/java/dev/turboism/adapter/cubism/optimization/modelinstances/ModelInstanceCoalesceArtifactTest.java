@@ -77,9 +77,9 @@ class ModelInstanceCoalesceArtifactTest {
                             null, loader, ModelInstanceCoalesceTarget.UNDO_MANAGER_OWNER, null, domain, undoManager),
                     transformer.failure());
             assertEquals(4, transformer.matches());
-            assertTrue(transformer.beforeSha256().containsKey(ModelInstanceCoalesceTarget.SOURCE_OWNER));
-            assertTrue(transformer.beforeSha256().containsKey(ModelInstanceCoalesceTarget.EDIT_MODE_OWNER));
-            assertTrue(transformer.beforeSha256().containsKey(ModelInstanceCoalesceTarget.UNDO_MANAGER_OWNER));
+            assertTrue(transformer.wovenOwners().contains(ModelInstanceCoalesceTarget.SOURCE_OWNER));
+            assertTrue(transformer.wovenOwners().contains(ModelInstanceCoalesceTarget.EDIT_MODE_OWNER));
+            assertTrue(transformer.wovenOwners().contains(ModelInstanceCoalesceTarget.UNDO_MANAGER_OWNER));
         }
     }
 

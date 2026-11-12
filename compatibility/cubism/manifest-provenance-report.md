@@ -124,9 +124,9 @@ contracts, and every version pin, is hand-maintained (~97% of files by count).
    policy; output: `runtime/build/generated/...`; `--check` mode diffs against
    checked-in sources during migration. Mirrors `generateCorePublicApiSelectorContract`.
 2. `syncDraftPackMetadata` — recompute `metadata.selectorCount`,
-   `capabilityCount`, `capabilityIds`, `verificationRecordSha256` of each pack
-   from its `inventoryRef` record; `--check` fails on mismatch. Would have
-   prevented the stale 5.3.03 metadata noted above.
+   `capabilityCount` and `capabilityIds` of each pack from its `inventoryRef`
+   record; `--check` fails on mismatch. Would have prevented the stale 5.3.03
+   metadata noted above.
 3. `generateVerificationIndex` — emit the bootstrap `processResources` record
    list (or a `META-INF/turboism/verification/index.json` consumed by the agent)
    from the directory listing cross-checked against manifests' `verificationId`s.

@@ -52,6 +52,9 @@ final class DescriptorSchemaTier {
     /** Fields admitted by one {@code permissions[]} entry. */
     static final Set<String> ALLOWED_PERMISSION_FIELDS = Set.of("id", "scope", "reason");
 
+    // abiSha256 stays admitted but unused: descriptors published before the event ABI
+    // digest was retired must keep loading, and route matching is governed by
+    // (id, contractVersion, eventType) plus the shared SDK loader.
     /** Fields admitted by one {@code eventExports[]} entry. */
     static final Set<String> ALLOWED_EVENT_EXPORT_FIELDS = Set.of("id", "contractVersion", "eventType", "abiSha256");
 

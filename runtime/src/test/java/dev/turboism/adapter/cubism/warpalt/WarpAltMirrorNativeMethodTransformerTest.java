@@ -18,29 +18,22 @@ import org.objectweb.asm.Opcodes;
 final class WarpAltMirrorNativeMethodTransformerTest {
 
     @Test
-    void actualClassBytesMustMatchTheBoundContractEvenWithTheCorrectCodeSource() throws Exception {
+    void boundContractScopesOwnersEvenWithTheCorrectCodeSource() throws Exception {
         final var profile = WarpAltMirrorHostProfile.reviewed5302And5303();
         final var artifact = java.nio.file.Path.of("/tmp/warp-bound-contract.jar");
         final var loader = getClass().getClassLoader();
         final var domain = new java.security.ProtectionDomain(
                 new java.security.CodeSource(artifact.toUri().toURL(), (java.security.cert.Certificate[]) null), null);
         final byte[] original = fixture(profile, profile.pointMoveOwner());
-        final String pin = java.util.HexFormat.of()
-                .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(original));
         final var transformer = new WarpAltMirrorNativeMethodTransformer(
-                profile, loader, artifact, java.util.Map.of(profile.pointMoveOwner(), pin), ignored -> {});
-        final byte[] changed = original.clone();
-        changed[changed.length - 1] ^= 1;
+                profile, loader, artifact, java.util.Set.of(profile.pointMoveOwner()), ignored -> {});
 
-        assertNull(transformer.transform(null, loader, profile.pointMoveOwner(), null, domain, changed));
+        // An owner the bound contract never declared is refused before any rewrite.
+        assertNull(transformer.transform(null, loader, profile.stripOwner(), null, domain, original));
         assertEquals(WarpAltMirrorNativeMethodTransformer.Outcome.CLASS_BYTES_MISMATCH, transformer.outcome());
         assertNull(transformer.admittedClassLoader());
         assertTrue(transformer.transformedOwners().isEmpty());
         assertNotNull(transformer.transform(null, loader, profile.pointMoveOwner(), null, domain, original));
-
-        final var missingProof = new WarpAltMirrorNativeMethodTransformer(profile, loader, artifact, ignored -> {});
-        assertNull(missingProof.transform(null, loader, profile.pointMoveOwner(), null, domain, original));
-        assertEquals(WarpAltMirrorNativeMethodTransformer.Outcome.CLASS_BYTES_MISMATCH, missingProof.outcome());
     }
 
     @Test

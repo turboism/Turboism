@@ -6,11 +6,9 @@ import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -106,7 +104,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
     private final Map<String, List<String>> composedShapes = new HashMap<>();
     private final Map<String, Integer> locals = new HashMap<>();
     private final int errorReceiver;
-    private volatile String failure, beforeSha256;
+    private volatile String failure;
     private volatile int matches;
     private Runnable onRejection = () -> {};
 
@@ -175,12 +173,12 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
     }
 
     /**
-     * SHA-256 of every Editor-side host class this hook rewrites or verifies, keyed
-     * by internal name, per reviewed generation. The bundled JOGL artifact keeps its
-     * own whole-artifact pin and is not part of this map.
+     * Every Editor-side host class this hook rewrites or verifies, keyed by internal
+     * name, per reviewed generation. The bundled JOGL artifact keeps its own
+     * whole-artifact pin and is not part of this map.
      */
-    public static Map<String, Map<String, String>> reviewedClassSha256() {
-        return REVIEWED_CLASS_SHA256;
+    public static Map<String, List<String>> reviewedClassSha256() {
+        return REVIEWED_CLASSES;
     }
 
     private UniformLocationLifecycleTransformer(
@@ -383,10 +381,6 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
     public int matches() {
         return matches;
     }
-    /** Returns the initial pre-rewrite class digest for restoration verification. */
-    public String beforeSha256() {
-        return beforeSha256;
-    }
 
     @Override
     public byte[] transform(
@@ -449,9 +443,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
                 throw new IllegalArgumentException("lifecycle composed error site absent or ambiguous: " + owner);
             }
             byte[] changed = writer.toByteArray();
-            if (beforeSha256 == null)
-                beforeSha256 = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+
             matches++;
             return changed;
         } catch (Exception | LinkageError problem) {
@@ -711,6 +703,5 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         }
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
-            ClassPinTable.load("uniform-location-lifecycle");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("uniform-location-lifecycle");
 }

@@ -161,7 +161,6 @@ public final class CubismHostCompatibilityResolver {
             }
             final byte[] bytes = candidate == null ? null : recordSource.apply(candidate.recordFileName());
             StaticVerificationRecord record = null;
-            String observedRecordSha256 = null;
             if (bytes != null) {
                 try {
                     final var loaded = loader.load(bytes, candidate.recordFileName());
@@ -170,7 +169,6 @@ public final class CubismHostCompatibilityResolver {
                             && loaded.record().verificationId().equals(candidate.verificationId())
                             && loaded.record().adapterSliceId().equals(candidate.adapterSliceId())) {
                         record = loaded.record();
-                        observedRecordSha256 = loaded.sha256();
                     }
                 } catch (IOException | RuntimeException failure) {
                     record = null;
@@ -187,9 +185,7 @@ public final class CubismHostCompatibilityResolver {
                                 "no valid catalog record for this exact host version"));
                 continue;
             }
-            slices.put(
-                    sliceId,
-                    admitted(sliceId, observedCandidate(candidate, observedRecordSha256), record, identity, false));
+            slices.put(sliceId, admitted(sliceId, candidate, record, identity, false));
         }
         final boolean runtimeAdmitted = baseSlicesAdmitted(slices);
         return CompatibilityResolution.of(
@@ -465,19 +461,6 @@ public final class CubismHostCompatibilityResolver {
         return second < 0 ? version : version.substring(0, second);
     }
 
-    /** Bind the observed record bytes for change detection after probing, not catalog self-pinning. */
-    private static CubismSliceCatalog.Candidate observedCandidate(
-            final CubismSliceCatalog.Candidate candidate, final String digest) {
-        return new CubismSliceCatalog.Candidate(
-                candidate.sliceId(),
-                candidate.cubismVersion(),
-                candidate.recordFileName(),
-                digest,
-                candidate.verificationId(),
-                candidate.adapterSliceId(),
-                candidate.profileId());
-    }
-
     private static CandidateOutcome tryCandidate(
             final CubismSliceCatalog.Candidate candidate,
             final byte[] bytes,
@@ -522,13 +505,7 @@ public final class CubismHostCompatibilityResolver {
                             ? "selector contract not fully verified"
                             : "selector " + first.alias() + " is " + first.status());
         }
-        return new CandidateOutcome(
-                observedCandidate(candidate, loaded.sha256()),
-                record,
-                report.artifact(),
-                verifiedAliases,
-                Set.of(),
-                "passed");
+        return new CandidateOutcome(candidate, record, report.artifact(), verifiedAliases, Set.of(), "passed");
     }
 
     /**
@@ -759,7 +736,6 @@ public final class CubismHostCompatibilityResolver {
                 sliceId,
                 candidate.cubismVersion(),
                 candidate.recordFileName(),
-                candidate.recordSha256(),
                 candidate.verificationId(),
                 candidate.adapterSliceId(),
                 identity.version(),
@@ -875,7 +851,6 @@ public final class CubismHostCompatibilityResolver {
                     contract.sliceId(),
                     contract.sourceVersion(),
                     contract.recordFileName(),
-                    contract.recordSha256(),
                     contract.verificationId(),
                     contract.adapterSliceId(),
                     contract.declaredVersion(),

@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.optimization;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -18,8 +17,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,9 +28,9 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 
 /**
- * Synthetic evidence tests for {@link ReviewedHostContract}: minimal jars carry
- * a real declaration class and pinned target-class bytes, so repackaging,
- * unknown declarations, tampering and ambiguity are exercised without a host.
+ * Synthetic evidence tests for {@link ReviewedHostContract}: minimal jars carry a real
+ * declaration class and reviewed target-class names, so repackaging, unknown declarations,
+ * absent targets and ambiguity are exercised without a host.
  */
 class ReviewedHostContractTest {
 
@@ -55,11 +52,11 @@ class ReviewedHostContractTest {
     @Test
     void reviewedDeclarationBindsDespiteResourceRepackaging() throws Exception {
         final List<Candidate<String>> candidates = List.of(candidate(REVIEWED_VERSION));
-        final Path original = hostJar(REVIEWED_VERSION, REVIEWED_BUILD, pinnedClasses(), Map.of());
+        final Path original = hostJar(REVIEWED_VERSION, REVIEWED_BUILD, targetClasses(), Map.of());
         final Path repacked = hostJar(
                 REVIEWED_VERSION,
                 REVIEWED_BUILD,
-                pinnedClasses(),
+                targetClasses(),
                 Map.of(
                         "META-INF/extra-resource.txt",
                         "resource".getBytes(),
@@ -86,7 +83,7 @@ class ReviewedHostContractTest {
 
     @Test
     void declaredSelfConsistentUnknownVersionBindsUniqueContract() throws Exception {
-        final Path jar = hostJar(UNKNOWN_VERSION, UNKNOWN_BUILD, pinnedClasses(), Map.of());
+        final Path jar = hostJar(UNKNOWN_VERSION, UNKNOWN_BUILD, targetClasses(), Map.of());
         final Resolution<String> resolution = ReviewedHostContract.resolve(jar, List.of(candidate(REVIEWED_VERSION)));
         final Bound<String> bound = assertInstanceOf(Bound.class, resolution);
         assertFalse(bound.declaredRelease());
@@ -96,28 +93,9 @@ class ReviewedHostContractTest {
     }
 
     @Test
-    void exactSha256MatchBindsWithoutUsingAnOptionalMethodShape() throws Exception {
-        final byte[] reviewed = shapedClassBytes(SHAPED_OWNER, "reviewed", false);
-        final byte[] differentBody = shapedClassBytes(SHAPED_OWNER, "different", true);
-        final List<String> unrelatedShape =
-                ReviewedMethodShape.read(differentBody, SHAPED_OWNER, SHAPED_METHOD, SHAPED_DESCRIPTOR);
-        final Candidate<String> candidate = new Candidate<>(
-                "5.3.04",
-                "shaped",
-                Map.of(SHAPED_OWNER, sha256(reviewed)),
-                List.of(new MethodShapeSpec(SHAPED_OWNER, SHAPED_METHOD, SHAPED_DESCRIPTOR, unrelatedShape)));
-        final Path jar = hostJar(ZERO_DAY_VERSION, ZERO_DAY_BUILD, Map.of(SHAPED_OWNER + ".class", reviewed), Map.of());
-
-        final Bound<String> bound =
-                assertInstanceOf(Bound.class, ReviewedHostContract.resolve(jar, List.of(candidate)));
-        assertEquals("5.3.04", bound.sourceVersion());
-    }
-
-    @Test
-    void sameMinorPatchBindsWhenTheTargetMethodShapeIsUnchanged() throws Exception {
+    void unreviewedBuildBindsWhenTheReviewedMethodShapeIsUnchanged() throws Exception {
         final byte[] reviewed = shapedClassBytes(SHAPED_OWNER, "reviewed", false);
         final byte[] patched = shapedClassBytes(SHAPED_OWNER, "patched", false);
-        assertNotEquals(sha256(reviewed), sha256(patched));
         final Path jar = hostJar(ZERO_DAY_VERSION, ZERO_DAY_BUILD, Map.of(SHAPED_OWNER + ".class", patched), Map.of());
 
         final Bound<String> bound =
@@ -129,7 +107,7 @@ class ReviewedHostContractTest {
     }
 
     @Test
-    void sameMinorPatchWithChangedTargetInstructionIsRefused() throws Exception {
+    void unreviewedBuildWithChangedTargetInstructionIsRefused() throws Exception {
         final byte[] reviewed = shapedClassBytes(SHAPED_OWNER, "reviewed", false);
         final byte[] changed = shapedClassBytes(SHAPED_OWNER, "changed", true);
         final Path jar = hostJar(ZERO_DAY_VERSION, ZERO_DAY_BUILD, Map.of(SHAPED_OWNER + ".class", changed), Map.of());
@@ -140,48 +118,27 @@ class ReviewedHostContractTest {
     }
 
     @Test
-    void sameMinorClassDigestMismatchWithoutMethodShapeIsRefused() throws Exception {
-        final byte[] reviewed = shapedClassBytes(SHAPED_OWNER, "reviewed", false);
-        final byte[] patched = shapedClassBytes(SHAPED_OWNER, "patched", false);
-        final Candidate<String> candidate = new Candidate<>("5.3.04", "shaped", Map.of(SHAPED_OWNER, sha256(reviewed)));
-        final Path jar = hostJar(ZERO_DAY_VERSION, ZERO_DAY_BUILD, Map.of(SHAPED_OWNER + ".class", patched), Map.of());
-
-        final Refused<?> refused =
-                assertInstanceOf(Refused.class, ReviewedHostContract.resolve(jar, List.of(candidate)));
-        assertTrue(refused.reason().contains("no reviewed method shape"), refused.reason());
-    }
-
-    @Test
-    void methodShapeAdmissionRequiresEveryChangedPinnedClassToBeCovered() throws Exception {
-        final String sibling = "feature/Sibling";
-        final byte[] reviewed = shapedClassBytes(SHAPED_OWNER, "reviewed", false);
-        final byte[] patched = shapedClassBytes(SHAPED_OWNER, "patched", false);
-        final byte[] reviewedSibling = classBytes(sibling, "reviewed-sibling");
-        final byte[] patchedSibling = classBytes(sibling, "patched-sibling");
-        final Candidate<String> candidate = new Candidate<>(
-                "5.3.04",
-                "shaped",
-                Map.of(SHAPED_OWNER, sha256(reviewed), sibling, sha256(reviewedSibling)),
-                List.of(shapeSpec(reviewed)));
-        final Map<String, byte[]> classes = new LinkedHashMap<>();
-        classes.put(SHAPED_OWNER + ".class", patched);
-        classes.put(sibling + ".class", patchedSibling);
-        final Path jar = hostJar(ZERO_DAY_VERSION, ZERO_DAY_BUILD, classes, Map.of());
-
-        final Refused<?> refused =
-                assertInstanceOf(Refused.class, ReviewedHostContract.resolve(jar, List.of(candidate)));
-        assertTrue(refused.reason().contains("without a reviewed method shape"), refused.reason());
+    void absentTargetWithoutMethodShapeIsRefused() throws Exception {
+        final Path jar = hostJar(
+                ZERO_DAY_VERSION,
+                ZERO_DAY_BUILD,
+                Map.of("feature/Other.class", classBytes("feature/Other", "x")),
+                Map.of());
+        final Refused<?> refused = assertInstanceOf(
+                Refused.class,
+                ReviewedHostContract.resolve(jar, List.of(new Candidate<>("5.3.04", "shaped", List.of(SHAPED_OWNER)))));
+        assertTrue(refused.reason().contains("absent"), refused.reason());
     }
 
     @Test
     void ambiguousMethodShapeMatchesRefuse() throws Exception {
         final byte[] reviewed = shapedClassBytes(SHAPED_OWNER, "reviewed", false);
         final byte[] patched = shapedClassBytes(SHAPED_OWNER, "patched", false);
-        final Map<String, String> pins = Map.of(SHAPED_OWNER, sha256(reviewed));
+        final List<String> targets = List.of(SHAPED_OWNER);
         final List<MethodShapeSpec> shapes = List.of(shapeSpec(reviewed));
         final List<Candidate<String>> candidates = List.of(
-                new Candidate<>("5.3.03", "contract-a", pins, shapes),
-                new Candidate<>("5.3.04", "contract-b", pins, shapes));
+                new Candidate<>("5.3.03", "contract-a", targets, shapes),
+                new Candidate<>("5.3.04", "contract-b", targets, shapes));
         final Path jar = hostJar(ZERO_DAY_VERSION, ZERO_DAY_BUILD, Map.of(SHAPED_OWNER + ".class", patched), Map.of());
 
         final Refused<?> refused = assertInstanceOf(Refused.class, ReviewedHostContract.resolve(jar, candidates));
@@ -190,7 +147,7 @@ class ReviewedHostContractTest {
 
     @Test
     void reviewedReleaseCannotBorrowAnotherGenerationsContract() throws Exception {
-        final Path jar = hostJar(REVIEWED_VERSION, REVIEWED_BUILD, pinnedClasses(), Map.of());
+        final Path jar = hostJar(REVIEWED_VERSION, REVIEWED_BUILD, targetClasses(), Map.of());
         final Refused<?> refused =
                 assertInstanceOf(Refused.class, ReviewedHostContract.resolve(jar, List.of(candidate("5.2.03"))));
         assertTrue(refused.reason().contains("no reviewed target contract for declared release"));
@@ -198,8 +155,8 @@ class ReviewedHostContractTest {
 
     @Test
     void artifactReplacementAfterIdentityProbeRefusesMatchingTargets() throws Exception {
-        final Path original = hostJar(REVIEWED_VERSION, REVIEWED_BUILD, pinnedClasses(), Map.of());
-        final Path replacement = hostJar(UNKNOWN_VERSION, UNKNOWN_BUILD, pinnedClasses(), Map.of());
+        final Path original = hostJar(REVIEWED_VERSION, REVIEWED_BUILD, targetClasses(), Map.of());
+        final Path replacement = hostJar(UNKNOWN_VERSION, UNKNOWN_BUILD, targetClasses(), Map.of());
         final HostIdentityProbe identity = CubismEditorReleaseDetector.probe(original);
         Files.copy(replacement, original, StandardCopyOption.REPLACE_EXISTING);
 
@@ -211,13 +168,13 @@ class ReviewedHostContractTest {
 
     @Test
     void installerCannotReuseAStaleBindingAfterRepackaging() throws Exception {
-        final Path original = hostJar(REVIEWED_VERSION, REVIEWED_BUILD, pinnedClasses(), Map.of());
+        final Path original = hostJar(REVIEWED_VERSION, REVIEWED_BUILD, targetClasses(), Map.of());
         final List<Candidate<String>> candidates = List.of(candidate(REVIEWED_VERSION));
         final Bound<?> bound = assertInstanceOf(Bound.class, ReviewedHostContract.resolve(original, candidates));
         bound.requireUnchanged(original);
 
         final Path repacked = hostJar(
-                REVIEWED_VERSION, REVIEWED_BUILD, pinnedClasses(), Map.of("repacked-resource.txt", new byte[] {1}));
+                REVIEWED_VERSION, REVIEWED_BUILD, targetClasses(), Map.of("repacked-resource.txt", new byte[] {1}));
         Files.copy(repacked, original, StandardCopyOption.REPLACE_EXISTING);
         assertThrows(IllegalStateException.class, () -> bound.requireUnchanged(original));
 
@@ -229,28 +186,24 @@ class ReviewedHostContractTest {
     }
 
     @Test
-    void tamperedPinnedClassRefusesOnlyTheAlteredContract() throws Exception {
-        final Map<String, byte[]> tampered = pinnedClasses();
-        tampered.put("feature/Two.class", classBytes("feature/Two", "tampered"));
-        final Path jar = hostJar(REVIEWED_VERSION, REVIEWED_BUILD, tampered, Map.of());
+    void absentTargetRefusesOnlyTheAlteredContract() throws Exception {
+        final Map<String, byte[]> altered = targetClasses();
+        altered.remove("feature/Two.class");
+        final Path jar = hostJar(REVIEWED_VERSION, REVIEWED_BUILD, altered, Map.of());
 
         final Resolution<String> refused = ReviewedHostContract.resolve(jar, List.of(candidate(REVIEWED_VERSION)));
         assertInstanceOf(Refused.class, refused);
         assertTrue(((Refused<String>) refused).reason().contains("altered"));
 
-        // A sibling hook pinning only untouched classes still binds on the same jar.
-        final List<Candidate<String>> sibling = List.of(new Candidate<>(
-                REVIEWED_VERSION,
-                "sibling",
-                Map.of(
-                        "feature/One.class".replace(".class", ""),
-                        sha256(pinnedClasses().get("feature/One.class")))));
+        // A sibling hook declaring only the present class still binds on the same jar.
+        final List<Candidate<String>> sibling =
+                List.of(new Candidate<>(REVIEWED_VERSION, "sibling", List.of("feature/One")));
         assertInstanceOf(Bound.class, ReviewedHostContract.resolve(jar, sibling));
     }
 
     @Test
-    void missingDeclarationRefusesEvenWhenClassesMatch() throws Exception {
-        final Map<String, byte[]> entries = pinnedClasses();
+    void missingDeclarationRefusesEvenWhenTargetsExist() throws Exception {
+        final Map<String, byte[]> entries = targetClasses();
         final Path jar = rawJar(entries, Map.of(), List.of());
         final Resolution<String> resolution = ReviewedHostContract.resolve(jar, List.of(candidate(REVIEWED_VERSION)));
         assertInstanceOf(Refused.class, resolution);
@@ -258,16 +211,16 @@ class ReviewedHostContractTest {
     }
 
     @Test
-    void malformedDeclarationRefusesEvenWhenClassesMatch() throws Exception {
-        final Path jar = hostJarWithDeclarationBytes(new byte[] {0, 1, 2, 3}, pinnedClasses());
+    void malformedDeclarationRefusesEvenWhenTargetsExist() throws Exception {
+        final Path jar = hostJarWithDeclarationBytes(new byte[] {0, 1, 2, 3}, targetClasses());
         final Resolution<String> resolution = ReviewedHostContract.resolve(jar, List.of(candidate(REVIEWED_VERSION)));
         assertInstanceOf(Refused.class, resolution);
         assertTrue(((Refused<String>) resolution).reason().contains("DECLARATION"));
     }
 
     @Test
-    void conflictingDeclarationsRefuseEvenWhenClassesMatch() throws Exception {
-        final Map<String, byte[]> classes = pinnedClasses();
+    void conflictingDeclarationsRefuseEvenWhenTargetsExist() throws Exception {
+        final Map<String, byte[]> classes = targetClasses();
         classes.put("com/live2d/cubism/a.class", declarationBytes("a", "5.3.02", 503020001));
         classes.put("com/live2d/cubism/b.class", declarationBytes("b", "5.3.03", 503030001));
         final Path jar = rawJar(classes, Map.of(), List.of());
@@ -278,24 +231,21 @@ class ReviewedHostContractTest {
 
     @Test
     void distinctMatchingContractsAreAmbiguousAndRefuse() throws Exception {
-        final Map<String, byte[]> classes = pinnedClasses();
         final List<Candidate<String>> candidates = List.of(
-                new Candidate<>(
-                        "5.3.02", "contract-a", Map.of("feature/One", sha256(classes.get("feature/One.class")))),
-                new Candidate<>(
-                        "5.3.03", "contract-b", Map.of("feature/Two", sha256(classes.get("feature/Two.class")))));
-        final Path jar = hostJar(UNKNOWN_VERSION, UNKNOWN_BUILD, classes, Map.of());
+                new Candidate<>("5.3.02", "contract-a", List.of("feature/One")),
+                new Candidate<>("5.3.03", "contract-b", List.of("feature/Two")));
+        final Path jar = hostJar(UNKNOWN_VERSION, UNKNOWN_BUILD, targetClasses(), Map.of());
         final Resolution<String> resolution = ReviewedHostContract.resolve(jar, candidates);
         assertInstanceOf(Refused.class, resolution);
         assertTrue(((Refused<String>) resolution).reason().contains("ambiguous"));
     }
 
     @Test
-    void equalContractsBehindEqualPinsMergeIntoOneBinding() throws Exception {
-        final Map<String, String> pins = pinnedSha256(pinnedClasses());
+    void equalContractsBehindEqualTargetsMergeIntoOneBinding() throws Exception {
+        final List<String> targets = List.of("feature/One", "feature/Two");
         final List<Candidate<String>> candidates =
-                List.of(new Candidate<>("5.3.02", "shared", pins), new Candidate<>("5.3.03", "shared", pins));
-        final Path jar = hostJar(UNKNOWN_VERSION, UNKNOWN_BUILD, pinnedClasses(), Map.of());
+                List.of(new Candidate<>("5.3.02", "shared", targets), new Candidate<>("5.3.03", "shared", targets));
+        final Path jar = hostJar(UNKNOWN_VERSION, UNKNOWN_BUILD, targetClasses(), Map.of());
         final Resolution<String> resolution = ReviewedHostContract.resolve(jar, candidates);
         final Bound<String> bound = assertInstanceOf(Bound.class, resolution);
         assertEquals(List.of("5.3.02", "5.3.03"), bound.matchedVersions());
@@ -316,17 +266,40 @@ class ReviewedHostContractTest {
     }
 
     @Test
-    void candidatesMustPinAtLeastOneClass() {
-        assertThrows(IllegalArgumentException.class, () -> new Candidate<>(REVIEWED_VERSION, "empty", Map.of()));
+    void candidatesMustNameAtLeastOneTargetClass() {
+        assertThrows(IllegalArgumentException.class, () -> new Candidate<>(REVIEWED_VERSION, "empty", List.of()));
+    }
+
+    @Test
+    void absentTargetWithAnUnchangedMethodShapeStillBinds() throws Exception {
+        final byte[] reviewed = shapedClassBytes(SHAPED_OWNER, "reviewed", false);
+        final Candidate<String> candidate = new Candidate<>(
+                "5.3.04", "shaped", List.of(SHAPED_OWNER, "feature/Absent"), List.of(shapeSpec(reviewed)));
+        final Path jar = hostJar(ZERO_DAY_VERSION, ZERO_DAY_BUILD, Map.of(SHAPED_OWNER + ".class", reviewed), Map.of());
+
+        final Refused<?> refused =
+                assertInstanceOf(Refused.class, ReviewedHostContract.resolve(jar, List.of(candidate)));
+        assertTrue(refused.reason().contains("feature/Absent absent"), refused.reason());
+    }
+
+    @Test
+    void methodShapeOwnerMustBeADeclaredTargetClass() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new Candidate<>(
+                        REVIEWED_VERSION,
+                        "mismatched",
+                        List.of("feature/One"),
+                        List.of(new MethodShapeSpec(
+                                SHAPED_OWNER, SHAPED_METHOD, SHAPED_DESCRIPTOR, List.of("op:96")))));
     }
 
     private Candidate<String> candidate(final String version) {
-        return new Candidate<>(version, "feature-" + version, pinnedSha256(pinnedClasses()));
+        return new Candidate<>(version, "feature-" + version, List.of("feature/One", "feature/Two"));
     }
 
     private static Candidate<String> shapedCandidate(final byte[] reviewed) {
-        return new Candidate<>(
-                "5.3.04", "shaped", Map.of(SHAPED_OWNER, sha256(reviewed)), List.of(shapeSpec(reviewed)));
+        return new Candidate<>("5.3.04", "shaped", List.of(SHAPED_OWNER), List.of(shapeSpec(reviewed)));
     }
 
     private static MethodShapeSpec shapeSpec(final byte[] reviewed) {
@@ -334,18 +307,11 @@ class ReviewedHostContractTest {
         return new MethodShapeSpec(SHAPED_OWNER, SHAPED_METHOD, SHAPED_DESCRIPTOR, shape);
     }
 
-    private static Map<String, byte[]> pinnedClasses() {
+    private static Map<String, byte[]> targetClasses() {
         final Map<String, byte[]> classes = new LinkedHashMap<>();
         classes.put("feature/One.class", classBytes("feature/One", "one"));
         classes.put("feature/Two.class", classBytes("feature/Two", "two"));
         return classes;
-    }
-
-    private static Map<String, String> pinnedSha256(final Map<String, byte[]> classes) {
-        final Map<String, String> pins = new LinkedHashMap<>();
-        classes.forEach(
-                (entry, bytes) -> pins.put(entry.substring(0, entry.length() - ".class".length()), sha256(bytes)));
-        return pins;
     }
 
     private Path hostJar(
@@ -478,13 +444,5 @@ class ReviewedHostContractTest {
         method.visitEnd();
         writer.visitEnd();
         return writer.toByteArray();
-    }
-
-    private static String sha256(final byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (java.security.NoSuchAlgorithmException failure) {
-            throw new AssertionError(failure);
-        }
     }
 }

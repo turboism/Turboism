@@ -9273,11 +9273,6 @@
           "cubism.core.owned-moc.read",
           "cubism.geometry.read"
         ]
-      },
-      {
-        "op": "replace",
-        "path": "/metadata/verificationRecordSha256",
-        "value": "f65381e78c7549788516041850fa757dc18c0f52b5e89cf74e3d42f036f74ed7"
       }
     ],
     "5.3.00": [
@@ -13964,11 +13959,6 @@
           "cubism.core.owned-moc.read",
           "cubism.geometry.read"
         ]
-      },
-      {
-        "op": "replace",
-        "path": "/metadata/verificationRecordSha256",
-        "value": "fd758f373b460695cabf984d83d7939cb36e7bcc7e4b183cec4f58b3f0957569"
       }
     ],
     "5.3.03": [

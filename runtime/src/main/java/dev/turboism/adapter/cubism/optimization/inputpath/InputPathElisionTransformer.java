@@ -3,9 +3,7 @@ package dev.turboism.adapter.cubism.optimization.inputpath;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import org.objectweb.asm.ClassReader;
@@ -52,7 +50,7 @@ public final class InputPathElisionTransformer implements ClassFileTransformer {
     private final Path artifact;
     private final List<String> focusShape;
     private final List<String> cursorShape;
-    private volatile String beforeSha256, failure;
+    private volatile String failure;
     private volatile int matches, sites;
 
     /**
@@ -91,10 +89,6 @@ public final class InputPathElisionTransformer implements ClassFileTransformer {
     /** Returns the injected entry-consult count so far. */
     public int sites() {
         return sites;
-    }
-    /** Returns the original full class digest for restoration verification. */
-    public String beforeSha256() {
-        return beforeSha256;
     }
 
     @Override
@@ -171,10 +165,7 @@ public final class InputPathElisionTransformer implements ClassFileTransformer {
                 return null;
             }
             final byte[] result = writer.toByteArray();
-            if (beforeSha256 == null) {
-                beforeSha256 = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-            }
+
             matches++;
             sites += 2;
             return result;

@@ -9,6 +9,9 @@ import java.util.Set;
 
 final class PluginManifestReader {
     static final String NAME = "META-INF/turboism/package.json";
+    // packageHash and pluginDescriptorSha256 stay admitted but unused: archives built
+    // before the self-hash retirement must keep installing, and the outer archive digest
+    // plus catalog descriptorSha256 already bind the bytes an operator downloads.
     private static final Set<String> TOP = Set.of(
             "format",
             "schemaVersion",
@@ -36,15 +39,9 @@ final class PluginManifestReader {
         exact(root, "packageKind", "PLUGIN");
         require(ManifestPrimitives.packageId(root.path("packageId")), "MANIFEST_FIELD_INVALID", "packageId");
         text(root, "version", strictVersion());
-        text(root, "packageHash", "[0-9a-f]{64}");
         exact(root, "pluginDescriptorPath", "plugin/plugin.jar!/META-INF/turboism/plugin.json");
-        text(root, "pluginDescriptorSha256", "[0-9a-f]{64}");
         timestamp(root);
         files(root.path("files"));
-        require(
-                root.path("packageHash").textValue().equals(canonicalHash(root)),
-                "PACKAGE_HASH_MISMATCH",
-                "packageHash");
         return root;
     }
 
@@ -108,10 +105,6 @@ final class PluginManifestReader {
 
     private static void timestamp(JsonNode root) throws Exception {
         require(ManifestPrimitives.timestamp(root.path("createdAt")), "MANIFEST_FIELD_INVALID", "createdAt");
-    }
-
-    private static String canonicalHash(JsonNode root) throws Exception {
-        return CanonicalJson.sha256Without(root, "packageHash");
     }
 
     private static ObjectMapper mapper() {

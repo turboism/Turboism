@@ -365,13 +365,12 @@ public interface CorePluginManagement extends AutoCloseable {
         }
     }
 
-    /** One event contract the plugin publishes: {@code id}, {@code contractVersion}, {@code eventType}, and payload {@code abiSha256} fingerprint. */
-    record EventExport(String id, String contractVersion, String eventType, String abiSha256) {
+    /** One event contract the plugin publishes: {@code id}, {@code contractVersion}, and {@code eventType}. */
+    record EventExport(String id, String contractVersion, String eventType) {
         public EventExport {
             if (id == null || id.isBlank()) throw new IllegalArgumentException("id must not be blank");
             contractVersion = contractVersion == null ? "" : contractVersion;
             eventType = eventType == null ? "" : eventType;
-            abiSha256 = abiSha256 == null ? "" : abiSha256;
         }
     }
 
@@ -379,13 +378,7 @@ public interface CorePluginManagement extends AutoCloseable {
      * One event contract the plugin consumes: {@code providerId}/{@code eventId} identify the
      * export; {@code required} marks subscriptions the plugin cannot run without.
      */
-    record EventImport(
-            String providerId,
-            String eventId,
-            String contractVersion,
-            String eventType,
-            String abiSha256,
-            boolean required) {
+    record EventImport(String providerId, String eventId, String contractVersion, String eventType, boolean required) {
         public EventImport {
             if (providerId == null || providerId.isBlank()) {
                 throw new IllegalArgumentException("providerId must not be blank");
@@ -393,7 +386,6 @@ public interface CorePluginManagement extends AutoCloseable {
             if (eventId == null || eventId.isBlank()) throw new IllegalArgumentException("eventId must not be blank");
             contractVersion = contractVersion == null ? "" : contractVersion;
             eventType = eventType == null ? "" : eventType;
-            abiSha256 = abiSha256 == null ? "" : abiSha256;
         }
     }
 

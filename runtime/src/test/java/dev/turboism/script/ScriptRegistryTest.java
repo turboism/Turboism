@@ -76,7 +76,7 @@ final class ScriptRegistryTest {
         final Path outside = home.resolve("outside");
         Files.createDirectories(outside);
         Files.writeString(outside.resolve("main.js"), "print('escaped');");
-        Files.writeString(outside.resolve("script.json"), manifest("linked.example", "print('escaped');"));
+        Files.writeString(outside.resolve("script.json"), manifest("linked.example"));
         Files.createDirectories(home.resolve("scripts"));
         try {
             Files.createSymbolicLink(home.resolve("scripts/linked"), outside);
@@ -135,13 +135,11 @@ final class ScriptRegistryTest {
     }
 
     @Test
-    void rejectsLegacySchemaVersionWithoutDigestPinning() throws Exception {
+    void rejectsLegacySchemaVersion() throws Exception {
         final Path root = writeScript("legacy", "legacy.example", "print('legacy');");
         Files.writeString(
                 root.resolve("script.json"),
-                manifest("legacy.example", "print('legacy');")
-                        .replace("\"schemaVersion\": 2", "\"schemaVersion\": 1")
-                        .replaceAll("(?m)^\\s*\"sourceSha256\".*\\R", ""));
+                manifest("legacy.example").replace("\"schemaVersion\": 2", "\"schemaVersion\": 1"));
         final List<String> diagnostics = new ArrayList<>();
 
         final ScriptRegistry registry = new ScriptRegistry(home, diagnostics::add);
@@ -152,11 +150,48 @@ final class ScriptRegistryTest {
     }
 
     @Test
+    void acceptsManifestWithLegacySourceDigestAndEditedSource() throws Exception {
+        final Path root = writeScript("legacy-digest", "legacy.digest", "print('before');");
+        Files.writeString(
+                root.resolve("script.json"),
+                manifest("legacy.digest")
+                        .replace(
+                                "\"permissions\": []",
+                                "\"sourceSha256\": \"" + "a".repeat(64) + "\",\n  \"permissions\": []"));
+        Files.writeString(root.resolve("main.js"), "print('edited after install');");
+
+        final List<String> diagnostics = new ArrayList<>();
+        final ScriptRegistry registry = new ScriptRegistry(home, diagnostics::add);
+
+        final ScriptRegistry.InstalledScript script =
+                registry.find(new ScriptId("legacy.digest")).orElseThrow();
+        assertEquals("print('edited after install');", script.source());
+        assertTrue(diagnostics.isEmpty());
+    }
+
+    @Test
+    void acceptsManifestWithoutSourceDigest() throws Exception {
+        final Path root = writeScript("no-digest", "no.digest", "print('plain');");
+        Files.writeString(
+                root.resolve("script.json"), manifest("no.digest").replaceAll("(?m)^\\s*\"sourceSha256\".*\\R", ""));
+
+        final List<String> diagnostics = new ArrayList<>();
+        final ScriptRegistry registry = new ScriptRegistry(home, diagnostics::add);
+
+        assertEquals(
+                List.of(new ScriptId("no.digest")),
+                registry.discover().stream()
+                        .map(script -> script.descriptor().id())
+                        .toList());
+        assertTrue(diagnostics.isEmpty());
+    }
+
+    @Test
     void rejectsNonIntegralSchemaVersion() throws Exception {
         final Path root = writeScript("schema-fraction", "schema.example", "print('x');");
         Files.writeString(
                 root.resolve("script.json"),
-                manifest("schema.example", "print('x');").replace("\"schemaVersion\": 2", "\"schemaVersion\": 2.9"));
+                manifest("schema.example").replace("\"schemaVersion\": 2", "\"schemaVersion\": 2.9"));
         final List<String> diagnostics = new ArrayList<>();
 
         final ScriptRegistry registry = new ScriptRegistry(home, diagnostics::add);
@@ -243,10 +278,9 @@ final class ScriptRegistryTest {
               "version": "1.0.0",
               "language": "js",
               "entry": "linked/main.js",
-              "sourceSha256": "%s",
               "permissions": []
             }
-            """.formatted(sha256("print('escaped');")));
+            """);
 
         final List<String> diagnostics = new ArrayList<>();
         final ScriptRegistry registry = new ScriptRegistry(home, diagnostics::add);
@@ -276,16 +310,14 @@ final class ScriptRegistryTest {
     }
 
     @Test
-    void rejectsSameSizeSourceRewriteWithRestoredTimestamp() throws Exception {
-        final Path root = writeScript("same-size", "same-size.example", "print('before');");
+    void rejectsSourceRewrittenAfterDiscovery() throws Exception {
+        final Path root = writeScript("rewritten", "rewritten.example", "print('before');");
         final Path source = root.resolve("main.js");
-        final var modified = Files.getLastModifiedTime(source);
         final ScriptRegistry registry = new ScriptRegistry(home, ignored -> {});
         final ScriptRegistry.InstalledScript script =
-                registry.find(new ScriptId("same-size.example")).orElseThrow();
+                registry.find(new ScriptId("rewritten.example")).orElseThrow();
 
-        Files.writeString(source, "print('after!');");
-        Files.setLastModifiedTime(source, modified);
+        Files.writeString(source, "print('after discovery');");
 
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, script::source);
     }
@@ -364,11 +396,11 @@ final class ScriptRegistryTest {
         final Path root = scriptHome.resolve("scripts").resolve(directory);
         Files.createDirectories(root);
         Files.writeString(root.resolve("main.js"), source);
-        Files.writeString(root.resolve("script.json"), manifest(id, source));
+        Files.writeString(root.resolve("script.json"), manifest(id));
         return root;
     }
 
-    private static String manifest(final String id, final String source) {
+    private static String manifest(final String id) {
         return """
             {
               "schemaVersion": 2,
@@ -377,19 +409,8 @@ final class ScriptRegistryTest {
               "version": "1.0.0",
               "language": "js",
               "entry": "main.js",
-              "sourceSha256": "%s",
               "permissions": []
             }
-            """.formatted(id, id, sha256(source));
-    }
-
-    private static String sha256(final String source) {
-        try {
-            return java.util.HexFormat.of()
-                    .formatHex(java.security.MessageDigest.getInstance("SHA-256")
-                            .digest(source.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        } catch (java.security.NoSuchAlgorithmException unavailable) {
-            throw new AssertionError(unavailable);
-        }
+            """.formatted(id, id);
     }
 }

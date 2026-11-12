@@ -130,11 +130,11 @@ class CorePluginManagementTest {
         assertEquals("", new Dependency("d", null, null, null, null).ordering());
         assertThrows(IllegalArgumentException.class, () -> new Permission(null, null, null));
         assertEquals("", new Permission("p", null, null).scope());
-        assertThrows(IllegalArgumentException.class, () -> new EventExport(" ", null, null, null));
-        assertEquals("", new EventExport("e", null, null, null).abiSha256());
-        assertThrows(IllegalArgumentException.class, () -> new EventImport("", "e", null, null, null, true));
-        assertThrows(IllegalArgumentException.class, () -> new EventImport("p", null, null, null, null, true));
-        assertEquals("", new EventImport("p", "e", null, null, null, false).eventType());
+        assertThrows(IllegalArgumentException.class, () -> new EventExport(" ", null, null));
+        assertEquals("", new EventExport("e", null, null).contractVersion());
+        assertThrows(IllegalArgumentException.class, () -> new EventImport("", "e", null, null, true));
+        assertThrows(IllegalArgumentException.class, () -> new EventImport("p", null, null, null, true));
+        assertEquals("", new EventImport("p", "e", null, null, false).eventType());
     }
 
     @Test

@@ -92,7 +92,7 @@ final class FrameworkUpdateE2E {
             Files.createDirectories(p.getParent());
             Files.write(p, e.getValue());
             final String h = FrameworkUpdateTaskStore.hash(e.getValue());
-            entries.add(new UpdateManifestEntry(e.getKey(), e.getValue().length, h, "sha256:" + h));
+            entries.add(new UpdateManifestEntry(e.getKey(), e.getValue().length, h));
         }
         final byte[] manifest = new UpdateManifest(
                         1, "e2e", "1.1.0", "stable", 70, "d".repeat(40), "1.0.0", "windows-x64", entries)

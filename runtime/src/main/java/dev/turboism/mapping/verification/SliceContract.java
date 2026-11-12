@@ -14,7 +14,6 @@ import java.util.Set;
  * @param sourceVersion the reviewed Cubism version the bound record was authored against
  * @param recordFileName embedded verification record resource name under
  *     {@code META-INF/turboism/verification/}
- * @param recordSha256 observed SHA-256 of the bound record bytes, used to detect changes after probing
  * @param verificationId the bound record's stable verification identity
  * @param adapterSliceId the bound record's adapter-slice identity
  * @param declaredVersion the version the host itself declared at probe time
@@ -34,7 +33,6 @@ public record SliceContract(
         String sliceId,
         String sourceVersion,
         String recordFileName,
-        String recordSha256,
         String verificationId,
         String adapterSliceId,
         String declaredVersion,
@@ -47,7 +45,6 @@ public record SliceContract(
         sliceId = requireText(sliceId, "sliceId");
         sourceVersion = requireText(sourceVersion, "sourceVersion");
         recordFileName = requireText(recordFileName, "recordFileName");
-        recordSha256 = requireSha(recordSha256);
         verificationId = requireText(verificationId, "verificationId");
         adapterSliceId = requireText(adapterSliceId, "adapterSliceId");
         declaredVersion = requireText(declaredVersion, "declaredVersion");
@@ -82,13 +79,5 @@ public record SliceContract(
             throw new IllegalArgumentException(name + " must not be blank");
         }
         return value;
-    }
-
-    private static String requireSha(final String value) {
-        final String normalized = requireText(value, "recordSha256").toLowerCase(java.util.Locale.ROOT);
-        if (!normalized.matches("[0-9a-f]{64}")) {
-            throw new IllegalArgumentException("recordSha256 must be 64 lowercase hexadecimal characters");
-        }
-        return normalized;
     }
 }

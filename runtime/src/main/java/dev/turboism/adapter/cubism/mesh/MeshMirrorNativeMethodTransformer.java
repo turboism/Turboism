@@ -30,7 +30,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
     private final MeshMirrorHostProfile profile;
     private final ClassLoader expectedClassLoader;
     private final Path expectedArtifact;
-    private final Map<String, String> pinnedClassSha256;
+    private final java.util.Set<String> targetOwners;
     private final String hostClassName;
     private final Instrumentation helperInstrumentation;
     private final Consumer<String> diagnostic;
@@ -68,7 +68,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                 expectedArtifact,
                 hostClassName,
                 helperInstrumentation,
-                Map.of(),
+                java.util.Set.of(),
                 diagnostic);
     }
 
@@ -80,7 +80,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
      * @param expectedArtifact artifact path, or null for an isolated bytecode fixture
      * @param hostClassName optional restriction to one target owner
      * @param helperInstrumentation instrumentation used to make the bridge available
-     * @param pinnedClassSha256 class pins from the resolved contract
+     * @param targetOwners internal names the resolved contract declares
      * @param diagnostic diagnostic consumer
      */
     public MeshMirrorNativeMethodTransformer(
@@ -89,14 +89,14 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
             final Path expectedArtifact,
             final String hostClassName,
             final Instrumentation helperInstrumentation,
-            final Map<String, String> pinnedClassSha256,
+            final java.util.Set<String> targetOwners,
             final Consumer<String> diagnostic) {
         this.profile = Objects.requireNonNull(profile, "profile");
         this.expectedClassLoader = expectedClassLoader;
         this.expectedArtifact = expectedArtifact == null
                 ? null
                 : expectedArtifact.toAbsolutePath().normalize();
-        this.pinnedClassSha256 = Map.copyOf(pinnedClassSha256);
+        this.targetOwners = java.util.Set.copyOf(targetOwners);
         this.hostClassName = hostClassName == null ? null : hostClassName.replace('.', '/');
         this.helperInstrumentation = helperInstrumentation;
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
@@ -485,12 +485,11 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
             return false;
         }
         // Retransformation can reorder the constant pool and omit debug data. A replay must
-        // preserve the entire definition first admitted against the reviewed raw class pin.
+        // preserve the entire definition first admitted against the reviewed contract.
         // Upstream transformer order remains fixed: this transformer precedes mesh-session weaving.
         if (replay
                 ? !java.util.Arrays.equals(admittedDefinitions.get(owner), normalizedDefinition(bytes))
-                : (expectedArtifact != null || !pinnedClassSha256.isEmpty())
-                        && !ReviewedHostContract.matchesClassBytes(pinnedClassSha256, owner, bytes)) {
+                : !ReviewedHostContract.declaresTarget(targetOwners, owner)) {
             reject(Outcome.CLASS_BYTES_MISMATCH, "MESH_MIRROR_CLASS_BYTES_MISMATCH owner=" + owner);
             return false;
         }

@@ -17,8 +17,6 @@ import org.junit.jupiter.api.io.TempDir;
 class PerformanceProbeReportWriterTest {
 
     private static final String ARTIFACT_SHA = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
-    private static final String AGENT_SHA = "a".repeat(64);
-    private static final String FIXTURE_SHA = "b".repeat(64);
     private static final Set<String> METRIC_NAMES = Set.of(
             "renderScene",
             "modelingPreRenderUpdate",
@@ -53,8 +51,6 @@ class PerformanceProbeReportWriterTest {
                         output,
                         ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
                         ARTIFACT_SHA,
-                        AGENT_SHA,
-                        FIXTURE_SHA,
                         "edit",
                         startedEpochMillis,
                         endedEpochMillis,
@@ -65,8 +61,6 @@ class PerformanceProbeReportWriterTest {
         assertEquals(1, root.path("schemaVersion").asInt());
         assertEquals("5.3.02", root.path("cubismVersion").asText());
         assertEquals(ARTIFACT_SHA, root.path("artifactSha256").asText());
-        assertEquals(AGENT_SHA, root.path("agentSha256").asText());
-        assertEquals(FIXTURE_SHA, root.path("fixtureSha256").asText());
         assertEquals("edit", root.path("scenario").asText());
 
         final JsonNode capture = root.path("capture");
@@ -108,16 +102,7 @@ class PerformanceProbeReportWriterTest {
         recorder.stopCapture();
         final Path output = temporary.resolve("images.json");
         new PerformanceProbeReportWriter()
-                .write(
-                        output,
-                        "5.3.02",
-                        ARTIFACT_SHA,
-                        AGENT_SHA,
-                        FIXTURE_SHA,
-                        "images",
-                        1000,
-                        2000,
-                        recorder.snapshot());
+                .write(output, "5.3.02", ARTIFACT_SHA, "images", 1000, 2000, recorder.snapshot());
         final JsonNode root = JSON.readTree(Files.readAllBytes(output));
         assertEquals(2, root.path("schemaVersion").asInt());
         assertEquals(12, root.path("metrics").size());
@@ -139,34 +124,16 @@ class PerformanceProbeReportWriterTest {
         final Path output = temporary.resolve("images-repacked.json");
         final String repackedSha = "c".repeat(64);
         final PerformanceProbeReportWriter writer = new PerformanceProbeReportWriter();
-        writer.write(output, "5.3.02", repackedSha, AGENT_SHA, FIXTURE_SHA, "images", 1000, 2000, recorder.snapshot());
+        writer.write(output, "5.3.02", repackedSha, "images", 1000, 2000, recorder.snapshot());
         final JsonNode root = JSON.readTree(Files.readAllBytes(output));
         assertEquals("5.3.02", root.path("cubismVersion").asText());
         assertEquals(repackedSha, root.path("artifactSha256").asText());
         assertThrows(
                 IllegalArgumentException.class,
-                () -> writer.write(
-                        output,
-                        "5.3.99",
-                        repackedSha,
-                        AGENT_SHA,
-                        FIXTURE_SHA,
-                        "images",
-                        1000,
-                        2000,
-                        recorder.snapshot()));
+                () -> writer.write(output, "5.3.99", repackedSha, "images", 1000, 2000, recorder.snapshot()));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> writer.write(
-                        output,
-                        "5.3.02",
-                        "missing",
-                        AGENT_SHA,
-                        FIXTURE_SHA,
-                        "images",
-                        1000,
-                        2000,
-                        recorder.snapshot()));
+                () -> writer.write(output, "5.3.02", "missing", "images", 1000, 2000, recorder.snapshot()));
     }
 
     @Test
@@ -179,8 +146,6 @@ class PerformanceProbeReportWriterTest {
                         output,
                         ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
                         ReviewedHostArtifacts.CUBISM_5_3_03.sha256(),
-                        AGENT_SHA,
-                        FIXTURE_SHA,
                         "camera",
                         1_700_000_000_000L,
                         1_700_000_030_000L,

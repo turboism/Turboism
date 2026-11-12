@@ -129,8 +129,7 @@ class PaletteToolbarContributionProviderTest {
                 record.cubismVersion(),
                 record.artifact().size(),
                 record.artifact().sha256(),
-                EditorModelVerificationManifest.ADAPTER_SLICE_ID,
-                record.recordSha256());
+                EditorModelVerificationManifest.ADAPTER_SLICE_ID);
     }
 
     private static final class RecordingHost implements PaletteToolbarHostOperations {

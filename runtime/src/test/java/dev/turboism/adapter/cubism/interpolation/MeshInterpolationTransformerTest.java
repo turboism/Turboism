@@ -154,15 +154,15 @@ final class MeshInterpolationTransformerTest {
         var domain = new java.security.ProtectionDomain(source, null);
         assertNull(transformer.transform(
                 getClass().getClassLoader(), MeshInterpolationTransformer.OWNER, null, domain, bytes));
-        assertEquals(java.util.List.of("MESH_INTERPOLATION_DECLINED_CLASS_HASH"), reports);
+        assertEquals(java.util.List.of("MESH_INTERPOLATION_DECLINED_SHAPE_OR_SOURCE"), reports);
         assertFalse(transformer.patched());
         assertNull(transformer.transform(
                 getClass().getClassLoader(), MeshInterpolationTransformer.OWNER, Object.class, domain, bytes));
     }
 
     @Test
-    void realJarBytesMatchPinnedDigestsAndTransformOnEveryReviewedVersion() throws Exception {
-        final var pins = dev.turboism.adapter.cubism.optimization.ClassPinTable.load("mesh-interpolation");
+    void realJarBytesDeclareTheTargetClassAndTransformOnEveryReviewedVersion() throws Exception {
+        final var targets = dev.turboism.adapter.cubism.optimization.ClassPinTable.load("mesh-interpolation");
         for (String version : dev.turboism.mapping.verification.ReviewedHostArtifacts.reviewedCubismVersions()) {
             java.nio.file.Path jar;
             try {
@@ -180,8 +180,9 @@ final class MeshInterpolationTransformerTest {
                     bytes = in.readAllBytes();
                 }
             }
-            String expected = pins.get(version).get(MeshInterpolationTransformer.OWNER);
-            assertEquals(expected, MeshInterpolationTransformer.digest(bytes), version + " class digest mismatch");
+            assertTrue(
+                    targets.get(version).contains(MeshInterpolationTransformer.OWNER),
+                    version + " must declare the interpolation extension class");
 
             var reports = new ArrayList<String>();
             var transformer = new MeshInterpolationTransformer(reports::add);

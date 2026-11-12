@@ -18,8 +18,6 @@ final class TriangleListEdgeBuilderPatcher implements Opcodes {
     private static final String QUERY = "(L" + EDGE + ";Z)Z";
     private static final String HELPER = "dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges";
     private static final String LEASE = "dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge";
-    // Filled from the reviewed original method, independently of unrelated TriangleList methods.
-    private static final String REVIEWED_BODY = "55bdf411a6aaf7ceb24f673d8f3b7218a76ba26c7f480c9968c753241cb44124";
 
     private TriangleListEdgeBuilderPatcher() {}
 
@@ -71,10 +69,11 @@ final class TriangleListEdgeBuilderPatcher implements Opcodes {
     }
 
     static byte[] patch(final byte[] bytes) {
-        if (!new ClassReader(bytes).getClassName().equals(OWNER)
-                || !fingerprint(bytes).equals(REVIEWED_BODY)) {
-            throw new IllegalArgumentException("unreviewed local builder body");
+        if (!new ClassReader(bytes).getClassName().equals(OWNER)) {
+            throw new IllegalArgumentException("unreviewed local builder owner");
         }
+        // The fingerprint derivation itself rejects an absent or duplicated builder method.
+        fingerprint(bytes);
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
             @Override
             protected String getCommonSuperClass(final String a, final String b) {

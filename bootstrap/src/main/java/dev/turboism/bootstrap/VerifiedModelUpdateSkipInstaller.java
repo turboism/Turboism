@@ -87,13 +87,8 @@ final class VerifiedModelUpdateSkipInstaller implements VerifiedHookInstaller {
             verifyMethod(source, owner, dep.name(), dep.descriptor(), observed);
         }
         contract.requireUnchanged(source.artifact());
-        return List.of(WeaveTarget.single(
-                entry,
-                transformer,
-                EXPECTED_MATCHES,
-                transformer::matches,
-                transformer::failure,
-                owner -> transformer.beforeSha256()));
+        return List.of(
+                WeaveTarget.single(entry, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     private static void verifyMethod(

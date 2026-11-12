@@ -4,10 +4,8 @@ import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import org.objectweb.asm.ClassReader;
@@ -32,7 +30,7 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
     private final ClassLoader loader;
     private final Path artifact;
     private final List<String> shape;
-    private volatile String beforeSha256, failure;
+    private volatile String failure;
     private volatile int matches;
 
     /** Reference bytes come from the installer's verified target-class snapshot. */
@@ -113,9 +111,7 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
                 return null;
             }
             byte[] output = writer.toByteArray();
-            if (beforeSha256 == null)
-                beforeSha256 = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+
             matches++;
             return output;
         } catch (Exception | LinkageError rejected) {
@@ -127,10 +123,6 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
     /** Successful transformations. */
     public int matches() {
         return matches;
-    }
-    /** First native bytes for restoration evidence. */
-    public String beforeSha256() {
-        return beforeSha256;
     }
     /** Most recent rejection. */
     public String failure() {
@@ -233,10 +225,9 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
      * repackaged or differently-declared artifact binds this hook only when
      * one distinct contract's pins match every class entry; identical contracts merge.
      */
-    public static Map<String, Map<String, String>> reviewedClassSha256() {
-        return REVIEWED_CLASS_SHA256;
+    public static Map<String, List<String>> reviewedClassSha256() {
+        return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
-            ClassPinTable.load("warp-position-projection");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("warp-position-projection");
 }

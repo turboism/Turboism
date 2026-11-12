@@ -36,8 +36,7 @@
     {
       "id": "sample.ready",
       "contractVersion": "1.0.0",
-      "eventType": "dev.turboism.plugin.sample.SampleReadyEvent",
-      "abiSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "eventType": "dev.turboism.plugin.sample.SampleReadyEvent"
     }
   ],
   "eventImports": [
@@ -46,7 +45,6 @@
       "eventId": "provider.ready",
       "contractVersion": "[1.0.0,2.0.0)",
       "eventType": "dev.turboism.plugin.provider.ProviderReadyEvent",
-      "abiSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "required": false
     }
   ],

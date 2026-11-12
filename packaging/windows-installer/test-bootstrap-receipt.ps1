@@ -247,7 +247,7 @@ public class TestReceiptHelper {
         }
         Files.createDirectories(receiptIndex.getParent());
         Files.writeString(receiptIndex, "{\"format\":\"turboism.installed-receipt\",\"version\":\"1.0.0\"}\n", StandardCharsets.UTF_8);
-        Path docsDir = root.resolve("state/runtime/update/receipts/doc-sha256");
+        Path docsDir = root.resolve("state/runtime/update/receipts/current");
         Files.createDirectories(docsDir);
         Files.copy(manifest, docsDir.resolve("manifest.json"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         Files.copy(sig, docsDir.resolve("manifest.json.sig"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
@@ -282,7 +282,7 @@ public class TestReceiptHelper {
         Assert-ReceiptRegression ($initRes.HelperExitCode -eq 10) 'helper exit code is 10 (EXIT_NOTHING)'
         $createdReceipt = Join-Path $appHome 'state\runtime\update\installed-receipt.json'
         Assert-ReceiptRegression (Test-Path -LiteralPath $createdReceipt -PathType Leaf) 'installed-receipt.json created'
-        $publishedManifest = Join-Path $appHome 'state\runtime\update\receipts\doc-sha256\manifest.json'
+        $publishedManifest = Join-Path $appHome 'state\runtime\update\receipts\current\manifest.json'
         Assert-ReceiptRegression (Test-Path -LiteralPath $publishedManifest -PathType Leaf) 'published manifest exists'
 
         # 10. Idempotency: re-running with identical inputs succeeds in non-strict mode

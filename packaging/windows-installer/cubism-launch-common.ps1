@@ -549,8 +549,7 @@ function Write-CubismInstallerSnapshot {
     # The report publishes this file's digest only after the snapshot is complete.
     # No installation state or user selection is mutated during discovery.
     $agent = Join-Path $TurboismHome "turboism-agent.jar"
-    if (-not (Test-CubismNormalFile $agent)) { throw "installer verifier payload is missing" }
-    if (Test-Path -LiteralPath $SnapshotPath) { throw "installer snapshot already exists" }
+    if (-not (Test-CubismNormalFile $agent)) { throw "installer verifier payload is missing" }    if (Test-Path -LiteralPath $SnapshotPath) { throw "installer snapshot already exists" }
     $entries = @(
         foreach ($candidate in @($Candidates | Where-Object { $_.Selectable })) {
             if ([string]::IsNullOrWhiteSpace($candidate.ApplicationSha256) -or
@@ -574,7 +573,6 @@ function Write-CubismInstallerSnapshot {
     $document = [ordered]@{
         format = "turboism.cubism.discovery-snapshot"
         schemaVersion = 2
-        verifierSha256 = (Get-CubismSha256 $agent)
         installations = $entries
     }
     $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
@@ -602,18 +600,20 @@ function Read-CubismInstallerSnapshot {
     if ((Get-CubismTextSha256 $text) -ine $ExpectedSha256) { throw "installer discovery snapshot digest mismatch" }
     try { $document = $text | ConvertFrom-Json -ErrorAction Stop }
     catch { throw "installer discovery snapshot is invalid JSON" }
-    if ($null -eq $document -or
-        (@($document.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'format,installations,schemaVersion,verifierSha256' -or
+    if ($null -eq $document) { throw "installer discovery snapshot schema is invalid" }
+    # verifierSha256 is a retired field. Snapshots already written by a released installer still
+    # carry it, so it is tolerated and ignored instead of being hashed or compared again.
+    $fields = @($document.PSObject.Properties.Name | Where-Object { $_ -cne 'verifierSha256' } | Sort-Object) -join ','
+    if ($fields -cne 'format,installations,schemaVersion' -or
         $document.format -cne 'turboism.cubism.discovery-snapshot' -or
         ($document.schemaVersion -isnot [int] -and $document.schemaVersion -isnot [long]) -or
         $document.schemaVersion -ne 2 -or $document.installations -isnot [array] -or
-        $document.installations.Count -gt $script:CubismMaxStateEntries -or
-        $document.verifierSha256 -isnot [string] -or $document.verifierSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+        $document.installations.Count -gt $script:CubismMaxStateEntries) {
         throw "installer discovery snapshot schema is invalid"
     }
     $agent = Join-Path $TurboismHome "turboism-agent.jar"
-    if (-not (Test-CubismNormalFile $agent) -or (Get-CubismSha256 $agent) -ine $document.verifierSha256) {
-        throw "installer verifier changed after discovery"
+    if (-not (Test-CubismNormalFile $agent)) {
+        throw "installer verifier disappeared after discovery"
     }
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $items = [System.Collections.Generic.List[object]]::new()

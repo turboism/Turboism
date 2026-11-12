@@ -88,26 +88,26 @@ def render(descriptors: list[dict]) -> str:
         lines.append("No first-party plugin currently publishes a public plugin event contract.")
     else:
         lines.extend([
-            "| Provider | Event ID | Contract | Java type | ABI SHA-256 |",
-            "|---|---|---|---|---|",
+            "| Provider | Event ID | Contract | Java type |",
+            "|---|---|---|---|",
         ])
         for descriptor, event in exports:
             lines.append(
                 f"| `{descriptor['id']}` | `{event['id']}` | `{event['contractVersion']}` | "
-                f"`{event['eventType']}` | `{event['abiSha256']}` |"
+                f"`{event['eventType']}` |"
             )
     lines.extend(["", "## Subscribed events", ""])
     if not imports:
         lines.append("No first-party plugin currently imports a public plugin event contract.")
     else:
         lines.extend([
-            "| Consumer | Provider | Event ID | Contract range | Java type | ABI SHA-256 | Required |",
-            "|---|---|---|---|---|---|---|",
+            "| Consumer | Provider | Event ID | Contract range | Java type | Required |",
+            "|---|---|---|---|---|---|",
         ])
         for descriptor, event in imports:
             lines.append(
                 f"| `{descriptor['id']}` | `{event['provider']}` | `{event['eventId']}` | "
-                f"`{event['contractVersion']}` | `{event['eventType']}` | `{event['abiSha256']}` | "
+                f"`{event['contractVersion']}` | `{event['eventType']}` | "
                 f"`{str(event['required']).lower()}` |"
             )
     lines.extend(["", "## Embedded contract artifacts", ""])

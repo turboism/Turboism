@@ -3,9 +3,7 @@ package dev.turboism.adapter.cubism.optimization.glerror;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import org.objectweb.asm.ClassReader;
@@ -52,7 +50,6 @@ public final class GlGetErrorElisionTransformer implements ClassFileTransformer 
     private int matches;
     private int elided;
     private String failure;
-    private String beforeSha256;
 
     /**
      * @param loader the host class loader admitted for the artifact
@@ -135,10 +132,6 @@ public final class GlGetErrorElisionTransformer implements ClassFileTransformer 
     public int elided() {
         return elided;
     }
-    /** Returns the original full class digest for restoration verification. */
-    public String beforeSha256() {
-        return beforeSha256;
-    }
 
     @Override
     public byte[] transform(
@@ -194,10 +187,7 @@ public final class GlGetErrorElisionTransformer implements ClassFileTransformer 
                 return null;
             }
             final byte[] result = writer.toByteArray();
-            if (beforeSha256 == null) {
-                beforeSha256 = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-            }
+
             matches++;
             elided += replaced[0];
             return result;

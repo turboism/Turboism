@@ -140,9 +140,6 @@ public interface PluginDescriptor {
 
         /** Returns the event payload's fully qualified type name. */
         String eventType();
-
-        /** Returns the payload type's declared ABI digest. */
-        String abiSha256();
     }
 
     /** One public event contract this plugin consumes. */
@@ -158,9 +155,6 @@ public interface PluginDescriptor {
 
         /** Returns the expected event payload type name. */
         String eventType();
-
-        /** Returns the expected payload type's ABI digest. */
-        String abiSha256();
 
         /** Returns whether an unsatisfied import fails route admission instead of being skipped. */
         boolean required();

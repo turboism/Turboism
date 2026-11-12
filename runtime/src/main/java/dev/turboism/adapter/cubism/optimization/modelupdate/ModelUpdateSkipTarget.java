@@ -113,12 +113,11 @@ public record ModelUpdateSkipTarget(
      * differently-declared artifact binds only when exactly one generation's pin set
      * matches every class entry.
      */
-    public static Map<String, Map<String, String>> reviewedClassSha256() {
-        return REVIEWED_CLASS_SHA256;
+    public static Map<String, List<String>> reviewedClassSha256() {
+        return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
-            ClassPinTable.load("model-update-skip");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("model-update-skip");
 
     /**
      * The dependency methods the bridge resolves and the installer verifies against the

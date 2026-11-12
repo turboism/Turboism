@@ -1,7 +1,6 @@
 """Capability derivation, editor-model refresh, and draft profile/pack synthesis."""
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 import re
@@ -379,16 +378,11 @@ def derive_pack(
         entries.append(entry)
     pack = {}
     for key, value in source_pack.items():
-        if key == "exactArtifactSha256":
-            continue
         pack[key] = value
         if key == "cubismVersion":
             pack[key] = version
-            if "exactArtifactSha256" in source_pack:
-                pack["exactArtifactSha256"] = sha
     pack["entries"] = entries
     if "metadata" in source_pack:
-        record_bytes = json.dumps(record, indent=2).encode() + b"\n"
         metadata = dict(
             source_pack["metadata"],
             inventoryRef=(
@@ -404,7 +398,6 @@ def derive_pack(
             selectorCount=len(record["selectors"]),
             capabilityCount=len(record["capabilityIds"]),
             capabilityIds=list(record["capabilityIds"]),
-            verificationRecordSha256=hashlib.sha256(record_bytes).hexdigest(),
         )
         if "validationNotes" in metadata:
             metadata["validationNotes"] = re.sub(
@@ -655,7 +648,6 @@ def repair_committed_packs() -> list[str]:
         if (
             fixed["entries"] != pack["entries"]
             or fixed.get("metadata") != pack.get("metadata")
-            or fixed.get("exactArtifactSha256") != pack.get("exactArtifactSha256")
         ):
             path.write_text(json.dumps(fixed, indent=2) + "\n")
             repaired.append(path.name)

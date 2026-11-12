@@ -125,13 +125,8 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
             }
         };
         targets.add(WeaveTarget.registeredOnly(dependencyGuard));
-        targets.add(WeaveTarget.single(
-                target,
-                transformer,
-                EXPECTED_MATCHES,
-                transformer::matches,
-                transformer::failure,
-                owner -> originalTargetSha));
+        targets.add(
+                WeaveTarget.single(target, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
         contract.requireUnchanged(source);
     }
 

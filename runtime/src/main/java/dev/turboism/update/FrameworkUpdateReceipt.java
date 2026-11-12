@@ -21,6 +21,9 @@ final class FrameworkUpdateReceipt {
     private static final WriteOptions PRIVATE_WRITE =
             WriteOptions.DEFAULT.withPermissions(WriteOptions.Permissions.OWNER_ONLY);
 
+    /** Bounds of the receipt index read back for collision detection. */
+    private static final int MAX_INDEX_BYTES = 4096;
+
     /**
      * Windows keeps the receipt state's historical owner/SYSTEM/Administrators DACL. The staged file is
      * already owner-only, and this widens it to exactly the trusted principals the pre-migration code
@@ -42,21 +45,18 @@ final class FrameworkUpdateReceipt {
         private final byte[] document;
         private final byte[] envelope;
         private final byte[] index;
-        private final String digest;
 
         private Prepared(
                 final Path root,
                 final UpdateManifest manifest,
                 final byte[] document,
                 final byte[] envelope,
-                final byte[] index,
-                final String digest) {
+                final byte[] index) {
             this.root = root;
             this.manifest = manifest;
             this.document = document.clone();
             this.envelope = envelope.clone();
             this.index = index.clone();
-            this.digest = digest;
         }
 
         UpdateManifest manifest() {
@@ -71,16 +71,41 @@ final class FrameworkUpdateReceipt {
             return index.clone();
         }
 
+        byte[] document() {
+            return document.clone();
+        }
+
+        byte[] envelope() {
+            return envelope.clone();
+        }
+
+        /** Fixed location of the active signed documents; the index names no digest. */
+        Path currentDocuments() {
+            return indexPath().getParent().resolve(FrameworkInstallationReceiptLoader.CURRENT_RECEIPT);
+        }
+
         Path indexPath() {
             return root.resolve(FrameworkInstallationReceiptLoader.STATE).resolve("installed-receipt.json");
         }
 
-        /** Append immutable documents only; a crash may leave harmless unreferenced documents. */
+        /**
+         * Publishes the active signed documents at the fixed current location.
+         *
+         * <p>An existing different document set is replaced only after the caller authenticated the
+         * new bytes, so the fixed path always holds one exact signed receipt. A crash between the two
+         * documents leaves the previous manifest with a mismatched envelope, which the signature
+         * refuses; the next apply republishes both.</p>
+         */
         void publishDocuments() throws IOException {
-            final Path directory = indexPath().getParent().resolve("receipts").resolve(digest);
+            final Path directory = currentDocuments();
             privateDirectories(root, directory);
-            immutable(directory.resolve("manifest.json"), document);
-            immutable(directory.resolve("manifest.json.sig"), envelope);
+            publishDocument(directory.resolve("manifest.json"), document);
+            publishDocument(directory.resolve("manifest.json.sig"), envelope);
+        }
+
+        /** Content address of the authenticated manifest bytes; never stored in the index. */
+        String digest() {
+            return FrameworkUpdateTaskStore.hash(document);
         }
     }
 
@@ -100,16 +125,14 @@ final class FrameworkUpdateReceipt {
         try (var files = FrameworkInstallationFiles.system(root)) {
             rootIdentity = files.rootIdentity();
         }
-        final String digest = FrameworkUpdateTaskStore.hash(manifestBytes);
         final var index = UpdateFileSupport.JSON
                 .createObjectNode()
                 .put("format", FrameworkInstallationReceiptLoader.FORMAT)
                 .put("schemaVersion", 1)
                 .put("layout", FrameworkInstallationReceiptLoader.LAYOUT)
-                .put("manifestSha256", digest)
                 .put("rootIdentity", rootIdentity);
         return new Prepared(
-                root, manifest, manifestBytes, signatureBytes, UpdateFileSupport.JSON.writeValueAsBytes(index), digest);
+                root, manifest, manifestBytes, signatureBytes, UpdateFileSupport.JSON.writeValueAsBytes(index));
     }
 
     /** First conventional full install: adopt only an explicitly signed complete layout with matching bytes.
@@ -121,7 +144,19 @@ final class FrameworkUpdateReceipt {
         try (var files = FrameworkInstallationFiles.system(receipt.root())) {
             for (final var entry : receipt.manifest().entries()) files.verify(entry);
             if (FrameworkUpdateCache.attributes(receipt.indexPath()) != null) {
-                if (!MessageDigest.isEqual(files.document(receipt.indexPath(), 4096), receipt.index())) {
+                // The index no longer records a digest, so the signed documents themselves decide
+                // whether this is the same receipt. A different one is never silently replaced.
+                if (!MessageDigest.isEqual(files.document(receipt.indexPath(), MAX_INDEX_BYTES), receipt.index())
+                        || !MessageDigest.isEqual(
+                                files.document(
+                                        receipt.currentDocuments().resolve("manifest.json"),
+                                        UpdateManifest.MAX_MANIFEST_BYTES),
+                                receipt.document())
+                        || !MessageDigest.isEqual(
+                                files.document(
+                                        receipt.currentDocuments().resolve("manifest.json.sig"),
+                                        UpdateManifestVerifier.MAX_ENVELOPE_BYTES),
+                                receipt.envelope())) {
                     throw new IOException("An existing different receipt must not be silently replaced");
                 }
                 // Idempotent only after both current payload and all exact signed documents are checked.
@@ -184,15 +219,15 @@ final class FrameworkUpdateReceipt {
         }
     }
 
-    private static void immutable(final Path target, final byte[] bytes) throws IOException {
-        if (FrameworkUpdateCache.attributes(target) == null) {
-            // Publication is serialized by the transaction lock and create-once: no partially written
-            // canonical document, and no replacement of an existing one.
-            DurableFile.createOnce(target)
-                    .withOptions(PRIVATE_WRITE)
-                    .guardedBy(PRIVATE_ACL)
-                    .replace(bytes);
-        }
+    /**
+     * Publishes one signed document at the fixed current path.
+     *
+     * <p>The path is mutable now, so a later release replaces the previous signed receipt instead of
+     * appending a second immutable copy. The bytes are still authenticated before publication and are
+     * re-read afterwards, so a torn or redirected write is refused rather than trusted.</p>
+     */
+    private static void publishDocument(final Path target, final byte[] bytes) throws IOException {
+        DurableFile.at(target).withOptions(PRIVATE_WRITE).guardedBy(PRIVATE_ACL).replace(bytes);
         final var attributes = FrameworkUpdateCache.attributes(target);
         if (attributes == null
                 || !attributes.isRegularFile()
@@ -200,7 +235,7 @@ final class FrameworkUpdateReceipt {
                 || attributes.isOther()
                 || attributes.size() != bytes.length
                 || !FrameworkUpdateCache.singleLink(target)) {
-            throw new IOException("Receipt document conflicts with immutable storage");
+            throw new IOException("Receipt document conflicts with the signed bytes");
         }
         requirePrivate(target, false);
         try (var input = Files.newInputStream(target, LinkOption.NOFOLLOW_LINKS)) {

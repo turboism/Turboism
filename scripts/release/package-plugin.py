@@ -49,11 +49,9 @@ def package(plugin_jar: Path, output: Path) -> None:
         "packageId": descriptor["id"],
         "packageKind": "PLUGIN",
         "pluginDescriptorPath": f"{PLUGIN_JAR}!/{DESCRIPTOR}",
-        "pluginDescriptorSha256": sha256(descriptor_bytes),
         "schemaVersion": 1,
         "version": descriptor["version"],
     }
-    manifest["packageHash"] = sha256(canonical(manifest))
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
     with zipfile.ZipFile(temporary, "w") as archive:

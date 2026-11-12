@@ -17,6 +17,17 @@ public final class FrameworkInstallationReceiptLoader {
     static final String FORMAT = "turboism-installed-receipt-v1";
     static final String LAYOUT = "windows-standard-zip";
     static final Path STATE = Path.of("state/runtime/update");
+    /**
+     * Fixed location of the active signed receipt documents. The index names no digest, so the
+     * documents are found without a directory scan or a second copy of their own hash.
+     */
+    static final Path CURRENT_RECEIPT = Path.of("receipts/current");
+    /** Fields this build writes. The manifest digest is derived from the immutable documents. */
+    private static final Set<String> CURRENT_INDEX_FIELDS = Set.of("format", "schemaVersion", "layout", "rootIdentity");
+    /** Fields a released index carries; the retired digest names the document directory it already used. */
+    private static final Set<String> LEGACY_INDEX_FIELDS =
+            Set.of("format", "schemaVersion", "layout", "manifestSha256", "rootIdentity");
+
     private final FrameworkInstallationFiles.Factory fileFactory;
     private final Path root;
     private final UpdateManifestVerifier verifier;
@@ -107,26 +118,22 @@ public final class FrameworkInstallationReceiptLoader {
         final byte[] indexBytes = files.document(indexPath, 4096);
         final JsonNode parsed = UpdateFileSupport.JSON.readTree(UpdateManifest.strictUtf8(indexBytes));
         if (!(parsed instanceof ObjectNode index)
-                || index.size() != 5
-                || !Set.of("format", "schemaVersion", "layout", "manifestSha256", "rootIdentity").stream()
-                        .allMatch(index::hasNonNull)
-                || !index.path("schemaVersion").isIntegralNumber()
-                || !index.path("schemaVersion").canConvertToInt()
-                || index.path("schemaVersion").intValue() != 1
                 || !text(index, "format", FORMAT)
                 || !text(index, "layout", LAYOUT)
                 || !text(index, "rootIdentity", rootIdentity)
-                || !index.path("manifestSha256").isTextual()
-                || !index.path("manifestSha256").textValue().matches("[a-f0-9]{64}")) {
+                || !index.path("schemaVersion").isIntegralNumber()
+                || !index.path("schemaVersion").canConvertToInt()
+                || index.path("schemaVersion").intValue() != 1) {
             throw new IOException("Invalid installation receipt index/root binding");
         }
-        final String digest = index.path("manifestSha256").textValue();
+        final String digest = indexDigest(index);
         final Path directory = root.resolve(STATE).resolve("receipts").resolve(digest);
         final byte[] manifestBytes =
                 files.document(directory.resolve("manifest.json"), UpdateManifest.MAX_MANIFEST_BYTES);
         final byte[] envelopeBytes =
                 files.document(directory.resolve("manifest.json.sig"), UpdateManifestVerifier.MAX_ENVELOPE_BYTES);
-        if (!FrameworkUpdateTaskStore.hash(manifestBytes).equals(digest))
+        if (!digest.equals(CURRENT_RECEIPT.getFileName().toString())
+                && !FrameworkUpdateTaskStore.hash(manifestBytes).equals(digest))
             throw new IOException("Receipt document digest mismatch");
         final UpdateManifest manifest = verifier.authenticate(manifestBytes, envelopeBytes);
         final FrameworkBuildInfo identity = info != null
@@ -172,11 +179,34 @@ public final class FrameworkInstallationReceiptLoader {
                 FrameworkUpdateTaskStore.hash((rootIdentity + "\n" + FrameworkUpdateTaskStore.hash(indexBytes) + "\n"
                                 + digest + "\n" + FrameworkUpdateTaskStore.hash(envelopeBytes))
                         .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        return new Evidence(root, identity, hashes, binding);
+        return new Evidence(root, identity, hashes, binding, directory);
     }
 
     private static Path runtimeArtifact() {
         return FrameworkRuntimeArtifact.resolve();
+    }
+
+    /**
+     * Resolves the receipt document directory name from the index field set.
+     *
+     * <p>The index is a closed field set: an unknown field must never be silently tolerated. A
+     * released index still carries the retired {@code manifestSha256} field, which always repeated
+     * the content address of the documents it pointed at. Such an index keeps reading its own
+     * directory, so an installed client upgrades without moving a byte. The digest is never
+     * re-derived from the field: the documents are authenticated by the signature either way.</p>
+     */
+    private static String indexDigest(final ObjectNode index) throws IOException {
+        final Set<String> fields = new java.util.HashSet<>();
+        index.fieldNames().forEachRemaining(fields::add);
+        if (fields.equals(CURRENT_INDEX_FIELDS)) {
+            return CURRENT_RECEIPT.getFileName().toString();
+        }
+        if (fields.equals(LEGACY_INDEX_FIELDS)
+                && index.path("manifestSha256").isTextual()
+                && index.path("manifestSha256").textValue().matches("[a-f0-9]{64}")) {
+            return index.path("manifestSha256").textValue();
+        }
+        throw new IOException("Invalid installation receipt index/root binding");
     }
 
     private static boolean text(final ObjectNode index, final String field, final String expected) {
@@ -206,20 +236,32 @@ public final class FrameworkInstallationReceiptLoader {
         private final FrameworkBuildInfo loaded;
         private final Map<String, String> hashes;
         private final String binding;
+        private final Path documents;
 
         private Evidence(
                 final Path root,
                 final FrameworkBuildInfo loaded,
                 final Map<String, String> hashes,
-                final String binding) {
+                final String binding,
+                final Path documents) {
             this.root = root;
             this.loaded = loaded;
             this.hashes = Map.copyOf(hashes);
             this.binding = binding;
+            this.documents = documents;
         }
 
         Path root() {
             return root;
+        }
+
+        /**
+         * Directory that holds the authenticated {@code manifest.json} and its envelope. A released
+         * installation keeps them in a digest-named directory, so a rollback must restore exactly
+         * the directory this evidence was read from.
+         */
+        Path documents() {
+            return documents;
         }
 
         FrameworkBuildInfo loaded() {

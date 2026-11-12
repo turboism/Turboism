@@ -2,8 +2,6 @@ package dev.turboism.adapter.cubism.textureatlas.cache;
 
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.ProtectionDomain;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -11,12 +9,11 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Exact-selector transformer for {@code CTextureAtlas}'s redundant-rebuild guard.
  *
- * <p>Rewrites only the reviewed target in {@link AtlasCacheReuseTarget#REVIEWED}, only when
- * the observed bytes match its pinned SHA-256 (or a bounded extra admitted digest) and the
- * method shape passes {@link AtlasCacheReusePatcher}'s anchor gate. Every other class, and
- * every unrecognised shape, is returned untouched. The transformer is non-retransforming,
- * so it can only act on the first definition — a class the host has already loaded is never
- * patched behind its back.</p>
+ * <p>Rewrites only the reviewed target in {@link AtlasCacheReuseTarget#REVIEWED}, and only
+ * when the method shape passes {@link AtlasCacheReusePatcher}'s anchor gate. Every other
+ * class, and every unrecognised shape, is returned untouched. The transformer is
+ * non-retransforming, so it can only act on the first definition — a class the host has
+ * already loaded is never patched behind its back.</p>
  *
  * <p>Invariant: {@link #transform} must never load or reflect on classes. Resolving a host
  * class here — even a side class such as {@code ModelImageEntry}, whose synthetic
@@ -29,42 +26,31 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
 
-    /**
-     * Optional extra admitted digests, for runs where another reviewed instrument
-     * transforms the same class first and changes its bytes. A comma-separated list of at
-     * most {@value #MAX_EXTRA_ADMITS} lowercase 64-hex digests; absent by default.
-     */
-    static final String ADMIT_CLASS_SHA256_PROPERTY = "turboism.atlasCacheReuse.admitClassSha256";
-
-    private static final int MAX_EXTRA_ADMITS = 8;
-
     /** What the transformer concluded, for diagnostics and tests. */
     public enum Outcome {
         /** No target has been defined yet. */
         NONE,
         /** A target was defined with admitted bytes and was patched. */
         PATCHED,
-        /** A target was defined but its bytes matched no admitted digest. */
-        HASH_MISMATCH,
+        /** A target was defined but its method shape differed from the reviewed structure. */
+        SHAPE_MISMATCH,
         /** A target was defined with admitted bytes but an unexpected shape. */
         SHAPE_REJECTED
     }
 
     private final java.util.Map<String, java.util.List<AtlasCacheReuseTarget>> targets;
-    private final java.util.Set<String> admittedSha256;
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> diagnostic = new AtomicReference<>("");
 
     public AtlasCacheReuseTransformer() {
-        this(java.util.Arrays.asList(AtlasCacheReuseTarget.REVIEWED), extraAdmittedDigests());
+        this(java.util.Arrays.asList(AtlasCacheReuseTarget.REVIEWED));
     }
 
-    AtlasCacheReuseTransformer(final AtlasCacheReuseTarget target, final java.util.Set<String> admittedSha256) {
-        this(java.util.List.of(Objects.requireNonNull(target, "target")), admittedSha256);
+    AtlasCacheReuseTransformer(final AtlasCacheReuseTarget target) {
+        this(java.util.List.of(Objects.requireNonNull(target, "target")));
     }
 
-    AtlasCacheReuseTransformer(
-            final java.util.Collection<AtlasCacheReuseTarget> targets, final java.util.Set<String> admittedSha256) {
+    AtlasCacheReuseTransformer(final java.util.Collection<AtlasCacheReuseTarget> targets) {
         final java.util.Map<String, java.util.List<AtlasCacheReuseTarget>> byName = new java.util.HashMap<>();
         for (final AtlasCacheReuseTarget target : targets) {
             Objects.requireNonNull(target, "target");
@@ -74,18 +60,6 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
         final java.util.Map<String, java.util.List<AtlasCacheReuseTarget>> copy = new java.util.HashMap<>();
         byName.forEach((k, v) -> copy.put(k, java.util.List.copyOf(v)));
         this.targets = java.util.Map.copyOf(copy);
-        this.admittedSha256 = java.util.Set.copyOf(Objects.requireNonNull(admittedSha256, "admittedSha256"));
-    }
-
-    /** The reviewed digests plus any bounded extras admitted via the system property. */
-    private static java.util.Set<String> extraAdmittedDigests() {
-        final String raw;
-        try {
-            raw = System.getProperty(ADMIT_CLASS_SHA256_PROPERTY, "");
-        } catch (RuntimeException unavailable) {
-            return java.util.Set.of();
-        }
-        return dev.turboism.adapter.cubism.textureatlas.AtlasAdmitDigests.parse(raw, MAX_EXTRA_ADMITS);
     }
 
     /** Latest observed outcome; {@code NONE} until a target class has been defined. */
@@ -148,32 +122,7 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
             }
         }
         if (classfileBuffer == null) return null;
-        final String observed = sha256(classfileBuffer);
-        AtlasCacheReuseTarget matched = null;
-        for (final AtlasCacheReuseTarget candidate : candidates) {
-            if (observed.equals(candidate.reviewedSha256())) {
-                matched = candidate;
-                break;
-            }
-        }
-        if (matched == null && admittedSha256.contains(observed)) {
-            matched = first;
-        }
-        if (matched == null) {
-            // Every sighting of a reviewed-name class is reported — the host can define
-            // the same name under more than one loader, and a silently-skipped definition
-            // is indistinguishable from "the patch never ran" in captured evidence.
-            report(
-                    "HASH_MISMATCH",
-                    first,
-                    "observed=" + observed + " loader=" + String.valueOf(loader) + " retransform="
-                            + (classBeingRedefined != null));
-            if (outcome.compareAndSet(Outcome.NONE, Outcome.HASH_MISMATCH)) {
-                diagnostic.compareAndSet("", first.internalName() + " observed=" + observed);
-            }
-            return null;
-        }
-        final AtlasCacheReuseTarget target = matched;
+        final AtlasCacheReuseTarget target = first;
         try {
             final byte[] patched = AtlasCacheReusePatcher.patch(classfileBuffer);
             // No host-member verification here — it would load classes mid-transform.
@@ -224,20 +173,6 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
             return System.getProperty("turboism.atlasCacheReuse.evidenceFile");
         } catch (RuntimeException unavailable) {
             return null;
-        }
-    }
-
-    static String sha256(final byte[] bytes) {
-        try {
-            final byte[] hash = MessageDigest.getInstance("SHA-256").digest(bytes);
-            final StringBuilder text = new StringBuilder(hash.length * 2);
-            for (final byte value : hash) {
-                text.append(Character.forDigit((value >> 4) & 0xF, 16));
-                text.append(Character.forDigit(value & 0xF, 16));
-            }
-            return text.toString();
-        } catch (NoSuchAlgorithmException unavailable) {
-            throw new IllegalStateException("SHA-256 is unavailable", unavailable);
         }
     }
 }

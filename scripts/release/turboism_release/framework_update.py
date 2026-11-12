@@ -312,8 +312,9 @@ def unpack(archive: Path, owned: dict, excluded: list[str], temporary: Path, ide
             actual = digest.hexdigest()
             if total != item["bytes"] or actual != item["sha256"]:
                 raise ReleaseError("Payload digest differs from trusted build inventory")
-            content_id = "sha256:" + actual
-            entries.append({**item, "contentId": content_id})
+            # contentId is deliberately absent: it was always "sha256:" + the entry digest, so the
+            # signed manifest carries the digest once and every reader derives the identifier.
+            entries.append(dict(item))
             sources[actual] = target
             if name == "turboism-agent.jar":
                 jar_identity(target, identity)
@@ -367,7 +368,7 @@ def generate(*, candidate: Path, receipt: Path, inventory: Path, archive: Path, 
         envelope = sign(manifest, key_id, private_key, trusted_keys, temporary)
         prefix = f"turboism-{identity['version']}"
         manifest_name = prefix + "-manifest.json"
-        objects = [{"contentId": "sha256:" + digest, "sha256": digest, "bytes": path.stat().st_size,
+        objects = [{"sha256": digest, "bytes": path.stat().st_size,
                     "relativeObjectPath": f"objects/{digest}/payload"} for digest, path in sorted(blobs.items())]
         stock = {"format": "turboism.framework-update-objects", "schemaVersion": 1,
                  "layout": "windows-standard-zip", "identity": identity, "manifest": manifest_name,

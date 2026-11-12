@@ -7,7 +7,6 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,7 +43,7 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
     private final WarpAltMirrorHostProfile profile;
     private final ClassLoader expectedClassLoader;
     private final Path expectedArtifact;
-    private final Map<String, String> pinnedClassSha256;
+    private final java.util.Set<String> targetOwners;
     private final Consumer<String> diagnostic;
     private final AtomicReference<ClassLoader> admittedClassLoader = new AtomicReference<>();
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
@@ -61,7 +60,7 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
             final ClassLoader expectedClassLoader,
             final Path expectedArtifact,
             final Consumer<String> diagnostic) {
-        this(profile, expectedClassLoader, expectedArtifact, Map.of(), diagnostic);
+        this(profile, expectedClassLoader, expectedArtifact, java.util.Set.of(), diagnostic);
     }
 
     /**
@@ -70,21 +69,21 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
      * @param profile bound selector contract
      * @param expectedClassLoader defining loader, or null before first definition
      * @param expectedArtifact artifact path, or null for an isolated bytecode fixture
-     * @param pinnedClassSha256 class pins from the resolved contract
+     * @param targetOwners internal names the resolved contract declares
      * @param diagnostic diagnostic consumer
      */
     public WarpAltMirrorNativeMethodTransformer(
             final WarpAltMirrorHostProfile profile,
             final ClassLoader expectedClassLoader,
             final Path expectedArtifact,
-            final Map<String, String> pinnedClassSha256,
+            final java.util.Set<String> targetOwners,
             final Consumer<String> diagnostic) {
         this.profile = Objects.requireNonNull(profile, "profile");
         this.expectedClassLoader = expectedClassLoader;
         this.expectedArtifact = expectedArtifact == null
                 ? null
                 : expectedArtifact.toAbsolutePath().normalize();
-        this.pinnedClassSha256 = Map.copyOf(pinnedClassSha256);
+        this.targetOwners = java.util.Set.copyOf(targetOwners);
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
     }
 
@@ -436,8 +435,7 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
             reject(Outcome.SECOND_LOADER_REJECTED, "WARP_ALT_MIRROR_SECOND_LOADER_REJECTED");
             return false;
         }
-        if ((expectedArtifact != null || !pinnedClassSha256.isEmpty())
-                && !ReviewedHostContract.matchesClassBytes(pinnedClassSha256, owner, bytes)) {
+        if (!ReviewedHostContract.declaresTarget(targetOwners, owner)) {
             reject(Outcome.CLASS_BYTES_MISMATCH, "WARP_ALT_MIRROR_CLASS_BYTES_MISMATCH owner=" + owner);
             return false;
         }

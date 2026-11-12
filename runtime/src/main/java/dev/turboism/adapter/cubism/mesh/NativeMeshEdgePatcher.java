@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.mesh;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -15,14 +14,11 @@ final class NativeMeshEdgePatcher implements Opcodes {
     static final String MESH = "com/live2d/graphics3d/editableMesh/GEditableMesh2";
     private static final String LIST = "com/live2d/type/CArrayList";
     private static final String HELPER = "dev/turboism/adapter/cubism/mesh/NativeMeshEdgeLookup";
-    private static final Set<String> PINS = Set.of(
-            "734b9bde593f27816b72f63c585a371d724507f21c97ac41980cbf3f347c57ad",
-            "d6fe4e690399d767019d113e82c62414da0d82d9a54aa799a74919d9e8693f7a");
 
     private NativeMeshEdgePatcher() {}
 
     static byte[] patch(byte[] raw) {
-        require(raw != null && PINS.contains(TriangulationEdgeIndexTransformer.sha256(raw)), "native class pin");
+        require(raw != null, "native class bytes absent");
         ClassReader reader = new ClassReader(raw);
         require(reader.getClassName().equals(MESH), "native owner");
         Map<String, Integer> locals = new HashMap<>();

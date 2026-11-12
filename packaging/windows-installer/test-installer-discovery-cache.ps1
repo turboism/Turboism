@@ -146,7 +146,13 @@ try {
     Assert-DiscoveryCacheThrows { Read-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $snapshot -ExpectedSha256 $snapshotHash } 'changed host Java fails closed'
     [System.IO.File]::WriteAllText($java, 'synthetic Java, not executable')
     [System.IO.File]::AppendAllText($agent, 'changed')
-    Assert-DiscoveryCacheThrows { Read-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $snapshot -ExpectedSha256 $snapshotHash } 'different verifier payload cannot reuse the scan'
+    # The agent digest is no longer part of the snapshot, so a changed agent must still import: the
+    # launcher only requires the verifier payload to exist.
+    $agentChanged = @(Read-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $snapshot -ExpectedSha256 $snapshotHash)
+    Assert-DiscoveryCache ($agentChanged.Count -eq 1 -and $agentChanged[0].Version -ceq '5.3.04') 'a changed agent does not invalidate the discovery snapshot'
+    [System.IO.File]::WriteAllText($agent, 'synthetic verifier, not executable')
+    Remove-Item -LiteralPath $agent
+    Assert-DiscoveryCacheThrows { Read-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $snapshot -ExpectedSha256 $snapshotHash } 'a missing verifier payload still fails closed'
     [System.IO.File]::WriteAllText($agent, 'synthetic verifier, not executable')
     [System.IO.File]::AppendAllText($snapshot, ' ')
     Assert-DiscoveryCacheThrows { Read-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $snapshot -ExpectedSha256 $snapshotHash } 'snapshot byte tampering is rejected before parsing'

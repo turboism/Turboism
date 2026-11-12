@@ -73,13 +73,8 @@ final class VerifiedLineRendererUploadSplitInstaller implements AutoCloseable {
         }
         final LineRendererUploadSplitTransformer transformer = new LineRendererUploadSplitTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(target));
-        return List.of(WeaveTarget.single(
-                target,
-                transformer,
-                EXPECTED_MATCHES,
-                transformer::matches,
-                transformer::failure,
-                owner -> transformer.beforeSha256()));
+        return List.of(
+                WeaveTarget.single(target, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)

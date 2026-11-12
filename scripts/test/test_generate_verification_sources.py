@@ -2,7 +2,6 @@
 """Fail-closed fixtures for generated verification source equivalence."""
 from __future__ import annotations
 
-import hashlib
 import importlib.util
 import json
 import tempfile
@@ -42,10 +41,6 @@ def record() -> dict:
     }
 
 
-def record_sha(document: dict) -> str:
-    return hashlib.sha256(json.dumps(document).encode()).hexdigest()
-
-
 def manifest_source(document: dict) -> str:
     return f'''package dev.turboism.mapping.verification;
 
@@ -55,7 +50,6 @@ import java.util.Set;
 public final class FixtureVerificationManifest {{
     public static final String VERIFICATION_ID_99 =
         "{document["verificationId"]}";
-    public static final String RECORD_SHA256_99 = "{record_sha(document)}";
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "{ALIASES[0]}",
         "{ALIASES[1]}"
@@ -71,9 +65,6 @@ def manifest_template(document: dict) -> str:
     return manifest_source(document).replace(
         f'"{document["verificationId"]}"',
         f'"${{record:{RECORD_NAME}:verificationId}}"',
-    ).replace(
-        f'"{record_sha(document)}"',
-        f'"${{record:{RECORD_NAME}:sha256}}"',
     )
 
 
@@ -340,7 +331,7 @@ class GenerateVerificationSourcesTest(unittest.TestCase):
             template = (
                 root / GEN.TEMPLATE_ROOT / MANIFEST_RELPATH
             ).read_text()
-            self.assertIn("${record:%s:sha256}" % RECORD_NAME, template)
+            self.assertIn("${record:%s:verificationId}" % RECORD_NAME, template)
             self.assert_clean(root, equivalent=1)
 
 

@@ -78,15 +78,13 @@ final class VerifiedSortingInfoCacheInstaller implements AutoCloseable {
                         sortingTransformer,
                         EXPECTED_MATCHES,
                         sortingTransformer::matches,
-                        sortingTransformer::failure,
-                        owner -> sortingTransformer.beforeSha256()),
+                        sortingTransformer::failure),
                 WeaveTarget.single(
                         meshRendererOwner,
                         containerTransformer,
                         EXPECTED_MATCHES,
                         containerTransformer::matches,
-                        containerTransformer::failure,
-                        owner -> containerTransformer.beforeSha256()));
+                        containerTransformer::failure));
     }
 
     private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)

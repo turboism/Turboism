@@ -3,12 +3,8 @@ package dev.turboism.adapter.cubism.optimization.composite;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
-import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -52,7 +48,7 @@ public final class CanvasCompositeElisionTransformer implements ClassFileTransfo
     private final Path flatlaf;
     private final List<String> paintShape;
     private final List<String> fillShape;
-    private final Map<String, String> beforeSha256 = new HashMap<>();
+
     private volatile String failure;
     private volatile int matches, sites;
 
@@ -94,10 +90,6 @@ public final class CanvasCompositeElisionTransformer implements ClassFileTransfo
     /** Returns the injected entry-consult count so far. */
     public int sites() {
         return sites;
-    }
-    /** Returns the original class digest for a restored target, or null. */
-    public String beforeSha256(final String owner) {
-        return beforeSha256.get(owner);
     }
 
     @Override
@@ -188,10 +180,7 @@ public final class CanvasCompositeElisionTransformer implements ClassFileTransfo
                 failure = "canvas composite elision anchor drift on " + name;
                 return null;
             }
-            beforeSha256.putIfAbsent(
-                    name,
-                    HexFormat.of()
-                            .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
+
             matches++;
             sites++;
             return writer.toByteArray();

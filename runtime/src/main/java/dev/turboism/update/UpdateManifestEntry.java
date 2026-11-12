@@ -12,12 +12,11 @@ import java.util.regex.Pattern;
  * ownership. All plugins use the independent catalog updater and are excluded here. Existing
  * eligible files require trusted installation evidence in the planner.</p>
  */
-public record UpdateManifestEntry(String relativePath, long bytes, String sha256, String contentId) {
+public record UpdateManifestEntry(String relativePath, long bytes, String sha256) {
 
     public static final long MAX_ENTRY_BYTES = 512L * 1024L * 1024L;
 
     private static final Pattern SHA256_PATTERN = Pattern.compile("[0-9a-f]{64}");
-    private static final Pattern CONTENT_ID_PATTERN = Pattern.compile("sha256:[0-9a-f]{64}");
 
     // Exact Windows standard-package locations; existing files still require authenticated receipts.
     static final Set<String> FRAMEWORK_ROOT_FILES = Set.of(
@@ -54,7 +53,6 @@ public record UpdateManifestEntry(String relativePath, long bytes, String sha256
     public UpdateManifestEntry {
         Objects.requireNonNull(relativePath, "relativePath");
         Objects.requireNonNull(sha256, "sha256");
-        Objects.requireNonNull(contentId, "contentId");
 
         if (relativePath.length() > 240
                 || relativePath.contains("\\")
@@ -71,12 +69,6 @@ public record UpdateManifestEntry(String relativePath, long bytes, String sha256
         }
         if (!SHA256_PATTERN.matcher(sha256).matches()) {
             throw new IllegalArgumentException("SHA-256 must be 64 lowercase hex characters: " + sha256);
-        }
-        if (!CONTENT_ID_PATTERN.matcher(contentId).matches()) {
-            throw new IllegalArgumentException("contentId must be sha256:<64 hex>: " + contentId);
-        }
-        if (!contentId.equals("sha256:" + sha256)) {
-            throw new IllegalArgumentException("contentId digest does not match entry sha256");
         }
     }
 

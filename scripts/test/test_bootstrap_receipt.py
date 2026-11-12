@@ -638,14 +638,14 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
             f.parent.mkdir(parents=True, exist_ok=True)
             f.write_bytes(f"payload-bytes:{name}\n".encode("utf-8"))
             digest = hashlib.sha256(f.read_bytes()).hexdigest()
-            entries.append({"relativePath": name, "bytes": f.stat().st_size, "sha256": digest, "contentId": "sha256:" + digest})
+            entries.append({"relativePath": name, "bytes": f.stat().st_size, "sha256": digest})
         graal = home / "graal/lib"
         graal.mkdir(parents=True)
         for lib in ("sdk-1.0.0.jar", "graal-host-1.0.0.jar"):
             jar = graal / lib
             jar.write_bytes(f"graal-lib:{lib}\n".encode("utf-8"))
             jar_digest = hashlib.sha256(jar.read_bytes()).hexdigest()
-            entries.append({"relativePath": f"graal/lib/{lib}", "bytes": jar.stat().st_size, "sha256": jar_digest, "contentId": "sha256:" + jar_digest})
+            entries.append({"relativePath": f"graal/lib/{lib}", "bytes": jar.stat().st_size, "sha256": jar_digest})
         entries.sort(key=lambda e: e["relativePath"])
 
         manifest_doc = {
@@ -683,11 +683,14 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         receipt_data = json.loads(receipt.read_text(encoding="utf-8"))
         self.assertEqual(receipt_data["format"], "turboism-installed-receipt-v1")
         self.assertEqual(receipt_data["layout"], "windows-standard-zip")
-        self.assertEqual(receipt_data["manifestSha256"], hashlib.sha256(manifest_bytes).hexdigest())
+        # The index names the fixed document location, never a second copy of the manifest digest.
+        self.assertNotIn("manifestSha256", receipt_data)
+        self.assertEqual(set(receipt_data), {"format", "schemaVersion", "layout", "rootIdentity"})
 
-        # Verify immutable document was published under receipts/<digest>/
+        # Verify the signed documents are published at the fixed current location.
         receipt_docs = list((home / "state/runtime/update/receipts").rglob("manifest.json"))
         self.assertEqual(len(receipt_docs), 1, "Exactly one published manifest document expected")
+        self.assertEqual(receipt_docs[0], home / "state/runtime/update/receipts/current/manifest.json")
         self.assertEqual(receipt_docs[0].read_bytes(), manifest_bytes)
         published_manifest_data = json.loads(receipt_docs[0].read_text(encoding="utf-8"))
         self.assertEqual(published_manifest_data["version"], "1.0.0")
@@ -732,14 +735,14 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
             f.parent.mkdir(parents=True, exist_ok=True)
             f.write_bytes(f"payload:{name}\n".encode("utf-8"))
             digest = hashlib.sha256(f.read_bytes()).hexdigest()
-            entries.append({"relativePath": name, "bytes": f.stat().st_size, "sha256": digest, "contentId": "sha256:" + digest})
+            entries.append({"relativePath": name, "bytes": f.stat().st_size, "sha256": digest})
         graal = home / "graal/lib"
         graal.mkdir(parents=True)
         for lib in ("sdk-1.0.0.jar", "graal-host-1.0.0.jar"):
             jar = graal / lib
             jar.write_bytes(f"graal-lib:{lib}\n".encode("utf-8"))
             jar_digest = hashlib.sha256(jar.read_bytes()).hexdigest()
-            entries.append({"relativePath": f"graal/lib/{lib}", "bytes": jar.stat().st_size, "sha256": jar_digest, "contentId": "sha256:" + jar_digest})
+            entries.append({"relativePath": f"graal/lib/{lib}", "bytes": jar.stat().st_size, "sha256": jar_digest})
         entries.sort(key=lambda e: e["relativePath"])
 
         # Sign manifest v1 (version 1.0.0)
@@ -767,9 +770,8 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         receipt_bytes_v1 = installed_receipt.read_bytes()
 
         # Point 3: Snapshot published manifest and signature bytes for v1
-        digest_v1 = hashlib.sha256(bytes_v1).hexdigest()
-        published_v1_manifest = home / f"state/runtime/update/receipts/{digest_v1}/manifest.json"
-        published_v1_sig = home / f"state/runtime/update/receipts/{digest_v1}/manifest.json.sig"
+        published_v1_manifest = home / "state/runtime/update/receipts/current/manifest.json"
+        published_v1_sig = home / "state/runtime/update/receipts/current/manifest.json.sig"
         self.assertTrue(published_v1_manifest.is_file())
         self.assertTrue(published_v1_sig.is_file())
         pub_manifest_v1_bytes = published_v1_manifest.read_bytes()
@@ -784,11 +786,11 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         for name in layout_policy["frameworkRootFiles"]:
             f = home / name
             digest = hashlib.sha256(f.read_bytes()).hexdigest()
-            entries_v2.append({"relativePath": name, "bytes": f.stat().st_size, "sha256": digest, "contentId": "sha256:" + digest})
+            entries_v2.append({"relativePath": name, "bytes": f.stat().st_size, "sha256": digest})
         for lib in ("sdk-2.0.0.jar", "graal-host-2.0.0.jar"):
             jar = graal / lib
             jar_digest = hashlib.sha256(jar.read_bytes()).hexdigest()
-            entries_v2.append({"relativePath": f"graal/lib/{lib}", "bytes": jar.stat().st_size, "sha256": jar_digest, "contentId": "sha256:" + jar_digest})
+            entries_v2.append({"relativePath": f"graal/lib/{lib}", "bytes": jar.stat().st_size, "sha256": jar_digest})
         entries_v2.sort(key=lambda e: e["relativePath"])
 
         doc_v2 = {

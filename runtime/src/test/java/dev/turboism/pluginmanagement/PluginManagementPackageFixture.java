@@ -23,7 +23,6 @@ final class PluginManagementPackageFixture {
         final String entrypoint = "example.Plugin";
         final byte[] jar = jar(descriptor(id, version, entrypoint), entrypoint.replace('.', '/') + ".class");
         final String jarHash = sha256(jar);
-        final String descriptorHash = descriptorHash(jar);
         final Map<String, Object> manifest = new LinkedHashMap<>();
         manifest.put("createdAt", Instant.parse("2026-07-30T00:00:00Z").toString());
         manifest.put(
@@ -34,10 +33,8 @@ final class PluginManagementPackageFixture {
         manifest.put("packageId", id);
         manifest.put("packageKind", "PLUGIN");
         manifest.put("pluginDescriptorPath", "plugin/plugin.jar!/META-INF/turboism/plugin.json");
-        manifest.put("pluginDescriptorSha256", descriptorHash);
         manifest.put("schemaVersion", 1);
         manifest.put("version", version);
-        manifest.put("packageHash", sha256(JSON.writeValueAsBytes(manifest)));
         return zip(
                 Map.of("META-INF/turboism/package.json", JSON.writeValueAsBytes(manifest), "plugin/plugin.jar", jar));
     }
@@ -136,15 +133,6 @@ final class PluginManagementPackageFixture {
             }
         }
         return output.toByteArray();
-    }
-
-    private static String descriptorHash(final byte[] jarBytes) throws Exception {
-        try (var zip = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(jarBytes))) {
-            for (ZipEntry entry; (entry = zip.getNextEntry()) != null; ) {
-                if (entry.getName().equals("META-INF/turboism/plugin.json")) return sha256(zip.readAllBytes());
-            }
-        }
-        throw new IllegalStateException();
     }
 
     private static byte[] zip(final Map<String, byte[]> entries) throws Exception {

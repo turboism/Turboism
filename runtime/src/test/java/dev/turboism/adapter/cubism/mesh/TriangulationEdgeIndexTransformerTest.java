@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -65,8 +64,7 @@ final class TriangulationEdgeIndexTransformerTest {
                         },
                         0);
         final byte[] bytes = writer.toByteArray();
-        final TriangulationEdgeIndexTransformer transformer =
-                new TriangulationEdgeIndexTransformer(Set.of(TriangulationEdgeIndexTransformer.sha256(bytes)));
+        final TriangulationEdgeIndexTransformer transformer = new TriangulationEdgeIndexTransformer();
         assertNull(
                 transformer.transform(null, TriangulationEdgeIndexTransformer.TARGET_INTERNAL_NAME, null, null, bytes));
         assertTrue(transformer.diagnostic().contains("contains sites=0"));
@@ -194,21 +192,10 @@ final class TriangulationEdgeIndexTransformerTest {
     }
 
     @Test
-    void refusesClassesWhoseBytesAreNotAReviewedDigest() {
-        final TriangulationEdgeIndexTransformer transformer = new TriangulationEdgeIndexTransformer();
-        assertNull(transformer.transform(
-                null, TriangulationEdgeIndexTransformer.TARGET_INTERNAL_NAME, null, null, FIXTURE.get(LIST)));
-        assertEquals(TriangulationEdgeIndexTransformer.Outcome.HASH_MISMATCH, transformer.outcome());
-        assertTrue(transformer.diagnostic().startsWith("observed="));
-    }
-
-    @Test
-    void refusesAnAdmittedDigestWhenTheShapeIsUnexpected() throws Exception {
-        // Same class name and digest admitted, but a(l) carries two add sites — the gate must
-        // refuse rather than patch half a class.
+    void refusesAClassWhoseBodyIsNotTheReviewedShape() throws Exception {
+        // a(l) carries two add sites — the gate must refuse rather than patch half a class.
         final byte[] bad = badShapeListBytes();
-        final String digest = TriangulationEdgeIndexTransformer.sha256(bad);
-        final TriangulationEdgeIndexTransformer transformer = new TriangulationEdgeIndexTransformer(Set.of(digest));
+        final TriangulationEdgeIndexTransformer transformer = new TriangulationEdgeIndexTransformer();
         assertNull(
                 transformer.transform(null, TriangulationEdgeIndexTransformer.TARGET_INTERNAL_NAME, null, null, bad));
         assertEquals(TriangulationEdgeIndexTransformer.Outcome.SHAPE_REJECTED, transformer.outcome());
@@ -216,33 +203,19 @@ final class TriangulationEdgeIndexTransformerTest {
     }
 
     @Test
-    void admitsBothReviewedDigestFamilies() throws Exception {
-        // The two pinned digests cover the 5.0–5.2 bytes and the 5.3.x bytes; a transformer
-        // created with either pin alone must still select the fixture on its own digest.
+    void patchesTheReviewedShapeWithoutAnyDigestPin() {
         final byte[] fixture = FIXTURE.get(LIST);
-        final String digest = TriangulationEdgeIndexTransformer.sha256(fixture);
-        for (final Set<String> admit : List.of(
-                Set.of(digest),
-                Set.of(TriangulationEdgeIndexTransformer.REVIEWED_CLASS_SHA256_53X, digest),
-                Set.of(TriangulationEdgeIndexTransformer.REVIEWED_CLASS_SHA256_5203, digest))) {
-            final TriangulationEdgeIndexTransformer transformer = new TriangulationEdgeIndexTransformer(admit);
-            assertNotNull(
-                    transformer.transform(
-                            null, TriangulationEdgeIndexTransformer.TARGET_INTERNAL_NAME, null, null, fixture),
-                    "digest must be admitted from set " + admit);
-            assertEquals(TriangulationEdgeIndexTransformer.Outcome.PATCHED, transformer.outcome());
-        }
-        // The two reviewed families are distinct pins.
-        assertTrue(!TriangulationEdgeIndexTransformer.REVIEWED_CLASS_SHA256_53X.equals(
-                TriangulationEdgeIndexTransformer.REVIEWED_CLASS_SHA256_5203));
+        final TriangulationEdgeIndexTransformer transformer = new TriangulationEdgeIndexTransformer();
+        assertNotNull(transformer.transform(
+                null, TriangulationEdgeIndexTransformer.TARGET_INTERNAL_NAME, null, null, fixture));
+        assertEquals(TriangulationEdgeIndexTransformer.Outcome.PATCHED, transformer.outcome());
     }
 
     // ------------------------------------------------------------------ fixture access
 
     private static Host wovenHost() throws Exception {
         final byte[] original = FIXTURE.get(LIST);
-        final byte[] patched = new TriangulationEdgeIndexTransformer(
-                        Set.of(TriangulationEdgeIndexTransformer.sha256(original)))
+        final byte[] patched = new TriangulationEdgeIndexTransformer()
                 .transform(null, TriangulationEdgeIndexTransformer.TARGET_INTERNAL_NAME, null, null, original);
         assertNotNull(patched, "the reviewed shape must be patched");
         final Loader loader = new Loader(FIXTURE, patched);

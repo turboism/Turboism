@@ -124,7 +124,7 @@ class MainToolbarContributionProviderTest {
                 EditorUiFamily.MAIN_TOOLBAR,
                 generation,
                 new EditorUiProviderAdmission.VerificationEvidence(
-                        "5.3.02", 42, "a".repeat(64), "adapter.editor-ui.main-toolbar", "b".repeat(64)));
+                        "5.3.02", 42, "a".repeat(64), "adapter.editor-ui.main-toolbar"));
     }
 
     private static final class RecordingHost implements MainToolbarHostOperations {

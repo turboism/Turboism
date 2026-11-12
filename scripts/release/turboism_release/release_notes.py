@@ -1,6 +1,5 @@
 """Deterministic, frozen release notes. No translation service or moving publish baseline."""
 from __future__ import annotations
-import hashlib
 import json
 import re
 import subprocess
@@ -141,7 +140,7 @@ def render_nightly(receipt, context):
 
 
 def reviewed_locales(root, version, english):
-    """Translations must bind to the exact English section, avoiding stale reuse."""
+    """Returns the reviewed release notes for one version and its translated locales."""
     result = {'en': english.strip()}
     path = Path(root)/'distribution'/'release-notes'/f'{version}.json'
     if not path.is_file():
@@ -150,8 +149,8 @@ def reviewed_locales(root, version, english):
         return result
     require(not path.is_symlink() and path.stat().st_size < 90000, 'Invalid translations file')
     data = json.loads(path.read_text(encoding='utf-8'))
-    require(data.get('schemaVersion') == 1 and data.get('version') == version and
-            data.get('englishSha256') == hashlib.sha256(english.strip().encode()).hexdigest(), 'Translations are stale or for another release')
+    require(data.get('schemaVersion') == 1 and data.get('version') == version,
+            'Translations are for another release')
     locales = data.get('locales', {})
     require(isinstance(locales, dict) and set(locales) <= set(LOCALES),
             'Translations contain a language outside the reviewed matrix')

@@ -73,10 +73,6 @@ class SelectionBrushManifestBindingTest {
                     readerRecord.selectors().size(),
                     packMetadata.path("selectorCount").asInt(),
                     "pack selector count");
-            assertEquals(
-                    editor.recordSha256(),
-                    packMetadata.path("verificationRecordSha256").asText(),
-                    "pack digest");
             assertBinding(
                     root,
                     toolbar,
@@ -103,7 +99,6 @@ class SelectionBrushManifestBindingTest {
                 loaded.record().selectors().stream().map(StaticSelector::alias).collect(Collectors.toSet());
         assertAll(
                 manifest.cubismVersion() + "/" + slice,
-                () -> assertEquals(loaded.sha256(), manifest.recordSha256(), "record trust-root digest"),
                 () -> assertEquals(
                         Set.copyOf(loaded.record().capabilityIds()), manifest.capabilityIds(), "exact capabilities"),
                 // Exact 5.3.03 is admitted through cubism5303RuntimeScope: its manifest

@@ -10,7 +10,6 @@ import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -82,7 +81,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
             final RuntimeMeshEditUiService ui,
             final MeshMirrorHostProfile profile,
             final Consumer<String> diagnostic) {
-        this(instrumentation, hostClassLoader, hostArtifact, axis, ui, profile, Map.of(), diagnostic);
+        this(instrumentation, hostClassLoader, hostArtifact, axis, ui, profile, java.util.Set.of(), diagnostic);
     }
 
     VerifiedMeshMirrorHookInstaller(
@@ -92,7 +91,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
             final RuntimeMeshMirrorAxisService axis,
             final RuntimeMeshEditUiService ui,
             final MeshMirrorHostProfile profile,
-            final Map<String, String> pinnedClassSha256,
+            final java.util.Set<String> targetOwners,
             final Consumer<String> diagnostic) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = hostClassLoader;
@@ -105,7 +104,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
                 hostArtifact == null ? null : hostArtifact.toAbsolutePath().normalize(),
                 null,
                 instrumentation,
-                pinnedClassSha256,
+                targetOwners,
                 this::report);
         // Every owner the transformer may rewrite must be listed here, or a preloaded
         // target would go undetected and cleanup would leave it rewritten.

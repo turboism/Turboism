@@ -117,7 +117,7 @@ def prepare(github, source_root, bundle_root, source_sha, run_id, attempt, versi
     context = release_notes.select_context(github, source_root, receipt) if receipt['channel'] == 'nightly' else None
     notes = release_notes.candidate_notes(source_root, receipt, context)
     candidate = {'schemaVersion':2,'type':'turboism.prerelease-candidate','receipt':receipt,
-                 'manifest':manifest,'notesSha256':hashlib.sha256(notes.encode()).hexdigest(), 'notesContext':context}
+                 'manifest':manifest,'notesContext':context}
     bundle = Path(bundle_root)
     (bundle/'release-notes.md').write_text(notes,encoding='utf-8')
     (bundle/'prerelease-candidate.json').write_text(json.dumps(candidate,sort_keys=True,separators=(',',':'))+'\n')
@@ -129,7 +129,8 @@ def verify_candidate(github, source_root, bundle_root, source_sha, run_id, attem
     path = bundle/'prerelease-candidate.json'
     require(path.is_file() and not path.is_symlink() and path.stat().st_size < 128*1024, 'Missing or invalid prerelease candidate')
     value = json.loads(path.read_text())
-    keys = {'schemaVersion','type','receipt','manifest','notesSha256'}
+    # Legacy candidates carried a notesSha256 self-hash; tolerate it without requiring it.
+    keys = {'schemaVersion','type','receipt','manifest'}
     if value.get('schemaVersion') == 2: keys.add('notesContext')
     require(set(value) == keys
             and value['schemaVersion'] in (1, 2) and value['type'] == 'turboism.prerelease-candidate', 'Invalid candidate schema')
@@ -141,8 +142,7 @@ def verify_candidate(github, source_root, bundle_root, source_sha, run_id, attem
         from .release_notes import candidate_notes
         notes = candidate_notes(source_root,actual,value['notesContext'])
     require(receipt == actual and value['manifest'] == manifest, 'Candidate manifest/receipt changed')
-    require((bundle/'release-notes.md').read_bytes() == notes.encode()
-            and value['notesSha256'] == hashlib.sha256(notes.encode()).hexdigest(), 'Candidate notes are not source-bound')
+    require((bundle/'release-notes.md').read_bytes() == notes.encode(), 'Candidate notes are not source-bound')
     return manifest, actual, notes
 
 

@@ -3,10 +3,7 @@ package dev.turboism.adapter.cubism.optimization.clipmask;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -54,8 +51,6 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
     private final String renderSystemOwner;
     private final String renderMethodDescriptor;
     private final Map<String, byte[]> references;
-    private final Map<String, String> beforeSha256 = new ConcurrentHashMap<>();
-    private final Map<String, String> instrumentedSha256 = new ConcurrentHashMap<>();
     private final Map<String, String> failures = new ConcurrentHashMap<>();
     private volatile int sites;
 
@@ -76,11 +71,6 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
     /** {@return the number of rewritten call sites} */
     public int sites() {
         return sites;
-    }
-
-    /** {@return the pre-rewrite SHA-256 of {@code owner}, or {@code null} for a class this transform did not rewrite} */
-    public String beforeSha256(final String owner) {
-        return beforeSha256.get(owner);
     }
 
     /** {@return the most recent rejection, or {@code null}} */
@@ -191,8 +181,6 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
             }
 
             final byte[] result = writer.toByteArray();
-            beforeSha256.putIfAbsent(name, sha256(bytes));
-            instrumentedSha256.putIfAbsent(name, sha256(result));
             sites += woven[0];
             return result;
         } catch (Exception | LinkageError rejected) {
@@ -232,14 +220,6 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
         if (expected == null) throw new IllegalArgumentException("reviewed selector absent: " + owner + "." + method);
         if (!expected.equals(ReviewedMethodShape.read(target, owner, method, desc))) {
             throw new IllegalArgumentException("shape changed: " + owner + "." + method);
-        }
-    }
-
-    private static String sha256(final byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException unavailable) {
-            throw new IllegalStateException("SHA-256 unavailable", unavailable);
         }
     }
 

@@ -1178,7 +1178,6 @@
     "capabilityCount": "${capabilityCount}",
     "capabilityIds": [
       "cubism.core.owned-moc.read"
-    ],
-    "verificationRecordSha256": "${verificationRecordSha256}"
+    ]
   }
 }

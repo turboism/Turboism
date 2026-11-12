@@ -4,10 +4,8 @@ import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -76,7 +74,7 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
     private final List<MethodSpec> methods;
     private final Map<String, List<String>> officialShapes = new HashMap<>();
     private final Map<String, List<String>> composedShapes = new HashMap<>();
-    private final Map<String, String> beforeSha256 = new HashMap<>();
+
     private int matches;
     private String failure;
     private Runnable onRejection = () -> {};
@@ -149,10 +147,6 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
     /** Returns successful class rewrites across both owners. */
     public int matches() {
         return matches;
-    }
-    /** Returns the pre-rewrite class digest per owner for restoration verification. */
-    public String beforeSha256(final String owner) {
-        return beforeSha256.get(owner);
     }
 
     @Override
@@ -261,10 +255,7 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
                 throw new IllegalArgumentException("deferred-check emission incomplete: " + spec.owner());
             }
             final byte[] result = writer.toByteArray();
-            beforeSha256.putIfAbsent(
-                    spec.owner(),
-                    HexFormat.of()
-                            .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
+
             matches++;
             return result;
         } catch (Exception | LinkageError problem) {

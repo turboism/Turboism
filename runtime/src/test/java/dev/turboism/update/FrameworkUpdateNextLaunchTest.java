@@ -50,7 +50,7 @@ final class FrameworkUpdateNextLaunchTest {
                 Files.createDirectories(p.getParent());
                 Files.write(p, e.getValue());
                 final String hash = FrameworkUpdateTaskStore.hash(e.getValue());
-                entries.add(new UpdateManifestEntry(e.getKey(), e.getValue().length, hash, "sha256:" + hash));
+                entries.add(new UpdateManifestEntry(e.getKey(), e.getValue().length, hash));
             }
             final var manifest = new UpdateManifest(
                     1, "fixture", targetVersion, "stable", 60, "c".repeat(40), "1.0.0", "windows-x64", entries);

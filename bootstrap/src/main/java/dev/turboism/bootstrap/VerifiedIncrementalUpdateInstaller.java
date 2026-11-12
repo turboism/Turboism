@@ -14,7 +14,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * Exact incremental-update admission, dependency-body verification and restoration.
@@ -130,13 +129,7 @@ final class VerifiedIncrementalUpdateInstaller implements VerifiedHookInstaller 
         final List<WeaveTarget> targets = new ArrayList<>(entries.length);
         for (int i = 0; i < entries.length; i++) {
             targets.add(new WeaveTarget(
-                    entries[i],
-                    transformer,
-                    EXPECTED_MATCHES,
-                    transformer::matches,
-                    transformer::failure,
-                    Set.of(owners.get(i)),
-                    transformer::beforeSha256));
+                    entries[i], transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
         }
         return targets;
     }

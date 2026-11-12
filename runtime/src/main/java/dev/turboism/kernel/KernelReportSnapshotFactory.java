@@ -533,8 +533,7 @@ public final class KernelReportSnapshotFactory {
         final ObjectNode report = KernelReportDocuments.emptyReport(KernelReportType.CAPABILITY, runtimeId, createdAt);
         final ArrayNode entries = (ArrayNode) report.path("payload").path("capabilities");
         final String recordPath = relativeArtifact(home, verificationRecord);
-        final String recordDigest =
-                fileDigest(verificationRecord).map(FileDigest::sha256).orElse(null);
+        final boolean recordPresent = fileDigest(verificationRecord).isPresent();
         for (LocalPluginRuntime.LoadedPluginSummary summary : summaries.stream()
                 .sorted(Comparator.comparing(LocalPluginRuntime.LoadedPluginSummary::id))
                 .toList()) {
@@ -566,7 +565,7 @@ public final class KernelReportSnapshotFactory {
                                 runtimeAvailable,
                                 availability,
                                 recordPath,
-                                recordDigest);
+                                recordPresent);
                         entries.add(entry);
                     }
                 } else if (knownUnmapped) {
@@ -590,7 +589,7 @@ public final class KernelReportSnapshotFactory {
     private static ObjectNode capabilityFallbackEntry(final String pluginId, final String capabilityId) {
         final ObjectNode entry = KernelReportDocuments.capabilityEntry(
                 pluginId, capabilityId, UNMAPPED_CAPABILITY_OPERATION, null, "UNKNOWN", "UNKNOWN", "NONE");
-        addCapabilityEvidence((ArrayNode) entry.get("evidence"), false, false, "UNKNOWN", null, null);
+        addCapabilityEvidence((ArrayNode) entry.get("evidence"), false, false, "UNKNOWN", null, false);
         return entry;
     }
 
@@ -643,29 +642,32 @@ public final class KernelReportSnapshotFactory {
         return report;
     }
 
+    /**
+     * Records why a capability is or is not available. The evidence names the backing record by a
+     * relative path only; a digest of that record is not part of the report, because the record is
+     * local provenance and no consumer verifies it.
+     */
     private static void addCapabilityEvidence(
             final ArrayNode evidence,
             final boolean verifiedProject,
             final boolean runtimeAvailable,
             final String availability,
             final String recordPath,
-            final String recordDigest) {
-        if (verifiedProject && recordPath != null && recordDigest != null) {
+            final boolean recordPresent) {
+        if (verifiedProject && recordPath != null && recordPresent) {
             evidence.add(KernelReportDocuments.evidence(
                     "STATIC_VERIFIED",
                     availability,
                     runtimeAvailable
                             ? "Exact Cubism 5.3.02 static record applies to the connected runtime session."
                             : "Exact Cubism 5.3.02 static record exists; runtime availability was not established.",
-                    recordPath,
-                    recordDigest));
+                    recordPath));
             return;
         }
         evidence.add(KernelReportDocuments.evidence(
                 "DECLARED",
                 "UNKNOWN",
                 "Capability is declared by the plugin descriptor; support is not elevated.",
-                null,
                 null));
     }
 

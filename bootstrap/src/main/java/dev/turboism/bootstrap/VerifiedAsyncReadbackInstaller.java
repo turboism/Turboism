@@ -83,13 +83,8 @@ final class VerifiedAsyncReadbackInstaller implements AutoCloseable {
         }
         final AsyncReadbackTransformer transformer =
                 new AsyncReadbackTransformer(entry.getClassLoader(), jogl, reference);
-        return List.of(WeaveTarget.single(
-                entry,
-                transformer,
-                EXPECTED_MATCHES,
-                transformer::matches,
-                transformer::failure,
-                owner -> transformer.beforeSha256()));
+        return List.of(
+                WeaveTarget.single(entry, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     /**

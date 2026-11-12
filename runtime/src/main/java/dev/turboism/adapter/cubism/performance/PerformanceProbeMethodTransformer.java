@@ -3,11 +3,8 @@ package dev.turboism.adapter.cubism.performance;
 import java.lang.instrument.ClassFileTransformer;
 import java.net.URI;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.ProtectionDomain;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -41,8 +38,7 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
     private final List<Target> targets;
     private final Path expectedArtifact;
     private final ConcurrentHashMap<Target, AtomicInteger> matches = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, String> beforeSha256 = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, String> instrumentedSha256 = new ConcurrentHashMap<>();
+    private final java.util.Set<String> wovenOwners = ConcurrentHashMap.newKeySet();
 
     public PerformanceProbeMethodTransformer(
             final ClassLoader expectedLoader, final Path expectedArtifact, final List<Target> targets) {
@@ -102,8 +98,7 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
                 ClassReader.EXPAND_FRAMES);
         if (!changed[0]) return null;
         final byte[] output = writer.toByteArray();
-        beforeSha256.putIfAbsent(className, sha256(classfileBuffer));
-        instrumentedSha256.putIfAbsent(className, sha256(output));
+        wovenOwners.add(className);
         return output;
     }
 
@@ -118,14 +113,9 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
         return Map.copyOf(copy);
     }
 
-    /** SHA-256 of the actual input bytes this transformer received, keyed by owner internal name. */
-    public Map<String, String> beforeSha256() {
-        return Map.copyOf(beforeSha256);
-    }
-
-    /** SHA-256 of the actual bytes this transformer returned, keyed by owner internal name. */
-    public Map<String, String> instrumentedSha256() {
-        return Map.copyOf(instrumentedSha256);
+    /** Internal names this transformer actually instrumented. */
+    public java.util.Set<String> wovenOwners() {
+        return java.util.Set.copyOf(wovenOwners);
     }
 
     static boolean comesFromArtifact(final ProtectionDomain protectionDomain, final Path expectedArtifact) {
@@ -134,14 +124,6 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
             return Path.of(location).toAbsolutePath().normalize().equals(expectedArtifact);
         } catch (Exception ignored) {
             return false;
-        }
-    }
-
-    static String sha256(final byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
     }
 

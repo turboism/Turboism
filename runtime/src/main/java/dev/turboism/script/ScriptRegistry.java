@@ -15,9 +15,8 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -30,8 +29,8 @@ import java.util.function.Consumer;
 
 /**
  * Bounded discovery for schema-2 scripts under {@code <turboism.home>/scripts}.
- * Source bodies remain lazy; discovery records metadata and the manifest-pinned
- * digest that execution must match.
+ * Source bodies remain lazy; discovery records metadata and the file identity that
+ * execution must still observe.
  */
 class ScriptRegistry {
 
@@ -41,6 +40,9 @@ class ScriptRegistry {
     // Worst-case JSON escaping expands one source byte to six protocol chars.
     // 384 KiB leaves room for the maximum argument map inside the 4 MiB RUN frame.
     private static final int MAX_SOURCE_BYTES = 384 * 1024;
+    // sourceSha256 stays admitted but unused: a script written before the digest
+    // requirement was retired must keep loading, and an edited entry body must load
+    // without a manifest rewrite.
     private static final Set<String> MANIFEST_FIELDS =
             Set.of("schemaVersion", "id", "name", "version", "language", "entry", "sourceSha256", "permissions");
     // Intentionally narrower than PermissionIds.KNOWN_IDS: scripts may only
@@ -211,7 +213,6 @@ class ScriptRegistry {
         final ScriptLanguage language = ScriptLanguage.fromId(requiredText(node, "language", 32));
         final String entry = requiredText(node, "entry", 512);
         final List<String> permissions = permissions(node.path("permissions"));
-        final byte[] sourceDigest = sourceDigest(node);
         final Path sourcePath = resolveEntry(root, entry);
         final FileIdentity sourceIdentity = regularFileIdentity(sourcePath, "source");
         manifest.requireCurrent("manifest");
@@ -225,7 +226,6 @@ class ScriptRegistry {
                 scriptDirectory,
                 manifest,
                 sourceIdentity,
-                sourceDigest,
                 fileOpener);
     }
 
@@ -275,15 +275,7 @@ class ScriptRegistry {
                     maxBytes,
                     () -> new IllegalArgumentException("Script " + label + " exceeded " + maxBytes + " bytes"));
         }
-        return new StableFile(path, identity, digest(bytes), bytes);
-    }
-
-    private static byte[] sourceDigest(final JsonNode manifest) {
-        final String value = requiredText(manifest, "sourceSha256", 64);
-        if (!value.matches("[0-9a-fA-F]{64}")) {
-            throw new IllegalArgumentException("sourceSha256 must contain exactly 64 hexadecimal characters");
-        }
-        return java.util.HexFormat.of().parseHex(value);
+        return new StableFile(path, identity, bytes);
     }
 
     private FileIdentity regularFileIdentity(final Path path, final String label) throws IOException {
@@ -373,14 +365,6 @@ class ScriptRegistry {
         return text;
     }
 
-    private static byte[] digest(final byte[] bytes) {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(bytes);
-        } catch (NoSuchAlgorithmException unavailable) {
-            throw new IllegalStateException("SHA-256 is unavailable", unavailable);
-        }
-    }
-
     private static String safeMessage(final Throwable failure) {
         final String raw = failure.getMessage();
         if (raw == null || raw.isBlank()) {
@@ -427,13 +411,11 @@ class ScriptRegistry {
     private final class StableFile {
         private final Path path;
         private final FileIdentity identity;
-        private final byte[] digest;
         private final byte[] bytes;
 
-        private StableFile(final Path path, final FileIdentity identity, final byte[] digest, final byte[] bytes) {
+        private StableFile(final Path path, final FileIdentity identity, final byte[] bytes) {
             this.path = path;
             this.identity = identity;
-            this.digest = digest;
             this.bytes = bytes;
         }
 
@@ -443,10 +425,6 @@ class ScriptRegistry {
 
         private FileIdentity identity() {
             return identity;
-        }
-
-        private byte[] digest() {
-            return digest;
         }
 
         private void requireCurrent(final String label) throws IOException {
@@ -465,7 +443,7 @@ class ScriptRegistry {
                         bytes.length,
                         () -> new IllegalArgumentException("Script " + label + " changed while reading"));
             }
-            if (current.length != bytes.length || !MessageDigest.isEqual(digest, ScriptRegistry.digest(current))) {
+            if (!Arrays.equals(bytes, current)) {
                 throw new IllegalArgumentException("Script " + label + " changed while reading");
             }
         }
@@ -479,7 +457,6 @@ class ScriptRegistry {
         private final DirectoryIdentity scriptDirectory;
         private final StableFile manifest;
         private final FileIdentity sourceIdentity;
-        private final byte[] sourceDigest;
         private final FileOpener fileOpener;
 
         private InstalledScript(
@@ -490,7 +467,6 @@ class ScriptRegistry {
                 final DirectoryIdentity scriptDirectory,
                 final StableFile manifest,
                 final FileIdentity sourceIdentity,
-                final byte[] sourceDigest,
                 final FileOpener fileOpener) {
             this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
             this.root = Objects.requireNonNull(root, "root");
@@ -499,8 +475,6 @@ class ScriptRegistry {
             this.scriptDirectory = Objects.requireNonNull(scriptDirectory, "scriptDirectory");
             this.manifest = Objects.requireNonNull(manifest, "manifest");
             this.sourceIdentity = Objects.requireNonNull(sourceIdentity, "sourceIdentity");
-            this.sourceDigest =
-                    Objects.requireNonNull(sourceDigest, "sourceDigest").clone();
             this.fileOpener = Objects.requireNonNull(fileOpener, "fileOpener");
         }
 
@@ -523,8 +497,7 @@ class ScriptRegistry {
                 manifest.requireCurrent("manifest");
                 final StableFile source = readBoundedRegularFile(sourcePath, MAX_SOURCE_BYTES, "source", fileOpener);
                 source.requireCurrent("source");
-                if (!sourceIdentity.equals(source.identity())
-                        || !MessageDigest.isEqual(sourceDigest, source.digest())) {
+                if (!sourceIdentity.equals(source.identity())) {
                     throw new IllegalArgumentException("Script source changed after discovery");
                 }
                 scriptsDirectory.requireCurrent("scripts root");

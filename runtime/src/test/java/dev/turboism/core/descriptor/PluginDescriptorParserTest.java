@@ -198,23 +198,20 @@ class PluginDescriptorParserTest {
 
     @Test
     void parsesV4PublicEventContracts() throws DescriptorParseException {
-        final String digest = "a".repeat(64);
         final PluginDescriptor descriptor = parser.parse(toStream(v4Descriptor("""
               "eventExports": [{
                 "id": "demo.started",
                 "contractVersion": "1.0.0",
-                "eventType": "dev.turboism.sdk.event.demo.DemoStartedEvent",
-                "abiSha256": "%s"
+                "eventType": "dev.turboism.sdk.event.demo.DemoStartedEvent"
               }],
               "eventImports": [{
                 "provider": "dev.turboism.plugin.provider",
                 "eventId": "provider.ready",
                 "contractVersion": "[1.0.0,2.0.0)",
                 "eventType": "dev.turboism.sdk.event.provider.ProviderReadyEvent",
-                "abiSha256": "%s",
                 "required": false
               }],
-            """.formatted(digest, digest))));
+            """)));
 
         assertEquals(1, descriptor.eventExports().size());
         assertEquals("demo.started", descriptor.eventExports().get(0).id());
@@ -228,40 +225,46 @@ class PluginDescriptorParserTest {
 
     @Test
     void rejectsV4DuplicateEventExportIds() {
-        final String digest = "a".repeat(64);
-        final DescriptorParseException failure = assertThrows(
-                DescriptorParseException.class,
-                () -> parser.parse(toStream(v4Descriptor("""
+        final DescriptorParseException failure =
+                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(v4Descriptor("""
                   "eventExports": [
                     {
                       "id": "demo.started",
                       "contractVersion": "1.0.0",
-                      "eventType": "dev.turboism.sdk.event.demo.DemoStartedEvent",
-                      "abiSha256": "%s"
+                      "eventType": "dev.turboism.sdk.event.demo.DemoStartedEvent"
                     },
                     {
                       "id": "demo.started",
                       "contractVersion": "1.1.0",
-                      "eventType": "dev.turboism.sdk.event.demo.DemoStartedAgainEvent",
-                      "abiSha256": "%s"
+                      "eventType": "dev.turboism.sdk.event.demo.DemoStartedAgainEvent"
                     }
                   ],
-                """.formatted(digest, digest)))));
+                """))));
         assertEquals("PLUGIN_META_DUPLICATE_EVENT_EXPORT", failure.code());
     }
 
     @Test
-    void rejectsV4MalformedEventAbi() {
-        final DescriptorParseException failure =
-                assertThrows(DescriptorParseException.class, () -> parser.parse(toStream(v4Descriptor("""
-                  "eventExports": [{
-                    "id": "demo.started",
-                    "contractVersion": "1.0.0",
-                    "eventType": "dev.turboism.sdk.event.demo.DemoStartedEvent",
-                    "abiSha256": "not-a-digest"
-                  }],
-                """))));
-        assertEquals("PLUGIN_META_BAD_EVENT_ABI", failure.code());
+    void toleratesRetiredEventAbiDigestOnRead() throws DescriptorParseException {
+        final String digest = "a".repeat(64);
+        final PluginDescriptor descriptor = parser.parse(toStream(v4Descriptor("""
+              "eventExports": [{
+                "id": "demo.started",
+                "contractVersion": "1.0.0",
+                "eventType": "dev.turboism.sdk.event.demo.DemoStartedEvent",
+                "abiSha256": "%s"
+              }],
+              "eventImports": [{
+                "provider": "dev.turboism.plugin.provider",
+                "eventId": "provider.ready",
+                "contractVersion": "[1.0.0,2.0.0)",
+                "eventType": "dev.turboism.sdk.event.provider.ProviderReadyEvent",
+                "abiSha256": "not-a-digest",
+                "required": false
+              }],
+            """.formatted(digest))));
+
+        assertEquals(1, descriptor.eventExports().size());
+        assertEquals(1, descriptor.eventImports().size());
     }
 
     @Test
@@ -535,15 +538,13 @@ class PluginDescriptorParserTest {
               "eventExports": [{
                 "id": "demo.ready",
                 "contractVersion": "1.0.0",
-                "eventType": "dev.turboism.plugin.demo.DemoReadyEvent",
-                "abiSha256": "%s"
+                "eventType": "dev.turboism.plugin.demo.DemoReadyEvent"
               }],
               "eventImports": [{
                 "provider": "dev.turboism.plugin.provider",
                 "eventId": "provider.ready",
                 "contractVersion": "[1.0.0,2.0.0)",
                 "eventType": "dev.turboism.plugin.provider.ProviderReadyEvent",
-                "abiSha256": "%s",
                 "required": false
               }],
               "eventContracts": [{
@@ -553,7 +554,7 @@ class PluginDescriptorParserTest {
                 "sha256": "%s"
               }]
             }
-            """.formatted(digest, digest, digest)));
+            """.formatted(digest)));
 
         assertEquals(1, descriptor.entrypoints().size());
         assertEquals(1, descriptor.authors().size());

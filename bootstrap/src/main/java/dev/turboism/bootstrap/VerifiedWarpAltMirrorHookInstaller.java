@@ -8,7 +8,6 @@ import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -50,7 +49,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
             final Path hostArtifact,
             final WarpAltMirrorHostProfile profile,
             final Consumer<String> diagnostic) {
-        this(instrumentation, hostClassLoader, hostArtifact, profile, Map.of(), diagnostic);
+        this(instrumentation, hostClassLoader, hostArtifact, profile, java.util.Set.of(), diagnostic);
     }
 
     VerifiedWarpAltMirrorHookInstaller(
@@ -58,7 +57,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
             final ClassLoader hostClassLoader,
             final Path hostArtifact,
             final WarpAltMirrorHostProfile profile,
-            final Map<String, String> pinnedClassSha256,
+            final java.util.Set<String> targetOwners,
             final Consumer<String> diagnostic) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.profile = Objects.requireNonNull(profile, "profile");
@@ -67,7 +66,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                 profile,
                 hostClassLoader,
                 hostArtifact == null ? null : hostArtifact.toAbsolutePath().normalize(),
-                pinnedClassSha256,
+                targetOwners,
                 this::report);
         this.artMeshMoveClassName = profile.artMeshMoveOwner().replace('/', '.');
         this.pointMoveClassName = profile.pointMoveOwner().replace('/', '.');

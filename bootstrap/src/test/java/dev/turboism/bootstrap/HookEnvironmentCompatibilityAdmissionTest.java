@@ -85,7 +85,6 @@ class HookEnvironmentCompatibilityAdmissionTest {
                         id,
                         source,
                         "record.json",
-                        "b".repeat(64),
                         "verification",
                         "adapter",
                         identity.version(),

@@ -110,13 +110,8 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
                 InputPathElisionTarget.CURSOR_OWNER,
                 InputPathElisionTarget.CURSOR_ACCESSOR,
                 InputPathElisionTarget.CURSOR_ACCESSOR_DESCRIPTOR);
-        return List.of(WeaveTarget.single(
-                entry,
-                transformer,
-                EXPECTED_MATCHES,
-                transformer::matches,
-                transformer::failure,
-                owner -> transformer.beforeSha256()));
+        return List.of(
+                WeaveTarget.single(entry, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     private static void verify(

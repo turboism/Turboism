@@ -123,13 +123,8 @@ final class VerifiedWarpPositionProjectionInstaller implements VerifiedHookInsta
         verifyMethod(source, refs, "a", MethodType.methodType(void.class, form).descriptorString(), observed);
         verifyMethod(source, refs, "a", "()I", observed);
         contract.requireUnchanged(source.artifact());
-        return List.of(WeaveTarget.single(
-                target,
-                transformer,
-                EXPECTED_MATCHES,
-                transformer::matches,
-                transformer::failure,
-                owner -> transformer.beforeSha256()));
+        return List.of(
+                WeaveTarget.single(target, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     private static void verifyMethod(

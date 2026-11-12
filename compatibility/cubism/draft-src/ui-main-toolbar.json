@@ -361,7 +361,6 @@
       "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
       "value": {
         "cubismVersion": "${version}",
-        "exactArtifactSha256": "${artifactSha256}",
         "format": "turboism.mapping.pack",
         "schemaVersion": 1,
         "source": "derived-from-verified-record",

@@ -3,14 +3,11 @@ package dev.turboism.adapter.cubism.optimization.inspector;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -35,7 +32,7 @@ public final class InspectorPropertyBypassTransformer implements ClassFileTransf
     private final ClassLoader loader;
     private final Path artifact;
     private final Map<String, ClassSpec> specs;
-    private final Map<String, String> beforeSha256 = new ConcurrentHashMap<>();
+
     private final AtomicInteger matches = new AtomicInteger();
     private volatile String failure;
 
@@ -70,11 +67,6 @@ public final class InspectorPropertyBypassTransformer implements ClassFileTransf
             built.put(seam.owner(), new ClassSpec(seam, shape, slot));
         }
         specs = Map.copyOf(built);
-    }
-
-    /** SHA-256 of each rewritten class before this transformer touched it. */
-    public Map<String, String> beforeSha256() {
-        return Map.copyOf(beforeSha256);
     }
 
     /** Rewritten classes observed so far. */
@@ -149,10 +141,7 @@ public final class InspectorPropertyBypassTransformer implements ClassFileTransf
                 failure = "inspector seam cardinality mismatch: " + name;
                 return null;
             }
-            beforeSha256.putIfAbsent(
-                    name,
-                    HexFormat.of()
-                            .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
+
             matches.incrementAndGet();
             return writer.toByteArray();
         } catch (Exception | LinkageError rejected) {

@@ -117,15 +117,12 @@ class VerifiedInstallTest {
                         "remove:second",
                         "remove:first",
                         "withdrawn",
-                        "add:observer",
                         "call:retransformClasses",
                         "retransform:" + WeaveTarget.internalName(HostA.class),
-                        "call:retransformClasses",
                         "retransform:" + WeaveTarget.internalName(HostB.class),
-                        "remove:observer",
                         "bridge-close"),
                 fake.events.subList(installedEvents, fake.events.size()),
-                "transformers are removed in reverse, then the side effects, then one capture, then the bridge last");
+                "transformers are removed in reverse, then the side effects, then one restoration, then the bridge last");
         assertTrue(installed.restored());
         assertTrue(fake.active.isEmpty());
     }
@@ -154,22 +151,8 @@ class VerifiedInstallTest {
                 artifact -> Optional.of(new Contract("bound")),
                 plan(
                         List.of(
-                                new WeaveTarget(
-                                        HostA.class,
-                                        shared,
-                                        2,
-                                        shared::matches,
-                                        shared::failure,
-                                        Set.of(WeaveTarget.internalName(HostA.class)),
-                                        shared::beforeSha256),
-                                new WeaveTarget(
-                                        HostB.class,
-                                        shared,
-                                        2,
-                                        shared::matches,
-                                        shared::failure,
-                                        Set.of(WeaveTarget.internalName(HostB.class)),
-                                        shared::beforeSha256)),
+                                new WeaveTarget(HostA.class, shared, 2, shared::matches, shared::failure),
+                                new WeaveTarget(HostB.class, shared, 2, shared::matches, shared::failure)),
                         WeavePlan.PostCheck.NONE),
                 BridgeFactory.none(),
                 WeaveEffects.none());
@@ -251,22 +234,22 @@ class VerifiedInstallTest {
     }
 
     @Test
-    void unprovenRestorationKeepsTheHandleOpenForARetry() throws Exception {
+    void failedRestorationKeepsTheHandleOpenForARetry() throws Exception {
         final Fake fake = new Fake();
         final var installed =
                 install(spec(fake, List.of(target(fake.transformer("only", HostA.class), HostA.class))), fake);
-        fake.breakRestore = true;
+        fake.captureFailure = new IllegalStateException("injected restoration failure");
 
         final IllegalStateException failure = assertThrows(IllegalStateException.class, installed::close);
 
-        assertTrue(failure.getMessage().contains("restoration not proven"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("injected restoration failure"), failure.getMessage());
         assertFalse(installed.restored());
-        assertTrue(fake.active.isEmpty(), "the registration is removed before the proof is attempted");
+        assertTrue(fake.active.isEmpty(), "the registration is removed before the restoration is attempted");
 
-        fake.breakRestore = false;
+        fake.captureFailure = null;
         installed.close();
 
-        assertTrue(installed.restored(), "a second close re-captures and settles the handle");
+        assertTrue(installed.restored(), "a second close retransforms and settles the handle");
     }
 
     @Test
@@ -386,13 +369,7 @@ class VerifiedInstallTest {
     }
 
     private static WeaveTarget target(final Woven transformer, final Class<?> type, final int expectedMatches) {
-        return WeaveTarget.single(
-                type,
-                transformer,
-                expectedMatches,
-                transformer::matches,
-                transformer::failure,
-                transformer::beforeSha256);
+        return WeaveTarget.single(type, transformer, expectedMatches, transformer::matches, transformer::failure);
     }
 
     private VerifiedInstall<Contract> install(final WeaveSpec<Contract> spec, final Fake fake) throws Exception {
@@ -468,7 +445,6 @@ class VerifiedInstallTest {
     private static final class Woven implements ClassFileTransformer {
         private final String label;
         private final Set<Class<?>> owners;
-        private final Map<String, String> before = new LinkedHashMap<>();
         private int matches;
         private String failure;
 
@@ -486,8 +462,6 @@ class VerifiedInstallTest {
                 final ProtectionDomain domain,
                 final byte[] bytes) {
             if (bytes == null || redefined == null || !owners.contains(redefined)) return null;
-            before.putIfAbsent(
-                    WeaveTarget.internalName(redefined), VerifiedHookInstallerSupport.sha256HexUnchecked(bytes));
             matches++;
             final byte[] woven = bytes.clone();
             woven[woven.length - 1] ^= 1;
@@ -501,10 +475,6 @@ class VerifiedInstallTest {
         String failure() {
             return failure;
         }
-
-        String beforeSha256(final String owner) {
-            return before.get(owner);
-        }
     }
 
     /**
@@ -517,8 +487,7 @@ class VerifiedInstallTest {
         private final Map<Class<?>, byte[]> official = new LinkedHashMap<>();
         private final Map<Class<?>, byte[]> current = new LinkedHashMap<>();
         private final Map<ClassFileTransformer, String> labels = new IdentityHashMap<>();
-        Error captureFailure;
-        boolean breakRestore;
+        Throwable captureFailure;
         boolean failRemoval;
 
         Instrumentation instrumentation() {
@@ -570,8 +539,9 @@ class VerifiedInstallTest {
 
         private void retransform(final Class<?> type) {
             events.add("retransform:" + WeaveTarget.internalName(type));
-            if (captureFailure != null) throw captureFailure;
-            byte[] bytes = breakRestore ? current.get(type) : official.get(type);
+            if (captureFailure instanceof Error fatal) throw fatal;
+            if (captureFailure instanceof RuntimeException ordinary) throw ordinary;
+            byte[] bytes = official.get(type);
             for (final ClassFileTransformer transformer : List.copyOf(active)) {
                 bytes = apply(transformer, type, bytes);
             }

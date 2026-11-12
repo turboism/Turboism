@@ -163,16 +163,17 @@ final class FreshTriangulationEdgePatcherTest implements Opcodes {
                         },
                         0);
         assertArrayEquals(new int[] {3, 0}, calls);
+        // A second rewrite of the already-guarded body is rejected by the shape gate.
         assertThrows(IllegalArgumentException.class, () -> FreshTriangulationEdgePatcher.patchShape(patched));
-        assertThrows(IllegalArgumentException.class, () -> FreshTriangulationEdgePatcher.patch(fixture()));
+        assertThrows(IllegalArgumentException.class, () -> FreshTriangulationEdgePatcher.patch(patched));
     }
 
     @Test
     void unknownCallerAndRedefinitionDoNotEnableEitherStage() {
         var transformer = new TriangulationEdgeIndexTransformer();
         assertNull(transformer.transform(null, P + "h", null, null, new byte[] {1, 2, 3}));
-        assertEquals(TriangulationEdgeIndexTransformer.Outcome.HASH_MISMATCH, transformer.freshEdgeOutcome());
-        assertEquals(TriangulationEdgeIndexTransformer.Outcome.HASH_MISMATCH, transformer.membershipOutcome());
+        assertEquals(TriangulationEdgeIndexTransformer.Outcome.SHAPE_REJECTED, transformer.freshEdgeOutcome());
+        assertEquals(TriangulationEdgeIndexTransformer.Outcome.SHAPE_REJECTED, transformer.membershipOutcome());
         var redefine = new TriangulationEdgeIndexTransformer();
         assertNull(redefine.transform(null, P + "h", Object.class, null, fixture()));
         assertEquals(TriangulationEdgeIndexTransformer.Outcome.NONE, redefine.freshEdgeOutcome());

@@ -71,12 +71,11 @@ def write_tree(root: Path, versions: tuple[str, ...] = VERSIONS) -> None:
         },
     }
     put(gate.r1_HOST_VALIDATION_TASKS.as_posix(), json.dumps(tasks))
-    sha = "a" * 64
     put(
         (gate.r1_CLASS_PINS_DIR / "test-hook.json").as_posix(),
         json.dumps({
-            versions[0]: {"com/example/A": sha, "com/example/B": sha},
-            versions[2]: {"com/example/A": sha},
+            versions[0]: ["com/example/A", "com/example/B"],
+            versions[2]: ["com/example/A"],
         }),
     )
 
@@ -209,7 +208,7 @@ class VersionSetCompletenessTest(unittest.TestCase):
             write_tree(root)
             path = root / gate.r1_CLASS_PINS_DIR / "test-hook.json"
             document = json.loads(path.read_text())
-            document["5.4.01"] = {"com/example/A": "b" * 64}
+            document["5.4.01"] = ["com/example/A"]
             path.write_text(json.dumps(document))
             self.assertTrue(any("class-pins" in v for v in violations(root)))
 
@@ -223,15 +222,15 @@ class VersionSetCompletenessTest(unittest.TestCase):
             path.write_text(json.dumps(document))
             self.assertEqual([], violations(root))
 
-    def test_class_pin_bad_sha256_fails(self):
+    def test_class_pin_blank_target_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
             path = root / gate.r1_CLASS_PINS_DIR / "test-hook.json"
             document = json.loads(path.read_text())
-            document[VERSIONS[0]]["com/example/A"] = "not-hex"
+            document[VERSIONS[0]][0] = ""
             path.write_text(json.dumps(document))
-            self.assertTrue(any("SHA-256" in v for v in violations(root)))
+            self.assertTrue(any("blank target class" in v for v in violations(root)))
 
     def test_missing_class_pins_dir_fails(self):
         with tempfile.TemporaryDirectory() as directory:

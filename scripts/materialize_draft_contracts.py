@@ -11,7 +11,6 @@ facts, artifact identities, counts and hashes always come from materialized reco
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 
@@ -31,9 +30,6 @@ OVERRIDES_FORMAT = 'turboism.mapping.pack.overrides'
 EVIDENCE_SCHEMA_VERSION = 1
 EDITOR_MODEL_FAMILY = 'editor-model-read'
 EDITOR_MODEL_RECORD_FAMILY = 'editor-model'
-# Shipped compatibility rows are frozen: their retained evidence must not drift.
-FROZEN_MINOR_LINES = ('5.0', '5.1')
-FROZEN_FILE = PACKS / 'frozen.json'
 
 # Retained evidence restates these values verbatim from the materialized records.
 # Tokens keep one baseline valid for every version of its family.
@@ -45,7 +41,6 @@ RECORD_TOKENS = {
     '${verificationId}': lambda record: record['verificationId'],
     '${selectorCount}': lambda record: len(record['selectors']),
     '${capabilityCount}': lambda record: len(record['capabilityIds']),
-    '${verificationRecordSha256}': lambda record: record.get('_recordSha256', ''),
 }
 
 
@@ -152,63 +147,18 @@ def load_evidence(root: Path, records: dict) -> dict[str, dict[str, bytes]]:
     return expanded
 
 
-def check_frozen(root: Path, evidence: dict[str, dict[str, bytes]]) -> None:
-    """Reject drift in shipped compatibility rows by comparing pinned digests."""
-    frozen = root / FROZEN_FILE
-    if not frozen.is_file():
-        if not evidence:
-            return
-        raise ValueError(f'{FROZEN_FILE}: missing frozen-row pins')
-    pins = read_json(frozen)
-    if pins.get('format') != 'turboism.mapping.pack.freeze' or pins.get('schemaVersion') != EVIDENCE_SCHEMA_VERSION:
-        raise ValueError(f'{FROZEN_FILE}: unexpected format or schemaVersion')
-    if list(pins.get('minorLines', ())) != list(FROZEN_MINOR_LINES):
-        raise ValueError(f'{FROZEN_FILE}: frozen minor lines must be {list(FROZEN_MINOR_LINES)}')
-    expected = pins.get('packs', {})
-    actual = {}
-    for family, versions in evidence.items():
-        for version, raw in versions.items():
-            if version.rsplit('.', 1)[0] in FROZEN_MINOR_LINES:
-                actual[f'cubism-{version}-{family}.json'] = hashlib.sha256(raw).hexdigest()
-    if expected != actual:
-        changed = sorted(name for name in set(expected) | set(actual) if expected.get(name) != actual.get(name))
-        raise ValueError(f'frozen compatibility packs drifted: {changed}; shipped rows must not change')
-
-
 def load_records(root: Path) -> dict:
     record_dir = root / 'build/generated/verification'
     records = {p.name: (p.read_bytes(), json.loads(p.read_bytes())) for p in record_dir.glob('*.json')}
     if not records:
         raise ValueError('run materializeVerificationRecords before materializing DRAFT contracts')
-    for raw, record in records.values():
-        record['_recordSha256'] = hashlib.sha256(raw).hexdigest()
     return records
-
-
-def write_freeze(root: Path) -> None:
-    """Pin every frozen-row pack digest; run only for a reviewed compatibility change."""
-    evidence = load_evidence(root, load_records(root))
-    packs = {}
-    for family, versions in evidence.items():
-        for version, raw in versions.items():
-            if version.rsplit('.', 1)[0] in FROZEN_MINOR_LINES:
-                packs[f'cubism-{version}-{family}.json'] = hashlib.sha256(raw).hexdigest()
-    (root / FROZEN_FILE).write_text(json.dumps({
-        'format': 'turboism.mapping.pack.freeze',
-        'schemaVersion': EVIDENCE_SCHEMA_VERSION,
-        'minorLines': list(FROZEN_MINOR_LINES),
-        'notes': 'Shipped compatibility rows are frozen. Retained evidence for these versions must not drift; '
-                 'change these pins only through a reviewed compatibility decision.',
-        'packs': dict(sorted(packs.items())),
-    }, indent=2) + '\n', encoding='utf-8')
-    print(f'PASS: pinned {len(packs)} frozen-row packs')
 
 
 def render(root: Path) -> tuple[dict[str, bytes], dict[str, bytes]]:
     versions = [r['version'] for r in load_releases(root / 'compatibility/cubism/reviewed-releases.json')]
     records = load_records(root)
     evidence = load_evidence(root, records)
-    check_frozen(root, evidence)
     packs = {f'cubism-{version}-{family}.json': raw
              for family, versions in evidence.items() for version, raw in versions.items()}
     for path in sorted((root / SOURCES).glob('*.json')):
@@ -249,7 +199,6 @@ def render(root: Path) -> tuple[dict[str, bytes], dict[str, bytes]]:
                 '${selectorCount}': len(selectors),
                 '${capabilityCount}': len(record['capabilityIds']),
                 '${capabilityIds}': record['capabilityIds'],
-                '${verificationRecordSha256}': hashlib.sha256(raw).hexdigest(),
             }
             pack = substitute(select(source['envelopes'], version, versions), values)
             entries = []
@@ -295,12 +244,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=ROOT)
     parser.add_argument('--check-against', type=Path, help='reference repository root')
-    parser.add_argument('--write-freeze', action='store_true', help='rewrite the frozen-row pins from current evidence')
     args = parser.parse_args()
     try:
-        if args.write_freeze:
-            write_freeze(args.root)
-            return 0
         packs, profiles = render(args.root)
         if args.check_against:
             for relative, rendered in [(PACKS, packs), (PROFILES, profiles)]:

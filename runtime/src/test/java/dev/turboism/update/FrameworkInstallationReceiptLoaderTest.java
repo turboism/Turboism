@@ -222,7 +222,9 @@ final class FrameworkInstallationReceiptLoaderTest {
             case "permissions-state" -> Support.worldReadable(f.index.getParent());
             default -> throw new AssertionError(mode);
         }
-        if (mode.equals("bad-signature")) {
+        if (mode.equals("bad-signature") || mode.equals("tampered-manifest")) {
+            // The documents are authenticated by the signature, not by a digest the index repeats, so
+            // edited manifest bytes are refused by the verifier itself.
             assertThrows(
                     UpdateManifestVerifier.UpdateManifestVerificationException.class,
                     () -> f.loader().load());
@@ -240,6 +242,35 @@ final class FrameworkInstallationReceiptLoaderTest {
         assertThrows(
                 IOException.class,
                 () -> new FrameworkInstallationReceiptLoader(moved, f.verifier, () -> f.info).load());
+    }
+
+    /**
+     * Released indexes still record the manifest digest and keep their documents in a digest-named
+     * directory. An installed client must upgrade without moving a byte, so that layout keeps
+     * authenticating exactly like the current fixed path.
+     */
+    @Test
+    void legacyIndexWithRetiredManifestDigestAuthenticatesTheSameDocuments() throws Exception {
+        final Fixture f = new Fixture();
+        final String digest = FrameworkUpdateTaskStore.hash(f.manifest);
+        final Path legacyDocuments = f.index.getParent().resolve("receipts").resolve(digest);
+        Files.move(f.documents, legacyDocuments);
+        final ObjectNode legacy = (ObjectNode) UpdateFileSupport.JSON.readTree(Files.readAllBytes(f.index));
+        legacy.put("manifestSha256", digest);
+        Files.write(f.index, UpdateFileSupport.JSON.writeValueAsBytes(legacy));
+        Support.makePrivate(f.index);
+
+        assertEquals(
+                f.loader().load().hashes(),
+                new FrameworkInstallationReceiptLoader(f.root, f.verifier, () -> f.info)
+                        .load()
+                        .hashes());
+
+        // A retired digest that disagrees with the document directory must be refused, not followed.
+        legacy.put("manifestSha256", "d".repeat(64));
+        Files.write(f.index, UpdateFileSupport.JSON.writeValueAsBytes(legacy));
+        Support.makePrivate(f.index);
+        assertThrows(IOException.class, () -> f.loader().load());
     }
 
     @Test
@@ -577,6 +608,38 @@ final class FrameworkInstallationReceiptLoaderTest {
         assertEquals(old.hashes(), f.loader().load().hashes());
         assertTrue(Files.exists(f.root.resolve("graal/lib/sdk-1.0.0.jar")));
         assertFalse(Files.exists(f.root.resolve("graal/lib/sdk-1.1.0.jar")));
+    }
+
+    /**
+     * A released installation keeps its signed documents in a digest-named directory. An update
+     * that rolls back must restore that exact directory, not the current fixed path, or the
+     * installation is left holding a receipt for an update it no longer contains.
+     */
+    @Test
+    void rollbackRestoresTheLegacyDigestNamedReceiptDirectory() throws Exception {
+        final Fixture f = new Fixture();
+        final String digest = FrameworkUpdateTaskStore.hash(f.manifest);
+        final Path legacyDocuments = f.index.getParent().resolve("receipts").resolve(digest);
+        Files.move(f.documents, legacyDocuments);
+        final ObjectNode legacyIndex = (ObjectNode) UpdateFileSupport.JSON.readTree(Files.readAllBytes(f.index));
+        legacyIndex.put("manifestSha256", digest);
+        Files.write(f.index, UpdateFileSupport.JSON.writeValueAsBytes(legacyIndex));
+        Support.makePrivate(f.index);
+
+        final byte[] index = Files.readAllBytes(f.index);
+        final byte[] documents = Files.readAllBytes(legacyDocuments.resolve("manifest.json"));
+        final var old = f.loader().load();
+        final var target = upgrade(f, "1.1.0", 50, 'c');
+        final var applier = new FrameworkUpdateApplier(f.root, temporary.resolve("apply-work"), point -> {
+            if (point.equals("after-receipt-index")) throw new IOException("injected index failure");
+        });
+        assertEquals(
+                FrameworkUpdateApplier.Outcome.ROLLED_BACK,
+                applier.applyAuthenticated(target.receipt(), old, target.staged(), new byte[] {'{', '}'})
+                        .outcome());
+        assertArrayEquals(index, Files.readAllBytes(f.index));
+        assertArrayEquals(documents, Files.readAllBytes(legacyDocuments.resolve("manifest.json")));
+        assertEquals(old.hashes(), f.loader().load().hashes());
     }
 
     @Test
@@ -950,8 +1013,7 @@ final class FrameworkInstallationReceiptLoaderTest {
                     1, "fixture", "1.0.0", "stable", 49, "b".repeat(40), "1.0.0", "windows-x64", entries);
             manifest = old.toCanonicalBytes();
             envelope = sign(manifest);
-            final String hash = FrameworkUpdateTaskStore.hash(manifest);
-            documents = index.getParent().resolve("receipts").resolve(hash);
+            documents = index.getParent().resolve(FrameworkInstallationReceiptLoader.CURRENT_RECEIPT);
             Files.createDirectories(documents);
             for (Path p = documents; !p.equals(root); p = p.getParent()) Support.makePrivate(p);
             writePrivate(documents.resolve("manifest.json"), manifest);
@@ -961,7 +1023,6 @@ final class FrameworkInstallationReceiptLoaderTest {
                     .put("format", FrameworkInstallationReceiptLoader.FORMAT)
                     .put("schemaVersion", 1)
                     .put("layout", FrameworkInstallationReceiptLoader.LAYOUT)
-                    .put("manifestSha256", hash)
                     .put("rootIdentity", FrameworkInstallationFiles.system(root).rootIdentity());
             writePrivate(index, UpdateFileSupport.JSON.writeValueAsBytes(record));
         }
@@ -986,7 +1047,7 @@ final class FrameworkInstallationReceiptLoaderTest {
 
         static UpdateManifestEntry entry(final String path, final byte[] bytes) {
             final String hash = FrameworkUpdateTaskStore.hash(bytes);
-            return new UpdateManifestEntry(path, bytes.length, hash, "sha256:" + hash);
+            return new UpdateManifestEntry(path, bytes.length, hash);
         }
 
         private void writePrivate(final Path path, final byte[] bytes) throws IOException {

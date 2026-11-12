@@ -404,8 +404,7 @@
             "capabilityCount": 1,
             "capabilityIds": [
               "cubism.clipmask.read"
-            ],
-            "verificationRecordSha256": "80e63e64c9a69e943d4c231818667f94bcbd56f32784c3d003b46a42e7dd08a3"
+            ]
           },
           "schemaVersion": 1,
           "source": "jar-metadata-probe",

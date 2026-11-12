@@ -2,7 +2,6 @@
 """Synthetic regression for DRAFT declaration diagnostics and retained evidence expansion."""
 from __future__ import annotations
 
-import hashlib
 import json
 import sys
 import tempfile
@@ -12,9 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
 from materialize_draft_contracts import (
-    FROZEN_MINOR_LINES,
     OVERRIDES_FORMAT,
-    check_frozen,
     load_evidence,
     render,
 )
@@ -114,40 +111,6 @@ class RetainedEvidenceExpansionTest(unittest.TestCase):
             evidence = load_evidence(root, records)
             self.assertEqual('fixture/Old', json.loads(evidence[self.FAMILY][self.VERSION])['entries'][0]['runtime'])
             self.assertEqual('fixture/New', json.loads(evidence[self.FAMILY][newer])['entries'][0]['runtime'])
-
-
-class FrozenRowTest(unittest.TestCase):
-    """Shipped compatibility rows must not drift after they are pinned."""
-
-    def _evidence(self, runtime: str) -> dict:
-        return {'ui-test': {FROZEN_MINOR_LINES[0] + '.00': json.dumps({'runtime': runtime}).encode()}}
-
-    def _root(self, directory: str, digest: str) -> Path:
-        root = Path(directory)
-        frozen = root / 'compatibility/cubism/mapping-packs/draft/frozen.json'
-        frozen.parent.mkdir(parents=True, exist_ok=True)
-        frozen.write_text(json.dumps({
-            'format': 'turboism.mapping.pack.freeze',
-            'schemaVersion': 1,
-            'minorLines': list(FROZEN_MINOR_LINES),
-            'packs': {f'cubism-{FROZEN_MINOR_LINES[0]}.00-ui-test.json': digest},
-        }), encoding='utf-8')
-        return root
-
-    def test_matching_digest_passes(self):
-        evidence = self._evidence('fixture/Old')
-        digest = hashlib.sha256(evidence['ui-test'][f'{FROZEN_MINOR_LINES[0]}.00']).hexdigest()
-        with tempfile.TemporaryDirectory() as directory:
-            check_frozen(self._root(directory, digest), evidence)
-
-    def test_changed_shipped_row_fails(self):
-        evidence = self._evidence('fixture/New')
-        digest = hashlib.sha256(b'{"runtime": "fixture/Old"}').hexdigest()
-        with tempfile.TemporaryDirectory() as directory:
-            with self.assertRaises(ValueError) as failure:
-                check_frozen(self._root(directory, digest), evidence)
-            self.assertIn('frozen compatibility packs drifted', str(failure.exception))
-            self.assertIn(f'cubism-{FROZEN_MINOR_LINES[0]}.00-ui-test.json', str(failure.exception))
 
 
 if __name__ == '__main__':

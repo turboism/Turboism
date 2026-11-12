@@ -24,6 +24,9 @@ VERSION_RANGE = re.compile(r"^[\[(][0-9]+\.[0-9]+\.[0-9]+,[0-9]+\.[0-9]+\.[0-9]+
 CONTRACT_ARTIFACT = re.compile(
     r"^META-INF/turboism/contracts/[A-Za-z0-9][A-Za-z0-9._-]*\.jar$"
 )
+# Retired event ABI digest: descriptors published before the retirement still carry it,
+# so the normalizer admits and ignores it instead of failing an otherwise valid manifest.
+LEGACY_EVENT_FIELDS = frozenset({"abiSha256"})
 
 
 class EventMetadataError(ValueError):
@@ -94,10 +97,6 @@ def validate_event_routes(descriptors: Iterable[dict], *, require_providers: boo
                 raise EventMetadataError(
                     f"{consumer['id']}: public event type mismatch for {provider_id}:{event_import['eventId']}"
                 )
-            if exported["abiSha256"] != event_import["abiSha256"]:
-                raise EventMetadataError(
-                    f"{consumer['id']}: public event ABI mismatch for {provider_id}:{event_import['eventId']}"
-                )
             if not version_in_range(exported["contractVersion"], event_import["contractVersion"]):
                 raise EventMetadataError(
                     f"{consumer['id']}: public event contract version mismatch for {provider_id}:{event_import['eventId']}"
@@ -129,7 +128,7 @@ def _exports(value, label: str) -> list[dict]:
     types = set()
     for index, raw in enumerate(rows):
         where = f"{label}.eventExports[{index}]"
-        item = _object(raw, where, {"id", "contractVersion", "eventType", "abiSha256"})
+        item = _object(raw, where, {"id", "contractVersion", "eventType"}, LEGACY_EVENT_FIELDS)
         event_id = _text(item, "id", where, EVENT_ID)
         event_type = _text(item, "eventType", where, BINARY_TYPE)
         if event_id in ids:
@@ -142,7 +141,6 @@ def _exports(value, label: str) -> list[dict]:
             "id": event_id,
             "contractVersion": _text(item, "contractVersion", where, STRICT_VERSION),
             "eventType": event_type,
-            "abiSha256": _text(item, "abiSha256", where, SHA256),
         })
     return sorted(result, key=lambda item: (item["id"], item["eventType"]))
 
@@ -156,7 +154,8 @@ def _imports(value, label: str) -> list[dict]:
         item = _object(
             raw,
             where,
-            {"provider", "eventId", "contractVersion", "eventType", "abiSha256", "required"},
+            {"provider", "eventId", "contractVersion", "eventType", "required"},
+            LEGACY_EVENT_FIELDS,
         )
         provider = _text(item, "provider", where, PLUGIN_ID)
         event_id = _text(item, "eventId", where, EVENT_ID)
@@ -172,7 +171,6 @@ def _imports(value, label: str) -> list[dict]:
             "eventId": event_id,
             "contractVersion": _text(item, "contractVersion", where, VERSION_RANGE),
             "eventType": _text(item, "eventType", where, BINARY_TYPE),
-            "abiSha256": _text(item, "abiSha256", where, SHA256),
             "required": required,
         })
     return sorted(result, key=lambda item: (item["provider"], item["eventId"], item["eventType"]))
@@ -223,10 +221,10 @@ def _array(value, where: str) -> list:
     return value
 
 
-def _object(value, where: str, keys: set[str]) -> dict:
+def _object(value, where: str, keys: set[str], ignored: set[str] = frozenset()) -> dict:
     if not isinstance(value, dict):
         raise EventMetadataError(f"{where}: must be an object")
-    unknown = sorted(set(value) - keys)
+    unknown = sorted(set(value) - keys - ignored)
     missing = sorted(keys - set(value))
     if unknown or missing:
         detail = []

@@ -177,9 +177,6 @@ def r1_index_md(root: Path) -> set[str]:
     return set(r1_INDEX_VERSION.findall(read_source(root, r1_INDEX_MD)))
 
 
-r1_SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
-
-
 def r1_class_pin_tables(root: Path) -> tuple[set[str], list[str]]:
     """Union of version keys across class-pins/*.json plus per-file problems."""
     base = root / r1_CLASS_PINS_DIR
@@ -199,16 +196,17 @@ def r1_class_pin_tables(root: Path) -> tuple[set[str], list[str]]:
             continue
         for version, block in document.items():
             versions.add(str(version))
-            if not isinstance(block, dict):
+            if not isinstance(block, list) or not block:
                 problems.append(
-                    f"{r1_CLASS_PINS_DIR}/{pin.name}: version '{version}' is not an object"
+                    f"{r1_CLASS_PINS_DIR}/{pin.name}: version '{version}' must list at least "
+                    "one target class"
                 )
                 continue
-            for class_name, sha in block.items():
-                if not isinstance(sha, str) or not r1_SHA256_HEX.fullmatch(sha):
+            for class_name in block:
+                if not isinstance(class_name, str) or not class_name.strip():
                     problems.append(
-                        f"{r1_CLASS_PINS_DIR}/{pin.name}: '{class_name}' under "
-                        f"'{version}' is not a 64-char lowercase hex SHA-256"
+                        f"{r1_CLASS_PINS_DIR}/{pin.name}: version '{version}' names a blank "
+                        "target class"
                     )
     return versions, problems
 

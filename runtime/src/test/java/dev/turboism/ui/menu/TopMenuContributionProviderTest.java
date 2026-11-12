@@ -259,7 +259,7 @@ class TopMenuContributionProviderTest {
                 EditorUiFamily.MENU,
                 generation,
                 new EditorUiProviderAdmission.VerificationEvidence(
-                        "5.3.02", 42, "a".repeat(64), "adapter.editor-ui.top-menu", "b".repeat(64)));
+                        "5.3.02", 42, "a".repeat(64), "adapter.editor-ui.top-menu"));
     }
 
     private static final class RecordingHost implements TopMenuHostOperations {

@@ -4,23 +4,15 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.function.Consumer;
 import org.objectweb.asm.*;
 
 /** First-definition-only hook. Hash admission does not resolve any host class. */
 public final class MeshInterpolationTransformer implements ClassFileTransformer {
     public static final String OWNER = NativeMeshInterpolationBridge.EXTENSION.replace('.', '/');
-    public static final String CLASS_SHA256 = "399a05605ebb2e837434e5b8be7fa84c4cb5d24adc09f7e5546214471380e39f";
-    private static final java.util.Map<String, java.util.Map<String, String>> REVIEWED_CLASS_SHA256 =
+    private static final java.util.Map<String, java.util.List<String>> REVIEWED_CLASSES =
             dev.turboism.adapter.cubism.optimization.ClassPinTable.load("mesh-interpolation");
-    private static final java.util.Set<String> ADMITTED_CLASS_SHA256S =
-            java.util.Collections.unmodifiableSet(REVIEWED_CLASS_SHA256.values().stream()
-                    .map(m -> m.get(OWNER))
-                    .filter(java.util.Objects::nonNull)
-                    .collect(java.util.stream.Collectors.toSet()));
 
     static final String METHOD = "updateInterpolatedForms_common";
     static final String DESC =
@@ -69,21 +61,6 @@ public final class MeshInterpolationTransformer implements ClassFileTransformer 
             return null;
         }
         try {
-            String classDigest = digest(bytes);
-            if (serializer) {
-                if (!classDigest.equals(DerivedCacheSerializationPatch.SHA256)) {
-                    report("DECLINED_CLASS_HASH");
-                    return null;
-                }
-            } else if (property) {
-                if (!classDigest.equals(DerivedCacheSerializationPatch.PROPERTY_SHA256)) {
-                    report("DECLINED_CLASS_HASH");
-                    return null;
-                }
-            } else if (!ADMITTED_CLASS_SHA256S.contains(classDigest)) {
-                report("DECLINED_CLASS_HASH");
-                return null;
-            }
             Path artifact = Path.of(domain.getCodeSource().getLocation().toURI());
             dev.turboism.mapping.verification.HostArtifactDigest hostDigest =
                     NativeMeshInterpolationBridge.hostArtifactDigest(artifact);
@@ -94,10 +71,9 @@ public final class MeshInterpolationTransformer implements ClassFileTransformer 
             }
             String version = cubismVersion.get();
             if (!serializer && !property) {
-                var pins = REVIEWED_CLASS_SHA256.get(version);
-                String expected = pins == null ? null : pins.get(OWNER);
-                if (!classDigest.equals(expected)) {
-                    report("DECLINED_CLASS_HASH");
+                var targets = REVIEWED_CLASSES.get(version);
+                if (targets == null || !targets.contains(OWNER)) {
+                    report("DECLINED_TARGET_CLASS");
                     return null;
                 }
             }
@@ -118,10 +94,6 @@ public final class MeshInterpolationTransformer implements ClassFileTransformer 
             report("DECLINED_SHAPE_OR_SOURCE");
             return null;
         }
-    }
-
-    static String digest(byte[] bytes) throws java.security.NoSuchAlgorithmException {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 
     static byte[] patch(byte[] bytes) {

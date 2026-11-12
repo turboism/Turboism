@@ -99,13 +99,8 @@ final class VerifiedClipMaskDeduplicationInstaller implements AutoCloseable {
         references.put(renderSystemOwner, source.referenceBytes(target));
         final ClipMaskDeduplicationTransformer transformer = new ClipMaskDeduplicationTransformer(
                 source.loader(), source.artifact(), renderSystemOwner, renderMethodDescriptor, references);
-        return List.of(WeaveTarget.single(
-                target,
-                transformer,
-                EXPECTED_MATCHES,
-                transformer::sites,
-                transformer::failure,
-                transformer::beforeSha256));
+        return List.of(
+                WeaveTarget.single(target, transformer, EXPECTED_MATCHES, transformer::sites, transformer::failure));
     }
 
     /** Publishes the dedupe slots and then the scissor sub-mode's, in that order. */

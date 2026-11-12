@@ -210,7 +210,7 @@ class ModelInstanceCoalesceTransformerTest {
         final Loader foreign = new Loader(other);
         assertNull(transformer.transform(null, foreign, SOURCE, null, foreign.domain, reference));
         assertTrueFailure(transformer.failure());
-        assertFalse(transformer.beforeSha256().containsKey(SOURCE));
+        assertFalse(transformer.wovenOwners().contains(SOURCE));
     }
 
     private static void assertTrueFailure(final String failure) {

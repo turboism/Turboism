@@ -49,7 +49,6 @@ final class PluginPackageFixtures {
                 .forEach(entry ->
                         files.add(new FileSpec("plugin/lib/" + entry.getKey(), entry.getValue(), "PLUGIN_LIBRARY")));
         Map<String, Object> manifest = manifest(id, version, files);
-        manifest.put("packageHash", sha256(CANONICAL.writeValueAsBytes(manifest)));
         Map<String, byte[]> entries = new LinkedHashMap<>();
         entries.put("META-INF/turboism/package.json", CANONICAL.writeValueAsBytes(manifest));
         files.forEach(file -> entries.put(file.path(), file.bytes()));
@@ -143,20 +142,9 @@ final class PluginPackageFixtures {
         manifest.put("packageId", id);
         manifest.put("packageKind", "PLUGIN");
         manifest.put("pluginDescriptorPath", "plugin/plugin.jar!/META-INF/turboism/plugin.json");
-        byte[] descriptor = descriptorBytes(files.get(0).bytes());
-        manifest.put("pluginDescriptorSha256", sha256(descriptor));
         manifest.put("schemaVersion", 1);
         manifest.put("version", version);
         return manifest;
-    }
-
-    private static byte[] descriptorBytes(byte[] jarBytes) throws Exception {
-        try (var zip = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(jarBytes))) {
-            for (ZipEntry entry; (entry = zip.getNextEntry()) != null; ) {
-                if (entry.getName().equals("META-INF/turboism/plugin.json")) return zip.readAllBytes();
-            }
-        }
-        throw new IllegalArgumentException("descriptor missing");
     }
 
     private static byte[] zip(Map<String, byte[]> entries) throws Exception {

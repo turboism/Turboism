@@ -545,7 +545,6 @@ class HostSessionPluginContextIntegrationTest {
                         "editor-model",
                         "5.3.02",
                         "cubism-5.3.02-editor-model.json",
-                        "b".repeat(64),
                         "fixture.compat.editor-model",
                         "adapter.editor-model",
                         "5.3.99",

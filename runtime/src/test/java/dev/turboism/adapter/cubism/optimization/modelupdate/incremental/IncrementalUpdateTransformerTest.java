@@ -574,7 +574,6 @@ public class IncrementalUpdateTransformerTest {
             }
             assertEquals(7, transformer.matches());
             assertEquals(5, transformer.touchedClasses().size());
-            assertNotNull(transformer.beforeSha256(t.updater()));
         }
     }
 

@@ -18,28 +18,30 @@ import org.objectweb.asm.Opcodes;
 final class MeshMirrorNativeMethodTransformerTest {
 
     @Test
-    void actualClassBytesMustMatchTheBoundContractBeforeTheLoaderIsAdmitted() throws Exception {
+    void boundContractScopesOwnersBeforeTheLoaderIsAdmitted() throws Exception {
         final var profile = MeshMirrorHostProfile.reviewed52And53();
         final var paths = new PathHolder();
         final var loader = getClass().getClassLoader();
         final byte[] original = fixture(profile.meshEditorOwner(), profile);
-        final String pin = sha256(original);
         final var transformer = new MeshMirrorNativeMethodTransformer(
                 profile,
                 loader,
                 paths.expected,
                 null,
                 null,
-                java.util.Map.of(profile.meshEditorOwner(), pin),
+                java.util.Set.of(profile.meshEditorOwner()),
                 ignored -> {});
-        final byte[] changed = original.clone();
-        changed[changed.length - 1] ^= 1;
-
+        // An owner the bound contract does not declare is never inspected.
         assertNull(transformer.transform(
-                null, loader, profile.meshEditorOwner(), null, paths.domain(paths.expected), changed));
-        assertEquals(MeshMirrorNativeMethodTransformer.Outcome.CLASS_BYTES_MISMATCH, transformer.outcome());
+                null,
+                loader,
+                "com/live2d/cubism/view/context/undeclared",
+                null,
+                paths.domain(paths.expected),
+                original));
         assertNull(transformer.admittedClassLoader());
         assertTrue(transformer.transformedOwners().isEmpty());
+
         assertNotNull(transformer.transform(
                 null, loader, profile.meshEditorOwner(), null, paths.domain(paths.expected), original));
 
@@ -48,11 +50,6 @@ final class MeshMirrorNativeMethodTransformerTest {
                 null, loader, profile.meshEditorOwner(), null, paths.domain(paths.expected), original));
         assertFalse(transformer.targetTransformed());
         assertEquals(java.util.Set.of(profile.meshEditorOwner()), transformer.transformedOwners());
-
-        final var missingProof = new MeshMirrorNativeMethodTransformer(profile, loader, paths.expected, null, null);
-        assertNull(missingProof.transform(
-                null, loader, profile.meshEditorOwner(), null, paths.domain(paths.expected), original));
-        assertEquals(MeshMirrorNativeMethodTransformer.Outcome.CLASS_BYTES_MISMATCH, missingProof.outcome());
     }
 
     @Test
@@ -62,13 +59,7 @@ final class MeshMirrorNativeMethodTransformerTest {
         final ClassLoader first = new ClassLoader() {};
         final ClassLoader second = new ClassLoader() {};
         final MeshMirrorNativeMethodTransformer transformer = new MeshMirrorNativeMethodTransformer(
-                profile,
-                null,
-                paths.expected,
-                null,
-                null,
-                java.util.Map.of(profile.meshEditorOwner(), sha256(fixture(profile.meshEditorOwner(), profile))),
-                ignored -> {});
+                profile, null, paths.expected, null, null, java.util.Set.of(profile.meshEditorOwner()), ignored -> {});
         assertNotNull(transformer.transform(
                 null,
                 first,
@@ -147,11 +138,6 @@ final class MeshMirrorNativeMethodTransformerTest {
         }
     }
 
-    private static String sha256(final byte[] bytes) throws Exception {
-        return java.util.HexFormat.of()
-                .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
-    }
-
     @Test
     void replayAcceptsConstantPoolAndDebugChangesButRejectsChangesToUnrelatedHostCode() throws Exception {
         final var profile = MeshMirrorHostProfile.reviewed52And53();
@@ -165,7 +151,7 @@ final class MeshMirrorNativeMethodTransformerTest {
         final Class<?> target = loader.define(owner, original);
         final var domain = paths.domain(paths.expected);
         final var transformer = new MeshMirrorNativeMethodTransformer(
-                profile, loader, paths.expected, null, null, java.util.Map.of(owner, sha256(original)), ignored -> {});
+                profile, loader, paths.expected, null, null, java.util.Set.of(owner), ignored -> {});
         final byte[] initial = transformer.transform(null, loader, owner, null, domain, original);
         assertNotNull(initial);
 
@@ -198,6 +184,7 @@ final class MeshMirrorNativeMethodTransformerTest {
                             }
                         },
                         0);
+        // A replay must reproduce the admitted definition; a changed body refuses the replay.
         assertNull(transformer.transform(null, loader, owner, target, domain, tamperedWriter.toByteArray()));
         assertEquals(MeshMirrorNativeMethodTransformer.Outcome.CLASS_BYTES_MISMATCH, transformer.outcome());
         assertNotNull(transformer.transform(null, loader, owner, target, domain, replay));

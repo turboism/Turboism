@@ -234,7 +234,6 @@ public class ModelUpdateSkipTransformerTest {
             byte[] output = transformer.transform(null, loader, target.owner(), null, loader.domain, reference);
             assertNotNull(output, target.version() + " rejected: " + transformer.failure());
             assertEquals(1, transformer.matches());
-            assertNotNull(transformer.beforeSha256());
         }
     }
 

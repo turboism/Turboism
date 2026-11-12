@@ -3,9 +3,7 @@ package dev.turboism.adapter.cubism.optimization.lineupload;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import org.objectweb.asm.ClassReader;
@@ -30,7 +28,7 @@ public final class LineRendererUploadSplitTransformer implements ClassFileTransf
     private final ClassLoader loader;
     private final Path artifact;
     private final List<String> shape;
-    private volatile String beforeSha256, failure;
+    private volatile String failure;
     private volatile int matches;
 
     /**
@@ -61,11 +59,6 @@ public final class LineRendererUploadSplitTransformer implements ClassFileTransf
     /** Returns the number of rewritten classes. */
     public int matches() {
         return matches;
-    }
-
-    /** Returns the original class digest for restoration verification. */
-    public String beforeSha256() {
-        return beforeSha256;
     }
 
     @Override
@@ -173,10 +166,7 @@ public final class LineRendererUploadSplitTransformer implements ClassFileTransf
                 return null;
             }
             final byte[] result = writer.toByteArray();
-            if (beforeSha256 == null) {
-                beforeSha256 = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-            }
+
             matches++;
             return result;
         } catch (Exception | LinkageError rejected) {

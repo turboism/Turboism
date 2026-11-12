@@ -5,7 +5,7 @@ val astGrepConfig = "tooling/ast-grep/sgconfig.yml"
 
 tasks.register<Exec>("checkGoldenSnapshotManifest") {
     group = "verification"
-    description = "Verifies immutable historical snapshot inventory and SHA-256 digests."
+    description = "Verifies immutable historical snapshot inventory, provenance and coverage."
     workingDir(rootDir)
     inputs.file("scripts/check_golden_snapshots.py")
     inputs.files(goldenSnapshotFixtures)

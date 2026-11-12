@@ -114,7 +114,7 @@ class ContextMenuContributionProviderTest {
                 EditorUiFamily.CONTEXT_MENU,
                 generation,
                 new EditorUiProviderAdmission.VerificationEvidence(
-                        "5.3.02", 42, "a".repeat(64), "adapter.editor-ui.object-context-menu", "b".repeat(64)));
+                        "5.3.02", 42, "a".repeat(64), "adapter.editor-ui.object-context-menu"));
     }
 
     private static final class RecordingHost implements ContextMenuHostOperations {

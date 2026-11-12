@@ -1,8 +1,6 @@
 package dev.turboism.bootstrap;
 
 import java.lang.instrument.ClassFileTransformer;
-import java.util.Set;
-import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
@@ -21,18 +19,13 @@ import java.util.function.Supplier;
  * @param expectedMatches the exact matched-site count this hook expects, {@code -1} to assert none
  * @param matches the transformer's matched-site count accessor
  * @param failure the transformer's own refusal detail, {@code null} when it recorded none
- * @param touchedOwners internal names this hook may rewrite; the close proof re-captures each of them
- * @param beforeSha256 the pre-rewrite digest of {@code owner} per internal name, {@code null} for an
- *     owner this transformer never rewrote
  */
 record WeaveTarget(
         Class<?> type,
         ClassFileTransformer transformer,
         int expectedMatches,
         IntSupplier matches,
-        Supplier<String> failure,
-        Set<String> touchedOwners,
-        Function<String, String> beforeSha256) {
+        Supplier<String> failure) {
 
     /**
      * The common single-owner shape: the only class this transformer rewrites is {@code type} itself.
@@ -42,35 +35,32 @@ record WeaveTarget(
      * @param expectedMatches the exact matched-site count
      * @param matches the transformer's matched-site count accessor
      * @param failure the transformer's own refusal detail accessor
-     * @param beforeSha256 the pre-rewrite digest accessor
-     * @return a target whose touched owners are {@code type} alone
+     * @return a target scoped to {@code type}
      */
     static WeaveTarget single(
             final Class<?> type,
             final ClassFileTransformer transformer,
             final int expectedMatches,
             final IntSupplier matches,
-            final Supplier<String> failure,
-            final Function<String, String> beforeSha256) {
-        return new WeaveTarget(
-                type, transformer, expectedMatches, matches, failure, Set.of(internalName(type)), beforeSha256);
+            final Supplier<String> failure) {
+        return new WeaveTarget(type, transformer, expectedMatches, matches, failure);
     }
 
     /**
-     * A transformer the routine only registers: no class of its own is retransformed, no match count is
-     * asserted and no class is re-captured for it on close. This is the shape of a dependency guard that
-     * inspects the classes a hook's weave reads instead of rewriting one.
+     * A transformer the routine only registers: no class of its own is retransformed and no match
+     * count is asserted. This is the shape of a dependency guard that inspects the classes a hook's
+     * weave reads instead of rewriting one.
      *
      * @param transformer the guard transformer
      * @return a target that joins the registration but not the retransformation
      */
     static WeaveTarget registeredOnly(final ClassFileTransformer transformer) {
-        return new WeaveTarget(null, transformer, -1, () -> 0, () -> null, Set.of(), owner -> null);
+        return new WeaveTarget(null, transformer, -1, () -> 0, () -> null);
     }
 
     /**
      * @param type a loaded class
-     * @return its internal name, the form {@link #touchedOwners()} and {@link #beforeSha256()} use
+     * @return its internal name
      */
     static String internalName(final Class<?> type) {
         return type.getName().replace('.', '/');

@@ -708,7 +708,7 @@ final class FrameworkUpdateLaunchLeaseTest {
                 "c".repeat(40),
                 "1.0.0",
                 "windows-x64",
-                List.of(new UpdateManifestEntry("turboism-agent.jar", payload.length, hash, "sha256:" + hash)));
+                List.of(new UpdateManifestEntry("turboism-agent.jar", payload.length, hash)));
         final byte[] manifestBytes = manifest.toCanonicalBytes();
         Files.write(stage.resolve("manifest.json"), manifestBytes);
         Files.write(stage.resolve("manifest.json.sig"), signedEnvelope(manifestBytes, keys));

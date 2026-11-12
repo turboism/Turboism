@@ -100,12 +100,11 @@ public record IncrementalUpdateTarget(
      * repackaged or differently-declared artifact binds only when exactly one
      * generation's pin set matches every class entry.
      */
-    public static Map<String, Map<String, String>> reviewedClassSha256() {
-        return REVIEWED_CLASS_SHA256;
+    public static Map<String, List<String>> reviewedClassSha256() {
+        return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
-            ClassPinTable.load("incremental-update");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("incremental-update");
 
     private String t(final String dotted) {
         return "L" + dotted.replace('.', '/') + ";";

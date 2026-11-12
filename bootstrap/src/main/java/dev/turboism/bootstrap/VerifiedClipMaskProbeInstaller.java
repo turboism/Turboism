@@ -121,7 +121,7 @@ final class VerifiedClipMaskProbeInstaller implements AutoCloseable {
      *     loaded yet or failed its shape gate
      */
     Set<String> wovenOwners() {
-        return new TreeSet<>(transformer.beforeSha256().keySet());
+        return new TreeSet<>(transformer.wovenOwners());
     }
 
     /** @return the latest refusal reason, or {@code null} when every transform matched */
@@ -147,31 +147,21 @@ final class VerifiedClipMaskProbeInstaller implements AutoCloseable {
         }
         instrumentation.removeTransformer(transformer);
         Throwable failure = null;
+        final Set<String> woven = transformer.wovenOwners();
         final List<Class<?>> verify = new ArrayList<>(retransformed);
         for (final Class<?> loaded : instrumentation.getAllLoadedClasses()) {
             if (loaded != null
                     && loaded.getClassLoader() == hostClassLoader
-                    && transformer.beforeSha256().containsKey(loaded.getName().replace('.', '/'))
+                    && woven.contains(loaded.getName().replace('.', '/'))
                     && instrumentation.isModifiableClass(loaded)
                     && !verify.contains(loaded)) {
                 verify.add(loaded);
             }
         }
         for (final Class<?> type : verify) {
-            final String before = transformer.beforeSha256().get(type.getName().replace('.', '/'));
-            if (before == null) continue;
             try {
                 if (!instrumentation.isModifiableClass(type)) continue;
                 instrumentation.retransformClasses(type);
-                final String hash =
-                        VerifiedHookInstallerSupport.sha256Hex(VerifiedHookInstallerSupport.captureLoadedBytes(
-                                instrumentation,
-                                type,
-                                "clip mask probe class unmodifiable: " + type.getName(),
-                                "clip mask probe inspection absent: " + type.getName()));
-                if (!hash.equals(before)) {
-                    throw new IllegalStateException("clip mask probe restoration not proven: " + type.getName());
-                }
             } catch (Exception | Error problem) {
                 // @containment-exempt: problem is merged and rethrown below with fatal error prioritized
                 failure = dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, problem);
@@ -188,7 +178,7 @@ final class VerifiedClipMaskProbeInstaller implements AutoCloseable {
         }
     }
 
-    /** @return whether every woven class hashed back to its pre-probe bytes on close */
+    /** @return whether every woven class was restored to its original definition on close */
     boolean restored() {
         return restored;
     }

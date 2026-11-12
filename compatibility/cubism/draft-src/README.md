@@ -12,21 +12,17 @@ override table per family:
 - `baseline/<family>.json` — the retained pack for one representative version.
   Record-derived literals appear as `${version}`, `${artifactSha256}`,
   `${artifactName}`, `${artifactSize}`, `${profileId}`, `${verificationId}`,
-  `${selectorCount}`, `${capabilityCount}` and `${verificationRecordSha256}`.
+  `${selectorCount}` and `${capabilityCount}`.
 - `overrides/<family>.json` — names the `baselineVersion` and lists ordered
   JSON-pointer `replace` operations for every other version of that family.
-- `frozen.json` — SHA-256 pins for the shipped `5.0.x` and `5.1.x` rows.
 
 Expansion substitutes the tokens from the matching verification record, then
 applies the override operations. The result is the exact per-version pack bytes.
 A selector or observation change therefore edits one baseline, not twenty copies.
 
-## Freeze of shipped rows
-
-`5.0.x` and `5.1.x` are shipped compatibility rows. `materializeDraftContracts`
-compares their expanded digests with `frozen.json` and fails on any difference.
-Change those pins only through a reviewed compatibility decision; do not edit them
-to make a build pass.
+Git history and the reviewed pull request govern `mapping-packs/draft/`. No
+committed digest pins the shipped rows: the review of that directory is the
+review record, so a change to a shipped row shows up as a diff a reviewer reads.
 
 ## Family declarations
 
@@ -53,5 +49,4 @@ remain; record-byte hashes in metadata still follow the verification records.
 Consumers must depend explicitly on `materializeDraftContracts`. Standalone
 Python tools require both materializers first. Generated projections must not
 be edited as evidence: change the upstream verification source or retained
-observation pack, then regenerate. `--write-freeze` re-pins the shipped rows and
-belongs to a reviewed compatibility change only.
+observation pack, then regenerate.

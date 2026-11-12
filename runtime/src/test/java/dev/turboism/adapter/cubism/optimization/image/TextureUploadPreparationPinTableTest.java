@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -12,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 /** Offline coverage contract for the texture-upload factory owner table. */
 class TextureUploadPreparationPinTableTest {
-    private static final Map<String, Map<String, String>> TABLE = ClassPinTable.load("texture-upload-preparation");
+    private static final Map<String, List<String>> TABLE = ClassPinTable.load("texture-upload-preparation");
 
     @Test
     void pinTableCoversExactlyTheReviewedStableVersions() {
@@ -26,8 +27,8 @@ class TextureUploadPreparationPinTableTest {
     @Test
     void everyBlockNamesOneFactoryAndAgreesWithTheTransformer() {
         for (final var entry : TABLE.entrySet()) {
-            assertEquals(1, entry.getValue().size(), entry.getKey() + " must pin exactly one texture factory class");
-            final String owner = entry.getValue().keySet().iterator().next();
+            assertEquals(1, entry.getValue().size(), entry.getKey() + " must name exactly one texture factory class");
+            final String owner = entry.getValue().get(0);
             assertTrue(
                     owner.matches("com/live2d/graphics3d/shader/[A-Za-z_$][A-Za-z0-9_$]*"),
                     entry.getKey() + " owner outside the reviewed package: " + owner);
@@ -49,22 +50,22 @@ class TextureUploadPreparationPinTableTest {
             final String generation = entry.getKey().substring(0, 3);
             assertEquals(
                     expectedFamilies.get(generation),
-                    entry.getValue().keySet().iterator().next(),
+                    entry.getValue().get(0),
                     entry.getKey() + " changed factory generation");
         }
     }
 
     @Test
-    void pinnedClassesRemainStablePerFamily() {
+    void declaredClassesRemainStablePerFamily() {
         final Set<String> families =
                 TABLE.keySet().stream().map(version -> version.substring(0, 3)).collect(Collectors.toUnmodifiableSet());
         assertEquals(Set.of("5.0", "5.1", "5.2", "5.3"), families);
         for (final String family : families) {
-            final Set<String> hashes = TABLE.entrySet().stream()
+            final Set<String> owners = TABLE.entrySet().stream()
                     .filter(entry -> entry.getKey().startsWith(family + "."))
-                    .map(entry -> entry.getValue().values().iterator().next())
+                    .map(entry -> entry.getValue().get(0))
                     .collect(Collectors.toUnmodifiableSet());
-            assertEquals(1, hashes.size(), family + " unexpectedly split its factory class pin");
+            assertEquals(1, owners.size(), family + " unexpectedly split its factory class");
         }
     }
 

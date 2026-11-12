@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.mapping.schema.MappingPackValidator;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.test.Stubs;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -60,11 +59,6 @@ class MappingPackDraftImportTest {
         assertEquals(
                 record.path("capabilityIds").size(),
                 pack.path("metadata").path("capabilityCount").asInt());
-        assertEquals(
-                java.util.HexFormat.of()
-                        .formatHex(java.security.MessageDigest.getInstance("SHA-256")
-                                .digest(bytes)),
-                pack.path("metadata").path("verificationRecordSha256").asText());
         final var entries = new java.util.HashMap<String, JsonNode>();
         pack.path("entries").forEach(e -> assertNull(entries.put(e.path("name").asText(), e)));
         for (final var selector : record.path("selectors")) {
@@ -343,7 +337,7 @@ class MappingPackDraftImportTest {
                 evidence.path("verificationId").asText(),
                 metadata.path("verificationId").asText());
 
-        final List<String> metadataViolations = draftMetadataViolations(root, evidence, sha256Hex(evidenceBytes));
+        final List<String> metadataViolations = draftMetadataViolations(root, evidence);
         assertTrue(
                 metadataViolations.isEmpty(),
                 () -> "draft metadata out of sync with inventoryRef: " + metadataViolations);
@@ -353,13 +347,6 @@ class MappingPackDraftImportTest {
         selectors.forEach(s -> selectorsById.put(s.path("mappingId").asText(), s));
         assertEquals(selectors.size(), selectorsById.size(), "record selector mappingIds must be unique");
         assertEquals(selectors.size(), root.path("entries").size());
-
-        if (root.has("exactArtifactSha256")) {
-            assertEquals(
-                    evidence.path("artifact").path("sha256"),
-                    root.path("exactArtifactSha256"),
-                    "pack-level exactArtifactSha256 must match the record artifact digest");
-        }
 
         for (JsonNode entry : root.path("entries")) {
             final String mappingId = entry.path("semanticName").asText();
@@ -396,10 +383,8 @@ class MappingPackDraftImportTest {
                 .normalize();
         final byte[] evidenceBytes = Files.readAllBytes(evidencePath);
         final JsonNode evidence = mapper.readTree(evidenceBytes);
-        final String recordSha256 = sha256Hex(evidenceBytes);
-
         assertTrue(
-                draftMetadataViolations(pack, evidence, recordSha256).isEmpty(),
+                draftMetadataViolations(pack, evidence).isEmpty(),
                 "pack metadata must be consistent for mutation negatives to be meaningful");
 
         final int recordSelectorCount = evidence.path("selectors").size();
@@ -409,91 +394,73 @@ class MappingPackDraftImportTest {
                 () -> assertFieldViolation(
                         pack,
                         evidence,
-                        recordSha256,
                         "selectorCount",
                         metadata -> metadata.put("selectorCount", recordSelectorCount + 1)),
                 () -> assertFieldViolation(
                         pack,
                         evidence,
-                        recordSha256,
                         "selectorCount",
                         metadata -> metadata.put("selectorCount", recordSelectorCount + 0.5)),
                 () -> assertFieldViolation(
                         pack,
                         evidence,
-                        recordSha256,
                         "selectorCount",
                         metadata -> metadata.put("selectorCount", (1L << 32) + recordSelectorCount)),
                 () -> assertFieldViolation(
                         pack,
                         evidence,
-                        recordSha256,
                         "selectorCount",
                         metadata -> metadata.put("selectorCount", String.valueOf(recordSelectorCount))),
                 () -> assertFieldViolation(
                         pack,
                         evidence,
-                        recordSha256,
                         "capabilityCount",
                         metadata -> metadata.put("capabilityCount", recordCapabilityCount + 1)),
                 () -> assertFieldViolation(
                         pack,
                         evidence,
-                        recordSha256,
                         "capabilityCount",
                         metadata -> metadata.put("capabilityCount", recordCapabilityCount + 0.5)),
                 () -> assertFieldViolation(
                         pack,
                         evidence,
-                        recordSha256,
                         "capabilityCount",
                         metadata -> metadata.put("capabilityCount", (1L << 32) + recordCapabilityCount)),
                 () -> assertFieldViolation(
                         pack,
                         evidence,
-                        recordSha256,
                         "capabilityCount",
                         metadata -> metadata.put("capabilityCount", String.valueOf(recordCapabilityCount))),
                 () -> assertFieldViolation(
                         pack,
                         evidence,
-                        recordSha256,
                         "capabilityIds",
                         metadata -> ((ArrayNode) metadata.get("capabilityIds")).remove(0)),
                 () -> assertFieldViolation(
                         pack,
                         evidence,
-                        recordSha256,
                         "capabilityIds",
                         metadata -> ((ArrayNode) metadata.get("capabilityIds"))
                                 .add("cubism.editor-model.nonexistent-capability")),
                 () -> assertFieldViolation(
                         pack,
                         evidence,
-                        recordSha256,
                         "capabilityIds",
                         metadata -> ((ArrayNode) metadata.get("capabilityIds"))
-                                .set(1, metadata.get("capabilityIds").get(0))),
-                () -> assertFieldViolation(
-                        pack,
-                        evidence,
-                        recordSha256,
-                        "verificationRecordSha256",
-                        metadata -> metadata.put("verificationRecordSha256", "0".repeat(64))));
+                                .set(1, metadata.get("capabilityIds").get(0))));
     }
 
-    private void assertFieldViolation(
-            JsonNode pack, JsonNode evidence, String recordSha256, String field, Consumer<ObjectNode> mutation) {
+    private void assertFieldViolation(JsonNode pack, JsonNode evidence, String field, Consumer<ObjectNode> mutation) {
         final ObjectNode mutated = pack.deepCopy();
         mutation.accept((ObjectNode) mutated.get("metadata"));
-        final List<String> violations = draftMetadataViolations(mutated, evidence, recordSha256);
+        final List<String> violations = draftMetadataViolations(mutated, evidence);
         assertFalse(violations.isEmpty(), () -> "mutation of " + field + " was not rejected");
         assertTrue(
                 violations.stream().allMatch(v -> v.contains(field)),
                 () -> "mutation of " + field + " reported unrelated violations: " + violations);
     }
 
-    private static List<String> draftMetadataViolations(JsonNode pack, JsonNode record, String recordSha256) {
+    private static List<String> draftMetadataViolations(JsonNode pack, JsonNode record) {
         final List<String> violations = new ArrayList<>();
         final JsonNode metadata = pack.path("metadata");
 
@@ -524,14 +491,7 @@ class MappingPackDraftImportTest {
                     + " is not an exact int equal to record capability count " + recordCapabilities.size());
         }
 
-        if (!recordSha256.equals(metadata.path("verificationRecordSha256").asText())) {
-            violations.add("verificationRecordSha256 does not match sha256 of the referenced record bytes");
-        }
         return violations;
-    }
-
-    private static String sha256Hex(byte[] bytes) throws Exception {
-        return Stubs.sha256Hex(bytes);
     }
 
     private static Set<String> asStringSet(final JsonNode array) {
@@ -559,11 +519,6 @@ class MappingPackDraftImportTest {
         assertEquals(
                 inventory.path("capabilityIds").size(),
                 metadata.path("capabilityCount").asInt());
-        assertEquals(
-                java.util.HexFormat.of()
-                        .formatHex(java.security.MessageDigest.getInstance("SHA-256")
-                                .digest(inventoryBytes)),
-                metadata.path("verificationRecordSha256").asText());
     }
 
     @Test

@@ -2,12 +2,10 @@ package dev.turboism.adapter.cubism.interpolation;
 
 import org.objectweb.asm.*;
 
-/** Used only after exact artifact/class admission by MeshInterpolationTransformer. */
+/** Used only after exact artifact admission and target-class scoping by MeshInterpolationTransformer. */
 final class DerivedCacheSerializationPatch {
     static final String OWNER = "com/live2d/serialize/UUSerialize";
-    static final String SHA256 = "4b60f445804e6025b65961448145ec237a35996ed8b1c0264bdd22c0032fc887";
     static final String PROPERTY_OWNER = "com/live2d/serialize/impl/PropertySet";
-    static final String PROPERTY_SHA256 = "12bd727513f5083893db206072675d6c96ec2412396fb21b530b39d47031aba0";
     static final String BRIDGE = "dev/turboism/adapter/cubism/interpolation/DerivedCacheSerializationBridge";
     private static final String METHOD = "serializeToDoc_exe";
     private static final String ORIGINAL = "turboism$serializeToDoc_original";

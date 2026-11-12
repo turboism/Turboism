@@ -4,7 +4,6 @@
   "status": "DRAFT",
   "source": "exact-public-classfile-observation",
   "cubismVersion": "${version}",
-  "exactArtifactSha256": "${artifactSha256}",
   "entries": [
     {
       "semanticName": "cubism.mapping.v5.2.editor_model.constructor.vector_create",
@@ -20902,7 +20901,6 @@
       "ui.object-context-menu.contribute",
       "cubism.editor-model.texture-pixels.read"
     ],
-    "verificationRecordSha256": "${verificationRecordSha256}",
     "artifactName": "${artifactName}",
     "artifactSize": "${artifactSize}",
     "profileId": "${profileId}",

@@ -3,10 +3,8 @@ package dev.turboism.adapter.cubism.optimization.uniform;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import org.objectweb.asm.ClassReader;
@@ -59,7 +57,7 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
     private final int localBase;
     private volatile List<String> composedShape;
     private volatile ComposedSeam composedSeam;
-    private volatile String failure, beforeSha256;
+    private volatile String failure;
     private volatile int matches;
 
     /** The static substitution an upstream rewrite left in place of the host query. */
@@ -152,10 +150,6 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
     public int matches() {
         return matches;
     }
-    /** Returns the first pre-rewrite class digest for installer restoration checks. */
-    public String beforeSha256() {
-        return beforeSha256;
-    }
 
     @Override
     public byte[] transform(
@@ -215,9 +209,7 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
                 return null;
             }
             byte[] result = writer.toByteArray();
-            if (beforeSha256 == null)
-                beforeSha256 = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+
             matches++;
             return result;
         } catch (Exception | LinkageError rejected) {

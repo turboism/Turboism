@@ -31,7 +31,7 @@ final class FrameworkUpdateHealthTest {
                 "a".repeat(40),
                 "1.0.0",
                 "windows-x64",
-                List.of(new UpdateManifestEntry("turboism-agent.jar", 3, hash, "sha256:" + hash)));
+                List.of(new UpdateManifestEntry("turboism-agent.jar", 3, hash)));
         final var applier = new FrameworkUpdateApplier(root, base.resolve("work"));
         applier.applyPendingHealth(manifest, stage, "{}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         assertTrue(Files.exists(base.resolve("work/backup/turboism-agent.jar")));

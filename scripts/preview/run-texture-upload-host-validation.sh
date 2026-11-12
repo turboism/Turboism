@@ -24,10 +24,10 @@ bundle="$repo_root/build/preview/$worktree_id"
 factory_owner="$(python3 - "$bundle/turboism-agent.jar" "$(turboism_dotted_version "$version")" <<'PY'
 import json, re, sys, zipfile
 with zipfile.ZipFile(sys.argv[1]) as agent:
-    pins = json.loads(agent.read('dev/turboism/adapter/cubism/class-pins/texture-upload-preparation.json')).get(sys.argv[2], {})
+    pins = json.loads(agent.read('dev/turboism/adapter/cubism/class-pins/texture-upload-preparation.json')).get(sys.argv[2], [])
 if len(pins) != 1:
-    raise SystemExit('texture validation requires one reviewed factory pin')
-owner = next(iter(pins))
+    raise SystemExit('texture validation requires one reviewed factory class')
+owner = pins[0]
 if not re.fullmatch(r'com/live2d/graphics3d/shader/[A-Za-z_$][A-Za-z0-9_$]*', owner):
     raise SystemExit('invalid reviewed texture factory owner')
 print(owner.replace('/', '.'))

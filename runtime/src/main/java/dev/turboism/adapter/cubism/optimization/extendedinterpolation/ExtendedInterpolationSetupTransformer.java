@@ -3,10 +3,7 @@ package dev.turboism.adapter.cubism.optimization.extendedinterpolation;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import org.objectweb.asm.ClassReader;
@@ -43,8 +40,6 @@ public final class ExtendedInterpolationSetupTransformer implements ClassFileTra
     private final int extensionSlot;
     private volatile int sites;
     private volatile String failure;
-    private volatile String beforeSha256;
-    private volatile String instrumentedSha256;
 
     /**
      * @param loader host loader this transformer may rewrite
@@ -81,16 +76,6 @@ public final class ExtendedInterpolationSetupTransformer implements ClassFileTra
     /** {@return the most recent rejection, or {@code null}} */
     public String failure() {
         return failure;
-    }
-
-    /** {@return the SHA-256 of the first accepted input class} */
-    public String beforeSha256() {
-        return beforeSha256;
-    }
-
-    /** {@return the SHA-256 of the first woven output class} */
-    public String instrumentedSha256() {
-        return instrumentedSha256;
     }
 
     @Override
@@ -182,8 +167,7 @@ public final class ExtendedInterpolationSetupTransformer implements ClassFileTra
                 return null;
             }
             final byte[] result = writer.toByteArray();
-            if (beforeSha256 == null) beforeSha256 = sha256(bytes);
-            if (instrumentedSha256 == null) instrumentedSha256 = sha256(result);
+
             sites += woven[0];
             return result;
         } catch (Exception | LinkageError rejected) {
@@ -280,13 +264,5 @@ public final class ExtendedInterpolationSetupTransformer implements ClassFileTra
                         },
                         ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         return max[0] + 2;
-    }
-
-    private static String sha256(final byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException unavailable) {
-            throw new IllegalStateException("SHA-256 unavailable", unavailable);
-        }
     }
 }

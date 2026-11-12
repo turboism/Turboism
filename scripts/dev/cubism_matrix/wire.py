@@ -275,7 +275,6 @@ def wire_autobackup(versions: list[str]) -> None:
         tag = vtag(version).upper()
         consts.append(
             f'    public static final String VERIFICATION_ID_{tag} = "${{record:{record_name}:verificationId}}";\n'
-            f'    public static final String RECORD_SHA256_{tag} =\n        "${{record:{record_name}:sha256}}";\n'
             f'    public static final String CUBISM_VERSION_{tag} = "${{record:{record_name}:cubismVersion}}";\n'
             f'    public static final String PROFILE_ID_{tag} = "${{record:{record_name}:profileId}}";\n'
             f"    public static final long ARTIFACT_SIZE_{tag} = ReviewedHostArtifacts.CUBISM_{vtag(version)}.size();\n"
@@ -285,7 +284,6 @@ def wire_autobackup(versions: list[str]) -> None:
             f"    private static PinnedVerifiedResolverWorkflow.Manifest manifest{tag}() {{\n"
             "        return new PinnedVerifiedResolverWorkflow.Manifest(\n"
             f"            VERIFICATION_ID_{tag},\n"
-            f"            RECORD_SHA256_{tag},\n"
             f"            CUBISM_VERSION_{tag},\n"
             f"            PROFILE_ID_{tag},\n"
             f"            ARTIFACT_SIZE_{tag},\n"
@@ -639,42 +637,8 @@ def wire_protected_export(versions: list[str]) -> None:
 def wire_bounding_box(versions: list[str]) -> None:
     path = TEMPLATE_DIR / "BoundingBoxOverlayButtonVerificationManifest.java"
     text = path.read_text()
-    for key in ("bb-sha", "bb-cases", "bb-admission", "bb-vid"):
+    for key in ("bb-admission", "bb-vid"):
         text = _strip_marked(text, key)
-    # RECORD_SHA_<T> consts
-    last_sha = None
-    for m in re.finditer(
-        r'    private static final String RECORD_SHA_\w+ = "\$\{record:[^}]+:sha256\}";\n',
-        text,
-    ):
-        last_sha = m.end()
-    assert last_sha
-    sha_consts = "".join(
-        f"    private static final String RECORD_SHA_{vcompact(v)} = "
-        f'"${{record:cubism-{v}-ui-bounding-box-overlay.json:sha256}}";\n'
-        for v in versions
-    )
-    text = (
-        text[:last_sha]
-        + "    // <version-matrix:bb-sha>\n"
-        + sha_consts
-        + "    // </version-matrix:bb-sha>\n"
-        + text[last_sha:]
-    )
-    # recordSha256ForVersion switch arms
-    sw_anchor = "        return switch (cubismVersion) {"
-    idx = text.index(sw_anchor) + len(sw_anchor)
-    arms = "".join(
-        f'            case "${{record:cubism-{v}-ui-bounding-box-overlay.json:cubismVersion}}" -> RECORD_SHA_{vcompact(v)};\n'
-        for v in versions
-    )
-    text = (
-        text[:idx]
-        + "\n            // <version-matrix:bb-cases>\n"
-        + arms
-        + "            // </version-matrix:bb-cases>\n"
-        + text[idx:]
-    )
     # admissionForArtifact arms
     anchor = "        if (ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact)) {"
     idx = text.index(anchor)

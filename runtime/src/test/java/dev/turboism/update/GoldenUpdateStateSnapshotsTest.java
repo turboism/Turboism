@@ -197,6 +197,6 @@ class GoldenUpdateStateSnapshotsTest {
                 "0123456789abcdef0123456789abcdef01234567",
                 "0.42.0",
                 "windows-x64",
-                List.of(new UpdateManifestEntry("turboism-agent.jar", 1L, PROBE_SHA, "sha256:" + PROBE_SHA)));
+                List.of(new UpdateManifestEntry("turboism-agent.jar", 1L, PROBE_SHA)));
     }
 }

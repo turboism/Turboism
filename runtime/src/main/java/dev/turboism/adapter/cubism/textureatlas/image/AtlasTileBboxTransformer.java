@@ -3,8 +3,6 @@ package dev.turboism.adapter.cubism.textureatlas.image;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.lang.instrument.ClassFileTransformer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.ProtectionDomain;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -14,23 +12,12 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <p>It rewrites only the reviewed target classes in {@link AtlasTileBboxTarget#REVIEWED} —
  * {@code com/live2d/util/f/g} on 5.3.x, {@code com/live2d/util/e/g} on 5.2.03 — and only when
- * the observed bytes match that target's pinned SHA-256 (or a bounded extra admitted digest)
- * and the method shape passes {@link AtlasTileBboxPatcher}'s anchor gate. Every other class,
- * and every unrecognised shape, is returned untouched. The transformer is non-retransforming,
- * so it can only act on the first definition — a class the host has already loaded is never
+ * the method shape passes {@link AtlasTileBboxPatcher}'s anchor gate. Every other class, and
+ * every unrecognised shape, is returned untouched. The transformer is non-retransforming, so
+ * it can only act on the first definition — a class the host has already loaded is never
  * patched behind its back.</p>
  */
 public final class AtlasTileBboxTransformer implements ClassFileTransformer {
-
-    /**
-     * Optional extra admitted digests, for runs where another reviewed instrument (the T039
-     * shadow weave) transforms the same class first and changes its bytes. A comma-separated
-     * list of at most {@value #MAX_EXTRA_ADMITS} lowercase 64-hex digests; absent by default,
-     * so production installs admit only each target's reviewed digest.
-     */
-    static final String ADMIT_CLASS_SHA256_PROPERTY = "turboism.atlasTileBbox.admitClassSha256";
-
-    private static final int MAX_EXTRA_ADMITS = 8;
 
     /** What the transformer concluded, for diagnostics and tests. */
     public enum Outcome {
@@ -38,8 +25,8 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
         NONE,
         /** A target was defined with admitted bytes and was patched. */
         PATCHED,
-        /** A target was defined but its bytes matched no admitted digest. */
-        HASH_MISMATCH,
+        /** A target was defined but its method shape differed from the reviewed structure. */
+        SHAPE_MISMATCH,
         /** A target was defined with admitted bytes but an unexpected shape. */
         SHAPE_REJECTED,
         /** The reviewed shape matched but a host helper the delegate needs was missing. */
@@ -47,20 +34,18 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
     }
 
     private final java.util.Map<String, java.util.List<AtlasTileBboxTarget>> targets;
-    private final java.util.Set<String> admittedSha256;
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> diagnostic = new AtomicReference<>("");
 
     public AtlasTileBboxTransformer() {
-        this(java.util.Arrays.asList(AtlasTileBboxTarget.REVIEWED), extraAdmittedDigests());
+        this(java.util.Arrays.asList(AtlasTileBboxTarget.REVIEWED));
     }
 
-    AtlasTileBboxTransformer(final AtlasTileBboxTarget target, final java.util.Set<String> admittedSha256) {
-        this(java.util.List.of(Objects.requireNonNull(target, "target")), admittedSha256);
+    AtlasTileBboxTransformer(final AtlasTileBboxTarget target) {
+        this(java.util.List.of(Objects.requireNonNull(target, "target")));
     }
 
-    AtlasTileBboxTransformer(
-            final java.util.Collection<AtlasTileBboxTarget> targets, final java.util.Set<String> admittedSha256) {
+    AtlasTileBboxTransformer(final java.util.Collection<AtlasTileBboxTarget> targets) {
         final java.util.Map<String, java.util.List<AtlasTileBboxTarget>> byName = new java.util.HashMap<>();
         for (final AtlasTileBboxTarget target : targets) {
             Objects.requireNonNull(target, "target");
@@ -70,23 +55,6 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
         final java.util.Map<String, java.util.List<AtlasTileBboxTarget>> copy = new java.util.HashMap<>();
         byName.forEach((k, v) -> copy.put(k, java.util.List.copyOf(v)));
         this.targets = java.util.Map.copyOf(copy);
-        this.admittedSha256 = java.util.Set.copyOf(Objects.requireNonNull(admittedSha256, "admittedSha256"));
-    }
-
-    /** The reviewed digests plus any bounded extras admitted via the system property. */
-    private static java.util.Set<String> extraAdmittedDigests() {
-        final String raw;
-        try {
-            raw = System.getProperty(ADMIT_CLASS_SHA256_PROPERTY, "");
-        } catch (RuntimeException unavailable) {
-            return java.util.Set.of();
-        }
-        return parseDigestList(raw);
-    }
-
-    /** Comma-separated lowercase 64-hex digests, bounded; malformed entries are dropped. */
-    static java.util.Set<String> parseDigestList(final String raw) {
-        return dev.turboism.adapter.cubism.textureatlas.AtlasAdmitDigests.parse(raw, MAX_EXTRA_ADMITS);
     }
 
     /** Latest observed outcome; {@code NONE} until a target class has been defined. */
@@ -119,26 +87,7 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
             final byte[] classfileBuffer) {
         final java.util.List<AtlasTileBboxTarget> candidates = targets.get(className);
         if (classfileBuffer == null || candidates == null || candidates.isEmpty()) return null;
-        final String observed = sha256(classfileBuffer);
-        AtlasTileBboxTarget matched = null;
-        for (final AtlasTileBboxTarget candidate : candidates) {
-            if (observed.equals(candidate.reviewedSha256())) {
-                matched = candidate;
-                break;
-            }
-        }
-        if (matched == null && admittedSha256.contains(observed)) {
-            matched = candidates.get(0);
-        }
-        if (matched == null) {
-            final AtlasTileBboxTarget first = candidates.get(0);
-            if (outcome.compareAndSet(Outcome.NONE, Outcome.HASH_MISMATCH)) {
-                diagnostic.compareAndSet("", first.internalName() + " observed=" + observed);
-                report(Outcome.HASH_MISMATCH, first, "observed=" + observed);
-            }
-            return null;
-        }
-        final AtlasTileBboxTarget target = matched;
+        final AtlasTileBboxTarget target = candidates.get(0);
         try {
             final byte[] patched = AtlasTileBboxPatcher.patch(classfileBuffer, target.internalName());
             // The delegate is bootstrap-loaded and reaches the jp.noids.* helpers
@@ -176,20 +125,6 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
             // Diagnostics must never affect the transform outcome.
-        }
-    }
-
-    static String sha256(final byte[] bytes) {
-        try {
-            final byte[] hash = MessageDigest.getInstance("SHA-256").digest(bytes);
-            final StringBuilder text = new StringBuilder(hash.length * 2);
-            for (final byte value : hash) {
-                text.append(Character.forDigit((value >> 4) & 0xF, 16));
-                text.append(Character.forDigit(value & 0xF, 16));
-            }
-            return text.toString();
-        } catch (NoSuchAlgorithmException unavailable) {
-            throw new IllegalStateException("SHA-256 is unavailable", unavailable);
         }
     }
 }

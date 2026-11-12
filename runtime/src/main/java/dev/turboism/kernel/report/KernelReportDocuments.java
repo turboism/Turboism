@@ -195,33 +195,25 @@ public final class KernelReportDocuments {
      * Builds one evidence record supporting a capability entry's stated availability.
      *
      * <p>The record path is deliberately relative: preview reports must never carry an absolute
-     * filesystem path. Both the path and the digest are omitted when {@code null}.
+     * filesystem path. The path is omitted when {@code null}.</p>
      *
      * @param kind what sort of evidence this is; must not be blank
      * @param state the evidence's verdict; must not be blank
      * @param summary short human-readable explanation; must not be blank
      * @param relativeRecordPath location of the backing record relative to the report root, or
      *     {@code null} when the evidence has no stored record
-     * @param digestSha256 digest of that record, or {@code null} when not computed
      * @return a mutable evidence node
      * @throws NullPointerException if a required argument is {@code null}
      * @throws IllegalArgumentException if a required argument is blank
      */
     public static ObjectNode evidence(
-            final String kind,
-            final String state,
-            final String summary,
-            final String relativeRecordPath,
-            final String digestSha256) {
+            final String kind, final String state, final String summary, final String relativeRecordPath) {
         final ObjectNode evidence = JSON.createObjectNode();
         evidence.put("kind", requireText(kind, "kind"));
         evidence.put("state", requireText(state, "state"));
         evidence.put("summary", requireText(summary, "summary"));
         if (relativeRecordPath != null) {
             evidence.put("relativeRecordPath", relativeRecordPath);
-        }
-        if (digestSha256 != null) {
-            evidence.put("digestSha256", digestSha256);
         }
         return evidence;
     }

@@ -83,13 +83,8 @@ final class VerifiedImageArchiveReuseInstaller implements VerifiedHookInstaller 
         final ImageArchiveReuseTransformer transformer =
                 new ImageArchiveReuseTransformer(source.loader(), source.artifact());
         contract.requireUnchanged(source.artifact());
-        return List.of(WeaveTarget.single(
-                target,
-                transformer,
-                EXPECTED_MATCHES,
-                transformer::matches,
-                transformer::failure,
-                owner -> transformer.beforeSha256()));
+        return List.of(
+                WeaveTarget.single(target, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     @Override

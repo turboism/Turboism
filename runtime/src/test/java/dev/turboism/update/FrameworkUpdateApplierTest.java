@@ -61,7 +61,7 @@ final class FrameworkUpdateApplierTest {
             final List<UpdateManifestEntry> entries = new ArrayList<>();
             for (var e : newFiles.entrySet()) {
                 final String hash = FrameworkUpdateTaskStore.hash(e.getValue());
-                entries.add(new UpdateManifestEntry(e.getKey(), e.getValue().length, hash, "sha256:" + hash));
+                entries.add(new UpdateManifestEntry(e.getKey(), e.getValue().length, hash));
             }
             return new UpdateManifest(1, "fixture", "1.1.0", "stable", 50, HASH, "1.0.0", "windows-x64", entries);
         }

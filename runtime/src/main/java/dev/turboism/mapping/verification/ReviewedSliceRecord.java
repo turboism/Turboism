@@ -18,16 +18,11 @@ import java.util.Set;
  *
  * @param artifact the exact reviewed host artifact this record is admitted for
  * @param verificationId the reviewed record's stable verification identity
- * @param recordSha256 SHA-256 of the materialized record bytes under {@code build/generated/verification/}, packaged unchanged in the agent
  * @param cubismVersion the Cubism version string this record reports for the artifact
  * @param profileId the mapping profile this record's selectors were observed under
  */
 public record ReviewedSliceRecord(
-        HostArtifactDigest artifact,
-        String verificationId,
-        String recordSha256,
-        String cubismVersion,
-        String profileId) {
+        HostArtifactDigest artifact, String verificationId, String cubismVersion, String profileId) {
 
     /**
      * Validates that a reviewed record is fully specified.
@@ -38,7 +33,6 @@ public record ReviewedSliceRecord(
     public ReviewedSliceRecord {
         Objects.requireNonNull(artifact, "artifact");
         Objects.requireNonNull(verificationId, "verificationId");
-        Objects.requireNonNull(recordSha256, "recordSha256");
         Objects.requireNonNull(cubismVersion, "cubismVersion");
         Objects.requireNonNull(profileId, "profileId");
         if (!ReviewedHostArtifacts.isReviewed(artifact)) {
@@ -59,7 +53,6 @@ public record ReviewedSliceRecord(
             final String adapterSliceId, final Set<String> capabilityIds, final Set<String> requiredAliases) {
         return new PinnedVerifiedResolverWorkflow.Manifest(
                 verificationId,
-                recordSha256,
                 cubismVersion,
                 profileId,
                 artifact.size(),

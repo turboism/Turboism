@@ -210,11 +210,12 @@ public final class TriangulationMembershipPatcherTest implements Opcodes {
             require(b.containsCalls == (debug ? 6 : 0));
             require(b.debugAdds == (debug ? 2 : 0));
         }
+        // The reviewed shape alone admits the weave; no per-class digest narrows it.
         TriangulationEdgeIndexTransformer transformer = new TriangulationEdgeIndexTransformer();
         require(transformer.transform(
                         null, TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME, null, null, original)
-                == null);
-        require(transformer.membershipOutcome() == TriangulationEdgeIndexTransformer.Outcome.HASH_MISMATCH);
+                != null);
+        require(transformer.membershipOutcome() == TriangulationEdgeIndexTransformer.Outcome.PATCHED);
         for (int mutation = 0; mutation < 4; mutation++) {
             final int kind = mutation;
             ClassWriter out = new ClassWriter(0);

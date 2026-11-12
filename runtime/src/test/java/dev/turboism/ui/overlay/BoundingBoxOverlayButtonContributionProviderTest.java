@@ -91,11 +91,7 @@ class BoundingBoxOverlayButtonContributionProviderTest {
                 EditorUiFamily.BOUNDING_BOX_OVERLAY_BUTTON,
                 generation,
                 new EditorUiProviderAdmission.VerificationEvidence(
-                        "5.3.02",
-                        41_922_739L,
-                        "9".repeat(64),
-                        "adapter.editor-ui.bounding-box-overlay-button",
-                        "a".repeat(64)));
+                        "5.3.02", 41_922_739L, "9".repeat(64), "adapter.editor-ui.bounding-box-overlay-button"));
     }
 
     @Test

@@ -35,8 +35,15 @@ public final class PendingPluginOperations {
     private static final int MAX_JOURNAL_BYTES = 64 * 1024;
     private static final java.util.Set<String> JOURNAL_FIELDS =
             java.util.Set.of("format", "schemaVersion", "revision", "operations");
-    private static final java.util.Set<String> OPERATION_FIELDS = java.util.Set.of(
-            "type", "pluginId", "stagedJar", "version", "rawSha256", "descriptorSha256", "jarSha256", "jarSize");
+    /** Fields this build writes for one operation. */
+    private static final java.util.Set<String> OPERATION_FIELDS =
+            java.util.Set.of("type", "pluginId", "stagedJar", "version", "descriptorSha256", "jarSha256", "jarSize");
+    /**
+     * Retired field still present in journals that released builds wrote. It always repeated
+     * {@code jarSha256}, so it is accepted and ignored instead of being stored again.
+     */
+    private static final String LEGACY_RAW_SHA256_FIELD = "rawSha256";
+
     private static final String CORE_ID = dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID;
     /**
      * Cross-process lock file for the journal transaction. It holds no state: the operating system
@@ -780,9 +787,23 @@ public final class PendingPluginOperations {
 
     /** A transaction journal is authoritative: unknown fields must not be applied by an older reader. */
     private static boolean hasOnlyFields(final ObjectNode node, final java.util.Set<String> allowed) {
+        return hasOnlyFields(node, allowed, null);
+    }
+
+    private static boolean hasOnlyFields(
+            final ObjectNode node, final java.util.Set<String> allowed, final String retired) {
         final var names = node.fieldNames();
         while (names.hasNext()) {
-            if (!allowed.contains(names.next())) return false;
+            final String name = names.next();
+            if (!allowed.contains(name) && !name.equals(retired)) return false;
+        }
+        return true;
+    }
+
+    /** Retired fields are optional; every field this build writes is still mandatory. */
+    private static boolean hasAllFields(final ObjectNode node, final java.util.Set<String> required) {
+        for (final String field : required) {
+            if (!node.has(field)) return false;
         }
         return true;
     }
@@ -975,7 +996,6 @@ public final class PendingPluginOperations {
             String pluginId,
             String stagedJar,
             String version,
-            String rawSha256,
             String descriptorSha256,
             String jarSha256,
             long jarSize) {
@@ -985,14 +1005,13 @@ public final class PendingPluginOperations {
                     prepared.descriptor().id(),
                     prepared.stagedJar().toString(),
                     prepared.descriptor().version(),
-                    prepared.jarSha256(),
                     prepared.descriptorSha256(),
                     prepared.jarSha256(),
                     prepared.jarSize());
         }
 
         static Operation uninstall(final String id) {
-            return new Operation("UNINSTALL", id, "", "", "", "", "", 0);
+            return new Operation("UNINSTALL", id, "", "", "", "", 0);
         }
 
         ObjectNode json() {
@@ -1001,17 +1020,22 @@ public final class PendingPluginOperations {
             node.put("pluginId", pluginId);
             node.put("stagedJar", stagedJar);
             node.put("version", version);
-            node.put("rawSha256", rawSha256);
             node.put("descriptorSha256", descriptorSha256);
             node.put("jarSha256", jarSha256);
             node.put("jarSize", jarSize);
             return node;
         }
 
+        /**
+         * Reads one operation, accepting the retired {@code rawSha256} field that released
+         * journals carry. Every other unknown field still fails closed: a journal is execution
+         * authority, so an older reader must never act on a semantic field it cannot interpret.
+         */
         static Operation from(final JsonNode node) {
             if (!(node instanceof ObjectNode operation)
-                    || !hasOnlyFields(operation, OPERATION_FIELDS)
-                    || operation.size() != OPERATION_FIELDS.size()) throw new IllegalArgumentException();
+                    || !hasOnlyFields(operation, OPERATION_FIELDS, LEGACY_RAW_SHA256_FIELD)
+                    || !hasAllFields(operation, OPERATION_FIELDS)
+                    || operation.size() > OPERATION_FIELDS.size() + 1) throw new IllegalArgumentException();
             final String type = node.path("type").asText();
             final String pluginId = node.path("pluginId").asText();
             if (!(type.equals("INSTALL") || type.equals("UNINSTALL")) || pluginId.isBlank())
@@ -1021,7 +1045,6 @@ public final class PendingPluginOperations {
                     pluginId,
                     node.path("stagedJar").asText(),
                     node.path("version").asText(),
-                    node.path("rawSha256").asText(),
                     node.path("descriptorSha256").asText(),
                     node.path("jarSha256").asText(),
                     node.path("jarSize").asLong());

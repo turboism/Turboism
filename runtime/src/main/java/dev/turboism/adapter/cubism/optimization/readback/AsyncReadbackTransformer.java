@@ -3,9 +3,7 @@ package dev.turboism.adapter.cubism.optimization.readback;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import org.objectweb.asm.ClassReader;
@@ -31,7 +29,7 @@ public final class AsyncReadbackTransformer implements ClassFileTransformer {
     private final Path artifact;
     private final List<String> referenceShape;
     private final int referenceReadSites;
-    private volatile String beforeSha256;
+
     private volatile String failure;
     private volatile int matches;
 
@@ -84,9 +82,7 @@ public final class AsyncReadbackTransformer implements ClassFileTransformer {
                 throw new IllegalArgumentException("readback method shape drift");
             }
             final byte[] changed = rewrite(bytes);
-            if (beforeSha256 == null) {
-                beforeSha256 = sha256(bytes);
-            }
+
             matches++;
             return changed;
         } catch (final Exception | LinkageError problem) {
@@ -184,14 +180,6 @@ public final class AsyncReadbackTransformer implements ClassFileTransformer {
         return count[0];
     }
 
-    private static String sha256(final byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (final Exception unavailable) {
-            throw new IllegalStateException("SHA-256 unavailable", unavailable);
-        }
-    }
-
     /** Returns why the last transform refused, or {@code null}. */
     public String failure() {
         return failure;
@@ -200,10 +188,5 @@ public final class AsyncReadbackTransformer implements ClassFileTransformer {
     /** Returns successful class rewrites, not method counts. */
     public int matches() {
         return matches;
-    }
-
-    /** Returns the pre-rewrite class digest for restoration verification. */
-    public String beforeSha256() {
-        return beforeSha256;
     }
 }

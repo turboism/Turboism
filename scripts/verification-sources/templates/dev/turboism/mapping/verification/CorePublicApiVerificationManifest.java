@@ -13,7 +13,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.0.00-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.0.00-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.0.00-core-model-read.json:sha256}",
                 "${record:cubism-5.0.00-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.0.00-core-model-read.json:cubismVersion}",
                 29_924L,
@@ -24,7 +23,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.0.01-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.0.01-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.0.01-core-model-read.json:sha256}",
                 "${record:cubism-5.0.01-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.0.01-core-model-read.json:cubismVersion}",
                 29_924L,
@@ -35,7 +33,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.0.02-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.0.02-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.0.02-core-model-read.json:sha256}",
                 "${record:cubism-5.0.02-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.0.02-core-model-read.json:cubismVersion}",
                 29_919L,
@@ -46,7 +43,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.0.03-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.0.03-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.0.03-core-model-read.json:sha256}",
                 "${record:cubism-5.0.03-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.0.03-core-model-read.json:cubismVersion}",
                 29_919L,
@@ -57,7 +53,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.0.04-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.0.04-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.0.04-core-model-read.json:sha256}",
                 "${record:cubism-5.0.04-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.0.04-core-model-read.json:cubismVersion}",
                 29_923L,
@@ -68,7 +63,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.0.05-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.0.05-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.0.05-core-model-read.json:sha256}",
                 "${record:cubism-5.0.05-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.0.05-core-model-read.json:cubismVersion}",
                 29_918L,
@@ -79,7 +73,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.0.06-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.0.06-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.0.06-core-model-read.json:sha256}",
                 "${record:cubism-5.0.06-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.0.06-core-model-read.json:cubismVersion}",
                 30_155L,
@@ -90,7 +83,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.1.00-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.1.00-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.1.00-core-model-read.json:sha256}",
                 "${record:cubism-5.1.00-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.1.00-core-model-read.json:cubismVersion}",
                 30_153L,
@@ -101,7 +93,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.1.01-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.1.01-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.1.01-core-model-read.json:sha256}",
                 "${record:cubism-5.1.01-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.1.01-core-model-read.json:cubismVersion}",
                 30_161L,
@@ -112,7 +103,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.1.02-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.1.02-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.1.02-core-model-read.json:sha256}",
                 "${record:cubism-5.1.02-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.1.02-core-model-read.json:cubismVersion}",
                 30_157L,
@@ -123,7 +113,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.1.03-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.1.03-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.1.03-core-model-read.json:sha256}",
                 "${record:cubism-5.1.03-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.1.03-core-model-read.json:cubismVersion}",
                 30_156L,
@@ -134,7 +123,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.2.00-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.2.00-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.2.00-core-model-read.json:sha256}",
                 "${record:cubism-5.2.00-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.2.00-core-model-read.json:cubismVersion}",
                 36_241L,
@@ -145,7 +133,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.2.01-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.2.01-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.2.01-core-model-read.json:sha256}",
                 "${record:cubism-5.2.01-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.2.01-core-model-read.json:cubismVersion}",
                 36_243L,
@@ -156,7 +143,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.2.02-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.2.02-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.2.02-core-model-read.json:sha256}",
                 "${record:cubism-5.2.02-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.2.02-core-model-read.json:cubismVersion}",
                 36_243L,
@@ -167,7 +153,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.2.03-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.2.03-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.2.03-core-model-read.json:sha256}",
                 "${record:cubism-5.2.03-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.2.03-core-model-read.json:cubismVersion}",
                 36_237L,
@@ -178,7 +163,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.3.02-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.3.02-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.3.02-core-model-read.json:sha256}",
                 "${record:cubism-5.3.02-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.3.02-core-model-read.json:cubismVersion}",
                 42_471L,
@@ -189,7 +173,6 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.3.04-core-model-read.json:cubismVersion}",
             manifest(
                 CorePublicApiTrustRoots.verificationId("${record:cubism-5.3.04-core-model-read.json:cubismVersion}"),
-                "${record:cubism-5.3.04-core-model-read.json:sha256}",
                 "${record:cubism-5.3.04-core-model-read.json:cubismVersion}",
                 "${record:cubism-5.3.04-core-model-read.json:cubismVersion}",
                 43_708L,
@@ -224,7 +207,6 @@ final class CorePublicApiVerificationManifest {
 
     private static PinnedVerifiedResolverWorkflow.Manifest manifest(
         final String verificationId,
-        final String recordSha256,
         final String exactVersion,
         final String profile,
         final long artifactSize,
@@ -232,7 +214,6 @@ final class CorePublicApiVerificationManifest {
     ) {
         return new PinnedVerifiedResolverWorkflow.Manifest(
             verificationId,
-            recordSha256,
             exactVersion,
             "cubism-" + profile,
             artifactSize,

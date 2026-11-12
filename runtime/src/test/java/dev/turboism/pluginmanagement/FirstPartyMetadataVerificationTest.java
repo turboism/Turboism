@@ -61,8 +61,7 @@ class FirstPartyMetadataVerificationTest {
         final Path jar = jarFor(descriptor);
         final String text = Files.readString(descriptor);
         final String export = "\"eventExports\": [{\"id\": \"thumbnail.captured\", \"contractVersion\": \"1.0.0\", "
-                + "\"eventType\": \"dev.turboism.plugin.firstparty.Thumbnail\", \"abiSha256\": \""
-                + "a".repeat(64) + "\"}],\n  \"category\"";
+                + "\"eventType\": \"dev.turboism.plugin.firstparty.Thumbnail\"}],\n  \"category\"";
         Files.writeString(
                 descriptor,
                 text.replace("\"schemaVersion\": 3", "\"schemaVersion\": 4").replace("\"category\"", export));

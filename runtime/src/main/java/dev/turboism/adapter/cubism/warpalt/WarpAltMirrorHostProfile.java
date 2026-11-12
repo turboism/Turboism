@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -150,8 +151,8 @@ public record WarpAltMirrorHostProfile(
      * declared identity is not a reviewed release — is admissible only when every
      * pinned class entry of exactly one distinct contract matches.
      */
-    public static Map<String, Map<String, String>> reviewedClassSha256() {
-        return REVIEWED_CLASS_SHA256;
+    public static Map<String, List<String>> reviewedClassSha256() {
+        return REVIEWED_CLASSES;
     }
 
     private static final String WARP_POINT_REF = "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef";
@@ -162,7 +163,7 @@ public record WarpAltMirrorHostProfile(
     private static final String ACTION_DISPATCH = "com/live2d/cubism/view/context/actionManager/CEActionManager";
     private static final String INPUT_INGRESS = "com/live2d/cubism/view/context/CEViewContext";
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = ClassPinTable.load("warp-alt-mirror");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("warp-alt-mirror");
 
     /**
      * 5.2.03 uses a different obfuscation generation for the strip mount pass

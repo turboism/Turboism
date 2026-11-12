@@ -55,7 +55,6 @@ class PaletteFilterContributionProviderTest {
     }
 
     private static EditorUiProviderAdmission.VerificationEvidence evidence() {
-        return new EditorUiProviderAdmission.VerificationEvidence(
-                "5.3.02", 1, "a".repeat(64), "editor-model", "b".repeat(64));
+        return new EditorUiProviderAdmission.VerificationEvidence("5.3.02", 1, "a".repeat(64), "editor-model");
     }
 }

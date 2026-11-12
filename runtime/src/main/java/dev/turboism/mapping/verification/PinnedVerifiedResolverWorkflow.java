@@ -61,11 +61,11 @@ final class PinnedVerifiedResolverWorkflow {
     }
 
     /**
-     * Builds a resolver under a compatibility {@link SliceContract}: the record
-     * must still match the bytes observed during probing and every exposed selector must
-     * verify statically, but the artifact digest is measured rather than matched to a
-     * reviewed fingerprint. Classloader/CodeSource attestation and the
-     * unchanged-artifact post-check are identical to the exact path.
+     * Builds a resolver under a compatibility {@link SliceContract}: every exposed
+     * selector must still verify statically, but the artifact digest is measured
+     * rather than matched to a reviewed fingerprint. Classloader/CodeSource
+     * attestation and the unchanged-artifact post-check are identical to the exact
+     * path.
      */
     VerifiedMemberResolver createCompatible(
             final Path reviewedRecord,
@@ -80,11 +80,7 @@ final class PinnedVerifiedResolverWorkflow {
         if (!contract.compatible()) {
             throw new IllegalArgumentException("compatibility resolver requires a compatible contract");
         }
-        final StaticVerificationRecordLoader.LoadedRecord loaded = loader.load(reviewedRecord);
-        if (!loaded.sha256().equals(contract.recordSha256())) {
-            throw new IllegalArgumentException("verification record changed since compatibility probing");
-        }
-        final StaticVerificationRecord record = loaded.record();
+        final StaticVerificationRecord record = loader.load(reviewedRecord).record();
         if (!record.verificationId().equals(contract.verificationId())
                 || !record.adapterSliceId().equals(contract.adapterSliceId())
                 || !record.cubismVersion().equals(contract.sourceVersion())) {
@@ -116,9 +112,8 @@ final class PinnedVerifiedResolverWorkflow {
 
     /**
      * Loads a schema-valid record and checks its identity, capabilities and aliases
-     * against the runtime manifest. Record-byte digests describe provenance; they
-     * are not an independent admission anchor. Host bytes and selector structure
-     * are checked by {@link #create} before constructing a resolver.
+     * against the runtime manifest. Host bytes and selector structure are checked by
+     * {@link #create} before constructing a resolver.
      */
     StaticVerificationRecord requireReviewedRecord(final Path reviewedRecord, final Manifest manifest)
             throws IOException {
@@ -149,7 +144,6 @@ final class PinnedVerifiedResolverWorkflow {
 
     record Manifest(
             String verificationId,
-            String recordSha256,
             String cubismVersion,
             String profileId,
             long artifactSize,
@@ -159,7 +153,6 @@ final class PinnedVerifiedResolverWorkflow {
             Set<String> requiredAliases) {
         Manifest {
             Objects.requireNonNull(verificationId, "verificationId");
-            Objects.requireNonNull(recordSha256, "recordSha256");
             Objects.requireNonNull(cubismVersion, "cubismVersion");
             Objects.requireNonNull(profileId, "profileId");
             Objects.requireNonNull(artifactSha256, "artifactSha256");

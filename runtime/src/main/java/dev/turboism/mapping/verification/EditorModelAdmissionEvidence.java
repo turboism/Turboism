@@ -1,16 +1,15 @@
 package dev.turboism.mapping.verification;
 
 /**
- * Hash-anchored Editor-model trust-root material reusable by admitted UI providers.
+ * Reviewed Editor-model trust-root material reusable by admitted UI providers.
  *
  * @param cubismVersion the reviewed Cubism version
  * @param artifactSize the reviewed artifact byte size
  * @param artifactSha256 the reviewed artifact SHA-256
  * @param adapterSliceId the Editor-model adapter slice identity
- * @param recordSha256 SHA-256 of the reviewed record bytes
  */
 public record EditorModelAdmissionEvidence(
-        String cubismVersion, long artifactSize, String artifactSha256, String adapterSliceId, String recordSha256) {
+        String cubismVersion, long artifactSize, String artifactSha256, String adapterSliceId) {
     /**
      * Returns the admission evidence for an observed host artifact.
      *
@@ -24,8 +23,7 @@ public record EditorModelAdmissionEvidence(
                 manifest.cubismVersion(),
                 manifest.artifactSize(),
                 manifest.artifactSha256(),
-                manifest.adapterSliceId(),
-                manifest.recordSha256());
+                manifest.adapterSliceId());
     }
 
     /**
@@ -45,7 +43,6 @@ public record EditorModelAdmissionEvidence(
                 record.cubismVersion(),
                 record.artifact().size(),
                 record.artifact().sha256(),
-                EditorModelVerificationManifest.ADAPTER_SLICE_ID,
-                record.recordSha256());
+                EditorModelVerificationManifest.ADAPTER_SLICE_ID);
     }
 }

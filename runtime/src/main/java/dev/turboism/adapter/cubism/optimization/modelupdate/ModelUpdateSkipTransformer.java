@@ -3,10 +3,8 @@ package dev.turboism.adapter.cubism.optimization.modelupdate;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import org.objectweb.asm.ClassReader;
@@ -41,7 +39,7 @@ public final class ModelUpdateSkipTransformer implements ClassFileTransformer {
     private final ClassLoader loader;
     private final Path artifact;
     private final List<String> shape;
-    private volatile String beforeSha256, failure;
+    private volatile String failure;
     private volatile int matches;
 
     /**
@@ -62,11 +60,6 @@ public final class ModelUpdateSkipTransformer implements ClassFileTransformer {
         if (shape == null) {
             throw new IllegalArgumentException("reviewed model-update entry absent");
         }
-    }
-
-    /** SHA-256 of the first rewritten class bytes for restoration evidence. */
-    public String beforeSha256() {
-        return beforeSha256;
     }
 
     /** Rewritten methods observed so far. */
@@ -131,10 +124,7 @@ public final class ModelUpdateSkipTransformer implements ClassFileTransformer {
                         }
                     },
                     ClassReader.EXPAND_FRAMES);
-            if (beforeSha256 == null) {
-                beforeSha256 = HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-            }
+
             matches++;
             return writer.toByteArray();
         } catch (Exception | LinkageError rejected) {

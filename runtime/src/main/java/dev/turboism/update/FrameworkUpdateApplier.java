@@ -66,19 +66,35 @@ final class FrameworkUpdateApplier {
             "state",
             "version",
             "root",
-            "agentSha256",
             "agentBytes",
             "identityExisted",
             "receiptTracked",
+            "receiptDirectory",
             "launcherPid",
             "launcherStarted",
             "files");
+
+    /**
+     * Retired field still present in journals that released helpers wrote. It repeated the
+     * {@code turboism-agent.jar} manifest digest, which the journal already records in
+     * {@code files[]}, so it is accepted and ignored instead of being written again.
+     */
+    private static final String LEGACY_AGENT_SHA256_FIELD = "agentSha256";
 
     /** Closed field set of one {@code files[]} entry: the target, its new hash and its prior existence. */
     private static final Set<String> ALLOWED_JOURNAL_FILE_FIELDS = Set.of("path", "sha256", "existed");
 
     /** Journal, installed-build and installed payload: an atomic replacement is required, permissions inherited. */
     private static final WriteOptions ATOMIC_WRITE = WriteOptions.DEFAULT;
+
+    /** The two signed documents that make up the active installation receipt. */
+    private static final List<String> RECEIPT_DOCUMENTS = List.of("manifest.json", "manifest.json.sig");
+
+    /** Bounds of the mutable receipt state read back during backup and rollback. */
+    private static final int MAX_RECEIPT_INDEX_BYTES = 4096;
+
+    private static final int MAX_RECEIPT_DOCUMENT_BYTES =
+            Math.max(UpdateManifest.MAX_MANIFEST_BYTES, UpdateManifestVerifier.MAX_ENVELOPE_BYTES);
 
     /** Receipt index state is private: owner-only before the first byte, on every platform. */
     private static final WriteOptions PRIVATE_WRITE =
@@ -182,13 +198,13 @@ final class FrameworkUpdateApplier {
      */
     Result apply(final UpdateManifest manifest, final Path staged, final byte[] installedBuildJson)
             throws IOException, InterruptedException {
-        return apply(manifest, staged, installedBuildJson, false, null, null);
+        return apply(manifest, staged, installedBuildJson, false, null, null, null);
     }
 
     /** Retain backups until a subsequent startup confirms the exact installed agent. */
     Result applyPendingHealth(final UpdateManifest manifest, final Path staged, final byte[] installedBuildJson)
             throws IOException, InterruptedException {
-        return apply(manifest, staged, installedBuildJson, true, null, null);
+        return apply(manifest, staged, installedBuildJson, true, null, null, null);
     }
 
     /** Production application requires independently reloaded old ownership and exact signed new receipts. */
@@ -201,7 +217,8 @@ final class FrameworkUpdateApplier {
         if (!root.equals(receipt.root()) || !root.equals(previous.root())) {
             throw new IOException("Receipt installation binding differs from apply root");
         }
-        return apply(receipt.manifest(), staged, installedBuildJson, true, receipt, previous.hashes());
+        return apply(
+                receipt.manifest(), staged, installedBuildJson, true, receipt, previous.hashes(), previous.documents());
     }
 
     private Result apply(
@@ -210,7 +227,8 @@ final class FrameworkUpdateApplier {
             final byte[] installedBuildJson,
             final boolean requireHealth,
             final FrameworkUpdateReceipt.Prepared receipt,
-            final Map<String, String> previousHashes)
+            final Map<String, String> previousHashes,
+            final Path previousDocuments)
             throws IOException, InterruptedException {
         Objects.requireNonNull(manifest, "manifest");
         Objects.requireNonNull(staged, "staged");
@@ -222,7 +240,6 @@ final class FrameworkUpdateApplier {
         }
         Files.createDirectories(work);
         final List<Step> steps = prepare(manifest, staged.toAbsolutePath().normalize(), previousHashes);
-        if (receipt != null) receipt.publishDocuments();
         final Path backupDir = work.resolve("backup");
         final ObjectNode journal = UpdateFileSupport.JSON.createObjectNode();
         journal.put("format", JOURNAL_FORMAT);
@@ -234,7 +251,6 @@ final class FrameworkUpdateApplier {
                     .filter(e -> e.relativePath().equals("turboism-agent.jar"))
                     .findFirst()
                     .orElseThrow(() -> new IOException("Health check requires an agent entry"));
-            journal.put("agentSha256", agent.sha256());
             journal.put("agentBytes", agent.bytes());
         }
         final Path identity = root.resolve(InstalledBuild.METADATA_FILE_NAME);
@@ -257,6 +273,11 @@ final class FrameworkUpdateApplier {
                 throw new IOException("Previously authenticated receipt index is missing or unsafe");
             }
             journal.put("receiptTracked", true);
+            final Path previousDirectory = previousDocuments != null ? previousDocuments : receiptDocuments();
+            if (!previousDirectory.startsWith(root)) {
+                throw new IOException("Previously authenticated receipt directory is outside the installation");
+            }
+            journal.put("receiptDirectory", root.relativize(previousDirectory).toString());
         }
         final ArrayNode files = journal.putArray("files");
         for (final Step step : steps) {
@@ -282,7 +303,22 @@ final class FrameworkUpdateApplier {
             Files.createDirectories(backupDir);
             if (receipt != null) {
                 final Path receiptBackup = backupDir.resolve("receipt-index.json");
-                writePrivateAtomic(receiptBackup, readReceiptState(receipt.indexPath()));
+                writePrivateAtomic(receiptBackup, readReceiptState(receipt.indexPath(), MAX_RECEIPT_INDEX_BYTES));
+                // The signed documents now live at one fixed path, so they are mutable installation
+                // state: a rollback must restore the previous bytes instead of leaving a receipt that
+                // describes an update the installation no longer contains.
+                final Path documentBackup = backupDir.resolve("receipt-documents");
+                FrameworkUpdateCache.installationAncestors(documentBackup);
+                Files.createDirectories(documentBackup);
+                final Path previousDirectory = previousDocuments != null ? previousDocuments : receiptDocuments();
+                for (final String name : RECEIPT_DOCUMENTS) {
+                    final Path current = previousDirectory.resolve(name);
+                    if (!Files.isRegularFile(current, LinkOption.NOFOLLOW_LINKS)) {
+                        throw new IOException("Previously authenticated receipt document is missing: " + name);
+                    }
+                    writePrivateAtomic(
+                            documentBackup.resolve(name), readReceiptState(current, MAX_RECEIPT_DOCUMENT_BYTES));
+                }
             }
             if (identityAttributes != null) {
                 final Path identityBackup = backupDir.resolve(InstalledBuild.METADATA_FILE_NAME);
@@ -311,6 +347,7 @@ final class FrameworkUpdateApplier {
             }
             if (receipt != null) {
                 faults.hit("before-receipt-index");
+                receipt.publishDocuments();
                 writePrivateAtomic(receipt.indexPath(), receipt.index());
                 faults.hit("after-receipt-index");
             }
@@ -363,13 +400,26 @@ final class FrameworkUpdateApplier {
         final long bytes = journal.path("agentBytes").asLong(-1);
         if (bytes <= 0
                 || bytes > UpdateManifest.MAX_FILE_BYTES
-                || !FrameworkUpdateCache.hash(loadedAgent, bytes)
-                        .equals(journal.path("agentSha256").asText())) {
+                || !FrameworkUpdateCache.hash(loadedAgent, bytes).equals(agentDigest(journal))) {
             throw new IOException("Health confirmation agent hash mismatch");
         }
         setState(journal, "COMMITTED");
         cleanup();
         return true;
+    }
+
+    /**
+     * The agent digest is the one the journal already records for the agent path, so health
+     * confirmation compares the loaded bytes against the same signed manifest entry the apply
+     * wrote instead of a second copy of the value.
+     */
+    private static String agentDigest(final ObjectNode journal) throws IOException {
+        for (final var entry : journal.path("files")) {
+            if ("turboism-agent.jar".equals(entry.path("path").asText())) {
+                return entry.path("sha256").asText();
+            }
+        }
+        throw new IOException("Health journal records no agent entry");
     }
 
     /** External launcher calls this before starting Cubism. One startup attempt must confirm health. */
@@ -468,8 +518,7 @@ final class FrameworkUpdateApplier {
                 if (targetPaths.contains(old.getKey().toLowerCase(java.util.Locale.ROOT))) continue;
                 final Path target = root.resolve(old.getKey()).normalize();
                 requirePlainDirectories(target.getParent());
-                final var oldEntry = new UpdateManifestEntry(
-                        old.getKey(), Files.size(target), old.getValue(), "sha256:" + old.getValue());
+                final var oldEntry = new UpdateManifestEntry(old.getKey(), Files.size(target), old.getValue());
                 byLowerPath.put(
                         old.getKey().toLowerCase(java.util.Locale.ROOT),
                         new Step(old.getKey(), oldEntry, target, null, true, old.getValue(), true));
@@ -606,7 +655,15 @@ final class FrameworkUpdateApplier {
             try {
                 final Path index =
                         root.resolve(FrameworkInstallationReceiptLoader.STATE).resolve("installed-receipt.json");
-                restoreReceiptIndex(backupDir.resolve("receipt-index.json"), index);
+                restoreReceiptIndex(backupDir.resolve("receipt-index.json"), index, MAX_RECEIPT_INDEX_BYTES);
+                final Path documents = root.resolve(journal.path("receiptDirectory")
+                        .asText(root.relativize(receiptDocuments()).toString()));
+                for (final String name : RECEIPT_DOCUMENTS) {
+                    restoreReceiptIndex(
+                            backupDir.resolve("receipt-documents").resolve(name),
+                            documents.resolve(name),
+                            MAX_RECEIPT_DOCUMENT_BYTES);
+                }
             } catch (IOException failure) {
                 failures.add(new IOException("Could not restore installed receipt index", failure));
             }
@@ -708,7 +765,7 @@ final class FrameworkUpdateApplier {
         }
         for (final var names = object.fieldNames(); names.hasNext(); ) {
             final String field = names.next();
-            if (!ALLOWED_JOURNAL_FIELDS.contains(field)) {
+            if (!ALLOWED_JOURNAL_FIELDS.contains(field) && !LEGACY_AGENT_SHA256_FIELD.equals(field)) {
                 throw new IOException("Unrecognized update journal field: " + field);
             }
         }
@@ -734,7 +791,7 @@ final class FrameworkUpdateApplier {
             final String relative = entry.path("path").asText();
             final String hash = entry.path("sha256").asText();
             try {
-                new UpdateManifestEntry(relative, 1, hash, "sha256:" + hash);
+                new UpdateManifestEntry(relative, 1, hash);
             } catch (IllegalArgumentException invalid) {
                 throw new IOException("Journal names a non-framework path", invalid);
             }
@@ -767,21 +824,27 @@ final class FrameworkUpdateApplier {
         DurableFile.at(target).withOptions(PRIVATE_WRITE).guardedBy(PRIVATE_ACL).replace(bytes);
     }
 
-    /** Restores the previous receipt index from its rollback backup via a private atomic publication, so a wide ACL
-     * inherited from the work directory can never be exposed on the live index, even if publication later fails. */
-    private void restoreReceiptIndex(final Path backup, final Path index) throws IOException {
+    /** Restores one previous receipt state file from its rollback backup via a private atomic publication, so a wide
+     * ACL inherited from the work directory can never be exposed on the live path, even if publication later fails. */
+    private void restoreReceiptIndex(final Path backup, final Path index, final int limit) throws IOException {
         FrameworkUpdateCache.installationAncestors(backup.getParent());
         requirePlainDirectories(index.getParent());
         if (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IOException("Backup missing during rollback: installed-receipt.json");
+            throw new IOException("Backup missing during rollback: " + index.getFileName());
         }
-        writePrivateAtomic(index, readReceiptState(backup));
+        writePrivateAtomic(index, readReceiptState(backup, limit));
     }
 
-    private static byte[] readReceiptState(final Path path) throws IOException {
+    /** Fixed location of the active signed receipt documents; the index names no digest. */
+    private Path receiptDocuments() {
+        return root.resolve(FrameworkInstallationReceiptLoader.STATE)
+                .resolve(FrameworkInstallationReceiptLoader.CURRENT_RECEIPT);
+    }
+
+    private static byte[] readReceiptState(final Path path, final int limit) throws IOException {
         try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
-            final byte[] bytes = input.readNBytes(4097);
-            if (bytes.length > 4096) throw new IOException("Oversized receipt index state");
+            final byte[] bytes = input.readNBytes(limit + 1);
+            if (bytes.length > limit) throw new IOException("Oversized receipt state");
             return bytes;
         }
     }

@@ -1158,8 +1158,7 @@ final class CoreWindows implements AutoCloseable {
 
     private static String formatEventExports(final List<CorePluginManagement.EventExport> exports) {
         return exports.stream()
-                .map(exported -> exported.id() + " " + exported.contractVersion() + " [" + exported.eventType() + "] — "
-                        + exported.abiSha256())
+                .map(exported -> exported.id() + " " + exported.contractVersion() + " [" + exported.eventType() + "]")
                 .collect(java.util.stream.Collectors.joining("\n"));
     }
 
@@ -1167,7 +1166,7 @@ final class CoreWindows implements AutoCloseable {
         return imports.stream()
                 .map(imported -> imported.providerId() + ":" + imported.eventId()
                         + " " + imported.contractVersion() + " [" + imported.eventType() + "]"
-                        + (imported.required() ? " required" : " optional") + " — " + imported.abiSha256())
+                        + (imported.required() ? " required" : " optional"))
                 .collect(java.util.stream.Collectors.joining("\n"));
     }
 

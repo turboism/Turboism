@@ -59,13 +59,7 @@ final class VerifiedReinitPairElisionInstaller implements VerifiedHookInstaller 
         final var transformer =
                 new ReinitPairElisionTransformer(source.loader(), source.artifact(), source.referenceBytes(target));
         contract.requireUnchanged(source.artifact());
-        return List.of(WeaveTarget.single(
-                target,
-                transformer,
-                1,
-                transformer::matches,
-                transformer::failure,
-                owner -> transformer.beforeSha256()));
+        return List.of(WeaveTarget.single(target, transformer, 1, transformer::matches, transformer::failure));
     }
 
     @Override

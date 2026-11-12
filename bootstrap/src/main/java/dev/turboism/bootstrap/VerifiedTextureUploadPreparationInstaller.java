@@ -82,13 +82,8 @@ final class VerifiedTextureUploadPreparationInstaller implements VerifiedHookIns
         final TextureUploadPreparationTransformer transformer = new TextureUploadPreparationTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(target), factoryOwner);
         contract.requireUnchanged(source.artifact());
-        return List.of(WeaveTarget.single(
-                target,
-                transformer,
-                EXPECTED_MATCHES,
-                transformer::matches,
-                transformer::failure,
-                owner -> transformer.beforeSha256()));
+        return List.of(
+                WeaveTarget.single(target, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     private static Path joglArtifact(final Path artifact) {

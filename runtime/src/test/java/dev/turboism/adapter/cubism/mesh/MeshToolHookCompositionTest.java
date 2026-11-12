@@ -4,12 +4,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Path;
 import java.security.CodeSource;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.*;
@@ -34,16 +32,7 @@ class MeshToolHookCompositionTest {
         final var domain = new ProtectionDomain(
                 new CodeSource(artifact.toUri().toURL(), (java.security.cert.Certificate[]) null), null);
         final var mirror = new MeshMirrorNativeMethodTransformer(
-                profile,
-                loader,
-                artifact,
-                null,
-                null,
-                Map.of(
-                        owner,
-                        HexFormat.of()
-                                .formatHex(MessageDigest.getInstance("SHA-256").digest(original))),
-                ignored -> {});
+                profile, loader, artifact, null, null, Set.of(owner), ignored -> {});
         final var sessions = new MeshEditorLifecycleTransformer(
                 new MeshToolSessionHostProfile(
                         "5.3.03",

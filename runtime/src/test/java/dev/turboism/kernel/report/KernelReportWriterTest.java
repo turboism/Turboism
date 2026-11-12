@@ -257,7 +257,7 @@ class KernelReportWriterTest {
                 "NOT_DECLARED",
                 "NONE");
         ((ArrayNode) capability.path("evidence"))
-                .add(KernelReportDocuments.evidence("DECLARED", "UNKNOWN", summary, null, null));
+                .add(KernelReportDocuments.evidence("DECLARED", "UNKNOWN", summary, null));
         ((ArrayNode) report.path("payload").path("capabilities")).add(capability);
     }
 
