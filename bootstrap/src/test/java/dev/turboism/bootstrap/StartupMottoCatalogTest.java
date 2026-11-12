@@ -26,8 +26,8 @@ class StartupMottoCatalogTest {
 
     @Test
     void bundledCatalogParsesIntoTheQuotesTheWindowCycles() throws IOException {
-        try (InputStream stream = StartupMottoCatalog.class.getClassLoader()
-                .getResourceAsStream(StartupMottoCatalog.RESOURCE)) {
+        try (InputStream stream =
+                StartupMottoCatalog.class.getClassLoader().getResourceAsStream(StartupMottoCatalog.RESOURCE)) {
             final List<String> quotes = StartupMottoCatalog.parse(stream);
             assertTrue(quotes.size() >= 20, "The bundled catalog must ship the full motto list");
             assertEquals(quotes.size(), new HashSet<>(quotes).size(), "A duplicated line wastes a draw");
@@ -43,9 +43,7 @@ class StartupMottoCatalogTest {
 
     @Test
     void parseSkipsCommentsAndBlankLinesAndKeepsFileOrder() {
-        assertEquals(
-                List.of("Wake up, samurai.", "海内存知己，天涯若比邻。"),
-                StartupMottoCatalog.parse(stream(SAMPLE)));
+        assertEquals(List.of("Wake up, samurai.", "海内存知己，天涯若比邻。"), StartupMottoCatalog.parse(stream(SAMPLE)));
     }
 
     @Test

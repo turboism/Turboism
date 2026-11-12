@@ -72,9 +72,7 @@ final class StartupMottoCatalog {
     // loader; the -javaagent jar is also on the system class path with the same resource.
     private static InputStream openCatalog() {
         final ClassLoader loader = StartupMottoCatalog.class.getClassLoader();
-        return loader != null
-                ? loader.getResourceAsStream(RESOURCE)
-                : ClassLoader.getSystemResourceAsStream(RESOURCE);
+        return loader != null ? loader.getResourceAsStream(RESOURCE) : ClassLoader.getSystemResourceAsStream(RESOURCE);
     }
 
     /** Holds the parsed catalog for the process lifetime: the file ships inside the agent jar. */

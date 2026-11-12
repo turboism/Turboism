@@ -83,6 +83,7 @@ final class StartupLoadingWindow implements AutoCloseable {
     private final AtomicBoolean repaintPending = new AtomicBoolean();
     /** Chosen once per launch, so the motto never changes while the spinner runs. */
     private final String motto;
+
     private final boolean chinese =
             Locale.getDefault(Locale.Category.DISPLAY).getLanguage().equals("zh");
     private final long startedAt = System.nanoTime();
@@ -306,8 +307,8 @@ final class StartupLoadingWindow implements AutoCloseable {
     private Dimension contentSize(final String subtitle) {
         final FontMetrics title = content.getFontMetrics(TITLE_FONT);
         final FontMetrics body = content.getFontMetrics(SUBTITLE_FONT);
-        final int textWidth = Math.max(
-                Math.max(title.stringWidth(TITLE), stableSubtitleWidth(body)), body.stringWidth(subtitle));
+        final int textWidth =
+                Math.max(Math.max(title.stringWidth(TITLE), stableSubtitleWidth(body)), body.stringWidth(subtitle));
         final int textHeight = title.getHeight() + LINE_GAP + body.getHeight();
         return new Dimension(
                 PADDING * 2 + SPINNER_SIZE + TEXT_GAP + textWidth, PADDING * 2 + Math.max(SPINNER_SIZE, textHeight));
