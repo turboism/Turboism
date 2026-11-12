@@ -1,10 +1,11 @@
 board.columns
 board.create
 board.createAnimation
-board.details
+board.delete.action
 board.empty
 board.layout
 board.layout.action
+board.layout.row
 board.noPreview
 board.open.label
 board.subtitle

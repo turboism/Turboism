@@ -30,13 +30,13 @@ interface: swing
 
 ## 功能介绍
 
-- 在没有打开任何文档时，在原生 OpenGL 视口上展示最多 8 个最近工程。标题栏右侧的 Lucide 纯图标按钮可在 6 列网格、3 列网格和左对齐详细信息列表之间切换，并记住选择；悬停可查看当前布局。3 列与详细信息模式文字适当放大。
+- 在没有打开任何文档时，在原生 OpenGL 视口上展示最多 8 个最近工程。标题栏右侧的 Lucide 纯图标按钮可在 6 列网格、3 列网格和单行列表之间切换，并记住选择；悬停可查看当前布局。空间越宽文字越大。
 - 使用官方 `recent-preview` 插件的公开 `thumbnail.captured` 事件获取缩略图，并接收其启动后的有界磁盘缓存重放。
 - 在打开任何文档时立即隐藏看板，最后一个文档关闭后自动恢复。
-- 标题“最近的文件 / 双击工程即可打开”垂直居中并靠左，右侧为布局切换图标。
-- 详细信息列表在左侧显示小缩略图，右侧垂直居中左对齐显示工程名称与时间，类似资源管理器的“详细信息”。
+- 标题“最近的文件 / 双击工程即可打开”垂直居中并靠左，右侧为垂直居中的布局切换图标。标题栏位于滚动区之外，因此竖向滚动条出现时按钮位置不会左右偏移。
 - 按显示名称对重复的最近菜单项去重，有缩略图预览的工程排在前面。
 - 卡片名称和修改时间居中；暂无预览时在预览区内水平和垂直居中显示“暂无预览”。
+- 每张卡片右上角带一个垃圾桶按钮，点击后通过提供方删除该工程的缓存缩略图：卡片回到“暂无预览”状态，悬停弹窗也不再显示旧图。
 - 无最近文件时，居中显示“最近没有工程”，并提供蓝色的**创建新工程**与**创建新动画工程**链接。前者调用宿主类型化 `NEW_MODEL` 命令，后者打开 Cubism 原生的“动画的目标版本选择”对话框。
 - 通过宿主自身的 Recent Files 动作打开工程，不向插件暴露任何文件路径或文件授权。
 
@@ -62,8 +62,8 @@ interface: swing
 1. 同时启用 **Recent Preview** 与 **Recent Project Board**。
 2. 打开一次工程，以便 Recent Preview 生成缩略图。
 3. 关闭工程，看板即可在空白视口中显示。
-4. 使用标题栏右侧的布局图标在 6 列网格、3 列网格和详细信息列表之间切换，选择会持久保存。
-5. 双击卡片即可重新打开工程。
+4. 使用标题栏右侧的布局图标在 6 列网格、3 列网格和单行列表之间切换，选择会持久保存。
+5. 双击卡片即可重新打开工程；点击卡片右上角的垃圾桶按钮可删除该工程的缓存缩略图。
 6. 没有最近工程时，使用居中的**创建新工程**链接创建新模型，或使用**创建新动画工程**打开 Cubism 原生动画目标选择弹窗。
 
 ## 权限
@@ -74,11 +74,12 @@ interface: swing
 | `turboism.ui.panel.contribute` | `application` | 将看板安装到空白视口位置。 |
 | `turboism.cubism.model.observe` | `application` | 在打开、创建或关闭工程后刷新最近工程列表。 |
 | `turboism.cubism.model.write` | `application` | 在空状态下点击链接时通过 `NEW_MODEL` 创建模型或调起原生新建动画。 |
-| `turboism.event.subscribe` | `application` | 接收提供方实时派发与启动延迟重放的 `thumbnail.captured` 事件。 |
-| `turboism.action.register` | `application` | 注册卡片双击打开动作。 |
+| `turboism.event.subscribe` | `application` | 接收提供方实时派发与启动延迟重放的 `thumbnail.captured` 事件，以及 `thumbnail.deleted` 事件。 |
+| `turboism.action.register` | `application` | 注册卡片双击打开动作与每张卡片的删除动作。 |
 | `turboism.file.read` | `application` | 读取插件受限存储中的布局偏好。 |
 | `turboism.file.write` | `application` | 保存用户选择的布局偏好。 |
+| `turboism.ui.recent-preview.manage` | `application` | 用户点击卡片垃圾桶按钮时删除对应的缓存预览。 |
 
 ## 图标归属
 
-布局按钮使用 Lucide v0.468.0 的 `layout-grid` 和 `list` 图标，遵循 ISC 许可证（含上游 Feather 声明）。见 `META-INF/licenses/Lucide-LICENSE.txt`。
+布局按钮使用 Lucide v0.468.0 的 `layout-grid` 图标，卡片删除按钮使用 `trash-2` 图标，均遵循 ISC 许可证（含上游 Feather 声明）。见 `META-INF/licenses/Lucide-LICENSE.txt`。

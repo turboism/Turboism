@@ -36,6 +36,13 @@
       "contractVersion": "[1.0.0,2.0.0)",
       "eventType": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent",
       "required": true
+    },
+    {
+      "provider": "dev.turboism.plugin.recent-preview",
+      "eventId": "thumbnail.deleted",
+      "contractVersion": "[1.0.0,2.0.0)",
+      "eventType": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewDeletedEvent",
+      "required": true
     }
   ],
   "dependencies": [
@@ -44,7 +51,7 @@
       "version": "[0.68.0,1.0.0)",
       "type": "required",
       "ordering": "after",
-      "reason": "Consumes the provider's live thumbnail.captured events and its delayed startup cache replay."
+      "reason": "Consumes the provider's live thumbnail.captured/thumbnail.deleted events, its delayed startup cache replay, and asks it to delete one cached preview on demand."
     }
   ],
   "permissions": [
@@ -66,7 +73,12 @@
     {
       "id": "turboism.event.subscribe",
       "scope": "application",
-      "reason": "Receives live and replayed thumbnail.captured events from the recent-preview provider."
+      "reason": "Receives live and replayed thumbnail.captured events and thumbnail.deleted events from the recent-preview provider."
+    },
+    {
+      "id": "turboism.ui.recent-preview.manage",
+      "scope": "application",
+      "reason": "Deletes one cached preview when the user presses a card's trash button."
     },
     {
       "id": "turboism.action.register",

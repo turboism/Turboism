@@ -16,7 +16,9 @@ import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCacheService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewDeletedEvent;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -34,6 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -191,7 +194,7 @@ final class RecentProjectBoardPluginTest {
     }
 
     @Test
-    void layoutActionCyclesFromSixToThreeToDetails() {
+    void layoutActionCyclesFromSixToThreeToOneRow() {
         final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
         final List<EmbeddedPanelContribution> contributions = new CopyOnWriteArrayList<>();
         final UiHostCapabilityService uiHost = uiHost(contributions);
@@ -221,13 +224,64 @@ final class RecentProjectBoardPluginTest {
 
         layout.handler().accept(new ActionRegistry.ActionContext() {});
         assertEquals(RecentProjectBoardPlugin.BoardLayout.ONE, plugin.layout());
-        final PanelView details = contributions.get(contributions.size() - 1).content();
-        assertEquals(0, gridColumns(details));
-        final List<PanelView.Card> rows = cards(details);
+        final PanelView single = contributions.get(contributions.size() - 1).content();
+        assertEquals(0, gridColumns(single), "the single-column layout is a row list, not a grid");
+        final List<PanelView.Card> rows = cards(single);
         assertEquals(1, rows.size());
+        // Flat rows plus separators read as one list; a bordered card would draw a second edge.
         assertFalse(rows.get(0).bordered());
-        assertInstanceOf(PanelView.LeftRow.class, rows.get(0).content());
-        assertEquals(1.25f, textWithValue(details, "One.cmo3").fontScale(), 0.001f);
+        // The row is a thumbnail-plus-text block with the delete control closing it on the right.
+        final PanelView.SpaceBetween row =
+                assertInstanceOf(PanelView.SpaceBetween.class, rows.get(0).content());
+        final PanelView.LeftRow block = assertInstanceOf(PanelView.LeftRow.class, row.left());
+        assertInstanceOf(PanelView.Centered.class, block.left());
+        assertInstanceOf(PanelView.IconButton.class, row.right());
+        assertEquals(1.15f, textWithValue(single, "One.cmo3").fontScale(), 0.001f);
+    }
+
+    /** The grid layouts center the name and timestamp under the preview. */
+    @Test
+    void gridLayoutsCenterTheNameAndTimestamp() {
+        final RecentFileSummary file = new RecentFileSummary(
+                new RecentFileId("one"),
+                "One.cmo3",
+                java.util.Optional.of(java.time.Instant.EPOCH),
+                java.util.Optional.empty());
+        final RecentProjectBoardPlugin plugin = new RecentProjectBoardPlugin();
+        plugin.init(context(
+                new RecordingRecentFiles(List.of(file)), uiHost(new CopyOnWriteArrayList<>()), new ArrayList<>()));
+
+        final String modified = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                .withZone(java.time.ZoneId.systemDefault())
+                .format(java.time.Instant.EPOCH);
+
+        for (int step = 0; step < 2; step++) {
+            final PanelView content = plugin.contentFor(List.of(file));
+            assertTrue(hasCenteredText(content, "One.cmo3"), "the name should be centered in " + plugin.layout());
+            assertTrue(hasCenteredText(content, modified), "the timestamp should be centered in " + plugin.layout());
+            plugin.cycleLayout();
+        }
+    }
+
+    /** The single-row layout left-aligns the name and timestamp beside the thumbnail. */
+    @Test
+    void singleRowLayoutLeftAlignsTheNameAndTimestamp() {
+        final RecentFileSummary file = new RecentFileSummary(
+                new RecentFileId("one"),
+                "One.cmo3",
+                java.util.Optional.of(java.time.Instant.EPOCH),
+                java.util.Optional.empty());
+        final RecentProjectBoardPlugin plugin = new RecentProjectBoardPlugin();
+        plugin.init(context(
+                new RecordingRecentFiles(List.of(file)), uiHost(new CopyOnWriteArrayList<>()), new ArrayList<>()));
+
+        plugin.cycleLayout();
+        plugin.cycleLayout();
+        assertEquals(RecentProjectBoardPlugin.BoardLayout.ONE, plugin.layout());
+
+        final PanelView content = plugin.contentFor(List.of(file));
+        assertFalse(hasCenteredText(content, "One.cmo3"), "the row name should not be centered");
+        assertEquals("One.cmo3", textWithValue(content, "One.cmo3").value());
     }
 
     @Test
@@ -240,6 +294,109 @@ final class RecentProjectBoardPluginTest {
         assertEquals(RecentProjectBoardPlugin.BoardLayout.THREE, RecentProjectBoardPlugin.BoardLayout.parse("four"));
         assertEquals(RecentProjectBoardPlugin.BoardLayout.THREE, RecentProjectBoardPlugin.BoardLayout.parse("two"));
         assertNull(RecentProjectBoardPlugin.BoardLayout.parse("nope"));
+    }
+
+    @Test
+    void deleteActionAsksTheProviderToRemoveTheCardPreview() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
+        final List<EmbeddedPanelContribution> contributions = new CopyOnWriteArrayList<>();
+        final List<ActionRegistry.Action> actions = new ArrayList<>();
+        final RecordingPreviewCache cache = new RecordingPreviewCache();
+        final RecentProjectBoardPlugin plugin = new RecentProjectBoardPlugin();
+
+        plugin.init(context(
+                new RecordingRecentFiles(List.of(file)),
+                uiHost(contributions),
+                actions,
+                EditorCommandService.unavailable(),
+                cache));
+        plugin.enable();
+        plugin.onPreview(new RecentPreviewCapturedEvent(
+                file.id(), file.displayName(), new ScreenshotImage(1, 1, ONE_PIXEL_PNG)));
+
+        final ActionRegistry.Action delete = actions.stream()
+                .filter(action -> RecentProjectBoardPlugin.DELETE_ACTION_ID.equals(action.id()))
+                .findFirst()
+                .orElseThrow();
+        delete.handler().accept(new ActionRegistry.ActionContext() {
+            @Override
+            public Optional<UiActionEvent> uiEvent() {
+                return Optional.of(UiActionEvent.text("one", "one"));
+            }
+        });
+
+        assertEquals(List.of(new RecentFileId("one")), cache.deleted);
+    }
+
+    @Test
+    void providerDeletionDropsTheLocalThumbnail() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
+        final List<EmbeddedPanelContribution> contributions = new CopyOnWriteArrayList<>();
+        final RecentProjectBoardPlugin plugin = new RecentProjectBoardPlugin();
+
+        plugin.init(context(new RecordingRecentFiles(List.of(file)), uiHost(contributions), new ArrayList<>()));
+        plugin.enable();
+        plugin.onPreview(new RecentPreviewCapturedEvent(
+                file.id(), file.displayName(), new ScreenshotImage(1, 1, ONE_PIXEL_PNG)));
+        plugin.onPreviewDeleted(new RecentPreviewDeletedEvent(file.id()));
+
+        final PanelView content = contributions.get(contributions.size() - 1).content();
+        assertFalse(containsScaledImage(content), "the deleted thumbnail must not stay on the card");
+    }
+
+    @Test
+    void everyCardCarriesItsOwnDeleteControl() {
+        final RecentFileSummary one = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
+        final RecentFileSummary two = new RecentFileSummary(new RecentFileId("two"), "Two.cmo3");
+        final RecentProjectBoardPlugin plugin = new RecentProjectBoardPlugin();
+        plugin.init(context(
+                new RecordingRecentFiles(List.of(one, two)), uiHost(new CopyOnWriteArrayList<>()), new ArrayList<>()));
+
+        final PanelView content = plugin.contentFor(List.of(one, two));
+        final List<PanelView.Card> cards = cards(content);
+        assertEquals(2, cards.size());
+        assertEquals("one", deleteIconId(cards.get(0).content()));
+        assertEquals("two", deleteIconId(cards.get(1).content()));
+    }
+
+    @Test
+    void headerSitsOutsideTheScrollRegionSoTheLayoutControlCannotShift() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
+        final RecentProjectBoardPlugin plugin = new RecentProjectBoardPlugin();
+        plugin.init(context(
+                new RecordingRecentFiles(List.of(file)), uiHost(new CopyOnWriteArrayList<>()), new ArrayList<>()));
+
+        final PanelView content = plugin.contentFor(List.of(file));
+        assertInstanceOf(PanelView.Column.class, content, "the board root is a plain column, not a scroll view");
+        final PanelView.Column column = (PanelView.Column) content;
+        assertInstanceOf(PanelView.Padded.class, column.children().get(0), "the header comes first");
+        assertInstanceOf(PanelView.Scroll.class, column.children().get(1), "only the cards scroll");
+    }
+
+    private static String deleteIconId(final PanelView view) {
+        if (view instanceof PanelView.IconButton icon
+                && RecentProjectBoardPlugin.DELETE_ACTION_ID.equals(icon.actionId())) {
+            return icon.id();
+        }
+        if (view instanceof PanelView.Column column) {
+            for (PanelView child : column.children()) {
+                final String found = deleteIconIdOrNull(child);
+                if (found != null) return found;
+            }
+        }
+        if (view instanceof PanelView.SpaceBetween between) {
+            final String left = deleteIconIdOrNull(between.left());
+            return left != null ? left : deleteIconIdOrNull(between.right());
+        }
+        if (view instanceof PanelView.LeftRow leftRow) {
+            final String left = deleteIconIdOrNull(leftRow.left());
+            return left != null ? left : deleteIconIdOrNull(leftRow.right());
+        }
+        return null;
+    }
+
+    private static String deleteIconIdOrNull(final PanelView view) {
+        return deleteIconId(view);
     }
 
     private static int gridColumns(final PanelView view) {
@@ -268,6 +425,9 @@ final class RecentProjectBoardPluginTest {
             final int left = gridColumnsOrZero(between.left());
             return left > 0 ? left : gridColumnsOrZero(between.right());
         }
+        if (view instanceof PanelView.Padded padded) {
+            return gridColumnsOrZero(padded.child());
+        }
         return 0;
     }
 
@@ -292,6 +452,9 @@ final class RecentProjectBoardPluginTest {
         if (view instanceof PanelView.Scroll scroll) {
             return hasFixedCenteredPlaceholder(scroll.child());
         }
+        if (view instanceof PanelView.Padded padded) {
+            return hasFixedCenteredPlaceholder(padded.child());
+        }
         return false;
     }
 
@@ -307,6 +470,24 @@ final class RecentProjectBoardPluginTest {
         }
         if (view instanceof PanelView.Centered centered) {
             return hasCenteredText(centered.child(), text);
+        }
+        if (view instanceof PanelView.Padded padded) {
+            return hasCenteredText(padded.child(), text);
+        }
+        if (view instanceof PanelView.Card card) {
+            return hasCenteredText(card.content(), text);
+        }
+        if (view instanceof PanelView.Scroll scroll) {
+            return hasCenteredText(scroll.child(), text);
+        }
+        if (view instanceof PanelView.Grid grid) {
+            return grid.children().stream().anyMatch(child -> hasCenteredText(child, text));
+        }
+        if (view instanceof PanelView.SpaceBetween between) {
+            return hasCenteredText(between.left(), text) || hasCenteredText(between.right(), text);
+        }
+        if (view instanceof PanelView.LeftRow leftRow) {
+            return hasCenteredText(leftRow.left(), text) || hasCenteredText(leftRow.right(), text);
         }
         return false;
     }
@@ -350,6 +531,9 @@ final class RecentProjectBoardPluginTest {
             final PanelView.Text left = textWithValueOrNull(leftRow.left(), value);
             return left != null ? left : textWithValueOrNull(leftRow.right(), value);
         }
+        if (view instanceof PanelView.Padded padded) {
+            return textWithValueOrNull(padded.child(), value);
+        }
         if (view instanceof PanelView.CollapsibleSection section) {
             for (PanelView child : section.children()) {
                 final PanelView.Text found = textWithValueOrNull(child, value);
@@ -388,6 +572,9 @@ final class RecentProjectBoardPluginTest {
         if (view instanceof PanelView.LeftRow leftRow) {
             return hasIconButton(leftRow.left()) || hasIconButton(leftRow.right());
         }
+        if (view instanceof PanelView.Padded padded) {
+            return hasIconButton(padded.child());
+        }
         return false;
     }
 
@@ -414,6 +601,14 @@ final class RecentProjectBoardPluginTest {
             collectCards(centered.child(), cards);
         } else if (view instanceof PanelView.CollapsibleSection section) {
             section.children().forEach(child -> collectCards(child, cards));
+        } else if (view instanceof PanelView.Padded padded) {
+            collectCards(padded.child(), cards);
+        } else if (view instanceof PanelView.SpaceBetween between) {
+            collectCards(between.left(), cards);
+            collectCards(between.right(), cards);
+        } else if (view instanceof PanelView.LeftRow leftRow) {
+            collectCards(leftRow.left(), cards);
+            collectCards(leftRow.right(), cards);
         }
     }
 
@@ -438,6 +633,9 @@ final class RecentProjectBoardPluginTest {
         }
         if (view instanceof PanelView.CollapsibleSection section) {
             return section.children().stream().anyMatch(RecentProjectBoardPluginTest::containsScaledImage);
+        }
+        if (view instanceof PanelView.Padded padded) {
+            return containsScaledImage(padded.child());
         }
         return false;
     }
@@ -464,6 +662,9 @@ final class RecentProjectBoardPluginTest {
         if (view instanceof PanelView.CollapsibleSection section) {
             return section.children().stream().anyMatch(RecentProjectBoardPluginTest::containsLink);
         }
+        if (view instanceof PanelView.Padded padded) {
+            return containsLink(padded.child());
+        }
         return false;
     }
 
@@ -485,11 +686,21 @@ final class RecentProjectBoardPluginTest {
             final UiHostCapabilityService uiHost,
             final List<ActionRegistry.Action> actions,
             final EditorCommandService commands) {
+        return context(recentFiles, uiHost, actions, commands, RecentPreviewCacheService.unavailable());
+    }
+
+    private static PluginContext context(
+            final RecentFileService recentFiles,
+            final UiHostCapabilityService uiHost,
+            final List<ActionRegistry.Action> actions,
+            final EditorCommandService commands,
+            final RecentPreviewCacheService previewCache) {
         final DisposableScope scope = new DisposableScope();
         final PluginServiceDirectory services = PluginServices.builder()
                 .install(RecentFileService.class, recentFiles)
                 .install(UiHostCapabilityService.class, uiHost)
                 .install(EditorCommandService.class, commands)
+                .install(RecentPreviewCacheService.class, previewCache)
                 .build();
         return (PluginContext) Proxy.newProxyInstance(
                 PluginContext.class.getClassLoader(),
@@ -541,6 +752,21 @@ final class RecentProjectBoardPluginTest {
 
         @Override
         public EditorCommandResult execute(final EditorParameterizedRequest request) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private static final class RecordingPreviewCache implements RecentPreviewCacheService {
+        private final List<RecentFileId> deleted = new CopyOnWriteArrayList<>();
+
+        @Override
+        public CompletionStage<Boolean> delete(final RecentFileId id) {
+            deleted.add(id);
+            return java.util.concurrent.CompletableFuture.completedStage(true);
+        }
+
+        @Override
+        public Registration provide(final DeletionHandler handler) {
             throw new UnsupportedOperationException();
         }
     }

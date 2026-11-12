@@ -9,7 +9,9 @@ import dev.turboism.sdk.cubism.hook.ModelFileHooks;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCacheService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewDeletedEvent;
 import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -63,16 +65,33 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
     static final String CREATE_ACTION_ID = "recent-project-board.create";
     static final String CREATE_ANIMATION_ACTION_ID = "recent-project-board.create-animation";
     static final String LAYOUT_ACTION_ID = "recent-project-board.layout";
+    static final String DELETE_ACTION_ID = "recent-project-board.delete";
     static final String PANEL_PLACEMENT = "viewport";
     static final int MAX_CARDS = 8;
     static final int IMAGE_MAX_WIDTH = 220;
     static final int IMAGE_MAX_HEIGHT = 220;
     static final int PANEL_PRIORITY = 20;
-    /** Keeps every list row's text block the same width, so names line up across rows. */
-    static final int LIST_TEXT_BLOCK_WIDTH = 320;
+    /** Pins the header title block so the layout control keeps a stable place beside it. */
+    static final int HEADER_TEXT_WIDTH = 360;
+    /** Header control cell height; the control is centered inside it. */
+    static final int HEADER_CONTROL_HEIGHT = 34;
+    /** Thumbnail column width of one single-row card. */
+    static final int ROW_PREVIEW_WIDTH = 96;
+    /** Thumbnail height of one single-row card; the card is only slightly taller. */
+    static final int ROW_PREVIEW_HEIGHT = 64;
+    /** Left inset of a single-row card's name and timestamp, keeping them off the thumbnail. */
+    static final int ROW_TEXT_INSET = 16;
 
     /** Breathing room above the board title, so the header never touches the overlay edge. */
     private static final int HEADER_TOP_INSET = 10;
+    /** Left inset that keeps the header text off the overlay edge. */
+    private static final int HEADER_LEFT_INSET = 12;
+
+    /** Bundled Lucide mask used by the per-card delete control. */
+    private static final String DELETE_ICON_NAME = "trash-2";
+
+    /** Bundled Lucide mask used by the header layout control. */
+    private static final String LAYOUT_ICON_NAME = "layout-grid";
 
     private static final StoragePath LAYOUT_PATH = new StoragePath(StorageRoot.DATA, "recent-project-board/layout.txt");
 
@@ -88,6 +107,7 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
     private PluginLogger logger;
     private PluginLocalization localization;
     private RecentFileService recentFiles;
+    private RecentPreviewCacheService previewCache;
     private EditorCommandService editorCommands;
     private UiHostCapabilityService uiHost;
     private UiScheduler uiScheduler;
@@ -101,6 +121,9 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
         this.logger = context.logger();
         this.localization = context.localization();
         this.recentFiles = context.services().find(RecentFileService.class).orElseGet(RecentFileService::unavailable);
+        this.previewCache = context.services()
+                .find(RecentPreviewCacheService.class)
+                .orElseGet(RecentPreviewCacheService::unavailable);
         this.editorCommands =
                 context.services().find(EditorCommandService.class).orElseGet(EditorCommandService::unavailable);
         this.uiHost = context.services().find(UiHostCapabilityService.class).orElse(null);
@@ -135,6 +158,10 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
                 ignored -> createAnimationProject());
         registerAction(
                 LAYOUT_ACTION_ID, localization.text("board.layout.action", "Change layout"), ignored -> cycleLayout());
+        registerAction(
+                DELETE_ACTION_ID,
+                localization.text("board.delete.action", "Delete preview"),
+                actionContext -> actionContext.uiEvent().ifPresent(event -> deletePreview(event.sourceId())));
         dispatchRefresh();
         scheduleStartupRefreshes();
     }
@@ -199,6 +226,19 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
             return;
         }
         previews.put(event.id().value(), event.image().png());
+        dispatchRefresh();
+    }
+
+    /**
+     * Receives committed deletions from the provider. The provider is authoritative, so the local
+     * copy drops even when this board did not request the deletion.
+     */
+    @SubscribeEvent
+    public void onPreviewDeleted(final RecentPreviewDeletedEvent event) {
+        if (!enabled || event == null) {
+            return;
+        }
+        previews.remove(event.id().value());
         dispatchRefresh();
     }
 
@@ -314,26 +354,48 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
             if (cards.size() >= MAX_CARDS) break;
             cards.add(cardFor(file));
         }
+        // The header sits outside the scroll region: inside it, the vertical scrollbar narrowed the
+        // viewport and shifted the layout control left whenever the card list overflowed.
+        return PanelView.column(
+                header(title, subtitle),
+                PanelView.scroll(
+                        layout == BoardLayout.ONE
+                                ? rowList(cards)
+                                : PanelView.grid(layout.columns(), cards.toArray(PanelView[]::new))));
+    }
+
+    /**
+     * One project per row for the single-column layout: the thumbnail stays at its natural size and
+     * the card fills the row width, so a screen shows more projects than a grid of tall cards.
+     */
+    private PanelView rowList(final List<PanelView> rows) {
         final List<PanelView> children = new ArrayList<>();
-        children.add(PanelView.spaceBetween(
-                PanelView.padded(
-                        PanelView.centered(
-                                PanelView.column(PanelView.text(title), PanelView.text(subtitle, true)), 360, 56),
-                        HEADER_TOP_INSET,
-                        12,
-                        0,
-                        0),
-                layoutControl()));
-        if (layout == BoardLayout.ONE) {
-            children.add(detailsList(cards));
-        } else {
-            children.add(PanelView.grid(layout.columns(), cards.toArray(PanelView[]::new)));
+        for (PanelView row : rows) {
+            if (!children.isEmpty()) {
+                children.add(PanelView.separator());
+            }
+            children.add(row);
         }
-        return PanelView.scroll(PanelView.column(children.toArray(PanelView[]::new)));
+        return PanelView.column(children.toArray(PanelView[]::new));
+    }
+
+    /** Board header: a left title block and the right-aligned layout control. */
+    private PanelView header(final String title, final String subtitle) {
+        return PanelView.padded(
+                PanelView.spaceBetween(
+                        PanelView.centered(
+                                PanelView.column(PanelView.text(title), PanelView.text(subtitle, true)),
+                                HEADER_TEXT_WIDTH,
+                                0),
+                        PanelView.centered(layoutControl(), 0, HEADER_CONTROL_HEIGHT)),
+                HEADER_TOP_INSET,
+                HEADER_LEFT_INSET,
+                0,
+                0);
     }
 
     private PanelView cardFor(final RecentFileSummary file) {
-        return layout == BoardLayout.ONE ? detailsRowFor(file) : gridCardFor(file);
+        return layout == BoardLayout.ONE ? rowCardFor(file) : gridCardFor(file);
     }
 
     private PanelView gridCardFor(final RecentFileSummary file) {
@@ -352,53 +414,68 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
                 file.id().value(),
                 OPEN_ACTION_ID,
                 PanelView.column(
+                        // The trash sits in its own top row so the name and timestamp stay centered
+                        // under the preview exactly as before.
+                        PanelView.spaceBetween(PanelView.text(""), deleteControl(file)),
                         preview,
                         PanelView.textCentered(file.displayName(), false, layout.textScale()),
                         PanelView.textCentered(modified, true, layout.textScale())));
     }
 
-    private PanelView detailsRowFor(final RecentFileSummary file) {
+    /**
+     * Single-column card: a small thumbnail, a left-aligned name and timestamp centered vertically
+     * against it, and the delete control closing the row. The card fills the row width, so one
+     * screen shows more projects than a grid of tall cards.
+     */
+    private PanelView rowCardFor(final RecentFileSummary file) {
         final byte[] png = previews.get(file.id().value());
-        final int imageSize = layout.imageSize();
         final PanelView preview = png == null
                 ? PanelView.centered(
                         PanelView.column(PanelView.textCentered(
                                 localization.text("board.noPreview", "No preview"), true, layout.textScale())),
-                        110,
-                        imageSize)
+                        ROW_PREVIEW_WIDTH,
+                        ROW_PREVIEW_HEIGHT)
                 : PanelView.centered(
-                        PanelView.scaledImage(png, file.displayName(), imageSize, imageSize), 110, imageSize);
+                        PanelView.scaledImage(png, file.displayName(), ROW_PREVIEW_WIDTH, ROW_PREVIEW_HEIGHT),
+                        ROW_PREVIEW_WIDTH,
+                        ROW_PREVIEW_HEIGHT);
         final String modified = file.lastModified().map(MODIFIED_FORMAT::format).orElse("");
+        // A flat row plus a separator reads as one list; a bordered card plus a separator would
+        // draw two competing edges between neighbours.
         return PanelView.flatCard(
                 file.id().value(),
                 OPEN_ACTION_ID,
-                PanelView.leftRow(
-                        preview,
-                        // Fixed width, natural height: the row then centers this block against the
-                        // preview. A fixed height made the labels sit at the top of a tall cell.
-                        PanelView.centered(
-                                PanelView.column(
-                                        PanelView.text(file.displayName(), false, layout.textScale()),
-                                        PanelView.text(modified, true, layout.textScale())),
-                                LIST_TEXT_BLOCK_WIDTH,
-                                0)));
+                PanelView.spaceBetween(
+                        PanelView.leftRow(
+                                preview,
+                                // Natural height keeps the block at its text height, so the row centers
+                                // it against the taller thumbnail instead of pinning it to the top.
+                                PanelView.padded(
+                                        PanelView.column(
+                                                PanelView.text(file.displayName(), false, layout.textScale()),
+                                                PanelView.text(modified, true, layout.textScale())),
+                                        0,
+                                        ROW_TEXT_INSET,
+                                        0,
+                                        0)),
+                        deleteControl(file)));
     }
 
-    private PanelView detailsList(final List<PanelView> rows) {
-        final List<PanelView> children = new ArrayList<>();
-        for (PanelView row : rows) {
-            if (!children.isEmpty()) {
-                children.add(PanelView.separator());
-            }
-            children.add(row);
-        }
-        return PanelView.column(children.toArray(PanelView[]::new));
+    /**
+     * Per-card delete control. The card id is the action source, so the handler knows which
+     * preview to delete without a separate mapping.
+     */
+    private PanelView deleteControl(final RecentFileSummary file) {
+        final byte[] icon = layoutIcons.computeIfAbsent(DELETE_ICON_NAME, this::loadLayoutIcon);
+        final String tooltip = localization.text("board.delete.action", "Delete preview");
+        return icon.length == 0
+                ? PanelView.button(DELETE_ACTION_ID, tooltip, DELETE_ACTION_ID)
+                : PanelView.iconButton(file.id().value(), icon, tooltip, DELETE_ACTION_ID);
     }
 
     /** Icon-only layout control; falls back to a text button if the bundled mask is missing. */
     private PanelView layoutControl() {
-        final String iconName = layout == BoardLayout.ONE ? "list" : "layout-grid";
-        final byte[] icon = layoutIcons.computeIfAbsent(iconName, this::loadLayoutIcon);
+        final byte[] icon = layoutIcons.computeIfAbsent(LAYOUT_ICON_NAME, this::loadLayoutIcon);
         final String tooltip = layout.buttonLabel(localization);
         return icon.length == 0
                 ? PanelView.button(LAYOUT_ACTION_ID, tooltip, LAYOUT_ACTION_ID)
@@ -423,7 +500,7 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
     enum BoardLayout {
         SIX(6, 220, 1.0f),
         THREE(3, 340, 1.15f),
-        ONE(1, 96, 1.25f);
+        ONE(1, ROW_PREVIEW_HEIGHT, 1.15f);
 
         private static final BoardLayout[] ORDER = values();
 
@@ -454,12 +531,10 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
         }
 
         String buttonLabel(final PluginLocalization localization) {
-            if (this == ONE) {
-                return localization.text("board.layout", "Layout") + ": "
-                        + localization.text("board.details", "Details");
-            }
-            return localization.text("board.layout", "Layout") + ": " + columns + " "
-                    + localization.text("board.columns", "columns");
+            final String label = localization.text("board.layout", "Layout") + ": ";
+            return this == ONE
+                    ? label + localization.text("board.layout.row", "1 row")
+                    : label + columns + " " + localization.text("board.columns", "columns");
         }
 
         static BoardLayout parse(final String raw) {
@@ -597,6 +672,37 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
         } catch (RuntimeException failure) {
             logger.warn(
                     "Recent project board open failed: " + failure.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Deletes the cached preview of one card. The provider owns the cache, so this only asks it;
+     * the local copy drops when the provider publishes the deletion.
+     */
+    void deletePreview(final String idValue) {
+        if (idValue == null || idValue.isBlank()) {
+            return;
+        }
+        final RecentPreviewCacheService cache = previewCache;
+        if (cache == null || !cache.isAvailable()) {
+            logger.warn("Recent project board cannot delete a preview: the preview cache is unavailable");
+            return;
+        }
+        final RecentFileId id = new RecentFileId(idValue);
+        try {
+            cache.delete(id).whenComplete((removed, failure) -> {
+                if (failure != null) {
+                    logger.warn("Recent project board preview deletion failed: "
+                            + failure.getClass().getSimpleName());
+                    return;
+                }
+                if (Boolean.TRUE.equals(removed)) {
+                    logger.debug("Recent project board deleted the preview of " + idValue);
+                }
+            });
+        } catch (RuntimeException failure) {
+            logger.warn("Recent project board preview deletion failed: "
+                    + failure.getClass().getSimpleName());
         }
     }
 
