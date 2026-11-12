@@ -33,10 +33,14 @@ class RecentPreviewPublicEventContractTest {
     @Test
     void officialDescriptorExportsAUsableDependentEventContract() throws Exception {
         final PluginDescriptor provider = parseOfficialDescriptor();
-        assertEquals(1, provider.eventExports().size());
+        assertEquals(2, provider.eventExports().size());
         final PluginDescriptor.EventExport export = provider.eventExports().get(0);
         assertEquals("thumbnail.captured", export.id());
         assertEquals(RecentPreviewCapturedEvent.class.getName(), export.eventType());
+        final PluginDescriptor.EventExport deleted = provider.eventExports().get(1);
+        assertEquals("thumbnail.deleted", deleted.id());
+        assertEquals(
+                dev.turboism.sdk.cubism.recentpreview.RecentPreviewDeletedEvent.class.getName(), deleted.eventType());
 
         final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);

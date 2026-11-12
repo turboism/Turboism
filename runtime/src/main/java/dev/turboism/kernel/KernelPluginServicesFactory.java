@@ -61,6 +61,12 @@ final class KernelPluginServicesFactory implements AutoCloseable {
     private dev.turboism.cleanup.RetryableCleanup cleanup;
     private final dev.turboism.mcp.McpConnectionRegistry mcpConnections = new dev.turboism.mcp.McpConnectionRegistry();
     /**
+     * Shared preview cache broker: the provider plugin registers its deletion handler and every
+     * dependent reaches it through this one instance, so a plugin context never owns cache state.
+     */
+    private final dev.turboism.recentpreview.RecentPreviewCacheRegistry recentPreviewCacheRegistry =
+            new dev.turboism.recentpreview.RecentPreviewCacheRegistry();
+    /**
      * Host-level export-settings policy, bound by the runtime before any plugin is loaded.
      *
      * <p>A plugin's contribution registry is only reachable from the native dialog through this
@@ -209,6 +215,11 @@ final class KernelPluginServicesFactory implements AutoCloseable {
         return eventBroker;
     }
 
+    /** @return the shared preview cache broker every plugin scope resolves */
+    dev.turboism.recentpreview.RecentPreviewCacheRegistry recentPreviewCacheRegistry() {
+        return recentPreviewCacheRegistry;
+    }
+
     @Override
     public synchronized void close() {
         if (cleanup == null) {
@@ -219,6 +230,7 @@ final class KernelPluginServicesFactory implements AutoCloseable {
                     performanceEvents::close,
                     performanceProbe::close,
                     mcpConnections::close,
+                    recentPreviewCacheRegistry::close,
                     () -> eventBroker
                             .observationBaseline(dev.turboism.sdk.performance.PerformanceProbeService.class)
                             .compareAndSet(performanceProbe, null),

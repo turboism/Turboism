@@ -206,6 +206,7 @@ final class KernelPluginContextFactory implements AutoCloseable {
                     .fileChooserHistory(fileChooserHistoryFor(requestedDescriptor.id(), fileChooserHistory))
                     .exportSettings(services.exportSettings())
                     .mcpConnectionService(services.mcpConnections())
+                    .recentPreviewCacheRegistry(servicesFactory.recentPreviewCacheRegistry())
                     .build();
             final CorePluginContext context =
                     new CorePluginContext(services.dependencies().withConfig(services.typedConfig()), environment);

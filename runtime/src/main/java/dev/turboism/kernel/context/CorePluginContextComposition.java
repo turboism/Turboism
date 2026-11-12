@@ -61,7 +61,12 @@ final class CorePluginContextComposition {
                 env.generationAdmission());
         final MeshCapabilityBundle meshCapabilities = MeshCapabilityBundle.create(hostAccess, resolvedDependencies);
         final UiCapabilityBundle uiCapabilities = UiCapabilityBundle.create(
-                hostAccess, adapters, resolvedDependencies, env.localization(), editorApiAvailability);
+                hostAccess,
+                adapters,
+                resolvedDependencies,
+                env.localization(),
+                editorApiAvailability,
+                env.recentPreviewCacheRegistry());
         final HostCapabilityBundle hostCapabilities =
                 HostCapabilityBundle.create(hostAccess, env, editorApiAvailability);
         return new Composition(

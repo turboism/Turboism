@@ -6,12 +6,15 @@ import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.recentfile.RuntimeRecentFileService;
+import dev.turboism.recentpreview.RecentPreviewCacheRegistry;
+import dev.turboism.recentpreview.RuntimeRecentPreviewCacheService;
 import dev.turboism.recentpreview.RuntimeRecentPreviewContributionService;
 import dev.turboism.screenshot.RuntimeScreenshotCaptureService;
 import dev.turboism.sdk.action.ActionCatalogService;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.cubism.preview.PreviewFrameService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCacheService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -60,6 +63,7 @@ record UiCapabilityBundle(
         RecentFileService recentFileService,
         ScreenshotCaptureService screenshotCaptureService,
         RecentPreviewContributionService recentPreviewContributionService,
+        RecentPreviewCacheService recentPreviewCacheService,
         ActionCatalogService actionCatalogService,
         PreviewFrameService previewFrameService)
         implements PluginCapabilityBundle {
@@ -80,6 +84,7 @@ record UiCapabilityBundle(
         Objects.requireNonNull(recentFileService, "recentFileService");
         Objects.requireNonNull(screenshotCaptureService, "screenshotCaptureService");
         Objects.requireNonNull(recentPreviewContributionService, "recentPreviewContributionService");
+        Objects.requireNonNull(recentPreviewCacheService, "recentPreviewCacheService");
         Objects.requireNonNull(actionCatalogService, "actionCatalogService");
         Objects.requireNonNull(previewFrameService, "previewFrameService");
     }
@@ -89,7 +94,8 @@ record UiCapabilityBundle(
             final RuntimeHostAdapters adapters,
             final CorePluginContext.Dependencies dependencies,
             final PluginLocalization localization,
-            final CubismEditorApiAvailabilityInterceptor editorApiAvailability) {
+            final CubismEditorApiAvailabilityInterceptor editorApiAvailability,
+            final RecentPreviewCacheRegistry recentPreviewCacheRegistry) {
         final MainToolbarRegistry mainToolbar = dependencies.mainToolbar();
         final PaletteToolbarRegistry paletteToolbar = dependencies.paletteToolbar();
         final PaletteFilterRegistry paletteFilter = dependencies.paletteFilter();
@@ -133,10 +139,15 @@ record UiCapabilityBundle(
                 : new RuntimeRecentFileService(adapters.recentFiles(), uiPermissionChecker);
         final ScreenshotCaptureService screenshotCaptureService = hostAccess == null
                 ? ScreenshotCaptureService.unavailable()
-                : new RuntimeScreenshotCaptureService(adapters.screenshots(), uiPermissionChecker);
+                : new RuntimeScreenshotCaptureService(
+                        adapters.screenshots(), uiPermissionChecker, hostAccess::modelAccess);
         final RecentPreviewContributionService recentPreviewContributionService = hostAccess == null
                 ? RecentPreviewContributionService.unavailable()
                 : new RuntimeRecentPreviewContributionService(adapters.recentPreviews(), uiPermissionChecker);
+        final RecentPreviewCacheService recentPreviewCacheService = hostAccess == null
+                ? RecentPreviewCacheService.unavailable()
+                : new RuntimeRecentPreviewCacheService(
+                        dependencies.descriptor().id(), recentPreviewCacheRegistry, uiPermissionChecker);
         final HostDialogAutomationService hostDialogAutomationService =
                 new RuntimeHostDialogAutomationService(uiPermissionChecker);
         final HostViewPanel hostViewPanel = hostAccess == null
@@ -253,6 +264,7 @@ record UiCapabilityBundle(
                 recentFileService,
                 screenshotCaptureService,
                 recentPreviewContributionService,
+                recentPreviewCacheService,
                 actionCatalogService,
                 previewFrameServiceView);
     }
@@ -310,6 +322,10 @@ record UiCapabilityBundle(
                 PluginService.RECENT_PREVIEWS,
                 () -> recentPreviewContributionService,
                 RecentPreviewContributionService::unavailable);
+        directory.install(
+                PluginService.RECENT_PREVIEW_CACHE,
+                () -> recentPreviewCacheService,
+                RecentPreviewCacheService::unavailable);
         directory.install(PluginService.PREVIEW_FRAMES, () -> previewFrameService, PreviewFrameService::unavailable);
     }
 }

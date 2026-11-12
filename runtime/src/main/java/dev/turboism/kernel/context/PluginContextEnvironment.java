@@ -33,6 +33,7 @@ public final class PluginContextEnvironment {
     private final ExportSettingsContributionService exportSettings;
     private final ScriptService scriptService;
     private final McpConnectionService mcpConnectionService;
+    private final dev.turboism.recentpreview.RecentPreviewCacheRegistry recentPreviewCacheRegistry;
     private final java.util.function.BooleanSupplier generationAdmission;
 
     PluginContextEnvironment(
@@ -49,6 +50,7 @@ public final class PluginContextEnvironment {
             final ExportSettingsContributionService exportSettings,
             final ScriptService scriptService,
             final McpConnectionService mcpConnectionService,
+            final dev.turboism.recentpreview.RecentPreviewCacheRegistry recentPreviewCacheRegistry,
             final java.util.function.BooleanSupplier generationAdmission) {
         this.hostAccess = hostAccess;
         this.hostAdapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
@@ -63,6 +65,7 @@ public final class PluginContextEnvironment {
         this.exportSettings = exportSettings;
         this.scriptService = scriptService;
         this.mcpConnectionService = mcpConnectionService;
+        this.recentPreviewCacheRegistry = recentPreviewCacheRegistry;
         this.generationAdmission = Objects.requireNonNull(generationAdmission, "generationAdmission");
     }
 
@@ -213,6 +216,13 @@ public final class PluginContextEnvironment {
     }
 
     /**
+     * @return the runtime-owned preview cache broker shared by every plugin scope
+     */
+    public dev.turboism.recentpreview.RecentPreviewCacheRegistry recentPreviewCacheRegistry() {
+        return recentPreviewCacheRegistry;
+    }
+
+    /**
      * Returns the generation admission gate supplier.
      *
      * @return generation admission supplier
@@ -267,6 +277,8 @@ public final class PluginContextEnvironment {
         private ExportSettingsContributionService exportSettings;
         private ScriptService scriptService;
         private McpConnectionService mcpConnectionService;
+        private dev.turboism.recentpreview.RecentPreviewCacheRegistry recentPreviewCacheRegistry =
+                new dev.turboism.recentpreview.RecentPreviewCacheRegistry();
         private java.util.function.BooleanSupplier generationAdmission = () -> true;
 
         Builder(final RuntimeHostAdapterAccess hostAccess) {
@@ -395,6 +407,16 @@ public final class PluginContextEnvironment {
          * @param mcpConnectionService MCP connection service
          * @return this builder
          */
+        /**
+         * @param registry the runtime-owned preview cache broker shared by every plugin scope
+         * @return this builder
+         */
+        public Builder recentPreviewCacheRegistry(
+                final dev.turboism.recentpreview.RecentPreviewCacheRegistry registry) {
+            this.recentPreviewCacheRegistry = registry;
+            return this;
+        }
+
         public Builder mcpConnectionService(final McpConnectionService mcpConnectionService) {
             this.mcpConnectionService = mcpConnectionService;
             return this;
@@ -436,6 +458,7 @@ public final class PluginContextEnvironment {
                     exportSettings,
                     scriptService,
                     mcpConnectionService,
+                    recentPreviewCacheRegistry,
                     generationAdmission);
         }
     }
