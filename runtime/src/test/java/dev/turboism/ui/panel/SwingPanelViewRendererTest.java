@@ -824,6 +824,46 @@ class SwingPanelViewRendererTest {
         });
     }
 
+    /**
+     * A fixed centered cell must center a short child vertically. Filling both axes stretched the
+     * child to the cell, and the vertical stack then pinned its content to the top, so the board's
+     * "No preview" placeholder rendered at the top of its preview box.
+     */
+    @Test
+    void fixedCenteredCellCentersAShortChildVertically() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.centered(PanelView.column(PanelView.textCentered("No preview")), 220, 220),
+                    (action, event) -> {});
+            final JPanel cell = assertInstanceOf(JPanel.class, rendered);
+            cell.setSize(220, 220);
+            cell.doLayout();
+            final Component child = cell.getComponent(0);
+            assertEquals(18, child.getHeight(), "a short child keeps its natural height");
+            assertTrue(
+                    child.getY() > 80,
+                    "the child sits in the vertical middle of the cell, not at its top: y=" + child.getY());
+        });
+    }
+
+    @Test
+    void fixedCenteredCellStillClipsAChildTallerThanTheCell() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.centered(
+                            PanelView.column(PanelView.text("one"), PanelView.text("two"), PanelView.text("three")),
+                            120,
+                            18),
+                    (action, event) -> {});
+            final JPanel cell = assertInstanceOf(JPanel.class, rendered);
+            cell.setSize(120, 18);
+            cell.doLayout();
+            final Component child = cell.getComponent(0);
+            assertEquals(18, child.getHeight(), "an overflowing child must not grow the surrounding row");
+            assertTrue(child.getWidth() <= 120, "the overflowing child stays inside the reserved width");
+        });
+    }
+
     @Test
     void centeredBoxPinsTheWidthAndLetsTheHeightFollowTheContent() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
@@ -946,6 +986,50 @@ class SwingPanelViewRendererTest {
             final AbstractButton button = assertInstanceOf(AbstractButton.class, named(rendered, "layout"));
             assertEquals(400, button.getX() + button.getWidth());
         });
+    }
+
+    /**
+     * A header inside the scroll region shifts whenever the vertical scrollbar appears: the
+     * viewport narrows by the scrollbar width and the right-aligned control moves left. A board
+     * keeps its header outside the scroll view, so the control must not move.
+     */
+    @Test
+    void headerOutsideTheScrollRegionKeepsTheControlInPlace() throws Exception {
+        final byte[] png = java.util.Base64.getDecoder()
+                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+        final List<Integer> rightEdges = new ArrayList<>();
+        SwingUtilities.invokeAndWait(() -> {
+            for (int count : new int[] {1, 60}) {
+                final PanelView[] cards = new PanelView[count];
+                for (int index = 0; index < count; index++) {
+                    cards[index] = PanelView.card("c" + index, "open", PanelView.text("card " + index));
+                }
+                final JComponent root = SwingPanelViewRenderer.render(
+                        PanelView.column(
+                                PanelView.spaceBetween(
+                                        PanelView.text("Recent Files"),
+                                        PanelView.iconButton("layout", png, "Layout", "board.layout")),
+                                PanelView.scroll(PanelView.grid(6, cards))),
+                        (action, event) -> {});
+                root.setSize(900, 400);
+                layoutDeep(root);
+                final Component button = named(root, "layout");
+                final java.awt.Point origin =
+                        SwingUtilities.convertPoint(button.getParent(), button.getX(), button.getY(), root);
+                rightEdges.add(origin.x + button.getWidth());
+            }
+        });
+        assertEquals(2, rightEdges.size());
+        assertEquals(rightEdges.get(0), rightEdges.get(1), "the control must not shift when the scrollbar appears");
+    }
+
+    private static void layoutDeep(final Component component) {
+        if (component instanceof Container container) {
+            container.doLayout();
+            for (Component child : container.getComponents()) {
+                layoutDeep(child);
+            }
+        }
     }
 
     @Test
