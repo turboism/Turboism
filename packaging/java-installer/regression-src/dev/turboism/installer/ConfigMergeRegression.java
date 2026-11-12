@@ -452,6 +452,31 @@ public final class ConfigMergeRegression {
         Map<String, Object> badTextureAtlasField = validRuntimeConfig();
         badTextureAtlasField.put("textureAtlas", Map.of("mystery", true));
         invalid.add(badTextureAtlasField);
+        Map<String, Object> badGuide = validRuntimeConfig();
+        badGuide.put("guide", Map.of("showOnStartup", "false"));
+        invalid.add(badGuide);
+        Map<String, Object> badGuideField = validRuntimeConfig();
+        badGuideField.put("guide", Map.of("mystery", true));
+        invalid.add(badGuideField);
+
+        Map<String, Object> withGuide = validRuntimeConfig();
+        withGuide.put("guide", Map.of("showOnStartup", Boolean.FALSE));
+        ConfigMerge.validateCurrent(withGuide);
+        check("guide.showOnStartup boolean passes installer validation", true);
+        check(
+                "normalization keeps a recorded guide dismissal",
+                Boolean.FALSE.equals(((Map<?, ?>)
+                                ConfigMerge.normalizeToCurrent(withGuide).get("guide"))
+                        .get("showOnStartup")));
+        Map<String, Object> legacyGuide = new java.util.LinkedHashMap<>();
+        legacyGuide.put("worktreeId", "legacy-guide");
+        legacyGuide.put("guide", Map.of("showOnStartup", Boolean.FALSE));
+        legacyGuide.put("futureField", Boolean.TRUE);
+        check(
+                "normalization carries the guide state from a legacy document",
+                Boolean.FALSE.equals(((Map<?, ?>)
+                                ConfigMerge.normalizeToCurrent(legacyGuide).get("guide"))
+                        .get("showOnStartup")));
 
         Map<String, Object> withTextureAtlas = validRuntimeConfig();
         withTextureAtlas.put("textureAtlas",

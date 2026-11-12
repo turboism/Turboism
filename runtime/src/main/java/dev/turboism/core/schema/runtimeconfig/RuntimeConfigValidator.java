@@ -31,6 +31,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             "safeMode",
             "diagnostics",
             "hooks",
+            "guide",
             "launcher",
             "textureAtlas",
             "reduceAutoBackup");
@@ -47,6 +48,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     private static final Set<String> ALLOWED_HOOK_FIELDS = Set.of("disabledIds", "denylistedClasses", "startup");
     private static final Set<String> ALLOWED_STARTUP_FIELDS =
             Set.of("skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory");
+    private static final Set<String> ALLOWED_GUIDE_FIELDS = Set.of("showOnStartup");
     /**
      * Launcher fields that are not native optimizations. Each carries its own value shape and
      * diagnostic code, so they stay outside the catalogue.
@@ -186,6 +188,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             validateOptionalBoolean(node, rootField, errors, source);
         }
         validateHooks(node, errors, source);
+        validateGuide(node, errors, source);
         validateLauncher(node, errors, source, tolerateUnsupportedChoices);
         validateTextureAtlas(node, errors, source);
 
@@ -233,6 +236,22 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
                     "textureAtlas.parallel",
                     source));
         }
+    }
+
+    private void validateGuide(final JsonNode root, final List<SchemaValidationError> errors, final String source) {
+        if (!root.has("guide")) return;
+        final JsonNode guide = root.get("guide");
+        if (guide == null || !guide.isObject()) {
+            errors.add(error("RUNTIME_CONFIG_BAD_TYPE", "guide must be an object", "guide", source));
+            return;
+        }
+        guide.fieldNames().forEachRemaining(field -> {
+            if (!ALLOWED_GUIDE_FIELDS.contains(field)) {
+                errors.add(error(
+                        "RUNTIME_CONFIG_UNKNOWN_FIELD", "Unknown guide field: " + field, "guide." + field, source));
+            }
+        });
+        validateOptionalBoolean(guide, "showOnStartup", "guide.showOnStartup", errors, source);
     }
 
     private void validateLauncher(

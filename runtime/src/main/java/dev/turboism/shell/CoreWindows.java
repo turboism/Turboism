@@ -64,6 +64,7 @@ final class CoreWindows implements AutoCloseable {
     private JDialog pluginDetailsDialog;
     private volatile PendingPluginChangesAction pendingChangesAction;
     private JDialog aboutDialog;
+    private GuideWindow guideWindow;
     private FrameworkUpdatesWindow updatesWindow;
     private final java.util.concurrent.ExecutorService pluginDetailsExecutor =
             RuntimeThreads.serialLane(RuntimeThreads.daemonThreadsWithFixedName("turboism-plugin-details"));
@@ -174,6 +175,23 @@ final class CoreWindows implements AutoCloseable {
         });
     }
 
+    /**
+     * Opens the one-time guide. The same window instance is reused, so reopening it from the menu
+     * starts at the first page; {@code dismissed} runs once per user dismissal, never on teardown.
+     */
+    void showGuide(final Runnable dismissed) {
+        CoreDialogs.onEdt(() -> {
+            if (closed.get()) return;
+            if (guideWindow == null) guideWindow = new GuideWindow(i18n, dismissed);
+            guideWindow.show();
+        });
+    }
+
+    /** Test seam: the guide window this shell owns, or {@code null} before it was first opened. */
+    GuideWindow guideWindowForTesting() {
+        return guideWindow;
+    }
+
     void showUpdates(final CoreUpdateService updates) {
         CoreDialogs.onEdt(() -> {
             if (closed.get()) return;
@@ -211,6 +229,7 @@ final class CoreWindows implements AutoCloseable {
             if (pluginsDialog != null) pluginsDialog.dispose();
             if (pluginDetailsDialog != null) pluginDetailsDialog.dispose();
             if (aboutDialog != null) aboutDialog.dispose();
+            if (guideWindow != null) guideWindow.dispose();
             settingsDialog = null;
             pluginsDialog = null;
             pluginDetailsDialog = null;
@@ -1099,7 +1118,7 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private int detail(final JPanel panel, final int row, final String labelKey, final String value) {
-        final JLabel content = new JLabel("<html>" + escapeHtml(value).replace("\n", "<br>") + "</html>");
+        final JLabel content = new JLabel("<html>" + ShellHtml.escape(value).replace("\n", "<br>") + "</html>");
         add(panel, row, new JLabel(text(labelKey)), content);
         return row + 1;
     }
@@ -1168,15 +1187,6 @@ final class CoreWindows implements AutoCloseable {
                         + " " + imported.contractVersion() + " [" + imported.eventType() + "]"
                         + (imported.required() ? " required" : " optional"))
                 .collect(java.util.stream.Collectors.joining("\n"));
-    }
-
-    private static String escapeHtml(final String value) {
-        return (value == null ? "" : value)
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#39;");
     }
 
     private void openExternal(final String value) {
@@ -1256,15 +1266,15 @@ final class CoreWindows implements AutoCloseable {
                 + "<table width=\"" + ABOUT_BODY_WIDTH + "\" cellpadding=\"0\" cellspacing=\"0\">"
                 + "<tr><td align=\"center\">"
                 + "<div class=\"name\"><a href=\"" + ABOUT_HOMEPAGE + "\">"
-                + escapeHtml(i18n.text("common.turboism")) + "</a></div>"
+                + ShellHtml.escape(i18n.text("common.turboism")) + "</a></div>"
                 + "<div class=\"version\"><a href=\"" + UPDATE_DOWNLOAD_PAGE + "\">"
-                + escapeHtml(version) + "</a></div>"
+                + ShellHtml.escape(version) + "</a></div>"
                 + "<div class=\"tagline\"><a href=\"" + ABOUT_THANKS + "\">"
-                + escapeHtml(i18n.text("about.tagline")) + "</a></div>"
+                + ShellHtml.escape(i18n.text("about.tagline")) + "</a></div>"
                 + "<div class=\"links\"><a href=\"" + ABOUT_LICENSE + "\">"
-                + escapeHtml(i18n.text("about.license")) + "</a> / "
+                + ShellHtml.escape(i18n.text("about.license")) + "</a> / "
                 + "<a href=\"" + ABOUT_EULA + "\">"
-                + escapeHtml(i18n.text("about.eula")) + "</a></div>"
+                + ShellHtml.escape(i18n.text("about.eula")) + "</a></div>"
                 + "</td></tr></table>"
                 + "</body></html>";
     }
@@ -1375,7 +1385,7 @@ final class CoreWindows implements AutoCloseable {
         return HttpLinks.isAllowed(value);
     }
 
-    private static boolean openHttpLink(final String value) {
+    static boolean openHttpLink(final String value) {
         try {
             if (!httpLinkAllowed(value)
                     || !Desktop.isDesktopSupported()

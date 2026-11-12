@@ -550,7 +550,7 @@ final class PluginMarketWindow {
         metaRow.add(hotReloadBadge);
 
         final JLabel summaryLabel =
-                new JLabel("<html><body style='width: 320px;'>" + escapeHtml(loc.summary()) + "</body></html>");
+                new JLabel("<html><body style='width: 320px;'>" + ShellHtml.escape(loc.summary()) + "</body></html>");
         summaryLabel.setBorder(BorderFactory.createEmptyBorder(4, 2, 6, 2));
 
         final JPanel infoGrid = new JPanel(new GridBagLayout());
@@ -760,14 +760,6 @@ final class PluginMarketWindow {
             }
         } catch (Exception ignored) {
         }
-    }
-
-    private static String escapeHtml(final String text) {
-        if (text == null) return "";
-        return text.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;");
     }
 
     private record StatusTypeFilter(StatusType type, String label) {

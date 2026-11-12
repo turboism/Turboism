@@ -19,6 +19,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - The permission id vocabulary now lives in one tracked resource, `sdk/src/main/resources/dev/turboism/sdk/permission/permission-ids.txt`. `PermissionIds` reads it into `KNOWN_IDS` and the `buildSrc` plugin permission audit reads the same file, so the SDK catalog and the manifest-as-audit gate cannot drift. The audit fails the build when a boundary rule names an id the vocabulary does not export.
+- A one-time product guide opens after the shell starts and never opens again once the user closes it. It introduces the framework and its updates, plugin installation, plugin management and the plugin market, and the official feedback channels. The Turboism menu reopens it at any time. `config.json` records the choice as `guide.showOnStartup`, and the installers preserve the recorded value so an upgrade does not repeat a guide the user already closed.
 - The ACP composer now shows a random localized example request as its placeholder each time the window opens. The plugin catalog owns the example wording, so translators revise it without code changes.
 
 ## [0.70.0] - 2026-11-10

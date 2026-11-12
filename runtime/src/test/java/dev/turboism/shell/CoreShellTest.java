@@ -14,6 +14,7 @@ import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.internal.core.CubismJvmSettingsService;
+import dev.turboism.internal.core.GuidePreferences;
 import dev.turboism.internal.core.OptimizationSettingsService;
 import dev.turboism.internal.core.ShellServices;
 import dev.turboism.kernel.KernelLog;
@@ -142,6 +143,7 @@ class CoreShellTest {
         assertEquals(
                 List.of(
                         "Turboism/Plugin Market…:turboism.core.market.open:10",
+                        "Turboism/Guide:turboism.core.guide.open:9",
                         "Turboism/Manage Plugins…:turboism.core.plugins.open:11",
                         "Turboism/Plugin Settings…:turboism.core.plugin-settings.open:12",
                         "Turboism/Turboism Settings…:turboism.core.settings.open:21",
@@ -226,6 +228,51 @@ class CoreShellTest {
         context.actions().execute("settings.clean-empty-docks");
 
         assertEquals(1, cleanups[0]);
+    }
+
+    @Test
+    void startupGuideOpensOnceAndRecordsOnlyTheUserDismissal() throws Exception {
+        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless(), "opening the guide requires a visible AWT display");
+        final boolean[] show = {true};
+        final int[] marks = {0};
+        final GuidePreferences guide = new GuidePreferences() {
+            @Override
+            public boolean shouldShowGuide() {
+                return show[0];
+            }
+
+            @Override
+            public void markGuideSeen() {
+                show[0] = false;
+                marks[0]++;
+            }
+        };
+        final CoreShell plugin = plugin(guide);
+        final RecordingPluginContext context = new RecordingPluginContext();
+        context.useInlineUiScheduler();
+
+        plugin.start(context);
+        final CoreWindows windows = plugin.coreWindows();
+        assertNull(windows.guideWindowForTesting(), "the guide waits for the startup delay");
+        context.stepDelayedUiWork();
+        SwingUtilities.invokeAndWait(() -> {});
+        final GuideWindow guideWindow = windows.guideWindowForTesting();
+        assertNotNull(guideWindow, "the pending startup guide must open");
+        assertTrue(guideWindow.isShowing());
+        assertEquals(0, marks[0], "opening the guide records nothing");
+
+        SwingUtilities.invokeAndWait(guideWindow::close);
+        assertEquals(1, marks[0], "the user dismissal is recorded once");
+        assertFalse(show[0]);
+
+        final CoreShell second = plugin(guide);
+        final RecordingPluginContext secondContext = new RecordingPluginContext();
+        secondContext.useInlineUiScheduler();
+        second.start(secondContext);
+        assertFalse(secondContext.hasDelayedUiWork(), "a recorded dismissal schedules no guide");
+        assertNull(second.coreWindows().guideWindowForTesting(), "a recorded dismissal never opens again");
+        second.close();
+        plugin.close();
     }
 
     @Test
@@ -829,6 +876,20 @@ class CoreShellTest {
         return new CoreShell(new ShellServices(settings(useTextIcon), plugins()));
     }
 
+    private static CoreShell plugin(final GuidePreferences guide) {
+        return new CoreShell(new ShellServices(
+                settings(),
+                CubismJvmSettingsService.unavailable(),
+                OptimizationSettingsService.unavailable(),
+                dev.turboism.sdk.ui.settings.SettingsContributionSource.empty(),
+                plugins(),
+                ShellServices.FloatingPanelActions.unavailable(),
+                dev.turboism.sdk.runtime.RuntimeLogReader.unavailable(),
+                CoreUpdateService.unavailable(),
+                dev.turboism.internal.core.KeybindingService.unavailable(),
+                guide));
+    }
+
     private static CoreShell plugin(final CoreUpdateService updates) {
         return new CoreShell(new ShellServices(
                 settings(),
@@ -839,7 +900,8 @@ class CoreShellTest {
                 ShellServices.FloatingPanelActions.unavailable(),
                 dev.turboism.sdk.runtime.RuntimeLogReader.unavailable(),
                 updates,
-                dev.turboism.internal.core.KeybindingService.unavailable()));
+                dev.turboism.internal.core.KeybindingService.unavailable(),
+                dev.turboism.internal.core.GuidePreferences.unavailable()));
     }
 
     /** Scripted update service used to drive core UI behaviour without any network access. */
@@ -1224,6 +1286,7 @@ class CoreShellTest {
                         case "main-toolbar.logs-menu.label" -> "Logs";
                         case "main-toolbar.keybindings-menu.label" -> "Keybindings";
                         case "main-toolbar.about-menu.label" -> "About";
+                        case "main-toolbar.guide-menu.label" -> "Guide";
                         default -> key;
                     };
                 }
@@ -1243,7 +1306,8 @@ class CoreShellTest {
                             || key.equals("context-menu.panel-tab.float")
                             || key.equals("main-toolbar.logs-menu.label")
                             || key.equals("main-toolbar.keybindings-menu.label")
-                            || key.equals("main-toolbar.about-menu.label");
+                            || key.equals("main-toolbar.about-menu.label")
+                            || key.equals("main-toolbar.guide-menu.label");
                 }
             };
         }

@@ -51,6 +51,8 @@ public final class CoreShell implements ShellHandle {
     private static final String PLUGIN_UPDATE_HINT_ID = "turboism-plugin-updates-ready";
     private static final String PLUGIN_UPDATE_CHECK_RESULT_HINT_ID = "turboism-plugin-update-check-result";
     private static final float CHECK_RESULT_HINT_SECONDS = 5.0f;
+    /** Delay so the host finishes its own startup windows before the guide takes focus. */
+    private static final java.time.Duration GUIDE_STARTUP_DELAY = java.time.Duration.ofSeconds(2);
     /** Last entry in the menu: core items occupy 10..14 and About uses 90. */
     private static final int UPDATE_MENU_ORDER = 100;
 
@@ -128,6 +130,11 @@ public final class CoreShell implements ShellHandle {
                 MainToolbarHomeEntryService.ABOUT_ACTION_ID,
                 localization(context).text("main-toolbar.about-menu.label"),
                 ignored -> windows.showAbout());
+        registerAction(
+                MainToolbarHomeEntryService.GUIDE_ACTION_ID,
+                localization(context).text(MainToolbarHomeEntryService.GUIDE_MENU_LABEL_KEY),
+                "Ctrl+Alt+G",
+                ignored -> windows.showGuide(this::markGuideSeen));
         registerSettingsActions();
         for (final SettingsContribution contribution :
                 OptimizationSettingsContribution.create(localization(context), services.optimizationSettings())) {
@@ -180,6 +187,7 @@ public final class CoreShell implements ShellHandle {
         context.disposableScope().register(windows);
         refreshPanel();
         context.disposableScope().register(homeEntryService.registerPluginMarketMenu());
+        context.disposableScope().register(homeEntryService.registerGuideMenu());
         context.disposableScope().register(homeEntryService.registerPluginManagementMenu());
         context.disposableScope().register(homeEntryService.registerPluginSettingsMenu());
         context.disposableScope().register(homeEntryService.registerSettingsMenu());
@@ -194,6 +202,44 @@ public final class CoreShell implements ShellHandle {
         logger.info("Turboism main toolbar icon mode selected: " + (settings.useTextIcon() ? "text" : "installer"));
         applyAutoBackupPreference(services.cubismJvmSettings().startupReduceAutoBackup());
         logger.info("Turboism core enabled");
+        scheduleStartupGuide();
+    }
+
+    /**
+     * Opens the one-time guide after the host finished its own startup work. A fresh install and an
+     * upgrade both read an absent or true preference, so both see the guide exactly once; the
+     * dismissal is persisted before the next start reads it.
+     */
+    private void scheduleStartupGuide() {
+        if (!guideShouldShow()) return;
+        try {
+            context.disposableScope()
+                    .register(context.uiScheduler()
+                            .runOnUiThreadLater(
+                                    () -> {
+                                        if (!closed) windows.showGuide(this::markGuideSeen);
+                                    },
+                                    GUIDE_STARTUP_DELAY));
+        } catch (RuntimeException rejected) {
+            logger.warn("Startup guide could not be scheduled");
+        }
+    }
+
+    private boolean guideShouldShow() {
+        try {
+            return services.guide().shouldShowGuide();
+        } catch (RuntimeException unavailable) {
+            logger.warn("Startup guide preference is unavailable");
+            return false;
+        }
+    }
+
+    private void markGuideSeen() {
+        try {
+            services.guide().markGuideSeen();
+        } catch (RuntimeException failure) {
+            logger.warn("Startup guide dismissal could not be persisted");
+        }
     }
 
     /**
@@ -867,6 +913,7 @@ public final class CoreShell implements ShellHandle {
                     case "main-toolbar.logs-menu.label" -> "Logs";
                     case "main-toolbar.keybindings-menu.label" -> "Keybindings";
                     case "main-toolbar.about-menu.label" -> "About";
+                    case "main-toolbar.guide-menu.label" -> "Guide";
                     case "settings.save" -> "Save";
                     case "settings.use-text-icon" -> "Use text icon";
                     case "plugins.operation-failed" -> "Plugin operation failed safely.";
