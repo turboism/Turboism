@@ -101,6 +101,31 @@ class RuntimeThreadsTest {
         assertEquals("a_b_c", RuntimeThreads.sanitizeNameFragment("a/b\\c"));
     }
 
+    /**
+     * The production agent is bootstrap-loaded through {@code Boot-Class-Path}, so its classes
+     * report a null defining loader. Publishing that null as a lane's context loader made the
+     * real Cubism host fail at startup, so the resolver must always answer with a usable loader.
+     */
+    @Test
+    void resolvesAUsableContextLoaderForABootstrapLoadedOwner() {
+        final ClassLoader resolved = RuntimeThreads.resolveContextClassLoader(null);
+        assertEquals(ClassLoader.getSystemClassLoader(), resolved);
+        assertTrue(
+                resolved.getResource("dev/turboism/runtime/exec/RuntimeThreads.class") != null,
+                "the resolved loader must still see runtime classes");
+    }
+
+    @Test
+    void keepsTheDefiningLoaderOfAnOrdinarilyLoadedOwner() {
+        assertEquals(
+                RuntimeThreadsTest.class.getClassLoader(), RuntimeThreads.contextClassLoader(RuntimeThreadsTest.class));
+    }
+
+    @Test
+    void rejectsANullOwnerInsteadOfSilentlySubstitutingALoader() {
+        assertThrows(NullPointerException.class, () -> RuntimeThreads.contextClassLoader(null));
+    }
+
     @Test
     void rejectsNonPositiveLaneBounds() {
         assertThrows(

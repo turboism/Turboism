@@ -26,6 +26,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -51,7 +52,6 @@ final class StartupLoadingWindow implements AutoCloseable {
     }
 
     private static final String TITLE = "Turboism";
-    private static final String SLOGAN = "Switch on the power line";
     private static final Color BACKGROUND = Color.WHITE;
     private static final Color TITLE_COLOR = new Color(35, 39, 47);
     private static final Color SUBTITLE_COLOR = new Color(105, 110, 119);
@@ -66,6 +66,11 @@ final class StartupLoadingWindow implements AutoCloseable {
     private static final int TEXT_GAP = 14;
     private static final int LINE_GAP = 3;
     private static final int ARC_DEGREES = 100;
+    /**
+     * Widest subtitle the motto may occupy. A catalog line above this budget is elided, so an
+     * edited quote can never stretch the undecorated window across the screen.
+     */
+    private static final int MAX_SUBTITLE_WIDTH = 420;
     /** ~60 fps: continuous motion for a 20k pixel blit, cheap enough for the shared EDT. */
     private static final long FRAME_INTERVAL_MILLIS = 16L;
     /** One spinner revolution; the angle is derived from the clock, so ticks never stutter. */
@@ -76,6 +81,9 @@ final class StartupLoadingWindow implements AutoCloseable {
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean repaintPending = new AtomicBoolean();
+    /** Chosen once per launch, so the motto never changes while the spinner runs. */
+    private final String motto;
+
     private final boolean chinese =
             Locale.getDefault(Locale.Category.DISPLAY).getLanguage().equals("zh");
     private final long startedAt = System.nanoTime();
@@ -95,8 +103,24 @@ final class StartupLoadingWindow implements AutoCloseable {
     private boolean fadeSettled;
     private Timer timer;
 
+    private StartupLoadingWindow() {
+        this(StartupMottoCatalog.choose(ThreadLocalRandom.current()));
+    }
+
+    private StartupLoadingWindow(final String motto) {
+        this.motto = motto;
+    }
+
     static StartupLoadingWindow open() {
-        final StartupLoadingWindow loading = new StartupLoadingWindow();
+        return open(new StartupLoadingWindow());
+    }
+
+    /** Test seam: fixes the motto so the window geometry is reproducible across runs. */
+    static StartupLoadingWindow openWithMotto(final String motto) {
+        return open(new StartupLoadingWindow(motto));
+    }
+
+    private static StartupLoadingWindow open(final StartupLoadingWindow loading) {
         try {
             if (GraphicsEnvironment.isHeadless()) {
                 loading.closed.set(true);
@@ -221,7 +245,7 @@ final class StartupLoadingWindow implements AutoCloseable {
             }
         };
         content.setBackground(BACKGROUND);
-        displayedSubtitle = subtitle();
+        displayedSubtitle = displayedSubtitle();
         displayedMessage = message();
         window.getAccessibleContext().setAccessibleDescription(displayedMessage);
         content.setPreferredSize(contentSize(displayedSubtitle));
@@ -246,7 +270,7 @@ final class StartupLoadingWindow implements AutoCloseable {
             displayedMessage = message;
             window.getAccessibleContext().setAccessibleDescription(message);
         }
-        final String subtitle = subtitle();
+        final String subtitle = displayedSubtitle();
         if (subtitle.equals(displayedSubtitle)) return;
         displayedSubtitle = subtitle;
         final Dimension size = contentSize(subtitle);
@@ -283,14 +307,47 @@ final class StartupLoadingWindow implements AutoCloseable {
     private Dimension contentSize(final String subtitle) {
         final FontMetrics title = content.getFontMetrics(TITLE_FONT);
         final FontMetrics body = content.getFontMetrics(SUBTITLE_FONT);
-        final int textWidth = Math.max(title.stringWidth(TITLE), body.stringWidth(subtitle));
+        final int textWidth =
+                Math.max(Math.max(title.stringWidth(TITLE), stableSubtitleWidth(body)), body.stringWidth(subtitle));
         final int textHeight = title.getHeight() + LINE_GAP + body.getHeight();
         return new Dimension(
                 PADDING * 2 + SPINNER_SIZE + TEXT_GAP + textWidth, PADDING * 2 + Math.max(SPINNER_SIZE, textHeight));
     }
 
+    /**
+     * Width every non-terminal subtitle needs, so a phase change never resizes the window. The
+     * motto sets the base width; the progress messages only raise it when they are wider.
+     */
+    private int stableSubtitleWidth(final FontMetrics body) {
+        int width = Math.min(body.stringWidth(motto), MAX_SUBTITLE_WIDTH);
+        for (final Phase phase : Phase.values()) {
+            if (phase == Phase.FAILED || phase == Phase.TIMED_OUT) continue;
+            width = Math.max(width, body.stringWidth(message(phase)));
+        }
+        return width;
+    }
+
+    /**
+     * Subtitle as painted. Only the motto is elided: a phase message is fixed text the window was
+     * already sized for, so cutting it would hide the very state the operator needs to read.
+     */
+    private String displayedSubtitle() {
+        final String text = subtitle();
+        return terminalAt == 0L ? fit(text, content.getFontMetrics(SUBTITLE_FONT)) : text;
+    }
+
+    private static String fit(final String text, final FontMetrics body) {
+        if (body.stringWidth(text) <= MAX_SUBTITLE_WIDTH) return text;
+        final String ellipsis = "…";
+        int end = text.length();
+        while (end > 0 && body.stringWidth(text.substring(0, end) + ellipsis) > MAX_SUBTITLE_WIDTH) {
+            end--;
+        }
+        return end == 0 ? ellipsis : text.substring(0, end) + ellipsis;
+    }
+
     private String subtitle() {
-        return terminalAt == 0L ? SLOGAN : message();
+        return terminalAt == 0L ? motto : message();
     }
 
     private void paintContent(final Graphics2D target) {
@@ -393,7 +450,11 @@ final class StartupLoadingWindow implements AutoCloseable {
     }
 
     private String message() {
-        return switch (phase) {
+        return message(phase);
+    }
+
+    private String message(final Phase current) {
+        return switch (current) {
             case WAITING -> chinese ? "正在启动 Cubism…" : "Starting Cubism…";
             case INITIALIZING -> chinese ? "正在初始化 Turboism…" : "Initializing Turboism…";
             case PLUGINS -> chinese ? "正在加载插件…" : "Loading plugins…";

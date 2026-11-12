@@ -34,7 +34,8 @@ final class PluginLifecycleLane {
         executor = RuntimeThreads.fixedLane(
                 policy.workerCount(),
                 policy.queueCapacity(),
-                RuntimeThreads.daemonThreads("turboism-plugin-lifecycle", PluginLifecycleLane.class.getClassLoader()));
+                RuntimeThreads.daemonThreads(
+                        "turboism-plugin-lifecycle", RuntimeThreads.contextClassLoader(PluginLifecycleLane.class)));
     }
 
     /**

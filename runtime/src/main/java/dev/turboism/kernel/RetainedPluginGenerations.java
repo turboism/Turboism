@@ -1,6 +1,7 @@
 package dev.turboism.kernel;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,7 +43,7 @@ final class RetainedPluginGenerations {
                 .toNanos();
         watcher = new Thread(this::run, "turboism-plugin-retention");
         watcher.setDaemon(true);
-        watcher.setContextClassLoader(RetainedPluginGenerations.class.getClassLoader());
+        watcher.setContextClassLoader(RuntimeThreads.contextClassLoader(RetainedPluginGenerations.class));
         watcher.start();
     }
 

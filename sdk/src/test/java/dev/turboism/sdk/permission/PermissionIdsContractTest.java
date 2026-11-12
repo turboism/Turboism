@@ -41,6 +41,18 @@ final class PermissionIdsContractTest {
                 PermissionIds.KNOWN_IDS.size(), PermissionIds.Vocabulary.ids().size());
     }
 
+    /**
+     * The agent loads the SDK through {@code Boot-Class-Path}, so the vocabulary class reports a
+     * null defining loader. Reading the resource through that null made the real Cubism host fail
+     * on its first permission check, so the fallback must reach the same resource.
+     */
+    @Test
+    void vocabularyResourceIsReachableWithoutADefiningLoader() {
+        assertTrue(
+                ClassLoader.getSystemResourceAsStream(PermissionIds.Vocabulary.RESOURCE) != null,
+                "the system loader must see the vocabulary the bootstrap-loaded SDK reads");
+    }
+
     @Test
     void retiredPermissionIdsAreNoLongerExported() {
         // Each id here gated no runtime call site and no first-party manifest declared it, so the

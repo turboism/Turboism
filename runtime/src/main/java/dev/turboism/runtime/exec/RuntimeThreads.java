@@ -48,6 +48,33 @@ public final class RuntimeThreads {
     private RuntimeThreads() {}
 
     /**
+     * Resolves the loader a runtime-owned thread must publish as its context class loader.
+     *
+     * <p>The production agent is bootstrap-loaded through {@code Boot-Class-Path}, so an agent
+     * class reports a {@code null} defining loader. Publishing that value would seed the shared
+     * event dispatch thread with a null loader and hide host classes from it, so the system
+     * loader — Cubism's application loader — stands in. A non-null loader is returned unchanged,
+     * because a plugin or host class must keep resolving through the loader that defined it.
+     *
+     * @param owner the class whose loader the thread would otherwise inherit
+     * @return the owner's defining loader, or the system loader when the owner is bootstrap-loaded
+     * @throws NullPointerException if {@code owner} is {@code null}
+     */
+    public static ClassLoader contextClassLoader(final Class<?> owner) {
+        return resolveContextClassLoader(Objects.requireNonNull(owner, "owner").getClassLoader());
+    }
+
+    /**
+     * Applies the null-defining-loader rule to an already resolved loader.
+     *
+     * @param definingLoader the owner's defining loader, possibly {@code null}
+     * @return the defining loader, or the system loader when it is {@code null}
+     */
+    static ClassLoader resolveContextClassLoader(final ClassLoader definingLoader) {
+        return definingLoader != null ? definingLoader : ClassLoader.getSystemClassLoader();
+    }
+
+    /**
      * Replaces every character a host thread dump cannot carry with an underscore.
      *
      * <p>Plugin ids reach runtime thread names. A raw id can contain whitespace or punctuation
