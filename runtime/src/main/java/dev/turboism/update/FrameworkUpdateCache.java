@@ -106,7 +106,7 @@ final class FrameworkUpdateCache implements AutoCloseable {
         Path current = path.getRoot();
         for (final Path component : path) {
             current = current.resolve(component);
-            final BasicFileAttributes a = attributes(current);
+            final BasicFileAttributes a = UpdateFileSupport.ancestorAttributesIfPresent(current);
             if (a == null) return;
             if (!a.isDirectory() || a.isSymbolicLink() || a.isOther()) {
                 throw new IOException("Unsafe installation ancestor");
@@ -330,7 +330,7 @@ final class FrameworkUpdateCache implements AutoCloseable {
         Path current = path.getRoot();
         for (final Path component : path) {
             current = current.resolve(component);
-            final BasicFileAttributes a = attributes(current);
+            final BasicFileAttributes a = UpdateFileSupport.ancestorAttributesIfPresent(current);
             if (a == null || !a.isDirectory() || a.isSymbolicLink() || a.isOther()) {
                 throw new IOException("Unsafe cache ancestor");
             }
