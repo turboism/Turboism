@@ -18,6 +18,17 @@ interface: swing
 
 打开 Agent 对话窗口与 Agent 设置窗口，通过内置原生接入与 Agent Client Protocol (ACP) v1 驱动用户安装的 Agent，并通过免凭据 stdio 桥接接入本地 Turboism MCP 服务器。
 
+
+| 项目 | 值 |
+|---|---|
+| 版本 | `0.68.1` |
+| 插件 ID | `dev.turboism.plugin.acp` |
+| 分类 | `integration` |
+| 标签 | automation, acp, agent |
+| 需要 Cubism | 是 |
+| 界面模式 | `swing` |
+| 许可证 | 项目许可证 |
+
 ### 原生接入与本地会话
 
 - 参考 [Paseo 的 providers 设计](https://paseo.sh/docs/providers.md)，插件内置三种原生协议适配，不要求用户安装 Node SDK 或 ACP 包。Pi 的 Turboism MCP 桥接扩展随插件分发。

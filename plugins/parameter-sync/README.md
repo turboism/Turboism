@@ -20,7 +20,7 @@ Synchronizes Cubism parameter values in real time with normalized range mapping 
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.parameter-sync` |
 | Category | `modeling` |
 | Tags | parameter, sync, link, workflow |

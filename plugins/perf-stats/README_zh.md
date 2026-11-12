@@ -20,7 +20,7 @@ interface: swing
 
 | 详情 | 值 |
 |---|---|
-| 版本 | `0.1.0` |
+| 版本 | `0.68.1` |
 | 插件 ID | `dev.turboism.plugin.perf-stats` |
 | 类别 | `performance` |
 | 标签 | metrics, diagnostics, fps |

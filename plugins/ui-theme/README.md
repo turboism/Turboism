@@ -20,7 +20,7 @@ Manages built-in and user theme packages and applies reviewed semantic appearanc
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.uitheme` |
 | Category | `appearance` |
 | Tags | theme, colors, user-interface |

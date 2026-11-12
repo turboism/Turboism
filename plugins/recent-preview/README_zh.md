@@ -20,7 +20,7 @@ interface: swing
 
 | 详情 | 值 |
 |---|---|
-| 版本 | `0.1.0` |
+| 版本 | `0.68.0` |
 | 插件 ID | `dev.turboism.plugin.recent-preview` |
 | 类别 | `workflow` |
 | 标签 | recent-files, preview, navigation |

@@ -11,7 +11,8 @@ turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
-# íë ì ì ëë©ì´ì ê°ì ¸ì¤ê¸°
+# íë ì ì ëë©ì´ì
+ ê°ì ¸ì¤ê¸°
 
 > **Turboism 公式プラグイン** · **ステータス: プレビュー (Preview)**
 
@@ -19,7 +20,7 @@ interface: swing
 
 | 項目 | 内容 |
 |---|---|
-| 버전 | `0.1.0` |
+| 버전 | `0.68.0` |
 | 플러그인 ID | `dev.turboism.plugin.frame-animation-import` |
 | 카테고리 | `modeling` (モデリング) |
 | 태그 | animation, frame-animation, sprite-sheet, parameter |

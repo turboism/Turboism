@@ -20,7 +20,7 @@ Adds natural sorting and persistent manual row ordering to Cubism's Scene palett
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.scene-palette-enhancer` |
 | Category | `appearance` |
 | Tags | scene, palette, enhancement |

@@ -14,7 +14,19 @@ interface: none
 
 # Protected Export
 
-> **Official Turboism plugin** · **Status: Preview**
+> **Turboism 公式プラグイン** · **ステータス：プレビュー**
+
+タスク専用のモデルコピー上で保護付きランタイムエクスポートを実行し、デフォーマを平坦化して ArtMesh 識別子を難読化します。
+
+| 項目 | 値 |
+|---|---|
+| バージョン | `0.68.0` |
+| プラグイン ID | `dev.turboism.plugin.protected-export` |
+| カテゴリ | `workflow` |
+| タグ | export, protected, candidate |
+| Cubism 必須 | はい |
+| インターフェース | `none` |
+| ライセンス | プロジェクトライセンス |
 
 ## 機能概要
 

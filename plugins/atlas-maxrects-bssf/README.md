@@ -20,7 +20,7 @@ Adds a MaxRects-BSSF automatic layout algorithm to Cubism's texture-atlas workfl
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.texture-atlas` |
 | Category | `modeling` |
 | Tags | texture-atlas, packing, auto-layout |

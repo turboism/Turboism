@@ -20,7 +20,7 @@ interface: embedded
 
 | 詳細 | 値 |
 |---|---|
-| バージョン | `0.1.0` |
+| バージョン | `0.68.0` |
 | プラグイン ID | `dev.turboism.plugin.psd-clip-mask-import` |
 | カテゴリ | `workflow` |
 | タグ | psd, import, clip-mask |

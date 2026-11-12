@@ -1,6 +1,18 @@
 # 工程工作时间
 
+> **Turboism 官方插件** · **状态：预览版**
+
 在 Cubism 底部状态栏显示本次会话的累计前台用时，以及当前工程跨会话的累计工作时间。
+
+| 项目 | 值 |
+|---|---|
+| 版本 | `0.68.1` |
+| 插件 ID | `dev.turboism.plugin.project-work-time` |
+| 分类 | `workflow` |
+| 标签 | time, project, status-bar |
+| 需要 Cubism | 是 |
+| 界面模式 | `swing` |
+| 许可证 | 项目许可证 |
 
 ## 功能
 

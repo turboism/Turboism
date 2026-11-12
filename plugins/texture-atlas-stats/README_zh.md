@@ -20,7 +20,7 @@ interface: swing
 
 | 详情 | 值 |
 |---|---|
-| 版本 | `0.1.0` |
+| 版本 | `0.68.0` |
 | 插件 ID | `dev.turboism.plugin.texture-atlas-stats` |
 | 类别 | `analysis` |
 | 标签 | texture-atlas, metrics, inspection |

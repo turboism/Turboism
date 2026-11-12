@@ -14,6 +14,20 @@ interface: none
 
 # ArtMesh Mirror
 
+> **Official Turboism plugin** · **Status: Preview**
+
+Independent mirror editing for ArtMesh vertices in ordinary modeling mode. The axis resets to the selected meshes’ center when the selection changes.
+
+| Detail | Value |
+|---|---|
+| Version | `0.68.1` |
+| Plugin ID | `dev.turboism.plugin.artmesh-mirror` |
+| Category | `modeling` |
+| Tags | mesh, artmesh, editing, symmetry |
+| Requires Cubism | Yes |
+| Interface | `none` |
+| License | Project License |
+
 ## What it does
 
 Independent mirror editing for ArtMesh vertices in ordinary modeling mode. The axis resets to the selected meshes’ center when the selection changes.

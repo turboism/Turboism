@@ -20,7 +20,7 @@ Transfers parameter bindings from one selected ArtMesh or Deformer to multiple t
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.parameter-batch-transfer` |
 | Category | `modeling` |
 | Tags | parameter, batch-edit, transfer |

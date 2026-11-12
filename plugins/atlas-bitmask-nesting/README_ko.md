@@ -11,7 +11,22 @@ turboismApi: "[0.67.4,1.0.0)"
 requiresCubism: true
 interface: none
 ---
-# Bitmask Nesting ì¤ê³½ ë°°ì¹
+
+# 비트마스크 밀집 배치
+
+> **Turboism 공식 플러그인** · **상태: 프리뷰**
+
+독립적인 현재 텍스처 페이지 밀집 배치 플러그인입니다. 머티리얼 로컬 오목 윤곽선, 보수적 비트마스크 및 건너뛰기 배치를 사용하여 작은 조각을 개방된 오목 영역과 분리된 윤곽선 영역 사이에 배치합니다. 직사각형 입력은 경량 BSSF 경로를 사용하고, 불규칙한 입력은 윤곽선 충돌 검사를 유지합니다.
+
+| 세부 정보 | 값 |
+|---|---|
+| 버전 | `0.68.0` |
+| 플러그인 ID | `dev.turboism.plugin.texture-atlas-nesting` |
+| 카테고리 | `modeling` |
+| 태그 | texture-atlas, packing, polygon, auto-layout |
+| Cubism 필요 | 예 |
+| 인터페이스 | `none` |
+| 라이선스 | 프로젝트 라이선스 |
 
 ## 기능 개요
 

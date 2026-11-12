@@ -20,7 +20,7 @@ ArtMesh を右クリックして完全な原画 PSD を設定したエディタ�
 
 | 項目 | 値 |
 |---|---|
-| バージョン | `0.1.0` |
+| バージョン | `0.68.0` |
 | プラグイン ID | `dev.turboism.plugin.external-psd-edit` |
 | カテゴリ | `modeling` |
 | タグ | psd, texture, external-edit |

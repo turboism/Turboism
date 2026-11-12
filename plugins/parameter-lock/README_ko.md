@@ -20,7 +20,7 @@ Cubism 매개변수 값의 의도치 않은 수정을 방지하고, 세션 간 �
 
 | 세부 정보 | 값 |
 |---|---|
-| 버전 | `0.1.0` |
+| 버전 | `0.68.0` |
 | 플러그인 ID | `dev.turboism.plugin.parameter-lock` |
 | 카테고리 | `workflow` |
 | 태그 | parameter, lock, palette, safety |

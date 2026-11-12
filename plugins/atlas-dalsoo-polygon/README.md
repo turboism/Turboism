@@ -25,7 +25,7 @@ supported hosts (`5.2.00`–`5.3.04`).
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.texture-atlas-dalsoo` |
 | Category | `modeling` |
 | Tags | texture-atlas, packing, polygon, auto-layout |

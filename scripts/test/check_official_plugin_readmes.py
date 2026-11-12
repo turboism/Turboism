@@ -79,6 +79,17 @@ def documented_version_errors(documented: str, current: str) -> list[str]:
     return []
 
 
+def check_table_version(text: str, current: str) -> list[str]:
+    """Ensure versions declared in metadata tables match the authoritative descriptor."""
+    errors: list[str] = []
+    for line in text.splitlines():
+        match = re.search(r"\|\s*(Version|版本|バージョン|버전)\s*\|\s*`?([^`|\s]+)`?\s*\|", line)
+        if match:
+            table_ver = match.group(2).strip()
+            errors.extend(documented_version_errors(table_ver, current))
+    return errors
+
+
 def parse_front_matter(path: Path, text: str) -> dict[str, str]:
     lines = text.splitlines()
     if not lines or lines[0] != "---":
@@ -168,6 +179,7 @@ def validate_localized_readme(module: Path, filename: str, descriptor: dict[str,
         errors.extend(documented_version_errors(metadata["version"], descriptor["version"]))
     if "pluginId" in metadata:
         expect(metadata["pluginId"], descriptor["id"], "pluginId", errors)
+    errors.extend(check_table_version(text, descriptor["version"]))
     return errors
 
 
@@ -193,6 +205,7 @@ def validate_primary_readme(
     expect(metadata["pluginId"], descriptor["id"], "pluginId", errors)
     documented_version = metadata["version"]
     errors.extend(documented_version_errors(documented_version, descriptor["version"]))
+    errors.extend(check_table_version(text, descriptor["version"]))
     expect(metadata["category"], descriptor["category"], "category", errors)
     expect(metadata["tags"], ", ".join(descriptor["tags"]), "tags", errors)
     expect(metadata["turboismApi"], descriptor["turboismApi"], "turboismApi", errors)

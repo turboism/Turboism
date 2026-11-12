@@ -14,6 +14,20 @@ interface: swing
 
 # Folder Atlas Layout
 
+> **Official Turboism plugin** · **Status: Preview**
+
+Creates texture pages by top-level Part folders, recursively splitting overflowing folders. Packing algorithms are discovered from the live registry; no specific algorithm plugin is required.
+
+| Detail | Value |
+|---|---|
+| Version | `0.68.0` |
+| Plugin ID | `dev.turboism.plugin.texture-atlas-folders` |
+| Category | `modeling` |
+| Tags | texture-atlas, packing, auto-layout |
+| Requires Cubism | Yes |
+| Interface | `swing` |
+| License | Project License |
+
 ## What it does
 
 Creates texture pages by top-level Part folders, recursively splitting overflowing folders. Packing algorithms are discovered from the live registry; no specific algorithm plugin is required.

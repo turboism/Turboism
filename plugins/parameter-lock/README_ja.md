@@ -20,7 +20,7 @@ Cubism パラメータ値の誤編集を防ぎ、セッション間での永続�
 
 | 詳細 | 値 |
 |---|---|
-| バージョン | `0.1.0` |
+| バージョン | `0.68.0` |
 | プラグイン ID | `dev.turboism.plugin.parameter-lock` |
 | カテゴリ | `workflow` |
 | タグ | parameter, lock, palette, safety |

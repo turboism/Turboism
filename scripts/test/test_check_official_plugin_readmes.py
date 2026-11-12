@@ -91,6 +91,12 @@ class DocumentedVersionTest(unittest.TestCase):
         self.assertTrue(CHECK.documented_version_errors("abc", "0.68.0"))
         self.assertTrue(CHECK.documented_version_errors("0.68", "0.68.0"))
 
+    def test_check_table_version(self):
+        text_mismatch = "| Detail | Value |\n|---|---|\n| Version | `0.1.0` |\n"
+        self.assertTrue(CHECK.check_table_version(text_mismatch, "0.68.2"))
+        text_match = "| Detail | Value |\n|---|---|\n| Version | `0.68.2` |\n"
+        self.assertEqual(CHECK.check_table_version(text_match, "0.68.2"), [])
+
 
 class LocalizedReadmeTest(unittest.TestCase):
     def test_missing_translation_is_not_an_error(self):
@@ -140,6 +146,17 @@ class LocalizedReadmeTest(unittest.TestCase):
             (module / "README_zh.md").write_bytes(b"# \xff\xfe not utf-8\n")
             errors = CHECK.validate_localized_readme(module, "README_zh.md", DESCRIPTOR)
         self.assertEqual(errors, ["README_zh.md is not valid UTF-8"])
+
+    def test_translation_table_version_must_match_descriptor(self):
+        mismatched_table = TRANSLATED + "\n| 项目 | 值 |\n|---|---|\n| 版本 | `0.1.0` |\n"
+        with ModuleFixture(README_zh__md=mismatched_table) as module:
+            errors = CHECK.validate_localized_readme(module, "README_zh.md", DESCRIPTOR)
+        self.assertTrue(any("expected descriptor '0.68.2'" in error for error in errors), errors)
+
+        matching_table = TRANSLATED + "\n| 项目 | 值 |\n|---|---|\n| 版本 | `0.68.2` |\n"
+        with ModuleFixture(README_zh__md=matching_table) as module:
+            errors = CHECK.validate_localized_readme(module, "README_zh.md", DESCRIPTOR)
+        self.assertEqual(errors, [])
 
 
 class PrimaryReadmeTest(unittest.TestCase):

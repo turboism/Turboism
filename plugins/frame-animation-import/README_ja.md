@@ -20,7 +20,7 @@ interface: swing
 
 | 項目 | 内容 |
 |---|---|
-| バージョン | `0.1.0` |
+| バージョン | `0.68.0` |
 | プラグイン ID | `dev.turboism.plugin.frame-animation-import` |
 | カテゴリ | `modeling` (モデリング) |
 | タグ | animation, frame-animation, sprite-sheet, parameter |

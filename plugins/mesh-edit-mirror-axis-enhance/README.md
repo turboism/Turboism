@@ -20,7 +20,7 @@ Inspects mesh and deformer state and adds a bounded mirror-axis angle control to
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.mesh` |
 | Category | `modeling` |
 | Tags | mesh, artmesh, editing |

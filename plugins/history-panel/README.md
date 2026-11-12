@@ -20,7 +20,7 @@ Projects the active document's native Undo history into a floating semantic time
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.historypanel` |
 | Category | `workflow` |
 | Tags | history, navigation, floating-window |

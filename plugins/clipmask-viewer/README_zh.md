@@ -20,7 +20,7 @@ interface: swing
 
 | 详情 | 值 |
 |---|---|
-| 版本 | `0.1.0` |
+| 版本 | `0.68.1` |
 | 插件 ID | `dev.turboism.plugin.clipmask-viewer` |
 | 类别 | `analysis` |
 | 标签 | clip-mask, viewer, graph |

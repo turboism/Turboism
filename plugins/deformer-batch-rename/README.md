@@ -14,6 +14,20 @@ interface: swing
 
 # Batch Rename Deformers
 
+> **Official Turboism plugin** · **Status: Preview**
+
+Generate name suggestions for Warp and Rotation Deformers in the current model from descendant names and bound parameters. Review and select changes before applying the batch.
+
+| Detail | Value |
+|---|---|
+| Version | `0.68.1` |
+| Plugin ID | `dev.turboism.plugin.deformer-batch-rename` |
+| Category | `modeling` |
+| Tags | deformer, rename, batch-edit |
+| Requires Cubism | Yes |
+| Interface | `swing` |
+| License | Project License |
+
 ## What it does
 
 Generate name suggestions for Warp and Rotation Deformers in the current model from descendant names and bound parameters. Review and select changes before applying the batch.

@@ -20,7 +20,7 @@ Captures bounded thumbnails and shows them in Cubism's Recent Files hover popup.
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.recent-preview` |
 | Category | `workflow` |
 | Tags | recent-files, preview, navigation |

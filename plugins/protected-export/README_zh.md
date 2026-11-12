@@ -14,7 +14,19 @@ interface: none
 
 # Protected Export
 
-> **Official Turboism plugin** · **Status: Preview**
+> **Turboism 官方插件** · **状态：预览版**
+
+在任务专有的模型副本上运行受保护的运行时模型导出，展平变形器并混淆 ArtMesh 标识。
+
+| 项目 | 值 |
+|---|---|
+| 版本 | `0.68.0` |
+| 插件 ID | `dev.turboism.plugin.protected-export` |
+| 分类 | `workflow` |
+| 标签 | export, protected, candidate |
+| 需要 Cubism | 是 |
+| 界面模式 | `none` |
+| 许可证 | 项目许可证 |
 
 ## 功能概述
 

@@ -21,7 +21,7 @@ ArtMesh editing has its own [ArtMesh Mirror](../artmesh-mirror/README.md) entry.
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.warp-deformer-alt-symmetry` |
 | Category | `modeling` |
 | Tags | deformer, warp, editing, symmetry |

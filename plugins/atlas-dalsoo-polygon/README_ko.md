@@ -24,7 +24,7 @@ MIT ライセンスの `whitegreen/Dalsoo-Bin-Packing`（コミット `bde2a3e`�
 
 | 세부 정보 | 값 |
 |---|---|
-| 버전 | `0.1.0` |
+| 버전 | `0.68.0` |
 | 플러그인 ID | `dev.turboism.plugin.texture-atlas-dalsoo` |
 | 카테고리 | `modeling` |
 | 태그 | texture-atlas, packing, polygon, auto-layout |

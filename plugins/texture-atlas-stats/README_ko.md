@@ -11,7 +11,8 @@ turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
-# íì¤ì² ìíë¼ì¤ íµê³
+# í
+ì¤ì² ìíë¼ì¤ íµê³
 
 > **Turboism 公式プラグイン** · **ステータス: プレビュー**
 
@@ -19,7 +20,7 @@ Cubism のネイティブテクスチャアトラスエディターで、モデ�
 
 | 세부 정보 | 값 |
 |---|---|
-| 버전 | `0.1.0` |
+| 버전 | `0.68.0` |
 | 플러그인 ID | `dev.turboism.plugin.texture-atlas-stats` |
 | カテゴリー | `analysis` |
 | 태그 | texture-atlas, metrics, inspection |

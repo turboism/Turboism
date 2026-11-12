@@ -11,9 +11,22 @@ turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
-# ì í ë¸ë¬ì
 
-通常のモデリングとメッシュ編集に選択ブラシを追加する Turboism 公式プラグインです。公式リリースパッケージに含まれ、Turboism の公開 SDK のみを使用します。
+# 선택 브러시
+
+> **Turboism 공식 플러그인** · **상태: 프리뷰**
+
+일반 모델링과 메시 편집에 선택 브러시 도구를 추가하는 Turboism 공식 플러그인입니다. 공식 릴리스 패키지에 포함되어 있으며 Turboism 공개 SDK만 사용합니다.
+
+| 세부 정보 | 값 |
+|---|---|
+| 버전 | `0.68.0` |
+| 플러그인 ID | `dev.turboism.plugin.selection-brush` |
+| 카테고리 | `modeling` |
+| 태그 | mesh, selection, brush |
+| Cubism 필요 | 예 |
+| 인터페이스 | `embedded` |
+| 라이선스 | 프로젝트 라이선스 |
 
 ## 기능 개요
 

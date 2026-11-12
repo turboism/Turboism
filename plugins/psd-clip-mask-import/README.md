@@ -20,7 +20,7 @@ Imports ordered PSD clipping relationships into ArtMesh clip-mask assignments af
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.psd-clip-mask-import` |
 | Category | `workflow` |
 | Tags | psd, import, clip-mask |

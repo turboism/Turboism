@@ -20,7 +20,7 @@ Cubism の Scene パレットに自然順ソートと、永続化される手動
 
 | 項目 | 値 |
 |---|---|
-| バージョン | `0.1.0` |
+| バージョン | `0.68.0` |
 | プラグイン ID | `dev.turboism.plugin.scene-palette-enhancer` |
 | カテゴリー | `appearance` |
 | タグ | scene, palette, enhancement |

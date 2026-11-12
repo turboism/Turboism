@@ -20,7 +20,7 @@ Displays live Cubism CPU, FPS, JVM memory, and garbage-collection statistics.
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.1` |
 | Plugin ID | `dev.turboism.plugin.perf-stats` |
 | Category | `performance` |
 | Tags | metrics, diagnostics, fps |

@@ -20,7 +20,7 @@ interface: embedded
 
 | 详情 | 值 |
 |---|---|
-| 版本 | `0.1.0` |
+| 版本 | `0.68.0` |
 | 插件 ID | `dev.turboism.plugin.palette-label-style` |
 | 类别 | `appearance` |
 | 标签 | palette, labels, typography |

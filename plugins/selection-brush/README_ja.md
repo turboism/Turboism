@@ -14,7 +14,19 @@ interface: embedded
 
 # 選択ブラシ
 
+> **Turboism 公式プラグイン** · **ステータス：プレビュー**
+
 通常のモデリングとメッシュ編集に選択ブラシを追加する Turboism 公式プラグインです。公式リリースパッケージに含まれ、Turboism の公開 SDK のみを使用します。
+
+| 項目 | 値 |
+|---|---|
+| バージョン | `0.68.0` |
+| プラグイン ID | `dev.turboism.plugin.selection-brush` |
+| カテゴリ | `modeling` |
+| タグ | mesh, selection, brush |
+| Cubism 必須 | はい |
+| インターフェース | `embedded` |
+| ライセンス | プロジェクトライセンス |
 
 ## 機能概要
 

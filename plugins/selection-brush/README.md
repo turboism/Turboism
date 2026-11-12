@@ -14,7 +14,19 @@ interface: embedded
 
 # Selection Brush
 
+> **Official Turboism plugin** · **Status: Preview**
+
 The official Selection Brush contributes tools for ordinary modeling and mesh editing. It is included in Turboism release packages and uses only Turboism's public SDK.
+
+| Detail | Value |
+|---|---|
+| Version | `0.68.0` |
+| Plugin ID | `dev.turboism.plugin.selection-brush` |
+| Category | `modeling` |
+| Tags | mesh, selection, brush |
+| Requires Cubism | Yes |
+| Interface | `embedded` |
+| License | Project License |
 
 ## What it does
 

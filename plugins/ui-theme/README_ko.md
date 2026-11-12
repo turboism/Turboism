@@ -11,7 +11,8 @@ turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: false
 interface: none
 ---
-# UI íë§ íë¬ê·¸ì¸
+# UI í
+ë§ íë¬ê·¸ì¸
 
 > **Turboism 公式プラグイン** · **ステータス: プレビュー**
 
@@ -19,7 +20,7 @@ interface: none
 
 | 세부 정보 | 값 |
 |---|---|
-| 버전 | `0.1.0` |
+| 버전 | `0.68.0` |
 | 플러그인 ID | `dev.turboism.plugin.uitheme` |
 | カテゴリー | `appearance` |
 | 태그 | theme, colors, user-interface |
