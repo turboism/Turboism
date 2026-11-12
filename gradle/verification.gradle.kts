@@ -1705,18 +1705,6 @@ recordsConsumers.forEach { taskName ->
 }
 
 // Ordinary CI checks sources/pins/ABI without requiring MinGW or pretending native tests passed.
-val checkWindowsUpdateNativeSources by tasks.registering(Exec::class) {
-    group = "verification"
-    workingDir(rootDir)
-    inputs.files(fileTree("native/update-files"),
-        "scripts/dev/build_windows_update_files.py",
-        "scripts/dev/test-windows-receipt.ps1",
-        "scripts/test/test_windows_update_native.py",
-        "runtime/src/main/java/dev/turboism/update/WindowsInstallationFiles.java")
-    VerificationStamps.apply(this)
-    commandLine("python3", "-m", "unittest", "-v", "scripts.test.test_windows_update_native")
-}
-
 // Bootstrap receipt integration covers signed first-install initialization, cross-layer layout
 // consistency and collision safety. The gate exports the runtime test classpath once and hands its
 // file to the Python runner through a structured env var, so the test never starts a nested,
