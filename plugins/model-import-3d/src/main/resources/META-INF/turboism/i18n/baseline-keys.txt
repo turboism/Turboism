@@ -20,6 +20,7 @@ dialog.message.info.title
 dialog.preset.cancel
 dialog.preset.confirm
 dialog.preset.failed
+dialog.preset.hint
 dialog.preset.message
 dialog.preset.prepared
 dialog.preset.preparing
@@ -65,9 +66,11 @@ preset.square
 preset.tetrahedron
 preset.torus
 preset.triangle
+progress.mesh
 progress.preparing
 progress.step
 progress.title
+progress.writing
 resource.chooser.title
 success.xyz-rotation
 success.yaw-pitch

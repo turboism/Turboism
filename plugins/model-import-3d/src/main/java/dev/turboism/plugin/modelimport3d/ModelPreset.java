@@ -13,7 +13,7 @@ enum ModelPreset {
     CIRCLE("circle", "圆形"),
     INWARD_RING("inward-ring", "圆环（扁平、双面）"),
     ANNULUS("annulus", "圆环（无厚度）"),
-    TORUS("torus", "圆环（有厚度）");
+    TORUS("torus", "甜甜圈");
 
     private final String id;
     private final String label;
