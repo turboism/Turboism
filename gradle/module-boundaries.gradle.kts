@@ -59,17 +59,16 @@ tasks.register("checkModuleBoundaries") {
  * service implementations and shared infrastructure must not import upward into composition
  * layers or sideways into surfaces they are documented to sit below. Composition seams —
  * {@code bootstrap}, {@code shell}, {@code ui}, {@code kernel}, {@code distribution} and
- * {@code pluginmanagement} — and the service-wiring package {@code core.plugin.context} may
- * reach anywhere. The bottom-most {@code runtime} and {@code internal} packages may reach
- * nothing above them, which is what keeps infrastructure such as {@code runtime.log} from
- * depending on the framework core.
+ * {@code pluginmanagement} — may reach anywhere; the plugin service wiring lives in
+ * {@code kernel.context} so no core package needs an exemption. The bottom-most {@code runtime}
+ * and {@code internal} packages may reach nothing above them, which is what keeps infrastructure
+ * such as {@code runtime.log} from depending on the framework core.
  *
  * Violations are fail-closed: a known debt is an explicit per-file waiver in
  * [runtimePackageWaivers], every other hit fails the gate so the baseline cannot regress.
  */
 private class RuntimePackageRule(
     val sourceTopPackages: Set<String>,
-    val sourceExclusions: Set<String>,
     val forbiddenTopPackages: Set<String>,
     val message: String
 )
@@ -90,37 +89,31 @@ private val runtimeInfra = setOf(
 private val runtimePackageRules = listOf(
     RuntimePackageRule(
         setOf("core"),
-        setOf("core/plugin/context/"),
         setOf("adapter", "hook", "ui") + runtimeCompositionLayers,
         "framework core must not reach into adapter/host/composition layers"
     ),
     RuntimePackageRule(
         setOf("adapter"),
-        emptySet(),
         runtimeCompositionLayers + setOf("bootstrap"),
         "editor adapters must not reach into composition/bootstrap seams"
     ),
     RuntimePackageRule(
         setOf("mapping"),
-        emptySet(),
         setOf("adapter", "ui", "hook") + runtimeCompositionLayers,
         "host-artifact verification must stay below runtime surfaces"
     ),
     RuntimePackageRule(
         runtimeFeatureImpls,
-        emptySet(),
         runtimeCompositionLayers,
         "service implementations must not reach into composition layers"
     ),
     RuntimePackageRule(
         runtimeInfra,
-        emptySet(),
         setOf("adapter", "ui", "hook", "mapping") + runtimeCompositionLayers,
         "shared infrastructure must not reach into runtime surfaces"
     ),
     RuntimePackageRule(
         runtimeLeafPackages,
-        emptySet(),
         setOf("adapter", "ui", "hook", "mapping", "core") + runtimeCompositionLayers +
             runtimeFeatureImpls + (runtimeInfra - runtimeLeafPackages),
         "leaf runtime/internal packages must not reach into core, feature, or surface layers"
@@ -146,6 +139,27 @@ private val runtimePackageWaivers: Map<String, Set<String>> = mapOf(
     // adapter.cubism.*) was removed once the mesh-tool session and modeling selection
     // contracts moved into mapping.verification.selector. Keep it empty - a new waiver
     // needs a documented reason and its own removal plan.
+)
+
+/**
+ * Sub-package direction rules inside one top-level package, keyed by the source sub-package
+ * prefix. The top-level rules above cannot see these: {@code core} imports {@code core} freely,
+ * so a cycle between two core sub-packages would pass them. Each entry names the sub-package
+ * that may not import the listed sibling prefixes, which keeps the manifest reader below the
+ * schema vocabulary that reports its findings.
+ */
+private class RuntimeSubPackageRule(
+    val sourcePrefix: String,
+    val forbiddenPrefixes: Set<String>,
+    val message: String
+)
+
+private val runtimeSubPackageRules = listOf(
+    RuntimeSubPackageRule(
+        "core/schema/",
+        setOf("core/descriptor/"),
+        "schema vocabulary must not reach into the manifest reader that reports its findings"
+    )
 )
 
 private fun checkModuleBoundaries(project: Project) {
@@ -450,9 +464,6 @@ private fun checkRuntimePackageBoundaries(
         if (topPackage !in rule.sourceTopPackages) {
             return@rules
         }
-        if (rule.sourceExclusions.any { relative.startsWith(it) }) {
-            return@rules
-        }
         lines.forEach imports@{ line ->
             val match = Regex(
                 """^\s*import\s+(?:static\s+)?dev\.turboism\.(\w+)(?:\.[\w.]*\w+)?\s*;"""
@@ -468,6 +479,36 @@ private fun checkRuntimePackageBoundaries(
                 "Runtime layering violation in runtime/.../$relative: " +
                     "dev.turboism.$topPackage must not import dev.turboism.$target " +
                     "(${rule.message}); add a runtimePackageWaivers entry only for a documented debt"
+            )
+        }
+    }
+    checkRuntimeSubPackageBoundaries(relative, lines, state)
+}
+
+/**
+ * Applies [runtimeSubPackageRules]: a source under one core sub-package may not import a sibling
+ * sub-package the rule forbids. The import target is matched by its dotted form, so a static
+ * import of a nested type is caught by the same rule as a plain type import.
+ */
+private fun checkRuntimeSubPackageBoundaries(
+    relative: String,
+    lines: List<String>,
+    state: BoundaryState
+) {
+    runtimeSubPackageRules.forEach rules@{ rule ->
+        if (!relative.startsWith(rule.sourcePrefix)) {
+            return@rules
+        }
+        val forbiddenDotted = rule.forbiddenPrefixes.map { it.replace('/', '.') }
+        lines.forEach imports@{ line ->
+            val match = Regex(
+                """^\s*import\s+(?:static\s+)?dev\.turboism\.([\w.]+)\s*;"""
+            ).find(line.trimStart())
+            val imported = match?.groupValues?.get(1) ?: return@imports
+            val forbidden = forbiddenDotted.firstOrNull { imported.startsWith(it) } ?: return@imports
+            state.reject(
+                "Runtime sub-package violation in runtime/.../$relative: " +
+                    "${rule.sourcePrefix} must not import $forbidden (${rule.message})"
             )
         }
     }

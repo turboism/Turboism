@@ -555,9 +555,6 @@
         "dev.turboism.home",
         "dev.turboism.hostread",
         "dev.turboism.mapping",
-        "dev.turboism.recentfile",
-        "dev.turboism.recentpreview",
-        "dev.turboism.screenshot",
         "dev.turboism.task",
         "dev.turboism.ui"
       ]
@@ -673,19 +670,7 @@
       ],
       [
         "dev.turboism.core",
-        "dev.turboism.adapter"
-      ],
-      [
-        "dev.turboism.core",
         "dev.turboism.config"
-      ],
-      [
-        "dev.turboism.core",
-        "dev.turboism.diagnostics"
-      ],
-      [
-        "dev.turboism.core",
-        "dev.turboism.failure"
       ],
       [
         "dev.turboism.core",
@@ -693,27 +678,11 @@
       ],
       [
         "dev.turboism.core",
-        "dev.turboism.recentfile"
-      ],
-      [
-        "dev.turboism.core",
-        "dev.turboism.recentpreview"
-      ],
-      [
-        "dev.turboism.core",
         "dev.turboism.runtime"
       ],
       [
         "dev.turboism.core",
-        "dev.turboism.screenshot"
-      ],
-      [
-        "dev.turboism.core",
         "dev.turboism.task"
-      ],
-      [
-        "dev.turboism.core",
-        "dev.turboism.ui"
       ],
       [
         "dev.turboism.distribution",
@@ -801,6 +770,10 @@
       ],
       [
         "dev.turboism.kernel",
+        "dev.turboism.diagnostics"
+      ],
+      [
+        "dev.turboism.kernel",
         "dev.turboism.exportsettings"
       ],
       [
@@ -837,7 +810,23 @@
       ],
       [
         "dev.turboism.kernel",
+        "dev.turboism.permissions"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.recentfile"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.recentpreview"
+      ],
+      [
+        "dev.turboism.kernel",
         "dev.turboism.runtime"
+      ],
+      [
+        "dev.turboism.kernel",
+        "dev.turboism.screenshot"
       ],
       [
         "dev.turboism.kernel",

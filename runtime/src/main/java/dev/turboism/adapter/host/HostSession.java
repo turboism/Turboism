@@ -1,6 +1,5 @@
 package dev.turboism.adapter.host;
 
-import dev.turboism.adapter.HostVerificationEvidence;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.lifecycle.EditorLifecycleCoordinator;
@@ -11,16 +10,12 @@ import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.core.runtime.work.FatalErrors;
-import dev.turboism.sdk.cubism.ProjectContentKind;
-import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
-import dev.turboism.ui.appearance.DynamicAppearanceHostProvider;
 import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
 import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.host.EditorUiHostFailure;
 import dev.turboism.ui.host.EditorUiHostLifecycle;
-import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
 import dev.turboism.ui.provider.EditorUiProviderInstaller;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
@@ -36,105 +31,29 @@ import java.util.Optional;
  * material change deactivates and closes the complete old adapter bundle before connecting the
  * replacement; replacement failure leaves the dynamic view in safe mode rather than publishing a
  * partially refreshed bundle.</p>
+ *
+ * <p>This class is the session coordinator only. {@link HostSessionCoordinators} owns every
+ * coordinator that outlives a connection, {@link HostConnectionBinding} owns the published
+ * connection and its cleanup debts, {@link HostConnectionKey} answers whether a descriptor still
+ * describes the published connection, and {@link HostSessionLifecycleGate} owns admission and the
+ * committed lifecycle state.</p>
  */
 public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseable {
 
     private static final String CLEANUP_FAILURE_MESSAGE = "Host session cleanup failed safely.";
+    private static final String CONNECTION_FAILURE_MESSAGE = "Host adapter connection failed safely.";
+    private static final String SOURCE_FAILURE_MESSAGE = "Host instance source failed safely.";
+    private static final String CONNECTION_KEY_FAILURE_DIAGNOSTIC = "Host connection key derivation failed";
+    private static final String HOST_SESSION_DIAGNOSTIC = "host-session";
+    private static final String EDITOR_UI_FAILURE_MESSAGE = "Editor UI host connection failed safely.";
+
     private final HostInstanceSource source;
     private final HostAdapterConnector connector;
-    private final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
-    private final DynamicCubismModelAccess dynamicModelAccess = new DynamicCubismModelAccess();
-    private final HostSnapshotSource modelAppearanceSource =
-            PluginScopedCubismModelAccess.appearanceSource(dynamic.view().projectWorkspace(), dynamicModelAccess);
-    private final DynamicCoreRuntimeInfo dynamicCoreRuntime = new DynamicCoreRuntimeInfo();
-    private final DynamicEditorCommandAdapter dynamicEditorCommands = new DynamicEditorCommandAdapter();
-    private final ParameterLifecycleCoordinator parameterLifecycle = new ParameterLifecycleCoordinator();
-    private final PartLifecycleCoordinator partLifecycle = new PartLifecycleCoordinator();
-    private final TextureAtlasLayoutCoordinator textureAtlasLayouts = new TextureAtlasLayoutCoordinator();
-    private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator
-            textureAtlasNativeInvocations =
-                    new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator();
-    private final dev.turboism.ui.panel.RuntimeHostViewPanelRegistry hostViewPanels =
-            new dev.turboism.ui.panel.RuntimeHostViewPanelRegistry();
-    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi =
-            new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi(hostViewPanels);
-    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession =
-            new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession(
-                    textureAtlasEditorUi::binding);
-    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry
-            textureAtlasAlgorithms =
-                    new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry();
-    private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection textureAtlasSelection;
-    private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutDispatcher
-            textureAtlasAutoLayoutDispatch;
-    private final EditorObjectLifecycleCoordinator editorObjectLifecycle = new EditorObjectLifecycleCoordinator();
-    /**
-     * Observes edits the Cubism user interface performed, which never enter the Turboism facade.
-     * The listener itself only signals this session; every host read and publication is posted to
-     * the editor event thread, so nothing runs inside the host's undo admission. A native edit
-     * start observed at the {@code beginEdit} hook is published on the same drain, so one native
-     * action reports its start before its confirmed operation.
-     */
-    private final dev.turboism.adapter.cubism.editor.history.NativeEditIngressSession nativeEditIngress =
-            new dev.turboism.adapter.cubism.editor.history.NativeEditIngressSession(
-                    editorObjectLifecycle.semantic()::publishObserved,
-                    editorObjectLifecycle.semantic()::publishObservedStart,
-                    javax.swing.SwingUtilities::invokeLater);
-
-    private final ProjectFileLifecycleCoordinator projectFileLifecycle = new ProjectFileLifecycleCoordinator();
-    private final EditorLifecycleCoordinator editorLifecycleEvents = new EditorLifecycleCoordinator();
-    private final dev.turboism.adapter.cubism.preview.RuntimePreviewSurfaceRegistry previewSurfaces =
-            new dev.turboism.adapter.cubism.preview.RuntimePreviewSurfaceRegistry();
-    private final PhysicsEditorCoordinator physicsEditorCoordinator = new PhysicsEditorCoordinator(previewSurfaces);
-    private final dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService meshMirrorAxisService =
-            new dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService();
-    private final dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService meshEditUiService =
-            new dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService();
-    private final dev.turboism.adapter.cubism.mesh.MeshToolCoordinator meshToolCoordinator =
-            new dev.turboism.adapter.cubism.mesh.MeshToolCoordinator();
-    private final dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator modelingToolCoordinator =
-            new dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator();
-    private final RuntimeEditorUiHostLifecycle editorUiLifecycle = new RuntimeEditorUiHostLifecycle();
-    private final dev.turboism.sdk.cubism.history.CubismHistory history =
-            new dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider(
-                    this::optionalEditorModelResolver,
-                    () -> editorUiLifecycle.snapshot().generation());
-    private final EditorUiContributionAuthority editorUiContributions =
-            new EditorUiContributionAuthority(editorUiLifecycle);
-    private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation =
-            new RuntimeEmbeddedPanelActivationCoordinator();
-    private final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance =
-            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
-    private final RuntimeEditorUiActionRouter editorUiActionRouter = new RuntimeEditorUiActionRouter();
-    private final EditorUiPluginResourceRegistry editorUiPluginResources = new EditorUiPluginResourceRegistry();
-    private final DynamicAppearanceHostProvider dynamicAppearance = new DynamicAppearanceHostProvider();
-    private volatile dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler;
-    private volatile dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler;
-    private final AppearanceCoordinator appearanceCoordinator = new AppearanceCoordinator(dynamicAppearance);
-    private final dev.turboism.ui.table.SceneTableHostOperations sceneTableHost =
-            new dev.turboism.ui.table.SceneTableHostOperations();
-    private final dev.turboism.ui.table.RuntimeSceneTableService sceneTable = sceneTableHost.service();
-    private final PaletteAppearanceCoordinator paletteAppearanceCoordinator = new PaletteAppearanceCoordinator();
-    private final dev.turboism.ui.palette.PaletteSurfaceCoordinator paletteSurfaceCoordinator =
-            new dev.turboism.ui.palette.PaletteSurfaceCoordinator(editorUiPluginResources);
-    private final dev.turboism.sdk.runtime.CubismLogService cubismLog =
-            new dev.turboism.adapter.cubism.service.log.CubismLogServiceHost();
-    private final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator =
-            new dev.turboism.ui.workspace.WorkspaceCoordinator();
-    private volatile dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator;
     private final Object lifecycleMonitor = new Object();
-
-    private State state = State.SAFE_MODE;
-    private ConnectionKey activeConnectionKey;
-    private HostAdapterConnection activeConnection;
-    private HostAdapterConnection pendingConnectionCleanup;
-    private volatile java.util.Set<String> admittedCubismCapabilities = java.util.Set.of();
-    private EditorUiProviderInstaller.Installation activeEditorUiProviders;
-    private EditorUiProviderInstaller.Installation pendingEditorUiProviderCleanup;
-    private Optional<HostSessionFailure> lastFailure = Optional.empty();
-    private boolean transitionInProgress;
-    private Thread transitionOwner;
-    private boolean closeRequested;
+    private final HostSessionLifecycleGate gate = new HostSessionLifecycleGate();
+    private final HostSessionCoordinators coordinators;
+    private final HostConnectionBinding binding;
+    private final dev.turboism.sdk.cubism.history.CubismHistory history;
 
     public HostSession(final HostInstanceSource source) {
         this(source, dev.turboism.i18n.CubismHostLocale::resolve);
@@ -175,121 +94,63 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             final java.util.function.Supplier<java.util.Locale> effectiveLocale,
             final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence
                     textureAtlasSelectionPersistence) {
-        this.textureAtlasSelection = new dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection(
-                textureAtlasSelectionPersistence);
-        this.textureAtlasAlgorithms.bindSelection(textureAtlasSelection);
-        this.textureAtlasAutoLayoutDispatch =
-                new dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutDispatcher(
-                        textureAtlasAlgorithms, textureAtlasSelection, runtimeTextureAtlasLayouts());
-        this.source = Objects.requireNonNull(source, "source");
-        this.connector = new VerifiedHostAdapterConnector(
-                new dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory(
+        this(
+                source,
+                new VerifiedHostAdapterConnector(
+                        new dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory(
+                                Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
+                                dev.turboism.kernel.RecentPreviewDiagnostics::emit)::create,
+                        slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                                slice, dev.turboism.mapping.verification.SliceRegistry.EDITOR_MODEL.resolverFactory()),
+                        VerifiedHostAdapterConnector::productionEditorAccess,
+                        slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                                slice, dev.turboism.mapping.verification.SliceRegistry.MAIN_TOOLBAR.resolverFactory()),
+                        slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                                slice,
+                                dev.turboism.mapping.verification.SliceRegistry.EMBEDDED_PANEL.resolverFactory()),
+                        slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                                slice,
+                                dev.turboism.mapping.verification.SliceRegistry.BOUNDING_BOX_OVERLAY_BUTTON
+                                        .resolverFactory()),
+                        new EditorUiPluginResourceRegistry(),
+                        new RuntimeEditorUiActionRouter(),
+                        new RuntimeEmbeddedPanelActivationCoordinator(),
+                        slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                                slice, dev.turboism.mapping.verification.SliceRegistry.TOP_MENU.resolverFactory()),
+                        new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
+                        VerifiedHostAdapterConnector.productionAppearanceProviderFactory(),
+                        slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                                slice,
+                                dev.turboism.mapping.verification.SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
+                        VerifiedHostAdapterConnector.productionCoreBackendFactory(),
                         Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
-                        dev.turboism.kernel.RecentPreviewDiagnostics::emit)::create,
-                slice -> VerifiedHostAdapterConnector.resolverForSlice(
-                        slice, dev.turboism.mapping.verification.SliceRegistry.EDITOR_MODEL.resolverFactory()),
-                VerifiedHostAdapterConnector::productionEditorAccess,
-                slice -> VerifiedHostAdapterConnector.resolverForSlice(
-                        slice, dev.turboism.mapping.verification.SliceRegistry.MAIN_TOOLBAR.resolverFactory()),
-                slice -> VerifiedHostAdapterConnector.resolverForSlice(
-                        slice, dev.turboism.mapping.verification.SliceRegistry.EMBEDDED_PANEL.resolverFactory()),
-                slice -> VerifiedHostAdapterConnector.resolverForSlice(
-                        slice,
-                        dev.turboism.mapping.verification.SliceRegistry.BOUNDING_BOX_OVERLAY_BUTTON.resolverFactory()),
-                editorUiPluginResources,
-                editorUiActionRouter,
-                embeddedPanelActivation,
-                slice -> VerifiedHostAdapterConnector.resolverForSlice(
-                        slice, dev.turboism.mapping.verification.SliceRegistry.TOP_MENU.resolverFactory()),
-                dockMaintenance,
-                VerifiedHostAdapterConnector.productionAppearanceProviderFactory(),
-                slice -> VerifiedHostAdapterConnector.resolverForSlice(
-                        slice, dev.turboism.mapping.verification.SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
-                VerifiedHostAdapterConnector.productionCoreBackendFactory(),
-                Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
-                meshToolCoordinator,
-                modelingToolCoordinator);
-        dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
-        registerProjectContentCleanup();
+                        new dev.turboism.adapter.cubism.mesh.MeshToolCoordinator(),
+                        new dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator()),
+                textureAtlasSelectionPersistence);
+    }
+
+    HostSession(final HostInstanceSource source, final HostAdapterConnector connector) {
+        this(source, connector, null);
+    }
+
+    private HostSession(
+            final HostInstanceSource source,
+            final HostAdapterConnector connector,
+            final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence
+                    textureAtlasSelectionPersistence) {
+        this.source = Objects.requireNonNull(source, "source");
+        this.connector = Objects.requireNonNull(connector, "connector");
+        this.coordinators = new HostSessionCoordinators(textureAtlasSelectionPersistence);
+        this.binding = new HostConnectionBinding(coordinators, lifecycleMonitor);
+        this.history = new dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider(
+                binding::optionalEditorModelResolver,
+                () -> coordinators.editorUiLifecycle().snapshot().generation());
+        coordinators.dynamic().onOutermostAdapterCallComplete(this::completeDeferredClose);
     }
 
     private static java.util.function.Supplier<java.util.Locale> fixedLocale(final java.util.Locale effectiveLocale) {
         final java.util.Locale required = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
         return () -> required;
-    }
-
-    HostSession(final HostInstanceSource source, final HostAdapterConnector connector) {
-        this.textureAtlasSelection = new dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection();
-        this.textureAtlasAlgorithms.bindSelection(textureAtlasSelection);
-        this.textureAtlasAutoLayoutDispatch =
-                new dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutDispatcher(
-                        textureAtlasAlgorithms, textureAtlasSelection, runtimeTextureAtlasLayouts());
-        this.source = Objects.requireNonNull(source, "source");
-        this.connector = Objects.requireNonNull(connector, "connector");
-        dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
-        registerProjectContentCleanup();
-    }
-
-    /**
-     * Runtime-privileged texture-atlas layout service for the native-entry dispatcher.
-     * It shares this session's coordinator and native-invocation scope so dispatch takes
-     * exactly the plugin-facing snapshot/apply path (validation, handled flag, Undo),
-     * gated by a fixed runtime grant rather than any plugin's permissions.
-     */
-    private dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutService runtimeTextureAtlasLayouts() {
-        final java.util.List<dev.turboism.sdk.permission.PluginPermission> grants = java.util.List.of(
-                runtimeAtlasPermission(
-                        dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutService.READ_PERMISSION),
-                runtimeAtlasPermission(
-                        dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutService.WRITE_PERMISSION));
-        return new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutService(
-                textureAtlasLayouts,
-                new dev.turboism.permissions.CubismPermissionGate(
-                        "dev.turboism.runtime", grants, ignored -> {}, java.time.Clock.systemUTC()),
-                textureAtlasNativeInvocations);
-    }
-
-    private static dev.turboism.sdk.permission.PluginPermission runtimeAtlasPermission(final String id) {
-        return new dev.turboism.sdk.permission.PluginPermission() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "runtime";
-            }
-
-            @Override
-            public String reason() {
-                return "Runtime-owned texture-atlas automatic-layout dispatch.";
-            }
-        };
-    }
-
-    private void registerProjectContentCleanup() {
-        projectFileLifecycle.registerCompletionListener(result -> {
-            if (result.succeeded()
-                    && result.request().kind() == ProjectContentKind.MODEL
-                    && (result.request().operation() == ProjectFileOperationType.OPEN
-                            || result.request().operation() == ProjectFileOperationType.CREATE)) {
-                // Model-open completion is the existing lifecycle signal that the late document
-                // may now expose its native undo manager. The session posts and coalesces the
-                // actual resolver/ listener work so this synchronous host callback stays bounded.
-                nativeEditIngress.retryBinding();
-            }
-            if (!result.succeeded() || result.request().operation() != ProjectFileOperationType.CLOSE) return;
-            result.content().ifPresent(content -> {
-                paletteAppearanceCoordinator.removeContent(content.contentId());
-                if (content.kind() == dev.turboism.sdk.cubism.ProjectContentKind.MODEL) {
-                    dynamicModelAccess.releaseUnboundBorrowedModel();
-                    // The closed document's atlas pages are the only instances the retained
-                    // page outputs could still serve; keep them no longer.
-                    dev.turboism.adapter.cubism.textureatlas.cache.AtlasCacheReuseDelegate.releaseRetainedOutputs();
-                }
-            });
-        });
     }
 
     /**
@@ -307,8 +168,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             } catch (RuntimeException exception) {
                 return closeRequested()
                         ? finishRequestedClose(null)
-                        : failAfterCleanup(
-                                HostSessionFailure.Code.SOURCE_FAILED, "Host instance source failed safely.");
+                        : failAfterCleanup(HostSessionFailure.Code.SOURCE_FAILED, SOURCE_FAILURE_MESSAGE);
             }
 
             if (closeRequested()) {
@@ -319,157 +179,28 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
 
             final HostInstanceDescriptor descriptor = available.orElseThrow();
-            if (cubismLog instanceof dev.turboism.adapter.cubism.service.log.CubismLogServiceHost host) {
-                host.connect(
-                        descriptor.verificationEvidence().projectWorkspace().hostClassLoader());
-            }
-            paletteSurfaceCoordinator.bindSceneFilterSink(sceneTableHost);
-            paletteSurfaceCoordinator.bindCubismLogService(cubismLog);
-            paletteSurfaceCoordinator.bindParameterRows(paletteAppearanceCoordinator);
-            paletteSurfaceCoordinator.connect(
-                    descriptor.verificationEvidence().projectWorkspace().hostClassLoader());
-            final ConnectionKey connectionKey;
+            connectHostScopedSurfaces(descriptor);
+            final HostConnectionKey connectionKey;
             try {
-                connectionKey = ConnectionKey.from(descriptor);
+                connectionKey = HostConnectionKey.from(descriptor);
             } catch (RuntimeException exception) {
                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                        "host-session", "Host connection key derivation failed", exception);
-                return failAfterCleanup(
-                        HostSessionFailure.Code.CONNECTION_FAILED, "Host adapter connection failed safely.");
+                        HOST_SESSION_DIAGNOSTIC, CONNECTION_KEY_FAILURE_DIAGNOSTIC, exception);
+                return failAfterCleanup(HostSessionFailure.Code.CONNECTION_FAILED, CONNECTION_FAILURE_MESSAGE);
             }
 
             if (closeRequested()) {
                 return finishRequestedClose(null);
             }
-            if (isCurrentConnection(connectionKey)) {
-                reconnectSceneBridgeIfNeeded(descriptor.verificationEvidence().projectWorkspace());
-                refreshActivePresentation();
+            if (binding.isCurrent(connectionKey)) {
+                binding.reconnectSceneBridgeIfNeeded(
+                        descriptor.verificationEvidence().projectWorkspace());
+                binding.refreshPresentation();
                 return state();
             }
-            editorUiLifecycle.replacing();
-            final CleanupOutcome replacementCleanup = cleanupOwnedResources();
-            if (!replacementCleanup.succeeded()) {
-                return finishCleanupFailure(replacementCleanup, false);
-            }
-            if (closeRequested()) {
-                return finishRequestedClose(null);
-            }
-
-            final long editorUiGeneration = editorUiLifecycle.connecting().generation();
-            HostAdapterConnection candidate = null;
-            RuntimeHostAdapters candidateAdapters;
-            try {
-                candidate = Objects.requireNonNull(connector.connect(descriptor), "connector.connect()");
-                candidateAdapters = Objects.requireNonNull(candidate.adapters(), "connection.adapters()");
-            } catch (Throwable throwable) {
-                FatalErrors.rethrowIfFatal(throwable);
-                dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                        "host-session", "Host adapter connect threw", throwable);
-                final CleanupOutcome candidateCleanup = closeCandidate(candidate);
-                if (!candidateCleanup.succeeded()) {
-                    return finishCleanupFailure(candidateCleanup, false);
-                }
-                if (throwable instanceof Error error) {
-                    commitFailure(HostSessionFailure.Code.CONNECTION_FAILED, "Host adapter connection failed safely.");
-                    throw error;
-                }
-                return closeRequested()
-                        ? finishRequestedClose(null)
-                        : commitFailure(
-                                HostSessionFailure.Code.CONNECTION_FAILED, "Host adapter connection failed safely.");
-            }
-
-            // Lifecycle cleanup and state commits intentionally remain outside the connection
-            // failure boundary so their failures cannot be reclassified or retried as connect errors.
-            if (closeRequested()) {
-                return finishRequestedClose(candidate);
-            }
-            final HostVerificationEvidence.Slice sceneEvidence =
-                    descriptor.verificationEvidence().projectWorkspace();
-            sceneTableHost.connect(sceneEvidence.verifiedArtifact(), sceneEvidence.hostClassLoader());
-            dynamic.connect(candidateAdapters);
-            paletteSurfaceCoordinator.bindNativeIconResolver(candidate::resolveUiIcon);
-            paletteAppearanceCoordinator.bindNativeIconResolver(candidate::resolveUiIcon);
-            dynamicModelAccess.connect(candidate.modelAccess());
-            dynamicCoreRuntime.connect(candidate.coreRuntimeInfo());
-            dynamicAppearance.connect(candidate.appearanceProvider());
-            paletteAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
-            bindTextureAtlasEditorSession(editorUiGeneration, candidate);
-            bindNativeEditIngress(editorUiGeneration, candidate);
-            candidate.textureAtlasLayoutProvider().ifPresent(textureAtlasLayouts::connect);
-            dynamicEditorCommands.connect(candidate.editorCommands());
-            editorUiLifecycle.connected(editorUiGeneration);
-            activeConnection = candidate;
-            admittedCubismCapabilities = admittedCapabilities(descriptor.verificationEvidence());
-            workspaceLayoutCoordinator = candidate.workspaceLayoutCoordinator();
-            try {
-                paletteSurfaceCoordinator.bindParameterRowsResolver(candidate.editorModelResolver());
-                paletteAppearanceCoordinator.bindParameterEditorSource(
-                        new dev.turboism.ui.appearance.control.VerifiedParameterEditingSource(
-                                candidate.editorModelResolver()));
-                paletteAppearanceCoordinator.bindParameterRowSource(
-                        new dev.turboism.ui.appearance.control.VerifiedParameterRowSource(
-                                candidate.editorModelResolver()));
-            } catch (IllegalStateException unavailable) {
-                paletteSurfaceCoordinator.clearParameterRowsResolver();
-                paletteAppearanceCoordinator.clearParameterRowSource();
-                paletteAppearanceCoordinator.clearParameterEditorSource();
-            }
-            objectContextMenuHandler = candidate.objectContextMenuHandler(editorUiGeneration);
-            parameterPointMenuHandler = candidate.parameterPointMenuHandler(editorUiGeneration);
-            final EditorUiProviderInstaller.Installation candidateEditorUiProviders;
-            try {
-                final java.util.List<dev.turboism.ui.contribution.EditorUiContributionProvider> providers =
-                        new java.util.ArrayList<>(candidate.editorUiProviders(editorUiGeneration));
-                final java.util.Optional<dev.turboism.ui.contribution.EditorUiContributionProvider>
-                        paletteEvidenceProvider = providers.stream()
-                                .filter(provider ->
-                                        provider.family() == dev.turboism.ui.host.EditorUiFamily.PALETTE_TOOLBAR)
-                                .findFirst();
-                if (paletteEvidenceProvider.isPresent()) {
-                    final dev.turboism.ui.contribution.EditorUiProviderAdmission toolbarAdmission =
-                            paletteEvidenceProvider.get().admission();
-                    providers.removeIf(
-                            provider -> provider.family() == dev.turboism.ui.host.EditorUiFamily.PALETTE_TOOLBAR
-                                    || provider.family() == dev.turboism.ui.host.EditorUiFamily.PALETTE_FILTER);
-                    providers.add(new dev.turboism.ui.toolbar.PaletteToolbarContributionProvider(
-                            toolbarAdmission, paletteSurfaceCoordinator, editorUiActionRouter));
-                    providers.add(new dev.turboism.ui.filter.PaletteFilterContributionProvider(
-                            dev.turboism.ui.contribution.EditorUiProviderAdmission.admitted(
-                                    dev.turboism.ui.host.EditorUiFamily.PALETTE_FILTER,
-                                    editorUiGeneration,
-                                    toolbarAdmission.verificationEvidence().orElseThrow()),
-                            paletteSurfaceCoordinator));
-                }
-                candidateEditorUiProviders =
-                        EditorUiProviderInstaller.install(editorUiGeneration, editorUiContributions, providers);
-            } catch (Throwable throwable) {
-                FatalErrors.rethrowIfFatal(throwable);
-                dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                        "host-session", "Editor UI provider install threw", throwable);
-                final CleanupOutcome candidateCleanup = cleanupOwnedResources();
-                if (!candidateCleanup.succeeded()) {
-                    return finishCleanupFailure(candidateCleanup, false);
-                }
-                if (throwable instanceof Error error) {
-                    commitFailure(HostSessionFailure.Code.CONNECTION_FAILED, "Host adapter connection failed safely.");
-                    throw error;
-                }
-                return commitFailure(
-                        HostSessionFailure.Code.CONNECTION_FAILED, "Host adapter connection failed safely.");
-            }
-            activeConnectionKey = connectionKey;
-            activeEditorUiProviders = candidateEditorUiProviders;
-            editorUiLifecycle.ready(editorUiGeneration, candidateEditorUiProviders.readyFamilies());
-            if (closeRequested()) {
-                return finishRequestedClose(null);
-            }
-            if (candidate.workspaceProvider() != null) {
-                workspaceCoordinator.connect(candidate.workspaceProvider());
-            }
-            return commit(State.ACTIVE, Optional.empty());
+            return replaceConnection(descriptor, connectionKey);
         } finally {
-            endTransition();
+            gate.endTransition();
         }
     }
 
@@ -478,9 +209,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
      *     never observed mid-transition
      */
     public State state() {
-        synchronized (lifecycleMonitor) {
-            return state;
-        }
+        return gate.state();
     }
 
     /**
@@ -488,47 +217,39 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
      *     during cleanup; empty when no failure has been recorded yet
      */
     public Optional<HostSessionFailure> lastFailure() {
-        synchronized (lifecycleMonitor) {
-            return lastFailure;
-        }
+        return gate.lastFailure();
     }
 
     @Override
     public RuntimeHostAdapters adapters() {
-        return dynamic.view();
+        return coordinators.dynamic().view();
     }
 
     @Override
     public java.util.Optional<String> cubismEditorVersion() {
-        return optionalEditorModelResolver()
+        return binding.optionalEditorModelResolver()
                 .map(dev.turboism.mapping.verification.VerifiedMemberResolver::cubismVersion);
     }
 
     @Override
     public java.util.Set<String> admittedCubismCapabilities() {
-        final java.util.Set<String> disabled = optionalEditorModelResolver()
-                .map(dev.turboism.mapping.verification.VerifiedMemberResolver::unavailableCapabilities)
-                .orElse(java.util.Set.of());
-        if (disabled.isEmpty()) return admittedCubismCapabilities;
-        final java.util.Set<String> available = new java.util.HashSet<>(admittedCubismCapabilities);
-        available.removeAll(disabled);
-        return java.util.Set.copyOf(available);
+        return binding.admittedCubismCapabilities();
     }
 
     @Override
     public java.util.Optional<String> admittedCubismGeneration() {
-        return optionalEditorModelResolver()
+        return binding.optionalEditorModelResolver()
                 .map(dev.turboism.mapping.verification.VerifiedMemberResolver::admittedCubismVersion);
     }
 
     @Override
     public dev.turboism.sdk.cubism.model.CubismModelAccess modelAccess() {
-        return dynamicModelAccess;
+        return coordinators.dynamicModelAccess();
     }
 
     @Override
     public dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection currentHostSelection() {
-        return dynamicModelAccess.currentHostSelection();
+        return coordinators.dynamicModelAccess().currentHostSelection();
     }
 
     @Override
@@ -541,109 +262,109 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
      *     once with the session and stays valid across host connect and disconnect
      */
     public HostSnapshotSource modelAppearanceSource() {
-        return modelAppearanceSource;
+        return coordinators.modelAppearanceSource();
     }
 
     @Override
     public dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
-        return dynamicCoreRuntime;
+        return coordinators.dynamicCoreRuntime();
     }
 
     @Override
     public dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands() {
-        return dynamicEditorCommands;
+        return coordinators.dynamicEditorCommands();
     }
 
     @Override
     public ParameterLifecycleCoordinator parameterLifecycle() {
-        return parameterLifecycle;
+        return coordinators.parameterLifecycle();
     }
 
     @Override
     public PartLifecycleCoordinator partLifecycle() {
-        return partLifecycle;
+        return coordinators.partLifecycle();
     }
 
     @Override
     public TextureAtlasLayoutCoordinator textureAtlasLayouts() {
-        return textureAtlasLayouts;
+        return coordinators.textureAtlasLayouts();
     }
 
     @Override
     public dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator
             textureAtlasNativeInvocations() {
-        return textureAtlasNativeInvocations;
+        return coordinators.textureAtlasNativeInvocations();
     }
 
     @Override
     public EditorObjectLifecycleCoordinator editorObjectLifecycle() {
-        return editorObjectLifecycle;
+        return coordinators.editorObjectLifecycle();
     }
 
     @Override
     public ProjectFileLifecycleCoordinator projectFileLifecycle() {
-        return projectFileLifecycle;
+        return coordinators.projectFileLifecycle();
     }
 
     @Override
     public EditorLifecycleCoordinator editorLifecycleEvents() {
-        return editorLifecycleEvents;
+        return coordinators.editorLifecycleEvents();
     }
 
     @Override
     public PhysicsEditorCoordinator physicsEditorCoordinator() {
-        return physicsEditorCoordinator;
+        return coordinators.physicsEditorCoordinator();
     }
 
     @Override
     public dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService meshMirrorAxisService() {
-        return meshMirrorAxisService;
+        return coordinators.meshMirrorAxisService();
     }
 
     @Override
     public dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService meshEditUiService() {
-        return meshEditUiService;
+        return coordinators.meshEditUiService();
     }
 
     @Override
     public EditorUiHostLifecycle editorUiLifecycle() {
-        return editorUiLifecycle;
+        return coordinators.editorUiLifecycle();
     }
 
     @Override
     public EditorUiContributionAuthority editorUiContributions() {
-        return editorUiContributions;
+        return coordinators.editorUiContributions();
     }
 
     /** Returns the host-owned ordinary modeling tool coordinator. */
     @Override
     public dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator modelingToolCoordinator() {
-        return modelingToolCoordinator;
+        return coordinators.modelingToolCoordinator();
     }
 
     /** Returns this host session's owner of temporary mesh-tool activations. */
     public dev.turboism.adapter.cubism.mesh.MeshToolCoordinator meshToolCoordinator() {
-        return meshToolCoordinator;
+        return coordinators.meshToolCoordinator();
     }
 
     @Override
     public RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation() {
-        return embeddedPanelActivation;
+        return coordinators.embeddedPanelActivation();
     }
 
     @Override
     public RuntimeEditorUiActionRouter editorUiActionRouter() {
-        return editorUiActionRouter;
+        return coordinators.editorUiActionRouter();
     }
 
     @Override
     public EditorUiPluginResourceRegistry editorUiPluginResources() {
-        return editorUiPluginResources;
+        return coordinators.editorUiPluginResources();
     }
 
     @Override
     public dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler() {
-        return objectContextMenuHandler;
+        return binding.objectContextMenuHandler();
     }
 
     /**
@@ -652,75 +373,76 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
      *     when the connection is torn down)
      */
     public dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler() {
-        return parameterPointMenuHandler;
+        return binding.parameterPointMenuHandler();
     }
 
     @Override
     public dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance() {
-        return dockMaintenance;
+        return coordinators.dockMaintenance();
     }
 
     @Override
     public AppearanceCoordinator appearanceCoordinator() {
-        return appearanceCoordinator;
+        return coordinators.appearanceCoordinator();
     }
 
     @Override
     public dev.turboism.sdk.ui.table.SceneTableService sceneTable() {
-        return sceneTable;
+        return coordinators.sceneTable();
     }
 
     @Override
     public dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink() {
-        return paletteSurfaceCoordinator;
+        return coordinators.paletteSurfaceCoordinator();
     }
 
     @Override
     public dev.turboism.sdk.runtime.CubismLogService cubismLog() {
-        return cubismLog;
+        return coordinators.cubismLog();
     }
 
     @Override
     public PaletteAppearanceCoordinator paletteAppearanceCoordinator() {
-        return paletteAppearanceCoordinator;
+        return coordinators.paletteAppearanceCoordinator();
     }
 
     @Override
     public dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator() {
-        return workspaceCoordinator;
+        return coordinators.workspaceCoordinator();
     }
 
     @Override
     public dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator() {
-        return workspaceLayoutCoordinator;
+        return binding.workspaceLayoutCoordinator();
     }
+
     /**
      * @return the registry of texture-atlas layout algorithms owned by this session; it exists
      *     independently of any host connection, so plugin-contributed algorithms survive safe mode
      */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry
             textureAtlasAlgorithms() {
-        return textureAtlasAlgorithms;
+        return coordinators.textureAtlasAlgorithms();
     }
 
     /** @return the stable texture-atlas editor UI owned by this host session. */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi() {
-        return textureAtlasEditorUi;
+        return coordinators.textureAtlasEditorUi();
     }
 
     /** @return the host-session-owned host view panel registry every UI anchor renders through. */
     public dev.turboism.ui.panel.RuntimeHostViewPanelRegistry hostViewPanels() {
-        return hostViewPanels;
+        return coordinators.hostViewPanels();
     }
 
     /** @return the host-session-owned preview surface registry every preview capability reads through. */
     public dev.turboism.adapter.cubism.preview.RuntimePreviewSurfaceRegistry previewSurfaces() {
-        return previewSurfaces;
+        return coordinators.previewSurfaces();
     }
 
     /** @return the stable texture-atlas editor session resolved against the active connection. */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession() {
-        return textureAtlasEditorSession;
+        return coordinators.textureAtlasEditorSession();
     }
 
     /**
@@ -729,12 +451,12 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
      *     defers to the host's own packing
      */
     public java.util.function.BooleanSupplier textureAtlasAutoLayoutDispatch() {
-        return textureAtlasAutoLayoutDispatch.callback();
+        return coordinators.textureAtlasAutoLayoutDispatch();
     }
 
     /** @return the runtime-owned texture-atlas automatic-layout selection state. */
     public dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection textureAtlasSelection() {
-        return textureAtlasSelection;
+        return coordinators.textureAtlasSelection();
     }
 
     /**
@@ -742,76 +464,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
      * @throws IllegalStateException if no host connection is active, so no verified resolver exists
      */
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
-        synchronized (lifecycleMonitor) {
-            if (activeConnection == null) {
-                throw new IllegalStateException("No verified active Editor model resolver is available.");
-            }
-            return activeConnection.editorModelResolver();
-        }
-    }
-
-    private java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> optionalEditorModelResolver() {
-        synchronized (lifecycleMonitor) {
-            if (activeConnection == null) return java.util.Optional.empty();
-            try {
-                return java.util.Optional.of(activeConnection.editorModelResolver());
-            } catch (IllegalStateException unavailable) {
-                return java.util.Optional.empty();
-            }
-        }
-    }
-
-    /**
-     * The capability-id union admitted for a connection: every evidence slice's
-     * contract set, falling back to the record's declared capabilities for
-     * contractless (legacy exact) slices. Emptiness fails API availability
-     * closed.
-     */
-    private static java.util.Set<String> admittedCapabilities(final HostVerificationEvidence evidence) {
-        final java.util.Set<String> capabilities = new java.util.LinkedHashSet<>();
-        java.util.stream.Stream.of(
-                        java.util.Optional.of(evidence.projectWorkspace()),
-                        evidence.clipMask(),
-                        evidence.editorModel(),
-                        evidence.coreRuntime(),
-                        evidence.mainToolbar(),
-                        evidence.embeddedPanel(),
-                        evidence.topMenu(),
-                        evidence.boundingBoxOverlayButton(),
-                        evidence.workspaceControl(),
-                        evidence.statusBar(),
-                        evidence.autoBackup())
-                .forEach(slice -> slice.ifPresent(s -> capabilities.addAll(s.capabilities())));
-        return java.util.Set.copyOf(capabilities);
-    }
-
-    /**
-     * Binds the native edit ingress for this connection.
-     *
-     * <p>A resolver that does not admit the listener selectors, or a document that has no history
-     * manager yet, leaves the ingress inactive. That is deliberately not a connection failure: the
-     * session must still connect, and the ingress is an additive observation surface.</p>
-     */
-    private void bindNativeEditIngress(final long generation, final HostAdapterConnection connection) {
-        try {
-            nativeEditIngress.bind(generation, connection.editorModelResolver());
-        } catch (RuntimeException unavailable) {
-            // A connection without a usable resolver is a transient state, not a terminal one.
-            nativeEditIngress.deactivate();
-            dev.turboism.runtime.log.RuntimeDiagnostics.warn(
-                    "host-session",
-                    "Native edit ingress could not bind: "
-                            + unavailable.getClass().getName()
-                            + (unavailable.getMessage() == null ? "" : ": " + unavailable.getMessage()));
-        }
-    }
-
-    private void bindTextureAtlasEditorSession(final long generation, final HostAdapterConnection connection) {
-        try {
-            textureAtlasEditorUi.bind(generation, connection.editorModelResolver());
-        } catch (IllegalStateException unavailable) {
-            textureAtlasEditorUi.deactivate();
-        }
+        return binding.editorModelResolver();
     }
 
     /**
@@ -820,12 +473,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
      *     connection cannot supply a texture-atlas capture
      */
     public dev.turboism.adapter.cubism.textureatlas.TextureAtlasDataModelCapture textureAtlasDataModelCapture() {
-        synchronized (lifecycleMonitor) {
-            if (activeConnection == null) {
-                throw new IllegalStateException("No verified active texture-atlas capture is available.");
-            }
-            return activeConnection.textureAtlasDataModelCapture();
-        }
+        return binding.textureAtlasDataModelCapture();
     }
 
     /**
@@ -834,58 +482,51 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
      *     {@link #editorModelResolver()} this never throws
      */
     public java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver() {
-        synchronized (lifecycleMonitor) {
-            if (activeConnection == null) return java.util.Optional.empty();
-            try {
-                return java.util.Optional.of(activeConnection.boundingBoxOverlayResolver());
-            } catch (IllegalStateException unavailable) {
-                return java.util.Optional.empty();
-            }
-        }
+        return binding.boundingBoxOverlayResolver();
     }
 
     /** Returns a non-closeable trusted composition view while lifecycle ownership stays elsewhere. */
     public RuntimeHostAdapterAccess adapterAccess() {
         return new SessionRuntimeHostAdapterAccess(
-                dynamic.view(),
+                coordinators.dynamic().view(),
                 this::cubismEditorVersion,
                 this::admittedCubismCapabilities,
                 this::admittedCubismGeneration,
-                dynamicModelAccess,
+                coordinators.dynamicModelAccess(),
                 history,
-                modelAppearanceSource,
-                dynamicCoreRuntime,
-                dynamicEditorCommands,
-                parameterLifecycle,
-                partLifecycle,
-                textureAtlasLayouts,
-                textureAtlasNativeInvocations,
-                editorObjectLifecycle,
-                projectFileLifecycle,
-                editorLifecycleEvents,
-                physicsEditorCoordinator,
-                meshMirrorAxisService,
-                meshEditUiService,
-                meshToolCoordinator,
-                modelingToolCoordinator,
-                editorUiLifecycle,
-                editorUiContributions,
-                embeddedPanelActivation,
-                editorUiActionRouter,
-                editorUiPluginResources,
-                objectContextMenuHandler,
-                parameterPointMenuHandler,
-                dockMaintenance,
+                modelAppearanceSource(),
+                coordinators.dynamicCoreRuntime(),
+                coordinators.dynamicEditorCommands(),
+                parameterLifecycle(),
+                partLifecycle(),
+                textureAtlasLayouts(),
+                textureAtlasNativeInvocations(),
+                editorObjectLifecycle(),
+                projectFileLifecycle(),
+                editorLifecycleEvents(),
+                physicsEditorCoordinator(),
+                meshMirrorAxisService(),
+                meshEditUiService(),
+                meshToolCoordinator(),
+                modelingToolCoordinator(),
+                editorUiLifecycle(),
+                editorUiContributions(),
+                embeddedPanelActivation(),
+                editorUiActionRouter(),
+                editorUiPluginResources(),
+                objectContextMenuHandler(),
+                parameterPointMenuHandler(),
+                dockMaintenance(),
                 boundingBoxOverlayResolver(),
-                appearanceCoordinator,
-                sceneTable,
-                cubismLog,
-                paletteSurfaceCoordinator,
-                paletteAppearanceCoordinator,
-                workspaceCoordinator,
-                workspaceLayoutCoordinator,
+                appearanceCoordinator(),
+                sceneTable(),
+                cubismLog(),
+                paletteFilterSink(),
+                paletteAppearanceCoordinator(),
+                workspaceCoordinator(),
+                workspaceLayoutCoordinator(),
                 textureAtlasEditorUi(),
-                hostViewPanels,
+                hostViewPanels(),
                 previewSurfaces(),
                 textureAtlasEditorSession(),
                 textureAtlasAlgorithms(),
@@ -902,94 +543,124 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             return;
         }
         try {
-            final CleanupOutcome cleanup = cleanupOwnedResources();
+            final HostSessionCoordinators.Outcome cleanup = cleanupOwnedResources();
             if (!cleanup.succeeded()) {
                 finishCleanupFailure(cleanup, true);
                 return;
             }
-            final CleanupOutcome coordinatorCleanup = closeSessionCoordinators();
+            final HostSessionCoordinators.Outcome coordinatorCleanup =
+                    coordinators.closeAll(coordinatorCleanupStepsForTest);
             if (!coordinatorCleanup.succeeded()) {
                 finishCleanupFailure(coordinatorCleanup, true);
                 return;
             }
             commit(State.CLOSED, Optional.empty());
         } finally {
-            endTransition();
+            gate.endTransition();
         }
-    }
-
-    /**
-     * Closes every session coordinator, collecting failures so the first throwing coordinator
-     * cannot truncate the chain or skip the terminal commit — the same fault-tolerant contract
-     * {@link #cleanupOwnedResources()} already follows. A collected failure reports through the
-     * shared sanitized lifecycle path, which keeps {@code close()} retryable.
-     */
-    private CleanupOutcome closeSessionCoordinators() {
-        CleanupOutcome outcome = CleanupOutcome.success();
-        outcome = outcome.combine(runCoordinator(appearanceCoordinator::close));
-        outcome = outcome.combine(runCoordinator(paletteAppearanceCoordinator::close));
-        outcome = outcome.combine(runCoordinator(paletteSurfaceCoordinator::close));
-        // close() keeps palette cleanup here (matching main's unified palette-surface path);
-        // sceneTableHost.disconnect() runs exactly once inside cleanupOwnedResources() above.
-        if (cubismLog instanceof dev.turboism.adapter.cubism.service.log.CubismLogServiceHost host) {
-            outcome = outcome.combine(runCoordinator(host::close));
-        }
-        outcome = outcome.combine(runCoordinator(workspaceCoordinator::close));
-        outcome = outcome.combine(runCoordinator(physicsEditorCoordinator::close));
-        outcome = outcome.combine(runCoordinator(editorLifecycleEvents::close));
-        outcome = outcome.combine(runCoordinator(projectFileLifecycle::close));
-        outcome = outcome.combine(runCoordinator(editorObjectLifecycle::close));
-        outcome = outcome.combine(runCoordinator(nativeEditIngress::close));
-        outcome = outcome.combine(runCoordinator(partLifecycle::close));
-        outcome = outcome.combine(runCoordinator(textureAtlasLayouts::close));
-        outcome = outcome.combine(runCoordinator(textureAtlasNativeInvocations::close));
-        outcome = outcome.combine(runCoordinator(textureAtlasEditorUi::close));
-        outcome = outcome.combine(runCoordinator(hostViewPanels::close));
-        outcome = outcome.combine(runCoordinator(previewSurfaces::close));
-        outcome = outcome.combine(runCoordinator(parameterLifecycle::close));
-        outcome = outcome.combine(runCoordinator(meshEditUiService::resetSession));
-        outcome = outcome.combine(runCoordinator(meshMirrorAxisService::resetSession));
-        outcome = outcome.combine(runCoordinator(modelingToolCoordinator::close));
-        outcome = outcome.combine(runCoordinator(meshToolCoordinator::close));
-        outcome = outcome.combine(runCoordinator(editorUiPluginResources::close));
-        outcome = outcome.combine(runCoordinator(editorUiActionRouter::close));
-        outcome = outcome.combine(runCoordinator(embeddedPanelActivation::close));
-        outcome = outcome.combine(runCoordinator(editorUiContributions::close));
-        outcome = outcome.combine(runCoordinator(editorUiLifecycle::close));
-        for (final AutoCloseable step : coordinatorCleanupStepsForTest) {
-            outcome = outcome.combine(runCoordinator(step));
-        }
-        return outcome;
     }
 
     /** Test-only coordinator steps appended to the close chain; empty in production. */
     volatile java.util.List<AutoCloseable> coordinatorCleanupStepsForTest = java.util.List.of();
 
-    private static CleanupOutcome runCoordinator(final AutoCloseable step) {
+    /**
+     * Binds the host-scoped surfaces that read the host classloader directly rather than through a
+     * connection, so they are ready before any connection is attempted.
+     */
+    private void connectHostScopedSurfaces(final HostInstanceDescriptor descriptor) {
+        final ClassLoader hostClassLoader =
+                descriptor.verificationEvidence().projectWorkspace().hostClassLoader();
+        if (coordinators.cubismLog() instanceof dev.turboism.adapter.cubism.service.log.CubismLogServiceHost host) {
+            host.connect(hostClassLoader);
+        }
+        final dev.turboism.ui.palette.PaletteSurfaceCoordinator paletteSurface =
+                coordinators.paletteSurfaceCoordinator();
+        paletteSurface.bindSceneFilterSink(coordinators.sceneTableHost());
+        paletteSurface.bindCubismLogService(coordinators.cubismLog());
+        paletteSurface.bindParameterRows(coordinators.paletteAppearanceCoordinator());
+        paletteSurface.connect(hostClassLoader);
+    }
+
+    /**
+     * Replaces the published connection with the one the descriptor describes.
+     *
+     * <p>The old bundle closes completely before the replacement connects, so a failed replacement
+     * leaves the session in safe mode instead of publishing a partially refreshed bundle.</p>
+     */
+    private State replaceConnection(final HostInstanceDescriptor descriptor, final HostConnectionKey connectionKey) {
+        coordinators.editorUiLifecycle().replacing();
+        final HostSessionCoordinators.Outcome replacementCleanup = cleanupOwnedResources();
+        if (!replacementCleanup.succeeded()) {
+            return finishCleanupFailure(replacementCleanup, false);
+        }
+        if (closeRequested()) {
+            return finishRequestedClose(null);
+        }
+
+        final long editorUiGeneration =
+                coordinators.editorUiLifecycle().connecting().generation();
+        final HostConnectionBinding.ConnectAttempt attempt = binding.connect(connector, descriptor);
+        if (!attempt.succeeded()) {
+            final HostSessionCoordinators.Outcome candidateCleanup = binding.closeCandidate(attempt.candidate());
+            if (!candidateCleanup.succeeded()) {
+                return finishCleanupFailure(candidateCleanup, false);
+            }
+            if (attempt.failure() instanceof Error error) {
+                commitFailure(HostSessionFailure.Code.CONNECTION_FAILED, CONNECTION_FAILURE_MESSAGE);
+                throw error;
+            }
+            return closeRequested()
+                    ? finishRequestedClose(null)
+                    : commitFailure(HostSessionFailure.Code.CONNECTION_FAILED, CONNECTION_FAILURE_MESSAGE);
+        }
+
+        // Lifecycle cleanup and state commits intentionally remain outside the connection
+        // failure boundary so their failures cannot be reclassified or retried as connect errors.
+        if (closeRequested()) {
+            return finishRequestedClose(attempt.candidate());
+        }
+        binding.attach(
+                attempt.candidate(),
+                attempt.adapters(),
+                descriptor.verificationEvidence().projectWorkspace(),
+                editorUiGeneration);
+        final EditorUiProviderInstaller.Installation candidateProviders;
         try {
-            step.close();
-            return CleanupOutcome.success();
+            candidateProviders = binding.installEditorUiProviders(attempt.candidate(), editorUiGeneration);
         } catch (Throwable throwable) {
             FatalErrors.rethrowIfFatal(throwable);
-            return CleanupOutcome.failed(throwable);
+            final HostSessionCoordinators.Outcome candidateCleanup = cleanupOwnedResources();
+            if (!candidateCleanup.succeeded()) {
+                return finishCleanupFailure(candidateCleanup, false);
+            }
+            if (throwable instanceof Error error) {
+                commitFailure(HostSessionFailure.Code.CONNECTION_FAILED, CONNECTION_FAILURE_MESSAGE);
+                throw error;
+            }
+            return commitFailure(HostSessionFailure.Code.CONNECTION_FAILED, CONNECTION_FAILURE_MESSAGE);
         }
+        binding.commit(descriptor, attempt.candidate(), connectionKey, candidateProviders, editorUiGeneration);
+        if (closeRequested()) {
+            return finishRequestedClose(null);
+        }
+        return commit(State.ACTIVE, Optional.empty());
     }
 
     private State enterSafeMode() {
-        editorUiLifecycle.replacing();
-        final CleanupOutcome cleanup = cleanupOwnedResources();
+        coordinators.editorUiLifecycle().replacing();
+        final HostSessionCoordinators.Outcome cleanup = cleanupOwnedResources();
         if (!cleanup.succeeded()) {
             return finishCleanupFailure(cleanup, false);
         }
         if (closeRequested()) {
             return finishRequestedClose(null);
         }
-        editorUiLifecycle.absent();
+        coordinators.editorUiLifecycle().absent();
         return commit(State.SAFE_MODE, Optional.empty());
     }
 
     private State failAfterCleanup(final HostSessionFailure.Code failureCode, final String failureMessage) {
-        final CleanupOutcome cleanup = cleanupOwnedResources();
+        final HostSessionCoordinators.Outcome cleanup = cleanupOwnedResources();
         if (!cleanup.succeeded()) {
             return finishCleanupFailure(cleanup, false);
         }
@@ -997,110 +668,23 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     private State finishRequestedClose(final HostAdapterConnection candidate) {
-        final CleanupOutcome candidateCleanup = closeCandidate(candidate);
+        final HostSessionCoordinators.Outcome candidateCleanup = binding.closeCandidate(candidate);
         if (!candidateCleanup.succeeded()) {
             return finishCleanupFailure(candidateCleanup, false);
         }
-        final CleanupOutcome ownedCleanup = cleanupOwnedResources();
+        final HostSessionCoordinators.Outcome ownedCleanup = cleanupOwnedResources();
         return ownedCleanup.succeeded()
                 ? commit(State.CLOSED, Optional.empty())
                 : finishCleanupFailure(ownedCleanup, false);
     }
 
     /** Registration cleanup must succeed before its owning connection can be closed. */
-    private CleanupOutcome cleanupOwnedResources() {
-        sceneTableHost.disconnect();
-        dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.clearHostContext();
-        textureAtlasEditorUi.deactivate();
-        nativeEditIngress.deactivate();
-        meshEditUiService.resetSession();
-        meshMirrorAxisService.resetSession();
-        modelingToolCoordinator.disconnect();
-        meshToolCoordinator.endSession();
-        activeConnectionKey = null;
-        paletteSurfaceCoordinator.clearParameterRowsResolver();
-        paletteSurfaceCoordinator.clearNativeIconResolver();
-        paletteAppearanceCoordinator.clearNativeIconResolver();
-        paletteAppearanceCoordinator.clearParameterRowSource();
-        paletteAppearanceCoordinator.clearParameterEditorSource();
-        if (activeConnection != null && activeConnection.workspaceProvider() != null) {
-            workspaceCoordinator.disconnect(activeConnection.workspaceProvider());
-        }
-        workspaceLayoutCoordinator = null;
-        dynamicAppearance.deactivate();
-        paletteAppearanceCoordinator.invalidate();
-        dynamicModelAccess.deactivate();
-        dynamicCoreRuntime.deactivate();
-        textureAtlasLayouts.deactivate();
-        textureAtlasNativeInvocations.deactivate();
-        dynamicEditorCommands.deactivate();
-        try {
-            dynamic.deactivate();
-        } catch (Throwable throwable) {
-            FatalErrors.rethrowIfFatal(throwable);
-            return CleanupOutcome.failed(throwable);
-        }
-
-        CleanupOutcome outcome = CleanupOutcome.success();
-        if (activeEditorUiProviders != null) {
-            try {
-                activeEditorUiProviders.close();
-                activeEditorUiProviders = null;
-            } catch (Throwable throwable) {
-                FatalErrors.rethrowIfFatal(throwable);
-                pendingEditorUiProviderCleanup = activeEditorUiProviders;
-                activeEditorUiProviders = null;
-                outcome = outcome.combine(CleanupOutcome.failed(throwable));
-            }
-        }
-        if (pendingEditorUiProviderCleanup != null) {
-            try {
-                pendingEditorUiProviderCleanup.close();
-                pendingEditorUiProviderCleanup = null;
-            } catch (Throwable throwable) {
-                FatalErrors.rethrowIfFatal(throwable);
-                outcome = outcome.combine(CleanupOutcome.failed(throwable));
-            }
-        }
-        if (activeConnection != null && pendingEditorUiProviderCleanup == null) {
-            try {
-                activeConnection.close();
-                activeConnection = null;
-                admittedCubismCapabilities = java.util.Set.of();
-                objectContextMenuHandler = null;
-                parameterPointMenuHandler = null;
-            } catch (Throwable throwable) {
-                FatalErrors.rethrowIfFatal(throwable);
-                outcome = outcome.combine(CleanupOutcome.failed(throwable));
-            }
-        }
-        if (pendingConnectionCleanup != null && pendingEditorUiProviderCleanup == null) {
-            try {
-                pendingConnectionCleanup.close();
-                pendingConnectionCleanup = null;
-            } catch (Throwable throwable) {
-                FatalErrors.rethrowIfFatal(throwable);
-                outcome = outcome.combine(CleanupOutcome.failed(throwable));
-            }
-        }
-        return outcome;
+    private HostSessionCoordinators.Outcome cleanupOwnedResources() {
+        return binding.release();
     }
 
-    private CleanupOutcome closeCandidate(final HostAdapterConnection candidate) {
-        if (candidate == null) {
-            return CleanupOutcome.success();
-        }
-        try {
-            candidate.close();
-            return CleanupOutcome.success();
-        } catch (Throwable throwable) {
-            FatalErrors.rethrowIfFatal(throwable);
-            pendingConnectionCleanup = candidate;
-            return CleanupOutcome.failed(throwable);
-        }
-    }
-
-    private State finishCleanupFailure(final CleanupOutcome cleanup, final boolean throwSanitizedNonError) {
+    private State finishCleanupFailure(
+            final HostSessionCoordinators.Outcome cleanup, final boolean throwSanitizedNonError) {
         final State failed = commitFailure(HostSessionFailure.Code.CLEANUP_FAILED, CLEANUP_FAILURE_MESSAGE);
         final Throwable failure = cleanup.failure();
         if (failure instanceof Error error) {
@@ -1117,72 +701,26 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return failed;
     }
 
-    /**
-     * Recovers a Scene bridge that failed while the main host connection stayed active. Unsupported
-     * artifacts stay closed and already-connected/connecting bridges are left alone, so a transient
-     * palette-not-ready failure can heal on the next refresh without re-hashing the artifact.
-     */
-    private void reconnectSceneBridgeIfNeeded(final HostVerificationEvidence.Slice evidence) {
-        final dev.turboism.ui.table.SceneTableHostOperations.State sceneState = sceneTableHost.state();
-        if (sceneState == dev.turboism.ui.table.SceneTableHostOperations.State.DISCONNECTED
-                || sceneState == dev.turboism.ui.table.SceneTableHostOperations.State.FAILED) {
-            sceneTableHost.connect(evidence.verifiedArtifact(), evidence.hostClassLoader());
-        }
-    }
-
-    private void refreshActivePresentation() {
-        final HostAdapterConnection connection;
-        synchronized (lifecycleMonitor) {
-            connection = activeConnection;
-        }
-        if (connection == null) {
-            return;
-        }
-        try {
-            // The connection owns the optional resource thread boundary. The session refresh
-            // remains bootstrap-owned, but direct callers must not be able to break host health.
-            connection.refreshPresentation();
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            // Presentation refresh is optional and must not destabilize an active host session.
-            dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                    "host-session", "Host presentation refresh failed safely", failure);
-        }
-    }
-
-    private boolean isCurrentConnection(final ConnectionKey connectionKey) {
-        synchronized (lifecycleMonitor) {
-            return state == State.ACTIVE
-                    && connectionKey.matches(activeConnectionKey)
-                    && pendingConnectionCleanup == null
-                    && pendingEditorUiProviderCleanup == null;
-        }
-    }
-
     private State commitFailure(final HostSessionFailure.Code code, final String message) {
         try {
-            editorUiLifecycle.failed(EditorUiHostFailure.host(
-                    code == HostSessionFailure.Code.CLEANUP_FAILED
-                            ? EditorUiHostFailure.Code.CLEANUP_FAILED
-                            : EditorUiHostFailure.Code.REPLACEMENT_FAILED,
-                    "Editor UI host connection failed safely."));
+            coordinators
+                    .editorUiLifecycle()
+                    .failed(EditorUiHostFailure.host(
+                            code == HostSessionFailure.Code.CLEANUP_FAILED
+                                    ? EditorUiHostFailure.Code.CLEANUP_FAILED
+                                    : EditorUiHostFailure.Code.REPLACEMENT_FAILED,
+                            EDITOR_UI_FAILURE_MESSAGE));
         } catch (IllegalStateException ignored) {
         }
         return commit(State.FAILED, Optional.of(new HostSessionFailure(code, message)));
     }
 
     private State commit(final State newState, final Optional<HostSessionFailure> failure) {
-        synchronized (lifecycleMonitor) {
-            state = newState;
-            lastFailure = failure;
-            return state;
-        }
+        return gate.commit(newState, failure);
     }
 
     private boolean closeRequested() {
-        synchronized (lifecycleMonitor) {
-            return closeRequested;
-        }
+        return gate.closeRequested();
     }
 
     boolean closeRequestedForTest() {
@@ -1190,180 +728,18 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     boolean acceptingCallsForTest() {
-        return dynamic.acceptingCallsForTest();
+        return coordinators.dynamic().acceptingCallsForTest();
     }
 
     private boolean beginTransition(final boolean closing) {
-        if (dynamic.isInAdapterCallOnCurrentThread()) {
-            if (closing) {
-                synchronized (lifecycleMonitor) {
-                    closeRequested = true;
-                }
-            }
-            return false;
-        }
-
-        synchronized (lifecycleMonitor) {
-            if (closing) {
-                closeRequested = true;
-            }
-            if (state == State.CLOSED || (!closing && closeRequested)) {
-                return false;
-            }
-            if (transitionInProgress && transitionOwner == Thread.currentThread()) {
-                return false;
-            }
-            if (!closing && transitionInProgress && closeRequested) {
-                return false;
-            }
-
-            boolean interrupted = false;
-            while (transitionInProgress) {
-                if (!closing && closeRequested) {
-                    return false;
-                }
-                try {
-                    lifecycleMonitor.wait();
-                } catch (InterruptedException exception) {
-                    interrupted = true;
-                }
-            }
-            if (interrupted) {
-                Thread.currentThread().interrupt();
-            }
-            if (state == State.CLOSED || (!closing && closeRequested)) {
-                return false;
-            }
-            transitionInProgress = true;
-            transitionOwner = Thread.currentThread();
-            return true;
-        }
+        return gate.beginTransition(closing, coordinators.dynamic().isInAdapterCallOnCurrentThread());
     }
 
     private void completeDeferredClose() {
-        synchronized (lifecycleMonitor) {
-            if (!closeRequested || state == State.CLOSED) {
-                return;
-            }
+        if (!gate.closeStillPending()) {
+            return;
         }
         close();
-    }
-
-    private void endTransition() {
-        synchronized (lifecycleMonitor) {
-            transitionInProgress = false;
-            transitionOwner = null;
-            lifecycleMonitor.notifyAll();
-        }
-    }
-
-    private record ConnectionKey(
-            String sessionId,
-            SliceKey projectWorkspace,
-            java.util.Optional<SliceKey> clipMask,
-            java.util.Optional<SliceKey> editorModel,
-            java.util.Optional<SliceKey> coreRuntime,
-            java.util.Optional<SliceKey> mainToolbar,
-            java.util.Optional<SliceKey> embeddedPanel,
-            java.util.Optional<SliceKey> topMenu,
-            java.util.Optional<SliceKey> boundingBoxOverlayButton,
-            java.util.Optional<SliceKey> workspaceControl,
-            java.util.Optional<SliceKey> statusBar,
-            java.util.Optional<SliceKey> autoBackup) {
-        private static ConnectionKey from(final HostInstanceDescriptor descriptor) {
-            final HostVerificationEvidence evidence = descriptor.verificationEvidence();
-            return new ConnectionKey(
-                    descriptor.sessionId(),
-                    SliceKey.from(evidence.projectWorkspace()),
-                    evidence.clipMask().map(SliceKey::from),
-                    evidence.editorModel().map(SliceKey::from),
-                    evidence.coreRuntime().map(SliceKey::from),
-                    evidence.mainToolbar().map(SliceKey::from),
-                    evidence.embeddedPanel().map(SliceKey::from),
-                    evidence.topMenu().map(SliceKey::from),
-                    evidence.boundingBoxOverlayButton().map(SliceKey::from),
-                    evidence.workspaceControl().map(SliceKey::from),
-                    evidence.statusBar().map(SliceKey::from),
-                    evidence.autoBackup().map(SliceKey::from));
-        }
-
-        private static String normalizePath(final java.nio.file.Path path) {
-            final java.nio.file.Path normalized =
-                    Objects.requireNonNull(path.toAbsolutePath().normalize(), "normalized path");
-            return Objects.requireNonNull(normalized.toString(), "normalized path text");
-        }
-
-        private boolean matches(final ConnectionKey other) {
-            return other != null
-                    && sessionId.equals(other.sessionId)
-                    && projectWorkspace.matches(other.projectWorkspace)
-                    && optionalSliceMatches(clipMask, other.clipMask)
-                    && optionalSliceMatches(editorModel, other.editorModel)
-                    && optionalSliceMatches(coreRuntime, other.coreRuntime)
-                    && optionalSliceMatches(mainToolbar, other.mainToolbar)
-                    && optionalSliceMatches(embeddedPanel, other.embeddedPanel)
-                    && optionalSliceMatches(topMenu, other.topMenu)
-                    && optionalSliceMatches(boundingBoxOverlayButton, other.boundingBoxOverlayButton)
-                    && optionalSliceMatches(workspaceControl, other.workspaceControl)
-                    && optionalSliceMatches(statusBar, other.statusBar)
-                    && optionalSliceMatches(autoBackup, other.autoBackup);
-        }
-
-        private static boolean optionalSliceMatches(
-                final java.util.Optional<SliceKey> left, final java.util.Optional<SliceKey> right) {
-            return left.isEmpty()
-                    ? right.isEmpty()
-                    : right.isPresent() && left.orElseThrow().matches(right.orElseThrow());
-        }
-    }
-
-    private record SliceKey(
-            String reviewedRecord,
-            String verifiedArtifact,
-            ClassLoader hostClassLoader,
-            Optional<dev.turboism.mapping.verification.SliceContract> contract) {
-        private static SliceKey from(final HostVerificationEvidence.Slice slice) {
-            return new SliceKey(
-                    ConnectionKey.normalizePath(slice.reviewedRecord()),
-                    ConnectionKey.normalizePath(slice.verifiedArtifact()),
-                    slice.hostClassLoader(),
-                    slice.contract());
-        }
-
-        private boolean matches(final SliceKey other) {
-            return other != null
-                    && reviewedRecord.equals(other.reviewedRecord)
-                    && verifiedArtifact.equals(other.verifiedArtifact)
-                    && hostClassLoader == other.hostClassLoader
-                    && contract.equals(other.contract);
-        }
-    }
-
-    private record CleanupOutcome(Throwable failure) {
-        private static CleanupOutcome success() {
-            return new CleanupOutcome(null);
-        }
-
-        private static CleanupOutcome failed(final Throwable failure) {
-            return new CleanupOutcome(Objects.requireNonNull(failure, "failure"));
-        }
-
-        private boolean succeeded() {
-            return failure == null;
-        }
-
-        private CleanupOutcome combine(final CleanupOutcome other) {
-            if (succeeded()) {
-                return other;
-            }
-            if (other.succeeded()) {
-                return this;
-            }
-            if (failure != other.failure) {
-                failure.addSuppressed(other.failure);
-            }
-            return this;
-        }
     }
 
     /** Lifecycle state of a host session. */

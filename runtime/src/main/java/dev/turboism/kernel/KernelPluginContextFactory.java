@@ -2,7 +2,6 @@ package dev.turboism.kernel;
 
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
-import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.failure.RuntimeFailureCollector;
@@ -11,6 +10,8 @@ import dev.turboism.graal.GraalHostManager;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
 import dev.turboism.i18n.CubismHostLocale;
 import dev.turboism.i18n.RuntimePluginLocalization;
+import dev.turboism.kernel.context.CorePluginContext;
+import dev.turboism.kernel.context.PluginContextEnvironment;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.io.IOException;
@@ -195,18 +196,17 @@ final class KernelPluginContextFactory implements AutoCloseable {
             });
             final PreviewPluginServices services =
                     servicesFactory.create(requestedDescriptor, requestedClassLoader, requestedScope, eventOwner);
-            final dev.turboism.core.plugin.context.PluginContextEnvironment environment =
-                    dev.turboism.core.plugin.context.PluginContextEnvironment.builder(hostAccess)
-                            .generationAdmission(checkedGenerationAdmission)
-                            .localization(services.localization())
-                            .taskScheduler(services.taskScheduler())
-                            .pluginStorage(services.pluginStorage())
-                            .userFiles(services.userFiles())
-                            .hostReads(services.hostReads())
-                            .fileChooserHistory(fileChooserHistoryFor(requestedDescriptor.id(), fileChooserHistory))
-                            .exportSettings(services.exportSettings())
-                            .mcpConnectionService(services.mcpConnections())
-                            .build();
+            final PluginContextEnvironment environment = PluginContextEnvironment.builder(hostAccess)
+                    .generationAdmission(checkedGenerationAdmission)
+                    .localization(services.localization())
+                    .taskScheduler(services.taskScheduler())
+                    .pluginStorage(services.pluginStorage())
+                    .userFiles(services.userFiles())
+                    .hostReads(services.hostReads())
+                    .fileChooserHistory(fileChooserHistoryFor(requestedDescriptor.id(), fileChooserHistory))
+                    .exportSettings(services.exportSettings())
+                    .mcpConnectionService(services.mcpConnections())
+                    .build();
             final CorePluginContext context =
                     new CorePluginContext(services.dependencies().withConfig(services.typedConfig()), environment);
             if (requestedDescriptor

@@ -675,7 +675,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
             RuntimePluginLocalization localization,
             CleanupEvidenceCollector cleanupEvidence,
             dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner,
-            dev.turboism.core.plugin.context.CorePluginContext context,
+            dev.turboism.kernel.context.CorePluginContext context,
             PluginGenerationGuard guard) {
         LoadedPlugin {
             entrypoints = List.copyOf(entrypoints);

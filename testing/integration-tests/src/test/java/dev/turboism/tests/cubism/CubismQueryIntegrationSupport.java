@@ -2,10 +2,10 @@ package dev.turboism.tests.cubism;
 
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
-import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
+import dev.turboism.kernel.context.CorePluginContext;
 import dev.turboism.sdk.cubism.DeformerType;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;

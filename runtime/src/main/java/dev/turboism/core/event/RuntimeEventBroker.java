@@ -1,72 +1,48 @@
 package dev.turboism.core.event;
 
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.contract.PluginTask;
-import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
 import dev.turboism.core.runtime.work.FatalErrors;
-import dev.turboism.core.runtime.work.PluginExecutorSet;
-import dev.turboism.core.runtime.work.PluginWorkSubmission;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.EventPriority;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.Registration;
 import java.time.Duration;
-import java.util.ArrayDeque;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-/** Session-scoped registry and dispatcher shared by plugin event-bus facades. */
+/**
+ * Session-scoped registry and dispatcher shared by plugin event-bus facades.
+ *
+ * <p>This type is the stable seam the rest of {@code :runtime} depends on. It owns no routing,
+ * mailbox, or diagnostic policy of its own: {@link EventSubscriptionRegistry} owns the routes,
+ * {@link EventOwnerGenerations} owns generation lifecycle and mailboxes,
+ * {@link EventDeliveryPipeline} owns admission and authorization, and
+ * {@link EventDeliveryDiagnostics} owns the report sinks. The broker keeps only the state that
+ * spans those collaborators — retained runtime observations, failure advice, and subscription
+ * demand listeners — plus the public API that callers already use.
+ */
 public final class RuntimeEventBroker {
 
-    private static final String EVENT_TASK_TYPE = "event.subscribe";
-    private static final PluginEventOwnerKey INTERNAL_DIAGNOSTIC_OWNER =
-            new PluginEventOwnerKey("dev.turboism.runtime.internal", PluginEventOwnerKey.INTERNAL_GENERATION);
-    private static final String DEFAULT_CAPABILITY = "none";
     private static final int DEFAULT_MAILBOX_CAPACITY = 64;
     private static final Duration DEFAULT_SLOW_DELIVERY = Duration.ofSeconds(5);
-    private static final Comparator<Subscription<? extends EventBus.TurboismEvent>> SUBSCRIPTION_ORDER =
-            Comparator.comparingInt((Subscription<? extends EventBus.TurboismEvent> value) ->
-                            value.priority().ordinal())
-                    .thenComparing(value -> value.owner().pluginId())
-                    .thenComparingLong(value -> value.owner().generation())
-                    .thenComparingInt(Subscription::entrypointOrdinal)
-                    .thenComparingInt(Subscription::methodOrdinal)
-                    .thenComparingLong(Subscription::sequence);
 
-    private final RuntimeScheduler scheduler;
-    private final Object subscriptionLock = new Object();
+    private final EventSubscriptionRegistry registry = new EventSubscriptionRegistry();
+    private final EventOwnerGenerations generations;
+    private final EventDeliveryDiagnostics diagnostics;
+    private final EventDeliveryPipeline pipeline;
     private final RuntimeEventContractCatalog contractCatalog = new RuntimeEventContractCatalog();
     private final PublicEventRouteCatalog publicRoutes = new PublicEventRouteCatalog();
-    private final int mailboxCapacity;
-    private final AtomicLong sequence = new AtomicLong();
-    private final ConcurrentMap<String, AtomicLong> generations = new ConcurrentHashMap<>();
-    private final ConcurrentMap<PluginEventOwnerKey, OwnerState> owners = new ConcurrentHashMap<>();
-    private final ConcurrentMap<
-                    Class<? extends EventBus.TurboismEvent>,
-                    CopyOnWriteArrayList<Subscription<? extends EventBus.TurboismEvent>>>
-            subscribers = new ConcurrentHashMap<>();
-    private final ConcurrentMap<Class<?>, List<Subscription<? extends EventBus.TurboismEvent>>> dispatchPlans =
-            new ConcurrentHashMap<>();
-    private final Consumer<DeliveryDiagnostic> diagnosticSink;
     private final Consumer<SubscriberFailure> subscriberFailureSink;
     private final ConcurrentMap<PluginEventOwnerKey, EventFailureInterceptor> failureInterceptors =
             new ConcurrentHashMap<>();
     private final ConcurrentMap<Class<?>, AtomicReference<?>> runtimeObservationBaselines = new ConcurrentHashMap<>();
     private final ConcurrentMap<Class<?>, EventBus.TurboismEvent> retainedRuntimeEvents = new ConcurrentHashMap<>();
-    private final ConcurrentMap<PluginEventOwnerKey, PermissionChecker> ownerPermissions = new ConcurrentHashMap<>();
-    private final Set<DeniedRoute> deniedDeliveries = ConcurrentHashMap.newKeySet();
-    private final Set<DeniedRoute> slowDeliveries = ConcurrentHashMap.newKeySet();
-    private final ConcurrentMap<PluginEventOwnerKey, PluginExecutorSet> executorClaims = new ConcurrentHashMap<>();
-    private final Duration slowDeliveryThreshold;
     private final CopyOnWriteArrayList<Consumer<Class<?>>> subscriptionDemandListeners = new CopyOnWriteArrayList<>();
 
     public RuntimeEventBroker(final RuntimeScheduler scheduler) {
@@ -98,14 +74,14 @@ public final class RuntimeEventBroker {
             final Consumer<DeliveryDiagnostic> diagnosticSink,
             final Consumer<SubscriberFailure> subscriberFailureSink,
             final Duration slowDeliveryThreshold) {
-        this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
+        final RuntimeScheduler value = Objects.requireNonNull(scheduler, "scheduler");
         if (mailboxCapacity < 1) {
             throw new IllegalArgumentException("mailboxCapacity must be positive");
         }
-        this.mailboxCapacity = mailboxCapacity;
-        this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.subscriberFailureSink = Objects.requireNonNull(subscriberFailureSink, "subscriberFailureSink");
-        this.slowDeliveryThreshold = Objects.requireNonNull(slowDeliveryThreshold, "slowDeliveryThreshold");
+        this.generations = new EventOwnerGenerations(value, mailboxCapacity);
+        this.diagnostics = new EventDeliveryDiagnostics(diagnosticSink, slowDeliveryThreshold);
+        this.pipeline = new EventDeliveryPipeline(value, generations, registry, diagnostics, publicRoutes);
     }
 
     /** Validates shared public event payload classes before plugin code is initialized. */
@@ -142,8 +118,7 @@ public final class RuntimeEventBroker {
      */
     public boolean hasObserversFor(final Class<? extends EventBus.TurboismEvent> eventType) {
         Objects.requireNonNull(eventType, "eventType");
-        final List<Subscription<? extends EventBus.TurboismEvent>> plan = dispatchPlan(eventType);
-        for (Subscription<? extends EventBus.TurboismEvent> subscription : plan) {
+        for (EventSubscription<? extends EventBus.TurboismEvent> subscription : registry.dispatchPlan(eventType)) {
             if (subscription.active()) {
                 return true;
             }
@@ -157,21 +132,9 @@ public final class RuntimeEventBroker {
      * that never gets a facade binding is a runtime-internal participant (raw broker
      * subscriptions are a compatibility seam not exposed through the public SDK)
      * and delivers unfiltered.
-     *
-     * <p>Multiple facades may exist for one owner (legacy compat bus plus the
-     * composition-bound bus). Bindings therefore combine monotonically: an event
-     * type is deliverable only when <em>every</em> bound checker permits it, so a
-     * second, broader facade can never widen the authorization of subscriptions
-     * created under a narrower grant.</p>
      */
     void bindOwnerPermissions(final PluginEventOwnerKey owner, final PermissionChecker permissionChecker) {
-        ownerPermissions.merge(
-                Objects.requireNonNull(owner, "owner"),
-                Objects.requireNonNull(permissionChecker, "permissionChecker"),
-                (first, second) -> (permission, operation) -> {
-                    first.check(permission, operation);
-                    second.check(permission, operation);
-                });
+        pipeline.bindOwnerPermissions(owner, permissionChecker);
     }
 
     /** Admits one inactive plugin generation whose subscriptions can be staged before activation. */
@@ -186,29 +149,23 @@ public final class RuntimeEventBroker {
     }
 
     private Owner admit(final String id, final PluginDescriptor descriptor) {
-        final long generation =
-                generations.computeIfAbsent(id, ignored -> new AtomicLong()).incrementAndGet();
-        final PluginEventOwnerKey key = new PluginEventOwnerKey(id, generation);
-        final OwnerState state = new OwnerState(key, mailboxCapacity);
-        if (owners.putIfAbsent(key, state) != null) {
-            throw new IllegalStateException("Plugin event owner generation already exists: " + key);
-        }
+        final PluginEventOwnerKey key = generations.nextGeneration(id);
+        final EventOwnerGenerations.OwnerMailbox mailbox = generations.register(key);
         try {
             if (descriptor != null) {
                 publicRoutes.admit(key, descriptor);
             }
             return new Owner(this, key);
         } catch (RuntimeException | Error failure) {
-            owners.remove(key, state);
+            generations.unregister(key, mailbox);
             throw failure;
         }
     }
 
     /** Returns the active generation-zero owner shared by plugin contexts and integrations. */
     public PluginEventOwnerKey pluginOwner(final String pluginId) {
-        final String id = requireText(pluginId, "pluginId");
-        final PluginEventOwnerKey key = new PluginEventOwnerKey(id, 0L);
-        owners.computeIfAbsent(key, ignored -> OwnerState.active(key, mailboxCapacity));
+        final PluginEventOwnerKey key = new PluginEventOwnerKey(requireText(pluginId, "pluginId"), 0L);
+        generations.registerActive(key);
         return key;
     }
 
@@ -241,32 +198,26 @@ public final class RuntimeEventBroker {
             final boolean permissionFiltered,
             final Consumer<T> listener) {
         final PluginEventOwnerKey key = Objects.requireNonNull(owner, "owner");
-        final Subscription<T> subscription;
-        synchronized (requireOwner(key).monitor()) {
-            requireSubscribableOwner(key);
-            subscription = new Subscription<>(
-                    sequence.incrementAndGet(),
+        final EventSubscription<T> subscription;
+        // The owner monitor is held across registration so a lifecycle transition cannot
+        // interleave with the route that transition is about to fence.
+        synchronized (generations.require(key).monitor()) {
+            generations.requireSubscribable(key);
+            subscription = registry.register(
                     key,
-                    Objects.requireNonNull(type, "type"),
-                    Objects.requireNonNull(priority, "priority"),
+                    type,
+                    priority,
                     entrypointOrdinal,
                     methodOrdinal,
                     deliverWhileEnabling,
                     permissionFiltered,
-                    Objects.requireNonNull(listener, "listener"));
-            synchronized (subscriptionLock) {
-                final CopyOnWriteArrayList<Subscription<? extends EventBus.TurboismEvent>> route =
-                        subscribers.computeIfAbsent(type, ignored -> new CopyOnWriteArrayList<>());
-                route.add(subscription);
-                route.sort(SUBSCRIPTION_ORDER);
-                dispatchPlans.clear();
-            }
+                    listener);
         }
-        if (requireOwner(key).lifecycleSnapshot() == OwnerLifecycle.ACTIVE) {
+        if (generations.require(key).lifecycleSnapshot() == OwnerLifecycle.ACTIVE) {
             replayRetained(subscription);
         }
         notifySubscriptionDemand(type);
-        return () -> remove(type, subscription);
+        return () -> registry.remove(type, subscription);
     }
 
     private void notifySubscriptionDemand(final Class<?> subscribedType) {
@@ -275,10 +226,10 @@ public final class RuntimeEventBroker {
                 listener.accept(subscribedType);
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
-                diagnose(new DeliveryDiagnostic(
-                        INTERNAL_DIAGNOSTIC_OWNER,
+                diagnostics.report(
+                        EventDeliveryDiagnostics.internalOwner(),
                         subscribedType.getName(),
-                        DeliveryDiagnostic.Code.SUBSCRIBER_FAILED));
+                        DeliveryDiagnostic.Code.SUBSCRIBER_FAILED);
             }
         }
     }
@@ -294,7 +245,7 @@ public final class RuntimeEventBroker {
             final PluginEventOwnerKey owner,
             final List<EventSubscriberDescriptor> descriptors,
             final List<?> entrypoints) {
-        final PluginEventOwnerKey key = requireSubscribableOwner(owner);
+        final PluginEventOwnerKey key = generations.requireSubscribable(owner);
         final List<EventSubscriberDescriptor> values = List.copyOf(Objects.requireNonNull(descriptors, "descriptors"));
         values.forEach(descriptor -> publicRoutes.requireSubscription(key, descriptor.eventType()));
         final EventFailureInterceptor interceptor = new EventFailureInterceptor(entrypoints);
@@ -328,43 +279,9 @@ public final class RuntimeEventBroker {
         Objects.requireNonNull(eventType, "eventType");
         Objects.requireNonNull(eventFactory, "eventFactory");
         Objects.requireNonNull(candidate, "candidate");
-        float current = initialValue;
-        final List<Subscription<? extends EventBus.TurboismEvent>> route = dispatchPlan(eventType);
-        for (Subscription<? extends EventBus.TurboismEvent> subscription : route) {
-            final OwnerState owner = owners.get(subscription.owner());
-            if (owner == null
-                    || !mayDeliver(subscription, eventType)
-                    || !owner.beginSynchronousDeliverySnapshot(subscription)) {
-                continue;
-            }
-            final long startedNanos = System.nanoTime();
-            try {
-                try (TransformCallback callback =
-                        Objects.requireNonNull(eventFactory.apply(current), "eventFactory result")) {
-                    final EventBus.TurboismEvent event = Objects.requireNonNull(callback.event(), "transform event");
-                    if (!eventType.isInstance(event) || !subscription.type().isInstance(event)) {
-                        throw new IllegalArgumentException("Runtime transform factory produced an incompatible event: "
-                                + event.getClass().getName());
-                    }
-                    try {
-                        subscription.deliverDispatched(event);
-                        final Float transformed = candidate.apply(event);
-                        if (transformed != null && Float.isFinite(transformed)) {
-                            current = transformed;
-                        }
-                    } catch (Throwable failure) {
-                        FatalErrors.rethrowIfFatal(failure);
-                        diagnose(new DeliveryDiagnostic(
-                                owner.key(), eventType.getName(), DeliveryDiagnostic.Code.SUBSCRIBER_FAILED));
-                        // The checkpoint in current remains authoritative for later subscribers.
-                    }
-                }
-            } finally {
-                owner.deliveryFinished();
-                diagnoseSlowSynchronousDelivery(owner.key(), eventType, startedNanos);
-            }
-        }
-        return current;
+        // A non-finite float is not a usable transform result, so it restores the checkpoint.
+        return publishRuntimeTransform(
+                eventType, Float.valueOf(initialValue), eventFactory, candidate, Float::isFinite);
     }
 
     /**
@@ -385,11 +302,10 @@ public final class RuntimeEventBroker {
         Objects.requireNonNull(candidate, "candidate");
         Objects.requireNonNull(validator, "validator");
         T current = initialValue;
-        final List<Subscription<? extends EventBus.TurboismEvent>> route = dispatchPlan(eventType);
-        for (Subscription<? extends EventBus.TurboismEvent> subscription : route) {
-            final OwnerState owner = owners.get(subscription.owner());
+        for (EventSubscription<? extends EventBus.TurboismEvent> subscription : registry.dispatchPlan(eventType)) {
+            final EventOwnerGenerations.OwnerMailbox owner = generations.find(subscription.owner());
             if (owner == null
-                    || !mayDeliver(subscription, eventType)
+                    || !pipeline.mayDeliver(subscription, eventType)
                     || !owner.beginSynchronousDeliverySnapshot(subscription)) {
                 continue;
             }
@@ -398,10 +314,7 @@ public final class RuntimeEventBroker {
                 try (TransformCallback callback =
                         Objects.requireNonNull(eventFactory.apply(current), "eventFactory result")) {
                     final EventBus.TurboismEvent event = Objects.requireNonNull(callback.event(), "transform event");
-                    if (!eventType.isInstance(event) || !subscription.type().isInstance(event)) {
-                        throw new IllegalArgumentException("Runtime transform factory produced an incompatible event: "
-                                + event.getClass().getName());
-                    }
+                    requireCompatibleTransformEvent(eventType, subscription, event);
                     try {
                         subscription.deliverDispatched(event);
                         final T transformed = candidate.apply(event);
@@ -410,17 +323,30 @@ public final class RuntimeEventBroker {
                         }
                     } catch (Throwable failure) {
                         FatalErrors.rethrowIfFatal(failure);
-                        diagnose(new DeliveryDiagnostic(
-                                owner.key(), eventType.getName(), DeliveryDiagnostic.Code.SUBSCRIBER_FAILED));
+                        diagnostics.report(owner.key(), eventType.getName(), DeliveryDiagnostic.Code.SUBSCRIBER_FAILED);
                         // The checkpoint in current remains authoritative for later subscribers.
                     }
                 }
             } finally {
                 owner.deliveryFinished();
-                diagnoseSlowSynchronousDelivery(owner.key(), eventType, startedNanos);
+                diagnostics.reportSlowDeliveryIfOverrun(owner.key(), eventType, startedNanos);
             }
         }
         return current;
+    }
+
+    /**
+     * Rejects a transform event that does not match the published type or the route's registered
+     * type. A mismatched event would otherwise reach a listener that never agreed to receive it.
+     */
+    private static void requireCompatibleTransformEvent(
+            final Class<? extends EventBus.TurboismEvent> eventType,
+            final EventSubscription<? extends EventBus.TurboismEvent> subscription,
+            final EventBus.TurboismEvent event) {
+        if (!eventType.isInstance(event) || !subscription.type().isInstance(event)) {
+            throw new IllegalArgumentException("Runtime transform factory produced an incompatible event: "
+                    + event.getClass().getName());
+        }
     }
 
     /** One callback-scoped Runtime transform event. */
@@ -496,25 +422,11 @@ public final class RuntimeEventBroker {
 
     /** Publishes a plugin-owned event after exact-owner and contract validation. */
     public <T extends EventBus.TurboismEvent> void publish(final PluginEventOwnerKey publisher, final T event) {
-        requireActiveOwner(publisher, "publish");
+        generations.requireActive(publisher, "publish");
         final T value = Objects.requireNonNull(event, "event");
         contractCatalog.requirePluginPublicationAllowed(publisher, value);
         publicRoutes.requirePublication(publisher, value);
-        publishExact(value);
-    }
-
-    private <T extends EventBus.TurboismEvent> void publishExact(final T event) {
-        final List<Subscription<? extends EventBus.TurboismEvent>> route;
-        synchronized (subscriptionLock) {
-            final CopyOnWriteArrayList<Subscription<? extends EventBus.TurboismEvent>> current =
-                    subscribers.get(event.getClass());
-            route = current == null ? List.of() : List.copyOf(current);
-        }
-        for (Subscription<? extends EventBus.TurboismEvent> subscription : route) {
-            if (publicRoutes.mayReceive(subscription.owner(), event.getClass())) {
-                enqueue(event, subscription);
-            }
-        }
+        pipeline.publishExact(value);
     }
 
     /** Publishes a Runtime-owned event from a reviewed Runtime integration point. */
@@ -532,419 +444,74 @@ public final class RuntimeEventBroker {
         if (retain) {
             retainedRuntimeEvents.put(value.getClass(), value);
         }
-        for (Subscription<? extends EventBus.TurboismEvent> subscription : dispatchPlan(value.getClass())) {
-            if (publicRoutes.mayReceive(subscription.owner(), value.getClass())) {
-                enqueue(value, subscription);
-            }
-        }
+        pipeline.publishRouted(value);
     }
 
-    private List<Subscription<? extends EventBus.TurboismEvent>> dispatchPlan(final Class<?> concreteType) {
-        final List<Subscription<? extends EventBus.TurboismEvent>> cached = dispatchPlans.get(concreteType);
-        if (cached != null) {
-            return cached;
-        }
-        synchronized (subscriptionLock) {
-            final List<Subscription<? extends EventBus.TurboismEvent>> current = dispatchPlans.get(concreteType);
-            if (current != null) {
-                return current;
-            }
-            final List<Subscription<? extends EventBus.TurboismEvent>> planned = subscribers.entrySet().stream()
-                    .filter(entry -> entry.getKey().isAssignableFrom(concreteType))
-                    .flatMap(entry -> entry.getValue().stream())
-                    .sorted(SUBSCRIPTION_ORDER)
-                    .toList();
-            dispatchPlans.put(concreteType, planned);
-            return planned;
-        }
-    }
-
-    private void replayRetained(final Subscription<? extends EventBus.TurboismEvent> subscription) {
+    private void replayRetained(final EventSubscription<? extends EventBus.TurboismEvent> subscription) {
         retainedRuntimeEvents.forEach((concreteType, event) -> {
             if (subscription.type().isAssignableFrom(concreteType)
-                    && mayDeliver(subscription, concreteType)
+                    && pipeline.mayDeliver(subscription, concreteType)
                     && publicRoutes.mayReceive(subscription.owner(), concreteType)) {
-                enqueue(event, subscription);
+                pipeline.enqueue(event, subscription);
             }
         });
     }
 
     private void replayRetained(final PluginEventOwnerKey owner) {
-        subscribers.values().stream()
-                .flatMap(List::stream)
-                .filter(subscription -> subscription.owner().equals(owner))
-                .forEach(this::replayRetained);
-    }
-
-    private <T extends EventBus.TurboismEvent> void remove(final Class<T> type, final Subscription<T> subscription) {
-        subscription.deactivate();
-        synchronized (subscriptionLock) {
-            final CopyOnWriteArrayList<Subscription<? extends EventBus.TurboismEvent>> eventSubscribers =
-                    subscribers.get(type);
-            if (eventSubscribers == null) {
-                return;
-            }
-            eventSubscribers.remove(subscription);
-            dispatchPlans.clear();
-            if (eventSubscribers.isEmpty()) {
-                subscribers.remove(type, eventSubscribers);
-            }
-        }
-    }
-
-    private <T extends EventBus.TurboismEvent> void enqueue(
-            final T event, final Subscription<? extends EventBus.TurboismEvent> subscription) {
-        if (!subscription.active() || !subscription.type().isInstance(event)) {
-            return;
-        }
-        final OwnerState owner = owners.get(subscription.owner());
-        if (owner == null
-                || !subscription.accepts(owner.lifecycleSnapshot())
-                || !mayDeliver(subscription, event.getClass())) {
-            return;
-        }
-        final EnqueueResult result = owner.enqueue(new Delivery(event, subscription));
-        if (result == EnqueueResult.SCHEDULE) {
-            scheduleDrain(owner);
-        } else if (result == EnqueueResult.SATURATED) {
-            diagnose(new DeliveryDiagnostic(
-                    owner.key(), event.getClass().getName(), DeliveryDiagnostic.Code.MAILBOX_SATURATED));
-        }
-    }
-
-    private void scheduleDrain(final OwnerState owner) {
-        final RuntimeCancellationToken token = owner.drainToken();
-        final PluginWorkSubmission submission = scheduler.submitEventDelivery(
-                new PluginTask(
-                        EVENT_TASK_TYPE,
-                        owner.key().pluginId(),
-                        owner.key().pluginId() + " event generation "
-                                + owner.key().generation(),
-                        DEFAULT_CAPABILITY),
-                token,
-                () -> drain(owner));
-        if (!submission.accepted()) {
-            owner.rejectDrain();
-            diagnose(new DeliveryDiagnostic(owner.key(), "", DeliveryDiagnostic.Code.SCHEDULER_REJECTED));
-        }
-    }
-
-    private void drain(final OwnerState owner) {
-        try {
-            while (true) {
-                final Delivery delivery = owner.nextDelivery();
-                if (delivery == null) {
-                    break;
-                }
-                // Re-authorize at drain time: a grant narrowed or revoked between
-                // enqueue and delivery must still suppress the queued event.
-                if (!mayDeliver(delivery.subscription(), delivery.event().getClass())) {
-                    owner.deliveryFinished();
-                    continue;
-                }
-                final long startedNanos = System.nanoTime();
-                try {
-                    delivery.deliver(owner.key());
-                } catch (Throwable failure) {
-                    FatalErrors.rethrowIfFatal(failure);
-                    diagnose(new DeliveryDiagnostic(
-                            owner.key(),
-                            delivery.event().getClass().getName(),
-                            DeliveryDiagnostic.Code.SUBSCRIBER_FAILED));
-                } finally {
-                    owner.deliveryFinished();
-                    // Delivery runs on the event lane with no wall-clock limiter: a slow
-                    // subscriber is reported once per owner/type instead of interrupted.
-                    diagnoseSlowSynchronousDelivery(
-                            owner.key(), delivery.event().getClass(), startedNanos);
-                }
-            }
-        } finally {
-            final boolean reschedule = owner.drainFinished();
-            if (reschedule) {
-                scheduleDrain(owner);
-            }
-        }
-    }
-
-    /**
-     * Delivery-time domain authorization for plugin-facing subscriptions. The
-     * concrete event type's required permissions are evaluated against the
-     * owner's facade-bound checker on every delivery — a broad root/supertype
-     * subscription receives exactly the subset its owner may observe and can
-     * never intercept a gated transform. Runtime adapter subscriptions and
-     * owners without a facade-bound checker (raw broker callers are not
-     * plugin-reachable) are trusted and pass through. Denials are diagnosed
-     * once per owner/type pair.
-     */
-    private boolean mayDeliver(
-            final Subscription<? extends EventBus.TurboismEvent> subscription, final Class<?> concreteType) {
-        if (!subscription.permissionFiltered()) {
-            return true;
-        }
-        final PermissionChecker checker = ownerPermissions.get(subscription.owner());
-        if (checker == null) {
-            return true;
-        }
-        @SuppressWarnings("unchecked")
-        final Class<? extends EventBus.TurboismEvent> eventType =
-                (Class<? extends EventBus.TurboismEvent>) concreteType;
-        if (EventSubscriptionPermissionCatalog.isPermitted(eventType, checker)) {
-            return true;
-        }
-        if (deniedDeliveries.add(new DeniedRoute(subscription.owner(), concreteType))) {
-            diagnose(new DeliveryDiagnostic(
-                    subscription.owner(), concreteType.getName(), DeliveryDiagnostic.Code.DELIVERY_PERMISSION_DENIED));
-        }
-        return false;
-    }
-
-    /**
-     * Reports one synchronous subscriber that ran past the slow-delivery threshold.
-     * The diagnostic is recorded at most once per owner and event type, and delivery is
-     * never interrupted: the caller still receives the subscriber's final candidate.
-     */
-    private void diagnoseSlowSynchronousDelivery(
-            final PluginEventOwnerKey owner, final Class<?> eventType, final long startedNanos) {
-        if (System.nanoTime() - startedNanos < slowDeliveryThreshold.toNanos()) {
-            return;
-        }
-        if (slowDeliveries.add(new DeniedRoute(owner, eventType))) {
-            diagnose(new DeliveryDiagnostic(owner, eventType.getName(), DeliveryDiagnostic.Code.SUBSCRIBER_SLOW));
-        }
-    }
-
-    private void diagnose(final DeliveryDiagnostic diagnostic) {
-        try {
-            diagnosticSink.accept(diagnostic);
-        } catch (Throwable ignored) {
-            FatalErrors.rethrowIfFatal(ignored);
-            // Diagnostics must never alter publication or host-operation behavior.
-        }
-    }
-
-    private PluginEventOwnerKey requireSubscribableOwner(final PluginEventOwnerKey owner) {
-        final OwnerState state = requireOwner(owner);
-        synchronized (state.monitor()) {
-            if (state.lifecycle() != OwnerLifecycle.ADMITTED
-                    && state.lifecycle() != OwnerLifecycle.INITIALIZING
-                    && state.lifecycle() != OwnerLifecycle.ENABLING
-                    && state.lifecycle() != OwnerLifecycle.ACTIVE) {
-                throw new IllegalStateException(
-                        "Plugin event owner does not accept subscriptions: " + owner + " state=" + state.lifecycle());
-            }
-        }
-        return owner;
-    }
-
-    private OwnerState requireActiveOwner(final PluginEventOwnerKey owner, final String operation) {
-        final OwnerState state = requireOwner(owner);
-        synchronized (state.monitor()) {
-            if (state.lifecycle() != OwnerLifecycle.ACTIVE
-                    && state.lifecycle() != OwnerLifecycle.ENABLING
-                    && state.lifecycle() != OwnerLifecycle.INITIALIZING) {
-                throw new IllegalStateException(
-                        "Plugin event owner cannot " + operation + ": " + owner + " state=" + state.lifecycle());
-            }
-        }
-        return state;
-    }
-
-    private OwnerState requireOwner(final PluginEventOwnerKey owner) {
-        final PluginEventOwnerKey key = Objects.requireNonNull(owner, "owner");
-        final OwnerState state = owners.get(key);
-        if (state == null) {
-            throw new IllegalStateException("Unknown plugin event owner: " + key);
-        }
-        return state;
+        registry.routesOf(owner).forEach(this::replayRetained);
     }
 
     private void beginInitializing(final PluginEventOwnerKey owner) {
-        final OwnerState state = requireOwner(owner);
-        synchronized (state.monitor()) {
-            if (state.lifecycle() != OwnerLifecycle.ADMITTED) {
-                throw new IllegalStateException(
-                        "Plugin event owner cannot begin initializing: " + owner + " state=" + state.lifecycle());
-            }
-            state.lifecycle(OwnerLifecycle.INITIALIZING);
-        }
+        generations.beginInitializing(owner);
     }
 
     private void beginEnabling(final PluginEventOwnerKey owner) {
-        final OwnerState state = requireOwner(owner);
-        synchronized (state.monitor()) {
-            if (state.lifecycle() != OwnerLifecycle.INITIALIZING) {
-                throw new IllegalStateException(
-                        "Plugin event owner cannot begin enabling: " + owner + " state=" + state.lifecycle());
-            }
-            state.lifecycle(OwnerLifecycle.ENABLING);
-        }
+        generations.beginEnabling(owner);
     }
 
     private void activate(final PluginEventOwnerKey owner) {
-        final OwnerState state = requireOwner(owner);
-        synchronized (state.monitor()) {
-            if (state.lifecycle() != OwnerLifecycle.ADMITTED && state.lifecycle() != OwnerLifecycle.ENABLING) {
-                throw new IllegalStateException(
-                        "Plugin event owner cannot activate: " + owner + " state=" + state.lifecycle());
-            }
-            publicRoutes.activate(owner);
-            state.lifecycle(OwnerLifecycle.ACTIVE);
-        }
+        generations.activate(owner, () -> publicRoutes.activate(owner));
         replayRetained(owner);
     }
 
     private void beginClosing(final PluginEventOwnerKey owner) {
-        final OwnerState state = owners.get(Objects.requireNonNull(owner, "owner"));
-        if (state == null) {
-            return;
+        if (generations.beginClosing(owner)) {
+            registry.removeOwner(owner);
         }
-        synchronized (state.monitor()) {
-            if (state.lifecycle() == OwnerLifecycle.CLOSING
-                    || state.lifecycle() == OwnerLifecycle.QUIESCED
-                    || state.lifecycle() == OwnerLifecycle.CLOSED) {
-                return;
-            }
-            state.lifecycle(OwnerLifecycle.CLOSING);
-            state.cancelPending();
-        }
-        removeOwnerSubscriptions(owner);
     }
 
     private boolean awaitQuiescence(final PluginEventOwnerKey owner, final Duration timeout) {
-        Objects.requireNonNull(timeout, "timeout");
-        if (timeout.isNegative()) {
-            throw new IllegalArgumentException("timeout must not be negative");
-        }
-        final OwnerState state = owners.get(Objects.requireNonNull(owner, "owner"));
-        if (state == null) {
-            return true;
-        }
-        final long timeoutNanos = timeout.toNanos();
-        final long deadline = System.nanoTime() + timeoutNanos;
-        boolean interrupted = false;
-        synchronized (state.monitor()) {
-            if (state.lifecycle() != OwnerLifecycle.CLOSING
-                    && state.lifecycle() != OwnerLifecycle.QUIESCED
-                    && state.lifecycle() != OwnerLifecycle.CLOSED) {
-                throw new IllegalStateException("Plugin event owner must begin closing before quiescence: " + owner);
-            }
-            while (!state.quiescent()) {
-                final long remaining = deadline - System.nanoTime();
-                if (remaining <= 0L) {
-                    if (interrupted) {
-                        Thread.currentThread().interrupt();
-                    }
-                    return false;
-                }
-                try {
-                    final long millis = remaining / 1_000_000L;
-                    final int nanos = (int) (remaining % 1_000_000L);
-                    state.monitor().wait(millis, nanos);
-                } catch (InterruptedException ignored) {
-                    interrupted = true;
-                }
-            }
-            if (state.lifecycle() == OwnerLifecycle.CLOSING) {
-                state.lifecycle(OwnerLifecycle.QUIESCED);
-            }
-        }
-        if (interrupted) {
-            Thread.currentThread().interrupt();
-        }
-        return true;
+        return generations.awaitQuiescence(owner, timeout);
     }
 
     private void close(final PluginEventOwnerKey owner) {
-        final OwnerState state = owners.get(Objects.requireNonNull(owner, "owner"));
-        if (state == null) {
+        if (!generations.close(owner)) {
             return;
         }
-        synchronized (state.monitor()) {
-            if (state.lifecycle() != OwnerLifecycle.QUIESCED && state.lifecycle() != OwnerLifecycle.CLOSED) {
-                throw new IllegalStateException(
-                        "Plugin event owner must quiesce before close: " + owner + " state=" + state.lifecycle());
-            }
-            state.lifecycle(OwnerLifecycle.CLOSED);
-        }
-        owners.remove(owner, state);
         failureInterceptors.remove(owner);
         publicRoutes.remove(owner);
-        ownerPermissions.remove(owner);
-        deniedDeliveries.removeIf(route -> route.owner().equals(owner));
-        slowDeliveries.removeIf(route -> route.owner().equals(owner));
+        pipeline.releaseOwner(owner);
+        diagnostics.release(owner);
     }
 
-    /**
-     * Captures the executor set mapped to this generation's plugin id. Idempotent per key: the
-     * first claim wins so a re-driven fence never swaps the captured set mid-close. Claims are
-     * tracked independently of owner lifecycle, so a release after {@link #close} still works —
-     * the failed-load path closes the owner before its executor release runs.
-     */
     private void claimExecutors(final PluginEventOwnerKey key) {
-        executorClaims.computeIfAbsent(key, k -> scheduler.claimPluginExecutors(k.pluginId()));
+        generations.claimExecutors(key);
     }
 
-    /**
-     * Removes this generation's executor claim and shuts the captured set down through
-     * generation-safe compare-and-remove: a set the registry has already replaced for a newer
-     * generation is left running, while this generation's own set always dies.
-     */
     private void releaseExecutors(final PluginEventOwnerKey key) {
-        final PluginExecutorSet claimed = executorClaims.remove(key);
-        if (claimed != null) {
-            scheduler.releasePluginExecutors(key.pluginId(), claimed);
-        }
+        generations.releaseExecutors(key);
     }
 
-    /**
-     * Removes this generation's executor claim and aborts the captured set without waiting for
-     * running work. Used by failed-load cleanup: the owner is already fenced and closed there,
-     * so a graceful drain cannot deliver anything and would only delay the caller.
-     */
     private void discardExecutors(final PluginEventOwnerKey key) {
-        final PluginExecutorSet claimed = executorClaims.remove(key);
-        if (claimed != null) {
-            scheduler.discardPluginExecutors(key.pluginId(), claimed);
-        }
+        generations.discardExecutors(key);
     }
 
     private OwnerLifecycle lifecycle(final PluginEventOwnerKey owner) {
-        final OwnerState state = owners.get(Objects.requireNonNull(owner, "owner"));
-        if (state == null) {
-            return OwnerLifecycle.CLOSED;
-        }
-        synchronized (state.monitor()) {
-            return state.lifecycle();
-        }
+        return generations.lifecycle(owner);
     }
 
     private long droppedDeliveries(final PluginEventOwnerKey owner) {
-        final OwnerState state = owners.get(Objects.requireNonNull(owner, "owner"));
-        if (state == null) {
-            return 0L;
-        }
-        synchronized (state.monitor()) {
-            return state.droppedDeliveries();
-        }
-    }
-
-    private void removeOwnerSubscriptions(final PluginEventOwnerKey owner) {
-        synchronized (subscriptionLock) {
-            subscribers.forEach((type, route) -> {
-                route.removeIf(subscription -> {
-                    if (!subscription.owner().equals(owner)) {
-                        return false;
-                    }
-                    subscription.deactivate();
-                    return true;
-                });
-                if (route.isEmpty()) {
-                    subscribers.remove(type, route);
-                }
-            });
-            dispatchPlans.clear();
-        }
+        return generations.droppedDeliveries(owner);
     }
 
     private static String requireText(final String value, final String name) {
@@ -1101,255 +668,6 @@ public final class RuntimeEventBroker {
             DELIVERY_PERMISSION_DENIED,
             /** The subscriber callback exceeded the slow-delivery threshold. */
             SUBSCRIBER_SLOW
-        }
-    }
-
-    private enum EnqueueResult {
-        SCHEDULE,
-        QUEUED,
-        SATURATED,
-        REJECTED_LIFECYCLE
-    }
-
-    private static final class OwnerState {
-        private final PluginEventOwnerKey key;
-        private final int mailboxCapacity;
-        private final Object monitor = new Object();
-        private final ArrayDeque<Delivery> mailbox = new ArrayDeque<>();
-        private OwnerLifecycle lifecycle;
-        private RuntimeCancellationToken drainToken = new RuntimeCancellationToken();
-        private boolean drainScheduled;
-        private int runningDeliveries;
-        private long droppedDeliveries;
-
-        private OwnerState(final PluginEventOwnerKey key, final int mailboxCapacity) {
-            this(key, mailboxCapacity, OwnerLifecycle.ADMITTED);
-        }
-
-        private OwnerState(final PluginEventOwnerKey key, final int mailboxCapacity, final OwnerLifecycle lifecycle) {
-            this.key = key;
-            this.mailboxCapacity = mailboxCapacity;
-            this.lifecycle = lifecycle;
-        }
-
-        private static OwnerState active(final PluginEventOwnerKey key, final int mailboxCapacity) {
-            return new OwnerState(key, mailboxCapacity, OwnerLifecycle.ACTIVE);
-        }
-
-        private PluginEventOwnerKey key() {
-            return key;
-        }
-
-        private Object monitor() {
-            return monitor;
-        }
-
-        private OwnerLifecycle lifecycleSnapshot() {
-            synchronized (monitor) {
-                return lifecycle;
-            }
-        }
-
-        private OwnerLifecycle lifecycle() {
-            return lifecycle;
-        }
-
-        private void lifecycle(final OwnerLifecycle value) {
-            lifecycle = value;
-        }
-
-        private EnqueueResult enqueue(final Delivery delivery) {
-            synchronized (monitor) {
-                if (lifecycle != OwnerLifecycle.ACTIVE
-                        && lifecycle != OwnerLifecycle.ENABLING
-                        && lifecycle != OwnerLifecycle.INITIALIZING) {
-                    return EnqueueResult.REJECTED_LIFECYCLE;
-                }
-                if (mailbox.size() >= mailboxCapacity) {
-                    droppedDeliveries++;
-                    return EnqueueResult.SATURATED;
-                }
-                mailbox.addLast(delivery);
-                if (drainScheduled) {
-                    return EnqueueResult.QUEUED;
-                }
-                drainScheduled = true;
-                drainToken = new RuntimeCancellationToken();
-                return EnqueueResult.SCHEDULE;
-            }
-        }
-
-        private boolean beginSynchronousDeliverySnapshot(
-                final Subscription<? extends EventBus.TurboismEvent> subscription) {
-            synchronized (monitor) {
-                if (!subscription.accepts(lifecycle)) {
-                    return false;
-                }
-                runningDeliveries++;
-                return true;
-            }
-        }
-
-        private RuntimeCancellationToken drainToken() {
-            synchronized (monitor) {
-                return drainToken;
-            }
-        }
-
-        private Delivery nextDelivery() {
-            synchronized (monitor) {
-                if (lifecycle != OwnerLifecycle.ACTIVE
-                        && lifecycle != OwnerLifecycle.ENABLING
-                        && lifecycle != OwnerLifecycle.INITIALIZING) {
-                    droppedDeliveries += mailbox.size();
-                    mailbox.clear();
-                    return null;
-                }
-                final Delivery delivery = mailbox.pollFirst();
-                if (delivery != null) {
-                    runningDeliveries++;
-                }
-                return delivery;
-            }
-        }
-
-        private void deliveryFinished() {
-            synchronized (monitor) {
-                runningDeliveries--;
-                monitor.notifyAll();
-            }
-        }
-
-        private boolean drainFinished() {
-            synchronized (monitor) {
-                drainScheduled = false;
-                if ((lifecycle == OwnerLifecycle.ACTIVE
-                                || lifecycle == OwnerLifecycle.ENABLING
-                                || lifecycle == OwnerLifecycle.INITIALIZING)
-                        && !mailbox.isEmpty()) {
-                    drainScheduled = true;
-                    drainToken = new RuntimeCancellationToken();
-                    return true;
-                }
-                monitor.notifyAll();
-                return false;
-            }
-        }
-
-        private void rejectDrain() {
-            synchronized (monitor) {
-                droppedDeliveries += mailbox.size();
-                mailbox.clear();
-                drainScheduled = false;
-                monitor.notifyAll();
-            }
-        }
-
-        private void cancelPending() {
-            droppedDeliveries += mailbox.size();
-            mailbox.clear();
-            drainToken.cancel();
-            monitor.notifyAll();
-        }
-
-        private boolean quiescent() {
-            return !drainScheduled && runningDeliveries == 0;
-        }
-
-        private long droppedDeliveries() {
-            return droppedDeliveries;
-        }
-    }
-
-    private static final class Subscription<T extends EventBus.TurboismEvent> {
-        private final long sequence;
-        private final PluginEventOwnerKey owner;
-        private final Class<T> type;
-        private final EventPriority priority;
-        private final int entrypointOrdinal;
-        private final int methodOrdinal;
-        private final boolean deliverWhileEnabling;
-        private final boolean permissionFiltered;
-        private final Consumer<T> listener;
-        private volatile boolean active = true;
-
-        private Subscription(
-                final long sequence,
-                final PluginEventOwnerKey owner,
-                final Class<T> type,
-                final EventPriority priority,
-                final int entrypointOrdinal,
-                final int methodOrdinal,
-                final boolean deliverWhileEnabling,
-                final boolean permissionFiltered,
-                final Consumer<T> listener) {
-            this.sequence = sequence;
-            this.owner = owner;
-            this.type = type;
-            this.priority = priority;
-            this.entrypointOrdinal = entrypointOrdinal;
-            this.methodOrdinal = methodOrdinal;
-            this.deliverWhileEnabling = deliverWhileEnabling;
-            this.permissionFiltered = permissionFiltered;
-            this.listener = listener;
-        }
-
-        private long sequence() {
-            return sequence;
-        }
-
-        private PluginEventOwnerKey owner() {
-            return owner;
-        }
-
-        private Class<T> type() {
-            return type;
-        }
-
-        private EventPriority priority() {
-            return priority;
-        }
-
-        private int entrypointOrdinal() {
-            return entrypointOrdinal;
-        }
-
-        private int methodOrdinal() {
-            return methodOrdinal;
-        }
-
-        private boolean active() {
-            return active;
-        }
-
-        private boolean permissionFiltered() {
-            return permissionFiltered;
-        }
-
-        private boolean accepts(final OwnerLifecycle lifecycle) {
-            return lifecycle == OwnerLifecycle.ACTIVE
-                    || (deliverWhileEnabling
-                            && (lifecycle == OwnerLifecycle.ENABLING || lifecycle == OwnerLifecycle.INITIALIZING));
-        }
-
-        private void deactivate() {
-            active = false;
-        }
-
-        private void deliverDispatched(final EventBus.TurboismEvent event) {
-            if (type.isInstance(event)) {
-                listener.accept(type.cast(event));
-            }
-        }
-    }
-
-    private record DeniedRoute(PluginEventOwnerKey owner, Class<?> eventType) {}
-
-    private record Delivery(EventBus.TurboismEvent event, Subscription<? extends EventBus.TurboismEvent> subscription) {
-        private void deliver(final PluginEventOwnerKey owner) {
-            if (subscription.owner().equals(owner)) {
-                subscription.deliverDispatched(event);
-            }
         }
     }
 }

@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.core.descriptor.validation.PluginMetaValidator;
 import dev.turboism.core.schema.permission.PermissionValidator;
-import dev.turboism.core.schema.plugin.PluginMetaValidator;
 import dev.turboism.sdk.permission.PermissionIds;
 import java.nio.file.Files;
 import java.nio.file.Path;

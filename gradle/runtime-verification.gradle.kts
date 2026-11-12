@@ -67,7 +67,7 @@ tasks.register<JavaExec>("validatePluginMeta") {
     // filesToValidate also fails on plugin modules lacking a descriptor; the module set
     // is admitted through settings.gradle.kts.
     inputs.file("settings.gradle.kts")
-    configureRuntimeJavaExec(project, "dev.turboism.core.schema.plugin.PluginMetaValidationCli")
+    configureRuntimeJavaExec(project, "dev.turboism.core.descriptor.validation.PluginMetaValidationCli")
     VerificationStamps.apply(this)
     doFirst {
         setArgs(filesToValidate(pluginMetaFiles).map { it.absolutePath })

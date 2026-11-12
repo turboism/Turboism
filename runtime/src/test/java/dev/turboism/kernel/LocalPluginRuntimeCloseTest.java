@@ -676,7 +676,7 @@ class LocalPluginRuntimeCloseTest {
                 RuntimePluginLocalization.class,
                 CleanupEvidenceCollector.class,
                 dev.turboism.core.event.RuntimeEventBroker.Owner.class,
-                dev.turboism.core.plugin.context.CorePluginContext.class,
+                dev.turboism.kernel.context.CorePluginContext.class,
                 PluginGenerationGuard.class);
         constructor.setAccessible(true);
         final Object value = constructor.newInstance(

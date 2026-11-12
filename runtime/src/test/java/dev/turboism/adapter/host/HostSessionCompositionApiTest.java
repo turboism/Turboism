@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.bootstrap.HostRuntimeIngress;
-import dev.turboism.core.plugin.context.CorePluginContext;
+import dev.turboism.kernel.context.CorePluginContext;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;

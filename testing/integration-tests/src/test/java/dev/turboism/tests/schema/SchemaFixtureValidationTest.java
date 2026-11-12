@@ -4,12 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.core.descriptor.validation.PluginMetaValidator;
 import dev.turboism.core.schema.JsonSchemaValidator;
 import dev.turboism.core.schema.SchemaValidationError;
 import dev.turboism.core.schema.dependency.DependencyValidator;
 import dev.turboism.core.schema.diagnostic.DiagnosticReportValidator;
 import dev.turboism.core.schema.permission.PermissionValidator;
-import dev.turboism.core.schema.plugin.PluginMetaValidator;
 import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
 import dev.turboism.core.schema.version.VersionRangeValidator;
 import dev.turboism.mapping.draft.DraftMappingException;
