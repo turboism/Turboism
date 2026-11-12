@@ -91,7 +91,7 @@ Large binary test assets (`*.cmo3`, `*.can3`, `*.psd`, `*.moc3`) are never commi
 | `checkIntegration` | `devCheck` plus packaged and cross-module behavior: async host-read foundation, Cubism Core API inventory/member/selector policies, plugin inspection runtime, first-party plugin metadata and READMEs, distribution protocol contract, preview bundle layout, packaged host-validation bundle checks, locale host-validation wrapper contract (`:testing:integration-tests:hostValidationScriptContractTest`), preview bootstrap bridge and plugin runtime, external plugin-template consumer check | when a change crosses module, packaging, or preview-agent seams |
 | `checkCompletedCommit` | `checkIntegration` plus every subproject `test`, `:sdk:javadoc`, `spotlessCheck`, localized changelogs, official-plugin i18n completeness and README checks, SDK API baseline tool and current-surface check, plugin event reference determinism | once, when a coherent change is ready to land |
 | `checkRelease` | `checkCompletedCommit` plus supply-chain and release-artifact checks: ASM admission and resolved bytecode dependency graph, release tooling selftests, SDK exact-API audits for every anchored baseline — all historical baselines plus the newest live one — and linkage, market release metadata, Java/Windows installer and localization checks | release work only; requires `-PinstallerVersion=<release-version> -PturboismRelease=true` matching the framework version |
-| host validation | exact-version Cubism runs through `validate*Host<version>` tasks (parameter, workspace, theme, clip-mask, PSD import, FPS, status bar, bounding-box overlay, separate save path) | explicitly selected per affected feature and Cubism version; needs a separately installed licensed Editor; never part of a default aggregate |
+| host validation | exact-version Cubism runs through `validate*Host<version>` tasks (parameter, workspace, theme, clip-mask, PSD import, FPS, status bar, bounding-box overlay, separate save path); these tasks launch the shared Runner and need the Linux Proton environment | explicitly selected per affected feature and Cubism version; needs a separately installed licensed Editor; never part of a default aggregate |
 
 ### Build wiring
 
@@ -120,6 +120,20 @@ Duplicate imports covers all `src` trees; package layout covers SDK and runtime 
 Containment also covers generated templates; code quality also covers assets, tests, and tooling.
 
 The supported host and validation environments are **native Windows x64** and **Linux**. Windows x64 runs the full Cubism Editor host validation directly; on Linux the same validation runs through Proton (Wine), and headless Gradle, lint and unit-test checks run under Xvfb. The shared tooling modules (`scripts/preview/hvq/`, `scripts/preview/host_validation_containment.py`) import and run on both host classes — POSIX-only primitives are optional, and containment selects the host's backend. The queue entry point and the Runner admission gate still require Linux (systemd user scopes, unified cgroup v2, `/proc`), so a native Windows host runs the offline gates and the Windows Job Object containment backend, not the scheduled queue.
+
+Exact-host entry points per host class:
+
+- **Linux + Proton**: `./gradlew validate<Feature>Host<version>` tasks, or the
+  local admission queue (`python3 scripts/preview/host_validation.py list` and
+  onward; see the [scheduling README](../scripts/preview/README-host-validation-scheduling.md)).
+- **Native Windows**: package the feature's validation bundle
+  (`bash scripts/preview/package-windows-<feature>-validation.sh`) and launch it
+  with its packaged PowerShell launcher
+  (`launch-cubism-<feature>-validation.ps1`, or the workspace BAT template);
+  `-ProbeOnly`/`-ProbeAgent` never start Cubism. Keep one Cubism session per
+  exact version because the queue's cross-session admission does not apply.
+  The [scheduling README](../scripts/preview/README-host-validation-scheduling.md#native-windows-evidence-path)
+  documents this path and its evidence contract.
 
 ### Running the gates
 

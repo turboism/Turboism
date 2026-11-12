@@ -362,6 +362,18 @@ def wait_job(store: queue.Store | Path, job_id: str, timeout: int | None = None)
             backoff = min(WAIT_JOB_READ_BACKOFF_MAX_SECONDS, backoff * 2)
             continue
         backoff = WAIT_JOB_READ_BACKOFF_SECONDS
+        # No native Windows worker exists: an unbounded wait would block forever
+        # on a job the queue can never claim. Native Windows collects exact-host
+        # evidence through the packaged PowerShell launchers, not the queue.
+        if (timeout is None and os.name == "nt"
+                and job["state"] not in queue.TERMINAL | queue.ADMINISTRATIVE
+                and job["state"] != "quarantined"
+                and not queue.worker_online(Path(database).parent)):
+            raise SchedulerError(
+                "the durable validation queue has no native Windows worker; on Windows collect "
+                "exact-host evidence through the packaged PowerShell launchers, and cancel this "
+                "job with: python3 scripts/preview/host_validation.py cancel "
+                f"{job_id} (scripts/preview/README-host-validation-scheduling.md#native-windows-evidence-path)")
         if job["state"] in queue.TERMINAL | queue.ADMINISTRATIVE or job["state"] == "quarantined":
             emit({"schemaVersion": 1, "job": job})
             return 0 if job["state"] == "succeeded" else 75 if job["state"] == "quarantined" else 1
@@ -647,6 +659,15 @@ def main(argv: list[str] | None = None) -> int:
             emit({"schemaVersion": 1, **report})
             return 0 if report["safe"] else 75
         if args.command == "serve":
+            # The worker needs a systemd user manager, delegated cgroup v2 scopes
+            # and /proc; none exist on native Windows, so fail closed instead of
+            # crashing inside the wake-socket setup.
+            if os.name == "nt":
+                raise SchedulerError(
+                    "the validation worker requires Linux (systemd user scopes and cgroup v2); "
+                    "on Windows collect exact-host evidence through the packaged PowerShell "
+                    "launchers (scripts/preview/README-host-validation-scheduling.md"
+                    "#native-windows-evidence-path)")
             stop = threading.Event()
             # A host without SIGTERM still stops on the signals it does define.
             previous = {sig: signal.signal(sig, lambda *_: stop.set()) for sig in queue.interrupt_signals()}

@@ -7,6 +7,18 @@ task=${3:?usage: run-cubism-performance-baseline.sh a0|a1|a2 RUN_ID TASK_DIR}
 case "$variant" in a0|a1|a2) ;; *) echo "unknown variant: $variant" >&2; exit 2;; esac
 
 export DISPLAY=${DISPLAY:-:0}
+# The Proton wrapper is host-local tooling, not a repository artifact; resolve it from the .env contract before launch.
+proton_wrapper="${TURBOISM_HOST_VALIDATION_PROTON_WRAPPER:-shorin-proton-wrapper}"
+case "$proton_wrapper" in
+  */*)
+    [[ -x "$proton_wrapper" ]] \
+      || { echo "Proton wrapper is not executable: $proton_wrapper (set TURBOISM_HOST_VALIDATION_PROTON_WRAPPER in .env)" >&2; exit 64; }
+    ;;
+  *)
+    command -v -- "$proton_wrapper" >/dev/null 2>&1 \
+      || { echo "Proton wrapper not found on PATH: $proton_wrapper (set TURBOISM_HOST_VALIDATION_PROTON_WRAPPER in .env)" >&2; exit 64; }
+    ;;
+esac
 prefix="$task/prefix"
 fixture="$task/models/heavy.cmo3"
 run="$task/runs/$run_id"
@@ -44,7 +56,7 @@ call "$install\\CubismEditor5.bat" "$fixture_windows"
 EOF
 
 launch_epoch_ms=$(date +%s%3N)
-DISPLAY=:0 nohup /usr/bin/shorin-proton-wrapper --prefix "$prefix" \
+nohup "$proton_wrapper" --prefix "$prefix" \
   "$prefix/pfx/drive_c/windows/system32/cmd.exe" /d /s /c "$run_windows\\launch.bat" \
   > "$run/wrapper.out" 2>&1 &
 wrapper_pid=$!

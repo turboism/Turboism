@@ -1276,7 +1276,10 @@ class PreparedStoreTest(unittest.TestCase):
         env = {key: value for key, value in os.environ.items() if not key.startswith("TURBOISM_")}
         env.update(TURBOISM_ENV_FILE="/dev/null", TURBOISM_QUEUE_RUN_ID="queue-test-replay")
         (self.base / "proton").write_text("# test runtime, never executed\n")
-        (self.base / "proton-wrapper").write_text("# test wrapper, never executed\n")
+        # The Runner admits the wrapper only when it is executable, so the fixture
+        # models a real host-local wrapper even though nothing runs it here.
+        (self.base / "proton-wrapper").write_text("#!/bin/sh\nexit 0\n")
+        (self.base / "proton-wrapper").chmod(0o700)
         command = ["bash", str(self.preview / "run-cubism-host-validation.sh"),
                    "--name", "test", "--version", "5302", "--bundle-root", str(self.base),
                    "--agent", str(self.input), "--aux-agent", str(self.input) + ":probe.jar",

@@ -22,6 +22,11 @@ def require(ok,message):
     if not ok:raise QueueError('official-core: '+message)
 
 
+def xvfb_binary():
+    """Resolve the private X server through PATH; fail closed when absent."""
+    found=shutil.which('Xvfb');require(found,'Xvfb is unavailable on PATH; install it for private displays');return found
+
+
 def path(value):
     p=Path(value)
     require(p.is_absolute() and '..' not in p.parts and not any(q.is_symlink() for q in (p,*p.parents)), 'unsafe path')
@@ -192,10 +197,10 @@ def run(argv):
         injected={'CLASSPATH','JAVA_TOOL_OPTIONS','JDK_JAVA_OPTIONS','_JAVA_OPTIONS','LD_PRELOAD','LD_LIBRARY_PATH','BASH_ENV','ENV','PYTHONPATH','PYTHONHOME'}
         env={k:v for k,v in os.environ.items() if k not in injected and not k.startswith(('TURBOISM_','BASH_FUNC_'))}
         if m.get('captureProfile') in ('apple-xyz-140-v1','apple-derived-xyz-140-v1'):
-            readfd,writefd=os.pipe()
+            xvfb=xvfb_binary();readfd,writefd=os.pipe()
             try:
                 with (task/'display.log').open('xb') as display_log:
-                    server=subprocess.Popen(['/usr/bin/Xvfb','-displayfd',str(writefd),'-screen','0','1440x1080x24','-nolisten','tcp','-noreset'],
+                    server=subprocess.Popen([xvfb,'-displayfd',str(writefd),'-screen','0','1440x1080x24','-nolisten','tcp','-noreset'],
                                             pass_fds=(writefd,),stdout=display_log,stderr=subprocess.STDOUT)
                 os.close(writefd);writefd=None
                 require(bool(select.select([readfd],[],[],15)[0]),'private display startup timeout')
@@ -203,7 +208,7 @@ def run(argv):
                 display=':'+raw.decode().strip();env['DISPLAY']=display
                 env.pop('WAYLAND_DISPLAY',None)
                 atomic_json(task/'launch.json',{'argv':command,'identity':identity,'display':display,
-                    'xvfbPid':server.pid,'xvfbSha256':file_digest(Path('/usr/bin/Xvfb'))})
+                    'xvfbPid':server.pid,'xvfbSha256':file_digest(Path(xvfb))})
             finally:
                 os.close(readfd)
                 if writefd is not None:os.close(writefd)
@@ -263,7 +268,7 @@ def finalize(job,descriptor,prepared_root,directory,preliminary,proof,runner_exi
         if domain or xyz:
             if xyz:
                 require(re.fullmatch(r':[0-9]+',launch['display']) and type(launch['xvfbPid']) is int
-                        and launch['xvfbPid']>0 and launch['xvfbSha256']==file_digest(Path('/usr/bin/Xvfb'))
+                        and launch['xvfbPid']>0 and launch['xvfbSha256']==file_digest(Path(xvfb_binary()))
                         and details['displayStopped'] is True,'owned display started and stopped')
             require(not xyz or row['axes']==source['axes'],'exact XYZ capture axes')
             coords=row['coordinates'];binary=task/'capture/positions-f32.bin.gz'
