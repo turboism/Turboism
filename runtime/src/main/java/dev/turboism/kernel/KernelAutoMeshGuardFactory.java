@@ -1,6 +1,6 @@
 package dev.turboism.kernel;
 
-import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
+import dev.turboism.adapter.cubism.mesh.EditorAutoMeshEditableWrite;
 import dev.turboism.adapter.cubism.mesh.EditorAutoMeshTargetResolver;
 import dev.turboism.adapter.cubism.mesh.EditorAutoMeshUndoGroupProbe;
 import dev.turboism.automesh.AutoMeshDispatch;
@@ -11,6 +11,7 @@ import dev.turboism.automesh.host.AutoMeshGuardHandler;
 import dev.turboism.automesh.host.AutoMeshMessages;
 import dev.turboism.automesh.host.AutoMeshNotice;
 import dev.turboism.automesh.host.AutoMeshNoticeSink;
+import dev.turboism.automesh.host.AutoMeshResolvedTarget;
 import dev.turboism.automesh.host.NativeAutoMeshBridge;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
@@ -18,7 +19,6 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.ui.host.EdtDispatch;
 import java.util.Locale;
@@ -47,7 +47,6 @@ final class KernelAutoMeshGuardFactory {
 
     private static final String COMPUTE_PAYLOAD = "automesh.compute";
     private static final String COMPUTE_CAPABILITY = "none";
-    private static final String AUTHORING_OWNER = "runtime.automesh";
     private static final String STATUS_NOTIFICATION_ID = "turboism.automesh";
     private static final String SEVERITY_INFO = "INFO";
     private static final String SEVERITY_WARNING = "WARNING";
@@ -83,10 +82,10 @@ final class KernelAutoMeshGuardFactory {
         Objects.requireNonNull(statusSink, "statusSink");
         Objects.requireNonNull(scheduler, "scheduler");
         Objects.requireNonNull(diagnostics, "diagnostics");
-        final AutoMeshDispatch dispatch = new AutoMeshDispatch(
+        final AutoMeshDispatch<AutoMeshResolvedTarget> dispatch = new AutoMeshDispatch<>(
                 new AutoMeshRequestBuilder(),
                 new AutoMeshExecutor(computeLane(scheduler)),
-                authoringTransactions(modelAccess),
+                new EditorAutoMeshEditableWrite(resolver, diagnostics),
                 new EditorAutoMeshUndoGroupProbe(resolver, diagnostics),
                 uiThread());
         return new AutoMeshGuardHandler(
@@ -115,21 +114,11 @@ final class KernelAutoMeshGuardFactory {
         };
     }
 
-    /** Returns the Editor UI thread executor the write and the completion callback return to. */
+    /**
+     * Returns the Editor UI thread executor the write and the completion callback return to.
+     */
     private static java.util.concurrent.Executor uiThread() {
         return runnable -> EdtDispatch.post(UI_POST_LABEL, runnable);
-    }
-
-    /**
-     * Returns the authoring-transaction service the guard's own write commits through.
-     *
-     * <p>The service is bound to the runtime's own owner identity, not to a plugin: the guard writes
-     * for the user's confirmation, so its Undo entry must not disappear with a plugin generation.</p>
-     */
-    private static AuthoringTransactionService authoringTransactions(final CubismModelAccess modelAccess) {
-        return modelAccess instanceof RuntimeAuthoringTransactionProvider provider
-                ? provider.authoringTransactions(AUTHORING_OWNER)
-                : AuthoringTransactionService.unavailable();
     }
 
     private static AutoMeshNoticeSink noticeSink(final Consumer<StatusNotification> statusSink) {

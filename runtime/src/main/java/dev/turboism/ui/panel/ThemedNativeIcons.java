@@ -1,6 +1,5 @@
 package dev.turboism.ui.panel;
 
-import dev.turboism.ui.appearance.ThemeRuntimeProperties;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
@@ -31,11 +30,11 @@ import javax.swing.UIManager;
  * keeps the declared size, and restores the shipped icon when the theme leaves.</p>
  *
  * <p>Only a uniformly light plate is processed: a multi-colour, a partly transparent or an already
- * transparent bitmap keeps its shipped pixels, so a host glyph is never mangled. A theme counts as
- * active while {@link ThemeRuntimeProperties#isPublished()} reports published overrides, which the
- * runtime writes on apply and deletes on restore. Call the mutators on the Swing event dispatch
- * thread, and call {@link #refresh()} when the look and feel changes so a live theme switch
- * recolours the same buttons.</p>
+ * transparent bitmap keeps its shipped pixels, so a host glyph is never mangled. The owner that
+ * creates this gate reports an active theme while the runtime publishes its overrides, which it
+ * writes on apply and deletes on restore. Call the mutators on the Swing event dispatch thread,
+ * and call {@link #refresh()} when the look and feel changes so a live theme switch recolours the
+ * same buttons.</p>
  */
 final class ThemedNativeIcons {
 
@@ -75,11 +74,6 @@ final class ThemedNativeIcons {
     private final Map<JComponent, List<AbstractButton>> buttons = new IdentityHashMap<>();
     private final Map<AbstractButton, Integer> owners = new IdentityHashMap<>();
     private final Map<Icon, Processed> cache = new IdentityHashMap<>();
-
-    /** Creates an owner that follows the theme the runtime currently publishes. */
-    ThemedNativeIcons() {
-        this(ThemeRuntimeProperties::isPublished);
-    }
 
     /**
      * Creates an owner with an explicit theme verdict, so a test can pin the gate.

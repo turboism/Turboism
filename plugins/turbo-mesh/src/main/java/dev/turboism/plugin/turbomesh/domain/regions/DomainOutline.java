@@ -18,6 +18,10 @@ import java.util.Set;
  *
  * <p>The rings stay in one set. Nesting depth, not ring size, decides which of them bound material,
  * so two parts of one layer and a hole inside one part are all described correctly.</p>
+ *
+ * <p>Border chains arrive already oriented, with one face on a fixed side. The ring walk keeps
+ * that face on the left at every junction, because an arbitrary junction pairing folds a thin
+ * silhouette into a spiral and the resulting ring no longer encloses its spikes.</p>
  */
 final class DomainOutline {
 
@@ -49,7 +53,7 @@ final class DomainOutline {
                 final int low = Math.min(a, b);
                 final int high = Math.max(a, b);
                 if (seen.add(((long) low << 32) | (high & 0xFFFF_FFFFL))) {
-                    edges.add(new int[] {low, high});
+                    edges.add(new int[] {a, b});
                 }
             }
         }
@@ -57,7 +61,7 @@ final class DomainOutline {
             return null;
         }
         final List<Polyline> loops = new ArrayList<>();
-        for (final int[] ring : chainedLoops(edges)) {
+        for (final int[] ring : chainedLoops(edges, nodes.xs(), nodes.ys())) {
             loops.add(nodes.polyline(ring));
         }
         if (loops.isEmpty()) {
@@ -68,64 +72,22 @@ final class DomainOutline {
     }
 
     /**
-     * Chains edges that border the material into closed vertex loops; open chains drop out.
+     * Keeps the closed chains of a directed border walk; an open chain cannot bound material.
      *
-     * @param edges undirected index pairs
-     * @return closed rings in input order, each listing every vertex once
+     * @param edges directed index pairs in border order
+     * @param nodeXs node coordinates of the lattice
+     * @param nodeYs node coordinates of the lattice
+     * @return closed rings, each listing every vertex once
      */
-    static List<int[]> chainedLoops(final List<int[]> edges) {
-        final Map<Integer, List<Integer>> incident = new HashMap<>();
-        for (int e = 0; e < edges.size(); e++) {
-            incident.computeIfAbsent(edges.get(e)[0], ignored -> new ArrayList<>())
-                    .add(e);
-            incident.computeIfAbsent(edges.get(e)[1], ignored -> new ArrayList<>())
-                    .add(e);
-        }
-        final boolean[] used = new boolean[edges.size()];
+    private static List<int[]> chainedLoops(final List<int[]> edges, final double[] nodeXs, final double[] nodeYs) {
         final List<int[]> loops = new ArrayList<>();
-        for (int start = 0; start < edges.size(); start++) {
-            if (used[start]) {
+        for (final int[] chain : DirectedBoundary.chains(edges, node -> nodeXs[node], node -> nodeYs[node])) {
+            if (chain.length <= 3 || chain[0] != chain[chain.length - 1]) {
                 continue;
             }
-            used[start] = true;
-            final List<Integer> ring = new ArrayList<>();
-            final int origin = edges.get(start)[0];
-            ring.add(origin);
-            int current = edges.get(start)[1];
-            boolean closed = true;
-            while (current != origin) {
-                ring.add(current);
-                final int next = unusedEdge(incident.get(current), used);
-                if (next < 0) {
-                    closed = false;
-                    break;
-                }
-                used[next] = true;
-                current = edges.get(next)[0] == current ? edges.get(next)[1] : edges.get(next)[0];
-                if (ring.size() > edges.size() + 1) {
-                    closed = false;
-                    break;
-                }
-            }
-            if (!closed || ring.size() < 3) {
-                continue;
-            }
-            final int[] packed = new int[ring.size()];
-            for (int i = 0; i < packed.length; i++) {
-                packed[i] = ring.get(i);
-            }
-            loops.add(packed);
+            loops.add(Arrays.copyOf(chain, chain.length - 1));
         }
         return loops;
-    }
-
-    private static int unusedEdge(final List<Integer> candidates, final boolean[] used) {
-        for (final int edge : candidates) {
-            if (!used[edge]) {
-                return edge;
-            }
-        }
-        return -1;
     }
 
     /** Growth-ordered registry that merges junctions closer than {@link #NODE_TOLERANCE}. */
@@ -171,6 +133,14 @@ final class DomainOutline {
                 ringYs[i] = ys[ring[i]];
             }
             return new Polyline(ringXs, ringYs, true);
+        }
+
+        double[] xs() {
+            return Arrays.copyOf(xs, size);
+        }
+
+        double[] ys() {
+            return Arrays.copyOf(ys, size);
         }
 
         private static long key(final long qx, final long qy) {

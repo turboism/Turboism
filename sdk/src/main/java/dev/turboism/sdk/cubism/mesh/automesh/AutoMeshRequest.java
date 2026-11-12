@@ -18,8 +18,9 @@ import java.util.Optional;
  * touches the live model.</p>
  *
  * <p>{@link #keyformCount()} is the number of keyforms the target ArtMesh carries. A value above
- * one means the target has per-keyform shapes: applying a single-keyform result would collapse
- * them, so the runtime refuses such a run unless a later milestone implements keyform remapping.</p>
+ * one means the target has per-keyform shapes: the runtime derives each ordinary form's positions
+ * from the returned layout and writes them in one batch, and refuses the run only when the host
+ * cannot expose those stored forms.</p>
  *
  * <p>{@link #parameterValues()} holds canonical text for every parameter the run resolved; a
  * parameter absent from the map keeps the default declared by its descriptor.</p>

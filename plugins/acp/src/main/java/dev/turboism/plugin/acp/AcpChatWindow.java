@@ -32,12 +32,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.random.RandomGenerator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.AbstractAction;
@@ -759,7 +759,7 @@ final class AcpChatWindow implements AcpChatController.View {
         prompt.setWrapStyleWord(true);
         prompt.putClientProperty(
                 AcpComposerPanel.PLACEHOLDER_PROPERTY,
-                AcpComposerPlaceholder.choose(localization, RandomGenerator.getDefault()));
+                AcpComposerPlaceholder.choose(localization, ThreadLocalRandom.current()));
         initialPrompt.setLineWrap(true);
         initialPrompt.setWrapStyleWord(true);
         updateAgentDetail();

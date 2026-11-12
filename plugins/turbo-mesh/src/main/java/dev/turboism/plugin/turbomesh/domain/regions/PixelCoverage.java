@@ -60,6 +60,62 @@ final class PixelCoverage {
         return covered;
     }
 
+    /**
+     * Share of the covered pixels that more than one triangle claims.
+     *
+     * <p>A triangle claims a pixel only when it covers the strict majority of that pixel. A planar
+     * triangulation therefore claims every pixel at most once, because two triangles can split a
+     * pixel but only one of them holds more than half of it. Any positive value is real overlap
+     * rather than a shared edge.</p>
+     *
+     * @param vertices plan vertices in cropped raster pixel space
+     * @param triangleIndices flat index triples into {@code vertices}
+     * @return summed overlap count divided by the covered pixel count, or {@code 0} when empty
+     */
+    static double overlapRatio(
+            final List<Point2> vertices, final int[] triangleIndices, final int width, final int height) {
+        final int[] claims = claimedPixels(vertices, triangleIndices, width, height);
+        long covered = 0L;
+        long overlapping = 0L;
+        for (final int claim : claims) {
+            if (claim > 0) {
+                covered++;
+            }
+            if (claim > 1) {
+                overlapping += claim - 1L;
+            }
+        }
+        return covered == 0L ? 0.0 : (double) overlapping / covered;
+    }
+
+    /** Per-pixel triangle multiplicity, in cropped raster pixel space. */
+    private static int[] claimedPixels(
+            final List<Point2> vertices, final int[] triangleIndices, final int width, final int height) {
+        final int[] claims = new int[width * height];
+        final double[] xs = new double[3];
+        final double[] ys = new double[3];
+        for (int t = 0; t + 2 < triangleIndices.length; t += 3) {
+            for (int k = 0; k < 3; k++) {
+                final Point2 vertex = vertices.get(triangleIndices[t + k]);
+                xs[k] = vertex.x();
+                ys[k] = vertex.y();
+            }
+            final int minColumn = Math.max(0, (int) Math.floor(Math.min(xs[0], Math.min(xs[1], xs[2]))));
+            final int maxColumn = Math.min(width - 1, (int) Math.ceil(Math.max(xs[0], Math.max(xs[1], xs[2]))));
+            final int minRow = Math.max(0, (int) Math.floor(Math.min(ys[0], Math.min(ys[1], ys[2]))));
+            final int maxRow = Math.min(height - 1, (int) Math.ceil(Math.max(ys[0], Math.max(ys[1], ys[2]))));
+            for (int row = minRow; row <= maxRow; row++) {
+                for (int column = minColumn; column <= maxColumn; column++) {
+                    final int cell = row * width + column;
+                    if (strictlyCoveredSamples(xs, ys, column, row) > COVERED_SAMPLE_COUNT) {
+                        claims[cell]++;
+                    }
+                }
+            }
+        }
+        return claims;
+    }
+
     /** Per-pixel supersample count of the triangle mesh, in cropped raster pixel space. */
     private static int[] rasterise(
             final List<Point2> vertices, final int[] triangleIndices, final int width, final int height) {
@@ -107,6 +163,33 @@ final class PixelCoverage {
         final boolean negative = first < 0.0 || second < 0.0 || third < 0.0;
         final boolean positive = first > 0.0 || second > 0.0 || third > 0.0;
         return !(negative && positive);
+    }
+
+    /**
+     * Supersamples strictly inside one triangle, in cropped raster pixel space.
+     *
+     * <p>Overlap counting must not credit a sample on a shared edge to both neighbours: the
+     * boundary belongs to neither triangle, so a clean tiling can never claim one sample twice.
+     * Only a strict majority of a pixel can claim it, and two triangles cannot both hold a strict
+     * majority unless they genuinely overlap.</p>
+     */
+    private static int strictlyCoveredSamples(final double[] xs, final double[] ys, final int column, final int row) {
+        int hits = 0;
+        for (int sampleY = 0; sampleY < SAMPLES_PER_AXIS; sampleY++) {
+            for (int sampleX = 0; sampleX < SAMPLES_PER_AXIS; sampleX++) {
+                final double x = column + (sampleX + 0.5) / SAMPLES_PER_AXIS;
+                final double y = row + (sampleY + 0.5) / SAMPLES_PER_AXIS;
+                final double first = cross(xs[0], ys[0], xs[1], ys[1], x, y);
+                final double second = cross(xs[1], ys[1], xs[2], ys[2], x, y);
+                final double third = cross(xs[2], ys[2], xs[0], ys[0], x, y);
+                final boolean inside =
+                        (first > 0.0 && second > 0.0 && third > 0.0) || (first < 0.0 && second < 0.0 && third < 0.0);
+                if (inside) {
+                    hits++;
+                }
+            }
+        }
+        return hits;
     }
 
     private static double cross(

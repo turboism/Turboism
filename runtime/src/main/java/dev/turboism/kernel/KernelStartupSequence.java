@@ -414,8 +414,16 @@ final class KernelStartupSequence {
 
     private static RuntimeScheduler createScheduler(final KernelLog log) {
         final Clock clock = Clock.systemUTC();
-        final java.util.function.Consumer<PluginWorkBudgetEvent> diagnosticSink = event -> log.warn(
-                "scheduler", event.pluginId() + " " + event.taskId() + " " + event.phase() + " " + event.decision());
+        // A failed task keeps its exception so the log names the fault instead of only the status.
+        final java.util.function.Consumer<PluginWorkBudgetEvent> diagnosticSink = event -> {
+            final String message =
+                    event.pluginId() + " " + event.taskId() + " " + event.phase() + " " + event.decision();
+            if (event.failure() == null) {
+                log.warn("scheduler", message);
+            } else {
+                log.error("scheduler", message, event.failure());
+            }
+        };
         return new RuntimeScheduler(
                 new DefaultWorkBudgetPolicy(),
                 // Plugin actions are dispatched asynchronously and commonly invoke

@@ -11,9 +11,11 @@ import java.util.Objects;
  * @param phase    the point in the task’s life this event describes
  * @param decision where the governor placed the work, or that it refused it
  * @param severity how prominently the event should be reported
- * @throws NullPointerException when any component is {@code null}
+ * @param failure  the exception that failed the task, or {@code null} when no exception applies
+ * @throws NullPointerException when any component other than {@code failure} is {@code null}
  */
-public record PluginWorkBudgetEvent(String pluginId, String taskId, Phase phase, Decision decision, Severity severity) {
+public record PluginWorkBudgetEvent(
+        String pluginId, String taskId, Phase phase, Decision decision, Severity severity, Throwable failure) {
 
     public static final String CODE = "PLUGIN_WORK_BUDGET_EVENT";
 
@@ -23,6 +25,11 @@ public record PluginWorkBudgetEvent(String pluginId, String taskId, Phase phase,
         phase = Objects.requireNonNull(phase, "phase");
         decision = Objects.requireNonNull(decision, "decision");
         severity = Objects.requireNonNull(severity, "severity");
+    }
+
+    /** Creates an event that carries no task failure. */
+    public PluginWorkBudgetEvent(String pluginId, String taskId, Phase phase, Decision decision, Severity severity) {
+        this(pluginId, taskId, phase, decision, severity, null);
     }
 
     /**

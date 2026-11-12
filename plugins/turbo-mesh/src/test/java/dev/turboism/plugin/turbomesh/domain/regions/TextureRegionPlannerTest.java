@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.cubism.model.Point2;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,6 +33,15 @@ class TextureRegionPlannerTest {
 
     /** Lowest triangle-area share of the opaque area a plan may leave uncovered. */
     private static final double MIN_AREA_RATIO = 0.97;
+
+    /** Highest triangle-area share of the opaque area a plan may cover. */
+    private static final double MAX_AREA_RATIO = 1.10;
+
+    /** Tolerance of the exact zero that a clean triangle tiling scores on the overlap metric. */
+    private static final double OVERLAP_TOLERANCE = 1.0e-12;
+
+    /** Overlap score of two identical triangles, which cover every claimed pixel twice. */
+    private static final double FULL_OVERLAP = 1.0;
 
     /** Lowest triangle IoU a synthetic shape must reach against its own alpha mask. */
     private static final double MIN_SYNTHETIC_TRIANGLE_IOU = 0.95;
@@ -86,6 +96,21 @@ class TextureRegionPlannerTest {
 
     /** Half of one source pixel, which moves a pixel edge onto the corner lattice. */
     private static final double HALF_PIXEL = 0.5;
+
+    /** Spikes of the ruffle-ring sample. */
+    private static final int RUFFLE_TEETH = 48;
+
+    /** Middle radius of the ruffle-ring sample, in pixels. */
+    private static final double RUFFLE_BASE_RADIUS = 132.0;
+
+    /** Radial travel of the ruffle-ring spikes, in pixels. */
+    private static final double RUFFLE_AMPLITUDE = 22.0;
+
+    /** Width of the ruffle-ring band, in pixels. */
+    private static final double RUFFLE_THICKNESS = 8.0;
+
+    /** Width of one concentric colour band of the ruffle-ring sample, in pixels. */
+    private static final double RUFFLE_BAND_PX = 10.0;
 
     /** Left drawn edge of the rectangle sample, in pixels. */
     private static final int RECTANGLE_LEFT = 100;
@@ -223,6 +248,105 @@ class TextureRegionPlannerTest {
     @Test
     void annulusAndCrescentKeepTheirCoverage() {
         assertCoverageContract(annulusAndCrescent(460, 300), "annulus-crescent");
+    }
+
+    /**
+     * A thin high-frequency ruffle must become a real mesh, never a star fan.
+     *
+     * <p>The silhouette is a narrow star ring with 48 spikes and transparent gaps between them.
+     * The radial colour bands split the ring into short border chains, which is the pattern that
+     * used to collapse the domain into one fan-shaped ring. The run may reject such a silhouette,
+     * but an accepted plan must follow the spikes and may not cover several times their material.</p>
+     */
+    @Test
+    void thinRuffleRingNeverBecomesAStarFan() {
+        final Sample sample = ruffleRing(320, 320);
+        final RegionPlacementPlan plan;
+        try {
+            plan = RegionPlacementPlanner.plan(
+                    sample.argb(), sample.width(), sample.height(), RegionPlacementParams.SPARSE);
+        } catch (IllegalStateException rejected) {
+            assertTrue(
+                    rejected.getMessage() != null
+                            && rejected.getMessage().contains(RegionPlacementPlanner.OVERLAP_REJECTION),
+                    "a ruffle may only be rejected for overlap, but the run said: " + rejected.getMessage());
+            return;
+        }
+        final List<Point> vertices = points(plan);
+        final int[] indices = plan.triangleIndices();
+        assertTrue(indices.length >= 3, "the ruffle must publish triangles when the run is accepted");
+        assertAllVerticesReferenced("ruffle-ring", plan);
+        assertEquals(
+                0.0,
+                PixelCoverage.overlapRatio(plan.vertices(), indices, sample.width(), sample.height()),
+                1.0e-12,
+                "a ruffle plan must not stack triangles on one pixel");
+        assertNoTriangleCrossesRegionBorder(plan);
+        assertNoTriangleEdgeCrossesARing(plan);
+        final double share = triangleArea(vertices, indices) / maskArea(sample);
+        report("ruffle-ring", plan);
+        System.out.printf("ruffle-ring: triangleAreaShare=%.4f%n", share);
+        assertTrue(
+                share >= MIN_AREA_RATIO && share <= MAX_AREA_RATIO,
+                "the ruffle triangles cover " + share + " of the material, outside [" + MIN_AREA_RATIO + ", "
+                        + MAX_AREA_RATIO + "]");
+        RegionDumpWriter.dumpIfRequested(plan, sample, "ruffle-ring");
+    }
+
+    /**
+     * No triangle edge may cross a published domain ring edge.
+     *
+     * <p>Ring edges are hard constraints, so a crossing means the triangulation no longer honours
+     * the silhouette that the plan publishes. Shared endpoints are legal because a ring edge may be
+     * split into a collinear chain of triangle edges.</p>
+     */
+    private static void assertNoTriangleEdgeCrossesARing(final RegionPlacementPlan plan) {
+        final List<Point> vertices = points(plan);
+        final int[] indices = plan.triangleIndices();
+        final List<int[]> rings = plan.domainRings();
+        for (int t = 0; t + 2 < indices.length; t += 3) {
+            for (int e = 0; e < 3; e++) {
+                final int first = indices[t + e];
+                final int second = indices[t + (e + 1) % 3];
+                final Point a = vertices.get(first);
+                final Point b = vertices.get(second);
+                for (final int[] ring : rings) {
+                    for (int i = 0; i < ring.length; i++) {
+                        final int ringFirst = ring[i];
+                        final int ringSecond = ring[(i + 1) % ring.length];
+                        if (ringFirst == first || ringFirst == second || ringSecond == first || ringSecond == second) {
+                            continue;
+                        }
+                        final Point c = vertices.get(ringFirst);
+                        final Point d = vertices.get(ringSecond);
+                        assertFalse(
+                                PixelGeometry.properCrossing(a.x(), a.y(), b.x(), b.y(), c.x(), c.y(), d.x(), d.y()),
+                                "triangle edge " + first + "-" + second + " crosses ring edge " + ringFirst + "-"
+                                        + ringSecond);
+                    }
+                }
+            }
+        }
+    }
+
+    /** Two overlapping triangles must score as overlap and a clean tiling must not. */
+    @Test
+    void overlapRatioSeparatesStackedTrianglesFromACleanTiling() {
+        final int width = 16;
+        final int height = 16;
+        final List<Point2> first = List.of(new Point2(1.0f, 1.0f), new Point2(12.0f, 1.0f), new Point2(1.0f, 12.0f));
+        final List<Point2> tiling = List.of(
+                new Point2(1.0f, 1.0f), new Point2(12.0f, 1.0f), new Point2(12.0f, 12.0f), new Point2(1.0f, 12.0f));
+        assertEquals(
+                0.0,
+                PixelCoverage.overlapRatio(tiling, new int[] {0, 1, 2, 0, 2, 3}, width, height),
+                OVERLAP_TOLERANCE,
+                "two triangles that tile a square must not overlap");
+        final double stacked = PixelCoverage.overlapRatio(first, new int[] {0, 1, 2, 0, 1, 2}, width, height);
+        assertTrue(
+                stacked > RegionPlacementPlanner.MAX_TRIANGLE_OVERLAP_RATIO,
+                "two identical triangles must exceed the overlap bound but scored " + stacked);
+        assertEquals(FULL_OVERLAP, stacked, 1.0e-9, "two identical triangles overlap on every covered pixel");
     }
 
     /** The contract that failed on a real hair layer: the returned triangles must fill the shape. */
@@ -1031,6 +1155,38 @@ class TextureRegionPlannerTest {
         public int[] argb() {
             return argb.clone();
         }
+    }
+
+    /**
+     * Narrow star ring with transparent gaps between its spikes.
+     *
+     * <p>Concentric colour bands split the thin ring into short border chains. That is the pattern
+     * that used to fold the domain into one fan-shaped ring, so the helper keeps the reported
+     * defect reproducible without a real artwork.</p>
+     */
+    private static Sample ruffleRing(final int width, final int height) {
+        final int[] argb = new int[width * height];
+        final double centerX = width * 0.5;
+        final double centerY = height * 0.5;
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                final double dx = x + 0.5 - centerX;
+                final double dy = y + 0.5 - centerY;
+                final double radius = Math.hypot(dx, dy);
+                final double angle = Math.atan2(dy, dx);
+                final double phase = angle * RUFFLE_TEETH / (2.0 * Math.PI) + 0.25;
+                final double fraction = phase - Math.floor(phase);
+                final double triangle = 4.0 * Math.abs(fraction - 0.5) - 1.0;
+                final double center = RUFFLE_BASE_RADIUS + RUFFLE_AMPLITUDE * triangle;
+                final boolean solid = Math.abs(radius - center) <= RUFFLE_THICKNESS * 0.5;
+                if (!solid) {
+                    continue;
+                }
+                final boolean firstBand = ((int) (radius / RUFFLE_BAND_PX)) % 2 == 0;
+                argb[y * width + x] = firstBand ? 0xFFE0_5030 : 0xFF30_90E0;
+            }
+        }
+        return new Sample(argb, width, height);
     }
 
     /** Double-precision plan vertex. */
