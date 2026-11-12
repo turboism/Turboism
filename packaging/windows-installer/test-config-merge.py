@@ -1383,6 +1383,13 @@ def check_eula_contract():
           and "MUI_LICENSEPAGE_CHECKBOX" not in statement_declaration
           and "MUI_PAGE_CUSTOMFUNCTION_SHOW" not in statement_declaration
           and "MUI_PAGE_CUSTOMFUNCTION_LEAVE" not in statement_declaration)
+    check("EULA top text does not mention next page confirmations and is localized across languages",
+          'LangString EulaTopText ${LANG_SIMPCHINESE} "请阅读下方完整的 Turboism 最终用户运行声明与免责声明。"' in text
+          and 'LangString EulaTopText ${LANG_ENGLISH} "Review the full Turboism End User Runtime Statement and Disclaimer below."' in text
+          and 'LangString EulaTopText ${LANG_JAPANESE} "以下の Turboism エンドユーザー運用声明および免責事項の全文を確認してください。"' in text
+          and 'LangString EulaTopText ${LANG_KOREAN} "아래에서 Turboism 최종 사용자 실행 고지 및 면책 조항 전문을 확인하세요."' in text
+          and "四项必选确认位于下一页" not in text
+          and "The four required acknowledgements are on the next page" not in text)
     check("Simplified Chinese EULA agree button consistently uses 我同意(I)",
           '!define MUI_LICENSEPAGE_BUTTON "$(EulaAgreeButtonText)"' in statement_declaration
           and 'LangString EulaAgreeButtonText ${LANG_SIMPCHINESE} "我同意(&I)"' in text

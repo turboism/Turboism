@@ -17,6 +17,15 @@ interface: embedded
 > **Turboism 官方插件** · **状态：预览版**
 
 将受支持的静态不透明 GLB、glTF、OBJ/MTL 及模型 ZIP 压缩包导入为原生 Cubism 网格，支持 PNG/JPEG 基础色贴图、XYZ 整圈旋转及有界几何优化。
+| 项目 | 值 |
+|---|---|
+| 版本 | `0.68.0` |
+| 插件 ID | `dev.turboism.plugin.model-import-3d` |
+| 分类 | `workflow` |
+| 标签 | 3d, glb, gltf, obj, import |
+| 需要 Cubism | 是 |
+| 界面模式 | `embedded` |
+| 许可证 | 项目许可证 |
 
 ## 功能概述
 

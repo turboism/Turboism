@@ -14,6 +14,20 @@ interface: embedded
 
 # 3D Model Import
 
+> **Official Turboism plugin** · **Status: Preview**
+
+Imports supported GLB, glTF, OBJ and model ZIP packages as native Cubism meshes with texture normalization and rotation deformers.
+
+| Detail | Value |
+|---|---|
+| Version | `0.68.0` |
+| Plugin ID | `dev.turboism.plugin.model-import-3d` |
+| Category | `workflow` |
+| Tags | 3d, glb, gltf, obj, import |
+| Requires Cubism | Yes |
+| Interface | `embedded` |
+| License | Project License |
+
 ## What it does
 
 Imports supported GLB, glTF, OBJ and model ZIP packages as native Cubism meshes. Input parsing, texture normalization, geometry simplification and parameter authoring run locally without an LLM. Source-material mode binds X/Y rotations to dense joint Warp forms and Z rotation to native scalar forms, each spanning −180° to 180°. An unbound outer “整体定位” deformer moves and scales the entire model. Source textures stay attached to their faces. One native Undo operation removes the import. The Warp path uses dense parameter sampling. The direct source-vertex fallback uses elliptical interpolation; it preserves the 9×9 ordinary pose bank and chooses insertion density per patch from its projected rotation radius. The preparation stage minimizes derived lattice size within the existing global interpolation bound, keeping simplification plus interpolation inside the 5px geometry budget. This is geometry evidence; intermediate occlusion and Editor drag latency require native acceptance.

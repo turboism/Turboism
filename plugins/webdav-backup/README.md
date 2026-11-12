@@ -20,7 +20,7 @@ Uploads Cubism backup artifacts to a WebDAV endpoint configured by the user.
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.webdav` |
 | Category | `workflow` |
 | Tags | backup, webdav, automation |

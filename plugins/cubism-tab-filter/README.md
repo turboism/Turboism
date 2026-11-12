@@ -20,7 +20,7 @@ Adds keyword filter boxes to Cubism's Parameter, Deformer, Scene, and Log palett
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.cubism-tab-filter` |
 | Category | `workflow` |
 | Tags | tab-filter, workspace |

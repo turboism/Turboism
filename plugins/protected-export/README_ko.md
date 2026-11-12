@@ -11,9 +11,22 @@ turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
-# ë³´í¸ë ë´ë³´ë´ê¸°
 
-> **Official Turboism plugin** · **Status: Preview**
+# 보호된 내보내기
+
+> **Turboism 공식 플러그인** · **상태: 프리뷰**
+
+작업 전용 모델 사본에서 보호된 런타임 모델 내보내기를 실행하여 디포머를 평탄화하고 ArtMesh 식별자를 난독화합니다.
+
+| 세부 정보 | 값 |
+|---|---|
+| 버전 | `0.68.0` |
+| 플러그인 ID | `dev.turboism.plugin.protected-export` |
+| 카테고리 | `workflow` |
+| 태그 | export, protected, candidate |
+| Cubism 필요 | 예 |
+| 인터페이스 | `none` |
+| 라이선스 | 프로젝트 라이선스 |
 
 ## 기능 개요
 

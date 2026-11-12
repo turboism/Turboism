@@ -20,7 +20,7 @@ interface: none
 
 | 項目 | 値 |
 |---|---|
-| バージョン | `0.1.0` |
+| バージョン | `0.68.0` |
 | プラグイン ID | `dev.turboism.plugin.uitheme` |
 | カテゴリー | `appearance` |
 | タグ | theme, colors, user-interface |

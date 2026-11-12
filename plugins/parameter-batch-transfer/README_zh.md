@@ -20,7 +20,7 @@ interface: swing
 
 | 详情 | 值 |
 |---|---|
-| 版本 | `0.1.0` |
+| 版本 | `0.68.0` |
 | 插件 ID | `dev.turboism.plugin.parameter-batch-transfer` |
 | 类别 | `modeling` |
 | 标签 | parameter, batch-edit, transfer |

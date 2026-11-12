@@ -20,7 +20,7 @@ interface: embedded
 
 | 项目 | 值 |
 |---|---|
-| 版本 | `0.1.0` |
+| 版本 | `0.68.0` |
 | 插件 ID | `dev.turboism.plugin.external-psd-edit` |
 | 分类 | `modeling` |
 | 标签 | psd, texture, external-edit |

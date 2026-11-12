@@ -20,7 +20,7 @@ Opens a Ctrl+K launcher over the Editor's supported menu commands and other plug
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.1` |
 | Plugin ID | `dev.turboism.plugin.command-palette` |
 | Category | `workflow` |
 | Tags | launcher, commands, shortcut |

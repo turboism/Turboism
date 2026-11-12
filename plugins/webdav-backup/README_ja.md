@@ -20,7 +20,7 @@ Cubism のバックアップ成果物を、ユーザーが設定した WebDAV �
 
 | 詳細 | 値 |
 |---|---|
-| バージョン | `0.1.0` |
+| バージョン | `0.68.0` |
 | プラグイン ID | `dev.turboism.plugin.webdav` |
 | カテゴリ | `workflow` |
 | タグ | backup, webdav, automation |

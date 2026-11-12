@@ -20,7 +20,7 @@ Imports sequence frame animations from sprite sheets or image lists and automati
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.frame-animation-import` |
 | Category | `modeling` |
 | Tags | animation, frame-animation, sprite-sheet, parameter |

@@ -11,7 +11,22 @@ turboismApi: "[0.70.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
-# ìí¸ë©ì ë¯¸ë¬
+
+# 아트메쉬 미러
+
+> **Turboism 공식 플러그인** · **상태: 프리뷰**
+
+일반 모델링 모드에서 아트메쉬 정점을 대칭 편집합니다. 선택 메쉬가 변경되면 축이 현재 선택 항목의 중심으로 재설정됩니다.
+
+| 세부 정보 | 값 |
+|---|---|
+| 버전 | `0.68.1` |
+| 플러그인 ID | `dev.turboism.plugin.artmesh-mirror` |
+| 카테고리 | `modeling` |
+| 태그 | mesh, artmesh, editing, symmetry |
+| Cubism 필요 | 예 |
+| 인터페이스 | `none` |
+| 라이선스 | 프로젝트 라이선스 |
 
 ## 기능 개요
 

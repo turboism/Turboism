@@ -20,7 +20,7 @@ Right-click ArtMeshes to edit their complete raw PSD in the configured or system
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.external-psd-edit` |
 | Category | `modeling` |
 | Tags | psd, texture, external-edit |

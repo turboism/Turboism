@@ -18,6 +18,16 @@ interface: swing
 
 Opens an Agent conversation window and a Settings window. Drives a user-installed, ACP v1 compatible agent through the Agent Client Protocol and attaches the local Turboism MCP server through a credential-free stdio bridge.
 
+| Detail | Value |
+|---|---|
+| Version | `0.68.1` |
+| Plugin ID | `dev.turboism.plugin.acp` |
+| Category | `integration` |
+| Tags | automation, acp, agent |
+| Requires Cubism | Yes |
+| Interface | `swing` |
+| License | Project License |
+
 ### Native CLIs and local sessions
 
 - Following [Paseo's provider design](https://paseo.sh/docs/providers.md), bundled adapters connect directly to original `claude`, `codex`, and `pi` CLIs. No additional ACP package or Node SDK is required. Pi's Turboism MCP extension is bundled. Gemini CLI uses its built-in ACP mode; Antigravity uses `agy-acp`. Existing ACP adapters remain supported.

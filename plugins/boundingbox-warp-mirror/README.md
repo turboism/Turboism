@@ -23,7 +23,7 @@ mirror), which is untouched by this plugin.
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.boundingbox-warp-mirror` |
 | Category | `modeling` |
 | Tags | deformer, warp, editing, symmetry, boundingbox |

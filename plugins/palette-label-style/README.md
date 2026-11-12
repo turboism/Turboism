@@ -20,7 +20,7 @@ Adds text and background color controls to Deformer, Part, and Parameter palette
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.palette-label-style` |
 | Category | `appearance` |
 | Tags | palette, labels, typography |

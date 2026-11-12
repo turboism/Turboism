@@ -16,6 +16,15 @@ interface: embedded
 > **Turboism 公式プラグイン** · **ステータス: プレビュー**
 
 静的な不透明 GLB、glTF、OBJ/MTL、およびモデル ZIP パッケージをネイティブ Cubism メッシュとしてインポートします（PNG/JPEG ベースカラーテクスチャ、XYZ 全周回転、有界ジオメトリ最適化に対応）。
+| 세부 정보 | 값 |
+|---|---|
+| 버전 | `0.68.0` |
+| 플러그인 ID | `dev.turboism.plugin.model-import-3d` |
+| 카테고리 | `workflow` |
+| 태그 | 3d, glb, gltf, obj, import |
+| Cubism 필요 | 예 |
+| 인터페이스 | `embedded` |
+| 라이선스 | 프로젝트 라이선스 |
 
 ## 기능 개요
 

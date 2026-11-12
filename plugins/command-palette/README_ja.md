@@ -20,7 +20,7 @@ interface: swing
 
 | 項目 | 値 |
 |---|---|
-| バージョン | `0.1.0` |
+| バージョン | `0.68.1` |
 | プラグイン ID | `dev.turboism.plugin.command-palette` |
 | カテゴリ | `workflow` |
 | タグ | launcher, commands, shortcut |

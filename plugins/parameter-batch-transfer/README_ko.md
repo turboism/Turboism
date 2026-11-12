@@ -19,7 +19,7 @@ interface: swing
 
 | 詳細 | 値 |
 |---|---|
-| 버전 | `0.1.0` |
+| 버전 | `0.68.0` |
 | 플러그인 ID | `dev.turboism.plugin.parameter-batch-transfer` |
 | カテゴリー | `modeling` |
 | 태그 | parameter, batch-edit, transfer |

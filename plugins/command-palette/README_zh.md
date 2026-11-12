@@ -20,7 +20,7 @@ interface: swing
 
 | 项目 | 值 |
 |---|---|
-| 版本 | `0.1.0` |
+| 版本 | `0.68.1` |
 | 插件 ID | `dev.turboism.plugin.command-palette` |
 | 分类 | `workflow` |
 | 标签 | launcher, commands, shortcut |

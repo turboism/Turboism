@@ -14,6 +14,20 @@ interface: none
 
 # Bitmask Nesting
 
+> **Official Turboism plugin** · **Status: Preview**
+
+Independent current-page texture-atlas nesting using material-local concave contours, conservative bit masks, and run-skipping placement. Small pieces can occupy open concavities and gaps between separate contour regions. Exact rectangular inputs automatically use a lightweight BSSF path; irregular inputs retain contour collision checks. No other packing plugin is required.
+
+| Detail | Value |
+|---|---|
+| Version | `0.68.0` |
+| Plugin ID | `dev.turboism.plugin.texture-atlas-nesting` |
+| Category | `modeling` |
+| Tags | texture-atlas, packing, polygon, auto-layout |
+| Requires Cubism | Yes |
+| Interface | `none` |
+| License | Project License |
+
 ## What it does
 
 Independent current-page texture-atlas nesting using material-local concave contours, conservative bit masks, and run-skipping placement. Small pieces can occupy open concavities and gaps between separate contour regions. Exact rectangular inputs automatically use a lightweight BSSF path; irregular inputs retain contour collision checks. No other packing plugin is required.

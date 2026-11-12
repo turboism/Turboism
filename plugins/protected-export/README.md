@@ -16,6 +16,18 @@ interface: none
 
 > **Official Turboism plugin** · **Status: Preview**
 
+Runs a protected runtime-model export on a task-owned copy of the active model, flattening deformers and obfuscating ArtMesh identifiers.
+
+| Detail | Value |
+|---|---|
+| Version | `0.68.0` |
+| Plugin ID | `dev.turboism.plugin.protected-export` |
+| Category | `workflow` |
+| Tags | export, protected, candidate |
+| Requires Cubism | Yes |
+| Interface | `none` |
+| License | Project License |
+
 ## What it does
 
 - Runs a protected runtime-model export on a task-owned copy of the active model: the authoring document is never written.

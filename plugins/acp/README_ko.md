@@ -17,6 +17,17 @@ interface: swing
 
 Agent 会話ウィンドウと Agent 設定ウィンドウを開き、ユーザーがインストールした ACP v1 対応エージェントを Agent Client Protocol 経由で駆動し、認証情報を持たない stdio ブリッジでローカル Turboism MCP サーバーへ接続します。
 
+| 세부 정보 | 값 |
+|---|---|
+| 버전 | `0.68.1` |
+| 플러그인 ID | `dev.turboism.plugin.acp` |
+| 카테고리 | `integration` |
+| 태그 | automation, acp, agent |
+| Cubism 필요 | 예 |
+| 인터페이스 | `swing` |
+| 라이선스 | 프로젝트 라이선스 |
+
+
 ### 接続済みなのに応答がない場合
 
 「接続済み」は ACP のハンドシェイク成功を示します。Agent が現在のリクエストに対してテキスト、思考、画像、ツールイベントを返さずに `end_turn` を返した場合、「完了」ではなく空の応答エラーを表示します。選択したモデル、プロバイダーの認証情報、Agent のログを確認してください。

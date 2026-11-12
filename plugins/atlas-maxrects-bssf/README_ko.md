@@ -19,7 +19,7 @@ Cubism のテクスチャアトラスワークフローに MaxRects-BSSF 自動�
 
 | 詳細 | 値 |
 |---|---|
-| 버전 | `0.1.0` |
+| 버전 | `0.68.0` |
 | 플러그인 ID | `dev.turboism.plugin.texture-atlas` |
 | 카테고리 | `modeling` |
 | 태그 | texture-atlas, packing, auto-layout |

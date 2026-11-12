@@ -14,7 +14,19 @@ interface: embedded
 
 # 选区笔刷
 
+> **Turboism 官方插件** · **状态：预览版**
+
 Turboism 官方插件，在普通建模模式和网格编辑模式提供选区笔刷，随正式发布包交付。插件仅使用 Turboism 公开 SDK。
+
+| 项目 | 值 |
+|---|---|
+| 版本 | `0.68.0` |
+| 插件 ID | `dev.turboism.plugin.selection-brush` |
+| 分类 | `modeling` |
+| 标签 | mesh, selection, brush |
+| 需要 Cubism | 是 |
+| 界面模式 | `embedded` |
+| 许可证 | 项目许可证 |
 
 ## 功能概述
 

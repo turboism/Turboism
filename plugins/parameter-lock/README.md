@@ -20,7 +20,7 @@ Protects Cubism parameter values from accidental editing, with cross-session per
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.parameter-lock` |
 | Category | `workflow` |
 | Tags | parameter, lock, palette, safety |

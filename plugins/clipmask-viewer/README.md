@@ -20,7 +20,7 @@ Inspects clip-mask relationships, duplicates, order conflicts, and related ArtMe
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.1` |
 | Plugin ID | `dev.turboism.plugin.clipmask-viewer` |
 | Category | `analysis` |
 | Tags | clip-mask, viewer, graph |

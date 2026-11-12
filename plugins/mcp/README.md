@@ -20,7 +20,7 @@ Runs a token-gated MCP Streamable HTTP server on the local loopback interface, p
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.2` |
 | Plugin ID | `dev.turboism.plugin.mcp` |
 | Public catalog | 80 tools · 15 resources · 2 templates · 8 prompts |
 | Requires Cubism | Yes |

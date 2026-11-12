@@ -14,6 +14,20 @@ interface: embedded
 
 # Geometric Mesh Layout
 
+> **Official Turboism plugin** · **Status: Preview**
+
+Contributes the Geometric Mesh Layout tool to the native mesh-editing toolbar. Clicking the tool enables setting a center anchor on the canvas and configuring a dialog to generate circular or regular-polygon vertices and edges.
+
+| Detail | Value |
+|---|---|
+| Version | `0.68.1` |
+| Plugin ID | `dev.turboism.plugin.geometric-mesh-layout` |
+| Category | `modeling` |
+| Tags | mesh, artmesh, editing |
+| Requires Cubism | Yes |
+| Interface | `embedded` |
+| License | Project License |
+
 ## What it does
 
 Contributes the Geometric Mesh Layout tool to the native mesh-editing toolbar. Clicking the tool enables setting a center anchor on the canvas and configuring a dialog to generate circular or regular-polygon vertices and edges.

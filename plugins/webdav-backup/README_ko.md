@@ -11,7 +11,8 @@ turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
-# WebDAV ìë ë°±ì ëê¸°í íë¬ê·¸ì¸
+# WebDAV ìë ë°±ì
+ ëê¸°í íë¬ê·¸ì¸
 
 > **Turboism 公式プラグイン** · **ステータス: プレビュー**
 
@@ -19,7 +20,7 @@ Cubism のバックアップ成果物を、ユーザーが設定した WebDAV �
 
 | 詳細 | 値 |
 |---|---|
-| 버전 | `0.1.0` |
+| 버전 | `0.68.0` |
 | 플러그인 ID | `dev.turboism.plugin.webdav` |
 | 카테고리 | `workflow` |
 | 태그 | backup, webdav, automation |

@@ -20,7 +20,7 @@ Shows total and current-texture model-image counts in Cubism's native texture-at
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.68.0` |
 | Plugin ID | `dev.turboism.plugin.texture-atlas-stats` |
 | Category | `analysis` |
 | Tags | texture-atlas, metrics, inspection |

@@ -19,7 +19,7 @@ Cubism の CPU、FPS、JVM メモリー、ガベージコレクション統計�
 
 | 詳細 | 値 |
 |---|---|
-| 버전 | `0.1.0` |
+| 버전 | `0.68.1` |
 | 플러그인 ID | `dev.turboism.plugin.perf-stats` |
 | カテゴリー | `performance` |
 | 태그 | metrics, diagnostics, fps |
