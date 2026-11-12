@@ -5701,6 +5701,42 @@
           "mesa_glthread=false"
         ]
       }
+    },
+    "deformer-rename": {
+      "description": "Deformer batch-rename read and write cost on the exact host.",
+      "command": "scripts/preview/run-deformer-rename-host-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "resources": {
+        "host-slot": 1
+      },
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ]
+      }
     }
   }
 }

@@ -8,6 +8,8 @@ import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransaction
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterStructureSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -25,6 +27,7 @@ import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.IntSequence;
+import dev.turboism.sdk.cubism.model.ModelNamingIndex;
 import dev.turboism.sdk.cubism.model.MorphTargets;
 import dev.turboism.sdk.cubism.model.ParameterBinding;
 import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
@@ -158,6 +161,190 @@ final class EditorObjectReadAccess {
     Drawables drawables(final String identity, final Object source, final Object model) {
         core.requireAuthorized();
         return new EditorDrawables(identity, source, model);
+    }
+
+    /**
+     * Reads every name and parent link a naming batch needs in one validated traversal.
+     *
+     * <p>Reading the same facts through live handles re-validates the whole collection per
+     * property, so a caller that visits N objects pays N full scans. This projection validates
+     * each collection once and then reads only the members it reports. Parameter names and Part
+     * names come from capabilities the object-read contract does not require, so a host without
+     * them reports the identifier text instead of failing the batch.</p>
+     *
+     * @param identity the current model binding identity
+     * @param source the model source the collections are read from
+     * @param model the model instance the collections are read from
+     * @return the detached naming index
+     */
+    dev.turboism.sdk.cubism.model.ModelNamingIndex namingIndex(
+            final String identity, final Object source, final Object model) {
+        core.requireAuthorized();
+        currentGuard.requireCurrent(identity, model);
+        final List<ModelNamingIndex.ParameterEntry> parameters = parameterNamingEntries(model);
+        final List<ModelNamingIndex.PartEntry> parts = partNamingEntries(source, model);
+        final List<EditorObjectReadCore.DeformerRef> deformerRefs = core.deformerRefs(identity, source, model);
+        final List<ModelNamingIndex.DeformerEntry> deformers = deformerNamingEntries(deformerRefs, parameters);
+        final List<ModelNamingIndex.ArtMeshEntry> artMeshes =
+                artMeshNamingEntries(core.artMeshes(identity, source, model), deformerRefs);
+        currentGuard.requireCurrent(identity, model);
+        return new ModelNamingIndex(parameters, parts, deformers, artMeshes);
+    }
+
+    private List<ModelNamingIndex.ParameterEntry> parameterNamingEntries(final Object model) {
+        final Object parameterSet = resolver.invoke("cubism.editor-model.model.parameter-set", model);
+        final List<?> parameters = EditorObjectReadCore.list(
+                resolver.invoke("cubism.editor-model.parameter-set.parameters", parameterSet),
+                "Editor parameter collection");
+        final boolean namesAuthorized = resolver.authorizesFeature(
+                EditorParameterStructureSelectorContract.ADAPTER_SLICE_ID,
+                EditorParameterStructureSelectorContract.CAPABILITY_ID,
+                EditorParameterStructureSelectorContract.REQUIRED_ALIASES);
+        final ArrayList<ModelNamingIndex.ParameterEntry> entries = new ArrayList<>(parameters.size());
+        for (Object parameter : parameters) {
+            if (!resolver.isInstance("cubism.editor-model.parameter.class", parameter)) {
+                throw unavailable("Editor parameter collection contains an invalid value.");
+            }
+            final String id = EditorObjectReadCore.text(
+                    resolver.invoke(
+                            "cubism.editor-model.id.value",
+                            resolver.invoke("cubism.editor-model.parameter.id", parameter)),
+                    "Editor parameter ID");
+            entries.add(new ModelNamingIndex.ParameterEntry(
+                    new ParameterId(id), namesAuthorized ? parameterName(parameter, id) : id));
+        }
+        return List.copyOf(entries);
+    }
+
+    private String parameterName(final Object parameter, final String id) {
+        final Object parameterSource = resolver.invoke("cubism.editor-model.parameter.source", parameter);
+        if (parameterSource == null) return id;
+        final Object value = resolver.invoke("cubism.editor-model.parameter-source.name", parameterSource);
+        if (value == null) return id;
+        if (!(value instanceof String name)) throw unavailable("Editor parameter name is invalid.");
+        return name.isBlank() ? id : name;
+    }
+
+    private List<ModelNamingIndex.PartEntry> partNamingEntries(final Object source, final Object model) {
+        final List<?> partSources = EditorObjectReadCore.list(
+                resolver.invoke("cubism.editor-model.model-source.parts", source), "Editor Part source collection");
+        final boolean namesAuthorized = resolver.authorizesFeature(
+                EditorPartNameSelectorContract.ADAPTER_SLICE_ID,
+                EditorPartNameSelectorContract.CAPABILITY_ID,
+                EditorPartNameSelectorContract.REQUIRED_ALIASES);
+        final ArrayList<ModelNamingIndex.PartEntry> entries = new ArrayList<>(partSources.size());
+        for (Object partSource : partSources) {
+            if (!resolver.isInstance("cubism.editor-model.part-source.class", partSource)) {
+                throw unavailable("Editor Part source type is invalid.");
+            }
+            final PartId id = new PartId(EditorObjectReadCore.text(
+                    resolver.invoke(
+                            "cubism.editor-model.part-id.value",
+                            resolver.invoke("cubism.editor-model.part-source.id", partSource)),
+                    "Editor Part ID"));
+            entries.add(new ModelNamingIndex.PartEntry(id, namesAuthorized ? partName(partSource, id) : id.value()));
+        }
+        return List.copyOf(entries);
+    }
+
+    private String partName(final Object partSource, final PartId id) {
+        final Object value = resolver.invoke("cubism.editor-model.part-source.local-name", partSource);
+        if (value == null) return id.value();
+        if (!(value instanceof String name)) throw unavailable("Editor Part display name is invalid.");
+        return name.isBlank() ? id.value() : name;
+    }
+
+    private List<ModelNamingIndex.DeformerEntry> deformerNamingEntries(
+            final List<EditorObjectReadCore.DeformerRef> refs, final List<ModelNamingIndex.ParameterEntry> parameters) {
+        final java.util.HashMap<String, ParameterId> known = new java.util.HashMap<>();
+        for (ModelNamingIndex.ParameterEntry entry : parameters)
+            known.put(entry.id().value(), entry.id());
+        final java.util.IdentityHashMap<Object, EditorObjectReadCore.DeformerRef> refsBySource =
+                new java.util.IdentityHashMap<>();
+        for (EditorObjectReadCore.DeformerRef ref : refs) refsBySource.put(ref.source(), ref);
+        final ArrayList<ModelNamingIndex.DeformerEntry> entries = new ArrayList<>(refs.size());
+        for (EditorObjectReadCore.DeformerRef ref : refs) {
+            final Object target = core.targetDeformerSource(ref.source());
+            final EditorObjectReadCore.DeformerRef parent = target == null ? null : refsBySource.get(target);
+            if (target != null && parent == null) {
+                throw unavailable("Editor Deformer target Deformer is outside the active model.");
+            }
+            final ArrayList<ParameterId> bound = new ArrayList<>();
+            for (ParameterId id : bindingReads.parameterIds(ref.source())) {
+                bound.add(known.getOrDefault(id.value(), id));
+            }
+            entries.add(new ModelNamingIndex.DeformerEntry(
+                    new DeformerId(ref.id()),
+                    core.objectName(ref.source(), ref.id()),
+                    ref.kind() == EditorObjectReadCore.Kind.ROTATION,
+                    parent == null ? Optional.empty() : Optional.of(new DeformerId(parent.id())),
+                    bound));
+        }
+        return List.copyOf(entries);
+    }
+
+    private List<ModelNamingIndex.ArtMeshEntry> artMeshNamingEntries(
+            final List<EditorObjectReadCore.ObjectRef> refs,
+            final List<EditorObjectReadCore.DeformerRef> deformerRefs) {
+        final java.util.IdentityHashMap<Object, EditorObjectReadCore.DeformerRef> refsBySource =
+                new java.util.IdentityHashMap<>();
+        for (EditorObjectReadCore.DeformerRef ref : deformerRefs) refsBySource.put(ref.source(), ref);
+        final ArrayList<ModelNamingIndex.ArtMeshEntry> entries = new ArrayList<>(refs.size());
+        for (EditorObjectReadCore.ObjectRef ref : refs) {
+            final Object target = core.targetDeformerSource(ref.source());
+            final EditorObjectReadCore.DeformerRef parent = target == null ? null : refsBySource.get(target);
+            if (target != null && parent == null) {
+                throw unavailable("Editor ArtMesh target Deformer is outside the active model.");
+            }
+            entries.add(new ModelNamingIndex.ArtMeshEntry(
+                    new ArtMeshId(ref.id()),
+                    core.objectName(ref.source(), ref.id()),
+                    parent == null ? Optional.empty() : Optional.of(new DeformerId(parent.id())),
+                    core.parentPartId(ref.source())));
+        }
+        return List.copyOf(entries);
+    }
+
+    /**
+     * Applies one conditional deformer rename batch as one Editor edit.
+     *
+     * <p>Renaming one deformer at a time pays a full native edit envelope and a palette refresh per
+     * deformer, so a batch of hundreds is dominated by refresh work. This path resolves every
+     * target from one deformer projection, refuses the batch when any expected name moved, and
+     * admits the whole batch inside one edit session.</p>
+     *
+     * @param identity the current model binding identity
+     * @param modelSource the model source the deformers belong to
+     * @param model the model instance the deformers belong to
+     * @param renames the conditional renames to apply
+     * @throws IllegalArgumentException when a deformer appears more than once
+     * @throws IllegalStateException when a deformer's expected name no longer matches
+     */
+    void renameDeformers(
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final List<dev.turboism.sdk.cubism.model.DeformerRename> renames) {
+        final List<dev.turboism.sdk.cubism.model.DeformerRename> batch =
+                dev.turboism.sdk.cubism.model.DeformerRename.requireUnique(renames);
+        if (batch.isEmpty()) return;
+        core.requireAuthorized();
+        currentGuard.requireCurrent(identity, model);
+        final java.util.HashMap<String, EditorObjectReadCore.DeformerRef> refsById = new java.util.HashMap<>();
+        for (EditorObjectReadCore.DeformerRef ref : core.deformerRefs(identity, modelSource, model)) {
+            refsById.put(ref.id(), ref);
+        }
+        final ArrayList<EditorObjectHierarchyEditAccess.RenameTarget> targets = new ArrayList<>(batch.size());
+        for (dev.turboism.sdk.cubism.model.DeformerRename rename : batch) {
+            final EditorObjectReadCore.DeformerRef ref =
+                    refsById.get(rename.deformerId().value());
+            if (ref == null) {
+                throw unavailable("Rename target Deformer is outside the active model.");
+            }
+            targets.add(new EditorObjectHierarchyEditAccess.RenameTarget(
+                    ref.id(), ref.source(), rename.expectedName(), rename.replacementName()));
+        }
+        hierarchyEditAccess.renameAll(identity, modelSource, model, targets, "Deformer");
     }
 
     Deformers deformers(final String identity, final Object source, final Object model) {

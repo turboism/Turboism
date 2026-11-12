@@ -29,6 +29,7 @@ import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
+import dev.turboism.sdk.cubism.model.DeformerRename;
 import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
 import dev.turboism.sdk.cubism.model.ModelObjectKind;
 import dev.turboism.sdk.cubism.model.ModelObjectReference;
@@ -897,6 +898,66 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals("MeshA", fixture.meshSource.localName);
         fixture.editMode.edits.get(1).redo();
         assertEquals("Renamed Mesh", fixture.meshSource.localName);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
+    void renamesManyDeformersAsOneEditWithOneRefresh(final String cubismVersion) {
+        final Fixture fixture = new Fixture();
+        Host.install(fixture);
+        final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
+
+        model.renameDeformers(List.of(
+                new DeformerRename(new DeformerId("WarpA"), "WarpA", "Renamed Warp"),
+                new DeformerRename(new DeformerId("RotationA"), "RotationA", "Renamed Rotation")));
+
+        assertEquals("Renamed Warp", fixture.warpSource.localName);
+        assertEquals("Renamed Rotation", fixture.rotationSource.localName);
+        // One edit and one palette refresh for the whole batch, not one per deformer.
+        assertEquals(1, fixture.editMode.edits.size());
+        assertEquals(1, fixture.source.updateCount);
+        assertEquals(1, fixture.pack.partRefreshCount);
+        assertTrue(fixture.document.dirty);
+
+        // The batch undoes as one step.
+        fixture.editMode.edits.get(0).undo();
+        assertEquals("WarpA", fixture.warpSource.localName);
+        assertEquals("RotationA", fixture.rotationSource.localName);
+        fixture.editMode.edits.get(0).redo();
+        assertEquals("Renamed Warp", fixture.warpSource.localName);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
+    void refusesTheWholeBatchWhenAnExpectedNameMoved(final String cubismVersion) {
+        final Fixture fixture = new Fixture();
+        Host.install(fixture);
+        final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> model.renameDeformers(List.of(
+                        new DeformerRename(new DeformerId("WarpA"), "WarpA", "Renamed Warp"),
+                        new DeformerRename(new DeformerId("RotationA"), "Stale Name", "Renamed Rotation"))));
+
+        // The mismatch refuses before any mutation, so neither deformer moved.
+        assertEquals("WarpA", fixture.warpSource.localName);
+        assertEquals("RotationA", fixture.rotationSource.localName);
+        assertEquals(0, fixture.editMode.edits.size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
+    void batchRenameElidesWhenEveryNameAlreadyMatches(final String cubismVersion) {
+        final Fixture fixture = new Fixture();
+        Host.install(fixture);
+        final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
+
+        model.renameDeformers(List.of(
+                new DeformerRename(new DeformerId("WarpA"), "WarpA", "WarpA"),
+                new DeformerRename(new DeformerId("RotationA"), "RotationA", "RotationA")));
+
+        assertEquals(0, fixture.editMode.edits.size());
     }
 
     @ParameterizedTest

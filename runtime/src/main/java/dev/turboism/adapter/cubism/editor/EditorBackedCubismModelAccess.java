@@ -1045,6 +1045,18 @@ public final class EditorBackedCubismModelAccess
         }
 
         @Override
+        public void renameDeformers(final List<dev.turboism.sdk.cubism.model.DeformerRename> renames) {
+            current();
+            objectReadAccess.renameDeformers(identity, source, model, renames);
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.ModelNamingIndex namingIndex() {
+            current();
+            return objectReadAccess.namingIndex(identity, source, model);
+        }
+
+        @Override
         public Parts parts() {
             current();
             return partOpacityAccess.parts(identity, source, model);

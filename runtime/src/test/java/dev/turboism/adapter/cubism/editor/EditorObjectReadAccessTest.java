@@ -65,6 +65,55 @@ class EditorObjectReadAccessTest {
         assertFalse(fixture.document.dirty);
     }
 
+    @Test
+    void namingIndexReportsNamesAndParentLinksInOneReadWithoutEditing() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02", false), "session-a").active();
+
+        final var index = model.namingIndex();
+
+        assertEquals(
+                List.of("ParamAngleX", "ParamAngleY"),
+                index.parameters().stream().map(entry -> entry.id().value()).toList());
+        assertEquals(
+                List.of("PartFace"),
+                index.parts().stream().map(entry -> entry.id().value()).toList());
+        assertEquals(
+                List.of("WarpFace", "RotationHead"),
+                index.deformers().stream().map(entry -> entry.id().value()).toList());
+        assertEquals(
+                List.of(false, true),
+                index.deformers().stream().map(entry -> entry.rotation()).toList());
+        assertEquals(
+                List.of("RotationHead"),
+                index.deformers().get(0).parentDeformerId().map(id -> id.value()).stream()
+                        .toList());
+        assertEquals(
+                List.of("ArtMeshFace", "ArtMeshMask"),
+                index.artMeshes().stream().map(entry -> entry.id().value()).toList());
+        assertEquals(
+                "WarpFace",
+                index.artMeshes().get(0).parentDeformerId().orElseThrow().value());
+        assertEquals(
+                "PartFace",
+                index.artMeshes().get(0).parentPartId().orElseThrow().value());
+        assertEquals(0, fixture.source.updateCount);
+        assertTrue(fixture.document.editMode.edits.isEmpty());
+        assertFalse(fixture.document.dirty);
+    }
+
+    @Test
+    void namingIndexReportsIdentifierTextWhenPartNamesAreNotAdmitted() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02", false), "session-a").active();
+
+        // The object-read contract does not require the Part-name capability, so the batch reports
+        // the identifier instead of failing on a host that lacks it.
+        assertEquals("PartFace", model.namingIndex().parts().get(0).name());
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void warpMirrorIgnoresGlueOutsideSelectedHierarchy(final boolean preserveDescendants) {

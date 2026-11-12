@@ -4,6 +4,8 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.DeformerRename;
+import dev.turboism.sdk.cubism.model.ModelNamingIndex;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -12,12 +14,22 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import java.util.HashSet;
+import java.util.List;
 import java.util.function.Consumer;
 
-/** One confirmed rename batch participates in one native Undo transaction. */
+/**
+ * One confirmed rename batch participates in one native Undo transaction.
+ *
+ * <p>The naming read runs off the UI thread behind the shared progress window, because the Editor
+ * validates every collection it reports and a large model takes long enough to freeze the Editor.
+ * Both base-name previews are derived from that one read, so the footer switch never reads the
+ * model again.</p>
+ */
 public final class DeformerBatchRenamePlugin implements CubismPlugin {
     public static final String ACTION_ID = "deformer.rename.preview";
+
     private PluginContext context;
+    private RenameReadRunner runner;
     private volatile boolean enabled;
     private volatile Registration dialog;
     private volatile long generation;
@@ -33,6 +45,10 @@ public final class DeformerBatchRenamePlugin implements CubismPlugin {
     public void enable() {
         enabled = true;
         generation++;
+        runner = new RenameReadRunner(this::readIndex);
+        // The scope closes the runner so a disable that skips the explicit close still releases
+        // the worker thread and the progress window.
+        context.disposableScope().register(runner);
         context.disposableScope().register(context.actions().register(ACTION_ID, new ActionRegistry.Action() {
             @Override
             public String id() {
@@ -46,7 +62,7 @@ public final class DeformerBatchRenamePlugin implements CubismPlugin {
 
             @Override
             public Consumer<ActionRegistry.ActionContext> handler() {
-                return ignored -> context.uiScheduler().runOnUiThread(() -> open());
+                return ignored -> context.uiScheduler().runOnUiThread(DeformerBatchRenamePlugin.this::open);
             }
         }));
         context.disposableScope()
@@ -59,9 +75,12 @@ public final class DeformerBatchRenamePlugin implements CubismPlugin {
     public void disable() {
         enabled = false;
         generation++;
-        var current = dialog;
+        final Registration current = dialog;
         dialog = null;
         if (current != null) current.close();
+        final RenameReadRunner active = runner;
+        runner = null;
+        if (active != null) active.close();
     }
 
     @Override
@@ -79,35 +98,70 @@ public final class DeformerBatchRenamePlugin implements CubismPlugin {
                 .notifyStatus(new StatusNotification(ACTION_ID, severity, text(key)));
     }
 
+    /** Reads the active model's naming index. Runs on the read worker, never on the UI thread. */
+    private ModelNamingIndex readIndex() {
+        return context.cubism().model().active().namingIndex();
+    }
+
     private void open() {
         if (!enabled || dialog != null) return;
+        final RenameReadRunner active = runner;
+        if (active == null) return;
+        final ModelId modelId;
         try {
-            CubismModel model;
-            try {
-                model = context.cubism().model().active();
-            } catch (IllegalStateException missing) {
-                notifyStatus("status.noModel", "INFO");
-                return;
+            modelId = context.cubism().model().active().id();
+        } catch (IllegalStateException missing) {
+            notifyStatus("status.noModel", "INFO");
+            return;
+        }
+        final long current = generation;
+        active.requestRead(new RenameReadProgress(context.localization()), new RenameReadRunner.ResultSink() {
+            @Override
+            public void ready(final ModelNamingIndex index) {
+                context.uiScheduler().runOnUiThread(() -> showPreview(current, modelId, index));
             }
-            var modelId = model.id();
-            var baseNames = new RenameBaseNameFooter(model, context.localization(), baseNameMode);
-            if (baseNames.rows().isEmpty()) {
-                notifyStatus("status.empty", "INFO");
-                return;
+
+            @Override
+            public void failed(final Throwable failure) {
+                context.uiScheduler().runOnUiThread(() -> reportReadFailure(current, failure));
             }
-            long current = generation;
+        });
+    }
+
+    private void reportReadFailure(final long expectedGeneration, final Throwable failure) {
+        if (!enabled || expectedGeneration != generation) return;
+        if (failure instanceof IllegalStateException) {
+            notifyStatus("status.noModel", "INFO");
+            return;
+        }
+        context.logger().warn("Deformer rename read failed: " + failure);
+        notifyStatus("status.failed", "ERROR");
+    }
+
+    private void showPreview(final long expectedGeneration, final ModelId modelId, final ModelNamingIndex index) {
+        if (!enabled || expectedGeneration != generation || dialog != null) return;
+        if (index.deformers().isEmpty()) {
+            notifyStatus("status.empty", "INFO");
+            return;
+        }
+        try {
+            final RenamePlanner.Preview preview = RenamePlanner.preview(index);
+            final RenameBaseNameFooter baseNames =
+                    new RenameBaseNameFooter(context.localization(), preview, baseNameMode);
             dialog = context.services()
                     .require(UiHostCapabilityService.class)
                     .openSelectionTableDialog(
-                            RenameDialog.request(context.localization(), baseNames.rows()),
+                            RenameDialog.request(context.localization(), preview.rows(baseNameMode)),
                             baseNames,
                             (accepted, ids) -> {
-                                if (!enabled || current != generation) return;
-                                var handle = dialog;
+                                if (!enabled || expectedGeneration != generation) return;
+                                final Registration handle = dialog;
                                 dialog = null;
                                 if (handle != null) handle.close();
                                 baseNameMode = baseNames.mode();
-                                if (accepted && !ids.isEmpty()) apply(modelId, baseNames.rows(), ids, baseNames.mode());
+                                if (accepted && !ids.isEmpty()) {
+                                    apply(modelId, preview.index(), baseNames.rows(), ids, baseNames.mode());
+                                }
                             });
         } catch (RuntimeException failure) {
             context.logger().warn("Deformer rename failed: " + failure);
@@ -116,26 +170,40 @@ public final class DeformerBatchRenamePlugin implements CubismPlugin {
     }
 
     private void apply(
-            ModelId modelId,
-            java.util.List<RenamePlanner.Row> rows,
-            java.util.List<String> ids,
-            RenamePlanner.BaseNameMode mode) {
+            final ModelId modelId,
+            final ModelNamingIndex index,
+            final List<RenamePlanner.Row> rows,
+            final List<String> ids,
+            final RenamePlanner.BaseNameMode mode) {
         try {
-            var selected = new HashSet<>(ids);
-            var result = context.cubism()
+            final var selected = new HashSet<>(ids);
+            final var result = context.cubism()
                     .authoringTransactions()
                     .execute(AuthoringTransactionOptions.of(text("action.rename")), () -> {
-                        CubismModel active = context.cubism().model().active();
-                        if (!active.id().equals(modelId) || !rows.equals(RenamePlanner.preview(active, mode)))
+                        final CubismModel active = context.cubism().model().active();
+                        if (!active.id().equals(modelId)) throw new IllegalStateException("Rename preview is stale");
+                        // Re-derive from a fresh read: a model edited after the preview fails closed
+                        // instead of renaming a name the operator never saw.
+                        final ModelNamingIndex current = active.namingIndex();
+                        if (!current.equals(index)
+                                || !RenamePlanner.rows(current, mode).equals(rows)) {
                             throw new IllegalStateException("Rename preview is stale");
-                        for (var row : rows)
-                            if (row.changed() && selected.contains(row.id().value()))
-                                active.deformers().find(row.id()).setName(row.target());
-                        return selected.size();
+                        }
+                        // One conditional batch: the host checks every expected name, then applies
+                        // all renames inside one edit and one palette refresh.
+                        final List<DeformerRename> batch = rows.stream()
+                                .filter(row -> row.changed()
+                                        && selected.contains(row.id().value()))
+                                .map(row -> new DeformerRename(row.id(), row.original(), row.target()))
+                                .toList();
+                        active.renameDeformers(batch);
+                        return batch.size();
                     });
-            boolean success = result.outcome() == AuthoringTransactionOutcome.COMMITTED
+            final boolean success = result.outcome() == AuthoringTransactionOutcome.COMMITTED
                     || result.outcome() == AuthoringTransactionOutcome.NO_CHANGE;
-            if (!success) context.logger().warn("Deformer rename: " + result.outcome() + " " + result.diagnosticId());
+            if (!success) {
+                context.logger().warn("Deformer rename: " + result.outcome() + " " + result.diagnosticId());
+            }
             notifyStatus(success ? "status.done" : "status.failed", success ? "INFO" : "ERROR");
         } catch (RuntimeException failure) {
             context.logger().warn("Deformer rename failed: " + failure);

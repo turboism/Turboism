@@ -10,6 +10,9 @@ column.target
 column.type
 plugin.description
 plugin.name
+progress.preparing
+progress.reading
+progress.title
 status.done
 status.empty
 status.failed

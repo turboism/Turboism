@@ -1180,6 +1180,11 @@ r4_TASK_EXPLICIT_CAPABILITIES: dict[str, tuple[str, ...]] = {
         "cubism.editor-history.move",
         "cubism.workspace.control",
     ),
+    "deformer-rename": (
+        "cubism.editor-model.read",
+        "cubism.editor-model.write",
+        "ui.status.notify",
+    ),
     "mesh-edit": ("cubism.mesh-tool.session",),
     "model-import-3d": (
         "cubism.editor-model.object-hierarchy.art-mesh.create",

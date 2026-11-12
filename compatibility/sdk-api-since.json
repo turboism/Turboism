@@ -41,6 +41,12 @@
     "dev.turboism.sdk.cubism.mesh.automesh.AutoMeshResult$Rejected": "0.70.0",
     "dev.turboism.sdk.cubism.mesh.automesh.AutoMeshResult$Success": "0.70.0",
     "dev.turboism.sdk.cubism.model.ArtMeshKeyformValues": "0.68.0",
+    "dev.turboism.sdk.cubism.model.DeformerRename": "0.70.0",
+    "dev.turboism.sdk.cubism.model.ModelNamingIndex": "0.70.0",
+    "dev.turboism.sdk.cubism.model.ModelNamingIndex$ArtMeshEntry": "0.70.0",
+    "dev.turboism.sdk.cubism.model.ModelNamingIndex$DeformerEntry": "0.70.0",
+    "dev.turboism.sdk.cubism.model.ModelNamingIndex$ParameterEntry": "0.70.0",
+    "dev.turboism.sdk.cubism.model.ModelNamingIndex$PartEntry": "0.70.0",
     "dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport": "0.68.0",
     "dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport$Check": "0.68.0",
     "dev.turboism.sdk.cubism.model.OrdinaryKeyformWriteSupport$Operation": "0.68.0",
@@ -92,6 +98,8 @@
     "dev.turboism.sdk.cubism.mesh.MeshToolContext#canvasSession:()Ldev/turboism/sdk/cubism/mesh/MeshCanvasSession;": "0.70.0",
     "dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot$Form#<init>:(Ljava/lang/String;Ljava/util/List;ILjava/util/Optional;)V": "0.68.0",
     "dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot$Form#opacity:()Ljava/util/Optional;": "0.68.0",
+    "dev.turboism.sdk.cubism.model.CubismModel#namingIndex:()Ldev/turboism/sdk/cubism/model/ModelNamingIndex;": "0.70.0",
+    "dev.turboism.sdk.cubism.model.CubismModel#renameDeformers:(Ljava/util/List;)V": "0.70.0",
     "dev.turboism.sdk.cubism.model.Deformer#ordinaryKeyformWriteSupport:()Ldev/turboism/sdk/cubism/model/OrdinaryKeyformWriteSupport;": "0.68.0",
     "dev.turboism.sdk.cubism.model.Drawable#ordinaryKeyformWriteSupport:()Ldev/turboism/sdk/cubism/model/OrdinaryKeyformWriteSupport;": "0.68.0",
     "dev.turboism.sdk.cubism.model.Drawable#setOrdinaryKeyformValues:(Ldev/turboism/sdk/cubism/model/ArtMeshAuthoringSnapshot;Ljava/util/List;)V": "0.68.0",
@@ -143,6 +151,7 @@
     "dev.turboism.sdk.ui.UiHostCapabilityService#openSelectionTableDialog:(Ldev/turboism/sdk/ui/SelectionTableDialogRequest;Ldev/turboism/sdk/ui/SelectionTableFooter;Ldev/turboism/sdk/ui/SelectionTableDialogResultListener;)Ldev/turboism/sdk/plugin/Registration;": "0.70.0",
     "dev.turboism.sdk.ui.UiScheduler#runUiTeardown:(Ljava/lang/Runnable;Ljava/time/Duration;)Z": "0.68.1",
     "dev.turboism.sdk.ui.UserFileAccessService#writeBytesAtomicBounded:(Ldev/turboism/sdk/ui/UserFileHandle;[BI)Ljava/util/concurrent/CompletionStage;": "0.68.0",
-    "dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry#contributeStateButtons:(Ldev/turboism/sdk/ui/viewcontext/ViewContextMenuRegistry$StateButtonContribution;I)Ldev/turboism/sdk/plugin/Registration;": "0.70.0"
+    "dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry#contributeStateButtons:(Ldev/turboism/sdk/ui/viewcontext/ViewContextMenuRegistry$StateButtonContribution;I)Ldev/turboism/sdk/plugin/Registration;": "0.70.0",
+    "dev.turboism.sdk.ui.window.TurboismProgressDialog#flush:()V": "0.70.0"
   }
 }
