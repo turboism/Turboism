@@ -8,6 +8,7 @@ import java.awt.Window;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.BorderFactory;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -19,6 +20,9 @@ import javax.swing.WindowConstants;
  * Reusable modeless progress window, centered on the visible Cubism Editor frame.
  * All operations may be called from worker threads. Closing is terminal and idempotent;
  * the window offers no cancellation because the caller owns the operation lifecycle.
+ *
+ * <p>A caller that blocks the event thread must call {@link #flush()} after every update. The
+ * window is otherwise painted only when the event thread returns to its loop.</p>
  */
 public final class TurboismProgressDialog implements AutoCloseable {
     private final Window owner;
@@ -71,7 +75,19 @@ public final class TurboismProgressDialog implements AutoCloseable {
             if (!dialog.isVisible()) dialog.setLocationRelativeTo(dialog.getOwner());
             dialog.setVisible(true);
             dialog.toFront();
+            paintNow();
         });
+    }
+
+    /**
+     * Paints pending message and progress changes immediately.
+     *
+     * <p>A caller that keeps the event thread busy, such as a synchronous authoring transaction,
+     * never lets a queued repaint run. Such a caller must request the paint itself after each
+     * update; other callers never need this method.</p>
+     */
+    public void flush() {
+        onEdt(this::paintNow);
     }
 
     /** Brings an already open window to the front without moving it. */
@@ -126,6 +142,14 @@ public final class TurboismProgressDialog implements AutoCloseable {
             progress.setMaximum(maximum);
             progress.setValue(value);
         }
+    }
+
+    /** Paints the realized window synchronously; a no-op before the window is showing. */
+    private void paintNow() {
+        if (dialog == null || closed.get() || !dialog.isShowing()) return;
+        dialog.validate();
+        final JComponent root = dialog.getRootPane();
+        root.paintImmediately(0, 0, root.getWidth(), root.getHeight());
     }
 
     private static Window editorOwner() {

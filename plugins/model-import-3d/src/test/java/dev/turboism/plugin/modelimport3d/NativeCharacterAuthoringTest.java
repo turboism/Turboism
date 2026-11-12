@@ -105,6 +105,8 @@ public class NativeCharacterAuthoringTest {
         int hierarchyChangesAfterMeshKeyforms;
         int rotationBindingsAfterSourceMorphs;
         int parameterListReads;
+        final java.util.Map<String, Integer> drawableCalls = new java.util.TreeMap<>();
+        int findCalls;
         int warpGridReplacements;
         int warpParentConversions;
 
@@ -326,6 +328,7 @@ public class NativeCharacterAuthoringTest {
                                     .toList();
                         }
                         case "find" -> {
+                            findCalls++;
                             var id = (ArtMeshId) da[0];
                             var r = meshes.get(id);
                             if (r == null) throw new IllegalArgumentException("Drawable not found: " + id);
@@ -504,94 +507,99 @@ public class NativeCharacterAuthoringTest {
         }
 
         private Drawable createDrawableProxy(MeshRecord r) {
-            return proxy(Drawable.class, (m, a) -> switch (m.getName()) {
-                case "id" -> r.id;
-                case "name" -> r.name;
-                case "setCulling" -> {
-                    r.culling = (Boolean) a[0];
-                    yield null;
-                }
-                case "setVisible" -> {
-                    r.visible = (Boolean) a[0];
-                    yield null;
-                }
-                case "setDrawOrder" -> {
-                    if (requireDrawOrderBatch)
-                        assertTrue(sourceBatchActive, "Initial draw orders must use the explicit stored-source batch");
-                    r.drawOrder = (Integer) a[0];
-                    yield null;
-                }
-                case "setTargetDeformer" -> {
-                    if (meshes.values().stream().anyMatch(mesh -> !mesh.boundAxes.isEmpty()))
-                        hierarchyChangesAfterMeshKeyforms++;
-                    var target = (Optional<DeformerId>) a[0];
-                    var warp = target.map(warps::get).orElse(null);
-                    if (simulateCompleteParentConversion && warp != null) {
-                        var before = r.snapshot();
-                        for (var form : before.forms())
-                            r.keyformPositions.put(
-                                    form.formGuid(),
-                                    form.positions().stream()
-                                            .map(point -> {
-                                                var canvas = toCanvas(point, r.targetDeformer);
-                                                return fromCanvas(
-                                                        new Point2(canvas.x() + nativeCanvasDrift, canvas.y()), target);
-                                            })
-                                            .toList());
-                        localParentConversions++;
-                    } else if (simulateLocalParentConversion && warp != null) {
-                        var before = r.snapshot();
-                        var origin = warp.grid.controlPoints().get(0);
-                        var end = warp.grid
-                                .controlPoints()
-                                .get(warp.grid.controlPoints().size() - 1);
-                        for (var form : before.forms()) {
-                            r.keyformPositions.put(
-                                    form.formGuid(),
-                                    form.positions().stream()
-                                            .map(p -> new Point2(
-                                                    (p.x() - origin.x()) / (end.x() - origin.x()) + 1e-6f,
-                                                    (p.y() - origin.y()) / (end.y() - origin.y()) + 1e-6f))
-                                            .toList());
+            return proxy(Drawable.class, (m, a) -> {
+                drawableCalls.merge(m.getName(), 1, Integer::sum);
+                return switch (m.getName()) {
+                    case "id" -> r.id;
+                    case "name" -> r.name;
+                    case "setCulling" -> {
+                        r.culling = (Boolean) a[0];
+                        yield null;
+                    }
+                    case "setVisible" -> {
+                        r.visible = (Boolean) a[0];
+                        yield null;
+                    }
+                    case "setDrawOrder" -> {
+                        if (requireDrawOrderBatch)
+                            assertTrue(
+                                    sourceBatchActive, "Initial draw orders must use the explicit stored-source batch");
+                        r.drawOrder = (Integer) a[0];
+                        yield null;
+                    }
+                    case "setTargetDeformer" -> {
+                        if (meshes.values().stream().anyMatch(mesh -> !mesh.boundAxes.isEmpty()))
+                            hierarchyChangesAfterMeshKeyforms++;
+                        var target = (Optional<DeformerId>) a[0];
+                        var warp = target.map(warps::get).orElse(null);
+                        if (simulateCompleteParentConversion && warp != null) {
+                            var before = r.snapshot();
+                            for (var form : before.forms())
+                                r.keyformPositions.put(
+                                        form.formGuid(),
+                                        form.positions().stream()
+                                                .map(point -> {
+                                                    var canvas = toCanvas(point, r.targetDeformer);
+                                                    return fromCanvas(
+                                                            new Point2(canvas.x() + nativeCanvasDrift, canvas.y()),
+                                                            target);
+                                                })
+                                                .toList());
+                            localParentConversions++;
+                        } else if (simulateLocalParentConversion && warp != null) {
+                            var before = r.snapshot();
+                            var origin = warp.grid.controlPoints().get(0);
+                            var end = warp.grid
+                                    .controlPoints()
+                                    .get(warp.grid.controlPoints().size() - 1);
+                            for (var form : before.forms()) {
+                                r.keyformPositions.put(
+                                        form.formGuid(),
+                                        form.positions().stream()
+                                                .map(p -> new Point2(
+                                                        (p.x() - origin.x()) / (end.x() - origin.x()) + 1e-6f,
+                                                        (p.y() - origin.y()) / (end.y() - origin.y()) + 1e-6f))
+                                                .toList());
+                            }
+                            localParentConversions++;
                         }
-                        localParentConversions++;
+                        r.targetDeformer = target;
+                        yield null;
                     }
-                    r.targetDeformer = target;
-                    yield null;
-                }
-                case "parentDeformerId" -> r.targetDeformer;
-                case "parentPartId" -> Optional.of(r.parentPart.id());
-                case "authoringSnapshot" -> {
-                    r.authoringReads++;
-                    yield r.snapshot();
-                }
-                case "setOrdinaryKeyforms" -> {
-                    var edits = (List<ArtMeshKeyformPositions>) a[1];
-                    var expected = (ArtMeshAuthoringSnapshot) a[0];
-                    assertEquals(r.snapshot(), expected, "Require fresh post-reparent snapshot");
-                    for (var edit : edits) {
-                        if (edit.coordinates().stream()
-                                .allMatch(c -> expected.axes().stream()
-                                        .filter(axis -> axis.parameterGuid().equals(c.parameterGuid()))
-                                        .allMatch(axis -> axis.defaultValue() == c.value())))
-                            throw new UnsupportedOperationException(
-                                    "default keyform position editing is not available");
+                    case "parentDeformerId" -> r.targetDeformer;
+                    case "parentPartId" -> Optional.of(r.parentPart.id());
+                    case "authoringSnapshot" -> {
+                        r.authoringReads++;
+                        yield r.snapshot();
                     }
-                    var orders = (List<ArtMeshKeyformDrawOrder>) a[2];
-                    assertEquals(edits.size(), orders.size());
-                    r.orderEdits.addAll(orders);
-                    for (var order : orders) r.keyformOrders.put(order.formGuid(), order.drawOrder());
-                    r.positionEdits.addAll(edits);
-                    for (var e : edits) r.keyformPositions.put(e.formGuid(), e.positions());
-                    yield null;
-                }
-                case "setOrdinaryKeyformDrawOrders" -> {
-                    var edits = (List<ArtMeshKeyformDrawOrder>) a[1];
-                    r.orderEdits.addAll(edits);
-                    for (var e : edits) r.keyformOrders.put(e.formGuid(), e.drawOrder());
-                    yield null;
-                }
-                default -> throw new AssertionError(m.toString());
+                    case "setOrdinaryKeyforms" -> {
+                        var edits = (List<ArtMeshKeyformPositions>) a[1];
+                        var expected = (ArtMeshAuthoringSnapshot) a[0];
+                        assertEquals(r.snapshot(), expected, "Require fresh post-reparent snapshot");
+                        for (var edit : edits) {
+                            if (edit.coordinates().stream()
+                                    .allMatch(c -> expected.axes().stream()
+                                            .filter(axis -> axis.parameterGuid().equals(c.parameterGuid()))
+                                            .allMatch(axis -> axis.defaultValue() == c.value())))
+                                throw new UnsupportedOperationException(
+                                        "default keyform position editing is not available");
+                        }
+                        var orders = (List<ArtMeshKeyformDrawOrder>) a[2];
+                        assertEquals(edits.size(), orders.size());
+                        r.orderEdits.addAll(orders);
+                        for (var order : orders) r.keyformOrders.put(order.formGuid(), order.drawOrder());
+                        r.positionEdits.addAll(edits);
+                        for (var e : edits) r.keyformPositions.put(e.formGuid(), e.positions());
+                        yield null;
+                    }
+                    case "setOrdinaryKeyformDrawOrders" -> {
+                        var edits = (List<ArtMeshKeyformDrawOrder>) a[1];
+                        r.orderEdits.addAll(edits);
+                        for (var e : edits) r.keyformOrders.put(e.formGuid(), e.drawOrder());
+                        yield null;
+                    }
+                    default -> throw new AssertionError(m.toString());
+                };
             });
         }
     }
@@ -894,6 +902,19 @@ public class NativeCharacterAuthoringTest {
         assertEquals(0, host.singleMeshCreations);
         assertEquals(70, bound[0]);
         assertEquals(70, host.meshes.size());
+    }
+
+    @Test
+    void authoringReusesCreatedHandlesInsteadOfRescanningTheModel() {
+        var host = new TestModelHost();
+        var meshes = java.util.stream.IntStream.range(0, 40)
+                .mapToObj(index -> simpleMesh("Piece" + index, 0))
+                .toArray(ViewerScene.Mesh[]::new);
+        NativeCharacterAuthoring.assemble(host.model(), planFor(meshes), (id, source) -> {});
+        // Batch creation returns every handle, so no phase may resolve a known ID again.
+        assertEquals(0, host.findCalls, "Resolving a known ID again rescans every ArtMesh");
+        // The three-ID conflict preflight reads the parameter set once, never once per ID.
+        assertEquals(1, host.parameterListReads, "Conflict preflight must read the parameter set once");
     }
 
     @Test

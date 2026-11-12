@@ -59,19 +59,44 @@ public final class NativeCharacterAuthoring {
             DeformerId rollDeformerId,
             List<ArtMeshId> meshIds,
             Map<ArtMeshId, Integer> meshToSourceIndex,
-            OptionalDouble maxNeutralConversionErrorPixels) {
+            OptionalDouble maxNeutralConversionErrorPixels,
+            List<Drawable> meshes) {
         /** Compatibility result for callers without a native-parent coordinate measurement. */
         public Created(
                 PartId rootPartId,
                 DeformerId rollDeformerId,
                 List<ArtMeshId> meshIds,
                 Map<ArtMeshId, Integer> meshToSourceIndex) {
-            this(rootPartId, rollDeformerId, meshIds, meshToSourceIndex, OptionalDouble.empty());
+            this(rootPartId, rollDeformerId, meshIds, meshToSourceIndex, OptionalDouble.empty(), List.of());
         }
 
         public Created {
             meshIds = List.copyOf(meshIds);
             meshToSourceIndex = Map.copyOf(meshToSourceIndex);
+            meshes = List.copyOf(meshes);
+        }
+
+        /**
+         * Returns the handle creation already produced for {@code index}.
+         *
+         * <p>Resolving the ID again would rescan every ArtMesh in the model. Callers that received
+         * handles from {@link #assemble} must use this accessor instead of {@code drawables().find}.</p>
+         */
+        public Drawable mesh(final int index) {
+            if (meshes.size() != meshIds.size()) {
+                throw new IllegalStateException("Created handles are unavailable for this assembly");
+            }
+            return meshes.get(index);
+        }
+    }
+
+    /** @return whether {@code id} exists, using the adapter's hinted single lookup */
+    private static boolean parameterExists(final CubismModel model, final ParameterId id) {
+        try {
+            model.parameters().find(id);
+            return true;
+        } catch (java.util.NoSuchElementException absent) {
+            return false;
         }
     }
 
@@ -221,6 +246,43 @@ public final class NativeCharacterAuthoring {
             java.util.function.Consumer<Runnable> sourceBatch,
             java.util.function.Function<Hierarchy, List<Optional<DeformerId>>> prepareHierarchy,
             java.util.function.BiFunction<Integer, List<Point2>, List<Point2>> rotationRestorer) {
+        return assemble(
+                model,
+                plan,
+                binder,
+                imageDimensions,
+                appearanceGroups,
+                bodyParts,
+                sourceWrites,
+                parameterGroup,
+                beforeRotation,
+                rotationLocalizer,
+                sourceBatch,
+                prepareHierarchy,
+                rotationRestorer,
+                (done, count) -> {});
+    }
+
+    /**
+     * Reports every finished mesh, because mesh creation dominates the write time.
+     *
+     * @param meshProgress receives {@code {done, total}} after each mesh is created and verified
+     */
+    static Created assemble(
+            CubismModel model,
+            NativeCharacterPlan.Plan plan,
+            MeshMaterialBinder binder,
+            ImageDimensionProvider imageDimensions,
+            java.util.function.IntFunction<String> appearanceGroups,
+            java.util.function.IntFunction<String> bodyParts,
+            java.util.function.Consumer<Created> sourceWrites,
+            Optional<ParameterGroupId> parameterGroup,
+            java.util.function.Consumer<Created> beforeRotation,
+            java.util.function.BiFunction<Integer, List<Point2>, List<Point2>> rotationLocalizer,
+            java.util.function.Consumer<Runnable> sourceBatch,
+            java.util.function.Function<Hierarchy, List<Optional<DeformerId>>> prepareHierarchy,
+            java.util.function.BiFunction<Integer, List<Point2>, List<Point2>> rotationRestorer,
+            java.util.function.ObjIntConsumer<Integer> meshProgress) {
         Objects.requireNonNull(beforeRotation, "beforeRotation");
         Objects.requireNonNull(rotationLocalizer, "rotationLocalizer");
         Objects.requireNonNull(sourceWrites, "sourceWrites");
@@ -236,13 +298,15 @@ public final class NativeCharacterAuthoring {
         var camera = plan.camera();
 
         // 1. Parameter conflict validation
+        // Three IDs are checked; listing every parameter would read the whole set for no reason.
+        // find() uses the adapter's index hint, while findById() falls back to all().
         var axes = new ArrayList<ParameterId>();
         axes.add(request.yaw());
         axes.add(request.pitch());
         request.roll().ifPresent(axes::add);
-        for (var param : model.parameters().all()) {
-            if (axes.contains(param.id())) {
-                throw new IllegalArgumentException("Import parameter ID already exists in model: " + param.id());
+        for (var axis : axes) {
+            if (parameterExists(model, axis)) {
+                throw new IllegalArgumentException("Import parameter ID already exists in model: " + axis);
             }
         }
 
@@ -285,6 +349,8 @@ public final class NativeCharacterAuthoring {
 
         // 5. Create ArtMeshes for all partitions
         var meshIds = new ArrayList<ArtMeshId>();
+        // Creation returns the handle for every mesh; keep it so later phases never re-resolve an ID.
+        var meshes = new ArrayList<Drawable>();
         var meshToSourceIndex = new LinkedHashMap<ArtMeshId, Integer>();
         var opacityParents = new LinkedHashMap<List<String>, DeformerId>();
         var bodyParents = new LinkedHashMap<String, DeformerId>();
@@ -392,6 +458,7 @@ public final class NativeCharacterAuthoring {
 
                 var meshId = mesh.id();
                 meshIds.add(meshId);
+                meshes.add(mesh);
                 meshToSourceIndex.put(meshId, partition.sourceMeshIndex());
 
                 // Image binding requires an unparented ArtMesh; keep it before native conversion.
@@ -434,6 +501,7 @@ public final class NativeCharacterAuthoring {
                 if (!snapshot.sourceGeometry().equals(geometry)) {
                     throw new IllegalStateException("Source geometry readback changed for partition " + pIdx);
                 }
+                meshProgress.accept(pIdx + 1, plan.partitions().size());
             }
         }
 
@@ -441,9 +509,7 @@ public final class NativeCharacterAuthoring {
         // initial stored scalars together, then evaluate once before binding rotation banks.
         sourceBatch.accept(() -> {
             for (int pIdx = 0; pIdx < meshIds.size(); pIdx++)
-                model.drawables()
-                        .find(meshIds.get(pIdx))
-                        .setDrawOrder(plan.orders().get(neutralKeyIndex).get(pIdx));
+                meshes.get(pIdx).setDrawOrder(plan.orders().get(neutralKeyIndex).get(pIdx));
         });
 
         // 6. Create Yaw and Pitch parameters
@@ -474,7 +540,8 @@ public final class NativeCharacterAuthoring {
                 rollId,
                 meshIds,
                 meshToSourceIndex,
-                rotationRestorer == null ? OptionalDouble.empty() : OptionalDouble.of(maxNeutralErrorPixels));
+                rotationRestorer == null ? OptionalDouble.empty() : OptionalDouble.of(maxNeutralErrorPixels),
+                meshes);
         // Complete local source-control parents with one form per mesh, before native
         // reparenting would otherwise convert all 25 rotation forms repeatedly.
         beforeRotation.accept(created);
@@ -486,7 +553,8 @@ public final class NativeCharacterAuthoring {
         // atlas work and every later evaluated-instance read.
         sourceBatch.accept(() -> {
             for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
-                var mesh = model.drawables().find(meshIds.get(pIdx));
+                // Creation already returned this handle; resolving it again rescans every ArtMesh.
+                var mesh = meshes.get(pIdx);
                 var partition = plan.partitions().get(pIdx);
                 if (!partition.visible()) {
                     banks.add(mesh.authoringSnapshot());
@@ -504,7 +572,8 @@ public final class NativeCharacterAuthoring {
                                 new ParameterBindingPointId("CHAR_" + partitionIndex + "_" + axis.value() + "_" + k),
                                 NativeCharacterPlan.KEYS.get(k)));
                     }
-                    model.parameterBindings(axis).bind(ParameterBindingTarget.artMesh(mesh.id()), points);
+                    // The handle already carries this ID; asking the host for it again rescans the model.
+                    model.parameterBindings(axis).bind(ParameterBindingTarget.artMesh(meshIds.get(pIdx)), points);
                 }
 
                 var bound = mesh.authoringSnapshot();
@@ -574,14 +643,17 @@ public final class NativeCharacterAuthoring {
             SurfacePlacementAuthoring.wrap(model, rootPart, request, rollDeformer);
         }
 
-        // Verify placement did not mutate stored authoring snapshots
+        // Verify placement did not mutate stored authoring snapshots. The readback is kept because
+        // these snapshots are the expected state of the interpolation write below.
+        var afterPlacement = new ArrayList<ArtMeshAuthoringSnapshot>(meshIds.size());
         for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
-            final String moved = ArtMeshAuthoringMatch.describe(
-                    banks.get(pIdx), model.drawables().find(meshIds.get(pIdx)).authoringSnapshot());
+            final var current = meshes.get(pIdx).authoringSnapshot();
+            final String moved = ArtMeshAuthoringMatch.describe(banks.get(pIdx), current);
             if (moved != null) {
                 throw new IllegalStateException(
                         "Placement changed direct source banks for partition " + pIdx + ": " + moved);
             }
+            afterPlacement.add(current);
         }
 
         // Atlas and local Warp writes can rebuild the entire model. Initialize caches
@@ -590,13 +662,14 @@ public final class NativeCharacterAuthoring {
 
         // 9. Set interpolation on parameter bindings and verify patch refresh scope
         for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
-            var mesh = model.drawables().find(meshIds.get(pIdx));
+            var mesh = meshes.get(pIdx);
             if (!plan.partitions().get(pIdx).visible()) continue;
-            var beforeInterpolation = mesh.authoringSnapshot();
+            // No write happened since the placement readback, so that snapshot is still current.
+            var beforeInterpolation = afterPlacement.get(pIdx);
             var sampling = plan.sampling().get(pIdx);
             model.parameterBindingBatch()
                     .setInterpolations(
-                            ParameterBindingTarget.artMesh(mesh.id()),
+                            ParameterBindingTarget.artMesh(meshIds.get(pIdx)),
                             Map.of(request.yaw(), sampling.yaw(), request.pitch(), sampling.pitch()));
 
             if (!beforeInterpolation.equals(mesh.authoringSnapshot())) {

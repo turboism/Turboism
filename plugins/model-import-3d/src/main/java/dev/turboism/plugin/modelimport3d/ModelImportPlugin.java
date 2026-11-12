@@ -762,6 +762,14 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                 : prepared.layered().surface().request.name();
     }
 
+    /** @return the number of steps the confirmed import will report, or zero when it reports none */
+    private static int stageCount(PreparedImport prepared) {
+        if (prepared.character() != null) return ImportProgress.characterStages();
+        if (prepared.simple() != null) return SurfaceImport.Stage.values().length;
+        if (prepared.layered() != null) return SurfaceWarpAuthoring.Stage.values().length;
+        return 0;
+    }
+
     private void release(long token) {
         if (busyEpoch == token) busyEpoch = 0;
     }
@@ -824,12 +832,16 @@ public final class ModelImportPlugin implements TurboismPlugin {
         var transactions = context.cubism().authoringTransactions();
         final PreparedImport finalPrepared = prepared;
 
-        // The import writes the whole model inside one transaction; without a window the editor looks
-        // frozen for the whole write. The pipeline already reports its stages, so surface them.
+        // The import writes the whole model inside one transaction on the event thread; without a window
+        // the editor looks frozen for the whole write. The pipeline already reports its stages, so
+        // surface them, and let the window paint itself because no queued repaint can run.
         final ImportProgress progress = new ImportProgress(
                 text("progress.title", "正在导入 3D 模型"),
                 text("progress.preparing", "正在准备…"),
-                step -> format("progress.step", "正在写入模型（{0}/{1}）", step[0], step[1]));
+                step -> format("progress.step", "正在写入模型（{0}/{1}）", step[0], step[1]),
+                mesh -> format("progress.mesh", "正在创建网格（{0}/{1}）", mesh[0], mesh[1]),
+                text("progress.writing", "正在写入模型…"),
+                stageCount(prepared));
         progress.show();
         final dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult<Void> result;
         try {
@@ -851,7 +863,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                         context.logger().info("Native import stage: " + stage);
                                         progress.stage(stage);
                                     },
-                                    transactions::batchStoredSourceWrites);
+                                    transactions::batchStoredSourceWrites,
+                                    progress::meshCreated);
                             if (fitCanvas)
                                 SurfacePlacementAuthoring.fitCanvas(
                                         target,
@@ -894,6 +907,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                         imported.geometry().patches().get(i).meshId(), bound.binding());
                             }
                         } else if (finalPrepared.vertices() != null) {
+                            progress.writing();
                             var created = SurfaceVertexAuthoring.assemble(target, finalPrepared.vertices());
                             meshIds.addAll(created.meshes());
                             var images = finalPrepared.vertices().images();

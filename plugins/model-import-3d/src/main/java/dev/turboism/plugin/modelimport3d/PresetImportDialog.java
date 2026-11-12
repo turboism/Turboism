@@ -107,6 +107,12 @@ final class PresetImportDialog implements AutoCloseable {
         header.add(label, BorderLayout.WEST);
         header.add(presets, BorderLayout.CENTER);
 
+        JLabel hint = new JLabel(text.apply("dialog.preset.hint"));
+        hint.setName("model-import-preset-hint");
+        JPanel top = new JPanel(new BorderLayout(0, 6));
+        top.add(header, BorderLayout.NORTH);
+        top.add(hint, BorderLayout.CENTER);
+
         previewHost.setPreferredSize(new Dimension(320, 300));
         JPanel body = new JPanel(new BorderLayout(0, 8));
         body.add(previewHost, BorderLayout.CENTER);
@@ -121,7 +127,7 @@ final class PresetImportDialog implements AutoCloseable {
 
         JPanel content = new JPanel(new BorderLayout(0, 8));
         content.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        content.add(header, BorderLayout.NORTH);
+        content.add(top, BorderLayout.NORTH);
         content.add(body, BorderLayout.CENTER);
         content.add(decisions, BorderLayout.SOUTH);
         dialog.setContentPane(content);

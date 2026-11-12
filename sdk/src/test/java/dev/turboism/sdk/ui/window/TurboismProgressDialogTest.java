@@ -39,6 +39,37 @@ class TurboismProgressDialogTest {
     }
 
     @Test
+    void flushIsSafeBeforeShowAndAfterClose() {
+        var progress = new TurboismProgressDialog("Shared progress flush test", "Preparing");
+        progress.flush();
+        progress.close();
+        progress.flush();
+    }
+
+    @Test
+    void flushPaintsARealizedWindowWithoutQueuingWork() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        var progress = new TurboismProgressDialog("Shared progress flush test", "Preparing");
+        try {
+            progress.show();
+            // The caller keeps the event thread busy here, exactly like a synchronous authoring
+            // transaction. flush must paint inside this call instead of waiting for the loop.
+            SwingUtilities.invokeAndWait(() -> {
+                JDialog dialog = visibleProgress("Shared progress flush test");
+                progress.setMessage("Applying");
+                progress.setProgress(2, 4);
+                progress.flush();
+                assertEquals(2, bar(dialog).getValue());
+                assertEquals(4, bar(dialog).getMaximum());
+                assertFalse(bar(dialog).isIndeterminate());
+                assertEquals("Applying", ((JLabel) dialog.getContentPane().getComponent(0)).getText());
+            });
+        } finally {
+            progress.close();
+        }
+    }
+
+    @Test
     void centersOnEditorAndSupportsWorkerUpdatesAndTerminalClose() throws Exception {
         assumeFalse(GraphicsEnvironment.isHeadless());
         final Rectangle display = displayBounds();
@@ -147,9 +178,13 @@ class TurboismProgressDialogTest {
     }
 
     private static JDialog visibleProgress() {
+        return visibleProgress("Shared progress test");
+    }
+
+    private static JDialog visibleProgress(final String title) {
         return (JDialog) Arrays.stream(Window.getWindows())
                 .filter(w ->
-                        w instanceof JDialog d && d.isShowing() && d.getTitle().equals("Shared progress test"))
+                        w instanceof JDialog d && d.isShowing() && d.getTitle().equals(title))
                 .findFirst()
                 .orElseThrow();
     }
