@@ -25,6 +25,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 
 - The ACP composer's agent button shows the agent name alone. The agent menu keeps the check mark that identifies a detected installation.
+- Native palette icons follow the display scale. The icon owner samples the screen transform and selects the reviewed 100/125/150/175/200 percent variant instead of pinning every session to 100 percent, so the row lock icon stays sharp on a scaled display.
 
 ## [0.70.0] - 2026-11-10
 

@@ -36,6 +36,7 @@ import dev.turboism.ui.overlay.VerifiedBoundingBoxOverlayButtonHostOperations;
 import dev.turboism.ui.panel.EmbeddedPanelContributionProvider;
 import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
 import dev.turboism.ui.resource.CubismNativeIconResolver;
+import dev.turboism.ui.resource.DisplayScaleSampler;
 import dev.turboism.ui.resource.RuntimeUiResourceService;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 import dev.turboism.ui.toolbar.HorizontalToolbarContributionProvider;
@@ -760,7 +761,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             iconResolver =
                     CubismNativeIconResolver.preload(panel.resolver(), UiEmbeddedPanelAliases.APP_CONTROLLER_CLASS);
             return RuntimeUiResourceService.connected(
-                    iconResolver, adapters.themeStatus(), () -> RuntimeUiResourceService.DEFAULT_SCALE_PERCENT);
+                    iconResolver, adapters.themeStatus(), DisplayScaleSampler::samplePercent);
         } catch (RuntimeException | LinkageError optionalFailure) {
             // The resolver is not yet owned by RuntimeUiResourceService when construction fails.
             // Release it here so optional icon failure cannot leak a partially-created cache.

@@ -23,7 +23,7 @@ its native **16px lock-column** artwork. Digests live in
 [`CubismNativeIconCatalog`](../../runtime/src/main/java/dev/turboism/ui/resource/CubismNativeIconCatalog.java).
 No PNGs are redistributed by the plugin. Runtime still requires a reviewed artifact
 admitted by that catalog; archive presence alone does not widen native icon admission.
-When verified resources are unavailable, Runtime omits the row icon action; context-menu actions remain available.
+When verified resources are unavailable, Runtime omits the row icon action entirely; the plugin then offers no lock entry point on parameter rows.
 
 ## Model identity across sessions
 
