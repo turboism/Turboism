@@ -775,7 +775,10 @@ class SwingPanelViewRendererTest {
             cell.setSize(120, 18);
             cell.doLayout();
             final Component child = cell.getComponent(0);
-            assertEquals(18, child.getHeight(), "a long status must not paint outside its reserved cell");
+            // The reserved cell height, not the platform line height, is the contract here.
+            assertTrue(
+                    child.getHeight() <= 18,
+                    "a long status must not paint outside its reserved cell: " + child.getHeight());
             assertTrue(child.getWidth() <= 120, "the status stays inside the reserved width");
         });
     }
