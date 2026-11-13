@@ -263,6 +263,20 @@ public interface CubismModel {
         throw new UnsupportedOperationException("Cubism parameter-binding batch editing is unavailable.");
     }
 
+    /**
+     * Returns every parameter, Part, Deformer and ArtMesh name with its parent links in one read.
+     *
+     * <p>A caller that visits every object pays a full re-validation per property when it reads
+     * live handles, so a batch that only needs names and parent links reads this index once
+     * instead of asking the host per object. The index is a detached value: it does not track
+     * later Editor edits.</p>
+     *
+     * @throws UnsupportedOperationException when the backend does not expose a batch naming read
+     */
+    default ModelNamingIndex namingIndex() {
+        throw new UnsupportedOperationException("Cubism model naming index is unavailable.");
+    }
+
     /** Returns the model's part collection. */
     Parts parts();
 
@@ -279,6 +293,22 @@ public interface CubismModel {
 
     /** Returns the model's unified deformer collection. */
     Deformers deformers();
+
+    /**
+     * Applies one conditional deformer rename batch as one Editor edit.
+     *
+     * <p>The batch is all-or-nothing: when any deformer no longer carries its expected name, no
+     * deformer is renamed. Every rename shares one Editor Undo step and one palette refresh, so a
+     * batch of hundreds does not pay a full refresh per deformer.</p>
+     *
+     * @param renames the renames to apply; each deformer may appear once
+     * @throws IllegalArgumentException when a deformer appears more than once
+     * @throws IllegalStateException when a deformer's expected name no longer matches
+     * @throws UnsupportedOperationException when the backend does not support batch renaming
+     */
+    default void renameDeformers(final java.util.List<DeformerRename> renames) {
+        throw new UnsupportedOperationException("Cubism batch deformer renaming is unavailable.");
+    }
 
     /**
      * Returns the model's Warp Deformer collection.

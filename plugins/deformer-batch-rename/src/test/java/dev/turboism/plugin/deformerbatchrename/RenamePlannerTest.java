@@ -3,7 +3,8 @@ package dev.turboism.plugin.deformerbatchrename;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.turboism.sdk.cubism.id.*;
-import dev.turboism.sdk.cubism.model.*;
+import dev.turboism.sdk.cubism.model.ModelNamingIndex;
+import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import java.lang.reflect.Proxy;
 import java.util.*;
@@ -29,38 +30,88 @@ class RenamePlannerTest {
     }
 
     @Test
-    void recursivelyUsesLeafNamesAndOwnBindingsWithoutWriting() {
-        var parent = deformer(WarpDeformer.class, "parent", "头 变形", null, List.of("px", "py"));
-        var child = deformer(RotationDeformer.class, "child", "旧旋转", "parent", List.of());
-        var empty = deformer(WarpDeformer.class, "empty", "空变形", null, List.of("px"));
-        var bindings = Map.of("px", parameter("头部X"), "py", parameter("头部Y"));
-        var model =
-                model(List.of(parent, child, empty), List.of(mesh("头发1", "child"), mesh("头发1 阴影", "child")), bindings);
-        var rows = RenamePlanner.preview(model);
+    void recursivelyUsesLeafNamesAndOwnBindings() {
+        var index = index(
+                List.of(parameter("px", "头部X"), parameter("py", "头部Y")),
+                List.of(),
+                List.of(
+                        deformer("parent", "头 变形", false, null, List.of("px", "py")),
+                        deformer("child", "旧旋转", true, "parent", List.of()),
+                        deformer("empty", "空变形", false, null, List.of("px"))),
+                List.of(mesh("头发1", "child", null), mesh("头发1 阴影", "child", null)));
+        var rows = RenamePlanner.rows(index, RenamePlanner.BaseNameMode.MINIMAL_COMMON);
         assertEquals(3, rows.size());
         assertEquals("头发1 头部XY", rows.get(0).target());
         assertEquals("头发1", rows.get(1).target());
         assertTrue(rows.get(1).rotation());
         assertEquals("空变形", rows.get(2).target());
         assertFalse(rows.get(2).changed());
-        assertEquals(rows, RenamePlanner.preview(model));
+        assertEquals(rows, RenamePlanner.rows(index, RenamePlanner.BaseNameMode.MINIMAL_COMMON));
+    }
+
+    @Test
+    void partModeUsesThePartThatOwnsMostLeafMeshes() {
+        var index = index(
+                List.of(),
+                List.of(part("p-face", "脸"), part("p-hair", "头发")),
+                List.of(deformer("d1", "旧", false, null, List.of())),
+                List.of(mesh("a", "d1", "p-face"), mesh("b", "d1", "p-face"), mesh("c", "d1", "p-hair")));
+        var rows = RenamePlanner.rows(index, RenamePlanner.BaseNameMode.PART_NAME);
+        assertEquals("脸", rows.get(0).target());
+    }
+
+    @Test
+    void partModeFallsBackToLeafNamesWhenNoLeafCarriesAPart() {
+        var index = index(
+                List.of(),
+                List.of(part("p-face", "脸")),
+                List.of(deformer("d1", "旧", false, null, List.of())),
+                List.of(mesh("头发1", "d1", null), mesh("头发2", "d1", null)));
+        assertEquals(
+                "头发",
+                RenamePlanner.rows(index, RenamePlanner.BaseNameMode.PART_NAME)
+                        .get(0)
+                        .target());
+    }
+
+    @Test
+    void previewDerivesBothModesFromOneIndex() {
+        var index = index(
+                List.of(),
+                List.of(part("p-face", "脸")),
+                List.of(deformer("d1", "旧", false, null, List.of())),
+                List.of(mesh("头发1", "d1", "p-face")));
+        var preview = RenamePlanner.preview(index);
+        assertSame(index, preview.index());
+        assertEquals(
+                "脸", preview.rows(RenamePlanner.BaseNameMode.PART_NAME).get(0).target());
+        assertEquals(
+                "头发1",
+                preview.rows(RenamePlanner.BaseNameMode.MINIMAL_COMMON).get(0).target());
     }
 
     @Test
     void fallsBackToParameterIdWhenBoundParameterIsMissingFromCatalog() {
-        var deformer = deformer(WarpDeformer.class, "d1", "旧变形", null, List.of("ParamAngleX", "ParamAngleY"));
-        var model = model(List.of(deformer), List.of(mesh("头发", "d1")), Map.of());
-        var rows = RenamePlanner.preview(model);
+        var index = index(
+                List.of(),
+                List.of(),
+                List.of(deformer("d1", "旧变形", false, null, List.of("ParamAngleX", "ParamAngleY"))),
+                List.of(mesh("头发", "d1", null)));
+        var rows = RenamePlanner.rows(index, RenamePlanner.BaseNameMode.MINIMAL_COMMON);
         assertEquals(1, rows.size());
         assertEquals("头发 ParamAngleXY", rows.get(0).target());
     }
 
     @Test
     void detectsHierarchyCycles() {
-        var a = deformer(WarpDeformer.class, "a", "a", "b", List.of());
-        var b = deformer(WarpDeformer.class, "b", "b", "a", List.of());
+        var index = index(
+                List.of(),
+                List.of(),
+                List.of(deformer("a", "a", false, "b", List.of()), deformer("b", "b", false, "a", List.of())),
+                List.of());
         assertThrows(
-                IllegalStateException.class, () -> RenamePlanner.preview(model(List.of(a, b), List.of(), Map.of())));
+                IllegalStateException.class,
+                () -> RenamePlanner.rows(index, RenamePlanner.BaseNameMode.MINIMAL_COMMON));
     }
 
     @Test
@@ -81,74 +132,38 @@ class RenamePlannerTest {
         assertFalse(request.rows().get(1).selected());
     }
 
-    private static <T extends Deformer> T deformer(
-            Class<T> type, String id, String name, String parent, List<String> parameters) {
-        return stub(type, (method, args) -> switch (method) {
-            case "id" -> new DeformerId(id);
-            case "name" -> name;
-            case "parentDeformerId" -> Optional.ofNullable(parent).map(DeformerId::new);
-            case "getParameterBindings" ->
-                parameters.stream()
-                        .map(p -> new ParameterBinding(
-                                ParameterBindingTarget.warpDeformer(new DeformerId(id)),
-                                new ParameterId(p),
-                                ParameterBindingFamily.KEYFORM_GRID,
-                                List.of()))
-                        .toList();
-            default -> throw new AssertionError("Unexpected deformer access: " + method);
-        });
+    private static ModelNamingIndex index(
+            List<ModelNamingIndex.ParameterEntry> parameters,
+            List<ModelNamingIndex.PartEntry> parts,
+            List<ModelNamingIndex.DeformerEntry> deformers,
+            List<ModelNamingIndex.ArtMeshEntry> meshes) {
+        return new ModelNamingIndex(parameters, parts, deformers, meshes);
     }
 
-    private static Drawable mesh(String name, String parent) {
-        return stub(Drawable.class, (method, args) -> switch (method) {
-            case "name" -> name;
-            case "parentDeformerId" -> Optional.of(new DeformerId(parent));
-            default -> throw new AssertionError(method);
-        });
+    private static ModelNamingIndex.ParameterEntry parameter(String id, String name) {
+        return new ModelNamingIndex.ParameterEntry(new ParameterId(id), name);
     }
 
-    private static Parameter parameter(String name) {
-        return stub(Parameter.class, (method, args) -> Optional.of(name));
+    private static ModelNamingIndex.PartEntry part(String id, String name) {
+        return new ModelNamingIndex.PartEntry(new PartId(id), name);
     }
 
-    private static CubismModel model(
-            List<Deformer> deformers, List<Drawable> meshes, Map<String, Parameter> parameters) {
-        return stub(CubismModel.class, (method, args) -> switch (method) {
-            case "deformers" ->
-                stub(
-                        Deformers.class,
-                        (m, a) -> deformers.stream()
-                                .map(d -> stub(Deformer.class, (dm, da) -> switch (dm) {
-                                    case "id" -> d.id();
-                                    case "name" -> d.name();
-                                    case "parentDeformerId" -> d.parentDeformerId();
-                                    case "getParameterBindings" -> d.getParameterBindings();
-                                    default -> throw new AssertionError(dm);
-                                }))
-                                .toList());
-            case "warpDeformers" ->
-                stub(
-                        WarpDeformers.class,
-                        (m, a) -> deformers.stream()
-                                .filter(WarpDeformer.class::isInstance)
-                                .map(WarpDeformer.class::cast)
-                                .toList());
-            case "rotationDeformers" ->
-                stub(
-                        RotationDeformers.class,
-                        (m, a) -> deformers.stream()
-                                .filter(RotationDeformer.class::isInstance)
-                                .map(RotationDeformer.class::cast)
-                                .toList());
-            case "drawables" -> stub(Drawables.class, (m, a) -> meshes);
-            case "parameters" ->
-                stub(Parameters.class, (m, a) -> {
-                    Parameter p = parameters.get(((ParameterId) a[0]).value());
-                    if (p == null) throw new NoSuchElementException(((ParameterId) a[0]).value());
-                    return p;
-                });
-            default -> throw new AssertionError(method);
-        });
+    private static ModelNamingIndex.DeformerEntry deformer(
+            String id, String name, boolean rotation, String parent, List<String> parameters) {
+        return new ModelNamingIndex.DeformerEntry(
+                new DeformerId(id),
+                name,
+                rotation,
+                Optional.ofNullable(parent).map(DeformerId::new),
+                parameters.stream().map(ParameterId::new).toList());
+    }
+
+    private static ModelNamingIndex.ArtMeshEntry mesh(String name, String parentDeformer, String parentPart) {
+        return new ModelNamingIndex.ArtMeshEntry(
+                new ArtMeshId(name),
+                name,
+                Optional.ofNullable(parentDeformer).map(DeformerId::new),
+                Optional.ofNullable(parentPart).map(PartId::new));
     }
 
     private interface Call {

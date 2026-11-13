@@ -63,6 +63,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
             "clipmask-viewer",
             "core-acquisition",
             "core-owned-moc",
+            "deformer-rename",
             "dialog-automation",
             "edit",
             "edit-protocol",

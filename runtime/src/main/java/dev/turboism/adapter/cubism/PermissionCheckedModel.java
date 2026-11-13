@@ -679,6 +679,18 @@ final class PermissionCheckedModel implements CubismModel {
     }
 
     @Override
+    public void renameDeformers(final List<dev.turboism.sdk.cubism.model.DeformerRename> renames) {
+        facade.requireModelWrite("model.renameDeformers");
+        delegate.renameDeformers(List.copyOf(Objects.requireNonNull(renames, "renames")));
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.ModelNamingIndex namingIndex() {
+        facade.requireModelRead("model.namingIndex");
+        return delegate.namingIndex();
+    }
+
+    @Override
     public dev.turboism.sdk.cubism.model.Parts parts() {
         facade.requireModelRead("model.parts");
         final dev.turboism.sdk.cubism.model.Parts parts = delegate.parts();

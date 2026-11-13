@@ -1,0 +1,58 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.validation.deformer-rename",
+  "name": "Deformer Batch Rename Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exerciser for the deformer batch-rename read and write paths: naming-index read cost, per-deformer rename cost, and one-edit batch rename cost on the exact host.",
+  "entrypoints": [
+    "dev.turboism.validation.deformerrename.DeformerRenameHostValidationPlugin"
+  ],
+  "turboismApi": "[0.70.0,1.0.0)",
+  "authors": [
+    {
+      "name": "Turboism Validation"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads the naming index and deformer projections on the exact host for validation evidence."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Applies and reverts task-local deformer renames to measure the batch write path."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Reports probe completion through the status surface (best effort)."
+    }
+  ],
+  "capabilities": [
+    "cubism.model.read",
+    "cubism.model.write",
+    "cubism.editor-history.read",
+    "cubism.editor-history.move",
+    "ui.status.notify"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  },
+  "category": "analysis",
+  "tags": [
+    "validation",
+    "deformer"
+  ]
+}

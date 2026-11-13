@@ -237,6 +237,56 @@ public final class CoreBackedCubismModelAccess implements CubismModelAccess {
         }
 
         @Override
+        public void renameDeformers(final java.util.List<dev.turboism.sdk.cubism.model.DeformerRename> renames) {
+            readGeneration(generation);
+            throw readOnlyFailure();
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.ModelNamingIndex namingIndex() {
+            final CoreStructuralSnapshot snapshot = readGeneration(generation);
+            final List<dev.turboism.sdk.cubism.model.ModelNamingIndex.ParameterEntry> parameters =
+                    snapshot.parameters().stream()
+                            .map(definition -> new dev.turboism.sdk.cubism.model.ModelNamingIndex.ParameterEntry(
+                                    new ParameterId(definition.id()), definition.id()))
+                            .toList();
+            final List<dev.turboism.sdk.cubism.model.ModelNamingIndex.PartEntry> parts = snapshot.parts().stream()
+                    .map(definition -> new dev.turboism.sdk.cubism.model.ModelNamingIndex.PartEntry(
+                            new PartId(definition.id()), definition.id()))
+                    .toList();
+            final List<dev.turboism.sdk.cubism.model.ModelNamingIndex.DeformerEntry> deformers =
+                    snapshot.deformers().stream()
+                            .map(definition -> new dev.turboism.sdk.cubism.model.ModelNamingIndex.DeformerEntry(
+                                    new DeformerId(definition.id()),
+                                    definition.id(),
+                                    false,
+                                    definition.parentDeformerIndex() < 0
+                                            ? Optional.<DeformerId>empty()
+                                            : Optional.of(new DeformerId(snapshot.deformers()
+                                                    .get(definition.parentDeformerIndex())
+                                                    .id())),
+                                    CoreBackedCubismModelAccess.parameterIds(snapshot, definition.parameters())))
+                            .toList();
+            final List<dev.turboism.sdk.cubism.model.ModelNamingIndex.ArtMeshEntry> artMeshes =
+                    snapshot.drawables().stream()
+                            .map(definition -> new dev.turboism.sdk.cubism.model.ModelNamingIndex.ArtMeshEntry(
+                                    new ArtMeshId(definition.id()),
+                                    definition.id(),
+                                    definition.parentDeformerIndex() < 0
+                                            ? Optional.<DeformerId>empty()
+                                            : Optional.of(new DeformerId(snapshot.deformers()
+                                                    .get(definition.parentDeformerIndex())
+                                                    .id())),
+                                    definition.parentPartIndex() < 0
+                                            ? Optional.<PartId>empty()
+                                            : Optional.of(new PartId(snapshot.parts()
+                                                    .get(definition.parentPartIndex())
+                                                    .id()))))
+                            .toList();
+            return new dev.turboism.sdk.cubism.model.ModelNamingIndex(parameters, parts, deformers, artMeshes);
+        }
+
+        @Override
         public WarpDeformers warpDeformers() {
             readGeneration(generation);
             throw new UnsupportedOperationException(

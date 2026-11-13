@@ -832,6 +832,88 @@ final class EditorObjectHierarchyEditAccess {
                         "cubism.editor-model.parameter-controllable-source.set-local-name", nodeSource, name));
     }
 
+    /**
+     * Renames many objects as one Editor edit.
+     *
+     * <p>Renaming one object at a time pays a full native edit envelope and a palette refresh per
+     * object, so a batch of hundreds is dominated by refresh work rather than by the renames. This
+     * path admits one Undo snapshot per changed object inside one edit session and registers a
+     * single refresh listener, so the host still groups the whole batch into one Undo step.</p>
+     *
+     * <p>Every rename is conditional on the expected name. A mismatch refuses the whole batch
+     * before any mutation, so a model edited after the caller's preview never receives a name the
+     * operator did not see.</p>
+     *
+     * @param identity the current model binding identity
+     * @param modelSource the model source the objects belong to
+     * @param model the model instance the objects belong to
+     * @param renames the object source and its expected and replacement names, in order
+     * @param kindLabel the object kind used in the Undo label and diagnostics
+     * @return how many objects were renamed; zero when every name already matched
+     * @throws IllegalStateException when an expected name no longer matches
+     */
+    int renameAll(
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final List<RenameTarget> renames,
+            final String kindLabel) {
+        if (!EditorHostThread.isCurrent()) {
+            return EditorHostThread.dispatch(
+                    "Cubism hierarchy edit", () -> renameAll(identity, modelSource, model, renames, kindLabel));
+        }
+        final List<RenameTarget> batch = List.copyOf(Objects.requireNonNull(renames, "renames"));
+        if (batch.isEmpty()) return 0;
+        requireRenameAuthorized();
+        currentGuard.requireCurrent(identity, model);
+
+        final ArrayList<RenameTarget> pending = new ArrayList<>(batch.size());
+        for (RenameTarget target : batch) {
+            final String actual = localName(target.source(), kindLabel);
+            if (!actual.equals(target.expectedName())) {
+                throw new IllegalStateException(
+                        "Editor " + kindLabel + " name changed since the preview: " + target.id());
+            }
+            if (!target.replacementName().equals(actual)) pending.add(target);
+        }
+        if (pending.isEmpty()) return 0;
+
+        final ArrayList<Object> undoSources = new ArrayList<>(pending.size());
+        for (RenameTarget target : pending) undoSources.add(target.source());
+        writeBatch(
+                "cubism.editor-model.complete-pack.update-part-palette",
+                kindLabel,
+                modelSource,
+                undoSources,
+                SET_NAME_ACTION + kindLabel + " Batch",
+                () -> {
+                    for (RenameTarget target : pending) {
+                        resolver.invoke(
+                                "cubism.editor-model.parameter-controllable-source.set-local-name",
+                                target.source(),
+                                target.replacementName());
+                    }
+                });
+        return pending.size();
+    }
+
+    /**
+     * One conditional rename inside a batch.
+     *
+     * @param id the object identity used in diagnostics
+     * @param source the object source to rename
+     * @param expectedName the name the caller observed
+     * @param replacementName the name to apply
+     */
+    record RenameTarget(String id, Object source, String expectedName, String replacementName) {
+        RenameTarget {
+            Objects.requireNonNull(id, "id");
+            Objects.requireNonNull(source, "source");
+            Objects.requireNonNull(expectedName, "expectedName");
+            Objects.requireNonNull(replacementName, "replacementName");
+        }
+    }
+
     private String localName(final Object nodeSource, final String kindLabel) {
         final Object value =
                 resolver.invoke("cubism.editor-model.parameter-controllable-source.local-name", nodeSource);
@@ -994,12 +1076,37 @@ final class EditorObjectHierarchyEditAccess {
             final Object objectSource,
             final String action,
             final Runnable mutation) {
+        writeBatch(paletteAlias, kindLabel, modelSource, List.of(objectSource), action, mutation);
+    }
+
+    /**
+     * Admits one native Undo snapshot per object inside one edit session.
+     *
+     * <p>Exact 5.2 and 5.3.02 evidence: handler Undo snapshots are object-scoped, so a batch admits
+     * one snapshot per changed object in order inside the single edit session and the host groups
+     * those snapshots into one Undo step. One refresh listener rides the last snapshot, so the
+     * batch pays one palette refresh instead of one per object.</p>
+     */
+    private void writeBatch(
+            final String paletteAlias,
+            final String kindLabel,
+            final Object modelSource,
+            final List<Object> objectSources,
+            final String action,
+            final Runnable mutation) {
         EditorHostThread.requireHostThread("Cubism hierarchy edit");
+        final List<Object> sources = List.copyOf(objectSources);
         authoringWriter.apply(EditorAuthoringWrite.of(OPERATION_ID, action)
-                .subject("hierarchy:" + Integer.toHexString(System.identityHashCode(objectSource)) + ":" + action)
+                .subject("hierarchy:" + Integer.toHexString(System.identityHashCode(sources.get(0))) + ":" + action)
                 .refusalLabel(action)
-                .admit((edit, transactionLabel) ->
-                        admitObjectUndo(edit, modelSource, objectSource, action, paletteAlias, kindLabel))
+                .admit((edit, transactionLabel) -> {
+                    Object lastUndo = null;
+                    for (Object objectSource : sources) {
+                        lastUndo = admitObjectUndoSnapshot(
+                                edit, modelSource, objectSource, action, paletteAlias, kindLabel);
+                    }
+                    registerUndoListener(lastUndo, modelSource, paletteAlias);
+                })
                 .mutate(mutation)
                 .admissionVerified()
                 .refresh(EnumSet.of(
@@ -1053,6 +1160,23 @@ final class EditorObjectHierarchyEditAccess {
             final String transactionLabel,
             final String paletteAlias,
             final String operation) {
+        final Object objectUndo =
+                admitObjectUndoSnapshot(edit, modelSource, objectSource, transactionLabel, paletteAlias, operation);
+        registerUndoListener(objectUndo, modelSource, paletteAlias);
+    }
+
+    /**
+     * Admits one object's Undo snapshot without registering its refresh listener.
+     *
+     * @return the admitted native Undo object
+     */
+    private Object admitObjectUndoSnapshot(
+            final Object edit,
+            final Object modelSource,
+            final Object objectSource,
+            final String transactionLabel,
+            final String paletteAlias,
+            final String operation) {
         final Object handler =
                 resolver.invoke("cubism.editor-model.parameter-controllable-source.handler", objectSource);
         if (!resolver.isInstance("cubism.editor-model.parameter-controllable-handler.class", handler)) {
@@ -1063,7 +1187,7 @@ final class EditorObjectHierarchyEditAccess {
                 handler,
                 transactionLabel);
         requireUndoAccepted(edit, objectUndo, operation);
-        registerUndoListener(objectUndo, modelSource, paletteAlias);
+        return objectUndo;
     }
 
     /** Registers the instance refresh a native Undo/Redo of one relation or object entry triggers. */

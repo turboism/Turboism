@@ -267,6 +267,16 @@ final class SessionModel implements CubismModel {
     }
 
     @Override
+    public void renameDeformers(final List<dev.turboism.sdk.cubism.model.DeformerRename> renames) {
+        host.guardedVoid(generation, () -> delegate.renameDeformers(renames));
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.ModelNamingIndex namingIndex() {
+        return host.current(generation, CubismModel::namingIndex, delegate);
+    }
+
+    @Override
     public Parts parts() {
         return new SessionParts(
                 host, generation, modelGeneration, modelId, host.current(generation, CubismModel::parts, delegate));
