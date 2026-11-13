@@ -616,10 +616,18 @@ public final class AcpHostValidationPlugin implements TurboismPlugin {
         Thread.sleep(180L);
         javax.swing.SwingUtilities.invokeAndWait(() -> {
             javax.swing.JPopupMenu activePopup = null;
-            for (javax.swing.MenuElement element :
-                    javax.swing.MenuSelectionManager.defaultManager().getSelectedPath()) {
-                if (element instanceof javax.swing.JPopupMenu popup && popup.isShowing()) {
-                    activePopup = popup;
+            final java.awt.Component comp = findComponent(window, buttonName);
+            if (comp instanceof javax.swing.JButton btn
+                    && btn.getClientProperty("acp.popup-menu") instanceof javax.swing.JPopupMenu attached
+                    && attached.isShowing()) {
+                activePopup = attached;
+            }
+            if (activePopup == null) {
+                for (javax.swing.MenuElement element :
+                        javax.swing.MenuSelectionManager.defaultManager().getSelectedPath()) {
+                    if (element instanceof javax.swing.JPopupMenu popup && popup.isShowing()) {
+                        activePopup = popup;
+                    }
                 }
             }
             if (activePopup == null) {

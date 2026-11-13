@@ -50,9 +50,15 @@ final class NativePiProvider extends NativeAgentProvider {
         final var options = new ArrayList<Map<String, String>>();
         for (Object raw : list(available.get("models"))) {
             final var model = object(raw);
-            final String id = text(model.get("provider")) + "/" + text(model.get("id"));
+            final String provider = text(model.get("provider"));
+            final String rawModelId = text(model.get("id"));
+            final String id = provider + "/" + rawModelId;
             models.put(id, model);
-            options.add(Map.of("value", id, "name", text(model.getOrDefault("name", model.get("id")))));
+            final String rawName = text(model.get("name"));
+            options.add(Map.of(
+                    "value", id,
+                    "name", rawName.isBlank() ? rawModelId : rawName,
+                    "description", id));
         }
         if (!options.isEmpty()) {
             choices.put("model", options);

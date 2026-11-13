@@ -800,7 +800,10 @@ final class AcpClient implements AutoCloseable {
                 final String choiceValue = string(choice.get("value"));
                 final String choiceName = string(choice.get("name"));
                 if (choiceValue != null && choiceName != null) {
-                    choices.add(new AcpConfigOption.Choice(choiceValue, redactedUi(choiceName, MAX_UI_METADATA_CHARS)));
+                    choices.add(new AcpConfigOption.Choice(
+                            choiceValue,
+                            redactedUi(choiceName, MAX_UI_METADATA_CHARS),
+                            redactedUi(display(choice.get("description")), MAX_UI_METADATA_CHARS)));
                 }
             }
             if (!choices.isEmpty()) {

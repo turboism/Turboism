@@ -59,11 +59,13 @@ final class NativeCodexProvider extends NativeAgentProvider {
             final var entry = object(raw);
             final String value = text(entry.get("model"));
             if (value.isBlank()) continue;
+            final String displayName = text(entry.get("displayName"));
+            final String provider = text(entry.get("modelProvider"));
+            final String channel = provider.isBlank() ? value : (value.contains("/") ? value : provider + "/" + value);
             values.add(Map.of(
-                    "value",
-                    value,
-                    "name",
-                    text(entry.get("displayName")).isBlank() ? value : text(entry.get("displayName"))));
+                    "value", value,
+                    "name", displayName.isBlank() ? value : displayName,
+                    "description", channel));
             if (value.equals(model) || (model.isBlank() && Boolean.TRUE.equals(entry.get("isDefault"))))
                 selected.put("model", value);
         }

@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -38,6 +39,7 @@ import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JTextField;
+import javax.swing.KeyStroke;
 import javax.swing.MenuSelectionManager;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -63,14 +65,18 @@ final class AcpThemeControls {
     static final int SCROLL_ITEM_THRESHOLD = 8;
     static final int FILTER_ITEM_THRESHOLD = 10;
     static final int MAX_POPUP_SCROLL_HEIGHT = 256;
-    private static final int MIN_POPUP_WIDTH = 188;
-    private static final int MAX_POPUP_WIDTH = 340;
+    static final String POPUP_PROPERTY = "acp.popup-menu";
+    private static final int MIN_POPUP_WIDTH = 196;
+    private static final int MAX_POPUP_WIDTH = 380;
     private static final int POPUP_GAP = 4;
     private static final int POPUP_INSET = 4;
-    private static final int MENU_ITEM_HEIGHT = 28;
+    private static final int MENU_ITEM_HEIGHT = 30;
     private static final int MENU_ITEM_H_PAD = 10;
     private static final int MENU_ITEM_ICON_GAP = 8;
+    private static final int MENU_ITEM_SECONDARY_GAP = 8;
     private static final int MENU_ITEM_CHECK_WIDTH = 18;
+    private static final int MIN_SECONDARY_RENDER_WIDTH = 36;
+    private static final float SECONDARY_FONT_DELTA = 0.5F;
     private static final int MENU_CORNER_ARC = 8;
     private static final int BUTTON_CORNER_ARC = 8;
     private static final int SCROLLBAR_WIDTH = 8;
@@ -191,7 +197,7 @@ final class AcpThemeControls {
         if (component instanceof AbstractButton button) {
             button.setForeground(AcpChatTheme.foreground());
             button.setBackground(AcpChatTheme.surface());
-            final JPopupMenu popup = button.getComponentPopupMenu();
+            final JPopupMenu popup = attachedPopup(button);
             if (popup != null) applyThemeTree(popup);
         }
         if (component instanceof JComboBox<?> combo) {
@@ -230,12 +236,28 @@ final class AcpThemeControls {
         text.setSelectedTextColor(AcpChatTheme.selectionForeground());
     }
 
+    static void attachPopup(final AbstractButton button, final JPopupMenu popup) {
+        Objects.requireNonNull(button, "button");
+        button.putClientProperty(POPUP_PROPERTY, popup);
+    }
+
+    static JPopupMenu attachedPopup(final AbstractButton button) {
+        if (button == null) return null;
+        final Object attached = button.getClientProperty(POPUP_PROPERTY);
+        return attached instanceof JPopupMenu popup ? popup : button.getComponentPopupMenu();
+    }
+
     /**
-     * Shows a popup anchored to {@code invoker}, opening upward when space below the control is
-     * insufficient so bottom-docked composer menus never clip off the display.
+     * Shows or toggles a popup anchored to {@code invoker}, opening upward when space below the
+     * control is insufficient so bottom-docked composer menus never clip off the display.
      */
     static void showPopup(final JComponent invoker, final JPopupMenu popup) {
         if (invoker == null || popup == null || !invoker.isShowing()) return;
+        if (popup.isShowing() && popup.getInvoker() == invoker) {
+            MenuSelectionManager.defaultManager().clearSelectedPath();
+            popup.setVisible(false);
+            return;
+        }
         applyThemeTree(popup);
         if (popup instanceof ThemedPopupMenu themed) {
             themed.prepareForShow();
@@ -296,21 +318,32 @@ final class AcpThemeControls {
         ThemedPopupMenu(final String filterPlaceholder) {
             this.filterPlaceholder = Objects.requireNonNullElse(filterPlaceholder, "");
             setUI(new BasicPopupMenuUI());
+            setLightWeightPopupEnabled(false);
             setOpaque(true);
             setBackground(AcpChatTheme.surface());
             setBorder(BorderFactory.createCompoundBorder(
                     new DynamicSurfaceBorder(),
                     BorderFactory.createEmptyBorder(POPUP_INSET, POPUP_INSET, POPUP_INSET, POPUP_INSET)));
+            installPopupKeyBindings();
         }
 
         ThemedMenuItem addChoice(final String label, final boolean selected, final Icon icon, final Runnable onSelect) {
-            final ThemedMenuItem item = new ThemedMenuItem(label, selected, icon, this, onSelect);
+            return addChoice(label, "", selected, icon, onSelect);
+        }
+
+        ThemedMenuItem addChoice(
+                final String label,
+                final String secondaryLabel,
+                final boolean selected,
+                final Icon icon,
+                final Runnable onSelect) {
+            final ThemedMenuItem item = new ThemedMenuItem(label, secondaryLabel, selected, icon, this, onSelect);
             choices.add(item);
             return item;
         }
 
         JMenuItem addFooterAction(final String name, final String label, final Runnable onSelect) {
-            final ThemedMenuItem item = new ThemedMenuItem(label, false, null, this, onSelect);
+            final ThemedMenuItem item = new ThemedMenuItem(label, "", false, null, this, onSelect);
             if (name != null && !name.isBlank()) item.setName(name);
             footerItems.add(item);
             return item;
@@ -327,6 +360,7 @@ final class AcpThemeControls {
                     add(new ThemedSeparator());
                 }
                 for (Component footer : footerItems) add(footer);
+                setFocusable(true);
                 return this;
             }
             setLayout(new BorderLayout(0, POPUP_INSET));
@@ -373,6 +407,7 @@ final class AcpThemeControls {
                 }
                 add(footerPanel, BorderLayout.SOUTH);
             }
+            setFocusable(true);
             return this;
         }
 
@@ -395,13 +430,100 @@ final class AcpThemeControls {
             if (filterField != null && !filterField.getText().isEmpty()) {
                 filterField.setText("");
             }
+            resetInitialHighlight();
             scrollSelectedIntoView();
         }
 
         void focusInitialControl() {
-            if (filterField != null) {
-                SwingUtilities.invokeLater(filterField::requestFocusInWindow);
+            SwingUtilities.invokeLater(() -> {
+                if (!isShowing()) return;
+                if (filterField != null) {
+                    filterField.requestFocusInWindow();
+                } else {
+                    requestFocusInWindow();
+                }
+            });
+        }
+
+        private void resetInitialHighlight() {
+            ThemedMenuItem target = null;
+            for (ThemedMenuItem item : choices) {
+                if (item.isVisible() && item.isEnabled() && item.selectedChoice) {
+                    target = item;
+                    break;
+                }
             }
+            if (target == null) {
+                for (ThemedMenuItem item : choices) {
+                    if (item.isVisible() && item.isEnabled()) {
+                        target = item;
+                        break;
+                    }
+                }
+            }
+            setKeyboardHighlight(target);
+        }
+
+        void setKeyboardHighlight(final ThemedMenuItem target) {
+            for (ThemedMenuItem item : choices) {
+                item.keyboardHighlighted = item == target;
+            }
+            for (Component footer : footerItems) {
+                if (footer instanceof ThemedMenuItem item) {
+                    item.keyboardHighlighted = item == target;
+                }
+            }
+            repaint();
+        }
+
+        private List<ThemedMenuItem> navigableItems() {
+            final List<ThemedMenuItem> result = new ArrayList<>();
+            for (ThemedMenuItem item : choices) {
+                if (item.isVisible() && item.isEnabled()) result.add(item);
+            }
+            for (Component footer : footerItems) {
+                if (footer instanceof ThemedMenuItem item && item.isVisible() && item.isEnabled()) {
+                    result.add(item);
+                }
+            }
+            return result;
+        }
+
+        private void installPopupKeyBindings() {
+            final var inputMap = getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+            final var selfMap = getInputMap(JComponent.WHEN_FOCUSED);
+            for (var map : List.of(inputMap, selfMap)) {
+                map.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "acp.popup.down");
+                map.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), "acp.popup.up");
+                map.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "acp.popup.commit");
+                map.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "acp.popup.close");
+            }
+            final var actions = getActionMap();
+            actions.put("acp.popup.down", new AbstractAction() {
+                @Override
+                public void actionPerformed(final java.awt.event.ActionEvent event) {
+                    moveHighlight(1);
+                }
+            });
+            actions.put("acp.popup.up", new AbstractAction() {
+                @Override
+                public void actionPerformed(final java.awt.event.ActionEvent event) {
+                    moveHighlight(-1);
+                }
+            });
+            actions.put("acp.popup.commit", new AbstractAction() {
+                @Override
+                public void actionPerformed(final java.awt.event.ActionEvent event) {
+                    commitHighlighted();
+                }
+            });
+            actions.put("acp.popup.close", new AbstractAction() {
+                @Override
+                public void actionPerformed(final java.awt.event.ActionEvent event) {
+                    MenuSelectionManager.defaultManager().clearSelectedPath();
+                    setVisible(false);
+                }
+            });
         }
 
         private void scrollSelectedIntoView() {
@@ -439,16 +561,12 @@ final class AcpThemeControls {
                 @Override
                 public void keyPressed(final KeyEvent event) {
                     if (event.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                        MenuSelectionManager.defaultManager().clearSelectedPath();
                         setVisible(false);
                         event.consume();
                     } else if (event.getKeyCode() == KeyEvent.VK_ENTER) {
-                        for (ThemedMenuItem item : choices) {
-                            if (item.isVisible() && item.isEnabled()) {
-                                item.doClick();
-                                event.consume();
-                                break;
-                            }
-                        }
+                        commitHighlighted();
+                        event.consume();
                     } else if (event.getKeyCode() == KeyEvent.VK_DOWN) {
                         moveHighlight(1);
                         event.consume();
@@ -465,18 +583,17 @@ final class AcpThemeControls {
             final String query = rawQuery == null ? "" : rawQuery.strip().toLowerCase(Locale.ROOT);
             int visibleCount = 0;
             ThemedMenuItem firstVisible = null;
+            ThemedMenuItem selectedVisible = null;
             for (ThemedMenuItem item : choices) {
-                final boolean match = query.isEmpty()
-                        || item.getText().toLowerCase(Locale.ROOT).contains(query);
+                final boolean match = query.isEmpty() || item.matchesQuery(query);
                 item.setVisible(match);
                 if (match) {
                     visibleCount++;
                     if (firstVisible == null) firstVisible = item;
+                    if (item.selectedChoice && selectedVisible == null) selectedVisible = item;
                 }
             }
-            for (ThemedMenuItem item : choices) {
-                item.keyboardHighlighted = item == firstVisible && !query.isEmpty();
-            }
+            setKeyboardHighlight(query.isEmpty() && selectedVisible != null ? selectedVisible : firstVisible);
             final int height =
                     Math.max(MENU_ITEM_HEIGHT, Math.min(MAX_POPUP_SCROLL_HEIGHT, visibleCount * MENU_ITEM_HEIGHT));
             scrollPane.setPreferredSize(new Dimension(scrollPane.getPreferredSize().width, height));
@@ -486,9 +603,8 @@ final class AcpThemeControls {
             repaint();
         }
 
-        private void moveHighlight(final int delta) {
-            final List<ThemedMenuItem> visible =
-                    choices.stream().filter(Component::isVisible).toList();
+        void moveHighlight(final int delta) {
+            final List<ThemedMenuItem> visible = navigableItems();
             if (visible.isEmpty()) return;
             int current = -1;
             for (int i = 0; i < visible.size(); i++) {
@@ -499,65 +615,143 @@ final class AcpThemeControls {
             }
             final int next =
                     current < 0 ? (delta > 0 ? 0 : visible.size() - 1) : Math.floorMod(current + delta, visible.size());
-            for (int i = 0; i < visible.size(); i++) {
-                visible.get(i).keyboardHighlighted = i == next;
-            }
             final ThemedMenuItem target = visible.get(next);
-            if (listContainer != null) listContainer.scrollRectToVisible(target.getBounds());
-            repaint();
+            setKeyboardHighlight(target);
+            if (listContainer != null && target.getParent() == listContainer) {
+                listContainer.scrollRectToVisible(target.getBounds());
+            }
+        }
+
+        void commitHighlighted() {
+            final List<ThemedMenuItem> visible = navigableItems();
+            if (visible.isEmpty()) return;
+            for (ThemedMenuItem item : visible) {
+                if (item.keyboardHighlighted) {
+                    item.activateSelection();
+                    return;
+                }
+            }
+            visible.get(0).activateSelection();
         }
     }
 
-    /** Theme-painted menu row with hover highlight, optional icon, and clean active checkmark. */
+    /** Theme-painted menu row with hover highlight, optional icon, secondary channel tag, and active checkmark. */
     static final class ThemedMenuItem extends JMenuItem {
+        private final String secondaryText;
         private final boolean selectedChoice;
+        private final ThemedPopupMenu owner;
+        private final Runnable onSelect;
         private boolean keyboardHighlighted;
 
         ThemedMenuItem(
                 final String label,
+                final String secondaryText,
                 final boolean selectedChoice,
                 final Icon icon,
-                final JPopupMenu owner,
+                final ThemedPopupMenu owner,
                 final Runnable onSelect) {
             super(label);
+            this.secondaryText = Objects.requireNonNullElse(secondaryText, "").strip();
             this.selectedChoice = selectedChoice;
-            setUI(new BasicMenuItemUI());
+            this.owner = owner;
+            this.onSelect = onSelect;
+            setUI(new BasicMenuItemUI() {
+                @Override
+                protected void installListeners() {
+                    // Bypass MenuSelectionManager drag/arm tracking so scrollable popups and mouse
+                    // movement across search/scrollbar regions never dismiss or drop clicks.
+                }
+
+                @Override
+                protected void uninstallListeners() {}
+            });
             putClientProperty("html.disable", true);
             setIcon(icon);
             setOpaque(false);
+            setFocusable(false);
             setBorder(BorderFactory.createEmptyBorder(0, MENU_ITEM_H_PAD, 0, MENU_ITEM_H_PAD));
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             setRolloverEnabled(true);
-            setToolTipText(label);
+            setToolTipText(this.secondaryText.isEmpty() ? label : label + " · " + this.secondaryText);
             addMouseListener(new java.awt.event.MouseAdapter() {
                 @Override
                 public void mouseEntered(final java.awt.event.MouseEvent event) {
+                    if (isEnabled() && owner != null) {
+                        owner.setKeyboardHighlight(ThemedMenuItem.this);
+                    }
+                    getModel().setRollover(true);
                     repaint();
                 }
 
                 @Override
                 public void mouseExited(final java.awt.event.MouseEvent event) {
-                    keyboardHighlighted = false;
+                    getModel().setRollover(false);
                     repaint();
                 }
+
+                @Override
+                public void mousePressed(final java.awt.event.MouseEvent event) {
+                    if (SwingUtilities.isLeftMouseButton(event) && isEnabled()) {
+                        getModel().setPressed(true);
+                        repaint();
+                    }
+                }
+
+                @Override
+                public void mouseReleased(final java.awt.event.MouseEvent event) {
+                    if (!SwingUtilities.isLeftMouseButton(event)) return;
+                    final boolean wasPressed = getModel().isPressed();
+                    getModel().setPressed(false);
+                    if (wasPressed && isEnabled() && contains(event.getPoint())) {
+                        activateSelection();
+                    } else {
+                        repaint();
+                    }
+                }
             });
-            addActionListener(ignored -> {
-                MenuSelectionManager.defaultManager().clearSelectedPath();
-                if (owner != null) owner.setVisible(false);
-                if (onSelect != null) onSelect.run();
-            });
+            addActionListener(ignored -> invokeSelection());
+        }
+
+        boolean matchesQuery(final String lowerQuery) {
+            return Objects.requireNonNullElse(getText(), "")
+                            .toLowerCase(Locale.ROOT)
+                            .contains(lowerQuery)
+                    || secondaryText.toLowerCase(Locale.ROOT).contains(lowerQuery);
+        }
+
+        String secondaryLabel() {
+            return secondaryText;
+        }
+
+        void activateSelection() {
+            doClick(0);
+        }
+
+        private void invokeSelection() {
+            MenuSelectionManager.defaultManager().clearSelectedPath();
+            if (owner != null) owner.setVisible(false);
+            if (onSelect != null) onSelect.run();
         }
 
         @Override
         public Dimension getPreferredSize() {
-            final FontMetrics metrics = getFontMetrics(getFont());
+            final Font baseFont = getFont();
+            final Font primaryFont = baseFont.deriveFont(selectedChoice ? Font.BOLD : Font.PLAIN);
+            final FontMetrics primaryMetrics = getFontMetrics(primaryFont);
             final int iconWidth = getIcon() == null ? 0 : getIcon().getIconWidth() + MENU_ITEM_ICON_GAP;
-            final int textWidth = metrics.stringWidth(Objects.requireNonNullElse(getText(), ""));
+            final int primaryWidth = primaryMetrics.stringWidth(Objects.requireNonNullElse(getText(), ""));
+            int secondaryWidth = 0;
+            if (!secondaryText.isEmpty()) {
+                final Font secFont =
+                        baseFont.deriveFont(Font.PLAIN, Math.max(11F, baseFont.getSize2D() - SECONDARY_FONT_DELTA));
+                secondaryWidth =
+                        MENU_ITEM_SECONDARY_GAP + getFontMetrics(secFont).stringWidth(secondaryText);
+            }
             final int totalWidth = Math.min(
                     MAX_POPUP_WIDTH - 2 * POPUP_INSET,
                     Math.max(
                             MIN_POPUP_WIDTH - 2 * POPUP_INSET,
-                            2 * MENU_ITEM_H_PAD + iconWidth + textWidth + MENU_ITEM_CHECK_WIDTH));
+                            2 * MENU_ITEM_H_PAD + iconWidth + primaryWidth + secondaryWidth + MENU_ITEM_CHECK_WIDTH));
             return new Dimension(totalWidth, MENU_ITEM_HEIGHT);
         }
 
@@ -582,18 +776,41 @@ final class AcpThemeControls {
                     icon.paintIcon(this, g, x, (getHeight() - icon.getIconHeight()) / 2);
                     x += icon.getIconWidth() + MENU_ITEM_ICON_GAP;
                 }
-                final Font font = getFont().deriveFont(selectedChoice ? Font.BOLD : Font.PLAIN);
-                g.setFont(font);
-                final FontMetrics metrics = g.getFontMetrics();
-                final int maxTextWidth =
-                        Math.max(24, getWidth() - x - MENU_ITEM_H_PAD - (selectedChoice ? MENU_ITEM_CHECK_WIDTH : 0));
-                final String rendered = truncateEnd(Objects.requireNonNullElse(getText(), ""), metrics, maxTextWidth);
+                final Font baseFont = getFont();
+                final Font primaryFont = baseFont.deriveFont(selectedChoice ? Font.BOLD : Font.PLAIN);
+                g.setFont(primaryFont);
+                final FontMetrics primaryMetrics = g.getFontMetrics();
+                final int rightLimit = getWidth() - MENU_ITEM_H_PAD - (selectedChoice ? MENU_ITEM_CHECK_WIDTH : 0);
+                final int availableWidth = Math.max(24, rightLimit - x);
+                final String rawPrimary = Objects.requireNonNullElse(getText(), "");
+                final int fullPrimaryWidth = primaryMetrics.stringWidth(rawPrimary);
+                final int primaryMaxWidth = !secondaryText.isEmpty()
+                                && availableWidth
+                                        > fullPrimaryWidth + MENU_ITEM_SECONDARY_GAP + MIN_SECONDARY_RENDER_WIDTH
+                        ? fullPrimaryWidth
+                        : (!secondaryText.isEmpty() && availableWidth > 140
+                                ? Math.min(fullPrimaryWidth, availableWidth - MENU_ITEM_SECONDARY_GAP - 56)
+                                : availableWidth);
+                final String renderedPrimary = truncateEnd(rawPrimary, primaryMetrics, primaryMaxWidth);
                 g.setColor(isEnabled() ? AcpChatTheme.foreground() : AcpChatTheme.muted());
-                final int baseline = (getHeight() - metrics.getHeight()) / 2 + metrics.getAscent();
-                g.drawString(rendered, x, baseline);
+                final int baseline = (getHeight() - primaryMetrics.getHeight()) / 2 + primaryMetrics.getAscent();
+                g.drawString(renderedPrimary, x, baseline);
+
+                final int afterPrimaryX = x + primaryMetrics.stringWidth(renderedPrimary) + MENU_ITEM_SECONDARY_GAP;
+                if (!secondaryText.isEmpty() && rightLimit - afterPrimaryX >= MIN_SECONDARY_RENDER_WIDTH) {
+                    final Font secFont =
+                            baseFont.deriveFont(Font.PLAIN, Math.max(11F, baseFont.getSize2D() - SECONDARY_FONT_DELTA));
+                    g.setFont(secFont);
+                    final FontMetrics secMetrics = g.getFontMetrics();
+                    final String renderedSecondary = truncateEnd(secondaryText, secMetrics, rightLimit - afterPrimaryX);
+                    g.setColor(AcpChatTheme.muted());
+                    g.drawString(renderedSecondary, afterPrimaryX, baseline);
+                    g.setFont(primaryFont);
+                }
+
                 if (selectedChoice) {
                     g.setColor(AcpChatTheme.accent());
-                    final int checkX = getWidth() - MENU_ITEM_H_PAD - metrics.stringWidth(SELECTED_MARK);
+                    final int checkX = getWidth() - MENU_ITEM_H_PAD - primaryMetrics.stringWidth(SELECTED_MARK);
                     g.drawString(SELECTED_MARK, checkX, baseline);
                 }
             } finally {

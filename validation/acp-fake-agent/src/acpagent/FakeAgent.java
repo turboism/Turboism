@@ -476,31 +476,34 @@ public final class FakeAgent {
 
     private static List<Map<String, Object>> showcaseConfigOptions(final String currentModel) {
         final List<String[]> models = List.of(
-                new String[] {"claude-sonnet-4-5", "Claude Sonnet 4.5"},
-                new String[] {"claude-opus-4-6", "Claude Opus 4.6"},
-                new String[] {"claude-haiku-4-5", "Claude Haiku 4.5"},
-                new String[] {"gpt-5.4", "GPT-5.4"},
-                new String[] {"gpt-5.4-mini", "GPT-5.4 Mini"},
-                new String[] {"gpt-5.3-codex", "GPT-5.3 Codex"},
-                new String[] {"o3-pro", "o3 Pro"},
-                new String[] {"gemini-3.1-pro", "Gemini 3.1 Pro"},
-                new String[] {"gemini-3.0-flash", "Gemini 3.0 Flash"},
-                new String[] {"deepseek-r1", "DeepSeek R1"},
-                new String[] {"deepseek-v3", "DeepSeek V3"},
-                new String[] {"qwen-3-coder", "Qwen 3 Coder"},
-                new String[] {"glm-5", "GLM-5"},
-                new String[] {"kimi-k2.5", "Kimi K2.5"});
+                new String[] {"anthropic/claude-sonnet-4-5", "Claude Sonnet 4.5"},
+                new String[] {"anthropic/claude-opus-4-6", "Claude Opus 4.6"},
+                new String[] {"openai/gpt-5.4", "GPT-5.4"},
+                new String[] {"openai/gpt-5.3-codex", "GPT-5.3 Codex"},
+                new String[] {"mistral/codestral-2508", "Codestral 25.08"},
+                new String[] {"mistral/codestral-latest", "Codestral (latest)"},
+                new String[] {"mistral/deepseek-v4.1-flash-1017", "DeepSeek V4.1 Flash 1017"},
+                new String[] {"mistral/devstral-2512", "Devstral 2"},
+                new String[] {"google/gemini-3.1-pro", "Gemini 3.1 Pro"},
+                new String[] {"google/gemini-3.0-flash", "Gemini 3.0 Flash"},
+                new String[] {"deepseek/deepseek-r1", "DeepSeek R1"},
+                new String[] {"qwen/qwen-3-coder", "Qwen 3 Coder"},
+                new String[] {"zai/glm-5", "GLM-5"},
+                new String[] {"moonshot/kimi-k2.5", "Kimi K2.5"});
         final List<Map<String, Object>> modelChoices = new ArrayList<>();
         for (String[] pair : models) {
-            modelChoices.add(Map.of("value", pair[0], "name", pair[1]));
+            modelChoices.add(Map.of("value", pair[0], "name", pair[1], "description", pair[0]));
         }
+        final String resolvedCurrent = "claude-sonnet-4-5".equals(currentModel)
+                ? "anthropic/claude-sonnet-4-5"
+                : currentModel;
         return List.of(
                 Map.of(
                         "id", "model",
                         "name", "Model",
                         "category", "model",
                         "type", "select",
-                        "currentValue", currentModel,
+                        "currentValue", resolvedCurrent,
                         "options", modelChoices),
                 Map.of(
                         "id", "effort",
