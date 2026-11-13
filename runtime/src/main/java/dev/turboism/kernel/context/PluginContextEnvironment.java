@@ -216,7 +216,9 @@ public final class PluginContextEnvironment {
     }
 
     /**
-     * @return the runtime-owned preview cache broker shared by every plugin scope
+     * Returns the runtime-owned preview cache broker, or {@code null} if omitted.
+     *
+     * @return preview cache broker or {@code null}
      */
     public dev.turboism.recentpreview.RecentPreviewCacheRegistry recentPreviewCacheRegistry() {
         return recentPreviewCacheRegistry;
@@ -407,18 +409,20 @@ public final class PluginContextEnvironment {
          * @param mcpConnectionService MCP connection service
          * @return this builder
          */
+        public Builder mcpConnectionService(final McpConnectionService mcpConnectionService) {
+            this.mcpConnectionService = mcpConnectionService;
+            return this;
+        }
+
         /**
+         * Sets the runtime-owned preview cache broker.
+         *
          * @param registry the runtime-owned preview cache broker shared by every plugin scope
          * @return this builder
          */
         public Builder recentPreviewCacheRegistry(
                 final dev.turboism.recentpreview.RecentPreviewCacheRegistry registry) {
             this.recentPreviewCacheRegistry = registry;
-            return this;
-        }
-
-        public Builder mcpConnectionService(final McpConnectionService mcpConnectionService) {
-            this.mcpConnectionService = mcpConnectionService;
             return this;
         }
 
