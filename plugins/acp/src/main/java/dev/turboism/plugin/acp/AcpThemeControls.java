@@ -16,7 +16,6 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
-import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
@@ -265,6 +264,7 @@ final class AcpThemeControls {
         final Dimension size = popup.getPreferredSize();
         int x = 0;
         int y = invoker.getHeight() + POPUP_GAP;
+        boolean opensUpward = false;
         final GraphicsConfiguration gc = invoker.getGraphicsConfiguration();
         if (gc != null) {
             final Rectangle screen = gc.getBounds();
@@ -276,11 +276,15 @@ final class AcpThemeControls {
             final int spaceBelow = usableBottom - (onScreen.y + invoker.getHeight() + POPUP_GAP);
             final int spaceAbove = onScreen.y - POPUP_GAP - usableTop;
             if (size.height > spaceBelow && spaceAbove > spaceBelow) {
+                opensUpward = true;
                 y = -Math.min(size.height, spaceAbove) - POPUP_GAP;
             }
             if (onScreen.x + size.width > usableRight) {
                 x = Math.min(0, usableRight - (onScreen.x + size.width));
             }
+        }
+        if (popup instanceof ThemedPopupMenu themed) {
+            themed.opensUpward = opensUpward;
         }
         popup.show(invoker, x, y);
         if (popup instanceof ThemedPopupMenu themed) {
@@ -310,6 +314,7 @@ final class AcpThemeControls {
         private JPanel listContainer;
         private JScrollPane scrollPane;
         private boolean built;
+        boolean opensUpward;
 
         ThemedPopupMenu() {
             this("");
@@ -490,14 +495,11 @@ final class AcpThemeControls {
         }
 
         private void installPopupKeyBindings() {
-            final var inputMap = getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
             final var selfMap = getInputMap(JComponent.WHEN_FOCUSED);
-            for (var map : List.of(inputMap, selfMap)) {
-                map.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "acp.popup.down");
-                map.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), "acp.popup.up");
-                map.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "acp.popup.commit");
-                map.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "acp.popup.close");
-            }
+            selfMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "acp.popup.down");
+            selfMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), "acp.popup.up");
+            selfMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "acp.popup.commit");
+            selfMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "acp.popup.close");
             final var actions = getActionMap();
             actions.put("acp.popup.down", new AbstractAction() {
                 @Override
@@ -540,6 +542,10 @@ final class AcpThemeControls {
             }
         }
 
+        JTextField filterInput() {
+            return filterField;
+        }
+
         private void installFilterBehavior(final JTextField field) {
             field.getDocument().addDocumentListener(new DocumentListener() {
                 @Override
@@ -557,28 +563,40 @@ final class AcpThemeControls {
                     applyFilter(field.getText());
                 }
             });
-            field.addKeyListener(new KeyAdapter() {
+            final var inputMap = field.getInputMap(JComponent.WHEN_FOCUSED);
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "acp.filter.down");
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), "acp.filter.up");
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "acp.filter.commit");
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "acp.filter.close");
+            final var actions = field.getActionMap();
+            actions.put("acp.filter.down", new AbstractAction() {
                 @Override
-                public void keyPressed(final KeyEvent event) {
-                    if (event.getKeyCode() == KeyEvent.VK_ESCAPE) {
-                        MenuSelectionManager.defaultManager().clearSelectedPath();
-                        setVisible(false);
-                        event.consume();
-                    } else if (event.getKeyCode() == KeyEvent.VK_ENTER) {
-                        commitHighlighted();
-                        event.consume();
-                    } else if (event.getKeyCode() == KeyEvent.VK_DOWN) {
-                        moveHighlight(1);
-                        event.consume();
-                    } else if (event.getKeyCode() == KeyEvent.VK_UP) {
-                        moveHighlight(-1);
-                        event.consume();
-                    }
+                public void actionPerformed(final java.awt.event.ActionEvent event) {
+                    moveHighlight(1);
+                }
+            });
+            actions.put("acp.filter.up", new AbstractAction() {
+                @Override
+                public void actionPerformed(final java.awt.event.ActionEvent event) {
+                    moveHighlight(-1);
+                }
+            });
+            actions.put("acp.filter.commit", new AbstractAction() {
+                @Override
+                public void actionPerformed(final java.awt.event.ActionEvent event) {
+                    commitHighlighted();
+                }
+            });
+            actions.put("acp.filter.close", new AbstractAction() {
+                @Override
+                public void actionPerformed(final java.awt.event.ActionEvent event) {
+                    MenuSelectionManager.defaultManager().clearSelectedPath();
+                    setVisible(false);
                 }
             });
         }
 
-        private void applyFilter(final String rawQuery) {
+        void applyFilter(final String rawQuery) {
             if (listContainer == null || scrollPane == null) return;
             final String query = rawQuery == null ? "" : rawQuery.strip().toLowerCase(Locale.ROOT);
             int visibleCount = 0;
@@ -600,7 +618,24 @@ final class AcpThemeControls {
             listContainer.revalidate();
             scrollPane.revalidate();
             revalidate();
+            resizePopupWindow();
             repaint();
+        }
+
+        private void resizePopupWindow() {
+            if (!isShowing()) return;
+            final java.awt.Window popupWindow = SwingUtilities.getWindowAncestor(this);
+            if (popupWindow == null) return;
+            final Dimension pref = getPreferredSize();
+            final Component invoker = getInvoker();
+            if (opensUpward && invoker != null && invoker.isShowing()) {
+                final Point invokerLoc = invoker.getLocationOnScreen();
+                final int newY = invokerLoc.y - pref.height - POPUP_GAP;
+                popupWindow.setBounds(popupWindow.getX(), newY, pref.width, pref.height);
+            } else {
+                popupWindow.setSize(pref);
+            }
+            popupWindow.validate();
         }
 
         void moveHighlight(final int delta) {

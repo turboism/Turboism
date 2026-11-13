@@ -869,6 +869,46 @@ final class AcpChatWindowRenderingTest {
                 assertEquals(List.of("model", "mistral/model-2"), configUpdates.get());
                 window.showConfigOptions(options);
 
+                // Filtering narrows visible choices ("model-10".."model-15" plus "model-1"), then Down/Up/Enter
+                // navigates only the filtered matches and commits the exact filtered choice.
+                final JButton filterModelBtn = (JButton) component(window, "composerOptionButtons", java.util.Map.class)
+                        .get("model");
+                final var filterPopup =
+                        (AcpThemeControls.ThemedPopupMenu) AcpThemeControls.attachedPopup(filterModelBtn);
+                filterPopup.prepareForShow();
+                final var filterInput = filterPopup.filterInput();
+                filterInput.setText("model-1");
+                // Filtered visible set: model-1 (index 0), model-10 (index 1), model-11 (index 2), ...
+                // Invoke the filter field's InputMap/ActionMap bindings: Down twice -> model-11, Up once -> model-10,
+                // Enter -> commit.
+                for (int keyCode : List.of(KeyEvent.VK_DOWN, KeyEvent.VK_DOWN, KeyEvent.VK_UP, KeyEvent.VK_ENTER)) {
+                    final Object actionKey = filterInput
+                            .getInputMap(javax.swing.JComponent.WHEN_FOCUSED)
+                            .get(KeyStroke.getKeyStroke(keyCode, 0));
+                    assertTrue(actionKey != null);
+                    filterInput.getActionMap().get(actionKey).actionPerformed(new ActionEvent(filterInput, 0, "key"));
+                }
+                assertEquals(List.of("model", "mistral/model-10"), configUpdates.get());
+                window.showConfigOptions(options);
+
+                // Filtering to a non-first subset ("Model 5") highlights model-5 and wraps cleanly on Up/Down.
+                final JButton singleFilterBtn =
+                        (JButton) component(window, "composerOptionButtons", java.util.Map.class)
+                                .get("model");
+                final var singleFilterPopup =
+                        (AcpThemeControls.ThemedPopupMenu) AcpThemeControls.attachedPopup(singleFilterBtn);
+                singleFilterPopup.prepareForShow();
+                final var singleInput = singleFilterPopup.filterInput();
+                singleInput.setText("Model 5");
+                for (int keyCode : List.of(KeyEvent.VK_DOWN, KeyEvent.VK_ENTER)) {
+                    final Object actionKey = singleInput
+                            .getInputMap(javax.swing.JComponent.WHEN_FOCUSED)
+                            .get(KeyStroke.getKeyStroke(keyCode, 0));
+                    singleInput.getActionMap().get(actionKey).actionPerformed(new ActionEvent(singleInput, 0, "key"));
+                }
+                assertEquals(List.of("model", "mistral/model-5"), configUpdates.get());
+                window.showConfigOptions(options);
+
                 // Mouse press + release on a scrollable row also selects and applies it cleanly.
                 final JButton refreshedModelBtn =
                         (JButton) component(window, "composerOptionButtons", java.util.Map.class)
