@@ -618,24 +618,16 @@ final class AcpThemeControls {
             listContainer.revalidate();
             scrollPane.revalidate();
             revalidate();
-            resizePopupWindow();
-            repaint();
-        }
-
-        private void resizePopupWindow() {
-            if (!isShowing()) return;
-            final java.awt.Window popupWindow = SwingUtilities.getWindowAncestor(this);
-            if (popupWindow == null) return;
-            final Dimension pref = getPreferredSize();
-            final Component invoker = getInvoker();
-            if (opensUpward && invoker != null && invoker.isShowing()) {
-                final Point invokerLoc = invoker.getLocationOnScreen();
-                final int newY = invokerLoc.y - pref.height - POPUP_GAP;
-                popupWindow.setBounds(popupWindow.getX(), newY, pref.width, pref.height);
-            } else {
-                popupWindow.setSize(pref);
+            if (isShowing()) {
+                final Dimension pref = getPreferredSize();
+                final Component invoker = getInvoker();
+                if (opensUpward && invoker != null && invoker.isShowing()) {
+                    final Point invokerLoc = invoker.getLocationOnScreen();
+                    setLocation(getLocationOnScreen().x, invokerLoc.y - pref.height - POPUP_GAP);
+                }
+                pack();
             }
-            popupWindow.validate();
+            repaint();
         }
 
         void moveHighlight(final int delta) {
