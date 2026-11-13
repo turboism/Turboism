@@ -83,13 +83,17 @@ val buildKind = if (turboismBuildNumber.isEmpty()) "local" else "ci"
 val displayVersion = "$effectiveVersion ($turboismBuildChannel, " +
     (if (turboismBuildNumber.isEmpty()) "local" else "Build $turboismBuildNumber") +
     (if (dirtySource) ", dirty" else "") + ")"
+val frameworkVersionResourcePath = "META-INF/turboism/framework-version.properties"
+val sourceRevisionProperty = "sourceRevision"
+val dirtyProperty = "dirty"
+val displayVersionProperty = "displayVersion"
 rootProject.extra["turboismFrameworkVersion"] = turboismFrameworkVersion
 rootProject.extra["turboismBuildMetadata"] = linkedMapOf(
     "version" to effectiveVersion,
     "Implementation-Version" to effectiveVersion,
     "apiVersion" to turboismApiVersion, "channel" to turboismBuildChannel,
-    "buildNumber" to turboismBuildNumber, "sourceRevision" to turboismBuildSource,
-    "buildKind" to buildKind, "dirty" to dirtySource.toString(), "displayVersion" to displayVersion
+    "buildNumber" to turboismBuildNumber, sourceRevisionProperty to turboismBuildSource,
+    "buildKind" to buildKind, dirtyProperty to dirtySource.toString(), displayVersionProperty to displayVersion
 )
 tasks.register("printBuildInfo") {
     group = "help"
@@ -112,6 +116,12 @@ allprojects {
                 ignoreAttribute("Turboism-Channel")
                 ignoreAttribute("Turboism-Version")
                 ignoreAttribute("Implementation-Version")
+            }
+            // Preserves build-cache hits across commits when only git provenance changes.
+            properties(frameworkVersionResourcePath) {
+                ignoreProperty(sourceRevisionProperty)
+                ignoreProperty(dirtyProperty)
+                ignoreProperty(displayVersionProperty)
             }
         }
     }

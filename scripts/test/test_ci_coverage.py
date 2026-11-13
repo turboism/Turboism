@@ -253,10 +253,17 @@ def is_xvfb_install_line(line: str) -> bool:
 # not a copy of it: `check_manifest` asserts gradle/gates.txt declares them.
 GATE_TASKS = ('devCheck', 'checkCompletedCommit', 'checkReleasePackaging', 'checkRelease')
 ORDINARY_GATES = frozenset({'devCheck', 'checkCompletedCommit'})
+PR_FAST_GATE = 'devCheck'
+BUILDSRC_TEST_TASK = ':buildSrc:test'
+PR_EVENT_CONDITION = "github.event_name == 'pull_request'"
+MAIN_PUSH_EVENT_CONDITION = "github.event_name == 'push'"
+NON_PR_EVENT_CONDITION = "github.event_name != 'pull_request'"
+CI_EVENT_PARTITIONS = frozenset({PR_EVENT_CONDITION, MAIN_PUSH_EVENT_CONDITION})
+FORBIDDEN_BROAD_CHANNEL_PATHS = frozenset({'release-notes/**', 'runtime/**', 'scripts/test/**'})
 PACKAGING_GATE = 'checkReleasePackaging'
 FORMAL_RELEASE_GATE = 'checkRelease'
 ALLOWED_GATE_ARGS = frozenset({
-    *GATE_TASKS, ':buildSrc:test',
+    *GATE_TASKS, BUILDSRC_TEST_TASK,
     '--no-daemon', '--offline', '--console=plain', '--stacktrace', '--continue',
 })
 # Both release gates bind a resolved installer identity and the release flag; only
@@ -273,7 +280,7 @@ def gate_options(manifest: Manifest) -> dict[str, dict[str, bool]]:
 
 
 def gate_commands(document: dict, gate: str | None = None, *, release_flags: bool = False,
-                  require_xvfb: bool = False) -> list[list[str]]:
+                  require_xvfb: bool = False, allow_event_partition: bool = False) -> list[list[str]]:
     """Validate deterministic Gradle aggregate invocations and return their arguments.
 
     `gate=None` collects every aggregate invocation. A release gate additionally has
@@ -288,7 +295,8 @@ def gate_commands(document: dict, gate: str | None = None, *, release_flags: boo
         for step in job.get('steps', []):
             if 'run' not in step:
                 continue
-            is_unconditional_step = not step.get('if') and not step.get('continue-on-error')
+            step_condition = step.get('if')
+            is_unconditional_step = not step_condition and not step.get('continue-on-error')
             for line in step['run'].replace('\\\n', ' ').splitlines():
                 if is_unconditional_step and is_xvfb_install_line(line):
                     xvfb_installed = True
@@ -298,11 +306,13 @@ def gate_commands(document: dict, gate: str | None = None, *, release_flags: boo
                 if not tokens or './gradlew' not in tokens:
                     continue
                 if gate is None:
-                    if not any(name in tokens for name in GATE_TASKS) and ':buildSrc:test' not in tokens:
+                    if not any(name in tokens for name in GATE_TASKS) and BUILDSRC_TEST_TASK not in tokens:
                         continue
                 elif gate not in tokens:
                     continue
-                assert not step.get('if') and not step.get('continue-on-error'), 'conditional gate'
+                assert not step.get('continue-on-error'), 'conditional gate'
+                if step_condition:
+                    assert allow_event_partition and step_condition in CI_EVENT_PARTITIONS, 'conditional gate'
                 assert require_xvfb or not job.get('if'), 'conditional CI job'
                 assert tokens[0] in ('./gradlew', 'xvfb-run'), 'gate must execute directly'
                 assert not any(x in line for x in ('&&', '||', ';', '`', '$(', '|')), 'shell gate bypass'
@@ -345,8 +355,11 @@ def workflow_gates(root: Path, options: dict[str, dict[str, bool]]) -> dict[str,
     gates = {}
     for path in sorted((root / '.github/workflows').glob('*.yml')):
         document = yaml.safe_load(path.read_text(encoding='utf-8'))
-        gates[path.name] = {gate for gate in GATE_TASKS
-                            if gate_commands(document, gate, **options.get(gate, {}))}
+        gates[path.name] = {
+            gate for gate in GATE_TASKS
+            if gate_commands(document, gate, allow_event_partition=(path.name == 'ci.yml'),
+                             **options.get(gate, {}))
+        }
     return gates
 
 
@@ -371,8 +384,18 @@ def check_workflow(root: Path, gates: dict[str, set[str]]) -> None:
         'the required devCheck check name must stay'
     assert gates['ci.yml'] == set(ORDINARY_GATES), \
         f'CI must execute both ordinary aggregates: {sorted(gates["ci.yml"])}'
-    assert any(ORDINARY_GATES <= set(command) for command in gate_commands(workflow)), \
-        'CI must execute both aggregates in one invocation'
+    ci_commands = gate_commands(workflow, allow_event_partition=True)
+    assert any(ORDINARY_GATES <= set(command) for command in ci_commands), \
+        'CI must execute both aggregates in one main invocation'
+    pr_steps = [step for job in workflow['jobs'].values() for step in job.get('steps', [])
+                if step.get('if') == PR_EVENT_CONDITION and './gradlew' in step.get('run', '')]
+    main_steps = [step for job in workflow['jobs'].values() for step in job.get('steps', [])
+                  if step.get('if') == MAIN_PUSH_EVENT_CONDITION and './gradlew' in step.get('run', '')]
+    assert len(pr_steps) == 1 and PR_FAST_GATE in pr_steps[0]['run'] and BUILDSRC_TEST_TASK in pr_steps[0]['run'] \
+        and 'checkCompletedCommit' not in pr_steps[0]['run'], \
+        'PR CI must run only :buildSrc:test and devCheck in one invocation'
+    assert len(main_steps) == 1 and all(t in main_steps[0]['run'] for t in (*ORDINARY_GATES, BUILDSRC_TEST_TASK)), \
+        'main push CI must run :buildSrc:test, devCheck and checkCompletedCommit in one invocation'
     guard_runs = [step for job in workflow['jobs'].values() for step in job.get('steps', [])
                   if step.get('run', '').strip() == 'python3 scripts/test/test_ci_coverage.py']
     assert guard_runs and all(not step.get('if') and not step.get('continue-on-error')
@@ -399,9 +422,10 @@ def check_workflow(root: Path, gates: dict[str, set[str]]) -> None:
     for marker in ('git archive HEAD', 'git bundle create artifacts/history.bundle'):
         assert marker in runs, f'unified must keep its source/history archive: {marker}'
     events = unified.get('on', unified.get(True)) or {}
-    assert all('release-notes/**' not in ((events.get(event) or {}).get('paths') or [])
-               for event in ('pull_request', 'push')), \
-        'notes-only data changes must not schedule the channel packaging matrix'
+    for event in ('pull_request', 'push'):
+        event_paths = set((events.get(event) or {}).get('paths') or [])
+        forbidden = sorted(event_paths & FORBIDDEN_BROAD_CHANNEL_PATHS)
+        assert not forbidden, f'unified {event} paths must stay scoped to channel/release inputs: {forbidden}'
     check_channel_topology(unified)
     check_history_gate(root)
 
@@ -428,6 +452,8 @@ def check_channel_topology(document: dict) -> None:
     assert len(packages) == 1, f'exactly one channel package matrix is allowed: {[n for n, _ in packages]}'
     name, package = packages[0]
     assert package['strategy']['matrix']['channel'] == ['stable', 'beta', 'nightly'], 'channel matrix changed'
+    assert package.get('if') == NON_PR_EVENT_CONDITION, \
+        'three-channel package matrix must run on main pushes only, never on pull requests'
     assert 'release-gates' in str(package.get('needs')), 'channel packages must consume the shared upstream gate'
     package_runs = job_runs(package)
     for marker in ('assemble-release.sh', 'scripts/release/verify-release.py',
@@ -438,8 +464,10 @@ def check_channel_topology(document: dict) -> None:
 def check_history_gate(root: Path) -> None:
     """The required history gate scans reachable history and rotates its boundary cache."""
     document = workflow_document(root, 'remote-hygiene.yml')
-    assert 'pull_request' in (document.get('on', document.get(True)) or {}), \
-        'history hygiene must gate every pull request'
+    triggers = document.get('on', document.get(True)) or {}
+    assert 'pull_request' in triggers, 'history hygiene must gate every pull request'
+    assert triggers.get('push') == {'branches': ['main']}, \
+        'history hygiene push trigger must target main only to avoid duplicate PR branch runs'
     job = next(iter(document['jobs'].values()))
     assert job.get('name') == 'scan reachable history', 'the required history check name must stay'
     assert 'scripts/check_remote_hygiene.py --all' in job_runs(job), 'the history gate must scan reachable history'
@@ -872,7 +900,12 @@ def self_test() -> None:
     assert gate_commands({'jobs': {'release': {'steps': [install, {'run': '# ' + release['run']}]}}},
                          **formal) == [], 'commented-out checkRelease must yield no executable command'
 
-    # The separately invocable packaging gate needs no display but the same identity.
+    # Arbitrary step conditions stay forbidden even when CI event partitioning is allowed.
+    rejected([{'if': "github.ref == 'refs/heads/other'", 'run': './gradlew --no-daemon devCheck'}],
+             'conditional gate', PR_FAST_GATE, allow_event_partition=True)
+    assert gate_commands(
+        {'jobs': {'ci': {'steps': [{'if': PR_EVENT_CONDITION, 'run': './gradlew --no-daemon devCheck'}]}}},
+        PR_FAST_GATE, allow_event_partition=True) == [['--no-daemon', PR_FAST_GATE]]
     packaging = {'run': './gradlew --no-daemon checkReleasePackaging ' + identity + ' --console=plain'}
     assert gate_commands({'jobs': {'packaging': {'steps': [packaging]}}},
                          PACKAGING_GATE, release_flags=True) == [['--no-daemon', PACKAGING_GATE, '--console=plain']]

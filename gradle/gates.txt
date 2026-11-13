@@ -25,7 +25,7 @@
 # routed, so a gate cannot shrink without a diff.
 
 # --- devCheck: the daily slice gate -------------------------------------------------------------
-aggregate devCheck group="verification" owner=".github/workflows/ci.yml:76" description="Fast production compilation, permanent structural boundaries, and the focused admission unit-test suites for an implementation slice." harm="a boundary, boundary-scan or code-quality regression reaches main through a daily slice because the fast gate never ran, and is found only at release time"
+aggregate devCheck group="verification" owner=".github/workflows/ci.yml:73" description="Fast production compilation, permanent structural boundaries, and the focused admission unit-test suites for an implementation slice." harm="a boundary, boundary-scan or code-quality regression reaches main through a daily slice because the fast gate never ran, and is found only at release time"
 member devCheck @matching:checkGeneratedSubscriberCatalogs
 member devCheck checkPluginBoundaries
 member devCheck checkPluginPermissionAudit
@@ -65,6 +65,7 @@ member devCheck validatePluginMeta
 member devCheck checkToolbarIconScaleVariants
 member devCheck checkPluginApiRanges
 member devCheck checkPluginApiFloors
+member devCheck checkLocalizedChangelogs
 member devCheck :runtime:checkHeadlessRuntimeClasspath
 member devCheck :runtime:admissionPreflightTest
 member devCheck :runtime:admissionUnitTests
@@ -100,7 +101,7 @@ member checkIntegration :graal-host:checkGraalHostTargetSelection
 member checkIntegration :testing:integration-tests:previewPluginRuntimeTest
 
 # --- checkCompletedCommit: everything a coherent change must survive ---------------------------
-aggregate checkCompletedCommit group="verification" owner=".github/workflows/ci.yml:76" description="Runs the complete automated repository gate for a coherent completed change." harm="a change lands with a failing module suite, unformatted sources, a stale SDK API baseline or an unexecuted test corpus, so a green main stops meaning the repository is releasable"
+aggregate checkCompletedCommit group="verification" owner=".github/workflows/ci.yml:85" description="Runs the complete automated repository gate for a coherent completed change." harm="a change lands with a failing module suite, unformatted sources, a stale SDK API baseline or an unexecuted test corpus, so a green main stops meaning the repository is releasable"
 member checkCompletedCommit checkIntegration
 member checkCompletedCommit @all-module-tests
 member checkCompletedCommit :sdk:javadoc
@@ -131,7 +132,7 @@ member checkCompletedCommit checkNativeHookHandles
 member checkCompletedCommit checkNativeTextureFactorySelection
 
 # --- checkReleasePackaging: the release delta, once, without the completed-commit closure ------
-aggregate checkReleasePackaging group="release verification" owner=".github/workflows/unified-channel-checks.yml:154" description="Runs the release-only gates (supply chain, release tooling, market metadata, installer contracts) without the public completed-commit closure." harm="an unsigned, unversioned or wrongly localized installer reaches a user because the release delta never ran against the release build identity" release-flags
+aggregate checkReleasePackaging group="release verification" owner=".github/workflows/unified-channel-checks.yml:169" description="Runs the release-only gates (supply chain, release tooling, market metadata, installer contracts) without the public completed-commit closure." harm="an unsigned, unversioned or wrongly localized installer reaches a user because the release delta never ran against the release build identity" release-flags
 member checkReleasePackaging checkReleaseTooling
 member checkReleasePackaging checkInstallerVersion
 member checkReleasePackaging checkMarketReleaseMetadata
