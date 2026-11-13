@@ -84,4 +84,23 @@ final class ClipMaskScissorGeometryTest {
                 new float[] {-4.2f, 99.8f, 104.1f, 130.0f}, rect, new int[] {0, 0, 100, 100});
         assertArrayEquals(new int[] {0, 98, 100, 100}, rect);
     }
+
+    @Test
+    void offscreenMaskProducesNonInvertedEmptyRectAndDoesNotExpandUnion() {
+        final int[] viewport = {10, 20, 100, 100};
+        final int[] offRight = new int[4];
+        ClipMaskScissorGeometry.screenToRect(new float[] {120f, 30f, 160f, 50f}, offRight, viewport);
+        assertArrayEquals(new int[] {10, 20, 10, 20}, offRight);
+        assertTrue(ClipMaskScissorGeometry.isEmpty(offRight));
+
+        final int[] offLeft = new int[4];
+        ClipMaskScissorGeometry.screenToRect(new float[] {-40f, 30f, -5f, 50f}, offLeft, viewport);
+        assertArrayEquals(new int[] {10, 20, 10, 20}, offLeft);
+        assertTrue(ClipMaskScissorGeometry.isEmpty(offLeft));
+
+        final int[] previous = {25, 35, 60, 70};
+        final int[] union = new int[4];
+        ClipMaskScissorGeometry.union(previous, offRight, union);
+        assertArrayEquals(previous, union);
+    }
 }

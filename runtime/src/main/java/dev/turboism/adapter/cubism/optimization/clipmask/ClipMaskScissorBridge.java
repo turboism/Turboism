@@ -636,11 +636,14 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
     }
 
     private boolean applyScissor(final Object gl) throws Throwable {
+        final int width = clearRect[2] - clearRect[0];
+        final int height = clearRect[3] - clearRect[1];
+        if (width < 0 || height < 0) return false;
         pending.previousScissorEnabled = (boolean) glIsEnabled.invokeExact(gl, GL_SCISSOR_TEST);
         if (pending.previousScissorEnabled) glGetIntegerv.invokeExact(gl, GL_SCISSOR_BOX, pending.previousBox, 0);
         glEnable.invokeExact(gl, GL_SCISSOR_TEST);
         pending.scissorChanged = true;
-        glScissor.invokeExact(gl, clearRect[0], clearRect[1], clearRect[2] - clearRect[0], clearRect[3] - clearRect[1]);
+        glScissor.invokeExact(gl, clearRect[0], clearRect[1], width, height);
         return true;
     }
 
@@ -658,8 +661,14 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
         final Object gl = pending.gl;
         if (pending.previousScissorEnabled) {
             glEnable.invokeExact(gl, GL_SCISSOR_TEST);
-            glScissor.invokeExact(
-                    gl, pending.previousBox[0], pending.previousBox[1], pending.previousBox[2], pending.previousBox[3]);
+            if (pending.previousBox[2] >= 0 && pending.previousBox[3] >= 0) {
+                glScissor.invokeExact(
+                        gl,
+                        pending.previousBox[0],
+                        pending.previousBox[1],
+                        pending.previousBox[2],
+                        pending.previousBox[3]);
+            }
         } else {
             glDisable.invokeExact(gl, GL_SCISSOR_TEST);
         }
@@ -668,6 +677,10 @@ public final class ClipMaskScissorBridge implements AutoCloseable {
     private void rememberDirty() {
         final Object texture = pending.texture;
         if (texture == null) return;
+        if (ClipMaskScissorGeometry.isEmpty(pending.currentRect)) {
+            dirtyTextures.remove(texture);
+            return;
+        }
         final DirtyTexture previous = dirtyTextures.get(texture);
         if (previous != null
                 && previous.matches(pending.gl, pending.textureGlName, pending.textureWidth, pending.textureHeight)) {

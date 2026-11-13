@@ -154,14 +154,38 @@ final class ClipMaskScissorGeometry {
         final int y0 = (int) Math.floor(screen[1]) - 1;
         final int x1 = (int) Math.ceil(screen[2]) + 1;
         final int y1 = (int) Math.ceil(screen[3]) + 1;
-        output[0] = Math.max(viewport[0], x0);
-        output[1] = Math.max(viewport[1], y0);
-        output[2] = Math.min(viewport[0] + viewport[2], x1);
-        output[3] = Math.min(viewport[1] + viewport[3], y1);
+        final int minX = Math.max(viewport[0], x0);
+        final int minY = Math.max(viewport[1], y0);
+        final int maxX = Math.min(viewport[0] + viewport[2], x1);
+        final int maxY = Math.min(viewport[1] + viewport[3], y1);
+        if (minX >= maxX || minY >= maxY) {
+            output[0] = viewport[0];
+            output[1] = viewport[1];
+            output[2] = viewport[0];
+            output[3] = viewport[1];
+            return;
+        }
+        output[0] = minX;
+        output[1] = minY;
+        output[2] = maxX;
+        output[3] = maxY;
+    }
+
+    /** @return whether the rectangle spans zero pixels */
+    static boolean isEmpty(final int[] rect) {
+        return rect[2] <= rect[0] || rect[3] <= rect[1];
     }
 
     /** Unions two rectangles in place into {@code output}. */
     static void union(final int[] first, final int[] second, final int[] output) {
+        if (isEmpty(first)) {
+            copy(second, output);
+            return;
+        }
+        if (isEmpty(second)) {
+            copy(first, output);
+            return;
+        }
         output[0] = Math.min(first[0], second[0]);
         output[1] = Math.min(first[1], second[1]);
         output[2] = Math.max(first[2], second[2]);

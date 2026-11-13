@@ -216,6 +216,26 @@ final class ClipMaskBridgeHostFastPathTest {
         assertEquals(640, field("currentScissorWidth"));
     }
 
+    @Test
+    void offscreenPanNeverPassesNegativeScissorDimensions() throws Exception {
+        final Object renderSystem = call("renderSystem");
+        final Object rendererA = call("renderer", 0);
+
+        pass(renderSystem, rendererA);
+        frame().run();
+
+        // Panning far offscreen must clamp to a valid non-negative scissor rectangle.
+        call("pan", 10_000.0f);
+        pass(renderSystem, rendererA);
+        frame().run();
+
+        // Next pass with the mask still offscreen uses an empty non-negative scissor box.
+        pass(renderSystem, rendererA);
+        assertEquals(0L, scissor.snapshot().get("failures"));
+        assertTrue(field("currentScissorWidth") >= 0);
+        assertTrue(field("currentScissorHeight") >= 0);
+    }
+
     /** Runs one full mask pass the way the host does: entry, bracket, clear, restore, exit. */
     private void pass(final Object renderSystem, final Object renderer) throws Exception {
         assertFalse(entry().test(renderSystem, renderer));
@@ -686,6 +706,9 @@ final class ClipMaskBridgeHostFastPathTest {
                     public void glEnable(int name) { host.enableCalls++; host.scissorEnabled = true; }
                     public void glDisable(int name) { host.disableCalls++; host.scissorEnabled = false; }
                     public void glScissor(int x, int y, int width, int height) {
+                        if (width < 0 || height < 0) {
+                            throw new IllegalArgumentException("GL_INVALID_VALUE: " + width + "x" + height);
+                        }
                         host.scissorCalls++;
                         host.currentScissorX = x;
                         host.currentScissorY = y;
