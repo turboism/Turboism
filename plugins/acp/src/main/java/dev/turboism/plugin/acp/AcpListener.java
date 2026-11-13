@@ -36,6 +36,12 @@ interface AcpListener {
     /** Agent-pushed list of slash commands available for the session. */
     default void availableCommands(final AcpClient source, final String sessionId, final List<String> commands) {}
 
+    /** Agent-pushed plan or todo checklist for the active session. */
+    default void plan(final AcpClient source, final String sessionId, final List<AcpPlanTracker.Item> entries) {}
+
+    /** Exact output token count reported by the agent for one model step or turn. */
+    default void usage(final AcpClient source, final String sessionId, final long outputTokens) {}
+
     default void stderr(final AcpClient source, final String text) {}
 
     default void terminated(final AcpClient source, final String message) {}

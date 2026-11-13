@@ -94,58 +94,59 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             final java.util.function.Supplier<java.util.Locale> effectiveLocale,
             final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence
                     textureAtlasSelectionPersistence) {
-        this(
-                source,
-                new VerifiedHostAdapterConnector(
-                        new dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory(
-                                Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
-                                dev.turboism.kernel.RecentPreviewDiagnostics::emit)::create,
-                        slice -> VerifiedHostAdapterConnector.resolverForSlice(
-                                slice, dev.turboism.mapping.verification.SliceRegistry.EDITOR_MODEL.resolverFactory()),
-                        VerifiedHostAdapterConnector::productionEditorAccess,
-                        slice -> VerifiedHostAdapterConnector.resolverForSlice(
-                                slice, dev.turboism.mapping.verification.SliceRegistry.MAIN_TOOLBAR.resolverFactory()),
-                        slice -> VerifiedHostAdapterConnector.resolverForSlice(
-                                slice,
-                                dev.turboism.mapping.verification.SliceRegistry.EMBEDDED_PANEL.resolverFactory()),
-                        slice -> VerifiedHostAdapterConnector.resolverForSlice(
-                                slice,
-                                dev.turboism.mapping.verification.SliceRegistry.BOUNDING_BOX_OVERLAY_BUTTON
-                                        .resolverFactory()),
-                        new EditorUiPluginResourceRegistry(),
-                        new RuntimeEditorUiActionRouter(),
-                        new RuntimeEmbeddedPanelActivationCoordinator(),
-                        slice -> VerifiedHostAdapterConnector.resolverForSlice(
-                                slice, dev.turboism.mapping.verification.SliceRegistry.TOP_MENU.resolverFactory()),
-                        new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
-                        VerifiedHostAdapterConnector.productionAppearanceProviderFactory(),
-                        slice -> VerifiedHostAdapterConnector.resolverForSlice(
-                                slice,
-                                dev.turboism.mapping.verification.SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
-                        VerifiedHostAdapterConnector.productionCoreBackendFactory(),
-                        Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
-                        new dev.turboism.adapter.cubism.mesh.MeshToolCoordinator(),
-                        new dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator()),
-                textureAtlasSelectionPersistence);
+        this(source, createVerifiedConnectorFactory(effectiveLocale), textureAtlasSelectionPersistence);
     }
 
     HostSession(final HostInstanceSource source, final HostAdapterConnector connector) {
-        this(source, connector, null);
+        this(source, ignored -> Objects.requireNonNull(connector, "connector"), null);
     }
 
     private HostSession(
             final HostInstanceSource source,
-            final HostAdapterConnector connector,
+            final java.util.function.Function<HostSessionCoordinators, HostAdapterConnector> connectorFactory,
             final dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection.Persistence
                     textureAtlasSelectionPersistence) {
         this.source = Objects.requireNonNull(source, "source");
-        this.connector = Objects.requireNonNull(connector, "connector");
         this.coordinators = new HostSessionCoordinators(textureAtlasSelectionPersistence);
+        this.connector = Objects.requireNonNull(
+                Objects.requireNonNull(connectorFactory, "connectorFactory").apply(this.coordinators), "connector");
         this.binding = new HostConnectionBinding(coordinators, lifecycleMonitor);
         this.history = new dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider(
                 binding::optionalEditorModelResolver,
                 () -> coordinators.editorUiLifecycle().snapshot().generation());
         coordinators.dynamic().onOutermostAdapterCallComplete(this::completeDeferredClose);
+    }
+
+    private static java.util.function.Function<HostSessionCoordinators, HostAdapterConnector>
+            createVerifiedConnectorFactory(final java.util.function.Supplier<java.util.Locale> effectiveLocale) {
+        final java.util.function.Supplier<java.util.Locale> checkedLocale =
+                Objects.requireNonNull(effectiveLocale, "effectiveLocale");
+        return sessionCoordinators -> new VerifiedHostAdapterConnector(
+                new dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory(
+                        checkedLocale, dev.turboism.kernel.RecentPreviewDiagnostics::emit)::create,
+                slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                        slice, dev.turboism.mapping.verification.SliceRegistry.EDITOR_MODEL.resolverFactory()),
+                VerifiedHostAdapterConnector::productionEditorAccess,
+                slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                        slice, dev.turboism.mapping.verification.SliceRegistry.MAIN_TOOLBAR.resolverFactory()),
+                slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                        slice, dev.turboism.mapping.verification.SliceRegistry.EMBEDDED_PANEL.resolverFactory()),
+                slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                        slice,
+                        dev.turboism.mapping.verification.SliceRegistry.BOUNDING_BOX_OVERLAY_BUTTON.resolverFactory()),
+                sessionCoordinators.editorUiPluginResources(),
+                sessionCoordinators.editorUiActionRouter(),
+                sessionCoordinators.embeddedPanelActivation(),
+                slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                        slice, dev.turboism.mapping.verification.SliceRegistry.TOP_MENU.resolverFactory()),
+                sessionCoordinators.dockMaintenance(),
+                VerifiedHostAdapterConnector.productionAppearanceProviderFactory(),
+                slice -> VerifiedHostAdapterConnector.resolverForSlice(
+                        slice, dev.turboism.mapping.verification.SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
+                VerifiedHostAdapterConnector.productionCoreBackendFactory(),
+                checkedLocale,
+                sessionCoordinators.meshToolCoordinator(),
+                sessionCoordinators.modelingToolCoordinator());
     }
 
     private static java.util.function.Supplier<java.util.Locale> fixedLocale(final java.util.Locale effectiveLocale) {

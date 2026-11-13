@@ -65,6 +65,8 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     private volatile AgentLaunchSpec launchSpec;
     private volatile String activeHarnessId;
     private volatile boolean prompting;
+    private volatile PermissionMode permissionMode = PermissionMode.ASK;
+    private final java.util.Set<String> sessionApprovedTools = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final AtomicReference<dev.turboism.sdk.plugin.Registration> mcpSubscription = new AtomicReference<>();
     private final AtomicReference<java.util.Optional<McpHttpConnection>> lastMcpSnapshot =
             new AtomicReference<>(java.util.Optional.empty());
@@ -250,6 +252,21 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
     void setConfigOption(final String id, final String value) {
         submit(() -> setConfigNow(id, value));
+    }
+
+    enum PermissionMode {
+        ASK,
+        AUTO
+    }
+
+    PermissionMode permissionMode() {
+        return permissionMode;
+    }
+
+    void setPermissionMode(final PermissionMode mode) {
+        final PermissionMode next = Objects.requireNonNull(mode, "mode");
+        permissionMode = next;
+        ui(() -> view.showPermissionMode(next));
     }
 
     void cancel() {
@@ -699,6 +716,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     }
 
     private void activateSession(final AcpSession created) {
+        sessionApprovedTools.clear();
         if (created.durableSessionsAvailable()) rememberSession(created.sessionId(), "");
         synchronized (stateLock) {
             session = created;
@@ -738,6 +756,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             generation = generationCounter;
             replay = load.events();
         }
+        sessionApprovedTools.clear();
         if (!enqueueUi(
                 () -> {
                     onComplete.run();
@@ -800,7 +819,9 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     }
 
     static String promptPrefix(final String initial) {
-        return SYSTEM_BOUNDARY + "\n\n" + AcpPromptContext.REFERENCE
+        return SYSTEM_BOUNDARY
+                + "\n\n"
+                + AcpPromptContext.REFERENCE
                 + (initial.isEmpty() ? "" : "\n\nUser-configured initial instructions:\n" + initial)
                 + "\n\nUser request:\n";
     }
@@ -960,6 +981,18 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     }
 
     @Override
+    public void plan(final AcpClient source, final String sessionId, final List<AcpPlanTracker.Item> entries) {
+        sourceEvent(source, sessionId, new PlanEvent(entries));
+    }
+
+    @Override
+    public void usage(final AcpClient source, final String sessionId, final long outputTokens) {
+        if (outputTokens > 0L) {
+            sourceEvent(source, sessionId, new UsageEvent(outputTokens));
+        }
+    }
+
+    @Override
     public void stderr(final AcpClient source, final String text) {
         if (client.get() == source) context.logger().warn("acp-agent: " + text);
     }
@@ -970,6 +1003,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         submit(() -> {
             if (!client.compareAndSet(source, null)) return;
             discardLoadTransaction(source);
+            sessionApprovedTools.clear();
             synchronized (stateLock) {
                 session = null;
             }
@@ -989,8 +1023,31 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             }
             generation = sessionGeneration;
         }
-        final PermissionDecision decision = view.requestPermission(request);
-        return activeGeneration(source, sessionId, generation) ? decision : PermissionDecision.CANCELLED;
+        if (permissionMode == PermissionMode.AUTO) {
+            return activeGeneration(source, sessionId, generation)
+                    ? PermissionDecision.ALLOW_ALWAYS
+                    : PermissionDecision.CANCELLED;
+        }
+        final String approvalKey = AcpPermissionFormatter.approvalKey(request);
+        if (sessionApprovedTools.contains(approvalKey)) {
+            return activeGeneration(source, sessionId, generation)
+                    ? PermissionDecision.ALLOW_ALWAYS
+                    : PermissionDecision.CANCELLED;
+        }
+        ui(() -> view.onPermissionWaitChanged(true));
+        final PermissionDecision decision;
+        try {
+            decision = view.requestPermission(request);
+        } finally {
+            ui(() -> view.onPermissionWaitChanged(false));
+        }
+        if (!activeGeneration(source, sessionId, generation)) {
+            return PermissionDecision.CANCELLED;
+        }
+        if (decision == PermissionDecision.ALLOW_ALWAYS) {
+            sessionApprovedTools.add(approvalKey);
+        }
+        return decision;
     }
 
     private void sourceEvent(final AcpClient source, final String sessionId, final ReplayEvent event) {
@@ -1003,13 +1060,14 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             if (!activeSession(source, sessionId)) return;
             if (hasOutput(event)) receivedOutput.incrementAndGet();
             generation = sessionGeneration;
-            uiStream(guardedDelivery(source, sessionId, generation, event));
+            enqueueStreamEvent(source, sessionId, generation, event);
         }
     }
 
     private static boolean hasOutput(final ReplayEvent event) {
         if (event instanceof AgentTextEvent text) return !text.text().isBlank();
         if (event instanceof AgentThoughtEvent thought) return !thought.text().isBlank();
+        if (event instanceof PlanEvent || event instanceof UsageEvent) return false;
         return true;
     }
 
@@ -1037,10 +1095,49 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     }
 
     private sealed interface ReplayEvent
-            permits ImageEvent, AgentTextEvent, AgentThoughtEvent, ToolCallEvent, ToolCallUpdateEvent, ToolInputEvent {
+            permits ImageEvent,
+                    AgentTextEvent,
+                    AgentThoughtEvent,
+                    ToolCallEvent,
+                    ToolCallUpdateEvent,
+                    ToolInputEvent,
+                    PlanEvent,
+                    UsageEvent {
         long textBytes();
 
         void deliver(View target);
+    }
+
+    private record PlanEvent(List<AcpPlanTracker.Item> entries) implements ReplayEvent {
+        private PlanEvent {
+            entries = List.copyOf(Objects.requireNonNull(entries, "entries"));
+        }
+
+        @Override
+        public long textBytes() {
+            long sum = 0L;
+            for (AcpPlanTracker.Item item : entries) {
+                sum += utf8Bytes(item.content()) + utf8Bytes(item.activeLabel()) + 16L;
+            }
+            return sum;
+        }
+
+        @Override
+        public void deliver(final View target) {
+            target.showPlan(entries);
+        }
+    }
+
+    private record UsageEvent(long outputTokens) implements ReplayEvent {
+        @Override
+        public long textBytes() {
+            return 8L;
+        }
+
+        @Override
+        public void deliver(final View target) {
+            target.recordUsageTokens(outputTokens);
+        }
     }
 
     private record ToolInputEvent(String toolCallId, String input) implements ReplayEvent {
@@ -1194,14 +1291,20 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     }
 
     private boolean ui(final Runnable work) {
-        return enqueueUi(work, false);
+        return enqueueUi(work, false, null);
     }
 
-    private void uiStream(final Runnable work) {
-        enqueueUi(work, true);
+    private void enqueueStreamEvent(
+            final AcpClient source, final String sessionId, final long generation, final ReplayEvent event) {
+        final StreamCoalesceKey stream = new StreamCoalesceKey(source, sessionId, generation, event);
+        enqueueUi(guardedDelivery(source, sessionId, generation, event), true, stream);
     }
 
     private boolean enqueueUi(final Runnable work, final boolean droppable) {
+        return enqueueUi(work, droppable, null);
+    }
+
+    private boolean enqueueUi(final Runnable work, final boolean droppable, final StreamCoalesceKey stream) {
         if (closed.get()) return false;
         if (javax.swing.SwingUtilities.isEventDispatchThread()) {
             work.run();
@@ -1222,7 +1325,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                 pendingUi.remove(dropped);
                 reportUiOverflow();
             }
-            pendingUi.addLast(new UiUpdate(work, droppable));
+            pendingUi.addLast(new UiUpdate(work, droppable, stream));
             if (!uiDrainScheduled) {
                 uiDrainScheduled = true;
                 schedule = true;
@@ -1239,28 +1342,73 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         }
     }
 
+    /**
+     * Drains queued UI tasks on the EDT, coalescing consecutive same-session stream chunks into a
+     * single view call so rapid token bursts trigger one Swing layout pass instead of many.
+     */
+    @SuppressWarnings("ReferenceEquality")
     private void drainUi() {
         while (true) {
-            final UiUpdate update;
+            final Runnable workToRun;
             synchronized (uiLock) {
                 if (closed.get()) {
                     pendingUi.clear();
                     uiDrainScheduled = false;
                     return;
                 }
-                update = pendingUi.pollFirst();
-                if (update == null) {
+                final UiUpdate first = pendingUi.pollFirst();
+                if (first == null) {
                     uiDrainScheduled = false;
                     uiOverflowReported = false;
                     return;
                 }
+                if (first.stream() != null) {
+                    StreamCoalesceKey current = first.stream();
+                    while (!pendingUi.isEmpty()) {
+                        final UiUpdate next = pendingUi.peekFirst();
+                        if (next == null || next.stream() == null) break;
+                        final ReplayEvent merged = mergeStreamEvents(current, next.stream());
+                        if (merged == null) break;
+                        pendingUi.pollFirst();
+                        current = new StreamCoalesceKey(
+                                current.source(), current.sessionId(), current.generation(), merged);
+                    }
+                    workToRun = current == first.stream()
+                            ? first.work()
+                            : guardedDelivery(
+                                    current.source(), current.sessionId(), current.generation(), current.event());
+                } else {
+                    workToRun = first.work();
+                }
             }
             try {
-                update.work().run();
+                workToRun.run();
             } catch (RuntimeException failure) {
                 context.logger().warn("Turboism ACP UI update failed safely");
             }
         }
+    }
+
+    @SuppressWarnings("ReferenceEquality")
+    private static ReplayEvent mergeStreamEvents(final StreamCoalesceKey prev, final StreamCoalesceKey incoming) {
+        if (prev.source() != incoming.source()
+                || prev.generation() != incoming.generation()
+                || !prev.sessionId().equals(incoming.sessionId())) {
+            return null;
+        }
+        if (prev.event() instanceof AgentTextEvent a && incoming.event() instanceof AgentTextEvent b) {
+            return new AgentTextEvent(a.text() + b.text());
+        }
+        if (prev.event() instanceof AgentThoughtEvent a && incoming.event() instanceof AgentThoughtEvent b) {
+            return new AgentThoughtEvent(a.text() + b.text());
+        }
+        if (prev.event() instanceof PlanEvent && incoming.event() instanceof PlanEvent b) {
+            return b;
+        }
+        if (prev.event() instanceof UsageEvent a && incoming.event() instanceof UsageEvent b) {
+            return new UsageEvent(a.outputTokens() + b.outputTokens());
+        }
+        return null;
     }
 
     private record PendingSettings(String agentId, String customCommand, String initialPrompt) {
@@ -1271,7 +1419,9 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         }
     }
 
-    private record UiUpdate(Runnable work, boolean droppable) {
+    private record StreamCoalesceKey(AcpClient source, String sessionId, long generation, ReplayEvent event) {}
+
+    private record UiUpdate(Runnable work, boolean droppable, StreamCoalesceKey stream) {
         private UiUpdate {
             work = Objects.requireNonNull(work, "work");
         }
@@ -1367,6 +1517,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
     private void disconnectNow() {
         discardLoadTransaction();
+        sessionApprovedTools.clear();
         final AcpClient active = client.getAndSet(null);
         final AcpSession current;
         synchronized (stateLock) {
@@ -1534,6 +1685,14 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         void updateTool(String toolCallId, String status, String content);
 
         default void updateToolInput(final String toolCallId, final String input) {}
+
+        default void showPlan(final List<AcpPlanTracker.Item> items) {}
+
+        default void recordUsageTokens(final long outputTokens) {}
+
+        default void onPermissionWaitChanged(final boolean waiting) {}
+
+        default void showPermissionMode(final PermissionMode mode) {}
 
         PermissionDecision requestPermission(PermissionRequest request);
     }

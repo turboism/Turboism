@@ -81,12 +81,24 @@ final class AcpChatWindow implements AcpChatController.View {
     private static final int MAX_TRANSCRIPT_CHARS = 1024 * 1024;
     private static final int MAX_TRANSCRIPT_ENTRIES = 4096;
     private static final int MAX_TOOL_METADATA_CHARS = 4096;
+    private static final int MAX_INLINE_MARKDOWN_IMAGES = 8;
+    private static final int TASK_TIMER_MILLIS = 250;
+    private static final int STICKY_SCROLL_THRESHOLD_PX = 36;
+    private static final int MAX_OPTION_BUTTON_WIDTH = 176;
+    private static final int MAX_PILL_TEXT_CHARS = 32;
+    private static final int POPOVER_MAX_SCROLL_HEIGHT = 220;
+    private static final int POPOVER_WIDTH = 300;
+    private static final int PERMISSION_DETAIL_SCROLL_HEIGHT = 150;
     private static final Pattern GRAPHEME = Pattern.compile("\\X");
+    private static final Pattern MARKDOWN_IMAGE_LINE =
+            Pattern.compile("^!\\[[^\\]]*\\]\\(([^\\r\\n]+)\\)$", Pattern.MULTILINE);
     private static final String SEND_ACTION = "turboism-acp.send-prompt";
     private static final String DISCLOSURE = "turboism-acp.disclosure";
     private static final String DETECTED_MARKER = "  ✓";
     private static final String AGENT_MENU_CARET = " ▾";
-    private static final Dimension PERMISSION_DIALOG_MINIMUM = new Dimension(620, 360);
+    private static final Dimension PERMISSION_DIALOG_MINIMUM = new Dimension(460, 200);
+    private static final float TIMESTAMP_MIN_FONT_SIZE = 11.0F;
+    private static final float TIMESTAMP_FONT_DELTA = 1.5F;
     private static final AgentItem CUSTOM_ITEM = new AgentItem(AgentCatalog.CUSTOM_AGENT_ID, null);
 
     static {
@@ -97,6 +109,7 @@ final class AcpChatWindow implements AcpChatController.View {
     private final JFrame agentFrame;
     private final JFrame settingsFrame;
     private JDialog agentManager;
+    private JDialog activePermissionDialog;
     private final JComboBox<AgentItem> agentSelector = new JComboBox<>();
     private final JTextField customCommand = new JTextField(30);
     private final JButton connect = new JButton();
@@ -117,6 +130,8 @@ final class AcpChatWindow implements AcpChatController.View {
     private final JButton openSettings = new JButton();
     private final Map<String, SessionItem> sessionDisplay = new LinkedHashMap<>();
     private final JTextPane transcript = new JTextPane();
+    private final JScrollPane transcriptScroll = new JScrollPane(
+            transcript, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
     private final JTextArea prompt = new AcpComposerPanel.PromptArea();
     private final JButton send = new JButton();
     private final JButton attach = new AcpComposerPanel.OptionButton("");
@@ -129,12 +144,19 @@ final class AcpChatWindow implements AcpChatController.View {
     private final JButton cancel = new JButton();
     private final JPanel submitSlot = new JPanel(new CardLayout());
     private final JButton composerAgent = new AcpComposerPanel.OptionButton("");
+    private final JButton composerPermissionMode = new AcpComposerPanel.OptionButton("");
     private final JPanel composerOptions = new JPanel(new AcpComposerPanel.WrapLayout());
     private final Map<String, JButton> composerOptionButtons = new LinkedHashMap<>();
+    private final JPanel composerTrack = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+    private final JButton todoPill = new AcpComposerPanel.OptionButton("");
+    private final JButton tpsPill = new AcpComposerPanel.OptionButton("");
     private final JLabel connectionDot = new JLabel("●");
     private final JLabel agentStatus = new JLabel();
     private final java.util.function.LongSupplier taskClock;
     private final javax.swing.Timer taskTimer;
+    private final AcpPlanTracker planTracker = new AcpPlanTracker();
+    private final AcpTurnMeter turnMeter;
+    private final java.beans.PropertyChangeListener uiDefaultsListener;
     private long taskStartedNanos;
     private long taskElapsedSeconds;
     private String taskState = "";
@@ -146,6 +168,10 @@ final class AcpChatWindow implements AcpChatController.View {
     private Map<String, String> detectedPaths = Map.of();
     private Map<String, AgentAvailability.Detection> detectionResults = Map.of();
     private List<AcpAuthMethod> authMethods = List.of();
+    private List<AcpConfigOption> currentConfigOptions = List.of();
+    private AcpChatController.PermissionMode permissionMode = AcpChatController.PermissionMode.ASK;
+    private boolean extendedControlsBound;
+    private boolean scrollToBottomScheduled;
     private boolean applyingOptions;
     private boolean applyingSessions;
     private boolean applyingAgents;
@@ -170,6 +196,7 @@ final class AcpChatWindow implements AcpChatController.View {
     private Runnable onAgentLogin = () -> {};
     private Runnable onAgentLogout = () -> {};
     private Runnable onSaveSettings = () -> {};
+    private Consumer<AcpChatController.PermissionMode> onSelectPermissionMode = ignored -> {};
 
     AcpChatWindow(
             final PluginLocalization localization,
@@ -186,7 +213,8 @@ final class AcpChatWindow implements AcpChatController.View {
             final String savedInitialPrompt,
             final java.util.function.LongSupplier taskClock) {
         this.taskClock = Objects.requireNonNull(taskClock, "taskClock");
-        taskTimer = new javax.swing.Timer(500, event -> refreshTaskStatus());
+        this.turnMeter = new AcpTurnMeter(this.taskClock);
+        taskTimer = new javax.swing.Timer(TASK_TIMER_MILLIS, event -> refreshTaskStatus());
         this.localization = Objects.requireNonNull(localization, "localization");
         agentFrame = frame("window.agent-title");
         settingsFrame = frame("window.settings-title");
@@ -196,6 +224,12 @@ final class AcpChatWindow implements AcpChatController.View {
         showFailure("status.disconnected");
         rebuildComposerOptions(List.of());
         refreshTheme();
+        uiDefaultsListener = event -> {
+            if ("lookAndFeel".equals(event.getPropertyName()) && themeReady && acceptingEvents.get()) {
+                SwingUtilities.invokeLater(this::refreshTheme);
+            }
+        };
+        UIManager.addPropertyChangeListener(uiDefaultsListener);
         themeReady = true;
     }
 
@@ -224,6 +258,13 @@ final class AcpChatWindow implements AcpChatController.View {
         onAgentLogin = Objects.requireNonNull(agentLoginAction, "agentLoginAction");
         onAgentLogout = Objects.requireNonNull(agentLogoutAction, "agentLogoutAction");
         onSaveSettings = Objects.requireNonNull(saveSettingsAction, "saveSettingsAction");
+    }
+
+    void bindExtendedControls(final Consumer<AcpChatController.PermissionMode> selectPermissionModeAction) {
+        onSelectPermissionMode = Objects.requireNonNull(selectPermissionModeAction, "selectPermissionModeAction");
+        extendedControlsBound = true;
+        updatePermissionModeSelector();
+        rebuildComposerOptions(currentConfigOptions);
     }
 
     JComboBox<AgentItem> agentSelector() {
@@ -260,10 +301,12 @@ final class AcpChatWindow implements AcpChatController.View {
 
     void dispose() {
         if (!acceptingEvents.compareAndSet(true, false)) return;
+        UIManager.removePropertyChangeListener(uiDefaultsListener);
         taskTimer.stop();
         agentFrame.dispose();
         settingsFrame.dispose();
         if (agentManager != null) agentManager.dispose();
+        if (activePermissionDialog != null) activePermissionDialog.dispose();
     }
 
     @Override
@@ -331,9 +374,10 @@ final class AcpChatWindow implements AcpChatController.View {
     @Override
     public void showConfigOptions(final List<AcpConfigOption> options) {
         if (!acceptingEvents.get()) return;
+        currentConfigOptions = List.copyOf(Objects.requireNonNullElse(options, List.of()));
         applyingOptions = true;
         try {
-            rebuildComposerOptions(options);
+            rebuildComposerOptions(currentConfigOptions);
         } finally {
             applyingOptions = false;
         }
@@ -439,6 +483,10 @@ final class AcpChatWindow implements AcpChatController.View {
         tools.clear();
         transcriptChars = 0;
         transcript.setText("");
+        planTracker.clear();
+        turnMeter.reset();
+        refreshTodoPill();
+        refreshTpsPill();
     }
 
     @Override
@@ -447,6 +495,7 @@ final class AcpChatWindow implements AcpChatController.View {
         if (!prompting) {
             taskStartedNanos = taskClock.getAsLong();
             taskElapsedSeconds = 0;
+            turnMeter.startTurn();
         }
         prompting = true;
         taskState = "working";
@@ -470,6 +519,7 @@ final class AcpChatWindow implements AcpChatController.View {
         if (!acceptingEvents.get()) return;
         prompting = false;
         finishTask("complete", "");
+        stampLatestAgentTimestamp();
         setConversationControls(connected, false);
         prompt.requestFocusInWindow();
     }
@@ -535,22 +585,32 @@ final class AcpChatWindow implements AcpChatController.View {
     @Override
     public void appendUser(final String text) {
         appendEntry(Sender.USER, null, null, null, text, false);
+        scheduleScrollToBottom(true);
     }
 
     @Override
     public void appendAgent(final String text) {
+        if (text != null && !text.isEmpty()) {
+            turnMeter.recordOutputChars(text.length());
+            refreshTpsPill();
+        }
         appendEntry(Sender.AGENT, null, null, null, text, true);
         if (!transcriptEntries.isEmpty()) loadMarkdownImages(transcriptEntries.get(transcriptEntries.size() - 1));
     }
 
     @Override
     public void appendThinking(final String text) {
+        if (text != null && !text.isEmpty()) {
+            turnMeter.recordOutputChars(text.length());
+            refreshTpsPill();
+        }
         appendEntry(Sender.THINKING, null, null, null, text, true);
     }
 
     @Override
     public void appendTool(final String toolCallId, final String title, final String kind, final String status) {
         if (!acceptingEvents.get()) return;
+        final boolean stickToBottom = isNearBottom();
         final TranscriptEntry entry = new TranscriptEntry(
                 Sender.TOOL,
                 Objects.requireNonNullElse(toolCallId, ""),
@@ -563,8 +623,12 @@ final class AcpChatWindow implements AcpChatController.View {
         if (!entry.id.isBlank()) {
             tools.computeIfAbsent(entry.id, ignored -> new ArrayList<>()).add(entry);
         }
-        trimTranscript();
-        renderTranscript();
+        if (trimTranscript()) {
+            renderTranscript();
+        } else {
+            updateActivityGroupAt(transcriptEntries.size() - 1);
+        }
+        scheduleScrollToBottom(stickToBottom);
     }
 
     @Override
@@ -577,6 +641,7 @@ final class AcpChatWindow implements AcpChatController.View {
             appendTool(exactToolCallId, exactToolCallId, "tool", status);
             entry = transcriptEntries.get(transcriptEntries.size() - 1);
         }
+        final boolean stickToBottom = isNearBottom();
         transcriptChars -= entry.weight();
         if (status != null && !status.isBlank()) entry.toolStatus = status;
         // ACP tool updates are partial: status-only updates must retain the existing output.
@@ -585,8 +650,13 @@ final class AcpChatWindow implements AcpChatController.View {
             entry.content.append(content);
         }
         transcriptChars += entry.weight();
-        trimTranscript();
-        renderTranscript();
+        final int entryIndex = transcriptEntries.lastIndexOf(entry);
+        if (trimTranscript() || entryIndex < 0) {
+            renderTranscript();
+        } else {
+            updateActivityGroupAt(entryIndex);
+        }
+        scheduleScrollToBottom(stickToBottom);
     }
 
     @Override
@@ -595,11 +665,55 @@ final class AcpChatWindow implements AcpChatController.View {
         final List<TranscriptEntry> matching = tools.get(toolCallId);
         if (matching == null || matching.isEmpty()) return;
         final TranscriptEntry entry = matching.get(matching.size() - 1);
+        final boolean stickToBottom = isNearBottom();
         transcriptChars -= entry.weight();
         entry.input = Objects.requireNonNullElse(input, "");
         transcriptChars += entry.weight();
-        trimTranscript();
-        renderTranscript();
+        if (!entry.input.isEmpty()) {
+            turnMeter.recordOutputChars(entry.input.length());
+            refreshTpsPill();
+            if (planTracker.observeToolInput(entry.title, entry.input)) {
+                refreshTodoPill();
+            }
+        }
+        final int entryIndex = transcriptEntries.lastIndexOf(entry);
+        if (trimTranscript() || entryIndex < 0) {
+            renderTranscript();
+        } else {
+            updateActivityGroupAt(entryIndex);
+        }
+        scheduleScrollToBottom(stickToBottom);
+    }
+
+    @Override
+    public void showPlan(final List<AcpPlanTracker.Item> items) {
+        if (!acceptingEvents.get()) return;
+        if (planTracker.applyPlanEntries(Objects.requireNonNullElse(items, List.of()))) {
+            refreshTodoPill();
+        }
+    }
+
+    @Override
+    public void recordUsageTokens(final long outputTokens) {
+        if (!acceptingEvents.get() || outputTokens <= 0L) return;
+        turnMeter.recordUsageOutputTokens(outputTokens);
+        refreshTpsPill();
+    }
+
+    @Override
+    public void onPermissionWaitChanged(final boolean waiting) {
+        if (!acceptingEvents.get()) return;
+        if (waiting) turnMeter.beginUserWait();
+        else turnMeter.endUserWait();
+        refreshTpsPill();
+    }
+
+    @Override
+    public void showPermissionMode(final AcpChatController.PermissionMode mode) {
+        if (!acceptingEvents.get() || mode == null) return;
+        permissionMode = mode;
+        updatePermissionModeSelector();
+        rebuildComposerOptions(currentConfigOptions);
     }
 
     @Override
@@ -709,6 +823,20 @@ final class AcpChatWindow implements AcpChatController.View {
         cancel.getAccessibleContext().setAccessibleName(localization.text("button.stop"));
         composerAgent.setName("turboism-acp.composer-agent");
         configureCompactButton(composerAgent);
+        composerPermissionMode.setName("turboism-acp.composer-permission-mode");
+        configureCompactButton(composerPermissionMode);
+        todoPill.setName("turboism-acp.todo-pill");
+        todoPill.setIcon(AcpIcons.compactIcon(AcpIcons.Kind.PLAN));
+        configureCompactButton(todoPill);
+        todoPill.setVisible(false);
+        tpsPill.setName("turboism-acp.tps-pill");
+        tpsPill.setIcon(AcpIcons.compactIcon(AcpIcons.Kind.FAST));
+        configureCompactButton(tpsPill);
+        tpsPill.setVisible(false);
+        composerTrack.setOpaque(false);
+        composerTrack.setVisible(false);
+        composerTrack.add(todoPill);
+        composerTrack.add(tpsPill);
         composerOptions.setOpaque(false);
         composerOptions.setMinimumSize(new Dimension(0, 32));
         composerOptions.addComponentListener(new java.awt.event.ComponentAdapter() {
@@ -727,6 +855,16 @@ final class AcpChatWindow implements AcpChatController.View {
         openSettings.setToolTipText(localization.text("button.settings"));
         openSettings.getAccessibleContext().setAccessibleName(localization.text("button.settings"));
         saveSettings.setText(localization.text("button.save-settings"));
+        AcpThemeControls.styleButton(connect, AcpThemeControls.ButtonVariant.PRIMARY);
+        AcpThemeControls.styleButton(saveSettings, AcpThemeControls.ButtonVariant.PRIMARY);
+        for (JButton secondary : List.of(detectAgents, agentLogin, agentLogout, authenticate)) {
+            AcpThemeControls.styleButton(secondary, AcpThemeControls.ButtonVariant.SECONDARY);
+        }
+        for (JButton ghost : List.of(newSession, refreshSessions, openSettings)) {
+            AcpThemeControls.styleButton(ghost, AcpThemeControls.ButtonVariant.GHOST);
+        }
+        AcpThemeControls.styleTextField(customCommand);
+        AcpThemeControls.styleComboBox(agentSelector);
         customCommand.setText(Objects.requireNonNullElse(savedCustomCommand, ""));
         initialPrompt.setText(savedInitialPrompt);
         initialPrompt.putClientProperty(
@@ -752,11 +890,6 @@ final class AcpChatWindow implements AcpChatController.View {
         prompt.setMargin(new Insets(10, 12, 10, 12));
         prompt.setRows(3);
         agentStatus.setForeground(secondaryForeground());
-        for (JButton button : List.of(newSession, refreshSessions, openSettings)) {
-            button.setMargin(new Insets(4, 8, 4, 8));
-            button.setContentAreaFilled(false);
-            button.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
-        }
         prompt.setLineWrap(true);
         prompt.setWrapStyleWord(true);
         prompt.putClientProperty(
@@ -765,6 +898,7 @@ final class AcpChatWindow implements AcpChatController.View {
         initialPrompt.setLineWrap(true);
         initialPrompt.setWrapStyleWord(true);
         updateAgentDetail();
+        updatePermissionModeSelector();
         configurePromptKeys(prompt, this::submitPrompt);
         configureDisclosures();
         configureAttachments();
@@ -804,8 +938,14 @@ final class AcpChatWindow implements AcpChatController.View {
         });
         composerAgent.addActionListener(ignored -> {
             final JPopupMenu menu = composerAgent.getComponentPopupMenu();
-            if (menu != null) menu.show(composerAgent, 0, composerAgent.getHeight());
+            if (menu != null) AcpThemeControls.showPopup(composerAgent, menu);
         });
+        composerPermissionMode.addActionListener(ignored -> {
+            final JPopupMenu menu = composerPermissionMode.getComponentPopupMenu();
+            if (menu != null) AcpThemeControls.showPopup(composerPermissionMode, menu);
+        });
+        todoPill.addActionListener(ignored -> AcpThemeControls.showPopup(todoPill, buildTodoPopover()));
+        tpsPill.addActionListener(ignored -> AcpThemeControls.showPopup(tpsPill, buildTpsPopover()));
         prompt.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             public void insertUpdate(final javax.swing.event.DocumentEvent event) {
                 updateSendEnabled();
@@ -853,13 +993,11 @@ final class AcpChatWindow implements AcpChatController.View {
             onAuthenticate.accept(authMethods.get(0).id());
             return;
         }
-        final JPopupMenu menu = new JPopupMenu();
+        final AcpThemeControls.ThemedPopupMenu menu = new AcpThemeControls.ThemedPopupMenu();
         for (AcpAuthMethod method : authMethods) {
-            final javax.swing.JMenuItem item = new javax.swing.JMenuItem(method.displayName());
-            item.addActionListener(ignored -> onAuthenticate.accept(method.id()));
-            menu.add(item);
+            menu.addChoice(method.displayName(), false, null, () -> onAuthenticate.accept(method.id()));
         }
-        menu.show(authenticate, 0, authenticate.getHeight());
+        AcpThemeControls.showPopup(authenticate, menu.finish());
     }
 
     private void selectAgentItem(final String agentId) {
@@ -906,14 +1044,12 @@ final class AcpChatWindow implements AcpChatController.View {
         composerAgent
                 .getAccessibleContext()
                 .setAccessibleName(localization.text("label.agent") + ": " + composerAgent.getText());
-        final JPopupMenu agentMenu = new JPopupMenu();
+        final AcpThemeControls.ThemedPopupMenu agentMenu =
+                new AcpThemeControls.ThemedPopupMenu(localization.text("composer.filter-options"));
         for (int index = 0; index < agentSelector.getItemCount(); index++) {
             final AgentItem item = agentSelector.getItemAt(index);
             if (detectedPaths.getOrDefault(item.id(), "").isBlank()) continue;
-            final javax.swing.JRadioButtonMenuItem choice = new javax.swing.JRadioButtonMenuItem(
-                    agentItemLabel(item), item.id().equals(selected));
-            choice.setIcon(AcpAgentIcons.icon(item.id()));
-            choice.addActionListener(ignored -> {
+            agentMenu.addChoice(agentItemLabel(item), item.id().equals(selected), AcpAgentIcons.icon(item.id()), () -> {
                 if (connecting
                         || prompting
                         || applyingOptions
@@ -923,14 +1059,10 @@ final class AcpChatWindow implements AcpChatController.View {
                         && customCommand().isBlank()) showAgentManager();
                 else onConnect.run();
             });
-            agentMenu.add(choice);
         }
-        agentMenu.addSeparator();
-        final javax.swing.JMenuItem manage = new javax.swing.JMenuItem(localization.text("button.manage-agents"));
-        manage.setName("turboism-acp.manage-agents");
-        manage.addActionListener(ignored -> showAgentManager());
-        agentMenu.add(manage);
-        composerAgent.setComponentPopupMenu(agentMenu);
+        agentMenu.addFooterAction(
+                "turboism-acp.manage-agents", localization.text("button.manage-agents"), this::showAgentManager);
+        composerAgent.setComponentPopupMenu(agentMenu.finish());
         final boolean custom = AgentCatalog.CUSTOM_AGENT_ID.equals(selected);
         customCommand.setEnabled(custom);
         final AgentProfile profile = AgentCatalog.profile(selected).orElse(null);
@@ -1000,15 +1132,18 @@ final class AcpChatWindow implements AcpChatController.View {
         final JScrollPane sessionScroll = new JScrollPane(sessionList);
         sessionScroll.setBorder(BorderFactory.createEmptyBorder());
         sessionScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        AcpThemeControls.configureScrollPane(sessionScroll, true);
         sessionPanel.add(sessionScroll, BorderLayout.CENTER);
 
         final JPanel conversation = new JPanel(new BorderLayout(0, 0));
-        final JScrollPane transcriptScroll = new JScrollPane(transcript);
+        transcriptScroll.setName("turboism-acp.transcript-scroll");
         transcriptScroll.setBorder(BorderFactory.createEmptyBorder());
+        AcpThemeControls.configureScrollPane(transcriptScroll, false);
         conversation.add(transcriptScroll, BorderLayout.CENTER);
         conversation.add(composer(), BorderLayout.SOUTH);
 
         final JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sessionPanel, conversation);
+        split.setName("turboism-acp.split");
         split.setBorder(BorderFactory.createEmptyBorder());
         split.setDividerSize(1);
         split.setContinuousLayout(true);
@@ -1023,10 +1158,11 @@ final class AcpChatWindow implements AcpChatController.View {
     }
 
     private JPanel composer() {
-        final JPanel composer = new JPanel(new BorderLayout(0, 8));
+        final JPanel composer = new JPanel(new BorderLayout(0, 6));
         composer.setBorder(BorderFactory.createEmptyBorder(0, 16, 12, 16));
-        composer.add(statusStrip(), BorderLayout.SOUTH);
+        composer.add(composerTrack, BorderLayout.NORTH);
         composer.add(promptPanel(), BorderLayout.CENTER);
+        composer.add(statusStrip(), BorderLayout.SOUTH);
         return composer;
     }
 
@@ -1047,11 +1183,21 @@ final class AcpChatWindow implements AcpChatController.View {
     }
 
     private JPanel settingsContent() {
-        final JPanel root = new JPanel(new BorderLayout(0, 12));
+        final JPanel root = new JPanel(new BorderLayout(0, 12)) {
+            @Override
+            public void updateUI() {
+                super.updateUI();
+                if (themeReady) SwingUtilities.invokeLater(AcpChatWindow.this::refreshTheme);
+            }
+        };
         root.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         root.add(new JLabel(localization.text("settings.initial-prompt")), BorderLayout.NORTH);
         initialPrompt.setMargin(new Insets(10, 10, 10, 10));
-        root.add(new JScrollPane(initialPrompt), BorderLayout.CENTER);
+        final JScrollPane initialPromptScroll = new JScrollPane(initialPrompt);
+        initialPromptScroll.setBorder(BorderFactory.createCompoundBorder(
+                AcpThemeControls.dynamicLineBorder(), BorderFactory.createEmptyBorder()));
+        AcpThemeControls.configureScrollPane(initialPromptScroll, false);
+        root.add(initialPromptScroll, BorderLayout.CENTER);
         final JPanel footer = new JPanel(new BorderLayout(8, 0));
         footer.add(settingsStatus, BorderLayout.CENTER);
         footer.add(saveSettings, BorderLayout.EAST);
@@ -1128,7 +1274,7 @@ final class AcpChatWindow implements AcpChatController.View {
     private JPanel section(final String titleKey) {
         final JPanel panel = new JPanel(new GridBagLayout());
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.setBorder(BorderFactory.createTitledBorder(localization.text(titleKey)));
+        AcpThemeControls.styleTitledSection(panel, localization.text(titleKey));
         panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
         return panel;
     }
@@ -1137,10 +1283,12 @@ final class AcpChatWindow implements AcpChatController.View {
         final JPanel panel = new AcpComposerPanel();
         panel.setLayout(new BorderLayout(0, 8));
         panel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-        final JScrollPane promptScroll = new JScrollPane(prompt);
+        final JScrollPane promptScroll = new JScrollPane(
+                prompt, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         promptScroll.setBorder(BorderFactory.createEmptyBorder());
         promptScroll.setOpaque(false);
         promptScroll.getViewport().setOpaque(false);
+        AcpThemeControls.configureScrollPane(promptScroll, true);
         prompt.setOpaque(false);
         panel.add(promptScroll, BorderLayout.CENTER);
         panel.add(attachmentStrip, BorderLayout.NORTH);
@@ -1169,48 +1317,315 @@ final class AcpChatWindow implements AcpChatController.View {
         composerOptionButtons.clear();
         final List<AcpConfigOption> ordered = new ArrayList<>(options);
         ordered.sort(java.util.Comparator.comparingInt(AcpChatWindow::composerOptionOrder));
+        boolean permissionInserted = false;
+        boolean hasAgentPermissionOption = false;
         for (AcpConfigOption option : ordered) {
-            final String value = option.choices().stream()
+            final int role = composerOptionOrder(option);
+            if (role > 2 && !hasAgentPermissionOption && extendedControlsBound && !permissionInserted) {
+                updatePermissionModeSelector();
+                composerOptions.add(composerPermissionMode);
+                permissionInserted = true;
+            }
+            if (role == 2) hasAgentPermissionOption = true;
+            final boolean isAutoPermissionOverride =
+                    role == 2 && permissionMode == AcpChatController.PermissionMode.AUTO;
+            final String confirmedLabel = option.choices().stream()
                     .filter(choice -> choice.value().equals(option.currentValue()))
                     .map(AcpConfigOption.Choice::name)
                     .findFirst()
                     .orElse(option.currentValue());
-            final int role = composerOptionOrder(option);
+            final String value = isAutoPermissionOverride ? localization.text("permission.mode.auto") : confirmedLabel;
             final boolean iconOnly = role == 3 || role == 4;
-            final JButton button = new AcpComposerPanel.OptionButton(iconOnly ? "" : value + " ▾");
+            final JButton button = new AcpComposerPanel.OptionButton(iconOnly ? "" : value + AGENT_MENU_CARET);
             configureCompactButton(button);
             button.setIcon(composerOptionIcon(role));
             button.setName("turboism-acp.composer-option." + option.id());
-            final boolean active = (role == 3 || role == 4)
-                    && java.util.Set.of("fast", "plan", "true", "on", "enabled")
-                            .contains(option.currentValue().toLowerCase(java.util.Locale.ROOT));
-            button.putClientProperty("acp.active-mode", active);
+            final boolean active = isAutoPermissionOverride
+                    || ((role == 3 || role == 4)
+                            && java.util.Set.of("fast", "plan", "true", "on", "enabled")
+                                    .contains(option.currentValue().toLowerCase(java.util.Locale.ROOT)));
+            button.putClientProperty(AcpComposerPanel.ACTIVE_MODE_PROPERTY, active);
             button.setForeground(AcpChatTheme.foreground());
             button.setEnabled(connected && !prompting);
             button.setToolTipText(option.name() + ": " + value
                     + (option.description().isBlank() ? "" : " · " + option.description()));
             button.getAccessibleContext().setAccessibleName(option.name() + ": " + value);
             final Dimension size = button.getPreferredSize();
-            button.setPreferredSize(
-                    new Dimension(iconOnly ? 28 : Math.min(176, size.width), Math.max(28, size.height)));
-            final JPopupMenu menu = new JPopupMenu();
+            button.setPreferredSize(new Dimension(
+                    iconOnly ? 28 : Math.min(MAX_OPTION_BUTTON_WIDTH, size.width), Math.max(28, size.height)));
+            final AcpThemeControls.ThemedPopupMenu menu =
+                    new AcpThemeControls.ThemedPopupMenu(localization.text("composer.filter-options"));
             for (AcpConfigOption.Choice choice : option.choices()) {
-                final javax.swing.JRadioButtonMenuItem item = new javax.swing.JRadioButtonMenuItem(
-                        choice.name(), choice.value().equals(option.currentValue()));
-                item.addActionListener(ignored -> {
-                    if (!button.isEnabled() || applyingOptions || choice.value().equals(option.currentValue())) return;
+                final boolean selectedChoice =
+                        !isAutoPermissionOverride && choice.value().equals(option.currentValue());
+                menu.addChoice(choice.name(), selectedChoice, null, () -> {
+                    if (!button.isEnabled() || applyingOptions) return;
+                    if (role == 2 && permissionMode != AcpChatController.PermissionMode.ASK) {
+                        permissionMode = AcpChatController.PermissionMode.ASK;
+                        onSelectPermissionMode.accept(AcpChatController.PermissionMode.ASK);
+                        if (choice.value().equals(option.currentValue())) {
+                            rebuildComposerOptions(currentConfigOptions);
+                            return;
+                        }
+                    }
+                    if (choice.value().equals(option.currentValue())) return;
                     showConfigUpdating(option.id());
                     onConfig.accept(option.id(), choice.value());
                 });
-                menu.add(item);
             }
-            button.setComponentPopupMenu(menu);
-            button.addActionListener(ignored -> menu.show(button, 0, button.getHeight()));
+            if (role == 2 && extendedControlsBound) {
+                menu.addChoice(localization.text("permission.mode.auto"), isAutoPermissionOverride, null, () -> {
+                    if (!button.isEnabled() || applyingOptions) return;
+                    permissionMode = AcpChatController.PermissionMode.AUTO;
+                    onSelectPermissionMode.accept(AcpChatController.PermissionMode.AUTO);
+                    rebuildComposerOptions(currentConfigOptions);
+                });
+            }
+            final JPopupMenu finalizedMenu = menu.finish();
+            button.setComponentPopupMenu(finalizedMenu);
+            button.addActionListener(ignored -> AcpThemeControls.showPopup(button, finalizedMenu));
             composerOptionButtons.put(option.id(), button);
             composerOptions.add(button);
         }
+        if (extendedControlsBound && !hasAgentPermissionOption && !permissionInserted) {
+            updatePermissionModeSelector();
+            composerOptions.add(composerPermissionMode);
+        }
         composerOptions.revalidate();
         composerOptions.repaint();
+    }
+
+    private void updatePermissionModeSelector() {
+        final boolean auto = permissionMode == AcpChatController.PermissionMode.AUTO;
+        final String label = localization.text(auto ? "permission.mode.auto" : "permission.mode.ask");
+        composerPermissionMode.setText(label + AGENT_MENU_CARET);
+        composerPermissionMode.setForeground(AcpChatTheme.foreground());
+        composerPermissionMode.setEnabled(!prompting);
+        composerPermissionMode.putClientProperty(AcpComposerPanel.ACTIVE_MODE_PROPERTY, auto);
+        final String tooltip = localization.text("composer.permissions") + ": " + label;
+        composerPermissionMode.setToolTipText(tooltip);
+        composerPermissionMode.getAccessibleContext().setAccessibleName(tooltip);
+
+        final AcpThemeControls.ThemedPopupMenu menu = new AcpThemeControls.ThemedPopupMenu();
+        menu.addChoice(localization.text("permission.mode.ask"), !auto, null, () -> {
+            permissionMode = AcpChatController.PermissionMode.ASK;
+            onSelectPermissionMode.accept(AcpChatController.PermissionMode.ASK);
+            updatePermissionModeSelector();
+        });
+        menu.addChoice(localization.text("permission.mode.auto"), auto, null, () -> {
+            permissionMode = AcpChatController.PermissionMode.AUTO;
+            onSelectPermissionMode.accept(AcpChatController.PermissionMode.AUTO);
+            updatePermissionModeSelector();
+        });
+        composerPermissionMode.setComponentPopupMenu(menu.finish());
+    }
+
+    private void refreshTodoPill() {
+        final List<AcpPlanTracker.Item> items = planTracker.items();
+        if (items.isEmpty()) {
+            todoPill.setVisible(false);
+            updateComposerTrackVisibility();
+            return;
+        }
+        final long completed = items.stream()
+                .filter(item -> item.status() == AcpPlanTracker.Status.COMPLETED)
+                .count();
+        final String activeText = items.stream()
+                .filter(item -> item.status() == AcpPlanTracker.Status.IN_PROGRESS)
+                .map(AcpPlanTracker.Item::displayText)
+                .findFirst()
+                .orElse("");
+        final String label = activeText.isEmpty()
+                ? localization.format("todo.pill-progress", completed, items.size())
+                : localization.format("todo.pill-active", completed, items.size(), truncatePill(activeText));
+        todoPill.setText(label);
+        todoPill.setForeground(AcpChatTheme.foreground());
+        todoPill.putClientProperty(
+                AcpComposerPanel.ACTIVE_MODE_PROPERTY, completed < items.size() && !activeText.isEmpty());
+        todoPill.setToolTipText(localization.format("todo.tooltip", completed, items.size()));
+        todoPill.getAccessibleContext().setAccessibleName(todoPill.getToolTipText());
+        todoPill.setVisible(true);
+        updateComposerTrackVisibility();
+    }
+
+    private void refreshTpsPill() {
+        final AcpTurnMeter.Snapshot snap = turnMeter.snapshot();
+        final String text = snap.pillText();
+        if (!snap.visible() || text.isEmpty()) {
+            tpsPill.setVisible(false);
+            updateComposerTrackVisibility();
+            return;
+        }
+        tpsPill.setText(text);
+        tpsPill.setForeground(snap.running() ? AcpChatTheme.foreground() : AcpChatTheme.muted());
+        tpsPill.putClientProperty(AcpComposerPanel.ACTIVE_MODE_PROPERTY, false);
+        final String tooltip = localization.format(
+                "tps.tooltip",
+                AcpTurnMeter.formatApproximate(AcpTurnMeter.formatRate(snap.averageTokPerSec()), snap.approximate()),
+                AcpTurnMeter.formatApproximate(AcpTurnMeter.formatTokens(snap.outputTokens()), snap.approximate()),
+                AcpTurnMeter.formatDurationMillis(snap.ttftMillis()));
+        tpsPill.setToolTipText(tooltip);
+        tpsPill.getAccessibleContext().setAccessibleName(tooltip);
+        tpsPill.setVisible(true);
+        updateComposerTrackVisibility();
+    }
+
+    private void updateComposerTrackVisibility() {
+        final boolean visible = todoPill.isVisible() || tpsPill.isVisible();
+        if (composerTrack.isVisible() != visible) {
+            composerTrack.setVisible(visible);
+        }
+        composerTrack.revalidate();
+        composerTrack.repaint();
+    }
+
+    private JPopupMenu buildTodoPopover() {
+        final JPopupMenu popup = new JPopupMenu();
+        popup.setUI(new javax.swing.plaf.basic.BasicPopupMenuUI());
+        popup.setBackground(AcpChatTheme.surface());
+        popup.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(AcpChatTheme.border()),
+                BorderFactory.createEmptyBorder(10, 12, 10, 12)));
+        final JPanel root = new JPanel(new BorderLayout(0, 8));
+        root.setOpaque(false);
+        final List<AcpPlanTracker.Item> items = planTracker.items();
+        final long done = items.stream()
+                .filter(i -> i.status() == AcpPlanTracker.Status.COMPLETED)
+                .count();
+        final JLabel header = new JLabel(localization.format("todo.popover-title", done, items.size()));
+        header.setFont(header.getFont().deriveFont(Font.BOLD));
+        header.setForeground(AcpChatTheme.foreground());
+        root.add(header, BorderLayout.NORTH);
+
+        final JPanel listPanel = new JPanel();
+        listPanel.setLayout(new javax.swing.BoxLayout(listPanel, javax.swing.BoxLayout.Y_AXIS));
+        listPanel.setOpaque(true);
+        listPanel.setBackground(AcpChatTheme.surface());
+        for (AcpPlanTracker.Item item : items) {
+            final JPanel row = new JPanel(new BorderLayout(8, 0));
+            row.setOpaque(false);
+            row.setBorder(BorderFactory.createEmptyBorder(3, 0, 3, 4));
+            final String mark =
+                    switch (item.status()) {
+                        case COMPLETED -> "✓";
+                        case IN_PROGRESS -> "●";
+                        case PENDING -> "○";
+                    };
+            final JLabel bullet = new JLabel(mark);
+            bullet.setForeground(
+                    switch (item.status()) {
+                        case COMPLETED -> AcpChatTheme.success();
+                        case IN_PROGRESS -> AcpChatTheme.accent();
+                        case PENDING -> AcpChatTheme.muted();
+                    });
+            final JLabel content = new JLabel(item.displayText());
+            content.putClientProperty("html.disable", true);
+            content.setForeground(
+                    item.status() == AcpPlanTracker.Status.COMPLETED
+                            ? AcpChatTheme.muted()
+                            : AcpChatTheme.foreground());
+            row.add(bullet, BorderLayout.WEST);
+            row.add(content, BorderLayout.CENTER);
+            row.setAlignmentX(Component.LEFT_ALIGNMENT);
+            listPanel.add(row);
+        }
+        final JScrollPane scroll = new JScrollPane(
+                listPanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.setBorder(BorderFactory.createEmptyBorder());
+        scroll.setOpaque(true);
+        scroll.setBackground(AcpChatTheme.surface());
+        scroll.getViewport().setBackground(AcpChatTheme.surface());
+        AcpThemeControls.configureScrollPane(scroll, true);
+        final Dimension listPref = listPanel.getPreferredSize();
+        scroll.setPreferredSize(new Dimension(
+                Math.max(POPOVER_WIDTH, Math.min(380, listPref.width + 16)),
+                Math.min(POPOVER_MAX_SCROLL_HEIGHT, listPref.height + 4)));
+        root.add(scroll, BorderLayout.CENTER);
+        popup.add(root);
+        return popup;
+    }
+
+    private JPopupMenu buildTpsPopover() {
+        final AcpTurnMeter.Snapshot snap = turnMeter.snapshot();
+        final JPopupMenu popup = new JPopupMenu();
+        popup.setUI(new javax.swing.plaf.basic.BasicPopupMenuUI());
+        popup.setBackground(AcpChatTheme.surface());
+        popup.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(AcpChatTheme.border()),
+                BorderFactory.createEmptyBorder(10, 12, 10, 12)));
+        final JPanel panel = new JPanel(new GridBagLayout());
+        panel.setOpaque(false);
+        final GridBagConstraints gc = new GridBagConstraints();
+        gc.gridx = 0;
+        gc.gridy = 0;
+        gc.gridwidth = 2;
+        gc.weightx = 1;
+        gc.fill = GridBagConstraints.HORIZONTAL;
+        gc.insets = new Insets(0, 0, 6, 0);
+        final JLabel title = new JLabel(localization.text("tps.popover-title"));
+        title.setFont(title.getFont().deriveFont(Font.BOLD));
+        title.setForeground(AcpChatTheme.foreground());
+        panel.add(title, gc);
+
+        if (snap.running()) {
+            addMetricRow(
+                    panel,
+                    ++gc.gridy,
+                    localization.text("tps.live"),
+                    AcpTurnMeter.formatApproximate(AcpTurnMeter.formatRate(snap.liveTokPerSec()), snap.approximate())
+                            + " tok/s");
+        }
+        addMetricRow(
+                panel,
+                ++gc.gridy,
+                localization.text("tps.decode"),
+                AcpTurnMeter.formatApproximate(AcpTurnMeter.formatRate(snap.averageTokPerSec()), snap.approximate())
+                        + " tok/s");
+        addMetricRow(
+                panel,
+                ++gc.gridy,
+                localization.text("tps.tokens"),
+                AcpTurnMeter.formatApproximate(AcpTurnMeter.formatTokens(snap.outputTokens()), snap.approximate()));
+        addMetricRow(
+                panel, ++gc.gridy, localization.text("tps.ttft"), AcpTurnMeter.formatDurationMillis(snap.ttftMillis()));
+        addMetricRow(
+                panel,
+                ++gc.gridy,
+                localization.text("tps.duration"),
+                AcpTurnMeter.formatDurationMillis(snap.activeMillis()));
+        popup.add(panel);
+        return popup;
+    }
+
+    private static void addMetricRow(
+            final JPanel panel, final int row, final String labelText, final String valueText) {
+        final GridBagConstraints left = new GridBagConstraints();
+        left.gridx = 0;
+        left.gridy = row;
+        left.anchor = GridBagConstraints.WEST;
+        left.insets = new Insets(2, 0, 2, 20);
+        final JLabel label = new JLabel(labelText);
+        label.setForeground(AcpChatTheme.muted());
+        panel.add(label, left);
+
+        final GridBagConstraints right = new GridBagConstraints();
+        right.gridx = 1;
+        right.gridy = row;
+        right.weightx = 1;
+        right.anchor = GridBagConstraints.EAST;
+        right.insets = new Insets(2, 0, 2, 0);
+        final JLabel value = new JLabel(valueText);
+        value.setFont(new Font(Font.MONOSPACED, Font.PLAIN, value.getFont().getSize()));
+        value.setForeground(AcpChatTheme.foreground());
+        panel.add(value, right);
+    }
+
+    private static String truncatePill(final String text) {
+        if (text == null || text.length() <= MAX_PILL_TEXT_CHARS) return Objects.requireNonNullElse(text, "");
+        final int cut = Character.isLowSurrogate(text.charAt(MAX_PILL_TEXT_CHARS))
+                ? MAX_PILL_TEXT_CHARS - 1
+                : MAX_PILL_TEXT_CHARS;
+        return text.substring(0, cut) + "…";
     }
 
     private static javax.swing.Icon composerOptionIcon(final int role) {
@@ -1251,6 +1666,7 @@ final class AcpChatWindow implements AcpChatController.View {
                 new AtomicReference<>(AcpListener.PermissionDecision.CANCELLED);
         final JDialog dialog = TurboismWindowFactory.dialog(agentFrame, localization.text("permission.title"), true);
         if (dialog == null) return AcpListener.PermissionDecision.CANCELLED;
+        activePermissionDialog = dialog;
         final var cancellation = request.cancellation().onCancel(() -> SwingUtilities.invokeLater(dialog::dispose));
         try {
             if (request.cancellation().isCancelled()) return AcpListener.PermissionDecision.CANCELLED;
@@ -1258,55 +1674,161 @@ final class AcpChatWindow implements AcpChatController.View {
             dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
             dialog.setMinimumSize(permissionDialogMinimum());
 
-            final JTextArea details = new JTextArea(request.details(), 12, 68);
-            details.setEditable(false);
-            details.setLineWrap(true);
-            details.setWrapStyleWord(true);
-            details.setCaretPosition(0);
-            final JPanel message = new JPanel(new BorderLayout(0, 10));
-            message.setBorder(BorderFactory.createEmptyBorder(14, 14, 8, 14));
-            final JTextArea summary =
-                    new JTextArea(localization.format("permission.message", request.title(), request.kind()), 2, 68);
-            summary.setEditable(false);
-            summary.setLineWrap(true);
-            summary.setWrapStyleWord(true);
-            summary.setOpaque(false);
-            message.add(summary, BorderLayout.NORTH);
-            final JScrollPane detailScroll = new JScrollPane(details);
-            detailScroll.setPreferredSize(new Dimension(640, 240));
-            message.add(detailScroll, BorderLayout.CENTER);
+            final AcpPermissionFormatter.FormattedPermission formatted =
+                    AcpPermissionFormatter.format(localization, request);
+            final JPanel body = new JPanel();
+            body.setLayout(new javax.swing.BoxLayout(body, javax.swing.BoxLayout.Y_AXIS));
+            body.setBorder(BorderFactory.createEmptyBorder(16, 18, 10, 18));
 
+            final JLabel headline = new JLabel(formatted.headline());
+            headline.putClientProperty("html.disable", true);
+            headline.setFont(
+                    headline.getFont().deriveFont(Font.BOLD, headline.getFont().getSize2D() + 1.5F));
+            headline.setAlignmentX(Component.LEFT_ALIGNMENT);
+            body.add(headline);
+
+            if (!formatted.toolBadge().isEmpty()) {
+                body.add(javax.swing.Box.createVerticalStrut(4));
+                final JLabel badge = new JLabel(formatted.toolBadge());
+                badge.putClientProperty("html.disable", true);
+                badge.setFont(new Font(
+                        Font.MONOSPACED,
+                        Font.PLAIN,
+                        Math.max(11, badge.getFont().getSize() - 1)));
+                badge.setForeground(AcpChatTheme.muted());
+                badge.setAlignmentX(Component.LEFT_ALIGNMENT);
+                body.add(badge);
+            }
+
+            if (!formatted.summaryRows().isEmpty()) {
+                body.add(javax.swing.Box.createVerticalStrut(12));
+                final JPanel summaryCard = new JPanel(new GridBagLayout());
+                summaryCard.setAlignmentX(Component.LEFT_ALIGNMENT);
+                summaryCard.setBackground(AcpChatTheme.surface());
+                summaryCard.setBorder(BorderFactory.createCompoundBorder(
+                        AcpThemeControls.dynamicLineBorder(), BorderFactory.createEmptyBorder(8, 10, 8, 10)));
+                int rowIndex = 0;
+                for (AcpPermissionFormatter.SummaryRow row : formatted.summaryRows()) {
+                    final GridBagConstraints keyGc = new GridBagConstraints();
+                    keyGc.gridx = 0;
+                    keyGc.gridy = rowIndex;
+                    keyGc.anchor = GridBagConstraints.NORTHWEST;
+                    keyGc.insets = new Insets(2, 0, 2, 12);
+                    final JLabel keyLabel = new JLabel(row.label());
+                    keyLabel.putClientProperty("html.disable", true);
+                    keyLabel.setForeground(AcpChatTheme.muted());
+                    summaryCard.add(keyLabel, keyGc);
+
+                    final GridBagConstraints valGc = new GridBagConstraints();
+                    valGc.gridx = 1;
+                    valGc.gridy = rowIndex;
+                    valGc.weightx = 1;
+                    valGc.fill = GridBagConstraints.HORIZONTAL;
+                    valGc.anchor = GridBagConstraints.NORTHWEST;
+                    valGc.insets = new Insets(2, 0, 2, 0);
+                    final JLabel valLabel = new JLabel(row.value());
+                    valLabel.putClientProperty("html.disable", true);
+                    valLabel.setForeground(AcpChatTheme.foreground());
+                    summaryCard.add(valLabel, valGc);
+                    rowIndex++;
+                }
+                body.add(summaryCard);
+            }
+
+            if (!formatted.rawDetails().isBlank()) {
+                body.add(javax.swing.Box.createVerticalStrut(8));
+                final JTextArea details = new JTextArea(formatted.rawDetails());
+                details.setEditable(false);
+                details.setLineWrap(true);
+                details.setWrapStyleWord(false);
+                details.setFont(new Font(
+                        Font.MONOSPACED,
+                        Font.PLAIN,
+                        Math.max(11, details.getFont().getSize() - 1)));
+                details.setMargin(new Insets(8, 8, 8, 8));
+                details.setCaretPosition(0);
+                final JScrollPane detailScroll = new JScrollPane(
+                        details, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+                detailScroll.setAlignmentX(Component.LEFT_ALIGNMENT);
+                detailScroll.setBorder(AcpThemeControls.dynamicLineBorder());
+                AcpThemeControls.configureScrollPane(detailScroll, true);
+                detailScroll.setPreferredSize(new Dimension(440, PERMISSION_DETAIL_SCROLL_HEIGHT));
+                detailScroll.setVisible(formatted.summaryRows().isEmpty());
+
+                final JButton toggleDetails = new JButton(localization.text(
+                        detailScroll.isVisible() ? "permission.hide-details" : "permission.show-details"));
+                toggleDetails.setAlignmentX(Component.LEFT_ALIGNMENT);
+                AcpThemeControls.styleButton(toggleDetails, AcpThemeControls.ButtonVariant.GHOST);
+                toggleDetails.addActionListener(ignored -> {
+                    final boolean nextVisible = !detailScroll.isVisible();
+                    detailScroll.setVisible(nextVisible);
+                    toggleDetails.setText(
+                            localization.text(nextVisible ? "permission.hide-details" : "permission.show-details"));
+                    dialog.pack();
+                    ensureMinimumSize(dialog, permissionDialogMinimum());
+                });
+                body.add(toggleDetails);
+                body.add(javax.swing.Box.createVerticalStrut(4));
+                body.add(detailScroll);
+            }
+
+            final JButton reject = permissionButton(
+                    "turboism-acp.permission.reject",
+                    "permission.reject",
+                    AcpListener.PermissionDecision.REJECT_ONCE,
+                    AcpThemeControls.ButtonVariant.SECONDARY,
+                    decision,
+                    dialog);
             final JButton allowOnce = permissionButton(
                     "turboism-acp.permission.allow-once",
                     "permission.allow-once",
                     AcpListener.PermissionDecision.ALLOW_ONCE,
+                    AcpThemeControls.ButtonVariant.SECONDARY,
                     decision,
                     dialog);
             final JButton allowSession = permissionButton(
                     "turboism-acp.permission.allow-session",
                     "permission.allow-session",
                     AcpListener.PermissionDecision.ALLOW_ALWAYS,
-                    decision,
-                    dialog);
-            final JButton reject = permissionButton(
-                    "turboism-acp.permission.reject",
-                    "permission.reject",
-                    AcpListener.PermissionDecision.REJECT_ONCE,
+                    AcpThemeControls.ButtonVariant.PRIMARY,
                     decision,
                     dialog);
             if (request.options() != null) {
+                final boolean canAllow = request.options().allowOnce() != null
+                        || request.options().allowAlways() != null;
                 allowOnce.setVisible(request.options().allowOnce() != null);
-                allowSession.setVisible(request.options().allowAlways() != null);
+                allowSession.setVisible(canAllow);
                 reject.setVisible(request.options().rejectOnce() != null);
             }
-            final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
+            final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 10));
+            buttons.setBorder(BorderFactory.createEmptyBorder(0, 10, 6, 10));
             buttons.add(reject);
-            buttons.add(allowSession);
             buttons.add(allowOnce);
+            buttons.add(allowSession);
 
-            final JPanel content = new JPanel(new BorderLayout());
-            content.add(message, BorderLayout.CENTER);
+            final JPanel content = new JPanel(new BorderLayout()) {
+                @Override
+                public void updateUI() {
+                    super.updateUI();
+                    if (themeReady) SwingUtilities.invokeLater(() -> applyThemeTree(this));
+                }
+            };
+            content.add(body, BorderLayout.CENTER);
             content.add(buttons, BorderLayout.SOUTH);
+            applyThemeTree(content);
+            if (!formatted.toolBadge().isEmpty()) {
+                // Keep secondary muted contrast on the tool identifier after tree theming.
+                for (Component child : body.getComponents()) {
+                    if (child instanceof JLabel lbl && formatted.toolBadge().equals(lbl.getText())) {
+                        lbl.setForeground(AcpChatTheme.muted());
+                    }
+                }
+            }
+            dialog.getRootPane()
+                    .registerKeyboardAction(
+                            ignored -> dialog.dispose(),
+                            KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
+                            javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
             dialog.setContentPane(content);
             dialog.getRootPane().setDefaultButton(reject);
             dialog.pack();
@@ -1315,6 +1837,7 @@ final class AcpChatWindow implements AcpChatController.View {
             dialog.setVisible(true);
             return request.cancellation().isCancelled() ? AcpListener.PermissionDecision.CANCELLED : decision.get();
         } finally {
+            activePermissionDialog = null;
             cancellation.close();
             dialog.dispose();
         }
@@ -1324,10 +1847,12 @@ final class AcpChatWindow implements AcpChatController.View {
             final String name,
             final String localizationKey,
             final AcpListener.PermissionDecision selected,
+            final AcpThemeControls.ButtonVariant variant,
             final AtomicReference<AcpListener.PermissionDecision> decision,
             final JDialog dialog) {
         final JButton button = new JButton(localization.text(localizationKey));
         button.setName(name);
+        AcpThemeControls.styleButton(button, variant);
         button.addActionListener(ignored -> {
             decision.set(selected);
             dialog.dispose();
@@ -1539,10 +2064,14 @@ final class AcpChatWindow implements AcpChatController.View {
     }
 
     private void loadMarkdownImages(final TranscriptEntry entry) {
-        if (entry.attachment) return;
-        final Matcher images = Pattern.compile("^!\\[[^\\]]*\\]\\(([^\\r\\n]+)\\)$", Pattern.MULTILINE)
-                .matcher(entry.content);
-        while (images.find() && entry.requestedImages.size() < 8) {
+        if (entry.attachment || entry.requestedImages.size() >= MAX_INLINE_MARKDOWN_IMAGES) return;
+        int scanStart = Math.min(entry.imageScanOffset, entry.content.length());
+        while (scanStart > 0 && entry.content.charAt(scanStart - 1) != '\n') {
+            scanStart--;
+        }
+        final Matcher images = MARKDOWN_IMAGE_LINE.matcher(entry.content);
+        images.region(scanStart, entry.content.length());
+        while (images.find() && entry.requestedImages.size() < MAX_INLINE_MARKDOWN_IMAGES) {
             final String reference = images.group(1);
             if (!entry.requestedImages.add(reference)) continue;
             final java.nio.file.Path path;
@@ -1573,14 +2102,22 @@ final class AcpChatWindow implements AcpChatController.View {
                         final int before = entry.weight();
                         entry.inlineImages.put(reference, preview);
                         transcriptChars += entry.weight() - before;
-                        trimTranscript();
-                        renderTranscript();
+                        if (trimTranscript()) {
+                            renderTranscript();
+                        } else {
+                            replaceRenderedEntry(entry, entry.renderedLength);
+                        }
                     } catch (Exception failure) {
                         // Preserve the original Markdown reference when the local file cannot be previewed.
                     }
                 }
             }.execute();
         }
+        int committedEnd = entry.content.length();
+        while (committedEnd > scanStart && entry.content.charAt(committedEnd - 1) != '\n') {
+            committedEnd--;
+        }
+        entry.imageScanOffset = committedEnd;
     }
 
     @Override
@@ -1665,6 +2202,7 @@ final class AcpChatWindow implements AcpChatController.View {
         cancel.setEnabled(connectionReady && busy);
         ((CardLayout) submitSlot.getLayout()).show(submitSlot, busy ? "stop" : "send");
         composerAgent.setEnabled(!connecting && !busy);
+        composerPermissionMode.setEnabled(!busy);
         prompt.setEnabled(connectionReady && !busy);
         newSession.setEnabled(connectionReady && !busy);
         refreshSessions.setEnabled(connectionReady && !busy && durableSessionsAvailable);
@@ -1718,13 +2256,17 @@ final class AcpChatWindow implements AcpChatController.View {
     private void finishTask(final String state, final String error) {
         taskElapsedSeconds = elapsedTaskSeconds();
         taskTimer.stop();
+        turnMeter.finishTurn();
         taskState = state;
         taskError = error.replaceAll("[\\r\\n\\t]+", " ").strip();
         refreshTaskStatus();
+        refreshTpsPill();
     }
 
     void refreshTaskStatus() {
-        if (!acceptingEvents.get() || taskState.isEmpty()) return;
+        if (!acceptingEvents.get()) return;
+        refreshTpsPill();
+        if (taskState.isEmpty()) return;
         final long seconds = elapsedTaskSeconds();
         final String duration = seconds >= 60 ? seconds / 60 + "m" + seconds % 60 + "s" : seconds + "s";
         final String text = localization.format("status.task-" + taskState, duration, taskError);
@@ -1761,6 +2303,7 @@ final class AcpChatWindow implements AcpChatController.View {
             final String text,
             final boolean coalesce) {
         if (!acceptingEvents.get() || text == null || text.isEmpty()) return;
+        final boolean stickToBottom = isNearBottom();
         final TranscriptEntry previous =
                 transcriptEntries.isEmpty() ? null : transcriptEntries.get(transcriptEntries.size() - 1);
         if (coalesce && previous != null && previous.sender == sender && !previous.attachment) {
@@ -1768,9 +2311,12 @@ final class AcpChatWindow implements AcpChatController.View {
             transcriptChars += text.length();
             if (trimTranscript()) {
                 renderTranscript();
-            } else if (sender != Sender.THINKING || previous.expanded) {
+            } else if (isActivity(sender)) {
+                updateActivityGroupAt(transcriptEntries.size() - 1);
+            } else {
                 appendRenderedText(previous);
             }
+            scheduleScrollToBottom(stickToBottom);
             return;
         }
         final TranscriptEntry entry = new TranscriptEntry(
@@ -1778,14 +2324,42 @@ final class AcpChatWindow implements AcpChatController.View {
                 Objects.requireNonNullElse(id, ""),
                 Objects.requireNonNullElse(title, ""),
                 Objects.requireNonNullElse(kind, ""),
-                new StringBuilder(text));
+                new StringBuilder(text),
+                sender == Sender.USER || sender == Sender.AGENT ? currentMessageTimestamp() : "");
         transcriptEntries.add(entry);
         transcriptChars += entry.weight();
         if (trimTranscript()) {
             renderTranscript();
+        } else if (isActivity(sender)) {
+            updateActivityGroupAt(transcriptEntries.size() - 1);
         } else {
             appendRenderedEntry(entry);
         }
+        scheduleScrollToBottom(stickToBottom);
+    }
+
+    private static boolean isActivity(final Sender sender) {
+        return sender == Sender.THINKING || sender == Sender.TOOL;
+    }
+
+    private boolean isNearBottom() {
+        final javax.swing.JScrollBar bar = transcriptScroll.getVerticalScrollBar();
+        if (bar == null || !bar.isShowing()) return true;
+        if (bar.getValueIsAdjusting()) return false;
+        return bar.getMaximum() - (bar.getValue() + bar.getVisibleAmount()) <= STICKY_SCROLL_THRESHOLD_PX;
+    }
+
+    private void scheduleScrollToBottom(final boolean shouldScroll) {
+        if (!shouldScroll || scrollToBottomScheduled) return;
+        scrollToBottomScheduled = true;
+        SwingUtilities.invokeLater(() -> {
+            scrollToBottomScheduled = false;
+            if (!acceptingEvents.get()) return;
+            final javax.swing.JScrollBar bar = transcriptScroll.getVerticalScrollBar();
+            if (bar != null && !bar.getValueIsAdjusting()) {
+                bar.setValue(bar.getMaximum());
+            }
+        });
     }
 
     private boolean trimTranscript() {
@@ -1793,7 +2367,15 @@ final class AcpChatWindow implements AcpChatController.View {
         while ((transcriptChars > MAX_TRANSCRIPT_CHARS || transcriptEntries.size() > MAX_TRANSCRIPT_ENTRIES)
                 && transcriptEntries.size() > 1) {
             final int removalIndex = transcriptRemovalIndex();
+            final boolean wasGroupStart =
+                    removalIndex == 0 || !isActivity(transcriptEntries.get(removalIndex - 1).sender);
             final TranscriptEntry removed = transcriptEntries.remove(removalIndex);
+            if (wasGroupStart
+                    && isActivity(removed.sender)
+                    && removalIndex < transcriptEntries.size()
+                    && isActivity(transcriptEntries.get(removalIndex).sender)) {
+                transcriptEntries.get(removalIndex).expanded = removed.expanded;
+            }
             transcriptChars -= removed.weight();
             removeToolEntry(removed);
             changed = true;
@@ -1803,6 +2385,7 @@ final class AcpChatWindow implements AcpChatController.View {
             final int excess = transcriptChars - MAX_TRANSCRIPT_CHARS;
             final int removed = safePrefixLength(first.content, excess);
             first.content.delete(0, removed);
+            first.imageScanOffset = Math.max(0, first.imageScanOffset - removed);
             transcriptChars -= removed;
             changed |= removed > 0;
         }
@@ -1839,7 +2422,6 @@ final class AcpChatWindow implements AcpChatController.View {
         final StyledDocument document = transcript.getStyledDocument();
         try {
             renderEntry(document, entry, document.getLength());
-            transcript.setCaretPosition(document.getLength());
         } catch (javax.swing.text.BadLocationException failure) {
             renderTranscript();
         }
@@ -1847,8 +2429,7 @@ final class AcpChatWindow implements AcpChatController.View {
 
     private void appendRenderedText(final TranscriptEntry entry) {
         // Only the trailing line of the current message is re-rendered, so a stream chunk
-        // costs its own length instead of the whole message. Non-append updates, thinking
-        // entries, and image entries keep the full re-render path.
+        // costs its own length instead of the whole message.
         if (appendIncrementalEntry(entry)) {
             return;
         }
@@ -1867,6 +2448,14 @@ final class AcpChatWindow implements AcpChatController.View {
             }
             final int tailStart = stream.tailDocumentStart();
             final int previousLength = entry.renderedLength;
+            final int contentEndBefore = entry.renderedStart + previousLength - entry.renderedFooterLength;
+            if (contentEndBefore < tailStart || contentEndBefore > document.getLength()) {
+                return false;
+            }
+            if (entry.renderedFooterLength > 0) {
+                document.remove(contentEndBefore, entry.renderedFooterLength);
+                entry.renderedFooterLength = 0;
+            }
             if (!AcpMessageRenderer.append(
                     document,
                     stream,
@@ -1877,10 +2466,12 @@ final class AcpChatWindow implements AcpChatController.View {
                 return false;
             }
             final int tailEnd = stream.tailDocumentStart() + stream.tailLength();
-            entry.renderedLength = tailEnd - entry.renderedStart;
-            applyEntryParagraphs(entry, document, tailStart, tailEnd - tailStart);
+            applyEntryParagraphs(entry, document, tailStart, tailEnd - tailStart, tailEnd - entry.renderedStart);
+            final int footerLen = insertEntryTimestamp(document, entry, tailEnd);
+            entry.renderedFooterLength = footerLen;
+            entry.renderedLength = (tailEnd - entry.renderedStart) + footerLen;
+            document.setParagraphAttributes(document.getLength(), 0, new SimpleAttributeSet(), true);
             shiftRenderedEntriesAfter(entry, entry.renderedLength - previousLength);
-            transcript.setCaretPosition(document.getLength());
             return true;
         } catch (javax.swing.text.BadLocationException failure) {
             return false;
@@ -1900,21 +2491,71 @@ final class AcpChatWindow implements AcpChatController.View {
             document.remove(entry.renderedStart, previousLength);
             renderEntry(document, entry, entry.renderedStart);
             shiftRenderedEntriesAfter(entry, entry.renderedLength - previousLength);
-            transcript.setCaretPosition(document.getLength());
         } catch (javax.swing.text.BadLocationException failure) {
             renderTranscript();
         }
     }
 
     private void shiftRenderedEntriesAfter(final TranscriptEntry changed, final int delta) {
+        final int idx = transcriptEntries.indexOf(changed);
+        if (idx >= 0) shiftRenderedEntriesFromIndex(idx + 1, delta);
+    }
+
+    private void shiftRenderedEntriesFromIndex(final int startIndex, final int delta) {
         if (delta == 0) return;
-        boolean after = false;
-        for (TranscriptEntry entry : transcriptEntries) {
-            if (after && entry.renderedStart >= 0) {
+        for (int index = Math.max(0, startIndex); index < transcriptEntries.size(); index++) {
+            final TranscriptEntry entry = transcriptEntries.get(index);
+            if (entry.renderedStart >= 0) {
                 entry.renderedStart += delta;
                 if (entry.stream != null) entry.stream.shift(delta);
             }
-            if (entry == changed) after = true;
+        }
+    }
+
+    /**
+     * Updates one unified activity group (consecutive thinking and tool entries) in-place inside
+     * the document, skipping document edits completely when a collapsed group's summary is
+     * unchanged.
+     */
+    private void updateActivityGroupAt(final int memberIndex) {
+        if (memberIndex < 0 || memberIndex >= transcriptEntries.size()) return;
+        int groupStart = memberIndex;
+        while (groupStart > 0 && isActivity(transcriptEntries.get(groupStart - 1).sender)) {
+            groupStart--;
+        }
+        int groupEnd = memberIndex + 1;
+        while (groupEnd < transcriptEntries.size() && isActivity(transcriptEntries.get(groupEnd).sender)) {
+            groupEnd++;
+        }
+        final List<TranscriptEntry> group = transcriptEntries.subList(groupStart, groupEnd);
+        final TranscriptEntry first = group.get(0);
+        final StyledDocument document = transcript.getStyledDocument();
+        try {
+            if (first.renderedStart < 0) {
+                if (groupEnd == transcriptEntries.size()) {
+                    renderActivityGroup(document, group, document.getLength());
+                    return;
+                }
+                renderTranscript();
+                return;
+            }
+            if (!first.expanded) {
+                final String nextSummary = activitySummaryText(group);
+                final boolean nextFailed = activityHasFailure(group);
+                if (nextSummary.equals(first.cachedSummary) && nextFailed == first.cachedFailed) {
+                    return;
+                }
+            }
+            if (first.renderedStart + first.renderedLength > document.getLength()) {
+                renderTranscript();
+                return;
+            }
+            final int oldLength = first.renderedLength;
+            document.remove(first.renderedStart, oldLength);
+            renderActivityGroup(document, group, first.renderedStart);
+            shiftRenderedEntriesFromIndex(groupEnd, first.renderedLength - oldLength);
+        } catch (javax.swing.text.BadLocationException failure) {
+            renderTranscript();
         }
     }
 
@@ -1925,25 +2566,27 @@ final class AcpChatWindow implements AcpChatController.View {
             for (TranscriptEntry entry : transcriptEntries) {
                 entry.renderedStart = -1;
                 entry.renderedLength = 0;
+                entry.renderedFooterLength = 0;
                 entry.stream = null;
+                entry.cachedSummary = "";
+                entry.cachedFailed = false;
             }
             for (int index = 0; index < transcriptEntries.size(); ) {
                 final TranscriptEntry entry = transcriptEntries.get(index++);
-                if (entry.sender == Sender.TOOL) {
+                if (isActivity(entry.sender)) {
                     final List<TranscriptEntry> group = new ArrayList<>();
                     group.add(entry);
                     while (index < transcriptEntries.size()) {
                         final TranscriptEntry next = transcriptEntries.get(index);
-                        if (next.sender == Sender.TOOL) group.add(next);
+                        if (isActivity(next.sender)) group.add(next);
                         else break;
                         index++;
                     }
-                    renderToolGroup(document, group);
+                    renderActivityGroup(document, group, document.getLength());
                 } else {
                     renderEntry(document, entry, document.getLength());
                 }
             }
-            transcript.setCaretPosition(document.getLength());
         } catch (javax.swing.text.BadLocationException failure) {
             transcript.setText("");
         }
@@ -1951,10 +2594,6 @@ final class AcpChatWindow implements AcpChatController.View {
 
     private void renderEntry(final StyledDocument document, final TranscriptEntry entry, final int start)
             throws javax.swing.text.BadLocationException {
-        if (entry.sender == Sender.THINKING) {
-            renderThinking(document, entry, start);
-            return;
-        }
         final int before = document.getLength();
         if (entry.image != null) {
             final SimpleAttributeSet imageStyle = new SimpleAttributeSet();
@@ -1969,133 +2608,306 @@ final class AcpChatWindow implements AcpChatController.View {
                 contentAttributes(entry.sender),
                 entry.sender == Sender.AGENT,
                 entry.inlineImages);
+        final int contentLength = document.getLength() - before;
         entry.renderedStart = start;
-        entry.renderedLength = document.getLength() - before;
-        // The incremental position is only valid while the entry renders itself; image and
-        // thinking entries keep their dedicated layouts.
         entry.stream = entry.image == null ? stream : null;
-        applyEntryParagraphs(entry, document, start, entry.renderedLength);
+        applyEntryParagraphs(entry, document, start, contentLength, contentLength);
+        final int footerLen = insertEntryTimestamp(document, entry, start + contentLength);
+        entry.renderedFooterLength = footerLen;
+        entry.renderedLength = contentLength + footerLen;
+        document.setParagraphAttributes(document.getLength(), 0, new SimpleAttributeSet(), true);
     }
 
-    /** Applies the entry-level paragraph attributes over a rendered range. */
-    private void applyEntryParagraphs(
-            final TranscriptEntry entry, final StyledDocument document, final int start, final int length)
+    private int insertEntryTimestamp(final StyledDocument document, final TranscriptEntry entry, final int offset)
             throws javax.swing.text.BadLocationException {
-        final SimpleAttributeSet message = new SimpleAttributeSet();
-        message.addAttribute(
-                AcpTranscriptEditorKit.USER_BACKGROUND,
-                entry.sender == Sender.USER ? AcpChatTheme.surface() : Boolean.FALSE);
-        message.addAttribute(
-                AcpTranscriptEditorKit.USER_ACCENT, entry.sender == Sender.USER ? userAccent() : Boolean.FALSE);
+        if ((entry.sender != Sender.USER && entry.sender != Sender.AGENT)
+                || entry.attachment
+                || entry.timestampText.isEmpty()) {
+            return 0;
+        }
+        final String line = entry.timestampText + "\n";
+        final SimpleAttributeSet charStyle = new SimpleAttributeSet();
+        final Font baseFont = transcript.getFont();
+        StyleConstants.setFontFamily(charStyle, baseFont.getFamily());
+        StyleConstants.setFontSize(
+                charStyle, Math.round(Math.max(TIMESTAMP_MIN_FONT_SIZE, baseFont.getSize2D() - TIMESTAMP_FONT_DELTA)));
+        StyleConstants.setForeground(charStyle, secondaryForeground());
+        StyleConstants.setBold(charStyle, false);
+        StyleConstants.setItalic(charStyle, false);
+        document.insertString(offset, line, charStyle);
+
+        final SimpleAttributeSet paraStyle = new SimpleAttributeSet();
+        paraStyle.addAttribute(AcpTranscriptEditorKit.USER_BACKGROUND, Boolean.FALSE);
+        paraStyle.addAttribute(AcpTranscriptEditorKit.USER_ACCENT, Boolean.FALSE);
+        paraStyle.addAttribute(AcpTranscriptEditorKit.USER_CARD_FIRST, Boolean.FALSE);
+        paraStyle.addAttribute(AcpTranscriptEditorKit.USER_CARD_LAST, Boolean.FALSE);
         if (entry.sender == Sender.USER) {
-            StyleConstants.setLeftIndent(message, 12F);
-            StyleConstants.setRightIndent(message, 12F);
-            StyleConstants.setSpaceAbove(message, 4F);
-            StyleConstants.setSpaceBelow(message, 8F);
+            StyleConstants.setAlignment(paraStyle, StyleConstants.ALIGN_RIGHT);
+            StyleConstants.setLeftIndent(paraStyle, 12F);
+            StyleConstants.setRightIndent(paraStyle, 4F);
+            StyleConstants.setSpaceAbove(paraStyle, 0F);
+            StyleConstants.setSpaceBelow(paraStyle, 6F);
+        } else {
+            StyleConstants.setAlignment(paraStyle, StyleConstants.ALIGN_LEFT);
+            StyleConstants.setLeftIndent(paraStyle, 4F);
+            StyleConstants.setRightIndent(paraStyle, 12F);
+            StyleConstants.setSpaceAbove(paraStyle, 2F);
+            StyleConstants.setSpaceBelow(paraStyle, 8F);
         }
-        document.setParagraphAttributes(start, length, message, false);
-        if (start == entry.renderedStart) {
-            final SimpleAttributeSet paragraph = new SimpleAttributeSet();
-            StyleConstants.setLeftIndent(paragraph, entry.sender == Sender.USER ? 12F : 4F);
-            StyleConstants.setRightIndent(paragraph, 12F);
-            StyleConstants.setSpaceAbove(paragraph, 10F);
-            StyleConstants.setSpaceBelow(paragraph, 4F);
-            document.setParagraphAttributes(start, 1, paragraph, false);
-        }
-        // Swing retains the last paragraph's attributes after its trailing newline.
-        // Keep that empty paragraph neutral so later messages do not inherit a user panel.
-        document.setParagraphAttributes(document.getLength(), 0, new SimpleAttributeSet(), true);
+        document.setParagraphAttributes(offset, line.length(), paraStyle, true);
+        return line.length();
     }
 
-    private void renderThinking(final StyledDocument document, final TranscriptEntry entry, final int start)
-            throws javax.swing.text.BadLocationException {
-        final int before = document.getLength();
-        final SimpleAttributeSet style = contentAttributes(Sender.THINKING);
-        StyleConstants.setForeground(style, secondaryForeground());
-        StyleConstants.setItalic(style, false);
-        final SimpleAttributeSet link = new SimpleAttributeSet(style);
-        link.addAttribute(DISCLOSURE, entry);
-        final String summary = (entry.expanded ? "▾  " : "▸  ") + localization.text("sender.thinking") + "\n";
-        document.insertString(start, summary, link);
-        final SimpleAttributeSet paragraph = new SimpleAttributeSet();
-        paragraph.addAttribute(AcpTranscriptEditorKit.USER_BACKGROUND, Boolean.FALSE);
-        paragraph.addAttribute(AcpTranscriptEditorKit.USER_ACCENT, Boolean.FALSE);
-        StyleConstants.setLeftIndent(paragraph, 6F);
-        StyleConstants.setSpaceAbove(paragraph, 8F);
-        StyleConstants.setSpaceBelow(paragraph, 8F);
-        document.setParagraphAttributes(start, summary.length(), paragraph, true);
-        if (entry.expanded) {
-            final int detailStart = start + summary.length();
-            AcpMessageRenderer.insert(document, detailStart, entry.content.toString(), style, true);
-            final SimpleAttributeSet detail = new SimpleAttributeSet(paragraph);
-            StyleConstants.setLeftIndent(detail, 18F);
-            StyleConstants.setSpaceAbove(detail, 2F);
-            StyleConstants.setSpaceBelow(detail, 4F);
-            document.setParagraphAttributes(
-                    detailStart, document.getLength() - before - summary.length(), detail, true);
+    private void stampLatestAgentTimestamp() {
+        for (int index = transcriptEntries.size() - 1; index >= 0; index--) {
+            final TranscriptEntry entry = transcriptEntries.get(index);
+            if (entry.sender == Sender.USER) return;
+            if (entry.sender == Sender.AGENT && !entry.attachment) {
+                final String refreshed = currentMessageTimestamp();
+                if (!refreshed.equals(entry.timestampText)) {
+                    entry.timestampText = refreshed;
+                    replaceRenderedEntry(entry, entry.renderedLength);
+                }
+                return;
+            }
         }
-        entry.renderedStart = start;
-        entry.renderedLength = document.getLength() - before;
-        document.setParagraphAttributes(document.getLength(), 0, new SimpleAttributeSet(), true);
     }
 
-    private void renderToolGroup(final StyledDocument document, final List<TranscriptEntry> group)
+    private String currentMessageTimestamp() {
+        return formatMessageTimestamp(Instant.now(), ZoneId.systemDefault(), localization.locale());
+    }
+
+    static String formatMessageTimestamp(final Instant instant, final ZoneId zone, final java.util.Locale locale) {
+        final java.util.Locale effective = locale == null ? java.util.Locale.getDefault() : locale;
+        return DateTimeFormatter.ofPattern("EEEE HH:mm", effective)
+                .withZone(zone)
+                .format(instant);
+    }
+
+    /** Applies the entry-level paragraph attributes over a rendered content range. */
+    private void applyEntryParagraphs(
+            final TranscriptEntry entry,
+            final StyledDocument document,
+            final int start,
+            final int length,
+            final int contentLength)
             throws javax.swing.text.BadLocationException {
+        if (entry.sender == Sender.USER) {
+            final SimpleAttributeSet userMiddle = new SimpleAttributeSet();
+            userMiddle.addAttribute(AcpTranscriptEditorKit.USER_BACKGROUND, AcpChatTheme.surface());
+            userMiddle.addAttribute(AcpTranscriptEditorKit.USER_ACCENT, userAccent());
+            userMiddle.addAttribute(AcpTranscriptEditorKit.USER_CARD_FIRST, Boolean.FALSE);
+            userMiddle.addAttribute(AcpTranscriptEditorKit.USER_CARD_LAST, Boolean.FALSE);
+            StyleConstants.setAlignment(userMiddle, StyleConstants.ALIGN_LEFT);
+            StyleConstants.setLeftIndent(userMiddle, 12F);
+            StyleConstants.setRightIndent(userMiddle, 12F);
+            StyleConstants.setSpaceAbove(userMiddle, 2F);
+            StyleConstants.setSpaceBelow(userMiddle, 2F);
+            document.setParagraphAttributes(entry.renderedStart, contentLength, userMiddle, false);
+
+            final javax.swing.text.Element firstPara = document.getParagraphElement(entry.renderedStart);
+            final int lastPos = Math.max(entry.renderedStart, entry.renderedStart + contentLength - 1);
+            final javax.swing.text.Element lastPara = document.getParagraphElement(lastPos);
+            if (firstPara == lastPara) {
+                final SimpleAttributeSet single = new SimpleAttributeSet();
+                single.addAttribute(AcpTranscriptEditorKit.USER_CARD_FIRST, Boolean.TRUE);
+                single.addAttribute(AcpTranscriptEditorKit.USER_CARD_LAST, Boolean.TRUE);
+                StyleConstants.setSpaceAbove(single, 16F);
+                StyleConstants.setSpaceBelow(single, 14F);
+                document.setParagraphAttributes(entry.renderedStart, 1, single, false);
+            } else {
+                final SimpleAttributeSet firstAttrs = new SimpleAttributeSet();
+                firstAttrs.addAttribute(AcpTranscriptEditorKit.USER_CARD_FIRST, Boolean.TRUE);
+                firstAttrs.addAttribute(AcpTranscriptEditorKit.USER_CARD_LAST, Boolean.FALSE);
+                StyleConstants.setSpaceAbove(firstAttrs, 16F);
+                StyleConstants.setSpaceBelow(firstAttrs, 2F);
+                document.setParagraphAttributes(entry.renderedStart, 1, firstAttrs, false);
+
+                final SimpleAttributeSet lastAttrs = new SimpleAttributeSet();
+                lastAttrs.addAttribute(AcpTranscriptEditorKit.USER_CARD_FIRST, Boolean.FALSE);
+                lastAttrs.addAttribute(AcpTranscriptEditorKit.USER_CARD_LAST, Boolean.TRUE);
+                StyleConstants.setSpaceAbove(lastAttrs, 2F);
+                StyleConstants.setSpaceBelow(lastAttrs, 14F);
+                document.setParagraphAttributes(lastPara.getStartOffset(), 1, lastAttrs, false);
+            }
+        } else {
+            final SimpleAttributeSet message = new SimpleAttributeSet();
+            message.addAttribute(AcpTranscriptEditorKit.USER_BACKGROUND, Boolean.FALSE);
+            message.addAttribute(AcpTranscriptEditorKit.USER_ACCENT, Boolean.FALSE);
+            message.addAttribute(AcpTranscriptEditorKit.USER_CARD_FIRST, Boolean.FALSE);
+            message.addAttribute(AcpTranscriptEditorKit.USER_CARD_LAST, Boolean.FALSE);
+            StyleConstants.setAlignment(message, StyleConstants.ALIGN_LEFT);
+            document.setParagraphAttributes(start, length, message, false);
+            if (start == entry.renderedStart) {
+                final SimpleAttributeSet paragraph = new SimpleAttributeSet();
+                StyleConstants.setLeftIndent(paragraph, 4F);
+                StyleConstants.setRightIndent(paragraph, 12F);
+                StyleConstants.setSpaceAbove(paragraph, 10F);
+                StyleConstants.setSpaceBelow(paragraph, 4F);
+                document.setParagraphAttributes(start, 1, paragraph, false);
+            }
+        }
+    }
+
+    private String activitySummaryText(final List<TranscriptEntry> group) {
         final TranscriptEntry first = group.get(0);
-        final int start = document.getLength();
-        final long commands =
-                group.stream().filter(entry -> "execute".equals(entry.kind)).count();
-        final long otherTools = group.size() - commands;
-        final String counts = commands == 0
+        long commands = 0L;
+        long otherTools = 0L;
+        long running = 0L;
+        long failed = 0L;
+        for (TranscriptEntry entry : group) {
+            if (entry.sender == Sender.TOOL) {
+                if ("execute".equals(entry.kind)) commands++;
+                else otherTools++;
+                if ("pending".equals(entry.toolStatus) || "in_progress".equals(entry.toolStatus)) running++;
+                if ("failed".equals(entry.toolStatus)) failed++;
+            }
+        }
+        final String prefix = first.expanded ? "▾  " : "▸  ";
+        if (commands == 0L && otherTools == 0L) {
+            return prefix + localization.text("sender.thinking") + "\n";
+        }
+        final String toolCounts = commands == 0L
                 ? localization.format("transcript.tools-other-only", otherTools)
-                : otherTools == 0
+                : otherTools == 0L
                         ? localization.format("transcript.tools-commands-only", commands)
                         : localization.format("transcript.tools-summary", commands, otherTools);
-        final long running = group.stream()
-                .filter(entry -> "pending".equals(entry.toolStatus) || "in_progress".equals(entry.toolStatus))
-                .count();
-        final long failed = group.stream()
-                .filter(entry -> "failed".equals(entry.toolStatus))
-                .count();
-        final String summary = (first.expanded ? "▾  " : "▸  ")
-                + counts
-                + (running > 0 ? "  ·  " + localization.format("transcript.tools-running", running) : "")
-                + (failed > 0 ? "  ·  " + localization.format("transcript.tools-failed", failed) : "") + "\n";
+        return prefix
+                + toolCounts
+                + (running > 0L ? "  ·  " + localization.format("transcript.tools-running", running) : "")
+                + (failed > 0L ? "  ·  " + localization.format("transcript.tools-failed", failed) : "")
+                + "\n";
+    }
+
+    private static boolean activityHasFailure(final List<TranscriptEntry> group) {
+        for (TranscriptEntry entry : group) {
+            if (entry.sender == Sender.TOOL && "failed".equals(entry.toolStatus)) return true;
+        }
+        return false;
+    }
+
+    private void renderActivityGroup(final StyledDocument document, final List<TranscriptEntry> group, final int start)
+            throws javax.swing.text.BadLocationException {
+        final TranscriptEntry first = group.get(0);
+        boolean hasTools = false;
+        for (int i = 0; i < group.size(); i++) {
+            final TranscriptEntry member = group.get(i);
+            if (member.sender == Sender.TOOL) hasTools = true;
+            if (i > 0) {
+                member.renderedStart = -1;
+                member.renderedLength = 0;
+                member.stream = null;
+            }
+        }
+        final int beforeLength = document.getLength();
+        final String summary = activitySummaryText(group);
+        final boolean hasFailed = activityHasFailure(group);
         final SimpleAttributeSet style = contentAttributes(Sender.TOOL);
-        StyleConstants.setForeground(style, failed > 0 ? statusColor(StatusTone.ERROR) : secondaryForeground());
+        StyleConstants.setForeground(style, hasFailed ? statusColor(StatusTone.ERROR) : secondaryForeground());
         final SimpleAttributeSet link = new SimpleAttributeSet(style);
         link.addAttribute(DISCLOSURE, first);
         document.insertString(start, summary, link);
+
         final SimpleAttributeSet paragraph = new SimpleAttributeSet();
         paragraph.addAttribute(AcpTranscriptEditorKit.USER_BACKGROUND, Boolean.FALSE);
         paragraph.addAttribute(AcpTranscriptEditorKit.USER_ACCENT, Boolean.FALSE);
         StyleConstants.setLeftIndent(paragraph, 6F);
         StyleConstants.setSpaceAbove(paragraph, 8F);
-        StyleConstants.setSpaceBelow(paragraph, 8F);
+        StyleConstants.setSpaceBelow(paragraph, first.expanded ? 4F : 8F);
         document.setParagraphAttributes(start, summary.length(), paragraph, true);
+
+        int cursor = start + summary.length();
         if (first.expanded) {
+            final SimpleAttributeSet thinkingStyle = contentAttributes(Sender.THINKING);
+            StyleConstants.setForeground(thinkingStyle, secondaryForeground());
+            StyleConstants.setItalic(thinkingStyle, false);
+
             final SimpleAttributeSet code = new SimpleAttributeSet(style);
             StyleConstants.setFontFamily(code, Font.MONOSPACED);
             StyleConstants.setForeground(code, transcript.getForeground());
+
             for (TranscriptEntry entry : group) {
-                final int detailStart = document.getLength();
-                final String title = entry.title.isBlank() ? boundedToolMetadata(entry.id) : entry.title;
-                final SimpleAttributeSet heading = new SimpleAttributeSet(style);
-                StyleConstants.setBold(heading, true);
-                if ("failed".equals(entry.toolStatus))
-                    StyleConstants.setForeground(heading, statusColor(StatusTone.ERROR));
-                document.insertString(document.getLength(), title + " · " + entry.toolStatus + "\n", heading);
-                if (!entry.input.isBlank()) document.insertString(document.getLength(), entry.input + "\n", code);
-                if (!entry.content.isEmpty()) document.insertString(document.getLength(), entry.content + "\n", code);
-                final SimpleAttributeSet detail = new SimpleAttributeSet(paragraph);
-                StyleConstants.setLeftIndent(detail, 18F);
-                StyleConstants.setSpaceAbove(detail, 2F);
-                StyleConstants.setSpaceBelow(detail, 4F);
-                document.setParagraphAttributes(detailStart, document.getLength() - detailStart, detail, true);
+                if (entry.sender == Sender.THINKING) {
+                    if (entry.content.isEmpty()) continue;
+                    if (!hasTools) {
+                        final int detailStart = cursor;
+                        final int lenBeforeItem = document.getLength();
+                        AcpMessageRenderer.insert(document, cursor, entry.content.toString(), thinkingStyle, true);
+                        final int insertedForItem = document.getLength() - lenBeforeItem;
+                        if (insertedForItem > 0) {
+                            final SimpleAttributeSet detail = new SimpleAttributeSet(paragraph);
+                            StyleConstants.setLeftIndent(detail, 18F);
+                            StyleConstants.setSpaceAbove(detail, 2F);
+                            StyleConstants.setSpaceBelow(detail, 4F);
+                            document.setParagraphAttributes(detailStart, insertedForItem, detail, true);
+                            cursor += insertedForItem;
+                        }
+                        continue;
+                    }
+                    final int headerStart = cursor;
+                    final String thinkingHeader =
+                            (entry.detailExpanded ? "▾  " : "▸  ") + localization.text("sender.thinking") + "\n";
+                    final SimpleAttributeSet thinkingLink = new SimpleAttributeSet(style);
+                    StyleConstants.setForeground(thinkingLink, secondaryForeground());
+                    thinkingLink.addAttribute(DISCLOSURE, entry);
+                    document.insertString(cursor, thinkingHeader, thinkingLink);
+                    final SimpleAttributeSet headerParagraph = new SimpleAttributeSet(paragraph);
+                    StyleConstants.setLeftIndent(headerParagraph, 18F);
+                    StyleConstants.setSpaceAbove(headerParagraph, 3F);
+                    StyleConstants.setSpaceBelow(headerParagraph, entry.detailExpanded ? 2F : 4F);
+                    document.setParagraphAttributes(headerStart, thinkingHeader.length(), headerParagraph, true);
+                    cursor += thinkingHeader.length();
+                    if (entry.detailExpanded) {
+                        final int bodyStart = cursor;
+                        final int lenBeforeBody = document.getLength();
+                        AcpMessageRenderer.insert(document, cursor, entry.content.toString(), thinkingStyle, true);
+                        final int insertedBody = document.getLength() - lenBeforeBody;
+                        if (insertedBody > 0) {
+                            final SimpleAttributeSet bodyParagraph = new SimpleAttributeSet(paragraph);
+                            StyleConstants.setLeftIndent(bodyParagraph, 30F);
+                            StyleConstants.setSpaceAbove(bodyParagraph, 2F);
+                            StyleConstants.setSpaceBelow(bodyParagraph, 4F);
+                            document.setParagraphAttributes(bodyStart, insertedBody, bodyParagraph, true);
+                            cursor += insertedBody;
+                        }
+                    }
+                } else {
+                    final int detailStart = cursor;
+                    final int lenBeforeItem = document.getLength();
+                    final String title = entry.title.isBlank() ? boundedToolMetadata(entry.id) : entry.title;
+                    final SimpleAttributeSet heading = new SimpleAttributeSet(style);
+                    StyleConstants.setBold(heading, true);
+                    if ("failed".equals(entry.toolStatus)) {
+                        StyleConstants.setForeground(heading, statusColor(StatusTone.ERROR));
+                    }
+                    final String headerLine = title + " · " + entry.toolStatus + "\n";
+                    document.insertString(cursor, headerLine, heading);
+                    int toolCursor = cursor + headerLine.length();
+                    if (!entry.input.isBlank()) {
+                        final String inputLine = entry.input + "\n";
+                        document.insertString(toolCursor, inputLine, code);
+                        toolCursor += inputLine.length();
+                    }
+                    if (!entry.content.isEmpty()) {
+                        final String outLine = entry.content + "\n";
+                        document.insertString(toolCursor, outLine, code);
+                    }
+                    final int insertedForItem = document.getLength() - lenBeforeItem;
+                    if (insertedForItem > 0) {
+                        final SimpleAttributeSet detail = new SimpleAttributeSet(paragraph);
+                        StyleConstants.setLeftIndent(detail, 18F);
+                        StyleConstants.setSpaceAbove(detail, 2F);
+                        StyleConstants.setSpaceBelow(detail, 4F);
+                        document.setParagraphAttributes(detailStart, insertedForItem, detail, true);
+                        cursor += insertedForItem;
+                    }
+                }
             }
         }
         first.renderedStart = start;
-        first.renderedLength = document.getLength() - start;
+        first.renderedLength = document.getLength() - beforeLength;
+        first.cachedSummary = summary;
+        first.cachedFailed = hasFailed;
         document.setParagraphAttributes(document.getLength(), 0, new SimpleAttributeSet(), true);
     }
 
@@ -2144,13 +2956,30 @@ final class AcpChatWindow implements AcpChatController.View {
     }
 
     private void toggleDisclosure(final int offset) {
-        final TranscriptEntry group = disclosureAt(offset);
-        if (group == null) return;
-        final int start = group.renderedStart;
+        final TranscriptEntry target = disclosureAt(offset);
+        if (target == null) return;
+        final int index = transcriptEntries.indexOf(target);
         final java.awt.Rectangle visible = transcript.getVisibleRect();
-        group.expanded = !group.expanded;
-        renderTranscript();
-        transcript.setCaretPosition(Math.min(start, transcript.getDocument().getLength()));
+        if (index < 0) {
+            target.expanded = !target.expanded;
+            renderTranscript();
+            transcript.scrollRectToVisible(visible);
+            return;
+        }
+        int groupStart = index;
+        while (groupStart > 0 && isActivity(transcriptEntries.get(groupStart - 1).sender)) {
+            groupStart--;
+        }
+        final TranscriptEntry groupFirst = transcriptEntries.get(groupStart);
+        final int anchorOffset = groupFirst.renderedStart >= 0 ? groupFirst.renderedStart : offset;
+        if (target == groupFirst && offset < anchorOffset + groupFirst.cachedSummary.length()) {
+            groupFirst.expanded = !groupFirst.expanded;
+        } else {
+            target.detailExpanded = !target.detailExpanded;
+        }
+        updateActivityGroupAt(index);
+        transcript.setCaretPosition(
+                Math.min(Math.max(0, anchorOffset), transcript.getDocument().getLength()));
         transcript.scrollRectToVisible(visible);
     }
 
@@ -2282,12 +3111,25 @@ final class AcpChatWindow implements AcpChatController.View {
         applyThemeTree(agentFrame.getContentPane());
         applyThemeTree(settingsFrame.getContentPane());
         if (agentManager != null) applyThemeTree(agentManager.getContentPane());
+        if (activePermissionDialog != null) applyThemeTree(activePermissionDialog.getContentPane());
+        for (Component child : agentFrame.getContentPane().getComponents()) {
+            if (child instanceof JSplitPane split
+                    && split.getUI() instanceof javax.swing.plaf.basic.BasicSplitPaneUI ui) {
+                ui.getDivider().setBackground(outlineColor());
+            }
+        }
         transcript.setBackground(AcpChatTheme.background());
         transcript.setForeground(AcpChatTheme.foreground());
+        transcriptScroll.setBackground(AcpChatTheme.background());
+        transcriptScroll.getViewport().setBackground(AcpChatTheme.background());
         prompt.setOpaque(false);
+        openSettings.setForeground(AcpChatTheme.muted());
         agentStatus.setForeground(AcpChatTheme.muted());
         composerAgent.setForeground(AcpChatTheme.foreground());
+        composerPermissionMode.setForeground(AcpChatTheme.foreground());
         composerOptionButtons.values().forEach(button -> button.setForeground(AcpChatTheme.foreground()));
+        refreshTodoPill();
+        refreshTpsPill();
         connectionDot.setForeground(statusColor(currentStatusTone));
         refreshTaskStatus();
         final java.awt.Rectangle visible = transcript.getVisibleRect();
@@ -2296,41 +3138,11 @@ final class AcpChatWindow implements AcpChatController.View {
         agentFrame.repaint();
         settingsFrame.repaint();
         if (agentManager != null) agentManager.repaint();
+        if (activePermissionDialog != null) activePermissionDialog.repaint();
     }
 
     private static void applyThemeTree(final Component component) {
-        if (component instanceof JScrollPane scroll) {
-            scroll.setBackground(AcpChatTheme.background());
-            scroll.getViewport().setBackground(AcpChatTheme.background());
-            // Keep the scrollbar models active for wheel/trackpad scrolling, without visible bars.
-            scroll.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0));
-            scroll.getHorizontalScrollBar().setPreferredSize(new Dimension(0, 0));
-        }
-        if (component instanceof JPanel) component.setBackground(AcpChatTheme.background());
-        if (component instanceof JLabel || component instanceof javax.swing.AbstractButton) {
-            component.setForeground(AcpChatTheme.foreground());
-        }
-        if (component instanceof javax.swing.AbstractButton) component.setBackground(AcpChatTheme.surface());
-        if (component instanceof javax.swing.text.JTextComponent text) {
-            text.setBackground(AcpChatTheme.inputBackground());
-            text.setForeground(AcpChatTheme.foreground());
-            text.setCaretColor(AcpChatTheme.foreground());
-            text.setDisabledTextColor(AcpChatTheme.muted());
-            text.setSelectionColor(AcpChatTheme.selectionBackground());
-            text.setSelectedTextColor(AcpChatTheme.selectionForeground());
-        }
-        if (component instanceof JList<?> list) {
-            list.setBackground(AcpChatTheme.background());
-            list.setForeground(AcpChatTheme.foreground());
-            list.setSelectionBackground(AcpChatTheme.selectionBackground());
-            list.setSelectionForeground(AcpChatTheme.selectionForeground());
-        }
-        if (component instanceof javax.swing.plaf.basic.BasicSplitPaneDivider divider) {
-            divider.setBackground(AcpChatTheme.border());
-        }
-        if (component instanceof java.awt.Container container) {
-            for (Component child : container.getComponents()) applyThemeTree(child);
-        }
+        AcpThemeControls.applyThemeTree(component);
     }
 
     private enum Sender {
@@ -2363,12 +3175,18 @@ final class AcpChatWindow implements AcpChatController.View {
         private String input = "";
         private String toolStatus = "";
         private boolean expanded;
+        private boolean detailExpanded;
         private boolean attachment;
+        private String timestampText;
         private javax.swing.ImageIcon image;
         private final Map<String, javax.swing.ImageIcon> inlineImages = new LinkedHashMap<>();
         private final java.util.Set<String> requestedImages = new java.util.HashSet<>();
         private int renderedStart = -1;
         private int renderedLength;
+        private int renderedFooterLength;
+        private int imageScanOffset;
+        private String cachedSummary = "";
+        private boolean cachedFailed;
         private AcpMessageRenderer.StreamRender stream;
 
         private TranscriptEntry(
@@ -2377,11 +3195,22 @@ final class AcpChatWindow implements AcpChatController.View {
                 final String title,
                 final String kind,
                 final StringBuilder content) {
+            this(sender, id, title, kind, content, "");
+        }
+
+        private TranscriptEntry(
+                final Sender sender,
+                final String id,
+                final String title,
+                final String kind,
+                final StringBuilder content,
+                final String timestampText) {
             this.sender = Objects.requireNonNull(sender, "sender");
             this.id = Objects.requireNonNull(id, "id");
             this.title = Objects.requireNonNull(title, "title");
             this.kind = Objects.requireNonNull(kind, "kind");
             this.content = Objects.requireNonNull(content, "content");
+            this.timestampText = Objects.requireNonNullElse(timestampText, "");
         }
 
         private int weight() {

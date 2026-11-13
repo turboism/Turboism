@@ -21,11 +21,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The permission id vocabulary now lives in one tracked resource, `sdk/src/main/resources/dev/turboism/sdk/permission/permission-ids.txt`. `PermissionIds` reads it into `KNOWN_IDS` and the `buildSrc` plugin permission audit reads the same file, so the SDK catalog and the manifest-as-audit gate cannot drift. The audit fails the build when a boundary rule names an id the vocabulary does not export.
 - A one-time product guide opens after the shell starts and never opens again once the user closes it. It introduces the framework and its updates, plugin installation, plugin management and the plugin market, and the official feedback channels. The Turboism menu reopens it at any time. `config.json` records the choice as `guide.showOnStartup`, and the installers preserve the recorded value so an upgrade does not repeat a guide the user already closed.
 - The ACP composer now shows a random localized example request as its placeholder each time the window opens. The plugin catalog owns the example wording, so translators revise it without code changes.
+- The ACP composer adds Paseo-style task progress and turn-speed (TPS) pills with detail popovers, session-scoped tool approvals, an auto-approve permission mode, and local timestamps on conversation messages.
 
 ### Fixed
 
 - The ACP composer's agent button shows the agent name alone. The agent menu keeps the check mark that identifies a detected installation.
 - Native palette icons follow the display scale. The icon owner samples the screen transform and selects the reviewed 100/125/150/175/200 percent variant instead of pinning every session to 100 percent, so the row lock icon stays sharp on a scaled display.
+- The ACP window now styles all controls, scrollbars, bounded searchable option menus, and permission prompts with the active theme, centers user message cards vertically, nests thinking sections inside collapsible tool activity groups, and updates streamed messages and tool groups incrementally without full-transcript rebuilds.
 
 ## [0.70.0] - 2026-11-10
 

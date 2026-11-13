@@ -32,6 +32,8 @@ public final class FakeAgent {
     private Map<String, Object> stdioServer;
     private boolean scenarioStarted;
     private Writer protocolOutput;
+    private final java.util.concurrent.CompletableFuture<String> permissionDecision =
+            new java.util.concurrent.CompletableFuture<>();
 
     private FakeAgent(final Scenario scenario) {
         this.scenario = scenario;
@@ -69,13 +71,28 @@ public final class FakeAgent {
         }
         final Object id = message.get("id");
         final Object method = message.get("method");
-        if (!(method instanceof String name)) return;
+        if (!(method instanceof String name)) {
+            if (Long.valueOf(7001L).equals(id) || Integer.valueOf(7001).equals(id)) {
+                final Map<String, Object> res = objectValue(message.get("result"));
+                final Map<String, Object> outcome = objectValue(res.get("outcome"));
+                permissionDecision.complete(String.valueOf(outcome.getOrDefault("optionId", outcome.get("outcome"))));
+            }
+            return;
+        }
         if (id == null) return;
         final Map<String, Object> params = objectValue(message.get("params"));
+        if ("session/prompt".equals(name)) {
+            final Thread promptThread =
+                    new Thread(() -> handleUiShowcasePrompt(id, stdout), "turboism-acp-fake-prompt");
+            promptThread.setDaemon(true);
+            promptThread.start();
+            return;
+        }
         final Map<String, Object> result = switch (name) {
             case "initialize" -> initializeResult();
             case "session/new", "session/load" -> newSessionResult(params);
             case "session/list" -> Map.of("sessions", List.of(Map.of("sessionId", "foreign-cli-session", "title", "Created outside Turboism"), Map.of("sessionId", "fake-session-1", "title", "Turboism-owned session")));
+            case "session/set_config_option" -> Map.of("configOptions", showcaseConfigOptions(String.valueOf(params.getOrDefault("value", "claude-sonnet-4-5"))));
             default -> new LinkedHashMap<>();
         };
         final LinkedHashMap<String, Object> response = new LinkedHashMap<>();
@@ -364,6 +381,146 @@ public final class FakeAgent {
     private void sendUpdate(final Map<String, Object> update) throws IOException {
         sendLine(protocolOutput, Json.stringify(Map.of("jsonrpc", "2.0", "method", "session/update",
                 "params", Map.of("sessionId", "fake-session-1", "update", update))));
+    }
+
+    private void handleUiShowcasePrompt(final Object promptId, final Writer stdout) {
+        try {
+            sendUpdate(Map.of(
+                    "sessionUpdate", "config_option_update",
+                    "configOptions", showcaseConfigOptions("claude-sonnet-4-5")));
+            sendUpdate(Map.of(
+                    "sessionUpdate", "plan",
+                    "entries", List.of(
+                            Map.of("content", "读取当前模型与图层结构", "status", "completed"),
+                            Map.of("content", "调整呼吸参数与头部曲面", "status", "in_progress", "activeForm", "正在调整呼吸参数与头部曲面"),
+                            Map.of("content", "捕获视口预览并复核细节", "status", "pending"))));
+            sendUpdate(Map.of(
+                    "sessionUpdate", "agent_thought_chunk",
+                    "content", Map.of("type", "text", "text", "先读取当前工程图层与参数范围，确认 ParamAngleX 与 ParamBreath 的关键帧分布。")));
+            sendUpdate(Map.of(
+                    "sessionUpdate", "tool_call",
+                    "toolCallId", "showcase-tool-read",
+                    "title", "turboism.parameters.read",
+                    "kind", "read",
+                    "status", "completed",
+                    "rawInput", Map.of("limit", 24)));
+            sendUpdate(Map.of(
+                    "sessionUpdate", "agent_thought_chunk",
+                    "content", Map.of("type", "text", "text", "参数范围正常，下面申请修改呼吸与角度参数并重命名目标部件。")));
+            sendUpdate(Map.of(
+                    "sessionUpdate", "tool_call",
+                    "toolCallId", "showcase-tool-apply",
+                    "title", "turboism.parameters.apply",
+                    "kind", "edit",
+                    "status", "in_progress",
+                    "rawInput", Map.of(
+                            "operations", List.of(
+                                    Map.of("operation", "set_value", "id", "ParamAngleX", "value", 12.5),
+                                    Map.of("operation", "set_value", "id", "ParamBreath", "value", 0.65)))));
+
+            final LinkedHashMap<String, Object> permReq = new LinkedHashMap<>();
+            permReq.put("jsonrpc", "2.0");
+            permReq.put("id", 7001L);
+            permReq.put("method", "session/request_permission");
+            permReq.put("params", Map.of(
+                    "sessionId", "fake-session-1",
+                    "toolCall", Map.of(
+                            "toolCallId", "showcase-tool-apply",
+                            "title", "turboism.parameters.apply",
+                            "kind", "edit",
+                            "rawInput", Map.of(
+                                    "operations", List.of(
+                                            Map.of("operation", "set_value", "id", "ParamAngleX", "value", 12.5),
+                                            Map.of("operation", "set_value", "id", "ParamBreath", "value", 0.65)))),
+                    "options", List.of(
+                            Map.of("optionId", "allow_once", "name", "Allow once", "kind", "allow_once"),
+                            Map.of("optionId", "allow_always", "name", "Allow for session", "kind", "allow_always"),
+                            Map.of("optionId", "reject_once", "name", "Reject", "kind", "reject_once"))));
+            sendLine(stdout, Json.stringify(permReq));
+            try {
+                permissionDecision.get(25L, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (Exception ignored) {
+                // Continue even if permission timed out so the host run never hangs.
+            }
+
+            sendUpdate(Map.of(
+                    "sessionUpdate", "tool_call_update",
+                    "toolCallId", "showcase-tool-apply",
+                    "status", "completed",
+                    "content", List.of(Map.of("content", Map.of("type", "text", "text", "Applied 2 parameter updates.")))));
+
+            final String[] chunks = {
+                "已完成当前模型的参数检查与调整：\n\n",
+                "1. **头部角度与呼吸曲线**：已更新 `ParamAngleX` 与 `ParamBreath` 的默认采样点，过渡更平滑。\n",
+                "2. **图层与网格核验**：检查了眼部、眉部与发丝部件的变形器层级，未发现越界顶点。\n",
+                "3. **视口快照对比**：上方活动组内已分层折叠思考过程与工具调用，可随时展开查看详细输入输出。\n\n",
+                "如需继续细化口型（`ParamMouthOpenY`）或物理摆动组，请直接告诉我。"
+            };
+            for (String chunk : chunks) {
+                Thread.sleep(240L);
+                sendUpdate(Map.of(
+                        "sessionUpdate", "agent_message_chunk",
+                        "content", Map.of("type", "text", "text", chunk)));
+            }
+            sendUpdate(Map.of("sessionUpdate", "usage_update", "outputTokens", 96L));
+
+            final LinkedHashMap<String, Object> response = new LinkedHashMap<>();
+            response.put("jsonrpc", "2.0");
+            response.put("id", promptId);
+            response.put("result", Map.of("stopReason", "end_turn"));
+            sendLine(stdout, Json.stringify(response));
+        } catch (Exception failure) {
+            System.err.println("acp-fake-agent showcase prompt failed: " + failure);
+        }
+    }
+
+    private static List<Map<String, Object>> showcaseConfigOptions(final String currentModel) {
+        final List<String[]> models = List.of(
+                new String[] {"claude-sonnet-4-5", "Claude Sonnet 4.5"},
+                new String[] {"claude-opus-4-6", "Claude Opus 4.6"},
+                new String[] {"claude-haiku-4-5", "Claude Haiku 4.5"},
+                new String[] {"gpt-5.4", "GPT-5.4"},
+                new String[] {"gpt-5.4-mini", "GPT-5.4 Mini"},
+                new String[] {"gpt-5.3-codex", "GPT-5.3 Codex"},
+                new String[] {"o3-pro", "o3 Pro"},
+                new String[] {"gemini-3.1-pro", "Gemini 3.1 Pro"},
+                new String[] {"gemini-3.0-flash", "Gemini 3.0 Flash"},
+                new String[] {"deepseek-r1", "DeepSeek R1"},
+                new String[] {"deepseek-v3", "DeepSeek V3"},
+                new String[] {"qwen-3-coder", "Qwen 3 Coder"},
+                new String[] {"glm-5", "GLM-5"},
+                new String[] {"kimi-k2.5", "Kimi K2.5"});
+        final List<Map<String, Object>> modelChoices = new ArrayList<>();
+        for (String[] pair : models) {
+            modelChoices.add(Map.of("value", pair[0], "name", pair[1]));
+        }
+        return List.of(
+                Map.of(
+                        "id", "model",
+                        "name", "Model",
+                        "category", "model",
+                        "type", "select",
+                        "currentValue", currentModel,
+                        "options", modelChoices),
+                Map.of(
+                        "id", "effort",
+                        "name", "Thinking Effort",
+                        "category", "thought_level",
+                        "type", "select",
+                        "currentValue", "high",
+                        "options", List.of(
+                                Map.of("value", "low", "name", "Low"),
+                                Map.of("value", "medium", "name", "Medium"),
+                                Map.of("value", "high", "name", "High"))),
+                Map.of(
+                        "id", "permission",
+                        "name", "Permissions",
+                        "category", "permission",
+                        "type", "select",
+                        "currentValue", "ask",
+                        "options", List.of(
+                                Map.of("value", "ask", "name", "Ask permissions"),
+                                Map.of("value", "allow-session", "name", "Session trusted"))));
     }
 
     private void failRenameChain(final String reason) {

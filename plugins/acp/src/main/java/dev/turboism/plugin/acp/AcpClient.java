@@ -534,6 +534,13 @@ final class AcpClient implements AutoCloseable {
             listener.configOptions(this, sessionId, configOptions(update.get("configOptions")));
         } else if ("available_commands_update".equals(kind)) {
             listener.availableCommands(this, sessionId, commandNames(update.get("availableCommands")));
+        } else if ("plan".equals(kind)) {
+            listener.plan(this, sessionId, AcpPlanTracker.parseRawEntries(update.get("entries")));
+        } else if ("usage_update".equals(kind)) {
+            final Object outputTokens = update.get("outputTokens");
+            if (outputTokens instanceof Number number && number.longValue() > 0L) {
+                listener.usage(this, sessionId, number.longValue());
+            }
         }
     }
 
@@ -683,7 +690,10 @@ final class AcpClient implements AutoCloseable {
             final String optionId =
                     switch (decision) {
                         case ALLOW_ONCE -> request.options().allowOnce();
-                        case ALLOW_ALWAYS -> request.options().allowAlways();
+                        case ALLOW_ALWAYS ->
+                            request.options().allowAlways() != null
+                                    ? request.options().allowAlways()
+                                    : request.options().allowOnce();
                         case REJECT_ONCE -> request.options().rejectOnce();
                         case CANCELLED -> null;
                     };

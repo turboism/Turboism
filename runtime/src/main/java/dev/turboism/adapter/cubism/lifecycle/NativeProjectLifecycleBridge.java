@@ -22,6 +22,10 @@ public final class NativeProjectLifecycleBridge {
     private static final AtomicReference<NativeProjectLifecycleBridge> INSTALLED = new AtomicReference<>();
     private static final java.util.concurrent.atomic.AtomicBoolean CONTENT_INGRESS_SEEN =
             new java.util.concurrent.atomic.AtomicBoolean();
+    // Pre-initialize inner frame records with the outer bridge class so a later in-place JAR
+    // replacement on disk never triggers a deferred NoClassDefFoundError during open or exit.
+    private static final FileInvocation SKIPPED_FILE = new FileInvocation(null, null, null);
+    private static final ExitFrame EMPTY_EXIT = new ExitFrame(null);
 
     private final ProjectFileLifecycleCoordinator projectFiles;
     private final EditorLifecycleCoordinator editor;
@@ -180,7 +184,7 @@ public final class NativeProjectLifecycleBridge {
                 FatalErrors.rethrowIfFatal(ignored);
                 // Preserve a frame so a nested failed begin cannot complete the outer exit.
             }
-            bridge.exits.get().push(new ExitFrame(invocation));
+            bridge.exits.get().push(invocation == null ? EMPTY_EXIT : new ExitFrame(invocation));
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
             // Frame allocation and delayed class resolution are part of native ingress too.
@@ -220,7 +224,8 @@ public final class NativeProjectLifecycleBridge {
             beginOpen(kind, displayName, file, subject);
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
-            files.get().push(FileInvocation.skipped());
+            reportSwallowed("beginOpen", ignored);
+            pushSkippedFileSafely();
         }
     }
 
@@ -244,7 +249,15 @@ public final class NativeProjectLifecycleBridge {
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
             reportSwallowed("beginContent", ignored);
-            files.get().push(FileInvocation.skipped());
+            pushSkippedFileSafely();
+        }
+    }
+
+    private void pushSkippedFileSafely() {
+        try {
+            files.get().push(SKIPPED_FILE);
+        } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
         }
     }
 
@@ -424,11 +437,7 @@ public final class NativeProjectLifecycleBridge {
     private record FileInvocation(
             ProjectFileLifecycleCoordinator.Invocation lifecycle,
             Object subject,
-            ProjectContentSnapshot beforeSnapshot) {
-        private static FileInvocation skipped() {
-            return new FileInvocation(null, null, null);
-        }
-    }
+            ProjectContentSnapshot beforeSnapshot) {}
 
     private record ExitFrame(EditorLifecycleCoordinator.ExitInvocation invocation) {}
 }

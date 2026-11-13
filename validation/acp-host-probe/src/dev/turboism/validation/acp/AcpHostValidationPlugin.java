@@ -360,8 +360,11 @@ public final class AcpHostValidationPlugin implements TurboismPlugin {
                         final java.awt.Component sessions = findComponent(window, "turboism-acp.sessions");
                         if (sessions instanceof javax.swing.JList<?> list && list.getModel().getSize() == 1) ledger.pass("onlyOwnedSessionVisible");
                         else ledger.fail("onlyOwnedSessionVisible", "foreign_cli_session_was_imported_or_owned_session_missing");
-                        if (button.getParent().getComponentCount() == 2) ledger.pass("unsupportedOptionsHidden");
-                        else ledger.fail("unsupportedOptionsHidden", "minimal_agent_still_has_unsupported_option_controls");
+                        final java.awt.Container optionBar = button.getParent();
+                        final boolean onlyMinimalControls = optionBar.getComponentCount() == 3
+                                && findComponent(optionBar, "turboism-acp.composer-permission-mode") != null;
+                        if (onlyMinimalControls) ledger.pass("unsupportedOptionsHidden");
+                        else ledger.fail("unsupportedOptionsHidden", "minimal_agent_still_has_unsupported_option_controls_" + optionBar.getComponentCount());
                         final java.awt.image.BufferedImage screenshot = new java.awt.image.BufferedImage(window.getWidth(), window.getHeight(), java.awt.image.BufferedImage.TYPE_INT_RGB);
                         final java.awt.Graphics2D graphics = screenshot.createGraphics();
                         try { window.printAll(graphics); }
@@ -379,10 +382,368 @@ public final class AcpHostValidationPlugin implements TurboismPlugin {
                 ledger.fail("agentUi", failure.getCause().getClass().getSimpleName());
                 return;
             }
-            if (captured.get()) return;
+            if (captured.get()) {
+                captureInteractiveShowcase(ledger);
+                return;
+            }
             Thread.sleep(200L);
         }
         ledger.fail("agentUi", renderRequired ? "native_render_pixels_or_provenance_not_displayed_before_timeout" : "connected_agent_window_not_visible_before_timeout");
+    }
+
+    private void captureInteractiveShowcase(final Ledger ledger) throws InterruptedException {
+        final java.util.concurrent.atomic.AtomicReference<java.awt.Window> targetWindow =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        try {
+            javax.swing.SwingUtilities.invokeAndWait(() -> {
+                for (java.awt.Window candidate : java.awt.Window.getWindows()) {
+                    if (!candidate.isVisible()) continue;
+                    final java.awt.Component prompt = findComponent(candidate, "turboism-acp.prompt");
+                    final java.awt.Component send = findComponent(candidate, "turboism-acp.send");
+                    if (prompt instanceof javax.swing.text.JTextComponent input
+                            && send instanceof javax.swing.JButton sendButton) {
+                        targetWindow.set(candidate);
+                        input.setText("请检查当前模型的头部角度与呼吸参数，平滑过渡并做视口复核");
+                        sendButton.doClick();
+                        return;
+                    }
+                }
+            });
+        } catch (java.lang.reflect.InvocationTargetException failure) {
+            ledger.fail("uiShowcasePrompt", failure.getCause().getClass().getSimpleName());
+            return;
+        }
+        final java.awt.Window window = targetWindow.get();
+        if (window == null) {
+            ledger.fail("uiShowcasePrompt", "agent_window_not_found");
+            return;
+        }
+
+        // Wait for the modal permission dialog, capture it cleanly, and click "Allow for session".
+        final long permDeadline = System.currentTimeMillis() + 20_000L;
+        boolean permCaptured = false;
+        while (enabled && System.currentTimeMillis() < permDeadline && !permCaptured) {
+            final java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean();
+            try {
+                javax.swing.SwingUtilities.invokeAndWait(() -> {
+                    for (java.awt.Window w : java.awt.Window.getWindows()) {
+                        if (!w.isVisible() || !"turboism-acp.permission".equals(w.getName())) continue;
+                        final java.awt.Component allowSession =
+                                findComponent(w, "turboism-acp.permission.allow-session");
+                        if (!(allowSession instanceof javax.swing.JButton allowButton)) continue;
+                        w.validate();
+                        captureWindowImage(w, validationStateRoot().resolve("acp-permission-dialog.png"));
+                        captureCompositeImage(window, w, validationStateRoot().resolve("acp-permission-overlay.png"));
+                        allowButton.doClick();
+                        done.set(true);
+                        return;
+                    }
+                });
+            } catch (java.lang.reflect.InvocationTargetException failure) {
+                ledger.fail("uiShowcasePermission", failure.getCause().getClass().getSimpleName());
+                return;
+            }
+            if (done.get()) permCaptured = true;
+            else Thread.sleep(100L);
+        }
+        if (permCaptured) ledger.pass("uiShowcasePermission");
+        else ledger.fail("uiShowcasePermission", "permission_dialog_not_observed");
+
+        // Wait for the turn to complete (send button re-enabled and TPS pill visible).
+        final long turnDeadline = System.currentTimeMillis() + 20_000L;
+        boolean turnDone = false;
+        while (enabled && System.currentTimeMillis() < turnDeadline && !turnDone) {
+            final java.util.concurrent.atomic.AtomicBoolean ready = new java.util.concurrent.atomic.AtomicBoolean();
+            try {
+                javax.swing.SwingUtilities.invokeAndWait(() -> {
+                    final java.awt.Component agentBtn = findComponent(window, "turboism-acp.composer-agent");
+                    final java.awt.Component todoPill = findComponent(window, "turboism-acp.todo-pill");
+                    final java.awt.Component tpsPill = findComponent(window, "turboism-acp.tps-pill");
+                    if (agentBtn instanceof javax.swing.JButton btn
+                            && btn.isEnabled()
+                            && todoPill != null
+                            && todoPill.isVisible()
+                            && tpsPill != null
+                            && tpsPill.isVisible()) {
+                        ready.set(true);
+                    }
+                });
+            } catch (java.lang.reflect.InvocationTargetException ignored) {
+                break;
+            }
+            if (ready.get()) turnDone = true;
+            else Thread.sleep(120L);
+        }
+        if (!turnDone) {
+            ledger.fail("uiShowcaseTurn", "showcase_turn_did_not_settle");
+            return;
+        }
+        ledger.pass("uiShowcaseTurn");
+
+        try {
+            // 1. Overview screenshot with unified activity group, markdown reply, timestamps, and Todo & TPS pills.
+            javax.swing.SwingUtilities.invokeAndWait(() -> {
+                final java.awt.Component scrollComp = findComponent(window, "turboism-acp.transcript-scroll");
+                if (scrollComp instanceof javax.swing.JScrollPane sp) {
+                    sp.getVerticalScrollBar().setValue(sp.getVerticalScrollBar().getMaximum());
+                }
+                window.validate();
+                captureWindowImage(window, validationStateRoot().resolve("acp-showcase-overview.png"));
+            });
+
+            // 2. Bounded scrollable model selector popup with filter field.
+            captureButtonPopup(window, "turboism-acp.composer-option.model", "acp-showcase-model-menu.png");
+
+            // 3. Todo popover & TPS popover.
+            captureButtonPopup(window, "turboism-acp.todo-pill", "acp-showcase-todo-popover.png");
+            captureButtonPopup(window, "turboism-acp.tps-pill", "acp-showcase-tps-popover.png");
+
+            // 4. Permission mode menu showing Ask / Session trusted / Auto approve.
+            captureButtonPopup(window, "turboism-acp.composer-option.permission", "acp-showcase-permission-menu.png");
+
+            // 5. Expand the showcase turn's activity group (last ▸) to capture nested Thinking + Tools rows.
+            javax.swing.SwingUtilities.invokeAndWait(() -> {
+                final java.awt.Component transcriptComp = findComponent(window, "turboism-acp.transcript");
+                if (transcriptComp instanceof javax.swing.JTextPane pane) {
+                    final String text = pane.getText();
+                    final int idx = text.lastIndexOf("▸");
+                    if (idx >= 0) {
+                        pane.setCaretPosition(idx + 1);
+                        final javax.swing.Action toggle = pane.getActionMap().get("turboism-acp.toggle-disclosure");
+                        if (toggle != null) {
+                            toggle.actionPerformed(new java.awt.event.ActionEvent(
+                                    pane, java.awt.event.ActionEvent.ACTION_PERFORMED, "toggle"));
+                        }
+                    }
+                    final java.awt.Component scrollComp = findComponent(window, "turboism-acp.transcript-scroll");
+                    if (scrollComp instanceof javax.swing.JScrollPane sp) {
+                        sp.getVerticalScrollBar().setValue(sp.getVerticalScrollBar().getMaximum());
+                    }
+                }
+                window.validate();
+                captureWindowImage(window, validationStateRoot().resolve("acp-showcase-expanded-activity.png"));
+            });
+
+            // 6. Expand one nested Thinking disclosure to verify inner thought text rendering.
+            javax.swing.SwingUtilities.invokeAndWait(() -> {
+                final java.awt.Component transcriptComp = findComponent(window, "turboism-acp.transcript");
+                if (transcriptComp instanceof javax.swing.JTextPane pane) {
+                    final String text = pane.getText();
+                    final int idx = text.lastIndexOf("▸");
+                    if (idx >= 0) {
+                        pane.setCaretPosition(idx + 1);
+                        final javax.swing.Action toggle = pane.getActionMap().get("turboism-acp.toggle-disclosure");
+                        if (toggle != null) {
+                            toggle.actionPerformed(new java.awt.event.ActionEvent(
+                                    pane, java.awt.event.ActionEvent.ACTION_PERFORMED, "toggle"));
+                        }
+                    }
+                    final java.awt.Component scrollComp = findComponent(window, "turboism-acp.transcript-scroll");
+                    if (scrollComp instanceof javax.swing.JScrollPane sp) {
+                        sp.getVerticalScrollBar().setValue(sp.getVerticalScrollBar().getMaximum());
+                    }
+                }
+                window.validate();
+                captureWindowImage(window, validationStateRoot().resolve("acp-showcase-expanded-thinking.png"));
+            });
+
+            // 7. Simulate dark theme semantic defaults in-place inside the host to capture dark theme following, then restore.
+            javax.swing.SwingUtilities.invokeAndWait(() -> {
+                final java.util.Map<String, Object> saved = new java.util.LinkedHashMap<>();
+                final java.util.Map<String, java.awt.Color> dark = java.util.Map.ofEntries(
+                        java.util.Map.entry("CubismCommon.background", new java.awt.Color(0x1E1F22)),
+                        java.util.Map.entry("CubismCommon.surface", new java.awt.Color(0x2B2D30)),
+                        java.util.Map.entry("CubismCommon.inputBackground", new java.awt.Color(0x25262A)),
+                        java.util.Map.entry("CubismCommon.foreground", new java.awt.Color(0xDFE1E5)),
+                        java.util.Map.entry("CubismCommon.mutedForeground", new java.awt.Color(0x8C919A)),
+                        java.util.Map.entry("CubismCommon.blue", new java.awt.Color(0x548AF7)),
+                        java.util.Map.entry("CubismCommon.border", new java.awt.Color(0x3E4148)),
+                        java.util.Map.entry("CubismCommon.selectionBackground", new java.awt.Color(0x2E436E)),
+                        java.util.Map.entry("CubismCommon.selectionForeground", new java.awt.Color(0xFFFFFF)));
+                for (var entry : dark.entrySet()) {
+                    saved.put(entry.getKey(), javax.swing.UIManager.get(entry.getKey()));
+                    javax.swing.UIManager.put(entry.getKey(), entry.getValue());
+                }
+                try {
+                    javax.swing.SwingUtilities.updateComponentTreeUI(window);
+                    // Flush queued refreshTheme invokeLater tasks synchronously.
+                    for (java.awt.Component child : ((javax.swing.RootPaneContainer) window).getContentPane().getComponents()) {
+                        child.validate();
+                    }
+                    window.validate();
+                } finally {
+                    // Schedule capture after invokeLater(refreshTheme) runs, so keep dark values briefly.
+                }
+                // Save restoration map on client property for next invokeAndWait step.
+                ((javax.swing.RootPaneContainer) window)
+                        .getRootPane()
+                        .putClientProperty("acp.probe.savedTheme", saved);
+            });
+            // Let invokeLater(this::refreshTheme) run on EDT, capture dark window + model menu, then restore original theme.
+            Thread.sleep(250L);
+            captureButtonPopup(window, "turboism-acp.composer-option.model", "acp-showcase-dark-theme.png");
+            javax.swing.SwingUtilities.invokeAndWait(() -> {
+                final Object raw = ((javax.swing.RootPaneContainer) window)
+                        .getRootPane()
+                        .getClientProperty("acp.probe.savedTheme");
+                if (raw instanceof java.util.Map<?, ?> saved) {
+                    for (var entry : saved.entrySet()) {
+                        javax.swing.UIManager.put(entry.getKey(), entry.getValue());
+                    }
+                    ((javax.swing.RootPaneContainer) window)
+                            .getRootPane()
+                            .putClientProperty("acp.probe.savedTheme", null);
+                    javax.swing.SwingUtilities.updateComponentTreeUI(window);
+                }
+            });
+            Thread.sleep(150L);
+            ledger.pass("uiShowcaseScreenshots");
+        } catch (Exception failure) {
+            logger.error("ACP showcase screenshot capture failed", failure);
+            ledger.fail("uiShowcaseScreenshots", failure.getClass().getSimpleName());
+        }
+    }
+
+    private void captureButtonPopup(
+            final java.awt.Window window, final String buttonName, final String outputFileName)
+            throws InterruptedException, java.lang.reflect.InvocationTargetException {
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            final java.awt.Component comp = findComponent(window, buttonName);
+            if (comp instanceof javax.swing.JButton button) {
+                button.doClick();
+            }
+        });
+        Thread.sleep(180L);
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            javax.swing.JPopupMenu activePopup = null;
+            for (javax.swing.MenuElement element :
+                    javax.swing.MenuSelectionManager.defaultManager().getSelectedPath()) {
+                if (element instanceof javax.swing.JPopupMenu popup && popup.isShowing()) {
+                    activePopup = popup;
+                }
+            }
+            if (activePopup == null) {
+                activePopup = findVisiblePopup();
+            }
+            if (activePopup != null) {
+                activePopup.validate();
+                captureCompositePopup(window, activePopup, validationStateRoot().resolve(outputFileName));
+                javax.swing.MenuSelectionManager.defaultManager().clearSelectedPath();
+                activePopup.setVisible(false);
+            } else {
+                captureWindowImage(window, validationStateRoot().resolve(outputFileName));
+            }
+        });
+        Thread.sleep(80L);
+    }
+
+    private static javax.swing.JPopupMenu findVisiblePopup() {
+        for (java.awt.Window w : java.awt.Window.getWindows()) {
+            if (!w.isVisible()) continue;
+            final javax.swing.JPopupMenu found = findPopupIn(w);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private static javax.swing.JPopupMenu findPopupIn(final java.awt.Component comp) {
+        if (comp instanceof javax.swing.JPopupMenu popup && popup.isShowing()) return popup;
+        if (comp instanceof java.awt.Container container) {
+            for (java.awt.Component child : container.getComponents()) {
+                final javax.swing.JPopupMenu found = findPopupIn(child);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    private static void captureWindowImage(final java.awt.Window window, final Path target) {
+        final int w = Math.max(1, window.getWidth());
+        final int h = Math.max(1, window.getHeight());
+        final java.awt.image.BufferedImage img =
+                new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        final java.awt.Graphics2D g = img.createGraphics();
+        try {
+            window.printAll(g);
+        } finally {
+            g.dispose();
+        }
+        try {
+            javax.imageio.ImageIO.write(img, "png", target.toFile());
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static void captureCompositeImage(
+            final java.awt.Window base, final java.awt.Window overlay, final Path target) {
+        final java.awt.Point baseLoc = base.getLocationOnScreen();
+        final java.awt.Point overLoc = overlay.getLocationOnScreen();
+        final int minX = Math.min(baseLoc.x, overLoc.x);
+        final int minY = Math.min(baseLoc.y, overLoc.y);
+        final int maxX = Math.max(baseLoc.x + base.getWidth(), overLoc.x + overlay.getWidth());
+        final int maxY = Math.max(baseLoc.y + base.getHeight(), overLoc.y + overlay.getHeight());
+        final java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(
+                Math.max(1, maxX - minX), Math.max(1, maxY - minY), java.awt.image.BufferedImage.TYPE_INT_RGB);
+        final java.awt.Graphics2D g = img.createGraphics();
+        try {
+            g.translate(baseLoc.x - minX, baseLoc.y - minY);
+            base.printAll(g);
+            g.translate(-(baseLoc.x - minX), -(baseLoc.y - minY));
+            g.setColor(new java.awt.Color(0, 0, 0, 72));
+            g.fillRect(baseLoc.x - minX, baseLoc.y - minY, base.getWidth(), base.getHeight());
+            g.translate(overLoc.x - minX, overLoc.y - minY);
+            overlay.printAll(g);
+        } finally {
+            g.dispose();
+        }
+        try {
+            javax.imageio.ImageIO.write(img, "png", target.toFile());
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static void captureCompositePopup(
+            final java.awt.Window base, final javax.swing.JPopupMenu popup, final Path target) {
+        final java.awt.Point baseLoc = safeScreenLocation(base, null);
+        final java.awt.Component invoker = popup.getInvoker();
+        final java.awt.Point fallback = invoker != null && invoker.isShowing()
+                ? new java.awt.Point(
+                        safeScreenLocation(invoker, baseLoc).x,
+                        Math.max(baseLoc.y, safeScreenLocation(invoker, baseLoc).y - popup.getHeight() - 4))
+                : baseLoc;
+        final java.awt.Point popLoc = safeScreenLocation(popup, fallback);
+        final int minX = Math.min(baseLoc.x, popLoc.x);
+        final int minY = Math.min(baseLoc.y, popLoc.y);
+        final int maxX = Math.max(baseLoc.x + base.getWidth(), popLoc.x + popup.getWidth());
+        final int maxY = Math.max(baseLoc.y + base.getHeight(), popLoc.y + popup.getHeight());
+        final java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(
+                Math.max(1, maxX - minX), Math.max(1, maxY - minY), java.awt.image.BufferedImage.TYPE_INT_RGB);
+        final java.awt.Graphics2D g = img.createGraphics();
+        try {
+            g.translate(baseLoc.x - minX, baseLoc.y - minY);
+            base.printAll(g);
+            g.translate(-(baseLoc.x - minX) + (popLoc.x - minX), -(baseLoc.y - minY) + (popLoc.y - minY));
+            popup.printAll(g);
+        } finally {
+            g.dispose();
+        }
+        try {
+            javax.imageio.ImageIO.write(img, "png", target.toFile());
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static java.awt.Point safeScreenLocation(
+            final java.awt.Component comp, final java.awt.Point zeroFallback) {
+        try {
+            final java.awt.Point loc = comp.getLocationOnScreen();
+            if (zeroFallback != null && loc.x == 0 && loc.y == 0 && (zeroFallback.x != 0 || zeroFallback.y != 0)) {
+                return zeroFallback;
+            }
+            return loc;
+        } catch (RuntimeException notShowing) {
+            return zeroFallback != null ? zeroFallback : new java.awt.Point(0, 0);
+        }
     }
 
     private static java.awt.Component findComponent(final java.awt.Component component, final String name) {
@@ -417,6 +778,7 @@ public final class AcpHostValidationPlugin implements TurboismPlugin {
             return;
         }
         logger.info("ACP_HOST_VALIDATION_RESULT observed=" + resultFile.getFileName());
+        dismissWelcomeGuideIfVisible();
         Exception firstFailure = null;
         for (int attempt = 1; attempt <= 2; attempt++) {
             try {
@@ -440,6 +802,24 @@ public final class AcpHostValidationPlugin implements TurboismPlugin {
             }
         }
         appendWindowDump(resultFile, firstFailure);
+    }
+
+    private void dismissWelcomeGuideIfVisible() {
+        try {
+            javax.swing.SwingUtilities.invokeAndWait(() -> {
+                for (java.awt.Window window : java.awt.Window.getWindows()) {
+                    if (window instanceof javax.swing.JDialog dialog && dialog.isVisible()) {
+                        final String title = dialog.getTitle();
+                        if (title != null && title.contains("Turboism") && !"turboism-acp.permission".equals(dialog.getName())) {
+                            dialog.dispatchEvent(new java.awt.event.WindowEvent(
+                                    dialog, java.awt.event.WindowEvent.WINDOW_CLOSING));
+                            if (dialog.isVisible()) dialog.setVisible(false);
+                        }
+                    }
+                }
+            });
+        } catch (Exception ignored) {
+        }
     }
 
     /** Appends every visible window to the result file so a blocking modal can be identified. */

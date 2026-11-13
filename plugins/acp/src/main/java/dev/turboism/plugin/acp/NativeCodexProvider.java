@@ -275,6 +275,14 @@ final class NativeCodexProvider extends NativeAgentProvider {
             }
             case "item/started", "item/completed" ->
                 item(turn, object(params.get("item")), method.equals("item/completed"));
+            case "turn/plan/updated" -> host.plan(list(params.get("plan")));
+            case "thread/tokenUsage/updated" -> {
+                final Object lastOut =
+                        object(object(params.get("tokenUsage")).get("last")).get("outputTokens");
+                if (lastOut instanceof Number n && n.longValue() > 0L) {
+                    host.usage(n.longValue());
+                }
+            }
             case "turn/completed" -> {
                 final var result = object(params.get("turn"));
                 final String status = text(result.get("status"));

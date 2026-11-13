@@ -1396,6 +1396,53 @@ final class AcpChatControllerTest {
         }
     }
 
+    @Test
+    void sessionScopedPermissionMemoryAndAutoModeSkipRepeatedPromptsAndResetOnNewSession() throws Exception {
+        final Fixture fixture = new Fixture();
+        try (AcpChatController controller = fixture.controller();
+                AcpClient active = inactiveClient()) {
+            set(controller, "client", active);
+            invokeActivateSession(controller, configuredSession("sess-1"));
+
+            final var reqA = new AcpListener.PermissionRequest(
+                    "turboism: turboism.parameters.structure.apply",
+                    "other",
+                    "call-1",
+                    "{}",
+                    new AcpClient.PermissionOptionSet("allow_once", null, "reject_once"));
+            fixture.view.permissionDecision = AcpListener.PermissionDecision.ALLOW_ALWAYS;
+            assertEquals(AcpListener.PermissionDecision.ALLOW_ALWAYS, controller.permission(active, "sess-1", reqA));
+            assertEquals(1, fixture.view.permissionRequests.get());
+
+            // Second call to the same normalized tool in the same session auto-approves without UI.
+            final var reqA2 = new AcpListener.PermissionRequest(
+                    "mcp_turboism_turboism_parameters_structure_apply",
+                    "other",
+                    "call-2",
+                    "{}",
+                    new AcpClient.PermissionOptionSet("allow_once", null, "reject_once"));
+            assertEquals(AcpListener.PermissionDecision.ALLOW_ALWAYS, controller.permission(active, "sess-1", reqA2));
+            assertEquals(1, fixture.view.permissionRequests.get());
+
+            // Switching to a fresh session clears session-scoped tool approvals.
+            invokeActivateSession(controller, configuredSession("sess-2"));
+            fixture.view.permissionDecision = AcpListener.PermissionDecision.ALLOW_ONCE;
+            assertEquals(AcpListener.PermissionDecision.ALLOW_ONCE, controller.permission(active, "sess-2", reqA));
+            assertEquals(2, fixture.view.permissionRequests.get());
+
+            // Auto permission mode approves without prompting the view.
+            controller.setPermissionMode(AcpChatController.PermissionMode.AUTO);
+            final var reqB = new AcpListener.PermissionRequest(
+                    "turboism: turboism.authoring.keyforms.write",
+                    "other",
+                    "call-3",
+                    "{}",
+                    new AcpClient.PermissionOptionSet("allow_once", null, "reject_once"));
+            assertEquals(AcpListener.PermissionDecision.ALLOW_ALWAYS, controller.permission(active, "sess-2", reqB));
+            assertEquals(2, fixture.view.permissionRequests.get());
+        }
+    }
+
     private static AcpSession configuredSession(final String sessionId) {
         return new AcpSession(
                 sessionId,

@@ -352,13 +352,18 @@ final class AcpChatWindowRenderingTest {
                 final String after = transcript.getText();
                 assertFalse(after.contains("检查通过"));
                 assertTrue(after.contains("Tools: 1"));
+                assertFalse(after.contains("Thinking"));
                 assertFalse(after.contains("Commands: 0"));
                 assertTrue(after.contains("正常文本，可以继续。"));
                 assertEquals(1, after.split("结果", -1).length - 1);
 
+                toggleDisclosureWithKeyboard(transcript, "Tools: 1");
+                assertTrue(transcript.getText().contains("▸  Thinking"));
+                assertFalse(transcript.getText().contains("分析参数"));
                 toggleDisclosureWithKeyboard(transcript, "Thinking");
                 assertTrue(transcript.getText().contains("分析参数"));
                 toggleDisclosureWithKeyboard(transcript, "Thinking");
+                toggleDisclosureWithKeyboard(transcript, "Tools: 1");
                 assertEquals(after, transcript.getText());
             } finally {
                 window.dispose();
@@ -745,7 +750,7 @@ final class AcpChatWindowRenderingTest {
     }
 
     @Test
-    void thinkingSectionsExpandIndependentlyAndKeepTheirOrderAroundToolGroups() throws Exception {
+    void thinkingSectionsMergeIntoUnifiedToolActivityGroupsAndKeepChronologicalOrder() throws Exception {
         assumeFalse(GraphicsEnvironment.isHeadless());
         SwingUtilities.invokeAndWait(() -> {
             final AcpChatWindow window = new AcpChatWindow(localization(), "", "", "");
@@ -765,23 +770,135 @@ final class AcpChatWindowRenderingTest {
                 window.appendTool("two", "检查参数", "read", "completed");
                 window.appendAgent("最终结论");
                 String text = transcript.getText();
-                assertEquals(2, text.split("Thinking", -1).length - 1);
-                assertEquals(2, text.split("Tools:", -1).length - 1);
-                assertFalse(text.contains("第二段思考"));
-                assertTrue(text.indexOf("Thinking") < text.indexOf("Tools:"));
-                assertTrue(text.lastIndexOf("Thinking") > text.indexOf("Tools:"));
-                toggleDisclosureWithKeyboard(transcript, "▸  Thinking");
-                window.updateTool("one", "completed", "读取完成");
-                assertTrue(transcript.getText().contains("第一段思考，继续分析"));
-                assertTrue(transcript.getText().contains("第二段思考"));
-                toggleDisclosureWithKeyboard(transcript, "Thinking");
-                text = transcript.getText();
+                // Summary omits Thinking and shows nested Thinking disclosures inside the expanded group.
+                assertFalse(text.contains("Thinking · Tools: 2"));
+                assertTrue(text.contains("▾  Tools: 2  ·  1 running"));
+                assertEquals(2, text.split("▸  Thinking", -1).length - 1);
                 assertFalse(text.contains("第一段思考"));
-                assertTrue(text.contains("第二段思考"));
+                assertFalse(text.contains("第二段思考"));
+                toggleDisclosureWithKeyboard(transcript, "▸  Thinking");
+                text = transcript.getText();
+                assertTrue(text.contains("▾  Thinking"));
+                assertTrue(text.indexOf("第一段思考") < text.indexOf("读取模型"));
+                assertTrue(text.indexOf("读取模型") < text.indexOf("▸  Thinking"));
+                assertTrue(text.indexOf("▸  Thinking") < text.indexOf("检查参数"));
+
+                window.updateTool("one", "completed", "读取完成");
+                assertTrue(transcript.getText().contains("读取完成"));
+                toggleDisclosureWithKeyboard(transcript, "Tools: 2");
+                text = transcript.getText();
+                assertTrue(text.contains("▸  Tools: 2"));
+                assertFalse(text.contains("Thinking"));
+                assertFalse(text.contains("第一段思考"));
+                assertFalse(text.contains("第二段思考"));
                 assertTrue(text.contains("最终结论"));
+
+                // A later turn after an agent message starts a separate independent group.
+                window.appendThinking("下一轮思考");
+                assertEquals(1, transcript.getText().split("Thinking", -1).length - 1);
+
                 window.clearTranscript();
                 window.appendThinking("新会话思考");
                 assertFalse(transcript.getText().contains("新会话思考"));
+            } finally {
+                window.dispose();
+            }
+        });
+    }
+
+    @Test
+    void scrollableModelPopupTodoTpsPillsTimestampsAndPermissionControlsWorkTogether() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        SwingUtilities.invokeAndWait(() -> {
+            final java.util.concurrent.atomic.AtomicLong clock =
+                    new java.util.concurrent.atomic.AtomicLong(1_000_000_000L);
+            final AcpChatWindow window = new AcpChatWindow(localization(), "codex", "", "", clock::get);
+            try {
+                final var selectedPermMode =
+                        new java.util.concurrent.atomic.AtomicReference<>(AcpChatController.PermissionMode.ASK);
+                window.bindExtendedControls(selectedPermMode::set);
+
+                final java.util.List<AcpConfigOption.Choice> manyModels = new java.util.ArrayList<>();
+                for (int i = 1; i <= 15; i++) {
+                    manyModels.add(new AcpConfigOption.Choice("model-" + i, "Model " + i));
+                }
+                final List<AcpConfigOption> options = List.of(
+                        new AcpConfigOption("model", "Model", "model-1", manyModels),
+                        new AcpConfigOption(
+                                "effort", "Effort", "high", List.of(new AcpConfigOption.Choice("high", "High"))));
+                window.showConnected(AcpClient.AcpAgentInfo.UNKNOWN, options, false, AcpClient.McpAttachment.NONE);
+
+                // Transcript scrollbar is visible with positive width instead of 0x0.
+                final var scroll = component(window, "transcriptScroll", javax.swing.JScrollPane.class);
+                assertTrue(scroll.getVerticalScrollBar().getPreferredSize().width > 0);
+
+                final JButton modelBtn = (JButton) component(window, "composerOptionButtons", java.util.Map.class)
+                        .get("model");
+                final JButton permBtn = component(window, "composerPermissionMode", JButton.class);
+
+                // 15-choice model menu uses bounded scrollable popup rather than unbounded height.
+                final var modelPopup = (AcpThemeControls.ThemedPopupMenu) modelBtn.getComponentPopupMenu();
+                assertTrue(modelPopup.isScrollableMenu());
+                assertTrue(modelPopup.getPreferredSize().height <= 340);
+
+                // Permission mode button switches to Auto mode.
+                assertEquals("Ask permissions ▾", permBtn.getText());
+                ((JMenuItem) permBtn.getComponentPopupMenu().getComponent(1)).doClick();
+                assertEquals(AcpChatController.PermissionMode.AUTO, selectedPermMode.get());
+                assertEquals("Auto approve ▾", permBtn.getText());
+
+                // Todo and TPS pills appear in composerTrack during/after generation.
+                window.showPrompting();
+                clock.addAndGet(300_000_000L);
+                window.appendAgent("Generated reply chunk for speed meter");
+                clock.addAndGet(500_000_000L);
+                window.recordUsageTokens(40L);
+                window.showPlan(List.of(
+                        new AcpPlanTracker.Item("Inspect parameters", "", AcpPlanTracker.Status.COMPLETED),
+                        new AcpPlanTracker.Item(
+                                "Apply folders", "Applying folders", AcpPlanTracker.Status.IN_PROGRESS)));
+                window.showPromptComplete("end_turn");
+
+                final JButton todoPill = component(window, "todoPill", JButton.class);
+                final JButton tpsPill = component(window, "tpsPill", JButton.class);
+                assertTrue(todoPill.isVisible());
+                assertTrue(todoPill.getText().contains("1/2"));
+                assertTrue(todoPill.getText().contains("Applying folders"));
+                assertTrue(tpsPill.isVisible());
+                assertTrue(tpsPill.getText().endsWith("tok/s"));
+                assertFalse(tpsPill.getText().contains(" tok · "));
+
+                // User message panel centers text vertically inside its painted card bounds, with timestamp below.
+                window.showAgentAndFront();
+                window.appendUser("测试垂直居中");
+                final JTextPane transcript = component(window, "transcript", JTextPane.class);
+                transcript.setSize(600, 400);
+                transcript.doLayout();
+                try {
+                    final String rendered = transcript.getText();
+                    assertTrue(
+                            java.util.regex.Pattern.compile("[A-Za-z]+ \\d{2}:\\d{2}")
+                                    .matcher(rendered)
+                                    .find(),
+                            "Expected local weekday + HH:mm timestamp in transcript");
+                    final int userOffset = rendered.indexOf("测试垂直居中");
+                    final var paraElem = transcript.getStyledDocument().getParagraphElement(userOffset);
+                    final var charBounds = transcript.modelToView2D(userOffset);
+                    final var endBounds = transcript.modelToView2D(paraElem.getEndOffset() - 1);
+                    final double cardTop = charBounds.getY() - 16.0 + 8.0;
+                    final double cardBottom = endBounds.getMaxY() + 14.0 - 6.0;
+                    final double topPad = charBounds.getY() - cardTop;
+                    final double bottomPad = cardBottom - charBounds.getMaxY();
+                    assertEquals(topPad, bottomPad, 1.0);
+
+                    // Timestamp paragraph below user message is right-aligned and has no card background.
+                    final var tsPara = transcript.getStyledDocument().getParagraphElement(paraElem.getEndOffset());
+                    assertEquals(
+                            Boolean.FALSE, tsPara.getAttributes().getAttribute(AcpTranscriptEditorKit.USER_BACKGROUND));
+                    assertEquals(StyleConstants.ALIGN_RIGHT, StyleConstants.getAlignment(tsPara.getAttributes()));
+                } catch (javax.swing.text.BadLocationException failure) {
+                    throw new AssertionError(failure);
+                }
             } finally {
                 window.dispose();
             }
