@@ -19,6 +19,7 @@ name: Remote hygiene
 
 on:
   push:
+    branches: ["main"]
   pull_request:
 
 permissions:

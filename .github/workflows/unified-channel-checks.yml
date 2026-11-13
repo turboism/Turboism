@@ -1,35 +1,58 @@
 # Unified build channel, distribution and release-tooling checks.
 #
-# This workflow owns every responsibility the former distribution-ci,
-# download-counts-ci and release-notes-checks workflows repeated: one Node
-# distribution suite, one release/channel Python selection, one Worker dry-run
-# and one source archive. The ordinary pull-request closure stays in ci.yml;
-# nothing here re-executes devCheck, checkCompletedCommit or the full
-# checkRelease closure. Instead:
+# This workflow owns the release/channel/distribution regression suites, one
+# Worker dry-run, the serial no-clean channel switch chain and the release-only
+# Gradle packaging gate (`checkReleasePackaging`). Ordinary pull requests that
+# do not touch release, packaging, distribution or build-channel identity paths
+# skip this workflow completely.
 #
-#   verify          no Gradle: release/channel/distribution regression tests,
-#                   Worker bundle dry-run, worktree hygiene, source archive.
-#   release-gates   one shared upstream (needs: verify): the single serial
-#                   no-clean channel chain plus the release-only Gradle gate.
-#   channel-package one real package per channel (matrix), no shared closure.
+#   release-gates   single job on matching PRs and main pushes: Node/Python
+#                   regression suites, Worker bundle dry-run, worktree hygiene,
+#                   no-clean channel chain, and `checkReleasePackaging`.
+#   channel-package real per-channel NSIS/ZIP/JAR packaging matrix on `main`
+#                   pushes only (`github.event_name != 'pull_request'`).
 #
-# release-notes/** is deliberately not a trigger: those files are data rendered by
-# the required devCheck lane (`checkLocalizedChangelogs` runs on every pull
-# request without path filters), so a notes-only edit must not schedule the real
-# stable/beta/nightly packaging matrix.
+# release-notes/** is deliberately not a trigger: `checkLocalizedChangelogs`
+# runs in `devCheck` on every pull request without path filters, so notes-only
+# edits never schedule release or packaging jobs.
 
 name: Unified build channel checks
 on:
   push:
     branches: [main]
     paths:
-      - 'gradle/**'
-      - 'runtime/**'
+      - 'gradle/common-java.gradle.kts'
+      - 'gradle/asm-admission.gradle.kts'
+      - 'gradle/verification.gradle.kts'
+      - 'gradle/gates.txt'
+      - 'gradle/libs.versions.toml'
+      - 'gradle/wrapper/**'
+      - 'runtime/build.gradle.kts'
+      - 'runtime/src/main/java/dev/turboism/core/FrameworkBuildInfo.java'
+      - 'runtime/src/test/java/dev/turboism/core/FrameworkBuildInfoTest.java'
       - 'scripts/release/**'
-      - 'scripts/test/**'
+      - 'scripts/plugin_event_metadata.py'
+      - 'scripts/dev/mapping-review.sh'
+      - 'scripts/dev/worktree-id.sh'
+      - 'scripts/dev/worktree-id-lib.sh'
+      - 'scripts/test/test_*release*.py'
+      - 'scripts/test/test_build_channels.py'
+      - 'scripts/test/test_nightly.py'
+      - 'scripts/test/test_prerelease.py'
+      - 'scripts/test/test_product_cli.py'
+      - 'scripts/test/verify_built_identity.py'
+      - 'scripts/test/test_asm_supply_chain_admission.sh'
+      - 'scripts/test/asm_admission_gate.py'
+      - 'scripts/test/test_mapping_review_wrapper_args.sh'
+      - 'validation/supply-chain/**'
       - 'packaging/**'
-      - '.github/workflows/**'
+      - '.github/workflows/unified-channel-checks.yml'
+      - '.github/workflows/release*.yml'
+      - '.github/workflows/allocate-build.yml'
+      - '.github/workflows/framework-release-signing.yml'
+      - '.github/workflows/publish-selected-plugins.yml'
       - 'docs/RELEASING.md'
+      - 'LICENSE'
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
       - 'gradlew'
@@ -38,13 +61,38 @@ on:
       - 'distribution/**'
   pull_request:
     paths:
-      - 'gradle/**'
-      - 'runtime/**'
+      - 'gradle/common-java.gradle.kts'
+      - 'gradle/asm-admission.gradle.kts'
+      - 'gradle/verification.gradle.kts'
+      - 'gradle/gates.txt'
+      - 'gradle/libs.versions.toml'
+      - 'gradle/wrapper/**'
+      - 'runtime/build.gradle.kts'
+      - 'runtime/src/main/java/dev/turboism/core/FrameworkBuildInfo.java'
+      - 'runtime/src/test/java/dev/turboism/core/FrameworkBuildInfoTest.java'
       - 'scripts/release/**'
-      - 'scripts/test/**'
+      - 'scripts/plugin_event_metadata.py'
+      - 'scripts/dev/mapping-review.sh'
+      - 'scripts/dev/worktree-id.sh'
+      - 'scripts/dev/worktree-id-lib.sh'
+      - 'scripts/test/test_*release*.py'
+      - 'scripts/test/test_build_channels.py'
+      - 'scripts/test/test_nightly.py'
+      - 'scripts/test/test_prerelease.py'
+      - 'scripts/test/test_product_cli.py'
+      - 'scripts/test/verify_built_identity.py'
+      - 'scripts/test/test_asm_supply_chain_admission.sh'
+      - 'scripts/test/asm_admission_gate.py'
+      - 'scripts/test/test_mapping_review_wrapper_args.sh'
+      - 'validation/supply-chain/**'
       - 'packaging/**'
-      - '.github/workflows/**'
+      - '.github/workflows/unified-channel-checks.yml'
+      - '.github/workflows/release*.yml'
+      - '.github/workflows/allocate-build.yml'
+      - '.github/workflows/framework-release-signing.yml'
+      - '.github/workflows/publish-selected-plugins.yml'
       - 'docs/RELEASING.md'
+      - 'LICENSE'
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
       - 'gradlew'
@@ -57,60 +105,18 @@ concurrency:
   group: unified-channel-checks-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  verify:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: '22'
-      - name: Distribution, release and channel regression tests
-        # The release tooling modules executed by the Gradle gate
-        # (test_release_tooling / orchestrator / promotion) are intentionally not
-        # repeated here; every other release, channel and distribution suite runs
-        # exactly once in this repository.
-        run: |
-          python3 -m unittest discover -s scripts/release -p 'test_*.py'
-          python3 -m unittest scripts.test.test_build_channels scripts.test.test_nightly scripts.test.test_prerelease scripts.test.test_product_cli scripts.test.test_release_details
-          node --test distribution/test/*.test.mjs
-          git diff --check
-          npx --yes wrangler@4.127.0 deploy --dry-run --config distribution/wrangler.json --outdir artifacts/worker
-      - name: Source hygiene
-        run: python3 scripts/check_remote_hygiene.py --worktree
-      - name: Retain exact tested source and history
-        # One archive for the repository: the exact source, the commit and the tag
-        # history used by independent review. The former release-notes workflow kept
-        # this same bundle; it is not duplicated anywhere else.
-        if: always()
-        run: |
-          mkdir -p artifacts
-          git archive HEAD | gzip > artifacts/source.tar.gz
-          git bundle create artifacts/history.bundle HEAD --tags
-          git rev-parse HEAD > artifacts/commit.txt
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
-        with:
-          name: unified-channel-source
-          path: artifacts
-          retention-days: 7
   release-gates:
-    # Single upstream for the three channel packages. The no-clean
-    # beta→nightly→stable switch regression must stay one serial chain in one
-    # build directory (splitting it per channel would lose the stale-resource
-    # coverage), and the release-only gate must not re-run the public
-    # completed-commit closure that ci.yml already executed for this commit.
-    needs: verify
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
       - uses: actions/setup-java@d2bb5a81bf6132351ee9adcc0bba8261a8d34d48
         with:
           distribution: temurin
@@ -133,15 +139,24 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends nsis
-      - name: Check local metadata and successive channel inputs without cleaning
-        # Runs before any QA identity is injected: the chain must observe the
-        # ordinary local metadata, and TURBOISM_BUILD_CHANNEL=stable would make the
-        # beta/nightly runs fail the channel-identity consistency check.
+      - name: Distribution, release and channel regression tests
         run: |
-          ./gradlew --no-daemon -q printBuildInfo
-          ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=beta --console=plain
-          ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=nightly --console=plain
-          ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=stable --console=plain
+          python3 -m unittest discover -s scripts/release -p 'test_*.py'
+          python3 -m unittest scripts.test.test_build_channels scripts.test.test_nightly scripts.test.test_prerelease scripts.test.test_product_cli scripts.test.test_release_details
+          node --test distribution/test/*.test.mjs
+          git diff --check
+          npx --yes wrangler@4.127.0 deploy --dry-run --config distribution/wrangler.json --outdir build/worker-dry-run
+      - name: Source hygiene
+        run: python3 scripts/check_remote_hygiene.py --worktree
+      - name: Check local metadata and successive channel inputs without cleaning
+        # Reuses one Gradle daemon across the four fast channel-switch probes, then
+        # stops it before QA environment variables are injected for the release gate.
+        run: |
+          ./gradlew -q printBuildInfo
+          ./gradlew :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=beta --console=plain
+          ./gradlew :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=nightly --console=plain
+          ./gradlew :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=stable --console=plain
+          ./gradlew --stop
       - name: Resolve explicit QA-only identity, without allocating or publishing a product build
         run: |
           BASE=$(python3 -c 'import sys;sys.path.insert(0,"scripts/release");from turboism_release.versions import framework_version;from pathlib import Path;print(framework_version(Path.cwd()))')
@@ -152,9 +167,23 @@ jobs:
           echo "ORG_GRADLE_PROJECT_turboismRelease=true" >> "$GITHUB_ENV"
       - name: Run the release-only gate
         run: ./gradlew --no-daemon checkReleasePackaging -PinstallerVersion="$TURBOISM_BUILD_VERSION" -PturboismRelease=true --console=plain
+      - name: Retain exact tested source and history
+        if: always() && github.event_name != 'pull_request'
+        run: |
+          mkdir -p artifacts
+          git archive HEAD | gzip > artifacts/source.tar.gz
+          git bundle create artifacts/history.bundle HEAD --tags
+          git rev-parse HEAD > artifacts/commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always() && github.event_name != 'pull_request'
+        with:
+          name: unified-channel-source
+          path: artifacts
+          retention-days: 7
   channel-package:
-    # Real per-channel identity and packages stay per channel; only the shared
-    # upstream work moved out of this matrix.
+    # Real three-channel NSIS/ZIP/JAR packaging runs on main pushes only; pull
+    # requests already validate channel metadata and checkReleasePackaging above.
+    if: github.event_name != 'pull_request'
     needs: release-gates
     strategy:
       fail-fast: false
@@ -165,6 +194,7 @@ jobs:
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-java@d2bb5a81bf6132351ee9adcc0bba8261a8d34d48

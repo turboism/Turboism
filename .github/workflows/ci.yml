@@ -1,11 +1,11 @@
 # Minimum ordinary CI gate. Expensive host and release integration checks remain
 # in their dedicated workflows and completed-commit verification paths.
 #
-# The dev-check job runs devCheck plus checkCompletedCommit (all module tests,
-# packaged integration, Javadoc and tooling selftests) for every pull request
-# and every main push. Visible-AWT tests run on an isolated Xvfb display with a
-# fresh Gradle process. This workflow never publishes, never allocates a product
-# build number and never launches a real host.
+# Pull requests run `:buildSrc:test` plus the fast `devCheck` gate in one single-use
+# Gradle invocation under an isolated Xvfb display. Pushes to `main` execute the
+# full `devCheck` + `checkCompletedCommit` closure (all module tests, packaged
+# integration, Javadoc, formatting and tooling selftests). This workflow never
+# publishes, never allocates a product build number and never launches a real host.
 
 name: CI
 
@@ -53,24 +53,33 @@ jobs:
             turboism-gradle-build-cache-v1-Unified build channel checks-
             turboism-gradle-build-cache-v1-
 
-      - name: Install the isolated display, shell lint and image tools
+      - name: Ensure isolated display and shell lint tools
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends xvfb gifsicle shellcheck
+          if ! command -v xvfb-run >/dev/null || ! command -v shellcheck >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --yes --no-install-recommends xvfb shellcheck
+          fi
 
-      - name: Install the pinned Python guard and lint tools
-        run: python3 -m pip install 'PyYAML==6.0.3' 'ruff==0.16.9'
-
-      - name: Install the AST architecture tool
-        run: npm install --global '@ast-grep/cli'
+      - name: Install pinned lint and architecture tools
+        run: |
+          python3 -m pip install 'PyYAML==6.0.3' 'ruff==0.16.9'
+          npm install --global '@ast-grep/cli'
 
       - name: Verify the CI coverage contract
         run: python3 scripts/test/test_ci_coverage.py
 
-      - name: Run buildSrc unit tests
-        run: ./gradlew --no-daemon :buildSrc:test --console=plain
+      - name: Run fast development gate on pull requests
+        if: github.event_name == 'pull_request'
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew --no-daemon :buildSrc:test devCheck --console=plain
 
-      - name: Run development and completed-commit gates
+      - name: Install image optimizer for completed-commit verification
+        if: github.event_name == 'push'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends gifsicle
+
+      - name: Run development and completed-commit gates on main
+        if: github.event_name == 'push'
         env:
           TURBOISM_TEST_GIFSICLE: /usr/bin/gifsicle
-        run: xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew --no-daemon devCheck checkCompletedCommit --console=plain
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew --no-daemon :buildSrc:test devCheck checkCompletedCommit --console=plain
