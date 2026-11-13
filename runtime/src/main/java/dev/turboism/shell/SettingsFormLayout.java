@@ -18,23 +18,33 @@ import javax.swing.text.View;
 final class SettingsFormLayout extends GridBagLayout {
     private static final int GAP = 12;
 
+    /** Row width assumed before the page viewport has been laid out once. */
+    private static final int FALLBACK_WIDTH = 600;
+
+    /**
+     * Replaces every grid-bag form in the subtree, including the content panels nested inside
+     * collapsible sections.
+     *
+     * <p>A plain grid bag squeezes the rows of a container narrower than its unwrapped minimum to
+     * zero size, so one long caption inside a section hides every control next to it. The
+     * width-aware layout keeps those rows readable.</p>
+     */
     static void install(final Container form) {
-        if (!(form.getLayout() instanceof GridBagLayout previous)) return;
-        final SettingsFormLayout layout = new SettingsFormLayout();
-        for (Component child : form.getComponents()) {
-            layout.setConstraints(child, previous.getConstraints(child));
+        if (form.getLayout() instanceof GridBagLayout previous) {
+            final SettingsFormLayout layout = new SettingsFormLayout();
+            for (Component child : form.getComponents()) {
+                layout.setConstraints(child, previous.getConstraints(child));
+            }
+            form.setLayout(layout);
         }
-        form.setLayout(layout);
+        for (Component child : form.getComponents()) {
+            if (child instanceof Container nested) install(nested);
+        }
     }
 
     @Override
     public Dimension preferredLayoutSize(final Container parent) {
-        int width = parent.getWidth();
-        if (parent.getParent() != null && parent.getParent().getParent() instanceof JViewport viewport) {
-            width = viewport.getExtentSize().width;
-        }
-        if (width <= 0) width = 600;
-        return arrange(parent, width, false);
+        return arrange(parent, widthOf(parent), false);
     }
 
     @Override
@@ -45,6 +55,29 @@ final class SettingsFormLayout extends GridBagLayout {
     @Override
     public void layoutContainer(final Container parent) {
         arrange(parent, parent.getWidth(), true);
+    }
+
+    /**
+     * The width this form lays its rows out at.
+     *
+     * <p>A form nested inside a collapsible section has no viewport as a direct parent, so the
+     * walk continues up the ancestor chain and reserves the horizontal insets of every container
+     * in between. Without that reservation the nested form would size itself from the full page
+     * width and demand more room than the section can give.</p>
+     */
+    private static int widthOf(final Container parent) {
+        if (parent.getWidth() > 0) return parent.getWidth();
+        int reserved = 0;
+        for (Container ancestor = parent.getParent(); ancestor != null; ancestor = ancestor.getParent()) {
+            if (ancestor instanceof JViewport viewport) {
+                final int extent = viewport.getExtentSize().width;
+                if (extent > 0) return Math.max(1, extent - reserved);
+                break;
+            }
+            final Insets insets = ancestor.getInsets();
+            reserved += insets.left + insets.right;
+        }
+        return FALLBACK_WIDTH;
     }
 
     private Dimension arrange(final Container parent, final int width, final boolean place) {

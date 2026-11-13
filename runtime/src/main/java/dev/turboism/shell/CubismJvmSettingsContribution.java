@@ -213,15 +213,12 @@ final class CubismJvmSettingsContribution {
     }
 
     /**
-     * One header row on the Performance tab: the restart warning and the
-     * recommended combinations, separated by {@code |}. The tooltip shows the
-     * recommended combinations with line breaks.
+     * The Performance-tab header note: the restart warning alone, with the recommended
+     * combinations available as a tooltip so the line stays short.
      */
     static SettingsContribution createPerformanceRecommendationNote(final PluginLocalization i18n) {
         Objects.requireNonNull(i18n, "i18n");
-        final String label = i18n.text("settings.performance.restart-note")
-                + " | "
-                + i18n.text("settings.performance.recommendation");
+        final String label = i18n.text("settings.performance.restart-note");
         return new SettingsContribution(
                 "performance-recommendation",
                 new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200)),

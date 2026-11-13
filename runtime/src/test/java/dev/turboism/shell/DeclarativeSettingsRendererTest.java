@@ -470,6 +470,77 @@ class DeclarativeSettingsRendererTest {
         });
     }
 
+    /**
+     * A long caption inside a section must wrap instead of collapsing the controls beside it.
+     *
+     * <p>The JVM section carries a multi-line memory-profile note. A plain grid bag refused to
+     * shrink below the unwrapped caption width and squeezed every other row to zero size, which
+     * left the section box empty on screen.</p>
+     */
+    @Test
+    void longCaptionInsideASectionKeepsItsSiblingRowsVisible() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final SettingsTab performanceTab = new SettingsTab("performance", "Performance", OptionalInt.of(200));
+            final String caption = "Capped-heap profiles let the editor release its soft-reference caches under memory"
+                    + " pressure instead of sizing the heap to all installed RAM, and the choice applies on"
+                    + " the next Editor launch.";
+            final SettingsSnapshot.Tab tab = new SettingsSnapshot.Tab(
+                    "performance",
+                    "Performance",
+                    OptionalInt.of(200),
+                    List.of(
+                            new SettingsSnapshot.Entry(
+                                    "turboism.core",
+                                    new SettingsContribution(
+                                            "performance.section.jvm",
+                                            performanceTab,
+                                            OptionalInt.of(110),
+                                            new SettingsControl.Note("performance.section.jvm", "JVM and memory"))),
+                            new SettingsSnapshot.Entry(
+                                    "turboism.core",
+                                    new SettingsContribution(
+                                            "jvm-toggle",
+                                            performanceTab,
+                                            OptionalInt.of(111),
+                                            new SettingsControl.Toggle(
+                                                    "jvm-toggle",
+                                                    "ZGC memory optimization",
+                                                    SettingsBinding.of(() -> true, ignored -> {})))),
+                            new SettingsSnapshot.Entry(
+                                    "turboism.core",
+                                    new SettingsContribution(
+                                            "jvm-note",
+                                            performanceTab,
+                                            OptionalInt.of(116),
+                                            new SettingsControl.Note("jvm-note", caption)))));
+            try (CoreWindows windows = new CoreWindows(
+                    localization(),
+                    settings(),
+                    () -> List.of(tab),
+                    plugins(),
+                    RuntimeLogReader.unavailable(),
+                    dev.turboism.internal.core.KeybindingService.unavailable())) {
+                final CoreWindows.RenderedSettings rendered = render(windows);
+                final JTabbedPane tabs = rendered.tabs();
+                tabs.setSize(780, 560);
+                layoutTree(tabs);
+                final JPanel section = findCollapsibleSection(tabs);
+                assertTrue(section != null, "the JVM section must render as a collapsible box");
+                final JCheckBox toggle = findCheckBox(section, "ZGC memory optimization");
+                assertTrue(toggle != null, "the section must keep its toggle");
+                assertTrue(
+                        toggle.getWidth() > 0 && toggle.getHeight() > 0,
+                        "the toggle must not collapse, bounds=" + toggle.getBounds());
+                assertTrue(
+                        toggle.getParent().getPreferredSize().width <= section.getWidth(),
+                        "the section content must fit the dialog width, content="
+                                + toggle.getParent().getPreferredSize()
+                                + " section="
+                                + section.getWidth());
+            }
+        });
+    }
+
     private static JPanel findCollapsibleSection(final Component root) {
         if (root instanceof JPanel panel
                 && panel.getBorder() != null
