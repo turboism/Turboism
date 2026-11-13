@@ -1736,6 +1736,41 @@ final class AcpClientTest {
         }
     }
 
+    @Test
+    void userMessageChunkNotificationDispatchesUserText() throws Exception {
+        final var userTexts = new java.util.concurrent.CopyOnWriteArrayList<String>();
+        try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
+                    long id = (Long) request.get("id");
+                    if ("initialize".equals(request.get("method"))) {
+                        output.response(
+                                id, Map.of("protocolVersion", 1L, "agentCapabilities", Map.of("loadSession", true)));
+                    } else if ("session/load".equals(request.get("method"))) {
+                        output.notification(
+                                "session/update",
+                                Map.of(
+                                        "sessionId",
+                                        "s1",
+                                        "update",
+                                        Map.of(
+                                                "sessionUpdate",
+                                                "user_message_chunk",
+                                                "content",
+                                                Map.of("type", "text", "text", "Earlier prompt"))));
+                        output.response(id, Map.of("configOptions", List.of()));
+                    }
+                });
+                AcpClient client = new AcpClient(transport, new AcpListener() {
+                    @Override
+                    public void userText(AcpClient source, String sessionId, String text) {
+                        userTexts.add(sessionId + ":" + text);
+                    }
+                })) {
+            client.initialize(Duration.ofSeconds(2));
+            client.loadSession("s1", Path.of("."), connection(), Duration.ofSeconds(2));
+            assertEquals(List.of("s1:Earlier prompt"), userTexts);
+        }
+    }
+
     private static ScriptedTransport rawOutputTransport(String kind, Map<String, Object> fields) throws IOException {
         return new ScriptedTransport((request, output) -> {
             long id = (Long) request.get("id");

@@ -35,9 +35,10 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(20);
     private static final Duration CLIENT_START_TIMEOUT = Duration.ofSeconds(25);
     private static final int MAX_PENDING_UI_UPDATES = 256;
-    static final int MAX_PENDING_LOAD_EVENTS = 64;
+    static final int MAX_PENDING_LOAD_EVENTS = 4096;
     static final long MAX_PENDING_LOAD_TEXT_BYTES = 1024L * 1024L;
     static final int MAX_PROMPT_CHARS = 1024 * 1024;
+    private static final String USER_REQUEST_MARKER = "\n\nUser request:\n";
     static final String SYSTEM_BOUNDARY =
             "Use only the Turboism MCP tools for Cubism automation. Do not use native filesystem, "
                     + "terminal, search, or fetch tools.";
@@ -109,8 +110,10 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     /** Connects using the persisted or auto-detected agent selection. */
     void connect() {
         submit(() -> {
-            ensureDetectionNow();
             ui(() -> view.showConnecting(agentLabel(settings.agentId())));
+            if (!settings.hasPersistedAgentId()) {
+                ensureDetectionNow();
+            }
             connectNow();
         });
     }
@@ -151,6 +154,11 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             AgentAvailability.invalidate();
             detectAgentsNow();
         });
+    }
+
+    /** Populates agent detection in the background when startup has not already probed. */
+    void detectAgentsIfNeeded() {
+        submit(this::ensureDetectionNow);
     }
 
     private void ensureDetectionNow() {
@@ -424,23 +432,30 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                 context.logger().warn("Stored ACP session could not be loaded; creating a new session");
             }
         } else {
+            final LoadTransaction load = beginLoadTransaction(connected, restorable);
             try {
                 context.logger().info("ACP connection: resuming saved session");
                 final AcpSession restored =
                         connected.resumeSession(restorable, context.paths().stateDir(), connection, REQUEST_TIMEOUT);
-                activateSession(restored);
-                ui(() -> {
+                if (!completeLoadTransaction(load, restored, () -> {
                     view.clearTranscript();
                     view.showConnected(
                             connected.agentInfo(),
                             restored.configOptions(),
                             restored.durableSessionsAvailable(),
                             AcpClient.mcpAttachment(connection, capabilities));
-                });
+                })) {
+                    return;
+                }
+                context.logger().info("ACP connection: session ready");
                 refreshSessionsNow();
                 return;
             } catch (AcpException | RuntimeException resumeFailure) {
-                if (resumeFailure instanceof AcpException acp && acp.authRequired()) throw acp;
+                if (resumeFailure instanceof AcpException acp && acp.authRequired()) {
+                    discardCurrentLoadTransaction(load);
+                    throw acp;
+                }
+                if (!discardCurrentLoadTransaction(load) || !loadGenerationCurrent(load)) return;
                 context.logger().warn("Stored ACP session could not be resumed; creating a new session");
             }
         }
@@ -656,16 +671,19 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             return;
         }
         if (!current.capabilities().resumeSession()) return;
+        final LoadTransaction load = beginLoadTransaction(active, sessionId);
         try {
             final AcpSession restored =
                     active.resumeSession(sessionId, context.paths().stateDir(), connection, REQUEST_TIMEOUT);
-            activateSession(restored);
-            ui(() -> {
+            if (!completeLoadTransaction(load, restored, () -> {
                 view.clearTranscript();
                 view.showConfigOptions(restored.configOptions());
-            });
+            })) {
+                return;
+            }
             refreshSessionsNow();
         } catch (AcpException | RuntimeException failure) {
+            if (!discardCurrentLoadTransaction(load)) return;
             context.logger().error("ACP session resume failed", failure);
             ui(() -> view.showSessionFailure("status.session-load-failed"));
         }
@@ -823,7 +841,15 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                 + "\n\n"
                 + AcpPromptContext.REFERENCE
                 + (initial.isEmpty() ? "" : "\n\nUser-configured initial instructions:\n" + initial)
-                + "\n\nUser request:\n";
+                + USER_REQUEST_MARKER;
+    }
+
+    static String stripPromptPrefix(final String text) {
+        if (text == null || !text.startsWith(SYSTEM_BOUNDARY)) {
+            return Objects.requireNonNullElse(text, "");
+        }
+        final int marker = text.indexOf(USER_REQUEST_MARKER);
+        return marker >= 0 ? text.substring(marker + USER_REQUEST_MARKER.length()) : text;
     }
 
     private void promptNow(final String text, final List<AcpAttachment> attachments) {
@@ -917,6 +943,16 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             context.logger().error("ACP configuration update failed", unwrap(failure));
             ui(() -> view.showConfigFailure(id, current.configOptions()));
         }
+    }
+
+    @Override
+    public void userText(final AcpClient source, final String sessionId, final String text) {
+        sourceEvent(source, sessionId, new UserTextEvent(text));
+    }
+
+    @Override
+    public void userImage(final AcpClient source, final String sessionId, final AcpAttachment image) {
+        sourceEvent(source, sessionId, new UserImageEvent(image));
     }
 
     @Override
@@ -1095,7 +1131,9 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     }
 
     private sealed interface ReplayEvent
-            permits ImageEvent,
+            permits UserTextEvent,
+                    UserImageEvent,
+                    ImageEvent,
                     AgentTextEvent,
                     AgentThoughtEvent,
                     ToolCallEvent,
@@ -1106,6 +1144,35 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         long textBytes();
 
         void deliver(View target);
+    }
+
+    private record UserTextEvent(String text) implements ReplayEvent {
+        private UserTextEvent {
+            text = Objects.requireNonNull(text, "text");
+        }
+
+        @Override
+        public long textBytes() {
+            return utf8Bytes(text);
+        }
+
+        @Override
+        public void deliver(final View target) {
+            final String visible = stripPromptPrefix(text);
+            if (!visible.isBlank()) target.appendUser(visible);
+        }
+    }
+
+    private record UserImageEvent(AcpAttachment image) implements ReplayEvent {
+        @Override
+        public long textBytes() {
+            return image.data().length();
+        }
+
+        @Override
+        public void deliver(final View target) {
+            target.appendAttachment(image, true);
+        }
     }
 
     private record PlanEvent(List<AcpPlanTracker.Item> entries) implements ReplayEvent {
@@ -1273,6 +1340,18 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                     || !sessionId.equals(eventSessionId)
                     || generation != generationCounter
                     || overflowReported) {
+                return;
+            }
+            if (event instanceof UserTextEvent incoming && events.peekLast() instanceof UserTextEvent previous) {
+                final long deltaBytes = utf8Bytes(incoming.text());
+                if (deltaBytes > MAX_PENDING_LOAD_TEXT_BYTES - textBytes) {
+                    overflowReported = true;
+                    context.logger().warn("Turboism ACP dropped excess session-load replay events");
+                    return;
+                }
+                events.removeLast();
+                events.addLast(new UserTextEvent(previous.text() + incoming.text()));
+                textBytes += deltaBytes;
                 return;
             }
             final long eventBytes = event.textBytes();

@@ -320,7 +320,6 @@ final class AcpChatWindow implements AcpChatController.View {
         connect.setText(localization.text("button.connecting"));
         connect.setEnabled(false);
         setConversationControls(false, false);
-        transcript.requestFocusInWindow();
     }
 
     @Override
@@ -889,6 +888,10 @@ final class AcpChatWindow implements AcpChatController.View {
         prompt.setFont(transcript.getFont());
         prompt.setMargin(new Insets(10, 12, 10, 12));
         prompt.setRows(3);
+        prompt.setEditable(true);
+        prompt.setFocusable(true);
+        prompt.setEnabled(true);
+        prompt.setCursor(Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR));
         agentStatus.setForeground(secondaryForeground());
         prompt.setLineWrap(true);
         prompt.setWrapStyleWord(true);
@@ -1280,7 +1283,7 @@ final class AcpChatWindow implements AcpChatController.View {
     }
 
     private JPanel promptPanel() {
-        final JPanel panel = new AcpComposerPanel();
+        final AcpComposerPanel panel = new AcpComposerPanel();
         panel.setLayout(new BorderLayout(0, 8));
         panel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         final JScrollPane promptScroll = new JScrollPane(
@@ -1288,8 +1291,11 @@ final class AcpChatWindow implements AcpChatController.View {
         promptScroll.setBorder(BorderFactory.createEmptyBorder());
         promptScroll.setOpaque(false);
         promptScroll.getViewport().setOpaque(false);
+        promptScroll.setCursor(Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR));
+        promptScroll.getViewport().setCursor(Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR));
         AcpThemeControls.configureScrollPane(promptScroll, true);
         prompt.setOpaque(false);
+        installComposerFocusBridge(panel, promptScroll, prompt);
         panel.add(promptScroll, BorderLayout.CENTER);
         panel.add(attachmentStrip, BorderLayout.NORTH);
         submitSlot.setOpaque(false);
@@ -2230,6 +2236,35 @@ final class AcpChatWindow implements AcpChatController.View {
         return text != null && committedCharacters < text.getEndIndex() - text.getBeginIndex();
     }
 
+    private static void installComposerFocusBridge(
+            final AcpComposerPanel panel, final JScrollPane promptScroll, final JTextArea input) {
+        final MouseAdapter focusInput = new MouseAdapter() {
+            @Override
+            public void mousePressed(final MouseEvent event) {
+                if (!SwingUtilities.isLeftMouseButton(event) || !input.isEnabled()) return;
+                if (event.getSource() != input) {
+                    input.setCaretPosition(input.getDocument().getLength());
+                }
+                input.requestFocusInWindow();
+            }
+        };
+        panel.addMouseListener(focusInput);
+        promptScroll.addMouseListener(focusInput);
+        promptScroll.getViewport().addMouseListener(focusInput);
+        input.addMouseListener(focusInput);
+        input.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusGained(final java.awt.event.FocusEvent event) {
+                panel.setInputFocused(true);
+            }
+
+            @Override
+            public void focusLost(final java.awt.event.FocusEvent event) {
+                panel.setInputFocused(false);
+            }
+        });
+    }
+
     private void setConversationControls(final boolean connectionReady, final boolean busy) {
         updateSendEnabled();
         attach.setEnabled(!busy && attachmentLoads == 0);
@@ -2237,7 +2272,6 @@ final class AcpChatWindow implements AcpChatController.View {
         ((CardLayout) submitSlot.getLayout()).show(submitSlot, busy ? "stop" : "send");
         composerAgent.setEnabled(!connecting && !busy);
         composerPermissionMode.setEnabled(!busy);
-        prompt.setEnabled(connectionReady && !busy);
         newSession.setEnabled(connectionReady && !busy);
         refreshSessions.setEnabled(connectionReady && !busy && durableSessionsAvailable);
         sessionList.setEnabled(connectionReady && !busy && durableSessionsAvailable);

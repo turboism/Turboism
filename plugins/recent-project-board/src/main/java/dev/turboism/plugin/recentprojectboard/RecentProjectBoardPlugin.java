@@ -336,21 +336,10 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
         for (RecentFileSummary file : files) {
             unique.putIfAbsent(file.displayName().toLowerCase(Locale.ROOT), file);
         }
-        final List<RecentFileSummary> withPreview = new ArrayList<>();
-        final List<RecentFileSummary> withoutPreview = new ArrayList<>();
-        for (RecentFileSummary file : unique.values()) {
-            if (previews.containsKey(file.id().value())) {
-                withPreview.add(file);
-            } else {
-                withoutPreview.add(file);
-            }
-        }
+        // Keep the Recent Files order so deleting a card's preview replaces only its thumbnail
+        // with the no-preview placeholder in place instead of moving or dropping the card.
         final List<PanelView> cards = new ArrayList<>();
-        for (RecentFileSummary file : withPreview) {
-            if (cards.size() >= MAX_CARDS) break;
-            cards.add(cardFor(file));
-        }
-        for (RecentFileSummary file : withoutPreview) {
+        for (RecentFileSummary file : unique.values()) {
             if (cards.size() >= MAX_CARDS) break;
             cards.add(cardFor(file));
         }

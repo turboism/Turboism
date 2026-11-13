@@ -1034,6 +1034,54 @@ final class AcpChatWindowRenderingTest {
         }
     }
 
+    @Test
+    void promptRemainsInteractiveAcrossLifecycleStatesAndFocusesOnComposerClick() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        final var windowRef = new java.util.concurrent.atomic.AtomicReference<AcpChatWindow>();
+        SwingUtilities.invokeAndWait(() -> {
+            final AcpChatWindow window = new AcpChatWindow(localization(), "codex", "", "");
+            windowRef.set(window);
+            window.showAgentAndFront();
+            final JTextArea prompt = component(window, "prompt", JTextArea.class);
+            final JButton send = component(window, "send", JButton.class);
+
+            assertTrue(prompt.isEnabled());
+            assertTrue(prompt.isEditable());
+            assertTrue(prompt.isFocusable());
+            assertFalse(send.isEnabled());
+
+            final java.awt.Container composerCard =
+                    prompt.getParent().getParent().getParent();
+            assertTrue(composerCard instanceof AcpComposerPanel);
+            composerCard.dispatchEvent(new MouseEvent(
+                    composerCard,
+                    MouseEvent.MOUSE_PRESSED,
+                    System.currentTimeMillis(),
+                    0,
+                    4,
+                    4,
+                    1,
+                    false,
+                    MouseEvent.BUTTON1));
+
+            prompt.setText("Draft before connect");
+            assertEquals("Draft before connect", prompt.getText());
+            assertFalse(send.isEnabled());
+
+            window.showConnecting("Codex");
+            assertTrue(prompt.isEnabled());
+            assertEquals("Draft before connect", prompt.getText());
+
+            window.showConnected(AcpClient.AcpAgentInfo.UNKNOWN, List.of(), true, AcpClient.McpAttachment.NONE);
+            assertTrue(prompt.isEnabled());
+            assertTrue(send.isEnabled());
+
+            window.showPrompting();
+            assertTrue(prompt.isEnabled());
+        });
+        SwingUtilities.invokeAndWait(windowRef.get()::dispose);
+    }
+
     private static void toggleSummaryWithKeyboard(final JTextPane transcript) {
         toggleDisclosureWithKeyboard(transcript, transcript.getText().contains("Commands:") ? "Commands:" : "Tools:");
     }
