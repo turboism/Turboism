@@ -2,19 +2,36 @@ package dev.turboism.sdk.ui;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /** Preview contribution for one button attached to Cubism's red bounding-box overlay. */
-public record BoundingBoxOverlayButton(String id, String tooltip, IconVariants icons, int order, Runnable onClick) {
+public record BoundingBoxOverlayButton(
+        String id, String tooltip, IconVariants icons, int order, Runnable onClick, Set<TargetKind> targetKinds) {
     public BoundingBoxOverlayButton {
         id = requireText(id, "id");
         tooltip = requireText(tooltip, "tooltip");
         icons = Objects.requireNonNull(icons, "icons");
         onClick = Objects.requireNonNull(onClick, "onClick");
+        targetKinds = Set.copyOf(Objects.requireNonNull(targetKinds, "targetKinds"));
+    }
+
+    /**
+     * Creates a button shown for every bounding-box selection.
+     *
+     * @param id unique contribution identifier
+     * @param tooltip hover tooltip text
+     * @param icons icon variants for each button state
+     * @param order ascending display order
+     * @param onClick click handler
+     */
+    public BoundingBoxOverlayButton(
+            final String id, final String tooltip, final IconVariants icons, final int order, final Runnable onClick) {
+        this(id, tooltip, icons, order, onClick, Set.of());
     }
 
     /**
      * Returns a copy of this button whose click handler is {@code callback},
-     * leaving id, tooltip, icons, and order untouched. Used by the runtime to
+     * leaving id, tooltip, icons, order, and target kinds untouched. Used by the runtime to
      * re-target a declared button at a live handler.
      *
      * @param callback the replacement click handler
@@ -22,7 +39,22 @@ public record BoundingBoxOverlayButton(String id, String tooltip, IconVariants i
      * @throws NullPointerException when {@code callback} is {@code null}
      */
     public BoundingBoxOverlayButton withOnClick(final Runnable callback) {
-        return new BoundingBoxOverlayButton(id, tooltip, icons, order, Objects.requireNonNull(callback, "callback"));
+        return new BoundingBoxOverlayButton(
+                id, tooltip, icons, order, Objects.requireNonNull(callback, "callback"), targetKinds);
+    }
+
+    /**
+     * Object kinds that a bounding-box overlay button can target.
+     *
+     * <p>An empty {@code targetKinds} set matches every bounding-box selection. A
+     * non-empty set displays the button only when the active bounding-box selection
+     * contains at least one object of a listed kind.</p>
+     */
+    public enum TargetKind {
+        WARP_DEFORMER,
+        ROTATION_DEFORMER,
+        ART_MESH,
+        OTHER
     }
 
     /**

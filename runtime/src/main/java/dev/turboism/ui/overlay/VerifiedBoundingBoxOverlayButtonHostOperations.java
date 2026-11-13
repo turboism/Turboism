@@ -1,8 +1,11 @@
 package dev.turboism.ui.overlay;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.mapping.selector.ModelingSelectionSelectorContract;
 import dev.turboism.mapping.verification.UiBoundingBoxOverlayAliases;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorSelectionReadSelectorContract;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
@@ -14,11 +17,16 @@ import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
+import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Supplier;
 import javax.imageio.ImageIO;
 
 /**
@@ -49,8 +57,24 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
     private static final String POSITION_LOG_PROPERTY = "turboism.validation.boundingBoxOverlay.buttonPositions";
     private static final long POSITION_LOG_INTERVAL_NANOS = 2_000_000_000L;
 
+    private static final String WARP_SOURCE_CLASS = "cubism.editor-model.warp-source.class";
+    private static final String ART_MESH_SOURCE_CLASS = "cubism.editor-model.art-mesh-source.class";
+    private static final String ROTATION_SOURCE_CLASS = "cubism.editor-model.rotation-source.class";
+    private static final Set<String> SELECTION_KIND_ALIASES = Set.of(
+            ModelingSelectionSelectorContract.APP,
+            ModelingSelectionSelectorContract.DOCUMENT,
+            ModelingSelectionSelectorContract.DOCUMENT_CLASS,
+            ModelingSelectionSelectorContract.CURRENT_MODE,
+            ModelingSelectionSelectorContract.MAIN_MODE_CLASS,
+            ModelingSelectionSelectorContract.MAIN_SELECTOR,
+            ModelingSelectionSelectorContract.SELECTED_OBJECTS,
+            WARP_SOURCE_CLASS,
+            ART_MESH_SOURCE_CLASS,
+            ROTATION_SOURCE_CLASS);
+
     private final VerifiedMemberResolver resolver;
     private final EditorUiPluginResourceRegistry resources;
+    private final Supplier<Optional<Set<BoundingBoxOverlayButton.TargetKind>>> selectionKindsReader;
     private final Map<Object, CachedButtons> buttonsByOverlay = new IdentityHashMap<>();
     /** FIFO of live {@link #buttonsByOverlay} keys; guarded by the same monitor. */
     private final Deque<Object> overlayOrder = new ArrayDeque<>();
@@ -60,8 +84,23 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
 
     public VerifiedBoundingBoxOverlayButtonHostOperations(
             final VerifiedMemberResolver resolver, final EditorUiPluginResourceRegistry resources) {
+        this(resolver, resources, (VerifiedMemberResolver) null);
+    }
+
+    public VerifiedBoundingBoxOverlayButtonHostOperations(
+            final VerifiedMemberResolver resolver,
+            final EditorUiPluginResourceRegistry resources,
+            final VerifiedMemberResolver editorModelResolver) {
+        this(resolver, resources, () -> readSelectionKinds(editorModelResolver));
+    }
+
+    VerifiedBoundingBoxOverlayButtonHostOperations(
+            final VerifiedMemberResolver resolver,
+            final EditorUiPluginResourceRegistry resources,
+            final Supplier<Optional<Set<BoundingBoxOverlayButton.TargetKind>>> selectionKindsReader) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.resources = Objects.requireNonNull(resources, "resources");
+        this.selectionKindsReader = Objects.requireNonNull(selectionKindsReader, "selectionKindsReader");
     }
 
     @Override
@@ -133,14 +172,15 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
             }
             return EMPTY_BUTTONS;
         }
+        final List<BoundingBoxOverlayButtonDescriptor> visible = visibleDescriptors(current);
         final CachedButtons cached;
         final List<CachedButtons> evicted = new ArrayList<>();
         synchronized (buttonsByOverlay) {
             final CachedButtons existing = buttonsByOverlay.get(overlay);
-            if (existing != null && existing.snapshot == current) {
+            if (existing != null && existing.snapshot == current && sameDescriptors(existing.visible, visible)) {
                 cached = existing;
             } else {
-                cached = rebuild(existing, overlay, current, sceneGraph);
+                cached = rebuild(existing, overlay, current, visible, sceneGraph);
                 if (existing == null) {
                     overlayOrder.addLast(overlay);
                 }
@@ -194,7 +234,7 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
             lastPositionLogNanos = now;
             for (int i = 0; i < cached.buttons.size(); i++) {
                 final String pluginId =
-                        i < cached.snapshot.size() ? cached.snapshot.get(i).pluginId() : "unknown";
+                        i < cached.visible.size() ? cached.visible.get(i).pluginId() : "unknown";
                 POSITION_LOG.log(
                         System.Logger.Level.INFO,
                         "BBOX_OVERLAY_BUTTON_RECT plugin=" + pluginId + " index=" + i + " "
@@ -257,19 +297,20 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
 
     /**
      * Rebuilds one overlay's cached buttons, reusing unchanged button identities and
-     * detaching buttons of removed contributions so they become click-inert immediately.
+     * detaching buttons of removed or currently hidden contributions.
      */
     private CachedButtons rebuild(
             final CachedButtons previous,
             final Object overlay,
-            final List<BoundingBoxOverlayButtonDescriptor> current,
+            final List<BoundingBoxOverlayButtonDescriptor> snapshot,
+            final List<BoundingBoxOverlayButtonDescriptor> visible,
             final Object sceneGraph) {
         final Map<BoundingBoxOverlayButton, Object> reused = previous == null ? Map.of() : previous.byIdentity;
         final Map<BoundingBoxOverlayButton, Object> byIdentity = new IdentityHashMap<>();
-        final List<Object> buttons = new ArrayList<>(current.size());
+        final List<Object> buttons = new ArrayList<>(visible.size());
         final List<Object> created = new ArrayList<>();
         try {
-            for (BoundingBoxOverlayButtonDescriptor descriptor : current) {
+            for (BoundingBoxOverlayButtonDescriptor descriptor : visible) {
                 final Object button = reused.get(descriptor.button());
                 if (button != null) {
                     byIdentity.put(descriptor.button(), button);
@@ -282,9 +323,10 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
             }
             if (previous != null) {
                 Throwable first = null;
+                final Object detachScene = previous.scene != null ? previous.scene : sceneGraph;
                 for (Map.Entry<BoundingBoxOverlayButton, Object> removed : previous.byIdentity.entrySet()) {
                     if (!byIdentity.containsKey(removed.getKey())) {
-                        first = append(first, detachButton(removed.getValue(), previous.scene));
+                        first = append(first, detachButton(removed.getValue(), detachScene));
                     }
                 }
                 if (first != null) {
@@ -295,7 +337,8 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
                     throw FatalErrors.propagate(first);
                 }
             }
-            return new CachedButtons(current, List.copyOf(buttons), buttons.toArray(), byIdentity);
+            final Object[] array = buttons.isEmpty() ? EMPTY_BUTTONS : buttons.toArray();
+            return new CachedButtons(snapshot, visible, List.copyOf(buttons), array, byIdentity);
         } catch (RuntimeException | Error failure) {
             // @containment-exempt: button detachment failure merged with fatal prioritized before rethrow
             Throwable toThrow = failure;
@@ -306,6 +349,97 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
                 }
             }
             throw FatalErrors.propagate(toThrow);
+        }
+    }
+
+    private List<BoundingBoxOverlayButtonDescriptor> visibleDescriptors(
+            final List<BoundingBoxOverlayButtonDescriptor> current) {
+        boolean hasTargeted = false;
+        for (BoundingBoxOverlayButtonDescriptor descriptor : current) {
+            if (!descriptor.button().targetKinds().isEmpty()) {
+                hasTargeted = true;
+                break;
+            }
+        }
+        if (!hasTargeted) {
+            return current;
+        }
+        final Optional<Set<BoundingBoxOverlayButton.TargetKind>> activeKinds = selectionKindsReader.get();
+        final List<BoundingBoxOverlayButtonDescriptor> visible = new ArrayList<>(current.size());
+        for (BoundingBoxOverlayButtonDescriptor descriptor : current) {
+            final Set<BoundingBoxOverlayButton.TargetKind> required =
+                    descriptor.button().targetKinds();
+            if (required.isEmpty() || (activeKinds.isPresent() && !Collections.disjoint(required, activeKinds.get()))) {
+                visible.add(descriptor);
+            }
+        }
+        if (visible.size() == current.size()) {
+            return current;
+        }
+        return visible.isEmpty() ? List.of() : List.copyOf(visible);
+    }
+
+    // Preserves descriptor-list identity without invoking Runnable.equals on button records.
+    @SuppressWarnings("ReferenceEquality")
+    private static boolean sameDescriptors(
+            final List<BoundingBoxOverlayButtonDescriptor> left, final List<BoundingBoxOverlayButtonDescriptor> right) {
+        if (left == right) {
+            return true;
+        }
+        if (left.size() != right.size()) {
+            return false;
+        }
+        for (int index = 0; index < left.size(); index++) {
+            if (left.get(index) != right.get(index)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static Optional<Set<BoundingBoxOverlayButton.TargetKind>> readSelectionKinds(
+            final VerifiedMemberResolver editorModelResolver) {
+        if (editorModelResolver == null
+                || !editorModelResolver.authorizesFeature(
+                        EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+                        EditorSelectionReadSelectorContract.CAPABILITY_ID,
+                        SELECTION_KIND_ALIASES)) {
+            return Optional.empty();
+        }
+        try {
+            final Object app = editorModelResolver.invokeStatic(ModelingSelectionSelectorContract.APP);
+            final Object document =
+                    app == null ? null : editorModelResolver.invoke(ModelingSelectionSelectorContract.DOCUMENT, app);
+            if (!editorModelResolver.isInstance(ModelingSelectionSelectorContract.DOCUMENT_CLASS, document)) {
+                return Optional.of(Set.of());
+            }
+            final Object mode = editorModelResolver.invoke(ModelingSelectionSelectorContract.CURRENT_MODE, document);
+            if (!editorModelResolver.isInstance(ModelingSelectionSelectorContract.MAIN_MODE_CLASS, mode)) {
+                return Optional.of(Set.of());
+            }
+            final Object selector = editorModelResolver.invoke(ModelingSelectionSelectorContract.MAIN_SELECTOR, mode);
+            final Object rawSelected = selector == null
+                    ? null
+                    : editorModelResolver.invoke(ModelingSelectionSelectorContract.SELECTED_OBJECTS, selector);
+            if (!(rawSelected instanceof List<?> selected) || selected.isEmpty()) {
+                return Optional.of(Set.of());
+            }
+            final EnumSet<BoundingBoxOverlayButton.TargetKind> kinds =
+                    EnumSet.noneOf(BoundingBoxOverlayButton.TargetKind.class);
+            for (Object item : selected) {
+                if (editorModelResolver.isInstance(WARP_SOURCE_CLASS, item)) {
+                    kinds.add(BoundingBoxOverlayButton.TargetKind.WARP_DEFORMER);
+                } else if (editorModelResolver.isInstance(ART_MESH_SOURCE_CLASS, item)) {
+                    kinds.add(BoundingBoxOverlayButton.TargetKind.ART_MESH);
+                } else if (editorModelResolver.isInstance(ROTATION_SOURCE_CLASS, item)) {
+                    kinds.add(BoundingBoxOverlayButton.TargetKind.ROTATION_DEFORMER);
+                } else {
+                    kinds.add(BoundingBoxOverlayButton.TargetKind.OTHER);
+                }
+            }
+            return Optional.of(Set.copyOf(kinds));
+        } catch (RuntimeException failure) {
+            return Optional.empty();
         }
     }
 
@@ -476,9 +610,10 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
         return failure;
     }
 
-    /** One overlay's cached buttons: snapshot reference, identity reuse map and array. */
+    /** One overlay's cached buttons: snapshot reference, visible filter, identity map, and array. */
     private static final class CachedButtons {
         private final List<BoundingBoxOverlayButtonDescriptor> snapshot;
+        private final List<BoundingBoxOverlayButtonDescriptor> visible;
         private final Map<BoundingBoxOverlayButton, Object> byIdentity;
         private final List<Object> buttons;
         private final Object[] array;
@@ -486,10 +621,12 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
 
         private CachedButtons(
                 final List<BoundingBoxOverlayButtonDescriptor> snapshot,
+                final List<BoundingBoxOverlayButtonDescriptor> visible,
                 final List<Object> buttons,
                 final Object[] array,
                 final Map<BoundingBoxOverlayButton, Object> byIdentity) {
             this.snapshot = snapshot;
+            this.visible = visible;
             this.buttons = buttons;
             this.array = array;
             this.byIdentity = byIdentity;

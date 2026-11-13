@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -729,6 +730,91 @@ class BoundingBoxOverlayButtonHostOperationsTest {
         registration.close();
     }
 
+    @Test
+    void targetedButtonHidesForArtMeshAndReappearsForWarpDeformer() {
+        final VerifiedBoundingBoxOverlayButtonHostOperations filteredHost =
+                new VerifiedBoundingBoxOverlayButtonHostOperations(resolver(), registry, editorModelResolver());
+        final BoundingBoxOverlayButton alwaysShown = button("always", 10);
+        final BoundingBoxOverlayButton warpOnly = new BoundingBoxOverlayButton(
+                "mirror",
+                "Mirror",
+                new BoundingBoxOverlayButton.IconVariants(
+                        "icons/fit.png", Optional.of("icons/fit.png"), Optional.empty(), Optional.empty()),
+                100,
+                () -> {},
+                Set.of(BoundingBoxOverlayButton.TargetKind.WARP_DEFORMER));
+        final Registration filteredRegistration = filteredHost.install(
+                List.of(descriptor("plugin.overlay", alwaysShown), descriptor("plugin.overlay", warpOnly)));
+        try {
+            final Object overlay = new OverlayHost();
+            final Object scene = new SceneGraph();
+
+            // Selecting an ArtMesh only renders the unfiltered button.
+            FakeEditorApp.CURRENT_DOCUMENT =
+                    new FakeModelingDocument(new FakeMainEditMode(new FakeSelector(List.of(new FakeArtMeshSource()))));
+            final Object[] artMeshButtons = filteredHost.customButtonEntities(overlay, scene);
+            assertEquals(1, artMeshButtons.length);
+            assertSame(artMeshButtons, filteredHost.customButtonEntities(overlay, scene));
+
+            // Switching to a WarpDeformer immediately adds the targeted button.
+            FakeEditorApp.CURRENT_DOCUMENT =
+                    new FakeModelingDocument(new FakeMainEditMode(new FakeSelector(List.of(new FakeWarpSource()))));
+            final Object[] warpButtons = filteredHost.customButtonEntities(overlay, scene);
+            assertEquals(2, warpButtons.length);
+            assertSame(artMeshButtons[0], warpButtons[0]);
+            final Object mirrorEntity = warpButtons[1];
+            assertSame(warpButtons, filteredHost.customButtonEntities(overlay, scene));
+
+            // Mixed WarpDeformer + ArtMesh selection retains the targeted button.
+            FakeEditorApp.CURRENT_DOCUMENT = new FakeModelingDocument(
+                    new FakeMainEditMode(new FakeSelector(List.of(new FakeWarpSource(), new FakeArtMeshSource()))));
+            assertSame(warpButtons, filteredHost.customButtonEntities(overlay, scene));
+
+            // Switching back to an ArtMesh immediately disables and detaches the mirror button.
+            FakeEditorApp.CURRENT_DOCUMENT =
+                    new FakeModelingDocument(new FakeMainEditMode(new FakeSelector(List.of(new FakeArtMeshSource()))));
+            final Object[] afterArtMesh = filteredHost.customButtonEntities(overlay, scene);
+            assertEquals(1, afterArtMesh.length);
+            assertSame(artMeshButtons[0], afterArtMesh[0]);
+            assertTrue(Entity.ENABLED.stream().anyMatch(call -> {
+                final Object[] entry = (Object[]) call;
+                return entry[0] == mirrorEntity && Boolean.FALSE.equals(entry[1]);
+            }));
+            assertTrue(SceneGraph.REMOVED_VOLATILE.contains(mirrorEntity));
+            assertTrue(Entities.REMOVED.contains(mirrorEntity));
+
+            // Mesh-editor mode and RotationDeformer selection also hide the Warp-only button.
+            FakeEditorApp.CURRENT_DOCUMENT = new FakeModelingDocument(new FakeMeshEditMode());
+            assertEquals(1, filteredHost.customButtonEntities(overlay, scene).length);
+
+            FakeEditorApp.CURRENT_DOCUMENT =
+                    new FakeModelingDocument(new FakeMainEditMode(new FakeSelector(List.of(new FakeRotationSource()))));
+            assertEquals(1, filteredHost.customButtonEntities(overlay, scene).length);
+        } finally {
+            FakeEditorApp.CURRENT_DOCUMENT = null;
+            filteredRegistration.close();
+        }
+    }
+
+    @Test
+    void targetedButtonFailsClosedWhenEditorSelectionIsUnavailable() {
+        final BoundingBoxOverlayButton alwaysShown = button("always", 10);
+        final BoundingBoxOverlayButton warpOnly = new BoundingBoxOverlayButton(
+                "mirror",
+                "Mirror",
+                new BoundingBoxOverlayButton.IconVariants(
+                        "icons/fit.png", Optional.of("icons/fit.png"), Optional.empty(), Optional.empty()),
+                100,
+                () -> {},
+                Set.of(BoundingBoxOverlayButton.TargetKind.WARP_DEFORMER));
+        final Registration localRegistration =
+                install(List.of(descriptor("plugin.overlay", alwaysShown), descriptor("plugin.overlay", warpOnly)));
+        final Object[] visible = host.customButtonEntities(new OverlayHost(), new SceneGraph());
+        assertEquals(1, visible.length);
+        localRegistration.close();
+        registration = null;
+    }
+
     private static BoundingBoxOverlayButton buttonWithMissingIcon(final String id, final int order) {
         return new BoundingBoxOverlayButton(
                 id,
@@ -767,6 +853,76 @@ class BoundingBoxOverlayButtonHostOperationsTest {
                         "icons/fit.png", Optional.of("icons/fit.png"), Optional.empty(), Optional.empty()),
                 order,
                 onClick);
+    }
+
+    private static VerifiedMemberResolver editorModelResolver() {
+        final StaticSelector[] selectors = {
+            StaticSelector.staticMethod(
+                    "cubism.editor-model.app-controller.instance",
+                    internalName(FakeEditorApp.class),
+                    "getInstance",
+                    "()L" + internalName(FakeEditorApp.class) + ";",
+                    StaticSelector.ACCESS_PUBLIC),
+            StaticSelector.method(
+                    "cubism.editor-model.app-controller.current-document",
+                    internalName(FakeEditorApp.class),
+                    "getCurrentDocument",
+                    "()Ljava/lang/Object;",
+                    StaticSelector.ACCESS_PUBLIC),
+            StaticSelector.classSelector(
+                    "cubism.editor-model.modeling-document.class", internalName(FakeModelingDocument.class)),
+            StaticSelector.method(
+                    "cubism.editor-model.modeling-document.current-edit-mode",
+                    internalName(FakeModelingDocument.class),
+                    "getCurrentEditMode",
+                    "()Ljava/lang/Object;",
+                    StaticSelector.ACCESS_PUBLIC),
+            StaticSelector.classSelector(
+                    "cubism.editor-model.modeling-mode.class", internalName(FakeMainEditMode.class)),
+            StaticSelector.method(
+                    "cubism.editor-model.modeling-mode.selector",
+                    internalName(FakeMainEditMode.class),
+                    "getSelector",
+                    "()L" + internalName(FakeSelector.class) + ";",
+                    StaticSelector.ACCESS_PUBLIC),
+            StaticSelector.method(
+                    "cubism.editor-model.modeling-selector.selected-objects",
+                    internalName(FakeSelector.class),
+                    "getSelectedObjects",
+                    "()Ljava/util/List;",
+                    StaticSelector.ACCESS_PUBLIC),
+            StaticSelector.classSelector("cubism.editor-model.warp-source.class", internalName(FakeWarpSource.class)),
+            StaticSelector.classSelector(
+                    "cubism.editor-model.art-mesh-source.class", internalName(FakeArtMeshSource.class)),
+            StaticSelector.classSelector(
+                    "cubism.editor-model.rotation-source.class", internalName(FakeRotationSource.class))
+        };
+        final HostArtifactFingerprint fingerprint = new HostArtifactFingerprint("5.3.02", 1, "b".repeat(64));
+        final StaticVerificationRecord record = new StaticVerificationRecord(
+                "fixture.editor-model",
+                "adapter.editor-model.readwrite",
+                List.of("cubism.editor-model.selection.read"),
+                java.util.Map.of("cubism.editor-model.selection.read", List.of("structure")),
+                "5.3.02",
+                "cubism-5.3.02",
+                fingerprint,
+                "cubism-ref/verification/editor-model.json",
+                "runtime-adapter",
+                "test",
+                Instant.parse("2026-07-10T00:00:00Z"),
+                "Fail closed.",
+                List.of(selectors));
+        final StaticVerificationReport report = new StaticVerificationReport(
+                fingerprint,
+                fingerprint,
+                true,
+                List.of(selectors).stream()
+                        .map(selector -> new StaticSelectorResult(
+                                selector, StaticVerificationStatus.VERIFIED_STATIC, "verified"))
+                        .toList());
+        return new VerifiedMemberResolver(
+                VerifiedAccessPlan.from(record, report),
+                BoundingBoxOverlayButtonHostOperationsTest.class.getClassLoader());
     }
 
     private static VerifiedMemberResolver resolver() {
@@ -969,4 +1125,61 @@ class BoundingBoxOverlayButtonHostOperationsTest {
             return entity;
         }
     }
+
+    public static final class FakeEditorApp {
+        public static volatile Object CURRENT_DOCUMENT;
+        private static final FakeEditorApp INSTANCE = new FakeEditorApp();
+
+        public static FakeEditorApp getInstance() {
+            return INSTANCE;
+        }
+
+        public Object getCurrentDocument() {
+            return CURRENT_DOCUMENT;
+        }
+    }
+
+    public static final class FakeModelingDocument {
+        private final Object mode;
+
+        public FakeModelingDocument(final Object mode) {
+            this.mode = mode;
+        }
+
+        public Object getCurrentEditMode() {
+            return mode;
+        }
+    }
+
+    public static final class FakeMainEditMode {
+        private final FakeSelector selector;
+
+        public FakeMainEditMode(final FakeSelector selector) {
+            this.selector = selector;
+        }
+
+        public FakeSelector getSelector() {
+            return selector;
+        }
+    }
+
+    public static final class FakeMeshEditMode {}
+
+    public static final class FakeSelector {
+        private final List<Object> selected;
+
+        public FakeSelector(final List<Object> selected) {
+            this.selected = selected;
+        }
+
+        public List<Object> getSelectedObjects() {
+            return selected;
+        }
+    }
+
+    public static final class FakeWarpSource {}
+
+    public static final class FakeArtMeshSource {}
+
+    public static final class FakeRotationSource {}
 }

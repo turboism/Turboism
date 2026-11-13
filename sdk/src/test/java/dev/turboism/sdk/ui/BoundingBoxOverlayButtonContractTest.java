@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +28,20 @@ class BoundingBoxOverlayButtonContractTest {
         assertEquals("icons/fit.png", button.icons().normal());
         assertEquals(Optional.of("icons/fit-hover.png"), button.icons().hover());
         assertEquals(30, button.order());
+        assertEquals(Set.of(), button.targetKinds());
         assertEquals(1, clicks.get());
+
+        final BoundingBoxOverlayButton targeted = new BoundingBoxOverlayButton(
+                "mirror",
+                "Mirror",
+                BoundingBoxOverlayButton.IconVariants.normal("icons/mirror.png"),
+                100,
+                clicks::incrementAndGet,
+                Set.of(BoundingBoxOverlayButton.TargetKind.WARP_DEFORMER));
+        assertEquals(Set.of(BoundingBoxOverlayButton.TargetKind.WARP_DEFORMER), targeted.targetKinds());
+        assertEquals(
+                Set.of(BoundingBoxOverlayButton.TargetKind.WARP_DEFORMER),
+                targeted.withOnClick(() -> {}).targetKinds());
     }
 
     @Test
