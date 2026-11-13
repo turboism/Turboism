@@ -139,6 +139,189 @@ final class ArtMeshMirrorRenderingTest {
         }
     }
 
+    @Test
+    void hoverSkipsUnprojectionAndCachedAngleLabelAvoidsTranslationTextureReupload() throws Exception {
+        try (var loader = hostWithImageLabel()) {
+            Object view = loader.loadClass("com.live2d.cubism.view.context.CEViewContext_ModelingView")
+                    .getConstructor()
+                    .newInstance();
+            Object camera = view.getClass().getField("camera").get(view);
+            Class<?> textureClass = loader.loadClass("com.live2d.graphics3d.texture.GTexture");
+            NativeWarpAltMirrorBridge.install(true);
+            try (var participation = NativeArtMeshSymmetryBridge.service().participate()) {
+                NativeArtMeshSymmetryBridge.service().setEnabled(true);
+                NativeArtMeshSymmetryBridge.draw(view);
+                assertEquals(1, textureClass.getField("reinitCalls").getInt(null));
+                assertEquals(
+                        "LINEAR",
+                        String.valueOf(textureClass.getField("lastMinFilter").get(null)));
+
+                // Hovering must not inverse-project cursor coordinates.
+                NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_MOVED, 510, 410, 0)));
+                assertEquals(0, camera.getClass().getField("unprojects").getInt(camera));
+
+                // Translating the axis moves the label without re-uploading its texture.
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 400, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_DRAGGED, 520, 415, 1))));
+                NativeArtMeshSymmetryBridge.draw(view);
+                assertEquals(1, textureClass.getField("reinitCalls").getInt(null));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 520, 415, 1))));
+            }
+        }
+    }
+
+    private URLClassLoader hostWithImageLabel() throws Exception {
+        var files = new ArrayList<String>();
+        source(files, "com.live2d.graphics3d.type.GVector2", """
+            public class GVector2 {float x,y; public GVector2(float x,float y){this.x=x;this.y=y;}
+            public float getX(){return x;} public float getY(){return y;}}
+            """);
+        source(files, "com.live2d.graphics3d.type.GVector3", """
+            public class GVector3 {public float x,y,z; public void set(float x,float y,float z){this.x=x;this.y=y;this.z=z;}}
+            """);
+        source(files, "com.live2d.graphics3d.type.GRectF", """
+            public class GRectF {public GRectF(float x,float y,float w,float h){}}
+            """);
+        source(files, "com.live2d.type.CPoint", """
+            public class CPoint {public int x,y;public CPoint(int x,int y){this.x=x;this.y=y;}}
+            """);
+        source(files, "com.live2d.type.CColor", "public class CColor {public CColor(int r,int g,int b){}}");
+        source(files, "com.live2d.type.CFont", "public class CFont {public CFont(int size){}}");
+        source(files, "com.live2d.type.CAffine", "public class CAffine {}");
+        source(files, "com.live2d.graphics.CImageResource", """
+            public class CImageResource {public CImageResource(java.awt.image.BufferedImage i,boolean u){}}
+            """);
+        source(
+                files,
+                "com.live2d.graphics3d.texture.MinFilter",
+                "public enum MinFilter { NEAREST, LINEAR, LINEAR_MIPMAP_LINEAR }");
+        source(files, "com.live2d.graphics3d.texture.MagFilter", "public enum MagFilter { NEAREST, LINEAR }");
+        source(files, "com.live2d.graphics3d.texture.GTexture", """
+            public class GTexture {
+                public static int reinitCalls;
+                public static Object lastMinFilter;
+                public static class FilterMode {
+                    public void setMinFilter(MinFilter f){lastMinFilter=f;}
+                    public void setMagFilter(MagFilter f){}
+                }
+                private final FilterMode mode=new FilterMode();
+                public FilterMode getFilterMode(){return mode;}
+                public void setPreload(boolean p){}
+                public void reinitTexture(){reinitCalls++;}
+            }
+            """);
+        source(files, "com.live2d.graphics3d.texture.GTexture2D", """
+            public class GTexture2D extends GTexture {
+                public GTexture2D(com.live2d.graphics.CImageResource r, com.live2d.type.CAffine a, boolean p){}
+            }
+            """);
+        source(files, "com.live2d.graphics3d.component.a.c", "public class c {}");
+        source(
+                files,
+                "com.live2d.graphics3d.component.a.c$b",
+                "public class c$b extends c {public static final c$b a=new c$b();}");
+        source(files, "com.live2d.graphics3d.component.GTransform", """
+            import com.live2d.graphics3d.type.GVector3;
+            public class GTransform {private final GVector3 p=new GVector3(); public GVector3 getPosition(){return p;}}
+            """);
+        source(files, "com.live2d.graphics3d.component.GMeshRenderer", """
+            public class GMeshRenderer {
+                public void setSortingLayer(com.live2d.graphics3d.component.a.c l){}
+                public void setOrderInLayer(int o){}
+            }
+            """);
+        source(files, "com.live2d.graphics3d.entity.Entities", """
+            public class Entities {
+                public void add(com.live2d.graphics3d.entity.GEntity e, int i){e.parent=this;}
+            }
+            """);
+        source(files, "com.live2d.graphics3d.entity.GEntity", """
+            import com.live2d.graphics3d.component.GTransform;
+            public class GEntity {
+                public Object parent;
+                public boolean enabled;
+                private final GTransform t=new GTransform();
+                private final Entities c=new Entities();
+                public GTransform getTransform(){return t;}
+                public GEntity getParentEntity(){return null;}
+                public Entities getChildren(){return c;}
+                public void setEnabled(boolean e){enabled=e;}
+            }
+            """);
+        source(files, "com.live2d.graphics3d.geometry.GImageEntity", """
+            import com.live2d.graphics3d.component.GMeshRenderer;
+            import com.live2d.graphics3d.texture.GTexture;
+            import com.live2d.graphics3d.type.GRectF;
+            public class GImageEntity extends com.live2d.graphics3d.entity.GEntity {
+                private final GMeshRenderer r=new GMeshRenderer();
+                public GImageEntity(String n, GTexture t, boolean f, GRectF b){}
+                public GMeshRenderer getMeshRenderer(){return r;}
+            }
+            """);
+        source(files, "com.live2d.graphics3d.sceneGraph.GSceneGraph", """
+            import com.live2d.graphics3d.entity.GEntity;
+            public class GSceneGraph extends GEntity {
+                private final GEntity comp=new GEntity();
+                public GEntity getObjectsOnComponent(){return comp;}
+                public void setVolatile(GEntity e){e.setEnabled(true);}
+            }
+            """);
+        source(files, "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshSource", "public class CArtMeshSource {}");
+        source(files, "com.live2d.cubism.doc.modeling.CModelingEditMode_Main", """
+            public class CModelingEditMode_Main {
+                public final Selector selector=new Selector(); public final Model model=new Model();
+                public Selector getSelector(){return selector;}public Model getCurrentModel(){return model;}
+                public static class Selector {public java.util.List<Selection> getSelected(){return java.util.List.of(new Selection());}}
+                public static class Selection {
+                    public Object getSource(){return new com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshSource();}
+                    public String getGuid(){return "one";}}
+                public static class Model {final Object source=new Object();
+                    public Object getSource(){return source;}public Mesh getArtMesh(String id){return new Mesh();}}
+                public static class Mesh {public Form getCalculatedForm(){return new Form();}}
+                public static class Form {public float[] getPositions(){return new float[]{10000000,10000000,10000020,10000020};}}
+            }
+            """);
+        source(files, "com.live2d.cubism.view.context.CEViewContext_ModelingView", """
+            import com.live2d.graphics3d.sceneGraph.GSceneGraph;
+            import com.live2d.graphics3d.type.GVector2;
+            import com.live2d.type.*;
+            public class CEViewContext_ModelingView {
+                public final com.live2d.cubism.doc.modeling.CModelingEditMode_Main edit=new com.live2d.cubism.doc.modeling.CModelingEditMode_Main();
+                public final Camera camera=new Camera();public final Drawer drawer=new Drawer();
+                public final GSceneGraph scene=new GSceneGraph();
+                public Object getCurrentEditMode(){return edit;}public Camera getCameraManager(){return camera;}
+                public int repaints; public void repaintCanvas(){repaints++;}
+                public static class NativeMouse extends java.awt.event.MouseEvent {
+                    public NativeMouse(int id,int x,int y,int clicks){
+                        super(new java.awt.Canvas(),id,1L,0,x,y,clicks,false,java.awt.event.MouseEvent.BUTTON1);}}
+                public static class NativeEvent {
+                    public final NativeMouse mouse; public final CPoint point;
+                    public NativeEvent(NativeMouse m){mouse=m;point=new CPoint(m.getX(),m.getY());}
+                    public NativeMouse f(){return mouse;} public CPoint K(){return point;}}
+                public Render getRenderSystem(){return new Render();}public GSceneGraph getSceneGraph(){return scene;}
+                public class Render {public Drawer b(){return drawer;}}
+                public static class Rect {public int getX(){return 0;}public int getY(){return 0;}public int getWidth(){return 1000;}public int getHeight(){return 800;}}
+                public static class Camera {public float zoom=1; public int unprojects;
+                    public boolean isSafeEditOnPlaneXY(){return true;}public Rect getComponentRect(){return new Rect();}
+                    public GVector2 documentToComponent(GVector2 p){return new GVector2(500+(p.getX()-10000010)*zoom,400+(p.getY()-10000010)*zoom);}
+                    public GVector2 componentToDocument(CPoint p){unprojects++;return new GVector2((p.x-500)/zoom+10000010,(p.y-400)/zoom+10000010);}}
+                public static class Drawer {
+                    public void a(Object ignored){}public void a(int order){}
+                    public void a(GVector2 a,GVector2 b,CColor c,float width,float z){}
+                    public void a(String s,CFont f,float x,float y,float z,float size,CColor c){}}
+            }
+            """);
+        Path classes = Files.createDirectories(root.resolve("label-classes"));
+        var args = new ArrayList<>(List.of("-d", classes.toString()));
+        args.addAll(files);
+        assertEquals(0, ToolProvider.getSystemJavaCompiler().run(null, null, null, args.toArray(String[]::new)));
+        return new URLClassLoader(new URL[] {classes.toUri().toURL()}, ClassLoader.getPlatformClassLoader());
+    }
+
     private static Object mouse(final ClassLoader loader, final int id, final int x, final int y, final int clickCount)
             throws Exception {
         return loader.loadClass("com.live2d.cubism.view.context.CEViewContext_ModelingView$NativeMouse")
