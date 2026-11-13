@@ -1045,21 +1045,40 @@ class SwingPanelViewRendererTest {
     }
 
     @Test
-    void iconButtonRendersAnIconWithoutVisibleTextAndDispatches() throws Exception {
+    void iconButtonRendersAnIconWithoutVisibleTextAndDispatchesSourceIdentity() throws Exception {
         final byte[] png = java.util.Base64.getDecoder()
                 .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
         final List<String> actions = new ArrayList<>();
+        final List<Optional<UiActionEvent>> events = new ArrayList<>();
         SwingUtilities.invokeAndWait(() -> {
             final JComponent rendered = SwingPanelViewRenderer.render(
-                    PanelView.iconButton("layout", png, "Layout: 6 columns", "board.layout"),
-                    (action, event) -> actions.add(action));
-            final AbstractButton button = assertInstanceOf(AbstractButton.class, named(rendered, "layout"));
+                    PanelView.card(
+                            "recent-1",
+                            "board.open",
+                            PanelView.iconButton("recent-1", png, "Delete preview", "board.delete")),
+                    (action, event) -> {
+                        actions.add(action);
+                        events.add(event);
+                    });
+            final AbstractButton button =
+                    assertInstanceOf(AbstractButton.class, ((Container) rendered).getComponent(0));
             assertTrue(button.getText() == null || button.getText().isEmpty());
             assertNotNull(button.getIcon());
-            assertEquals("Layout: 6 columns", button.getToolTipText());
+            assertEquals("Delete preview", button.getToolTipText());
             button.doClick();
+            button.dispatchEvent(new MouseEvent(
+                    button,
+                    MouseEvent.MOUSE_CLICKED,
+                    System.currentTimeMillis(),
+                    0,
+                    4,
+                    4,
+                    2,
+                    false,
+                    MouseEvent.BUTTON1));
         });
-        assertEquals(List.of("board.layout"), actions);
+        assertEquals(List.of("board.delete"), actions);
+        assertEquals("recent-1", events.get(0).orElseThrow().sourceId());
     }
 
     @Test

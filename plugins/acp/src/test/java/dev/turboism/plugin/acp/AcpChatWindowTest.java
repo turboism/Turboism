@@ -98,6 +98,15 @@ final class AcpChatWindowTest {
         assertEquals("javax.swing.plaf.basic.BasicTextAreaUI", defaults.get("TextAreaUI"));
         assertEquals("javax.swing.plaf.basic.BasicListUI", defaults.get("ListUI"));
         assertEquals("javax.swing.plaf.basic.BasicButtonUI", defaults.get("ButtonUI"));
+
+        final Object lafComboUi = javax.swing.UIManager.getLookAndFeelDefaults().get("ComboBoxUI");
+        assertNotNull(lafComboUi);
+        javax.swing.UIManager.put("ComboBoxUI", null);
+        AcpChatWindow.installFallbackSwingUis(javax.swing.UIManager.getDefaults());
+        assertEquals(
+                lafComboUi,
+                javax.swing.UIManager.getDefaults().get("ComboBoxUI"),
+                "MultiUIDefaults must keep the active LookAndFeel ComboBoxUI instead of overriding with BasicComboBoxUI");
     }
 
     @Test

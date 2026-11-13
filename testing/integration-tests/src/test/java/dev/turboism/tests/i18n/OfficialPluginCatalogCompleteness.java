@@ -71,6 +71,7 @@ final class OfficialPluginCatalogCompleteness {
             "tooltip.guid",
             "theme.detail.id",
             "theme.detail.url",
+            "texture-atlas.algorithm.bitmask-nesting",
             "texture-atlas.algorithm.maxrects",
             "dialog.kernel.option.abey",
             "dialog.kernel.option.dalalah",

@@ -293,13 +293,8 @@ final class SurfaceWarpAuthoring {
                     throw new IllegalArgumentException("原生编辑网格预览无法保留模型全部顶点和面。");
             }
         var part = model.parts().create(p.request.name(), null, -1);
-        var warp = model.deformers()
-                .createWarp(
-                        p.request.name() + " " + p.request.label("object.warp", "曲面变形"),
-                        part,
-                        -1,
-                        p.geometry.rows(),
-                        p.geometry.columns());
+        var warp =
+                model.deformers().createWarp(p.request.warpName(), part, -1, p.geometry.rows(), p.geometry.columns());
         var identity = new ArrayList<Point2>();
         for (int y = 0; y <= p.geometry.rows(); y++)
             for (int x = 0; x <= p.geometry.columns(); x++)
@@ -318,7 +313,7 @@ final class SurfaceWarpAuthoring {
             var input = p.images.inputs.get(i);
             var mesh = model.drawables()
                     .createWithSourceGeometry(
-                            p.request.name() + " " + i, part, -1, input.imageGeometry(), input.defaultLocal());
+                            p.request.layeredMeshName(i), part, -1, input.imageGeometry(), input.defaultLocal());
             mesh.setCulling(true);
             ids.add(mesh.id());
             snapshots.add(mesh.authoringSnapshot());

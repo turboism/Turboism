@@ -48,11 +48,17 @@ error.transaction-uncommitted
 file.chooser.title
 menu.group
 model.default-name
+object.deformer
+object.joint
 object.local-action
+object.mesh
+object.mesh.named
+object.partition
 object.placement
 object.rotation.x
 object.rotation.y
 object.rotation.z
+object.surface
 object.warp
 plugin.description
 plugin.name

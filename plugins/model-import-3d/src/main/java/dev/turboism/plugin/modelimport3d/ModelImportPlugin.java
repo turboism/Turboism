@@ -571,7 +571,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                 null,
                                 null,
                                 null,
-                                NativeModelImport.prepare(selectedPreset.read(), presetRequest, () -> !active(token))));
+                                NativeModelImport.preparePreset(selectedPreset, presetRequest, () -> !active(token))));
                     } catch (Exception failure) {
                         throw new CompletionException(failure);
                     }
@@ -692,19 +692,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                 180,
                 SurfaceImportPlan.MAX_PROJECTED_VERTICES,
                 Optional.of(new ParameterId("Param3DRoll" + suffix)),
-                java.util.Map.of(
-                        "object.rotation.x",
-                        text("object.rotation.x", "X 旋转"),
-                        "object.rotation.y",
-                        text("object.rotation.y", "Y 旋转"),
-                        "object.rotation.z",
-                        text("object.rotation.z", "Z 旋转"),
-                        "object.placement",
-                        text("object.placement", "整体定位"),
-                        "object.warp",
-                        text("object.warp", "曲面变形"),
-                        "object.local-action",
-                        text("object.local-action", "分区 {0} 局部动作")));
+                ModelObjectNames.labels(this::text));
     }
 
     /**
@@ -733,7 +721,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                 null,
                                 null,
                                 null,
-                                NativeModelImport.prepare(preset.read(), presetRequest, () -> !active(token)));
+                                NativeModelImport.preparePreset(preset, presetRequest, () -> !active(token)));
                     } catch (java.io.IOException failure) {
                         throw new IllegalStateException(failure.getMessage(), failure);
                     }

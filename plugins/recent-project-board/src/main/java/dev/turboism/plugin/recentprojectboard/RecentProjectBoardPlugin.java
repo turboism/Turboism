@@ -469,7 +469,7 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
         final byte[] icon = layoutIcons.computeIfAbsent(DELETE_ICON_NAME, this::loadLayoutIcon);
         final String tooltip = localization.text("board.delete.action", "Delete preview");
         return icon.length == 0
-                ? PanelView.button(DELETE_ACTION_ID, tooltip, DELETE_ACTION_ID)
+                ? PanelView.button(file.id().value(), tooltip, DELETE_ACTION_ID)
                 : PanelView.iconButton(file.id().value(), icon, tooltip, DELETE_ACTION_ID);
     }
 
@@ -695,6 +695,9 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
                     logger.warn("Recent project board preview deletion failed: "
                             + failure.getClass().getSimpleName());
                     return;
+                }
+                if (previews.remove(idValue) != null) {
+                    dispatchRefresh();
                 }
                 if (Boolean.TRUE.equals(removed)) {
                     logger.debug("Recent project board deleted the preview of " + idValue);

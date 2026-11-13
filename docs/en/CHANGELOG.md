@@ -27,6 +27,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- Preset and 3D model imports capture a fresh post-atlas snapshot before setting parameter interpolations so complex presets such as the donut no longer roll back, and localize generated Part, Deformer, and ArtMesh names across all supported locales.
+- Clicking a card's trash icon on the recent-project board now forwards the card identity and drops the cached preview immediately; the plugin management window right-aligns both footer button rows; the Bitmask Nesting selector label uses `Bitmask Nesting` consistently; and `AcpChatWindow` resolves `MultiUIDefaults` through the active Look-and-Feel before registering fallback `Basic*UI` classes so global `JComboBox` controls retain their themed appearance.
 - The ACP composer's agent button shows the agent name alone. The agent menu keeps the check mark that identifies a detected installation.
 - Native palette icons follow the display scale. The icon owner samples the screen transform and selects the reviewed 100/125/150/175/200 percent variant instead of pinning every session to 100 percent, so the row lock icon stays sharp on a scaled display.
 - The ACP window now styles all controls, scrollbars, bounded searchable option menus, and permission prompts with the active theme, centers user message cards vertically, nests thinking sections inside collapsible tool activity groups, and updates streamed messages and tool groups incrementally without full-transcript rebuilds.

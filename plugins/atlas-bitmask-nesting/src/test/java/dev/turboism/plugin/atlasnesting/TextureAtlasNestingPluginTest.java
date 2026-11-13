@@ -76,7 +76,7 @@ class TextureAtlasNestingPluginTest {
         final var planner = (TextureAtlasPolygonLayoutPlanner)
                 registry.find("bitmask-nesting").orElseThrow().planner();
         assertEquals(
-                catalog.text("texture-atlas.algorithm.bitmask-nesting"),
+                "Bitmask Nesting",
                 registry.find("bitmask-nesting").orElseThrow().displayName());
         assertFalse(catalog.text("plugin.name").startsWith("plugin."));
         final var duplicate =

@@ -3032,7 +3032,12 @@ final class AcpChatWindow implements AcpChatController.View {
                 Map.entry("TextPaneUI", "javax.swing.plaf.basic.BasicTextPaneUI"),
                 Map.entry("ToolTipUI", "javax.swing.plaf.basic.BasicToolTipUI"),
                 Map.entry("ViewportUI", "javax.swing.plaf.basic.BasicViewportUI"));
-        fallbacks.forEach(defaults::putIfAbsent);
+        // MultiUIDefaults.putIfAbsent bypasses the active LookAndFeel table and overwrites global UIs.
+        fallbacks.forEach((key, value) -> {
+            if (defaults.get(key) == null) {
+                defaults.put(key, value);
+            }
+        });
     }
 
     private JFrame frame(final String titleKey) {

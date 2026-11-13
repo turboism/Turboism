@@ -93,6 +93,19 @@ final class SurfaceImportGeometry {
             Part parent,
             String name,
             List<UvMode> uvModes) {
+        return create(model, plan, yaw, pitch, parent, name, index -> name + "_" + (index + 1), uvModes);
+    }
+
+    static Created create(
+            CubismModel model,
+            SurfaceImportPlan.Plan plan,
+            ParameterId yaw,
+            ParameterId pitch,
+            Part parent,
+            String name,
+            java.util.function.IntFunction<String> meshNames,
+            List<UvMode> uvModes) {
+        java.util.Objects.requireNonNull(meshNames, "meshNames");
         uvModes = List.copyOf(uvModes);
         if (uvModes.size() != plan.patches().size()) throw new IllegalArgumentException("UV mode/patch count differs");
         if (name == null
@@ -137,11 +150,11 @@ final class SurfaceImportGeometry {
         var pitchPoints = bindingPoints(ps, "PITCH");
         var result = new ArrayList<BoundPatch>();
         for (int i = 0; i < plan.patches().size(); i++) {
+            String meshName = java.util.Objects.requireNonNull(meshNames.apply(i), "meshName");
             var mesh = uvModes.get(i) == UvMode.SOURCE
-                    ? model.drawables().create(name + "_" + (i + 1), parent, -1, geometries.get(i))
+                    ? model.drawables().create(meshName, parent, -1, geometries.get(i))
                     : model.drawables()
-                            .createWithSourceGeometry(
-                                    name + "_" + (i + 1), parent, -1, geometries.get(i), neutral.get(i));
+                            .createWithSourceGeometry(meshName, parent, -1, geometries.get(i), neutral.get(i));
             model.parameterBindings(yaw).bind(ParameterBindingTarget.artMesh(mesh.id()), yawPoints);
             model.parameterBindings(pitch).bind(ParameterBindingTarget.artMesh(mesh.id()), pitchPoints);
             var patch = plan.patches().get(i).source();
