@@ -9,9 +9,12 @@ import dev.turboism.core.io.WriteOptions;
 import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -36,6 +39,37 @@ public final class UpdateFileSupport {
      */
     static final String UNREADABLE_SUFFIX = ".corrupt.bak";
 
+    /**
+     * Win32 {@code ERROR_NOT_A_REPARSE_POINT} ({@code 0x1126}) reason emitted when Wine marks a
+     * Unix mount boundary as a reparse point and rejects {@code FSCTL_GET_REPARSE_POINT}.
+     */
+    static final String WINE_MOUNT_POINT_REASON = "Unknown error: 0x1126";
+
+    interface AncestorProbe {
+        BasicFileAttributes readNoFollow(Path path) throws IOException;
+
+        BasicFileAttributes readFollowing(Path path) throws IOException;
+
+        Path toRealPath(Path path) throws IOException;
+    }
+
+    private static final AncestorProbe SYSTEM_ANCESTOR_PROBE = new AncestorProbe() {
+        @Override
+        public BasicFileAttributes readNoFollow(final Path path) throws IOException {
+            return Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        }
+
+        @Override
+        public BasicFileAttributes readFollowing(final Path path) throws IOException {
+            return Files.readAttributes(path, BasicFileAttributes.class);
+        }
+
+        @Override
+        public Path toRealPath(final Path path) throws IOException {
+            return path.toRealPath();
+        }
+    };
+
     private UpdateFileSupport() {}
 
     static Path normalizeHome(final Path requestedHome) {
@@ -44,6 +78,52 @@ public final class UpdateFileSupport {
 
     static Object lockFor(final Path path) {
         return PathLocks.forPath(path);
+    }
+
+    /**
+     * Reads ancestor attributes without following links, accepting non-redirecting Unix mount
+     * boundaries under Wine where {@code NOFOLLOW_LINKS} fails with {@code 0x1126}.
+     */
+    static BasicFileAttributes ancestorAttributesIfPresent(final Path path) throws IOException {
+        return ancestorAttributesIfPresent(path, SYSTEM_ANCESTOR_PROBE);
+    }
+
+    static BasicFileAttributes ancestorAttributesIfPresent(final Path path, final AncestorProbe probe)
+            throws IOException {
+        Objects.requireNonNull(path, "path");
+        Objects.requireNonNull(probe, "probe");
+        try {
+            return probe.readNoFollow(path);
+        } catch (NoSuchFileException missing) {
+            return null;
+        } catch (FileSystemException failure) {
+            if (!WINE_MOUNT_POINT_REASON.equals(failure.getReason())) {
+                throw failure;
+            }
+            return verifyMountBoundaryDirectory(path, probe, failure);
+        }
+    }
+
+    private static BasicFileAttributes verifyMountBoundaryDirectory(
+            final Path path, final AncestorProbe probe, final FileSystemException originalFailure) throws IOException {
+        final BasicFileAttributes resolved;
+        final Path real;
+        try {
+            resolved = probe.readFollowing(path);
+            real = probe.toRealPath(path);
+        } catch (IOException secondary) {
+            originalFailure.addSuppressed(secondary);
+            throw originalFailure;
+        }
+        final Path expected = path.toAbsolutePath().normalize();
+        if (resolved == null
+                || !resolved.isDirectory()
+                || resolved.isSymbolicLink()
+                || resolved.isOther()
+                || !expected.equals(real)) {
+            throw originalFailure;
+        }
+        return resolved;
     }
 
     static ObjectNode readObject(final Path home, final Path path) throws IOException {

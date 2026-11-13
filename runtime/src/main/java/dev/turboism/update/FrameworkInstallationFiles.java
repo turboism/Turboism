@@ -174,9 +174,8 @@ interface FrameworkInstallationFiles extends AutoCloseable {
         }
 
         private static void directory(final Path path) throws IOException {
-            final BasicFileAttributes attrs =
-                    Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-            if (!attrs.isDirectory() || attrs.isSymbolicLink() || attrs.isOther())
+            final BasicFileAttributes attrs = UpdateFileSupport.ancestorAttributesIfPresent(path);
+            if (attrs == null || !attrs.isDirectory() || attrs.isSymbolicLink() || attrs.isOther())
                 throw new IOException("Unsafe installation ancestor");
         }
 

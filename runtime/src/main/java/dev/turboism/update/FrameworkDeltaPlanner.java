@@ -125,14 +125,14 @@ public final class FrameworkDeltaPlanner {
 
     private static void validateSafeRootAndAncestors(final Path root) throws IOException, InterruptedException {
         Path current = root.getRoot();
-        final BasicFileAttributes filesystemRoot = attributesIfPresent(current);
+        final BasicFileAttributes filesystemRoot = UpdateFileSupport.ancestorAttributesIfPresent(current);
         if (filesystemRoot == null) throw new IOException("Filesystem root unavailable: " + current);
         requireDirectory(current, filesystemRoot);
         for (final Path component : root) {
             checkInterrupted();
             current = current.resolve(component);
-            final BasicFileAttributes attrs = attributesIfPresent(current);
-            if (attrs == null) return; // Remaining descendants are statically absent.
+            final BasicFileAttributes attrs = UpdateFileSupport.ancestorAttributesIfPresent(current);
+            if (attrs == null) return;
             requireDirectory(current, attrs);
         }
     }
