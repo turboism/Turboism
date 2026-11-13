@@ -81,7 +81,12 @@ class RuntimePerformanceProbeServiceTest {
         public double getProcessCpuLoad() {
             loadQueries++;
             if (loadNanos > 0L) {
-                LockSupport.parkNanos(loadNanos);
+                final long deadline = System.nanoTime() + loadNanos;
+                long remaining = loadNanos;
+                while (remaining > 0L) {
+                    LockSupport.parkNanos(remaining);
+                    remaining = deadline - System.nanoTime();
+                }
             }
             return load;
         }
