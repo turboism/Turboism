@@ -216,6 +216,7 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
     private void showWindow(final WindowTarget target, final long openGeneration) {
         beforeWindowConstruction.run();
         final AcpChatWindow toShow;
+        final AcpChatController createdController;
         AcpChatController autoConnect = null;
         synchronized (this) {
             if (!enabled || generation != openGeneration || settings == null) return;
@@ -245,7 +246,9 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
                 created.bindExtendedControls(next::setPermissionMode);
                 window = created;
                 controller = next;
-                next.detectAgents();
+                createdController = next;
+            } else {
+                createdController = null;
             }
             toShow = window;
             if (toShow != null && controller != null && target == WindowTarget.AGENT && toShow.claimAutoConnect()) {
@@ -253,10 +256,12 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
             }
             if (target == WindowTarget.SETTINGS) {
                 presentSettingsWindow(toShow::showSettingsAndFront);
+                if (createdController != null) createdController.detectAgentsIfNeeded();
                 return;
             }
             final AcpChatController connection = autoConnect;
             presentAgentWindow(connection == null ? null : connection::connect, toShow::showAgentAndFront);
+            if (createdController != null) createdController.detectAgentsIfNeeded();
         }
     }
 

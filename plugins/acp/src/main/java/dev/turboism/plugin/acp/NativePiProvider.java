@@ -72,6 +72,10 @@ final class NativePiProvider extends NativeAgentProvider {
             models.putIfAbsent(current, model);
             selected.put("model", current);
         }
+        if (params.containsKey("sessionId")) {
+            final var history = await(command("get_messages", Map.of()));
+            NativeSessionReplay.replayPiMessages(this, host, list(history.get("messages")));
+        }
         // Query the runtime rather than inventing thinking levels that a provider may not support.
     }
 

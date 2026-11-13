@@ -84,6 +84,10 @@ final class NativeCodexProvider extends NativeAgentProvider {
         if (choices.get("permissions").stream().anyMatch(option -> policy.equals(option.get("value"))))
             selected.put("permissions", policy);
         rebuildEffort(models);
+        if (params.containsKey("sessionId")) {
+            NativeSessionReplay.replayCodexTurns(
+                    this, host, list(object(response.get("thread")).get("turns")));
+        }
     }
 
     private void rebuildEffort(final Map<String, Object> models) {

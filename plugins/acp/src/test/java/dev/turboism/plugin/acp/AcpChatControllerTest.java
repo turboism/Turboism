@@ -676,9 +676,11 @@ final class AcpChatControllerTest {
             releaseEdt.countDown();
             flushUi();
 
-            assertEquals(66, fixture.view.timeline.size());
-            assertEquals("agent:event-63", fixture.view.timeline.get(64));
-            assertEquals("agent:post-commit", fixture.view.timeline.get(65));
+            assertEquals(AcpChatController.MAX_PENDING_LOAD_EVENTS + 2, fixture.view.timeline.size());
+            assertEquals(
+                    "agent:event-" + (AcpChatController.MAX_PENDING_LOAD_EVENTS - 1),
+                    fixture.view.timeline.get(AcpChatController.MAX_PENDING_LOAD_EVENTS));
+            assertEquals("agent:post-commit", fixture.view.timeline.get(AcpChatController.MAX_PENDING_LOAD_EVENTS + 1));
         } finally {
             releaseEdt.countDown();
         }
@@ -1065,7 +1067,7 @@ final class AcpChatControllerTest {
     }
 
     @ParameterizedTest(name = "pending load handles {0} events (overflow: {1})")
-    @CsvSource({"64, false", "70, true"})
+    @CsvSource({"4096, false", "4102, true"})
     void pendingLoadEventCountBoundary(int eventCount, boolean expectOverflow) throws Exception {
         final Fixture fixture = new Fixture();
         try (AcpClient source = inactiveClient();
@@ -1083,8 +1085,10 @@ final class AcpChatControllerTest {
                     () -> fixture.view.record("reset")));
             flushUi();
 
-            assertEquals(65, fixture.view.timeline.size());
-            assertEquals("agent:event-63", fixture.view.timeline.get(64));
+            assertEquals(AcpChatController.MAX_PENDING_LOAD_EVENTS + 1, fixture.view.timeline.size());
+            assertEquals(
+                    "agent:event-" + (AcpChatController.MAX_PENDING_LOAD_EVENTS - 1),
+                    fixture.view.timeline.get(AcpChatController.MAX_PENDING_LOAD_EVENTS));
             if (!expectOverflow) {
                 assertFalse(fixture.logger.warnings.stream()
                         .anyMatch(message -> message.contains("session-load replay events")));
@@ -1644,6 +1648,141 @@ final class AcpChatControllerTest {
     @SuppressWarnings("unchecked")
     private static List<Object> list(final Object value) {
         return (List<Object>) value;
+    }
+
+    @Test
+    void resumeSessionSelectionReplaysHistoryAndStripsInternalPromptPrefix() throws Exception {
+        final Fixture fixture = new Fixture();
+        final AgentLaunchSpec spec =
+                new AgentLaunchSpec(List.of("codex"), temporaryDirectory, Map.of(), AgentProtocol.CODEX);
+        new LocalSessionIndex(temporaryDirectory.resolve("state/dev.turboism.plugin.acp"), "codex", spec)
+                .remember("hist-1", "Earlier chat");
+        final java.io.PipedInputStream clientStdout = new java.io.PipedInputStream();
+        final java.io.PipedOutputStream serverStdout = new java.io.PipedOutputStream(clientStdout);
+        final java.io.PipedInputStream clientStderr = new java.io.PipedInputStream();
+        final java.io.PipedOutputStream serverStderr = new java.io.PipedOutputStream(clientStderr);
+        final AcpTransport transport = new AcpTransport() {
+            @Override
+            public java.io.InputStream stdout() {
+                return clientStdout;
+            }
+
+            @Override
+            public java.io.InputStream stderr() {
+                return clientStderr;
+            }
+
+            @Override
+            public java.io.OutputStream stdin() {
+                return new java.io.OutputStream() {
+                    final java.io.ByteArrayOutputStream line = new java.io.ByteArrayOutputStream();
+
+                    @Override
+                    public synchronized void write(final int value) throws java.io.IOException {
+                        if (value != '\n') {
+                            line.write(value);
+                            return;
+                        }
+                        final Map<String, Object> req =
+                                object(dev.turboism.sdk.json.Json.parseObject(line.toByteArray()));
+                        line.reset();
+                        if (!"session/resume".equals(req.get("method"))) return;
+                        final String userPayload = AcpChatController.promptPrefix("Be brief.") + "Check the model";
+                        for (String part : List.of(userPayload.substring(0, 20), userPayload.substring(20))) {
+                            serverStdout.write((dev.turboism.sdk.json.Json.stringify(Map.of(
+                                                    "jsonrpc",
+                                                    "2.0",
+                                                    "method",
+                                                    "session/update",
+                                                    "params",
+                                                    Map.of(
+                                                            "sessionId",
+                                                            "hist-1",
+                                                            "update",
+                                                            Map.of(
+                                                                    "sessionUpdate",
+                                                                    "user_message_chunk",
+                                                                    "content",
+                                                                    Map.of("type", "text", "text", part)))))
+                                            + "\n")
+                                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        }
+                        serverStdout.write((dev.turboism.sdk.json.Json.stringify(Map.of(
+                                                "jsonrpc",
+                                                "2.0",
+                                                "method",
+                                                "session/update",
+                                                "params",
+                                                Map.of(
+                                                        "sessionId",
+                                                        "hist-1",
+                                                        "update",
+                                                        Map.of(
+                                                                "sessionUpdate",
+                                                                "agent_message_chunk",
+                                                                "content",
+                                                                Map.of("type", "text", "text", "Checked model")))))
+                                        + "\n")
+                                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        serverStdout.write((dev.turboism.sdk.json.Json.stringify(Map.of(
+                                                "jsonrpc",
+                                                "2.0",
+                                                "id",
+                                                req.get("id"),
+                                                "result",
+                                                Map.of("configOptions", List.of())))
+                                        + "\n")
+                                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        serverStdout.flush();
+                    }
+                };
+            }
+
+            @Override
+            public boolean isAlive() {
+                return true;
+            }
+
+            @Override
+            public void terminate(final Duration grace) {
+                close();
+            }
+
+            @Override
+            public void close() {
+                try {
+                    serverStdout.close();
+                } catch (java.io.IOException ignored) {
+                }
+                try {
+                    serverStderr.close();
+                } catch (java.io.IOException ignored) {
+                }
+            }
+        };
+        try (AcpChatController controller = fixture.controller();
+                AcpClient source = new AcpClient(transport, controller)) {
+            setCapabilities(source, new AcpClient.AcpCapabilities(false, false, false, true, false, true, false));
+            set(controller, "client", source);
+            set(controller, "launchSpec", spec);
+            set(controller, "activeHarnessId", "codex");
+            set(controller, "mcpConnection", testMcpConnection());
+            set(
+                    controller,
+                    "session",
+                    new AcpSession(
+                            "current-1",
+                            List.of(),
+                            new AcpClient.AcpCapabilities(false, false, false, true, false, true, false)));
+
+            selectSessionNow(controller, "hist-1");
+            fixture.view.awaitTimeline("agent:Checked model");
+            flushUi();
+
+            assertEquals(List.of("Check the model"), fixture.view.userMessages);
+            assertEquals(List.of("clear", "config", "agent:Checked model"), fixture.view.timeline);
+            assertEquals("hist-1", session(controller).sessionId());
+        }
     }
 
     private final class Fixture {

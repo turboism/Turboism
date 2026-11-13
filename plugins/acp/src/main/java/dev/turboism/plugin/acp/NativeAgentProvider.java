@@ -138,6 +138,17 @@ abstract class NativeAgentProvider implements AutoCloseable {
         host.update(update);
     }
 
+    final void toolUpdate(final String id, final String status, final Object result) {
+        final var update = new LinkedHashMap<String, Object>();
+        update.put("sessionUpdate", "tool_call_update");
+        update.put("toolCallId", id);
+        update.put("status", status);
+        if (result != null) {
+            update.put("content", NativeToolContent.from(result));
+        }
+        host.update(update);
+    }
+
     static Map<String, Object> checked(final Map<String, Object> response) {
         if (response.containsKey("error"))
             throw new java.util.concurrent.CompletionException(new IOException(

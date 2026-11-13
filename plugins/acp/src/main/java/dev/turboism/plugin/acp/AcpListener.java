@@ -5,6 +5,10 @@ import java.util.List;
 /** Thread-safe callbacks from one identified ACP client to the plugin controller. */
 interface AcpListener {
 
+    default void userText(final AcpClient source, final String sessionId, final String text) {}
+
+    default void userImage(final AcpClient source, final String sessionId, final AcpAttachment image) {}
+
     default void agentText(final AcpClient source, final String sessionId, final String text) {}
 
     default void agentImage(final AcpClient source, final String sessionId, final AcpAttachment image) {}

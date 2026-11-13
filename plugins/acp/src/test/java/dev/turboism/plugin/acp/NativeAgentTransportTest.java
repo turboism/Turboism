@@ -707,6 +707,200 @@ final class NativeAgentTransportTest {
                 AgentProtocol.forExecutable(AgentCatalog.profile("codex").orElseThrow(), Path.of("codex-acp.cmd")));
     }
 
+    @Test
+    void resumeReplaysPersistedConversationForCodexPiAndClaude() throws Exception {
+        // Codex: thread/resume turns
+        final var codexUser = new CopyOnWriteArrayList<String>();
+        final var codexAgent = new CopyOnWriteArrayList<String>();
+        final var codexTools = new CopyOnWriteArrayList<String>();
+        final var codexTransport = new NativeAgentTransport(
+                new AgentLaunchSpec(List.of("codex"), directory, Map.of(), AgentProtocol.CODEX), launch -> {
+                    final var process = new FakeCli(AgentProtocol.CODEX);
+                    process.resumedTurns = List.of(Map.of(
+                            "id",
+                            "turn-1",
+                            "items",
+                            List.of(
+                                    Map.of(
+                                            "type",
+                                            "userMessage",
+                                            "content",
+                                            List.of(Map.of("type", "text", "text", "Hello Codex"))),
+                                    Map.of(
+                                            "type",
+                                            "mcpToolCall",
+                                            "id",
+                                            "call-1",
+                                            "tool",
+                                            "inspect",
+                                            "status",
+                                            "completed",
+                                            "arguments",
+                                            Map.of("id", "m1"),
+                                            "result",
+                                            "ok"),
+                                    Map.of("type", "agentMessage", "text", "Codex reply"))));
+                    return process;
+                });
+        try (AcpClient client = new AcpClient(codexTransport, new AcpListener() {
+            @Override
+            public void userText(AcpClient source, String sessionId, String text) {
+                codexUser.add(text);
+            }
+
+            @Override
+            public void agentText(AcpClient source, String sessionId, String text) {
+                codexAgent.add(text);
+            }
+
+            @Override
+            public void toolCallUpdate(
+                    AcpClient source, String sessionId, String toolCallId, String status, String content) {
+                codexTools.add(toolCallId + ":" + status + ":" + content);
+            }
+        })) {
+            client.initialize(TIMEOUT);
+            client.resumeSession("thread-1", directory, mcpConnection(), TIMEOUT);
+            assertEquals(List.of("Hello Codex"), codexUser);
+            assertEquals(List.of("Codex reply"), codexAgent);
+            assertEquals(1, codexTools.size());
+            assertTrue(codexTools.get(0).endsWith(":completed:ok"));
+        }
+
+        // Pi: get_messages RPC replay
+        final var piUser = new CopyOnWriteArrayList<String>();
+        final var piThought = new CopyOnWriteArrayList<String>();
+        final var piAgent = new CopyOnWriteArrayList<String>();
+        final var piTools = new CopyOnWriteArrayList<String>();
+        final var piTransport = new NativeAgentTransport(
+                new AgentLaunchSpec(List.of("pi"), directory, Map.of(), AgentProtocol.PI), launch -> {
+                    final var process = new FakeCli(AgentProtocol.PI);
+                    process.piMessages = List.of(
+                            Map.of("role", "user", "content", "Hello Pi"),
+                            Map.of(
+                                    "role",
+                                    "assistant",
+                                    "content",
+                                    List.of(
+                                            Map.of("type", "thinking", "thinking", "Checking"),
+                                            Map.of(
+                                                    "type",
+                                                    "toolCall",
+                                                    "id",
+                                                    "pi-call-1",
+                                                    "name",
+                                                    "read",
+                                                    "arguments",
+                                                    Map.of("path", "a.txt")))),
+                            Map.of(
+                                    "role",
+                                    "toolResult",
+                                    "toolCallId",
+                                    "pi-call-1",
+                                    "toolName",
+                                    "read",
+                                    "isError",
+                                    false,
+                                    "content",
+                                    List.of(Map.of("type", "text", "text", "contents"))),
+                            Map.of(
+                                    "role",
+                                    "assistant",
+                                    "content",
+                                    List.of(Map.of("type", "text", "text", "Pi reply"))));
+                    return process;
+                });
+        try (AcpClient client = new AcpClient(piTransport, new AcpListener() {
+            @Override
+            public void userText(AcpClient source, String sessionId, String text) {
+                piUser.add(text);
+            }
+
+            @Override
+            public void agentThought(AcpClient source, String sessionId, String text) {
+                piThought.add(text);
+            }
+
+            @Override
+            public void agentText(AcpClient source, String sessionId, String text) {
+                piAgent.add(text);
+            }
+
+            @Override
+            public void toolCallUpdate(
+                    AcpClient source, String sessionId, String toolCallId, String status, String content) {
+                piTools.add(toolCallId + ":" + status + ":" + content);
+            }
+        })) {
+            client.initialize(TIMEOUT);
+            client.resumeSession("pi-sess-1", directory, mcpConnection(), TIMEOUT);
+            assertEquals(List.of("Hello Pi"), piUser);
+            assertEquals(List.of("Checking"), piThought);
+            assertEquals(List.of("Pi reply"), piAgent);
+            assertEquals(1, piTools.size());
+            assertTrue(piTools.get(0).endsWith(":completed:contents"));
+        }
+
+        // Claude: persisted JSONL transcript replay
+        final Path claudeConfig = directory.resolve("claude-config");
+        final Path projectDir = claudeConfig.resolve("projects").resolve("test-proj");
+        Files.createDirectories(projectDir);
+        Files.writeString(
+                projectDir.resolve("claude-sess-1.jsonl"),
+                String.join(
+                                "\n",
+                                Json.stringify(Map.of(
+                                        "type", "user", "message", Map.of("role", "user", "content", "Hello Claude"))),
+                                Json.stringify(Map.of(
+                                        "type",
+                                        "assistant",
+                                        "message",
+                                        Map.of(
+                                                "role",
+                                                "assistant",
+                                                "content",
+                                                List.of(
+                                                        Map.of("type", "thinking", "thinking", "Thinking"),
+                                                        Map.of("type", "text", "text", "Claude reply"))))))
+                        + "\n");
+        final var claudeUser = new CopyOnWriteArrayList<String>();
+        final var claudeThought = new CopyOnWriteArrayList<String>();
+        final var claudeAgent = new CopyOnWriteArrayList<String>();
+        final var claudeTransport = new NativeAgentTransport(
+                new AgentLaunchSpec(
+                        List.of("claude"),
+                        directory,
+                        Map.of("CLAUDE_CONFIG_DIR", claudeConfig.toString()),
+                        AgentProtocol.CLAUDE),
+                launch -> new FakeCli(AgentProtocol.CLAUDE));
+        try (AcpClient client = new AcpClient(claudeTransport, new AcpListener() {
+            @Override
+            public void userText(AcpClient source, String sessionId, String text) {
+                claudeUser.add(text);
+            }
+
+            @Override
+            public void agentThought(AcpClient source, String sessionId, String text) {
+                claudeThought.add(text);
+            }
+
+            @Override
+            public void agentText(AcpClient source, String sessionId, String text) {
+                claudeAgent.add(text);
+            }
+        })) {
+            client.initialize(TIMEOUT);
+            client.resumeSession("claude-sess-1", directory, mcpConnection(), TIMEOUT);
+            assertEquals(List.of("Hello Claude"), claudeUser);
+            assertEquals(List.of("Thinking"), claudeThought);
+            assertEquals(List.of("Claude reply"), claudeAgent);
+        }
+    }
+
+    private static McpHttpConnection mcpConnection() {
+        return new McpHttpConnection(URI.create("http://127.0.0.1:43123/mcp"), "2025-11-25");
+    }
+
     private final class Fixture implements AutoCloseable {
         final AtomicReference<AgentLaunchSpec> spec = new AtomicReference<>();
         final StringBuffer text = new StringBuffer();
@@ -789,6 +983,8 @@ final class NativeAgentTransportTest {
         volatile String codexTurnId = "turn-0";
         private int codexTurnSequence;
         Map<String, Object> threadParams = Map.of();
+        List<Map<String, Object>> resumedTurns = List.of();
+        List<Map<String, Object>> piMessages = List.of();
         volatile boolean alive = true;
 
         FakeCli(AgentProtocol protocol) throws IOException {
@@ -827,7 +1023,7 @@ final class NativeAgentTransportTest {
                     }
                     case "thread/start", "thread/resume" -> {
                         threadParams = object(request.get("params"));
-                        result = Map.of("thread", Map.of("id", "thread-1"), "model", "model-a");
+                        result = Map.of("thread", Map.of("id", "thread-1", "turns", resumedTurns), "model", "model-a");
                     }
                     case "model/list" ->
                         result = Map.of("data", List.of(Map.of("model", "model-a", "displayName", "Model A")));
@@ -881,6 +1077,7 @@ final class NativeAgentTransportTest {
                     case "get_available_models" ->
                         data = Map.of(
                                 "models", List.of(Map.of("provider", "local", "id", "model-a", "name", "Model A")));
+                    case "get_messages" -> data = Map.of("messages", piMessages);
                     case "prompt" -> {
                         promptRequests.add(request);
                         data = Map.of("disposition", "started");

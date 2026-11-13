@@ -34,7 +34,7 @@ Replaces the empty Cubism modeling viewport with a board of recent project thumb
 - Uses the official `recent-preview` plugin's public `thumbnail.captured` event for thumbnails, including its bounded startup cache replay.
 - Hides the board immediately when any document opens and restores it after the last document closes.
 - Keeps the header title/subtitle left-aligned and the layout button on the right. The header sits outside the scroll region, so the button never shifts when the vertical scrollbar appears, and the button is vertically centered in the header.
-- Deduplicates repeated recent-menu entries by display name and lists entries with cached previews first.
+- Deduplicates repeated recent-menu entries by display name while preserving the Recent Files order.
 - Centers each card's name and timestamp, and centers the placeholder text vertically and horizontally when no thumbnail is cached.
 - Every card carries a trash button that deletes that project's cached thumbnail through the provider, so the card returns to the placeholder state and the hover popup stops showing the stale image.
 - When there are no recent files, centers an empty-state message with blue **Create New Project** and **Create New Animation Project** links. The first invokes the host's typed `NEW_MODEL` command; the second opens Cubism's native New Animation target dialog.

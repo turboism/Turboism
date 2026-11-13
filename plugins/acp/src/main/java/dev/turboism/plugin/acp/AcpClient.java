@@ -487,7 +487,14 @@ final class AcpClient implements AutoCloseable {
         if (sessionId == null) return;
         final Map<String, Object> update = objectOrEmpty(params.get("update"));
         final String kind = string(update.get("sessionUpdate"));
-        if ("agent_message_chunk".equals(kind)) {
+        if ("user_message_chunk".equals(kind)) {
+            final Map<String, Object> content = objectOrEmpty(update.get("content"));
+            final String text = string(content.get("text"));
+            if (text != null) {
+                listener.userText(this, sessionId, redactedUi(text, MAX_UI_CONTENT_CHARS));
+            }
+            dispatchImage(sessionId, content, null, true);
+        } else if ("agent_message_chunk".equals(kind)) {
             final Map<String, Object> content = objectOrEmpty(update.get("content"));
             final String text = string(content.get("text"));
             if (text != null) {
@@ -567,10 +574,15 @@ final class AcpClient implements AutoCloseable {
     }
 
     private void dispatchImage(final String sessionId, final Map<String, Object> content) {
-        dispatchImage(sessionId, content, null);
+        dispatchImage(sessionId, content, null, false);
     }
 
     private void dispatchImage(final String sessionId, final Map<String, Object> content, final String label) {
+        dispatchImage(sessionId, content, label, false);
+    }
+
+    private void dispatchImage(
+            final String sessionId, final Map<String, Object> content, final String label, final boolean user) {
         final Map<String, Object> image =
                 "resource".equals(content.get("type")) ? objectOrEmpty(content.get("resource")) : content;
         final String mime = string(image.get("mimeType"));
@@ -581,9 +593,10 @@ final class AcpClient implements AutoCloseable {
             if (label != null)
                 attachment = new AcpAttachment(
                         label, attachment.mimeType(), attachment.uri(), attachment.data(), attachment.byteSize());
-            listener.agentImage(this, sessionId, attachment);
+            if (user) listener.userImage(this, sessionId, attachment);
+            else listener.agentImage(this, sessionId, attachment);
         } catch (IllegalArgumentException failure) {
-            listener.agentText(this, sessionId, "[Image unavailable: " + failure.getMessage() + "]");
+            if (!user) listener.agentText(this, sessionId, "[Image unavailable: " + failure.getMessage() + "]");
         }
     }
 

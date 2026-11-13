@@ -188,6 +188,10 @@ final class NativeAgentTransport implements AcpTransport {
                 owner::failed);
     }
 
+    AgentLaunchSpec launch() {
+        return launch;
+    }
+
     Path directory() {
         return temporaryDirectory;
     }
@@ -224,6 +228,13 @@ final class NativeAgentTransport implements AcpTransport {
 
     void text(final String kind, final String text) {
         if (!text.isEmpty()) update(Map.of("sessionUpdate", kind, "content", Map.of("type", "text", "text", text)));
+    }
+
+    void image(final String kind, final String mimeType, final String data) {
+        if (mimeType != null && mimeType.startsWith("image/") && data != null && !data.isEmpty()) {
+            update(Map.of(
+                    "sessionUpdate", kind, "content", Map.of("type", "image", "mimeType", mimeType, "data", data)));
+        }
     }
 
     void plan(final List<?> entries) {

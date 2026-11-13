@@ -388,6 +388,9 @@ class CoreWindowsTest {
                     final java.awt.FlowLayout acquireLayout =
                             (java.awt.FlowLayout) ((javax.swing.JPanel) checkUpdates.getParent()).getLayout();
                     assertEquals(java.awt.FlowLayout.RIGHT, acquireLayout.getAlignment());
+                    org.junit.jupiter.api.Assertions.assertNull(
+                            findByName(dialog, "plugins.pending.review"),
+                            "the obsolete pending-changes header button must not be shown");
                 } finally {
                     dialog.dispose();
                 }

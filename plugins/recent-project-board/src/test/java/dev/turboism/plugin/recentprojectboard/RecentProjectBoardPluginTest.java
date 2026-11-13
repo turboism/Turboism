@@ -331,6 +331,48 @@ final class RecentProjectBoardPluginTest {
     }
 
     @Test
+    void deletingAPreviewKeepsTheCardInPlaceWithNoPreviewPlaceholderWithoutRemovingRecord() {
+        final List<RecentFileSummary> nineFiles = new ArrayList<>();
+        for (int index = 1; index <= 9; index++) {
+            nineFiles.add(new RecentFileSummary(new RecentFileId("id-" + index), "Model" + index + ".cmo3"));
+        }
+        final RecordingRecentFiles recentFiles = new RecordingRecentFiles(nineFiles);
+        final List<EmbeddedPanelContribution> contributions = new CopyOnWriteArrayList<>();
+        final List<ActionRegistry.Action> actions = new ArrayList<>();
+        final RecordingPreviewCache cache = new RecordingPreviewCache();
+        final RecentProjectBoardPlugin plugin = new RecentProjectBoardPlugin();
+
+        plugin.init(context(recentFiles, uiHost(contributions), actions, EditorCommandService.unavailable(), cache));
+        plugin.enable();
+        for (RecentFileSummary file : nineFiles) {
+            plugin.onPreview(new RecentPreviewCapturedEvent(
+                    file.id(), file.displayName(), new ScreenshotImage(1, 1, ONE_PIXEL_PNG)));
+        }
+
+        final ActionRegistry.Action delete = actions.stream()
+                .filter(action -> RecentProjectBoardPlugin.DELETE_ACTION_ID.equals(action.id()))
+                .findFirst()
+                .orElseThrow();
+        delete.handler().accept(new ActionRegistry.ActionContext() {
+            @Override
+            public Optional<UiActionEvent> uiEvent() {
+                return Optional.of(UiActionEvent.text("id-1", "id-1"));
+            }
+        });
+
+        assertEquals(9, recentFiles.list().size(), "recent-file records must remain untouched");
+        final List<PanelView.Card> refreshed =
+                cards(contributions.get(contributions.size() - 1).content());
+        assertEquals(RecentProjectBoardPlugin.MAX_CARDS, refreshed.size());
+        assertEquals("id-1", refreshed.get(0).id(), "the card must stay in place rather than disappearing or moving");
+        assertFalse(
+                containsScaledImage(refreshed.get(0).content()),
+                "the deleted card must switch to the default no-preview placeholder");
+        assertTrue(hasFixedCenteredPlaceholder(refreshed.get(0).content()));
+        assertTrue(containsScaledImage(refreshed.get(1).content()), "other cards keep their thumbnails");
+    }
+
+    @Test
     void providerDeletionDropsTheLocalThumbnail() {
         final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
         final List<EmbeddedPanelContribution> contributions = new CopyOnWriteArrayList<>();

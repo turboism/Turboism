@@ -28,9 +28,16 @@ final class AcpComposerPanel extends JPanel {
     private static final int SUBMIT_GLYPH_OFFSET = 8;
     private static final int OPTION_CORNER_ARC = 8;
     private static final int ACTIVE_FILL_ALPHA = 36;
+    private boolean inputFocused;
 
     AcpComposerPanel() {
         setOpaque(false);
+    }
+
+    void setInputFocused(final boolean focused) {
+        if (inputFocused == focused) return;
+        inputFocused = focused;
+        repaint();
     }
 
     @Override
@@ -40,7 +47,7 @@ final class AcpComposerPanel extends JPanel {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setColor(AcpChatTheme.inputBackground());
             g.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, CARD_CORNER_ARC, CARD_CORNER_ARC);
-            g.setColor(AcpChatTheme.border());
+            g.setColor(inputFocused ? AcpChatTheme.accent() : AcpChatTheme.border());
             g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, CARD_CORNER_ARC, CARD_CORNER_ARC);
         } finally {
             g.dispose();

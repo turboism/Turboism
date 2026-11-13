@@ -58,6 +58,9 @@ final class NativeClaudeProvider extends NativeAgentProvider {
             choices.put("model", models);
             selected.put("model", models.get(0).get("value"));
         }
+        if (params.containsKey("sessionId")) {
+            NativeSessionReplay.replayClaudeSession(this, host, host.sessionId());
+        }
     }
 
     private CompletableFuture<Map<String, Object>> control(final Map<String, Object> request) {
