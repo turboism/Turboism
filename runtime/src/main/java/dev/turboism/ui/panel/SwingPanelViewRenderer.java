@@ -313,8 +313,17 @@ public final class SwingPanelViewRenderer {
                         centered.preferredHeight() > 0 ? centered.preferredHeight() : natural.height);
                 panel.setPreferredSize(fixed);
                 panel.setMinimumSize(fixed);
-                // A child taller than the cell would paint outside it and grow the surrounding row.
-                constraints.fill = GridBagConstraints.BOTH;
+                // A pinned width is an upper bound too: a parent that stretches its child must not
+                // widen a block whose width the caller chose (the details list pins 320 px).
+                panel.setMaximumSize(new Dimension(
+                        centered.preferredWidth() > 0 ? centered.preferredWidth() : Integer.MAX_VALUE,
+                        Integer.MAX_VALUE));
+                // Fill horizontally so a pinned-width text block wraps inside its cell. Fill
+                // vertically only when the child would overflow the cell: filling both axes makes a
+                // short child stretch to the cell height, and a vertical stack then pins its content
+                // to the top instead of centering it — the "No preview" placeholder sat at the top.
+                final boolean overflowY = natural.height > fixed.height;
+                constraints.fill = overflowY ? GridBagConstraints.BOTH : GridBagConstraints.HORIZONTAL;
                 constraints.weightx = 1.0;
                 constraints.weighty = 1.0;
             }

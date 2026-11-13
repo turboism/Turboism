@@ -48,6 +48,33 @@ public final class SyncRuleSet {
         return locallyModified;
     }
 
+    /**
+     * Applies a completed load unless the operator already edited this model.
+     *
+     * <p>The check and the write must be one atomic step: a load that lands between a separate
+     * check and write would otherwise discard the parameters the operator just checked, which is
+     * the exact race this guard exists to prevent.
+     *
+     * @param ids the loaded parameter selection
+     * @param globalEnabled the loaded model-wide enabled state
+     * @return true when the loaded state was applied
+     */
+    public synchronized boolean applyLoadedState(final Set<String> ids, final boolean globalEnabled) {
+        if (locallyModified) {
+            return false;
+        }
+        synchronizedIds.clear();
+        if (ids != null) {
+            for (final String id : ids) {
+                if (id != null && !id.isBlank()) {
+                    synchronizedIds.add(id.strip());
+                }
+            }
+        }
+        this.globalEnabled = globalEnabled;
+        return true;
+    }
+
     /** Marks this model's settings as operator-edited so a late load cannot overwrite them. */
     public void markLocallyModified() {
         locallyModified = true;

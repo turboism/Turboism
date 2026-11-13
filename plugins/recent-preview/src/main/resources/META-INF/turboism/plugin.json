@@ -24,6 +24,11 @@
       "id": "thumbnail.captured",
       "contractVersion": "1.0.0",
       "eventType": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent"
+    },
+    {
+      "id": "thumbnail.deleted",
+      "contractVersion": "1.0.0",
+      "eventType": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewDeletedEvent"
     }
   ],
   "dependencies": [],
@@ -46,7 +51,7 @@
     {
       "id": "turboism.ui.recent-preview.contribute",
       "scope": "application",
-      "reason": "Contributes thumbnail popup content to the host Recent Files hover bridge."
+      "reason": "Contributes thumbnail popup content to the host Recent Files hover bridge and registers this plugin as the preview cache provider."
     },
     {
       "id": "turboism.file.read",

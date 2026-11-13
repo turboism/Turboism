@@ -24,4 +24,14 @@ public interface PreviewCache extends PreviewCacheStore {
      *     failing the read. The returned map makes no iteration-order promise.
      */
     CompletionStage<Map<RecentFileId, byte[]>> loadPng(List<RecentFileSummary> files);
+
+    /**
+     * Deletes the cached image and index entry of one recent file.
+     *
+     * @param id the recent file whose cached preview is removed
+     * @return a stage completing with {@code true} when an entry existed and was removed,
+     *     {@code false} when nothing was cached; storage failures may complete it exceptionally
+     * @throws NullPointerException when {@code id} is null
+     */
+    CompletionStage<Boolean> delete(RecentFileId id);
 }

@@ -126,6 +126,97 @@ final class RuntimeScreenshotCaptureServiceTest {
                 RuntimeScreenshotCaptureService.PERMISSION);
     }
 
+    /**
+     * The native render is the primary source: it draws only the model, so a real host no longer
+     * publishes a toolbar-covered or blank GL readback. The component pipeline must not run when
+     * the native render produced pixels.
+     */
+    @Test
+    void prefersTheNativeModelRenderOverTheComponentPipeline() {
+        final int[] adapterCalls = {0};
+        final RuntimeScreenshotCaptureService service = new RuntimeScreenshotCaptureService(
+                ScreenshotCaptureAdapter.connected(request -> {
+                    adapterCalls[0]++;
+                    return CompletableFuture.failedStage(new IllegalStateException("must not run"));
+                }),
+                PermissionChecker.allowAll(),
+                () -> modelAccessReturning(pixels(4, 3)));
+
+        final ScreenshotCaptureResult result = service.capture(
+                        new ScreenshotCaptureRequest(new RecentFileId("one"), 150, 150))
+                .toCompletableFuture()
+                .join();
+
+        assertEquals(0, adapterCalls[0], "the component pipeline must not run after a native render");
+        assertEquals(4, result.image().width());
+        assertEquals(3, result.image().height());
+    }
+
+    @Test
+    void fallsBackToTheComponentPipelineWhenNoModelIsOpen() {
+        final ScreenshotCaptureRequest request = new ScreenshotCaptureRequest(new RecentFileId("one"), 150, 150);
+        final ScreenshotCaptureResult fallback =
+                new ScreenshotCaptureResult(request.id(), new ScreenshotImage(1, 1, png()));
+        final RuntimeScreenshotCaptureService service = new RuntimeScreenshotCaptureService(
+                ScreenshotCaptureAdapter.connected(ignored -> CompletableFuture.completedStage(fallback)),
+                PermissionChecker.allowAll(),
+                () -> modelAccessReturning(pixels(0, 0)));
+
+        assertEquals(fallback, service.capture(request).toCompletableFuture().join());
+    }
+
+    @Test
+    void fallsBackToTheComponentPipelineWhenTheNativeRenderIsBlank() {
+        final ScreenshotCaptureRequest request = new ScreenshotCaptureRequest(new RecentFileId("one"), 150, 150);
+        final ScreenshotCaptureResult fallback =
+                new ScreenshotCaptureResult(request.id(), new ScreenshotImage(1, 1, png()));
+        final RuntimeScreenshotCaptureService service = new RuntimeScreenshotCaptureService(
+                ScreenshotCaptureAdapter.connected(ignored -> CompletableFuture.completedStage(fallback)),
+                PermissionChecker.allowAll(),
+                () -> modelAccessReturning(new dev.turboism.sdk.cubism.model.CubismRenderedPixels(
+                        2, 2, new int[] {0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000})));
+
+        assertEquals(fallback, service.capture(request).toCompletableFuture().join());
+    }
+
+    /**
+     * Builds a model access whose render returns the given raster; a zero-sized raster models a
+     * host that cannot render, which must fall through instead of failing the capture.
+     */
+    private static dev.turboism.sdk.cubism.model.CubismModelAccess modelAccessReturning(
+            final dev.turboism.sdk.cubism.model.CubismRenderedPixels pixels) {
+        final dev.turboism.sdk.cubism.model.CubismModel model =
+                (dev.turboism.sdk.cubism.model.CubismModel) java.lang.reflect.Proxy.newProxyInstance(
+                        RuntimeScreenshotCaptureServiceTest.class.getClassLoader(),
+                        new Class<?>[] {dev.turboism.sdk.cubism.model.CubismModel.class},
+                        (proxy, method, args) -> {
+                            if ("renderPixels".equals(method.getName())) {
+                                if (pixels.width() < 1) {
+                                    throw new UnsupportedOperationException("native render is unavailable");
+                                }
+                                return pixels;
+                            }
+                            return dev.turboism.test.Stubs.defaultValue(method.getReturnType());
+                        });
+        return new dev.turboism.sdk.cubism.model.CubismModelAccess() {
+            @Override
+            public dev.turboism.sdk.cubism.model.CubismModel active() {
+                return model;
+            }
+        };
+    }
+
+    private static dev.turboism.sdk.cubism.model.CubismRenderedPixels pixels(final int width, final int height) {
+        if (width < 1 || height < 1) {
+            return new dev.turboism.sdk.cubism.model.CubismRenderedPixels(1, 1, new int[] {0});
+        }
+        final int[] argb = new int[width * height];
+        for (int index = 0; index < argb.length; index++) {
+            argb[index] = 0xFF000000 | (index * 977);
+        }
+        return new dev.turboism.sdk.cubism.model.CubismRenderedPixels(width, height, argb);
+    }
+
     private static byte[] png() {
         return java.util.Base64.getDecoder()
                 .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");

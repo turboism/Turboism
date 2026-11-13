@@ -150,6 +150,11 @@ final class RecentPreviewRendererTest {
         }
 
         @Override
+        public CompletionStage<Boolean> delete(final RecentFileId id) {
+            return CompletableFuture.completedStage(true);
+        }
+
+        @Override
         public CompletionStage<java.util.Map<RecentFileId, byte[]>> loadPng(final List<RecentFileSummary> files) {
             return CompletableFuture.completedStage(java.util.Map.of());
         }

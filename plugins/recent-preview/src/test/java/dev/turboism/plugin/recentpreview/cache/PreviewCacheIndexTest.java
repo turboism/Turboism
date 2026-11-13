@@ -9,12 +9,15 @@ import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
 import dev.turboism.sdk.storage.PluginStorage;
+import dev.turboism.sdk.storage.StorageEntry;
+import dev.turboism.sdk.storage.StorageEntryType;
 import dev.turboism.sdk.storage.StorageError;
 import dev.turboism.sdk.storage.StorageErrorCode;
 import dev.turboism.sdk.storage.StorageListResult;
 import dev.turboism.sdk.storage.StorageMutationResult;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageReadResult;
+import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.storage.StorageWriteResult;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +44,33 @@ final class PreviewCacheIndexTest {
         assertTrue(storage.operations.get(1).endsWith(".entry"));
         assertTrue(storage.operations.get(2).contains("->recent-preview/images/"));
         assertTrue(storage.operations.get(3).contains("->recent-preview/index/"));
+    }
+
+    /**
+     * A deletion removes both cache files of one id. A missing entry reports {@code false} so a
+     * caller can distinguish "nothing cached" from a real removal.
+     */
+    @Test
+    void deleteRemovesBothCacheFilesAndReportsWhetherAnythingWasCached() {
+        final RecordingStorage storage = new RecordingStorage();
+        storage.listedFiles = List.of(PreviewCacheIndex.imageRelativePath("recent-1"));
+        final PreviewCacheIndex index = new PreviewCacheIndex(storage);
+
+        assertTrue(
+                index.delete(new RecentFileId("recent-1")).toCompletableFuture().join());
+        assertTrue(storage.operations.contains(
+                "delete:recent-preview/images/" + PreviewCacheIndex.key("recent-1") + ".png"));
+        assertTrue(storage.operations.contains(
+                "delete:recent-preview/index/" + PreviewCacheIndex.key("recent-1") + ".entry"));
+
+        storage.operations.clear();
+        storage.listedFiles = List.of();
+        assertFalse(
+                index.delete(new RecentFileId("recent-1")).toCompletableFuture().join());
+        assertTrue(
+                storage.operations.contains(
+                        "delete:recent-preview/images/" + PreviewCacheIndex.key("recent-1") + ".png"),
+                "the entry must still be cleaned up");
     }
 
     @Test
@@ -159,6 +189,7 @@ final class PreviewCacheIndexTest {
         private boolean failImageWrite;
         private boolean failIndexWrite;
         private byte[] readBytes;
+        private List<String> listedFiles = List.of();
         private int lastMaxBytes;
         private String lastIndexEntry;
         private Runnable afterImageWrite = () -> {};
@@ -193,7 +224,12 @@ final class PreviewCacheIndexTest {
 
         @Override
         public CompletionStage<StorageListResult> list(StoragePath directory, int maxEntries) {
-            throw new UnsupportedOperationException();
+            operations.add("list:" + directory.relativePath());
+            final List<StorageEntry> entries = new ArrayList<>();
+            for (String relative : listedFiles) {
+                entries.add(new StorageEntry(new StoragePath(StorageRoot.CACHE, relative), StorageEntryType.FILE, 1L));
+            }
+            return CompletableFuture.completedStage(new StorageListResult(entries, Optional.empty(), false));
         }
 
         @Override

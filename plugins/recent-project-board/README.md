@@ -30,13 +30,13 @@ Replaces the empty Cubism modeling viewport with a board of recent project thumb
 
 ## What it does
 
-- Shows up to eight recent projects in a compact, configurable layout over the native OpenGL viewport while no document is open. An icon-only Lucide layout control in the header cycles 6-column grid, 3-column grid, and a left-aligned details list, and remembers the choice. Hovering it shows the current layout. Text scales up in the 3-column and details layouts.
+- Shows up to eight recent projects in a compact, configurable layout over the native OpenGL viewport while no document is open. An icon-only Lucide layout control in the header cycles 6-column and 3-column grids and a single-row list, and remembers the choice. Hovering it shows the current layout. Text scales up as the layout gets roomier.
 - Uses the official `recent-preview` plugin's public `thumbnail.captured` event for thumbnails, including its bounded startup cache replay.
 - Hides the board immediately when any document opens and restores it after the last document closes.
-- Keeps the header title/subtitle left-aligned and the layout button on the right.
-- The details list uses a small thumbnail on the left followed by a larger, left-aligned name and timestamp vertically centered in the row, similar to Explorer's Details view.
+- Keeps the header title/subtitle left-aligned and the layout button on the right. The header sits outside the scroll region, so the button never shifts when the vertical scrollbar appears, and the button is vertically centered in the header.
 - Deduplicates repeated recent-menu entries by display name and lists entries with cached previews first.
 - Centers each card's name and timestamp, and centers the placeholder text vertically and horizontally when no thumbnail is cached.
+- Every card carries a trash button that deletes that project's cached thumbnail through the provider, so the card returns to the placeholder state and the hover popup stops showing the stale image.
 - When there are no recent files, centers an empty-state message with blue **Create New Project** and **Create New Animation Project** links. The first invokes the host's typed `NEW_MODEL` command; the second opens Cubism's native New Animation target dialog.
 - Opens a project through the host's own Recent Files action; no path or file grant is exposed to the plugin.
 
@@ -62,7 +62,7 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 1. Enable both **Recent Preview** and **Recent Project Board**.
 2. Open a project once so Recent Preview can create its thumbnail.
 3. Close the project. The board appears over the empty viewport.
-4. Use the header layout icon to cycle 6-column grid, 3-column grid, and details list; the choice is persisted.
+4. Use the header layout icon to cycle 6-column grid, 3-column grid, and single-row list; the choice is persisted.
 5. Double-click a card to open that project again.
 6. With no recent files, use the centered **Create New Project** link to start a new model, or **Create New Animation Project** to open Cubism's New Animation target dialog.
 
@@ -82,10 +82,11 @@ Projects without a cached thumbnail still appear as placeholders, so the board r
 | `turboism.ui.panel.contribute` | `application` | Contribute the board to the empty viewport placement. |
 | `turboism.cubism.model.observe` | `application` | Refresh the recent-project list after a project is opened, created, or closed. |
 | `turboism.cubism.model.write` | `application` | Create a new model through `NEW_MODEL` and open the native New Animation flow when the empty-state links are clicked. |
-| `turboism.event.subscribe` | `application` | Receive live and replayed `thumbnail.captured` events from the provider. |
-| `turboism.action.register` | `application` | Register the double-click open action used by board cards. |
+| `turboism.event.subscribe` | `application` | Receive live and replayed `thumbnail.captured` events and `thumbnail.deleted` events from the provider. |
+| `turboism.action.register` | `application` | Register the double-click open action and the per-card delete action used by board cards. |
 | `turboism.file.read` | `application` | Read the plugin-confined layout preference. |
 | `turboism.file.write` | `application` | Persist the selected layout preference. |
+| `turboism.ui.recent-preview.manage` | `application` | Delete one cached preview when the user presses a card's trash button. |
 
 ## Privacy and data
 
@@ -121,7 +122,7 @@ No telemetry is sent by this plugin.
 
 - Initial release as an official preview plugin.
 - Added viewport recent project board overlay with double-click open dispatch.
-- Added 6-column, 3-column, and details layouts with persisted icon-only Lucide header control.
+- Added 6-column grid, 3-column grid, and single-row list layouts with persisted icon-only Lucide header control.
 - Added centered empty state with Create New Project and Create New Animation Project links.
 
 ## Support and license
@@ -133,4 +134,4 @@ No telemetry is sent by this plugin.
 
 ### Icon attribution
 
-The layout control uses Lucide v0.468.0 `layout-grid` and `list` icons under the ISC license (including the upstream Feather notice). See `META-INF/licenses/Lucide-LICENSE.txt`.
+The layout control uses the Lucide v0.468.0 `layout-grid` icon, and each card's delete control uses `trash-2`, both under the ISC license (including the upstream Feather notice). See `META-INF/licenses/Lucide-LICENSE.txt`.

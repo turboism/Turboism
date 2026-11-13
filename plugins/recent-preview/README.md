@@ -59,7 +59,10 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 
 ## Plugin-to-plugin event contract
 
-The plugin exports the public `thumbnail.captured` event (contract `1.0.0`). Its SDK-owned payload `RecentPreviewCapturedEvent` carries the opaque recent-file id, display name, captured `ScreenshotImage`, and a ready-to-use thumbnail `PanelView`.
+The plugin exports two public events (contract `1.0.0` each):
+
+- `thumbnail.captured` — the SDK-owned payload `RecentPreviewCapturedEvent` carries the opaque recent-file id, display name, captured `ScreenshotImage`, and a ready-to-use thumbnail `PanelView`.
+- `thumbnail.deleted` — the SDK-owned payload `RecentPreviewDeletedEvent` carries only the opaque recent-file id and reports that the cached thumbnail was removed.
 
 A consumer declares a dependency on `dev.turboism.plugin.recent-preview` with `ordering: after`, imports the event, and declares `turboism.event.subscribe`:
 
@@ -86,6 +89,10 @@ Subscribe with `@SubscribeEvent` or `context.eventBus().subscribe(RecentPreviewC
 
 No capabilities are declared in the plugin manifest.
 
+## Cache provider
+
+The plugin registers as the preview cache provider through the runtime-mediated `RecentPreviewCacheService`: a dependent requests a deletion by opaque recent-file id, this plugin performs it, and it publishes `thumbnail.deleted`. The cache always stays owned by the plugin that writes it.
+
 ## Permissions
 
 | Permission | Scope | Why it is requested |
@@ -93,10 +100,10 @@ No capabilities are declared in the plugin manifest.
 | `turboism.cubism.model.observe` | `application` | Receives model open/save lifecycle callbacks that trigger bounded preview captures; undeclared, the lifecycle registry filters them out. |
 | `turboism.cubism.recent-file.read` | `application` | Lists the host Recent Files projection to key the preview cache by opaque file id. |
 | `turboism.ui.viewport.read` | `application` | Captures bounded modeling-surface preview thumbnails for recent files. |
-| `turboism.ui.recent-preview.contribute` | `application` | Contributes thumbnail popup content to the host Recent Files hover bridge. |
+| `turboism.ui.recent-preview.contribute` | `application` | Contributes thumbnail popup content to the host Recent Files hover bridge and registers this plugin as the preview cache provider. |
 | `turboism.file.read` | `application` | Reads cached preview PNGs from plugin-confined cache storage. |
 | `turboism.file.write` | `application` | Atomically writes preview PNGs and the no-path index into plugin-confined cache storage. |
-| `turboism.event.publish` | `application` | Publishes committed thumbnails to dependent plugins that import the public `thumbnail.captured` event. |
+| `turboism.event.publish` | `application` | Publishes committed thumbnails and deletions to dependent plugins that import the public `thumbnail.captured` / `thumbnail.deleted` events. |
 
 ## Privacy and data
 

@@ -59,7 +59,10 @@ interface: swing
 
 ## プラグイン間イベント契約
 
-本プラグインは公開イベント `thumbnail.captured`（契約 `1.0.0`）を提供します。SDK 所有のペイロード `RecentPreviewCapturedEvent` には、不透明な最近ファイル ID、表示名、キャプチャした `ScreenshotImage`、そのまま利用できるサムネイル `PanelView` が含まれます。
+本プラグインは公開イベントを 2 つ（各契約 `1.0.0`）提供します。
+
+- `thumbnail.captured`：SDK 所有のペイロード `RecentPreviewCapturedEvent` には、不透明な最近ファイル ID、表示名、キャプチャした `ScreenshotImage`、そのまま利用できるサムネイル `PanelView` が含まれます。
+- `thumbnail.deleted`：SDK 所有のペイロード `RecentPreviewDeletedEvent` は不透明な最近ファイル ID のみを含み、キャッシュ済みサムネイルの削除を通知します。
 
 利用側プラグインは `dev.turboism.plugin.recent-preview` への依存（`ordering: after`）とイベントのインポートを宣言し、`turboism.event.subscribe` 権限を追加します。購読は `@SubscribeEvent` または `context.eventBus().subscribe(RecentPreviewCapturedEvent.class, ...)` で行います。`event.image().png()` で画像ストリーム、`event.thumbnail()` で `PanelView` 部品を取得できます。イベントはライブ配信のみで、キャプチャ後に購読を開始したプラグインへ過去の画像を再生しません。
 
@@ -77,7 +80,7 @@ interface: swing
 | `turboism.ui.recent-preview.contribute` | `application` | ホストの Recent Files ホバーブリッジにサムネイルポップアップのコンテンツを提供します。 |
 | `turboism.file.read` | `application` | プラグインに限定されたキャッシュストレージから、キャッシュ済みプレビュー PNG を読み取ります。 |
 | `turboism.file.write` | `application` | プレビュー PNG とパスを含まないインデックスを、プラグインに限定されたキャッシュストレージへアトミックに書き込みます。 |
-| `turboism.event.publish` | `application` | 公開 `thumbnail.captured` イベントをインポートした依存プラグインへ、確定済みサムネイルを配信します。 |
+| `turboism.event.publish` | `application` | 公開 `thumbnail.captured`/`thumbnail.deleted` イベントをインポートした依存プラグインへ、確定済みサムネイルと削除結果を配信します。 |
 
 ## プライバシーとデータ
 

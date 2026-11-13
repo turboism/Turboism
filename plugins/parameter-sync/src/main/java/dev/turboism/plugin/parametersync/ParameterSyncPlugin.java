@@ -443,9 +443,8 @@ public final class ParameterSyncPlugin implements CubismPlugin {
                             // operator who clears every checkbox and pauses synchronization must
                             // still see that paused state after a restart. A slow read never wins
                             // over edits the operator already made in this session.
-                            if (data != null && !set.isLocallyModified()) {
-                                set.setAllSynchronized(data.synchronizedParameterIds());
-                                set.setGlobalEnabled(data.globalEnabled());
+                            if (data != null) {
+                                set.applyLoadedState(data.synchronizedParameterIds(), data.globalEnabled());
                             }
                             loadedGuids.add(guid);
                             return set;

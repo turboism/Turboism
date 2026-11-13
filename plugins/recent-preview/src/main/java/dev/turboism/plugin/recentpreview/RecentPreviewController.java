@@ -6,6 +6,7 @@ import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewDeletedEvent;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureTargetUnavailableException;
@@ -33,6 +34,7 @@ public final class RecentPreviewController {
     private final ScreenshotCaptureService screenshots;
     private final PreviewCache cache;
     private final Consumer<RecentPreviewCapturedEvent> capturedListener;
+    private final Consumer<RecentPreviewDeletedEvent> deletedListener;
     private volatile boolean enabled;
     private final java.util.concurrent.atomic.AtomicLong generation = new java.util.concurrent.atomic.AtomicLong();
     private final Object filesLock = new Object();
@@ -58,10 +60,24 @@ public final class RecentPreviewController {
             final ScreenshotCaptureService screenshots,
             final PreviewCache cache,
             final Consumer<RecentPreviewCapturedEvent> capturedListener) {
+        this(recentFiles, screenshots, cache, capturedListener, ignored -> {});
+    }
+
+    /**
+     * Creates a controller that publishes committed captures and deletions. Both listeners
+     * are side channels: a listener failure never fails the cache operation.
+     */
+    public RecentPreviewController(
+            final RecentFileService recentFiles,
+            final ScreenshotCaptureService screenshots,
+            final PreviewCache cache,
+            final Consumer<RecentPreviewCapturedEvent> capturedListener,
+            final Consumer<RecentPreviewDeletedEvent> deletedListener) {
         this.recentFiles = Objects.requireNonNull(recentFiles, "recentFiles");
         this.screenshots = Objects.requireNonNull(screenshots, "screenshots");
         this.cache = Objects.requireNonNull(cache, "cache");
         this.capturedListener = Objects.requireNonNull(capturedListener, "capturedListener");
+        this.deletedListener = Objects.requireNonNull(deletedListener, "deletedListener");
     }
 
     /**
@@ -246,6 +262,27 @@ public final class RecentPreviewController {
     /** The cached PNG bytes for one id, or empty when not cached. */
     public Optional<byte[]> image(final RecentFileId id) {
         return Optional.ofNullable(images.get(Objects.requireNonNull(id, "id")));
+    }
+
+    /**
+     * Deletes the cached preview of one recent file and publishes the deletion.
+     *
+     * <p>The in-memory copy and the dedupe mark drop first, so a later poll tick may capture the
+     * file again. The disk removal then runs; a successful removal publishes
+     * {@link RecentPreviewDeletedEvent} to every dependent surface.</p>
+     */
+    public CompletionStage<Boolean> delete(final RecentFileId id) {
+        Objects.requireNonNull(id, "id");
+        images.remove(id);
+        lastCapturedModified.remove(id);
+        return cache.delete(id).thenApply(removed -> {
+            try {
+                deletedListener.accept(new RecentPreviewDeletedEvent(id));
+            } catch (RuntimeException ignored) {
+                // The deletion is already committed; observer failures stay isolated.
+            }
+            return removed;
+        });
     }
 
     /**

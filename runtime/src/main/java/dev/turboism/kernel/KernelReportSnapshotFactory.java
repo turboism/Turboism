@@ -80,10 +80,10 @@ public final class KernelReportSnapshotFactory {
             binding("cubism.recent-file.read", "recentFile.list", PermissionIds.TURBOISM_CUBISM_RECENT_FILE_READ),
             binding("cubism.screenshot.capture", "screenshot.capture", PermissionIds.TURBOISM_UI_VIEWPORT_READ),
             binding("cubism.preview.capture", "preview.capture", PermissionIds.TURBOISM_UI_VIEWPORT_READ),
-            binding(
+            bindings(
                     "ui.recent-preview.contribute",
-                    "recentPreview.contribute",
-                    PermissionIds.TURBOISM_UI_RECENT_PREVIEW_CONTRIBUTE),
+                    binding("recentPreview.contribute", PermissionIds.TURBOISM_UI_RECENT_PREVIEW_CONTRIBUTE),
+                    binding("recentPreviewCache.delete", PermissionIds.TURBOISM_UI_RECENT_PREVIEW_MANAGE)),
             binding("ui.dialog.contribute", "ui.dialog.contribute", PermissionIds.TURBOISM_UI_DIALOG_CONTRIBUTE),
             binding("ui.embedded-panel.contribute", "ui.panel.contribute", PermissionIds.TURBOISM_UI_PANEL_CONTRIBUTE),
             binding(

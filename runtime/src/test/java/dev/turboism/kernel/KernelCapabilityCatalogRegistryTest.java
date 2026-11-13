@@ -141,7 +141,8 @@ class KernelCapabilityCatalogRegistryTest {
                         "turboism.ui.toolbar.palette.contribute",
                         "turboism.ui.toolbar.main.contribute",
                         "turboism.cubism.recent-file.read",
-                        "turboism.ui.recent-preview.contribute"),
+                        "turboism.ui.recent-preview.contribute",
+                        "turboism.ui.recent-preview.manage"),
                 new RuntimePluginLocalization.ReportSnapshot(
                         "dev.turboism.plugin.catalog-policy",
                         "JVM_DISPLAY_DEFAULT",
