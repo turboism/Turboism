@@ -616,6 +616,7 @@ public final class NativeArtMeshSymmetryBridge {
         } catch (ReflectiveOperationException | RuntimeException | Error failure) {
             throw failure;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new ReflectiveOperationException(failure);
         }
     }
