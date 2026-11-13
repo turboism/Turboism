@@ -136,7 +136,7 @@ public class NativeCharacterAuthoringTest {
             final ArtMeshId id;
             final String name;
             final Part parentPart;
-            final ArtMeshGeometry geometry;
+            ArtMeshGeometry geometry;
             final List<Point2> defaultLocal;
             int drawOrder = 500;
             int authoringReads;
@@ -1144,5 +1144,34 @@ public class NativeCharacterAuthoringTest {
 
         assertTrue(mainDrawable.visible, "Main ArtMesh must be set visible true");
         assertFalse(helperDrawable.visible, "Helper ArtMesh must be set visible false");
+    }
+
+    @Test
+    void torusPresetAcceptsAtlasUvRemappingDuringSourceWritesBeforeInterpolation() throws Exception {
+        var prepared = NativeModelImport.prepare(ModelPreset.TORUS.read(), request("Torus"), () -> false);
+        var host = new TestModelHost();
+        var created = NativeCharacterAuthoring.assemble(
+                host.model(),
+                prepared.geometry(),
+                (meshId, sourceIndex) -> {},
+                sourceIndex -> new NativeCharacterAuthoring.ImageDimensions(256, 256),
+                sourceIndex ->
+                        prepared.materials().scene().meshes().get(sourceIndex).appearanceGroup(),
+                sourceIndex ->
+                        prepared.materials().scene().meshes().get(sourceIndex).bodyPart(),
+                assembled -> {
+                    for (var meshId : assembled.meshIds()) {
+                        var mesh = host.meshes.get(meshId);
+                        var shiftedPositions = mesh.geometry.positions().stream()
+                                .map(p -> new Point2(p.x() + 2f, p.y() + 2f))
+                                .toList();
+                        var remappedUvs = mesh.geometry.uvs().stream()
+                                .map(uv -> new Point2((uv.x() * 256f + 2f) / 512f, (uv.y() * 256f + 2f) / 512f))
+                                .toList();
+                        mesh.geometry =
+                                new ArtMeshGeometry(shiftedPositions, remappedUvs, mesh.geometry.triangleIndices());
+                    }
+                });
+        assertFalse(created.meshIds().isEmpty());
     }
 }

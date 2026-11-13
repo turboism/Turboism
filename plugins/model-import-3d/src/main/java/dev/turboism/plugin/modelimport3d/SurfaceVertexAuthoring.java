@@ -220,12 +220,12 @@ final class SurfaceVertexAuthoring {
             // The Editor refreshes extended interpolation on every sibling when
             // one mesh is dragged. Keep each patch in an unbound child Part so
             // a local edit does not rebuild the whole imported model's lattice.
-            var patchPart = model.parts().create(request.name() + " 曲面 " + i, part, -1);
+            var patchPart = model.parts().create(request.surfaceName(i), part, -1);
             patchParts.add(patchPart.id());
             var input = p.images().inputs.get(i);
             var mesh = model.drawables()
                     .createWithSourceGeometry(
-                            request.name() + " 曲面 " + i, patchPart, -1, input.imageGeometry(), input.defaultLocal());
+                            request.vertexMeshName(i), patchPart, -1, input.imageGeometry(), input.defaultLocal());
             mesh.setCulling(true);
             mesh.setDrawOrder(p.orders().get(neutral).get(i));
             ids.add(mesh.id());

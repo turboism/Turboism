@@ -371,6 +371,44 @@ class CoreWindowsTest {
     }
 
     @Test
+    void pluginManagementActionRowsBothAlignToTheRight() throws Exception {
+        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless());
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            final CoreWindows windows = new CoreWindows(
+                    I18N,
+                    RuntimeSettingsService.unavailable(),
+                    java.util.List::of,
+                    plugins(),
+                    RuntimeLogReader.unavailable(),
+                    dev.turboism.internal.core.KeybindingService.unavailable());
+            try {
+                final javax.swing.JDialog dialog = windows.createPluginsDialog();
+                try {
+                    final java.awt.Component checkUpdates = findByName(dialog, "plugins.updates.check");
+                    final java.awt.FlowLayout acquireLayout =
+                            (java.awt.FlowLayout) ((javax.swing.JPanel) checkUpdates.getParent()).getLayout();
+                    assertEquals(java.awt.FlowLayout.RIGHT, acquireLayout.getAlignment());
+                } finally {
+                    dialog.dispose();
+                }
+            } finally {
+                windows.close();
+            }
+        });
+    }
+
+    private static java.awt.Component findByName(final java.awt.Component root, final String name) {
+        if (name.equals(root.getName())) return root;
+        if (root instanceof java.awt.Container container) {
+            for (java.awt.Component child : container.getComponents()) {
+                final java.awt.Component found = findByName(child, name);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    @Test
     void pluginDetailsOpenOnlyForALeftButtonDoubleClick() {
         final javax.swing.JButton source = new javax.swing.JButton();
         assertTrue(CoreWindows.pluginDetailsDoubleClick(new java.awt.event.MouseEvent(

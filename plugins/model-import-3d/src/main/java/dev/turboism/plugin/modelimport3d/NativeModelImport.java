@@ -1,6 +1,7 @@
 package dev.turboism.plugin.modelimport3d;
 
 import dev.turboism.plugin.modelimport3d.viewer.GlbViewerLoader;
+import dev.turboism.plugin.modelimport3d.viewer.ViewerScene;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.ModelImageBinding;
@@ -38,6 +39,16 @@ final class NativeModelImport {
                 && bytes[3] == 'F';
     }
 
+    static Prepared preparePreset(ModelPreset preset, SurfaceImport.Request request, BooleanSupplier cancelled)
+            throws IOException {
+        byte[] bytes = preset.read();
+        if (!isGlb(bytes) || bytes.length > MAX_BYTES)
+            throw new IllegalArgumentException("Native character import requires a GLB within 128 MiB");
+        var rawScene = GlbViewerLoader.loadWithSourceControls(bytes, cancelled);
+        var localizedScene = ModelObjectNames.localizePresetScene(rawScene, preset.id(), request);
+        return prepareScene(localizedScene, request, SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL, cancelled);
+    }
+
     static Prepared prepare(byte[] bytes, SurfaceImport.Request request, BooleanSupplier cancelled) throws IOException {
         return prepare(bytes, request, SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL, cancelled);
     }
@@ -51,6 +62,14 @@ final class NativeModelImport {
         if (!isGlb(bytes) || bytes.length > MAX_BYTES)
             throw new IllegalArgumentException("Native character import requires a GLB within 128 MiB");
         var scene = GlbViewerLoader.loadWithSourceControls(bytes, cancelled);
+        return prepareScene(scene, request, appearance, cancelled);
+    }
+
+    private static Prepared prepareScene(
+            ViewerScene scene,
+            SurfaceImport.Request request,
+            SurfaceBaseColorPlan.Appearance appearance,
+            BooleanSupplier cancelled) {
         boolean faceColors = appearance == SurfaceBaseColorPlan.Appearance.FACE_COLORS;
         var materials =
                 faceColors ? NativeMaterialPlan.faceColors(scene) : NativeMaterialPlan.prepare(scene, cancelled);
@@ -132,6 +151,8 @@ final class NativeModelImport {
         Map<String, ModelImageBinding> sources = new LinkedHashMap<>();
         Map<ArtMeshId, ModelImageBinding> meshes = new LinkedHashMap<>();
         var materials = prepared.materials();
+        var request = prepared.geometry().request();
+        boolean singleSourceMesh = materials.scene().meshes().size() == 1;
         var finishSourceControls = new java.util.concurrent.atomic.AtomicReference<Runnable>();
         var materialOrdinal = new java.util.concurrent.atomic.AtomicInteger();
         return NativeCharacterAuthoring.assemble(
@@ -158,8 +179,10 @@ final class NativeModelImport {
                     var image = materials.imageForMesh(sourceIndex);
                     return new NativeCharacterAuthoring.ImageDimensions(image.width(), image.height());
                 },
-                sourceIndex -> materials.scene().meshes().get(sourceIndex).appearanceGroup(),
-                sourceIndex -> materials.scene().meshes().get(sourceIndex).bodyPart(),
+                sourceIndex -> request.appearanceGroupName(
+                        materials.scene().meshes().get(sourceIndex).appearanceGroup(), singleSourceMesh),
+                sourceIndex -> request.bodyPartName(
+                        materials.scene().meshes().get(sourceIndex).bodyPart()),
                 created -> {
                     progress.accept("texture-atlas");
                     ModelTextureAtlasAuthoring.apply(model, created.meshIds(), sources, meshes, atlas);

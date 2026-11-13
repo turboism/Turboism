@@ -23,6 +23,10 @@ enum ModelPreset {
         this.label = label;
     }
 
+    String id() {
+        return id;
+    }
+
     String labelKey() {
         return "preset." + id;
     }

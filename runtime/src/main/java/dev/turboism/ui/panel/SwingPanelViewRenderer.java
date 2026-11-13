@@ -382,7 +382,8 @@ public final class SwingPanelViewRenderer {
             component.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             component.setIcon(new ThemedMaskIcon(iconButton.pngBytes(), ICON_SIZE));
             component.setPreferredSize(new Dimension(30, 30));
-            component.addActionListener(ignored -> action.accept(iconButton.actionId(), Optional.empty()));
+            component.addActionListener(ignored -> action.accept(
+                    iconButton.actionId(), Optional.of(UiActionEvent.text(iconButton.id(), iconButton.id()))));
             return component;
         }
         if (view instanceof PanelView.ColorIconButton colorIcon) {
@@ -398,7 +399,8 @@ public final class SwingPanelViewRenderer {
             component.setPreferredSize(new Dimension(30, 30));
             component.setEnabled(colorIcon.enabled());
             if (colorIcon.enabled()) component.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            component.addActionListener(ignored -> action.accept(colorIcon.actionId(), Optional.empty()));
+            component.addActionListener(ignored -> action.accept(
+                    colorIcon.actionId(), Optional.of(UiActionEvent.text(colorIcon.id(), colorIcon.id()))));
             return component;
         }
         if (view instanceof PanelView.Button button) {
@@ -902,6 +904,9 @@ public final class SwingPanelViewRenderer {
             final Component component,
             final PanelView.Card card,
             final BiConsumer<String, Optional<UiActionEvent>> action) {
+        if (component instanceof javax.swing.AbstractButton) {
+            return;
+        }
         component.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(final MouseEvent event) {

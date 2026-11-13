@@ -111,7 +111,12 @@ public final class NativeCharacterAuthoring {
             NativeCharacterPlan.Plan plan,
             MeshMaterialBinder binder,
             ImageDimensionProvider imageDimensions) {
-        return assemble(model, plan, binder, imageDimensions, idx -> "Mesh " + idx);
+        return assemble(
+                model,
+                plan,
+                binder,
+                imageDimensions,
+                idx -> ModelObjectNames.defaultDeformerGroup(plan.request(), idx));
     }
 
     /** Shares one opacity parent across all partitions in each source appearance group. */
@@ -331,7 +336,7 @@ public final class NativeCharacterAuthoring {
                 .parts()
                 .createMany(
                         java.util.stream.IntStream.range(0, plan.partitions().size())
-                                .mapToObj(index -> request.name() + " 分区 " + index)
+                                .mapToObj(request::partitionName)
                                 .toList(),
                         rootPart)
                 .stream()
@@ -436,7 +441,7 @@ public final class NativeCharacterAuthoring {
                 for (var uv : partition.uvs())
                     imagePositions.add(new Point2(uv.x() * dim.width(), uv.y() * dim.height()));
                 inputs.add(new Drawables.SourceGeometryRequest(
-                        request.name() + " " + partition.name() + " " + pIdx,
+                        request.partitionMeshName(partition.name(), pIdx),
                         Optional.of(patchParts.get(pIdx)),
                         new ArtMeshGeometry(imagePositions, partition.uvs(), targetWinding(partition.indices())),
                         neutralSample.positions()));
@@ -643,17 +648,13 @@ public final class NativeCharacterAuthoring {
             SurfacePlacementAuthoring.wrap(model, rootPart, request, rollDeformer);
         }
 
-        // Verify placement did not mutate stored authoring snapshots. The readback is kept because
-        // these snapshots are the expected state of the interpolation write below.
-        var afterPlacement = new ArrayList<ArtMeshAuthoringSnapshot>(meshIds.size());
         for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
-            final var current = meshes.get(pIdx).authoringSnapshot();
-            final String moved = ArtMeshAuthoringMatch.describe(banks.get(pIdx), current);
+            final String moved = ArtMeshAuthoringMatch.describe(
+                    banks.get(pIdx), meshes.get(pIdx).authoringSnapshot());
             if (moved != null) {
                 throw new IllegalStateException(
                         "Placement changed direct source banks for partition " + pIdx + ": " + moved);
             }
-            afterPlacement.add(current);
         }
 
         // Atlas and local Warp writes can rebuild the entire model. Initialize caches
@@ -664,16 +665,18 @@ public final class NativeCharacterAuthoring {
         for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
             var mesh = meshes.get(pIdx);
             if (!plan.partitions().get(pIdx).visible()) continue;
-            // No write happened since the placement readback, so that snapshot is still current.
-            var beforeInterpolation = afterPlacement.get(pIdx);
+            // Source writes remap mesh UVs onto the appended atlas pages, so capture a fresh baseline here.
+            var beforeInterpolation = mesh.authoringSnapshot();
             var sampling = plan.sampling().get(pIdx);
             model.parameterBindingBatch()
                     .setInterpolations(
                             ParameterBindingTarget.artMesh(meshIds.get(pIdx)),
                             Map.of(request.yaw(), sampling.yaw(), request.pitch(), sampling.pitch()));
 
-            if (!beforeInterpolation.equals(mesh.authoringSnapshot())) {
-                throw new IllegalStateException("Interpolation changed source banks for partition " + pIdx);
+            final String changed = ArtMeshAuthoringMatch.describe(beforeInterpolation, mesh.authoringSnapshot());
+            if (changed != null) {
+                throw new IllegalStateException(
+                        "Interpolation changed source banks for partition " + pIdx + ": " + changed);
             }
             if (!mesh.parentPartId().equals(Optional.of(patchParts.get(pIdx)))) {
                 throw new IllegalStateException(

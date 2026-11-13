@@ -789,7 +789,7 @@ final class CoreWindows implements AutoCloseable {
 
     record RenderedSettings(JTabbedPane tabs, java.util.function.BooleanSupplier save) {}
 
-    private JDialog createPluginsDialog() {
+    JDialog createPluginsDialog() {
         final JDialog dialog = CoreDialogs.create(text("window.plugins.title"), 900, 560);
         dialog.setLayout(new BorderLayout(8, 8));
         pluginTableModel = new PluginTableModel(i18n);
@@ -920,11 +920,9 @@ final class CoreWindows implements AutoCloseable {
         filtering.add(autoUpdate);
         headerRight.add(filtering);
         headerRight.add(pendingChangesAction.button());
-        // Acquisition actions read left to right on their own row; the per-selection actions keep
-        // the row below, right-aligned. Nine buttons in one right-aligned flow needed about 985
-        // pixels with the English labels, more than this window's fixed width, so the first three
-        // were pushed past the left edge and the rest clipped.
-        final JPanel acquire = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        // Acquisition and per-selection actions sit on separate right-aligned rows so English
+        // labels fit within the window width without clipping past the left edge.
+        final JPanel acquire = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         acquire.add(checkUpdates);
         acquire.add(openMarket);
         acquire.add(install);

@@ -61,15 +61,55 @@ final class SurfaceImport {
         }
 
         String rotationName(String axis) {
-            return name + " " + label("object.rotation." + axis.toLowerCase(java.util.Locale.ROOT), axis + " 旋转");
+            return ModelObjectNames.rotationName(name, labels, axis);
         }
 
         String localActionName(int partition) {
-            return label("object.local-action", "分区 {0} 局部动作").replace("{0}", Integer.toString(partition));
+            return ModelObjectNames.localActionName(labels, partition);
         }
 
         String placementName() {
-            return name + " " + label("object.placement", "整体定位");
+            return ModelObjectNames.placementName(name, labels);
+        }
+
+        String warpName() {
+            return ModelObjectNames.warpName(name, labels);
+        }
+
+        String partitionName(int partition) {
+            return ModelObjectNames.partitionName(name, labels, partition);
+        }
+
+        String surfaceName(int surface) {
+            return ModelObjectNames.surfaceName(name, labels, surface);
+        }
+
+        String meshName(int index) {
+            return ModelObjectNames.meshName(name, labels, index);
+        }
+
+        String partitionMeshName(String sourceMeshName, int partition) {
+            return ModelObjectNames.partitionMeshName(name, labels, sourceMeshName, partition);
+        }
+
+        String appearanceGroupName(String rawGroup, boolean singleSourceMesh) {
+            return ModelObjectNames.appearanceGroupName(name, labels, rawGroup, singleSourceMesh);
+        }
+
+        String bodyPartName(String rawBodyPart) {
+            return ModelObjectNames.bodyPartName(labels, rawBodyPart);
+        }
+
+        String simpleMeshName(int oneBasedIndex) {
+            return labels.containsKey(ModelObjectNames.KEY_MESH) ? meshName(oneBasedIndex) : name + "_" + oneBasedIndex;
+        }
+
+        String vertexMeshName(int index) {
+            return labels.containsKey(ModelObjectNames.KEY_MESH) ? meshName(index) : surfaceName(index);
+        }
+
+        String layeredMeshName(int index) {
+            return labels.containsKey(ModelObjectNames.KEY_MESH) ? meshName(index) : name + " " + index;
         }
 
         Request {
@@ -295,6 +335,7 @@ final class SurfaceImport {
                 request.pitch(),
                 part,
                 request.name(),
+                index -> request.simpleMeshName(index + 1),
                 prepared.appearance.patches().stream()
                         .map(p -> p.material().textured()
                                 ? SurfaceImportGeometry.UvMode.EDGE_PADDED_IMAGE_PIXELS

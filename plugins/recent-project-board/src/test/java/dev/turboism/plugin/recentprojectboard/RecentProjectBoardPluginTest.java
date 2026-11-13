@@ -326,6 +326,8 @@ final class RecentProjectBoardPluginTest {
         });
 
         assertEquals(List.of(new RecentFileId("one")), cache.deleted);
+        final PanelView content = contributions.get(contributions.size() - 1).content();
+        assertFalse(containsScaledImage(content), "completed deletion must drop the card thumbnail immediately");
     }
 
     @Test
