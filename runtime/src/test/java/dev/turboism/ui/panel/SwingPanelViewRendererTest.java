@@ -839,7 +839,9 @@ class SwingPanelViewRendererTest {
             cell.setSize(220, 220);
             cell.doLayout();
             final Component child = cell.getComponent(0);
-            assertEquals(18, child.getHeight(), "a short child keeps its natural height");
+            // The natural height comes from the platform font, so compare against the child's own
+            // preferred height instead of a hardcoded line height.
+            assertEquals(child.getPreferredSize().height, child.getHeight(), "a short child keeps its natural height");
             assertTrue(
                     child.getY() > 80,
                     "the child sits in the vertical middle of the cell, not at its top: y=" + child.getY());
@@ -859,7 +861,14 @@ class SwingPanelViewRendererTest {
             cell.setSize(120, 18);
             cell.doLayout();
             final Component child = cell.getComponent(0);
-            assertEquals(18, child.getHeight(), "an overflowing child must not grow the surrounding row");
+            assertTrue(
+                    child.getPreferredSize().height > 18,
+                    "the fixture must overflow the cell for this test to mean anything: " + child.getPreferredSize());
+            // The contract is that the overflow never grows the row, not that the child fills it
+            // exactly: a platform font can leave the child shorter than the reserved cell.
+            assertTrue(
+                    child.getHeight() <= 18,
+                    "an overflowing child must not grow the surrounding row: " + child.getHeight());
             assertTrue(child.getWidth() <= 120, "the overflowing child stays inside the reserved width");
         });
     }
