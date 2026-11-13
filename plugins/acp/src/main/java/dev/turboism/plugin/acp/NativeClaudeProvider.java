@@ -46,8 +46,13 @@ final class NativeClaudeProvider extends NativeAgentProvider {
         for (Object raw : list(initialized.get("models"))) {
             final var model = object(raw);
             final String value = text(model.get("value"));
-            if (!value.isBlank())
-                models.add(Map.of("value", value, "name", text(model.getOrDefault("displayName", value))));
+            if (!value.isBlank()) {
+                final String displayName = text(model.getOrDefault("displayName", value));
+                models.add(Map.of(
+                        "value", value,
+                        "name", displayName.isBlank() ? value : displayName,
+                        "description", value));
+            }
         }
         if (!models.isEmpty()) {
             choices.put("model", models);

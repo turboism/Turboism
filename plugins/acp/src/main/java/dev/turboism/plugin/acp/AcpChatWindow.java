@@ -937,11 +937,11 @@ final class AcpChatWindow implements AcpChatController.View {
             updateAgentDetail();
         });
         composerAgent.addActionListener(ignored -> {
-            final JPopupMenu menu = composerAgent.getComponentPopupMenu();
+            final JPopupMenu menu = AcpThemeControls.attachedPopup(composerAgent);
             if (menu != null) AcpThemeControls.showPopup(composerAgent, menu);
         });
         composerPermissionMode.addActionListener(ignored -> {
-            final JPopupMenu menu = composerPermissionMode.getComponentPopupMenu();
+            final JPopupMenu menu = AcpThemeControls.attachedPopup(composerPermissionMode);
             if (menu != null) AcpThemeControls.showPopup(composerPermissionMode, menu);
         });
         todoPill.addActionListener(ignored -> AcpThemeControls.showPopup(todoPill, buildTodoPopover()));
@@ -1062,7 +1062,7 @@ final class AcpChatWindow implements AcpChatController.View {
         }
         agentMenu.addFooterAction(
                 "turboism-acp.manage-agents", localization.text("button.manage-agents"), this::showAgentManager);
-        composerAgent.setComponentPopupMenu(agentMenu.finish());
+        AcpThemeControls.attachPopup(composerAgent, agentMenu.finish());
         final boolean custom = AgentCatalog.CUSTOM_AGENT_ID.equals(selected);
         customCommand.setEnabled(custom);
         final AgentProfile profile = AgentCatalog.profile(selected).orElse(null);
@@ -1355,10 +1355,12 @@ final class AcpChatWindow implements AcpChatController.View {
                     iconOnly ? 28 : Math.min(MAX_OPTION_BUTTON_WIDTH, size.width), Math.max(28, size.height)));
             final AcpThemeControls.ThemedPopupMenu menu =
                     new AcpThemeControls.ThemedPopupMenu(localization.text("composer.filter-options"));
+            final javax.swing.Icon modelChoiceIcon = role == 0 ? AcpAgentIcons.icon(agentId()) : null;
             for (AcpConfigOption.Choice choice : option.choices()) {
                 final boolean selectedChoice =
                         !isAutoPermissionOverride && choice.value().equals(option.currentValue());
-                menu.addChoice(choice.name(), selectedChoice, null, () -> {
+                final String secondary = role == 0 ? modelChannelSubtitle(choice, agentId()) : "";
+                menu.addChoice(choice.name(), secondary, selectedChoice, modelChoiceIcon, () -> {
                     if (!button.isEnabled() || applyingOptions) return;
                     if (role == 2 && permissionMode != AcpChatController.PermissionMode.ASK) {
                         permissionMode = AcpChatController.PermissionMode.ASK;
@@ -1382,7 +1384,7 @@ final class AcpChatWindow implements AcpChatController.View {
                 });
             }
             final JPopupMenu finalizedMenu = menu.finish();
-            button.setComponentPopupMenu(finalizedMenu);
+            AcpThemeControls.attachPopup(button, finalizedMenu);
             button.addActionListener(ignored -> AcpThemeControls.showPopup(button, finalizedMenu));
             composerOptionButtons.put(option.id(), button);
             composerOptions.add(button);
@@ -1417,7 +1419,39 @@ final class AcpChatWindow implements AcpChatController.View {
             onSelectPermissionMode.accept(AcpChatController.PermissionMode.AUTO);
             updatePermissionModeSelector();
         });
-        composerPermissionMode.setComponentPopupMenu(menu.finish());
+        AcpThemeControls.attachPopup(composerPermissionMode, menu.finish());
+    }
+
+    static String modelChannelSubtitle(final AcpConfigOption.Choice choice, final String selectedAgentId) {
+        final String desc = choice.description();
+        final String raw = !desc.isEmpty() ? desc : choice.value();
+        if (raw.isEmpty() || "unavailable".equalsIgnoreCase(raw)) return "";
+        if (raw.contains("/")) return raw;
+        final String prefix = defaultChannelPrefix(raw, selectedAgentId);
+        if (!prefix.isEmpty()) return prefix + "/" + raw;
+        return raw.equalsIgnoreCase(choice.name()) ? "" : raw;
+    }
+
+    private static String defaultChannelPrefix(final String modelValue, final String selectedAgentId) {
+        final String lower = modelValue.toLowerCase(java.util.Locale.ROOT);
+        if (lower.startsWith("claude-")) return "anthropic";
+        if (lower.startsWith("gpt-") || lower.startsWith("o1-") || lower.startsWith("o3") || lower.startsWith("o4")) {
+            return "openai";
+        }
+        if (lower.startsWith("gemini-")) return "google";
+        if (lower.startsWith("codestral") || lower.startsWith("mistral") || lower.startsWith("devstral")) {
+            return "mistral";
+        }
+        if (lower.startsWith("deepseek-")) return "deepseek";
+        if (lower.startsWith("qwen")) return "qwen";
+        if (lower.startsWith("glm-")) return "zai";
+        if (lower.startsWith("kimi-")) return "moonshot";
+        return switch (Objects.requireNonNullElse(selectedAgentId, "")) {
+            case "claude" -> "anthropic";
+            case "codex" -> "openai";
+            case "gemini" -> "google";
+            default -> "";
+        };
     }
 
     private void refreshTodoPill() {

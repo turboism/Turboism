@@ -22,10 +22,15 @@ record AcpConfigOption(
         this(id, name, "", "", currentValue, choices);
     }
 
-    record Choice(String value, String name) {
+    record Choice(String value, String name, String description) {
         Choice {
             value = requireText(value, "value");
             name = requireText(name, "name");
+            description = Objects.requireNonNullElse(description, "").strip();
+        }
+
+        Choice(final String value, final String name) {
+            this(value, name, "");
         }
 
         @Override

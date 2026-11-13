@@ -191,7 +191,7 @@ final class AcpChatWindowRenderingTest {
                         instructions.getClientProperty("JTextField.placeholderText"));
                 final JButton agent = component(window, "composerAgent", JButton.class);
                 assertEquals("Codex ▾", agent.getText());
-                final var menu = agent.getComponentPopupMenu();
+                final var menu = AcpThemeControls.attachedPopup(agent);
                 ((JMenuItem) menu.getComponent(menu.getComponentCount() - 1)).doClick();
                 final var manager = component(window, "agentManager", javax.swing.JDialog.class);
                 assertTrue(manager.isVisible());
@@ -549,7 +549,7 @@ final class AcpChatWindowRenderingTest {
                 final JButton model = (JButton) buttons.get("model");
                 assertTrue(model.isEnabled());
                 assertEquals(AcpChatTheme.foreground(), model.getForeground());
-                ((JMenuItem) model.getComponentPopupMenu().getComponent(1)).doClick();
+                ((JMenuItem) AcpThemeControls.attachedPopup(model).getComponent(1)).doClick();
                 assertEquals(List.of("model", "model-b"), requested.get());
                 assertFalse(model.isEnabled());
                 assertEquals("Model A ▾", model.getText());
@@ -609,7 +609,7 @@ final class AcpChatWindowRenderingTest {
                 assertEquals(AcpChatTheme.foreground(), agent.getForeground());
                 assertEquals(3, window.agentSelector().getItemCount());
                 assertEquals("Claude Code ▾", agent.getText());
-                final javax.swing.JPopupMenu agentMenu = agent.getComponentPopupMenu();
+                final javax.swing.JPopupMenu agentMenu = AcpThemeControls.attachedPopup(agent);
                 assertEquals(4, agentMenu.getComponentCount());
                 assertEquals("Claude Code  ✓", ((JMenuItem) agentMenu.getComponent(0)).getText());
                 for (int i = 0; i < 2; i++) {
@@ -617,13 +617,13 @@ final class AcpChatWindowRenderingTest {
                             AcpAgentIcons.icon(AgentCatalog.profiles().get(i).id()),
                             ((JMenuItem) agentMenu.getComponent(i)).getIcon());
                 }
-                ((JMenuItem) agent.getComponentPopupMenu().getComponent(1)).doClick();
+                ((JMenuItem) AcpThemeControls.attachedPopup(agent).getComponent(1)).doClick();
                 assertEquals(AgentCatalog.profiles().get(1).id(), requested.get());
                 assertEquals(requested.get(), window.agentId());
                 window.showConnected(AcpClient.AcpAgentInfo.UNKNOWN, List.of(), false, AcpClient.McpAttachment.NONE);
                 window.showPrompting();
                 assertFalse(agent.isEnabled());
-                ((JMenuItem) agent.getComponentPopupMenu().getComponent(0)).doClick();
+                ((JMenuItem) AcpThemeControls.attachedPopup(agent).getComponent(0)).doClick();
                 assertEquals(requested.get(), window.agentId());
             } finally {
                 window.dispose();
@@ -816,14 +816,30 @@ final class AcpChatWindowRenderingTest {
             try {
                 final var selectedPermMode =
                         new java.util.concurrent.atomic.AtomicReference<>(AcpChatController.PermissionMode.ASK);
+                final java.util.concurrent.atomic.AtomicReference<List<String>> configUpdates =
+                        new java.util.concurrent.atomic.AtomicReference<>();
+                window.bind(
+                        () -> {},
+                        ignored -> {},
+                        () -> {},
+                        (id, value) -> configUpdates.set(List.of(id, value)),
+                        () -> {},
+                        ignored -> {},
+                        () -> {},
+                        () -> {},
+                        ignored -> {},
+                        () -> {},
+                        () -> {},
+                        () -> {});
                 window.bindExtendedControls(selectedPermMode::set);
 
                 final java.util.List<AcpConfigOption.Choice> manyModels = new java.util.ArrayList<>();
                 for (int i = 1; i <= 15; i++) {
-                    manyModels.add(new AcpConfigOption.Choice("model-" + i, "Model " + i));
+                    manyModels.add(
+                            new AcpConfigOption.Choice("mistral/model-" + i, "Model " + i, "mistral/model-" + i));
                 }
                 final List<AcpConfigOption> options = List.of(
-                        new AcpConfigOption("model", "Model", "model-1", manyModels),
+                        new AcpConfigOption("model", "Model", "mistral/model-1", manyModels),
                         new AcpConfigOption(
                                 "effort", "Effort", "high", List.of(new AcpConfigOption.Choice("high", "High"))));
                 window.showConnected(AcpClient.AcpAgentInfo.UNKNOWN, options, false, AcpClient.McpAttachment.NONE);
@@ -836,14 +852,97 @@ final class AcpChatWindowRenderingTest {
                         .get("model");
                 final JButton permBtn = component(window, "composerPermissionMode", JButton.class);
 
-                // 15-choice model menu uses bounded scrollable popup rather than unbounded height.
-                final var modelPopup = (AcpThemeControls.ThemedPopupMenu) modelBtn.getComponentPopupMenu();
+                // 15-choice model menu uses bounded scrollable popup, channel subtitle, agent icon, and keyboard/mouse
+                // selection.
+                assertEquals(null, modelBtn.getComponentPopupMenu());
+                final var modelPopup = (AcpThemeControls.ThemedPopupMenu) AcpThemeControls.attachedPopup(modelBtn);
                 assertTrue(modelPopup.isScrollableMenu());
                 assertTrue(modelPopup.getPreferredSize().height <= 340);
+                final var secondItem = modelPopup.selectableItems().get(1);
+                assertEquals("mistral/model-2", secondItem.secondaryLabel());
+                assertEquals(AcpAgentIcons.icon("codex"), secondItem.getIcon());
+
+                // Keyboard Down + Enter selects the highlighted second model and applies it.
+                modelPopup.prepareForShow();
+                modelPopup.moveHighlight(1);
+                modelPopup.commitHighlighted();
+                assertEquals(List.of("model", "mistral/model-2"), configUpdates.get());
+                window.showConfigOptions(options);
+
+                // Filtering narrows visible choices ("model-10".."model-15" plus "model-1"), then Down/Up/Enter
+                // navigates only the filtered matches and commits the exact filtered choice.
+                final JButton filterModelBtn = (JButton) component(window, "composerOptionButtons", java.util.Map.class)
+                        .get("model");
+                final var filterPopup =
+                        (AcpThemeControls.ThemedPopupMenu) AcpThemeControls.attachedPopup(filterModelBtn);
+                filterPopup.prepareForShow();
+                final var filterInput = filterPopup.filterInput();
+                filterInput.setText("model-1");
+                // Filtered visible set: model-1 (index 0), model-10 (index 1), model-11 (index 2), ...
+                // Invoke the filter field's InputMap/ActionMap bindings: Down twice -> model-11, Up once -> model-10,
+                // Enter -> commit.
+                for (int keyCode : List.of(KeyEvent.VK_DOWN, KeyEvent.VK_DOWN, KeyEvent.VK_UP, KeyEvent.VK_ENTER)) {
+                    final Object actionKey = filterInput
+                            .getInputMap(javax.swing.JComponent.WHEN_FOCUSED)
+                            .get(KeyStroke.getKeyStroke(keyCode, 0));
+                    assertTrue(actionKey != null);
+                    filterInput.getActionMap().get(actionKey).actionPerformed(new ActionEvent(filterInput, 0, "key"));
+                }
+                assertEquals(List.of("model", "mistral/model-10"), configUpdates.get());
+                window.showConfigOptions(options);
+
+                // Filtering to a non-first subset ("Model 5") highlights model-5 and wraps cleanly on Up/Down.
+                final JButton singleFilterBtn =
+                        (JButton) component(window, "composerOptionButtons", java.util.Map.class)
+                                .get("model");
+                final var singleFilterPopup =
+                        (AcpThemeControls.ThemedPopupMenu) AcpThemeControls.attachedPopup(singleFilterBtn);
+                singleFilterPopup.prepareForShow();
+                final var singleInput = singleFilterPopup.filterInput();
+                singleInput.setText("Model 5");
+                for (int keyCode : List.of(KeyEvent.VK_DOWN, KeyEvent.VK_ENTER)) {
+                    final Object actionKey = singleInput
+                            .getInputMap(javax.swing.JComponent.WHEN_FOCUSED)
+                            .get(KeyStroke.getKeyStroke(keyCode, 0));
+                    singleInput.getActionMap().get(actionKey).actionPerformed(new ActionEvent(singleInput, 0, "key"));
+                }
+                assertEquals(List.of("model", "mistral/model-5"), configUpdates.get());
+                window.showConfigOptions(options);
+
+                // Mouse press + release on a scrollable row also selects and applies it cleanly.
+                final JButton refreshedModelBtn =
+                        (JButton) component(window, "composerOptionButtons", java.util.Map.class)
+                                .get("model");
+                final var refreshedPopup =
+                        (AcpThemeControls.ThemedPopupMenu) AcpThemeControls.attachedPopup(refreshedModelBtn);
+                final var thirdItem = refreshedPopup.selectableItems().get(2);
+                thirdItem.setSize(220, 30);
+                thirdItem.dispatchEvent(new MouseEvent(
+                        thirdItem,
+                        MouseEvent.MOUSE_PRESSED,
+                        System.currentTimeMillis(),
+                        0,
+                        10,
+                        10,
+                        1,
+                        false,
+                        MouseEvent.BUTTON1));
+                thirdItem.dispatchEvent(new MouseEvent(
+                        thirdItem,
+                        MouseEvent.MOUSE_RELEASED,
+                        System.currentTimeMillis(),
+                        0,
+                        10,
+                        10,
+                        1,
+                        false,
+                        MouseEvent.BUTTON1));
+                assertEquals(List.of("model", "mistral/model-3"), configUpdates.get());
+                window.showConfigOptions(options);
 
                 // Permission mode button switches to Auto mode.
                 assertEquals("Ask permissions ▾", permBtn.getText());
-                ((JMenuItem) permBtn.getComponentPopupMenu().getComponent(1)).doClick();
+                ((JMenuItem) AcpThemeControls.attachedPopup(permBtn).getComponent(1)).doClick();
                 assertEquals(AcpChatController.PermissionMode.AUTO, selectedPermMode.get());
                 assertEquals("Auto approve ▾", permBtn.getText());
 
