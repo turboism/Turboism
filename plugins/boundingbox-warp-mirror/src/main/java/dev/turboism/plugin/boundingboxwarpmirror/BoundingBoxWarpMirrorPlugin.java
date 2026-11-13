@@ -77,7 +77,8 @@ public final class BoundingBoxWarpMirrorPlugin implements TurboismPlugin {
                                             java.util.Optional.of(ICON_HOVER_RESOURCE),
                                             java.util.Optional.empty()),
                                     OVERLAY_BUTTON_ORDER,
-                                    this::onOverlayClick)));
+                                    this::onOverlayClick,
+                                    Set.of(BoundingBoxOverlayButton.TargetKind.WARP_DEFORMER))));
             logger.info("BoundingBox warp mirror overlay button contributed");
         } catch (RuntimeException unsupported) {
             logger.warn("BoundingBox overlay contribution unavailable: "

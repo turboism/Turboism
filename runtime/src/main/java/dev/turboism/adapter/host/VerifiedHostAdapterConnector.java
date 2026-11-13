@@ -1096,7 +1096,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                                         hostGeneration,
                                         verificationEvidence(overlay.admission())),
                                 new VerifiedBoundingBoxOverlayButtonHostOperations(
-                                        overlay.resolver(), editorUiPluginResources)));
+                                        overlay.resolver(), editorUiPluginResources, resolver)));
                     }
                     return List.copyOf(providers);
                 }
