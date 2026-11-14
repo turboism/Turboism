@@ -1,25 +1,12 @@
 # Turboism Product Roadmap
 
-Work is ordered by product and framework capability. Track labels are parallel product concerns, not milestones or release gates, and must not evolve back into M13/M14-style phase governance.
+Work is ordered by product and framework capability. Track labels describe parallel areas of the system—not sequential milestones or phase gates—and must not evolve back into numbered stage governance.
 
 ## Current objective
 
-Build a usable, version-routed Cubism and Editor API that third-party plugins can consume naturally, then reconnect official modeling workflows through that API. The priority order is framework > first-party plugins > third-party plugins: third-party consumption is what the API is shaped for, but it never outranks the framework itself or the official workflows built on it.
+Maintain a usable, version-routed Cubism and Editor SDK that plugins consume naturally, and keep first-party modeling workflows aligned with it. The priority order is **framework > first-party plugins > third-party plugins**: third-party consumption shapes the SDK ergonomics, but it never outranks framework stability or official workflows.
 
-Legacy repositories remain read-only behavior evidence rather than a new-framework skeleton. Extraction is performed per usable feature slice, without repository-wide phase closure.
-
-The target interaction model is:
-
-```text
-CubismModel model = context.cubism().model().active();
-Parameter parameter = model.parameters().find(new ParameterId("ParamAngleX"));
-
-parameter.setValue(parameter.getValue() + 1.0f);
-```
-
-The runtime may use different providers internally, but plugins should not have to choose among read, write, command, adapter, and synchronization planes for an ordinary object operation.
-
-Two axes define the current program and must land together:
+Two architectural axes govern all Cubism-facing work:
 
 ```text
 Core / Editor unification
@@ -31,299 +18,80 @@ Core / Editor unification
 Semantic event lifecycle
   one canonical operation
   before -> native operation -> changed-only on -> after
-  override-based Hooks discovered from plugin entrypoints
-  no duplicate Core, Editor and plugin event sources
+  override-based hooks discovered from plugin entrypoints
+  no duplicate Core, Editor, and plugin event sources
 ```
 
-Tracks A–C are therefore one integration program, not three independently shippable systems. Core reads without Editor joins are an incomplete backend; Editor writes without the unified event lifecycle are incomplete operations; an event system around raw Core setters is invalid.
+## Track status
 
-## Track A — Unified Cubism object API
+### Track A — Unified Cubism object API
 
-### Goal
+**Current state:** Implemented for the core model object graph (Canvas, Parameters, Parts, Drawables, Deformers, Glues, and offscreen/render surfaces) across reviewed **5.0.00 – 5.3.04** adapters (20 exact versions), with `@CubismEditor` version gating, immutable snapshots, generation-bound stale rejection, and `CoreEvaluatedJoin` for Core evaluated reads.
 
-Provide Turboism-owned wrappers for the useful public Cubism model surface:
+**Remaining focus:** Expand Core/Editor object coverage only where driven by real plugin consumers, and keep version-coverage parity across Tier-1 targets (`5.2.03` and `5.3.02+`).
 
-- model and canvas;
-- parameters;
-- parts;
-- drawables, geometry, masks, colors and render order;
-- deformers;
-- glues;
-- rendering and supported offscreen features;
-- supported version and feature discovery.
+### Track B — Editor-owned authoring writes
 
-### Rules
+**Current state:** Parameter, Part, Drawable, Deformer, and Morph Target writes route through Editor-owned transactions (`AuthoringTransaction*`) with host-thread dispatch, native `GroupUndo`/`SimpleUndo` integration, dirty-state tracking, and stale-target rejection.
 
-- no `com.live2d.*` leakage;
-- no raw native handles;
-- no caller-owned mutable views over host arrays;
-- natural object methods;
-- session/document generation checks;
-- version differences absorbed by providers;
-- unsupported members return typed unavailability rather than guessed behavior.
+**Remaining focus:** Extend authoring write families strictly from verified plugin needs and ensure automated Undo/Redo, save, and reopen evidence covers Tier-1 Cubism hosts.
 
-### Exit
+### Track C — Invocation and event standard
 
-A plugin can enumerate and read the complete supported object model on Cubism 5.3.02 through SDK-only code, with provider and stale-reference tests.
+**Current state:** The `before -> invoke -> on state change -> after` lifecycle, `ParameterHooks`, and the canonical `dev.turboism.sdk.cubism.event` families are implemented, with bytecode-to-SDK correlation preventing duplicate events across plugin, UI, and native callers.
 
-## Track B — Editor-owned authoring writes
+**Remaining focus:** Add new wrapped invocation families only where real consumers require argument interception or native-edit observation.
 
-### Goal
+### Track D — Editor semantic API
 
-Make the same object API writable without creating a second model state.
+**Current state:** Project/document context, selection and hierarchy queries, mediated user file access, and host UI contributions (menus, toolbars, context menus, shared settings, panels, dialogs, keybindings, and canvas hints) are exposed through `PluginContext.services()`.
 
-For an Editor-attached model:
+**Remaining focus:** Keep host-UI isolation strict (no leaked Swing/host widgets outside documented exceptions) and improve async host-read ergonomics for heavy editor queries.
 
-```text
-parameter.setValue(value)
-  -> runtime validation
-  -> Editor transaction
-  -> Undo / dirty state
-  -> version-specific authoring provider
-  -> resulting Core evaluation
-```
+### Track E — Official workflow restoration
 
-Core mutation is not used as an independent source of authoring truth. No bidirectional synchronization layer is introduced.
+**Current state:** 35 first-party plugins ship in standard release packages (plus `parameter-lock` on the Ed25519-signed Plugin Marketplace), and all legacy `b1/` migration packages have graduated into stable plugin-owned packages.
 
-### Foundation
+**Active workflow focus:**
 
-- host-thread dispatch;
-- transaction ownership;
-- single and grouped Undo;
-- rollback and partial-failure policy;
-- stale target rejection;
-- project close/model reload cleanup;
-- typed write result and diagnostics;
-- broad Cubism read/write permission boundary.
+- **3D character workflow (`plugins/model-import-3d`)**: Standalone 3D viewing and editable native glTF/GLB/OBJ import (including Blend Shape Morph Targets, structural Parts, nested Warp parents, Undo/Redo, and save/reopen) pass on Cubism 5.3.04. Remaining work focuses on angle-conditioned depth/pose corrections for non-neutral yaw/pitch views and optional anatomical/rigging presets.
+- **Cross-version parity**: Keep bundled plugins verified on Tier-1 Cubism hosts (`5.2.03` and `5.3.02+`) and expand automated host-probe coverage where gaps remain in [the plugin matrix](../compatibility/cubism/plugins.md).
 
-### Exit
+### Track F — Hook and render ingress
 
-Parameter and part writes pass real Cubism 5.3.02 manual validation, including Undo, redo, save/reopen consistency, document switching, and plugin disable cleanup.
+**Current state:** Install-time hooks run through the `VerifiedInstall` protocol (`META-INF/turboism/hooks` with both `HookContributor` classes and `@`-prefixed `DeclarativeHooks`), and opt-in native rendering/update optimizations carry persisted kill switches.
 
-## Track C — Invocation and event standard
+**Remaining focus:** Keep hook surface minimal—every new hook requires consumer necessity evidence, exact-artifact proofs, bounded execution, and clean uninstall/disable restoration.
 
-### Goal
+### Track G — Third-party and release readiness
 
-Wrap native and framework operations with one naming and lifecycle standard.
+**Current state:**
 
-```text
-before<Action>
-  may rewrite arguments by returning the next value
+- Pre-freeze SDK cleanups are complete: `dev.turboism.sdk.event.cubism` is retired and rejected by boundary checks, `PluginContext` optional services use uniform `unavailable()` / `isAvailable()` contracts, and `sdk/api-contracts/current.txt` tracks the pre-1.0 public surface.
+- Standalone plugin development works via `templates/plugin-template/` with `setup.sh` / `setup.ps1` and released SDK / event-processor JARs.
+- Windows EXE/ZIP packaging, localized installers, and the Ed25519-signed plugin marketplace are operational.
 
-on<State>Changed
-  fires only after actual state change
+**Remaining focus:**
 
-after<Action>
-  observes normal invocation completion
-```
+- **1.0 SDK freeze**: Stabilize remaining `@Incubating` surfaces and lock the initial 1.0 compatibility baseline (after which SDK changes are strictly additive within the 1.x line).
+- **Release & supply-chain hardening**: Add code signing for Windows installers when available, extend recovery-point and golden-snapshot coverage to legacy `config.json` and install/update journals, and gather community macOS validation feedback to move macOS packaging beyond preview status.
 
-First reference family:
+## Near-term priorities
 
-```text
-beforeSetParameterValue
-onParameterValueChanged
-afterSetParameterValue
-```
-
-### Required semantics
-
-- deterministic plugin and entrypoint ordering;
-- sequential `before` return-value chaining;
-- no generic cancellation/result wrapper in the initial API;
-- no `on...Changed` event when effective state did not change;
-- reentrancy policy;
-- exception isolation;
-- plugin lifecycle cleanup;
-- Undo/redo origin metadata where available;
-- bounded callback execution on Editor-critical paths.
-
-### Exit
-
-Parameter value changes work through direct calls, host UI edits, Undo and redo with consistent event outcomes and no duplicate notification.
-
-## Track D — Editor semantic API
-
-### Goal
-
-Expose Editor-specific state and operations that Cubism Core cannot represent:
-
-- project and workspace;
-- active document/model;
-- selection;
-- model tree and object relationships;
-- file chooser and user grants;
-- context source;
-- menu, toolbar, dialog, panel and overlay contribution;
-- status and notifications;
-- semantic host commands that require Editor ownership.
-
-UI remains a separate SDK area from the Cubism object model, but both use the same lifecycle, permission and diagnostic conventions.
-
-### Exit
-
-Plugins can implement project inspection, selection navigation, status/UI contribution and file workflows without Swing tree traversal or raw host objects.
-
-## Track E — Official workflow restoration
-
-Official functionality is restored through SDK-only plugins after its required framework surface exists.
-
-Priority families:
-
-1. parameter CSV import/export and parameter batch tools;
-2. context menu, project panel and workspace helpers;
-3. color picker and theme UI semantics;
-4. clip-mask and bounding-box inspection;
-5. mesh and ArtMesh mirror;
-6. deformer fit/mirror/apply-to-children;
-7. PSD binding repair and canvas expansion;
-8. render/performance and texture-atlas assistance.
-
-Each workflow must prove user-visible behavior, not merely plugin loading or fake-provider compatibility.
-
-A restored workflow graduates out of the migration wave when its user-visible
-behavior is proven on a verified host; at that point its `b1/` tree must move to
-stable plugin-owned packages rather than remain as permanent structure. Track E
-is complete only when no `b1/` package remains under `plugins/*/src` or
-`runtime/src`.
-
-### 3D character workflow
-
-The first viewer milestone passed on Cubism Editor 5.3.04. It displays the
-complete character in a plugin-owned window, with drag rotation, zoom and reset.
-See `validation/model-viewer-host-probe/verification.md` for acceptance evidence. The viewer does not change the
-Cubism document or make its geometry editable as ArtMeshes.
-
-An editable native candidate now passes import, XYZ writes, Undo/Redo, save and
-fresh-process reopen on Cubism Editor 5.3.04. Anatomical Warp parents collect
-skin and clothing meshes. See
-`validation/native-character-host-probe/verification.md` for fixed inputs and evidence.
-The reference fixture restores Blender-evaluated default masks and fitted footwear.
-Native painter ordering remains an approximation; arbitrary-angle visual equivalence
-is not established.
-
-Generic standard glTF position Morph Targets now become independent Blend Shape
-parameters. Structural parts use source objects and actual skin weights without
-an LLM or anatomical name rules. The two-shape fixture passed import, Undo/Redo
-and fresh-process persistence on Cubism 5.3.04.
-
-Explicit opacity controls support nested Warp parents. Their combination with
-geometry controls passed native alpha-ratio checks at yaw 0° and ±30°. This does
-not prove side-view geometry accuracy. Fixed neutral-view Warp offsets do not
-rotate source depth deltas with body yaw/pitch; angle-conditioned corrections
-remain required. Dedicated clothing/mask/foot, eye and head mappings are optional
-and remain work in progress.
-
-## Track F — Hook and render ingress
-
-Hooks are implemented only for behavior that cannot be supported by explicit reads, refresh, bounded polling, Editor providers or existing callbacks.
-
-Candidate areas:
-
-- project/document lifecycle observation;
-- context-menu opening;
-- parameter mutation interception;
-- Undo/redo refresh;
-- render status and per-frame ingress.
-
-Every hook requires necessity evidence, exact version routing, bounded execution, backpressure, kill switch, safe mode, cleanup and performance observation.
-
-## Track G — Third-party and release readiness
-
-Third-party plugin support is the lowest priority of the program (framework >
-first-party plugins > third-party plugins); release readiness itself keeps its
-full importance and is not deferred with it.
-
-### Framework readiness
-
-- Stable SDK compatibility policy;
-- plugin dependency and ClassLoader behavior;
-- diagnostics and disabled-reason reporting;
-- plugin storage, config, localization, tasks and user-file services;
-- developer documentation and examples;
-- predictable preview-to-stable promotion.
-
-### SDK API freeze checkpoint
-
-The first stable release establishes the SDK compatibility baseline: from that
-point the public SDK surface only grows additively, and breaking changes wait
-for a new major line. Until the freeze, additive growth is deliberately
-converged rather than open-ended — new surface lands only where a real
-consumer needs it.
-
-Required pre-freeze work:
-
-- migrate every event type into the canonical `dev.turboism.sdk.cubism.event`
-  package and reject the retired `dev.turboism.sdk.event.cubism` package in
-  module-boundary checks;
-- unify `PluginContext` optional-surface semantics on `unavailable()`
-  singletons plus `isAvailable()` probing, so third-party plugins meet one
-  unavailability contract.
-
-After the freeze these are the only sanctioned SDK change classes:
-
-- additive interfaces, methods, factories and enum constants;
-- documentation and contract clarifications that do not alter behavior;
-- internal refactorings that keep every public signature and sentinel stable.
-
-### Product readiness
-
-- relocatable preview/release bundle;
-- isolated launcher;
-- supported Cubism version matrix;
-- automated exact-host validation through test-only SDK plugins and host scripts;
-- packaging and supply-chain checks;
-- no shared mutable launcher or global installation side effects;
-- machine-readable host evidence, with screenshots reserved for visual-only facts or failure diagnosis;
-- compliance review before public release.
-
-## Near-term order
-
-```text
-1. finalize unified object/reference model
-2. implement complete Core-backed reads and 5.3.02 provider routing
-3. establish Editor-owned parameter/part writes with Undo
-4. implement before/on/after parameter lifecycle
-5. complete Editor project/selection/model-tree API
-6. restore parameter CSV and batch workflows
-7. expand write families to drawable/deformer/glue operations
-8. automate exact-host SDK/write/Undo/persistence matrices for each supported version
-9. add only the hooks proven necessary by real consumers
-10. harden third-party SDK and release packaging
-```
-
-Current implementation checkpoint:
-
-- the unified Preview object/reference model is present and the complete supported Core read graph is projected for 5.2 and 5.3.02 through exact digest-pinned resolver evidence;
-- Canvas, Parameters, Parts, Drawables, Deformers and Glues use immutable copied data, version normalization and generation-bound stale rejection without leaking or closing host objects;
-- Cubism 5.3.02 Editor authoring parameters are bound through verified active-document/model selectors and invalidate on document/model-instance replacement;
-- `Parameter.setValue` uses the verified Editor palette operation, plugin-scoped write permission, native `GroupUndo`/`SimpleUndo` history, changed-only dirty state, parameter/canvas refresh, failure cancellation and stale-target rejection;
-- the Runtime-owned parameter lifecycle discovers ordered `ParameterHooks` from real plugin entrypoints, separates intercept/observe permissions, chains synchronous `before`, dispatches bounded changed-only `on` and normal `after`, rejects recursion, and removes Hook references before ClassLoader release;
-- the Java agent has an exact-selector, host-ClassLoader-scoped ASM transformer for the verified palette operation so plugin, UI and supported internal origins converge on one lifecycle; facade/native correlation prevents duplicate publication;
-- the official parameter CSV workflow now implements `CubismPlugin`; export and import use only the unified `CubismModel`/`Parameter` object graph, and import reaches `Parameter.setValue` without `cubismRead`, `ModelTransaction`, or `WriteParameterCommand`;
-- synthetic transformer normal/failure recovery, queue saturation, in-flight unload quiescence, rapid 200-generation model switching, isolated-ClassLoader lifecycle cleanup, and official action/permission integration tests pass;
-- the daily verification entry point is being reduced to `./gradlew devCheck`; integration and release gates remain explicit, batched commands;
-- Cubism 5.3.02 Windows validation confirmed direct parameter reads/writes, metadata updates and Undo/Redo, but remaining parameter-binding and 5.2 checks must be converted from manual inspection into terminal machine-readable host matrices before they can be treated as maintained readiness evidence.
-
-```text
-1. make the parameter validation bundle launch through the official Editor launcher and emit a terminal structured result
-2. automate 5.3.02 parameter read/write/lifecycle, Undo/Redo, save/reopen and performance assertions in one isolated session
-3. add equivalent 5.2 Editor binding evidence without weakening exact-version admission
-4. extend Editor binding and lifecycle to Part opacity and model update from verified consumers
-5. complete Editor project/selection/model-tree API
-6. expand write families only from verified official-plugin consumers
-7. harden third-party SDK, packaging and release evidence
-```
+1. Stabilize `@Incubating` SDK APIs and lock the 1.0 SDK compatibility baseline.
+2. Expand automated exact-host validation coverage across Tier-1 Cubism versions (`5.2.03` and `5.3.02+`) and under-probed bundled plugins.
+3. Improve `model-import-3d` angle-conditioned Warp/depth corrections and optional rigging mappings.
+4. Close remaining recovery-point / golden-snapshot coverage for legacy `config.json`, install journals, and signed update receipts.
+5. Pursue code signing for Windows release installers and macOS host testing with community contributors.
 
 ## Not used as progress measures
 
-The following no longer determine work order or completion:
+The following do not determine work order or completion:
 
-- numbered migration or implementation phases;
-- migration-board row counts;
-- capability catalog size;
+- numbered migration or implementation phases (M1–M16, etc.);
+- migration-board row counts or capability catalog size;
 - one permission per method;
-- fake-ready labels;
-- closure reports that only validate other reports;
-- mandatory PRD/schema/report creation for ordinary Preview API changes.
+- fake-ready labels or self-referential closure reports;
+- mandatory PRD/schema/report creation for ordinary additive SDK changes.
 
-Progress is measured by usable SDK surfaces, real providers, safety invariants, real-host behavior and complete user workflows.
+Progress is measured by usable SDK surfaces, real providers, safety invariants, automated exact-host evidence, and working user workflows.

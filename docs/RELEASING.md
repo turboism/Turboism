@@ -240,17 +240,13 @@ The following non-boundary digests are retired and must not be reintroduced:
 
 **Backward-compatibility rule**: Readers of persisted local state (`PendingPluginOperations`, `FrameworkUpdateApplier`, `FrameworkInstallationReceiptLoader`, `cubism-launch-common.ps1`, `ScriptRegistry`) and published contracts (`PluginDescriptorParser`, `PluginCatalogVerifier`, `PluginManifestReader`, `UpdateManifest`, `prerelease.py`) accept and ignore retired legacy fields when present, so installed upgrades and already-published catalog/archive entries continue to load without migration failures.
 
-### Measured at this revision
+### Authoritative metadata inventories
 
-| Measure | Count |
-| --- | --- |
-| First-party plugins | 39 |
-| Distinct plugin `version` values | 4 (`0.1.0` ×4, `0.68.0` ×25, `0.68.1` ×9, `0.68.2` ×1) |
-| Distinct `turboismApi` values | 6 |
-| Descriptor `schemaVersion` in use | 3 (37 plugins) and 4 (2 plugins); the runtime admits 2 through 5 |
-| External digest anchor families | 5 (framework update, plugin catalog, third-party downloads, 20 reviewed host JARs, release `.sha256` sidecars) |
-| Per-class / per-icon inner host digests | 0 (retired 1,816 class pins and 120 icon pins) |
-| Retained mapping-pack evidence | 20 baselines + 20 override tables, expanding to 166 retained packs |
+Instead of hardcoding counts here, inspect the authoritative sources directly:
+
+- **First-party plugins & descriptors**: `plugins/*/src/main/resources/META-INF/turboism/plugin.json` (`version`, `turboismApi`, `schemaVersion`, with runtime admission supporting descriptor schema versions 2–5).
+- **External digest anchor families**: framework update manifests, signed plugin catalog, third-party download pins (`gradle/verification-metadata.xml`, `gradle-wrapper.properties`, `managed-graal.json`, `script-engine.json`), reviewed Cubism host JARs (`compatibility/cubism/reviewed-releases.json`), and release `.sha256` sidecars (per-class and per-icon inner host digests are retired).
+- **Mapping-pack evidence**: `compatibility/cubism/mapping-packs/draft/baseline/` and `overrides/`.
 
 ## Legacy coordinated and independent plugin publication
 
@@ -265,7 +261,7 @@ The legacy orchestrator is planned by one public command and published by protec
 
 The framework bundle roster and Plugin Directory roster are independent contracts:
 
-- `packaging/release-plugins.txt` controls plugins bundled in the Full installer/archive.
+- `packaging/release-plugins.txt` controls plugins bundled in the standard installer/archive (`TurboismInstaller-<version>.exe` and `turboism-<version>.zip`).
 - `packaging/market-plugins.txt` controls which first-party plugins are published to the Plugin Directory (generating `packaging/market-plugins.json`).
 - `packaging/market-plugins.json` is the Git-reviewed publication manifest with derived compatibility and channel metadata.
 
@@ -282,7 +278,7 @@ on `stable`. Catalog versions must be unique and strictly ascending, so a promot
 the carried version. The reverse direction never happens implicitly, because it would withdraw a
 release from Stable installations.
 
-A plugin bundled in Full is not thereby published to the Plugin Directory, and a plugin published to the Plugin Directory does not need to be bundled in the Full installer.
+A plugin bundled in the standard installer/archive is not thereby published to the Plugin Directory, and a plugin published to the Plugin Directory does not need to be bundled in the standard installer/archive.
 
 ## One-command dry run
 

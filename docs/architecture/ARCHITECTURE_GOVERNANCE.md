@@ -2,14 +2,17 @@
 
 ## Scope and dependency direction
 
-This foundation **does not split runtime yet**. Existing `checkModuleBoundaries`,
-`checkPluginBoundaries`, `checkPluginPermissionAudit` and SDK ABI gates remain
-authoritative. Do not replace type-aware or compiled-class checks with AST search.
+Existing `checkModuleBoundaries`, `checkPluginBoundaries`,
+`checkPluginPermissionAudit`, `checkDependencyInventory`, and SDK ABI gates
+remain authoritative. Do not replace type-aware or compiled-class checks with
+AST search.
 
-The next proposed split is the pure persistence codec/migration kernel, followed
-by pure compatibility policy, but only after an import/dependency-cycle inventory.
-No module should reference the composition layer or Cubism host to implement
-persistence. Keep the runtime/host adapter responsible for actual host IO.
+Pure kernel extraction (`:persistence-core` and `:compatibility-policy`) is
+already complete; any further runtime split requires a prior import and
+dependency-cycle inventory (`docs/architecture/DEPENDENCY_INVENTORY.md`) rather
+than ad-hoc module fragmentation. No extracted kernel may reference the
+composition layer or Cubism host to implement persistence or policy—keep
+`:runtime` and host adapters responsible for host IO.
 
 ## Solo-Maintainer Governance Principles
 

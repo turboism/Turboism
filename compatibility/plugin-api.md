@@ -21,12 +21,9 @@ Market installation and automatic update selection use the same runtime API.
 
 The runtime API follows the framework version; a plugin's lower bound records the
 minimum API it actually needs. A framework patch release alone does not raise it.
-Most official plugins retain `[0.67.0,1.0.0)`. `external-psd-edit` and the
-`atlas-maxrects-bssf` planner require `0.67.2` because they use SDK members added
-in that release. `artmesh-mirror`, `deformer-batch-rename` and `mcp` require `0.68.0` for the same reason.
-`atlas-folder-layout`, `atlas-bitmask-nesting`,
-`atlas-dalsoo-polygon` and `psd-clip-mask-import` require `0.67.4` because they
-use SDK members added in that release. When a plugin starts using a newer SDK API,
+Plugins that only rely on the baseline API keep `[0.67.0,1.0.0)`, while plugins
+that adopt newer SDK members raise their floor accordingly (for example `0.67.2`,
+`0.67.4`, `0.68.1`, or `0.70.0`). When a plugin starts using a newer SDK API,
 update that plugin's `plugin.json` range deliberately, then synchronize its README:
 
 ```sh

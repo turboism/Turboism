@@ -30,7 +30,7 @@
 3. 每轮算法对照从相同输入副本开始，不使用上一轮排版结果作为下一轮输入。
 4. 本目录的 `psd/`、`cmo3/` 内容被 Git 忽略规则完全排除，严禁将任何二进制模型文件提交入库。
 
-实机验收协议：[`HOST-CHECKLIST.md`](../../validation/texture-atlas-current-page/HOST-CHECKLIST.md)。
+实机验收协议：[`HOST-CHECKLIST.md`](../../../validation/texture-atlas-current-page/HOST-CHECKLIST.md)。
 
 ## 样本登记
 
