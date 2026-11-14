@@ -100,11 +100,31 @@ class MaterializeVerificationRecordsTest(unittest.TestCase):
         docs = {v: record(v) for v in VERSIONS}
         docs[VERSIONS[0]]['selectors'] = []
         source = gen.import_family('fixture', {v: encoded(d) for v, d in docs.items()}, RELEASES)
-        self.assertEqual('5.0.01-5.0.02', source['selectors'][0]['versions'])
+        self.assertEqual('5.0.01-', source['selectors'][0]['versions'])
         self.assertEqual(VERSIONS[1:], gen.expand_ranges('5.0.01-5.0.02', VERSIONS))
-        for bad in ('5.0.00-5.0.03', '5.0.02-5.0.01', '5.0.00,5.0.00'):
+        self.assertEqual(VERSIONS[1:], gen.expand_ranges('5.0.01-', VERSIONS))
+        self.assertEqual(VERSIONS, gen.expand_ranges('5.0.00-', VERSIONS))
+        for bad in ('5.0.00-5.0.03', '5.0.02-5.0.01', '5.0.00,5.0.00', '5.0.03-', '-',
+                    '5.0.00-5.0.02-', '5.0.00,5.0.00-'):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 gen.expand_ranges(bad, VERSIONS)
+
+    def test_open_tail_renders_only_for_a_supported_tail(self):
+        self.assertEqual('5.0.01-', gen.ranges(VERSIONS[1:], VERSIONS))
+        self.assertEqual('5.0.00-', gen.ranges(VERSIONS, VERSIONS))
+        self.assertEqual('5.0.00-5.0.01', gen.ranges(VERSIONS[:2], VERSIONS))
+        self.assertEqual('5.0.00,5.0.02', gen.ranges([VERSIONS[0], VERSIONS[2]], VERSIONS))
+        # A single newest version stays closed: an open span needs two versions.
+        self.assertEqual('5.0.02', gen.ranges([VERSIONS[-1]], VERSIONS))
+
+    def test_open_tail_survives_a_new_release(self):
+        grown = [*VERSIONS, '5.0.03']
+        self.assertEqual(grown[1:], gen.expand_ranges('5.0.01-', grown))
+        self.assertEqual(VERSIONS[1:], gen.expand_ranges('5.0.01-', VERSIONS))
+        # Rendering is positional: a tail that no longer reaches the newest
+        # release closes, so a source only stays open while it stays current.
+        self.assertEqual('5.0.01-5.0.02', gen.ranges(VERSIONS[1:], grown))
+        self.assertEqual(grown[1:], gen.expand_ranges(gen.ranges(grown[1:], grown), grown))
 
     def test_mapping_id_changes_are_exact_and_must_cover_ranges(self):
         docs = {v: record(v) for v in VERSIONS}

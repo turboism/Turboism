@@ -115,28 +115,12 @@
       "evidence": "scripts/verification-sources/templates/dev/turboism/mapping/verification/EmbeddedPanelVerificationManifest.java: ui-embedded-panel records exist for all twenty reviewed generations after 5.0.x propagation; the manifest lists exactly the emitted record set"
     },
     {
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/FileChooserHistoryVerificationManifest.java",
-      "evidence": "scripts/verification-sources/templates/dev/turboism/mapping/verification/FileChooserHistoryVerificationManifest.java: Task-scoped runtime admission for the exact-host 5.3.03 validation lane."
-    },
-    {
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/MainToolbarVerificationManifest.java",
       "evidence": "scripts/verification-sources/templates/dev/turboism/mapping/verification/MainToolbarVerificationManifest.java: Verification manifest record-version table derived from the verification records it admits."
     },
     {
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/NativeControlAppearancePersistenceVerificationManifest.java",
       "evidence": "scripts/verification-sources/templates/dev/turboism/mapping/verification/NativeControlAppearancePersistenceVerificationManifest.java: Task-scoped runtime admission for the exact-host 5.3.03 validation lane."
-    },
-    {
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ParameterLifecycleVerificationManifest.java",
-      "evidence": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ParameterLifecycleVerificationManifest.java: Task-scoped runtime admission for the exact-host 5.3.03 validation lane."
-    },
-    {
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/PerformanceFpsVerificationManifest.java",
-      "evidence": "scripts/verification-sources/templates/dev/turboism/mapping/verification/PerformanceFpsVerificationManifest.java: Task-scoped runtime admission for the exact-host 5.3.03 validation lane."
-    },
-    {
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ProjectLifecycleVerificationManifest.java",
-      "evidence": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ProjectLifecycleVerificationManifest.java: Task-scoped runtime admission for the exact-host 5.3.03 validation lane."
     },
     {
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ProjectWorkspaceVerificationManifest.java",

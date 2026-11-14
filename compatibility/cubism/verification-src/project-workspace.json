@@ -48,10 +48,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.class.app_ctrl"
         },
         {
@@ -86,10 +86,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.app_ctrl_instance"
         },
         {
@@ -124,10 +124,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.current_project"
         },
         {
@@ -162,10 +162,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.current_document"
         },
         {
@@ -200,10 +200,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.field.view_context_history"
         },
         {
@@ -238,10 +238,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.class.view_context"
         },
         {
@@ -276,10 +276,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.view_context_document"
         },
         {
@@ -314,10 +314,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.main_frame"
         },
         {
@@ -352,10 +352,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.class.project"
         },
         {
@@ -390,10 +390,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.project_docs"
         },
         {
@@ -428,10 +428,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.class.document"
         },
         {
@@ -466,10 +466,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.document_file_content"
         },
         {
@@ -504,10 +504,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.class.file_content"
         },
         {
@@ -542,10 +542,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.file_content_file"
         },
         {
@@ -580,10 +580,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.class.main_frame"
         },
         {
@@ -618,10 +618,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.dock_manager"
         },
         {
@@ -656,10 +656,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.class.dock_wrapper"
         },
         {
@@ -694,10 +694,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.last_workspace"
         },
         {
@@ -732,10 +732,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.class.workspace"
         },
         {
@@ -770,10 +770,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.workspace_id"
         },
         {
@@ -808,10 +808,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.workspace_name"
         },
         {
@@ -846,10 +846,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.workspace_guid"
         },
         {
@@ -884,10 +884,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.class.id"
         },
         {
@@ -922,10 +922,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.id_string"
         },
         {
@@ -960,10 +960,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.class.guid"
         },
         {
@@ -998,10 +998,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.project_workspace.method.guid_string"
         },
         {
@@ -1017,7 +1017,7 @@
   ],
   "selectorOrder": [
     {
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "value": [
         0,
         1,
@@ -1050,7 +1050,7 @@
   ],
   "layouts": [
     {
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "value": {
         "keyOrder": [
           "format",

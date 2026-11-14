@@ -1,6 +1,7 @@
 """Constants, paths, versions, and obfuscation variant tables for cubism_version_matrix."""
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import re
@@ -11,6 +12,7 @@ from turboism_dev.versions import cubism_version_key
 
 ROOT = repo_root()
 version_key = cubism_version_key
+REVIEWED_RELEASES = ROOT / "compatibility/cubism/reviewed-releases.json"
 
 def cubism_ref_dir() -> Path:
     """Locate cubism-ref/ — it lives in the primary checkout, not worktrees."""
@@ -48,53 +50,35 @@ DEPS_SOURCE = (
 )
 
 REVIEWED = ("5.2.03", "5.3.02", "5.3.03")
-TARGET_VERSIONS = (
-    "5.0.00",
-    "5.0.01",
-    "5.0.02",
-    "5.0.03",
-    "5.0.04",
-    "5.0.05",
-    "5.0.06",
-    "5.1.00",
-    "5.1.01",
-    "5.1.02",
-    "5.1.03",
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.3.00",
-    "5.3.01",
-    "5.3.04",
-)
+
+
+def _reviewed_releases() -> list[dict]:
+    """Read the canonical reviewed release table; every version fact derives from it."""
+    document = json.loads(REVIEWED_RELEASES.read_text(encoding="utf-8"))
+    releases = document.get("releases")
+    if not isinstance(releases, list) or not releases:
+        raise SystemExit(f"{REVIEWED_RELEASES}: empty or malformed reviewed release table")
+    return releases
+
+
+_RELEASES = _reviewed_releases()
+# Every admitted version in table order. A new release needs no edit here.
+ADMITTED_VERSIONS = tuple(release["version"] for release in _RELEASES)
+# The three versions whose mapping packs, profiles and manifests are authored by
+# hand. They stay explicit because the version matrix treats them as sources,
+# not as propagation targets.
+TARGET_VERSIONS = tuple(v for v in ADMITTED_VERSIONS if v not in REVIEWED)
 VERIFIED_AT = "2026-09-27T00:00:00Z"
 EDITOR_MODEL_SLICE = "adapter.editor-model.readwrite"
 
 # Declared builds read from each exact jar's release declaration class
 # (``com/live2d/cubism/h.class``; ``g.class`` on 5.0.x) via the same ldc/putstatic
-# ``<clinit>`` scan CubismEditorReleaseDetector performs.
-DECLARED_BUILDS = {
-    "5.0.00": 500000005,
-    "5.0.01": 500010000,
-    "5.0.02": 500020000,
-    "5.0.03": 500030001,
-    "5.0.04": 500040000,
-    "5.0.05": 500050001,
-    "5.0.06": 500060001,
-    "5.1.00": 501000004,
-    "5.1.01": 501010000,
-    "5.1.02": 501020001,
-    "5.1.03": 501030000,
-    "5.2.00": 502000003,
-    "5.2.01": 502010000,
-    "5.2.02": 502020000,
-    "5.2.03": 502030002,
-    "5.3.00": 503000005,
-    "5.3.01": 503010000,
-    "5.3.02": 503020001,
-    "5.3.03": 503030001,
-    "5.3.04": 503040001,
-}
+# ``<clinit>`` scan CubismEditorReleaseDetector performs. The table owns the
+# values; the keys must cover every admitted release exactly, so a new release
+# fails closed here instead of drifting silently.
+DECLARED_BUILDS = {release["version"]: release["build"] for release in _RELEASES}
+if set(DECLARED_BUILDS) != set(ADMITTED_VERSIONS):
+    raise SystemExit(f"{REVIEWED_RELEASES}: declared build keys disagree with admitted versions")
 
 MODEL_BINDING = frozenset(
     {
@@ -477,14 +461,7 @@ for _v in V50_ALL:
     }
 del _v
 
-
-
-
-ALL_VERSIONS = tuple(
-    sorted(
-        TARGET_VERSIONS + REVIEWED, key=cubism_version_key
-    )
-)
+ALL_VERSIONS = tuple(sorted(ADMITTED_VERSIONS, key=cubism_version_key))
 CATALOG_SLICES = (
     "autobackup",
     "clipmask",

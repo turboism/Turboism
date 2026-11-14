@@ -44,10 +44,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.bounding_box_update"
         },
         {
@@ -78,10 +78,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.bounding_box_setup_button"
         },
         {
@@ -112,10 +112,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.button_create"
         },
         {
@@ -146,10 +146,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.vector_times"
         },
         {
@@ -180,10 +180,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.vector_plus"
         },
         {
@@ -214,10 +214,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.button_set_enabled"
         },
         {
@@ -248,10 +248,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.scene_component_objects"
         },
         {
@@ -282,10 +282,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.entity_children"
         },
         {
@@ -316,10 +316,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.scene_remove_volatile"
         },
         {
@@ -350,10 +350,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.entities_remove"
         },
         {
@@ -384,10 +384,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.writable_image_create"
         },
         {
@@ -418,10 +418,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.0.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.ui_bounding_box_overlay.icon_set_create"
         },
         {
@@ -433,7 +433,7 @@
   ],
   "selectorOrder": [
     {
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "value": [
         0,
         1,
@@ -452,7 +452,7 @@
   ],
   "layouts": [
     {
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "value": {
         "keyOrder": [
           "format",

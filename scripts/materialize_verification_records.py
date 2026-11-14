@@ -7,9 +7,11 @@
   python3 scripts/materialize_verification_records.py export-committed
 
 Ranges are inclusive positions in the exact reviewed release list, not semantic
-version inference. Selector table indices preserve original list order; field
-layouts preserve JSON key order and mixed indentation. Import refuses any input
-it cannot reproduce byte for byte. There is no raw-record fallback.
+version inference. A span with a trailing hyphen (``5.3.04-``) stays open to the
+newest admitted release, so admitting a release does not rewrite every source.
+Selector table indices preserve original list order; field layouts preserve JSON
+key order and mixed indentation. Import refuses any input it cannot reproduce
+byte for byte. There is no raw-record fallback.
 """
 from __future__ import annotations
 
@@ -32,6 +34,11 @@ SOURCES = Path('compatibility/cubism/verification-src')
 OUTPUT = Path('build/generated/verification')
 DERIVED = {'verificationId', 'cubismVersion', 'profileId', 'evidencePath', 'artifact'}
 SPECIAL = DERIVED | {'selectors', 'verifiedAt'}
+# Range grammar: spans join with a comma, closed spans separate endpoints with a
+# hyphen, and a trailing hyphen keeps the span open to the newest release.
+SPAN_SEPARATOR = ','
+RANGE_SEPARATOR = '-'
+OPEN_RANGE_SUFFIX = '-'
 
 
 def unique_object(pairs: list) -> dict:
@@ -57,15 +64,36 @@ def write_json(path: Path, value) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
 
+def span_bounds(span: str, versions: list[str]) -> tuple[int, int]:
+    """Resolve one span to inclusive positions in the reviewed release list.
+
+    A trailing hyphen keeps the span open to the newest admitted release, so a
+    source states "still supported" instead of naming today's last version.
+    """
+    if span.endswith(OPEN_RANGE_SUFFIX):
+        start_version, stop_version = span[:-1], versions[-1]
+    else:
+        ends = span.split(RANGE_SEPARATOR)
+        if len(ends) != 2:
+            raise ValueError(f'unknown range endpoint: {span}')
+        start_version, stop_version = ends
+    if start_version not in versions or stop_version not in versions:
+        raise ValueError(f'unknown range endpoint: {span}')
+    start, stop = versions.index(start_version), versions.index(stop_version)
+    if start > stop:
+        raise ValueError(f'reversed range: {span}')
+    return start, stop
+
+
 def expand_ranges(spec: str, versions: list[str]) -> list[str]:
     result = []
-    for span in spec.split(','):
-        ends = span.split('-')
-        if len(ends) not in (1, 2) or any(v not in versions for v in ends):
-            raise ValueError(f'unknown range endpoint: {span}')
-        start, stop = versions.index(ends[0]), versions.index(ends[-1])
-        if start > stop:
-            raise ValueError(f'reversed range: {span}')
+    for span in spec.split(SPAN_SEPARATOR):
+        if not span.endswith(OPEN_RANGE_SUFFIX) and RANGE_SEPARATOR not in span:
+            if span not in versions:
+                raise ValueError(f'unknown range endpoint: {span}')
+            result.append(span)
+            continue
+        start, stop = span_bounds(span, versions)
         result.extend(versions[start:stop + 1])
     if len(set(result)) != len(result):
         raise ValueError(f'overlapping ranges: {spec}')
@@ -73,6 +101,12 @@ def expand_ranges(spec: str, versions: list[str]) -> list[str]:
 
 
 def ranges(selected: list[str], versions: list[str]) -> str:
+    """Collapse selected versions into spans; a supported tail stays open.
+
+    A group that reaches the newest admitted release and holds at least two
+    versions renders as ``<first>-``. Admitting a release then never rewrites
+    the sources of every family that still supports the newest host.
+    """
     indices = sorted(versions.index(v) for v in selected)
     groups = []
     for index in indices:
@@ -80,7 +114,17 @@ def ranges(selected: list[str], versions: list[str]) -> str:
             groups[-1].append(index)
         else:
             groups.append([index])
-    return ','.join(versions[g[0]] if len(g) == 1 else f'{versions[g[0]]}-{versions[g[-1]]}' for g in groups)
+    return SPAN_SEPARATOR.join(_span_text(g, versions) for g in groups)
+
+
+def _span_text(group: list[int], versions: list[str]) -> str:
+    """Render one contiguous group as a single version, a span, or an open span."""
+    first, last = versions[group[0]], versions[group[-1]]
+    if len(group) == 1:
+        return first
+    if group[-1] == len(versions) - 1:
+        return f'{first}{OPEN_RANGE_SUFFIX}'
+    return f'{first}{RANGE_SEPARATOR}{last}'
 
 
 def fold_values(values: dict, versions: list[str], value_key: str = 'value') -> list[dict]:
