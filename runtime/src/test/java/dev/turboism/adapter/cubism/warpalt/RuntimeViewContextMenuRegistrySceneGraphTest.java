@@ -297,4 +297,114 @@ final class RuntimeViewContextMenuRegistrySceneGraphTest {
         assertEquals(-1, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b1));
         assertEquals(0, RuntimeViewContextMenuRegistry.indexOfInGroup(strip, b2));
     }
+
+    @Test
+    void remountsContributedButtonsOnNewStripAndClearedGroupWhilePreservingState(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path tempDir) throws Exception {
+        final java.nio.file.Path classes = compileMockStripHost(tempDir);
+        try (var loader = new java.net.URLClassLoader(
+                new java.net.URL[] {classes.toUri().toURL()}, ClassLoader.getPlatformClassLoader())) {
+            final Class<?> stripClass = Class.forName("com.live2d.cubism.view.context.a.b", false, loader);
+            final Object strip1 = stripClass.getConstructor().newInstance();
+            final Object strip2 = stripClass.getConstructor().newInstance();
+
+            final RuntimeViewContextMenuRegistry registry = new RuntimeViewContextMenuRegistry();
+            final UiRasterImage off = new UiRasterImage(1, 1, new int[] {0xff111111});
+            final UiRasterImage on = new UiRasterImage(1, 1, new int[] {0xff222222});
+            registry.contributeStateButtons(
+                    new StateButtonContribution("artmesh-mirror.toggle", Map.of(0, off, 1, on), 0, ignored -> {}), 10);
+            registry.contributeStateButtons(
+                    new StateButtonContribution(
+                            "warp-deformer-alt-symmetry.axis", Map.of(0, off, 1, on), 0, ignored -> {}),
+                    20);
+
+            registry.mount(strip1);
+            @SuppressWarnings("unchecked")
+            final List<Object> group1 =
+                    (List<Object>) stripClass.getDeclaredField("H").get(strip1);
+            assertEquals(3, group1.size(), "native item + 2 contributed buttons on first strip");
+
+            registry.updateButtonState("artmesh-mirror.toggle", 1);
+            assertEquals(3, group1.size());
+            assertTrue((Boolean)
+                    group1.get(1).getClass().getMethod("isButtonSelected").invoke(group1.get(1)));
+
+            // Simulate closing first model and opening a new model with a fresh strip instance.
+            registry.mount(strip2);
+            @SuppressWarnings("unchecked")
+            final List<Object> group2 =
+                    (List<Object>) stripClass.getDeclaredField("H").get(strip2);
+            assertEquals(3, group2.size(), "contributed buttons must remount on new strip");
+            assertEquals("artMeshMirrorToggle1", group2.get(1).toString());
+            assertEquals("warpAltMirrorAxis0", group2.get(2).toString());
+            assertTrue((Boolean)
+                    group2.get(1).getClass().getMethod("isButtonSelected").invoke(group2.get(1)));
+            assertFalse((Boolean)
+                    group2.get(2).getClass().getMethod("isButtonSelected").invoke(group2.get(2)));
+
+            // Simulate same strip instance rebuilt after group H was cleared to native entries only.
+            final Object nativeEntry = group2.get(0);
+            group2.clear();
+            group2.add(nativeEntry);
+            registry.mount(strip2);
+            assertEquals(3, group2.size(), "contributed buttons must remount when group H is cleared");
+            assertEquals("artMeshMirrorToggle1", group2.get(1).toString());
+            assertEquals("warpAltMirrorAxis0", group2.get(2).toString());
+        }
+    }
+
+    private static java.nio.file.Path compileMockStripHost(final java.nio.file.Path root) throws Exception {
+        final java.nio.file.Path src = root.resolve("src");
+        final java.nio.file.Path out = root.resolve("out");
+        java.nio.file.Files.createDirectories(out);
+        writeJava(
+                src,
+                "com.live2d.graphics3d.type.GRectF",
+                "package com.live2d.graphics3d.type; public class GRectF { public final float w, h; public GRectF(float x, float y, float w, float h) { this.w = w; this.h = h; } public float getWidth() { return w; } public float getHeight() { return h; } }");
+        writeJava(
+                src,
+                "com.live2d.graphics3d.entity.GEntity",
+                "package com.live2d.graphics3d.entity; public class GEntity { public GEntity parent; public final ChildList children = new ChildList(); public ChildList getChildren() { return children; } public GEntity getParentEntity() { return parent; } public static class ChildList { public final java.util.List<Object> list = new java.util.ArrayList<>(); public void add(GEntity e, int idx) { e.parent = null; list.add(e); } public void remove(GEntity e) { list.remove(e); } public java.util.List<Object> getList() { return list; } } }");
+        writeJava(
+                src,
+                "com.live2d.graphics3d.sceneGraph.GSceneGraph",
+                "package com.live2d.graphics3d.sceneGraph; import com.live2d.graphics3d.entity.GEntity; public class GSceneGraph { public final GEntity objects = new GEntity(); public GEntity getObjectsOnComponent() { return objects; } }");
+        writeJava(
+                src,
+                "com.live2d.graphics.CImageResource",
+                "package com.live2d.graphics; public class CImageResource { public CImageResource(java.awt.image.BufferedImage img, boolean flag) {} }");
+        writeJava(src, "com.live2d.type.CFont", "package com.live2d.type; public class CFont {}");
+        writeJava(
+                src,
+                "kotlin.jvm.functions.Function3",
+                "package kotlin.jvm.functions; public interface Function3 { Object invoke(Object a, Object b, Object c); }");
+        writeJava(
+                src,
+                "com.live2d.cubism.view.context.guiEntity.q",
+                "package com.live2d.cubism.view.context.guiEntity; import com.live2d.graphics.CImageResource; public class q { public q(CImageResource a, CImageResource b, CImageResource c, CImageResource d, CImageResource e, CImageResource f, CImageResource g) {} }");
+        writeJava(
+                src,
+                "com.live2d.cubism.view.context.guiEntity.GToggleIconButtonEntity",
+                "package com.live2d.cubism.view.context.guiEntity; import com.live2d.graphics3d.entity.GEntity; import com.live2d.graphics3d.type.GRectF; import kotlin.jvm.functions.Function3; public class GToggleIconButtonEntity extends GEntity { private final String name; private GRectF rect; private boolean buttonEnabled; private boolean buttonSelected; public GToggleIconButtonEntity(String name) { this.name = name; } public void setOnAction(Function3 fn) {} public void setButtonEnabled(boolean v) { buttonEnabled = v; } public void setEnabled(boolean v) {} public void setButtonSelected(boolean v) { buttonSelected = v; } public boolean isButtonSelected() { return buttonSelected; } public void setSelected(GEntity e) {} public GRectF getRectOnComponent() { return rect; } public void setBoundsOnComponent(GRectF r, float s) { rect = r; } public void dispose() {} @Override public String toString() { return name; } }");
+        writeJava(
+                src,
+                "com.live2d.cubism.view.context.a.b",
+                "package com.live2d.cubism.view.context.a; import com.live2d.cubism.view.context.guiEntity.*; import com.live2d.graphics3d.sceneGraph.GSceneGraph; import com.live2d.graphics3d.type.GRectF; import com.live2d.type.CFont; public class b { public final java.util.List<Object> H = new java.util.ArrayList<>(); private final GSceneGraph graph = new GSceneGraph(); public b() { H.add(\"native-0\"); } public GSceneGraph e() { return graph; } private static GToggleIconButtonEntity a(b strip, String name, CFont f, GRectF r, boolean b1, boolean b2, q icons, int sz, Object o) { return new GToggleIconButtonEntity(name); } }");
+
+        final javax.tools.JavaCompiler compiler = javax.tools.ToolProvider.getSystemJavaCompiler();
+        final List<String> sources = new ArrayList<>();
+        try (var walk = java.nio.file.Files.walk(src)) {
+            walk.filter(p -> p.toString().endsWith(".java")).forEach(p -> sources.add(p.toString()));
+        }
+        final List<String> args = new ArrayList<>(List.of("-d", out.toString()));
+        args.addAll(sources);
+        assertEquals(0, compiler.run(null, null, null, args.toArray(String[]::new)));
+        return out;
+    }
+
+    private static void writeJava(final java.nio.file.Path root, final String fqn, final String body) throws Exception {
+        final java.nio.file.Path file = root.resolve(fqn.replace('.', '/') + ".java");
+        java.nio.file.Files.createDirectories(file.getParent());
+        java.nio.file.Files.writeString(file, body);
+    }
 }

@@ -13,6 +13,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     private final Object lock = new Object();
     private final Map<String, Entry> entries = new LinkedHashMap<>();
+    private final Map<String, Integer> pendingStates = new HashMap<>();
     private final List<Runnable> pendingBuilds = new ArrayList<>();
     private Object strip;
     private boolean mountAttempted;
@@ -52,6 +54,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     private record Entry(
             ViewContextMenuRegistry.StateButtonContribution contribution,
             int order,
+            int currentState,
             Object currentButton,
             Map<Integer, Object> stateEntities) {}
 
@@ -66,25 +69,32 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         return INSTANCE;
     }
 
-    private RuntimeViewContextMenuRegistry() {}
+    RuntimeViewContextMenuRegistry() {}
 
     /**
      * Injected at the head of the strip's mount routine with the strip instance.
-     * Stores the strip and builds any contributions that queued before the view
-     * existed. Idempotent across repeated mount calls.
+     * Rebuilds previously mounted entries when the host creates a new strip or
+     * clears the strip's group list, and builds any queued contributions.
      */
     public void mount(final Object stripInstance) {
+        final int remounted;
         synchronized (lock) {
             if (stripInstance == null) return;
+            final Object previousStrip = strip;
             strip = stripInstance;
             mountAttempted = true;
+            remounted = remountMissingEntries(previousStrip, stripInstance);
             final List<Runnable> queued = new ArrayList<>(pendingBuilds);
             pendingBuilds.clear();
             for (final Runnable build : queued) {
                 build.run();
             }
         }
-        diagnostic("STRIP_MOUNTED instance=" + Integer.toHexString(System.identityHashCode(this)));
+        diagnostic("STRIP_MOUNTED instance="
+                + Integer.toHexString(System.identityHashCode(this))
+                + " strip="
+                + Integer.toHexString(System.identityHashCode(stripInstance))
+                + (remounted > 0 ? " remounted=" + remounted : ""));
     }
 
     @Override
@@ -96,7 +106,11 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     public Registration contributeStateButtons(
             final ViewContextMenuRegistry.StateButtonContribution contribution, final int order) {
         Objects.requireNonNull(contribution, "contribution");
-        final Runnable build = () -> buildAndMount(contribution, order);
+        final Runnable build = () -> {
+            final int requestedState =
+                    pendingStates.getOrDefault(contribution.contributionId(), contribution.initialState());
+            buildAndMount(contribution, order, requestedState);
+        };
         synchronized (lock) {
             if (mountAttempted && strip != null) {
                 build.run();
@@ -107,6 +121,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         return () -> {
             synchronized (lock) {
                 pendingBuilds.remove(build);
+                pendingStates.remove(contribution.contributionId());
                 final Entry entry = entries.remove(contribution.contributionId());
                 if (entry != null) {
                     if (strip != null) {
@@ -122,7 +137,47 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         };
     }
 
-    private void buildAndMount(final ViewContextMenuRegistry.StateButtonContribution contribution, final int order) {
+    private int remountMissingEntries(final Object previousStrip, final Object currentStrip) {
+        if (entries.isEmpty()) {
+            return 0;
+        }
+        final boolean stripChanged = previousStrip != currentStrip;
+        final List<Entry> stale = new ArrayList<>();
+        for (final Entry entry : entries.values()) {
+            if (stripChanged || indexOfInGroup(currentStrip, entry.currentButton()) < 0) {
+                stale.add(entry);
+            }
+        }
+        if (stale.isEmpty()) {
+            return 0;
+        }
+        stale.sort(Comparator.comparing(
+                entry -> new OrderedContribution(entry.contribution(), entry.order()), CONTRIBUTION_ORDER));
+        for (final Entry entry : stale) {
+            entries.remove(entry.contribution().contributionId());
+            if (previousStrip != null) {
+                try {
+                    removeFromGroup(previousStrip, entry.currentButton());
+                } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
+                }
+            }
+            removeButton(previousStrip, entry.currentButton());
+        }
+        int mounted = 0;
+        for (final Entry entry : stale) {
+            buildAndMount(entry.contribution(), entry.order(), entry.currentState());
+            if (entries.containsKey(entry.contribution().contributionId())) {
+                mounted++;
+            }
+        }
+        return mounted;
+    }
+
+    private void buildAndMount(
+            final ViewContextMenuRegistry.StateButtonContribution contribution,
+            final int order,
+            final int requestedState) {
         try {
             if (strip == null) {
                 diagnostic("BUILD_SKIPPED reason=NO_STRIP");
@@ -133,20 +188,19 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                 removeFromGroup(strip, existing.currentButton());
                 removeButton(existing.currentButton());
             }
-            final UiRasterImage initialImage = contribution
-                    .stateIcons()
-                    .getOrDefault(
-                            contribution.initialState(),
-                            contribution.stateIcons().values().iterator().next());
-            final int initialState = contribution.stateIcons().containsKey(contribution.initialState())
-                    ? contribution.initialState()
-                    : contribution.stateIcons().keySet().iterator().next();
+            final int initialState = contribution.stateIcons().containsKey(requestedState)
+                    ? requestedState
+                    : contribution.stateIcons().containsKey(contribution.initialState())
+                            ? contribution.initialState()
+                            : contribution.stateIcons().keySet().iterator().next();
+            final UiRasterImage initialImage = contribution.stateIcons().get(initialState);
             final int targetIndex = insertionIndexFor(contribution, order);
             final BuiltButton built = createButton(contribution, initialImage, initialState);
             insertIntoGroup(strip, built.button(), targetIndex);
+            pendingStates.remove(contribution.contributionId());
             entries.put(
                     contribution.contributionId(),
-                    new Entry(contribution, order, built.button(), built.stateEntities()));
+                    new Entry(contribution, order, initialState, built.button(), built.stateEntities()));
             applyInitialState(built.button(), built.stateEntities(), initialState);
             diagnostic("BUTTON_MOUNTED id=" + contribution.contributionId()
                     + " state=" + initialState
@@ -647,7 +701,10 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     public void updateButtonState(final String contributionId, final int axis) {
         synchronized (lock) {
             final Entry entry = entries.get(contributionId);
-            if (entry == null || strip == null) return;
+            if (entry == null || strip == null) {
+                pendingStates.put(contributionId, axis);
+                return;
+            }
             try {
                 final int preferIndex = insertionIndexFor(entry.contribution(), entry.order());
                 removeFromGroup(strip, entry.currentButton());
@@ -660,7 +717,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
                 insertIntoGroup(strip, built.button(), preferIndex);
                 entries.put(
                         contributionId,
-                        new Entry(entry.contribution(), entry.order(), built.button(), built.stateEntities()));
+                        new Entry(entry.contribution(), entry.order(), axis, built.button(), built.stateEntities()));
                 applyInitialState(built.button(), built.stateEntities(), axis);
                 diagnostic("BUTTON_STATE_REBUILT axis=" + axis);
             } catch (Throwable failure) {

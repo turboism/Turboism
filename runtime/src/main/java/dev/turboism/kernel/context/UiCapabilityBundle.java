@@ -140,7 +140,12 @@ record UiCapabilityBundle(
         final ScreenshotCaptureService screenshotCaptureService = hostAccess == null
                 ? ScreenshotCaptureService.unavailable()
                 : new RuntimeScreenshotCaptureService(
-                        adapters.screenshots(), uiPermissionChecker, hostAccess::modelAccess);
+                        adapters.screenshots(),
+                        uiPermissionChecker,
+                        hostAccess::modelAccess,
+                        () -> adapters.recentFiles().available()
+                                ? adapters.recentFiles().current()
+                                : null);
         final RecentPreviewContributionService recentPreviewContributionService = hostAccess == null
                 ? RecentPreviewContributionService.unavailable()
                 : new RuntimeRecentPreviewContributionService(adapters.recentPreviews(), uiPermissionChecker);
