@@ -47,16 +47,16 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    private static final WindowsHistoryNativeUiIngressProbe.Step ACTION =
-            new WindowsHistoryNativeUiIngressProbe.Step("parts-tree-drag", "ACTION", "drag");
-    private static final WindowsHistoryNativeUiIngressProbe.Step UNDO =
-            new WindowsHistoryNativeUiIngressProbe.Step("native-undo", "UNDO", "ctrl-z");
-    private static final WindowsHistoryNativeUiIngressProbe.Step REDO =
-            new WindowsHistoryNativeUiIngressProbe.Step("native-redo", "REDO", "ctrl-y");
+    private static final WindowsHistoryNativeUiIngressVerdicts.Step ACTION =
+            new WindowsHistoryNativeUiIngressVerdicts.Step("parts-tree-drag", "ACTION", "drag");
+    private static final WindowsHistoryNativeUiIngressVerdicts.Step UNDO =
+            new WindowsHistoryNativeUiIngressVerdicts.Step("native-undo", "UNDO", "ctrl-z");
+    private static final WindowsHistoryNativeUiIngressVerdicts.Step REDO =
+            new WindowsHistoryNativeUiIngressVerdicts.Step("native-redo", "REDO", "ctrl-y");
 
     @Test
     void anOperatorActionMustBeAnnouncedBeforeItIsObserved() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = WindowsHistoryNativeUiIngressProbe.checkStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = WindowsHistoryNativeUiIngressVerdicts.checkStep(
                 ACTION,
                 List.of(event("before", 1, "HOST_UI"), event("on", 2, "HOST_UI"), event("after", 2, "HOST_UI")));
 
@@ -66,7 +66,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void anOperatorActionWithoutABeforeEventIsAFailure() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = WindowsHistoryNativeUiIngressProbe.checkStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = WindowsHistoryNativeUiIngressVerdicts.checkStep(
                 ACTION, List.of(event("on", 2, "HOST_UI"), event("after", 3, "HOST_UI")));
 
         assertFalse(verdict.ok());
@@ -75,8 +75,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void anOperatorActionThatWasNeverConfirmedIsAFailure() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
-                WindowsHistoryNativeUiIngressProbe.checkStep(ACTION, List.of(event("before", 1, "HOST_UI")));
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict =
+                WindowsHistoryNativeUiIngressVerdicts.checkStep(ACTION, List.of(event("before", 1, "HOST_UI")));
 
         assertFalse(verdict.ok());
         assertEquals("no-confirmed-event", verdict.code());
@@ -84,7 +84,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void anEditEntryEnteredDuringNavigationIsAFailure() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = WindowsHistoryNativeUiIngressProbe.checkStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = WindowsHistoryNativeUiIngressVerdicts.checkStep(
                 UNDO, List.of(event("before", 7, "HOST_UI"), event("on", 8, "UNDO")));
 
         assertFalse(verdict.ok(), "a native Undo does not enter the edit entry");
@@ -93,29 +93,30 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void nativeNavigationMustBeAttributedAndMayNotLookLikeAnEdit() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict undo = WindowsHistoryNativeUiIngressProbe.checkStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict undo = WindowsHistoryNativeUiIngressVerdicts.checkStep(
                 UNDO, List.of(navigationEvent("on", 4, "UNDO"), navigationEvent("after", 4, "UNDO")));
         assertTrue(undo.ok(), undo.detail());
         assertEquals("navigation-pair-confirmed-without-an-edit", undo.code());
 
-        final WindowsHistoryNativeUiIngressProbe.Verdict redo = WindowsHistoryNativeUiIngressProbe.checkStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict redo = WindowsHistoryNativeUiIngressVerdicts.checkStep(
                 REDO, List.of(navigationEvent("on", 6, "REDO"), navigationEvent("after", 6, "REDO")));
         assertTrue(redo.ok(), redo.detail());
 
-        final WindowsHistoryNativeUiIngressProbe.Verdict unattributed = WindowsHistoryNativeUiIngressProbe.checkStep(
-                UNDO, List.of(event("on", 4, "HOST_UI"), event("after", 4, "HOST_UI")));
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict unattributed =
+                WindowsHistoryNativeUiIngressVerdicts.checkStep(
+                        UNDO, List.of(event("on", 4, "HOST_UI"), event("after", 4, "HOST_UI")));
         assertFalse(unattributed.ok(), "an un-attributed navigation is not evidence of Undo");
         assertEquals("navigation-not-attributed", unattributed.code());
 
-        final WindowsHistoryNativeUiIngressProbe.Verdict silent =
-                WindowsHistoryNativeUiIngressProbe.checkStep(UNDO, List.of());
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict silent =
+                WindowsHistoryNativeUiIngressVerdicts.checkStep(UNDO, List.of());
         assertFalse(silent.ok());
         assertEquals("navigation-not-attributed", silent.code());
     }
 
     @Test
     void r82ActionFixtureAcceptsIndependentBeforeAndMultipleHostUiPairs() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = WindowsHistoryNativeUiIngressProbe.checkStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = WindowsHistoryNativeUiIngressVerdicts.checkStep(
                 ACTION,
                 List.of(
                         event("before", 1, "HOST_UI", "选择对象"),
@@ -132,9 +133,9 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void r82NavigationFixturesRequireTheExactOperationAndOriginPair() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict undo = WindowsHistoryNativeUiIngressProbe.checkStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict undo = WindowsHistoryNativeUiIngressVerdicts.checkStep(
                 UNDO, List.of(navigationEvent("on", 21, "UNDO"), navigationEvent("after", 21, "UNDO")));
-        final WindowsHistoryNativeUiIngressProbe.Verdict redo = WindowsHistoryNativeUiIngressProbe.checkStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict redo = WindowsHistoryNativeUiIngressVerdicts.checkStep(
                 REDO, List.of(navigationEvent("on", 22, "REDO"), navigationEvent("after", 22, "REDO")));
 
         assertTrue(undo.ok(), undo.detail());
@@ -143,7 +144,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void r82ActionFixtureKeepsUnpairedGenericBeforeAsHookEvidence() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = WindowsHistoryNativeUiIngressProbe.checkStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = WindowsHistoryNativeUiIngressVerdicts.checkStep(
                 ACTION,
                 List.of(
                         event("before", 16, "HOST_UI", "选择对象"),
@@ -159,9 +160,9 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void anActionWithOnlyOneConfirmationPhaseFailsClosed() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict onlyOn = WindowsHistoryNativeUiIngressProbe.checkStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict onlyOn = WindowsHistoryNativeUiIngressVerdicts.checkStep(
                 ACTION, List.of(event("before", 1, "HOST_UI"), event("on", 2, "HOST_UI")));
-        final WindowsHistoryNativeUiIngressProbe.Verdict onlyAfter = WindowsHistoryNativeUiIngressProbe.checkStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict onlyAfter = WindowsHistoryNativeUiIngressVerdicts.checkStep(
                 ACTION, List.of(event("before", 1, "HOST_UI"), event("after", 2, "HOST_UI")));
 
         assertFalse(onlyOn.ok());
@@ -172,12 +173,16 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void confirmationAfterMustFollowOnAndReuseItsSequence() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict reversed = WindowsHistoryNativeUiIngressProbe.checkStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict reversed = WindowsHistoryNativeUiIngressVerdicts.checkStep(
                 ACTION,
                 List.of(event("before", 1, "HOST_UI"), event("after", 2, "HOST_UI"), event("on", 2, "HOST_UI")));
-        final WindowsHistoryNativeUiIngressProbe.Verdict wrongSequence = WindowsHistoryNativeUiIngressProbe.checkStep(
-                ACTION,
-                List.of(event("before", 1, "HOST_UI"), event("on", 2, "HOST_UI"), event("after", 3, "HOST_UI")));
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict wrongSequence =
+                WindowsHistoryNativeUiIngressVerdicts.checkStep(
+                        ACTION,
+                        List.of(
+                                event("before", 1, "HOST_UI"),
+                                event("on", 2, "HOST_UI"),
+                                event("after", 3, "HOST_UI")));
 
         assertFalse(reversed.ok());
         assertEquals("orphan-after-event", reversed.code());
@@ -187,19 +192,20 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void confirmationRejectsDuplicatePhasesAndMismatchedFields() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict duplicate = WindowsHistoryNativeUiIngressProbe.checkStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict duplicate = WindowsHistoryNativeUiIngressVerdicts.checkStep(
                 ACTION,
                 List.of(
                         event("before", 1, "HOST_UI"),
                         event("on", 2, "HOST_UI"),
                         event("on", 2, "HOST_UI"),
                         event("after", 2, "HOST_UI")));
-        final WindowsHistoryNativeUiIngressProbe.Verdict mismatched = WindowsHistoryNativeUiIngressProbe.checkStep(
-                ACTION,
-                List.of(
-                        event("before", 1, "HOST_UI"),
-                        eventWithFields("on", 2, "operation-a", "HOST_UI", "subject-a", "label-a"),
-                        eventWithFields("after", 2, "operation-b", "HOST_UI", "subject-a", "label-b")));
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict mismatched =
+                WindowsHistoryNativeUiIngressVerdicts.checkStep(
+                        ACTION,
+                        List.of(
+                                event("before", 1, "HOST_UI"),
+                                eventWithFields("on", 2, "operation-a", "HOST_UI", "subject-a", "label-a"),
+                                eventWithFields("after", 2, "operation-b", "HOST_UI", "subject-a", "label-b")));
 
         assertFalse(duplicate.ok());
         assertEquals("duplicate-confirmation-phase", duplicate.code());
@@ -209,18 +215,20 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void actionRequiresAHostUiConfirmationAndDoesNotUseLabelsAsIdentity() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict wrongOrigin = WindowsHistoryNativeUiIngressProbe.checkStep(
-                ACTION,
-                List.of(
-                        event("before", 1, "HOST_UI", "selection label"),
-                        eventWithFields("on", 2, "operation", "OTHER", "", "same visible label"),
-                        eventWithFields("after", 2, "operation", "OTHER", "", "same visible label")));
-        final WindowsHistoryNativeUiIngressProbe.Verdict blankOperation = WindowsHistoryNativeUiIngressProbe.checkStep(
-                ACTION,
-                List.of(
-                        event("before", 1, "HOST_UI"),
-                        eventWithFields("on", 2, "", "HOST_UI", "", "selection label"),
-                        eventWithFields("after", 2, "", "HOST_UI", "", "selection label")));
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict wrongOrigin =
+                WindowsHistoryNativeUiIngressVerdicts.checkStep(
+                        ACTION,
+                        List.of(
+                                event("before", 1, "HOST_UI", "selection label"),
+                                eventWithFields("on", 2, "operation", "OTHER", "", "same visible label"),
+                                eventWithFields("after", 2, "operation", "OTHER", "", "same visible label")));
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict blankOperation =
+                WindowsHistoryNativeUiIngressVerdicts.checkStep(
+                        ACTION,
+                        List.of(
+                                event("before", 1, "HOST_UI"),
+                                eventWithFields("on", 2, "", "HOST_UI", "", "selection label"),
+                                eventWithFields("after", 2, "", "HOST_UI", "", "selection label")));
 
         assertFalse(wrongOrigin.ok());
         assertEquals("confirmation-not-host-ui", wrongOrigin.code());
@@ -230,20 +238,23 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void navigationRejectsWrongOperationOriginAndMultiplePairs() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict wrongOperation = WindowsHistoryNativeUiIngressProbe.checkStep(
-                UNDO,
-                List.of(
-                        navigationEvent("on", 21, "UNDO", "EXECUTE_EDITOR_COMMAND"),
-                        navigationEvent("after", 21, "UNDO", "EXECUTE_EDITOR_COMMAND")));
-        final WindowsHistoryNativeUiIngressProbe.Verdict wrongOrigin = WindowsHistoryNativeUiIngressProbe.checkStep(
-                REDO, List.of(navigationEvent("on", 22, "HOST_UI"), navigationEvent("after", 22, "HOST_UI")));
-        final WindowsHistoryNativeUiIngressProbe.Verdict doubleUndo = WindowsHistoryNativeUiIngressProbe.checkStep(
-                UNDO,
-                List.of(
-                        navigationEvent("on", 21, "UNDO"),
-                        navigationEvent("after", 21, "UNDO"),
-                        navigationEvent("on", 23, "UNDO"),
-                        navigationEvent("after", 23, "UNDO")));
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict wrongOperation =
+                WindowsHistoryNativeUiIngressVerdicts.checkStep(
+                        UNDO,
+                        List.of(
+                                navigationEvent("on", 21, "UNDO", "EXECUTE_EDITOR_COMMAND"),
+                                navigationEvent("after", 21, "UNDO", "EXECUTE_EDITOR_COMMAND")));
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict wrongOrigin =
+                WindowsHistoryNativeUiIngressVerdicts.checkStep(
+                        REDO, List.of(navigationEvent("on", 22, "HOST_UI"), navigationEvent("after", 22, "HOST_UI")));
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict doubleUndo =
+                WindowsHistoryNativeUiIngressVerdicts.checkStep(
+                        UNDO,
+                        List.of(
+                                navigationEvent("on", 21, "UNDO"),
+                                navigationEvent("after", 21, "UNDO"),
+                                navigationEvent("on", 23, "UNDO"),
+                                navigationEvent("after", 23, "UNDO")));
 
         assertFalse(wrongOperation.ok());
         assertEquals("navigation-not-attributed", wrongOperation.code());
@@ -255,7 +266,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void confirmationPairOrderDoesNotDependOnNumericSequenceOrObservedTime() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = WindowsHistoryNativeUiIngressProbe.checkStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = WindowsHistoryNativeUiIngressVerdicts.checkStep(
                 ACTION,
                 List.of(
                         event("before", 30, "HOST_UI"),
@@ -269,8 +280,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void unknownStepKindFailsClosed() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = WindowsHistoryNativeUiIngressProbe.checkStep(
-                new WindowsHistoryNativeUiIngressProbe.Step("future", "FUTURE", "future"),
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = WindowsHistoryNativeUiIngressVerdicts.checkStep(
+                new WindowsHistoryNativeUiIngressVerdicts.Step("future", "FUTURE", "future"),
                 List.of(event("before", 1, "HOST_UI"), event("on", 2, "HOST_UI"), event("after", 2, "HOST_UI")));
 
         assertFalse(verdict.ok());
@@ -279,7 +290,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void partsSemanticVerifierProvesOneCompleteTargetToTargetMembership() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(membershipDetail(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = partVerdict(membershipDetail(
                 targetEndpoint("PART", "part-a", "A"),
                 targetEndpoint("PART", "part-b", "B"),
                 HistoryAction.DetailLevel.FULL));
@@ -290,7 +301,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void partsSemanticVerifierAcceptsAConfirmedRootEndpoint() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(membershipDetail(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = partVerdict(membershipDetail(
                 rootEndpoint(), targetEndpoint("PART", "part-b", "B"), HistoryAction.DetailLevel.FULL));
 
         assertTrue(verdict.ok(), verdict.detail());
@@ -298,7 +309,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void partsSemanticVerifierAcceptsDetachingToRoot() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(membershipDetail(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = partVerdict(membershipDetail(
                 targetEndpoint("PART", "part-a", "A"), rootEndpoint(), HistoryAction.DetailLevel.FULL));
 
         assertTrue(verdict.ok(), verdict.detail());
@@ -319,7 +330,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 Optional.of(new HistoryGroup(Optional.of("group-1"), 1, List.of(child), false)),
                 Optional.empty());
 
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(grouped);
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = partVerdict(grouped);
 
         assertTrue(verdict.ok(), verdict.detail());
     }
@@ -341,7 +352,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 targetEndpoint("PART", "part-b", "B"),
                 HistoryAction.DetailLevel.FULL);
 
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict =
                 partVerdict(List.of(HistoryEntryDetail.labelOnly("selection"), complete));
 
         assertTrue(verdict.ok(), verdict.detail());
@@ -350,9 +361,9 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void unknownEndpointOnEitherSideIsPartialAndNeverTreatedAsRoot() {
-        final WindowsHistoryNativeUiIngressProbe.Verdict unknownBefore = partVerdict(membershipDetail(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict unknownBefore = partVerdict(membershipDetail(
                 unknownEndpoint(), targetEndpoint("PART", "part-b", "B"), HistoryAction.DetailLevel.PARTIAL));
-        final WindowsHistoryNativeUiIngressProbe.Verdict unknownAfter = partVerdict(membershipDetail(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict unknownAfter = partVerdict(membershipDetail(
                 targetEndpoint("PART", "part-a", "A"), unknownEndpoint(), HistoryAction.DetailLevel.PARTIAL));
 
         assertFalse(unknownBefore.ok());
@@ -367,7 +378,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 targetEndpoint("PART", "part-a", "A"), unknownEndpoint(), HistoryAction.DetailLevel.PARTIAL);
         final HistoryEntryDetail add = membershipDetail(
                 unknownEndpoint(), targetEndpoint("PART", "part-b", "B"), HistoryAction.DetailLevel.PARTIAL);
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(List.of(remove, add));
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = partVerdict(List.of(remove, add));
 
         assertFalse(verdict.ok());
         assertEquals("partial-relation", verdict.code());
@@ -378,13 +389,13 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final HistoryTarget same = new HistoryTarget("PART", Optional.of("part-a"), Optional.of("A"));
         final HistoryRelationChange unchanged = new HistoryRelationChange(
                 HistoryRelationChange.Kind.PART_MEMBERSHIP, targetEndpoint(same), targetEndpoint(same));
-        final WindowsHistoryNativeUiIngressProbe.Verdict sameEndpoint =
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict sameEndpoint =
                 partVerdict(relationDetail(unchanged, HistoryAction.DetailLevel.PARTIAL));
         final HistoryRelationChange deformer = new HistoryRelationChange(
                 HistoryRelationChange.Kind.DEFORMER_PARENT,
                 targetEndpoint("WARP_DEFORMER", "warp-a", "A"),
                 targetEndpoint("WARP_DEFORMER", "warp-b", "B"));
-        final WindowsHistoryNativeUiIngressProbe.Verdict wrongKind =
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict wrongKind =
                 partVerdict(relationDetail(deformer, HistoryAction.DetailLevel.PARTIAL));
 
         assertFalse(sameEndpoint.ok());
@@ -400,7 +411,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 targetEndpoint("PART", "part-a", "old name"),
                 targetEndpoint("PART", "part-a", "renamed name"));
 
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict =
                 partVerdict(relationDetail(unchanged, HistoryAction.DetailLevel.PARTIAL));
 
         assertFalse(verdict.ok());
@@ -425,7 +436,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 Optional.empty(),
                 Optional.of("fixture.conflict"));
 
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(detail);
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = partVerdict(detail);
 
         assertFalse(verdict.ok());
         assertEquals("ambiguous-candidate", verdict.code());
@@ -445,7 +456,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 Optional.empty(),
                 Optional.empty());
 
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(mixed);
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = partVerdict(mixed);
 
         assertFalse(verdict.ok());
         assertEquals("ambiguous-candidate", verdict.code());
@@ -472,7 +483,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 Optional.of(new HistoryGroup(Optional.of("mixed-group"), 2, List.of(relation, property), false)),
                 Optional.empty());
 
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(grouped);
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = partVerdict(grouped);
 
         assertFalse(verdict.ok());
         assertEquals("ambiguous-candidate", verdict.code());
@@ -494,7 +505,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 Optional.empty(),
                 Optional.of("fixture.two-targets"));
 
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(detail);
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = partVerdict(detail);
 
         assertFalse(verdict.ok());
         assertEquals("ambiguous-candidate", verdict.code());
@@ -519,7 +530,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 Optional.empty(),
                 Optional.of("fixture.target-index-missing"));
 
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(detail);
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = partVerdict(detail);
 
         assertFalse(verdict.ok());
         assertEquals("no-proven-membership-change", verdict.code());
@@ -567,7 +578,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 Optional.of(new HistoryGroup(Optional.of("group-1"), 2, List.of(child), true)),
                 Optional.of("fixture.truncated"));
 
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict = partVerdict(truncated);
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict = partVerdict(truncated);
 
         assertFalse(verdict.ok());
         assertEquals("partial-relation", verdict.code());
@@ -582,8 +593,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final WindowsHistoryManagerValidationProbe.SdkEntry old =
                 sdkEntry(0, "old", HistoryEntryDetail.labelOnly("old"));
         final WindowsHistoryManagerValidationProbe.SdkEntry redo = sdkEntry(1, "redo-tail", complete);
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
-                WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict =
+                WindowsHistoryNativeUiIngressVerdicts.checkPartMembershipStep(
                         sdkHistory(List.of(old, redo), 1), sdkHistory(List.of(old, redo), 1));
 
         assertFalse(verdict.ok());
@@ -603,12 +614,12 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
         assertEquals(
                 "history-unavailable",
-                WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                WindowsHistoryNativeUiIngressVerdicts.checkPartMembershipStep(
                                 sdkHistory(List.of(old), 1), sdkHistory(List.of(old, noId), 2))
                         .code());
         assertEquals(
                 "no-new-entry",
-                WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                WindowsHistoryNativeUiIngressVerdicts.checkPartMembershipStep(
                                 sdkHistory(List.of(old), 1), sdkHistory(List.of(old, unapplied), 1))
                         .code());
     }
@@ -625,24 +636,24 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
         assertEquals(
                 "history-unavailable",
-                WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                WindowsHistoryNativeUiIngressVerdicts.checkPartMembershipStep(
                                 sdkHistory(List.of(sdkEntry(0, "", complete)), 1),
                                 sdkHistory(List.of(sdkEntry(0, "known-now", complete)), 1))
                         .code());
         assertEquals(
                 "history-unavailable",
-                WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                WindowsHistoryNativeUiIngressVerdicts.checkPartMembershipStep(
                                 sdkHistory(List.of(old), 1), sdkHistory(List.of(old, fresh, blank), 3))
                         .code());
         assertEquals(
                 "history-unavailable",
-                WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                WindowsHistoryNativeUiIngressVerdicts.checkPartMembershipStep(
                                 sdkHistory(List.of(old), 1),
                                 sdkHistory(List.of(old, fresh, sdkEntry(2, "fresh", complete)), 3))
                         .code());
         assertEquals(
                 "history-unavailable",
-                WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                WindowsHistoryNativeUiIngressVerdicts.checkPartMembershipStep(
                                 sdkHistory(List.of(old, sdkEntry(1, "old", HistoryEntryDetail.labelOnly("old"))), 2),
                                 sdkHistory(List.of(old, sdkEntry(1, "old", HistoryEntryDetail.labelOnly("old"))), 2))
                         .code());
@@ -662,14 +673,14 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
         assertEquals(
                 "history-unavailable",
-                WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                WindowsHistoryNativeUiIngressVerdicts.checkPartMembershipStep(
                                 new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot(
                                         "UNAVAILABLE", 0, 0, 0, false, false, "", "", 0, List.of()),
                                 after)
                         .code());
         assertEquals(
                 "binding-changed",
-                WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                WindowsHistoryNativeUiIngressVerdicts.checkPartMembershipStep(
                                 before,
                                 new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot(
                                         "AVAILABLE",
@@ -685,7 +696,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                         .code());
         assertEquals(
                 "binding-changed",
-                WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                WindowsHistoryNativeUiIngressVerdicts.checkPartMembershipStep(
                                 before,
                                 new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot(
                                         "AVAILABLE",
@@ -701,7 +712,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                         .code());
         assertEquals(
                 "history-truncated",
-                WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+                WindowsHistoryNativeUiIngressVerdicts.checkPartMembershipStep(
                                 before,
                                 new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot(
                                         "AVAILABLE",
@@ -729,8 +740,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 new WindowsHistoryManagerValidationProbe.SdkEntry(
                         1, "new", "new", WindowsHistoryManagerValidationProbe.sdkDetailJson(complete, 0));
 
-        final WindowsHistoryNativeUiIngressProbe.Verdict verdict =
-                WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict verdict =
+                WindowsHistoryNativeUiIngressVerdicts.checkPartMembershipStep(
                         sdkHistory(List.of(old), 1), sdkHistory(List.of(old, jsonOnly), 2));
 
         assertFalse(verdict.ok());
@@ -754,11 +765,13 @@ class WindowsHistoryNativeUiIngressProbeTest {
         // make the runner wait out its entire result timeout after the probe had already finished.
         // The failure list therefore travels on its own line.
         assertEquals(
-                "{\"type\":\"summary\",\"status\":\"PASS\"}\n", WindowsHistoryNativeUiIngressProbe.summaryLine(true));
+                "{\"type\":\"summary\",\"status\":\"PASS\"}\n",
+                WindowsHistoryNativeUiIngressVerdicts.summaryLine(true));
         assertEquals(
-                "{\"type\":\"summary\",\"status\":\"FAIL\"}\n", WindowsHistoryNativeUiIngressProbe.summaryLine(false));
+                "{\"type\":\"summary\",\"status\":\"FAIL\"}\n",
+                WindowsHistoryNativeUiIngressVerdicts.summaryLine(false));
         assertFalse(
-                WindowsHistoryNativeUiIngressProbe.summaryLine(false).contains("failures"),
+                WindowsHistoryNativeUiIngressVerdicts.summaryLine(false).contains("failures"),
                 "the failure list must not ride on the terminal line");
     }
 
@@ -768,20 +781,20 @@ class WindowsHistoryNativeUiIngressProbeTest {
         // 选择对象, 拖动选择 and 选择顶点 that way. An ACTION step
         // must be closed only by the significant entries changing, so the click that precedes an
         // action cannot satisfy it.
-        final String none = WindowsHistoryNativeUiIngressProbe.significantSequence(List.of());
+        final String none = WindowsHistoryNativeUiIngressParameterEvidence.significantSequence(List.of());
         final String selectionOnly =
-                WindowsHistoryNativeUiIngressProbe.significantSequence(List.of(entry(0, "选择对象", false)));
-        final String withEdit = WindowsHistoryNativeUiIngressProbe.significantSequence(
+                WindowsHistoryNativeUiIngressParameterEvidence.significantSequence(List.of(entry(0, "选择对象", false)));
+        final String withEdit = WindowsHistoryNativeUiIngressParameterEvidence.significantSequence(
                 List.of(entry(0, "选择对象", false), entry(1, "物体的移动", true)));
 
         assertEquals("", none);
         assertEquals("", selectionOnly, "a selection contributes no significant entry");
         assertEquals("1:物体的移动", withEdit);
         assertFalse(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(ACTION, selectionOnly, 1L, none, 0L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(ACTION, selectionOnly, 1L, none, 0L),
                 "a selection advances the position and adds an entry, but is not the operator's action");
         assertTrue(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(ACTION, withEdit, 2L, selectionOnly, 1L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(ACTION, withEdit, 2L, selectionOnly, 1L),
                 "the operator's real edit is what closes an ACTION step");
     }
 
@@ -790,19 +803,19 @@ class WindowsHistoryNativeUiIngressProbeTest {
         // Undo and Redo move the cursor and add no entry, so an entry-based rule would never fire;
         // an ACTION step must not fire on the position, because a selection moves it too.
         final String significant =
-                WindowsHistoryNativeUiIngressProbe.significantSequence(List.of(entry(0, "物体的移动", true)));
+                WindowsHistoryNativeUiIngressParameterEvidence.significantSequence(List.of(entry(0, "物体的移动", true)));
 
         assertFalse(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(ACTION, significant, 0L, significant, 1L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(ACTION, significant, 0L, significant, 1L),
                 "a position change alone must not close an ACTION step");
         assertTrue(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(UNDO, significant, 0L, significant, 1L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(UNDO, significant, 0L, significant, 1L),
                 "an undo moves the position and changes no entry");
         assertFalse(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(REDO, significant, 1L, significant, 1L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(REDO, significant, 1L, significant, 1L),
                 "an unchanged position is not a redo");
         assertFalse(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(ACTION, null, 0L, significant, 1L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(ACTION, null, 0L, significant, 1L),
                 "a sampler that could not read the manager is not a move");
     }
 
@@ -812,31 +825,31 @@ class WindowsHistoryNativeUiIngressProbeTest {
         // let the click before the operator's real action close an Undo step. A Redo must not
         // close an Undo step either, which is what the previous runs misattributed.
         final String significant =
-                WindowsHistoryNativeUiIngressProbe.significantSequence(List.of(entry(0, "物体的移动", true)));
+                WindowsHistoryNativeUiIngressParameterEvidence.significantSequence(List.of(entry(0, "物体的移动", true)));
 
         assertTrue(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(UNDO, significant, 4L, significant, 5L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(UNDO, significant, 4L, significant, 5L),
                 "an Undo is closed by the position going down");
         assertFalse(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(UNDO, significant, 6L, significant, 5L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(UNDO, significant, 6L, significant, 5L),
                 "a Redo must not close an Undo step");
         assertFalse(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(UNDO, significant, 5L, significant, 5L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(UNDO, significant, 5L, significant, 5L),
                 "an unchanged position is not an undo");
         assertTrue(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(REDO, significant, 6L, significant, 5L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(REDO, significant, 6L, significant, 5L),
                 "a Redo is closed by the position going up");
         assertFalse(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(REDO, significant, 4L, significant, 5L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(REDO, significant, 4L, significant, 5L),
                 "an Undo must not close a Redo step");
         // A selection adds an insignificant entry and moves the position up, so it closes no
         // navigation step at all — including the Undo step it would have closed under the old
         // "any change" rule.
         assertFalse(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(UNDO, significant, 6L, significant, 5L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(UNDO, significant, 6L, significant, 5L),
                 "a selection moves the position up and must not close an Undo step");
         assertFalse(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(ACTION, significant, 6L, significant, 5L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(ACTION, significant, 6L, significant, 5L),
                 "a selection changes no significant entry and must not close an ACTION step");
     }
 
@@ -847,7 +860,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final WindowsHistoryNativeUiIngressProbe probe = new WindowsHistoryNativeUiIngressProbe();
 
         for (final String id : List.of("unknown")) {
-            assertEquals("none", probe.act(new WindowsHistoryNativeUiIngressProbe.Step(id, "ACTION", "x"), ""), id);
+            assertEquals("none", probe.act(new WindowsHistoryNativeUiIngressVerdicts.Step(id, "ACTION", "x"), ""), id);
         }
     }
 
@@ -858,37 +871,39 @@ class WindowsHistoryNativeUiIngressProbeTest {
         // throw or pretend the step is done.
         final WindowsHistoryNativeUiIngressProbe probe = new WindowsHistoryNativeUiIngressProbe();
 
-        final String canvas = probe.act(new WindowsHistoryNativeUiIngressProbe.Step("canvas-move", "ACTION", "x"), "");
+        final String canvas =
+                probe.act(new WindowsHistoryNativeUiIngressVerdicts.Step("canvas-move", "ACTION", "x"), "");
         assertTrue(
                 canvas.startsWith("unresolved:") || canvas.startsWith("failed:"),
                 "an automated actor with no canvas to drive must be recorded, got " + canvas);
 
         final String parameter =
-                probe.act(new WindowsHistoryNativeUiIngressProbe.Step("native-parameter", "ACTION", "x"), "");
+                probe.act(new WindowsHistoryNativeUiIngressVerdicts.Step("native-parameter", "ACTION", "x"), "");
         assertTrue(
                 parameter.startsWith("unresolved:") || parameter.startsWith("failed:"),
                 "an automated actor with no slider to drive must be recorded, got " + parameter);
 
         final String deform =
-                probe.act(new WindowsHistoryNativeUiIngressProbe.Step("canvas-deform", "ACTION", "x"), "");
+                probe.act(new WindowsHistoryNativeUiIngressVerdicts.Step("canvas-deform", "ACTION", "x"), "");
         assertTrue(
                 deform.startsWith("unresolved:") || deform.startsWith("failed:"),
                 "the canvas actor with no canvas must be recorded, got " + deform);
 
-        final String color = probe.act(new WindowsHistoryNativeUiIngressProbe.Step("native-color", "ACTION", "x"), "");
+        final String color =
+                probe.act(new WindowsHistoryNativeUiIngressVerdicts.Step("native-color", "ACTION", "x"), "");
         assertTrue(
                 color.startsWith("unresolved:") || color.startsWith("failed:"),
                 "an automated actor with no colour field to drive must be recorded, got " + color);
 
-        final String undo = probe.act(new WindowsHistoryNativeUiIngressProbe.Step("native-undo", "UNDO", "x"), "");
+        final String undo = probe.act(new WindowsHistoryNativeUiIngressVerdicts.Step("native-undo", "UNDO", "x"), "");
         assertFalse("none".equals(undo), "a mapped step must attempt its actor");
         assertFalse(undo.isBlank(), "the actor outcome is evidence and must not be empty");
     }
 
     @Test
     void partActorUsesIdsAndRejectsRootCurrentParentAndDescendantTargets() {
-        final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot model =
-                new WindowsHistoryNativeUiIngressProbe.PartModelSnapshot(
+        final WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot model =
+                new WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot(
                         "model-a",
                         List.of(
                                 actorPart("__RootPart__", "Root", Optional.empty(), List.of("parent", "target")),
@@ -897,8 +912,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
                                 actorPart("descendant", "Descendant", Optional.of("source"), List.of()),
                                 actorPart("target", "Target", Optional.of("__RootPart__"), List.of())));
 
-        final List<WindowsHistoryNativeUiIngressProbe.PartPair> pairs =
-                WindowsHistoryNativeUiIngressProbe.safePartPairs(model);
+        final List<WindowsHistoryNativeUiIngressPartActors.PartPair> pairs =
+                WindowsHistoryNativeUiIngressPartActors.safePartPairs(model);
 
         assertTrue(pairs.stream()
                 .noneMatch(pair -> "__RootPart__".equals(pair.source().id())));
@@ -912,8 +927,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void partActorRejectsAmbiguousNamesAndModelReplacement() {
-        final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot ambiguous =
-                new WindowsHistoryNativeUiIngressProbe.PartModelSnapshot(
+        final WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot ambiguous =
+                new WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot(
                         "model-a",
                         List.of(
                                 actorPart("__RootPart__", "Root", Optional.empty(), List.of("source", "a", "b")),
@@ -921,63 +936,65 @@ class WindowsHistoryNativeUiIngressProbeTest {
                                 actorPart("a", "Same", Optional.of("__RootPart__"), List.of()),
                                 actorPart("b", "Same", Optional.of("__RootPart__"), List.of())));
 
-        assertTrue(WindowsHistoryNativeUiIngressProbe.safePartPairs(ambiguous).isEmpty());
-        final WindowsHistoryNativeUiIngressProbe.PartPair pair = new WindowsHistoryNativeUiIngressProbe.PartPair(
-                "model-a",
-                actorPart("source", "Source", Optional.of("__RootPart__"), List.of()),
-                actorPart("target", "Target", Optional.of("__RootPart__"), List.of()));
-        final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot replacement =
-                new WindowsHistoryNativeUiIngressProbe.PartModelSnapshot("model-b", pairModelParts(pair));
+        assertTrue(
+                WindowsHistoryNativeUiIngressPartActors.safePartPairs(ambiguous).isEmpty());
+        final WindowsHistoryNativeUiIngressPartActors.PartPair pair =
+                new WindowsHistoryNativeUiIngressPartActors.PartPair(
+                        "model-a",
+                        actorPart("source", "Source", Optional.of("__RootPart__"), List.of()),
+                        actorPart("target", "Target", Optional.of("__RootPart__"), List.of()));
+        final WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot replacement =
+                new WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot("model-b", pairModelParts(pair));
 
-        assertFalse(WindowsHistoryNativeUiIngressProbe.partPairMatches(replacement, pair));
+        assertFalse(WindowsHistoryNativeUiIngressPartActors.partPairMatches(replacement, pair));
     }
 
     @Test
     void partDragNeedsTheSelectedSourceParentTransition() {
-        final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot before =
+        final WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot before =
                 partModel("model-a", "parent", "source", "target", "other");
-        final WindowsHistoryNativeUiIngressProbe.PartPair pair =
-                WindowsHistoryNativeUiIngressProbe.safePartPairs(before).stream()
+        final WindowsHistoryNativeUiIngressPartActors.PartPair pair =
+                WindowsHistoryNativeUiIngressPartActors.safePartPairs(before).stream()
                         .filter(candidate -> "source".equals(candidate.source().id())
                                 && "target".equals(candidate.target().id()))
                         .findFirst()
                         .orElseThrow();
 
-        final WindowsHistoryNativeUiIngressProbe.PartDragCheck selectionOnly =
-                WindowsHistoryNativeUiIngressProbe.assessPartDrag(pair, before, before, "selection", "selection");
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartDragStatus.NO_CHANGE, selectionOnly.status());
+        final WindowsHistoryNativeUiIngressPartActors.PartDragCheck selectionOnly =
+                WindowsHistoryNativeUiIngressPartActors.assessPartDrag(pair, before, before, "selection", "selection");
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartDragStatus.NO_CHANGE, selectionOnly.status());
 
-        final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot wrongSource =
+        final WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot wrongSource =
                 partModel("model-a", "parent", "source", "target", "other-moved");
-        final WindowsHistoryNativeUiIngressProbe.PartDragCheck wrong =
-                WindowsHistoryNativeUiIngressProbe.assessPartDrag(
+        final WindowsHistoryNativeUiIngressPartActors.PartDragCheck wrong =
+                WindowsHistoryNativeUiIngressPartActors.assessPartDrag(
                         pair, before, wrongSource, "before", "other-source-edit");
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartDragStatus.MISMATCH, wrong.status());
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartDragStatus.MISMATCH, wrong.status());
         assertEquals("unselected-significant-change", wrong.code());
 
-        final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot moved =
+        final WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot moved =
                 partModel("model-a", "target", "source", "target", "other");
-        final WindowsHistoryNativeUiIngressProbe.PartDragCheck changed =
-                WindowsHistoryNativeUiIngressProbe.assessPartDrag(pair, before, moved, "before", "after");
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartDragStatus.CHANGED, changed.status());
+        final WindowsHistoryNativeUiIngressPartActors.PartDragCheck changed =
+                WindowsHistoryNativeUiIngressPartActors.assessPartDrag(pair, before, moved, "before", "after");
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartDragStatus.CHANGED, changed.status());
         assertEquals(Optional.of("parent"), changed.parentBefore());
         assertEquals(Optional.of("target"), changed.parentAfter());
         assertTrue(changed.evidence().contains("sourceId=source"), changed.evidence());
         assertTrue(changed.evidence().contains("targetId=target"), changed.evidence());
 
-        final WindowsHistoryNativeUiIngressProbe.PartDragCheck sameParent =
-                WindowsHistoryNativeUiIngressProbe.assessPartDrag(pair, moved, moved, "before", "before");
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartDragStatus.MISMATCH, sameParent.status());
+        final WindowsHistoryNativeUiIngressPartActors.PartDragCheck sameParent =
+                WindowsHistoryNativeUiIngressPartActors.assessPartDrag(pair, moved, moved, "before", "before");
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartDragStatus.MISMATCH, sameParent.status());
         assertEquals("same-parent", sameParent.code());
 
-        final WindowsHistoryNativeUiIngressProbe.PartDragCheck replaced =
-                WindowsHistoryNativeUiIngressProbe.assessPartDrag(
+        final WindowsHistoryNativeUiIngressPartActors.PartDragCheck replaced =
+                WindowsHistoryNativeUiIngressPartActors.assessPartDrag(
                         pair,
                         before,
-                        new WindowsHistoryNativeUiIngressProbe.PartModelSnapshot("model-b", moved.parts()),
+                        new WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot("model-b", moved.parts()),
                         "before",
                         "after");
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartDragStatus.MISMATCH, replaced.status());
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartDragStatus.MISMATCH, replaced.status());
         assertEquals("model-changed", replaced.code());
     }
 
@@ -998,8 +1015,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final JTable table = new JTable(4, 1);
         table.setRowHeight(20);
         table.setSize(240, 80);
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout =
-                WindowsHistoryNativeUiIngressProbe.locatePartPairRows(table, tree, "Source", "Target");
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout =
+                WindowsHistoryNativeUiIngressPartActors.locatePartPairRows(table, tree, "Source", "Target");
 
         assertTrue(layout != null);
         assertTrue(
@@ -1030,7 +1047,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
         table.setSize(240, 60);
 
         assertNull(
-                WindowsHistoryNativeUiIngressProbe.locatePartPairRows(table, tree, "Source", "Target"),
+                WindowsHistoryNativeUiIngressPartActors.locatePartPairRows(table, tree, "Source", "Target"),
                 "the actor must reject a pair that would require drag auto-scroll");
     }
 
@@ -1048,15 +1065,15 @@ class WindowsHistoryNativeUiIngressProbeTest {
         table.setRowHeight(20);
         table.setSize(240, 80);
 
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout located =
-                WindowsHistoryNativeUiIngressProbe.locatePartPairRows(table, tree, "Source", "Target");
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout located =
+                WindowsHistoryNativeUiIngressPartActors.locatePartPairRows(table, tree, "Source", "Target");
         assertTrue(located != null);
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout gestureLayout =
-                new WindowsHistoryNativeUiIngressProbe.PartPairLayout(
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout gestureLayout =
+                new WindowsHistoryNativeUiIngressPartActors.PartPairLayout(
                         located.source().withScreenPoint(located.source().localPoint()),
                         located.target().withScreenPoint(located.target().localPoint()));
 
-        final java.awt.Point drop = WindowsHistoryNativeUiIngressProbe.partGestureTargetPoint(gestureLayout);
+        final java.awt.Point drop = WindowsHistoryNativeUiIngressPartActors.partGestureTargetPoint(gestureLayout);
         assertEquals(located.target().localPoint(), drop);
         assertEquals(located.target().row(), table.rowAtPoint(drop));
         assertTrue(located.target().cell().contains(drop));
@@ -1072,8 +1089,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
     void partPrePressGuardAllowsStableSwingStructure() {
         final SwingPartSurface surface = swingPartSurface();
 
-        final WindowsHistoryNativeUiIngressProbe.PartPrePressCheck check =
-                WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+        final WindowsHistoryNativeUiIngressPartActors.PartPrePressCheck check =
+                WindowsHistoryNativeUiIngressPartActors.verifyPartPrePress(
                         surface.layout(), surface.table(), surface.tree());
 
         assertTrue(check.ok(), check.code());
@@ -1084,8 +1101,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final SwingPartSurface surface = swingPartSurface();
         surface.tree().collapsePath(new TreePath(surface.target().getPath()));
 
-        final WindowsHistoryNativeUiIngressProbe.PartPrePressCheck check =
-                WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+        final WindowsHistoryNativeUiIngressPartActors.PartPrePressCheck check =
+                WindowsHistoryNativeUiIngressPartActors.verifyPartPrePress(
                         surface.layout(), surface.table(), surface.tree());
 
         assertFalse(check.ok());
@@ -1100,7 +1117,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
         replacementTable.setSize(240, 80);
         assertEquals(
                 "table-replaced",
-                WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                WindowsHistoryNativeUiIngressPartActors.verifyPartPrePress(
                                 tableSurface.layout(), replacementTable, tableSurface.tree())
                         .code());
 
@@ -1108,7 +1125,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final JTree replacementTree = new JTree(treeSurface.root());
         assertEquals(
                 "tree-replaced",
-                WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                WindowsHistoryNativeUiIngressPartActors.verifyPartPrePress(
                                 treeSurface.layout(), treeSurface.table(), replacementTree)
                         .code());
 
@@ -1116,7 +1133,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
         tableModelSurface.table().setModel(new DefaultTableModel(4, 1));
         assertEquals(
                 "table-model-replaced",
-                WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                WindowsHistoryNativeUiIngressPartActors.verifyPartPrePress(
                                 tableModelSurface.layout(), tableModelSurface.table(), tableModelSurface.tree())
                         .code());
 
@@ -1124,7 +1141,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
         treeModelSurface.tree().setModel(new DefaultTreeModel(treeModelSurface.root()));
         assertEquals(
                 "tree-model-replaced",
-                WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                WindowsHistoryNativeUiIngressPartActors.verifyPartPrePress(
                                 treeModelSurface.layout(), treeModelSurface.table(), treeModelSurface.tree())
                         .code());
     }
@@ -1134,8 +1151,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final SwingPartSurface surface = swingPartSurface();
         surface.table().setSize(240, 60);
 
-        final WindowsHistoryNativeUiIngressProbe.PartPrePressCheck check =
-                WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+        final WindowsHistoryNativeUiIngressPartActors.PartPrePressCheck check =
+                WindowsHistoryNativeUiIngressPartActors.verifyPartPrePress(
                         surface.layout(), surface.table(), surface.tree());
 
         assertFalse(check.ok());
@@ -1145,8 +1162,9 @@ class WindowsHistoryNativeUiIngressProbeTest {
     @Test
     void partGestureCapturesSwingEventsAndRemovesTemporaryListeners() throws Exception {
         final SwingPartSurface surface = swingPartSurface();
-        final WindowsHistoryNativeUiIngressProbe.PartGestureCapture capture =
-                new WindowsHistoryNativeUiIngressProbe.PartGestureCapture(surface.layout(), "sdk-source", "sdk-target");
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureCapture capture =
+                new WindowsHistoryNativeUiIngressPartActors.PartGestureCapture(
+                        surface.layout(), "sdk-source", "sdk-target");
         final int mouseListeners = surface.table().getMouseListeners().length;
         final int motionListeners = surface.table().getMouseMotionListeners().length;
 
@@ -1174,8 +1192,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
             capture.remove();
         });
 
-        final WindowsHistoryNativeUiIngressProbe.PartGestureCheck check = capture.checkEvents();
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.ACCEPTED, check.status());
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureCheck check = capture.checkEvents();
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.ACCEPTED, check.status());
         assertEquals(mouseListeners, surface.table().getMouseListeners().length);
         assertEquals(motionListeners, surface.table().getMouseMotionListeners().length);
         assertTrue(capture.evidence().stream().anyMatch(line -> line.contains("\"phase\":\"actual-press\"")));
@@ -1190,23 +1208,24 @@ class WindowsHistoryNativeUiIngressProbeTest {
     void partGestureRejectsWrongEventSource() {
         final SwingPartSurface surface = swingPartSurface();
         final JTable wrongTable = new JTable(4, 1);
-        final WindowsHistoryNativeUiIngressProbe.PartGestureCapture capture =
-                new WindowsHistoryNativeUiIngressProbe.PartGestureCapture(surface.layout(), "sdk-source", "sdk-target");
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureCapture capture =
+                new WindowsHistoryNativeUiIngressPartActors.PartGestureCapture(
+                        surface.layout(), "sdk-source", "sdk-target");
 
         capture.recordMouseEventForTest("actual-press", mouse(wrongTable, MouseEvent.MOUSE_PRESSED, new Point(5, 5)));
         capture.recordMouseEventForTest("first-drag", mouse(wrongTable, MouseEvent.MOUSE_DRAGGED, new Point(5, 25)));
         capture.recordMouseEventForTest("release", mouse(wrongTable, MouseEvent.MOUSE_RELEASED, new Point(5, 25)));
 
-        final WindowsHistoryNativeUiIngressProbe.PartGestureCheck check = capture.checkEvents();
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.MISMATCH, check.status());
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureCheck check = capture.checkEvents();
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.MISMATCH, check.status());
         assertEquals("actual-press-target-mismatch", check.code());
     }
 
     @Test
     void partGestureDoesNotPressAfterPrePressGuardRejects() throws Exception {
         final SwingPartSurface surface = swingPartSurface();
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout =
-                new WindowsHistoryNativeUiIngressProbe.PartPairLayout(
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout =
+                new WindowsHistoryNativeUiIngressPartActors.PartPairLayout(
                         surface.layout().table(),
                         surface.layout().tree(),
                         surface.layout().tableModel(),
@@ -1216,8 +1235,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
                         surface.layout().tableShowing());
         final boolean[] pressed = {false};
         final boolean[] released = {false};
-        final WindowsHistoryNativeUiIngressProbe.PartGestureInput input =
-                new WindowsHistoryNativeUiIngressProbe.PartGestureInput() {
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureInput input =
+                new WindowsHistoryNativeUiIngressPartActors.PartGestureInput() {
                     @Override
                     public void mouseMove(final int x, final int y) {}
 
@@ -1235,16 +1254,16 @@ class WindowsHistoryNativeUiIngressProbeTest {
                     }
                 };
 
-        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
-                WindowsHistoryNativeUiIngressProbe.runPartGesture(
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt attempt =
+                WindowsHistoryNativeUiIngressPartActors.runPartGesture(
                         layout,
                         "sdk-source",
                         "sdk-target",
                         input,
-                        () -> WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.failure(
+                        () -> WindowsHistoryNativeUiIngressPartActors.PartPrePressCheck.failure(
                                 "source-row-changed", layout, surface.table(), surface.tree()));
 
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED, attempt.status());
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.UNRESOLVED, attempt.status());
         assertFalse(pressed[0], "a rejected pre-press guard must not press");
         assertFalse(released[0], "no release is needed when no press was issued");
     }
@@ -1252,25 +1271,25 @@ class WindowsHistoryNativeUiIngressProbeTest {
     @Test
     void partGestureRejectsAfterMovePointerUnavailableWithoutPress() throws Exception {
         final SwingPartSurface surface = swingPartSurface();
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout = screenLayout(surface);
         final Point source = layout.source().screenPoint();
-        final List<WindowsHistoryNativeUiIngressProbe.PartPointerReadback> readbacks = List.of(() -> null, () -> {
+        final List<WindowsHistoryNativeUiIngressPartActors.PartPointerReadback> readbacks = List.of(() -> null, () -> {
             throw new IllegalStateException("pointer-unavailable");
         });
 
-        for (final WindowsHistoryNativeUiIngressProbe.PartPointerReadback readback : readbacks) {
+        for (final WindowsHistoryNativeUiIngressPartActors.PartPointerReadback readback : readbacks) {
             final int[] pressCount = {0};
-            final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
-                    WindowsHistoryNativeUiIngressProbe.runPartGesture(
+            final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt attempt =
+                    WindowsHistoryNativeUiIngressPartActors.runPartGesture(
                             layout,
                             "sdk-source",
                             "sdk-target",
                             noOpInput(pressCount, new java.util.ArrayList<>()),
                             readback,
-                            () -> WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                            () -> WindowsHistoryNativeUiIngressPartActors.PartPrePressCheck.success(
                                     layout, surface.table(), surface.tree()));
 
-            assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED, attempt.status());
+            assertEquals(WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.UNRESOLVED, attempt.status());
             assertEquals("after-move-pointer-unavailable", attempt.code());
             assertEquals(0, pressCount[0], "pointer admission failure must not press");
 
@@ -1305,7 +1324,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final SwingPartSurface surface = swingPartSurface();
         // BasicTableUI asks HeadlessToolkit for the menu shortcut mask on synthetic presses.
         SwingUtilities.invokeAndWait(() -> surface.table().setUI(null));
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout = screenLayout(surface);
         final Point source = new Point(layout.source().screenPoint());
         final Point target = new Point(layout.target().localPoint());
         final List<Point> sourceMoves = new java.util.ArrayList<>();
@@ -1313,11 +1332,11 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final int[] releaseCount = {0};
         final AtomicInteger reads = new AtomicInteger();
         final AtomicInteger guardChecks = new AtomicInteger();
-        final WindowsHistoryNativeUiIngressProbe.PartGestureInput input =
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureInput input =
                 trackingPartGestureInput(surface, target, sourceMoves, pressCount, releaseCount, Set.of(1, 2), true);
 
-        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
-                WindowsHistoryNativeUiIngressProbe.runPartGesture(
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt attempt =
+                WindowsHistoryNativeUiIngressPartActors.runPartGesture(
                         layout,
                         "sdk-source",
                         "sdk-target",
@@ -1329,11 +1348,12 @@ class WindowsHistoryNativeUiIngressProbeTest {
                         },
                         () -> {
                             guardChecks.incrementAndGet();
-                            return WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                            return WindowsHistoryNativeUiIngressPartActors.PartPrePressCheck.success(
                                     layout, surface.table(), surface.tree());
                         });
 
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.ACCEPTED, attempt.status(), attempt.code());
+        assertEquals(
+                WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.ACCEPTED, attempt.status(), attempt.code());
         assertEquals(2, sourceMoves.size());
         assertEquals(List.of(source, source), sourceMoves);
         assertEquals(1, pressCount[0]);
@@ -1368,8 +1388,9 @@ class WindowsHistoryNativeUiIngressProbeTest {
         assertEquals(source.x, moved.get(1).get("screen").get("x").asInt());
         assertEquals(source.y, moved.get(1).get("screen").get("y").asInt());
 
-        final WindowsHistoryNativeUiIngressProbe.PartGestureCapture boundaryCapture =
-                new WindowsHistoryNativeUiIngressProbe.PartGestureCapture(surface.layout(), "sdk-source", "sdk-target");
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureCapture boundaryCapture =
+                new WindowsHistoryNativeUiIngressPartActors.PartGestureCapture(
+                        surface.layout(), "sdk-source", "sdk-target");
         SwingUtilities.invokeAndWait(() -> {
             boundaryCapture.beginPointerAttempt(1, 1_000L);
             boundaryCapture.beginPointerAttempt(2, 2_000L);
@@ -1398,7 +1419,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
     @Test
     void partGestureStopsAfterThreePersistentPointerMismatchesWithoutPress() throws Exception {
         final SwingPartSurface surface = swingPartSurface();
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout = screenLayout(surface);
         final Point source = new Point(layout.source().screenPoint());
         final Point target = new Point(layout.target().localPoint());
         final List<Point> sourceMoves = new java.util.ArrayList<>();
@@ -1407,8 +1428,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final AtomicInteger reads = new AtomicInteger();
         final AtomicInteger guardChecks = new AtomicInteger();
 
-        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
-                WindowsHistoryNativeUiIngressProbe.runPartGesture(
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt attempt =
+                WindowsHistoryNativeUiIngressPartActors.runPartGesture(
                         layout,
                         "sdk-source",
                         "sdk-target",
@@ -1419,11 +1440,11 @@ class WindowsHistoryNativeUiIngressProbeTest {
                         },
                         () -> {
                             guardChecks.incrementAndGet();
-                            return WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                            return WindowsHistoryNativeUiIngressPartActors.PartPrePressCheck.success(
                                     layout, surface.table(), surface.tree());
                         });
 
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED, attempt.status());
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.UNRESOLVED, attempt.status());
         assertEquals("after-move-pointer-mismatch", attempt.code());
         assertEquals(3, sourceMoves.size());
         assertEquals(List.of(source, source, source), sourceMoves);
@@ -1446,15 +1467,15 @@ class WindowsHistoryNativeUiIngressProbeTest {
     @Test
     void partGestureDoesNotRetryWhenPointerBecomesUnavailable() throws Exception {
         final SwingPartSurface surface = swingPartSurface();
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout = screenLayout(surface);
         final Point source = new Point(layout.source().screenPoint());
         final Point target = new Point(layout.target().localPoint());
         final List<Point> sourceMoves = new java.util.ArrayList<>();
         final int[] pressCount = {0};
         final AtomicInteger guardChecks = new AtomicInteger();
 
-        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
-                WindowsHistoryNativeUiIngressProbe.runPartGesture(
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt attempt =
+                WindowsHistoryNativeUiIngressPartActors.runPartGesture(
                         layout,
                         "sdk-source",
                         "sdk-target",
@@ -1462,11 +1483,11 @@ class WindowsHistoryNativeUiIngressProbeTest {
                         () -> null,
                         () -> {
                             guardChecks.incrementAndGet();
-                            return WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                            return WindowsHistoryNativeUiIngressPartActors.PartPrePressCheck.success(
                                     layout, surface.table(), surface.tree());
                         });
 
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED, attempt.status());
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.UNRESOLVED, attempt.status());
         assertEquals("after-move-pointer-unavailable", attempt.code());
         assertEquals(1, sourceMoves.size());
         assertEquals(0, guardChecks.get());
@@ -1481,7 +1502,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
     @Test
     void partGestureStopsBeforeRetryWhenSwingGuardSeesViewportChange() throws Exception {
         final SwingPartSurface surface = swingPartSurface();
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout = screenLayout(surface);
         final Point source = new Point(layout.source().screenPoint());
         final Point target = new Point(layout.target().localPoint());
         final List<Point> sourceMoves = new java.util.ArrayList<>();
@@ -1491,8 +1512,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
         // Simulate a viewport mutation between the first mismatch and its possible retry.
         surface.table().setSize(240, 60);
-        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
-                WindowsHistoryNativeUiIngressProbe.runPartGesture(
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt attempt =
+                WindowsHistoryNativeUiIngressPartActors.runPartGesture(
                         layout,
                         "sdk-source",
                         "sdk-target",
@@ -1501,10 +1522,10 @@ class WindowsHistoryNativeUiIngressProbeTest {
                             reads.incrementAndGet();
                             return new Point(source.x, source.y + 20);
                         },
-                        () -> WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                        () -> WindowsHistoryNativeUiIngressPartActors.verifyPartPrePress(
                                 layout, surface.table(), surface.tree()));
 
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED, attempt.status());
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.UNRESOLVED, attempt.status());
         assertEquals("source-viewport-changed", attempt.code());
         assertEquals(1, sourceMoves.size());
         assertEquals(1, reads.get());
@@ -1520,22 +1541,22 @@ class WindowsHistoryNativeUiIngressProbeTest {
     @Test
     void partGestureRejectsBeforePressPointerMismatchWithoutPress() throws Exception {
         final SwingPartSurface surface = swingPartSurface();
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout = screenLayout(surface);
         final Point source = new Point(layout.source().screenPoint());
         final AtomicInteger reads = new AtomicInteger();
         final int[] pressCount = {0};
 
-        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
-                WindowsHistoryNativeUiIngressProbe.runPartGesture(
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt attempt =
+                WindowsHistoryNativeUiIngressPartActors.runPartGesture(
                         layout,
                         "sdk-source",
                         "sdk-target",
                         noOpInput(pressCount, new java.util.ArrayList<>()),
                         () -> reads.getAndIncrement() == 0 ? new Point(source) : new Point(source.x, source.y + 20),
-                        () -> WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                        () -> WindowsHistoryNativeUiIngressPartActors.PartPrePressCheck.success(
                                 layout, surface.table(), surface.tree()));
 
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED, attempt.status());
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.UNRESOLVED, attempt.status());
         assertEquals("before-press-pointer-mismatch", attempt.code());
         assertEquals(0, pressCount[0], "before-press pointer mismatch must not press");
         assertEquals(2, reads.get());
@@ -1554,7 +1575,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final SwingPartSurface surface = swingThreeRowPartSurface();
         // BasicTableUI asks HeadlessToolkit for the menu shortcut mask on synthetic presses.
         SwingUtilities.invokeAndWait(() -> surface.table().setUI(null));
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout = screenLayout(surface);
         final Point source = new Point(layout.source().screenPoint());
         final Point target = new Point(layout.target().localPoint());
         final Rectangle middleCell = surface.table().getCellRect(2, 0, true);
@@ -1566,8 +1587,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final boolean[] firstDrag = {false};
         final int mouseListeners = surface.table().getMouseListeners().length;
         final int motionListeners = surface.table().getMouseMotionListeners().length;
-        final WindowsHistoryNativeUiIngressProbe.PartGestureInput input =
-                new WindowsHistoryNativeUiIngressProbe.PartGestureInput() {
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureInput input =
+                new WindowsHistoryNativeUiIngressPartActors.PartGestureInput() {
                     @Override
                     public void mouseMove(final int x, final int y) throws Exception {
                         if (!pressed[0] && !moved[0]) {
@@ -1599,17 +1620,18 @@ class WindowsHistoryNativeUiIngressProbeTest {
                     }
                 };
 
-        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
-                WindowsHistoryNativeUiIngressProbe.runPartGesture(
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt attempt =
+                WindowsHistoryNativeUiIngressPartActors.runPartGesture(
                         layout,
                         "sdk-source",
                         "sdk-target",
                         input,
                         () -> new Point(source),
-                        () -> WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                        () -> WindowsHistoryNativeUiIngressPartActors.PartPrePressCheck.success(
                                 layout, surface.table(), surface.tree()));
 
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.ACCEPTED, attempt.status(), attempt.code());
+        assertEquals(
+                WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.ACCEPTED, attempt.status(), attempt.code());
         assertEquals(1, pressCount[0]);
         assertEquals(1, releaseCount[0]);
         assertEquals(mouseListeners, surface.table().getMouseListeners().length);
@@ -1661,50 +1683,51 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void partGestureReadbackRejectsModelAndParentChangesBeforePress() throws Exception {
-        final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot before =
+        final WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot before =
                 partModel("model-a", "parent", "source", "target", "other");
-        final WindowsHistoryNativeUiIngressProbe.PartPair pair =
-                WindowsHistoryNativeUiIngressProbe.safePartPairs(before).stream()
+        final WindowsHistoryNativeUiIngressPartActors.PartPair pair =
+                WindowsHistoryNativeUiIngressPartActors.safePartPairs(before).stream()
                         .filter(candidate -> "source".equals(candidate.source().id())
                                 && "target".equals(candidate.target().id()))
                         .findFirst()
                         .orElseThrow();
-        final List<WindowsHistoryNativeUiIngressProbe.PartModelSnapshot> changed = List.of(
+        final List<WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot> changed = List.of(
                 partModel("model-b", "parent", "source", "target", "other"),
                 partModel("model-a", "target", "source", "target", "other"));
 
-        for (final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot readback : changed) {
+        for (final WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot readback : changed) {
             final SwingPartSurface surface = swingPartSurface();
-            final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout = screenLayout(surface);
+            final WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout = screenLayout(surface);
             final int[] pressCount = {0};
             final java.util.ArrayList<Long> pauses = new java.util.ArrayList<>();
-            final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
-                    WindowsHistoryNativeUiIngressProbe.runPartGesture(
+            final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt attempt =
+                    WindowsHistoryNativeUiIngressPartActors.runPartGesture(
                             layout,
                             "sdk-source",
                             "sdk-target",
                             noOpInput(pressCount, pauses),
-                            () -> WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                            () -> WindowsHistoryNativeUiIngressPartActors.verifyPartPrePress(
                                     layout, surface.table(), surface.tree(), pair, readback));
 
-            assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED, attempt.status());
+            assertEquals(WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.UNRESOLVED, attempt.status());
             assertEquals("part-model-changed", attempt.code());
             assertEquals(0, pressCount[0], "SDK model change must prevent press");
             assertTrue(pauses.contains(120L), "readback must run after the 120ms move settle");
         }
 
         final SwingPartSurface unavailableSurface = swingPartSurface();
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout unavailableLayout = screenLayout(unavailableSurface);
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout unavailableLayout =
+                screenLayout(unavailableSurface);
         final int[] unavailablePressCount = {0};
-        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt unavailable =
-                WindowsHistoryNativeUiIngressProbe.runPartGesture(
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt unavailable =
+                WindowsHistoryNativeUiIngressPartActors.runPartGesture(
                         unavailableLayout,
                         "sdk-source",
                         "sdk-target",
                         noOpInput(unavailablePressCount, new java.util.ArrayList<>()),
-                        () -> WindowsHistoryNativeUiIngressProbe.verifyPartPrePress(
+                        () -> WindowsHistoryNativeUiIngressPartActors.verifyPartPrePress(
                                 unavailableLayout, unavailableSurface.table(), unavailableSurface.tree(), pair, null));
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.UNRESOLVED, unavailable.status());
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.UNRESOLVED, unavailable.status());
         assertEquals("part-model-unavailable", unavailable.code());
         assertEquals(0, unavailablePressCount[0]);
     }
@@ -1712,8 +1735,9 @@ class WindowsHistoryNativeUiIngressProbeTest {
     @Test
     void partGestureAcceptsMiddleRowFirstDragAndRejectsWrongPressOrReleaseNodes() throws Exception {
         final SwingPartSurface surface = swingThreeRowPartSurface();
-        final WindowsHistoryNativeUiIngressProbe.PartGestureCapture accepted =
-                new WindowsHistoryNativeUiIngressProbe.PartGestureCapture(surface.layout(), "sdk-source", "sdk-target");
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureCapture accepted =
+                new WindowsHistoryNativeUiIngressPartActors.PartGestureCapture(
+                        surface.layout(), "sdk-source", "sdk-target");
         final Point middle = surface.table().getCellRect(2, 0, true).getLocation();
         middle.translate(5, 5);
         final Point source = surface.layout().source().localPoint();
@@ -1726,22 +1750,24 @@ class WindowsHistoryNativeUiIngressProbeTest {
         });
 
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.PartGestureStatus.ACCEPTED,
+                WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.ACCEPTED,
                 accepted.checkEvents().status());
         assertTrue(
                 accepted.evidence().stream()
                         .anyMatch(line -> line.contains("\"phase\":\"first-drag\"") && line.contains("\"row\":2")),
                 "the first drag is allowed to observe an intermediate row");
 
-        final WindowsHistoryNativeUiIngressProbe.PartGestureCapture wrongPress =
-                new WindowsHistoryNativeUiIngressProbe.PartGestureCapture(surface.layout(), "sdk-source", "sdk-target");
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureCapture wrongPress =
+                new WindowsHistoryNativeUiIngressPartActors.PartGestureCapture(
+                        surface.layout(), "sdk-source", "sdk-target");
         wrongPress.recordMouseEventForTest("actual-press", mouse(surface.table(), MouseEvent.MOUSE_PRESSED, target));
         wrongPress.recordMouseEventForTest("first-drag", mouse(surface.table(), MouseEvent.MOUSE_DRAGGED, middle));
         wrongPress.recordMouseEventForTest("release", mouse(surface.table(), MouseEvent.MOUSE_RELEASED, target));
         assertEquals("actual-press-target-mismatch", wrongPress.checkEvents().code());
 
-        final WindowsHistoryNativeUiIngressProbe.PartGestureCapture wrongRelease =
-                new WindowsHistoryNativeUiIngressProbe.PartGestureCapture(surface.layout(), "sdk-source", "sdk-target");
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureCapture wrongRelease =
+                new WindowsHistoryNativeUiIngressPartActors.PartGestureCapture(
+                        surface.layout(), "sdk-source", "sdk-target");
         wrongRelease.recordMouseEventForTest("actual-press", mouse(surface.table(), MouseEvent.MOUSE_PRESSED, source));
         wrongRelease.recordMouseEventForTest("first-drag", mouse(surface.table(), MouseEvent.MOUSE_DRAGGED, middle));
         wrongRelease.recordMouseEventForTest("release", mouse(surface.table(), MouseEvent.MOUSE_RELEASED, source));
@@ -1751,8 +1777,9 @@ class WindowsHistoryNativeUiIngressProbeTest {
     @Test
     void partGestureAcceptsTargetIdentityAfterSourceRemovalMovesTargetRow() throws Exception {
         final SwingPartSurface surface = swingSourceBeforeTargetPartSurface();
-        final WindowsHistoryNativeUiIngressProbe.PartGestureCapture capture =
-                new WindowsHistoryNativeUiIngressProbe.PartGestureCapture(surface.layout(), "sdk-source", "sdk-target");
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureCapture capture =
+                new WindowsHistoryNativeUiIngressPartActors.PartGestureCapture(
+                        surface.layout(), "sdk-source", "sdk-target");
         final int oldTargetRow = surface.layout().target().row();
 
         SwingUtilities.invokeAndWait(() -> {
@@ -1778,8 +1805,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
                     "release", mouse(surface.table(), MouseEvent.MOUSE_RELEASED, shiftedTarget));
         });
 
-        final WindowsHistoryNativeUiIngressProbe.PartGestureCheck check = capture.checkEvents();
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.ACCEPTED, check.status());
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureCheck check = capture.checkEvents();
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.ACCEPTED, check.status());
         assertTrue(
                 capture.evidence().stream()
                         .anyMatch(line -> line.contains("\"phase\":\"release\"")
@@ -1797,23 +1824,23 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final SwingPartSurface surface = swingPartSurface(new MotionThrowingTable());
         final int mouseListeners = surface.table().getMouseListeners().length;
         final int motionListeners = surface.table().getMouseMotionListeners().length;
-        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
-                WindowsHistoryNativeUiIngressProbe.runPartGesture(
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt attempt =
+                WindowsHistoryNativeUiIngressPartActors.runPartGesture(
                         surface.layout(),
                         "sdk-source",
                         "sdk-target",
                         noOpInput(new int[1], new java.util.ArrayList<>()),
-                        () -> WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                        () -> WindowsHistoryNativeUiIngressPartActors.PartPrePressCheck.success(
                                 surface.layout(), surface.table(), surface.tree()));
 
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.EXCEPTION, attempt.status());
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.EXCEPTION, attempt.status());
         assertTrue(attempt.code().startsWith("listener-install-failed:"), attempt.code());
         assertEquals(mouseListeners, surface.table().getMouseListeners().length);
         assertEquals(motionListeners, surface.table().getMouseMotionListeners().length);
 
         final SwingPartSurface lateSurface = swingPartSurface();
-        final WindowsHistoryNativeUiIngressProbe.PartGestureCapture capture =
-                new WindowsHistoryNativeUiIngressProbe.PartGestureCapture(
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureCapture capture =
+                new WindowsHistoryNativeUiIngressPartActors.PartGestureCapture(
                         lateSurface.layout(), "sdk-source", "sdk-target");
         final AtomicBoolean lifecycleOpen = new AtomicBoolean(false);
         final int lateMouseListeners = lateSurface.table().getMouseListeners().length;
@@ -1829,8 +1856,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
     @Test
     void partGestureReleasesInjectedMouseAfterPressExceptionAndCleansListeners() throws Exception {
         final SwingPartSurface surface = swingPartSurface();
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout =
-                new WindowsHistoryNativeUiIngressProbe.PartPairLayout(
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout =
+                new WindowsHistoryNativeUiIngressPartActors.PartPairLayout(
                         surface.layout().table(),
                         surface.layout().tree(),
                         surface.layout().tableModel(),
@@ -1841,8 +1868,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final int mouseListeners = surface.table().getMouseListeners().length;
         final int motionListeners = surface.table().getMouseMotionListeners().length;
         final boolean[] released = {false};
-        final WindowsHistoryNativeUiIngressProbe.PartGestureInput input =
-                new WindowsHistoryNativeUiIngressProbe.PartGestureInput() {
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureInput input =
+                new WindowsHistoryNativeUiIngressPartActors.PartGestureInput() {
                     @Override
                     public void mouseMove(final int x, final int y) {}
 
@@ -1860,16 +1887,16 @@ class WindowsHistoryNativeUiIngressProbeTest {
                     }
                 };
 
-        final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt =
-                WindowsHistoryNativeUiIngressProbe.runPartGesture(
+        final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt attempt =
+                WindowsHistoryNativeUiIngressPartActors.runPartGesture(
                         layout,
                         "sdk-source",
                         "sdk-target",
                         input,
-                        () -> WindowsHistoryNativeUiIngressProbe.PartPrePressCheck.success(
+                        () -> WindowsHistoryNativeUiIngressPartActors.PartPrePressCheck.success(
                                 layout, surface.table(), surface.tree()));
 
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartGestureStatus.EXCEPTION, attempt.status());
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartGestureStatus.EXCEPTION, attempt.status());
         assertTrue(released[0], "a press exception must still attempt release");
         assertEquals(mouseListeners, surface.table().getMouseListeners().length);
         assertEquals(motionListeners, surface.table().getMouseMotionListeners().length);
@@ -1877,16 +1904,17 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void automatedPartActorMismatchCannotBeRecoveredByALegalSemanticRelation() {
-        final WindowsHistoryNativeUiIngressProbe.PartActorResult mismatch =
-                WindowsHistoryNativeUiIngressProbe.PartActorResult.fromActorResult(
+        final WindowsHistoryNativeUiIngressPartActors.PartActorResult mismatch =
+                WindowsHistoryNativeUiIngressPartActors.PartActorResult.fromActorResult(
                         "mismatch:sourceId=PartClip:targetId=Part3");
-        final WindowsHistoryNativeUiIngressProbe.Verdict legalRelation =
-                new WindowsHistoryNativeUiIngressProbe.Verdict(true, "proven-membership-change", "root->Part3");
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict legalRelation =
+                new WindowsHistoryNativeUiIngressVerdicts.Verdict(true, "proven-membership-change", "root->Part3");
 
-        final WindowsHistoryNativeUiIngressProbe.Verdict admitted =
-                WindowsHistoryNativeUiIngressProbe.admitPartStep(mismatch, legalRelation);
-        final WindowsHistoryNativeUiIngressProbe.Verdict manual = WindowsHistoryNativeUiIngressProbe.admitPartStep(
-                WindowsHistoryNativeUiIngressProbe.PartActorResult.notRun(), legalRelation);
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict admitted =
+                WindowsHistoryNativeUiIngressPartActors.admitPartStep(mismatch, legalRelation);
+        final WindowsHistoryNativeUiIngressVerdicts.Verdict manual =
+                WindowsHistoryNativeUiIngressPartActors.admitPartStep(
+                        WindowsHistoryNativeUiIngressPartActors.PartActorResult.notRun(), legalRelation);
 
         assertFalse(admitted.ok());
         assertEquals("actor-mismatch", admitted.code());
@@ -1895,56 +1923,59 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void partDragSettlesLateChangeWithoutSendingASecondGesture() throws Exception {
-        final WindowsHistoryNativeUiIngressProbe.PartDragCheck noChange =
-                partDragCheck(WindowsHistoryNativeUiIngressProbe.PartDragStatus.NO_CHANGE);
-        final WindowsHistoryNativeUiIngressProbe.PartDragCheck changed =
-                partDragCheck(WindowsHistoryNativeUiIngressProbe.PartDragStatus.CHANGED);
-        final List<WindowsHistoryNativeUiIngressProbe.PartDragCheck> readbacks = List.of(noChange, noChange, changed);
-        final List<List<WindowsHistoryNativeUiIngressProbe.PartDragCheck>> gestureReadbacks = List.of(readbacks);
+        final WindowsHistoryNativeUiIngressPartActors.PartDragCheck noChange =
+                partDragCheck(WindowsHistoryNativeUiIngressPartActors.PartDragStatus.NO_CHANGE);
+        final WindowsHistoryNativeUiIngressPartActors.PartDragCheck changed =
+                partDragCheck(WindowsHistoryNativeUiIngressPartActors.PartDragStatus.CHANGED);
+        final List<WindowsHistoryNativeUiIngressPartActors.PartDragCheck> readbacks =
+                List.of(noChange, noChange, changed);
+        final List<List<WindowsHistoryNativeUiIngressPartActors.PartDragCheck>> gestureReadbacks = List.of(readbacks);
 
         int gestures = 0;
-        WindowsHistoryNativeUiIngressProbe.PartDragSettlement settlement;
+        WindowsHistoryNativeUiIngressPartActors.PartDragSettlement settlement;
         do {
             assertTrue(gestures < gestureReadbacks.size(), "late readback must not trigger retry");
-            final List<WindowsHistoryNativeUiIngressProbe.PartDragCheck> gesture = gestureReadbacks.get(gestures);
+            final List<WindowsHistoryNativeUiIngressPartActors.PartDragCheck> gesture = gestureReadbacks.get(gestures);
             gestures++;
-            settlement = WindowsHistoryNativeUiIngressProbe.settlePartDrag(12, poll -> gesture.get(poll));
-        } while (settlement.status() == WindowsHistoryNativeUiIngressProbe.PartDragSettlementStatus.RETRY);
+            settlement = WindowsHistoryNativeUiIngressPartActors.settlePartDrag(12, poll -> gesture.get(poll));
+        } while (settlement.status() == WindowsHistoryNativeUiIngressPartActors.PartDragSettlementStatus.RETRY);
 
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartDragSettlementStatus.CHANGED, settlement.status());
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartDragSettlementStatus.CHANGED, settlement.status());
         assertEquals(1, gestures, "a late parent change belongs to the first gesture");
     }
 
     @Test
     void partDragStopsOnMismatchOrUnavailableInsteadOfRetryingUnknownResults() throws Exception {
-        final WindowsHistoryNativeUiIngressProbe.PartDragCheck noChange =
-                partDragCheck(WindowsHistoryNativeUiIngressProbe.PartDragStatus.NO_CHANGE);
-        final WindowsHistoryNativeUiIngressProbe.PartDragCheck mismatch =
-                partDragCheck(WindowsHistoryNativeUiIngressProbe.PartDragStatus.MISMATCH);
-        final WindowsHistoryNativeUiIngressProbe.PartDragCheck unavailable =
-                partDragCheck(WindowsHistoryNativeUiIngressProbe.PartDragStatus.UNAVAILABLE);
+        final WindowsHistoryNativeUiIngressPartActors.PartDragCheck noChange =
+                partDragCheck(WindowsHistoryNativeUiIngressPartActors.PartDragStatus.NO_CHANGE);
+        final WindowsHistoryNativeUiIngressPartActors.PartDragCheck mismatch =
+                partDragCheck(WindowsHistoryNativeUiIngressPartActors.PartDragStatus.MISMATCH);
+        final WindowsHistoryNativeUiIngressPartActors.PartDragCheck unavailable =
+                partDragCheck(WindowsHistoryNativeUiIngressPartActors.PartDragStatus.UNAVAILABLE);
 
-        final WindowsHistoryNativeUiIngressProbe.PartDragSettlement mismatchResult =
-                WindowsHistoryNativeUiIngressProbe.settlePartDrag(
+        final WindowsHistoryNativeUiIngressPartActors.PartDragSettlement mismatchResult =
+                WindowsHistoryNativeUiIngressPartActors.settlePartDrag(
                         12, poll -> List.of(noChange, mismatch).get(poll));
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartDragSettlementStatus.MISMATCH, mismatchResult.status());
+        assertEquals(
+                WindowsHistoryNativeUiIngressPartActors.PartDragSettlementStatus.MISMATCH, mismatchResult.status());
 
-        final WindowsHistoryNativeUiIngressProbe.PartDragSettlement unavailableResult =
-                WindowsHistoryNativeUiIngressProbe.settlePartDrag(
+        final WindowsHistoryNativeUiIngressPartActors.PartDragSettlement unavailableResult =
+                WindowsHistoryNativeUiIngressPartActors.settlePartDrag(
                         12, poll -> List.of(noChange, unavailable).get(poll));
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.PartDragSettlementStatus.UNAVAILABLE, unavailableResult.status());
+                WindowsHistoryNativeUiIngressPartActors.PartDragSettlementStatus.UNAVAILABLE,
+                unavailableResult.status());
     }
 
     @Test
     void partDragConsidersRetryOnlyAfterTheCompleteNoChangeWindow() throws Exception {
-        final WindowsHistoryNativeUiIngressProbe.PartDragCheck noChange =
-                partDragCheck(WindowsHistoryNativeUiIngressProbe.PartDragStatus.NO_CHANGE);
+        final WindowsHistoryNativeUiIngressPartActors.PartDragCheck noChange =
+                partDragCheck(WindowsHistoryNativeUiIngressPartActors.PartDragStatus.NO_CHANGE);
 
-        final WindowsHistoryNativeUiIngressProbe.PartDragSettlement settlement =
-                WindowsHistoryNativeUiIngressProbe.settlePartDrag(2, poll -> noChange);
+        final WindowsHistoryNativeUiIngressPartActors.PartDragSettlement settlement =
+                WindowsHistoryNativeUiIngressPartActors.settlePartDrag(2, poll -> noChange);
 
-        assertEquals(WindowsHistoryNativeUiIngressProbe.PartDragSettlementStatus.RETRY, settlement.status());
+        assertEquals(WindowsHistoryNativeUiIngressPartActors.PartDragSettlementStatus.RETRY, settlement.status());
     }
 
     @Test
@@ -1952,12 +1983,12 @@ class WindowsHistoryNativeUiIngressProbeTest {
         // A long settle on a navigation step is what let the operator's next keystroke land
         // inside the previous step's window.
         assertTrue(
-                WindowsHistoryNativeUiIngressProbe.settleMillis(UNDO)
-                        < WindowsHistoryNativeUiIngressProbe.settleMillis(ACTION),
+                WindowsHistoryNativeUiIngressPartActors.settleMillis(UNDO)
+                        < WindowsHistoryNativeUiIngressPartActors.settleMillis(ACTION),
                 "navigation must settle faster than an edit");
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.settleMillis(UNDO),
-                WindowsHistoryNativeUiIngressProbe.settleMillis(REDO));
+                WindowsHistoryNativeUiIngressPartActors.settleMillis(UNDO),
+                WindowsHistoryNativeUiIngressPartActors.settleMillis(REDO));
     }
 
     @Test
@@ -1966,17 +1997,17 @@ class WindowsHistoryNativeUiIngressProbeTest {
         // made an edit inside the native-undo window (position 7 -> 8) and then undid it (8 -> 7):
         // against the opening position of 7 that undo never crosses the baseline and the step
         // never closes, which is what left the r8 run with no verdict at all.
-        final String significant =
-                WindowsHistoryNativeUiIngressProbe.significantSequence(List.of(entry(0, "正片叠底色 の編集", true)));
+        final String significant = WindowsHistoryNativeUiIngressParameterEvidence.significantSequence(
+                List.of(entry(0, "正片叠底色 の編集", true)));
 
         assertFalse(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(UNDO, significant, 8L, significant, 7L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(UNDO, significant, 8L, significant, 7L),
                 "an edit inside the window is not the undo");
         assertTrue(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(UNDO, significant, 7L, significant, 8L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(UNDO, significant, 7L, significant, 8L),
                 "the undo is seen against the position the edit left behind");
         assertTrue(
-                WindowsHistoryNativeUiIngressProbe.hasMoved(REDO, significant, 8L, significant, 7L),
+                WindowsHistoryNativeUiIngressPartActors.hasMoved(REDO, significant, 8L, significant, 7L),
                 "the same holds for a redo");
     }
 
@@ -1989,14 +2020,14 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final Object upperColumnRoot = new Object();
         final Object upperToolDetails = new Object();
         final Object inspectorContent = new Object();
-        final WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate selected =
-                WindowsHistoryNativeUiIngressProbe.selectInspectorContentCandidate(
+        final WindowsHistoryNativeUiIngressInspectorSurface.InspectorContentCandidate selected =
+                WindowsHistoryNativeUiIngressInspectorSurface.selectInspectorContentCandidate(
                         List.of(
-                                new WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate(
+                                new WindowsHistoryNativeUiIngressInspectorSurface.InspectorContentCandidate(
                                         upperColumnRoot, new Rectangle(100, 66, 159, 924), true, 100),
-                                new WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate(
+                                new WindowsHistoryNativeUiIngressInspectorSurface.InspectorContentCandidate(
                                         upperToolDetails, new Rectangle(100, 66, 159, 459), true, 20),
-                                new WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate(
+                                new WindowsHistoryNativeUiIngressInspectorSurface.InspectorContentCandidate(
                                         inspectorContent,
                                         new Rectangle(100, selectedTab.y + selectedTab.height, 159, 438),
                                         true,
@@ -2014,20 +2045,20 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final Object hiddenRoot = new Object();
         final Object visibleContent = new Object();
 
-        final WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate selected =
-                WindowsHistoryNativeUiIngressProbe.selectInspectorContentCandidate(
+        final WindowsHistoryNativeUiIngressInspectorSurface.InspectorContentCandidate selected =
+                WindowsHistoryNativeUiIngressInspectorSurface.selectInspectorContentCandidate(
                         List.of(
-                                new WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate(
+                                new WindowsHistoryNativeUiIngressInspectorSurface.InspectorContentCandidate(
                                         hiddenRoot, new Rectangle(100, 551, 159, 438), false, 100),
-                                new WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate(
+                                new WindowsHistoryNativeUiIngressInspectorSurface.InspectorContentCandidate(
                                         visibleContent, new Rectangle(100, 551, 159, 438), true, 4)),
                         selectedTab,
                         dock);
 
         assertSame(visibleContent, selected.widget(), "a hidden high-score root is not usable");
         assertNull(
-                WindowsHistoryNativeUiIngressProbe.selectInspectorContentCandidate(
-                        List.of(new WindowsHistoryNativeUiIngressProbe.InspectorContentCandidate(
+                WindowsHistoryNativeUiIngressInspectorSurface.selectInspectorContentCandidate(
+                        List.of(new WindowsHistoryNativeUiIngressInspectorSurface.InspectorContentCandidate(
                                 hiddenRoot, new Rectangle(100, 551, 159, 438), false, 100)),
                         selectedTab,
                         dock),
@@ -2037,102 +2068,112 @@ class WindowsHistoryNativeUiIngressProbeTest {
     @Test
     void menuNavigationFallsBackOnlyAfterMeasuredUnchangedSamples() {
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ShortcutResolution.DELIVERED,
-                WindowsHistoryNativeUiIngressProbe.shortcutResolution("UNDO", 8L, 7L));
+                WindowsHistoryNativeUiIngressMenuShortcuts.ShortcutResolution.DELIVERED,
+                WindowsHistoryNativeUiIngressMenuShortcuts.shortcutResolution("UNDO", 8L, 7L));
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ShortcutResolution.WRONG_DIRECTION,
-                WindowsHistoryNativeUiIngressProbe.shortcutResolution("UNDO", 8L, 9L),
+                WindowsHistoryNativeUiIngressMenuShortcuts.ShortcutResolution.WRONG_DIRECTION,
+                WindowsHistoryNativeUiIngressMenuShortcuts.shortcutResolution("UNDO", 8L, 9L),
                 "a shortcut that moved the cursor the wrong way still must not be repeated");
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ShortcutResolution.FALLBACK,
-                WindowsHistoryNativeUiIngressProbe.shortcutResolution("UNDO", 8L, 8L));
+                WindowsHistoryNativeUiIngressMenuShortcuts.ShortcutResolution.FALLBACK,
+                WindowsHistoryNativeUiIngressMenuShortcuts.shortcutResolution("UNDO", 8L, 8L));
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ShortcutResolution.DELIVERED,
-                WindowsHistoryNativeUiIngressProbe.shortcutResolution("REDO", 7L, 8L));
+                WindowsHistoryNativeUiIngressMenuShortcuts.ShortcutResolution.DELIVERED,
+                WindowsHistoryNativeUiIngressMenuShortcuts.shortcutResolution("REDO", 7L, 8L));
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ShortcutResolution.WRONG_DIRECTION,
-                WindowsHistoryNativeUiIngressProbe.shortcutResolution("REDO", 8L, 7L));
+                WindowsHistoryNativeUiIngressMenuShortcuts.ShortcutResolution.WRONG_DIRECTION,
+                WindowsHistoryNativeUiIngressMenuShortcuts.shortcutResolution("REDO", 8L, 7L));
     }
 
     @Test
     void menuNavigationDoesNotFallbackWhenPositionEvidenceIsUnknown() {
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ShortcutResolution.UNKNOWN,
-                WindowsHistoryNativeUiIngressProbe.shortcutResolution("UNDO", -1L, List.of(7L)));
+                WindowsHistoryNativeUiIngressMenuShortcuts.ShortcutResolution.UNKNOWN,
+                WindowsHistoryNativeUiIngressMenuShortcuts.shortcutResolution("UNDO", -1L, List.of(7L)));
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ShortcutResolution.UNAVAILABLE,
-                WindowsHistoryNativeUiIngressProbe.shortcutResolution("UNDO", 8L, Arrays.asList(null, null)));
+                WindowsHistoryNativeUiIngressMenuShortcuts.ShortcutResolution.UNAVAILABLE,
+                WindowsHistoryNativeUiIngressMenuShortcuts.shortcutResolution("UNDO", 8L, Arrays.asList(null, null)));
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ShortcutResolution.UNAVAILABLE,
-                WindowsHistoryNativeUiIngressProbe.shortcutResolution("UNDO", 8L, Arrays.asList(null, 8L)),
+                WindowsHistoryNativeUiIngressMenuShortcuts.ShortcutResolution.UNAVAILABLE,
+                WindowsHistoryNativeUiIngressMenuShortcuts.shortcutResolution("UNDO", 8L, Arrays.asList(null, 8L)),
                 "one unavailable sample still leaves a possible menu action unobserved");
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ShortcutResolution.FALLBACK,
-                WindowsHistoryNativeUiIngressProbe.shortcutResolution("UNDO", 8L, List.of(8L, 8L)),
+                WindowsHistoryNativeUiIngressMenuShortcuts.ShortcutResolution.FALLBACK,
+                WindowsHistoryNativeUiIngressMenuShortcuts.shortcutResolution("UNDO", 8L, List.of(8L, 8L)),
                 "only measured unchanged samples authorize Robot fallback");
     }
 
     @Test
     void parameterValueChangeIsEvidenceEvenWhenHistoryAdmissionIsNotObserved() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before =
-                WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.available(
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot before =
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot.available(
                         "model-A",
-                        List.of(new WindowsHistoryNativeUiIngressProbe.ParameterValueSample("ParamAngleX", 0.0f)));
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after =
-                WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.available(
+                        List.of(new WindowsHistoryNativeUiIngressParameterEvidence.ParameterValueSample(
+                                "ParamAngleX", 0.0f)));
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot after =
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot.available(
                         "model-A",
-                        List.of(new WindowsHistoryNativeUiIngressProbe.ParameterValueSample("ParamAngleX", 12.5f)));
+                        List.of(new WindowsHistoryNativeUiIngressParameterEvidence.ParameterValueSample(
+                                "ParamAngleX", 12.5f)));
 
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.CHANGED,
-                WindowsHistoryNativeUiIngressProbe.compareParameterState(before, after));
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.CHANGED,
+                WindowsHistoryNativeUiIngressParameterEvidence.compareParameterState(before, after));
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterHistoryAdmission.NOT_OBSERVED,
-                WindowsHistoryNativeUiIngressProbe.parameterHistoryAdmission("", ""),
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterHistoryAdmission.NOT_OBSERVED,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterHistoryAdmission("", ""),
                 "a changed value is not relabelled as unchanged just because no significant Undo entry appeared");
     }
 
     @Test
     void parameterValueEvidenceRejectsAnUnchangedReadback() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before =
-                WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.available(
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot before =
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot.available(
                         "model-A",
-                        List.of(new WindowsHistoryNativeUiIngressProbe.ParameterValueSample("ParamAngleX", 0.0f)));
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after =
-                WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.available(
+                        List.of(new WindowsHistoryNativeUiIngressParameterEvidence.ParameterValueSample(
+                                "ParamAngleX", 0.0f)));
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot after =
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot.available(
                         "model-A",
-                        List.of(new WindowsHistoryNativeUiIngressProbe.ParameterValueSample("ParamAngleX", 0.0f)));
+                        List.of(new WindowsHistoryNativeUiIngressParameterEvidence.ParameterValueSample(
+                                "ParamAngleX", 0.0f)));
 
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNCHANGED,
-                WindowsHistoryNativeUiIngressProbe.compareParameterState(before, after));
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.UNCHANGED,
+                WindowsHistoryNativeUiIngressParameterEvidence.compareParameterState(before, after));
     }
 
     @Test
     void parameterReadbackFailsClosedForModelSwitchAndUnavailableReads() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before =
-                WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.available(
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot before =
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot.available(
                         "model-A",
-                        List.of(new WindowsHistoryNativeUiIngressProbe.ParameterValueSample("ParamAngleX", 0.0f)));
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot switched =
-                WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.available(
+                        List.of(new WindowsHistoryNativeUiIngressParameterEvidence.ParameterValueSample(
+                                "ParamAngleX", 0.0f)));
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot switched =
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot.available(
                         "model-B",
-                        List.of(new WindowsHistoryNativeUiIngressProbe.ParameterValueSample("ParamAngleX", 12.5f)));
+                        List.of(new WindowsHistoryNativeUiIngressParameterEvidence.ParameterValueSample(
+                                "ParamAngleX", 12.5f)));
 
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.MODEL_CHANGED,
-                WindowsHistoryNativeUiIngressProbe.compareParameterState(before, switched));
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.MODEL_CHANGED,
+                WindowsHistoryNativeUiIngressParameterEvidence.compareParameterState(before, switched));
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNAVAILABLE,
-                WindowsHistoryNativeUiIngressProbe.compareParameterState(
-                        before, WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.unavailable("read-failed")));
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.UNAVAILABLE,
+                WindowsHistoryNativeUiIngressParameterEvidence.compareParameterState(
+                        before,
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot.unavailable(
+                                "read-failed")));
     }
 
     @Test
     void parameterLifecycleEvidenceKeepsRelatedAndUnrelatedCallbacksSeparate() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot("model-A", 0.0f);
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot("model-A", 12.5f);
-        final List<WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent> callbacks = List.of(
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot before =
+                parameterSnapshot("model-A", 0.0f);
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot after =
+                parameterSnapshot("model-A", 12.5f);
+        final List<WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleEvent> callbacks = List.of(
                 lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "EDT"),
                 lifecycle(2L, "on", "ParamAngleX", 0.0f, 12.5f, "callback"),
                 lifecycle(3L, "after", "ParamAngleX", null, 12.5f, "callback"),
@@ -2140,22 +2181,24 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
         assertEquals(
                 3,
-                WindowsHistoryNativeUiIngressProbe.relevantParameterLifecycle(callbacks, Set.of("ParamAngleX"))
+                WindowsHistoryNativeUiIngressParameterEvidence.relevantParameterLifecycle(
+                                callbacks, Set.of("ParamAngleX"))
                         .size());
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.COMPLETE,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.COMPLETE,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
                         callbacks, before, after, Set.of("ParamAngleX"), true));
         assertTrue(
                 callbacks.get(1).json(Set.of("ParamAngleX")).contains("\"sequence\":2"),
                 "callback sequence must be retained for evidence review");
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.OBSERVED_UNRELATED,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.OBSERVED_UNRELATED,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
                         List.of(lifecycle(1L, "on", "ParamOpacity", 1.0f, 0.8f, "callback")), Set.of(), false));
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.MISSING,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(List.of(), Set.of("ParamAngleX"), true));
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.MISSING,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
+                        List.of(), Set.of("ParamAngleX"), true));
 
         final WindowsHistoryNativeUiIngressProbe probe = new WindowsHistoryNativeUiIngressProbe();
         assertEquals(
@@ -2167,27 +2210,29 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void parameterLifecycleAcceptsAContinuousNativeValueChain() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot("model-A", 0.0f);
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot("model-A", 12.5f);
-        final List<WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent> callbacks = List.of(
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot before =
+                parameterSnapshot("model-A", 0.0f);
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot after =
+                parameterSnapshot("model-A", 12.5f);
+        final List<WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleEvent> callbacks = List.of(
                 lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "callback"),
                 lifecycle(2L, "on", "ParamAngleX", 0.0f, 5.0f, "callback"),
                 lifecycle(3L, "on", "ParamAngleX", 5.0f, 12.5f, "callback"),
                 lifecycle(4L, "after", "ParamAngleX", null, 12.5f, "callback"));
 
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.COMPLETE,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.COMPLETE,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
                         callbacks, before, after, Set.of("ParamAngleX"), true));
     }
 
     @Test
     void parameterLifecycleAcceptsR79TraceWithTrailingNoChangeSegment() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before =
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot before =
                 parameterSnapshot("41f72ac0-bd7f-4431-8011-be1ee7131e8a", "ParamAngleY", 0.0f);
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after =
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot after =
                 parameterSnapshot("41f72ac0-bd7f-4431-8011-be1ee7131e8a", "ParamAngleY", 1.4399999f);
-        final List<WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent> callbacks = List.of(
+        final List<WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleEvent> callbacks = List.of(
                 lifecycle(1L, "before", "ParamAngleY", 0.0f, 0.06f, "AWT-EventQueue-0"),
                 lifecycle(2L, "on", "ParamAngleY", 0.0f, 0.06f, "bulkhead-dev.turboism.validation.history-native-ui-1"),
                 lifecycle(
@@ -2237,18 +2282,18 @@ class WindowsHistoryNativeUiIngressProbeTest {
                         "bulkhead-dev.turboism.validation.history-native-ui-1"));
 
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.COMPLETE,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.COMPLETE,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
                         callbacks, before, after, Set.of("ParamAngleY"), true));
     }
 
     @Test
     void parameterLifecyclePureNoChangeCannotSucceed() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before =
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot before =
                 parameterSnapshot("model-A", "ParamAngleY", 1.4399999f);
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after =
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot after =
                 parameterSnapshot("model-A", "ParamAngleY", 1.4399999f);
-        final List<WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent> callbacks = List.of(
+        final List<WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleEvent> callbacks = List.of(
                 lifecycle(1L, "before", "ParamAngleY", 1.4399999f, 1.4399999f, "AWT-EventQueue-0"),
                 lifecycle(
                         2L,
@@ -2259,21 +2304,22 @@ class WindowsHistoryNativeUiIngressProbeTest {
                         "bulkhead-dev.turboism.validation.history-native-ui-1"));
 
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.OBSERVED_UNRELATED,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(callbacks, before, after, Set.of(), false));
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.OBSERVED_UNRELATED,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
+                        callbacks, before, after, Set.of(), false));
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.INCOMPLETE,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
                         callbacks, before, after, Set.of("ParamAngleY"), false));
     }
 
     @Test
     void parameterLifecycleNeutralSegmentCannotHideMissingOn() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before =
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot before =
                 parameterSnapshot("model-A", "ParamAngleY", 0.0f);
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after =
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot after =
                 parameterSnapshot("model-A", "ParamAngleY", 5.0f);
-        final List<WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent> callbacks = List.of(
+        final List<WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleEvent> callbacks = List.of(
                 lifecycle(1L, "before", "ParamAngleY", 0.0f, 5.0f, "AWT-EventQueue-0"),
                 lifecycle(2L, "on", "ParamAngleY", 0.0f, 5.0f, "callback"),
                 lifecycle(3L, "after", "ParamAngleY", null, 5.0f, "callback"),
@@ -2281,19 +2327,21 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 lifecycle(5L, "after", "ParamAngleY", null, 5.0f, "callback"));
 
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.INCOMPLETE,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
                         callbacks, before, after, Set.of("ParamAngleY"), true));
     }
 
     @Test
     void parameterLifecycleRejectsReversedAndUnrelatedValues() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot("model-A", 0.0f);
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot("model-A", 12.5f);
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot before =
+                parameterSnapshot("model-A", 0.0f);
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot after =
+                parameterSnapshot("model-A", 12.5f);
 
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.INCOMPLETE,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
                         List.of(
                                 lifecycle(1L, "after", "ParamAngleX", null, 999.0f, "callback"),
                                 lifecycle(2L, "on", "ParamAngleX", 999.0f, 999.0f, "callback"),
@@ -2303,8 +2351,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
                         Set.of("ParamAngleX"),
                         true));
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.INCOMPLETE,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
                         List.of(
                                 lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "callback"),
                                 lifecycle(2L, "on", "ParamAngleX", 0.0f, 999.0f, "callback"),
@@ -2317,12 +2365,14 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void parameterLifecycleRejectsNoChangeMissingPhaseAndMissingValues() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot("model-A", 0.0f);
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot("model-A", 12.5f);
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot before =
+                parameterSnapshot("model-A", 0.0f);
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot after =
+                parameterSnapshot("model-A", 12.5f);
 
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.INCOMPLETE,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
                         List.of(
                                 lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "callback"),
                                 lifecycle(2L, "on", "ParamAngleX", 0.0f, 0.0f, "callback"),
@@ -2332,8 +2382,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
                         Set.of("ParamAngleX"),
                         true));
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.INCOMPLETE,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
                         List.of(
                                 lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "callback"),
                                 lifecycle(2L, "after", "ParamAngleX", null, 12.5f, "callback")),
@@ -2342,8 +2392,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
                         Set.of("ParamAngleX"),
                         true));
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.INCOMPLETE,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
                         List.of(
                                 lifecycle(1L, "before", "ParamAngleX", null, null, "callback"),
                                 lifecycle(2L, "on", "ParamAngleX", 0.0f, 12.5f, "callback"),
@@ -2356,37 +2406,42 @@ class WindowsHistoryNativeUiIngressProbeTest {
 
     @Test
     void parameterLifecycleWithoutReadbackCannotBeComplete() {
-        final List<WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent> callbacks = List.of(
+        final List<WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleEvent> callbacks = List.of(
                 lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "callback"),
                 lifecycle(2L, "on", "ParamAngleX", 0.0f, 12.5f, "callback"),
                 lifecycle(3L, "after", "ParamAngleX", null, 12.5f, "callback"));
 
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.UNAVAILABLE,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(callbacks, Set.of("ParamAngleX"), true));
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.UNAVAILABLE,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
+                        callbacks, Set.of("ParamAngleX"), true));
     }
 
     @Test
     void parameterLifecycleSampleLossIsExplicitlyIncomplete() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot("model-A", 0.0f);
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot("model-A", 12.5f);
-        final List<WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent> callbacks = List.of(
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot before =
+                parameterSnapshot("model-A", 0.0f);
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot after =
+                parameterSnapshot("model-A", 12.5f);
+        final List<WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleEvent> callbacks = List.of(
                 lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "callback"),
                 lifecycle(2L, "on", "ParamAngleX", 0.0f, 12.5f, "callback"),
                 lifecycle(3L, "after", "ParamAngleX", null, 12.5f, "callback"));
 
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.INCOMPLETE,
-                WindowsHistoryNativeUiIngressProbe.parameterLifecycleStatus(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.INCOMPLETE,
+                WindowsHistoryNativeUiIngressParameterEvidence.parameterLifecycleStatus(
                         callbacks, before, after, Set.of("ParamAngleX"), true, false));
     }
 
     @Test
     void parameterLifecycleReportsCallbackModelCorrelationAsUnavailable() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot before = parameterSnapshot("model-A", 0.0f);
-        final WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot after = parameterSnapshot("model-A", 12.5f);
-        final WindowsHistoryNativeUiIngressProbe.ParameterLifecycleAssessment assessment =
-                WindowsHistoryNativeUiIngressProbe.assessParameterLifecycle(
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot before =
+                parameterSnapshot("model-A", 0.0f);
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot after =
+                parameterSnapshot("model-A", 12.5f);
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleAssessment assessment =
+                WindowsHistoryNativeUiIngressParameterEvidence.assessParameterLifecycle(
                         List.of(
                                 lifecycle(1L, "before", "ParamAngleX", 0.0f, 12.5f, "callback"),
                                 lifecycle(2L, "on", "ParamAngleX", 0.0f, 12.5f, "callback"),
@@ -2396,109 +2451,119 @@ class WindowsHistoryNativeUiIngressProbeTest {
                         Set.of("ParamAngleX"),
                         true);
 
-        assertEquals(WindowsHistoryNativeUiIngressProbe.ParameterLifecycleStatus.COMPLETE, assessment.status());
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterModelCorrelation.UNAVAILABLE,
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleStatus.COMPLETE, assessment.status());
+        assertEquals(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterModelCorrelation.UNAVAILABLE,
                 assessment.modelCorrelation());
     }
 
     @Test
     void parameterActorModelFailureCannotBeRecoveredByALaterNormalRead() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation actorFailure =
-                new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
-                        WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.MODEL_CHANGED,
-                        WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.unavailable("model-changed"),
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation actorFailure =
+                new WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation(
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.MODEL_CHANGED,
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot.unavailable(
+                                "model-changed"),
                         "model-changed");
-        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation laterChange =
-                new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
-                        WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.CHANGED,
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation laterChange =
+                new WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation(
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.CHANGED,
                         parameterSnapshot("model-B", 12.5f),
                         "changed");
 
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.MODEL_CHANGED,
-                WindowsHistoryNativeUiIngressProbe.settleParameterObservations(actorFailure, List.of(laterChange))
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.MODEL_CHANGED,
+                WindowsHistoryNativeUiIngressParameterEvidence.settleParameterObservations(
+                                actorFailure, List.of(laterChange))
                         .outcome());
 
-        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation unavailable =
-                new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
-                        WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNAVAILABLE,
-                        WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.unavailable("read-failed"),
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation unavailable =
+                new WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation(
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.UNAVAILABLE,
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot.unavailable(
+                                "read-failed"),
                         "read-failed");
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNAVAILABLE,
-                WindowsHistoryNativeUiIngressProbe.settleParameterObservations(unavailable, List.of(laterChange))
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.UNAVAILABLE,
+                WindowsHistoryNativeUiIngressParameterEvidence.settleParameterObservations(
+                                unavailable, List.of(laterChange))
                         .outcome());
     }
 
     @Test
     void parameterSettleFailureCannotBeRecoveredByALaterNormalRead() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation actorChange =
-                new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
-                        WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.CHANGED,
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation actorChange =
+                new WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation(
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.CHANGED,
                         parameterSnapshot("model-A", 5.0f),
                         "changed");
-        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation laterChange =
-                new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
-                        WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.CHANGED,
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation laterChange =
+                new WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation(
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.CHANGED,
                         parameterSnapshot("model-A", 12.5f),
                         "changed");
-        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation modelChanged =
-                new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
-                        WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.MODEL_CHANGED,
-                        WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.unavailable("model-changed"),
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation modelChanged =
+                new WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation(
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.MODEL_CHANGED,
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot.unavailable(
+                                "model-changed"),
                         "model-changed");
-        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation unavailable =
-                new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
-                        WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNAVAILABLE,
-                        WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.unavailable("read-failed"),
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation unavailable =
+                new WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation(
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.UNAVAILABLE,
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot.unavailable(
+                                "read-failed"),
                         "read-failed");
 
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.MODEL_CHANGED,
-                WindowsHistoryNativeUiIngressProbe.settleParameterObservations(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.MODEL_CHANGED,
+                WindowsHistoryNativeUiIngressParameterEvidence.settleParameterObservations(
                                 actorChange, List.of(modelChanged, laterChange))
                         .outcome());
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNAVAILABLE,
-                WindowsHistoryNativeUiIngressProbe.settleParameterObservations(
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.UNAVAILABLE,
+                WindowsHistoryNativeUiIngressParameterEvidence.settleParameterObservations(
                                 actorChange, List.of(unavailable, laterChange))
                         .outcome());
     }
 
     @Test
     void parameterSettleUsesTheLatestSuccessfulReadbackAsFinalState() {
-        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation actorChange =
-                new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
-                        WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.CHANGED,
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation actorChange =
+                new WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation(
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.CHANGED,
                         parameterSnapshot("model-A", 5.0f),
                         "changed");
-        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation settledChange =
-                new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
-                        WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.CHANGED,
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation settledChange =
+                new WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation(
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.CHANGED,
                         parameterSnapshot("model-A", 12.5f),
                         "changed");
-        final WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation unchanged =
-                new WindowsHistoryNativeUiIngressProbe.ParameterChangeObservation(
-                        WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNCHANGED,
+        final WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation unchanged =
+                new WindowsHistoryNativeUiIngressParameterEvidence.ParameterChangeObservation(
+                        WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.UNCHANGED,
                         parameterSnapshot("model-A", 0.0f),
                         "unchanged");
 
         assertEquals(
                 12.5f,
-                WindowsHistoryNativeUiIngressProbe.settleParameterObservations(actorChange, List.of(settledChange))
+                WindowsHistoryNativeUiIngressParameterEvidence.settleParameterObservations(
+                                actorChange, List.of(settledChange))
                         .after()
                         .values()
                         .get(0)
                         .value(),
                 0.0f);
         assertEquals(
-                WindowsHistoryNativeUiIngressProbe.ParameterStateOutcome.UNCHANGED,
-                WindowsHistoryNativeUiIngressProbe.settleParameterObservations(actorChange, List.of(unchanged))
+                WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateOutcome.UNCHANGED,
+                WindowsHistoryNativeUiIngressParameterEvidence.settleParameterObservations(
+                                actorChange, List.of(unchanged))
                         .outcome());
         assertEquals(
                 0.0f,
-                WindowsHistoryNativeUiIngressProbe.settleParameterObservations(actorChange, List.of(unchanged))
+                WindowsHistoryNativeUiIngressParameterEvidence.settleParameterObservations(
+                                actorChange, List.of(unchanged))
                         .after()
                         .values()
                         .get(0)
@@ -2521,8 +2586,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
         tree.collapsePath(new TreePath(target.getPath()));
         table.setRowHeight(20);
         table.setSize(240, 80);
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout =
-                WindowsHistoryNativeUiIngressProbe.locatePartPairRows(table, tree, "Source", "Target");
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout =
+                WindowsHistoryNativeUiIngressPartActors.locatePartPairRows(table, tree, "Source", "Target");
         assertTrue(layout != null, "test Parts layout must be locatable");
         return new SwingPartSurface(root, target, source, table, tree, layout);
     }
@@ -2541,8 +2606,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final JTable table = new JTable(5, 1);
         table.setRowHeight(20);
         table.setSize(240, 100);
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout =
-                WindowsHistoryNativeUiIngressProbe.locatePartPairRows(table, tree, "Source", "Target");
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout =
+                WindowsHistoryNativeUiIngressPartActors.locatePartPairRows(table, tree, "Source", "Target");
         assertTrue(layout != null, "test three-row Parts layout must be locatable");
         return new SwingPartSurface(root, target, source, table, tree, layout);
     }
@@ -2559,15 +2624,15 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final JTable table = new JTable(4, 1);
         table.setRowHeight(20);
         table.setSize(240, 80);
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout =
-                WindowsHistoryNativeUiIngressProbe.locatePartPairRows(table, tree, "Source", "Target");
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout =
+                WindowsHistoryNativeUiIngressPartActors.locatePartPairRows(table, tree, "Source", "Target");
         assertTrue(layout != null, "test source-before-target layout must be locatable");
         return new SwingPartSurface(root, target, source, table, tree, layout);
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.PartPairLayout screenLayout(final SwingPartSurface surface) {
-        final WindowsHistoryNativeUiIngressProbe.PartPairLayout base = surface.layout();
-        return new WindowsHistoryNativeUiIngressProbe.PartPairLayout(
+    private static WindowsHistoryNativeUiIngressPartActors.PartPairLayout screenLayout(final SwingPartSurface surface) {
+        final WindowsHistoryNativeUiIngressPartActors.PartPairLayout base = surface.layout();
+        return new WindowsHistoryNativeUiIngressPartActors.PartPairLayout(
                 base.table(),
                 base.tree(),
                 base.tableModel(),
@@ -2577,7 +2642,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 base.tableShowing());
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.PartGestureInput trackingPartGestureInput(
+    private static WindowsHistoryNativeUiIngressPartActors.PartGestureInput trackingPartGestureInput(
             final SwingPartSurface surface,
             final Point target,
             final List<Point> sourceMoves,
@@ -2588,7 +2653,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 surface, target, sourceMoves, pressCount, releaseCount, mouseMovedAttempts, false);
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.PartGestureInput trackingPartGestureInput(
+    private static WindowsHistoryNativeUiIngressPartActors.PartGestureInput trackingPartGestureInput(
             final SwingPartSurface surface,
             final Point target,
             final List<Point> sourceMoves,
@@ -2599,7 +2664,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final boolean[] pressed = {false};
         final Point sourceEvent = new Point(surface.layout().source().localPoint());
         final MouseEvent[] delayedAttemptOneEvent = {null};
-        return new WindowsHistoryNativeUiIngressProbe.PartGestureInput() {
+        return new WindowsHistoryNativeUiIngressPartActors.PartGestureInput() {
             @Override
             public void mouseMove(final int x, final int y) throws Exception {
                 if (!pressed[0]) {
@@ -2651,9 +2716,9 @@ class WindowsHistoryNativeUiIngressProbeTest {
         };
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.PartGestureInput noOpInput(
+    private static WindowsHistoryNativeUiIngressPartActors.PartGestureInput noOpInput(
             final int[] pressCount, final List<Long> pauses) {
-        return new WindowsHistoryNativeUiIngressProbe.PartGestureInput() {
+        return new WindowsHistoryNativeUiIngressPartActors.PartGestureInput() {
             @Override
             public void mouseMove(final int x, final int y) {}
 
@@ -2672,15 +2737,16 @@ class WindowsHistoryNativeUiIngressProbeTest {
         };
     }
 
-    private static List<JsonNode> pointerEvidence(final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt)
-            throws Exception {
+    private static List<JsonNode> pointerEvidence(
+            final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt attempt) throws Exception {
         return filterJson(
                 attempt.evidence(),
                 node -> "part-pointer".equals(node.path("type").asText()));
     }
 
     private static List<JsonNode> evidenceForPhase(
-            final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt, final String phase) throws Exception {
+            final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt attempt, final String phase)
+            throws Exception {
         return evidenceForPhase(attempt.evidence(), phase);
     }
 
@@ -2699,7 +2765,8 @@ class WindowsHistoryNativeUiIngressProbeTest {
     }
 
     private static JsonNode evidenceByPhase(
-            final WindowsHistoryNativeUiIngressProbe.PartGestureAttempt attempt, final String phase) throws Exception {
+            final WindowsHistoryNativeUiIngressPartActors.PartGestureAttempt attempt, final String phase)
+            throws Exception {
         for (final String line : attempt.evidence()) {
             final JsonNode node = JSON.readTree(line);
             if (node != null && phase.equals(node.path("phase").asText())) return node;
@@ -2734,7 +2801,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
             DefaultMutableTreeNode source,
             JTable table,
             JTree tree,
-            WindowsHistoryNativeUiIngressProbe.PartPairLayout layout) {}
+            WindowsHistoryNativeUiIngressPartActors.PartPairLayout layout) {}
 
     private static final class MotionThrowingTable extends JTable {
         private boolean failOnMotionListener = true;
@@ -2750,18 +2817,19 @@ class WindowsHistoryNativeUiIngressProbeTest {
         }
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot parameterSnapshot(
+    private static WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot parameterSnapshot(
             final String modelId, final float value) {
         return parameterSnapshot(modelId, "ParamAngleX", value);
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot parameterSnapshot(
+    private static WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot parameterSnapshot(
             final String modelId, final String parameterId, final float value) {
-        return WindowsHistoryNativeUiIngressProbe.ParameterStateSnapshot.available(
-                modelId, List.of(new WindowsHistoryNativeUiIngressProbe.ParameterValueSample(parameterId, value)));
+        return WindowsHistoryNativeUiIngressParameterEvidence.ParameterStateSnapshot.available(
+                modelId,
+                List.of(new WindowsHistoryNativeUiIngressParameterEvidence.ParameterValueSample(parameterId, value)));
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent lifecycle(
+    private static WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleEvent lifecycle(
             final String phase,
             final String parameterId,
             final Float oldValue,
@@ -2770,34 +2838,34 @@ class WindowsHistoryNativeUiIngressProbeTest {
         return lifecycle(0L, phase, parameterId, oldValue, newValue, thread);
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent lifecycle(
+    private static WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleEvent lifecycle(
             final long sequence,
             final String phase,
             final String parameterId,
             final Float oldValue,
             final Float newValue,
             final String thread) {
-        return new WindowsHistoryNativeUiIngressProbe.ParameterLifecycleEvent(
+        return new WindowsHistoryNativeUiIngressParameterEvidence.ParameterLifecycleEvent(
                 sequence, phase, parameterId, oldValue, newValue, thread);
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.Verdict partVerdict(final HistoryEntryDetail detail) {
+    private static WindowsHistoryNativeUiIngressVerdicts.Verdict partVerdict(final HistoryEntryDetail detail) {
         return partVerdict(List.of(detail));
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.ActorPart actorPart(
+    private static WindowsHistoryNativeUiIngressPartActors.ActorPart actorPart(
             final String id, final String name, final Optional<String> parentId, final List<String> childIds) {
-        return new WindowsHistoryNativeUiIngressProbe.ActorPart(id, name, parentId, childIds);
+        return new WindowsHistoryNativeUiIngressPartActors.ActorPart(id, name, parentId, childIds);
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.PartDragCheck partDragCheck(
-            final WindowsHistoryNativeUiIngressProbe.PartDragStatus status) {
-        return new WindowsHistoryNativeUiIngressProbe.PartDragCheck(
+    private static WindowsHistoryNativeUiIngressPartActors.PartDragCheck partDragCheck(
+            final WindowsHistoryNativeUiIngressPartActors.PartDragStatus status) {
+        return new WindowsHistoryNativeUiIngressPartActors.PartDragCheck(
                 status, status.name().toLowerCase(), "source", "target", Optional.of("parent"), Optional.of("parent"));
     }
 
-    private static List<WindowsHistoryNativeUiIngressProbe.ActorPart> pairModelParts(
-            final WindowsHistoryNativeUiIngressProbe.PartPair pair) {
+    private static List<WindowsHistoryNativeUiIngressPartActors.ActorPart> pairModelParts(
+            final WindowsHistoryNativeUiIngressPartActors.PartPair pair) {
         return List.of(
                 actorPart(
                         "__RootPart__",
@@ -2808,7 +2876,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                 pair.target());
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.PartModelSnapshot partModel(
+    private static WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot partModel(
             final String modelId,
             final String sourceParent,
             final String sourceId,
@@ -2819,7 +2887,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
         if (!rootChildren.contains(sourceParent)) rootChildren.add(0, sourceParent);
         final List<String> parentChildren = "parent".equals(sourceParent) ? List.of(sourceId) : List.of();
         final List<String> targetChildren = targetId.equals(sourceParent) ? List.of(sourceId) : List.of();
-        return new WindowsHistoryNativeUiIngressProbe.PartModelSnapshot(
+        return new WindowsHistoryNativeUiIngressPartActors.PartModelSnapshot(
                 modelId,
                 List.of(
                         actorPart("__RootPart__", "Root", Optional.empty(), rootChildren),
@@ -2829,7 +2897,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
                         actorPart(otherId, "Other", Optional.of("__RootPart__"), List.of())));
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.Verdict partVerdict(final List<HistoryEntryDetail> details) {
+    private static WindowsHistoryNativeUiIngressVerdicts.Verdict partVerdict(final List<HistoryEntryDetail> details) {
         final WindowsHistoryManagerValidationProbe.SdkEntry old =
                 sdkEntry(0, "old", HistoryEntryDetail.labelOnly("old"));
         final java.util.ArrayList<WindowsHistoryManagerValidationProbe.SdkEntry> after = new java.util.ArrayList<>();
@@ -2837,7 +2905,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
         for (int index = 0; index < details.size(); index++) {
             after.add(sdkEntry(index + 1, "new-" + index, details.get(index)));
         }
-        return WindowsHistoryNativeUiIngressProbe.checkPartMembershipStep(
+        return WindowsHistoryNativeUiIngressVerdicts.checkPartMembershipStep(
                 sdkHistory(List.of(old), 1), sdkHistory(after, after.size()));
     }
 
@@ -2921,34 +2989,34 @@ class WindowsHistoryNativeUiIngressProbeTest {
                         "com.live2d.undo.GroupUndo", "LIMIT", "history.detail.node-or-depth-limit"));
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.Observed event(
+    private static WindowsHistoryNativeUiIngressVerdicts.Observed event(
             final String phase, final long sequence, final String origin) {
         return event(phase, sequence, origin, "Add Part");
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.Observed event(
+    private static WindowsHistoryNativeUiIngressVerdicts.Observed event(
             final String phase, final long sequence, final String origin, final String label) {
         return eventWithFields(phase, sequence, "EXECUTE_EDITOR_COMMAND", origin, "", label);
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.Observed navigationEvent(
+    private static WindowsHistoryNativeUiIngressVerdicts.Observed navigationEvent(
             final String phase, final long sequence, final String kind) {
         return navigationEvent(phase, sequence, kind, kind);
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.Observed navigationEvent(
+    private static WindowsHistoryNativeUiIngressVerdicts.Observed navigationEvent(
             final String phase, final long sequence, final String origin, final String operation) {
         return eventWithFields(phase, sequence, operation, origin, "", "");
     }
 
-    private static WindowsHistoryNativeUiIngressProbe.Observed eventWithFields(
+    private static WindowsHistoryNativeUiIngressVerdicts.Observed eventWithFields(
             final String phase,
             final long sequence,
             final String operation,
             final String origin,
             final String subjectId,
             final String label) {
-        return new WindowsHistoryNativeUiIngressProbe.Observed(
+        return new WindowsHistoryNativeUiIngressVerdicts.Observed(
                 phase, sequence, operation, origin, subjectId, label, "AWT-EventQueue-0", "2026-01-01T00:00:00Z");
     }
 }

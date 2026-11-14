@@ -30,6 +30,12 @@ for class_name in \
   WindowsHistoryFloatProbe \
   WindowsHistoryNativeUiIngressProbe \
   WindowsHistoryNativeUiIngressProbeTest \
+  WindowsHistoryNativeUiIngressPartActors \
+  WindowsHistoryNativeUiIngressParameterEvidence \
+  WindowsHistoryNativeUiIngressInspectorSurface \
+  WindowsHistoryNativeUiIngressCanvasActor \
+  WindowsHistoryNativeUiIngressMenuShortcuts \
+  WindowsHistoryNativeUiIngressVerdicts \
   WindowsHistoryNativeUiHostClose \
   'WindowsHistoryNativeUiHostClose$CloseResult' \
   'WindowsMeshEditValidationProbe$SelectionAttempt' \
@@ -69,6 +75,12 @@ done
 native_ui_jar="$bundle_root/plugins/history-native-ui-probe.jar"
 for entry in \
   'dev/turboism/tests/plugin/WindowsHistoryNativeUiIngressProbe.class' \
+  'dev/turboism/tests/plugin/WindowsHistoryNativeUiIngressPartActors.class' \
+  'dev/turboism/tests/plugin/WindowsHistoryNativeUiIngressParameterEvidence.class' \
+  'dev/turboism/tests/plugin/WindowsHistoryNativeUiIngressInspectorSurface.class' \
+  'dev/turboism/tests/plugin/WindowsHistoryNativeUiIngressCanvasActor.class' \
+  'dev/turboism/tests/plugin/WindowsHistoryNativeUiIngressMenuShortcuts.class' \
+  'dev/turboism/tests/plugin/WindowsHistoryNativeUiIngressVerdicts.class' \
   'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe.class' \
   'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe$Snapshot.class' \
   'dev/turboism/tests/plugin/WindowsHistoryNativeUiHostClose.class' \
