@@ -1,11 +1,10 @@
 package dev.turboism.distribution;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import dev.turboism.core.io.Sha256;
 import java.io.InputStream;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -80,7 +79,7 @@ final class ArtifactInspector {
                 base + ".path");
         byte[] bytes = readBounded(entry, base);
         require(
-                sha256(bytes).equals(expectedHash),
+                Sha256.hex(bytes).equals(expectedHash),
                 "ARTIFACT_HASH_MISMATCH",
                 "Artifact hash mismatch",
                 base + ".sha256");
@@ -125,10 +124,6 @@ final class ArtifactInspector {
                 field + " must be non-empty text",
                 base + "." + field);
         return node.path(field).textValue();
-    }
-
-    private static String sha256(byte[] bytes) throws Exception {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 
     private static void require(boolean valid, String code, String message, String path)

@@ -3,6 +3,7 @@ package dev.turboism.kernel;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.adapter.host.HostSession;
+import dev.turboism.core.io.Sha256;
 import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureSnapshot;
 import dev.turboism.i18n.RuntimePluginLocalization;
@@ -12,11 +13,8 @@ import dev.turboism.kernel.report.KernelReportValidator;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.sdk.permission.PermissionIds;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -799,17 +797,8 @@ public final class KernelReportSnapshotFactory {
             return java.util.Optional.empty();
         }
         try {
-            final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            try (InputStream input = Files.newInputStream(path)) {
-                final byte[] buffer = new byte[8192];
-                int read;
-                while ((read = input.read(buffer)) >= 0) {
-                    digest.update(buffer, 0, read);
-                }
-            }
-            return java.util.Optional.of(
-                    new FileDigest(java.util.HexFormat.of().formatHex(digest.digest()), Files.size(path)));
-        } catch (IOException | NoSuchAlgorithmException exception) {
+            return java.util.Optional.of(new FileDigest(Sha256.hexOf(path), Files.size(path)));
+        } catch (IOException exception) {
             return java.util.Optional.empty();
         }
     }

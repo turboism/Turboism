@@ -7,8 +7,10 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -65,10 +67,30 @@ public final class CubismEditorReleaseDetector {
     /** Version-build integers are nine-digit values assigned verbatim by the host. */
     private static final long VERSION_BUILD_FLOOR = 100_000_000L;
 
+    /**
+     * Probes retained for one process. Each entry is keyed by the canonical artifact path plus the
+     * artifact digest, so a replaced or rewritten JAR misses and is probed again.
+     */
+    private static final int MAX_CACHED_PROBES = 32;
+
+    private static final Map<ProbeKey, HostIdentityProbe> PROBES = new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(final Map.Entry<ProbeKey, HostIdentityProbe> eldest) {
+            return size() > MAX_CACHED_PROBES;
+        }
+    };
+
+    /** Identity of one probed artifact; the digest makes a replaced JAR a distinct key. */
+    private record ProbeKey(Path realPath, HostArtifactDigest digest) {}
+
     private CubismEditorReleaseDetector() {}
 
     /**
      * Probes the declared identity of the Editor JAR without pinning a version.
+     *
+     * <p>The verdict is cached per process for the artifact's canonical path and digest, so
+     * repeated admission checks read the archive once. A replaced or rewritten JAR carries a
+     * different digest and is probed again.</p>
      *
      * @param editorJar located Editor JAR
      * @return the probe verdict and, on success, the declared identity
@@ -80,10 +102,38 @@ public final class CubismEditorReleaseDetector {
         }
         final HostArtifactDigest artifact;
         try {
-            artifact = HostArtifactDigest.from(editorJar);
+            artifact = HostArtifactDigest.cached(editorJar);
         } catch (IOException | RuntimeException failure) {
             return HostIdentityProbe.rejected(HostIdentityProbe.Status.UNREADABLE, "artifact unreadable");
         }
+        final ProbeKey key;
+        try {
+            key = new ProbeKey(editorJar.toRealPath(), artifact);
+        } catch (IOException | RuntimeException failure) {
+            return HostIdentityProbe.rejected(HostIdentityProbe.Status.UNREADABLE, "artifact unreadable");
+        }
+        final HostIdentityProbe cached = cachedProbe(key);
+        if (cached != null) {
+            return cached;
+        }
+        final HostIdentityProbe probed = probeArchive(editorJar, artifact);
+        storeProbe(key, probed);
+        return probed;
+    }
+
+    private static HostIdentityProbe cachedProbe(final ProbeKey key) {
+        synchronized (PROBES) {
+            return PROBES.get(key);
+        }
+    }
+
+    private static void storeProbe(final ProbeKey key, final HostIdentityProbe probe) {
+        synchronized (PROBES) {
+            PROBES.put(key, probe);
+        }
+    }
+
+    private static HostIdentityProbe probeArchive(final Path editorJar, final HostArtifactDigest artifact) {
         try (JarFile jar = new JarFile(editorJar.toFile())) {
             if (jar.getJarEntry(HOST_ANCHOR_CLASS) == null) {
                 return HostIdentityProbe.rejected(
@@ -233,7 +283,7 @@ public final class CubismEditorReleaseDetector {
         }
         final HostArtifactDigest artifact;
         try {
-            artifact = HostArtifactDigest.from(editorJar);
+            artifact = HostArtifactDigest.cached(editorJar);
         } catch (IOException | RuntimeException failure) {
             return Optional.empty();
         }

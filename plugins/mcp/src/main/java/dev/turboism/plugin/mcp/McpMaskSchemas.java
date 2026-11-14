@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.*;
 
 final class McpMaskSchemas {
@@ -100,21 +102,5 @@ final class McpMaskSchemas {
 
     private static Map<String, Object> nullable() {
         return Map.of("type", List.of("string", "null"));
-    }
-
-    private static Map<String, Object> array(Map<String, Object> item, int min, int max) {
-        return Map.of("type", "array", "items", item, "minItems", min, "maxItems", max);
-    }
-
-    private static Map<String, Object> object(Map<String, Object> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
     }
 }

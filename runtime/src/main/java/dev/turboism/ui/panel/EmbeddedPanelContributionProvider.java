@@ -1,5 +1,6 @@
 package dev.turboism.ui.panel;
 
+import dev.turboism.core.runtime.Registrations;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
@@ -180,7 +181,7 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                 }
             } catch (RuntimeException | Error failure) {
                 // @containment-exempt: closes installed bindings before rethrow with fatal prioritized
-                final Throwable toThrow = closeAllReturning(installedBindings, failure);
+                final Throwable toThrow = Registrations.closeReverseMergingFatal(installedBindings, failure);
                 throw FatalErrors.propagate(toThrow);
             }
         }
@@ -257,7 +258,8 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                             handle.updateContent(entry.getValue());
                         } catch (RuntimeException | Error updateFailure) {
                             // @containment-exempt: closes failed panel before rethrow with fatal prioritized
-                            final Throwable toThrow = closeAllReturning(List.of(handle), updateFailure);
+                            final Throwable toThrow =
+                                    Registrations.closeReverseMergingFatal(List.of(handle), updateFailure);
                             throw FatalErrors.propagate(toThrow);
                         }
                         next.put(entry.getKey(), current.withDescriptor(entry.getValue()));
@@ -269,7 +271,7 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                 }
             } catch (RuntimeException | Error failure) {
                 // @containment-exempt: closes added panels before rethrow with fatal prioritized
-                final Throwable toThrow = closeAllReturning(added, failure);
+                final Throwable toThrow = Registrations.closeReverseMergingFatal(added, failure);
                 throw FatalErrors.propagate(toThrow);
             }
 
@@ -346,7 +348,7 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
             // the retry task. Any already queued EDT cleanup now fails closed.
             final List<Registration> installedBindings = bindings;
             bindings = List.of();
-            Throwable accumulated = closeAllReturning(installedBindings, null);
+            Throwable accumulated = Registrations.closeReverseMergingFatal(installedBindings, null);
             try {
                 host.invalidateHost();
             } catch (RuntimeException | Error failure) {
@@ -361,7 +363,7 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
             final List<EmbeddedPanelHostOperations.PanelHandle> installedPanels =
                     panels.values().stream().map(InstalledPanel::handle).toList();
             panels = Map.of();
-            accumulated = closeAllReturning(installedPanels, accumulated);
+            accumulated = Registrations.closeReverseMergingFatal(installedPanels, accumulated);
             if (accumulated != null) {
                 throw FatalErrors.propagate(accumulated);
             }
@@ -395,28 +397,7 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
         }
     }
 
-    private static void closeAll(final List<? extends Registration> registrations) {
-        final Throwable failure = closeAllReturning(registrations, null);
-        if (failure != null) {
-            throw FatalErrors.propagate(failure);
-        }
-    }
-
-    private static Throwable closeAllReturning(
-            final List<? extends Registration> registrations, final Throwable primary) {
-        Throwable accumulated = primary;
-        for (int index = registrations.size() - 1; index >= 0; index--) {
-            try {
-                registrations.get(index).close();
-            } catch (RuntimeException | Error failure) {
-                // @containment-exempt: close failure merged across registrations with fatal prioritized
-                accumulated = FatalErrors.mergeForCleanup(accumulated, failure);
-            }
-        }
-        return accumulated;
-    }
-
     private static void closePanels(final List<? extends EmbeddedPanelHostOperations.PanelHandle> panels) {
-        closeAll(panels);
+        Registrations.closeReverseThrowingFirst(panels);
     }
 }

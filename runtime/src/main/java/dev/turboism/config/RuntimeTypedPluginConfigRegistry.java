@@ -2,6 +2,7 @@ package dev.turboism.config;
 
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.failure.RuntimeFailureSink;
+import dev.turboism.internal.Requirements;
 import dev.turboism.persistence.config.RegisteredKey;
 import dev.turboism.persistence.config.RegisteredSchema;
 import dev.turboism.persistence.config.StoredDocument;
@@ -110,7 +111,7 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
             final String pluginName,
             final SettingsContributionStore settingsContributions) {
         this.legacy = Objects.requireNonNull(legacy, "legacy");
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.permissions = Set.copyOf(Objects.requireNonNull(permissions, "permissions"));
         this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
         this.failureReporter = new TypedConfigFailureReporter(this.pluginId, failureSink);
@@ -514,14 +515,6 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
 
     private boolean has(final String permission) {
         return permissions.contains(permission);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private static ConfigSchemaValidationException validation(final ConfigSchemaValidationError error) {

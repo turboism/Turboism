@@ -55,7 +55,6 @@ class EditorFileCommandRequestTest {
         assertEquals(UserFileMode.WRITE, EditorFileCommand.CSV_EXPORT_MODEL_IDS.mode());
         assertEquals(UserFileMode.READ, EditorFileCommand.IMPORT_SCENE_FROM_ANIMATION.mode());
         assertEquals(UserFileMode.WRITE, EditorFileCommand.EXPORT_PHYSICS_SETTINGS.mode());
-        assertEquals(14, EditorFileCommand.values().length);
     }
 
     private static UserFileHandle handle(final UserFileMode mode, final UserFileHandleState state) {

@@ -1,7 +1,7 @@
 package dev.turboism.failure;
 
+import dev.turboism.internal.Requirements;
 import java.util.Comparator;
-import java.util.Objects;
 
 /** Neutral, immutable failure evidence containing report-safe scalar values only. */
 public record RuntimeFailure(
@@ -24,13 +24,13 @@ public record RuntimeFailure(
             .thenComparing(RuntimeFailure::relativePath, Comparator.nullsFirst(String::compareTo));
 
     public RuntimeFailure {
-        code = requireText(code, "code");
-        severity = requireText(severity, "severity");
-        phase = requireText(phase, "phase");
+        code = Requirements.text(code, "code");
+        severity = Requirements.text(severity, "severity");
+        phase = Requirements.text(phase, "phase");
         pluginId = optionalText(pluginId, "pluginId");
         operationId = optionalText(operationId, "operationId");
         permissionId = optionalText(permissionId, "permissionId");
-        message = requireText(message, "message");
+        message = Requirements.text(message, "message");
         relativePath = optionalText(relativePath, "relativePath");
         if (count < 1) {
             throw new IllegalArgumentException("count must be positive");
@@ -54,18 +54,10 @@ public record RuntimeFailure(
         return count == 1 ? this : withCount(1);
     }
 
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
-    }
-
     private static String optionalText(final String value, final String name) {
         if (value == null) {
             return null;
         }
-        return requireText(value, name);
+        return Requirements.text(value, name);
     }
 }

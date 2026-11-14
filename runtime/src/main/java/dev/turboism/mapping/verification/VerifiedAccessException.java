@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.internal.Requirements;
 import java.util.Objects;
 
 /** Sanitized runtime failure while invoking a verified host selector. */
@@ -20,8 +21,8 @@ public final class VerifiedAccessException extends RuntimeException {
             final String message,
             final Throwable cause,
             final HostFailureCategory hostFailureCategory) {
-        super(requireText(message, "message"), cause);
-        this.alias = requireText(alias, "alias");
+        super(Requirements.text(message, "message"), cause);
+        this.alias = Requirements.text(alias, "alias");
         this.failureKind = Objects.requireNonNull(failureKind, "failureKind");
         this.hostFailureCategory = Objects.requireNonNull(hostFailureCategory, "hostFailureCategory");
     }
@@ -96,13 +97,5 @@ public final class VerifiedAccessException extends RuntimeException {
         RESOLUTION,
         /** The host member ran and threw. */
         INVOCATION
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

@@ -5,9 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import dev.turboism.adapter.host.HostSession;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,7 +34,7 @@ class PluginClassLoaderRollbackContextClassLoaderIntegrationTest {
     void failedEnableRollbackUsesPluginContextLoaderAndReleasesPluginJar() throws Exception {
         final Path home = temporary.resolve("home");
         final Path pluginJar = writePlugin(home.resolve("plugins"));
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         final ClassLoader originalContextLoader = Thread.currentThread().getContextClassLoader();
         System.clearProperty(DISABLE_PROPERTY);
@@ -162,13 +161,6 @@ class PluginClassLoaderRollbackContextClassLoaderIntegrationTest {
             "dependencies":[],"permissions":[],"capabilities":[],
             "environment":{"requiresCubism":false,"ui":"none"}}
             """.formatted(PLUGIN_ID);
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
-                ignored -> {});
     }
 
     private static void add(final JarOutputStream output, final String name, final byte[] content) throws Exception {

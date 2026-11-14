@@ -1,5 +1,11 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpJsonSupport.safeMessage;
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+import static dev.turboism.plugin.mcp.McpSchemas.entry;
+import static dev.turboism.plugin.mcp.McpSchemas.linked;
+import static dev.turboism.plugin.mcp.McpSchemas.properties;
+
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -823,7 +829,7 @@ final class McpParameterDomain {
     }
 
     private static Map<String, Object> applySchema(final Map<String, Object> operationSchema) {
-        return objectSchema(
+        return object(
                 properties(
                         entry(
                                 "operations",
@@ -878,7 +884,7 @@ final class McpParameterDomain {
         final ArrayList<String> requiredFields = new ArrayList<>();
         requiredFields.add("operation");
         requiredFields.addAll(required);
-        return objectSchema(properties, List.copyOf(requiredFields));
+        return object(properties, List.copyOf(requiredFields));
     }
 
     private static Map<String, Object> bindingOperationSchema() {
@@ -944,7 +950,7 @@ final class McpParameterDomain {
     }
 
     private static Map<String, Object> definitionSchema() {
-        return objectSchema(
+        return object(
                 properties(
                         entry("id", stringSchema()),
                         entry("name", stringSchema()),
@@ -957,7 +963,7 @@ final class McpParameterDomain {
     }
 
     private static Map<String, Object> targetSchema() {
-        return objectSchema(
+        return object(
                 properties(
                         entry("type", enumSchema(List.of("art_mesh", "warp_deformer", "rotation_deformer"))),
                         entry("id", stringSchema())),
@@ -965,7 +971,7 @@ final class McpParameterDomain {
     }
 
     private static Map<String, Object> pointSchema() {
-        return objectSchema(
+        return object(
                 properties(
                         entry(
                                 "id",
@@ -1006,14 +1012,6 @@ final class McpParameterDomain {
                 entry("annotations", annotations));
     }
 
-    private static Map<String, Object> objectSchema(final Map<String, Object> properties, final List<String> required) {
-        return linked(
-                entry("type", "object"),
-                entry("properties", properties),
-                entry("required", required),
-                entry("additionalProperties", false));
-    }
-
     private static Map<String, Object> arraySchema(final Map<String, Object> items) {
         return linked(entry("type", "array"), entry("items", items));
     }
@@ -1033,22 +1031,6 @@ final class McpParameterDomain {
 
     private static Map<String, Object> enumSchema(final List<String> values) {
         return linked(entry("type", "string"), entry("enum", values));
-    }
-
-    @SafeVarargs
-    private static Map<String, Object> properties(final Map.Entry<String, Object>... values) {
-        return linked(values);
-    }
-
-    @SafeVarargs
-    private static Map<String, Object> linked(final Map.Entry<String, Object>... values) {
-        final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> value : values) result.put(value.getKey(), value.getValue());
-        return result;
-    }
-
-    private static Map.Entry<String, Object> entry(final String key, final Object value) {
-        return new java.util.AbstractMap.SimpleImmutableEntry<>(key, value);
     }
 
     private static Object required(final Map<String, Object> values, final String key) {
@@ -1106,12 +1088,6 @@ final class McpParameterDomain {
         final java.util.Set<String> allowed = java.util.Set.of(names);
         for (String key : values.keySet())
             if (!allowed.contains(key)) throw new InputException("unknown argument: " + key);
-    }
-
-    private static String safeMessage(final RuntimeException failure) {
-        return failure.getMessage() == null || failure.getMessage().isBlank()
-                ? failure.getClass().getSimpleName()
-                : failure.getMessage();
     }
 
     private enum WriteOutcome {

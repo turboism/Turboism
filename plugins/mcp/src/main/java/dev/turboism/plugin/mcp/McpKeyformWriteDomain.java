@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpWriteResults.envelope;
+
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -342,8 +344,9 @@ final class McpKeyformWriteDomain {
 
     private void verify(McpStoredAuthoringDomain.Context initial, List<Target> plans, boolean after, boolean history) {
         var now = context.get();
-        if (history ? !initial.binding().equals(now.binding()) : !sameScope(initial.binding(), now.binding()))
-            throw new Stale();
+        if (history
+                ? !initial.binding().equals(now.binding())
+                : !McpDomainSupport.sameScope(initial.binding(), now.binding())) throw new Stale();
         for (var target : plans) {
             var snapshot = target.snapshot();
             Object actual;
@@ -373,14 +376,9 @@ final class McpKeyformWriteDomain {
         }
         var end = context.get();
         if (!now.binding().equals(end.binding())) throw new Stale();
-        if (history ? !initial.binding().equals(end.binding()) : !sameScope(initial.binding(), end.binding()))
-            throw new Stale();
-    }
-
-    private static boolean sameScope(Map<String, Object> a, Map<String, Object> b) {
-        return List.of("documentId", "modelId", "historyGeneration", "historyDocumentBinding", "historyManagerBinding")
-                .stream()
-                .allMatch(k -> Objects.equals(a.get(k), b.get(k)));
+        if (history
+                ? !initial.binding().equals(end.binding())
+                : !McpDomainSupport.sameScope(initial.binding(), end.binding())) throw new Stale();
     }
 
     private static void apply(CubismModel model, McpKeyformWritePlan.Plan plan) {
@@ -498,17 +496,6 @@ final class McpKeyformWriteDomain {
         result.put("receipt", receipt);
         result.put("targets", targets);
         return Collections.unmodifiableMap(result);
-    }
-
-    private static Map<String, Object> envelope(Map<String, Object> output) {
-        var safe = McpJsonSupport.encodable(output);
-        return Map.of(
-                "content",
-                List.of(Map.of("type", "text", "text", Json.stringify(safe))),
-                "structuredContent",
-                safe,
-                "isError",
-                !Boolean.TRUE.equals(output.get("ok")));
     }
 
     private static String classify(RuntimeException e) {

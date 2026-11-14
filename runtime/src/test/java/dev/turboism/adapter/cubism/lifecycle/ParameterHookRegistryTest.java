@@ -10,7 +10,6 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.test.Stubs;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class ParameterHookRegistryTest {
@@ -73,7 +72,7 @@ class ParameterHookRegistryTest {
         final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
         final ParameterHookRegistry registry = new ParameterHookRegistry(coordinator);
         registry.register(
-                descriptor("observe-only", List.of(permission(ParameterHookRegistry.OBSERVE_PERMISSION))),
+                descriptor("observe-only", List.of(Stubs.permissionRef(ParameterHookRegistry.OBSERVE_PERMISSION))),
                 List.of(new CubismPlugin() {
                     @Override
                     public float beforeSetParameterValue(final Parameter parameter, final float value) {
@@ -146,32 +145,13 @@ class ParameterHookRegistryTest {
         return descriptor(
                 id,
                 List.of(
-                        permission(ParameterHookRegistry.INTERCEPT_PERMISSION),
-                        permission(ParameterHookRegistry.OBSERVE_PERMISSION)));
+                        Stubs.permissionRef(ParameterHookRegistry.INTERCEPT_PERMISSION),
+                        Stubs.permissionRef(ParameterHookRegistry.OBSERVE_PERMISSION)));
     }
 
     private static PluginDescriptor descriptor(
             final String id, final List<PluginDescriptor.PermissionRef> permissions) {
         return Stubs.pluginDescriptor(id, permissions);
-    }
-
-    private static PluginDescriptor.PermissionRef permission(final String id) {
-        return new PluginDescriptor.PermissionRef() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "model";
-            }
-
-            @Override
-            public Optional<String> reason() {
-                return Optional.of("test");
-            }
-        };
     }
 
     private static PluginLogger logger() {

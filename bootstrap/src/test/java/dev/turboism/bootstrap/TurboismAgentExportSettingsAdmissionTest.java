@@ -11,22 +11,15 @@ final class TurboismAgentExportSettingsAdmissionTest {
     @Test
     void exportSettingsFollowOrdinaryReviewedAdmission() {
         final ExportSettingsHookContributor contributor = new ExportSettingsHookContributor();
-        assertTrue(contributor.admitted(environment("5.2.03", true)));
-        assertTrue(contributor.admitted(environment("5.3.02", true)));
-        assertTrue(contributor.admitted(environment("5.3.03", true)));
-        assertFalse(contributor.admitted(environment("5.3.02", false)));
-        assertFalse(contributor.admitted(environment("5.2.03", false)));
-        assertFalse(contributor.admitted(environment("5.3.03", false)));
-        assertFalse(contributor.admitted(environment("5.0.00", true)));
-        assertFalse(contributor.admitted(environment("5.0.06", true)));
-        assertFalse(contributor.admitted(environment("5.3", true)));
-        assertFalse(contributor.admitted(environment("5.3.02.1", true)));
-    }
-
-    private static HookEnvironment environment(final String profile, final boolean admitted) {
-        return HookEnvironment.builder()
-                .profile(profile)
-                .fullRuntimeAdmission(admitted)
-                .build();
+        assertTrue(contributor.admitted(HookEnvironments.admitted("5.2.03", true)));
+        assertTrue(contributor.admitted(HookEnvironments.admitted("5.3.02", true)));
+        assertTrue(contributor.admitted(HookEnvironments.admitted("5.3.03", true)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted("5.3.02", false)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted("5.2.03", false)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted("5.3.03", false)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted("5.0.00", true)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted("5.0.06", true)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted("5.3", true)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted("5.3.02.1", true)));
     }
 }

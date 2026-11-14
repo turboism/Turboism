@@ -1,7 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.uniform;
 
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
@@ -415,12 +417,8 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
                         "lifecycle composed body without a derivable error receiver: " + owner);
             }
             ClassReader reader = new ClassReader(bytes);
-            ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader;
-                }
-            };
+            ClassWriter writer =
+                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
             final boolean elidedError = composed && role == Role.ERROR;
             final Observer[] observer = {null};
             reader.accept(
@@ -675,17 +673,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
                     done = new Label();
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(property);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
-            super.visitInsn(Opcodes.DUP);
-            super.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/invoke/MethodHandle");
+            SlotBridgeEmitter.emitSlot(this, property, "java/lang/invoke/MethodHandle");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/invoke/MethodHandle");
             arguments.run();

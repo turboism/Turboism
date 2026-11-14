@@ -157,9 +157,9 @@ final class PixelCoverage {
 
     /** Barycentric sign test; it accepts either winding and counts the boundary as inside. */
     private static boolean contains(final double[] xs, final double[] ys, final double x, final double y) {
-        final double first = cross(xs[0], ys[0], xs[1], ys[1], x, y);
-        final double second = cross(xs[1], ys[1], xs[2], ys[2], x, y);
-        final double third = cross(xs[2], ys[2], xs[0], ys[0], x, y);
+        final double first = PixelGeometry.cross(xs[0], ys[0], xs[1], ys[1], x, y);
+        final double second = PixelGeometry.cross(xs[1], ys[1], xs[2], ys[2], x, y);
+        final double third = PixelGeometry.cross(xs[2], ys[2], xs[0], ys[0], x, y);
         final boolean negative = first < 0.0 || second < 0.0 || third < 0.0;
         final boolean positive = first > 0.0 || second > 0.0 || third > 0.0;
         return !(negative && positive);
@@ -179,9 +179,9 @@ final class PixelCoverage {
             for (int sampleX = 0; sampleX < SAMPLES_PER_AXIS; sampleX++) {
                 final double x = column + (sampleX + 0.5) / SAMPLES_PER_AXIS;
                 final double y = row + (sampleY + 0.5) / SAMPLES_PER_AXIS;
-                final double first = cross(xs[0], ys[0], xs[1], ys[1], x, y);
-                final double second = cross(xs[1], ys[1], xs[2], ys[2], x, y);
-                final double third = cross(xs[2], ys[2], xs[0], ys[0], x, y);
+                final double first = PixelGeometry.cross(xs[0], ys[0], xs[1], ys[1], x, y);
+                final double second = PixelGeometry.cross(xs[1], ys[1], xs[2], ys[2], x, y);
+                final double third = PixelGeometry.cross(xs[2], ys[2], xs[0], ys[0], x, y);
                 final boolean inside =
                         (first > 0.0 && second > 0.0 && third > 0.0) || (first < 0.0 && second < 0.0 && third < 0.0);
                 if (inside) {
@@ -190,10 +190,5 @@ final class PixelCoverage {
             }
         }
         return hits;
-    }
-
-    private static double cross(
-            final double ax, final double ay, final double bx, final double by, final double px, final double py) {
-        return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
     }
 }

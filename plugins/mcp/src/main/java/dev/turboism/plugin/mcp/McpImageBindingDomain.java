@@ -6,8 +6,6 @@ import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.id.*;
 import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.cubism.transaction.*;
-import dev.turboism.sdk.json.Json;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Supplier;
 
@@ -88,11 +86,11 @@ final class McpImageBindingDomain {
             var current = context.get();
             scope(args, current);
             String session = McpRequestRegistry.currentSessionId();
-            var expected = snapshots.get(text(args.get("authoringSnapshotId"), 128), session);
+            var expected = snapshots.get(McpDomainSupport.text(args.get("authoringSnapshotId"), 128), session);
             if (!expected.kind().equals("art_mesh")
-                    || !expected.objectId().equals(text(args.get("objectId"), 4096))
+                    || !expected.objectId().equals(McpDomainSupport.text(args.get("objectId"), 4096))
                     || !expected.binding().equals(current.binding())) throw new Stale();
-            text(expected.sourceGuid(), 4096);
+            McpDomainSupport.text(expected.sourceGuid(), 4096);
             verifyNative(current, expected);
             var state = observe(current, expected.objectId());
             verify(current, expected, state, true);
@@ -102,7 +100,7 @@ final class McpImageBindingDomain {
                     .filter(r -> "parent_space".equals(r.get("kind")))
                     .findFirst()
                     .orElseThrow(Stale::new);
-            int budget = Math.addExact(expected.encodedBytes(), bytes(row));
+            int budget = Math.addExact(expected.encodedBytes(), McpDomainSupport.bytes(row));
             if (budget > McpAuthoringSnapshotStore.MAX_ENTRY_BYTES) throw new Budget();
             var output = new LinkedHashMap<String, Object>();
             output.put("ok", true);
@@ -112,7 +110,7 @@ final class McpImageBindingDomain {
             output.put("binding", state);
             // Reserve space for the issued UUID before retaining a snapshot; over-budget reads retain nothing.
             output.put("snapshotId", "00000000-0000-0000-0000-000000000000");
-            if (bytes(output) > MAX_BYTES) throw new Budget();
+            if (McpDomainSupport.bytes(output) > MAX_BYTES) throw new Budget();
             var issued = snapshots.put(
                     session,
                     current.binding(),
@@ -137,7 +135,7 @@ final class McpImageBindingDomain {
         String beforeHash = null, afterHash = null;
         try {
             fields(args, "documentId", "modelId", "objectId", "snapshotId", "operationId", "modelImageId");
-            id = text(args.get("operationId"), 128);
+            id = McpDomainSupport.text(args.get("operationId"), 128);
             key = new Key(McpRequestRegistry.currentSessionId(), id);
             String fingerprint = digest(args);
             synchronized (operations) {
@@ -159,11 +157,11 @@ final class McpImageBindingDomain {
             }
             var current = context.get();
             scope(args, current);
-            var expected = snapshots.get(text(args.get("snapshotId"), 128), key.session);
+            var expected = snapshots.get(McpDomainSupport.text(args.get("snapshotId"), 128), key.session);
             if (!expected.kind().equals("art_mesh_image_binding")
-                    || !expected.objectId().equals(text(args.get("objectId"), 4096))
+                    || !expected.objectId().equals(McpDomainSupport.text(args.get("objectId"), 4096))
                     || !expected.binding().equals(current.binding())) throw new Stale();
-            String image = text(args.get("modelImageId"), 4096);
+            String image = McpDomainSupport.text(args.get("modelImageId"), 4096);
             var before = state(expected);
             if (images(before).stream().noneMatch(r -> image.equals(r.get("id")))) throw new IllegalArgumentException();
             if (Boolean.TRUE.equals(before.get("locked")) || parent(expected).get("parentDeformerId") != null)
@@ -266,9 +264,10 @@ final class McpImageBindingDomain {
     RegistrationTarget prepareRegistration(Map<String, Object> args) {
         var current = context.get();
         scope(args, current);
-        var expected = snapshots.get(text(args.get("snapshotId"), 128), McpRequestRegistry.currentSessionId());
+        var expected = snapshots.get(
+                McpDomainSupport.text(args.get("snapshotId"), 128), McpRequestRegistry.currentSessionId());
         if (!expected.kind().equals("art_mesh_image_binding")
-                || !expected.objectId().equals(text(args.get("objectId"), 4096))
+                || !expected.objectId().equals(McpDomainSupport.text(args.get("objectId"), 4096))
                 || !expected.binding().equals(current.binding())) throw new Stale();
         var before = state(expected);
         if (before.get("textureInput") != null
@@ -314,8 +313,13 @@ final class McpImageBindingDomain {
                                         .equals(current.binding().get("modelId"))
                                 || !handle.artMeshId().equals(Optional.of(new ArtMeshId(expected.objectId()))))
                             throw new Stale();
-                        String modelImage = text(handle.modelImageId().value(), 4096),
-                                rawImage = text(handle.rawImageId().value(), 4096);
+                        String
+                                modelImage =
+                                        McpDomainSupport.text(
+                                                handle.modelImageId().value(), 4096),
+                                rawImage =
+                                        McpDomainSupport.text(
+                                                handle.rawImageId().value(), 4096);
                         if (images(target.before()).stream().anyMatch(r -> modelImage.equals(r.get("id")))
                                 || target.rawImages().stream().anyMatch(r -> rawImage.equals(r.get("id"))))
                             throw new Stale();
@@ -430,12 +434,12 @@ final class McpImageBindingDomain {
         var result = new ArrayList<Map<String, Object>>();
         var seen = new HashSet<String>();
         for (var raw : values) {
-            String id = text(raw.id().value(), 4096), name = raw.name();
+            String id = McpDomainSupport.text(raw.id().value(), 4096), name = raw.name();
             if (!seen.add(id) || name == null || name.length() > 4096 || raw.width() <= 0 || raw.height() <= 0)
                 throw new IllegalArgumentException();
             result.add(Map.of("id", id, "name", name, "width", raw.width(), "height", raw.height()));
         }
-        if (bytes(Map.of("rawImages", result)) > MAX_BYTES) throw new Budget();
+        if (McpDomainSupport.bytes(Map.of("rawImages", result)) > MAX_BYTES) throw new Budget();
         return List.copyOf(result);
     }
 
@@ -453,7 +457,7 @@ final class McpImageBindingDomain {
 
     private Map<String, Object> result(Map<String, Object> args) {
         fields(args, "operationId");
-        String id = text(args.get("operationId"), 128);
+        String id = McpDomainSupport.text(args.get("operationId"), 128);
         synchronized (operations) {
             var op = operations.get(new Key(McpRequestRegistry.currentSessionId(), id));
             return envelope(
@@ -476,8 +480,9 @@ final class McpImageBindingDomain {
             Map<String, Object> state,
             boolean exactHistory) {
         var now = context.get();
-        if (exactHistory ? !initial.binding().equals(now.binding()) : !sameScope(initial.binding(), now.binding()))
-            throw new Stale();
+        if (exactHistory
+                ? !initial.binding().equals(now.binding())
+                : !McpDomainSupport.sameScope(initial.binding(), now.binding())) throw new Stale();
         verifyNative(now, expected);
         if (!state.equals(observe(now, expected.objectId()))) throw new Stale();
         verifyNative(now, expected);
@@ -507,7 +512,7 @@ final class McpImageBindingDomain {
             var images = groups.get(g).modelImages();
             if ((long) rows.size() + images.size() > MAX_IMAGES) throw new Budget();
             for (var entry : images) {
-                String image = text(entry.id().value(), 4096), name = entry.name();
+                String image = McpDomainSupport.text(entry.id().value(), 4096), name = entry.name();
                 if (name == null
                         || name.length() > 4096
                         || entry.width() <= 0
@@ -530,22 +535,26 @@ final class McpImageBindingDomain {
         result.put("locked", current.model().drawables().find(new ArtMeshId(id)).locked());
         result.put("textureInput", projected);
         result.put("images", List.copyOf(rows));
-        if (bytes(result) > MAX_BYTES) throw new Budget();
+        if (McpDomainSupport.bytes(result) > MAX_BYTES) throw new Budget();
         return Collections.unmodifiableMap(result);
     }
 
     static Map<String, Object> project(ArtMeshTextureInput value) {
         var row = new LinkedHashMap<String, Object>();
-        row.put("artMeshId", text(value.artMeshId().value(), 4096));
-        row.put("modelId", text(value.modelId().value(), 4096));
+        row.put("artMeshId", McpDomainSupport.text(value.artMeshId().value(), 4096));
+        row.put("modelId", McpDomainSupport.text(value.modelId().value(), 4096));
         row.put("modelGeneration", value.modelGeneration());
         row.put("kind", value.kind().name());
         row.put(
                 "modelImageId",
-                value.modelImageId().map(v -> text(v.value(), 4096)).orElse(null));
+                value.modelImageId()
+                        .map(v -> McpDomainSupport.text(v.value(), 4096))
+                        .orElse(null));
         row.put(
                 "textureAtlasId",
-                value.textureAtlasId().map(v -> text(v.value(), 4096)).orElse(null));
+                value.textureAtlasId()
+                        .map(v -> McpDomainSupport.text(v.value(), 4096))
+                        .orElse(null));
         return Collections.unmodifiableMap(row);
     }
 
@@ -599,14 +608,10 @@ final class McpImageBindingDomain {
     }
 
     private static void scope(Map<String, Object> args, McpStoredAuthoringDomain.Context current) {
-        if (!text(args.get("documentId"), 4096).equals(current.binding().get("documentId"))
-                || !text(args.get("modelId"), 4096).equals(current.binding().get("modelId"))) throw new Stale();
-    }
-
-    private static boolean sameScope(Map<String, Object> a, Map<String, Object> b) {
-        return List.of("documentId", "modelId", "historyGeneration", "historyDocumentBinding", "historyManagerBinding")
-                .stream()
-                .allMatch(k -> Objects.equals(a.get(k), b.get(k)));
+        if (!McpDomainSupport.text(args.get("documentId"), 4096)
+                        .equals(current.binding().get("documentId"))
+                || !McpDomainSupport.text(args.get("modelId"), 4096)
+                        .equals(current.binding().get("modelId"))) throw new Stale();
     }
 
     private static Map<String, Object> output(
@@ -626,18 +631,6 @@ final class McpImageBindingDomain {
 
     private static void fields(Map<String, Object> args, String... names) {
         if (!args.keySet().equals(Set.of(names))) throw new IllegalArgumentException();
-    }
-
-    private static String text(Object value, int max) {
-        if (!(value instanceof String s)
-                || s.isBlank()
-                || s.length() > max
-                || s.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException();
-        return s;
-    }
-
-    private static int bytes(Map<String, Object> value) {
-        return Json.stringify(value).getBytes(StandardCharsets.UTF_8).length;
     }
 
     private static String code(RuntimeException e) {

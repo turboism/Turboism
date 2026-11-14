@@ -1,13 +1,11 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
+import dev.turboism.core.reflect.CodeSources;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Path;
-import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.util.Map;
 import java.util.Objects;
@@ -475,7 +473,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
             reject(Outcome.LOADER_MISMATCH, "MESH_MIRROR_LOADER_MISMATCH");
             return false;
         }
-        if (expectedArtifact != null && !expectedArtifact.equals(codeSourcePath(protectionDomain))) {
+        if (expectedArtifact != null && !expectedArtifact.equals(CodeSources.pathOf(protectionDomain))) {
             reject(Outcome.ARTIFACT_MISMATCH, "MESH_MIRROR_ARTIFACT_MISMATCH");
             return false;
         }
@@ -596,20 +594,6 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                 && (linked.pointActionOwner().equals(owner)
                         || linked.edgeActionOwner().equals(owner)
                         || linked.eraserActionOwner().equals(owner));
-    }
-
-    private static Path codeSourcePath(final ProtectionDomain protectionDomain) {
-        if (protectionDomain == null || protectionDomain.getCodeSource() == null) return null;
-        final CodeSource source = protectionDomain.getCodeSource();
-        if (source.getLocation() == null) return null;
-        try {
-            final URI location = source.getLocation().toURI();
-            return "file".equalsIgnoreCase(location.getScheme())
-                    ? Path.of(location).toAbsolutePath().normalize()
-                    : null;
-        } catch (URISyntaxException | RuntimeException failure) {
-            return null;
-        }
     }
 
     /** Terminal outcome of this transformer's admission and weaving attempt. */

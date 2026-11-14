@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
 class WarpDeformerGridLifecycleContractTest {
     @Test
     void transformsAndPublishesDetachedGridCompletion() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler();
         try {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
             final DeformerLifecycleCoordinator coordinator = new DeformerLifecycleCoordinator();
@@ -79,10 +79,6 @@ class WarpDeformerGridLifecycleContractTest {
                     UnsupportedOperationException.class, () -> event.deformer().replaceGrid(replacement));
             completion.countDown();
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler();
     }
 
     private static WarpGrid grid(final float offset) {

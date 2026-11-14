@@ -10,6 +10,7 @@ import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRe
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.GraphicsEnvironment;
@@ -29,23 +30,7 @@ class ClipMaskViewerWindowTest {
     void filterRemainsVisibleAndFiltersBothTablesAcrossModeChangesAndRefresh() throws Exception {
         assumeFalse(GraphicsEnvironment.isHeadless());
         SwingUtilities.invokeAndWait(() -> {
-            PluginLocalization texts = new PluginLocalization() {
-                public Locale locale() {
-                    return Locale.ENGLISH;
-                }
-
-                public String text(String key) {
-                    return key;
-                }
-
-                public String format(String key, Object... args) {
-                    return key;
-                }
-
-                public boolean contains(String key) {
-                    return true;
-                }
-            };
+            PluginLocalization texts = FakePluginContext.passThroughLocalization(Locale.ENGLISH);
             PluginLogger logger = (PluginLogger) Proxy.newProxyInstance(
                     PluginLogger.class.getClassLoader(), new Class<?>[] {PluginLogger.class}, (p, m, a) -> null);
             PluginContext context = (PluginContext) Proxy.newProxyInstance(

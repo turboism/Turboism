@@ -52,6 +52,7 @@ import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.test.Stubs;
+import dev.turboism.test.plugin.FakePluginPaths;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import dev.turboism.testkit.RuntimeTestKit;
 import dev.turboism.ui.host.EditorUiFamily;
@@ -79,7 +80,7 @@ class HostSessionPluginContextIntegrationTest {
     @Test
     void pluginContextPublishesEmbeddedPanelsThroughTheSessionAuthorityAndCleansUp() {
         HostSession session = new HostSession(() -> Optional.empty());
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         CorePluginContext context = new CorePluginContext(
                 dependencies(tempDir, scheduler, descriptor(List.of("turboism.ui.panel.contribute")), ignored -> {}),
                 session);
@@ -109,7 +110,7 @@ class HostSessionPluginContextIntegrationTest {
     @Test
     void pluginContextBindsItsRuntimeActionRegistryToTheSessionRouterUntilScopeClose() throws Exception {
         HostSession session = new HostSession(() -> Optional.empty());
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         CorePluginContext.Dependencies dependencies =
                 dependencies(tempDir, scheduler, descriptor(List.of("turboism.action.register")), ignored -> {});
         CorePluginContext context = new CorePluginContext(dependencies, session);
@@ -160,7 +161,7 @@ class HostSessionPluginContextIntegrationTest {
                 descriptor -> HostAdapterConnection.of(
                         adapters(descriptor.sessionId(), clipOperations),
                         fixedModelAccess(descriptor.sessionId() + "-model")));
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         CorePluginContext context = new CorePluginContext(
                 dependencies(
                         tempDir,
@@ -229,7 +230,7 @@ class HostSessionPluginContextIntegrationTest {
                         RuntimeHostAdapters.safeMode(),
                         fixedModelAccess(descriptor.sessionId()),
                         connectionResolver()));
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         CorePluginContext context = new CorePluginContext(
                 dependencies(tempDir, scheduler, descriptor(List.of("turboism.cubism.model.read")), ignored -> {}),
                 session);
@@ -272,8 +273,8 @@ class HostSessionPluginContextIntegrationTest {
                         RuntimeHostAdapters.safeMode(),
                         fixedModelAccess(descriptor.sessionId()),
                         connectionResolver()));
-        final RuntimeScheduler firstScheduler = scheduler();
-        final RuntimeScheduler secondScheduler = scheduler();
+        final RuntimeScheduler firstScheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
+        final RuntimeScheduler secondScheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         final CorePluginContext.Dependencies firstDependencies = dependencies(
                 tempDir.resolve("first"),
                 firstScheduler,
@@ -317,7 +318,7 @@ class HostSessionPluginContextIntegrationTest {
         HostSession session = new HostSession(
                 () -> Optional.of(dualDescriptor("permission-session", "reviewed")),
                 descriptor -> HostAdapterConnection.of(adapters(descriptor.sessionId(), clipOperations)));
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         CorePluginContext context = new CorePluginContext(
                 dependencies(tempDir, scheduler, descriptor(List.of("turboism.cubism.project.read")), auditEvents::add),
                 session);
@@ -349,7 +350,7 @@ class HostSessionPluginContextIntegrationTest {
             return HostAdapterConnection.of(
                     adapters(descriptor.sessionId(), clipOperations), fixedModelAccess(descriptor.sessionId()));
         });
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         CorePluginContext context = new CorePluginContext(
                 dependencies(
                         tempDir,
@@ -433,7 +434,7 @@ class HostSessionPluginContextIntegrationTest {
             providers.put(descriptor.sessionId(), provider);
             return connectionWithAtlasProvider(provider);
         });
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         final CorePluginContext context = new CorePluginContext(
                 dependencies(
                         tempDir,
@@ -499,7 +500,7 @@ class HostSessionPluginContextIntegrationTest {
                         adapters(descriptor.sessionId(), new AtomicInteger()),
                         fixedModelAccess(descriptor.sessionId() + "-model"),
                         compatibilityBoundResolver()));
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         CorePluginContext context = new CorePluginContext(
                 dependencies(tempDir, scheduler, descriptor(List.of("turboism.cubism.model.read")), ignored -> {}),
                 session);
@@ -593,7 +594,7 @@ class HostSessionPluginContextIntegrationTest {
                         adapters(descriptor.sessionId(), new AtomicInteger()),
                         fixedModelAccess(descriptor.sessionId() + "-model"),
                         resolver));
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         final CorePluginContext context = new CorePluginContext(
                 dependencies(tempDir, scheduler, descriptor(List.of("turboism.cubism.model.read")), ignored -> {}),
                 session);
@@ -917,128 +918,16 @@ class HostSessionPluginContextIntegrationTest {
                 CLOCK);
     }
 
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
-    }
-
     private static PluginDescriptor descriptor(final List<String> permissionIds) {
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return "dev.turboism.plugin.host-session-test";
-            }
-
-            @Override
-            public String name() {
-                return "Host Session Test";
-            }
-
-            @Override
-            public String version() {
-                return "0.1.0";
-            }
-
-            @Override
-            public String description() {
-                return "Host session integration test";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of("dev.turboism.test.HostSessionPlugin");
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "Project License";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.of("https://turboism.dev");
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of();
-            }
-
-            @Override
-            public I18n i18n() {
-                return emptyI18n();
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return permissionIds.stream()
-                        .<PermissionRef>map(permissionId -> new PermissionRef() {
-                            @Override
-                            public String id() {
-                                return permissionId;
-                            }
-
-                            @Override
-                            public String scope() {
-                                return "application";
-                            }
-
-                            @Override
-                            public Optional<String> reason() {
-                                return Optional.of("Verify dynamic read composition");
-                            }
-                        })
-                        .toList();
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "none";
-                    }
-                };
-            }
-        };
-    }
-
-    private static PluginDescriptor.I18n emptyI18n() {
-        return new PluginDescriptor.I18n() {
-            @Override
-            public String baseName() {
-                return "META-INF/turboism/i18n/messages";
-            }
-
-            @Override
-            public List<String> locales() {
-                return List.of();
-            }
-        };
+        return Stubs.descriptorBuilder("dev.turboism.plugin.host-session-test")
+                .name("Host Session Test")
+                .version("0.1.0")
+                .description("Host session integration test")
+                .entrypoints("dev.turboism.test.HostSessionPlugin")
+                .license("Project License")
+                .website("https://turboism.dev")
+                .permissions(permissionIds.stream().map(Stubs::permissionRef).toList())
+                .build();
     }
 
     private static PluginLogger logger() {
@@ -1046,27 +935,7 @@ class HostSessionPluginContextIntegrationTest {
     }
 
     private static PluginPaths paths(final Path dataDir) {
-        return new PluginPaths() {
-            @Override
-            public Path dataDir() {
-                return dataDir;
-            }
-
-            @Override
-            public Path logsDir() {
-                return dataDir.resolve("logs");
-            }
-
-            @Override
-            public Path stateDir() {
-                return dataDir.resolve("state");
-            }
-
-            @Override
-            public Path cacheDir() {
-                return dataDir.resolve("cache");
-            }
-        };
+        return FakePluginPaths.of(dataDir, dataDir.resolve("state"), dataDir.resolve("cache"));
     }
 
     private static UiScheduler uiScheduler() {

@@ -11,7 +11,6 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.test.Stubs;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class PartHookRegistryTest {
@@ -44,7 +43,7 @@ class PartHookRegistryTest {
         final PartLifecycleCoordinator coordinator = new PartLifecycleCoordinator();
         final PartHookRegistry registry = new PartHookRegistry(coordinator);
         registry.register(
-                descriptor("observe-only", List.of(permission(PartHookRegistry.OBSERVE_PERMISSION))),
+                descriptor("observe-only", List.of(Stubs.permissionRef(PartHookRegistry.OBSERVE_PERMISSION))),
                 List.of(new CubismPlugin() {
                     @Override
                     public float beforeSetPartOpacity(final Part part, final float opacity) {
@@ -110,32 +109,13 @@ class PartHookRegistryTest {
         return descriptor(
                 id,
                 List.of(
-                        permission(PartHookRegistry.INTERCEPT_PERMISSION),
-                        permission(PartHookRegistry.OBSERVE_PERMISSION)));
+                        Stubs.permissionRef(PartHookRegistry.INTERCEPT_PERMISSION),
+                        Stubs.permissionRef(PartHookRegistry.OBSERVE_PERMISSION)));
     }
 
     private static PluginDescriptor descriptor(
             final String id, final List<PluginDescriptor.PermissionRef> permissions) {
         return Stubs.pluginDescriptor(id, permissions);
-    }
-
-    private static PluginDescriptor.PermissionRef permission(final String id) {
-        return new PluginDescriptor.PermissionRef() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "model";
-            }
-
-            @Override
-            public Optional<String> reason() {
-                return Optional.of("test");
-            }
-        };
     }
 
     private static PluginLogger logger() {

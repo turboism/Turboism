@@ -1,8 +1,8 @@
 package dev.turboism.adapter.cubism.optimization.inspector;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Reviewed host seams for the inspector visual-property bypass.
@@ -64,9 +64,9 @@ public record InspectorPropertyBypassTarget(String version) {
     /** One reviewed setter method whose single full-rebuild call may be bypassed. */
     public record Seam(String owner, String method, String descriptor) {
         public Seam {
-            owner = requireText(owner, "owner");
-            method = requireText(method, "method");
-            descriptor = requireText(descriptor, "descriptor");
+            owner = Requirements.text(owner, "owner");
+            method = Requirements.text(method, "method");
+            descriptor = Requirements.text(descriptor, "descriptor");
         }
 
         /** Binary name used by {@link Class#forName(String, boolean, ClassLoader)}. */
@@ -85,7 +85,7 @@ public record InspectorPropertyBypassTarget(String version) {
             new Seam(ALIAS_COLOR_OWNER, "setColorComposition", COLOR_DESCRIPTOR));
 
     public InspectorPropertyBypassTarget {
-        version = requireText(version, "version").strip();
+        version = Requirements.text(version, "version").strip();
         if (version.isEmpty()) {
             throw new IllegalArgumentException("version must not be blank");
         }
@@ -103,13 +103,5 @@ public record InspectorPropertyBypassTarget(String version) {
         return version != null
                 && version.startsWith("5.3.")
                 && ReviewedHostArtifacts.reviewedCubismVersions().contains(version);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

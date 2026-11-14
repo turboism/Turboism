@@ -134,18 +134,19 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
         Objects.requireNonNull(diagnostic, "diagnostic");
 
         if (targetAlreadyLoaded(instrumentation)) {
-            report(diagnostic, "TRIANGULATION_EDGE_INDEX_TARGET_ALREADY_LOADED");
+            FatalErrors.reportSafely(diagnostic, "TRIANGULATION_EDGE_INDEX_TARGET_ALREADY_LOADED");
             return Installation.declined(Status.TARGET_ALREADY_LOADED);
         }
 
         final TriangulationEdgeIndexTransformer transformer = new TriangulationEdgeIndexTransformer(
-                code -> report(diagnostic, code), TriangulationDefinitionLifecycle.ownedBy(instrumentation));
+                code -> FatalErrors.reportSafely(diagnostic, code),
+                TriangulationDefinitionLifecycle.ownedBy(instrumentation));
         try {
             instrumentation.addTransformer(transformer, false);
-            report(diagnostic, "TRIANGULATION_EDGE_INDEX_INSTALLED");
+            FatalErrors.reportSafely(diagnostic, "TRIANGULATION_EDGE_INDEX_INSTALLED");
             return Installation.installed(instrumentation, transformer);
         } catch (RuntimeException failure) {
-            report(diagnostic, "TRIANGULATION_EDGE_INDEX_INSTALL_FAILED");
+            FatalErrors.reportSafely(diagnostic, "TRIANGULATION_EDGE_INDEX_INSTALL_FAILED");
             return Installation.declined(Status.INSTALL_FAILED);
         }
     }
@@ -162,10 +163,6 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
         } catch (RuntimeException uncertain) {
             return true;
         }
-    }
-
-    private static void report(final Consumer<String> diagnostic, final String code) {
-        FatalErrors.reportSafely(diagnostic, code);
     }
 
     /** Exposed so the transformer can be exercised directly by tests without an Instrumentation. */

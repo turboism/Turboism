@@ -2,6 +2,7 @@ package dev.turboism.core.runtime.work;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.contract.PluginTask;
+import dev.turboism.internal.Requirements;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
@@ -82,7 +83,7 @@ public final class PluginWorkExecutor {
             Clock clock,
             ScheduledExecutorService timeoutScheduler) {
         this.timeoutScheduler = Objects.requireNonNull(timeoutScheduler, "timeoutScheduler");
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.configuration = Objects.requireNonNull(configuration, "configuration");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         Objects.requireNonNull(clock, "clock");
@@ -405,13 +406,5 @@ public final class PluginWorkExecutor {
             return failure.getCause();
         }
         return failure;
-    }
-
-    private static String requireText(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

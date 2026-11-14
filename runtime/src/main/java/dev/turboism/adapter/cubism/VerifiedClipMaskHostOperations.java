@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism;
 
 import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
 import dev.turboism.mapping.verification.ClipmaskAliases;
 import dev.turboism.mapping.verification.VerifiedAccessException;
@@ -58,7 +59,7 @@ public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter
 
     public VerifiedClipMaskHostOperations(final VerifiedMemberResolver resolver, final String hostVersion) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
-        this.hostVersion = requireText(hostVersion, "hostVersion");
+        this.hostVersion = Requirements.text(hostVersion, "hostVersion");
     }
 
     @Override
@@ -174,13 +175,5 @@ public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter
                 SafeModeDiagnostic.Code.VALIDATION_FAILURE,
                 ClipMaskReadAdapter.CAPABILITY_ID,
                 "Clip-mask host data could not be converted safely.");
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

@@ -1,5 +1,12 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpJsonSupport.safeMessage;
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+import static dev.turboism.plugin.mcp.McpSchemas.entry;
+import static dev.turboism.plugin.mcp.McpSchemas.linked;
+import static dev.turboism.plugin.mcp.McpSchemas.properties;
+import static dev.turboism.plugin.mcp.McpWriteResults.toolResult;
+
 import dev.turboism.sdk.cubism.AnimationSnapshot;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
@@ -43,7 +50,6 @@ import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
-import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
@@ -133,7 +139,7 @@ final class McpTools {
                         LIST,
                         "List Cubism model objects",
                         "Lists Parts, ArtMeshes, Warp Deformers, and Rotation Deformers in the active modeling document.",
-                        objectSchema(
+                        McpSchemas.object(
                                 properties(entry("kind", kindSchema("Optional object-family filter."))), List.of()),
                         Map.of("readOnlyHint", true, "destructiveHint", false, "idempotentHint", true)),
                 tool(
@@ -141,7 +147,7 @@ final class McpTools {
                         "List model parameters",
                         "Lists parameters of the active Cubism model. id filters by stable parameter ID (exact); "
                                 + "name filters by parameter name (case-insensitive substring). Both may be combined (AND).",
-                        objectSchema(
+                        McpSchemas.object(
                                 properties(
                                         entry(
                                                 "id",
@@ -163,7 +169,7 @@ final class McpTools {
                         "Returns the active model's object hierarchy as a nested tree. id returns one node and its "
                                 + "subtree; name (case-insensitive substring, combinable with id as AND) returns every "
                                 + "matching node and its subtree as a matches list.",
-                        objectSchema(
+                        McpSchemas.object(
                                 properties(
                                         entry(
                                                 "id",
@@ -181,13 +187,13 @@ final class McpTools {
                         SELECTION_GET,
                         "Get the current selection",
                         "Returns the active project, document, model, and selected parameters, ArtMeshes, deformers, and model objects.",
-                        objectSchema(properties(), List.of()),
+                        McpSchemas.object(properties(), List.of()),
                         READ_ONLY_HINTS),
                 tool(
                         MODEL_SNAPSHOT_GET,
                         "Get a model snapshot",
                         "Returns a lightweight snapshot of the active project, document, model, selection, and all model/editor data families.",
-                        objectSchema(properties(), List.of()),
+                        McpSchemas.object(properties(), List.of()),
                         READ_ONLY_HINTS),
                 tool(
                         CLIP_MASKS_LIST,
@@ -197,7 +203,7 @@ final class McpTools {
                                 + "generated, non-editable internal stable identifier; name filters by the "
                                 + "user-visible mesh display name (case-insensitive substring). All filters may "
                                 + "be combined (AND); omitting all lists every record.",
-                        objectSchema(
+                        McpSchemas.object(
                                 properties(
                                         entry(
                                                 "id",
@@ -223,7 +229,7 @@ final class McpTools {
                         RENAME,
                         "Rename a Cubism model object",
                         "Renames one object by typed kind and stable Cubism ID through the Turboism authoring API.",
-                        objectSchema(
+                        McpSchemas.object(
                                 properties(
                                         entry("kind", kindSchema("Object family.")),
                                         entry("id", stringSchema("Stable Cubism object ID.", 1, 256)),
@@ -234,13 +240,13 @@ final class McpTools {
                         REPARENT,
                         "Reparent a Cubism model object",
                         "Moves an existing object under a new parent. Part targets accept only Part parents; ArtMesh and Deformer targets accept Part or Deformer parents. Index -1 appends to the parent.",
-                        objectSchema(
+                        McpSchemas.object(
                                 properties(
                                         entry("kind", kindSchema("Object family to move.")),
                                         entry("id", stringSchema("Stable Cubism object ID.", 1, 256)),
                                         entry(
                                                 "parent",
-                                                objectSchema(
+                                                McpSchemas.object(
                                                         properties(
                                                                 entry("kind", kindSchema("New parent object family.")),
                                                                 entry(
@@ -265,7 +271,7 @@ final class McpTools {
                         DELETE,
                         "Delete a Cubism model object",
                         "Deletes one object by kind and ID. The default policy rejects referenced objects; cascade must be explicit.",
-                        objectSchema(
+                        McpSchemas.object(
                                 properties(
                                         entry("kind", kindSchema("Object family.")),
                                         entry("id", stringSchema("Stable Cubism object ID.", 1, 256)),
@@ -736,14 +742,6 @@ final class McpTools {
                 true);
     }
 
-    private static Map<String, Object> toolResult(final Map<String, Object> output, final boolean error) {
-        final Map<String, Object> safe = McpJsonSupport.encodable(output);
-        return linked(
-                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(safe))))),
-                entry("structuredContent", safe),
-                entry("isError", error));
-    }
-
     private static ArtMeshGeometry artMeshGeometry(final Map<String, Object> arguments) {
         final Optional<Object> positionsValue = Optional.ofNullable(arguments.get("positions"));
         final Optional<Object> uvsValue = Optional.ofNullable(arguments.get("uvs"));
@@ -1170,13 +1168,13 @@ final class McpTools {
     }
 
     private static Map<String, Object> createSchema() {
-        return objectSchema(
+        return McpSchemas.object(
                 properties(
                         entry("kind", kindSchema("Object family to create.")),
                         entry("name", stringSchema("Display name.", 1, 256)),
                         entry(
                                 "parent",
-                                objectSchema(
+                                McpSchemas.object(
                                         properties(
                                                 entry("kind", kindSchema("Parent object family.")),
                                                 entry("id", stringSchema("Parent object ID.", 1, 256))),
@@ -1210,7 +1208,7 @@ final class McpTools {
                 entry("description", description),
                 entry(
                         "items",
-                        objectSchema(
+                        McpSchemas.object(
                                 properties(entry("x", Map.of("type", "number")), entry("y", Map.of("type", "number"))),
                                 List.of("x", "y"))));
     }
@@ -1237,37 +1235,6 @@ final class McpTools {
                 entry("description", description),
                 entry("minimum", minimum),
                 entry("maximum", maximum));
-    }
-
-    private static Map<String, Object> objectSchema(final Map<String, Object> properties, final List<String> required) {
-        return linked(
-                entry("type", "object"),
-                entry("properties", properties),
-                entry("required", required),
-                entry("additionalProperties", false));
-    }
-
-    @SafeVarargs
-    private static Map<String, Object> properties(final Map.Entry<String, Object>... entries) {
-        return linked(entries);
-    }
-
-    @SafeVarargs
-    private static Map<String, Object> linked(final Map.Entry<String, Object>... entries) {
-        final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : entries) {
-            result.put(entry.getKey(), entry.getValue());
-        }
-        return result;
-    }
-
-    private static Map.Entry<String, Object> entry(final String key, final Object value) {
-        return new java.util.AbstractMap.SimpleImmutableEntry<>(key, value);
-    }
-
-    private static String safeMessage(final RuntimeException failure) {
-        final String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     private static final class ToolInputException extends RuntimeException {

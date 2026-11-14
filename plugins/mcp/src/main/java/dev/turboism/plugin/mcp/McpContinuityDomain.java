@@ -1,9 +1,9 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpWriteResults.envelope;
+
 import dev.turboism.sdk.cubism.id.*;
 import dev.turboism.sdk.cubism.model.*;
-import dev.turboism.sdk.json.Json;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Supplier;
 
@@ -47,7 +47,7 @@ final class McpContinuityDomain {
 
     private Map<String, Object> validate(Map<String, Object> args) {
         try {
-            if (bytes(args) > 768 * 1024) throw new McpBindingGridSnapshot.Budget();
+            if (McpDomainSupport.bytes(args) > 768 * 1024) throw new McpBindingGridSnapshot.Budget();
             var initial = context.get();
             if (!Objects.equals(args.get("documentId"), initial.binding().get("documentId"))
                     || !Objects.equals(args.get("modelId"), initial.binding().get("modelId"))) throw new Stale();
@@ -113,7 +113,7 @@ final class McpContinuityDomain {
             stats.put("maximumAngleSlopeChange", rotation ? report.maximumAngleSlopeChange() : null);
             stats.put("maximumScaleSlopeChange", rotation ? report.maximumScaleSlopeChange() : null);
             output.put("statistics", stats);
-            if (bytes(output) > 240 * 1024) throw new McpBindingGridSnapshot.Budget();
+            if (McpDomainSupport.bytes(output) > 240 * 1024) throw new McpBindingGridSnapshot.Budget();
             return envelope(output);
         } catch (RuntimeException failure) {
             String code = failure instanceof Stale
@@ -154,21 +154,6 @@ final class McpContinuityDomain {
     private static double number(Object value) {
         if (!(value instanceof Number n) || !Double.isFinite(n.doubleValue())) throw new IllegalArgumentException();
         return n.doubleValue();
-    }
-
-    private static int bytes(Map<String, ?> value) {
-        return Json.stringify(value).getBytes(StandardCharsets.UTF_8).length;
-    }
-
-    private static Map<String, Object> envelope(Map<String, Object> output) {
-        var safe = McpJsonSupport.encodable(output);
-        return Map.of(
-                "content",
-                List.of(Map.of("type", "text", "text", Json.stringify(safe))),
-                "structuredContent",
-                safe,
-                "isError",
-                !Boolean.TRUE.equals(output.get("ok")));
     }
 
     private static final class Stale extends IllegalStateException {}

@@ -1,5 +1,6 @@
 package dev.turboism.ui.resource;
 
+import dev.turboism.core.io.Sha256;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.resource.UiIconAvailability;
 import java.awt.Component;
@@ -11,11 +12,8 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -105,7 +103,7 @@ public final class CubismNativeIconResolver implements AutoCloseable {
             }
             // Decode precisely these measured bytes, never reopen the path after validation.
             if (snapshot.length != expected.get().size()
-                    || !sha256(snapshot).equals(expected.get().sha256())) {
+                    || !Sha256.hex(snapshot).equals(expected.get().sha256())) {
                 return unverified();
             }
             return decodeArchive(snapshot);
@@ -207,14 +205,6 @@ public final class CubismNativeIconResolver implements AutoCloseable {
 
     private static CubismNativeIconResolver unverified() {
         return new CubismNativeIconResolver(Map.of(), UiIconAvailability.HOST_UNVERIFIED);
-    }
-
-    private static String sha256(final byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 is unavailable", impossible);
-        }
     }
 
     private static void requireOffEdt() {

@@ -99,7 +99,7 @@ class LocalPluginRuntimeCloseTest {
             }
         };
         PerformanceFpsHookRegistry.publish(hook);
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 4);
         final HostSession hostSession = new HostSession(Optional::empty);
         try (KernelLog log = new KernelLog(temporary.resolve("failure-cleanup.log"))) {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(temporary, scheduler, hostSession, log);
@@ -128,7 +128,7 @@ class LocalPluginRuntimeCloseTest {
     @Test
     void closeAttemptsEveryStageRetainsUnsafeLoaderAndClosesSharedLaneLast() throws Exception {
         final List<String> order = Collections.synchronizedList(new ArrayList<>());
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 4);
         final HostSession hostSession = new HostSession(Optional::empty);
         final Path logFile = temporary.resolve("logs/turboism.log");
         try (KernelLog log = new KernelLog(logFile)) {
@@ -247,7 +247,7 @@ class LocalPluginRuntimeCloseTest {
     void realPluginServicesReportExactCleanupEvidenceOnlyDuringScopeClose() throws Exception {
         final String pluginId = "dev.example.cleanup";
         final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 4);
         final HostSession hostSession = new HostSession(Optional::empty);
         final DisposableScope scope = new DisposableScope();
         final Path home = temporary.resolve("cleanup");
@@ -375,7 +375,7 @@ class LocalPluginRuntimeCloseTest {
     @Test
     void escapedPluginCloseAndFailingFallbacksDoNotBlockNextPluginOrSharedLane() throws Exception {
         final List<String> order = Collections.synchronizedList(new ArrayList<>());
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 4);
         final HostSession hostSession = new HostSession(Optional::empty);
         final Path logFile = temporary.resolve("fallback/logs/turboism.log");
         try (KernelLog log = new KernelLog(logFile)) {
@@ -456,7 +456,7 @@ class LocalPluginRuntimeCloseTest {
     @Test
     void closeDefersTeardownUntilPreFenceSdkCallDrainsThenRunsExactlyOnce() throws Exception {
         final List<String> order = Collections.synchronizedList(new ArrayList<>());
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 4);
         final HostSession hostSession = new HostSession(Optional::empty);
         final Path logFile = temporary.resolve("logs/turboism.log");
         final PluginLifecyclePolicy policy = new PluginLifecyclePolicy(
@@ -594,10 +594,6 @@ class LocalPluginRuntimeCloseTest {
                         summaries,
                         true)
                 .get(KernelReportType.PREVIEW_RUNTIME);
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 4);
     }
 
     private static DisposableScope scope(final String id, final List<String> order, final boolean fail) {

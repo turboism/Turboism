@@ -1,5 +1,6 @@
 package dev.turboism.core.runtime.psd;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.cubism.id.RawImageId;
@@ -77,7 +78,7 @@ public final class RuntimePsdExportService implements AutoCloseable {
             final Consumer<Runnable> continuationDispatcher,
             final TemporaryFileFactory temporaryFileFactory,
             final PsdDefaultApplicationLauncher launcher) {
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.activeScope = Objects.requireNonNull(activeScope, "activeScope");
         this.continuationDispatcher = Objects.requireNonNull(continuationDispatcher, "continuationDispatcher");
@@ -380,14 +381,6 @@ public final class RuntimePsdExportService implements AutoCloseable {
     private static String safeStatus(final String value) {
         final String candidate = value == null ? "" : value;
         return SAFE_STATUS.matcher(candidate).matches() ? candidate : "UNKNOWN";
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     @FunctionalInterface

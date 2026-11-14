@@ -34,7 +34,7 @@ final class SiteGraph {
         final long qy = Math.round(y / SITE_TOLERANCE);
         for (long dx = -1; dx <= 1; dx++) {
             for (long dy = -1; dy <= 1; dy++) {
-                final List<Integer> bucket = buckets.get(key(qx + dx, qy + dy));
+                final List<Integer> bucket = buckets.get(RegionArrays.cellKey(qx + dx, qy + dy));
                 if (bucket == null) {
                     continue;
                 }
@@ -48,7 +48,8 @@ final class SiteGraph {
         }
         final int index = sites.size();
         sites.add(new double[] {x, y});
-        buckets.computeIfAbsent(key(qx, qy), ignored -> new ArrayList<>()).add(index);
+        buckets.computeIfAbsent(RegionArrays.cellKey(qx, qy), ignored -> new ArrayList<>())
+                .add(index);
         return index;
     }
 
@@ -123,10 +124,6 @@ final class SiteGraph {
         return new Snapshot(xs, ys, first, second, roles, boundaryCount());
     }
 
-    private static long key(final long qx, final long qy) {
-        return (qx << 32) ^ (qy & 0xFFFF_FFFFL);
-    }
-
     /**
      * Frozen graph.
      *
@@ -195,12 +192,12 @@ final class SiteGraph {
             }
             final boolean[] roots = new boolean[xs.length];
             for (int e = 0; e < edgeA.length; e++) {
-                union(parent, edgeA[e], edgeB[e]);
+                DisjointSets.union(parent, edgeA[e], edgeB[e]);
             }
             int components = 0;
             for (int e = 0; e < edgeA.length; e++) {
-                components += rootOnce(roots, find(parent, edgeA[e]));
-                components += rootOnce(roots, find(parent, edgeB[e]));
+                components += rootOnce(roots, DisjointSets.find(parent, edgeA[e]));
+                components += rootOnce(roots, DisjointSets.find(parent, edgeB[e]));
             }
             return components;
         }
@@ -217,28 +214,6 @@ final class SiteGraph {
                 touched[edgeB[e]] = 1;
             }
             return touched;
-        }
-
-        private static int find(final int[] parent, final int start) {
-            int root = start;
-            while (parent[root] != root) {
-                root = parent[root];
-            }
-            int cursor = start;
-            while (parent[cursor] != root) {
-                final int next = parent[cursor];
-                parent[cursor] = root;
-                cursor = next;
-            }
-            return root;
-        }
-
-        private static void union(final int[] parent, final int a, final int b) {
-            final int rootA = find(parent, a);
-            final int rootB = find(parent, b);
-            if (rootA != rootB) {
-                parent[Math.max(rootA, rootB)] = Math.min(rootA, rootB);
-            }
         }
 
         private static int rootOnce(final boolean[] roots, final int root) {

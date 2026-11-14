@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.warpalt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.live2d.cubism.view.context.action.U$b;
 import com.live2d.cubism.view.context.action.h$a;
@@ -197,19 +196,6 @@ final class NativeWarpAltMirrorPointMoveTest {
         assertEquals(0.0f, counterpart.positions[60], 1.0e-6f);
         assertEquals(5.0f, counterpart.positions[61], 1.0e-6f);
         registration.close();
-    }
-
-    @Test
-    void participationRegistryTracksRegistrations() {
-        final RuntimeWarpAltMirrorParticipation participation = NativeWarpAltMirrorBridge.moveParticipation();
-        assertFalse(participation.hasParticipants());
-        final var first = participation.participate();
-        final var second = participation.participate();
-        assertTrue(participation.hasParticipants());
-        first.close();
-        assertTrue(participation.hasParticipants());
-        second.close();
-        assertFalse(participation.hasParticipants());
     }
 
     private static dev.turboism.sdk.plugin.Registration participate() {

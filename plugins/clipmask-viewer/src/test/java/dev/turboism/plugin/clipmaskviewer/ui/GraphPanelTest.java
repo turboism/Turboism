@@ -10,6 +10,7 @@ import dev.turboism.plugin.clipmaskviewer.domain.ClipMaskViewerState;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Point;
@@ -611,26 +612,6 @@ class GraphPanelTest {
     }
 
     private static PluginLocalization localization() {
-        return new PluginLocalization() {
-            @Override
-            public Locale locale() {
-                return Locale.ENGLISH;
-            }
-
-            @Override
-            public String text(final String key) {
-                return key;
-            }
-
-            @Override
-            public String format(final String key, final Object... arguments) {
-                return key;
-            }
-
-            @Override
-            public boolean contains(final String key) {
-                return true;
-            }
-        };
+        return FakePluginContext.passThroughLocalization(Locale.ENGLISH);
     }
 }

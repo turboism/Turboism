@@ -658,7 +658,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             final java.util.function.Function<HostArtifactDigest, T> exactEvidence,
             final CompatEvidenceFactory<T> compatEvidence)
             throws java.io.IOException {
-        final HostArtifactDigest artifact = HostArtifactDigest.from(slice.verifiedArtifact());
+        final HostArtifactDigest artifact = HostArtifactDigest.cached(slice.verifiedArtifact());
         final SliceContract contract =
                 slice.contract().filter(SliceContract::compatible).orElse(null);
         return contract == null ? exactEvidence.apply(artifact) : compatEvidence.create(contract, artifact);
@@ -675,12 +675,12 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             final SliceContract contract =
                     slice.contract().filter(SliceContract::compatible).orElse(null);
             if (contract != null) {
-                final HostArtifactDigest actual = HostArtifactDigest.from(slice.verifiedArtifact());
+                final HostArtifactDigest actual = HostArtifactDigest.cached(slice.verifiedArtifact());
                 return new dev.turboism.mapping.verification.EditorModelAdmissionEvidence(
                         contract.declaredVersion(), actual.size(), actual.sha256(), contract.adapterSliceId());
             }
             return dev.turboism.mapping.verification.EditorModelAdmissionEvidence.forArtifact(
-                    HostArtifactDigest.from(slice.verifiedArtifact()));
+                    HostArtifactDigest.cached(slice.verifiedArtifact()));
         } catch (java.io.IOException missingTestArtifact) {
             return dev.turboism.mapping.verification.EditorModelAdmissionEvidence.forResolver(resolver);
         }
@@ -1396,12 +1396,12 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final String version = slice.contract().isPresent()
                 ? slice.contract().orElseThrow().sourceVersion()
                 : dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest.versionForArtifact(
-                        HostArtifactDigest.from(slice.verifiedArtifact()));
+                        HostArtifactDigest.cached(slice.verifiedArtifact()));
         // Preserve ordinary theme application for compatibility-bound, unreviewed artifacts;
         // their native background keeps the early-bootstrap restart fallback.
         final java.util.function.Consumer<java.awt.Color> refreshBackground =
                 dev.turboism.mapping.verification.ReviewedHostArtifacts.isReviewed(
-                                HostArtifactDigest.from(slice.verifiedArtifact()))
+                                HostArtifactDigest.cached(slice.verifiedArtifact()))
                         ? new dev.turboism.adapter.ui.OffCanvasBackgroundHostAccess(
                                 slice.verifiedArtifact(), slice.hostClassLoader())
                         : background -> {};

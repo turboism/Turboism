@@ -18,6 +18,7 @@ import dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTra
 import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
 import dev.turboism.adapter.cubism.warp.RuntimeWarpMirrorProvider;
 import dev.turboism.adapter.cubism.warp.WarpMirrorRuntimeService;
+import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorEditSelectionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
@@ -129,7 +130,7 @@ public final class EditorBackedCubismModelAccess
             final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGeneration = new EditorModelGeneration(
-                resolver, requireText(sessionIdentity, "sessionIdentity"), this::releaseUnboundBorrowedModel);
+                resolver, Requirements.text(sessionIdentity, "sessionIdentity"), this::releaseUnboundBorrowedModel);
         this.authoringHost = new VerifiedEditorAuthoringTransactionHost(
                 resolver,
                 this::authoringNativeBinding,
@@ -1404,12 +1405,6 @@ public final class EditorBackedCubismModelAccess
             throw unavailable(message);
         }
         return flag;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 
     /**

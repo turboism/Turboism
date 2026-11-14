@@ -125,11 +125,7 @@ public record RegionPlacementPlan(
         }
 
         private int maxLabel() {
-            int max = 0;
-            for (final int label : labels) {
-                max = Math.max(max, label);
-            }
-            return max;
+            return RegionArrays.maxLabel(labels);
         }
     }
 }

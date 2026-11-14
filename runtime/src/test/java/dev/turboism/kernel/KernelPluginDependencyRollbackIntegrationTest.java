@@ -9,6 +9,7 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.event.EventBus;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -53,7 +54,7 @@ class KernelPluginDependencyRollbackIntegrationTest {
         final Path home = temporary.resolve("home");
         writeFixturePlugins(home.resolve("plugins"), "[]");
 
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         System.clearProperty(INIT_PROPERTY);
         System.clearProperty(DISABLE_ORDER_PROPERTY);
@@ -115,7 +116,7 @@ class KernelPluginDependencyRollbackIntegrationTest {
         final Path home = temporary.resolve("home");
         writeFixturePlugins(home.resolve("plugins"), SUBSCRIBE_PERMISSION);
 
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         for (String property :
                 List.of(INIT_PROPERTY, DISABLE_ORDER_PROPERTY, DISABLE_STARTED_PROPERTY, RELEASE_DISABLE_PROPERTY)) {
@@ -430,13 +431,6 @@ class KernelPluginDependencyRollbackIntegrationTest {
             "dependencies":%s,"permissions":%s,"capabilities":[],
             "environment":{"requiresCubism":false,"ui":"none"}}
             """.formatted(id, id, entrypoint, dependencies, permissions);
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
-                ignored -> {});
     }
 
     private static void add(final JarOutputStream output, final String name, final byte[] content) throws Exception {

@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 class DeformerOpacityLifecycleContractTest {
     @Test
     void transformsAndPublishesDetachedOpacityCompletion() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler();
         try {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
             final DeformerLifecycleCoordinator coordinator = new DeformerLifecycleCoordinator();
@@ -79,10 +79,6 @@ class DeformerOpacityLifecycleContractTest {
                     UnsupportedOperationException.class, () -> event.deformer().setOpacity(1.0F));
             completion.countDown();
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler();
     }
 
     private static final class MutableWarp implements WarpDeformer {

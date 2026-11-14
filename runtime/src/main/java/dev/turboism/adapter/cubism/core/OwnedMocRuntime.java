@@ -101,22 +101,10 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
         freshness.run();
         final byte[] bytes = value.toByteArray();
         final MocVersion version =
-                normalizeVersion(requireValue(provider.mocVersion(bytes.clone()), "Core MOC version"));
+                MocVersions.normalize(requireValue(provider.mocVersion(bytes.clone()), "Core MOC version"));
         final boolean consistent = requireValue(provider.hasMocConsistency(bytes.clone()), "Core MOC consistency");
         final Object rawMoc = requireValue(provider.instantiateMoc(bytes.clone()), "Core MOC instantiation");
         return new OwnedMocImpl(rawMoc, version, consistent ? MocConsistency.CONSISTENT : MocConsistency.INCONSISTENT);
-    }
-
-    private static MocVersion normalizeVersion(final int version) {
-        return switch (version) {
-            case 1 -> MocVersion.V3_0;
-            case 2 -> MocVersion.V3_3;
-            case 3 -> MocVersion.V4_0;
-            case 4 -> MocVersion.V4_2;
-            case 5 -> MocVersion.V5_0;
-            case 6 -> MocVersion.V5_3;
-            default -> MocVersion.UNKNOWN;
-        };
     }
 
     /**

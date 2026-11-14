@@ -2,6 +2,7 @@ package dev.turboism.exportsettings;
 
 import dev.turboism.core.runtime.QuiescencePolicy;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
@@ -59,7 +60,7 @@ public final class RuntimeExportSettingsContributionRegistry
     public RuntimeExportSettingsContributionRegistry(
             final String pluginId, final long generation, final QuiescencePolicy closePolicy) {
         this.closePolicy = Objects.requireNonNull(closePolicy, "closePolicy");
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         if (generation < 0L) {
             throw new IllegalArgumentException("generation must not be negative");
         }
@@ -295,13 +296,5 @@ public final class RuntimeExportSettingsContributionRegistry
         private ContributionEntry {
             Objects.requireNonNull(contribution, "contribution");
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

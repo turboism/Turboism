@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.model.CubismModel;
@@ -349,7 +351,7 @@ final class McpRenderDomain {
                                         "ok",
                                         Map.of("const", false),
                                         "error",
-                                        object(Map.of("code", string(), "message", string())))))),
+                                        object(Map.of("code", id(), "message", id())))))),
                 "annotations",
                 Map.of("readOnlyHint", true, "destructiveHint", false, "idempotentHint", true, "openWorldHint", false));
     }
@@ -357,15 +359,15 @@ final class McpRenderDomain {
     static Map<String, Object> bindingSchema() {
         return object(Map.of(
                 "documentId",
-                string(),
+                id(),
                 "modelId",
-                string(),
+                id(),
                 "historyGeneration",
-                integer(),
+                nonNegativeInteger(),
                 "historyRevision",
-                integer(),
+                nonNegativeInteger(),
                 "poseHash",
-                string()));
+                id()));
     }
 
     private static Map<String, Object> parametersSchema() {
@@ -375,7 +377,7 @@ final class McpRenderDomain {
                 "maxItems",
                 MAX_PARAMETERS,
                 "items",
-                object(Map.of("ordinal", integer(), "id", string(), "value", Map.of("type", "number"))));
+                object(Map.of("ordinal", nonNegativeInteger(), "id", id(), "value", Map.of("type", "number"))));
     }
 
     private static Map<String, Object> stateSchema() {
@@ -387,52 +389,32 @@ final class McpRenderDomain {
                 "parameters",
                 parametersSchema(),
                 "maxDimension",
-                integer(),
+                nonNegativeInteger(),
                 "maxPixels",
-                integer(),
+                nonNegativeInteger(),
                 "maxPngBytes",
-                integer()));
+                nonNegativeInteger()));
     }
 
     private static Map<String, Object> captureSchema() {
         var fields = new LinkedHashMap<String, Object>();
         fields.put("ok", Map.of("const", true));
-        fields.put("captureId", string());
-        fields.put("capturedAt", string());
+        fields.put("captureId", id());
+        fields.put("capturedAt", id());
         fields.put("state", bindingSchema());
         fields.put("parameters", parametersSchema());
-        fields.put("width", integer());
-        fields.put("height", integer());
-        fields.put("renderWidth", integer());
-        fields.put("renderHeight", integer());
+        fields.put("width", nonNegativeInteger());
+        fields.put("height", nonNegativeInteger());
+        fields.put("renderWidth", nonNegativeInteger());
+        fields.put("renderHeight", nonNegativeInteger());
         fields.put("crop", cropSchema());
-        fields.put("byteLength", integer());
+        fields.put("byteLength", nonNegativeInteger());
         fields.put("mimeType", Map.of("const", "image/png"));
-        fields.put("sha256", string());
+        fields.put("sha256", id());
         fields.put("renderer", Map.of("const", "cubism.native.renderPixels"));
-        fields.put("pixelCoordinates", string());
+        fields.put("pixelCoordinates", id());
         fields.put("modelToPixelTransform", Map.of("type", "null"));
         return object(fields);
-    }
-
-    private static Map<String, Object> object(Map<String, Object> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
-    }
-
-    private static Map<String, Object> string() {
-        return Map.of("type", "string", "minLength", 1, "maxLength", 4096);
-    }
-
-    private static Map<String, Object> integer() {
-        return Map.of("type", "integer", "minimum", 0);
     }
 
     private static Map<String, Object> dimension() {

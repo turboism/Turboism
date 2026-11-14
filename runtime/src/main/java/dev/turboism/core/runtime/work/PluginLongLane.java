@@ -3,6 +3,7 @@ package dev.turboism.core.runtime.work;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
+import dev.turboism.internal.Requirements;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.time.Duration;
@@ -83,7 +84,7 @@ public final class PluginLongLane {
         if (shutdownTimeout.isNegative() || shutdownTimeout.isZero()) {
             throw new IllegalArgumentException("shutdownTimeout must be positive");
         }
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         if (concurrency < 1) {
             throw new IllegalArgumentException("concurrency must be positive");
         }
@@ -202,14 +203,6 @@ public final class PluginLongLane {
     private static PluginWorkSubmission rejected(PluginWorkStatus status, String failureCode) {
         PluginWorkResult result = new PluginWorkResult(status, failureCode);
         return new PluginWorkSubmission(false, status, CompletableFuture.completedFuture(result));
-    }
-
-    private static String requireText(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private final class LongWorkItem implements Runnable {

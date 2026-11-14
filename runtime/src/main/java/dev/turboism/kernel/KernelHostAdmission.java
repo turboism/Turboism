@@ -37,7 +37,7 @@ final class KernelHostAdmission {
         if (!hostResolution.runtimeAdmitted()) {
             throw new IllegalStateException("Cubism admission resolved no base runtime capability");
         }
-        if (!dev.turboism.mapping.verification.HostArtifactDigest.from(hostArtifact)
+        if (!dev.turboism.mapping.verification.HostArtifactDigest.cached(hostArtifact)
                 .equals(hostResolution.identity().orElseThrow().artifact())) {
             throw new IllegalStateException("Cubism host artifact changed since compatibility probing");
         }
@@ -57,7 +57,7 @@ final class KernelHostAdmission {
             return hostResolution.declaredVersion();
         }
         return dev.turboism.mapping.verification.EditorModelVerificationManifest.resourceProfileForArtifact(
-                dev.turboism.mapping.verification.HostArtifactDigest.from(normalizedHostArtifact));
+                dev.turboism.mapping.verification.HostArtifactDigest.cached(normalizedHostArtifact));
     }
 
     /**
@@ -93,7 +93,7 @@ final class KernelHostAdmission {
                 .orElseThrow(() -> new IllegalStateException(
                         "Cubism host release declaration missing or ambiguous; admission failed closed"));
         final String reviewedVersion = ReviewedHostArtifacts.cubismVersionOf(
-                        dev.turboism.mapping.verification.HostArtifactDigest.from(normalized))
+                        dev.turboism.mapping.verification.HostArtifactDigest.cached(normalized))
                 .orElseThrow(() -> new IllegalStateException(
                         "Cubism host artifact is not an exact reviewed identity; admission failed closed"));
         return requireReleaseAgreement(reviewedVersion, declaration.version());

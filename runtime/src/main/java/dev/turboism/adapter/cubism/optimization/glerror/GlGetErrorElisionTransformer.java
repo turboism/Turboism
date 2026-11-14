@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.glerror;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -158,12 +159,8 @@ public final class GlGetErrorElisionTransformer implements ClassFileTransformer 
             }
             final ClassReader reader = new ClassReader(bytes);
             final int[] replaced = {0};
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader;
-                }
-            };
+            final ClassWriter writer =
+                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override

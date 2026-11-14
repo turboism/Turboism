@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.cubism.event.PartNameEvent;
 import dev.turboism.sdk.cubism.event.PartOpacityEvent;
 import dev.turboism.sdk.cubism.hook.PartHooks;
@@ -84,7 +85,7 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
      * @throws IllegalArgumentException when {@code pluginId} is blank
      */
     public void unregister(final String pluginId) {
-        final String id = requireText(pluginId, "pluginId");
+        final String id = Requirements.text(pluginId, "pluginId");
         synchronized (registrationLock) {
             plugins.removeIf(
                     registration -> registration.plugin().descriptor().id().equals(id));
@@ -93,7 +94,7 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
     }
 
     void unregister(final String pluginId, final Object token) {
-        final String id = requireText(pluginId, "pluginId");
+        final String id = Requirements.text(pluginId, "pluginId");
         final Object generation = Objects.requireNonNull(token, "token");
         synchronized (registrationLock) {
             final boolean removed = plugins.removeIf(registration -> registration.token() == generation
@@ -365,12 +366,6 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
     }
 
     private record Registration(Object token, PluginHooks plugin) {}
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
-    }
 
     private static String requireName(final String value) {
         final String name = Objects.requireNonNull(value, "name");

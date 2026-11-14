@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.integration;
 
+import dev.turboism.core.reflect.MethodHandleCache;
+
 /**
  * Sends a serialized response frame back over the host-owned WebSocket.
  *
@@ -27,7 +29,7 @@ public interface EditSocketWriter {
      * appearing in this layer's signatures.</p>
      */
     static EditSocketWriter reflective() {
-        return (socket, text) ->
-                socket.getClass().getMethod("send", String.class).invoke(socket, text);
+        return (socket, text) -> MethodHandleCache.method(socket.getClass(), "send", String.class)
+                .invoke(socket, text);
     }
 }

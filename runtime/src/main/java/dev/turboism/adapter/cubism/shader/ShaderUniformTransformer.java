@@ -8,10 +8,12 @@ import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.WeakHashMap;
 import java.util.function.Consumer;
 import org.objectweb.asm.*;
 
@@ -57,10 +59,12 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
      * rewrite can be told apart from foreign bytecode drift; the record alone
      * widens nothing, because the composed shape the consumer admits is derived
      * from {@link #patch(byte[])} over attested reference bytes.
+     *
+     * <p>The record is keyed by the defining loader in a weak map, so a loader that
+     * the host unloads is collectable again. The bootstrap loader is a legal key.</p>
      */
-    private record Patched(ClassLoader loader, String owner) {}
+    private static final Map<ClassLoader, Set<String>> PATCHED = Collections.synchronizedMap(new WeakHashMap<>());
 
-    private static final Set<Patched> PATCHED = ConcurrentHashMap.newKeySet();
     private final Consumer<String> diagnostic;
     private volatile boolean patched;
 
@@ -77,7 +81,10 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
      * @param owner the patched class internal name
      */
     public static void markPatched(ClassLoader loader, String owner) {
-        PATCHED.add(new Patched(loader, java.util.Objects.requireNonNull(owner, "owner")));
+        final String name = java.util.Objects.requireNonNull(owner, "owner");
+        synchronized (PATCHED) {
+            PATCHED.computeIfAbsent(loader, ignored -> new LinkedHashSet<>()).add(name);
+        }
     }
 
     /**
@@ -89,7 +96,17 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
      * @param owner the patched class internal name
      */
     public static void clearPatched(ClassLoader loader, String owner) {
-        PATCHED.remove(new Patched(loader, java.util.Objects.requireNonNull(owner, "owner")));
+        final String name = java.util.Objects.requireNonNull(owner, "owner");
+        synchronized (PATCHED) {
+            final Set<String> owners = PATCHED.get(loader);
+            if (owners == null) {
+                return;
+            }
+            owners.remove(name);
+            if (owners.isEmpty()) {
+                PATCHED.remove(loader);
+            }
+        }
     }
 
     /**
@@ -98,7 +115,11 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
      * @return {@code true} when this rewrite patched that definition
      */
     public static boolean isPatched(ClassLoader loader, String owner) {
-        return PATCHED.contains(new Patched(loader, java.util.Objects.requireNonNull(owner, "owner")));
+        final String name = java.util.Objects.requireNonNull(owner, "owner");
+        synchronized (PATCHED) {
+            final Set<String> owners = PATCHED.get(loader);
+            return owners != null && owners.contains(name);
+        }
     }
 
     /**
@@ -150,7 +171,7 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
         }
         try {
             Path artifactPath = Path.of(domain.getCodeSource().getLocation().toURI());
-            HostArtifactDigest artifact = HostArtifactDigest.from(artifactPath);
+            HostArtifactDigest artifact = HostArtifactDigest.cached(artifactPath);
             if (!admits(artifact)) {
                 report("DECLINED_ARTIFACT_HASH");
                 return null;

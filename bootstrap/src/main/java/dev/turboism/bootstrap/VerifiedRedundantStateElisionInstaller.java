@@ -51,7 +51,7 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
                 .getParent()
                 .resolve("jogl/jogl-all.jar")
                 .normalize();
-        if (!ReviewedHostArtifacts.CUBISM_5_3_03_JOGL.equals(HostArtifactDigest.from(joglArtifact))) {
+        if (!ReviewedHostArtifacts.CUBISM_5_3_03_JOGL.equals(HostArtifactDigest.cached(joglArtifact))) {
             throw new IllegalArgumentException("state elision bundled JOGL identity mismatch");
         }
         entry = Class.forName(RedundantStateElisionTarget.OWNER.replace('/', '.'), false, loader);

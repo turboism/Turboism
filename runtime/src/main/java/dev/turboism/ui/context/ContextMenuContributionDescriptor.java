@@ -1,5 +1,6 @@
 package dev.turboism.ui.context;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
 import dev.turboism.ui.contribution.EditorUiContribution;
@@ -22,10 +23,10 @@ public record ContextMenuContributionDescriptor(
         ContextMenuRegistry.Placement placement,
         Predicate<ContextMenuSelection> visibleWhen) {
     public ContextMenuContributionDescriptor {
-        pluginId = requireText(pluginId, "pluginId");
-        contributionId = requireText(contributionId, "contributionId");
-        actionId = requireText(actionId, "actionId");
-        label = requireText(label, "label");
+        pluginId = Requirements.text(pluginId, "pluginId");
+        contributionId = Requirements.text(contributionId, "contributionId");
+        actionId = Requirements.text(actionId, "actionId");
+        label = Requirements.text(label, "label");
         location = Objects.requireNonNull(location, "location");
         objectKinds = Set.copyOf(Objects.requireNonNull(objectKinds, "objectKinds"));
         entry = Objects.requireNonNull(entry, "entry");
@@ -136,13 +137,5 @@ public record ContextMenuContributionDescriptor(
                 && !selection.items().isEmpty()
                 && selection.items().stream().allMatch(item -> objectKinds.contains(item.kind()))
                 && (visibleWhen == null || visibleWhen.test(selection));
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

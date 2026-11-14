@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpWriteResults.envelope;
+
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.json.Json;
@@ -61,7 +63,7 @@ final class McpRotationRigDomain {
             else expected.addAll(Set.of("parameterGuid", "nativeAnglePerParameterUnit"));
             if (!args.keySet().equals(expected)) throw new IllegalArgumentException();
             for (String field : List.of("documentId", "modelId", "objectId", "snapshotId", "operationId"))
-                text(args.get(field));
+                McpDomainSupport.text(args.get(field), 4096);
             if (!"REPLACE_ANGLE_FROM_DEFAULT".equals(args.get("policy"))) throw new IllegalArgumentException();
             var axes = new ArrayList<McpRotationRigPlan.Axis>();
             if (multi) {
@@ -77,7 +79,8 @@ final class McpRotationRigDomain {
             var initial = context.get();
             if (!args.get("documentId").equals(initial.binding().get("documentId"))
                     || !args.get("modelId").equals(initial.binding().get("modelId"))) throw new Stale();
-            var snapshot = snapshots.get(text(args.get("snapshotId")), McpRequestRegistry.currentSessionId());
+            var snapshot = snapshots.get(
+                    McpDomainSupport.text(args.get("snapshotId"), 4096), McpRequestRegistry.currentSessionId());
             if (!"rotation_deformer".equals(snapshot.kind())
                     || !(snapshot.nativeSnapshot() instanceof RotationAuthoringSnapshot rotation))
                 throw new UnsupportedOperationException();
@@ -179,23 +182,8 @@ final class McpRotationRigDomain {
     private static McpRotationRigPlan.Axis axis(Map<?, ?> args) {
         if (!(args.get("nativeAnglePerParameterUnit") instanceof Number number)
                 || !Double.isFinite(number.doubleValue())) throw new IllegalArgumentException();
-        return new McpRotationRigPlan.Axis(text(args.get("parameterGuid")), number.doubleValue());
-    }
-
-    private static String text(Object raw) {
-        if (!(raw instanceof String s) || s.isBlank() || s.length() > 4096) throw new IllegalArgumentException();
-        return s;
-    }
-
-    private static Map<String, Object> envelope(Map<String, Object> output) {
-        var safe = McpJsonSupport.encodable(output);
-        return Map.of(
-                "content",
-                List.of(Map.of("type", "text", "text", Json.stringify(safe))),
-                "structuredContent",
-                safe,
-                "isError",
-                !Boolean.TRUE.equals(output.get("ok")));
+        return new McpRotationRigPlan.Axis(
+                McpDomainSupport.text(args.get("parameterGuid"), 4096), number.doubleValue());
     }
 
     private static final class Stale extends RuntimeException {}

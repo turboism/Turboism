@@ -96,7 +96,7 @@ public record RuntimeStartupConfig(
         final Path home = turboismHome.toAbsolutePath().normalize();
         final Path configPath = home.resolve("config.json").normalize();
         if (!configPath.startsWith(home)) {
-            report(diagnostic, "RUNTIME_STARTUP_CONFIG_PATH_REJECTED");
+            FatalErrors.reportSafely(diagnostic, "RUNTIME_STARTUP_CONFIG_PATH_REJECTED");
             return FAIL_CLOSED;
         }
         if (!Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) {
@@ -105,18 +105,18 @@ public record RuntimeStartupConfig(
         try {
             if (!Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS)
                     || Files.size(configPath) > MAX_CONFIG_BYTES) {
-                report(diagnostic, "RUNTIME_STARTUP_CONFIG_FILE_REJECTED");
+                FatalErrors.reportSafely(diagnostic, "RUNTIME_STARTUP_CONFIG_FILE_REJECTED");
                 return FAIL_CLOSED;
             }
             final JsonNode root = JSON.readTree(Files.readAllBytes(configPath));
             if (root == null) {
-                report(diagnostic, "RUNTIME_STARTUP_CONFIG_UNREADABLE");
+                FatalErrors.reportSafely(diagnostic, "RUNTIME_STARTUP_CONFIG_UNREADABLE");
                 return FAIL_CLOSED;
             }
             final java.util.List<dev.turboism.core.schema.SchemaValidationError> configErrors =
                     new RuntimeConfigValidator().validate(root, configPath.toString());
             if (!configErrors.isEmpty()) {
-                report(diagnostic, "RUNTIME_STARTUP_CONFIG_INVALID");
+                FatalErrors.reportSafely(diagnostic, "RUNTIME_STARTUP_CONFIG_INVALID");
                 final java.util.Set<String> disabledHookIds = new java.util.LinkedHashSet<>();
                 final JsonNode disabledIds = root.path("hooks").path("disabledIds");
                 if (disabledIds.isArray()) {
@@ -152,13 +152,9 @@ public record RuntimeStartupConfig(
                     !safeMode && requestedInformation,
                     disabledHookIds);
         } catch (IOException | RuntimeException failure) {
-            report(diagnostic, "RUNTIME_STARTUP_CONFIG_UNREADABLE");
+            FatalErrors.reportSafely(diagnostic, "RUNTIME_STARTUP_CONFIG_UNREADABLE");
             return FAIL_CLOSED;
         }
-    }
-
-    private static void report(final Consumer<String> diagnostic, final String code) {
-        FatalErrors.reportSafely(diagnostic, code);
     }
 
     /**

@@ -2,6 +2,7 @@ package dev.turboism.core.event;
 
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.EventPriority;
@@ -139,13 +140,13 @@ public final class RuntimeEventBroker {
 
     /** Admits one inactive plugin generation whose subscriptions can be staged before activation. */
     public Owner admit(final String pluginId) {
-        return admit(requireText(pluginId, "pluginId"), null);
+        return admit(Requirements.text(pluginId, "pluginId"), null);
     }
 
     /** Admits one generation and registers its descriptor-declared public event contracts. */
     public Owner admit(final PluginDescriptor descriptor) {
         final PluginDescriptor value = Objects.requireNonNull(descriptor, "descriptor");
-        return admit(requireText(value.id(), "descriptor.id"), value);
+        return admit(Requirements.text(value.id(), "descriptor.id"), value);
     }
 
     private Owner admit(final String id, final PluginDescriptor descriptor) {
@@ -164,7 +165,7 @@ public final class RuntimeEventBroker {
 
     /** Returns the active generation-zero owner shared by plugin contexts and integrations. */
     public PluginEventOwnerKey pluginOwner(final String pluginId) {
-        final PluginEventOwnerKey key = new PluginEventOwnerKey(requireText(pluginId, "pluginId"), 0L);
+        final PluginEventOwnerKey key = new PluginEventOwnerKey(Requirements.text(pluginId, "pluginId"), 0L);
         generations.registerActive(key);
         return key;
     }
@@ -514,14 +515,6 @@ public final class RuntimeEventBroker {
         return generations.droppedDeliveries(owner);
     }
 
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
-    }
-
     /** Lifecycle handle retained by the exact plugin generation that was admitted. */
     public static final class Owner {
         private final RuntimeEventBroker broker;
@@ -641,9 +634,9 @@ public final class RuntimeEventBroker {
         /** Validates and normalizes one contained subscriber failure record. */
         public SubscriberFailure {
             owner = Objects.requireNonNull(owner, "owner");
-            operationId = requireText(operationId, "operationId");
-            eventType = requireText(eventType, "eventType");
-            exceptionType = requireText(exceptionType, "exceptionType");
+            operationId = Requirements.text(operationId, "operationId");
+            eventType = Requirements.text(eventType, "eventType");
+            exceptionType = Requirements.text(exceptionType, "exceptionType");
         }
     }
 

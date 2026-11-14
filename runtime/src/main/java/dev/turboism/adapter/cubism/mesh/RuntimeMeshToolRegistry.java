@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.core.runtime.Registrations;
+import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.mesh.MeshTool;
 import dev.turboism.sdk.cubism.mesh.MeshToolRegistry;
@@ -47,7 +49,7 @@ public final class RuntimeMeshToolRegistry implements MeshToolRegistry {
             boolean pointAndEdgeLayoutGranted,
             MeshToolCoordinator coordinator,
             EditorUiContributionAuthority authority) {
-        this.pluginId = text(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         if (pluginGeneration < 0) throw new IllegalArgumentException("pluginGeneration must not be negative");
         this.pluginGeneration = pluginGeneration;
         this.permissions = Objects.requireNonNull(permissions, "permissions");
@@ -74,8 +76,8 @@ public final class RuntimeMeshToolRegistry implements MeshToolRegistry {
         final MeshToolbarContributionDescriptor descriptor = new MeshToolbarContributionDescriptor(
                 pluginId,
                 pluginGeneration,
-                text(tool.id(), "tool.id"),
-                text(tool.label(), "tool.label"),
+                Requirements.text(tool.id(), "tool.id"),
+                Requirements.text(tool.label(), "tool.label"),
                 resource(tool.iconResourcePath(), "tool.iconResourcePath"),
                 resource(tool.activeIconResourcePath(), "tool.activeIconResourcePath"),
                 resource(tool.rollOverIconResourcePath(), "tool.rollOverIconResourcePath"),
@@ -114,8 +116,8 @@ public final class RuntimeMeshToolRegistry implements MeshToolRegistry {
         final MeshToolbarSliderContributionDescriptor descriptor = new MeshToolbarSliderContributionDescriptor(
                 pluginId,
                 pluginGeneration,
-                text(slider.id(), "slider.id"),
-                text(slider.label(), "slider.label"),
+                Requirements.text(slider.id(), "slider.id"),
+                Requirements.text(slider.label(), "slider.label"),
                 minimum,
                 maximum,
                 current,
@@ -144,7 +146,7 @@ public final class RuntimeMeshToolRegistry implements MeshToolRegistry {
                 synchronized (monitor) {
                     owners.remove(id, this);
                 }
-                RuntimeException first = closeAll(registrations);
+                RuntimeException first = Registrations.closeReverseReturningFirst(registrations);
                 if (first != null) throw first;
             }
         };
@@ -170,8 +172,8 @@ public final class RuntimeMeshToolRegistry implements MeshToolRegistry {
             tools.clear();
         }
         // Closers may synchronously cross to EDT and reenter the registry. Never hold its monitor.
-        RuntimeException first = closeAll(ownedSliders);
-        first = append(first, closeAll(ownedTools));
+        RuntimeException first = Registrations.closeReverseReturningFirst(ownedSliders);
+        first = append(first, Registrations.closeReverseReturningFirst(ownedTools));
         try {
             coordinator.removePlugin(pluginId, pluginGeneration);
         } catch (RuntimeException failure) {
@@ -182,18 +184,6 @@ public final class RuntimeMeshToolRegistry implements MeshToolRegistry {
 
     private void requireOpen() {
         if (closed) throw new IllegalStateException("mesh tool registry is closed");
-    }
-
-    private static RuntimeException closeAll(final List<Registration> values) {
-        RuntimeException first = null;
-        for (int index = values.size() - 1; index >= 0; index--) {
-            try {
-                values.get(index).close();
-            } catch (RuntimeException failure) {
-                first = append(first, failure);
-            }
-        }
-        return first;
     }
 
     private static RuntimeException append(final RuntimeException first, final RuntimeException next) {
@@ -212,16 +202,10 @@ public final class RuntimeMeshToolRegistry implements MeshToolRegistry {
     }
 
     private static String resource(final String value, final String name) {
-        final String path = text(value, name);
+        final String path = Requirements.text(value, name);
         if (path.startsWith("/") || path.contains("..") || path.contains("\\")) {
             throw new IllegalArgumentException(name + " must be a normalized plugin resource path");
         }
         return path;
-    }
-
-    private static String text(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.*;
 
 final class McpRigTransferSchemas {
@@ -38,7 +40,8 @@ final class McpRigTransferSchemas {
                                             "maxItems",
                                             65,
                                             "items",
-                                            object(Map.of("sourceValue", number(), "targetValue", number())))))));
+                                            object(Map.of(
+                                                    "sourceValue", numberSchema(), "targetValue", numberSchema())))))));
             fields.put(
                     "deltaTransform",
                     object(Map.of("xx", coefficient(), "xy", coefficient(), "yx", coefficient(), "yy", coefficient())));
@@ -122,29 +125,5 @@ final class McpRigTransferSchemas {
 
     private static Map<String, Object> coefficient() {
         return Map.of("type", "number", "minimum", -1e6, "maximum", 1e6);
-    }
-
-    private static Map<String, Object> number() {
-        return Map.of("type", "number");
-    }
-
-    private static Map<String, Object> integer(int min, int max) {
-        return Map.of("type", "integer", "minimum", min, "maximum", max);
-    }
-
-    private static Map<String, Object> text(int max) {
-        return Map.of("type", "string", "minLength", 1, "maxLength", max);
-    }
-
-    private static Map<String, Object> object(Map<String, ?> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
     }
 }

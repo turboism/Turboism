@@ -1,6 +1,7 @@
 package dev.turboism.ui.table;
 
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
 import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
 import dev.turboism.sdk.ui.table.SceneTableService;
@@ -42,7 +43,7 @@ public final class RuntimeSceneTableService implements SceneTableService {
     @Override
     public void setHeader(final String tableId, final String columnId, final String label) {
         requireSceneTable(tableId);
-        host.setHeader(requireText(columnId, "columnId"), Objects.requireNonNull(label, "label"));
+        host.setHeader(Requirements.text(columnId, "columnId"), Objects.requireNonNull(label, "label"));
     }
 
     @Override
@@ -51,7 +52,7 @@ public final class RuntimeSceneTableService implements SceneTableService {
         if (position < 0) {
             throw new IllegalArgumentException("position must not be negative");
         }
-        host.setItemPosition(requireText(itemId, "itemId"), position);
+        host.setItemPosition(Requirements.text(itemId, "itemId"), position);
     }
 
     @Override
@@ -73,7 +74,8 @@ public final class RuntimeSceneTableService implements SceneTableService {
 
     /** Publishes a detached header-click observation without invoking plugin code on Swing EDT. */
     public void publishHeaderClick(final String columnId) {
-        publish(new SceneTableHeaderClickEvent(new HeaderClick(SCENE_TABLE_ID, requireText(columnId, "columnId"))));
+        publish(new SceneTableHeaderClickEvent(
+                new HeaderClick(SCENE_TABLE_ID, Requirements.text(columnId, "columnId"))));
     }
 
     /** Records and asynchronously publishes the latest detached Scene-table state. */
@@ -109,14 +111,6 @@ public final class RuntimeSceneTableService implements SceneTableService {
         if (!SCENE_TABLE_ID.equals(tableId)) {
             throw new IllegalArgumentException("unsupported tableId: " + tableId);
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     /** Host seam the scene-table service drives for its single supported table. */

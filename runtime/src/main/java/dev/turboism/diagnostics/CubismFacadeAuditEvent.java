@@ -1,5 +1,6 @@
 package dev.turboism.diagnostics;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import java.time.Instant;
 import java.util.Objects;
@@ -28,11 +29,11 @@ public record CubismFacadeAuditEvent(
         DiagnosticReport.Severity severity,
         Instant timestamp) {
     public CubismFacadeAuditEvent {
-        pluginId = requireText(pluginId, "pluginId");
-        permissionId = requireText(permissionId, "permissionId");
-        operationId = requireText(operationId, "operationId");
+        pluginId = Requirements.text(pluginId, "pluginId");
+        permissionId = Requirements.text(permissionId, "permissionId");
+        operationId = Requirements.text(operationId, "operationId");
         if (capabilityId != null) {
-            capabilityId = requireText(capabilityId, "capabilityId");
+            capabilityId = Requirements.text(capabilityId, "capabilityId");
         }
         severity = Objects.requireNonNull(severity, "severity");
         timestamp = Objects.requireNonNull(timestamp, "timestamp");
@@ -53,13 +54,5 @@ public record CubismFacadeAuditEvent(
     @Deprecated
     public String methodName() {
         return operationId;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

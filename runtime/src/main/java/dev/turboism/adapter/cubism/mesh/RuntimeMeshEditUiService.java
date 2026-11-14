@@ -27,6 +27,12 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class RuntimeMeshEditUiService {
 
+    /** Host wrapper factory the mirror-angle row prefers when the reviewed helper exists. */
+    private static final String MIRROR_EDIT_COMP_METHOD = "createWidgetMirrorEditForMeshEdit$createComp";
+
+    /** Parameter count of {@link #MIRROR_EDIT_COMP_METHOD}: the label and the row. */
+    private static final int MIRROR_EDIT_COMP_ARITY = 2;
+
     private final AtomicReference<MirrorAxisAngleControl> contribution = new AtomicReference<>();
     private final List<Attachment> attachments = new ArrayList<>();
     private final AtomicReference<java.util.function.Consumer<Boolean>> contributionObserver = new AtomicReference<>();
@@ -224,10 +230,9 @@ public final class RuntimeMeshEditUiService {
     /** Preferred host wrapper (CVBox); null when the reviewed static helper is absent. */
     private static Object createMirrorEditComp(final Object panel, final Object label, final Object row) {
         try {
-            for (Method method : panel.getClass().getDeclaredMethods()) {
-                if (method.getParameterCount() == 2
-                        && method.getName().equals("createWidgetMirrorEditForMeshEdit$createComp")
-                        && Modifier.isStatic(method.getModifiers())) {
+            for (Method method : MethodHandleCache.declaredOverloads(
+                    panel.getClass(), MIRROR_EDIT_COMP_METHOD, MIRROR_EDIT_COMP_ARITY)) {
+                if (Modifier.isStatic(method.getModifiers())) {
                     ReflectAccess.open(method);
                     return method.invoke(null, label, row);
                 }

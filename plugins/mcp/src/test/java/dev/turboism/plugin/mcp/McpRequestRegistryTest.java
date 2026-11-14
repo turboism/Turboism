@@ -12,9 +12,9 @@ import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
-import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.Stubs;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.time.Duration;
 import java.util.concurrent.CancellationException;
@@ -127,7 +127,7 @@ final class McpRequestRegistryTest {
                 unavailableSelection(),
                 unavailableRead(),
                 java.util.List::of,
-                silentLogger(),
+                Stubs.noopLogger(),
                 new McpExecutionBridge(scheduler));
         final McpProductionDomainCatalog production = new McpProductionDomainCatalog(tools);
         final AtomicBoolean cancelled = new AtomicBoolean();
@@ -342,25 +342,6 @@ final class McpRequestRegistryTest {
             public java.util.Optional<dev.turboism.sdk.theme.ThemeStatusSnapshot> themeStatus() {
                 return java.util.Optional.empty();
             }
-        };
-    }
-
-    private static PluginLogger silentLogger() {
-        return new PluginLogger() {
-            @Override
-            public void debug(final String message) {}
-
-            @Override
-            public void info(final String message) {}
-
-            @Override
-            public void warn(final String message) {}
-
-            @Override
-            public void error(final String message) {}
-
-            @Override
-            public void error(final String message, final Throwable throwable) {}
         };
     }
 }

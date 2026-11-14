@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 class EditorLifecycleEventContractTest {
     @Test
     void publishesStartupAndAcceptedExitStates() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler();
         try {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
             final EditorLifecycleCoordinator coordinator = new EditorLifecycleCoordinator();
@@ -93,9 +93,5 @@ class EditorLifecycleEventContractTest {
             events.add("exit-after:" + event.result().accepted());
             completion.countDown();
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler();
     }
 }

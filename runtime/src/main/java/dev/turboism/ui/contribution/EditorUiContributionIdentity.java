@@ -1,5 +1,6 @@
 package dev.turboism.ui.contribution;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.ui.host.EditorUiFamily;
 import java.util.Objects;
 
@@ -7,9 +8,9 @@ import java.util.Objects;
 public record EditorUiContributionIdentity(String pluginId, EditorUiFamily family, String contributionId)
         implements Comparable<EditorUiContributionIdentity> {
     public EditorUiContributionIdentity {
-        pluginId = requireText(pluginId, "pluginId");
+        pluginId = Requirements.text(pluginId, "pluginId");
         family = Objects.requireNonNull(family, "family");
-        contributionId = requireText(contributionId, "contributionId");
+        contributionId = Requirements.text(contributionId, "contributionId");
     }
 
     @Override
@@ -20,13 +21,5 @@ public record EditorUiContributionIdentity(String pluginId, EditorUiFamily famil
         }
         int pluginOrder = pluginId.compareTo(other.pluginId);
         return pluginOrder != 0 ? pluginOrder : contributionId.compareTo(other.contributionId);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

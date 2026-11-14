@@ -1,10 +1,10 @@
 package dev.turboism.adapter.cubism.optimization.image;
 
+import dev.turboism.core.io.Sha256;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -42,7 +42,7 @@ final class PngArchiveReuseCache {
                 new WeakReference<>(png),
                 width,
                 height,
-                digest().digest(png),
+                Sha256.digest().digest(png),
                 pixelDigest(width, height, pixels));
         synchronized (this) {
             prune();
@@ -74,7 +74,7 @@ final class PngArchiveReuseCache {
                 && proof.png().get() == png
                 && proof.width() == width
                 && proof.height() == height
-                && MessageDigest.isEqual(proof.encodedDigest(), digest().digest(png))
+                && MessageDigest.isEqual(proof.encodedDigest(), Sha256.digest().digest(png))
                 && MessageDigest.isEqual(proof.pixelDigest(), pixelDigest(width, height, pixels));
         if (!valid)
             synchronized (this) {
@@ -121,16 +121,8 @@ final class PngArchiveReuseCache {
         return true;
     }
 
-    private static MessageDigest digest() {
-        try {
-            return MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException failure) {
-            throw new IllegalStateException("SHA-256 unavailable", failure);
-        }
-    }
-
     private static byte[] pixelDigest(final int width, final int height, final int[] pixels) {
-        final MessageDigest digest = digest();
+        final MessageDigest digest = Sha256.digest();
         final byte[] scratch = new byte[Math.min(64 * 1024, pixels.length * 4)];
         digest.update((byte) (width >>> 24));
         digest.update((byte) (width >>> 16));

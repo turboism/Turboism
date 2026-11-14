@@ -66,7 +66,7 @@ final class VerifiedInspectorPropertyBypassInstaller implements AutoCloseable {
      *     seam this hook rewrites
      */
     private static Optional<String> resolve(final Path artifact) throws Exception {
-        final String version = ReviewedHostArtifacts.cubismVersionOf(HostArtifactDigest.from(artifact))
+        final String version = ReviewedHostArtifacts.cubismVersionOf(HostArtifactDigest.cached(artifact))
                 .orElse("");
         if (!InspectorPropertyBypassTarget.supports(version)) return Optional.empty();
         try (JarFile jar = new JarFile(artifact.toFile())) {

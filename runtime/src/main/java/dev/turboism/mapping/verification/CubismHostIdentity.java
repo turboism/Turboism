@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.internal.Requirements;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -30,13 +31,13 @@ public record CubismHostIdentity(
         HostArtifactDigest artifact) {
 
     public CubismHostIdentity {
-        product = requireText(product, "product");
-        version = requireText(version, "version");
+        product = Requirements.text(product, "product");
+        version = Requirements.text(version, "version");
         date = Objects.requireNonNull(date, "date");
         if (build <= 0) {
             throw new IllegalArgumentException("build must be positive");
         }
-        declarationClass = requireText(declarationClass, "declarationClass");
+        declarationClass = Requirements.text(declarationClass, "declarationClass");
         artifact = Objects.requireNonNull(artifact, "artifact");
     }
 
@@ -83,13 +84,5 @@ public record CubismHostIdentity(
      */
     public String label() {
         return version + "+" + build;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

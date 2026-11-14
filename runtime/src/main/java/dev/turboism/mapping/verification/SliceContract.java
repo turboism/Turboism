@@ -1,6 +1,7 @@
 package dev.turboism.mapping.verification;
 
 import dev.turboism.compatibility.policy.ReviewedCubismReleases;
+import dev.turboism.internal.Requirements;
 import java.util.Objects;
 import java.util.Set;
 
@@ -42,12 +43,12 @@ public record SliceContract(
         Set<String> capabilities,
         java.util.Map<String, String> droppedCapabilities) {
     public SliceContract {
-        sliceId = requireText(sliceId, "sliceId");
-        sourceVersion = requireText(sourceVersion, "sourceVersion");
-        recordFileName = requireText(recordFileName, "recordFileName");
-        verificationId = requireText(verificationId, "verificationId");
-        adapterSliceId = requireText(adapterSliceId, "adapterSliceId");
-        declaredVersion = requireText(declaredVersion, "declaredVersion");
+        sliceId = Requirements.text(sliceId, "sliceId");
+        sourceVersion = Requirements.text(sourceVersion, "sourceVersion");
+        recordFileName = Requirements.text(recordFileName, "recordFileName");
+        verificationId = Requirements.text(verificationId, "verificationId");
+        adapterSliceId = Requirements.text(adapterSliceId, "adapterSliceId");
+        declaredVersion = Requirements.text(declaredVersion, "declaredVersion");
         if (declaredBuild <= 0) {
             throw new IllegalArgumentException("declaredBuild must be positive");
         }
@@ -71,13 +72,5 @@ public record SliceContract(
                 && sourceVersion.equals(declaredVersion)
                 && ReviewedCubismReleases.isReviewed(declaredVersion, declaredBuild)
                 && ReviewedHostArtifacts.admitsFullRuntime(declaredVersion);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationEvent;
 import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
@@ -76,7 +77,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
 
     /** Removes one plugin and quiesces its accepted callbacks. */
     public void unregister(final String pluginId) {
-        final String id = requireText(pluginId, "pluginId");
+        final String id = Requirements.text(pluginId, "pluginId");
         synchronized (registrationLock) {
             plugins.removeIf(
                     registration -> registration.plugin().descriptor().id().equals(id));
@@ -85,7 +86,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
     }
 
     void unregister(final String pluginId, final Object token) {
-        final String id = requireText(pluginId, "pluginId");
+        final String id = Requirements.text(pluginId, "pluginId");
         final Object generation = Objects.requireNonNull(token, "token");
         synchronized (registrationLock) {
             final boolean removed = plugins.removeIf(registration -> registration.token() == generation
@@ -369,12 +370,6 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
             FatalErrors.rethrowIfFatal(ignored);
             // Hook diagnostics must not escape into the Cubism operation.
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 
     private record Registration(Object token, PluginHooks plugin) {}

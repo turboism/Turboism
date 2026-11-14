@@ -10,6 +10,7 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.plugin.FakePluginPaths;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
@@ -1816,27 +1817,10 @@ final class AcpChatControllerTest {
         }
 
         private PluginContext context() {
-            final PluginPaths paths = new PluginPaths() {
-                @Override
-                public Path dataDir() {
-                    return temporaryDirectory.resolve("data/dev.turboism.plugin.acp");
-                }
-
-                @Override
-                public Path logsDir() {
-                    return temporaryDirectory.resolve("logs/dev.turboism.plugin.acp");
-                }
-
-                @Override
-                public Path stateDir() {
-                    return temporaryDirectory.resolve("state/dev.turboism.plugin.acp");
-                }
-
-                @Override
-                public Path cacheDir() {
-                    return temporaryDirectory.resolve("cache/dev.turboism.plugin.acp");
-                }
-            };
+            final PluginPaths paths = FakePluginPaths.of(
+                    temporaryDirectory.resolve("data/dev.turboism.plugin.acp"),
+                    temporaryDirectory.resolve("state/dev.turboism.plugin.acp"),
+                    temporaryDirectory.resolve("cache/dev.turboism.plugin.acp"));
             final UiScheduler ui = new UiScheduler() {
                 @Override
                 public Registration runOnUiThread(final Runnable work) {

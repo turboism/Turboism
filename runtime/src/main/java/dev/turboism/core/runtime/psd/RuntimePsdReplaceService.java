@@ -1,5 +1,6 @@
 package dev.turboism.core.runtime.psd;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.cubism.id.RawImageId;
@@ -70,7 +71,7 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
             final BooleanSupplier activeScope,
             final Consumer<Runnable> continuationDispatcher,
             final PsdEditRegistry registry) {
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.activeScope = Objects.requireNonNull(activeScope, "activeScope");
         this.continuationDispatcher = Objects.requireNonNull(continuationDispatcher, "continuationDispatcher");
@@ -351,12 +352,6 @@ public final class RuntimePsdReplaceService implements AutoCloseable {
     private static String safeToken(final String value) {
         final String candidate = value == null ? "" : value;
         return candidate.matches("[A-Z][A-Z0-9_]{0," + (MAX_TOKEN_LENGTH - 1) + "}") ? candidate : "UNKNOWN";
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 
     private static final class InactiveOperation extends RuntimeException {

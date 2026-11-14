@@ -183,16 +183,9 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
         return onEdt(() -> {
             final Object lookAndFeel = javax.swing.UIManager.getLookAndFeel();
             return lookAndFeel != null
-                    && isFlatLaf(lookAndFeel.getClass().getName())
+                    && FlatLafClasses.isFlatLaf(lookAndFeel.getClass().getName())
                     && javax.swing.UIManager.get("PanelUI") != null;
         });
-    }
-
-    private static boolean isFlatLaf(final String className) {
-        return className != null
-                && (className.startsWith("com.formdev.flatlaf.")
-                        || className.contains("CubismLightTheme")
-                        || className.contains("CubismDarkTheme"));
     }
 
     private static void restoreNativeOffCanvasBackground() {

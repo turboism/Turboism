@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.physics;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.Objects;
@@ -19,17 +20,17 @@ public record PhysicsEditorHostProfile(
         String commitMethod,
         String rollbackMethod) {
     public PhysicsEditorHostProfile {
-        panelOwnerInternalName = text(panelOwnerInternalName, "panelOwnerInternalName");
-        tableGetter = text(tableGetter, "tableGetter");
-        outerField = text(outerField, "outerField");
-        sourceSetGetter = text(sourceSetGetter, "sourceSetGetter");
-        sourcesGetter = text(sourcesGetter, "sourcesGetter");
-        enableGetter = text(enableGetter, "enableGetter");
-        enableSetter = text(enableSetter, "enableSetter");
-        identityGetter = text(identityGetter, "identityGetter");
-        checkpointMethod = text(checkpointMethod, "checkpointMethod");
-        commitMethod = text(commitMethod, "commitMethod");
-        rollbackMethod = text(rollbackMethod, "rollbackMethod");
+        panelOwnerInternalName = Requirements.text(panelOwnerInternalName, "panelOwnerInternalName");
+        tableGetter = Requirements.text(tableGetter, "tableGetter");
+        outerField = Requirements.text(outerField, "outerField");
+        sourceSetGetter = Requirements.text(sourceSetGetter, "sourceSetGetter");
+        sourcesGetter = Requirements.text(sourcesGetter, "sourcesGetter");
+        enableGetter = Requirements.text(enableGetter, "enableGetter");
+        enableSetter = Requirements.text(enableSetter, "enableSetter");
+        identityGetter = Requirements.text(identityGetter, "identityGetter");
+        checkpointMethod = Requirements.text(checkpointMethod, "checkpointMethod");
+        commitMethod = Requirements.text(commitMethod, "commitMethod");
+        rollbackMethod = Requirements.text(rollbackMethod, "rollbackMethod");
     }
 
     /**
@@ -82,11 +83,5 @@ public record PhysicsEditorHostProfile(
                 "b",
                 "n",
                 "d"));
-    }
-
-    private static String text(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

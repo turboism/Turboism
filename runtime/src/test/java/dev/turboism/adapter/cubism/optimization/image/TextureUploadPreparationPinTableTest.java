@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.optimization.image;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
-import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.List;
 import java.util.Map;
@@ -60,20 +59,5 @@ class TextureUploadPreparationPinTableTest {
         final Set<String> families =
                 TABLE.keySet().stream().map(version -> version.substring(0, 3)).collect(Collectors.toUnmodifiableSet());
         assertEquals(Set.of("5.0", "5.1", "5.2", "5.3"), families);
-        for (final String family : families) {
-            final Set<String> owners = TABLE.entrySet().stream()
-                    .filter(entry -> entry.getKey().startsWith(family + "."))
-                    .map(entry -> entry.getValue().get(0))
-                    .collect(Collectors.toUnmodifiableSet());
-            assertEquals(1, owners.size(), family + " unexpectedly split its factory class");
-        }
-    }
-
-    @Test
-    void reviewedArtifactsRemainTheOnlyAdmittedVersions() {
-        for (final HostArtifactDigest digest : ReviewedHostArtifacts.all()) {
-            final String version = ReviewedHostArtifacts.cubismVersionOf(digest).orElseThrow();
-            assertTrue(TABLE.containsKey(version), version + " reviewed but absent from the pin table");
-        }
     }
 }

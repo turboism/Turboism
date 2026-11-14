@@ -56,6 +56,8 @@ import dev.turboism.sdk.ui.resource.UiResourceService;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution;
 import dev.turboism.test.concurrent.Await;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.plugin.NoopPluginLogger;
 import dev.turboism.test.storage.InMemoryPluginStorage;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -810,28 +812,9 @@ class ParameterLockPluginTest {
         final FakePaletteToolbarRegistry paletteToolbarRegistry = new FakePaletteToolbarRegistry();
         final FakeUiResourceService uiResourceService = new FakeUiResourceService();
         final DisposableScope disposableScope = new DisposableScope();
-        final PluginLocalization localization = new PluginLocalization() {
-            @Override
-            public Locale locale() {
-                return Locale.ROOT;
-            }
-
-            @Override
-            public String text(final String key) {
-                return key;
-            }
-
-            @Override
-            public String format(final String key, final Object... arguments) {
-                return key;
-            }
-
-            @Override
-            public boolean contains(final String key) {
-                return true;
-            }
-        };
-        final PluginLogger logger = new NoopLogger();
+        final PluginLocalization localization =
+                dev.turboism.test.plugin.FakePluginContext.passThroughLocalization(Locale.ROOT);
+        final PluginLogger logger = NoopPluginLogger.INSTANCE;
         DocumentSnapshot activeDocumentSnapshot;
         boolean simulateDocumentMissing = false;
         java.util.function.Supplier<CubismModel> modelAccessOverride;
@@ -1340,22 +1323,5 @@ class ParameterLockPluginTest {
         public Optional<ContextMenuSelection> contextMenuSelection() {
             return Optional.ofNullable(selection);
         }
-    }
-
-    static final class NoopLogger implements PluginLogger {
-        @Override
-        public void debug(final String message) {}
-
-        @Override
-        public void info(final String message) {}
-
-        @Override
-        public void warn(final String message) {}
-
-        @Override
-        public void error(final String message) {}
-
-        @Override
-        public void error(final String message, final Throwable throwable) {}
     }
 }

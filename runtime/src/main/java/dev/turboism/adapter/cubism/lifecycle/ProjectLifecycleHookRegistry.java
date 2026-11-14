@@ -23,6 +23,14 @@ public final class ProjectLifecycleHookRegistry {
 
     public static final String OBSERVE_PERMISSION = ParameterHookRegistry.OBSERVE_PERMISSION;
 
+    /** Declaring classes whose project-file callback counts as the inherited no-op. */
+    private static final java.util.Set<Class<?>> PROJECT_FILE_HOOK_BASES =
+            java.util.Set.of(ModelFileHooks.class, AnimationFileHooks.class, TurboismPlugin.class);
+
+    /** Declaring classes whose editor-lifecycle callback counts as the inherited no-op. */
+    private static final java.util.Set<Class<?>> EDITOR_LIFECYCLE_HOOK_BASES =
+            java.util.Set.of(EditorLifecycleHooks.class, TurboismPlugin.class);
+
     private static final List<String> EDITOR_LIFECYCLE_METHODS = List.of(
             "beforeEditorStartup",
             "onEditorStarted",
@@ -357,9 +365,8 @@ public final class ProjectLifecycleHookRegistry {
                 ? dev.turboism.sdk.cubism.EditorExitResult.class
                 : dev.turboism.sdk.cubism.EditorLifecycleSnapshot.class;
         try {
-            final java.lang.reflect.Method method = entrypoint.getClass().getMethod(methodName, parameterType);
-            return method.getDeclaringClass() != EditorLifecycleHooks.class
-                    && method.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
+            return HookEntrypointSupport.overrides(
+                    entrypoint.getClass(), methodName, new Class<?>[] {parameterType}, EDITOR_LIFECYCLE_HOOK_BASES);
         } catch (NoSuchMethodException failure) {
             throw new IllegalStateException("Editor lifecycle hook contract is unavailable: " + methodName, failure);
         }
@@ -536,10 +543,8 @@ public final class ProjectLifecycleHookRegistry {
                         ? dev.turboism.sdk.cubism.ProjectContentSnapshot.class
                         : dev.turboism.sdk.cubism.ProjectFileOperation.class;
         try {
-            final java.lang.reflect.Method method = entrypoint.getClass().getMethod(methodName, parameterType);
-            return method.getDeclaringClass() != ModelFileHooks.class
-                    && method.getDeclaringClass() != AnimationFileHooks.class
-                    && method.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
+            return HookEntrypointSupport.overrides(
+                    entrypoint.getClass(), methodName, new Class<?>[] {parameterType}, PROJECT_FILE_HOOK_BASES);
         } catch (NoSuchMethodException failure) {
             throw new IllegalStateException("Project-file hook contract is unavailable: " + methodName, failure);
         }
@@ -547,10 +552,7 @@ public final class ProjectLifecycleHookRegistry {
 
     private static boolean subscribes(
             final Object entrypoint, final Class<? extends dev.turboism.sdk.event.EventBus.TurboismEvent> eventType) {
-        return java.util.Arrays.stream(entrypoint.getClass().getMethods())
-                .anyMatch(method -> method.isAnnotationPresent(dev.turboism.sdk.event.SubscribeEvent.class)
-                        && method.getParameterCount() == 1
-                        && method.getParameterTypes()[0].isAssignableFrom(eventType));
+        return HookEntrypointSupport.subscribes(entrypoint, eventType);
     }
 
     private static void invoke(final PluginLogger logger, final String phase, final Runnable invocation) {
@@ -674,7 +676,6 @@ public final class ProjectLifecycleHookRegistry {
     }
 
     private static boolean hasPermission(final PluginDescriptor descriptor, final String permissionId) {
-        return descriptor.permissions().stream()
-                .anyMatch(permission -> permission.id().equals(permissionId));
+        return HookEntrypointSupport.hasPermission(descriptor, permissionId);
     }
 }

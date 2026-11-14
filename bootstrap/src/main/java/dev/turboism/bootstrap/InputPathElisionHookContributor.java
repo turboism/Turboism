@@ -38,7 +38,7 @@ final class InputPathElisionHookContributor extends NativeOptimizationHookContri
         if (production
                 && !validation
                 && !VerifiedInputPathElisionInstaller.admitted(
-                        HostArtifactDigest.from(host.artifact()),
+                        HostArtifactDigest.cached(host.artifact()),
                         environment.plan().policy(),
                         true,
                         Runtime.version())) {

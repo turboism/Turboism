@@ -466,7 +466,7 @@ final class McpDocumentLifecycleDomain {
     }
 
     private static String text(Object v, int max) {
-        return McpParameterStructure.text(v, max);
+        return McpDomainSupport.text(v, max);
     }
 
     private static String session() {

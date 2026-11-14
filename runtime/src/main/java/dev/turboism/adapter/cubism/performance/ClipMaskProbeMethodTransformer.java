@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.performance;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -144,12 +145,8 @@ public final class ClipMaskProbeMethodTransformer implements ClassFileTransforme
             }
             final ClassReader reader = new ClassReader(bytes);
             final Map<String, Integer> locals = maxLocals(reader, owned);
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader;
-                }
-            };
+            final ClassWriter writer =
+                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
             final int[] woven = {0};
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {

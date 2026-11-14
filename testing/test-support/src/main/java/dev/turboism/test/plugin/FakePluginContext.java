@@ -36,6 +36,7 @@ import dev.turboism.test.ui.FakeDirectUiScheduler;
 import dev.turboism.test.ui.RecordingContextMenuRegistry;
 import dev.turboism.test.ui.RecordingUiHost;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -136,30 +137,34 @@ public class FakePluginContext implements PluginContext {
     }
 
     public static PluginLocalization passThroughLocalization() {
-        return new PluginLocalization() {
-            @Override
-            public Locale locale() {
-                return Locale.ROOT;
-            }
+        return passThroughLocalization(Locale.ROOT);
+    }
 
-            @Override
-            public String text(final String key) {
+    /** Returns a localization that echoes every key, resolves every key and reports {@code locale}. */
+    public static PluginLocalization passThroughLocalization(final Locale locale) {
+        Objects.requireNonNull(locale, "locale");
+        return new PassThroughLocalization(locale);
+    }
+
+    private record PassThroughLocalization(Locale locale) implements PluginLocalization {
+
+        @Override
+        public String text(final String key) {
+            return key;
+        }
+
+        @Override
+        public String format(final String key, final Object... arguments) {
+            if (arguments == null || arguments.length == 0) {
                 return key;
             }
+            return key + " " + Arrays.toString(arguments);
+        }
 
-            @Override
-            public String format(final String key, final Object... arguments) {
-                if (arguments == null || arguments.length == 0) {
-                    return key;
-                }
-                return key + " " + java.util.Arrays.toString(arguments);
-            }
-
-            @Override
-            public boolean contains(final String key) {
-                return true;
-            }
-        };
+        @Override
+        public boolean contains(final String key) {
+            return true;
+        }
     }
 
     private static DiagnosticReport defaultDiagnostics() {

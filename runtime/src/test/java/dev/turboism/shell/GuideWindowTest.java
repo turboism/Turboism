@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.net.HttpLinks;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.awt.GraphicsEnvironment;
 import java.util.List;
 import java.util.Locale;
@@ -17,27 +18,7 @@ import org.junit.jupiter.api.Test;
 
 class GuideWindowTest {
 
-    private static final PluginLocalization I18N = new PluginLocalization() {
-        @Override
-        public Locale locale() {
-            return Locale.ENGLISH;
-        }
-
-        @Override
-        public String text(final String key) {
-            return key;
-        }
-
-        @Override
-        public String format(final String key, final Object... arguments) {
-            return text(key);
-        }
-
-        @Override
-        public boolean contains(final String key) {
-            return true;
-        }
-    };
+    private static final PluginLocalization I18N = FakePluginContext.passThroughLocalization(Locale.ENGLISH);
 
     @Test
     void pageModelExposesThreePagesWithSafeLinksOnly() {

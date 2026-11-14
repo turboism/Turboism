@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.optimization.serialization;
 
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -56,12 +58,8 @@ public final class FloatArrayParseTransformer implements ClassFileTransformer {
                 return null;
             }
             ClassReader reader = new ClassReader(bytes);
-            ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return expectedLoader;
-                }
-            };
+            ClassWriter writer =
+                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, expectedLoader);
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override
@@ -77,21 +75,10 @@ public final class FloatArrayParseTransformer implements ClassFileTransformer {
                                     Label discard = new Label(), nativePath = new Label();
                                     super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
                                     super.visitLabel(start);
-                                    super.visitMethodInsn(
-                                            Opcodes.INVOKESTATIC,
-                                            "java/lang/System",
-                                            "getProperties",
-                                            "()Ljava/util/Properties;",
-                                            false);
-                                    super.visitLdcInsn(FloatArrayParseBridge.CALLBACK_PROPERTY);
-                                    super.visitMethodInsn(
-                                            Opcodes.INVOKEVIRTUAL,
-                                            "java/util/Properties",
-                                            "get",
-                                            "(Ljava/lang/Object;)Ljava/lang/Object;",
-                                            false);
-                                    super.visitInsn(Opcodes.DUP);
-                                    super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BiFunction");
+                                    SlotBridgeEmitter.emitSlot(
+                                            this,
+                                            FloatArrayParseBridge.CALLBACK_PROPERTY,
+                                            "java/util/function/BiFunction");
                                     super.visitJumpInsn(Opcodes.IFEQ, discard);
                                     super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BiFunction");
                                     super.visitVarInsn(Opcodes.ILOAD, 1);

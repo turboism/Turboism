@@ -31,6 +31,7 @@ import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
+import dev.turboism.test.Stubs;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -277,105 +278,11 @@ class ExportSettingsHostWiringTest {
     }
 
     private static PluginDescriptor descriptor() {
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return "dev.turboism.plugin.export-settings-wiring-test";
-            }
-
-            @Override
-            public String name() {
-                return "Export Settings Wiring Test";
-            }
-
-            @Override
-            public String version() {
-                return "0.1.0";
-            }
-
-            @Override
-            public String description() {
-                return "Export settings host wiring test";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of();
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "Project License";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.empty();
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of();
-            }
-
-            @Override
-            public I18n i18n() {
-                return emptyI18n();
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return List.of();
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "none";
-                    }
-                };
-            }
-        };
-    }
-
-    private static PluginDescriptor.I18n emptyI18n() {
-        return new PluginDescriptor.I18n() {
-            @Override
-            public String baseName() {
-                return "META-INF/turboism/i18n/messages";
-            }
-
-            @Override
-            public List<String> locales() {
-                return List.of();
-            }
-        };
+        return Stubs.descriptorBuilder("dev.turboism.plugin.export-settings-wiring-test")
+                .name("Export Settings Wiring Test")
+                .version("0.1.0")
+                .description("Export settings host wiring test")
+                .license("Project License")
+                .build();
     }
 }

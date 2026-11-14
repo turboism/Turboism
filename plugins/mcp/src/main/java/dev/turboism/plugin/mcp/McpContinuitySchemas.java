@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.*;
 
 final class McpContinuitySchemas {
@@ -7,25 +9,24 @@ final class McpContinuitySchemas {
         var alternatives = new ArrayList<Object>();
         for (String kind : List.of("art_mesh", "warp_deformer", "rotation_deformer")) {
             var properties = new LinkedHashMap<String, Object>();
-            for (String field : List.of("documentId", "modelId", "objectId", "snapshotId"))
-                properties.put(field, text());
+            for (String field : List.of("documentId", "modelId", "objectId", "snapshotId")) properties.put(field, id());
             properties.put("kind", Map.of("const", kind));
             properties.put("thresholds", thresholds());
             properties.put("maxFindings", integer(1, 200));
             var required = List.copyOf(properties.keySet());
             var edit = new LinkedHashMap<String, Object>();
-            edit.put("formGuid", text());
-            edit.put("coordinates", array(coordinate(), 3));
+            edit.put("formGuid", id());
+            edit.put("coordinates", boundedArray(coordinate(), 3));
             if (kind.equals("rotation_deformer")) {
                 var form = new LinkedHashMap<String, Object>();
-                for (String field : List.of("angle", "originX", "originY")) form.put(field, number());
+                for (String field : List.of("angle", "originX", "originY")) form.put(field, numberSchema());
                 form.put("scale", Map.of("type", "number", "exclusiveMinimum", 0));
                 for (String field : List.of("reflectedX", "reflectedY")) form.put(field, Map.of("type", "boolean"));
                 edit.put("form", object(form));
             } else
                 edit.put(
                         kind.equals("art_mesh") ? "positions" : "controlPoints",
-                        array(object(Map.of("x", number(), "y", number())), 4096));
+                        boundedArray(object(Map.of("x", numberSchema(), "y", numberSchema())), 4096));
             properties.put(
                     "proposedEdits", Map.of("type", "array", "minItems", 1, "maxItems", 64, "items", object(edit)));
             var branch = new LinkedHashMap<>(object(properties));
@@ -34,7 +35,7 @@ final class McpContinuitySchemas {
         }
         var output = new LinkedHashMap<String, Object>();
         output.put("ok", Map.of("const", true));
-        for (String key : List.of("objectId", "snapshotId", "sourceGuid", "coordinateSpace")) output.put(key, text());
+        for (String key : List.of("objectId", "snapshotId", "sourceGuid", "coordinateSpace")) output.put(key, id());
         output.put("kind", Map.of("enum", List.of("art_mesh", "warp_deformer", "rotation_deformer")));
         var state = new LinkedHashMap<String, Object>();
         for (String key : List.of("documentId", "modelId", "historyDocumentBinding", "historyManagerBinding"))
@@ -44,32 +45,32 @@ final class McpContinuitySchemas {
         output.put("thresholds", thresholds());
         output.put(
                 "axes",
-                array(
+                boundedArray(
                         object(Map.of(
                                 "parameterGuid",
-                                text(),
+                                id(),
                                 "parameterId",
-                                text(),
+                                id(),
                                 "minimum",
-                                number(),
+                                numberSchema(),
                                 "defaultValue",
-                                number(),
+                                numberSchema(),
                                 "maximum",
-                                number(),
+                                numberSchema(),
                                 "keys",
-                                array(number(), 9))),
+                                boundedArray(numberSchema(), 9))),
                         3));
         output.put("proposedEditCount", integer(0, 64));
-        output.put("implementedChecks", array(text(), 16));
-        output.put("notImplementedChecks", array(text(), 16));
+        output.put("implementedChecks", boundedArray(id(), 16));
+        output.put("notImplementedChecks", boundedArray(id(), 16));
         output.put("verdict", Map.of("enum", List.of("FINDINGS", "NO_FINDINGS_FOR_IMPLEMENTED_CHECKS")));
         output.put("analysisComplete", Map.of("const", true));
         output.put("findingsTruncated", Map.of("type", "boolean"));
         var finding = new LinkedHashMap<String, Object>();
-        finding.put("parameterGuid", text());
-        finding.put("centerCoordinates", array(coordinate(), 3));
-        finding.put("formGuids", Map.of("type", "array", "minItems", 3, "maxItems", 3, "items", text()));
-        finding.put("axisValues", Map.of("type", "array", "minItems", 3, "maxItems", 3, "items", number()));
+        finding.put("parameterGuid", id());
+        finding.put("centerCoordinates", boundedArray(coordinate(), 3));
+        finding.put("formGuids", Map.of("type", "array", "minItems", 3, "maxItems", 3, "items", id()));
+        finding.put("axisValues", Map.of("type", "array", "minItems", 3, "maxItems", 3, "items", numberSchema()));
         finding.put(
                 "code",
                 Map.of(
@@ -86,7 +87,7 @@ final class McpContinuitySchemas {
         finding.put("pointIndex", Map.of("oneOf", List.of(integer(0, 4095), Map.of("type", "null"))));
         finding.put("observed", Map.of("type", "number", "minimum", 0));
         finding.put("threshold", Map.of("type", "number", "minimum", 0));
-        output.put("findings", array(object(finding), 200));
+        output.put("findings", boundedArray(object(finding), 200));
         var stats = new LinkedHashMap<String, Object>();
         for (String key : List.of("triples", "pointComparisons", "findingCount", "retainedFindingCount"))
             stats.put(key, integer(0, Long.MAX_VALUE));
@@ -115,46 +116,18 @@ final class McpContinuitySchemas {
                                         "ok",
                                         Map.of("const", false),
                                         "error",
-                                        object(Map.of("code", text(), "message", text())))))),
+                                        object(Map.of("code", id(), "message", id())))))),
                 "annotations",
                 Map.of("readOnlyHint", true, "destructiveHint", false, "idempotentHint", true, "openWorldHint", false));
     }
 
     private static Map<String, Object> coordinate() {
-        return object(Map.of("parameterGuid", text(), "value", number()));
+        return object(Map.of("parameterGuid", id(), "value", numberSchema()));
     }
 
     private static Map<String, Object> thresholds() {
         var n = Map.of("type", "number", "minimum", 0, "maximum", 1e12);
         return object(
                 Map.of("maximumPositionSlopeChange", n, "maximumAngleSlopeChange", n, "maximumScaleSlopeChange", n));
-    }
-
-    private static Map<String, Object> number() {
-        return Map.of("type", "number");
-    }
-
-    private static Map<String, Object> integer(long low, long high) {
-        return Map.of("type", "integer", "minimum", low, "maximum", high);
-    }
-
-    private static Map<String, Object> text() {
-        return Map.of("type", "string", "minLength", 1, "maxLength", 4096);
-    }
-
-    private static Map<String, Object> array(Object items, int maximum) {
-        return Map.of("type", "array", "items", items, "maxItems", maximum);
-    }
-
-    private static Map<String, Object> object(Map<String, ?> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
     }
 }

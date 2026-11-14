@@ -95,7 +95,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
             throws Exception {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
-        final HostArtifactDigest digest = HostArtifactDigest.from(hostArtifact);
+        final HostArtifactDigest digest = HostArtifactDigest.cached(hostArtifact);
         final ProbeProfile profile = profileForArtifact(digest, scenario, admittedGeneration);
         this.cubismVersion = profile.cubismVersion();
         this.artifactSha256 = digest.sha256();
@@ -197,14 +197,13 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                     .map(target -> target.ownerInternalName().replace('/', '.'))
                     .distinct()
                     .toList();
-            for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-                if (targetNames.contains(loaded.getName())
-                        && loaded.getClassLoader() == hostClassLoader
-                        && instrumentation.isModifiableClass(loaded)) {
-                    transformed.add(loaded);
-                    instrumentation.retransformClasses(loaded);
-                }
-            }
+            final List<Class<?>> loadedTargets = VerifiedHookInstallerSupport.LoadedClassIndex.snapshot(instrumentation)
+                    .select(
+                            hostClassLoader,
+                            loaded -> targetNames.contains(loaded.getName())
+                                    && instrumentation.isModifiableClass(loaded));
+            transformed.addAll(loadedTargets);
+            VerifiedHookInstallerSupport.retransformAll(instrumentation, loadedTargets);
             awaitAdmission();
             admitted.set(true);
             if (capture) scheduleCapture(scenario, delay, duration, output);
@@ -387,13 +386,15 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
             restoreTargets.addAll(currentlyLoadedTargets());
             dev.turboism.runtime.log.RuntimeDiagnostics.debug(
                     "performance-probe", "Restoring " + restoreTargets.size() + " performance probe targets");
-            for (Class<?> target : restoreTargets) {
-                try {
-                    if (instrumentation.isModifiableClass(target)) instrumentation.retransformClasses(target);
-                } catch (Throwable failure) {
-                    FatalErrors.rethrowIfFatal(failure);
-                    cleanupFailure = failure;
-                }
+            try {
+                VerifiedHookInstallerSupport.retransformAll(
+                        instrumentation,
+                        restoreTargets.stream()
+                                .filter(instrumentation::isModifiableClass)
+                                .toList());
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                cleanupFailure = failure;
             }
             transformed.clear();
         } finally {

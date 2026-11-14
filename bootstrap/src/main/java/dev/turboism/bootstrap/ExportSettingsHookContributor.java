@@ -62,7 +62,7 @@ final class ExportSettingsHookContributor implements HookContributor {
     public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final KernelRuntime runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
-        final var profile = ExportSettingsHostProfile.forArtifact(HostArtifactDigest.from(host.artifact()))
+        final var profile = ExportSettingsHostProfile.forArtifact(HostArtifactDigest.cached(host.artifact()))
                 .orElseThrow(() -> new IllegalStateException("Unsupported export-settings host artifact"));
         final VerifiedExportSettingsHookInstaller installer = VerifiedExportSettingsHookInstaller.fromHostProfile(
                 environment.instrumentation(), profile, runtime.exportSettingsAuthority(), host.classLoader());
@@ -99,7 +99,7 @@ final class ExportSettingsHookContributor implements HookContributor {
             final HookEnvironment environment, final KernelRuntime runtime, final HostClassLocator.LocatedHost host) {
         VerifiedProtectedExportHookInstaller installer = null;
         try {
-            final var profile = ProtectedExportChooserProfile.forArtifact(HostArtifactDigest.from(host.artifact()))
+            final var profile = ProtectedExportChooserProfile.forArtifact(HostArtifactDigest.cached(host.artifact()))
                     .orElseThrow(() -> new IllegalStateException("Unsupported protected-export chooser host artifact"));
             installer = VerifiedProtectedExportHookInstaller.fromHostProfile(
                     environment.instrumentation(), profile, host.classLoader());

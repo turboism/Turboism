@@ -8,6 +8,7 @@ import dev.turboism.plugin.clipmaskviewer.domain.ClipMaskViewerState;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -110,27 +111,7 @@ class ClipMaskTableModelsTest {
 
     private static final class StateFixture {
         private final ClipMaskViewerState state = new ClipMaskViewerState();
-        private final PluginLocalization localization = new PluginLocalization() {
-            @Override
-            public Locale locale() {
-                return Locale.ENGLISH;
-            }
-
-            @Override
-            public String text(final String key) {
-                return key;
-            }
-
-            @Override
-            public String format(final String key, final Object... arguments) {
-                return key;
-            }
-
-            @Override
-            public boolean contains(final String key) {
-                return true;
-            }
-        };
+        private final PluginLocalization localization = FakePluginContext.passThroughLocalization(Locale.ENGLISH);
 
         private StateFixture(final ClipMaskRecord... records) {
             state.refreshData(service(records));

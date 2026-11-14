@@ -91,7 +91,7 @@ public final class CubismHostCompatibilityResolver {
                 editorDigest = editorCached.initialDigest;
             } else {
                 try {
-                    editorDigest = HostArtifactDigest.from(editorJar);
+                    editorDigest = HostArtifactDigest.cached(editorJar);
                 } catch (IOException | RuntimeException failure) {
                     return CompatibilityResolution.rejected(HostIdentityProbe.rejected(
                             HostIdentityProbe.Status.UNREADABLE, "failed to read editor host artifact"));

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.filechooser;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
@@ -35,7 +36,7 @@ public record FileChooserHistoryHostProfile(
     }
 
     public FileChooserHistoryHostProfile {
-        hostVersion = requireText(hostVersion, "hostVersion");
+        hostVersion = Requirements.text(hostVersion, "hostVersion");
         saveDialogMethods = List.copyOf(Objects.requireNonNull(saveDialogMethods, "saveDialogMethods"));
         exportContextClassNames =
                 List.copyOf(Objects.requireNonNull(exportContextClassNames, "exportContextClassNames"));
@@ -104,16 +105,8 @@ public record FileChooserHistoryHostProfile(
     /** One save-dialog method binding: name + descriptor (identical across versions). */
     public record SaveDialogMethod(String name, String descriptor) {
         public SaveDialogMethod {
-            name = requireText(name, "name");
-            descriptor = requireText(descriptor, "descriptor");
+            name = Requirements.text(name, "name");
+            descriptor = Requirements.text(descriptor, "descriptor");
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

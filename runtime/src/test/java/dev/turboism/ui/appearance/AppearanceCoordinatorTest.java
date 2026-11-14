@@ -6,9 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.event.RuntimeEventBroker;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.appearance.AppearanceApplyResult;
 import dev.turboism.sdk.appearance.AppearanceBase;
 import dev.turboism.sdk.appearance.AppearanceChangedEvent;
@@ -16,6 +14,7 @@ import dev.turboism.sdk.appearance.AppearancePalette;
 import dev.turboism.sdk.appearance.AppearanceRequest;
 import dev.turboism.sdk.appearance.AppearanceRestoreResult;
 import dev.turboism.sdk.appearance.AppearanceStatus;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -192,11 +191,7 @@ class AppearanceCoordinatorTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(
-                        1, 8, ignored -> {}, Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC)),
-                ignored -> {});
+        return RuntimeTestKit.scheduler(Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC), 1, 8);
     }
 
     private static void awaitSize(final List<?> values, final int expected) {

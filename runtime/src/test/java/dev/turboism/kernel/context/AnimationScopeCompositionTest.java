@@ -30,6 +30,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.test.Stubs;
+import dev.turboism.test.plugin.FakePluginPaths;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import dev.turboism.testkit.RuntimeTestKit;
 import java.nio.file.Path;
@@ -56,7 +57,7 @@ class AnimationScopeCompositionTest {
     @Test
     void retainedAnimationGraphFailsClosedAfterPluginScopeCloses() throws Exception {
         final DisposableScope scope = new DisposableScope();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         try {
             final List<String> calls = new ArrayList<>();
             final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withModelAccess(
@@ -107,7 +108,7 @@ class AnimationScopeCompositionTest {
     @Test
     void animationMutationsRequireDeclaredModelWriteThroughProductionFactory() throws Exception {
         final DisposableScope scope = new DisposableScope();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         try {
             final List<String> calls = new ArrayList<>();
             final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withModelAccess(
@@ -151,7 +152,7 @@ class AnimationScopeCompositionTest {
     @Test
     void animationCopyAcrossActiveViewsStaysLegalWithinPluginScope() throws Exception {
         final DisposableScope scope = new DisposableScope();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         try {
             final List<String> calls = new ArrayList<>();
             final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withModelAccess(
@@ -547,125 +548,16 @@ class AnimationScopeCompositionTest {
     }
 
     private static PluginDescriptor descriptor(final String... permissions) {
-        final List<PluginDescriptor.PermissionRef> refs = new ArrayList<>();
-        for (String permission : permissions) {
-            refs.add(permission(permission));
-        }
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return "test.animation-scope";
-            }
-
-            @Override
-            public String name() {
-                return "Animation Scope";
-            }
-
-            @Override
-            public String version() {
-                return "0.1.0";
-            }
-
-            @Override
-            public String description() {
-                return "Test";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of("dev.turboism.test.AnimationScopePlugin");
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "Project License";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.empty();
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of();
-            }
-
-            @Override
-            public I18n i18n() {
-                return new I18n() {
-                    @Override
-                    public String baseName() {
-                        return "META-INF/turboism/i18n/messages";
-                    }
-
-                    @Override
-                    public List<String> locales() {
-                        return List.of();
-                    }
-                };
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return refs;
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "none";
-                    }
-                };
-            }
-        };
-    }
-
-    private static PluginDescriptor.PermissionRef permission(final String id) {
-        return new PluginDescriptor.PermissionRef() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "application";
-            }
-
-            @Override
-            public Optional<String> reason() {
-                return Optional.empty();
-            }
-        };
+        return Stubs.descriptorBuilder("test.animation-scope")
+                .name("Animation Scope")
+                .version("0.1.0")
+                .entrypoints("dev.turboism.test.AnimationScopePlugin")
+                .license("Project License")
+                .permissions(java.util.Arrays.stream(permissions)
+                        .map(Stubs::permissionRef)
+                        .toList())
+                .i18n("META-INF/turboism/i18n/messages")
+                .build();
     }
 
     private static PluginLogger logger() {
@@ -673,35 +565,11 @@ class AnimationScopeCompositionTest {
     }
 
     private static PluginPaths paths() {
-        return new PluginPaths() {
-            @Override
-            public Path dataDir() {
-                return Path.of(".");
-            }
-
-            @Override
-            public Path logsDir() {
-                return Path.of(".");
-            }
-
-            @Override
-            public Path stateDir() {
-                return Path.of(".");
-            }
-
-            @Override
-            public Path cacheDir() {
-                return Path.of(".");
-            }
-        };
+        return FakePluginPaths.of(Path.of("."));
     }
 
     private static UiScheduler uiScheduler() {
         return FakeDirectUiScheduler.immediateOnly();
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
     }
 
     private static dev.turboism.sdk.diagnostics.DiagnosticReport diagnostics() {

@@ -1,5 +1,7 @@
 package dev.turboism.config;
 
+import dev.turboism.core.io.Sha256;
+import dev.turboism.internal.Requirements;
 import dev.turboism.persistence.config.RegisteredSchema;
 import dev.turboism.sdk.config.ConfigError;
 import dev.turboism.sdk.config.ConfigErrorCode;
@@ -14,11 +16,8 @@ import dev.turboism.sdk.ui.settings.SettingsControl;
 import dev.turboism.sdk.ui.settings.SettingsTab;
 import dev.turboism.ui.settings.SettingsContributionStore;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalInt;
@@ -51,8 +50,8 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
             final String pluginName,
             final SettingsContributionStore store) {
         this.registry = Objects.requireNonNull(registry, "registry");
-        this.pluginId = requireText(pluginId, "pluginId");
-        this.pluginName = requireText(pluginName, "pluginName");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
+        this.pluginName = Requirements.text(pluginName, "pluginName");
         this.store = Objects.requireNonNull(store, "store");
     }
 
@@ -116,7 +115,9 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
     }
 
     static String tabId(final String pluginId) {
-        return TAB_PREFIX + sha256(requireText(pluginId, "pluginId")).substring(0, HASH_HEX_LENGTH);
+        return TAB_PREFIX
+                + Sha256.hex(Requirements.text(pluginId, "pluginId").getBytes(StandardCharsets.UTF_8))
+                        .substring(0, HASH_HEX_LENGTH);
     }
 
     @Override
@@ -283,26 +284,13 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
     }
 
     private static String contributionId(final String configId, final String key) {
-        return "config." + sha256(configId + '\0' + key).substring(0, HASH_HEX_LENGTH);
-    }
-
-    private static String sha256(final String value) {
-        try {
-            return HexFormat.of()
-                    .formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 is unavailable", impossible);
-        }
+        return "config."
+                + Sha256.hex((configId + '\0' + key).getBytes(StandardCharsets.UTF_8))
+                        .substring(0, HASH_HEX_LENGTH);
     }
 
     private static IllegalArgumentException unsupported(final String key, final String reason) {
         return new IllegalArgumentException("config editor field " + key + " " + reason);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 
     private static void closeReverse(final List<Registration> values) {

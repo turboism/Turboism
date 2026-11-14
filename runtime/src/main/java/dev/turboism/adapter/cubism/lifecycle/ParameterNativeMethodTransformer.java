@@ -1,8 +1,9 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
+import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
-import java.util.Objects;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -70,16 +71,16 @@ public final class ParameterNativeMethodTransformer implements ClassFileTransfor
             final String idOwner,
             final String idValueMethod,
             final String idValueDescriptor) {
-        this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
-        this.methodName = requireText(methodName, "methodName");
-        this.descriptor = requireText(descriptor, "descriptor");
+        this.ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
+        this.methodName = Requirements.text(methodName, "methodName");
+        this.descriptor = Requirements.text(descriptor, "descriptor");
         this.expectedClassLoader = expectedClassLoader;
-        this.sourceOwner = requireText(sourceOwner, "sourceOwner");
-        this.sourceIdMethod = requireText(sourceIdMethod, "sourceIdMethod");
-        this.sourceIdDescriptor = requireText(sourceIdDescriptor, "sourceIdDescriptor");
-        this.idOwner = requireText(idOwner, "idOwner");
-        this.idValueMethod = requireText(idValueMethod, "idValueMethod");
-        this.idValueDescriptor = requireText(idValueDescriptor, "idValueDescriptor");
+        this.sourceOwner = Requirements.text(sourceOwner, "sourceOwner");
+        this.sourceIdMethod = Requirements.text(sourceIdMethod, "sourceIdMethod");
+        this.sourceIdDescriptor = Requirements.text(sourceIdDescriptor, "sourceIdDescriptor");
+        this.idOwner = Requirements.text(idOwner, "idOwner");
+        this.idValueMethod = Requirements.text(idValueMethod, "idValueMethod");
+        this.idValueDescriptor = Requirements.text(idValueDescriptor, "idValueDescriptor");
     }
 
     @Override
@@ -97,7 +98,8 @@ public final class ParameterNativeMethodTransformer implements ClassFileTransfor
         }
         final boolean[] transformed = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter writer =
+                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -156,13 +158,5 @@ public final class ParameterNativeMethodTransformer implements ClassFileTransfor
                 super.visitMaxs(maxStack, maxLocals);
             }
         };
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

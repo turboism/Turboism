@@ -41,7 +41,7 @@ class LocalPluginRuntimeEditorObjectHookScopeIntegrationTest {
         final Path pluginDir = temporary.resolve("plugins");
         Files.createDirectories(pluginDir);
         EditorObjectScopePluginFixture.write(pluginDir, temporary);
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         final LocalPluginRuntime runtime = new LocalPluginRuntime(
                 temporary, scheduler, host.adapterAccess(), new KernelLog(temporary.resolve("logs/turboism.log")));
@@ -92,10 +92,6 @@ class LocalPluginRuntimeEditorObjectHookScopeIntegrationTest {
             host.close();
             scheduler.shutdown();
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
     }
 
     private static final class MutableDrawable implements Drawable {

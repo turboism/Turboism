@@ -1,9 +1,11 @@
 package dev.turboism.adapter.cubism.integration;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -75,9 +77,9 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
             final String descriptor,
             final ClassLoader expectedClassLoader,
             final String ingressKey) {
-        this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
-        this.methodName = requireText(methodName, "methodName");
-        this.descriptor = requireText(descriptor, "descriptor");
+        this.ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
+        this.methodName = Requirements.text(methodName, "methodName");
+        this.descriptor = Requirements.text(descriptor, "descriptor");
         if (!descriptor.startsWith("(L") || !descriptor.endsWith(";)V")) {
             throw new IllegalArgumentException("descriptor must be (L<ref>;)V: " + descriptor);
         }
@@ -86,7 +88,7 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
         this.requiredAccess = Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL;
         this.forbiddenAccess = Opcodes.ACC_STATIC;
         this.expectedClassLoader = expectedClassLoader;
-        this.ingressKey = requireText(ingressKey, "ingressKey");
+        this.ingressKey = Requirements.text(ingressKey, "ingressKey");
     }
 
     /** Latest observed outcome; {@code NONE} until the owner class has been offered. */
@@ -123,7 +125,7 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
             return null;
         }
         try {
-            return rewrite(classfileBuffer);
+            return rewrite(classfileBuffer, loader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             outcome.set(Outcome.SHAPE_REJECTED);
@@ -132,11 +134,12 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
         }
     }
 
-    private byte[] rewrite(final byte[] classfileBuffer) {
+    private byte[] rewrite(final byte[] classfileBuffer, final ClassLoader loader) {
         final int[] matches = {0};
         final boolean[] patched = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter writer =
+                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -200,13 +203,7 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
 
         mv.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
         mv.visitLabel(start);
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-        mv.visitLdcInsn(ingressKey);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
-        mv.visitInsn(Opcodes.DUP);
-        mv.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/Runnable");
+        SlotBridgeEmitter.emitSlot(mv, ingressKey, "java/lang/Runnable");
         mv.visitJumpInsn(Opcodes.IFNE, ingress);
         mv.visitInsn(Opcodes.POP);
         mv.visitJumpInsn(Opcodes.GOTO, end);
@@ -218,13 +215,5 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
         mv.visitLabel(handler);
         mv.visitInsn(Opcodes.POP);
         mv.visitLabel(done);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

@@ -1,5 +1,6 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpDomainSupport.text;
 import static dev.turboism.plugin.mcp.McpParameterStructure.*;
 import static dev.turboism.plugin.mcp.McpWriteResults.*;
 
@@ -326,7 +327,7 @@ final class McpParameterStructureDomain {
 
     private void execute(Map<String, Object> edit, Map<String, String> created, Map<String, Object> binding) {
         var current = context.get();
-        if (!sameScope(binding, current.binding())) throw new Stale();
+        if (!McpDomainSupport.sameScope(binding, current.binding())) throw new Stale();
         var model = current.model();
         String kind = (String) edit.get("kind");
         switch (kind) {
@@ -373,7 +374,7 @@ final class McpParameterStructureDomain {
     private State verify(
             Map<String, Object> binding, State expected, boolean exactHistory, Map<String, String> created) {
         var current = context.get();
-        if (exactHistory ? !binding.equals(current.binding()) : !sameScope(binding, current.binding()))
+        if (exactHistory ? !binding.equals(current.binding()) : !McpDomainSupport.sameScope(binding, current.binding()))
             throw new Stale();
         var actual = capture(current.model());
         var aliases = new HashMap<String, String>();
@@ -454,12 +455,6 @@ final class McpParameterStructureDomain {
 
     private static void trim(Map<String, ?> map) {
         while (map.size() >= 16) map.remove(map.keySet().iterator().next());
-    }
-
-    private static boolean sameScope(Map<String, Object> a, Map<String, Object> b) {
-        return List.of("documentId", "modelId", "historyGeneration", "historyDocumentBinding", "historyManagerBinding")
-                .stream()
-                .allMatch(k -> Objects.equals(a.get(k), b.get(k)));
     }
 
     private static void scope(Map<String, Object> args, Map<String, Object> binding) {

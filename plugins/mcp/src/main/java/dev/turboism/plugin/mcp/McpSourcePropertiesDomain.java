@@ -75,9 +75,9 @@ final class McpSourcePropertiesDomain {
             fields(args, "documentId", "modelId", "kind", "objectId", "authoringSnapshotId");
             var current = context.get();
             scope(args, current);
-            String kind = kind(args.get("kind")), id = text(args.get("objectId"), 4096);
-            var expected =
-                    snapshots.get(text(args.get("authoringSnapshotId"), 128), McpRequestRegistry.currentSessionId());
+            String kind = kind(args.get("kind")), id = McpDomainSupport.text(args.get("objectId"), 4096);
+            var expected = snapshots.get(
+                    McpDomainSupport.text(args.get("authoringSnapshotId"), 128), McpRequestRegistry.currentSessionId());
             if (!expected.kind().equals(kind)
                     || !expected.objectId().equals(id)
                     || !expected.binding().equals(current.binding())) throw new Stale();
@@ -135,7 +135,7 @@ final class McpSourcePropertiesDomain {
         boolean reserved = false;
         try {
             fields(args, "documentId", "modelId", "operationId", "targets");
-            id = text(args.get("operationId"), 128);
+            id = McpDomainSupport.text(args.get("operationId"), 128);
             key = new Key(McpRequestRegistry.currentSessionId(), id);
             String fingerprint = digest(args);
             synchronized (operations) {
@@ -148,15 +148,15 @@ final class McpSourcePropertiesDomain {
             }
             var current = context.get();
             scope(args, current);
-            if (bytes(args) > 128 * 1024) throw new Budget();
+            if (McpDomainSupport.bytes(args) > 128 * 1024) throw new Budget();
             var plans = new ArrayList<Plan>();
             var seen = new HashSet<String>();
             for (Object raw : list(args.get("targets"), 8)) {
                 var target = fields(raw, "kind", "objectId", "snapshotId", "properties");
-                String kind = kind(target.get("kind")), objectId = text(target.get("objectId"), 4096);
+                String kind = kind(target.get("kind")), objectId = McpDomainSupport.text(target.get("objectId"), 4096);
                 if (!seen.add((kind.equals("art_mesh") ? "mesh:" : "deformer:") + objectId))
                     throw new IllegalArgumentException();
-                var snapshot = snapshots.get(text(target.get("snapshotId"), 128), key.session);
+                var snapshot = snapshots.get(McpDomainSupport.text(target.get("snapshotId"), 128), key.session);
                 if (!snapshot.kind().equals(kind + "_properties")
                         || !snapshot.objectId().equals(objectId)
                         || !snapshot.binding().equals(current.binding())) throw new Stale();
@@ -230,7 +230,7 @@ final class McpSourcePropertiesDomain {
 
     private Map<String, Object> result(Map<String, Object> args) {
         fields(args, "operationId");
-        String id = text(args.get("operationId"), 128);
+        String id = McpDomainSupport.text(args.get("operationId"), 128);
         synchronized (operations) {
             var op = operations.get(new Key(McpRequestRegistry.currentSessionId(), id));
             return envelope(
@@ -247,8 +247,9 @@ final class McpSourcePropertiesDomain {
 
     private void verify(McpStoredAuthoringDomain.Context initial, List<Plan> plans, boolean after, boolean history) {
         var current = context.get();
-        if (history ? !initial.binding().equals(current.binding()) : !sameScope(initial.binding(), current.binding()))
-            throw new Stale();
+        if (history
+                ? !initial.binding().equals(current.binding())
+                : !McpDomainSupport.sameScope(initial.binding(), current.binding())) throw new Stale();
         for (var plan : plans) {
             verifyNative(current, plan.snapshot);
             if (!(after ? plan.after : plan.before)
@@ -342,28 +343,16 @@ final class McpSourcePropertiesDomain {
     }
 
     private static void scope(Map<String, Object> args, McpStoredAuthoringDomain.Context context) {
-        if (!text(args.get("documentId"), 4096).equals(context.binding().get("documentId"))
-                || !text(args.get("modelId"), 4096).equals(context.binding().get("modelId"))) throw new Stale();
-    }
-
-    private static boolean sameScope(Map<String, Object> a, Map<String, Object> b) {
-        return List.of("documentId", "modelId", "historyGeneration", "historyDocumentBinding", "historyManagerBinding")
-                .stream()
-                .allMatch(k -> Objects.equals(a.get(k), b.get(k)));
+        if (!McpDomainSupport.text(args.get("documentId"), 4096)
+                        .equals(context.binding().get("documentId"))
+                || !McpDomainSupport.text(args.get("modelId"), 4096)
+                        .equals(context.binding().get("modelId"))) throw new Stale();
     }
 
     private static String kind(Object raw) {
-        String k = text(raw, 32);
+        String k = McpDomainSupport.text(raw, 32);
         if (!Set.of("art_mesh", "warp_deformer", "rotation_deformer").contains(k)) throw new IllegalArgumentException();
         return k;
-    }
-
-    private static String text(Object raw, int max) {
-        if (!(raw instanceof String s)
-                || s.isBlank()
-                || s.length() > max
-                || s.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException();
-        return s;
     }
 
     private static List<?> list(Object raw, int max) {
@@ -376,10 +365,6 @@ final class McpSourcePropertiesDomain {
         var result = new LinkedHashMap<String, Object>();
         m.forEach((k, v) -> result.put((String) k, v));
         return result;
-    }
-
-    private static int bytes(Map<String, Object> value) {
-        return Json.stringify(value).getBytes(StandardCharsets.UTF_8).length;
     }
 
     private static String code(RuntimeException e) {

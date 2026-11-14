@@ -100,17 +100,17 @@ public final class VerifiedMeshTriangulationHashInstaller {
         Objects.requireNonNull(diagnostic, "diagnostic");
 
         if (targetAlreadyLoaded(instrumentation)) {
-            report(diagnostic, "MESH_TRIANGULATION_HASH_TARGET_ALREADY_LOADED");
+            FatalErrors.reportSafely(diagnostic, "MESH_TRIANGULATION_HASH_TARGET_ALREADY_LOADED");
             return Installation.declined(Status.TARGET_ALREADY_LOADED);
         }
 
         final MeshTriangulationHashTransformer transformer = new MeshTriangulationHashTransformer();
         try {
             instrumentation.addTransformer(transformer, false);
-            report(diagnostic, "MESH_TRIANGULATION_HASH_INSTALLED");
+            FatalErrors.reportSafely(diagnostic, "MESH_TRIANGULATION_HASH_INSTALLED");
             return Installation.installed(instrumentation, transformer);
         } catch (RuntimeException failure) {
-            report(diagnostic, "MESH_TRIANGULATION_HASH_INSTALL_FAILED");
+            FatalErrors.reportSafely(diagnostic, "MESH_TRIANGULATION_HASH_INSTALL_FAILED");
             return Installation.declined(Status.INSTALL_FAILED);
         }
     }
@@ -124,10 +124,6 @@ public final class VerifiedMeshTriangulationHashInstaller {
         } catch (RuntimeException uncertain) {
             return true;
         }
-    }
-
-    private static void report(final Consumer<String> diagnostic, final String code) {
-        FatalErrors.reportSafely(diagnostic, code);
     }
 
     /** Exposed so the transformer can be exercised directly by tests without an Instrumentation. */

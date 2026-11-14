@@ -1,6 +1,7 @@
 package dev.turboism.ui.action;
 
 import dev.turboism.core.action.RuntimeActionRegistry;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.plugin.Registration;
@@ -29,7 +30,7 @@ public final class RuntimeEditorUiActionRouter implements EditorUiActionRouter, 
      * @throws NullPointerException if {@code registry} is null
      */
     public Registration register(final String pluginId, final ActionRegistry registry) {
-        final String owner = requireText(pluginId, "pluginId");
+        final String owner = Requirements.text(pluginId, "pluginId");
         final ActionRegistry requested = Objects.requireNonNull(registry, "registry");
         if (closed) {
             throw new IllegalStateException("Editor UI action router is closed");
@@ -80,7 +81,7 @@ public final class RuntimeEditorUiActionRouter implements EditorUiActionRouter, 
         if (closed) {
             return;
         }
-        final java.util.List<ActionRegistry> owners = registries.get(requireText(pluginId, "pluginId"));
+        final java.util.List<ActionRegistry> owners = registries.get(Requirements.text(pluginId, "pluginId"));
         if (owners == null || owners.isEmpty()) {
             return;
         }
@@ -88,7 +89,7 @@ public final class RuntimeEditorUiActionRouter implements EditorUiActionRouter, 
         if (!(registry instanceof RuntimeActionRegistry runtime)) {
             throw new IllegalStateException("Editor UI actions require a runtime-owned action registry");
         }
-        runtime.execute(requireText(actionId, "actionId"), Objects.requireNonNull(context, "context"));
+        runtime.execute(Requirements.text(actionId, "actionId"), Objects.requireNonNull(context, "context"));
     }
 
     /**
@@ -107,13 +108,5 @@ public final class RuntimeEditorUiActionRouter implements EditorUiActionRouter, 
     public void close() {
         closed = true;
         registries.clear();
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

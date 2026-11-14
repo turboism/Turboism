@@ -71,7 +71,7 @@ final class AutoMeshGuardHookContributor implements HookContributor {
     public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final KernelRuntime runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
-        final AutoMeshHostProfile profile = AutoMeshHostProfile.forArtifact(HostArtifactDigest.from(host.artifact()))
+        final AutoMeshHostProfile profile = AutoMeshHostProfile.forArtifact(HostArtifactDigest.cached(host.artifact()))
                 .orElseThrow(() -> new IllegalStateException("Unsupported auto mesh guard host artifact"));
         final AutoMeshSelectorHost selectorHost = selectorHostOf(runtime);
         final VerifiedAutoMeshHookInstaller installer = new VerifiedAutoMeshHookInstaller(

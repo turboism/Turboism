@@ -13,8 +13,8 @@ final class TurboismAgentUploadElisionAdmissionTest {
     @Test
     void admitsOnlyAfterFullRuntimeAdmission() {
         final SkippedFrameUploadElisionHookContributor contributor = new SkippedFrameUploadElisionHookContributor();
-        assertTrue(contributor.admitted(environment(true)));
-        assertFalse(contributor.admitted(environment(false)));
+        assertTrue(contributor.admitted(HookEnvironments.admitted(true)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted(false)));
     }
 
     @Test
@@ -72,7 +72,7 @@ final class TurboismAgentUploadElisionAdmissionTest {
             final SkippedFrameUploadElisionHookContributor contributor = new SkippedFrameUploadElisionHookContributor();
             // The missing host surfaces as installation=FAILED inside install(); a
             // failed experiment must never stop official startup.
-            assertNotNull(contributor.install(environment(true)));
+            assertNotNull(contributor.install(HookEnvironments.admitted(true)));
         } finally {
             if (prior == null) {
                 System.clearProperty(SkippedFrameUploadElisionTransformer.ENABLE_PROPERTY);
@@ -92,7 +92,7 @@ final class TurboismAgentUploadElisionAdmissionTest {
                     "false",
                     () -> {
                         final var contributor = new SkippedFrameUploadElisionHookContributor();
-                        assertNotNull(contributor.install(environment(true)));
+                        assertNotNull(contributor.install(HookEnvironments.admitted(true)));
                     });
         });
     }
@@ -112,7 +112,7 @@ final class TurboismAgentUploadElisionAdmissionTest {
                                 () -> {
                                     final var contributor = new SkippedFrameUploadElisionHookContributor();
                                     try {
-                                        assertNotNull(contributor.installAdmitted(environment(true)));
+                                        assertNotNull(contributor.installAdmitted(HookEnvironments.admitted(true)));
                                     } catch (Exception failure) {
                                         throw new AssertionError(failure);
                                     }
@@ -128,7 +128,7 @@ final class TurboismAgentUploadElisionAdmissionTest {
     void productionFlagOnWithoutHostFailsSafe() {
         withProperty(SkippedFrameUploadElisionBridge.ENABLE_PROPERTY, "true", () -> {
             final var contributor = new SkippedFrameUploadElisionHookContributor();
-            assertNotNull(contributor.install(environment(true)));
+            assertNotNull(contributor.install(HookEnvironments.admitted(true)));
         });
     }
 
@@ -144,12 +144,5 @@ final class TurboismAgentUploadElisionAdmissionTest {
                 System.setProperty(name, prior);
             }
         }
-    }
-
-    private static HookEnvironment environment(final boolean admitted) {
-        return HookEnvironment.builder()
-                .profile("5.3.03")
-                .fullRuntimeAdmission(admitted)
-                .build();
     }
 }

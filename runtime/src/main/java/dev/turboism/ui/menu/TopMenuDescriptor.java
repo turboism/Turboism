@@ -1,5 +1,6 @@
 package dev.turboism.ui.menu;
 
+import dev.turboism.internal.Requirements;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
@@ -8,8 +9,8 @@ import java.util.Objects;
 /** Complete deterministic snapshot of one top-level menu (plugin-owned or shared reserved root). */
 public record TopMenuDescriptor(String menuId, String label, List<TopMenuItemDescriptor> items) {
     public TopMenuDescriptor {
-        menuId = requireText(menuId, "menuId");
-        label = requireText(label, "label");
+        menuId = Requirements.text(menuId, "menuId");
+        label = Requirements.text(label, "label");
         items = List.copyOf(Objects.requireNonNull(items, "items"));
         if (items.isEmpty()) {
             throw new IllegalArgumentException("items must not be empty");
@@ -17,7 +18,7 @@ public record TopMenuDescriptor(String menuId, String label, List<TopMenuItemDes
     }
 
     static TopMenuDescriptor owned(final String rootLabel, final List<TopMenuItemDescriptor> items) {
-        final String label = requireText(rootLabel, "rootLabel");
+        final String label = Requirements.text(rootLabel, "rootLabel");
         final List<TopMenuItemDescriptor> snapshot = List.copyOf(items);
         if (snapshot.isEmpty()
                 || snapshot.stream().anyMatch(item -> !item.rootLabel().equals(label))) {
@@ -38,8 +39,8 @@ public record TopMenuDescriptor(String menuId, String label, List<TopMenuItemDes
      */
     static TopMenuDescriptor shared(
             final String rootLabel, final String displayLabel, final List<TopMenuItemDescriptor> items) {
-        final String label = requireText(rootLabel, "rootLabel");
-        final String display = requireText(displayLabel, "displayLabel");
+        final String label = Requirements.text(rootLabel, "rootLabel");
+        final String display = Requirements.text(displayLabel, "displayLabel");
         final List<TopMenuItemDescriptor> snapshot = List.copyOf(items);
         if (snapshot.isEmpty()) {
             throw new IllegalArgumentException("items must not be empty");
@@ -50,13 +51,5 @@ public record TopMenuDescriptor(String menuId, String label, List<TopMenuItemDes
         final String encodedLabel =
                 Base64.getUrlEncoder().withoutPadding().encodeToString(label.getBytes(StandardCharsets.UTF_8));
         return new TopMenuDescriptor("turboism.menu.shared." + encodedLabel, display, snapshot);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

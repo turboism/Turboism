@@ -74,7 +74,7 @@ class PartOpacityLifecycleContractTest {
 
     @Test
     void annotatedPartEventsTransformAndPublishDetachedCompletion() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final PartLifecycleCoordinator coordinator = new PartLifecycleCoordinator();
         coordinator.attachEventBroker(broker);
@@ -247,10 +247,6 @@ class PartOpacityLifecycleContractTest {
             assertThrows(UnsupportedOperationException.class, () -> event.part().setName("Root"));
             completion.countDown();
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler();
     }
 
     private static PartHooks recordingHook(final List<String> events) {

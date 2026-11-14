@@ -222,7 +222,7 @@ class EditorObjectHookRegistryTest {
 
     @Test
     void previewAdaptersReplaceLegacyDrawableDeliveryAndDeduplicateAnnotatedStates() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler();
         try {
             final EditorObjectLifecycleCoordinator lifecycle = new EditorObjectLifecycleCoordinator();
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
@@ -288,10 +288,6 @@ class EditorObjectHookRegistryTest {
         }
     }
 
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler();
-    }
-
     private static final class StatefulDrawable extends MutableDrawable {
         private boolean visible;
 
@@ -338,119 +334,9 @@ class EditorObjectHookRegistryTest {
     }
 
     private static PluginDescriptor descriptor(String id, List<String> permissionIds) {
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String name() {
-                return id;
-            }
-
-            @Override
-            public String version() {
-                return "1.0.0";
-            }
-
-            @Override
-            public String description() {
-                return "test";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of();
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "UNLICENSED";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.empty();
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of();
-            }
-
-            @Override
-            public I18n i18n() {
-                return new I18n() {
-                    @Override
-                    public String baseName() {
-                        return "messages";
-                    }
-
-                    @Override
-                    public List<String> locales() {
-                        return List.of();
-                    }
-                };
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return permissionIds.stream()
-                        .<PermissionRef>map(permissionId -> new PermissionRef() {
-                            @Override
-                            public String id() {
-                                return permissionId;
-                            }
-
-                            @Override
-                            public String scope() {
-                                return "plugin";
-                            }
-
-                            @Override
-                            public Optional<String> reason() {
-                                return Optional.of("test");
-                            }
-                        })
-                        .toList();
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "none";
-                    }
-                };
-            }
-        };
+        return Stubs.descriptorBuilder(id)
+                .permissions(permissionIds.stream().map(Stubs::permissionRef).toList())
+                .build();
     }
 
     private static PluginLogger logger() {

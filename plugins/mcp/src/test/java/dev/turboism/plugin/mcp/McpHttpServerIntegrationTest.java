@@ -32,6 +32,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.plugin.FakePluginPaths;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.io.IOException;
 import java.net.URI;
@@ -2645,27 +2646,7 @@ final class McpHttpServerIntegrationTest {
             final FakeReadServices reads,
             final McpConnectionService connections,
             final RecordingUi ui) {
-        final PluginPaths paths = new PluginPaths() {
-            @Override
-            public Path dataDir() {
-                return temporaryDirectory;
-            }
-
-            @Override
-            public Path logsDir() {
-                return temporaryDirectory;
-            }
-
-            @Override
-            public Path stateDir() {
-                return temporaryDirectory;
-            }
-
-            @Override
-            public Path cacheDir() {
-                return temporaryDirectory;
-            }
-        };
+        final PluginPaths paths = FakePluginPaths.of(temporaryDirectory);
         return (PluginContext) java.lang.reflect.Proxy.newProxyInstance(
                 PluginContext.class.getClassLoader(),
                 new Class<?>[] {PluginContext.class},

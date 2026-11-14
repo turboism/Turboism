@@ -6,11 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.event.RuntimeEventBroker;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.runtime.PluginLifecycleEvent;
 import dev.turboism.test.concurrent.Await;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
@@ -102,7 +101,7 @@ class KernelPluginLifecycleEventIntegrationTest {
                 afterObserver(),
                 "[]");
 
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         installProbeState();
         try (KernelLog log = new KernelLog(temporary.resolve("logs/turboism.log"))) {
@@ -190,7 +189,7 @@ class KernelPluginLifecycleEventIntegrationTest {
                 afterObserver(),
                 "[]");
 
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         installProbeState();
         try (KernelLog log = new KernelLog(temporary.resolve("logs/turboism.log"))) {
@@ -248,7 +247,7 @@ class KernelPluginLifecycleEventIntegrationTest {
                 afterObserver(),
                 "[]");
 
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         installProbeState();
         try (KernelLog log = new KernelLog(temporary.resolve("logs/turboism.log"))) {
@@ -315,7 +314,7 @@ class KernelPluginLifecycleEventIntegrationTest {
                 afterObserver(),
                 "[]");
 
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         installProbeState();
         try (KernelLog log = new KernelLog(temporary.resolve("logs/turboism.log"))) {
@@ -380,7 +379,7 @@ class KernelPluginLifecycleEventIntegrationTest {
                 afterObserver(),
                 "[]");
 
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         installProbeState();
         try (KernelLog log = new KernelLog(temporary.resolve("logs/turboism.log"))) {
@@ -443,7 +442,7 @@ class KernelPluginLifecycleEventIntegrationTest {
                 afterObserver(),
                 "[]");
 
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         installProbeState();
         try (KernelLog log = new KernelLog(temporary.resolve("logs/turboism.log"))) {
@@ -503,7 +502,7 @@ class KernelPluginLifecycleEventIntegrationTest {
                 afterObserver(),
                 "[]");
 
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         installProbeState();
         try (KernelLog log = new KernelLog(temporary.resolve("logs/turboism.log"))) {
@@ -567,7 +566,7 @@ class KernelPluginLifecycleEventIntegrationTest {
                 afterObserver(),
                 "[]");
 
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         installProbeState();
         try (KernelLog log = new KernelLog(temporary.resolve("logs/turboism.log"))) {
@@ -1052,13 +1051,6 @@ class KernelPluginLifecycleEventIntegrationTest {
             "dependencies":%s,"permissions":%s,"capabilities":[],
             "environment":{"requiresCubism":false,"ui":"none"}}
             """.formatted(id, id, entrypoint, dependencies, permissions);
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
-                ignored -> {});
     }
 
     /**

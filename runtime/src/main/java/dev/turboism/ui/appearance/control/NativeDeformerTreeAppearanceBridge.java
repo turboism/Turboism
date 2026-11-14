@@ -2,6 +2,7 @@ package dev.turboism.ui.appearance.control;
 
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import java.awt.Component;
 import java.awt.Container;
 import java.util.Objects;
@@ -145,13 +146,13 @@ public final class NativeDeformerTreeAppearanceBridge {
             String idStringMethod,
             ClassLoader hostClassLoader) {
         public Selectors {
-            requireText(rowSourceOwner, "rowSourceOwner");
-            requireText(rowSourceMethod, "rowSourceMethod");
-            requireText(deformerSourceOwner, "deformerSourceOwner");
-            requireText(deformerIdMethod, "deformerIdMethod");
-            requireText(artMeshSourceOwner, "artMeshSourceOwner");
-            requireText(artMeshIdMethod, "artMeshIdMethod");
-            requireText(idStringMethod, "idStringMethod");
+            Requirements.text(rowSourceOwner, "rowSourceOwner");
+            Requirements.text(rowSourceMethod, "rowSourceMethod");
+            Requirements.text(deformerSourceOwner, "deformerSourceOwner");
+            Requirements.text(deformerIdMethod, "deformerIdMethod");
+            Requirements.text(artMeshSourceOwner, "artMeshSourceOwner");
+            Requirements.text(artMeshIdMethod, "artMeshIdMethod");
+            Requirements.text(idStringMethod, "idStringMethod");
             Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         }
 
@@ -163,10 +164,10 @@ public final class NativeDeformerTreeAppearanceBridge {
             if (!rowSource.canAccess(row) && !rowSource.trySetAccessible()) return null;
             final Object source = rowSource.invoke(row);
             if (source == null || source.getClass().getClassLoader() != hostClassLoader) return null;
-            if (isTypeOrSuper(source.getClass(), deformerSourceOwner.replace('/', '.'))) {
+            if (NativeBridgeReflection.isTypeOrSuper(source.getClass(), deformerSourceOwner.replace('/', '.'))) {
                 return idString(source, deformerIdMethod, idStringMethod);
             }
-            if (isTypeOrSuper(source.getClass(), artMeshSourceOwner.replace('/', '.'))) {
+            if (NativeBridgeReflection.isTypeOrSuper(source.getClass(), artMeshSourceOwner.replace('/', '.'))) {
                 return idString(source, artMeshIdMethod, idStringMethod);
             }
             return null;
@@ -180,19 +181,6 @@ public final class NativeDeformerTreeAppearanceBridge {
                     ? null
                     : MethodHandleCache.method(id.getClass(), idStringMethod).invoke(id);
             return value instanceof String text && !text.isBlank() ? text : null;
-        }
-
-        private static boolean isTypeOrSuper(final Class<?> type, final String expected) {
-            for (Class<?> current = type; current != null; current = current.getSuperclass()) {
-                if (current.getName().equals(expected)) return true;
-            }
-            return false;
-        }
-
-        private static String requireText(final String value, final String name) {
-            Objects.requireNonNull(value, name);
-            if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-            return value;
         }
     }
 }

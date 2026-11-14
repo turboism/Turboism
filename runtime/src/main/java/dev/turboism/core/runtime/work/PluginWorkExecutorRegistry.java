@@ -2,6 +2,7 @@ package dev.turboism.core.runtime.work;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.contract.PluginTask;
+import dev.turboism.internal.Requirements;
 import java.time.Clock;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,8 +43,8 @@ public final class PluginWorkExecutorRegistry {
         this(
                 PluginWorkExecutorConfiguration.of(
                         timeoutMillis,
-                        requirePositive(workerCount, "workerCount"),
-                        requirePositive(queueCapacity, "queueCapacity"),
+                        Requirements.positive(workerCount, "workerCount"),
+                        Requirements.positive(queueCapacity, "queueCapacity"),
                         50.0f),
                 diagnosticSink,
                 clock);
@@ -89,7 +90,7 @@ public final class PluginWorkExecutorRegistry {
      * @return the executor set currently mapped for the plugin
      */
     public PluginExecutorSet claim(String pluginId) {
-        String id = requireText(pluginId, "pluginId");
+        String id = Requirements.text(pluginId, "pluginId");
         return executors.computeIfAbsent(id, this::createSet);
     }
 
@@ -104,7 +105,7 @@ public final class PluginWorkExecutorRegistry {
      * @param expected the set captured by this generation's earlier {@link #claim}
      */
     public void release(String pluginId, PluginExecutorSet expected) {
-        String id = requireText(pluginId, "pluginId");
+        String id = Requirements.text(pluginId, "pluginId");
         Objects.requireNonNull(expected, "expected");
         executors.remove(id, expected);
         expected.shutdown();
@@ -123,7 +124,7 @@ public final class PluginWorkExecutorRegistry {
      * @param expected the set captured by this generation's earlier {@link #claim}
      */
     public void discard(String pluginId, PluginExecutorSet expected) {
-        String id = requireText(pluginId, "pluginId");
+        String id = Requirements.text(pluginId, "pluginId");
         Objects.requireNonNull(expected, "expected");
         executors.remove(id, expected);
         expected.discard();
@@ -176,7 +177,7 @@ public final class PluginWorkExecutorRegistry {
      * @throws IllegalArgumentException if {@code pluginId} is blank
      */
     public void shutdown(String pluginId) {
-        String id = requireText(pluginId, "pluginId");
+        String id = Requirements.text(pluginId, "pluginId");
         PluginExecutorSet set = executors.remove(id);
         if (set != null) {
             set.shutdown();
@@ -200,20 +201,5 @@ public final class PluginWorkExecutorRegistry {
     private PluginExecutorSet createSet(String pluginId) {
         return new PluginExecutorSet(
                 pluginId, configuration, diagnosticSink, clock, timeoutSchedulerFactory.apply(pluginId));
-    }
-
-    private static int requirePositive(int value, String name) {
-        if (value < 1) {
-            throw new IllegalArgumentException(name + " must be positive");
-        }
-        return value;
-    }
-
-    private static String requireText(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

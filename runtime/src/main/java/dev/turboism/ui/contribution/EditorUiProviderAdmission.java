@@ -1,5 +1,6 @@
 package dev.turboism.ui.contribution;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.ui.host.EditorUiFamily;
 import java.util.Locale;
 import java.util.Objects;
@@ -125,19 +126,11 @@ public record EditorUiProviderAdmission(
     }
 
     private static String requireDiagnosticId(final String value) {
-        final String normalized = requireText(value, "diagnosticId").toLowerCase(Locale.ROOT);
+        final String normalized = Requirements.text(value, "diagnosticId").toLowerCase(Locale.ROOT);
         if (normalized.length() > DIAGNOSTIC_ID_MAX_LENGTH || !normalized.matches("[a-z0-9][a-z0-9._-]*")) {
             throw new IllegalArgumentException("diagnosticId must be a bounded stable identifier");
         }
         return normalized;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     /** Whether a provider's evidence admitted it for production use. */
@@ -152,16 +145,16 @@ public record EditorUiProviderAdmission(
     public record VerificationEvidence(
             String hostVersion, long artifactSize, String artifactSha256, String verificationSlice) {
         public VerificationEvidence {
-            hostVersion = requireText(hostVersion, "hostVersion");
+            hostVersion = Requirements.text(hostVersion, "hostVersion");
             if (artifactSize < 0) {
                 throw new IllegalArgumentException("artifactSize must not be negative");
             }
             artifactSha256 = requireSha256(artifactSha256, "artifactSha256");
-            verificationSlice = requireText(verificationSlice, "verificationSlice");
+            verificationSlice = Requirements.text(verificationSlice, "verificationSlice");
         }
 
         private static String requireSha256(final String value, final String name) {
-            final String normalized = requireText(value, name).toLowerCase(Locale.ROOT);
+            final String normalized = Requirements.text(value, name).toLowerCase(Locale.ROOT);
             if (!normalized.matches("[0-9a-f]{64}")) {
                 throw new IllegalArgumentException(name + " must be 64 lowercase hexadecimal characters");
             }

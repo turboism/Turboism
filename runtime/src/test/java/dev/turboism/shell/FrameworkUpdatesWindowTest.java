@@ -16,6 +16,7 @@ import dev.turboism.pluginmanagement.PluginCatalogClient;
 import dev.turboism.pluginmanagement.PluginUpdateGate;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,23 +41,7 @@ class FrameworkUpdatesWindowTest {
 
     private static final String ID = "dev.turboism.plugin.demo";
     private static final int CENTER_TOLERANCE_PX = 2;
-    private static final PluginLocalization I18N = new PluginLocalization() {
-        public Locale locale() {
-            return Locale.ENGLISH;
-        }
-
-        public String text(String key) {
-            return key;
-        }
-
-        public String format(String key, Object... args) {
-            return key + ": " + java.util.Arrays.toString(args);
-        }
-
-        public boolean contains(String key) {
-            return true;
-        }
-    };
+    private static final PluginLocalization I18N = FakePluginContext.passThroughLocalization(Locale.ENGLISH);
     private static final PluginUpdateRow ROW = new PluginUpdateRow(
             ID,
             "Demo",

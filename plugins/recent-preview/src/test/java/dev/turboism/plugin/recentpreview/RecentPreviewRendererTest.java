@@ -13,8 +13,8 @@ import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContent;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
-import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.PanelView;
+import dev.turboism.test.plugin.NoopPluginLogger;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
@@ -41,7 +41,7 @@ final class RecentPreviewRendererTest {
                 PreviewCacheWriteResult.STORED,
                 controller.capture(summary.id()).toCompletableFuture().join());
         final RecentPreviewRendererImpl renderer =
-                new RecentPreviewRendererImpl(controller, id -> {}, new NoopLogger());
+                new RecentPreviewRendererImpl(controller, id -> {}, NoopPluginLogger.INSTANCE);
 
         final RecentPreviewContent content = renderer.render(summary).orElseThrow();
 
@@ -89,7 +89,7 @@ final class RecentPreviewRendererTest {
                 new RecentPreviewController(List::of, new NoopCapture(), new NoopCache());
         controller.enable();
         final RecentPreviewRendererImpl renderer = new RecentPreviewRendererImpl(
-                controller, id -> requests.incrementAndGet(), new NoopLogger(), "Loading preview…");
+                controller, id -> requests.incrementAndGet(), NoopPluginLogger.INSTANCE, "Loading preview…");
 
         final RecentPreviewContent first = renderer.render(summary).orElseThrow();
         final RecentPreviewContent second = renderer.render(summary).orElseThrow();
@@ -107,7 +107,7 @@ final class RecentPreviewRendererTest {
                 new RecentPreviewController(List::of, new NoopCapture(), new NoopCache());
         controller.enable();
         final RecentPreviewRendererImpl renderer = new RecentPreviewRendererImpl(
-                controller, id -> requests.incrementAndGet(), new NoopLogger(), "Loading preview…");
+                controller, id -> requests.incrementAndGet(), NoopPluginLogger.INSTANCE, "Loading preview…");
 
         assertTrue(renderer.render(summary).isPresent());
         renderer.captureFailed(summary.id());
@@ -158,22 +158,5 @@ final class RecentPreviewRendererTest {
         public CompletionStage<java.util.Map<RecentFileId, byte[]>> loadPng(final List<RecentFileSummary> files) {
             return CompletableFuture.completedStage(java.util.Map.of());
         }
-    }
-
-    private static final class NoopLogger implements PluginLogger {
-        @Override
-        public void debug(String message) {}
-
-        @Override
-        public void info(String message) {}
-
-        @Override
-        public void warn(String message) {}
-
-        @Override
-        public void error(String message) {}
-
-        @Override
-        public void error(String message, Throwable throwable) {}
     }
 }

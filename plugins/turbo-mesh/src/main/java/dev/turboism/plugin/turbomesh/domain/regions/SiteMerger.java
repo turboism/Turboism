@@ -163,7 +163,7 @@ final class SiteMerger {
             parent[i] = i;
         }
         for (final int[] edge : edges) {
-            union(parent, edge[0], edge[1]);
+            DisjointSets.union(parent, edge[0], edge[1]);
         }
         final boolean[] incident = new boolean[maxSite + 1];
         final boolean[] roots = new boolean[maxSite + 1];
@@ -171,7 +171,7 @@ final class SiteMerger {
         for (final int[] edge : edges) {
             incident[edge[0]] = true;
             incident[edge[1]] = true;
-            final int root = find(parent, edge[0]);
+            final int root = DisjointSets.find(parent, edge[0]);
             if (!roots[root]) {
                 roots[root] = true;
                 components++;
@@ -365,27 +365,5 @@ final class SiteMerger {
                         Arrays.copyOf(edgeRoles, kept),
                         boundaryCount)
                 .withRings(outRings);
-    }
-
-    private static int find(final int[] parent, final int start) {
-        int root = start;
-        while (parent[root] != root) {
-            root = parent[root];
-        }
-        int cursor = start;
-        while (parent[cursor] != root) {
-            final int next = parent[cursor];
-            parent[cursor] = root;
-            cursor = next;
-        }
-        return root;
-    }
-
-    private static void union(final int[] parent, final int a, final int b) {
-        final int rootA = find(parent, a);
-        final int rootB = find(parent, b);
-        if (rootA != rootB) {
-            parent[Math.max(rootA, rootB)] = Math.min(rootA, rootB);
-        }
     }
 }

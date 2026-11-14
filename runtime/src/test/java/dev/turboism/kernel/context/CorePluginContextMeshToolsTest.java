@@ -18,14 +18,13 @@ import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.test.Stubs;
+import dev.turboism.test.plugin.FakePluginPaths;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import dev.turboism.testkit.RuntimeTestKit;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -38,7 +37,7 @@ class CorePluginContextMeshToolsTest {
 
     @Test
     void meshToolsFailClosedUntilTheRuntimeInstallsTheExactService() throws Exception {
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         CorePluginContext context = new CorePluginContext(dependencies(scheduler));
         try {
             dev.turboism.sdk.plugin.PluginServiceUnavailableException failure = assertThrows(
@@ -58,7 +57,7 @@ class CorePluginContextMeshToolsTest {
 
     @Test
     void exactServiceInstallationIsOneShotAndRoutesTheSdkMethod() throws Exception {
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         CorePluginContext context = new CorePluginContext(dependencies(scheduler));
         AtomicInteger registrations = new AtomicInteger();
         AtomicInteger closes = new AtomicInteger();
@@ -103,7 +102,7 @@ class CorePluginContextMeshToolsTest {
 
     @Test
     void ordinaryToolsAreAnIndependentDirectoryServiceWithScopeOwnedCleanup() throws Exception {
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         CorePluginContext context = new CorePluginContext(dependencies(scheduler));
         AtomicInteger meshCloses = new AtomicInteger();
         AtomicInteger modelingCloses = new AtomicInteger();
@@ -194,126 +193,18 @@ class CorePluginContextMeshToolsTest {
     }
 
     private static PluginDescriptor descriptor() {
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return "dev.turboism.plugin.mesh-tools-test";
-            }
-
-            @Override
-            public String name() {
-                return "Mesh Tools Test";
-            }
-
-            @Override
-            public String version() {
-                return "0.1.0";
-            }
-
-            @Override
-            public String description() {
-                return "Mesh tools composition test";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of("dev.turboism.test.MeshToolsPlugin");
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "Project License";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.empty();
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of();
-            }
-
-            @Override
-            public I18n i18n() {
-                return new I18n() {
-                    @Override
-                    public String baseName() {
-                        return "META-INF/turboism/i18n/messages";
-                    }
-
-                    @Override
-                    public List<String> locales() {
-                        return List.of();
-                    }
-                };
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return List.of();
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "none";
-                    }
-                };
-            }
-        };
+        return Stubs.descriptorBuilder("dev.turboism.plugin.mesh-tools-test")
+                .name("Mesh Tools Test")
+                .version("0.1.0")
+                .description("Mesh tools composition test")
+                .entrypoints("dev.turboism.test.MeshToolsPlugin")
+                .license("Project License")
+                .i18n("META-INF/turboism/i18n/messages")
+                .build();
     }
 
     private PluginPaths paths() {
-        return new PluginPaths() {
-            @Override
-            public Path dataDir() {
-                return tempDir;
-            }
-
-            @Override
-            public Path logsDir() {
-                return tempDir;
-            }
-
-            @Override
-            public Path stateDir() {
-                return tempDir;
-            }
-
-            @Override
-            public Path cacheDir() {
-                return tempDir;
-            }
-        };
+        return FakePluginPaths.of(tempDir);
     }
 
     private static PluginLogger logger() {
@@ -330,9 +221,5 @@ class CorePluginContextMeshToolsTest {
 
     private static HostSnapshotSource emptyHostSnapshotSource() {
         return RuntimeTestKit.emptyHostSnapshotSource();
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
     }
 }

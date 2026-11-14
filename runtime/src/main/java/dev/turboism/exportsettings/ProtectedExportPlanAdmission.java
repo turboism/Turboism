@@ -1,11 +1,9 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.core.io.Sha256;
 import dev.turboism.sdk.cubism.export.ProtectedExportCensus;
 import dev.turboism.sdk.cubism.export.ProtectedExportPlan;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -118,16 +116,6 @@ final class ProtectedExportPlanAdmission {
         }
     }
 
-    private static String sha256Hex(final String guid) {
-        final MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException(impossible);
-        }
-        return HexFormat.of().formatHex(digest.digest(guid.getBytes(StandardCharsets.UTF_8)));
-    }
-
     /**
      * The canonical allocation of one verification run: every rewritten family shares the
      * hash set, the used-name set and the used-ID set, so a token can never collide with
@@ -152,7 +140,7 @@ final class ProtectedExportPlanAdmission {
                 final List<String> guids, final String namePrefix, final String idPrefix, final int maxPrefix) {
             final Map<String, ProtectedExportPlan.Target> planned = new LinkedHashMap<>();
             for (String guid : guids) {
-                final String hash = sha256Hex(guid);
+                final String hash = Sha256.hex(guid.getBytes(StandardCharsets.UTF_8));
                 if (!hashes.add(hash)) {
                     throw new ProtectedExportRejection("protected-export.obfuscation-hash-collision");
                 }

@@ -41,7 +41,7 @@ class WarpDeformerGridEventTest {
 
             @Override
             public IntSequence parameters() {
-                return ints();
+                return TestSequences.ints();
             }
 
             @Override
@@ -62,19 +62,5 @@ class WarpDeformerGridEventTest {
                 List.of(
                         new Point2(offset, 0), new Point2(offset + 1, 0),
                         new Point2(offset, 1), new Point2(offset + 1, 1)));
-    }
-
-    private static IntSequence ints() {
-        return new IntSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public int get(final int index) {
-                throw new IndexOutOfBoundsException(index);
-            }
-        };
     }
 }

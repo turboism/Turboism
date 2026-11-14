@@ -8,11 +8,10 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.config.RuntimeConfigRepository;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.kernel.KernelLog;
 import dev.turboism.kernel.LocalPluginRuntime;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -62,7 +61,7 @@ final class LocalPluginRuntimeLoadScenario {
             return config;
         });
         final KernelLog log = new KernelLog(home.resolve("logs/turboism.log"));
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostRuntimeIngress hostIngress = new HostRuntimeIngress();
         final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, hostIngress.adapterAccess(), log);
         try {
@@ -101,13 +100,6 @@ final class LocalPluginRuntimeLoadScenario {
         assertTrue(runtimeLog.contains("[dev.turboism.plugin.project-inspector] "
                 + "Plugin lifecycle: load succeeded name=Project Inspector"));
         assertTrue(runtimeLog.contains("Localization active locale="));
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
-                ignored -> {});
     }
 
     private static Path projectInspectorJar() throws IOException {

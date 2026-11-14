@@ -278,7 +278,7 @@ final class RuntimePluginAutoUpdaterTest {
                 sidecarMismatchCatalog,
                 sidecarMismatchSig,
                 Map.of(URI.create(v020.url()), v020.bytes(), URI.create(v030.url()), v030.bytes()));
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final List<String> diagnostics = new ArrayList<>();
         final RuntimePluginAutoUpdater updater = new RuntimePluginAutoUpdater(
                 home,
@@ -387,7 +387,7 @@ final class RuntimePluginAutoUpdaterTest {
 
         final PluginCatalogClient client =
                 stubClient(catalogBytes, sigBytes, Map.of(URI.create(v020.url()), v020.bytes()));
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimePluginManagementService management =
                 new RuntimePluginManagementService(home, Optional::empty, List::of);
         final RuntimePluginAutoUpdater updater = new RuntimePluginAutoUpdater(
@@ -465,7 +465,7 @@ final class RuntimePluginAutoUpdaterTest {
         tamperedJar[tamperedJar.length - 1] ^= 0x01;
         final PluginCatalogClient badHashClient =
                 stubClient(catalogBytes, sigBytes, Map.of(URI.create(v020.url()), tamperedJar));
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimePluginAutoUpdater badHashUpdater = new RuntimePluginAutoUpdater(
                 home,
                 scheduler,
@@ -598,7 +598,7 @@ final class RuntimePluginAutoUpdaterTest {
                     networkCalls[0]++;
                     throw new IOException("unexpected network call");
                 });
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimePluginAutoUpdater safeModeUpdater = new RuntimePluginAutoUpdater(
                 home,
                 scheduler,
@@ -671,7 +671,7 @@ final class RuntimePluginAutoUpdaterTest {
         final BuiltArtifact artifact = artifactFor(pluginId, "hotcycle", "0.2.0", replacement);
 
         final List<String> diagnostics = new ArrayList<>();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimePluginAutoUpdater updater = updaterFor(artifact, "0.2.0", true, diagnostics, scheduler);
         try (LocalPluginRuntime runtime = previewRuntime(home)) {
             updater.bindHotReloadCoordinator(runtime.hotReloadCoordinator());
@@ -714,7 +714,7 @@ final class RuntimePluginAutoUpdaterTest {
         final BuiltArtifact artifact = artifactFor(pluginId, "hotcycle", "0.2.0", broken);
 
         final List<String> diagnostics = new ArrayList<>();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimePluginAutoUpdater updater = updaterFor(artifact, "0.2.0", true, diagnostics, scheduler);
         try (LocalPluginRuntime runtime = previewRuntime(home)) {
             updater.bindHotReloadCoordinator(runtime.hotReloadCoordinator());
@@ -1118,10 +1118,6 @@ final class RuntimePluginAutoUpdaterTest {
                 return new DockCleanupResult("done");
             }
         };
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
     }
 
     private static String sha256Hex(final byte[] bytes) throws Exception {

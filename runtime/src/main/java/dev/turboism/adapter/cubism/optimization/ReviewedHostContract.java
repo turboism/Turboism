@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.optimization;
 
 import dev.turboism.compatibility.policy.ReviewedCubismReleases;
+import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.CubismEditorReleaseDetector;
 import dev.turboism.mapping.verification.CubismHostIdentity;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -10,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,6 +49,26 @@ import java.util.jar.JarFile;
  */
 public final class ReviewedHostContract {
 
+    /** Bindings retained for one process; a launch resolves a fixed set of hook contracts. */
+    private static final int MAX_CACHED_RESOLUTIONS = 128;
+
+    /**
+     * Resolutions already computed in this process, keyed by canonical artifact path, artifact
+     * digest and the exact candidate list, so a repeated admission check reads no archive.
+     */
+    private static final Map<ResolutionKey, Resolution<?>> RESOLUTIONS = new LinkedHashMap<>(32, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(final Map.Entry<ResolutionKey, Resolution<?>> eldest) {
+            return size() > MAX_CACHED_RESOLUTIONS;
+        }
+    };
+
+    /**
+     * Identity of one resolution: the artifact's canonical path and digest plus the candidate list.
+     * A replaced artifact carries a different digest, so it is resolved again.
+     */
+    private record ResolutionKey(Path realPath, HostArtifactDigest digest, List<?> candidates) {}
+
     private ReviewedHostContract() {}
 
     /**
@@ -60,21 +82,13 @@ public final class ReviewedHostContract {
      */
     public record MethodShapeSpec(String owner, String method, String descriptor, List<String> expectedShape) {
         public MethodShapeSpec {
-            owner = requireText(owner, "owner");
-            method = requireText(method, "method");
-            descriptor = requireText(descriptor, "descriptor");
+            owner = Requirements.text(owner, "owner");
+            method = Requirements.text(method, "method");
+            descriptor = Requirements.text(descriptor, "descriptor");
             expectedShape = List.copyOf(Objects.requireNonNull(expectedShape, "expectedShape"));
             if (expectedShape.isEmpty()) {
                 throw new IllegalArgumentException("expectedShape must not be empty");
             }
-        }
-
-        private static String requireText(final String value, final String name) {
-            Objects.requireNonNull(value, name);
-            if (value.isBlank()) {
-                throw new IllegalArgumentException(name + " must not be blank");
-            }
-            return value;
         }
     }
 
@@ -147,7 +161,7 @@ public final class ReviewedHostContract {
          * @throws IllegalStateException if it differs from the probed artifact
          */
         public void requireUnchanged(final Path artifact) throws IOException {
-            if (!probe.identity().orElseThrow().artifact().equals(HostArtifactDigest.from(artifact))) {
+            if (!probe.identity().orElseThrow().artifact().equals(HostArtifactDigest.cached(artifact))) {
                 throw new IllegalStateException("host artifact changed after contract binding");
             }
         }
@@ -217,12 +231,55 @@ public final class ReviewedHostContract {
     /**
      * Binds the actual artifact to a reviewed contract or refuses with a reason.
      *
+     * <p>The verdict is cached per process for the artifact's canonical path, digest and candidate
+     * list, so repeated admission checks read the archive once. A replaced artifact carries a
+     * different digest and is resolved again.</p>
+     *
      * @param artifact the located host artifact (never re-digested into a reviewed one)
      * @param candidates the hook's reviewed contract generations
      * @return the resolution verdict
      */
     public static <T> Resolution<T> resolve(final Path artifact, final List<Candidate<T>> candidates) {
-        return resolve(artifact, candidates, CubismEditorReleaseDetector::probe);
+        Objects.requireNonNull(artifact, "artifact");
+        Objects.requireNonNull(candidates, "candidates");
+        final ResolutionKey key = resolutionKey(artifact, candidates);
+        if (key != null) {
+            final Resolution<T> cached = cachedResolution(key);
+            if (cached != null) {
+                return cached;
+            }
+        }
+        final Resolution<T> resolution = resolve(artifact, candidates, CubismEditorReleaseDetector::probe);
+        if (key != null) {
+            storeResolution(key, resolution);
+        }
+        return resolution;
+    }
+
+    /**
+     * Builds the cache key, or {@code null} when the artifact cannot supply a stable identity and
+     * the caller must resolve without caching.
+     */
+    private static ResolutionKey resolutionKey(final Path artifact, final List<?> candidates) {
+        try {
+            return new ResolutionKey(
+                    artifact.toRealPath(), HostArtifactDigest.cached(artifact), List.copyOf(candidates));
+        } catch (IOException | RuntimeException unreadable) {
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> Resolution<T> cachedResolution(final ResolutionKey key) {
+        synchronized (RESOLUTIONS) {
+            return (Resolution<T>) RESOLUTIONS.get(key);
+        }
+    }
+
+    private static <T> void storeResolution(final ResolutionKey key, final Resolution<T> resolution) {
+        synchronized (RESOLUTIONS) {
+            RESOLUTIONS.put(key, resolution);
+        }
     }
 
     // Identity-probe seam permits deterministic replacement-during-inspection tests.
@@ -262,7 +319,7 @@ public final class ReviewedHostContract {
                     resolution = bindStructurally(jar, probe, candidates, false);
                 }
             }
-            if (resolution instanceof Bound<T> && !identity.artifact().equals(HostArtifactDigest.from(artifact))) {
+            if (resolution instanceof Bound<T> && !identity.artifact().equals(HostArtifactDigest.cached(artifact))) {
                 return new Refused<>("host artifact changed during contract inspection");
             }
             return resolution;

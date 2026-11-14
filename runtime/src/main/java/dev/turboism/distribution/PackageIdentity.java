@@ -1,5 +1,6 @@
 package dev.turboism.distribution;
 
+import dev.turboism.internal.Requirements;
 import java.util.Objects;
 
 /**
@@ -19,10 +20,10 @@ public final class PackageIdentity {
     private final int javaVersion;
 
     PackageIdentity(String sha256, long size, String id, String version, String apiVersion, int javaVersion) {
-        this.sha256 = require(sha256, "sha256");
-        this.id = require(id, "id");
-        this.version = require(version, "version");
-        this.apiVersion = require(apiVersion, "apiVersion");
+        this.sha256 = Requirements.text(sha256, "sha256");
+        this.id = Requirements.text(id, "id");
+        this.version = Requirements.text(version, "version");
+        this.apiVersion = Requirements.text(apiVersion, "apiVersion");
         if (!sha256.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("Invalid sha256");
         if (size < 0) throw new IllegalArgumentException("size must be non-negative");
         if (javaVersion <= 0) throw new IllegalArgumentException("javaVersion must be positive");
@@ -82,11 +83,5 @@ public final class PackageIdentity {
         return "PackageIdentity[sha256=" + sha256 + ", size=" + size + ", id=" + id
                 + ", version=" + version + ", apiVersion=" + apiVersion
                 + ", javaVersion=" + javaVersion + "]";
-    }
-
-    private static String require(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

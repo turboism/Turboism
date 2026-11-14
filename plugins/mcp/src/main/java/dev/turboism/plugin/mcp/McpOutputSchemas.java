@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -506,79 +508,8 @@ final class McpOutputSchemas {
         return result;
     }
 
+    /** Array schema that also admits JSON {@code null}. */
     private static Map<String, Object> nullableArray(final Map<String, Object> items) {
         return linked(entry("type", List.of("array", "null")), entry("items", items));
-    }
-
-    private static Map<String, Object> oneOf(final Map<String, Object>... alternatives) {
-        return Map.of("oneOf", List.of(alternatives));
-    }
-
-    private static Map<String, Object> object(final Map<String, Object> properties, final List<String> required) {
-        return linked(
-                entry("type", "object"),
-                entry("properties", properties),
-                entry("required", required),
-                entry("additionalProperties", false));
-    }
-
-    private static Map<String, Object> array(final Map<String, Object> items) {
-        return Map.of("type", "array", "items", items);
-    }
-
-    private static Map<String, Object> constant(final Object value) {
-        return Map.of("const", value);
-    }
-
-    private static Map<String, Object> stringSchema() {
-        return Map.of("type", "string");
-    }
-
-    private static Map<String, Object> nonEmptyString() {
-        return Map.of("type", "string", "minLength", 1);
-    }
-
-    private static Map<String, Object> boundedArray(final Map<String, Object> items, final int maxItems) {
-        return Map.of("type", "array", "items", items, "maxItems", maxItems);
-    }
-
-    private static Map<String, Object> nullableString() {
-        return Map.of("type", List.of("string", "null"));
-    }
-
-    private static Map<String, Object> booleanSchema() {
-        return Map.of("type", "boolean");
-    }
-
-    private static Map<String, Object> numberSchema() {
-        return Map.of("type", "number");
-    }
-
-    private static Map<String, Object> nonNegativeInteger() {
-        return Map.of("type", "integer", "minimum", 0);
-    }
-
-    private static Map<String, Object> nullableNonNegativeInteger() {
-        return Map.of("type", List.of("integer", "null"), "minimum", 0);
-    }
-
-    private static Map<String, Object> enumSchema(final List<String> values) {
-        return Map.of("type", "string", "enum", values);
-    }
-
-    @SafeVarargs
-    private static Map<String, Object> properties(final Map.Entry<String, Object>... entries) {
-        return linked(entries);
-    }
-
-    @SafeVarargs
-    private static LinkedHashMap<String, Object> linked(final Map.Entry<String, Object>... entries) {
-        final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : entries) result.put(entry.getKey(), entry.getValue());
-        return result;
-    }
-
-    private static Map.Entry<String, Object> entry(final String key, final Object value) {
-        return new java.util.AbstractMap.SimpleImmutableEntry<>(key, value);
     }
 }

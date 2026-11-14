@@ -1,5 +1,6 @@
 package dev.turboism.ui.host;
 
+import dev.turboism.internal.Requirements;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -7,7 +8,7 @@ import java.util.Optional;
 public record EditorUiHostFailure(Code code, String message, Optional<EditorUiFamily> family) {
     public EditorUiHostFailure {
         code = Objects.requireNonNull(code, "code");
-        message = requireText(message, "message");
+        message = Requirements.text(message, "message");
         family = Objects.requireNonNull(family, "family");
     }
 
@@ -29,14 +30,6 @@ public record EditorUiHostFailure(Code code, String message, Optional<EditorUiFa
      */
     public static EditorUiHostFailure family(final Code code, final String message, final EditorUiFamily family) {
         return new EditorUiHostFailure(code, message, Optional.of(Objects.requireNonNull(family, "family")));
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     /** Why the Editor UI host left its healthy path. */

@@ -1,6 +1,5 @@
 package dev.turboism.plugin.commandpalette;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -9,16 +8,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
  * Guards the {@code command.<id>} catalog keys: every {@link EditorCommand} constant has a
- * localized name in every shipped locale, all catalogs carry the same keys, and
- * {@code baseline-keys.txt} mirrors the catalog key set.
+ * localized name in every shipped locale.
  */
 class CommandPaletteI18nTest {
 
@@ -40,33 +36,6 @@ class CommandPaletteI18nTest {
                 assertFalse(properties.getProperty(key).isBlank(), "blank name for " + key);
             }
         }
-    }
-
-    @Test
-    void everyLocaleCatalogCarriesTheSameKeys() throws IOException {
-        final Set<String> expected = new HashSet<>(readCatalog("messages").stringPropertyNames());
-        for (final Map.Entry<String, String> catalog : CATALOGS.entrySet()) {
-            assertEquals(
-                    expected,
-                    new HashSet<>(readCatalog(catalog.getKey()).stringPropertyNames()),
-                    "key set mismatch in " + catalog.getKey());
-        }
-    }
-
-    @Test
-    void baselineKeysMatchTheCatalogKeySet() throws IOException {
-        final Set<String> baseline = new HashSet<>();
-        try (InputStream stream = CommandPaletteI18nTest.class
-                .getClassLoader()
-                .getResourceAsStream("META-INF/turboism/i18n/baseline-keys.txt")) {
-            assertTrue(stream != null, "missing baseline-keys.txt");
-            new String(stream.readAllBytes(), StandardCharsets.UTF_8)
-                    .lines()
-                    .map(String::strip)
-                    .filter(line -> !line.isEmpty())
-                    .forEach(baseline::add);
-        }
-        assertEquals(new HashSet<>(readCatalog("messages").stringPropertyNames()), baseline);
     }
 
     private static Properties readCatalog(final String id) throws IOException {

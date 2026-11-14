@@ -1,6 +1,7 @@
 package dev.turboism.exportsettings;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
 import dev.turboism.sdk.plugin.Registration;
@@ -87,7 +88,7 @@ public final class RuntimeExportSettingsAuthority implements NativeExportSetting
             final long pluginGeneration,
             final RuntimeExportSettingsContributionRegistry registry,
             final Function<String, String> labelResolver) {
-        requireText(pluginId, "pluginId");
+        Requirements.text(pluginId, "pluginId");
         if (pluginGeneration < 0L) {
             throw new IllegalArgumentException("pluginGeneration must not be negative");
         }
@@ -677,14 +678,6 @@ public final class RuntimeExportSettingsAuthority implements NativeExportSetting
         synchronized (bindingsLock) {
             return !closed && bindings.containsKey(pluginId);
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private record Binding(

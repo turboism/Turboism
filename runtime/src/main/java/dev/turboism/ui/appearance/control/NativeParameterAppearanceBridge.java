@@ -1,10 +1,8 @@
 package dev.turboism.ui.appearance.control;
 
-import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.Component;
-import java.lang.reflect.Method;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -60,11 +58,13 @@ public final class NativeParameterAppearanceBridge {
                         .selectors()
                         .swingLabel(field(row, installed.selectors().parameterLabelField()));
                 if (label == null || !label.isShowing()) continue;
-                sources.add(invoke(row, installed.selectors().parameterSourceMethod()));
+                sources.add(
+                        NativeBridgeReflection.invoke(row, installed.selectors().parameterSourceMethod()));
                 if (row.getClass()
                         .getName()
                         .equals(installed.selectors().doubleRowOwner().replace('/', '.'))) {
-                    sources.add(invoke(row, installed.selectors().secondaryParameterSourceMethod()));
+                    sources.add(NativeBridgeReflection.invoke(
+                            row, installed.selectors().secondaryParameterSourceMethod()));
                 }
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
@@ -185,9 +185,9 @@ public final class NativeParameterAppearanceBridge {
 
         void bindFolder(final Object row) throws ReflectiveOperationException {
             if (!selectors.folderRow(row)) return;
-            final Object source = invoke(row, selectors.folderSourceMethod());
+            final Object source = NativeBridgeReflection.invoke(row, selectors.folderSourceMethod());
             final String id = selectors.id(source, selectors.folderIdMethod());
-            final Object cLabel = invoke(row, selectors.folderLabelMethod());
+            final Object cLabel = NativeBridgeReflection.invoke(row, selectors.folderLabelMethod());
             final Component component = selectors.swingLabel(cLabel);
             if (id != null && component != null)
                 provider.bind(ParameterControlAppearanceProvider.Kind.FOLDER, id, component);
@@ -199,7 +199,7 @@ public final class NativeParameterAppearanceBridge {
                 final String labelField,
                 final ParameterControlAppearanceProvider.Kind kind)
                 throws ReflectiveOperationException {
-            final Object source = invoke(row, sourceMethod);
+            final Object source = NativeBridgeReflection.invoke(row, sourceMethod);
             final String id = selectors.id(source, selectors.parameterIdMethod());
             final Component component = selectors.swingLabel(field(row, labelField));
             if (id != null && component != null)
@@ -291,18 +291,20 @@ public final class NativeParameterAppearanceBridge {
         String id(final Object source, final String idMethod) throws ReflectiveOperationException {
             if (source == null
                     || source.getClass().getClassLoader() != hostClassLoader
-                    || !(isTypeOrSuper(source.getClass(), parameterSourceOwner.replace('/', '.'))
-                            || isTypeOrSuper(source.getClass(), folderSourceOwner.replace('/', '.')))) return null;
-            final Object id = invoke(source, idMethod);
-            final Object value = id == null ? null : invoke(id, idStringMethod);
+                    || !(NativeBridgeReflection.isTypeOrSuper(source.getClass(), parameterSourceOwner.replace('/', '.'))
+                            || NativeBridgeReflection.isTypeOrSuper(
+                                    source.getClass(), folderSourceOwner.replace('/', '.')))) return null;
+            final Object id = NativeBridgeReflection.invoke(source, idMethod);
+            final Object value = id == null ? null : NativeBridgeReflection.invoke(id, idStringMethod);
             return value instanceof String text && !text.isBlank() ? text : null;
         }
 
         Component swingLabel(final Object cLabel) throws ReflectiveOperationException {
             if (cLabel == null
                     || cLabel.getClass().getClassLoader() != hostClassLoader
-                    || !isTypeOrSuper(cLabel.getClass(), cLabelOwner.replace('/', '.'))) return null;
-            final Object value = invoke(cLabel, cLabelSwingMethod);
+                    || !NativeBridgeReflection.isTypeOrSuper(cLabel.getClass(), cLabelOwner.replace('/', '.')))
+                return null;
+            final Object value = NativeBridgeReflection.invoke(cLabel, cLabelSwingMethod);
             return value instanceof Component component ? component : null;
         }
 
@@ -312,23 +314,10 @@ public final class NativeParameterAppearanceBridge {
                     && value.getClass().getName().equals(owner.replace('/', '.'));
         }
 
-        private static boolean isTypeOrSuper(final Class<?> type, final String expected) {
-            for (Class<?> current = type; current != null; current = current.getSuperclass()) {
-                if (current.getName().equals(expected)) return true;
-            }
-            return false;
-        }
-
         private static void requireText(final String value) {
             Objects.requireNonNull(value, "selector");
             if (value.isBlank()) throw new IllegalArgumentException("selector must not be blank");
         }
-    }
-
-    private static Object invoke(final Object target, final String methodName) throws ReflectiveOperationException {
-        final Method method = MethodHandleCache.method(target.getClass(), methodName);
-        if (!method.canAccess(target) && !method.trySetAccessible()) return null;
-        return method.invoke(target);
     }
 
     /** Null-tolerant field read; the caller's fail-closed boundary treats a miss as "no label". */

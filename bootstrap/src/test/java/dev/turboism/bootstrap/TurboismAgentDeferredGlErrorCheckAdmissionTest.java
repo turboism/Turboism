@@ -12,8 +12,8 @@ final class TurboismAgentDeferredGlErrorCheckAdmissionTest {
     @Test
     void admitsOnlyAfterFullRuntimeAdmission() {
         final DeferredGlErrorCheckHookContributor contributor = new DeferredGlErrorCheckHookContributor();
-        assertTrue(contributor.admitted(environment(true)));
-        assertFalse(contributor.admitted(environment(false)));
+        assertTrue(contributor.admitted(HookEnvironments.admitted(true)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted(false)));
     }
 
     @Test
@@ -24,7 +24,7 @@ final class TurboismAgentDeferredGlErrorCheckAdmissionTest {
             final DeferredGlErrorCheckHookContributor contributor = new DeferredGlErrorCheckHookContributor();
             // The flag gate runs before any host access: install succeeds as a no-op
             // even though the environment carries no located host.
-            assertNotNull(contributor.install(environment(true)));
+            assertNotNull(contributor.install(HookEnvironments.admitted(true)));
         } finally {
             if (prior == null) {
                 System.clearProperty(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY);
@@ -42,7 +42,7 @@ final class TurboismAgentDeferredGlErrorCheckAdmissionTest {
             final DeferredGlErrorCheckHookContributor contributor = new DeferredGlErrorCheckHookContributor();
             // The missing host/policy surfaces as installation=FAILED inside
             // install(); a failed hook must never stop official startup.
-            assertNotNull(contributor.install(environment(true)));
+            assertNotNull(contributor.install(HookEnvironments.admitted(true)));
         } finally {
             if (prior == null) {
                 System.clearProperty(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY);
@@ -50,12 +50,5 @@ final class TurboismAgentDeferredGlErrorCheckAdmissionTest {
                 System.setProperty(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY, prior);
             }
         }
-    }
-
-    private static HookEnvironment environment(final boolean admitted) {
-        return HookEnvironment.builder()
-                .profile("5.3.03")
-                .fullRuntimeAdmission(admitted)
-                .build();
     }
 }

@@ -30,7 +30,7 @@ class AnnotatedEventSubscriberTest {
 
     @Test
     void brokerInvokesAnnotatedEntrypointsInPriorityThenCanonicalOrder() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final List<String> calls = new CopyOnWriteArrayList<>();
         final CountDownLatch delivered = new CountDownLatch(3);
@@ -48,7 +48,7 @@ class AnnotatedEventSubscriberTest {
 
     @Test
     void failureAdviceReceivesPrivacySafeContextAndBrokerStillContainsFailure() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final List<RuntimeEventBroker.SubscriberFailure> failures = new CopyOnWriteArrayList<>();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler, 8, ignored -> {}, failures::add);
         final CountDownLatch advised = new CountDownLatch(1);
@@ -72,7 +72,7 @@ class AnnotatedEventSubscriberTest {
 
     @Test
     void noFailureInterceptionSkipsAdviceButPreservesStructuredContainment() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final List<RuntimeEventBroker.SubscriberFailure> failures = new CopyOnWriteArrayList<>();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler, 8, ignored -> {}, failures::add);
         final CountDownLatch adviceCalls = new CountDownLatch(1);
@@ -94,10 +94,6 @@ class AnnotatedEventSubscriberTest {
     private static boolean awaitSize(final List<?> values, final int size) {
         Await.condition("values reached size " + size, () -> values.size() >= size, Duration.ofSeconds(1));
         return values.size() >= size;
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 8);
     }
 
     public static final class Subscriber {

@@ -1,5 +1,10 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpJsonSupport.safeMessage;
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+import static dev.turboism.plugin.mcp.McpSchemas.entry;
+import static dev.turboism.plugin.mcp.McpSchemas.immutableMap;
+
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
@@ -604,13 +609,13 @@ final class McpGlueDomain {
                 entry(
                         "inputSchema",
                         oneOf(
-                                objectSchema(
+                                object(
                                         linked(
                                                 entry("operation", constant("list")),
                                                 entry("offset", integerSchema(0, null)),
                                                 entry("limit", integerSchema(1, MAX_LIMIT))),
                                         List.of("operation")),
-                                objectSchema(
+                                object(
                                         linked(
                                                 entry("operation", constant("get")),
                                                 entry("id", boundedStringSchema(1, 256))),
@@ -636,21 +641,21 @@ final class McpGlueDomain {
                 entry(
                         "inputSchema",
                         oneOf(
-                                objectSchema(
+                                object(
                                         linked(
                                                 entry("operation", constant("set_name")),
                                                 entry("id", boundedStringSchema(1, 256)),
                                                 entry("name", boundedStringSchema(1, 1024)),
                                                 entry("expectedState", stateTokenSchema())),
                                         List.of("operation", "id", "name")),
-                                objectSchema(
+                                object(
                                         linked(
                                                 entry("operation", constant("set_id")),
                                                 entry("id", boundedStringSchema(1, 256)),
                                                 entry("newId", boundedStringSchema(1, 256)),
                                                 entry("expectedState", stateTokenSchema())),
                                         List.of("operation", "id", "newId")),
-                                objectSchema(
+                                object(
                                         linked(
                                                 entry("operation", constant("set_intensity")),
                                                 entry("id", boundedStringSchema(1, 256)),
@@ -662,22 +667,22 @@ final class McpGlueDomain {
                                                                 entry("maximum", 1.0))),
                                                 entry("expectedState", stateTokenSchema())),
                                         List.of("operation", "id", "intensity")),
-                                objectSchema(
+                                object(
                                         linked(
                                                 entry("operation", constant("set_drawable_a")),
                                                 entry("id", boundedStringSchema(1, 256)),
                                                 entry("drawableId", boundedStringSchema(1, 256)),
                                                 entry("expectedState", stateTokenSchema())),
                                         List.of("operation", "id", "drawableId")),
-                                objectSchema(
+                                object(
                                         linked(
                                                 entry("operation", constant("set_drawable_b")),
                                                 entry("id", boundedStringSchema(1, 256)),
                                                 entry("drawableId", boundedStringSchema(1, 256)),
                                                 entry("expectedState", stateTokenSchema())),
                                         List.of("operation", "id", "drawableId")),
-                                objectSchema(linked(entry("operation", constant("create"))), List.of("operation")),
-                                objectSchema(
+                                object(linked(entry("operation", constant("create"))), List.of("operation")),
+                                object(
                                         linked(
                                                 entry("operation", constant("delete")),
                                                 entry("id", boundedStringSchema(1, 256))),
@@ -697,7 +702,7 @@ final class McpGlueDomain {
                 entry(
                         "oneOf",
                         List.of(
-                                objectSchema(
+                                object(
                                         linked(
                                                 entry("ok", constant(true)),
                                                 entry(
@@ -723,7 +728,7 @@ final class McpGlueDomain {
                                                 "result",
                                                 "history",
                                                 "stateToken")),
-                                objectSchema(
+                                object(
                                         linked(
                                                 entry("ok", constant(false)),
                                                 entry("operation", stringSchema()),
@@ -741,7 +746,7 @@ final class McpGlueDomain {
                                                 entry("stateToken", nullableObjectSchema(stateTokenSchema())),
                                                 entry(
                                                         "error",
-                                                        objectSchema(
+                                                        object(
                                                                 linked(
                                                                         entry("code", stringSchema()),
                                                                         entry("message", stringSchema())),
@@ -757,18 +762,17 @@ final class McpGlueDomain {
     }
 
     private static Map<String, Object> writeResultSchema() {
-        return objectSchema(
+        return object(
                 linked(entry("before", glueSchema()), entry("after", glueSchema()), entry("readback", glueSchema())),
                 List.of("before", "after", "readback"));
     }
 
     private static Map<String, Object> targetSchema() {
-        return objectSchema(
-                linked(entry("kind", constant("glue")), entry("id", stringSchema())), List.of("kind", "id"));
+        return object(linked(entry("kind", constant("glue")), entry("id", stringSchema())), List.of("kind", "id"));
     }
 
     private static Map<String, Object> historySchema() {
-        return objectSchema(
+        return object(
                 linked(
                         entry("availability", enumSchema(List.of("AVAILABLE", "UNAVAILABLE"))),
                         entry("generation", integerSchema(0, null)),
@@ -799,7 +803,7 @@ final class McpGlueDomain {
                 entry(
                         "oneOf",
                         List.of(
-                                objectSchema(
+                                object(
                                         linked(
                                                 entry("ok", constant(true)),
                                                 entry("operation", constant("list")),
@@ -808,7 +812,7 @@ final class McpGlueDomain {
                                                 entry("stateToken", stateTokenSchema()),
                                                 entry("result", pageSchema())),
                                         List.of("ok", "operation", "availability", "provider", "stateToken", "result")),
-                                objectSchema(
+                                object(
                                         linked(
                                                 entry("ok", constant(true)),
                                                 entry("operation", constant("get")),
@@ -821,7 +825,7 @@ final class McpGlueDomain {
     }
 
     private static Map<String, Object> pageSchema() {
-        return objectSchema(
+        return object(
                 linked(
                         entry("items", arraySchema(glueSchema())),
                         entry("offset", integerSchema(0, null)),
@@ -832,7 +836,7 @@ final class McpGlueDomain {
     }
 
     private static Map<String, Object> glueSchema() {
-        return objectSchema(
+        return object(
                 linked(
                         entry("id", stringSchema()),
                         entry("name", stringSchema()),
@@ -854,7 +858,7 @@ final class McpGlueDomain {
     }
 
     private static Map<String, Object> providerSchema() {
-        return objectSchema(
+        return object(
                 linked(
                         entry("capabilityId", constant(GLUE_CAPABILITY_ID)),
                         entry(
@@ -878,7 +882,7 @@ final class McpGlueDomain {
     }
 
     private static Map<String, Object> stateTokenSchema() {
-        return objectSchema(
+        return object(
                 linked(
                         entry("documentId", stringSchema()),
                         entry("modelId", stringSchema()),
@@ -896,7 +900,7 @@ final class McpGlueDomain {
     }
 
     private static Map<String, Object> failureSchema() {
-        return objectSchema(
+        return object(
                 linked(
                         entry("ok", constant(false)),
                         entry("operation", stringSchema()),
@@ -905,7 +909,7 @@ final class McpGlueDomain {
                         entry("stateToken", nullableObjectSchema(stateTokenSchema())),
                         entry(
                                 "error",
-                                objectSchema(
+                                object(
                                         linked(entry("code", stringSchema()), entry("message", stringSchema())),
                                         List.of("code", "message")))),
                 List.of("ok", "operation", "availability", "provider", "stateToken", "error"));
@@ -997,11 +1001,6 @@ final class McpGlueDomain {
         return "UNAVAILABLE";
     }
 
-    private static String safeMessage(final RuntimeException failure) {
-        final String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
-
     private static Map<String, Object> nullableObjectSchema(final Map<String, Object> schema) {
         return linked(entry("oneOf", List.of(schema, Map.of("type", "null"))));
     }
@@ -1012,14 +1011,6 @@ final class McpGlueDomain {
 
     private static Map<String, Object> oneOf(final Map<String, Object>... alternatives) {
         return Map.of("oneOf", List.of(alternatives));
-    }
-
-    private static Map<String, Object> objectSchema(final Map<String, Object> properties, final List<String> required) {
-        return linked(
-                entry("type", "object"),
-                entry("properties", properties),
-                entry("required", required),
-                entry("additionalProperties", false));
     }
 
     private static Map<String, Object> arraySchema(final Map<String, Object> items) {
@@ -1058,17 +1049,10 @@ final class McpGlueDomain {
         return Map.of("const", value);
     }
 
+    /** Ordered, unmodifiable map; the glue wire order is the declaration order. */
     @SafeVarargs
     private static Map<String, Object> linked(final Map.Entry<String, Object>... entries) {
-        final LinkedHashMap<String, Object> values = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : entries) {
-            values.put(entry.getKey(), entry.getValue());
-        }
-        return Collections.unmodifiableMap(values);
-    }
-
-    private static Map.Entry<String, Object> entry(final String key, final Object value) {
-        return new java.util.AbstractMap.SimpleImmutableEntry<>(key, value);
+        return immutableMap(entries);
     }
 
     private record Context(

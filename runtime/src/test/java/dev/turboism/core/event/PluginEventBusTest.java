@@ -27,7 +27,7 @@ class PluginEventBusTest {
     @Test
     void subscriberReceivesEventAsynchronously_whenEventIsPublished() throws InterruptedException {
         // Given
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         PluginEventBus eventBus = eventBus(scheduler);
         TestEvent event = new TestEvent("model-opened");
         CountDownLatch delivered = new CountDownLatch(1);
@@ -53,7 +53,7 @@ class PluginEventBusTest {
     @Test
     void closedRegistrationStopsFutureDeliveries_whenEventIsPublishedAgain() throws InterruptedException {
         // Given
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         PluginEventBus eventBus = eventBus(scheduler);
         CountDownLatch firstDelivery = new CountDownLatch(1);
         AtomicInteger deliveries = new AtomicInteger();
@@ -79,7 +79,7 @@ class PluginEventBusTest {
     @Test
     void multipleSubscribersReceiveSameEventType_whenEventIsPublished() throws InterruptedException {
         // Given
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         PluginEventBus eventBus = eventBus(scheduler);
         CountDownLatch delivered = new CountDownLatch(2);
         AtomicInteger deliveries = new AtomicInteger();
@@ -103,7 +103,7 @@ class PluginEventBusTest {
 
     @Test
     void baseTypeSubscriberDoesNotReceiveSubtype() throws InterruptedException {
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         PluginEventBus eventBus = eventBus(scheduler);
         AtomicInteger baseDeliveries = new AtomicInteger();
         CountDownLatch concreteDelivered = new CountDownLatch(1);
@@ -119,7 +119,7 @@ class PluginEventBusTest {
 
     @Test
     void selfUnsubscribeDoesNotChangeDeliveryAlreadyDispatched() throws InterruptedException {
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         PluginEventBus eventBus = eventBus(scheduler);
         CountDownLatch firstDelivered = new CountDownLatch(1);
         AtomicInteger deliveries = new AtomicInteger();
@@ -144,7 +144,7 @@ class PluginEventBusTest {
     @Test
     void publisherThreadReturnsImmediately_whenSubscriberIsBlocked() throws InterruptedException {
         // Given
-        RuntimeScheduler scheduler = scheduler();
+        RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         PluginEventBus eventBus = eventBus(scheduler);
         CountDownLatch listenerStarted = new CountDownLatch(1);
         CountDownLatch releaseListener = new CountDownLatch(1);
@@ -174,10 +174,6 @@ class PluginEventBusTest {
     private static PluginEventBus eventBus(final RuntimeScheduler scheduler) {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         return new PluginEventBus(broker, broker.pluginOwner(PLUGIN_ID), PermissionChecker.allowAll());
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 8);
     }
 
     private record TestEvent(String name) implements EventBus.TurboismEvent {}

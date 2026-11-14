@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 class ProjectFileEventContractTest {
     @Test
     void publishesBeforeSuccessfulOnAndAfterResult() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler();
         try {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
             final ProjectFileLifecycleCoordinator coordinator = new ProjectFileLifecycleCoordinator();
@@ -82,9 +82,5 @@ class ProjectFileEventContractTest {
             events.add("after:" + event.result().succeeded());
             completion.countDown();
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler();
     }
 }

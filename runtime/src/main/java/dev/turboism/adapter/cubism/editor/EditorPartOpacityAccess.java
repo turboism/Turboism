@@ -822,14 +822,6 @@ final class EditorPartOpacityAccess {
         throw unavailable("Editor Part is outside the active Part collection.");
     }
 
-    private static Object nativeSourceOf(final Object view, final String label) {
-        if (view == null) return null;
-        if (!(view instanceof EditorNativeObjectRef ref)) {
-            throw new IllegalStateException("The " + label + " is not bound to the active Editor model generation.");
-        }
-        return ref.nativeSource();
-    }
-
     private void requirePartSourceCurrent(final Object source, final Object model, final Object partSource) {
         if (partSource == null) return;
         bindings(source, model).stream()
@@ -958,7 +950,7 @@ final class EditorPartOpacityAccess {
             final List<String> checked = List.copyOf(names);
             return EditorHostThread.dispatch("Create sibling Parts", () -> {
                 modelGuard.requireCurrent(identity, model);
-                final Object parentSource = nativeSourceOf(parent, "Part parent");
+                final Object parentSource = EditorNativeSources.nativeSourceOf(parent, "Part parent");
                 requirePartSourceCurrent(source, model, parentSource);
                 final var created =
                         hierarchyEditAccess.createPartSources(identity, source, model, checked, parentSource);
@@ -978,7 +970,7 @@ final class EditorPartOpacityAccess {
 
         private Part createOnEdt(final String name, final Part parent, final int index) {
             modelGuard.requireCurrent(identity, model);
-            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            final Object parentSource = EditorNativeSources.nativeSourceOf(parent, "Part parent");
             requirePartSourceCurrent(source, model, parentSource);
             final EditorObjectHierarchyEditAccess.CreatedSource created =
                     hierarchyEditAccess.createPartSource(identity, source, model, name, parentSource, index);
@@ -1001,7 +993,7 @@ final class EditorPartOpacityAccess {
         private void removeOnEdt(final Part part) {
             Objects.requireNonNull(part, "part");
             modelGuard.requireCurrent(identity, model);
-            final Object nodeSource = nativeSourceOf(part, "Part");
+            final Object nodeSource = EditorNativeSources.nativeSourceOf(part, "Part");
             requirePartSourceCurrent(source, model, nodeSource);
             hierarchyEditAccess.remove(identity, source, model, nodeSource, "Part");
         }
@@ -1334,7 +1326,7 @@ final class EditorPartOpacityAccess {
 
         private void setParentOnEdt(final Part parent, final int index) {
             current();
-            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            final Object parentSource = EditorNativeSources.nativeSourceOf(parent, "Part parent");
             requirePartSourceCurrent(source, model, parentSource);
             hierarchyEditAccess.setParent(identity, source, model, expectedSource, parentSource, false, index, "Part");
             current();

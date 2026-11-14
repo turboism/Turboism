@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpWriteResults.envelope;
+
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.json.Json;
@@ -53,12 +55,13 @@ final class McpMeshRigDomain {
             if (!args.keySet().containsAll(required) || !allowed.containsAll(args.keySet()))
                 throw new IllegalArgumentException();
             for (String field : List.of("documentId", "modelId", "objectId", "snapshotId", "operationId"))
-                text(args.get(field));
+                McpDomainSupport.text(args.get(field), 4096);
             if (!"REPLACE_POSITIONS_FROM_DEFAULT".equals(args.get("policy"))) throw new IllegalArgumentException();
             var initial = context.get();
             if (!args.get("documentId").equals(initial.binding().get("documentId"))
                     || !args.get("modelId").equals(initial.binding().get("modelId"))) throw new Stale();
-            var snapshot = snapshots.get(text(args.get("snapshotId")), McpRequestRegistry.currentSessionId());
+            var snapshot = snapshots.get(
+                    McpDomainSupport.text(args.get("snapshotId"), 4096), McpRequestRegistry.currentSessionId());
             if (!"art_mesh".equals(snapshot.kind())
                     || !(snapshot.nativeSnapshot() instanceof ArtMeshAuthoringSnapshot mesh))
                 throw new UnsupportedOperationException();
@@ -175,8 +178,10 @@ final class McpMeshRigDomain {
                         || !axis.keySet().equals(Set.of("parameterGuid", "side"))
                         || !Set.of("NEGATIVE", "POSITIVE").contains(axis.get("side")))
                     throw new IllegalArgumentException();
-                if (sides.putIfAbsent(text(axis.get("parameterGuid")), "POSITIVE".equals(axis.get("side"))) != null)
-                    throw new IllegalArgumentException();
+                if (sides.putIfAbsent(
+                                McpDomainSupport.text(axis.get("parameterGuid"), 4096),
+                                "POSITIVE".equals(axis.get("side")))
+                        != null) throw new IllegalArgumentException();
             }
             result.add(new McpLandmarkRigPlan.Corner(Map.copyOf(sides), anchors(corner.get("anchors"))));
         }
@@ -192,7 +197,7 @@ final class McpMeshRigDomain {
                     || !axis.keySet().equals(Set.of("parameterGuid", "negativeAnchors", "positiveAnchors")))
                 throw new IllegalArgumentException();
             result.add(new McpLandmarkRigPlan.Axis(
-                    text(axis.get("parameterGuid")),
+                    McpDomainSupport.text(axis.get("parameterGuid"), 4096),
                     anchors(axis.get("negativeAnchors")),
                     anchors(axis.get("positiveAnchors"))));
         }
@@ -213,22 +218,6 @@ final class McpMeshRigDomain {
             result.add(new McpLandmarkRigPlan.Anchor(point, x.doubleValue(), y.doubleValue()));
         }
         return List.copyOf(result);
-    }
-
-    private static String text(Object raw) {
-        if (!(raw instanceof String s) || s.isBlank() || s.length() > 4096) throw new IllegalArgumentException();
-        return s;
-    }
-
-    private static Map<String, Object> envelope(Map<String, Object> output) {
-        var safe = McpJsonSupport.encodable(output);
-        return Map.of(
-                "content",
-                List.of(Map.of("type", "text", "text", Json.stringify(safe))),
-                "structuredContent",
-                safe,
-                "isError",
-                !Boolean.TRUE.equals(output.get("ok")));
     }
 
     private static final class BudgetExceeded extends RuntimeException {}

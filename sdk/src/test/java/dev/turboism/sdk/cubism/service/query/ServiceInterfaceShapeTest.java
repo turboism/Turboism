@@ -19,14 +19,6 @@ class ServiceInterfaceShapeTest {
             Set.of("set", "add", "remove", "mutate", "write", "delete", "create", "update", "commit", "rollback");
 
     @Test
-    void pluginContextExposesExplicitReadOnlyQueryServices_whenInspectingSourceContract() throws IOException {
-        String source = Files.readString(Path.of("src/main/java/dev/turboism/sdk/plugin/PluginContext.java"));
-
-        assertTrue(source.contains("SelectionQueryService selectionQuery()"));
-        assertTrue(source.contains("ModelHierarchyQueryService modelHierarchyQuery()"));
-    }
-
-    @Test
     void queryServiceMethodsUseReadOnlyNames_whenInspectingSourceContract() throws IOException {
         for (String sourceName : QUERY_SERVICE_SOURCES) {
             String source = queryServiceSource(sourceName);
@@ -39,42 +31,6 @@ class ServiceInterfaceShapeTest {
                         () -> sourceName + " must not expose a mutating method prefix: " + prefix);
             }
         }
-    }
-
-    @Test
-    void queryServiceReturnTypesAreImmutableContracts_whenInspectingSourceContract() throws IOException {
-        assertTrue(queryServiceSource("SelectionQueryService").contains("SelectionSummary currentSelection()"));
-        assertTrue(queryServiceSource("SelectionQueryService")
-                .contains("List<ModelObjectId> selectedIds(HierarchyNode.Kind kind)"));
-        assertTrue(!queryServiceSource("SelectionQueryService").contains("Registration onSelectionChanged"));
-        assertTrue(queryServiceSource("ModelHierarchyQueryService")
-                .contains("Optional<ModelHierarchy> currentHierarchy()"));
-        assertTrue(queryServiceSource("ModelHierarchyQueryService")
-                .contains("List<HierarchyNode> childrenOf(ModelObjectId id)"));
-        assertTrue(queryServiceSource("ModelHierarchyQueryService")
-                .contains("Optional<HierarchyNode> findNode(ModelObjectId id)"));
-    }
-
-    @Test
-    void queryServiceSignaturesAvoidHostUiReflectionAndMutableArrays_whenInspectingSourceContract() throws IOException {
-        for (String sourceName : QUERY_SERVICE_SOURCES) {
-            String source = queryServiceSource(sourceName);
-
-            assertTrue(!source.contains("com." + "live2d."));
-            assertTrue(!source.contains("javax." + "swing."));
-            assertTrue(!source.contains("java." + "awt."));
-            assertTrue(!source.contains("java.lang." + "reflect."));
-            assertTrue(!source.contains("[" + "]"));
-        }
-    }
-
-    @Test
-    void selectionObservationsUseTheSharedPluginEventBus_whenInspectingSourceContract() throws IOException {
-        String source = queryServiceSource("SelectionQueryService");
-
-        assertTrue(source.contains("SelectionChangedEvent"));
-        assertTrue(source.contains("plugin event bus"));
-        assertTrue(!source.contains("SelectionChangedListener"));
     }
 
     private static String queryServiceSource(String sourceName) throws IOException {

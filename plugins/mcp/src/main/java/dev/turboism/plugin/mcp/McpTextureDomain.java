@@ -1,5 +1,9 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+import static dev.turboism.plugin.mcp.McpSchemas.entry;
+import static dev.turboism.plugin.mcp.McpSchemas.linked;
+
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
@@ -172,13 +176,13 @@ final class McpTextureDomain {
         output.put("state", state.expose());
         output.put(
                 "rawImages",
-                rawImages.stream().map(McpTextureDomain::rawTexture).toList());
+                rawImages.stream().map(McpTextureProjection::rawTexture).toList());
         output.put(
                 "modelImageGroups",
                 groups.stream().map(McpTextureDomain::modelImageGroup).toList());
         output.put(
                 "textureAtlases",
-                atlases.stream().map(McpTextureDomain::atlasTexture).toList());
+                atlases.stream().map(McpTextureProjection::atlasTexture).toList());
         output.put(
                 "counts",
                 linked(
@@ -188,40 +192,15 @@ final class McpTextureDomain {
         return output;
     }
 
-    private static Map<String, Object> rawTexture(final RawTexture value) {
-        return linked(
-                entry("id", value.id().value()),
-                entry("name", value.name()),
-                entry("width", value.width()),
-                entry("height", value.height()));
-    }
-
     private static Map<String, Object> modelImageGroup(final ModelImageGroup value) {
-        final List<Map<String, Object>> entries =
-                value.modelImages().stream().map(McpTextureDomain::modelImage).toList();
+        final List<Map<String, Object>> entries = value.modelImages().stream()
+                .map(McpTextureProjection::modelImage)
+                .toList();
         return linked(
                 entry("groupName", value.groupName()),
                 entry("memo", value.memo()),
                 entry("modelImages", entries),
                 entry("modelImageCount", entries.size()));
-    }
-
-    private static Map<String, Object> modelImage(final ModelImageEntry value) {
-        return linked(
-                entry("id", value.id().value()),
-                entry("name", value.name()),
-                entry("width", value.width()),
-                entry("height", value.height()));
-    }
-
-    private static Map<String, Object> atlasTexture(final AtlasTexture value) {
-        return linked(
-                entry("id", value.id().value()),
-                entry("name", value.name()),
-                entry("width", value.width()),
-                entry("height", value.height()),
-                entry("atlasVersion", value.atlasVersion()),
-                entry("modelImageCount", value.modelImageCount()));
     }
 
     // ---- write --------------------------------------------------------------
@@ -609,19 +588,6 @@ final class McpTextureDomain {
         }
     }
 
-    // ---- linked-map helpers -------------------------------------------------
-
-    @SafeVarargs
-    private static LinkedHashMap<String, Object> linked(final Map.Entry<String, Object>... entries) {
-        final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : entries) result.put(entry.getKey(), entry.getValue());
-        return result;
-    }
-
-    private static Map.Entry<String, Object> entry(final String key, final Object value) {
-        return Map.entry(key, value);
-    }
-
     // ---- tool definitions ---------------------------------------------------
 
     private static Map<String, Object> readDefinition() {
@@ -713,20 +679,20 @@ final class McpTextureDomain {
         // The handler enforces bounds (1..MAX_DIMENSION) so it can emit the
         // precise INVALID_ARGUMENT code; the schema only constrains the type.
         final Map<String, Object> dimension = linked(entry("type", "integer"));
-        final Map<String, Object> addGroup = objectSchema(
+        final Map<String, Object> addGroup = object(
                 linked(
                         entry("operation", enumSchema(List.of(OP_ADD_MODEL_IMAGE_GROUP))),
                         entry("expectedState", state),
                         entry("name", nameField)),
                 List.of("operation", "expectedState", "name"));
-        final Map<String, Object> removeModelImage = objectSchema(
+        final Map<String, Object> removeModelImage = object(
                 linked(
                         entry("operation", enumSchema(List.of(OP_REMOVE_MODEL_IMAGE))),
                         entry("expectedState", state),
                         entry("id", idField),
                         entry("confirmDelete", confirmDelete)),
                 List.of("operation", "expectedState", "id"));
-        final Map<String, Object> addAtlas = objectSchema(
+        final Map<String, Object> addAtlas = object(
                 linked(
                         entry("operation", enumSchema(List.of(OP_ADD_TEXTURE_ATLAS))),
                         entry("expectedState", state),
@@ -734,14 +700,14 @@ final class McpTextureDomain {
                         entry("widthPixels", dimension),
                         entry("heightPixels", dimension)),
                 List.of("operation", "expectedState", "name", "widthPixels", "heightPixels"));
-        final Map<String, Object> removeAtlas = objectSchema(
+        final Map<String, Object> removeAtlas = object(
                 linked(
                         entry("operation", enumSchema(List.of(OP_REMOVE_TEXTURE_ATLAS))),
                         entry("expectedState", state),
                         entry("id", idField),
                         entry("confirmDelete", confirmDelete)),
                 List.of("operation", "expectedState", "id"));
-        final Map<String, Object> removeRaw = objectSchema(
+        final Map<String, Object> removeRaw = object(
                 linked(
                         entry("operation", enumSchema(List.of(OP_REMOVE_RAW_IMAGE))),
                         entry("expectedState", state),
@@ -864,7 +830,7 @@ final class McpTextureDomain {
                 linked(entry("type", "string"), entry("minLength", 1), entry("maxLength", MAX_NAME_LENGTH));
         final Map<String, Object> idField =
                 linked(entry("type", "string"), entry("minLength", 1), entry("maxLength", MAX_ID_LENGTH));
-        final Map<String, Object> ok = objectSchema(
+        final Map<String, Object> ok = object(
                 linked(
                         entry("ok", linked(entry("type", "boolean"), entry("const", true))),
                         entry("operation", linked(entry("type", "string"))),
@@ -881,7 +847,7 @@ final class McpTextureDomain {
                         entry("widthPixels", linked(entry("type", "integer"), entry("minimum", 1))),
                         entry("heightPixels", linked(entry("type", "integer"), entry("minimum", 1)))),
                 List.of("ok", "operation", "receipt", "outcome", "retryable", "postState"));
-        final Map<String, Object> okWithWarning = objectSchema(
+        final Map<String, Object> okWithWarning = object(
                 linked(
                         entry("ok", linked(entry("type", "boolean"), entry("const", true))),
                         entry("operation", linked(entry("type", "string"))),
@@ -901,7 +867,7 @@ final class McpTextureDomain {
                         entry("widthPixels", linked(entry("type", "integer"), entry("minimum", 1))),
                         entry("heightPixels", linked(entry("type", "integer"), entry("minimum", 1)))),
                 List.of("ok", "operation", "receipt", "outcome", "retryable", "postState", "readbackWarning"));
-        final Map<String, Object> failure = objectSchema(
+        final Map<String, Object> failure = object(
                 linked(
                         entry("ok", linked(entry("type", "boolean"), entry("const", false))),
                         entry("operation", linked(entry("type", "string"))),
@@ -971,7 +937,7 @@ final class McpTextureDomain {
     }
 
     private static Map<String, Object> rawTextureSchema() {
-        return objectSchema(
+        return object(
                 linked(
                         entry(
                                 "id",
@@ -986,7 +952,7 @@ final class McpTextureDomain {
     }
 
     private static Map<String, Object> modelImageGroupSchema() {
-        return objectSchema(
+        return object(
                 linked(
                         entry("groupName", linked(entry("type", "string"), entry("maxLength", MAX_NAME_LENGTH))),
                         entry("memo", linked(entry("type", "string"))),
@@ -1001,7 +967,7 @@ final class McpTextureDomain {
     }
 
     private static Map<String, Object> modelImageSchema() {
-        return objectSchema(
+        return object(
                 linked(
                         entry(
                                 "id",
@@ -1016,7 +982,7 @@ final class McpTextureDomain {
     }
 
     private static Map<String, Object> atlasTextureSchema() {
-        return objectSchema(
+        return object(
                 linked(
                         entry(
                                 "id",
@@ -1030,18 +996,6 @@ final class McpTextureDomain {
                         entry("atlasVersion", linked(entry("type", "integer"))),
                         entry("modelImageCount", linked(entry("type", "integer"), entry("minimum", 0)))),
                 List.of("id", "name", "width", "height", "atlasVersion", "modelImageCount"));
-    }
-
-    private static Map<String, Object> objectSchema(final Map<String, Object> properties, final List<String> required) {
-        return linked(
-                entry("type", "object"),
-                entry("properties", properties),
-                entry("required", required),
-                entry("additionalProperties", false));
-    }
-
-    private static Map<String, Object> enumSchema(final List<String> values) {
-        return Map.of("type", "string", "enum", values);
     }
 
     // ---- state helpers ------------------------------------------------------

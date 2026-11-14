@@ -19,11 +19,9 @@ public final class NativeMeshInterpolationBridge {
      */
     public static final java.util.Set<String> HOST_SHA256S = ReviewedHostArtifacts.reviewedSha256s();
 
-    private static final HostArtifactDigestCache FINGERPRINTS = new HostArtifactDigestCache();
-
     static dev.turboism.mapping.verification.HostArtifactDigest hostArtifactDigest(final Path artifact)
             throws java.io.IOException {
-        return FINGERPRINTS.digest(artifact);
+        return dev.turboism.mapping.verification.HostArtifactDigest.cached(artifact);
     }
 
     static boolean isAdmittedHostArtifact(final Path artifact) {

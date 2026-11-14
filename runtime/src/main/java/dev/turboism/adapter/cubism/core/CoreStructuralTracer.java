@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.core;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import java.util.Objects;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -19,8 +20,8 @@ final class CoreStructuralTracer implements AutoCloseable {
     private boolean closed;
 
     CoreStructuralTracer(final String providerId, final String artifactProfile, final CoreCallSiteTable callSites) {
-        this.providerId = requireText(providerId, "providerId");
-        this.artifactProfile = requireText(artifactProfile, "artifactProfile");
+        this.providerId = Requirements.text(providerId, "providerId");
+        this.artifactProfile = Requirements.text(artifactProfile, "artifactProfile");
         this.callSites = Objects.requireNonNull(callSites, "callSites");
     }
 
@@ -104,13 +105,5 @@ final class CoreStructuralTracer implements AutoCloseable {
 
     private static <T> CoreProviderResult<T> failed(final CoreProviderFailure.Code code, final String message) {
         return CoreProviderResult.failed(new CoreProviderFailure(code, message));
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

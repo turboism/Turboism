@@ -1,5 +1,8 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.entry;
+import static dev.turboism.plugin.mcp.McpSchemas.linked;
+
 import dev.turboism.sdk.json.Json;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -386,17 +389,6 @@ final class McpProtocol {
         final LinkedHashMap<String, Object> failure = linked(entry("code", code), entry("message", message));
         if (data != null) failure.put("data", data);
         return linked(entry("jsonrpc", "2.0"), entry("id", id), entry("error", failure));
-    }
-
-    @SafeVarargs
-    private static LinkedHashMap<String, Object> linked(final Map.Entry<String, Object>... entries) {
-        final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : entries) result.put(entry.getKey(), entry.getValue());
-        return result;
-    }
-
-    private static Map.Entry<String, Object> entry(final String key, final Object value) {
-        return new java.util.AbstractMap.SimpleImmutableEntry<>(key, value);
     }
 
     record Outcome(int status, Map<String, ?> body) {

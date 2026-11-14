@@ -1,6 +1,7 @@
 package dev.turboism.exportsettings;
 
 import dev.turboism.adapter.cubism.profile.CubismExportHostProfile;
+import dev.turboism.internal.Requirements;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
@@ -178,7 +179,7 @@ public record ExportSettingsHostProfile(
     }
 
     public ExportSettingsHostProfile {
-        hostVersion = requireText(hostVersion, "hostVersion");
+        hostVersion = Requirements.text(hostVersion, "hostVersion");
         dialogOwner = Objects.requireNonNull(dialogOwner, "dialogOwner");
         dialogConstructor = Objects.requireNonNull(dialogConstructor, "dialogConstructor");
         dialogShow = Objects.requireNonNull(dialogShow, "dialogShow");
@@ -264,13 +265,5 @@ public record ExportSettingsHostProfile(
 
     private static String descriptor(final String internalName) {
         return "L" + internalName + ";";
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

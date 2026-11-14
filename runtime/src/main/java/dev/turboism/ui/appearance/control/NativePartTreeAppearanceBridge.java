@@ -1,10 +1,9 @@
 package dev.turboism.ui.appearance.control;
 
-import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import java.awt.Component;
 import java.awt.Container;
-import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -142,14 +141,14 @@ public final class NativePartTreeAppearanceBridge {
             String childrenMethod,
             ClassLoader hostClassLoader) {
         public Selectors {
-            requireText(nodeOwner, "nodeOwner");
-            requireText(nodeSourceMethod, "nodeSourceMethod");
-            requireText(partSourceOwner, "partSourceOwner");
-            requireText(deformerSourceOwner, "deformerSourceOwner");
-            requireText(artMeshSourceOwner, "artMeshSourceOwner");
-            requireText(partIdMethod, "partIdMethod");
-            requireText(idStringMethod, "idStringMethod");
-            requireText(childrenMethod, "childrenMethod");
+            Requirements.text(nodeOwner, "nodeOwner");
+            Requirements.text(nodeSourceMethod, "nodeSourceMethod");
+            Requirements.text(partSourceOwner, "partSourceOwner");
+            Requirements.text(deformerSourceOwner, "deformerSourceOwner");
+            Requirements.text(artMeshSourceOwner, "artMeshSourceOwner");
+            Requirements.text(partIdMethod, "partIdMethod");
+            Requirements.text(idStringMethod, "idStringMethod");
+            Requirements.text(childrenMethod, "childrenMethod");
             Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         }
 
@@ -163,47 +162,28 @@ public final class NativePartTreeAppearanceBridge {
         Part part(final Object node) throws ReflectiveOperationException {
             if (node == null
                     || node.getClass().getClassLoader() != hostClassLoader
-                    || !isTypeOrSuper(node.getClass(), nodeOwner.replace('/', '.'))) return null;
-            final Object source = invoke(node, nodeSourceMethod);
+                    || !NativeBridgeReflection.isTypeOrSuper(node.getClass(), nodeOwner.replace('/', '.'))) return null;
+            final Object source = NativeBridgeReflection.invoke(node, nodeSourceMethod);
             if (source == null || source.getClass().getClassLoader() != hostClassLoader) return null;
             final SourceKind kind;
-            if (isTypeOrSuper(source.getClass(), partSourceOwner.replace('/', '.'))) {
+            if (NativeBridgeReflection.isTypeOrSuper(source.getClass(), partSourceOwner.replace('/', '.'))) {
                 kind = SourceKind.PART;
-            } else if (isTypeOrSuper(source.getClass(), deformerSourceOwner.replace('/', '.'))) {
+            } else if (NativeBridgeReflection.isTypeOrSuper(source.getClass(), deformerSourceOwner.replace('/', '.'))) {
                 kind = SourceKind.DEFORMER;
-            } else if (isTypeOrSuper(source.getClass(), artMeshSourceOwner.replace('/', '.'))) {
+            } else if (NativeBridgeReflection.isTypeOrSuper(source.getClass(), artMeshSourceOwner.replace('/', '.'))) {
                 kind = SourceKind.ART_MESH;
             } else {
                 return null;
             }
-            final Object id = invoke(source, partIdMethod);
-            final Object value = id == null ? null : invoke(id, idStringMethod);
+            final Object id = NativeBridgeReflection.invoke(source, partIdMethod);
+            final Object value = id == null ? null : NativeBridgeReflection.invoke(id, idStringMethod);
             if (!(value instanceof String text) || text.isBlank()) return null;
             if (kind != SourceKind.PART) {
                 return new Part(text, false, kind);
             }
-            final Object children = invoke(source, childrenMethod);
+            final Object children = NativeBridgeReflection.invoke(source, childrenMethod);
             if (!(children instanceof Collection<?> values)) return null;
             return new Part(text, !values.isEmpty(), kind);
-        }
-
-        private static Object invoke(final Object target, final String methodName) throws ReflectiveOperationException {
-            final Method method = MethodHandleCache.method(target.getClass(), methodName);
-            if (!method.canAccess(target) && !method.trySetAccessible()) return null;
-            return method.invoke(target);
-        }
-
-        private static boolean isTypeOrSuper(final Class<?> type, final String expected) {
-            for (Class<?> current = type; current != null; current = current.getSuperclass()) {
-                if (current.getName().equals(expected)) return true;
-            }
-            return false;
-        }
-
-        private static String requireText(final String value, final String name) {
-            Objects.requireNonNull(value, name);
-            if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-            return value;
         }
 
         record Part(String id, boolean folder, SourceKind kind) {}

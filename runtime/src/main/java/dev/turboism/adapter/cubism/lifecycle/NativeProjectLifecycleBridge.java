@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectFileOperation;
@@ -39,7 +40,7 @@ public final class NativeProjectLifecycleBridge {
             final String hostVersion) {
         this.projectFiles = Objects.requireNonNull(projectFiles, "projectFiles");
         this.editor = Objects.requireNonNull(editor, "editor");
-        this.hostVersion = requireText(hostVersion, "hostVersion");
+        this.hostVersion = Requirements.text(hostVersion, "hostVersion");
     }
 
     /**
@@ -414,12 +415,6 @@ public final class NativeProjectLifecycleBridge {
 
     private static String enumNameOrDash(final Enum<?>[] values, final int ordinal) {
         return ordinal >= 0 && ordinal < values.length ? values[ordinal].name() : "-";
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 
     /**

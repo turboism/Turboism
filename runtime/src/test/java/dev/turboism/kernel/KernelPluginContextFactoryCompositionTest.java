@@ -42,6 +42,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UserFileLifetime;
 import dev.turboism.sdk.ui.UserFileMode;
 import dev.turboism.sdk.ui.UserFileRequest;
+import dev.turboism.test.Stubs;
 import dev.turboism.userfile.RuntimeUserFileAccessService;
 import dev.turboism.userfile.UserFileGrantSource;
 import java.lang.reflect.Field;
@@ -525,114 +526,18 @@ class KernelPluginContextFactoryCompositionTest {
     }
 
     private static PluginDescriptor descriptor() {
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return "dev.turboism.plugin.preview-composition-test";
-            }
-
-            @Override
-            public String name() {
-                return "Preview Composition Test";
-            }
-
-            @Override
-            public String version() {
-                return "0.1.0";
-            }
-
-            @Override
-            public String description() {
-                return "Preview composition integration test";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of("dev.turboism.test.PreviewCompositionPlugin");
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "Project License";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.of("https://turboism.dev");
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of();
-            }
-
-            @Override
-            public I18n i18n() {
-                return emptyI18n();
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return List.of(
-                        permission("turboism.cubism.project.read"),
-                        permission("turboism.cubism.model.read"),
-                        permission("turboism.cubism.parameter.read"));
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "none";
-                    }
-                };
-            }
-        };
-    }
-
-    private static PluginDescriptor.PermissionRef permission(final String id) {
-        return new PluginDescriptor.PermissionRef() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String scope() {
-                return "application";
-            }
-
-            @Override
-            public Optional<String> reason() {
-                return Optional.of("Verify preview composition reads");
-            }
-        };
+        return Stubs.descriptorBuilder("dev.turboism.plugin.preview-composition-test")
+                .name("Preview Composition Test")
+                .version("0.1.0")
+                .description("Preview composition integration test")
+                .entrypoints("dev.turboism.test.PreviewCompositionPlugin")
+                .license("Project License")
+                .website("https://turboism.dev")
+                .permissions(
+                        Stubs.permissionRef("turboism.cubism.project.read"),
+                        Stubs.permissionRef("turboism.cubism.model.read"),
+                        Stubs.permissionRef("turboism.cubism.parameter.read"))
+                .build();
     }
 
     /**
@@ -771,19 +676,5 @@ class KernelPluginContextFactoryCompositionTest {
             session.close();
             scheduler.shutdown();
         }
-    }
-
-    private static PluginDescriptor.I18n emptyI18n() {
-        return new PluginDescriptor.I18n() {
-            @Override
-            public String baseName() {
-                return "META-INF/turboism/i18n/messages";
-            }
-
-            @Override
-            public List<String> locales() {
-                return List.of();
-            }
-        };
     }
 }

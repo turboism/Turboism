@@ -6,14 +6,13 @@ import dev.turboism.core.archive.ArchiveStructureException;
 import dev.turboism.core.archive.StrictZipArchive;
 import dev.turboism.core.descriptor.DescriptorParseException;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
+import dev.turboism.core.io.Sha256;
 import dev.turboism.core.plugin.PluginJarContract;
 import dev.turboism.runtime.json.RuntimeJson;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 
 final class PluginJarInspector {
@@ -105,7 +104,7 @@ final class PluginJarInspector {
         } catch (PluginJarContract.PluginJarContractException exception) {
             throw ArchivePolicy.problem(exception.code(), exception.getMessage(), exception.path());
         }
-        return new Inspected(parsed, sha256(descriptor));
+        return new Inspected(parsed, Sha256.hex(descriptor));
     }
 
     private static void inspectContent(
@@ -141,10 +140,6 @@ final class PluginJarInspector {
         } catch (Exception exception) {
             throw ArchivePolicy.problem("PLUGIN_META_INVALID_JSON", "Invalid plugin descriptor JSON", DESCRIPTOR);
         }
-    }
-
-    private static String sha256(final byte[] bytes) throws Exception {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 
     private static void require(final boolean valid, final String code, final String path) throws Exception {

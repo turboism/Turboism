@@ -8,6 +8,7 @@ import dev.turboism.adapter.cubism.RenderStatusAdapter;
 import dev.turboism.adapter.ui.BoundedKeyedStore;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.adapter.ui.ThemeStatusAdapter;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -99,7 +100,7 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
         this.renderStatusAdapter = Objects.requireNonNull(renderStatusAdapter, "renderStatusAdapter");
         this.projectWorkspaceAdapter = Objects.requireNonNull(projectWorkspaceAdapter, "projectWorkspaceAdapter");
         this.clipMaskReadAdapter = Objects.requireNonNull(clipMaskReadAdapter, "clipMaskReadAdapter");
-        this.ownerPluginId = requireText(ownerPluginId, "ownerPluginId");
+        this.ownerPluginId = Requirements.text(ownerPluginId, "ownerPluginId");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
         this.scopeActive = Objects.requireNonNull(scopeActive, "scopeActive");
     }
@@ -255,14 +256,6 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
     private void record(
             final BoundedKeyedStore<String, SafeModeDiagnostic> store, final SafeModeDiagnostic diagnostic) {
         store.put(ownerPluginId + "|" + diagnostic.code().name() + "|" + diagnostic.capability(), diagnostic);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private CubismRuntimeSnapshot runtime() {

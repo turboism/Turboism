@@ -37,16 +37,16 @@ class WindowsRecentPreviewValidationProbeTest {
     @Test
     void closeRouteMapsSupportedVersionsAndFailsClosed() {
         assertEquals(
-                WindowsRecentPreviewValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
-                WindowsRecentPreviewValidationProbe.hostCloseRoute("5203"));
+                WindowsHistoryNativeUiHostClose.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
+                WindowsHistoryNativeUiHostClose.hostCloseRoute("5203"));
         assertEquals(
-                WindowsRecentPreviewValidationProbe.HostCloseRoute.ROBOT_ALT_F4,
-                WindowsRecentPreviewValidationProbe.hostCloseRoute("5302"));
+                WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4,
+                WindowsHistoryNativeUiHostClose.hostCloseRoute("5302"));
         assertEquals(
-                WindowsRecentPreviewValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
-                WindowsRecentPreviewValidationProbe.hostCloseRoute("5100"));
-        assertThrows(IllegalArgumentException.class, () -> WindowsRecentPreviewValidationProbe.hostCloseRoute("5400"));
-        assertThrows(IllegalArgumentException.class, () -> WindowsRecentPreviewValidationProbe.hostCloseRoute(null));
+                WindowsHistoryNativeUiHostClose.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
+                WindowsHistoryNativeUiHostClose.hostCloseRoute("5100"));
+        assertThrows(IllegalArgumentException.class, () -> WindowsHistoryNativeUiHostClose.hostCloseRoute("5400"));
+        assertThrows(IllegalArgumentException.class, () -> WindowsHistoryNativeUiHostClose.hostCloseRoute(null));
     }
 
     @Test

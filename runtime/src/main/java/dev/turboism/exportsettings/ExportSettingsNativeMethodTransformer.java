@@ -1,5 +1,7 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
+import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.Objects;
@@ -65,16 +67,16 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
             final String jdialogMethodName,
             final String jdialogMethodDescriptor,
             final ClassLoader expectedClassLoader) {
-        this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
-        this.attachMethodName = requireText(attachMethodName, "attachMethodName");
-        this.attachMethodDescriptor = requireText(attachMethodDescriptor, "attachMethodDescriptor");
-        this.gateMethodName = requireText(gateMethodName, "gateMethodName");
-        this.gateMethodDescriptor = requireText(gateMethodDescriptor, "gateMethodDescriptor");
-        this.windowFieldName = requireText(windowFieldName, "windowFieldName");
-        this.windowFieldDescriptor = requireText(windowFieldDescriptor, "windowFieldDescriptor");
-        this.jdialogMethodOwner = requireText(jdialogMethodOwner, "jdialogMethodOwner");
-        this.jdialogMethodName = requireText(jdialogMethodName, "jdialogMethodName");
-        this.jdialogMethodDescriptor = requireText(jdialogMethodDescriptor, "jdialogMethodDescriptor");
+        this.ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
+        this.attachMethodName = Requirements.text(attachMethodName, "attachMethodName");
+        this.attachMethodDescriptor = Requirements.text(attachMethodDescriptor, "attachMethodDescriptor");
+        this.gateMethodName = Requirements.text(gateMethodName, "gateMethodName");
+        this.gateMethodDescriptor = Requirements.text(gateMethodDescriptor, "gateMethodDescriptor");
+        this.windowFieldName = Requirements.text(windowFieldName, "windowFieldName");
+        this.windowFieldDescriptor = Requirements.text(windowFieldDescriptor, "windowFieldDescriptor");
+        this.jdialogMethodOwner = Requirements.text(jdialogMethodOwner, "jdialogMethodOwner");
+        this.jdialogMethodName = Requirements.text(jdialogMethodName, "jdialogMethodName");
+        this.jdialogMethodDescriptor = Requirements.text(jdialogMethodDescriptor, "jdialogMethodDescriptor");
         this.expectedClassLoader = Objects.requireNonNull(expectedClassLoader, "expectedClassLoader");
     }
 
@@ -93,7 +95,8 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
         final boolean[] attachShape = {false};
         final boolean[] gateShape = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter writer =
+                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -551,13 +554,5 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
         mv.visitMethodInsn(
                 Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
         mv.visitInsn(Opcodes.DUP);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

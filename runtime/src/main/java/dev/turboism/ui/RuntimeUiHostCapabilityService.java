@@ -6,6 +6,7 @@ import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
+import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -399,7 +400,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             final CallbackDispatcher callbackDispatcher,
             final PluginLogger logger) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
         this.disposableScope = Objects.requireNonNull(disposableScope, "disposableScope");
         this.statusToolbarAdapter = Objects.requireNonNull(statusToolbarAdapter, "statusToolbarAdapter");
@@ -1087,14 +1088,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         return value;
     }
 
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
-    }
-
     private MainToolbarRegistry.MainToolbarContribution resolveMainToolbarLabel(
             final MainToolbarRegistry.MainToolbarContribution contribution) {
         if (localization == null) {
@@ -1103,7 +1096,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         return new MainToolbarRegistry.MainToolbarContribution(
                 contribution.contributionId(),
                 contribution.actionId(),
-                localization.text(requireText(contribution.labelKey(), "labelKey")),
+                localization.text(Requirements.text(contribution.labelKey(), "labelKey")),
                 contribution.iconResourcePath(),
                 contribution.anchor(),
                 contribution.order());
@@ -1117,7 +1110,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         return new PaletteToolbarRegistry.PaletteToolbarContribution(
                 contribution.contributionId(),
                 contribution.actionId(),
-                localization.text(requireText(contribution.labelKey(), "labelKey")),
+                localization.text(Requirements.text(contribution.labelKey(), "labelKey")),
                 contribution.iconResourcePath(),
                 contribution.paletteId(),
                 contribution.anchor(),
@@ -1133,7 +1126,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         return new PaletteFilterRegistry.PaletteFilterContribution(
                 contribution.contributionId(),
                 contribution.paletteId(),
-                localization.text(requireText(contribution.placeholderKey(), "placeholderKey")),
+                localization.text(Requirements.text(contribution.placeholderKey(), "placeholderKey")),
                 contribution.order());
     }
 }

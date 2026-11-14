@@ -304,7 +304,7 @@ final class EditorDeformerAndGlueReadViews {
         @Override
         public void setParent(final Part parent, final int index) {
             final DeformerRef value = current();
-            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            final Object parentSource = EditorNativeSources.nativeSourceOf(parent, "Part parent");
             core.requireCurrentPartSource(modelSource, parentSource);
             hierarchyEditAccess.setParent(
                     identity, modelSource, model, value.source(), parentSource, false, index, "Deformer");
@@ -314,7 +314,7 @@ final class EditorDeformerAndGlueReadViews {
         @Override
         public void setParent(final Deformer parent, final int index) {
             final DeformerRef value = current();
-            final Object parentSource = nativeSourceOf(parent, "Deformer parent");
+            final Object parentSource = EditorNativeSources.nativeSourceOf(parent, "Deformer parent");
             core.requireCurrentDeformerSource(identity, modelSource, model, parentSource);
             hierarchyEditAccess.setParent(
                     identity, modelSource, model, value.source(), parentSource, true, index, "Deformer");
@@ -708,7 +708,7 @@ final class EditorDeformerAndGlueReadViews {
         @Override
         public WarpDeformer createWarp(
                 final String name, final Part parent, final int index, final int rows, final int columns) {
-            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            final Object parentSource = EditorNativeSources.nativeSourceOf(parent, "Part parent");
             core.requireCurrentPartSource(source, parentSource);
             final EditorObjectHierarchyEditAccess.CreatedSource created = hierarchyEditAccess.createWarpSource(
                     identity,
@@ -737,7 +737,7 @@ final class EditorDeformerAndGlueReadViews {
             Objects.requireNonNull(target, "target");
             Objects.requireNonNull(grid, "grid");
             return EditorHostThread.dispatch("Create initialized Warp", () -> {
-                final Object parentSource = nativeSourceOf(parent, "Part parent");
+                final Object parentSource = EditorNativeSources.nativeSourceOf(parent, "Part parent");
                 core.requireCurrentPartSource(source, parentSource);
                 final Object targetSource = target.map(id -> core.deformerRefs(identity, source, model).stream()
                                 .filter(ref -> ref.id().equals(id.value()))
@@ -757,7 +757,7 @@ final class EditorDeformerAndGlueReadViews {
 
         @Override
         public RotationDeformer createRotation(final String name, final Part parent, final int index) {
-            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            final Object parentSource = EditorNativeSources.nativeSourceOf(parent, "Part parent");
             core.requireCurrentPartSource(source, parentSource);
             final EditorObjectHierarchyEditAccess.CreatedSource created = hierarchyEditAccess.createRotationSource(
                     identity,
@@ -779,7 +779,7 @@ final class EditorDeformerAndGlueReadViews {
         @Override
         public void remove(final Deformer deformer) {
             Objects.requireNonNull(deformer, "deformer");
-            final Object nodeSource = nativeSourceOf(deformer, "Deformer");
+            final Object nodeSource = EditorNativeSources.nativeSourceOf(deformer, "Deformer");
             core.requireCurrentDeformerSource(identity, source, model, nodeSource);
             hierarchyEditAccess.remove(identity, source, model, nodeSource, "Deformer");
         }
@@ -787,7 +787,7 @@ final class EditorDeformerAndGlueReadViews {
         @Override
         public void applyToChildren(final Deformer deformer) {
             Objects.requireNonNull(deformer, "deformer");
-            final Object nodeSource = nativeSourceOf(deformer, "Deformer");
+            final Object nodeSource = EditorNativeSources.nativeSourceOf(deformer, "Deformer");
             core.requireCurrentDeformerSource(identity, source, model, nodeSource);
             requireHierarchyEditAccess();
             hierarchyEditAccess.applyToChildren(
@@ -892,14 +892,6 @@ final class EditorDeformerAndGlueReadViews {
             currentGuard.requireCurrent(identity, model);
             return Optional.of(resolver.cubismVersion());
         }
-    }
-
-    private static Object nativeSourceOf(final Object view, final String label) {
-        if (view == null) return null;
-        if (!(view instanceof EditorNativeObjectRef ref)) {
-            throw new IllegalStateException("The " + label + " is not bound to the active Editor model generation.");
-        }
-        return ref.nativeSource();
     }
 
     private void requireHierarchyEditAccess() {

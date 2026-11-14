@@ -2,6 +2,7 @@ package dev.turboism.core.runtime.work;
 
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.contract.PluginTask;
+import dev.turboism.internal.Requirements;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -32,7 +33,7 @@ public final class PluginEventLane {
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     PluginEventLane(String pluginId, int queueCapacity, Consumer<PluginWorkBudgetEvent> diagnosticSink) {
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.worker = RuntimeThreads.fixedLane(1, queueCapacity, new PluginWorkThreadFactory(this.pluginId + "-event"));
     }
@@ -131,13 +132,5 @@ public final class PluginEventLane {
     private static PluginWorkSubmission rejected(PluginWorkStatus status, String failureCode) {
         PluginWorkResult result = new PluginWorkResult(status, failureCode);
         return new PluginWorkSubmission(false, status, CompletableFuture.completedFuture(result));
-    }
-
-    private static String requireText(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

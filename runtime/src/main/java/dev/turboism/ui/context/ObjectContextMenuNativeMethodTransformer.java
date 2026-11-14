@@ -1,6 +1,7 @@
 package dev.turboism.ui.context;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
@@ -29,9 +30,9 @@ public final class ObjectContextMenuNativeMethodTransformer implements ClassFile
             final String descriptor,
             final ClassLoader expectedClassLoader,
             final Location location) {
-        this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
-        this.methodName = requireText(methodName, "methodName");
-        this.descriptor = requireText(descriptor, "descriptor");
+        this.ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
+        this.methodName = Requirements.text(methodName, "methodName");
+        this.descriptor = Requirements.text(descriptor, "descriptor");
         this.expectedClassLoader = Objects.requireNonNull(expectedClassLoader, "expectedClassLoader");
         this.location = Objects.requireNonNull(location, "location");
         final Type method = Type.getMethodType(descriptor);
@@ -187,13 +188,5 @@ public final class ObjectContextMenuNativeMethodTransformer implements ClassFile
         dev.turboism.runtime.log.RuntimeDiagnostics.warn(
                 "context-menu", "Context-menu binding found " + returnPoints[0] + " return points in " + className);
         return null;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

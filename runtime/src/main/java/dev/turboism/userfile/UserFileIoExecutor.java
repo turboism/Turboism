@@ -1,6 +1,7 @@
 package dev.turboism.userfile;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
@@ -29,7 +30,7 @@ final class UserFileIoExecutor implements AutoCloseable {
     UserFileIoExecutor(final String pluginId, final RuntimePluginTaskScheduler tasks) {
         this.tasks = Objects.requireNonNull(tasks, "tasks");
         this.executor = RuntimeThreads.serialLane(
-                64, RuntimeThreads.daemonThreads("turboism-user-file-" + requireText(pluginId, "pluginId")));
+                64, RuntimeThreads.daemonThreads("turboism-user-file-" + Requirements.text(pluginId, "pluginId")));
     }
 
     <T> CompletionStage<T> submit(
@@ -95,14 +96,6 @@ final class UserFileIoExecutor implements AutoCloseable {
         synchronized (lifecycleLock) {
             operations.remove(operation);
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private final class Operation<T> implements Runnable {

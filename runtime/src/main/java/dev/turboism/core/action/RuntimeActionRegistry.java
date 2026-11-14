@@ -4,6 +4,7 @@ import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
+import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionInvocationEvent;
 import dev.turboism.sdk.action.ActionRegistry;
@@ -58,7 +59,7 @@ public final class RuntimeActionRegistry implements ActionRegistry {
 
     @Override
     public Registration register(String id, Action action) {
-        String key = requireText(id, "id");
+        String key = Requirements.text(id, "id");
         Objects.requireNonNull(action, "action");
         permissionChecker.check(PermissionIds.TURBOISM_ACTION_REGISTER, "action.register");
 
@@ -100,7 +101,7 @@ public final class RuntimeActionRegistry implements ActionRegistry {
      * emitted and the call returns without scheduling work.
      */
     public void execute(String id, ActionContext context) {
-        String key = requireText(id, "id");
+        String key = Requirements.text(id, "id");
         Objects.requireNonNull(context, "context");
         permissionChecker.check(PermissionIds.TURBOISM_ACTION_REGISTER, "action.execute");
 
@@ -150,14 +151,6 @@ public final class RuntimeActionRegistry implements ActionRegistry {
                 "No action registered for ID '%s'.".formatted(id),
                 "action://" + id,
                 StartupReport.Severity.WARNING));
-    }
-
-    private static String requireText(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private record RegisteredAction(Action action, RegistrationHandle handle) {}

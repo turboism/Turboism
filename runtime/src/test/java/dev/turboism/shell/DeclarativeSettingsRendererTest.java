@@ -20,6 +20,7 @@ import dev.turboism.sdk.ui.settings.SettingsControl;
 import dev.turboism.sdk.ui.settings.SettingsSnapshot;
 import dev.turboism.sdk.ui.settings.SettingsTab;
 import dev.turboism.test.concurrent.Await;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.GridBagConstraints;
@@ -988,27 +989,7 @@ class DeclarativeSettingsRendererTest {
     }
 
     private static PluginLocalization localization() {
-        return new PluginLocalization() {
-            @Override
-            public Locale locale() {
-                return Locale.ENGLISH;
-            }
-
-            @Override
-            public String text(final String key) {
-                return key;
-            }
-
-            @Override
-            public String format(final String key, final Object... arguments) {
-                return key;
-            }
-
-            @Override
-            public boolean contains(final String key) {
-                return true;
-            }
-        };
+        return FakePluginContext.passThroughLocalization(Locale.ENGLISH);
     }
 
     private static RuntimeSettingsService settings() {

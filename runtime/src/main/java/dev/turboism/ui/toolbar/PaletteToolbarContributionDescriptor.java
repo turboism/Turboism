@@ -1,5 +1,6 @@
 package dev.turboism.ui.toolbar;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.ui.contribution.EditorUiContribution;
 import java.util.Objects;
@@ -28,13 +29,13 @@ public record PaletteToolbarContributionDescriptor(
     }
 
     public PaletteToolbarContributionDescriptor {
-        pluginId = requireText(pluginId, "pluginId");
-        contributionId = requireText(contributionId, "contributionId");
-        actionId = requireText(actionId, "actionId");
-        label = requireText(label, "label");
-        iconResourcePath = nativeIcon == null ? requireText(iconResourcePath, "iconResourcePath") : "";
-        paletteId = requireText(paletteId, "paletteId");
-        anchor = requireText(anchor, "anchor");
+        pluginId = Requirements.text(pluginId, "pluginId");
+        contributionId = Requirements.text(contributionId, "contributionId");
+        actionId = Requirements.text(actionId, "actionId");
+        label = Requirements.text(label, "label");
+        iconResourcePath = nativeIcon == null ? Requirements.text(iconResourcePath, "iconResourcePath") : "";
+        paletteId = Requirements.text(paletteId, "paletteId");
+        anchor = Requirements.text(anchor, "anchor");
     }
 
     /**
@@ -64,13 +65,5 @@ public record PaletteToolbarContributionDescriptor(
     /** @return the stable plugin-scoped identity used to join native buttons across reconciles */
     public String nativeId() {
         return pluginId + ":" + contributionId;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

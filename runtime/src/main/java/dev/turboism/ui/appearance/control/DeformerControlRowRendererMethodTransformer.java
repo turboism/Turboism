@@ -1,5 +1,7 @@
 package dev.turboism.ui.appearance.control;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
+import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.Objects;
@@ -20,9 +22,9 @@ public final class DeformerControlRowRendererMethodTransformer implements ClassF
 
     public DeformerControlRowRendererMethodTransformer(
             final String owner, final String method, final String descriptor, final ClassLoader loader) {
-        this.owner = requireText(owner, "owner");
-        this.method = requireText(method, "method");
-        this.descriptor = requireText(descriptor, "descriptor");
+        this.owner = Requirements.text(owner, "owner");
+        this.method = Requirements.text(method, "method");
+        this.descriptor = Requirements.text(descriptor, "descriptor");
         this.loader = Objects.requireNonNull(loader, "loader");
     }
 
@@ -37,7 +39,8 @@ public final class DeformerControlRowRendererMethodTransformer implements ClassF
         if (!owner.equals(className) || candidateLoader != loader || bytes == null) return null;
         final boolean[] changed = {false};
         final ClassReader reader = new ClassReader(bytes);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter writer =
+                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -68,11 +71,5 @@ public final class DeformerControlRowRendererMethodTransformer implements ClassF
                 },
                 ClassReader.EXPAND_FRAMES);
         return changed[0] ? writer.toByteArray() : null;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

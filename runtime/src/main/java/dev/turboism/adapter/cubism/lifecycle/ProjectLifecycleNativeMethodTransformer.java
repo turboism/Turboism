@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import java.lang.instrument.ClassFileTransformer;
@@ -253,9 +254,9 @@ public final class ProjectLifecycleNativeMethodTransformer implements ClassFileT
             ProjectContentKind kind,
             ProjectFileOperationType operation) {
         public Binding {
-            ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
-            methodName = requireText(methodName, "methodName");
-            descriptor = requireText(descriptor, "descriptor");
+            ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
+            methodName = Requirements.text(methodName, "methodName");
+            descriptor = Requirements.text(descriptor, "descriptor");
             shape = Objects.requireNonNull(shape, "shape");
             if (shape == HookShape.CONTENT_BOOLEAN) {
                 kind = Objects.requireNonNull(kind, "kind");
@@ -331,12 +332,6 @@ public final class ProjectLifecycleNativeMethodTransformer implements ClassFileT
          */
         public static Binding editorExit(final String owner, final String name, final String descriptor) {
             return new Binding(owner, name, descriptor, HookShape.EDITOR_EXIT, null, null);
-        }
-
-        private static String requireText(final String value, final String name) {
-            Objects.requireNonNull(value, name);
-            if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-            return value;
         }
     }
 }

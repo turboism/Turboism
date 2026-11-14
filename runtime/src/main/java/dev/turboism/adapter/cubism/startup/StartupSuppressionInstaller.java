@@ -81,14 +81,14 @@ public final class StartupSuppressionInstaller {
             return Installation.completed(Status.NOT_REQUESTED, policy);
         }
         if (mode == AttachmentMode.AGENTMAIN) {
-            report(diagnostic, "STARTUP_SUPPRESSION_AGENTMAIN_REFUSED");
+            FatalErrors.reportSafely(diagnostic, "STARTUP_SUPPRESSION_AGENTMAIN_REFUSED");
             return Installation.completed(Status.AGENTMAIN_REFUSED, policy);
         }
 
         final StartupHostArtifactLocator.Result located =
                 StartupHostArtifactLocator.locate(classPath, workingDirectory);
         if (located.status() != StartupHostArtifactLocator.Status.FOUND) {
-            report(
+            FatalErrors.reportSafely(
                     diagnostic,
                     "STARTUP_SUPPRESSION_ARTIFACT_" + located.status().name());
             return Installation.completed(Status.ARTIFACT_REJECTED, policy);
@@ -97,21 +97,22 @@ public final class StartupSuppressionInstaller {
         final HostArtifactDigest digest;
         final long digestStartedNanos = System.nanoTime();
         try {
-            digest = HostArtifactDigest.from(located.artifact());
+            digest = HostArtifactDigest.cached(located.artifact());
         } catch (IOException | RuntimeException failure) {
-            report(diagnostic, "STARTUP_SUPPRESSION_ARTIFACT_UNREADABLE");
+            FatalErrors.reportSafely(diagnostic, "STARTUP_SUPPRESSION_ARTIFACT_UNREADABLE");
             return Installation.completed(Status.ARTIFACT_REJECTED, policy);
         } finally {
-            report(diagnostic, "STARTUP_SUPPRESSION_ARTIFACT_HASH_MILLIS_" + elapsedMillis(digestStartedNanos));
+            FatalErrors.reportSafely(
+                    diagnostic, "STARTUP_SUPPRESSION_ARTIFACT_HASH_MILLIS_" + elapsedMillis(digestStartedNanos));
         }
         final Optional<StartupSuppressionProfile> admitted = runtimeProfileForArtifact(located.artifact(), digest);
         if (admitted.isEmpty()) {
-            report(diagnostic, "STARTUP_SUPPRESSION_ARTIFACT_NOT_RUNTIME_ADMITTED");
+            FatalErrors.reportSafely(diagnostic, "STARTUP_SUPPRESSION_ARTIFACT_NOT_RUNTIME_ADMITTED");
             return Installation.completed(Status.ARTIFACT_REJECTED, policy);
         }
         final StartupSuppressionProfile profile = admitted.orElseThrow();
         if (targetAlreadyLoaded(instrumentation, profile.targetOwner())) {
-            report(diagnostic, "STARTUP_SUPPRESSION_TARGET_ALREADY_LOADED");
+            FatalErrors.reportSafely(diagnostic, "STARTUP_SUPPRESSION_TARGET_ALREADY_LOADED");
             return Installation.completed(Status.TARGET_ALREADY_LOADED, policy);
         }
 
@@ -136,11 +137,11 @@ public final class StartupSuppressionInstaller {
         reference.set(transformer);
         try {
             instrumentation.addTransformer(transformer, false);
-            report(diagnostic, "STARTUP_SUPPRESSION_INSTALLED_" + profile.cubismVersion());
+            FatalErrors.reportSafely(diagnostic, "STARTUP_SUPPRESSION_INSTALLED_" + profile.cubismVersion());
             return Installation.installed(policy, instrumentation, transformer);
         } catch (RuntimeException failure) {
             instrumentation.removeTransformer(transformer);
-            report(diagnostic, "STARTUP_SUPPRESSION_INSTALL_FAILED");
+            FatalErrors.reportSafely(diagnostic, "STARTUP_SUPPRESSION_INSTALL_FAILED");
             return Installation.completed(Status.INSTALL_FAILED, policy);
         }
     }
@@ -183,10 +184,6 @@ public final class StartupSuppressionInstaller {
 
     private static long elapsedMillis(final long startedNanos) {
         return Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);
-    }
-
-    private static void report(final Consumer<String> diagnostic, final String code) {
-        FatalErrors.reportSafely(diagnostic, code);
     }
 
     /** How the Java agent was attached to the JVM. */

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.core;
 
+import dev.turboism.internal.Requirements;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
@@ -33,9 +34,9 @@ final class CoreModelLease implements AutoCloseable {
             throw new IllegalArgumentException("generation must not be negative");
         }
         this.generation = generation;
-        this.modelIdentity = requireText(modelIdentity, "modelIdentity");
-        this.providerId = requireText(providerId, "providerId");
-        this.artifactProfile = requireText(artifactProfile, "artifactProfile");
+        this.modelIdentity = Requirements.text(modelIdentity, "modelIdentity");
+        this.providerId = Requirements.text(providerId, "providerId");
+        this.artifactProfile = Requirements.text(artifactProfile, "artifactProfile");
         this.borrowedModel = Objects.requireNonNull(borrowedModel, "borrowedModel");
         this.currentGeneration = Objects.requireNonNull(currentGeneration, "currentGeneration");
         this.release = Objects.requireNonNull(release, "release");
@@ -101,13 +102,5 @@ final class CoreModelLease implements AutoCloseable {
 
     private static CoreModelLeaseException failure(final CoreModelFailure.Code code, final String message) {
         return new CoreModelLeaseException(new CoreModelFailure(code, message));
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

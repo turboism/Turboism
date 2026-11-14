@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.*;
 
 final class McpGeometryValidationSchemas {
@@ -22,22 +24,22 @@ final class McpGeometryValidationSchemas {
                                         "ok",
                                         Map.of("const", false),
                                         "error",
-                                        object(Map.of("code", string(), "message", string())))))),
+                                        object(Map.of("code", id(), "message", id())))))),
                 "annotations",
                 Map.of("readOnlyHint", true, "destructiveHint", false, "idempotentHint", true, "openWorldHint", false));
     }
 
     private static Map<String, Object> input() {
         var fields = new LinkedHashMap<String, Object>();
-        for (String key : List.of("documentId", "modelId", "objectId", "snapshotId")) fields.put(key, string());
+        for (String key : List.of("documentId", "modelId", "objectId", "snapshotId")) fields.put(key, id());
         fields.put("includeSource", Map.of("type", "boolean"));
         fields.put("referenceFormGuid", nullableString());
-        fields.put("formGuids", array(string(), 32));
+        fields.put("formGuids", boundedArray(id(), 32));
         fields.put("thresholds", thresholds());
         fields.put("maxFindings", Map.of("type", "integer", "minimum", 1, "maximum", 200));
         var required = List.copyOf(fields.keySet());
         var point = object(Map.of("x", Map.of("type", "number"), "y", Map.of("type", "number")));
-        var coordinate = object(Map.of("parameterGuid", string(), "value", Map.of("type", "number")));
+        var coordinate = object(Map.of("parameterGuid", id(), "value", Map.of("type", "number")));
         fields.put(
                 "proposedEdits",
                 Map.of(
@@ -50,11 +52,11 @@ final class McpGeometryValidationSchemas {
                         "items",
                         object(Map.of(
                                 "formGuid",
-                                string(),
+                                id(),
                                 "coordinates",
-                                array(coordinate, 64),
+                                boundedArray(coordinate, 64),
                                 "positions",
-                                array(point, 16384)))));
+                                boundedArray(point, 16384)))));
         var input = new LinkedHashMap<>(object(fields));
         input.put("required", required);
         return input;
@@ -75,26 +77,26 @@ final class McpGeometryValidationSchemas {
     private static Map<String, Object> output() {
         var fields = new LinkedHashMap<String, Object>();
         fields.put("ok", Map.of("const", true));
-        for (String key : List.of("objectId", "snapshotId", "sourceGuid", "coordinateSpace")) fields.put(key, string());
+        for (String key : List.of("objectId", "snapshotId", "sourceGuid", "coordinateSpace")) fields.put(key, id());
         var state = new LinkedHashMap<String, Object>();
         for (String key : List.of("documentId", "modelId", "historyDocumentBinding", "historyManagerBinding"))
             state.put(key, Map.of("type", "string"));
-        state.put("historyGeneration", integer());
-        state.put("historyRevision", integer());
+        state.put("historyGeneration", nonNegativeInteger());
+        state.put("historyRevision", nonNegativeInteger());
         fields.put("state", object(state));
-        fields.put("proposedEditCount", integer());
+        fields.put("proposedEditCount", nonNegativeInteger());
         fields.put("includeSource", Map.of("type", "boolean"));
         fields.put("referenceFormGuid", nullableString());
-        fields.put("checkedForms", array(string(), 32));
+        fields.put("checkedForms", boundedArray(id(), 32));
         fields.put("thresholds", thresholds());
-        fields.put("implementedChecks", array(string(), 32));
-        fields.put("notImplementedChecks", array(string(), 32));
+        fields.put("implementedChecks", boundedArray(id(), 32));
+        fields.put("notImplementedChecks", boundedArray(id(), 32));
         fields.put("verdict", Map.of("enum", List.of("NO_FINDINGS_FOR_IMPLEMENTED_CHECKS", "FINDINGS", "INCOMPLETE")));
         fields.put("analysisComplete", Map.of("type", "boolean"));
         fields.put("intersectionCheckComplete", Map.of("type", "boolean"));
         fields.put("comparisonComplete", Map.of("type", "boolean"));
         fields.put("findingsTruncated", Map.of("type", "boolean"));
-        fields.put("findings", array(finding(), 200));
+        fields.put("findings", boundedArray(finding(), 200));
         var stats = new LinkedHashMap<String, Object>();
         for (String key : List.of(
                 "vertices",
@@ -106,7 +108,7 @@ final class McpGeometryValidationSchemas {
                 "skippedComparisons",
                 "intersectionPairsTested",
                 "intersectionSweepVisits",
-                "estimatedWork")) stats.put(key, integer());
+                "estimatedWork")) stats.put(key, nonNegativeInteger());
         fields.put("statistics", object(stats));
         return object(fields);
     }
@@ -114,7 +116,7 @@ final class McpGeometryValidationSchemas {
     private static Map<String, Object> finding() {
         return object(Map.of(
                 "code",
-                string(),
+                id(),
                 "severity",
                 Map.of("enum", List.of("ERROR", "WARNING")),
                 "scope",
@@ -126,38 +128,14 @@ final class McpGeometryValidationSchemas {
                 "relatedTriangleIndex",
                 Map.of("type", List.of("integer", "null")),
                 "indices",
-                array(integer(), 3),
+                boundedArray(nonNegativeInteger(), 3),
                 "observed",
                 Map.of("type", List.of("number", "null")),
                 "threshold",
                 Map.of("type", List.of("number", "null"))));
     }
 
-    private static Map<String, Object> object(Map<String, Object> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
-    }
-
-    private static Map<String, Object> array(Map<String, Object> items, int max) {
-        return Map.of("type", "array", "items", items, "maxItems", max);
-    }
-
-    private static Map<String, Object> string() {
-        return Map.of("type", "string", "minLength", 1, "maxLength", 4096);
-    }
-
     private static Map<String, Object> nullableString() {
         return Map.of("type", List.of("string", "null"));
-    }
-
-    private static Map<String, Object> integer() {
-        return Map.of("type", "integer", "minimum", 0);
     }
 }

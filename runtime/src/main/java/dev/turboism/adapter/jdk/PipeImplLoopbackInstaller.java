@@ -41,7 +41,7 @@ public final class PipeImplLoopbackInstaller {
         Objects.requireNonNull(diagnostic, "diagnostic");
 
         if (targetAlreadyLoaded(instrumentation)) {
-            report(diagnostic, "PIPE_IMPL_SHIM_TARGET_ALREADY_LOADED");
+            FatalErrors.reportSafely(diagnostic, "PIPE_IMPL_SHIM_TARGET_ALREADY_LOADED");
             return Installation.completed(Status.TARGET_ALREADY_LOADED);
         }
 
@@ -57,11 +57,11 @@ public final class PipeImplLoopbackInstaller {
         reference.set(transformer);
         try {
             instrumentation.addTransformer(transformer, false);
-            report(diagnostic, "PIPE_IMPL_SHIM_INSTALLED");
+            FatalErrors.reportSafely(diagnostic, "PIPE_IMPL_SHIM_INSTALLED");
             return Installation.installed(instrumentation, transformer);
         } catch (RuntimeException failure) {
             instrumentation.removeTransformer(transformer);
-            report(diagnostic, "PIPE_IMPL_SHIM_INSTALL_FAILED");
+            FatalErrors.reportSafely(diagnostic, "PIPE_IMPL_SHIM_INSTALL_FAILED");
             return Installation.completed(Status.INSTALL_FAILED);
         }
     }
@@ -77,10 +77,6 @@ public final class PipeImplLoopbackInstaller {
             return true;
         }
         return false;
-    }
-
-    private static void report(final Consumer<String> diagnostic, final String code) {
-        FatalErrors.reportSafely(diagnostic, code);
     }
 
     /** Why one {@link #install} attempt did or did not install the shim transformer. */

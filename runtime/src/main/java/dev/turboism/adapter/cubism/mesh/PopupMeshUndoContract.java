@@ -61,7 +61,7 @@ final class PopupMeshUndoContract {
                 final var source = type.getProtectionDomain().getCodeSource();
                 if (source == null) return null;
                 final var digest =
-                        HostArtifactDigest.from(Path.of(source.getLocation().toURI()));
+                        HostArtifactDigest.cached(Path.of(source.getLocation().toURI()));
                 if (ReviewedHostArtifacts.cubismVersionOf(digest).isEmpty()) return null;
                 return new Access(type);
             } catch (Exception failure) {

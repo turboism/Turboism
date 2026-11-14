@@ -1,5 +1,6 @@
 package dev.turboism.automesh.host;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
@@ -251,7 +252,7 @@ public record AutoMeshHostProfile(
             Map.entry(ReviewedHostArtifacts.CUBISM_5_3_04, CUBISM_5_3_04));
 
     public AutoMeshHostProfile {
-        hostVersion = requireText(hostVersion, "hostVersion");
+        hostVersion = Requirements.text(hostVersion, "hostVersion");
         modelingFunnelOwner = Objects.requireNonNull(modelingFunnelOwner, "modelingFunnelOwner");
         modelingFunnel = Objects.requireNonNull(modelingFunnel, "modelingFunnel");
         meshEditorFunnelOwner = Objects.requireNonNull(meshEditorFunnelOwner, "meshEditorFunnelOwner");
@@ -358,13 +359,5 @@ public record AutoMeshHostProfile(
                 CONTAINER_CONSTRUCTOR_DESCRIPTOR,
                 ACCESS_PUBLIC,
                 StaticSelector.ACCESS_STATIC);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

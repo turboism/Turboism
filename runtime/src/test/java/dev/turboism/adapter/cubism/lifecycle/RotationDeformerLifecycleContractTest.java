@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
 class RotationDeformerLifecycleContractTest {
     @Test
     void transformsAndPublishesDetachedAngleAndFormCompletion() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler();
         try {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
             final DeformerLifecycleCoordinator coordinator = new DeformerLifecycleCoordinator();
@@ -100,10 +100,6 @@ class RotationDeformerLifecycleContractTest {
                     UnsupportedOperationException.class, () -> event.deformer().replaceForm(replacement));
             completion.countDown();
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler();
     }
 
     private static RotationDeformerForm form(final float angle) {

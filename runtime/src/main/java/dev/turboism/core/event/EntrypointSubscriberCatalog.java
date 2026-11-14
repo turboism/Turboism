@@ -13,6 +13,22 @@ import java.util.Objects;
 /** Validates and deterministically catalogs annotated plugin entrypoint methods. */
 public final class EntrypointSubscriberCatalog {
 
+    /**
+     * Validated subscriber metadata per entrypoint class. A loaded {@link Class} never gains or
+     * loses members, so one validation serves every later plugin generation of that class.
+     */
+    private static final ClassValue<List<Method>> SUBSCRIBERS = new ClassValue<>() {
+        @Override
+        protected List<Method> computeValue(final Class<?> type) {
+            validateDeclaredMethods(type);
+            return Arrays.stream(type.getMethods())
+                    .filter(method -> method.isAnnotationPresent(SubscribeEvent.class))
+                    .filter(method -> !method.isBridge() && !method.isSynthetic())
+                    .sorted(Comparator.comparing(EntrypointSubscriberCatalog::signature))
+                    .toList();
+        }
+    };
+
     /** Inspects entrypoints and returns their validated, deterministically ordered subscribers. */
     public List<EventSubscriberDescriptor> inspect(final List<?> entrypoints) {
         final List<?> values = List.copyOf(Objects.requireNonNull(entrypoints, "entrypoints"));
@@ -26,12 +42,7 @@ public final class EntrypointSubscriberCatalog {
 
     List<EventSubscriberDescriptor> inspectOne(final Object entrypoint, final int entrypointOrdinal) {
         final Object value = Objects.requireNonNull(entrypoint, "entrypoint");
-        validateDeclaredMethods(value.getClass());
-        final List<Method> methods = Arrays.stream(value.getClass().getMethods())
-                .filter(method -> method.isAnnotationPresent(SubscribeEvent.class))
-                .filter(method -> !method.isBridge() && !method.isSynthetic())
-                .sorted(Comparator.comparing(EntrypointSubscriberCatalog::signature))
-                .toList();
+        final List<Method> methods = SUBSCRIBERS.get(value.getClass());
         final List<EventSubscriberDescriptor> descriptors = new ArrayList<>();
         for (int methodOrdinal = 0; methodOrdinal < methods.size(); methodOrdinal++) {
             descriptors.add(descriptor(value, methods.get(methodOrdinal), entrypointOrdinal, methodOrdinal));

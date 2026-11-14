@@ -11,16 +11,16 @@ final class TurboismAgentAutoMeshGuardAdmissionTest {
     @Test
     void autoMeshGuardFollowsOrdinaryReviewedAdmission() {
         final AutoMeshGuardHookContributor contributor = new AutoMeshGuardHookContributor();
-        assertTrue(contributor.admitted(environment("5.0.00", true)));
-        assertTrue(contributor.admitted(environment("5.0.06", true)));
-        assertTrue(contributor.admitted(environment("5.2.03", true)));
-        assertTrue(contributor.admitted(environment("5.3.04", true)));
-        assertFalse(contributor.admitted(environment("5.3.02", false)));
-        assertFalse(contributor.admitted(environment("5.0.00", false)));
-        assertFalse(contributor.admitted(environment("5.4.00", true)));
-        assertFalse(contributor.admitted(environment("5.3", true)));
-        assertFalse(contributor.admitted(environment("5.3.04.1", true)));
-        assertFalse(contributor.admitted(environment(null, true)));
+        assertTrue(contributor.admitted(HookEnvironments.admitted("5.0.00", true)));
+        assertTrue(contributor.admitted(HookEnvironments.admitted("5.0.06", true)));
+        assertTrue(contributor.admitted(HookEnvironments.admitted("5.2.03", true)));
+        assertTrue(contributor.admitted(HookEnvironments.admitted("5.3.04", true)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted("5.3.02", false)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted("5.0.00", false)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted("5.4.00", true)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted("5.3", true)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted("5.3.04.1", true)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted(null, true)));
     }
 
     @Test
@@ -30,12 +30,5 @@ final class TurboismAgentAutoMeshGuardAdmissionTest {
                     AutoMeshGuardHookContributor.runtimeAdmitted(version, true),
                     "every reviewed release carries a funnel profile: " + version);
         }
-    }
-
-    private static HookEnvironment environment(final String profile, final boolean admitted) {
-        return HookEnvironment.builder()
-                .profile(profile)
-                .fullRuntimeAdmission(admitted)
-                .build();
     }
 }

@@ -3,6 +3,7 @@ package dev.turboism.kernel.report;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.internal.Requirements;
 import dev.turboism.runtime.json.RuntimeJson;
 import java.time.Instant;
 import java.util.EnumMap;
@@ -85,7 +86,7 @@ public final class KernelReportDocuments {
         report.put("format", "turboism.preview.report");
         report.put("schemaVersion", 1);
         report.put("reportType", Objects.requireNonNull(type, "type").name());
-        report.put("runtimeId", requireText(runtimeId, "runtimeId"));
+        report.put("runtimeId", Requirements.text(runtimeId, "runtimeId"));
         report.put("createdAt", Objects.requireNonNull(createdAt, "createdAt").toString());
         report.set("truncation", noTruncation());
         report.set("payload", Objects.requireNonNull(payload, "payload").deepCopy());
@@ -123,16 +124,16 @@ public final class KernelReportDocuments {
             final String lifecycleState,
             final boolean badNeighbor) {
         final ObjectNode entry = JSON.createObjectNode();
-        entry.put("pluginId", requireText(pluginId, "pluginId"));
+        entry.put("pluginId", Requirements.text(pluginId, "pluginId"));
         if (artifactRelativePath != null) {
             entry.put("artifactRelativePath", artifactRelativePath);
         }
         if (artifactSha256 != null) {
             entry.put("artifactSha256", artifactSha256);
         }
-        entry.put("discoveryState", requireText(discoveryState, "discoveryState"));
-        entry.put("dependencyState", requireText(dependencyState, "dependencyState"));
-        entry.put("lifecycleState", requireText(lifecycleState, "lifecycleState"));
+        entry.put("discoveryState", Requirements.text(discoveryState, "discoveryState"));
+        entry.put("dependencyState", Requirements.text(dependencyState, "dependencyState"));
+        entry.put("lifecycleState", Requirements.text(lifecycleState, "lifecycleState"));
         entry.put("badNeighbor", badNeighbor);
         entry.put("disableState", "NOT_STARTED");
         entry.put("shutdownState", "NOT_STARTED");
@@ -177,14 +178,14 @@ public final class KernelReportDocuments {
         if (pluginId != null) {
             entry.put("pluginId", pluginId);
         }
-        entry.put("capabilityId", requireText(capabilityId, "capabilityId"));
-        entry.put("operationId", requireText(operationId, "operationId"));
+        entry.put("capabilityId", Requirements.text(capabilityId, "capabilityId"));
+        entry.put("operationId", Requirements.text(operationId, "operationId"));
         if (permissionId != null) {
             entry.put("permissionId", permissionId);
         }
-        entry.put("capabilityAvailability", requireText(capabilityAvailability, "capabilityAvailability"));
-        entry.put("permissionAvailability", requireText(permissionAvailability, "permissionAvailability"));
-        entry.put("registrationState", requireText(registrationState, "registrationState"));
+        entry.put("capabilityAvailability", Requirements.text(capabilityAvailability, "capabilityAvailability"));
+        entry.put("permissionAvailability", Requirements.text(permissionAvailability, "permissionAvailability"));
+        entry.put("registrationState", Requirements.text(registrationState, "registrationState"));
         entry.set("registrationCounts", emptyRegistrationCounts());
         entry.set("evidence", JSON.createArrayNode());
         entry.set("failures", JSON.createArrayNode());
@@ -209,9 +210,9 @@ public final class KernelReportDocuments {
     public static ObjectNode evidence(
             final String kind, final String state, final String summary, final String relativeRecordPath) {
         final ObjectNode evidence = JSON.createObjectNode();
-        evidence.put("kind", requireText(kind, "kind"));
-        evidence.put("state", requireText(state, "state"));
-        evidence.put("summary", requireText(summary, "summary"));
+        evidence.put("kind", Requirements.text(kind, "kind"));
+        evidence.put("state", Requirements.text(state, "state"));
+        evidence.put("summary", Requirements.text(summary, "summary"));
         if (relativeRecordPath != null) {
             evidence.put("relativeRecordPath", relativeRecordPath);
         }
@@ -249,9 +250,9 @@ public final class KernelReportDocuments {
             final String relativePath,
             final long count) {
         final ObjectNode failure = JSON.createObjectNode();
-        failure.put("code", requireText(code, "code"));
-        failure.put("severity", requireText(severity, "severity"));
-        failure.put("phase", requireText(phase, "phase"));
+        failure.put("code", Requirements.text(code, "code"));
+        failure.put("severity", Requirements.text(severity, "severity"));
+        failure.put("phase", Requirements.text(phase, "phase"));
         if (pluginId != null) {
             failure.put("pluginId", pluginId);
         }
@@ -261,7 +262,7 @@ public final class KernelReportDocuments {
         if (permissionId != null) {
             failure.put("permissionId", permissionId);
         }
-        failure.put("message", requireText(message, "message"));
+        failure.put("message", Requirements.text(message, "message"));
         if (relativePath != null) {
             failure.put("relativePath", relativePath);
         }
@@ -295,13 +296,13 @@ public final class KernelReportDocuments {
             final String normalizedLocale,
             final Iterable<String> fallbackChain) {
         final ObjectNode entry = JSON.createObjectNode();
-        entry.put("pluginId", requireText(pluginId, "pluginId"));
-        entry.put("localeSource", requireText(localeSource, "localeSource"));
-        entry.put("requestedLocale", requireText(requestedLocale, "requestedLocale"));
-        entry.put("normalizedLocale", requireText(normalizedLocale, "normalizedLocale"));
+        entry.put("pluginId", Requirements.text(pluginId, "pluginId"));
+        entry.put("localeSource", Requirements.text(localeSource, "localeSource"));
+        entry.put("requestedLocale", Requirements.text(requestedLocale, "requestedLocale"));
+        entry.put("normalizedLocale", Requirements.text(normalizedLocale, "normalizedLocale"));
         final ArrayNode fallback = entry.putArray("fallbackChain");
         for (String value : fallbackChain) {
-            fallback.add(requireText(value, "fallback locale"));
+            fallback.add(Requirements.text(value, "fallback locale"));
         }
         entry.set("catalogs", JSON.createArrayNode());
         entry.set("missingKeys", JSON.createArrayNode());
@@ -326,8 +327,8 @@ public final class KernelReportDocuments {
      */
     public static ObjectNode catalogEntry(final String locale, final String state, final long keyCount) {
         final ObjectNode entry = JSON.createObjectNode();
-        entry.put("locale", requireText(locale, "locale"));
-        entry.put("state", requireText(state, "state"));
+        entry.put("locale", Requirements.text(locale, "locale"));
+        entry.put("state", Requirements.text(state, "state"));
         entry.put("keyCount", keyCount);
         return entry;
     }
@@ -426,13 +427,5 @@ public final class KernelReportDocuments {
         final ObjectNode payload = JSON.createObjectNode();
         payload.set(field, JSON.createArrayNode());
         return payload;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

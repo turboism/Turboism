@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.mesh.MeshTool;
 import dev.turboism.sdk.cubism.mesh.SelectionMode;
@@ -56,11 +57,11 @@ public final class MeshToolCoordinator implements AutoCloseable {
             final PermissionChecker permissionChecker,
             final boolean pointAndEdgeLayoutGranted) {
         final Key key = new Key(
-                requireText(pluginId, "pluginId"),
+                Requirements.text(pluginId, "pluginId"),
                 requireGeneration(pluginGeneration),
-                requireText(Objects.requireNonNull(tool, "tool").id(), "tool.id"));
-        requireText(tool.label(), "tool.label");
-        requireText(tool.iconResourcePath(), "tool.iconResourcePath");
+                Requirements.text(Objects.requireNonNull(tool, "tool").id(), "tool.id"));
+        Requirements.text(tool.label(), "tool.label");
+        Requirements.text(tool.iconResourcePath(), "tool.iconResourcePath");
         final StoredTool stored = new StoredTool(
                 tool, Objects.requireNonNull(permissionChecker, "permissionChecker"), pointAndEdgeLayoutGranted);
         synchronized (transitionGate) {
@@ -90,7 +91,7 @@ public final class MeshToolCoordinator implements AutoCloseable {
 
     /** Removes every tool owned by an exact plugin generation. */
     public void removePlugin(final String pluginId, final long pluginGeneration) {
-        final String id = requireText(pluginId, "pluginId");
+        final String id = Requirements.text(pluginId, "pluginId");
         final long generation = requireGeneration(pluginGeneration);
         runTransition(() -> {
             final PendingDeactivate pending;
@@ -182,14 +183,18 @@ public final class MeshToolCoordinator implements AutoCloseable {
     /** Activates the tool identified by plugin, generation, and tool id. */
     public void activate(final String pluginId, final long pluginGeneration, final String toolId) {
         final Key key = new Key(
-                requireText(pluginId, "pluginId"), requireGeneration(pluginGeneration), requireText(toolId, "toolId"));
+                Requirements.text(pluginId, "pluginId"),
+                requireGeneration(pluginGeneration),
+                Requirements.text(toolId, "toolId"));
         runTransition(() -> activateNow(key));
     }
 
     /** Deactivates the tool only when the full identity is current. */
     public void deactivate(final String pluginId, final long pluginGeneration, final String toolId) {
         final Key key = new Key(
-                requireText(pluginId, "pluginId"), requireGeneration(pluginGeneration), requireText(toolId, "toolId"));
+                Requirements.text(pluginId, "pluginId"),
+                requireGeneration(pluginGeneration),
+                Requirements.text(toolId, "toolId"));
         runTransition(() -> {
             final PendingDeactivate pending;
             synchronized (monitor) {
@@ -409,12 +414,6 @@ public final class MeshToolCoordinator implements AutoCloseable {
 
     private void requireOpen() {
         if (closed) throw new IllegalStateException("mesh tool coordinator is closed");
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 
     private static long requireGeneration(final long value) {

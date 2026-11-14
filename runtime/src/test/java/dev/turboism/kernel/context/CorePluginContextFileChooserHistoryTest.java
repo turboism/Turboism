@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
-import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -20,6 +19,7 @@ import dev.turboism.sdk.ui.resource.UiIconAvailability;
 import dev.turboism.sdk.ui.resource.UiIconRef;
 import dev.turboism.sdk.ui.resource.UiResourceService;
 import dev.turboism.test.Stubs;
+import dev.turboism.test.plugin.FakePluginPaths;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import dev.turboism.testkit.RuntimeTestKit;
 import dev.turboism.ui.resource.RuntimeUiResourceService;
@@ -27,7 +27,6 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -133,7 +132,7 @@ class CorePluginContextFileChooserHistoryTest {
                 logger(),
                 paths(dataDir),
                 uiScheduler(),
-                scheduler(),
+                RuntimeTestKit.scheduler(CLOCK, 1, 4),
                 diagnostics(),
                 new DisposableScope(),
                 noopHostSnapshotSource(),
@@ -142,138 +141,26 @@ class CorePluginContextFileChooserHistoryTest {
     }
 
     private static PluginDescriptor descriptor() {
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return "dev.turboism.test.FileChooserHistoryTest";
-            }
-
-            @Override
-            public String name() {
-                return "File Chooser History Test";
-            }
-
-            @Override
-            public String version() {
-                return "0.1.0";
-            }
-
-            @Override
-            public String description() {
-                return "Test";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of("dev.turboism.test.FileChooserHistoryPlugin");
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "Project License";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.of("https://turboism.dev");
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of();
-            }
-
-            @Override
-            public I18n i18n() {
-                return new I18n() {
-                    @Override
-                    public String baseName() {
-                        return "META-INF/turboism/i18n/messages";
-                    }
-
-                    @Override
-                    public List<String> locales() {
-                        return List.of();
-                    }
-                };
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return List.of();
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "none";
-                    }
-                };
-            }
-        };
+        return Stubs.descriptorBuilder("dev.turboism.test.FileChooserHistoryTest")
+                .name("File Chooser History Test")
+                .version("0.1.0")
+                .entrypoints("dev.turboism.test.FileChooserHistoryPlugin")
+                .license("Project License")
+                .website("https://turboism.dev")
+                .i18n("META-INF/turboism/i18n/messages")
+                .build();
     }
 
     private static PluginLogger logger() {
         return Stubs.noopLogger();
     }
 
-    private static PluginPaths paths(Path dataDir) {
-        return new PluginPaths() {
-            @Override
-            public Path dataDir() {
-                return dataDir;
-            }
-
-            @Override
-            public Path logsDir() {
-                return dataDir;
-            }
-
-            @Override
-            public Path stateDir() {
-                return dataDir;
-            }
-
-            @Override
-            public Path cacheDir() {
-                return dataDir;
-            }
-        };
+    private static PluginPaths paths(final Path dataDir) {
+        return FakePluginPaths.of(dataDir);
     }
 
     private static UiScheduler uiScheduler() {
         return FakeDirectUiScheduler.immediateOnly();
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
     }
 
     private static DiagnosticReport diagnostics() {

@@ -1,7 +1,7 @@
 package dev.turboism.plugin.mcp;
 
-import dev.turboism.sdk.json.Json;
-import java.nio.charset.StandardCharsets;
+import static dev.turboism.plugin.mcp.McpWriteResults.envelope;
+
 import java.util.*;
 import java.util.function.Supplier;
 
@@ -45,7 +45,7 @@ final class McpRigTransferDomain {
 
     private Map<String, Object> plan(Map<String, Object> args) {
         try {
-            if (bytes(args) > 768 * 1024) throw new McpRigTransferPlan.Budget();
+            if (McpDomainSupport.bytes(args) > 768 * 1024) throw new McpRigTransferPlan.Budget();
             for (String field : List.of("documentId", "modelId", "operationId"))
                 McpKeyformContinuity.identity((String) args.get(field));
             var initial = context.get();
@@ -132,7 +132,7 @@ final class McpRigTransferDomain {
                             "NO_PARENT_OR_COORDINATE_SPACE_CONVERSION",
                             "NO_GEOMETRY_OR_VISUAL_ACCEPTANCE",
                             "SEPARATE_PREVIEW_WRITE_CAS_AND_AUTHORIZATION_REQUIRED"));
-            if (bytes(output) > 240 * 1024) throw new McpRigTransferPlan.Budget();
+            if (McpDomainSupport.bytes(output) > 240 * 1024) throw new McpRigTransferPlan.Budget();
             verify(source, target, initial);
             return envelope(output);
         } catch (RuntimeException failure) {
@@ -213,20 +213,5 @@ final class McpRigTransferDomain {
     private static double number(Object raw) {
         if (!(raw instanceof Number n) || !Double.isFinite(n.doubleValue())) throw new IllegalArgumentException();
         return n.doubleValue();
-    }
-
-    private static int bytes(Map<String, ?> value) {
-        return Json.stringify(value).getBytes(StandardCharsets.UTF_8).length;
-    }
-
-    private static Map<String, Object> envelope(Map<String, Object> output) {
-        var safe = McpJsonSupport.encodable(output);
-        return Map.of(
-                "content",
-                List.of(Map.of("type", "text", "text", Json.stringify(safe))),
-                "structuredContent",
-                safe,
-                "isError",
-                !Boolean.TRUE.equals(output.get("ok")));
     }
 }

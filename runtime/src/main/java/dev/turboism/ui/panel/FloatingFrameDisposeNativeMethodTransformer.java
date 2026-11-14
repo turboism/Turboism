@@ -1,5 +1,6 @@
 package dev.turboism.ui.panel;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.Objects;
@@ -43,7 +44,8 @@ public final class FloatingFrameDisposeNativeMethodTransformer implements ClassF
         }
         final int[] exits = {0};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter writer =
+                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override

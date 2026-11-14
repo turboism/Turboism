@@ -1,6 +1,7 @@
 package dev.turboism.exportsettings;
 
 import dev.turboism.adapter.cubism.profile.CubismExportHostProfile;
+import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StaticSelector;
@@ -156,7 +157,7 @@ public record ProtectedExportChooserProfile(
     }
 
     public ProtectedExportChooserProfile {
-        hostVersion = requireText(hostVersion, "hostVersion");
+        hostVersion = Requirements.text(hostVersion, "hostVersion");
         exporterOwner = Objects.requireNonNull(exporterOwner, "exporterOwner");
         moc3Continuation = Objects.requireNonNull(moc3Continuation, "moc3Continuation");
         moc3Chooser = Objects.requireNonNull(moc3Chooser, "moc3Chooser");
@@ -222,13 +223,5 @@ public record ProtectedExportChooserProfile(
 
     private static String descriptor(final String internalName) {
         return "L" + internalName + ";";
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

@@ -772,7 +772,7 @@ final class EditorObjectReadAccess {
         @Override
         public void setParent(final Part parent, final int index) {
             final ObjectRef value = current();
-            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            final Object parentSource = EditorNativeSources.nativeSourceOf(parent, "Part parent");
             core.requireCurrentPartSource(modelSource, parentSource);
             requireHierarchyEditAccess();
             hierarchyEditAccess.setParent(
@@ -783,7 +783,7 @@ final class EditorObjectReadAccess {
         @Override
         public void setParent(final Deformer parent, final int index) {
             final ObjectRef value = current();
-            final Object parentSource = nativeSourceOf(parent, "Deformer parent");
+            final Object parentSource = EditorNativeSources.nativeSourceOf(parent, "Deformer parent");
             core.requireCurrentDeformerSource(identity, modelSource, model, parentSource);
             requireHierarchyEditAccess();
             hierarchyEditAccess.setParent(
@@ -1114,7 +1114,7 @@ final class EditorObjectReadAccess {
                 final int index,
                 final ArtMeshGeometry geometry,
                 final List<dev.turboism.sdk.cubism.model.Point2> defaultPositions) {
-            final Object parentSource = nativeSourceOf(parent, "Part parent");
+            final Object parentSource = EditorNativeSources.nativeSourceOf(parent, "Part parent");
             core.requireCurrentPartSource(source, parentSource);
             final EditorObjectHierarchyEditAccess.CreatedSource created = hierarchyEditAccess.createArtMeshSource(
                     identity, source, model, name, parentSource, false, index, geometry, defaultPositions);
@@ -1146,18 +1146,10 @@ final class EditorObjectReadAccess {
         @Override
         public void remove(final Drawable drawable) {
             Objects.requireNonNull(drawable, "drawable");
-            final Object nodeSource = nativeSourceOf(drawable, "Drawable");
+            final Object nodeSource = EditorNativeSources.nativeSourceOf(drawable, "Drawable");
             core.requireCurrentArtMeshSource(identity, source, model, nodeSource);
             hierarchyEditAccess.remove(identity, source, model, nodeSource, "Drawable");
         }
-    }
-
-    private static Object nativeSourceOf(final Object view, final String label) {
-        if (view == null) return null;
-        if (!(view instanceof EditorNativeObjectRef ref)) {
-            throw new IllegalStateException("The " + label + " is not bound to the active Editor model generation.");
-        }
-        return ref.nativeSource();
     }
 
     private void requireHierarchyEditAccess() {

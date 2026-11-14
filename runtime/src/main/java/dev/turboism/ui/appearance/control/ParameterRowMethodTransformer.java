@@ -1,5 +1,7 @@
 package dev.turboism.ui.appearance.control;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
+import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.Objects;
@@ -20,7 +22,7 @@ public final class ParameterRowMethodTransformer implements ClassFileTransformer
 
     public ParameterRowMethodTransformer(
             final String owner, final Set<MethodSelector> methods, final boolean folder, final ClassLoader loader) {
-        this.owner = requireText(owner, "owner");
+        this.owner = Requirements.text(owner, "owner");
         this.methods = Set.copyOf(Objects.requireNonNull(methods, "methods"));
         if (this.methods.isEmpty()) throw new IllegalArgumentException("methods must not be empty");
         this.callback = folder ? "afterParameterFolder" : "afterParameterRow";
@@ -38,7 +40,8 @@ public final class ParameterRowMethodTransformer implements ClassFileTransformer
         if (!owner.equals(className) || candidateLoader != loader || bytes == null) return null;
         final boolean[] changed = {false};
         final ClassReader reader = new ClassReader(bytes);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter writer =
+                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -90,14 +93,8 @@ public final class ParameterRowMethodTransformer implements ClassFileTransformer
      */
     public record MethodSelector(String name, String descriptor) {
         public MethodSelector {
-            requireText(name, "name");
-            requireText(descriptor, "descriptor");
+            Requirements.text(name, "name");
+            Requirements.text(descriptor, "descriptor");
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

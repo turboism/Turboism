@@ -85,7 +85,7 @@ public final class LafReadinessRepair {
                 if (SwingFlatLafHostOperations.onEdt(() -> {
                     final Object lookAndFeel = javax.swing.UIManager.getLookAndFeel();
                     return lookAndFeel != null
-                            && isFlatLaf(lookAndFeel.getClass().getName())
+                            && FlatLafClasses.isFlatLaf(lookAndFeel.getClass().getName())
                             && javax.swing.UIManager.get(PANEL_UI_KEY) != null;
                 })) {
                     return true;
@@ -101,13 +101,6 @@ public final class LafReadinessRepair {
             }
         }
         return false;
-    }
-
-    private static boolean isFlatLaf(final String className) {
-        return className != null
-                && (className.startsWith("com.formdev.flatlaf.")
-                        || className.contains("CubismLightTheme")
-                        || className.contains("CubismDarkTheme"));
     }
 
     private void updateComponentUis() {

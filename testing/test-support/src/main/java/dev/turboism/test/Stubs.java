@@ -7,6 +7,7 @@ import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.test.plugin.NoopPluginLogger;
+import dev.turboism.test.plugin.PluginDescriptorBuilder;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URL;
@@ -30,6 +31,9 @@ import java.util.stream.Stream;
  */
 public final class Stubs {
 
+    /** Scope used by declared permission references that do not narrow their access. */
+    public static final String APPLICATION_SCOPE = "application";
+
     private Stubs() {}
 
     /** Returns the stateless logger that discards every message. */
@@ -45,6 +49,32 @@ public final class Stubs {
     /** Returns a permission with explicit scope and reason values. */
     public static PluginPermission permission(final String id, final String scope, final String reason) {
         return new SimplePermission(id, scope, reason);
+    }
+
+    /** Returns a declared permission reference with the common {@code application} scope and no reason. */
+    public static PluginDescriptor.PermissionRef permissionRef(final String id) {
+        return permissionRef(id, APPLICATION_SCOPE);
+    }
+
+    /** Returns a declared permission reference with the supplied scope and no reason. */
+    public static PluginDescriptor.PermissionRef permissionRef(final String id, final String scope) {
+        return new SimplePermissionRef(id, scope, Optional.empty());
+    }
+
+    /** Returns a declared permission reference with the supplied scope and justification. */
+    public static PluginDescriptor.PermissionRef permissionRef(
+            final String id, final String scope, final String reason) {
+        return new SimplePermissionRef(id, scope, Optional.of(reason));
+    }
+
+    /** Returns the empty localization catalog that declares no locales. */
+    public static PluginDescriptor.I18n emptyI18n() {
+        return new SimpleEmptyI18n();
+    }
+
+    /** Starts a fluent descriptor builder for the supplied plugin id. */
+    public static PluginDescriptorBuilder descriptorBuilder(final String id) {
+        return PluginDescriptorBuilder.forId(id);
     }
 
     /** Returns an empty sequence whose indexed access reports the requested index. */
@@ -167,13 +197,21 @@ public final class Stubs {
     /** Returns the common test descriptor with explicit permissions. */
     public static PluginDescriptor pluginDescriptor(
             final String id, final List<PluginDescriptor.PermissionRef> permissions) {
-        Objects.requireNonNull(id, "id");
         Objects.requireNonNull(permissions, "permissions");
-        return new SimplePluginDescriptor(id, List.copyOf(permissions));
+        return descriptorBuilder(id).permissions(permissions).build();
     }
 
     private record SimplePermission(String id, String scope, String reason) implements PluginPermission {
         private SimplePermission {
+            Objects.requireNonNull(id, "id");
+            Objects.requireNonNull(scope, "scope");
+            Objects.requireNonNull(reason, "reason");
+        }
+    }
+
+    private record SimplePermissionRef(String id, String scope, Optional<String> reason)
+            implements PluginDescriptor.PermissionRef {
+        private SimplePermissionRef {
             Objects.requireNonNull(id, "id");
             Objects.requireNonNull(scope, "scope");
             Objects.requireNonNull(reason, "reason");
@@ -239,96 +277,15 @@ public final class Stubs {
     private record SimpleDiagnosticReport(Instant createdAt, List<DiagnosticReport.Problem> problems)
             implements DiagnosticReport {}
 
-    private record SimpleI18n() implements PluginDescriptor.I18n {
+    private record SimpleEmptyI18n() implements PluginDescriptor.I18n {
         @Override
         public String baseName() {
-            return "messages";
+            return PluginDescriptorBuilder.DEFAULT_I18N_BASE_NAME;
         }
 
         @Override
         public List<String> locales() {
             return List.of();
-        }
-    }
-
-    private record SimpleEnvironment() implements PluginDescriptor.Environment {
-        @Override
-        public boolean requiresCubism() {
-            return false;
-        }
-
-        @Override
-        public String ui() {
-            return "none";
-        }
-    }
-
-    private record SimplePluginDescriptor(String id, List<PluginDescriptor.PermissionRef> permissions)
-            implements PluginDescriptor {
-
-        @Override
-        public String name() {
-            return id;
-        }
-
-        @Override
-        public String version() {
-            return "1.0.0";
-        }
-
-        @Override
-        public String description() {
-            return "test";
-        }
-
-        @Override
-        public List<String> entrypoints() {
-            return List.of();
-        }
-
-        @Override
-        public String turboismApi() {
-            return "[0.67.0,1.0.0)";
-        }
-
-        @Override
-        public List<Author> authors() {
-            return List.of();
-        }
-
-        @Override
-        public String license() {
-            return "UNLICENSED";
-        }
-
-        @Override
-        public Optional<String> website() {
-            return Optional.empty();
-        }
-
-        @Override
-        public List<String> resources() {
-            return List.of();
-        }
-
-        @Override
-        public I18n i18n() {
-            return new SimpleI18n();
-        }
-
-        @Override
-        public List<DependencyRef> dependencies() {
-            return List.of();
-        }
-
-        @Override
-        public List<String> capabilities() {
-            return List.of();
-        }
-
-        @Override
-        public Environment environment() {
-            return new SimpleEnvironment();
         }
     }
 }

@@ -1,9 +1,11 @@
 package dev.turboism.adapter.cubism.integration;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -72,9 +74,9 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
             final String descriptor,
             final ClassLoader expectedClassLoader,
             final String callbackKey) {
-        this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
-        this.methodName = requireText(methodName, "methodName");
-        this.descriptor = requireText(descriptor, "descriptor");
+        this.ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
+        this.methodName = Requirements.text(methodName, "methodName");
+        this.descriptor = Requirements.text(descriptor, "descriptor");
         final Type[] arguments = Type.getArgumentTypes(descriptor);
         if (arguments.length != 2
                 || !arguments[0].equals(Type.getType(String.class))
@@ -87,7 +89,7 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
         this.requiredAccess = Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL;
         this.forbiddenAccess = Opcodes.ACC_STATIC | Opcodes.ACC_NATIVE | Opcodes.ACC_ABSTRACT;
         this.expectedClassLoader = expectedClassLoader;
-        this.callbackKey = requireText(callbackKey, "callbackKey");
+        this.callbackKey = Requirements.text(callbackKey, "callbackKey");
     }
 
     /** Latest observed outcome; {@code NONE} until the owner class has been offered. */
@@ -176,12 +178,8 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
         if (matches[0] != 1 || !hasCode[0] || rejected[0]) {
             return reject("target shape or existing callback marker rejected: matches=" + matches[0]);
         }
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-            @Override
-            protected ClassLoader getClassLoader() {
-                return expectedClassLoader == null ? super.getClassLoader() : expectedClassLoader;
-            }
-        };
+        final ClassWriter writer =
+                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, expectedClassLoader);
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -248,13 +246,7 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
 
         mv.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
         mv.visitLabel(start);
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-        mv.visitLdcInsn(callbackKey);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
-        mv.visitInsn(Opcodes.DUP);
-        mv.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BiFunction");
+        SlotBridgeEmitter.emitSlot(mv, callbackKey, "java/util/function/BiFunction");
         mv.visitJumpInsn(Opcodes.IFNE, receiver);
         mv.visitInsn(Opcodes.POP);
         mv.visitJumpInsn(Opcodes.GOTO, end);
@@ -283,13 +275,5 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
         mv.visitLabel(handler);
         mv.visitInsn(Opcodes.POP);
         mv.visitLabel(done);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

@@ -1,5 +1,6 @@
 package dev.turboism.ui.contribution;
 
+import dev.turboism.core.runtime.Registrations;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.host.EditorUiHostLifecycle;
@@ -200,7 +201,7 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
             contributions.clear();
             failures.clear();
         }
-        RuntimeException first = closeAll(registrations);
+        RuntimeException first = Registrations.closeReverseReturningFirst(registrations);
         try {
             lifecycleRegistration.close();
         } catch (RuntimeException exception) {
@@ -490,18 +491,6 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         if (closed) {
             throw new IllegalStateException("Editor UI contribution authority is closed");
         }
-    }
-
-    private static RuntimeException closeAll(final List<Registration> registrations) {
-        RuntimeException first = null;
-        for (int index = registrations.size() - 1; index >= 0; index--) {
-            try {
-                registrations.get(index).close();
-            } catch (RuntimeException exception) {
-                first = append(first, exception);
-            }
-        }
-        return first;
     }
 
     private static RuntimeException append(final RuntimeException first, final RuntimeException next) {

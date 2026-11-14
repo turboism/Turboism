@@ -354,7 +354,7 @@ final class McpMeshCreationDomain {
     private List<Map<String, Object>> verifyCreated(Plan plan, List<Map<String, Object>> observed) {
         if (observed.size() != plan.requests.size()) throw new Stale();
         var after = capture(context.get());
-        if (!sameScope(plan.before.binding, after.binding)) throw new Stale();
+        if (!McpDomainSupport.sameScope(plan.before.binding, after.binding)) throw new Stale();
         if (!after.parts.equals(plan.before.parts)
                 || !after.images.equals(plan.before.images)
                 || after.meshes.size() != plan.before.meshes.size() + plan.requests.size()) throw new Stale();
@@ -514,8 +514,9 @@ final class McpMeshCreationDomain {
 
     private void verify(State state, boolean exact) {
         var current = context.get();
-        if (exact ? !state.binding.equals(current.binding()) : !sameScope(state.binding, current.binding()))
-            throw new Stale();
+        if (exact
+                ? !state.binding.equals(current.binding())
+                : !McpDomainSupport.sameScope(state.binding, current.binding())) throw new Stale();
         var actual = capture(current);
         if (!state.parts.equals(actual.parts)
                 || !state.images.equals(actual.images)
@@ -671,7 +672,7 @@ final class McpMeshCreationDomain {
     }
 
     static String text(Object raw, int max) {
-        return McpParameterStructure.text(raw, max);
+        return McpDomainSupport.text(raw, max);
     }
 
     static int bytes(Map<String, ?> raw) {
@@ -685,12 +686,6 @@ final class McpMeshCreationDomain {
     private static void scope(Map<String, Object> args, Map<String, Object> b) {
         if (!text(args.get("documentId"), 4096).equals(b.get("documentId"))
                 || !text(args.get("modelId"), 4096).equals(b.get("modelId"))) throw new Stale();
-    }
-
-    private static boolean sameScope(Map<String, Object> a, Map<String, Object> b) {
-        return List.of("documentId", "modelId", "historyGeneration", "historyDocumentBinding", "historyManagerBinding")
-                .stream()
-                .allMatch(k -> Objects.equals(a.get(k), b.get(k)));
     }
 
     private static String session() {

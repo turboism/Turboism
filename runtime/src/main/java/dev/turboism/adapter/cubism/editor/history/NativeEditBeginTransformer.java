@@ -1,8 +1,9 @@
 package dev.turboism.adapter.cubism.editor.history;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
+import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
-import java.util.Objects;
 import java.util.function.Consumer;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -48,14 +49,14 @@ public final class NativeEditBeginTransformer implements ClassFileTransformer {
             final String descriptor,
             final ClassLoader expectedClassLoader,
             final String callbackKey) {
-        this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
-        this.methodName = requireText(methodName, "methodName");
-        this.descriptor = requireText(descriptor, "descriptor");
+        this.ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
+        this.methodName = Requirements.text(methodName, "methodName");
+        this.descriptor = Requirements.text(descriptor, "descriptor");
         if (!descriptor.startsWith("(Ljava/lang/String;)")) {
             throw new IllegalArgumentException("descriptor must take the edit name as its first argument");
         }
         this.expectedClassLoader = expectedClassLoader;
-        this.callbackKey = requireText(callbackKey, "callbackKey");
+        this.callbackKey = Requirements.text(callbackKey, "callbackKey");
     }
 
     @Override
@@ -76,12 +77,8 @@ public final class NativeEditBeginTransformer implements ClassFileTransformer {
         if (!hasUninstrumentedInstanceEntry(reader)) {
             return null;
         }
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-            @Override
-            protected ClassLoader getClassLoader() {
-                return loader == null ? super.getClassLoader() : loader;
-            }
-        };
+        final ClassWriter writer =
+                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -202,13 +199,5 @@ public final class NativeEditBeginTransformer implements ClassFileTransformer {
                 },
                 ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         return matches[0] == 1 && valid[0] && code[0] && !alreadyInstrumented[0];
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

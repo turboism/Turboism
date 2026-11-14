@@ -1,5 +1,6 @@
 package dev.turboism.ui.toolbar;
 
+import dev.turboism.core.runtime.Registrations;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.action.EditorUiActionRouter;
 import dev.turboism.ui.contribution.EditorUiContribution;
@@ -50,7 +51,7 @@ public final class VerticalToolbarContributionProvider implements EditorUiContri
         final Reconciler reconciler = new Reconciler(descriptors);
         reconciler.reconcile();
         final Registration rebuild = host.onRebuild(reconciler::reconcile);
-        return () -> closeAll(List.of(rebuild, reconciler));
+        return () -> Registrations.closeReverseThrowingFirst(List.of(rebuild, reconciler));
     }
 
     private final class Reconciler implements Registration {
@@ -66,7 +67,7 @@ public final class VerticalToolbarContributionProvider implements EditorUiContri
             if (closed) {
                 return;
             }
-            closeAll(installed);
+            Registrations.closeReverseThrowingFirst(installed);
             installed.clear();
             final List<Registration> next = new ArrayList<>();
             try {
@@ -78,7 +79,7 @@ public final class VerticalToolbarContributionProvider implements EditorUiContri
                 }
                 installed.addAll(next);
             } catch (RuntimeException | Error failure) {
-                closeAll(next);
+                Registrations.closeReverseThrowingFirst(next);
                 installed.clear();
                 throw failure;
             }
@@ -90,26 +91,8 @@ public final class VerticalToolbarContributionProvider implements EditorUiContri
                 return;
             }
             closed = true;
-            closeAll(installed);
+            Registrations.closeReverseThrowingFirst(installed);
             installed.clear();
-        }
-    }
-
-    private static void closeAll(final List<? extends Registration> registrations) {
-        RuntimeException first = null;
-        for (int index = registrations.size() - 1; index >= 0; index--) {
-            try {
-                registrations.get(index).close();
-            } catch (RuntimeException failure) {
-                if (first == null) {
-                    first = failure;
-                } else {
-                    first.addSuppressed(failure);
-                }
-            }
-        }
-        if (first != null) {
-            throw first;
         }
     }
 }

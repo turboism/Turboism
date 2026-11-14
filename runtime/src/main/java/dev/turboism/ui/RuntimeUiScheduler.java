@@ -5,6 +5,7 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.core.runtime.contract.RuntimeCancellationToken;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.plugin.Registration;
@@ -46,7 +47,7 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
 
     public RuntimeUiScheduler(RuntimeScheduler scheduler, String pluginId) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.timer = RuntimeThreads.serialTimer(new UiTimerThreadFactory(pluginId));
     }
 
@@ -225,14 +226,6 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
 
     private PluginTask task(String payloadDescription) {
         return new PluginTask(UI_TASK_TYPE, pluginId, payloadDescription, DEFAULT_CAPABILITY);
-    }
-
-    private static String requireText(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private record UiTimerThreadFactory(String pluginId) implements ThreadFactory {

@@ -60,7 +60,7 @@ class KernelPluginReservedIdentityIntegrationTest {
         final Path plugins = home.resolve("plugins");
         writePlugin(plugins, temporary.resolve("runtime-core"), "spoof-core.jar", CORE_ID, CORE_MARKER);
         writePlugin(plugins, temporary.resolve("normal"), "normal.jar", NORMAL_ID, NORMAL_MARKER);
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
 
         try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
@@ -123,10 +123,6 @@ class KernelPluginReservedIdentityIntegrationTest {
             System.clearProperty(CORE_MARKER);
             System.clearProperty(NORMAL_MARKER);
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
     }
 
     private static void writePlugin(

@@ -1,6 +1,7 @@
 package dev.turboism.automesh.host;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.StaticSelector;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
@@ -54,9 +55,9 @@ public final class AutoMeshFunnelTransformer implements ClassFileTransformer {
 
         public Site {
             funnel = Objects.requireNonNull(funnel, "funnel");
-            ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
-            methodName = requireText(methodName, "methodName");
-            descriptor = requireText(descriptor, "descriptor");
+            ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
+            methodName = Requirements.text(methodName, "methodName");
+            descriptor = Requirements.text(descriptor, "descriptor");
             if (!descriptor.endsWith(VOID_RETURN_SUFFIX)) {
                 throw new IllegalArgumentException("guard sites must return void: " + descriptor);
             }
@@ -143,7 +144,7 @@ public final class AutoMeshFunnelTransformer implements ClassFileTransformer {
             final List<Site> sites,
             final ClassLoader expectedClassLoader,
             final Consumer<String> diagnostics) {
-        this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
+        this.ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
         this.expectedClassLoader = Objects.requireNonNull(expectedClassLoader, "expectedClassLoader");
         this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
         final Map<String, Site> byName = new LinkedHashMap<>();
@@ -433,13 +434,5 @@ public final class AutoMeshFunnelTransformer implements ClassFileTransformer {
             }
             super.visitIntInsn(Opcodes.SIPUSH, value);
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

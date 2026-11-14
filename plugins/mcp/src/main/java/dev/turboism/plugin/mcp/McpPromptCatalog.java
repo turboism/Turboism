@@ -1,5 +1,8 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.entry;
+import static dev.turboism.plugin.mcp.McpSchemas.linked;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -125,17 +128,6 @@ final class McpPromptCatalog {
 
     private static Prompt prompt(final String name, final String title, final String description, final String text) {
         return new Prompt(name, title, description, new ArrayList<>(), text);
-    }
-
-    @SafeVarargs
-    private static LinkedHashMap<String, Object> linked(final Map.Entry<String, Object>... entries) {
-        final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : entries) result.put(entry.getKey(), entry.getValue());
-        return result;
-    }
-
-    private static Map.Entry<String, Object> entry(final String key, final Object value) {
-        return new java.util.AbstractMap.SimpleImmutableEntry<>(key, value);
     }
 
     private static String requireText(final String value, final String name) {

@@ -68,7 +68,7 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
             @Override
             public MocVersion latestVersion() {
                 freshness.run();
-                return normalizeVersion(requireValue(provider.latestMocVersion(), "Core latest MOC version"));
+                return MocVersions.normalize(requireValue(provider.latestMocVersion(), "Core latest MOC version"));
             }
 
             @Override
@@ -84,7 +84,7 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
                 final boolean consistent =
                         requireValue(provider.hasMocConsistency(bytes.clone()), "Core MOC consistency");
                 return new MocInfo(
-                        normalizeVersion(version),
+                        MocVersions.normalize(version),
                         consistent ? MocConsistency.CONSISTENT : MocConsistency.INCONSISTENT);
             }
         };
@@ -119,18 +119,6 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
             throw unavailable(feature);
         }
         throw new IllegalStateException(feature + " failed: " + failure.code());
-    }
-
-    private static MocVersion normalizeVersion(final int version) {
-        return switch (version) {
-            case 1 -> MocVersion.V3_0;
-            case 2 -> MocVersion.V3_3;
-            case 3 -> MocVersion.V4_0;
-            case 4 -> MocVersion.V4_2;
-            case 5 -> MocVersion.V5_0;
-            case 6 -> MocVersion.V5_3;
-            default -> MocVersion.UNKNOWN;
-        };
     }
 
     private static UnsupportedOperationException unavailable(final String feature) {

@@ -20,6 +20,8 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.plugin.FakePluginPaths;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -376,27 +378,7 @@ final class TurboismAcpPluginLifecycleTest {
             @Override
             public void error(final String message, final Throwable throwable) {}
         };
-        final PluginLocalization localization = new PluginLocalization() {
-            @Override
-            public Locale locale() {
-                return Locale.ENGLISH;
-            }
-
-            @Override
-            public String text(final String key) {
-                return key;
-            }
-
-            @Override
-            public String format(final String key, final Object... arguments) {
-                return key;
-            }
-
-            @Override
-            public boolean contains(final String key) {
-                return true;
-            }
-        };
+        final PluginLocalization localization = FakePluginContext.passThroughLocalization(Locale.ENGLISH);
         final ActionRegistry actionRegistry = (id, action) -> {
             assertEquals(id, action.id());
             return registration(actions);
@@ -544,32 +526,11 @@ final class TurboismAcpPluginLifecycleTest {
                         System.getProperty("java.io.tmpdir"), "turboism-acp-lifecycle-test")
                 .toAbsolutePath()
                 .normalize();
-        return new dev.turboism.sdk.plugin.PluginPaths() {
-            @Override
-            public java.nio.file.Path configDir() {
-                return root.resolve("config/dev.turboism.plugin.acp");
-            }
-
-            @Override
-            public java.nio.file.Path dataDir() {
-                return root.resolve("data/dev.turboism.plugin.acp");
-            }
-
-            @Override
-            public java.nio.file.Path logsDir() {
-                return root.resolve("logs/dev.turboism.plugin.acp");
-            }
-
-            @Override
-            public java.nio.file.Path stateDir() {
-                return root.resolve("state/dev.turboism.plugin.acp");
-            }
-
-            @Override
-            public java.nio.file.Path cacheDir() {
-                return root.resolve("cache/dev.turboism.plugin.acp");
-            }
-        };
+        return FakePluginPaths.builder(root.resolve("data/dev.turboism.plugin.acp"))
+                .configDir(root.resolve("config/dev.turboism.plugin.acp"))
+                .stateDir(root.resolve("state/dev.turboism.plugin.acp"))
+                .cacheDir(root.resolve("cache/dev.turboism.plugin.acp"))
+                .build();
     }
 
     private static Registration registration(final AtomicInteger count) {

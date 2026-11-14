@@ -1,11 +1,10 @@
 package dev.turboism.adapter.cubism.startup;
 
 import dev.turboism.config.RuntimeStartupConfig;
+import dev.turboism.core.reflect.CodeSources;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
 import java.util.Objects;
@@ -62,7 +61,7 @@ final class StartupSuppressionClassFileTransformer implements ClassFileTransform
                 outcome.set(Outcome.BOOTSTRAP_LOADER_REJECTED);
                 return null;
             }
-            if (!pinnedArtifact.equals(codeSourcePath(protectionDomain))) {
+            if (!pinnedArtifact.equals(CodeSources.pathOf(protectionDomain))) {
                 outcome.set(Outcome.CODE_SOURCE_REJECTED);
                 return null;
             }
@@ -96,23 +95,6 @@ final class StartupSuppressionClassFileTransformer implements ClassFileTransform
 
     private void report(final String code) {
         FatalErrors.reportSafely(diagnostic, code);
-    }
-
-    private static Path codeSourcePath(final ProtectionDomain protectionDomain) {
-        if (protectionDomain == null
-                || protectionDomain.getCodeSource() == null
-                || protectionDomain.getCodeSource().getLocation() == null) {
-            return null;
-        }
-        try {
-            final URI location = protectionDomain.getCodeSource().getLocation().toURI();
-            if (!"file".equalsIgnoreCase(location.getScheme())) {
-                return null;
-            }
-            return Path.of(location).toAbsolutePath().normalize();
-        } catch (URISyntaxException | RuntimeException failure) {
-            return null;
-        }
     }
 
     enum Outcome {

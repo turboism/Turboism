@@ -1,6 +1,5 @@
-package dev.turboism.adapter.cubism.interpolation;
+package dev.turboism.mapping.verification;
 
-import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -14,19 +13,43 @@ import java.util.Map;
 import java.util.zip.CRC32C;
 
 /** Reuses measured host fingerprints only while their canonical file identity is unchanged. */
-final class HostArtifactDigestCache {
+public final class HostArtifactDigestCache {
+    private static final HostArtifactDigestCache SHARED = new HostArtifactDigestCache();
+
     private final Map<Path, Entry> entries = new HashMap<>();
     private final DigestReader reader;
 
-    HostArtifactDigestCache() {
+    /** Creates an independent cache that measures artifacts with {@link HostArtifactDigest#from}. */
+    public HostArtifactDigestCache() {
         this(HostArtifactDigest::from);
     }
 
-    HostArtifactDigestCache(final DigestReader reader) {
+    /**
+     * Creates an independent cache that delegates every measurement to {@code reader}.
+     *
+     * @param reader measurement strategy, such as a counting or delaying test double
+     */
+    public HostArtifactDigestCache(final DigestReader reader) {
         this.reader = reader;
     }
 
-    synchronized HostArtifactDigest digest(final Path artifact) throws IOException {
+    /**
+     * Returns the process-wide cache, so one launch measures each host artifact once.
+     *
+     * @return the cache shared by every hook installer and host profile lookup
+     */
+    public static HostArtifactDigestCache shared() {
+        return SHARED;
+    }
+
+    /**
+     * Returns the digest of a host artifact, and measures the file only when its identity changed.
+     *
+     * @param artifact file to digest
+     * @return its byte length and lowercase hex SHA-256
+     * @throws IOException if the file cannot be read, or if it changes during the measurement
+     */
+    public synchronized HostArtifactDigest digest(final Path artifact) throws IOException {
         final Path path = artifact.toRealPath();
         final FileStamp before = FileStamp.from(path);
         final Entry cached = entries.get(path);
@@ -42,8 +65,16 @@ final class HostArtifactDigestCache {
         return digest;
     }
 
+    /** Measures one artifact; tests replace it to count or delay measurements. */
     @FunctionalInterface
-    interface DigestReader {
+    public interface DigestReader {
+        /**
+         * Measures the artifact at {@code artifact}.
+         *
+         * @param artifact file to digest
+         * @return its byte length and lowercase hex SHA-256
+         * @throws IOException if the file cannot be read
+         */
         HostArtifactDigest read(Path artifact) throws IOException;
     }
 
