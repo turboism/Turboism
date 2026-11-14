@@ -1,6 +1,5 @@
 package dev.turboism.adapter.cubism.optimization.clipmask;
 
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -136,8 +135,12 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
                 failures.put(name, "mask pass locals unavailable: " + maskPassMaxLocals);
                 return null;
             }
-            final ClassWriter writer =
-                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader == null ? super.getClassLoader() : loader;
+                }
+            };
 
             final int[] woven = {0};
             reader.accept(

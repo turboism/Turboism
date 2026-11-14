@@ -1,6 +1,5 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
@@ -52,8 +51,12 @@ public final class TextureAtlasAutoLayoutDialogTransformer implements ClassFileT
         }
         final boolean[] transformed = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer =
-                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected ClassLoader getClassLoader() {
+                return loader == null ? super.getClassLoader() : loader;
+            }
+        };
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override

@@ -1,7 +1,5 @@
 package dev.turboism.adapter.cubism.integration;
 
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
-import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
@@ -138,8 +136,12 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
         final int[] matches = {0};
         final boolean[] patched = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer =
-                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected ClassLoader getClassLoader() {
+                return loader == null ? super.getClassLoader() : loader;
+            }
+        };
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -203,7 +205,13 @@ public final class NativeEditToggleShowTransformer implements ClassFileTransform
 
         mv.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
         mv.visitLabel(start);
-        SlotBridgeEmitter.emitSlot(mv, ingressKey, "java/lang/Runnable");
+        mv.visitMethodInsn(
+                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+        mv.visitLdcInsn(ingressKey);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/Runnable");
         mv.visitJumpInsn(Opcodes.IFNE, ingress);
         mv.visitInsn(Opcodes.POP);
         mv.visitJumpInsn(Opcodes.GOTO, end);

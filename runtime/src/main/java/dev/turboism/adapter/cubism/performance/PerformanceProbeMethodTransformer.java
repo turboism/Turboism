@@ -1,6 +1,5 @@
 package dev.turboism.adapter.cubism.performance;
 
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import java.lang.instrument.ClassFileTransformer;
 import java.net.URI;
 import java.nio.file.Path;
@@ -69,8 +68,12 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
         final ClassReader reader = new ClassReader(classfileBuffer);
         final Map<Target, Integer> locals = findMaxLocals(reader, classTargets);
         final boolean[] changed = {false};
-        final ClassWriter writer =
-                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, expectedLoader);
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected ClassLoader getClassLoader() {
+                return expectedLoader == null ? super.getClassLoader() : expectedLoader;
+            }
+        };
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override

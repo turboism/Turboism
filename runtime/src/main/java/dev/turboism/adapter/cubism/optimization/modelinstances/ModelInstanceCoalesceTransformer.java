@@ -1,6 +1,5 @@
 package dev.turboism.adapter.cubism.optimization.modelinstances;
 
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -169,8 +168,12 @@ public final class ModelInstanceCoalesceTransformer implements ClassFileTransfor
                 }
             }
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer =
-                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader == null ? super.getClassLoader() : loader;
+                }
+            };
             final int[] transformed = {0};
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {

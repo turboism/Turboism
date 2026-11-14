@@ -1,8 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.modelupdate;
 
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
-import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -101,8 +99,12 @@ public final class ModelUpdateSkipTransformer implements ClassFileTransformer {
                 return null;
             }
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer =
-                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader == null ? super.getClassLoader() : loader;
+                }
+            };
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override
@@ -184,7 +186,17 @@ public final class ModelUpdateSkipTransformer implements ClassFileTransformer {
             final Label discard = new Label(), nativePath = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            SlotBridgeEmitter.emitSlot(this, ModelUpdateSkipBridge.CALLBACK_PROPERTY, "java/util/function/Predicate");
+            this.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+            this.visitLdcInsn(ModelUpdateSkipBridge.CALLBACK_PROPERTY);
+            this.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
+            this.visitInsn(Opcodes.DUP);
+            this.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Predicate");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Predicate");
             emitArgumentsArray();
@@ -207,7 +219,17 @@ public final class ModelUpdateSkipTransformer implements ClassFileTransformer {
             final Label discard = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            SlotBridgeEmitter.emitSlot(this, ModelUpdateSkipBridge.AFTER_PROPERTY, "java/util/function/Consumer");
+            this.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+            this.visitLdcInsn(ModelUpdateSkipBridge.AFTER_PROPERTY);
+            this.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
+            this.visitInsn(Opcodes.DUP);
+            this.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Consumer");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Consumer");
             super.visitVarInsn(Opcodes.ALOAD, modelSlot);
