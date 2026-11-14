@@ -413,20 +413,21 @@ receipt in Release notes. Historical releases keep `buildNumber: null`.
 
 ## Standalone plugin template repository sync
 
-`templates/plugin-template/` in this repository is the single source of truth for
-the public GitHub Template repository `turboism/turboism-plugin-template`. No
-cross-repository secret or push step runs from `turboism/Turboism`: instead,
-`templates/plugin-template/.github/workflows/sync-from-turboism.yml` runs inside
-the template repository (on a daily schedule and via `workflow_dispatch`):
+The public GitHub Template repository
+[`turboism/turboism-plugin-template`](https://github.com/turboism/turboism-plugin-template)
+is standalone and serves as the single source of truth for the plugin template.
+No cross-repository secret or push step runs from `turboism/Turboism`: instead,
+`.github/workflows/sync-sdk-version.yml` runs inside the template repository (on
+a daily schedule and via `workflow_dispatch`):
 
-1. Resolves the latest published `stable` and `beta` release tags from
+1. Resolves the latest published `stable` (or requested `beta`/tag) release from
    `https://api.turboism.dev/v1/releases/<channel>.json` (falling back to the
    GitHub Releases API).
-2. Fetches `templates/plugin-template/` at that release tag from the public
-   `turboism/Turboism` repository.
-3. Replaces the template repository working tree (preserving `.git`), updates
-   `turboismSdkVersion` in `gradle.properties`, commits if changed, and tags
-   `sdk-<version>` using the template repository's own `GITHUB_TOKEN`.
+2. Updates `turboismSdkVersion` in `gradle.properties` and the version lists in
+   `src/main/resources/META-INF/turboism/cubism-versions.json` when a newer
+   release is published.
+3. Opens a pull request against `main` using the template repository's own
+   `GITHUB_TOKEN` without overwriting template source files.
 
 ### Framework update signing and publication
 

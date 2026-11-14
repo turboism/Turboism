@@ -1,55 +1,31 @@
 #!/usr/bin/env python3
-"""Build ``templates/plugin-template`` the way an external consumer does.
+"""Build a minimal external-consumer plugin fixture the way a third-party consumer does.
 
 Modes:
 
-- ``check`` — stage the template's tracked inputs (``git ls-files`` list,
-  working-tree bytes: ignored/untracked ``build/`` output, ``.gradle/`` state
-  and stale ``libs/turboism-sdk-*.jar`` artifacts can never leak in) into a
-  unique temporary directory, drop the real ``:sdk:jar`` artifact into
-  ``libs/`` under the release-asset name ``turboism-sdk-<version>.jar`` (real
-  bytes, real version, no metadata rewriting), and run a nested Gradle
-  ``build`` with every declared repository cleared through an init script.
-  The produced plugin JAR is then validated with the production
-  ``PluginMetaValidationCli`` and ``FirstPartyMetadataVerificationCli`` gate
-  tools (runtime-internal; they are never part of the template compile
-  classpath). Any build or CLI failure exits non-zero.
+- ``check`` — stage a deterministic minimal external-consumer Gradle project
+  plus the repository's Gradle wrapper into a unique temporary directory, drop
+  the real ``:sdk:jar`` artifact into ``libs/`` under the release-asset name
+  ``turboism-sdk-<version>.jar``, and run a nested Gradle ``build`` with every
+  declared repository cleared through an init script. When
+  ``:event-processor:jar`` is supplied, a second pass enables
+  ``@SubscribeEvent`` and verifies ``GeneratedSubscriberCatalog`` emission.
+  Each produced plugin JAR is validated through ``PluginMetaValidationCli``
+  and ``FirstPartyMetadataVerificationCli`` (runtime-internal; never on the
+  consumer compile classpath).
 
-- ``selftest`` — fail-closed fixtures proving the check stays alive: a drifted
-  descriptor whose declared entrypoint is absent from the built JAR, a manifest
-  rejected by the schema validator, a missing SDK resolved against an empty
-  Maven repository even when the polluted source carried a real stale SDK jar,
-  staging-input isolation against polluted sources, a poisoned user-level init
-  script proving the isolated Gradle home does not silently inherit user
-  configuration, and a pure-Python control proving command-line echo cannot
-  satisfy output needles. Every fixture must fail (or hold, for the staging
-  assertion); a pass exits non-zero.
-
-Isolation notes:
-
-- Only ``git ls-files``-tracked template inputs are staged, so local build
-  output and stray SDK jars under ``templates/plugin-template`` cannot reach
-  the consumer copy.
-- The nested build runs with ``--no-daemon`` and ``--gradle-user-home``
-  pointed at a private per-run home, so user-level init scripts and
-  ``~/.gradle/gradle.properties`` never apply and no idle daemon outlives the
-  check. The shared wrapper ``dists`` directory is symlinked into that home
-  from the Gradle user home the outer build actually runs under (passed via
-  ``--shared-gradle-home``): an already-downloaded Gradle distribution is
-  reused, and on a cold checkout the wrapper downloads the pinned
-  distribution once through the standard shared cache — the only cold
-  prerequisite, recorded here.
-- The positive path additionally clears all project repositories, so nothing
-  resolves from ``~/.m2`` or the monorepo; the SDK-absent fixture pins
-  ``maven.repo.local`` to an empty directory so a stale local Maven cache can
-  never mask a missing artifact.
-- Validation CLIs run on the ``:runtime:classes`` classpath supplied by the
-  Gradle task; that classpath is confined to the ``java -cp`` invocations and
-  never enters the template build.
+- ``selftest`` — fail-closed fixtures proving the check stays alive: staging
+  isolation against polluted sources, a drifted descriptor whose declared
+  entrypoint is absent from the built JAR, a manifest rejected by the schema
+  validator, a missing SDK resolved against an empty Maven repository even when
+  the polluted source carried a real stale SDK jar, a command-echo control, and
+  a poisoned user-level init script proving the isolated Gradle home does not
+  inherit user configuration.
 
 Usage: check_external_plugin_template.py {check|selftest} --sdk-jar <path>
-       --runtime-classpath <path-list> [--sdk-version <v>] [--java <bin>]
-       [--repo-root <dir>] [--work-dir <dir>] [--shared-gradle-home <dir>]
+       --runtime-classpath <path-list> [--event-processor-jar <path>]
+       [--sdk-version <v>] [--java <bin>] [--repo-root <dir>]
+       [--work-dir <dir>] [--shared-gradle-home <dir>]
 """
 from __future__ import annotations
 
@@ -57,6 +33,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -66,9 +43,8 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-TEMPLATE = Path("templates/plugin-template")
 DESCRIPTOR = Path("src/main/resources/META-INF/turboism/plugin.json")
-PLUGIN_JAR_GLOB = "hello-turboism-plugin-*.jar"
+PLUGIN_JAR_GLOB = "external-consumer-plugin-*.jar"
 META_CLI = "dev.turboism.core.descriptor.validation.PluginMetaValidationCli"
 JAR_CLI = "dev.turboism.pluginmanagement.FirstPartyMetadataVerificationCli"
 GRADLE_TIMEOUT = 900
@@ -82,7 +58,7 @@ WRAPPER_FILES = (
 )
 
 ISOLATION_INIT = """// Written by check_external_plugin_template.py: strips every repository the
-// template declares so the nested build proves zero-repository resolution.
+// fixture declares so the nested build proves zero-repository resolution.
 allprojects { project ->
     project.afterEvaluate { project.repositories.clear() }
 }
@@ -91,6 +67,147 @@ allprojects { project ->
 POISON_INIT = """// Selftest fixture: a user-level init script must break the build loudly.
 allprojects { throw new GradleException("poisoned-user-init-marker") }
 """
+
+BUILD_GRADLE_KTS = """plugins {
+    `java-library`
+}
+
+group = "dev.example"
+version = "0.1.0"
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    mavenLocal()
+}
+
+val sdkJars = fileTree("libs") { include("turboism-sdk-*.jar") }
+val eventProcessorJars = fileTree("libs") { include("turboism-event-processor-*.jar") }
+val turboismSdkVersion = providers.gradleProperty("turboismSdkVersion").orNull
+
+dependencies {
+    if (sdkJars.isEmpty) {
+        if (turboismSdkVersion.isNullOrBlank()) {
+            throw GradleException("No Turboism SDK found in libs/ or turboismSdkVersion.")
+        }
+        compileOnly("dev.turboism:sdk:$turboismSdkVersion")
+        if (eventProcessorJars.isEmpty) {
+            annotationProcessor("dev.turboism:event-processor:$turboismSdkVersion")
+        } else {
+            annotationProcessor(eventProcessorJars)
+            annotationProcessor("dev.turboism:sdk:$turboismSdkVersion")
+        }
+    } else {
+        compileOnly(sdkJars)
+        if (!eventProcessorJars.isEmpty) {
+            annotationProcessor(eventProcessorJars)
+            annotationProcessor(sdkJars)
+        }
+    }
+}
+
+tasks.jar {
+    archiveBaseName.set("external-consumer-plugin")
+}
+"""
+
+SETTINGS_GRADLE_KTS = 'rootProject.name = "external-consumer-plugin"\n'
+
+PLUGIN_JAVA_REL = "src/main/java/dev/example/externalconsumer/ExternalConsumerPlugin.java"
+
+PLUGIN_JAVA_TEMPLATE = """package dev.example.externalconsumer;
+
+import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.event.TurboismEvent;
+import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.plugin.TurboismPlugin;
+
+import java.util.function.Consumer;
+
+public class ExternalConsumerPlugin implements TurboismPlugin {
+
+    private PluginContext context;
+    private PluginLogger logger;
+
+    @Override
+    public void init(PluginContext context) throws Exception {
+        this.context = context;
+        this.logger = context.logger();
+    }
+
+    @Override
+    public void enable() throws Exception {
+        Registration action = context.actions().register("externalconsumer.ping", new ActionRegistry.Action() {
+            @Override
+            public String id() {
+                return "externalconsumer.ping";
+            }
+
+            @Override
+            public String label() {
+                return context.localization().text("externalconsumer.action.label");
+            }
+
+            @Override
+            public Consumer<ActionRegistry.ActionContext> handler() {
+                return ctx -> context.eventBus().publish(new PingEvent("ping"));
+            }
+        });
+        context.disposableScope().register(action);
+
+        Registration subscription = context.eventBus().subscribe(
+            PingEvent.class,
+            event -> logger.info("ExternalConsumerPlugin received event: " + event.message())
+        );
+        context.disposableScope().register(subscription);
+    }
+
+    @Override
+    public void disable() throws Exception {
+    }
+
+    @Override
+    public void shutdown() throws Exception {
+    }
+
+    __SUBSCRIBE_METHOD__
+
+    public record PingEvent(String message) implements TurboismEvent {
+    }
+}
+"""
+
+SUBSCRIBE_COMMENTED = (
+    "// @dev.turboism.sdk.event.SubscribeEvent\n"
+    "    // public void onPing(PingEvent event) {\n"
+    '    //     logger.info("ExternalConsumerPlugin received event: " + event.message());\n'
+    "    // }"
+)
+
+SUBSCRIBE_ENABLED = (
+    "@dev.turboism.sdk.event.SubscribeEvent\n"
+    "    public void onPing(PingEvent event) {\n"
+    '        logger.info("ExternalConsumerPlugin received event: " + event.message());\n'
+    "    }"
+)
+
+CUBISM_VERSIONS_JSON = {
+    "format": "turboism.plugin-cubism-versions/v1",
+    "plugin": "dev.example.externalconsumer",
+    "supportedVersions": ["5.0.00", "5.2.03", "5.3.02", "5.3.03", "5.3.04"],
+    "fullFeatureVersions": ["5.0.00", "5.2.03", "5.3.02", "5.3.03", "5.3.04"],
+}
+
+MESSAGES_PROPERTIES = (
+    "externalconsumer.action.label=Ping\n"
+    "plugin.name=External Consumer Plugin\n"
+    "plugin.description=Minimal external-consumer contract fixture.\n"
+)
 
 
 class CheckFailure(Exception):
@@ -106,7 +223,7 @@ def run(cmd: list[str], cwd: Path, log: Path, timeout: int) -> subprocess.Comple
     with log.open("w", encoding="utf-8") as handle:
         handle.write("$ " + " ".join(cmd) + "\n\n")
         handle.flush()
-        result = subprocess.run(
+        return subprocess.run(
             cmd,
             cwd=cwd,
             stdout=handle,
@@ -114,7 +231,6 @@ def run(cmd: list[str], cwd: Path, log: Path, timeout: int) -> subprocess.Comple
             timeout=timeout,
             text=True,
         )
-    return result
 
 
 def log_tail(log: Path, lines: int = 40) -> str:
@@ -126,8 +242,7 @@ def log_tail(log: Path, lines: int = 40) -> str:
 
 def log_output(log: Path) -> str:
     """Subprocess output only — the first ``$ cmd`` echo line is evidence, not
-    output, and must never satisfy a needle (a path embedded in an argument
-    like ``-Dmaven.repo.local=…`` says nothing about where resolution looked)."""
+    output, and must never satisfy a needle."""
     text = log.read_text(encoding="utf-8", errors="replace")
     lines = text.splitlines(keepends=True)
     if lines and lines[0].startswith("$ "):
@@ -142,30 +257,95 @@ def sdk_version_from(jar: Path) -> str:
     return name[len("sdk-") : -len(".jar")]
 
 
-def template_inputs(repo_root: Path) -> list[str]:
-    """Tracked template inputs only — the public surface a consumer receives."""
-    out = subprocess.run(
-        ["git", "-C", str(repo_root), "ls-files", "-z", "--", str(TEMPLATE)],
-        capture_output=True,
-        check=True,
-    ).stdout
-    inputs = [str(Path(p).relative_to(TEMPLATE)) for p in out.decode().split("\0") if p]
-    if not inputs:
-        fail(f"git ls-files returned no inputs under {TEMPLATE}")
-    return sorted(inputs)
+def api_range_for(sdk_version: str) -> str:
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)", sdk_version)
+    if not match:
+        return "[0.67.0,1.0.0)"
+    major = int(match.group(1))
+    minor = int(match.group(2))
+    return f"[{major}.{minor}.0,{major + 1}.0.0)"
 
 
-def stage_template(destination: Path, repo_root: Path, inputs: list[str], source_root: Path | None = None) -> Path:
-    """Copy exactly the tracked template inputs (working-tree bytes) plus the
-    Gradle wrapper the README tells consumers to copy; returns the staged
-    project directory. ``source_root`` lets selftests point the same input list
-    at a polluted tree."""
-    source = source_root or (repo_root / TEMPLATE)
-    project = destination / "plugin-template"
-    for rel in inputs:
-        target = project / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source / rel, target)
+def build_descriptor(sdk_version: str) -> str:
+    doc = {
+        "format": "turboism.plugin.meta",
+        "schemaVersion": 3,
+        "id": "dev.example.externalconsumer",
+        "name": "External Consumer Plugin",
+        "version": "0.1.0",
+        "description": "Minimal external-consumer contract fixture.",
+        "entrypoints": ["dev.example.externalconsumer.ExternalConsumerPlugin"],
+        "turboismApi": api_range_for(sdk_version),
+        "authors": [{"name": "Turboism Contributors"}],
+        "license": "Apache-2.0",
+        "website": "https://github.com/turboism/Turboism",
+        "resources": [],
+        "i18n": {
+            "baseName": "META-INF/turboism/i18n/messages",
+            "locales": ["en"],
+        },
+        "dependencies": [],
+        "permissions": [
+            {
+                "id": "turboism.action.register",
+                "scope": "application",
+                "reason": "Registers the external consumer ping action.",
+            },
+            {
+                "id": "turboism.event.subscribe",
+                "scope": "application",
+                "reason": "Subscribes to ping events.",
+            },
+            {
+                "id": "turboism.event.publish",
+                "scope": "application",
+                "reason": "Publishes ping events.",
+            },
+        ],
+        "capabilities": [],
+        "environment": {
+            "requiresCubism": False,
+            "ui": "none",
+        },
+        "tags": ["example"],
+        "category": "development",
+    }
+    return json.dumps(doc, indent=2) + "\n"
+
+
+def fixture_files(sdk_version: str) -> dict[str, str]:
+    return {
+        "build.gradle.kts": BUILD_GRADLE_KTS,
+        "settings.gradle.kts": SETTINGS_GRADLE_KTS,
+        "gradle.properties": f"turboismSdkVersion={sdk_version}\n",
+        PLUGIN_JAVA_REL: PLUGIN_JAVA_TEMPLATE.replace("__SUBSCRIBE_METHOD__", SUBSCRIBE_COMMENTED),
+        str(DESCRIPTOR): build_descriptor(sdk_version),
+        "src/main/resources/META-INF/turboism/cubism-versions.json": json.dumps(CUBISM_VERSIONS_JSON, indent=2) + "\n",
+        "src/main/resources/META-INF/turboism/i18n/messages.properties": MESSAGES_PROPERTIES,
+        "src/main/resources/META-INF/turboism/i18n/messages_en.properties": MESSAGES_PROPERTIES,
+    }
+
+
+def stage_fixture(
+    destination: Path,
+    repo_root: Path,
+    sdk_version: str,
+    source_root: Path | None = None,
+) -> Path:
+    """Write or copy the tracked external-consumer fixture plus the Gradle wrapper."""
+    project = destination / "external-consumer-plugin"
+    files = fixture_files(sdk_version)
+    if source_root is not None:
+        for rel in sorted(files):
+            target = project / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_root / rel, target)
+    else:
+        for rel, content in sorted(files.items()):
+            target = project / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+    (project / "libs").mkdir(parents=True, exist_ok=True)
     for rel in WRAPPER_FILES:
         target = project / rel
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -177,11 +357,7 @@ def stage_template(destination: Path, repo_root: Path, inputs: list[str], source
 
 
 def isolated_gradle_home(work: Path, shared_gradle_home: Path | None = None) -> Path:
-    """Private Gradle user home for the nested build: no user init scripts, no
-    user gradle.properties, no inherited caches. The wrapper ``dists``
-    directory is linked in from the Gradle user home the outer build actually
-    runs under so the downloaded Gradle distribution is reused instead of
-    re-fetched per run."""
+    """Private Gradle user home for the nested build."""
     home = work / "gradle-home"
     (home / "wrapper").mkdir(parents=True, exist_ok=True)
     base = shared_gradle_home or Path(os.environ.get("GRADLE_USER_HOME", Path.home() / ".gradle"))
@@ -241,66 +417,23 @@ def sdk_jars_in_libs(project: Path) -> list[Path]:
 
 
 def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def resolve_processor_jar(args: argparse.Namespace, sdk_jar: Path, sdk_version: str) -> Path | None:
-    if getattr(args, "event_processor_jar", None):
-        return Path(args.event_processor_jar)
+    if args.event_processor_jar:
+        path = Path(args.event_processor_jar)
+        if not path.is_file():
+            fail(f"--event-processor-jar does not exist: {path}")
+        return path
     candidate = sdk_jar.parents[2] / "event-processor" / "libs" / f"event-processor-{sdk_version}.jar"
     if candidate.is_file():
         return candidate
     return None
-
-
-def stage_local_release_fixture(
-    fixture_dir: Path,
-    sdk_jar: Path,
-    processor_jar: Path | None,
-    version: str,
-) -> dict[str, str]:
-    tag = f"v{version}"
-    dl_dir = fixture_dir / "releases" / "download" / tag
-    dl_dir.mkdir(parents=True, exist_ok=True)
-    sdk_name = f"turboism-sdk-{version}.jar"
-    proc_name = f"turboism-event-processor-{version}.jar"
-    (dl_dir / sdk_name).write_bytes(sdk_jar.read_bytes())
-    (dl_dir / f"{sdk_name}.sha256").write_text(f"{sha256(sdk_jar)}  {sdk_name}\n", encoding="utf-8")
-    if processor_jar is not None:
-        (dl_dir / proc_name).write_bytes(processor_jar.read_bytes())
-        (dl_dir / f"{proc_name}.sha256").write_text(f"{sha256(processor_jar)}  {proc_name}\n", encoding="utf-8")
-    else:
-        (dl_dir / proc_name).unlink(missing_ok=True)
-        (dl_dir / f"{proc_name}.sha256").unlink(missing_ok=True)
-
-    api_dir = fixture_dir / "v1" / "releases"
-    api_dir.mkdir(parents=True, exist_ok=True)
-    channel = "beta" if "-" in version else "stable"
-    compat_versions = ["5.0.00", "5.2.03", "5.3.02", "5.3.03", "5.3.04"]
-    release_doc = {
-        "schemaVersion": 1,
-        "channel": channel,
-        "status": "ready",
-        "release": {
-            "version": version,
-            "tag": tag,
-            "channel": channel,
-            "compatibility": {
-                "cubismEditor": {
-                    "versions": compat_versions,
-                    "ranges": [{"from": compat_versions[0], "to": compat_versions[-1]}],
-                },
-                "platforms": ["windows-x64"],
-                "matrixUrl": "https://turboism.dev/docs/use/compatibility",
-            },
-        },
-    }
-    (api_dir / f"{channel}.json").write_text(json.dumps(release_doc), encoding="utf-8")
-    env = os.environ.copy()
-    env["TURBOISM_SETUP_RELEASE_API_URL"] = f"file://{api_dir}"
-    env["TURBOISM_SETUP_GITHUB_API_URL"] = f"file://{fixture_dir}/github"
-    env["TURBOISM_SETUP_DOWNLOAD_BASE_URL"] = f"file://{fixture_dir}/releases/download"
-    return env
 
 
 def verify_subscriber_catalog(jar_path: Path, expected_provider: str) -> None:
@@ -328,35 +461,18 @@ def check(args: argparse.Namespace) -> int:
     sdk_jar = Path(args.sdk_jar)
     sdk_version = args.sdk_version or sdk_version_from(sdk_jar)
     processor_jar = resolve_processor_jar(args, sdk_jar, sdk_version)
-    inputs = template_inputs(Path(args.repo_root))
-    project = stage_template(work, Path(args.repo_root), inputs)
+    project = stage_fixture(work, Path(args.repo_root), sdk_version)
 
-    # Staged inputs are tracked-only: a pre-existing SDK jar here would mean a
-    # tracked artifact or a staging leak, both of which must fail loudly.
     stale = sdk_jars_in_libs(project)
     if stale:
-        fail(f"staged template already carries SDK jars: {stale}")
-
-    # 1. SDK-only release mode (processor absent, e.g. 0.67.0-beta.1):
-    # setup.sh must warn clearly and configure the project to build without the processor.
-    sdk_only_env = stage_local_release_fixture(work / "release-fixture-sdk-only", sdk_jar, None, sdk_version)
-    sdk_only_res = subprocess.run(
-        ["bash", str(project / "scripts/setup.sh"), "--version", sdk_version, "--yes"],
-        cwd=project,
-        env=sdk_only_env,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    if sdk_only_res.returncode != 0:
-        fail(f"setup.sh SDK-only run failed:\n{sdk_only_res.stderr}\n{sdk_only_res.stdout}")
-    if "@SubscribeEvent catalogs will not be generated" not in sdk_only_res.stderr:
-        fail(f"setup.sh SDK-only run did not warn about absent event-processor:\n{sdk_only_res.stderr}")
+        fail(f"staged fixture already carries SDK jars: {stale}")
 
     init_script = work / "clear-repositories.init.gradle"
     init_script.write_text(ISOLATION_INIT, encoding="utf-8")
     gradle_home = isolated_gradle_home(work, args.shared_gradle_home)
 
+    # 1. SDK-only external consumer mode (no annotation processor in libs/).
+    (project / "libs" / f"turboism-sdk-{sdk_version}.jar").write_bytes(sdk_jar.read_bytes())
     build = gradle_build(
         project,
         work / "gradle-build.log",
@@ -365,7 +481,7 @@ def check(args: argparse.Namespace) -> int:
         ["-I", str(init_script)],
     )
     if build.returncode != 0:
-        fail(f"template build failed (see {work / 'gradle-build.log'}):\n{log_tail(work / 'gradle-build.log')}")
+        fail(f"external-consumer build failed (see {work / 'gradle-build.log'}):\n{log_tail(work / 'gradle-build.log')}")
     jar = built_jar(project)
     jar_name = jar.name
     jar_sha = sha256(jar)
@@ -373,91 +489,59 @@ def check(args: argparse.Namespace) -> int:
     descriptor = project / DESCRIPTOR
     meta = validate_descriptor(args.java, args.runtime_classpath, descriptor, work / "plugin-meta-validation.log")
     if meta.returncode != 0:
-        fail(f"PluginMetaValidationCli rejected the template descriptor:\n{log_tail(work / 'plugin-meta-validation.log')}")
+        fail(f"PluginMetaValidationCli rejected the fixture descriptor:\n{log_tail(work / 'plugin-meta-validation.log')}")
     contract = validate_jar(args.java, args.runtime_classpath, descriptor, jar, work / "jar-contract-validation.log")
     if contract.returncode != 0:
         fail(f"FirstPartyMetadataVerificationCli rejected the built plugin jar:\n{log_tail(work / 'jar-contract-validation.log')}")
 
     if processor_jar is not None:
-        # 2. Full developer-asset release mode (SDK + event-processor) with rename and @SubscribeEvent:
-        fixture_env = stage_local_release_fixture(work / "release-fixture-full", sdk_jar, processor_jar, sdk_version)
-        rename_res = subprocess.run(
-            [
-                "bash",
-                str(project / "scripts/setup.sh"),
-                "--version",
-                sdk_version,
-                "--id",
-                "com.acme.widget",
-                "--name",
-                "Acme Widget",
-                "--package",
-                "com.acme.widget",
-                "--author",
-                "Ada Lovelace",
-                "--yes",
-            ],
-            cwd=project,
-            env=fixture_env,
-            capture_output=True,
-            text=True,
-            timeout=60,
+        # 2. Full SDK + event-processor mode with @SubscribeEvent enabled.
+        (project / "libs" / f"turboism-event-processor-{sdk_version}.jar").write_bytes(processor_jar.read_bytes())
+        java_path = project / PLUGIN_JAVA_REL
+        java_path.write_text(
+            PLUGIN_JAVA_TEMPLATE.replace("__SUBSCRIBE_METHOD__", SUBSCRIBE_ENABLED),
+            encoding="utf-8",
         )
-        if rename_res.returncode != 0:
-            fail(f"setup.sh rename run failed:\n{rename_res.stderr}\n{rename_res.stdout}")
-        renamed_java = project / "src/main/java/com/acme/widget/AcmeWidgetPlugin.java"
-        java_source = renamed_java.read_text(encoding="utf-8")
-        java_source = java_source.replace(
-            "    // @dev.turboism.sdk.event.SubscribeEvent\n"
-            "    // public void onHello(HelloEvent event) {\n"
-            "    //     logger.info(\"AcmeWidgetPlugin received event: \" + event.message());\n"
-            "    // }",
-            "    @dev.turboism.sdk.event.SubscribeEvent\n"
-            "    public void onHello(HelloEvent event) {\n"
-            "        logger.info(\"AcmeWidgetPlugin received event: \" + event.message());\n"
-            "    }",
-        )
-        renamed_java.write_text(java_source, encoding="utf-8")
         shutil.rmtree(project / "build", ignore_errors=True)
-        renamed_build = gradle_build(
+        proc_build = gradle_build(
             project,
-            work / "gradle-renamed-build.log",
+            work / "gradle-processor-build.log",
             gradle_home,
             sdk_version,
             ["-I", str(init_script)],
         )
-        if renamed_build.returncode != 0:
+        if proc_build.returncode != 0:
             fail(
-                f"renamed template build failed (see {work / 'gradle-renamed-build.log'}):\n"
-                f"{log_tail(work / 'gradle-renamed-build.log')}"
+                f"external-consumer processor build failed (see {work / 'gradle-processor-build.log'}):\n"
+                f"{log_tail(work / 'gradle-processor-build.log')}"
             )
-        renamed_jar = built_jar(project, "widget-turboism-plugin-*.jar")
-        renamed_meta = validate_descriptor(
-            args.java, args.runtime_classpath, descriptor, work / "renamed-meta-validation.log"
+        proc_jar = built_jar(project)
+        proc_meta = validate_descriptor(
+            args.java, args.runtime_classpath, descriptor, work / "processor-meta-validation.log"
         )
-        if renamed_meta.returncode != 0:
+        if proc_meta.returncode != 0:
             fail(
-                f"PluginMetaValidationCli rejected the renamed descriptor:\n"
-                f"{log_tail(work / 'renamed-meta-validation.log')}"
+                f"PluginMetaValidationCli rejected the processor fixture descriptor:\n"
+                f"{log_tail(work / 'processor-meta-validation.log')}"
             )
-        renamed_contract = validate_jar(
-            args.java, args.runtime_classpath, descriptor, renamed_jar, work / "renamed-jar-validation.log"
+        proc_contract = validate_jar(
+            args.java, args.runtime_classpath, descriptor, proc_jar, work / "processor-jar-validation.log"
         )
-        if renamed_contract.returncode != 0:
+        if proc_contract.returncode != 0:
             fail(
-                f"FirstPartyMetadataVerificationCli rejected the renamed plugin jar:\n"
-                f"{log_tail(work / 'renamed-jar-validation.log')}"
+                f"FirstPartyMetadataVerificationCli rejected the processor plugin jar:\n"
+                f"{log_tail(work / 'processor-jar-validation.log')}"
             )
-        verify_subscriber_catalog(renamed_jar, "com.acme.widget.AcmeWidgetPlugin__TurboismSubscriberCatalog")
+        verify_subscriber_catalog(
+            proc_jar,
+            "dev.example.externalconsumer.ExternalConsumerPlugin__TurboismSubscriberCatalog",
+        )
 
-    has_tests = (project / "src" / "test").is_dir()
     print(f"external-consumer build OK: {jar_name} sha256={jar_sha}")
     print(f"  sdk artifact: {sdk_jar.name} version={sdk_version} sha256={sha256(sdk_jar)}")
     if processor_jar is not None:
         print(f"  event-processor artifact: {processor_jar.name} sha256={sha256(processor_jar)}")
     print("  descriptor: PluginMetaValidationCli PASS; jar contract: FirstPartyMetadataVerificationCli PASS")
-    if not has_tests:
-        print("  note: template ships no src/test — Gradle 'test' is NO-SOURCE and is not a test pass")
     print(f"  workspace: {work}")
     return 0
 
@@ -473,8 +557,7 @@ def expect_failure(label: str, result: subprocess.CompletedProcess, log: Path, n
 
 
 def write_bogus_sdk_jar(path: Path) -> None:
-    """A well-formed JAR containing no SDK classes — stands in for foreign
-    turboism-sdk-*.jar leftovers when only their zip validity matters."""
+    """A well-formed JAR containing no SDK classes."""
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n")
 
@@ -484,41 +567,37 @@ def selftest(args: argparse.Namespace) -> int:
     sdk_jar = Path(args.sdk_jar)
     sdk_version = args.sdk_version or sdk_version_from(sdk_jar)
     repo_root = Path(args.repo_root)
-    inputs = template_inputs(repo_root)
+    expected_inputs = set(fixture_files(sdk_version))
     gradle_home = isolated_gradle_home(work, args.shared_gradle_home)
     init_script = work / "clear-repositories.init.gradle"
     init_script.write_text(ISOLATION_INIT, encoding="utf-8")
 
-    # Fixture 0 — staging isolation: a consumer source tree polluted with
-    # pre-existing build output, .gradle state and a *real* stale SDK jar must
-    # stage only tracked inputs — the stale artifact can never reach the build.
-    polluted = work / "polluted-source" / "plugin-template"
-    stage_template(work / "polluted-source", repo_root, inputs)
+    # Fixture 0 — staging isolation against polluted source tree.
+    polluted = stage_fixture(work / "polluted-source", repo_root, sdk_version)
     for directory in ("build/libs", ".gradle"):
         (polluted / directory).mkdir(parents=True, exist_ok=True)
-    (polluted / "build" / "libs" / "hello-turboism-plugin-0.1.0.jar").write_bytes(b"stale")
+    (polluted / "build" / "libs" / "external-consumer-plugin-0.1.0.jar").write_bytes(b"stale")
     (polluted / ".gradle" / "fileHashes.bin").write_bytes(b"stale")
     (polluted / "libs" / "turboism-sdk-0.0.0-stale.jar").write_bytes(sdk_jar.read_bytes())
     write_bogus_sdk_jar(polluted / "libs" / "turboism-sdk-9.9.9-foreign.jar")
     (polluted / "libs" / "scratch.txt").write_text("untracked scratch", encoding="utf-8")
-    staged = stage_template(work / "staging-isolation", repo_root, inputs, source_root=polluted)
+    staged = stage_fixture(work / "staging-isolation", repo_root, sdk_version, source_root=polluted)
     staged_files = {
         str(p.relative_to(staged)) for p in staged.rglob("*") if p.is_file()
     }
-    unexpected = staged_files - set(inputs) - set(WRAPPER_FILES)
+    unexpected = staged_files - expected_inputs - set(WRAPPER_FILES)
     if unexpected:
         fail(f"staged consumer copy contains non-input files: {sorted(unexpected)}")
     if sdk_jars_in_libs(staged):
         fail(f"stale SDK jars leaked into the staged copy: {sdk_jars_in_libs(staged)}")
     print(f"  fixture 'staging-isolation' holds: {len(staged_files)} files, all tracked inputs or wrapper")
 
-    # Fixture 1 — drifted descriptor: entrypoint class absent from the JAR must
-    # be rejected by the production PluginJarContract through the verifier CLI.
-    drifted = stage_template(work / "drifted-descriptor", repo_root, inputs)
+    # Fixture 1 — drifted descriptor: entrypoint class absent from the JAR.
+    drifted = stage_fixture(work / "drifted-descriptor", repo_root, sdk_version)
     (drifted / "libs" / f"turboism-sdk-{sdk_version}.jar").write_bytes(sdk_jar.read_bytes())
     descriptor_path = drifted / DESCRIPTOR
     descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
-    descriptor["entrypoints"] = ["dev.example.hello.AbsentEntrypoint"]
+    descriptor["entrypoints"] = ["dev.example.externalconsumer.AbsentEntrypoint"]
     descriptor_path.write_text(json.dumps(descriptor, indent=2) + "\n", encoding="utf-8")
     build = gradle_build(drifted, work / "drifted-build.log", gradle_home, sdk_version, ["-I", str(init_script)])
     if build.returncode != 0:
@@ -538,19 +617,14 @@ def selftest(args: argparse.Namespace) -> int:
     )
 
     # Fixture 2 — manifest rejected by the schema validator itself.
-    descriptor["entrypoints"] = ["dev.example.hello.HelloPlugin"]
+    descriptor["entrypoints"] = ["dev.example.externalconsumer.ExternalConsumerPlugin"]
     descriptor.pop("id")
     descriptor_path.write_text(json.dumps(descriptor, indent=2) + "\n", encoding="utf-8")
     result = validate_descriptor(args.java, args.runtime_classpath, descriptor_path, work / "invalid-meta-validation.log")
     expect_failure("invalid-manifest", result, work / "invalid-meta-validation.log", ["PLUGIN_META_MISSING"])
 
-    # Fixture 3 — SDK absent: staged from the *polluted* source (which carries
-    # a real stale SDK jar), so libs/ empty is asserted against staging output;
-    # the template's declared mavenLocal() is redirected to an empty repository.
-    # Resolution must fail closed with a real dependency-miss whose searched
-    # locations list the isolated repo — not an unrelated Gradle failure — and
-    # a stale jar or populated ~/.m2 can never mask the missing artifact.
-    orphan = stage_template(work / "sdk-absent", repo_root, inputs, source_root=polluted)
+    # Fixture 3 — SDK absent with redirected empty mavenLocal().
+    orphan = stage_fixture(work / "sdk-absent", repo_root, sdk_version, source_root=polluted)
     if sdk_jars_in_libs(orphan):
         fail("selftest fixture 'sdk-absent' staged an SDK jar — libs must be empty")
     empty_repo = work / "empty-maven-local"
@@ -572,13 +646,7 @@ def selftest(args: argparse.Namespace) -> int:
         ],
     )
 
-    # Fixture 4 — command-echo control: needles must match subprocess output
-    # only. The fake log carries the real missing-coordinate marker in the
-    # output portion while the exact `file:` searched-location needle exists
-    # ONLY in the echoed command line — a parser that scanned the whole log
-    # (echo included) would wrongly accept this as a dependency-miss.
-    # The "unexpectedly accepted" failure is raised in `else`, outside the
-    # except, so it can never be swallowed by the CheckFailure catch itself.
+    # Fixture 4 — command-echo control.
     echo_only = work / "command-echo-only.log"
     echo_only.write_text(
         f"$ ./gradlew -Dmaven.repo.local=file:{empty_repo}/dev/turboism/sdk/{sdk_version}/ build\n"
@@ -600,14 +668,11 @@ def selftest(args: argparse.Namespace) -> int:
     else:
         fail("selftest fixture 'command-echo-only' unexpectedly accepted a command-echo-only log")
 
-    # Fixture 5 — user-level Gradle config is really isolated: an init script in
-    # the private Gradle home DOES break the build (positive control), so the
-    # clean private home used everywhere above proves no user init script or
-    # gradle.properties was loaded.
+    # Fixture 5 — poisoned user-level init script proves isolated Gradle home.
     poisoned_home = isolated_gradle_home(work / "poisoned-gradle-run", args.shared_gradle_home)
     (poisoned_home / "init.d").mkdir(parents=True, exist_ok=True)
     (poisoned_home / "init.d" / "poison.gradle").write_text(POISON_INIT, encoding="utf-8")
-    poisoned = stage_template(work / "user-init-poisoned", repo_root, inputs)
+    poisoned = stage_fixture(work / "user-init-poisoned", repo_root, sdk_version)
     (poisoned / "libs" / f"turboism-sdk-{sdk_version}.jar").write_bytes(sdk_jar.read_bytes())
     result = gradle_build(
         poisoned,

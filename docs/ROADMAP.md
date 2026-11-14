@@ -68,7 +68,7 @@ Semantic event lifecycle
 **Current state:**
 
 - Pre-freeze SDK cleanups are complete: `dev.turboism.sdk.event.cubism` is retired and rejected by boundary checks, `PluginContext` optional services use uniform `unavailable()` / `isAvailable()` contracts, and `sdk/api-contracts/current.txt` tracks the pre-1.0 public surface.
-- Standalone plugin development works via `templates/plugin-template/` with `setup.sh` / `setup.ps1` and released SDK / event-processor JARs.
+- Standalone plugin development works via [`turboism/turboism-plugin-template`](https://github.com/turboism/turboism-plugin-template) with `setup.sh` / `setup.ps1` and released SDK / event-processor JARs.
 - Windows EXE/ZIP packaging, localized installers, and the Ed25519-signed plugin marketplace are operational.
 
 **Remaining focus:**

@@ -55,7 +55,6 @@ member devCheck checkCleanWorktreeSafety
 member devCheck checkHostCleanupEnvMerge
 member devCheck checkCleanupFailurePropagation
 member devCheck checkTestExecutionGuard
-member devCheck checkPluginTemplateSetup
 member devCheck checkRepositoryHygiene
 member devCheck checkEditorModelAliases
 member devCheck checkMaterializedRecords

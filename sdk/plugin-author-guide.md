@@ -6,14 +6,15 @@ version availability are separate checks.
 
 ## Start and package
 
-Use the [plugin template quick start](../templates/plugin-template/README.md#quick-start):
+Use the [plugin template quick start](https://github.com/turboism/turboism-plugin-template#quick-start):
 create a repository from the template, run its setup script, then run
 `./gradlew build` with JDK 17 or newer. Setup downloads the SDK and optional event
 processor and verifies their SHA-256 sidecars. Customize
-[HelloPlugin.java](../templates/plugin-template/src/main/java/dev/example/hello/HelloPlugin.java)
-and its descriptor together. This complete example is compiled by the existing
-`checkExternalPluginTemplate` gate; the examples linked below are production
-plugin sources compiled by `devCheck`.
+[`HelloPlugin.java`](https://github.com/turboism/turboism-plugin-template/blob/main/src/main/java/dev/example/hello/HelloPlugin.java)
+and its descriptor together. The `checkExternalPluginTemplate` gate builds an
+inline external-consumer fixture against the repository's built SDK and event
+processor; the examples linked below are production plugin sources compiled by
+`devCheck`.
 
 Keep the SDK dependency `compileOnly` and the event processor on
 `annotationProcessor`; neither belongs in the plugin JAR. Install the resulting
@@ -32,7 +33,7 @@ prove compatibility with every future pre-stable runtime.
 ## Descriptor and permissions
 
 Start from the template's
-[plugin.json](../templates/plugin-template/src/main/resources/META-INF/turboism/plugin.json).
+[`plugin.json`](https://github.com/turboism/turboism-plugin-template/blob/main/src/main/resources/META-INF/turboism/plugin.json).
 Keep `id`, entrypoint class names, localization keys and Cubism sidecar identity
 in sync. Declare resources outside `META-INF/` under allowed `resources` prefixes.
 
@@ -112,7 +113,7 @@ and `exclude` removes versions. These annotations are SDK declarations, not a
 replacement for the plugin's metadata or runtime availability checks.
 
 Declare supported exact versions in
-[`META-INF/turboism/cubism-versions.json`](../templates/plugin-template/src/main/resources/META-INF/turboism/cubism-versions.json).
+[`META-INF/turboism/cubism-versions.json`](https://github.com/turboism/turboism-plugin-template/blob/main/src/main/resources/META-INF/turboism/cubism-versions.json).
 `supportedVersions` lists hosts where the plugin is usable; `fullFeatureVersions`
 lists the subset with all features. The template setup derives its initial list
 from release compatibility metadata; review it against your actual requirements.
@@ -259,7 +260,7 @@ supported Cubism versions; compilation alone does not verify host behavior.
 
 Inside this repository, run the affected `:plugins:<name>:test` task during
 implementation. `devCheck` compiles production examples and checks metadata;
-`checkExternalPluginTemplate` builds the template as an external consumer and
+`checkExternalPluginTemplate` builds an external-consumer fixture and
 validates its packaged contract. Run `checkCompletedCommit` for final acceptance.
 See [testing](../testing/README.md) and
 [contributor gates](../.github/CONTRIBUTING.md#verification) for host validation and

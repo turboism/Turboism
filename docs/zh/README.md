@@ -77,7 +77,7 @@ Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
 
 开发插件无需克隆或构建 Turboism 本体，仅需 **JDK 17+**：
 
-1. 复制 [templates/plugin-template](../../templates/plugin-template/) 作为独立工程，运行 `./scripts/setup.sh`（Windows 下运行 `.\scripts\setup.ps1`）自动下载并校验 `turboism-sdk-<version>.jar` 与 `turboism-event-processor-<version>.jar`，或手动放入 `libs/` 目录。
+1. 从[独立插件模板仓库](https://github.com/turboism/turboism-plugin-template)创建工程，运行 `./scripts/setup.sh`（Windows 下运行 `.\scripts\setup.ps1`）自动下载并校验 `turboism-sdk-<version>.jar` 与 `turboism-event-processor-<version>.jar`，或手动放入 `libs/` 目录。
 2. 执行 `./gradlew build`（Windows 下为 `gradlew.bat build`）构建插件 JAR。
 
 如果在当前仓库内开发，可参考[示例插件](../../plugins/demo/README.md)（[build.gradle.kts](../../plugins/demo/build.gradle.kts)、[plugin.json](../../plugins/demo/src/main/resources/META-INF/turboism/plugin.json)），构建命令如下：
@@ -110,7 +110,7 @@ cd Turboism
 - [用户与开发者文档](https://docs.turboism.dev)
 - [架构说明](../architecture/ARCHITECTURE.md) · [路线图](../ROADMAP.md)
 - [SDK API 契约](../../sdk/api-contracts/) · [当前公开 SDK 表面](../../sdk/api-contracts/current.txt)
-- [插件开发指南](../../sdk/plugin-author-guide.md) · [独立插件模板](../../templates/plugin-template/) · [示例插件](../../plugins/demo/README.md)
+- [插件开发指南](../../sdk/plugin-author-guide.md) · [独立插件模板](https://github.com/turboism/turboism-plugin-template) · [示例插件](../../plugins/demo/README.md)
 - [发布流程](../RELEASING.md) · [更新日志](CHANGELOG.md)
 
 ## 开源协议

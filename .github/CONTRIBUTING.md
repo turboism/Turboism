@@ -1,7 +1,7 @@
 # Contributing to Turboism
 
 For third-party plugin development, start with the [plugin author guide](../sdk/plugin-author-guide.md)
-and the [standalone template](../templates/plugin-template/README.md).
+and the [standalone template](https://github.com/turboism/turboism-plugin-template).
 
 ## UI appearance
 
