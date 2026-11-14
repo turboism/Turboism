@@ -106,6 +106,7 @@ final class NativeOptimizationProtocolTableTest {
                         "TURBOISM_SCENE_HANDLER_CACHE",
                         "TURBOISM_SORTING_INFO_CACHE",
                         "TURBOISM_STATE_ELISION",
+                        "TURBOISM_WARP_GRID_INTERPOLATION",
                         "TURBOISM_WARP_NORMAL_POINT_ELISION"),
                 diagnosticOnly);
     }

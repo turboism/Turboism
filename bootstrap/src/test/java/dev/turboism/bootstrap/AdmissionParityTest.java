@@ -322,6 +322,17 @@ class AdmissionParityTest {
                             } catch (final java.io.IOException impossible) {
                                 throw new AssertionError(impossible);
                             }
+                        }),
+                new Row(
+                        "warp-grid-interpolation",
+                        VerifiedWarpGridInterpolationInstaller.ADMISSION,
+                        new Frozen(true, "ANY"),
+                        (policy, requested, jvm) -> {
+                            try {
+                                return VerifiedWarpGridInterpolationInstaller.admitted(artifact(), policy, requested);
+                            } catch (final java.io.IOException impossible) {
+                                throw new AssertionError(impossible);
+                            }
                         }));
     }
 

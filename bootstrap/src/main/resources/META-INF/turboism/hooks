@@ -125,3 +125,5 @@ dev.turboism.bootstrap.SceneHandlerCacheHookContributor
 dev.turboism.bootstrap.CameraMatrixCacheHookContributor
 # Disabled outside-of-parent warp control-point boxing and buffer upload elision.
 dev.turboism.bootstrap.WarpNormalPointElisionHookContributor
+# Warp grid bilinear and triangle point-interpolation fast path.
+dev.turboism.bootstrap.WarpGridInterpolationHookContributor

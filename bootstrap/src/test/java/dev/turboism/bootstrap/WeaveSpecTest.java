@@ -90,6 +90,10 @@ class WeaveSpecTest {
                 1,
                 VerifiedWarpNormalPointElisionInstaller.EXPECTED_MATCHES,
                 VerifiedWarpNormalPointElisionInstaller.HOOK_ID);
+        assertEquals(
+                1,
+                VerifiedWarpGridInterpolationInstaller.EXPECTED_MATCHES,
+                VerifiedWarpGridInterpolationInstaller.HOOK_ID);
     }
 
     @Test
@@ -162,6 +166,10 @@ class WeaveSpecTest {
                 1,
                 VerifiedWarpNormalPointElisionInstaller.EXPECTED_OWNERS,
                 VerifiedWarpNormalPointElisionInstaller.HOOK_ID);
+        assertEquals(
+                1,
+                VerifiedWarpGridInterpolationInstaller.EXPECTED_OWNERS,
+                VerifiedWarpGridInterpolationInstaller.HOOK_ID);
     }
 
     @Test
@@ -193,6 +201,7 @@ class WeaveSpecTest {
         assertRow(VerifiedSceneHandlerCacheInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
         assertRow(VerifiedCameraMatrixCacheInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
         assertRow(VerifiedWarpNormalPointElisionInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.ANY);
+        assertRow(VerifiedWarpGridInterpolationInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.ANY);
     }
 
     private static void assertRow(final Admission admission, final PolicyCheck policyCheck, final JvmCheck jvmCheck) {

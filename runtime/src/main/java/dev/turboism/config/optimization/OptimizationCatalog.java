@@ -536,6 +536,22 @@ public final class OptimizationCatalog {
             "",
             List.of(new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, WARP_POSITION_PROJECTION, "")));
 
+    /**
+     * Diagnostic-only: accelerates in-bounds warp grid bilinear and triangle interpolation while
+     * delegating out-of-bounds extrapolation; derives its default from {@link #WARP_POSITION_PROJECTION}.
+     */
+    public static final Optimization WARP_GRID_INTERPOLATION = new Optimization(
+            "",
+            "",
+            Optimization.Access.DIAGNOSTIC_ONLY,
+            List.of("turboism.optimization.warpGridInterpolation"),
+            List.of("TURBOISM_WARP_GRID_INTERPOLATION"),
+            Set.of("cubism.deformer.warp-grid-interpolation"),
+            Optional.empty(),
+            "",
+            "",
+            List.of(new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, WARP_POSITION_PROJECTION, "")));
+
     /** Every row, in declaration order. */
     private static final List<Optimization> ALL = List.of(
             MODEL_UPDATE_SKIP,
@@ -572,7 +588,8 @@ public final class OptimizationCatalog {
             CURSOR_VALIDATION_ELISION,
             SCENE_HANDLER_CACHE,
             CAMERA_MATRIX_CACHE,
-            WARP_NORMAL_POINT_ELISION);
+            WARP_NORMAL_POINT_ELISION,
+            WARP_GRID_INTERPOLATION);
 
     static {
         validate(ALL);

@@ -93,7 +93,8 @@ final class HookManifestTest {
                         CursorValidationElisionHookContributor.class,
                         SceneHandlerCacheHookContributor.class,
                         CameraMatrixCacheHookContributor.class,
-                        WarpNormalPointElisionHookContributor.class),
+                        WarpNormalPointElisionHookContributor.class,
+                        WarpGridInterpolationHookContributor.class),
                 contributors.stream().map(HookContributor::getClass).toList());
     }
 
