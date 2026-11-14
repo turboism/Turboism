@@ -1,8 +1,14 @@
 package dev.turboism.adapter.cubism.warpalt;
 
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.event.MouseEvent;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -11,13 +17,15 @@ import java.util.Set;
 
 /** Keeps the pressed side of each selected pair in charge of a native point drag. */
 final class NativeWarpPointGesture {
+    private static final String CPOINT_CLASS = "com.live2d.type.CPoint";
     private static final ThreadLocal<Gesture> CURRENT = new ThreadLocal<>();
 
     static final class Gesture {
         final float x;
         final float y;
         final WeakReference<Object> view;
-        final Map<float[], Map<Integer, Integer>> drivers = new IdentityHashMap<>();
+        final Map<float[], int[]> drivers = new IdentityHashMap<>();
+        final Map<float[], Map<Integer, Integer>> overflowDrivers = new IdentityHashMap<>();
         final Map<float[], Set<Integer>> written = new IdentityHashMap<>();
 
         Gesture(Object view, float x, float y) {
@@ -27,13 +35,36 @@ final class NativeWarpPointGesture {
         }
 
         int driver(float[] positions, int index, int other, float px, float py, float ox, float oy) {
-            Map<Integer, Integer> pairDrivers = drivers.computeIfAbsent(positions, ignored -> new HashMap<>());
             int key = Math.min(index, other);
-            return pairDrivers.computeIfAbsent(key, ignored -> {
-                double a = Math.pow(px - x, 2) + Math.pow(py - y, 2);
-                double b = Math.pow(ox - x, 2) + Math.pow(oy - y, 2);
-                return a < b ? index : b < a ? other : key;
-            });
+            int capacity = positions.length >> 1;
+            if (key >= 0 && key < capacity) {
+                int[] table = drivers.get(positions);
+                if (table == null) {
+                    table = new int[capacity];
+                    drivers.put(positions, table);
+                }
+                int cached = table[key];
+                if (cached != 0) return cached - 1;
+                int chosen = chooseDriver(index, other, key, px, py, ox, oy);
+                table[key] = chosen + 1;
+                return chosen;
+            }
+            Map<Integer, Integer> pairDrivers = overflowDrivers.computeIfAbsent(positions, ignored -> new HashMap<>());
+            Integer cached = pairDrivers.get(key);
+            if (cached != null) return cached;
+            int chosen = chooseDriver(index, other, key, px, py, ox, oy);
+            pairDrivers.put(key, chosen);
+            return chosen;
+        }
+
+        private int chooseDriver(int index, int other, int key, float px, float py, float ox, float oy) {
+            double adx = px - x;
+            double ady = py - y;
+            double a = adx * adx + ady * ady;
+            double bdx = ox - x;
+            double bdy = oy - y;
+            double b = bdx * bdx + bdy * bdy;
+            return a < b ? index : b < a ? other : key;
         }
     }
 
@@ -53,15 +84,13 @@ final class NativeWarpPointGesture {
             if (mouse.getID() == MouseEvent.MOUSE_PRESSED) {
                 clear();
                 if (mouse.getButton() != MouseEvent.BUTTON1) return;
-                Class<?> componentPoint = Class.forName(
-                        "com.live2d.type.CPoint", false, view.getClass().getClassLoader());
-                Object point =
-                        componentPoint.getConstructor(int.class, int.class).newInstance(mouse.getX(), mouse.getY());
-                Object camera = call(view, "getCameraManager");
-                Object document = camera.getClass()
-                        .getMethod("componentToDocument", componentPoint)
-                        .invoke(camera, point);
-                CURRENT.set(new Gesture(view, number(document, "getX"), number(document, "getY")));
+                InputHandles handles = INPUT_HANDLES.get(view.getClass());
+                Object point = handles.pointCtor.invokeExact(mouse.getX(), mouse.getY());
+                Object camera = handles.getCameraManager.invokeExact(view);
+                Object document = handles.componentToDocument.invokeExact(camera, point);
+                float docX = (float) handles.vecX.invokeExact(document);
+                float docY = (float) handles.vecY.invokeExact(document);
+                CURRENT.set(new Gesture(view, docX, docY));
             } else if (mouse.getID() == MouseEvent.MOUSE_RELEASED) {
                 clear();
             } else {
@@ -110,6 +139,52 @@ final class NativeWarpPointGesture {
         written.add(index);
         written.add(other);
         return false;
+    }
+
+    private static final ClassValue<InputHandles> INPUT_HANDLES = new ClassValue<>() {
+        @Override
+        protected InputHandles computeValue(Class<?> viewType) {
+            try {
+                return new InputHandles(viewType);
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException(failure);
+            }
+        }
+    };
+
+    private static final class InputHandles {
+        final MethodHandle pointCtor;
+        final MethodHandle getCameraManager;
+        final MethodHandle componentToDocument;
+        final MethodHandle vecX;
+        final MethodHandle vecY;
+
+        InputHandles(Class<?> viewType) throws ReflectiveOperationException {
+            MethodHandles.Lookup lookup = MethodHandles.lookup();
+            Class<?> componentPoint = Class.forName(CPOINT_CLASS, false, viewType.getClassLoader());
+            Constructor<?> cPointCtor = componentPoint.getConstructor(int.class, int.class);
+            ReflectAccess.open(cPointCtor);
+            pointCtor = lookup.unreflectConstructor(cPointCtor)
+                    .asType(MethodType.methodType(Object.class, int.class, int.class));
+
+            Method camMethod = viewType.getMethod("getCameraManager");
+            ReflectAccess.open(camMethod);
+            Class<?> cameraType = camMethod.getReturnType();
+            getCameraManager = lookup.unreflect(camMethod).asType(MethodType.methodType(Object.class, Object.class));
+
+            Method toDocMethod = cameraType.getMethod("componentToDocument", componentPoint);
+            ReflectAccess.open(toDocMethod);
+            Class<?> vecType = toDocMethod.getReturnType();
+            componentToDocument = lookup.unreflect(toDocMethod)
+                    .asType(MethodType.methodType(Object.class, Object.class, Object.class));
+
+            Method xMethod = vecType.getMethod("getX");
+            Method yMethod = vecType.getMethod("getY");
+            ReflectAccess.open(xMethod);
+            ReflectAccess.open(yMethod);
+            vecX = lookup.unreflect(xMethod).asType(MethodType.methodType(float.class, Object.class));
+            vecY = lookup.unreflect(yMethod).asType(MethodType.methodType(float.class, Object.class));
+        }
     }
 
     private static Object call(Object target, String name) throws ReflectiveOperationException {

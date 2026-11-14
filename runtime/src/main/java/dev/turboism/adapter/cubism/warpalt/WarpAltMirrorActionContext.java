@@ -1,5 +1,10 @@
 package dev.turboism.adapter.cubism.warpalt;
 
+import dev.turboism.core.reflect.ReflectAccess;
+import dev.turboism.core.runtime.work.FatalErrors;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Objects;
@@ -14,10 +19,11 @@ import org.objectweb.asm.Type;
 
 /** Reads the dispatcher's view without probing obfuscated, potentially mutating event methods. */
 final class WarpAltMirrorActionContext {
+    private static final MethodType VIEW_GETTER_TYPE = MethodType.methodType(Object.class, Object.class);
     private final WarpAltMirrorHostProfile profile;
-    private final ClassValue<Optional<Method>> getters = new ClassValue<>() {
+    private final ClassValue<Optional<MethodHandle>> getters = new ClassValue<>() {
         @Override
-        protected Optional<Method> computeValue(Class<?> type) {
+        protected Optional<MethodHandle> computeValue(Class<?> type) {
             if (!type.getName().equals(profile.actionDispatchOwner().replace('/', '.'))) return Optional.empty();
             try {
                 Method getter = type.getDeclaredMethod(profile.actionViewMethod());
@@ -27,8 +33,9 @@ final class WarpAltMirrorActionContext {
                         || Modifier.isStatic(flags)
                         || !Type.getMethodDescriptor(getter).equals(profile.actionViewDescriptor())
                         || getter.getReturnType().getClassLoader() != type.getClassLoader()) return Optional.empty();
-                return Optional.of(getter);
-            } catch (NoSuchMethodException missing) {
+                ReflectAccess.open(getter);
+                return Optional.of(MethodHandles.lookup().unreflect(getter).asType(VIEW_GETTER_TYPE));
+            } catch (NoSuchMethodException | IllegalAccessException missing) {
                 return Optional.empty();
             }
         }
@@ -40,10 +47,17 @@ final class WarpAltMirrorActionContext {
 
     Object view(Object manager) throws ReflectiveOperationException {
         if (manager == null) return null;
-        Method getter = getters.get(manager.getClass())
+        MethodHandle getter = getters.get(manager.getClass())
                 .orElseThrow(() -> new NoSuchMethodException(manager.getClass().getName() + "#"
                         + profile.actionViewMethod() + profile.actionViewDescriptor()));
-        return getter.invoke(manager);
+        try {
+            return getter.invokeExact(manager);
+        } catch (ReflectiveOperationException | RuntimeException | Error failure) {
+            throw failure;
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            throw new ReflectiveOperationException(failure);
+        }
     }
 
     /** Admission requires exactly a field read, not just a compatible return type. */
