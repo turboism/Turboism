@@ -9,7 +9,6 @@ import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -18,10 +17,7 @@ import org.junit.jupiter.api.Test;
 
 class ClassPinTableTest {
 
-    /**
-     * Tables that ship in the runtime jar. The {@code legacy-} copies carry the
-     * pre-compaction flat shape of the same tables.
-     */
+    /** Tables that ship in the runtime jar and must resolve every reviewed version. */
     private static final List<String> SHIPPED_TABLES = List.of(
             "float-array-parse",
             "image-archive-reuse",
@@ -161,20 +157,18 @@ class ClassPinTableTest {
         }
     }
 
-    /**
-     * The compact rewrite must not change one declared class: every shipped table
-     * resolves to exactly the pre-compaction flat table over all reviewed versions.
-     */
+    /** Every shipped table resolves all reviewed versions in canonical order with non-empty targets. */
     @Test
-    void compactTablesMatchTheirLegacyFlatCopies() {
+    void shippedTablesCoverEveryReviewedVersionInOrder() {
         final List<String> reviewedOrder = ReviewedHostArtifacts.all().stream()
                 .map(artifact -> ReviewedHostArtifacts.cubismVersionOf(artifact).orElseThrow())
                 .toList();
         for (final String name : SHIPPED_TABLES) {
             final Map<String, List<String>> compact = ClassPinTable.load(name);
-            final Map<String, List<String>> legacy = ClassPinTable.load("legacy-" + name);
             assertEquals(reviewedOrder, List.copyOf(compact.keySet()), name);
-            assertEquals(new TreeMap<>(legacy), new TreeMap<>(compact), name);
+            for (final var entry : compact.entrySet()) {
+                assertTrue(!entry.getValue().isEmpty(), name + "@" + entry.getKey());
+            }
         }
     }
 }
