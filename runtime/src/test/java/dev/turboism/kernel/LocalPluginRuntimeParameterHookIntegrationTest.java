@@ -32,7 +32,7 @@ class LocalPluginRuntimeParameterHookIntegrationTest {
         final Path pluginDir = temporary.resolve("plugins");
         Files.createDirectories(pluginDir);
         PreviewParameterHookPluginJarFixture.write(pluginDir, temporary);
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         final ParameterLifecycleCoordinator lifecycle = new ParameterLifecycleCoordinator();
         System.clearProperty(PreviewParameterHookPluginJarFixture.EVENT_PROPERTY);
@@ -60,10 +60,6 @@ class LocalPluginRuntimeParameterHookIntegrationTest {
             host.close();
             scheduler.shutdown();
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
     }
 
     private static final class MutableParameter implements Parameter {

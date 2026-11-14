@@ -3,6 +3,7 @@ package dev.turboism.config;
 import dev.turboism.core.io.DurableFile;
 import dev.turboism.core.io.DurableWriteException;
 import dev.turboism.core.io.PublishGuard;
+import dev.turboism.core.io.Sha256;
 import dev.turboism.core.io.WriteOptions;
 import dev.turboism.home.AnchoredDirectoryTree;
 import dev.turboism.persistence.config.StoredDocument;
@@ -26,14 +27,11 @@ import java.nio.file.attribute.AclFileAttributeView;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -334,7 +332,7 @@ final class TypedConfigDocumentStore {
     }
 
     private static String recoveryPointName(final StoredDocument document, final byte[] bytes) {
-        return document.schemaVersion() + "-r" + document.revision() + "-" + sha256(bytes) + ".bak";
+        return document.schemaVersion() + "-r" + document.revision() + "-" + Sha256.hex(bytes) + ".bak";
     }
 
     private static Optional<RecoveryPointFile> recoveryPointFile(final Path path) {
@@ -351,14 +349,6 @@ final class TypedConfigDocumentStore {
                     path, Integer.parseInt(matcher.group(1)), Long.parseLong(matcher.group(2)), matcher.group(3)));
         } catch (NumberFormatException exception) {
             return Optional.empty();
-        }
-    }
-
-    private static String sha256(final byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 digest is unavailable", exception);
         }
     }
 

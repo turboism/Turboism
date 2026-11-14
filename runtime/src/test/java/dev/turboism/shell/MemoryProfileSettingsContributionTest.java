@@ -6,6 +6,7 @@ import dev.turboism.internal.core.CubismJvmSettingsService;
 import dev.turboism.internal.core.CubismJvmSettingsService.MemoryProfile;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsControl;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -71,26 +72,6 @@ class MemoryProfileSettingsContributionTest {
     }
 
     private static PluginLocalization i18n() {
-        return new PluginLocalization() {
-            @Override
-            public String text(String key) {
-                return key;
-            }
-
-            @Override
-            public String format(String key, Object... arguments) {
-                return key;
-            }
-
-            @Override
-            public boolean contains(String key) {
-                return true;
-            }
-
-            @Override
-            public Locale locale() {
-                return Locale.ENGLISH;
-            }
-        };
+        return FakePluginContext.passThroughLocalization(Locale.ENGLISH);
     }
 }

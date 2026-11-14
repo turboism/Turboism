@@ -8,6 +8,7 @@ import dev.turboism.plugin.parametersync.domain.ParameterSyncData;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageRoot;
+import dev.turboism.test.plugin.NoopPluginLogger;
 import dev.turboism.test.storage.InMemoryPluginStorage;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -21,14 +22,14 @@ class ParameterSyncStorageTest {
 
     private ExecutorService executor;
     private InMemoryPluginStorage storage;
-    private NoopLogger logger;
+    private PluginLogger logger;
     private ParameterSyncStorage syncStorage;
 
     @BeforeEach
     void setUp() {
         executor = Executors.newCachedThreadPool();
         storage = new InMemoryPluginStorage();
-        logger = new NoopLogger();
+        logger = NoopPluginLogger.INSTANCE;
         syncStorage = new ParameterSyncStorage(storage, logger, executor);
     }
 
@@ -73,22 +74,5 @@ class ParameterSyncStorageTest {
         assertEquals(StorageRoot.STATE, path.root());
         assertTrue(path.relativePath().startsWith("parameter-sync/"));
         assertTrue(path.relativePath().endsWith(".json"));
-    }
-
-    private static final class NoopLogger implements PluginLogger {
-        @Override
-        public void debug(final String message) {}
-
-        @Override
-        public void info(final String message) {}
-
-        @Override
-        public void warn(final String message) {}
-
-        @Override
-        public void error(final String message) {}
-
-        @Override
-        public void error(final String message, final Throwable throwable) {}
     }
 }

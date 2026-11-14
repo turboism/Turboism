@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import dev.turboism.sdk.cubism.model.*;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -206,31 +208,42 @@ final class McpAuthoringProjection {
     static Map<String, Object> rowSchema() {
         var alternatives = new ArrayList<Map<String, Object>>();
         for (String kind : List.of("source_position", "source_uv"))
-            alternatives.add(row(kind, Map.of("index", integer(), "x", number(), "y", number())));
-        alternatives.add(
-                row("source_triangle", Map.of("index", integer(), "a", integer(), "b", integer(), "c", integer())));
-        alternatives.add(
-                row("form_point", Map.of("formGuid", string(), "index", integer(), "x", number(), "y", number())));
+            alternatives.add(
+                    row(kind, Map.of("index", nonNegativeInteger(), "x", numberSchema(), "y", numberSchema())));
+        alternatives.add(row(
+                "source_triangle",
+                Map.of(
+                        "index",
+                        nonNegativeInteger(),
+                        "a",
+                        nonNegativeInteger(),
+                        "b",
+                        nonNegativeInteger(),
+                        "c",
+                        nonNegativeInteger())));
+        alternatives.add(row(
+                "form_point",
+                Map.of("formGuid", id(), "index", nonNegativeInteger(), "x", numberSchema(), "y", numberSchema())));
         alternatives.add(row(
                 "axis",
                 Map.of(
                         "parameterGuid",
-                        string(),
+                        id(),
                         "parameterId",
-                        string(),
+                        id(),
                         "minimum",
-                        number(),
+                        numberSchema(),
                         "defaultValue",
-                        number(),
+                        numberSchema(),
                         "maximum",
-                        number(),
+                        numberSchema(),
                         "keys",
-                        Map.of("type", "array", "maxItems", 4096, "items", number()))));
+                        Map.of("type", "array", "maxItems", 4096, "items", numberSchema()))));
         alternatives.add(row(
                 "cell",
                 Map.of(
                         "formGuid",
-                        string(),
+                        id(),
                         "coordinates",
                         Map.of(
                                 "type",
@@ -238,7 +251,7 @@ final class McpAuthoringProjection {
                                 "maxItems",
                                 64,
                                 "items",
-                                object(Map.of("parameterGuid", string(), "value", number()))))));
+                                object(Map.of("parameterGuid", id(), "value", numberSchema()))))));
         var supportFields = new LinkedHashMap<String, Object>();
         supportFields.put("hostVersion", Map.of("type", "string"));
         for (String field : List.of(
@@ -255,7 +268,7 @@ final class McpAuthoringProjection {
                 "ordinary_write_eligibility",
                 Map.of(
                         "formGuid",
-                        string(),
+                        id(),
                         "snapshotEligible",
                         Map.of("type", "boolean"),
                         "reason",
@@ -277,31 +290,37 @@ final class McpAuthoringProjection {
                 "mesh_form",
                 Map.of(
                         "formGuid",
-                        string(),
+                        id(),
                         "drawOrder",
                         Map.of("type", "integer"),
                         "pointCount",
-                        integer(),
+                        nonNegativeInteger(),
                         "opacity",
                         Map.of("type", List.of("number", "null")))));
-        alternatives.add(row("warp_form", Map.of("formGuid", string(), "pointCount", integer())));
+        alternatives.add(row("warp_form", Map.of("formGuid", id(), "pointCount", nonNegativeInteger())));
         alternatives.add(row(
                 "warp_grid",
-                Map.of("rows", integer(), "columns", integer(), "quadTransform", Map.of("type", "boolean"))));
-        alternatives.add(row("rotation_source", Map.of("baseAngle", number())));
+                Map.of(
+                        "rows",
+                        nonNegativeInteger(),
+                        "columns",
+                        nonNegativeInteger(),
+                        "quadTransform",
+                        Map.of("type", "boolean"))));
+        alternatives.add(row("rotation_source", Map.of("baseAngle", numberSchema())));
         alternatives.add(row(
                 "rotation_form",
                 Map.of(
                         "formGuid",
-                        string(),
+                        id(),
                         "angle",
-                        number(),
+                        numberSchema(),
                         "originX",
-                        number(),
+                        numberSchema(),
                         "originY",
-                        number(),
+                        numberSchema(),
                         "scale",
-                        number(),
+                        numberSchema(),
                         "reflectedX",
                         Map.of("type", "boolean"),
                         "reflectedY",
@@ -310,9 +329,9 @@ final class McpAuthoringProjection {
                 "morph_key",
                 Map.of(
                         "parameterGuid",
-                        string(),
+                        id(),
                         "formGuid",
-                        string(),
+                        id(),
                         "keyValue",
                         Map.of("type", List.of("number", "null")))));
         return Map.of("oneOf", alternatives);
@@ -322,29 +341,5 @@ final class McpAuthoringProjection {
         var result = new LinkedHashMap<>(fields);
         result.put("kind", Map.of("const", kind));
         return object(result);
-    }
-
-    static Map<String, Object> object(Map<String, Object> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
-    }
-
-    static Map<String, Object> string() {
-        return Map.of("type", "string", "minLength", 1, "maxLength", 4096);
-    }
-
-    static Map<String, Object> integer() {
-        return Map.of("type", "integer", "minimum", 0);
-    }
-
-    private static Map<String, Object> number() {
-        return Map.of("type", "number");
     }
 }

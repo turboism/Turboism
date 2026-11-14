@@ -13,6 +13,7 @@ import dev.turboism.internal.core.OptimizationSettingsService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsContribution;
 import dev.turboism.sdk.ui.settings.SettingsControl;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -219,26 +220,6 @@ class OptimizationSettingsContributionTest {
     }
 
     private static PluginLocalization localization() {
-        return new PluginLocalization() {
-            @Override
-            public String text(final String key) {
-                return key;
-            }
-
-            @Override
-            public String format(final String key, final Object... arguments) {
-                return key;
-            }
-
-            @Override
-            public boolean contains(final String key) {
-                return true;
-            }
-
-            @Override
-            public Locale locale() {
-                return Locale.ENGLISH;
-            }
-        };
+        return FakePluginContext.passThroughLocalization(Locale.ENGLISH);
     }
 }

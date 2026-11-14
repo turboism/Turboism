@@ -71,7 +71,7 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
     }
 
     private static Optional<DeferredGlErrorCheckTarget> resolve(final Path artifact) throws Exception {
-        return DeferredGlErrorCheckTarget.of(HostArtifactDigest.from(artifact));
+        return DeferredGlErrorCheckTarget.of(HostArtifactDigest.cached(artifact));
     }
 
     private static List<WeaveTarget> targets(final DeferredGlErrorCheckTarget target, final WeaveSource source)
@@ -153,7 +153,7 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
             final String descriptor) {
         try {
             final var probe = new UniformLocationLifecycleTransformer(
-                    source.loader(), source.artifact(), reference, role, HostArtifactDigest.from(source.artifact()));
+                    source.loader(), source.artifact(), reference, role, HostArtifactDigest.cached(source.artifact()));
             final byte[] output = probe.transform(
                     type.getModule(),
                     source.loader(),

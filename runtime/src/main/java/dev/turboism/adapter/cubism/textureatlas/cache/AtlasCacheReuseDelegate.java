@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.textureatlas.cache;
 
+import dev.turboism.core.io.Sha256;
 import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.image.BufferedImage;
@@ -422,7 +423,7 @@ public final class AtlasCacheReuseDelegate {
     static String pixelDigest(final BufferedImage image) {
         final long pixels = (long) image.getWidth() * image.getHeight();
         if (pixels <= 0 || pixels > MAX_PIXELS) return null;
-        final MessageDigest sha = sha256();
+        final MessageDigest sha = Sha256.digest();
         final byte[] scratch = new byte[64 * 1024];
         int used = 0;
         final DataBuffer buffer = image.getRaster().getDataBuffer();
@@ -464,14 +465,6 @@ public final class AtlasCacheReuseDelegate {
             }
         }
         return used;
-    }
-
-    private static MessageDigest sha256() {
-        try {
-            return MessageDigest.getInstance("SHA-256");
-        } catch (java.security.NoSuchAlgorithmException unavailable) {
-            throw new IllegalStateException("SHA-256 is unavailable", unavailable);
-        }
     }
 
     private static HostAccess resolve(final Class<?> hostClass) {

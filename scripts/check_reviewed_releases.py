@@ -100,10 +100,17 @@ r1_PROBE_CLOSE_ROUTES = (
         "WindowsHistoryNativeUiHostClose.java"
     ),
 )
+r1_CLOSE_ROUTE_SHARED = Path(
+    "testing/integration-tests/src/test/java/dev/turboism/tests/plugin/"
+    "WindowsHistoryNativeUiHostClose.java"
+)
 r1_CLOSE_ROUTE_SWITCH = re.compile(
     r"hostCloseRoute\(final String hostVersion\).*?switch \(hostVersion\) \{(.*?)\};",
     re.DOTALL,
 )
+# A probe may delegate to the reviewed mapping instead of restating the switch. The delegation
+# target must still own the switch, so the admitted set keeps one reviewed statement.
+r1_CLOSE_ROUTE_DELEGATION = re.compile(r"\bWindowsHistoryNativeUiHostClose\.hostCloseRoute\(")
 
 
 r1_RECORD_FILENAME = re.compile(r'"cubism-(\d+\.\d+\.\d+)-[^"]+\.json"')
@@ -212,20 +219,36 @@ def r1_class_pin_tables(root: Path) -> tuple[set[str], list[str]]:
 
 
 def r1_probe_close_routes(root: Path) -> dict[str, set[str]]:
-    """Compact version codes admitted by each probe's hostCloseRoute switch."""
+    """Compact version codes admitted by each probe's hostCloseRoute statement."""
     routes: dict[str, set[str]] = {}
+    shared: set[str] | None = None
     for relative in r1_PROBE_CLOSE_ROUTES:
         try:
             text = read_source(root, relative)
         except r1_CompletenessError:
             continue  # Minimal fixture roots legitimately lack probe sources.
         match = r1_CLOSE_ROUTE_SWITCH.search(text)
-        if match is None:
+        if match is not None:
+            versions = {compact_to_dotted(token) for token in COMPACT_LITERAL.findall(match.group(1))}
+            if relative == r1_CLOSE_ROUTE_SHARED:
+                shared = versions
+        elif r1_CLOSE_ROUTE_DELEGATION.search(text):
+            if shared is None:
+                shared = r1_shared_close_route_versions(root)
+            versions = shared
+        else:
             raise r1_CompletenessError(f"{relative}: hostCloseRoute switch not found")
-        routes[f"{relative} hostCloseRoute versions"] = {
-            compact_to_dotted(token) for token in COMPACT_LITERAL.findall(match.group(1))
-        }
+        routes[f"{relative} hostCloseRoute versions"] = versions
     return routes
+
+
+def r1_shared_close_route_versions(root: Path) -> set[str]:
+    """Versions admitted by the shared reviewed close-route mapping."""
+    text = read_source(root, r1_CLOSE_ROUTE_SHARED)
+    match = r1_CLOSE_ROUTE_SWITCH.search(text)
+    if match is None:
+        raise r1_CompletenessError(f"{r1_CLOSE_ROUTE_SHARED}: hostCloseRoute switch not found")
+    return {compact_to_dotted(token) for token in COMPACT_LITERAL.findall(match.group(1))}
 
 
 def r1_collect(root: Path) -> tuple[dict[str, set[str]], list[str]]:

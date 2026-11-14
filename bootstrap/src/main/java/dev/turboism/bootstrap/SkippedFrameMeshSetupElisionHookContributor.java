@@ -44,7 +44,7 @@ final class SkippedFrameMeshSetupElisionHookContributor extends NativeOptimizati
         // The launch startup policy snapshot, never a re-read of config.json: a hook that re-read the
         // home directory could admit differently from the agent that gated it.
         if (!VerifiedSkippedFrameMeshSetupElisionInstaller.admitted(
-                HostArtifactDigest.from(host.artifact()),
+                HostArtifactDigest.cached(host.artifact()),
                 environment.plan().policy(),
                 true,
                 Runtime.version().feature())) {

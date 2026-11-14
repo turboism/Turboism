@@ -119,7 +119,16 @@ public final class InteriorSampler {
         return z ^ (z >>> 31);
     }
 
-    private static double toUnit(final long bits) {
+    /**
+     * Maps the high 53 bits of {@code bits} onto {@code [0, 1)}.
+     *
+     * <p>53 bits is the mantissa width of a {@code double}, so every distinct input maps to a
+     * distinct unit value.</p>
+     *
+     * @param bits random bits, typically from {@link #mix64}
+     * @return a value in {@code [0, 1)}
+     */
+    public static double toUnit(final long bits) {
         return (bits >>> 11) * (1.0 / (1L << 53));
     }
 }

@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.core;
 
+import dev.turboism.internal.Requirements;
+
 /**
  * Adapter-owned scalar projection of Cubism Core canvas information.
  *
@@ -9,16 +11,10 @@ record CoreCanvasSnapshot(
         float widthPixels, float heightPixels, float originXPixels, float originYPixels, float pixelsPerUnit) {
 
     CoreCanvasSnapshot {
-        requireFinite(widthPixels, "widthPixels");
-        requireFinite(heightPixels, "heightPixels");
-        requireFinite(originXPixels, "originXPixels");
-        requireFinite(originYPixels, "originYPixels");
-        requireFinite(pixelsPerUnit, "pixelsPerUnit");
-    }
-
-    private static void requireFinite(final float value, final String name) {
-        if (!Float.isFinite(value)) {
-            throw new IllegalArgumentException(name + " must be finite");
-        }
+        Requirements.finite(widthPixels, "widthPixels");
+        Requirements.finite(heightPixels, "heightPixels");
+        Requirements.finite(originXPixels, "originXPixels");
+        Requirements.finite(originYPixels, "originYPixels");
+        Requirements.finite(pixelsPerUnit, "pixelsPerUnit");
     }
 }

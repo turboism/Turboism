@@ -3,6 +3,7 @@ package dev.turboism.core.event;
 import dev.turboism.core.event.failure.FailureBoundary;
 import dev.turboism.core.event.failure.NoFailureInterception;
 import dev.turboism.core.runtime.ContextClassLoaderScope;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.EventPriority;
 import dev.turboism.sdk.event.EventSubscriberHandler;
@@ -43,7 +44,7 @@ public record EventSubscriberDescriptor(
         entrypoint = Objects.requireNonNull(entrypoint, "entrypoint");
         eventType = Objects.requireNonNull(eventType, "eventType");
         priority = Objects.requireNonNull(priority, "priority");
-        canonicalSignature = requireText(canonicalSignature, "canonicalSignature");
+        canonicalSignature = Requirements.text(canonicalSignature, "canonicalSignature");
         handler = Objects.requireNonNull(handler, "handler");
         if (entrypointOrdinal < 0 || methodOrdinal < 0) {
             throw new IllegalArgumentException("subscriber ordinals must not be negative");
@@ -75,10 +76,12 @@ public record EventSubscriberDescriptor(
     public String failureBoundary() {
         final FailureBoundary methodBoundary = method.getAnnotation(FailureBoundary.class);
         if (methodBoundary != null) {
-            return requireText(methodBoundary.value(), "@FailureBoundary value");
+            return Requirements.text(methodBoundary.value(), "@FailureBoundary value");
         }
         final FailureBoundary typeBoundary = entrypoint.getClass().getAnnotation(FailureBoundary.class);
-        return typeBoundary == null ? "event.subscribe" : requireText(typeBoundary.value(), "@FailureBoundary value");
+        return typeBoundary == null
+                ? "event.subscribe"
+                : Requirements.text(typeBoundary.value(), "@FailureBoundary value");
     }
 
     /** Returns whether centralized failure interception is disabled for this subscriber. */
@@ -100,7 +103,7 @@ public record EventSubscriberDescriptor(
     }
 
     private static String methodName(final String canonicalSignature) {
-        final String signature = requireText(canonicalSignature, "canonicalSignature");
+        final String signature = Requirements.text(canonicalSignature, "canonicalSignature");
         final int separator = signature.indexOf('#');
         final int parameters = signature.indexOf('(', separator + 1);
         if (separator < 0 || parameters <= separator + 1) {
@@ -135,13 +138,5 @@ public record EventSubscriberDescriptor(
                         "Validated event subscriber became inaccessible: " + canonicalSignature, failure);
             }
         };
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

@@ -47,6 +47,8 @@ import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.plugin.NoopPluginLogger;
 import dev.turboism.test.storage.InMemoryPluginStorage;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import dev.turboism.test.ui.RecordingUiHost;
@@ -329,33 +331,13 @@ class ParameterSyncPluginTest {
         final RecordingUiHost uiHost = new RecordingUiHost();
         final InMemoryPluginStorage storage = new InMemoryPluginStorage();
         final DisposableScope disposableScope = new DisposableScope();
-        final NoopLogger logger = new NoopLogger();
+        final PluginLogger logger = NoopPluginLogger.INSTANCE;
         private CubismModel activeModel;
         private String activeParamId = "ParamA";
 
         final UiScheduler uiScheduler = FakeDirectUiScheduler.direct();
 
-        final PluginLocalization localization = new PluginLocalization() {
-            @Override
-            public Locale locale() {
-                return Locale.ROOT;
-            }
-
-            @Override
-            public String text(final String key) {
-                return key;
-            }
-
-            @Override
-            public String format(final String key, final Object... arguments) {
-                return key;
-            }
-
-            @Override
-            public boolean contains(final String key) {
-                return true;
-            }
-        };
+        final PluginLocalization localization = FakePluginContext.passThroughLocalization(Locale.ROOT);
 
         void setActiveModel(final CubismModel model) {
             this.activeModel = model;
@@ -637,22 +619,5 @@ class ParameterSyncPluginTest {
         public float getDefaultValue() {
             return min;
         }
-    }
-
-    private static final class NoopLogger implements PluginLogger {
-        @Override
-        public void debug(final String message) {}
-
-        @Override
-        public void info(final String message) {}
-
-        @Override
-        public void warn(final String message) {}
-
-        @Override
-        public void error(final String message) {}
-
-        @Override
-        public void error(final String message, final Throwable throwable) {}
     }
 }

@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.*;
 
 final class McpSourcePropertiesSchemas {
@@ -118,17 +120,5 @@ final class McpSourcePropertiesSchemas {
 
     private static Map<String, Object> shortId() {
         return Map.of("type", "string", "minLength", 1, "maxLength", 128);
-    }
-
-    private static Map<String, Object> object(Map<String, Object> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
     }
 }

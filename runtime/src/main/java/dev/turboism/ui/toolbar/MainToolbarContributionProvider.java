@@ -1,5 +1,6 @@
 package dev.turboism.ui.toolbar;
 
+import dev.turboism.core.runtime.Registrations;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.ui.action.EditorUiActionRouter;
@@ -57,7 +58,7 @@ public final class MainToolbarContributionProvider implements EditorUiContributi
         reconciler.reconcile();
         final Registration rebuild = host.onRebuild(reconciler::reconcile);
         final Registration appearance = host.onAppearanceChanged(reconciler::refreshAppearance);
-        return () -> closeAll(List.of(appearance, rebuild, reconciler));
+        return () -> Registrations.closeReverseThrowingFirst(List.of(appearance, rebuild, reconciler));
     }
 
     private final class Reconciler implements Registration {
@@ -82,7 +83,7 @@ public final class MainToolbarContributionProvider implements EditorUiContributi
             }
             final List<Registration> previous = nativeButtons;
             nativeButtons = List.of();
-            closeAll(previous);
+            Registrations.closeReverseThrowingFirst(previous);
             final List<Registration> installed = new ArrayList<>();
             try {
                 for (EditorUiContribution<?> contribution : descriptors) {
@@ -90,7 +91,7 @@ public final class MainToolbarContributionProvider implements EditorUiContributi
                         host.addModelingButton(ModelingToolbarContributionDescriptor.from(contribution))
                                 .ifPresent(installed::add);
                         if (closed) {
-                            closeAll(installed);
+                            Registrations.closeReverseThrowingFirst(installed);
                             return;
                         }
                         continue;
@@ -106,12 +107,12 @@ public final class MainToolbarContributionProvider implements EditorUiContributi
                                     () -> actionRouter.invoke(descriptor.pluginId(), descriptor.actionId())),
                             "host.addButton()"));
                     if (closed) {
-                        closeAll(installed);
+                        Registrations.closeReverseThrowingFirst(installed);
                         return;
                     }
                 }
             } catch (RuntimeException | Error failure) {
-                closeAllSuppressing(installed, failure);
+                Registrations.closeReverseSuppressing(installed, failure);
                 throw failure;
             }
             nativeButtons = List.copyOf(installed);
@@ -143,35 +144,7 @@ public final class MainToolbarContributionProvider implements EditorUiContributi
             closed = true;
             final List<Registration> buttons = nativeButtons;
             nativeButtons = List.of();
-            closeAll(buttons);
-        }
-    }
-
-    private static void closeAll(final List<? extends Registration> registrations) {
-        RuntimeException first = null;
-        for (int index = registrations.size() - 1; index >= 0; index--) {
-            try {
-                registrations.get(index).close();
-            } catch (RuntimeException exception) {
-                if (first == null) {
-                    first = exception;
-                } else {
-                    first.addSuppressed(exception);
-                }
-            }
-        }
-        if (first != null) {
-            throw first;
-        }
-    }
-
-    private static void closeAllSuppressing(final List<? extends Registration> registrations, final Throwable failure) {
-        for (int index = registrations.size() - 1; index >= 0; index--) {
-            try {
-                registrations.get(index).close();
-            } catch (RuntimeException cleanupFailure) {
-                failure.addSuppressed(cleanupFailure);
-            }
+            Registrations.closeReverseThrowingFirst(buttons);
         }
     }
 }

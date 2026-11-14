@@ -1,6 +1,8 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.core.io.Sha256;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.cubism.export.ProtectedExportCensus;
 import dev.turboism.sdk.cubism.export.ProtectedExportPlan;
@@ -10,11 +12,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -177,7 +176,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         this.staging = Objects.requireNonNull(staging, "staging");
         this.stagingRoot = Objects.requireNonNull(stagingRoot, "stagingRoot");
         this.orchestrationOwner = Objects.requireNonNull(orchestrationOwner, "orchestrationOwner");
-        this.orchestratedOptionId = requireText(orchestratedOptionId, "orchestratedOptionId");
+        this.orchestratedOptionId = Requirements.text(orchestratedOptionId, "orchestratedOptionId");
         this.redirectSeamInstalled = Objects.requireNonNull(redirectSeamInstalled, "redirectSeamInstalled");
         this.optionBindingLive = Objects.requireNonNull(optionBindingLive, "optionBindingLive");
         this.hostGeneration = Objects.requireNonNull(hostGeneration, "hostGeneration");
@@ -408,7 +407,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         // the census, so they run on the worker thread — never on the EDT.
         session.plan = admitPlan(session);
         try {
-            session.sourceSha256 = sha256(session.sourceFile.toPath());
+            session.sourceSha256 = Sha256.hexOf(session.sourceFile.toPath());
         } catch (IOException failure) {
             throw new SessionRejection(PREFLIGHT_FAILED_KEY);
         }
@@ -1487,7 +1486,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 || !Objects.equals(session.originalSelectionSignature, selectionSignature)) {
             return false;
         }
-        return sha256(session.sourceFile.toPath()).equals(session.sourceSha256);
+        return Sha256.hexOf(session.sourceFile.toPath()).equals(session.sourceSha256);
     }
 
     private void snapshotInvariants(final Session session) throws IOException {
@@ -1539,16 +1538,6 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             }
             throw wrapped;
         }
-    }
-
-    private static String sha256(final Path file) throws IOException {
-        final MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException(impossible);
-        }
-        return HexFormat.of().formatHex(digest.digest(Files.readAllBytes(file)));
     }
 
     @Override
@@ -1774,13 +1763,5 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         final String text = failure.getClass().getName()
                 + (message == null ? "" : ": " + message.replaceAll("\\s+", " ").strip());
         return text.length() > 200 ? text.substring(0, 200) : text;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

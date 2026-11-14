@@ -5,16 +5,15 @@ import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginDescriptor;
-import dev.turboism.sdk.plugin.PluginDescriptor.PermissionRef;
-import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.Stubs;
+import dev.turboism.test.plugin.FakePluginPaths;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 final class TestPluginDependencies {
@@ -22,162 +21,24 @@ final class TestPluginDependencies {
     private TestPluginDependencies() {}
 
     static PluginDescriptor descriptor(String... permissionIds) {
-        List<PermissionRef> permissionRefs = List.of(permissionIds).stream()
-                .<PermissionRef>map(id -> new PermissionRef() {
-                    @Override
-                    public String id() {
-                        return id;
-                    }
-
-                    @Override
-                    public String scope() {
-                        return "read";
-                    }
-
-                    @Override
-                    public Optional<String> reason() {
-                        return Optional.empty();
-                    }
-                })
-                .toList();
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return CubismQueryIntegrationSupport.PLUGIN_ID;
-            }
-
-            @Override
-            public String name() {
-                return "Query Tests";
-            }
-
-            @Override
-            public String version() {
-                return "0.1.0";
-            }
-
-            @Override
-            public String description() {
-                return "Integration test descriptor";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of("dev.turboism.tests.QueryPlugin");
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "Project License";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.of("https://turboism.dev");
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of();
-            }
-
-            @Override
-            public I18n i18n() {
-                return emptyI18n();
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return permissionRefs;
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "none";
-                    }
-                };
-            }
-        };
-    }
-
-    private static PluginDescriptor.I18n emptyI18n() {
-        return new PluginDescriptor.I18n() {
-            @Override
-            public String baseName() {
-                return "META-INF/turboism/i18n/messages";
-            }
-
-            @Override
-            public List<String> locales() {
-                return List.of();
-            }
-        };
-    }
-
-    static PluginLogger silentLogger() {
-        return new PluginLogger() {
-            @Override
-            public void debug(final String message) {}
-
-            @Override
-            public void info(final String message) {}
-
-            @Override
-            public void warn(final String message) {}
-
-            @Override
-            public void error(final String message) {}
-
-            @Override
-            public void error(final String message, final Throwable throwable) {}
-        };
+        return Stubs.descriptorBuilder(CubismQueryIntegrationSupport.PLUGIN_ID)
+                .name("Query Tests")
+                .version("0.1.0")
+                .description("Integration test descriptor")
+                .entrypoints("dev.turboism.tests.QueryPlugin")
+                .license("Project License")
+                .website("https://turboism.dev")
+                .permissions(java.util.Arrays.stream(permissionIds)
+                        .map(id -> Stubs.permissionRef(id, "read"))
+                        .toList())
+                .build();
     }
 
     static PluginPaths paths() {
-        return new PluginPaths() {
-            @Override
-            public Path dataDir() {
-                return Path.of("build", "query-tests", "data");
-            }
-
-            @Override
-            public Path stateDir() {
-                return Path.of("build", "query-tests", "state");
-            }
-
-            @Override
-            public Path cacheDir() {
-                return Path.of("build", "query-tests", "cache");
-            }
-        };
+        return FakePluginPaths.builder(Path.of("build", "query-tests", "data"))
+                .stateDir(Path.of("build", "query-tests", "state"))
+                .cacheDir(Path.of("build", "query-tests", "cache"))
+                .build();
     }
 
     static EventBus noOpEventBus() {

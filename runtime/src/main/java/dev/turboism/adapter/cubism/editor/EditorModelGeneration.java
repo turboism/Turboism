@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.lang.ref.WeakReference;
 import java.util.Objects;
@@ -60,7 +61,7 @@ final class EditorModelGeneration {
     EditorModelGeneration(
             final VerifiedMemberResolver resolver, final String sessionIdentity, final Runnable onRebind) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
-        this.sessionIdentity = requireText(sessionIdentity, "sessionIdentity");
+        this.sessionIdentity = Requirements.text(sessionIdentity, "sessionIdentity");
         this.onRebind = onRebind == null ? () -> {} : onRebind;
     }
 
@@ -182,11 +183,5 @@ final class EditorModelGeneration {
     /** @return the cached reference, or {@code null} when it was never bound or has been collected. */
     private static Object cached(final WeakReference<Object> reference) {
         return reference == null ? null : reference.get();
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

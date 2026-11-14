@@ -57,6 +57,7 @@ import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.test.Stubs;
+import dev.turboism.test.plugin.FakePluginPaths;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import dev.turboism.testkit.RuntimeTestKit;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
@@ -329,7 +330,7 @@ class CorePluginContextDescriptorPermissionsTest {
     void contextAutomaticallyWiresLocalizationAndExplicitRawFallback(@TempDir Path dataDir)
             throws InterruptedException {
         final PluginDescriptor descriptor = descriptorWithAllM8Permissions();
-        final RuntimeScheduler runtimeScheduler = scheduler();
+        final RuntimeScheduler runtimeScheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         final RecordingToolbarVisibilitySink localizedSink = new RecordingToolbarVisibilitySink(2);
         final RuntimeMainToolbarRegistry localizedMain = new RuntimeMainToolbarRegistry(
                 (permissionId, operation) -> {}, runtimeScheduler, PLUGIN_ID, localizedSink);
@@ -360,7 +361,7 @@ class CorePluginContextDescriptorPermissionsTest {
         assertDoesNotThrow(() -> localizedMain.bindLocalization(localization));
         assertDoesNotThrow(() -> localizedPalette.bindLocalization(localization));
 
-        final RuntimeScheduler rawScheduler = scheduler();
+        final RuntimeScheduler rawScheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         final RecordingToolbarVisibilitySink rawSink = new RecordingToolbarVisibilitySink(2);
         final RuntimeMainToolbarRegistry rawMain =
                 new RuntimeMainToolbarRegistry((permissionId, operation) -> {}, rawScheduler, PLUGIN_ID, rawSink);
@@ -595,7 +596,7 @@ class CorePluginContextDescriptorPermissionsTest {
                 logger(),
                 paths(dataDir),
                 uiScheduler(),
-                scheduler(),
+                RuntimeTestKit.scheduler(CLOCK, 1, 4),
                 diagnostics(),
                 new DisposableScope(),
                 hostSnapshotSource,
@@ -633,10 +634,6 @@ class CorePluginContextDescriptorPermissionsTest {
                 defaults.uiHostStateSource(),
                 defaults.cubismAuditSink(),
                 defaults.clock());
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
     }
 
     private static PluginLocalization localization(final Map<String, String> catalog) {
@@ -741,151 +738,23 @@ class CorePluginContextDescriptorPermissionsTest {
     }
 
     private static PluginDescriptor descriptorWithPermissions(final String pluginId, final List<String> ids) {
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return pluginId;
-            }
-
-            @Override
-            public String name() {
-                return "Descriptor Permission Test";
-            }
-
-            @Override
-            public String version() {
-                return "0.1.0";
-            }
-
-            @Override
-            public String description() {
-                return "Test";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of("dev.turboism.test.PermissionPlugin");
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "Project License";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.of("https://turboism.dev");
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of();
-            }
-
-            @Override
-            public I18n i18n() {
-                return emptyI18n();
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return ids.stream()
-                        .<PermissionRef>map(id -> new PermissionRef() {
-                            @Override
-                            public String id() {
-                                return id;
-                            }
-
-                            @Override
-                            public String scope() {
-                                return "application";
-                            }
-
-                            @Override
-                            public Optional<String> reason() {
-                                return Optional.empty();
-                            }
-                        })
-                        .toList();
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "none";
-                    }
-                };
-            }
-        };
-    }
-
-    private static PluginDescriptor.I18n emptyI18n() {
-        return new PluginDescriptor.I18n() {
-            @Override
-            public String baseName() {
-                return "META-INF/turboism/i18n/messages";
-            }
-
-            @Override
-            public List<String> locales() {
-                return List.of();
-            }
-        };
+        return Stubs.descriptorBuilder(pluginId)
+                .name("Descriptor Permission Test")
+                .version("0.1.0")
+                .entrypoints("dev.turboism.test.PermissionPlugin")
+                .license("Project License")
+                .website("https://turboism.dev")
+                .permissions(ids.stream().map(Stubs::permissionRef).toList())
+                .i18n("META-INF/turboism/i18n/messages")
+                .build();
     }
 
     private static PluginLogger logger() {
         return Stubs.noopLogger();
     }
 
-    private static PluginPaths paths(Path dataDir) {
-        return new PluginPaths() {
-            @Override
-            public Path dataDir() {
-                return dataDir;
-            }
-
-            @Override
-            public Path logsDir() {
-                return dataDir;
-            }
-
-            @Override
-            public Path stateDir() {
-                return dataDir;
-            }
-
-            @Override
-            public Path cacheDir() {
-                return dataDir;
-            }
-        };
+    private static PluginPaths paths(final Path dataDir) {
+        return FakePluginPaths.of(dataDir);
     }
 
     private static UiScheduler uiScheduler() {

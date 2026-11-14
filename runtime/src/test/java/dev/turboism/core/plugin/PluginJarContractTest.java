@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.plugin.PluginDescriptor;
+import dev.turboism.test.Stubs;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -20,102 +21,16 @@ class PluginJarContractTest {
     }
 
     private static PluginDescriptor descriptorWithIdAndLocales(final String id, final List<String> locales) {
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String name() {
-                return "Test I18n";
-            }
-
-            @Override
-            public String version() {
-                return "0.1.0";
-            }
-
-            @Override
-            public String description() {
-                return "Test i18n plugin";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of("dev.turboism.plugin.TestI18nPlugin");
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "Project License";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.empty();
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of("META-INF/turboism/i18n/");
-            }
-
-            @Override
-            public I18n i18n() {
-                return new I18n() {
-                    @Override
-                    public String baseName() {
-                        return BASE_NAME;
-                    }
-
-                    @Override
-                    public List<String> locales() {
-                        return locales;
-                    }
-                };
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return List.of();
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "swing";
-                    }
-                };
-            }
-        };
+        return Stubs.descriptorBuilder(id)
+                .name("Test I18n")
+                .version("0.1.0")
+                .description("Test i18n plugin")
+                .entrypoints("dev.turboism.plugin.TestI18nPlugin")
+                .license("Project License")
+                .resources("META-INF/turboism/i18n/")
+                .i18n(BASE_NAME, locales)
+                .ui("swing")
+                .build();
     }
 
     @Test

@@ -92,7 +92,7 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
     }
 
     private static Optional<InputPathElisionTarget> resolve(final Path artifact) throws Exception {
-        return InputPathElisionTarget.of(HostArtifactDigest.from(artifact));
+        return InputPathElisionTarget.of(HostArtifactDigest.cached(artifact));
     }
 
     private static List<WeaveTarget> targets(final InputPathElisionTarget target, final WeaveSource source)

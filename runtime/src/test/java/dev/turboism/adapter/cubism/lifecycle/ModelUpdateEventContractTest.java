@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 class ModelUpdateEventContractTest {
     @Test
     void projectsUpdateModelSemanticLifecycleIntoTypedStates() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler();
         try {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
             final SemanticOperationLifecycleCoordinator coordinator = new SemanticOperationLifecycleCoordinator();
@@ -68,9 +68,5 @@ class ModelUpdateEventContractTest {
             events.add("after:" + event.operation().subjectId().orElseThrow());
             completion.countDown();
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler();
     }
 }

@@ -9,6 +9,7 @@ import dev.turboism.pluginmanagement.PluginCatalog;
 import dev.turboism.pluginmanagement.PluginMarketService;
 import dev.turboism.pluginmanagement.RuntimePluginManagementService;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
@@ -75,23 +76,7 @@ class PluginMarketWindowAsyncTest {
     }
 
     private static PluginLocalization localization() {
-        return new PluginLocalization() {
-            public Locale locale() {
-                return Locale.ENGLISH;
-            }
-
-            public String text(String key) {
-                return key;
-            }
-
-            public String format(String key, Object... arguments) {
-                return key + " " + java.util.Arrays.toString(arguments);
-            }
-
-            public boolean contains(String key) {
-                return true;
-            }
-        };
+        return FakePluginContext.passThroughLocalization(Locale.ENGLISH);
     }
 
     private static void set(Object target, String name, Object value) {

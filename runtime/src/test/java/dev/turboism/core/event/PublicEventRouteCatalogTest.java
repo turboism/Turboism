@@ -28,7 +28,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void declaredDependentReceivesProviderOwnedSdkEvent() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
         final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true));
@@ -45,7 +45,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void undeclaredSupertypeSubscriberDoesNotReceivePublicEvent() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner undeclared = broker.admit("dev.example.undeclared");
         final CountDownLatch delivered = new CountDownLatch(1);
@@ -63,7 +63,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void undeclaredConsumerCannotSubscribeToPublicEvent() {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         broker.admit(providerDescriptor());
         final RuntimeEventBroker.Owner consumer =
@@ -77,7 +77,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void consumerCannotPublishProviderOwnedEvent() {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
         final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true));
@@ -91,7 +91,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void incompatibleContractVersionRejectsSubscription() {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         broker.admit(providerDescriptor());
 
@@ -101,7 +101,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void requiredImportRejectsAdmissionBeforeProviderLoads() {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
 
         assertThrows(IllegalArgumentException.class, () -> broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true)));
@@ -110,7 +110,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void optionalImportMayWaitForProvider() {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
 
         broker.admit(consumerDescriptor("[1.0.0,2.0.0)", false));
@@ -120,7 +120,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void duplicateProviderTypeIsRejected() {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         broker.admit(providerDescriptor());
         final PluginDescriptor duplicate = descriptor(
@@ -137,7 +137,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void providerReloadPreservesDependentSubscriptions() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
         final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true));
@@ -159,7 +159,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void admittedReplacementDoesNotRevokeActiveProviderAuthority() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
         final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true));
@@ -177,7 +177,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void replacementBecomesAuthoritativeOnlyAfterActivation() {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
         provider.activate();
@@ -193,7 +193,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void olderGenerationCannotReactivateAfterNewerProvider() {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner first = broker.admit(providerDescriptor());
         final RuntimeEventBroker.Owner second = broker.admit(providerDescriptor());
@@ -206,7 +206,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void requiredConsumerCannotActivateBeforeProvider() {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         broker.admit(providerDescriptor());
         final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true));
@@ -217,7 +217,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void closedProviderDoesNotSatisfyNewRequiredConsumer() {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
         provider.activate();
@@ -231,7 +231,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void pendingReplacementDoesNotChangeProviderContractUsedForNewConsumers() {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
         provider.activate();
@@ -243,7 +243,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void failedReplacementActivationLeavesPreviousProviderAuthoritative() {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
         final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", true));
@@ -258,7 +258,7 @@ class PublicEventRouteCatalogTest {
 
     @Test
     void publicImportRetainsRoutingPolicyWhileProviderIsAbsent() {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 8);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor("[1.0.0,2.0.0)", false));
         final RuntimeEventBroker.Owner undeclared = broker.admit("dev.example.undeclared");
@@ -323,10 +323,6 @@ class PublicEventRouteCatalogTest {
                 imports,
                 List.of(),
                 false);
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 8);
     }
 
     public record PublicFixtureEvent(String value) implements TurboismEvent {}

@@ -6,10 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.host.HostSession;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.test.concurrent.Await;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -96,7 +95,7 @@ class KernelPluginLifecycleIsolationIntegrationTest {
                 Duration.ofSeconds(3),
                 Duration.ofMillis(200),
                 Duration.ofMillis(40));
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         System.getProperties().put(callbackKey, (Runnable) () -> {
             entered.countDown();
@@ -161,7 +160,7 @@ class KernelPluginLifecycleIsolationIntegrationTest {
                     }
                 }
                 """.formatted(callbackKey));
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         final java.util.List<String> observed = new java.util.concurrent.CopyOnWriteArrayList<>();
         try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
@@ -211,7 +210,7 @@ class KernelPluginLifecycleIsolationIntegrationTest {
                 "dev/example/normal/NormalEntrypoint.java",
                 "dev.example.normal.NormalEntrypoint",
                 normalSource());
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime plugins = new LocalPluginRuntime(
@@ -250,7 +249,7 @@ class KernelPluginLifecycleIsolationIntegrationTest {
                 "dev/example/normal/NormalEntrypoint.java",
                 "dev.example.normal.NormalEntrypoint",
                 normalSource());
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         clearMarkers();
 
@@ -307,7 +306,7 @@ class KernelPluginLifecycleIsolationIntegrationTest {
                 "dev/example/failing/FailingEntrypoint.java",
                 "dev.example.failing.FailingEntrypoint",
                 failingSource());
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         clearMarkers();
 
@@ -345,7 +344,7 @@ class KernelPluginLifecycleIsolationIntegrationTest {
                 "dev/example/scopefail/ScopeFailEntrypoint.java",
                 "dev.example.scopefail.ScopeFailEntrypoint",
                 scopeFailSource());
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         clearMarkers();
 
@@ -545,13 +544,6 @@ class KernelPluginLifecycleIsolationIntegrationTest {
             "dependencies":[],"permissions":[],"capabilities":[],
             "environment":{"requiresCubism":false,"ui":"none"}}
             """.formatted(pluginId, pluginId, entrypoint);
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
-                ignored -> {});
     }
 
     /**

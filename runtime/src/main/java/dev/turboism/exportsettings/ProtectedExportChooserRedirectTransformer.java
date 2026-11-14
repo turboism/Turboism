@@ -1,5 +1,7 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
+import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.Objects;
@@ -62,15 +64,15 @@ public final class ProtectedExportChooserRedirectTransformer implements ClassFil
             final String gatedChooserName,
             final String gatedChooserDescriptor,
             final ClassLoader expectedClassLoader) {
-        this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
-        this.moc3HostMethod = requireText(moc3HostMethod, "moc3HostMethod");
-        this.moc3HostDescriptor = requireText(moc3HostDescriptor, "moc3HostDescriptor");
-        this.moc3ChooserName = requireText(moc3ChooserName, "moc3ChooserName");
-        this.moc3ChooserDescriptor = requireText(moc3ChooserDescriptor, "moc3ChooserDescriptor");
-        this.gatedHostMethod = requireText(gatedHostMethod, "gatedHostMethod");
-        this.gatedHostDescriptor = requireText(gatedHostDescriptor, "gatedHostDescriptor");
-        this.gatedChooserName = requireText(gatedChooserName, "gatedChooserName");
-        this.gatedChooserDescriptor = requireText(gatedChooserDescriptor, "gatedChooserDescriptor");
+        this.ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
+        this.moc3HostMethod = Requirements.text(moc3HostMethod, "moc3HostMethod");
+        this.moc3HostDescriptor = Requirements.text(moc3HostDescriptor, "moc3HostDescriptor");
+        this.moc3ChooserName = Requirements.text(moc3ChooserName, "moc3ChooserName");
+        this.moc3ChooserDescriptor = Requirements.text(moc3ChooserDescriptor, "moc3ChooserDescriptor");
+        this.gatedHostMethod = Requirements.text(gatedHostMethod, "gatedHostMethod");
+        this.gatedHostDescriptor = Requirements.text(gatedHostDescriptor, "gatedHostDescriptor");
+        this.gatedChooserName = Requirements.text(gatedChooserName, "gatedChooserName");
+        this.gatedChooserDescriptor = Requirements.text(gatedChooserDescriptor, "gatedChooserDescriptor");
         this.expectedClassLoader = Objects.requireNonNull(expectedClassLoader, "expectedClassLoader");
     }
 
@@ -89,7 +91,8 @@ public final class ProtectedExportChooserRedirectTransformer implements ClassFil
         final boolean[] moc3Shape = {false};
         final boolean[] gatedShape = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter writer =
+                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -249,13 +252,5 @@ public final class ProtectedExportChooserRedirectTransformer implements ClassFil
                 emitting = false;
             }
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

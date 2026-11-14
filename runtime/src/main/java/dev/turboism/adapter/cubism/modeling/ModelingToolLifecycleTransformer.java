@@ -1,11 +1,10 @@
 package dev.turboism.adapter.cubism.modeling;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
+import dev.turboism.core.reflect.CodeSources;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Path;
-import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.util.Objects;
 import java.util.Set;
@@ -75,12 +74,13 @@ public final class ModelingToolLifecycleTransformer implements ClassFileTransfor
         if (className == null || !targetClassNames().contains(className) || classfileBuffer == null) return null;
         if (loader == null || loader != expectedClassLoader)
             return reject(Outcome.LOADER_MISMATCH, "MODELING_TOOL_LOADER_MISMATCH");
-        if (!expectedArtifact.equals(codeSourcePath(protectionDomain))) {
+        if (!expectedArtifact.equals(CodeSources.pathOf(protectionDomain))) {
             return reject(Outcome.ARTIFACT_MISMATCH, "MODELING_TOOL_ARTIFACT_MISMATCH");
         }
         try {
             final ClassReader reader = new ClassReader(classfileBuffer);
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            final ClassWriter writer =
+                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
             final int[] methods = {0};
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
@@ -135,20 +135,6 @@ public final class ModelingToolLifecycleTransformer implements ClassFileTransfor
     private void outcome(final Outcome next, final String message) {
         outcome.set(next);
         FatalErrors.reportSafely(diagnostic, message);
-    }
-
-    private static Path codeSourcePath(final ProtectionDomain protectionDomain) {
-        if (protectionDomain == null || protectionDomain.getCodeSource() == null) return null;
-        final CodeSource source = protectionDomain.getCodeSource();
-        if (source.getLocation() == null) return null;
-        try {
-            final URI location = source.getLocation().toURI();
-            return "file".equalsIgnoreCase(location.getScheme())
-                    ? Path.of(location).toAbsolutePath().normalize()
-                    : null;
-        } catch (URISyntaxException | RuntimeException failure) {
-            return null;
-        }
     }
 
     /** Latest exact-owner admission or weaving outcome. */

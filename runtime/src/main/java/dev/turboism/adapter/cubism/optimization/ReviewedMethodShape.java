@@ -1,11 +1,17 @@
 package dev.turboism.adapter.cubism.optimization;
 
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -18,10 +24,66 @@ import org.objectweb.asm.Type;
 
 /** Constant-pool-independent instruction, branch and handler identity for a reviewed native method. */
 public final class ReviewedMethodShape {
+
+    /** Session cache bound; one host launch reads a fixed set of reviewed methods. */
+    private static final int MAX_CACHED_SHAPES = 512;
+
+    private static final String DIGEST_ALGORITHM = "SHA-256";
+
+    /**
+     * Shapes already read in this process, keyed by class bytes digest and method identity, so a
+     * repeated read of the same definition skips the ASM parse.
+     */
+    private static final Map<ShapeKey, List<String>> SHAPES = new LinkedHashMap<>(64, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(final Map.Entry<ShapeKey, List<String>> eldest) {
+            return size() > MAX_CACHED_SHAPES;
+        }
+    };
+
+    /** Identity of one read: the class bytes digest plus the exact method it selects. */
+    private record ShapeKey(String bytesDigest, String owner, String methodName, String descriptor) {}
+
     private ReviewedMethodShape() {}
 
-    /** Returns immutable semantic instructions, or null for absent/duplicate/abstract/native methods. */
+    /**
+     * Returns immutable semantic instructions, or null for absent/duplicate/abstract/native methods.
+     *
+     * <p>The result is cached for the class bytes digest and method identity, so repeated reads on
+     * the same definition skip the ASM parse. Identical bytes always produce identical shapes.</p>
+     *
+     * @param bytes classfile bytes to read
+     * @param owner internal name of the class the caller expects these bytes to define
+     * @param methodName method name to select
+     * @param descriptor JVM descriptor of the selected method
+     * @return the immutable semantic instructions, or {@code null} when the method does not qualify
+     */
     public static List<String> read(byte[] bytes, String owner, String methodName, String descriptor) {
+        Objects.requireNonNull(bytes, "bytes");
+        final ShapeKey key = new ShapeKey(bytesDigest(bytes), owner, methodName, descriptor);
+        synchronized (SHAPES) {
+            if (SHAPES.containsKey(key)) {
+                return SHAPES.get(key);
+            }
+        }
+        final List<String> shape = parse(bytes, owner, methodName, descriptor);
+        synchronized (SHAPES) {
+            SHAPES.put(key, shape);
+        }
+        return shape;
+    }
+
+    private static String bytesDigest(final byte[] bytes) {
+        final MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance(DIGEST_ALGORITHM);
+        } catch (NoSuchAlgorithmException unavailable) {
+            throw new IllegalStateException(DIGEST_ALGORITHM + " is unavailable", unavailable);
+        }
+        return HexFormat.of().formatHex(digest.digest(bytes));
+    }
+
+    private static List<String> parse(byte[] bytes, String owner, String methodName, String descriptor) {
         ClassReader reader = new ClassReader(bytes);
         if (!owner.equals(reader.getClassName())) return null;
         List<List<String>> results = new ArrayList<>();

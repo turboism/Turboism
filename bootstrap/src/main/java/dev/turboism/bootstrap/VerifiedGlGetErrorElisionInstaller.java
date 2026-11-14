@@ -56,7 +56,7 @@ final class VerifiedGlGetErrorElisionInstaller implements AutoCloseable {
     }
 
     private static Optional<GlGetErrorElisionTarget> resolve(final Path artifact) throws Exception {
-        return GlGetErrorElisionTarget.of(HostArtifactDigest.from(artifact));
+        return GlGetErrorElisionTarget.of(HostArtifactDigest.cached(artifact));
     }
 
     /** The experiment declares exactly one target, so the post-check reads that one. */

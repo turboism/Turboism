@@ -3,11 +3,11 @@ package dev.turboism.adapter.cubism.lifecycle;
 import dev.turboism.core.event.PluginEventOwnerKey;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.cubism.event.PartNameEvent;
 import dev.turboism.sdk.cubism.event.PartOpacityEvent;
 import dev.turboism.sdk.cubism.hook.PartHooks;
 import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -24,6 +24,10 @@ public final class PartHookRegistry {
 
     public static final String OBSERVE_PERMISSION = ParameterHookRegistry.OBSERVE_PERMISSION;
     public static final String INTERCEPT_PERMISSION = ParameterHookRegistry.INTERCEPT_PERMISSION;
+
+    /** Declaring classes whose callback counts as the inherited no-op, not an override. */
+    private static final java.util.Set<Class<?>> PART_HOOK_BASES =
+            java.util.Set.of(PartHooks.class, TurboismPlugin.class);
 
     private final PartLifecycleCoordinator coordinator;
     private final Object lifecycleLock = new Object();
@@ -272,7 +276,7 @@ public final class PartHookRegistry {
 
     /** Removes legacy Part hooks registered for the plugin identifier. */
     public void unregister(final String pluginId) {
-        final String id = requireText(pluginId, "pluginId");
+        final String id = Requirements.text(pluginId, "pluginId");
         synchronized (lifecycleLock) {
             coordinator.unregister(id);
             registrations.entrySet().removeIf(entry -> {
@@ -318,10 +322,7 @@ public final class PartHookRegistry {
                     default -> throw new IllegalArgumentException("Unknown Part hook method: " + methodName);
                 };
         try {
-            final java.lang.reflect.Method implementation =
-                    entrypoint.getClass().getMethod(methodName, parameterTypes);
-            return implementation.getDeclaringClass() != PartHooks.class
-                    && implementation.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
+            return HookEntrypointSupport.overrides(entrypoint.getClass(), methodName, parameterTypes, PART_HOOK_BASES);
         } catch (NoSuchMethodException failure) {
             throw new IllegalStateException("Part hook contract is unavailable: " + methodName, failure);
         }
@@ -329,10 +330,7 @@ public final class PartHookRegistry {
 
     private static boolean subscribes(
             final Object entrypoint, final Class<? extends EventBus.TurboismEvent> eventType) {
-        return java.util.Arrays.stream(entrypoint.getClass().getMethods())
-                .anyMatch(method -> method.isAnnotationPresent(SubscribeEvent.class)
-                        && method.getParameterCount() == 1
-                        && method.getParameterTypes()[0].isAssignableFrom(eventType));
+        return HookEntrypointSupport.subscribes(entrypoint, eventType);
     }
 
     private static RuntimeException hookFailure(
@@ -349,16 +347,7 @@ public final class PartHookRegistry {
     }
 
     private static boolean hasPermission(final PluginDescriptor descriptor, final String permissionId) {
-        return descriptor.permissions().stream()
-                .anyMatch(permission -> permission.id().equals(permissionId));
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
+        return HookEntrypointSupport.hasPermission(descriptor, permissionId);
     }
 
     private record AdapterRegistration(List<Registration> registrations) {

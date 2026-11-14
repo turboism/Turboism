@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpWriteResults.envelope;
+
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.json.Json;
@@ -65,13 +67,14 @@ final class McpWarpRigDomain {
             if (!args.keySet().containsAll(required) || !allowed.containsAll(args.keySet()))
                 throw new IllegalArgumentException();
             for (String field : List.of("documentId", "modelId", "objectId", "snapshotId", "operationId"))
-                text(args.get(field));
+                McpDomainSupport.text(args.get(field), 4096);
             if (!volume && !"REPLACE_CONTROLS_FROM_DEFAULT".equals(args.get("policy")))
                 throw new IllegalArgumentException();
             var initial = context.get();
             if (!args.get("documentId").equals(initial.binding().get("documentId"))
                     || !args.get("modelId").equals(initial.binding().get("modelId"))) throw new Stale();
-            var snapshot = snapshots.get(text(args.get("snapshotId")), McpRequestRegistry.currentSessionId());
+            var snapshot = snapshots.get(
+                    McpDomainSupport.text(args.get("snapshotId"), 4096), McpRequestRegistry.currentSessionId());
             if (!"warp_deformer".equals(snapshot.kind())
                     || !(snapshot.nativeSnapshot() instanceof WarpAuthoringSnapshot warp))
                 throw new UnsupportedOperationException();
@@ -185,12 +188,12 @@ final class McpWarpRigDomain {
                         .equals(Set.of("centerX", "centerY", "radiusX", "radiusY", "depth", "cameraDistance")))
             throw new IllegalArgumentException();
         return new McpWarpHeadVolumePlan.Profile(
-                number(values.get("centerX")),
-                number(values.get("centerY")),
-                number(values.get("radiusX")),
-                number(values.get("radiusY")),
-                number(values.get("depth")),
-                number(values.get("cameraDistance")));
+                McpDomainSupport.number(values.get("centerX")),
+                McpDomainSupport.number(values.get("centerY")),
+                McpDomainSupport.number(values.get("radiusX")),
+                McpDomainSupport.number(values.get("radiusY")),
+                McpDomainSupport.number(values.get("depth")),
+                McpDomainSupport.number(values.get("cameraDistance")));
     }
 
     private static List<McpWarpHeadVolumePlan.Axis> volumeAxes(Object raw) {
@@ -202,9 +205,9 @@ final class McpWarpRigDomain {
                     || !axis.keySet().equals(Set.of("parameterGuid", "component", "degreesPerParameterUnit")))
                 throw new IllegalArgumentException();
             result.add(new McpWarpHeadVolumePlan.Axis(
-                    text(axis.get("parameterGuid")),
-                    McpWarpHeadVolumePlan.Component.valueOf(text(axis.get("component"))),
-                    number(axis.get("degreesPerParameterUnit"))));
+                    McpDomainSupport.text(axis.get("parameterGuid"), 4096),
+                    McpWarpHeadVolumePlan.Component.valueOf(McpDomainSupport.text(axis.get("component"), 4096)),
+                    McpDomainSupport.number(axis.get("degreesPerParameterUnit"))));
         }
         return List.copyOf(result);
     }
@@ -229,8 +232,10 @@ final class McpWarpRigDomain {
                         || !axis.keySet().equals(Set.of("parameterGuid", "side"))
                         || !Set.of("NEGATIVE", "POSITIVE").contains(axis.get("side")))
                     throw new IllegalArgumentException();
-                if (sides.putIfAbsent(text(axis.get("parameterGuid")), "POSITIVE".equals(axis.get("side"))) != null)
-                    throw new IllegalArgumentException();
+                if (sides.putIfAbsent(
+                                McpDomainSupport.text(axis.get("parameterGuid"), 4096),
+                                "POSITIVE".equals(axis.get("side")))
+                        != null) throw new IllegalArgumentException();
             }
             result.add(new McpLandmarkRigPlan.Corner(Map.copyOf(sides), anchors(corner.get("anchors"))));
         }
@@ -246,7 +251,7 @@ final class McpWarpRigDomain {
                     || !axis.keySet().equals(Set.of("parameterGuid", "negativeAnchors", "positiveAnchors")))
                 throw new IllegalArgumentException();
             result.add(new McpLandmarkRigPlan.Axis(
-                    text(axis.get("parameterGuid")),
+                    McpDomainSupport.text(axis.get("parameterGuid"), 4096),
                     anchors(axis.get("negativeAnchors")),
                     anchors(axis.get("positiveAnchors"))));
         }
@@ -267,22 +272,6 @@ final class McpWarpRigDomain {
             result.add(new McpLandmarkRigPlan.Anchor(point, x.doubleValue(), y.doubleValue()));
         }
         return List.copyOf(result);
-    }
-
-    private static String text(Object raw) {
-        if (!(raw instanceof String s) || s.isBlank() || s.length() > 4096) throw new IllegalArgumentException();
-        return s;
-    }
-
-    private static Map<String, Object> envelope(Map<String, Object> output) {
-        var safe = McpJsonSupport.encodable(output);
-        return Map.of(
-                "content",
-                List.of(Map.of("type", "text", "text", Json.stringify(safe))),
-                "structuredContent",
-                safe,
-                "isError",
-                !Boolean.TRUE.equals(output.get("ok")));
     }
 
     private static final class BudgetExceeded extends RuntimeException {}

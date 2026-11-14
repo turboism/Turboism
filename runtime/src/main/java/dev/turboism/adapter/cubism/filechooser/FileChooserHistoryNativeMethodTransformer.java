@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.filechooser;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
@@ -52,7 +53,7 @@ public final class FileChooserHistoryNativeMethodTransformer implements ClassFil
             final ClassLoader expectedClassLoader,
             final Consumer<FileChooserHistoryHostProfile.SaveDialogMethod> transformedMethod,
             final boolean validationDialogShim) {
-        this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
+        this.ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
         this.methods = List.copyOf(Objects.requireNonNull(methods, "methods"));
         if (this.methods.isEmpty()) {
             throw new IllegalArgumentException("methods must not be empty");
@@ -208,13 +209,5 @@ public final class FileChooserHistoryNativeMethodTransformer implements ClassFil
                 super.visitInsn(opcode);
             }
         };
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

@@ -123,7 +123,8 @@ public final class EarlyThemeAppearanceBootstrap {
                     if (SwingFlatLafHostOperations.onEdt(() -> {
                         final Object lookAndFeel = UIManager.getLookAndFeel();
                         return lookAndFeel != null
-                                && isFlatLaf(lookAndFeel.getClass().getName());
+                                && FlatLafClasses.isFlatLaf(
+                                        lookAndFeel.getClass().getName());
                     })) {
                         return true;
                     }
@@ -151,14 +152,8 @@ public final class EarlyThemeAppearanceBootstrap {
     }
 
     private static boolean isFlatLafValue(final Object lookAndFeel) {
-        return lookAndFeel != null && isFlatLaf(lookAndFeel.getClass().getName());
-    }
-
-    private static boolean isFlatLaf(final String className) {
-        return className != null
-                && (className.startsWith("com.formdev.flatlaf.")
-                        || className.contains("CubismLightTheme")
-                        || className.contains("CubismDarkTheme"));
+        return lookAndFeel != null
+                && FlatLafClasses.isFlatLaf(lookAndFeel.getClass().getName());
     }
 
     private Optional<Map<String, String>> loadPersistedThemeColors() {

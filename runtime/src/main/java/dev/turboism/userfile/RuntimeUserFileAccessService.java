@@ -9,6 +9,7 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureDomain;
 import dev.turboism.failure.RuntimeFailureSink;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
 import dev.turboism.sdk.cubism.command.EditorOverwritePolicy;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -95,7 +96,7 @@ public final class RuntimeUserFileAccessService
             final DisposableScope scope,
             final CleanupEvidenceCollector cleanupEvidence,
             final RuntimeFailureSink failureSink) {
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.permissions = Set.copyOf(Objects.requireNonNull(permissions, "permissions"));
         this.source = Objects.requireNonNull(source, "source");
         this.tasks = Objects.requireNonNull(tasks, "tasks");
@@ -154,7 +155,7 @@ public final class RuntimeUserFileAccessService
 
     @Override
     public CompletionStage<UserFileReadResult<String>> readUtf8(final UserFileHandle handle, final int maxBytes) {
-        requireNonNegative(maxBytes, "maxBytes");
+        Requirements.nonNegative(maxBytes, "maxBytes");
         final Authorization authorization = authorize(handle, UserFileMode.READ, PermissionIds.TURBOISM_FILE_READ);
         if (authorization.error != null) {
             return immediate(observe(
@@ -174,7 +175,7 @@ public final class RuntimeUserFileAccessService
 
     @Override
     public CompletionStage<UserFileReadResult<byte[]>> readBytes(final UserFileHandle handle, final int maxBytes) {
-        requireNonNegative(maxBytes, "maxBytes");
+        Requirements.nonNegative(maxBytes, "maxBytes");
         final Authorization authorization = authorize(handle, UserFileMode.READ, PermissionIds.TURBOISM_FILE_READ);
         if (authorization.error != null) {
             return immediate(observe(
@@ -201,7 +202,7 @@ public final class RuntimeUserFileAccessService
     @Override
     public CompletionStage<UserFileReadResult<byte[]>> readBytesBounded(
             final UserFileHandle handle, final int maxBytes) {
-        requireNonNegative(maxBytes, "maxBytes");
+        Requirements.nonNegative(maxBytes, "maxBytes");
         final Authorization authorization = authorize(handle, UserFileMode.READ, PermissionIds.TURBOISM_FILE_READ);
         if (authorization.error != null) {
             return immediate(observe(
@@ -637,21 +638,6 @@ public final class RuntimeUserFileAccessService
             case RUNTIME_UNAVAILABLE -> "User-file runtime is unavailable.";
             case IO_FAILURE -> "User-file operation failed safely.";
         };
-    }
-
-    private static int requireNonNegative(final int value, final String name) {
-        if (value < 0) {
-            throw new IllegalArgumentException(name + " must not be negative");
-        }
-        return value;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private record Authorization(Path target, UserFileErrorCode error) {

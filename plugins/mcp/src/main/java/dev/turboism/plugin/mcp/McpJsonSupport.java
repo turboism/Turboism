@@ -38,4 +38,13 @@ final class McpJsonSupport {
     static <T> T encodable(final T value) {
         return Json.sanitize(value);
     }
+
+    /**
+     * Returns the failure message, or the throwable's simple class name when the message is absent
+     * or blank. Callers surface this text on the wire, so it never returns {@code null}.
+     */
+    static String safeMessage(final RuntimeException failure) {
+        final String message = failure.getMessage();
+        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
+    }
 }

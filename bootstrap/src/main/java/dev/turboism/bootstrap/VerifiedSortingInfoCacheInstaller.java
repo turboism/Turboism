@@ -54,11 +54,12 @@ final class VerifiedSortingInfoCacheInstaller implements AutoCloseable {
         // The digest read stays after the shared gate so a refused hook never opens the artifact.
         return VerifiedInstall.admits(
                         ADMISSION, config, requested, Runtime.version().feature())
-                && SortingInfoCacheTarget.of(HostArtifactDigest.from(artifact)).isPresent();
+                && SortingInfoCacheTarget.of(HostArtifactDigest.cached(artifact))
+                        .isPresent();
     }
 
     private static Optional<SortingInfoCacheTarget> resolve(final Path artifact) throws Exception {
-        return SortingInfoCacheTarget.of(HostArtifactDigest.from(artifact));
+        return SortingInfoCacheTarget.of(HostArtifactDigest.cached(artifact));
     }
 
     private static List<WeaveTarget> targets(final SortingInfoCacheTarget target, final WeaveSource source)

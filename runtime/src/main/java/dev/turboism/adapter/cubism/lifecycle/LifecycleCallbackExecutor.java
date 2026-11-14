@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 import dev.turboism.core.runtime.QuiescencePolicy;
 import dev.turboism.core.runtime.contract.PluginTask;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.internal.Requirements;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -28,13 +29,13 @@ final class LifecycleCallbackExecutor implements AutoCloseable {
     LifecycleCallbackExecutor(
             final String lifecycleName, final PluginWorkExecutorRegistry executors, final QuiescencePolicy quiescence) {
         this.quiescence = Objects.requireNonNull(quiescence, "quiescence");
-        this.lifecycleName = requireText(lifecycleName, "lifecycleName");
+        this.lifecycleName = Requirements.text(lifecycleName, "lifecycleName");
         this.executors = Objects.requireNonNull(executors, "executors");
     }
 
     void submit(final String pluginId, final String operationId, final Runnable callback) {
-        final String id = requireText(pluginId, "pluginId");
-        final String operation = requireText(operationId, "operationId");
+        final String id = Requirements.text(pluginId, "pluginId");
+        final String operation = Requirements.text(operationId, "operationId");
         final var submission = executors
                 .get(id)
                 .submit(
@@ -72,7 +73,7 @@ final class LifecycleCallbackExecutor implements AutoCloseable {
     }
 
     void shutdown(final String pluginId) {
-        executors.shutdown(requireText(pluginId, "pluginId"));
+        executors.shutdown(Requirements.text(pluginId, "pluginId"));
     }
 
     @Override
@@ -82,13 +83,5 @@ final class LifecycleCallbackExecutor implements AutoCloseable {
 
     private IllegalStateException quiescenceFailure(final Exception failure) {
         return new IllegalStateException(lifecycleName + " lifecycle callbacks did not quiesce.", failure);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

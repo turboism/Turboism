@@ -121,12 +121,12 @@ class SwingPanelViewRendererTest {
             assertTrue(CollapsibleSection.isExpanded(section));
 
             section.setSize(400, 200);
-            paint(section);
-            Point hotspot = centerOf(border.actionBounds());
-            section.dispatchEvent(click(section, hotspot));
+            SwingPanelTestSupport.paint(section);
+            Point hotspot = SwingPanelTestSupport.centerOf(border.actionBounds());
+            section.dispatchEvent(SwingPanelTestSupport.click(section, hotspot));
             assertFalse(CollapsibleSection.isExpanded(section));
 
-            section.dispatchEvent(click(section, hotspot));
+            section.dispatchEvent(SwingPanelTestSupport.click(section, hotspot));
             assertTrue(CollapsibleSection.isExpanded(section));
         });
     }
@@ -619,30 +619,6 @@ class SwingPanelViewRendererTest {
         view.doLayout();
     }
 
-    private static void paint(JPanel panel) {
-        BufferedImage image = new BufferedImage(400, 200, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D graphics = image.createGraphics();
-        panel.paint(graphics);
-        graphics.dispose();
-    }
-
-    private static MouseEvent click(JPanel panel, Point point) {
-        return new MouseEvent(
-                panel,
-                MouseEvent.MOUSE_CLICKED,
-                System.currentTimeMillis(),
-                0,
-                point.x,
-                point.y,
-                1,
-                false,
-                MouseEvent.BUTTON1);
-    }
-
-    private static Point centerOf(java.awt.Rectangle bounds) {
-        return new Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
-    }
-
     /**
      * The strip needs a control that signals meaning by colour, so a coloured node must keep its own
      * pixels. A disabled control keeps the same silhouette and paints the glyph muted, which keeps
@@ -927,7 +903,7 @@ class SwingPanelViewRendererTest {
             card.setSize(240, 80);
             card.doLayout();
         });
-        final BufferedImage before = paint(card);
+        final BufferedImage before = SwingPanelTestSupport.paintComponent(card);
 
         SwingUtilities.invokeAndWait(() -> {
             final Component child = deepest(card);
@@ -936,7 +912,7 @@ class SwingPanelViewRendererTest {
         });
         // The highlight is coalesced onto the next dispatch cycle, so flush it first.
         SwingUtilities.invokeAndWait(() -> {});
-        final BufferedImage hovered = paint(card);
+        final BufferedImage hovered = SwingPanelTestSupport.paintComponent(card);
 
         assertFalse(
                 java.util.Arrays.equals(pixels(before), pixels(hovered)),
@@ -948,18 +924,6 @@ class SwingPanelViewRendererTest {
             return deepest(container.getComponent(container.getComponentCount() - 1));
         }
         return component;
-    }
-
-    private static BufferedImage paint(final JComponent component) {
-        final BufferedImage image =
-                new BufferedImage(component.getWidth(), component.getHeight(), BufferedImage.TYPE_INT_ARGB);
-        final Graphics2D graphics = image.createGraphics();
-        try {
-            component.paint(graphics);
-        } finally {
-            graphics.dispose();
-        }
-        return image;
     }
 
     private static int[] pixels(final BufferedImage image) {

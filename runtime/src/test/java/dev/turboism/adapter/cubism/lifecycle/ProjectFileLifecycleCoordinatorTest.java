@@ -12,6 +12,7 @@ import dev.turboism.sdk.cubism.hook.AnimationFileHooks;
 import dev.turboism.sdk.cubism.hook.ModelFileHooks;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.test.Stubs;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -249,102 +250,7 @@ class ProjectFileLifecycleCoordinatorTest {
     }
 
     private static PluginDescriptor descriptor() {
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return "plugin-a";
-            }
-
-            @Override
-            public String name() {
-                return "plugin-a";
-            }
-
-            @Override
-            public String version() {
-                return "1.0.0";
-            }
-
-            @Override
-            public String description() {
-                return "test";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of();
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "Test";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.empty();
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of();
-            }
-
-            @Override
-            public I18n i18n() {
-                return new I18n() {
-                    @Override
-                    public String baseName() {
-                        return "messages";
-                    }
-
-                    @Override
-                    public List<String> locales() {
-                        return List.of();
-                    }
-                };
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return List.of();
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "none";
-                    }
-                };
-            }
-        };
+        return Stubs.descriptorBuilder("plugin-a").license("Test").build();
     }
 
     private static PluginLogger logger(final List<String> failures) {

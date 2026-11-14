@@ -1,6 +1,7 @@
 package dev.turboism.ui.table;
 
 import dev.turboism.adapter.cubism.profile.CubismSceneTableProfile;
+import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.CubismEditorReleaseDetector;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
@@ -56,7 +57,7 @@ public final class SceneTableHostProfile {
 
     SceneTableHostProfile(
             final String cubismVersion, final HostArtifactDigest artifact, final List<StaticSelector> selectors) {
-        this.cubismVersion = requireText(cubismVersion, "cubismVersion");
+        this.cubismVersion = Requirements.text(cubismVersion, "cubismVersion");
         this.artifact = Objects.requireNonNull(artifact, "artifact");
         this.selectors = List.copyOf(Objects.requireNonNull(selectors, "selectors"));
         if (this.selectors.isEmpty()) {
@@ -94,7 +95,7 @@ public final class SceneTableHostProfile {
         }
         final Bound bound = new SceneTableHostProfile(declared.version(), declared.artifact(), REVIEWED_SELECTORS)
                 .bind(hostClassLoader);
-        if (!declared.artifact().equals(HostArtifactDigest.from(artifact))) {
+        if (!declared.artifact().equals(HostArtifactDigest.cached(artifact))) {
             throw new IllegalArgumentException("Scene palette artifact changed during binding");
         }
         return Optional.of(bound);
@@ -117,14 +118,6 @@ public final class SceneTableHostProfile {
     /** Resolves every reviewed owner/name/descriptor before palette discovery may begin. */
     Bound bind(final ClassLoader hostClassLoader) {
         return new Bound(this, Objects.requireNonNull(hostClassLoader, "hostClassLoader"));
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     /** Fully pre-bound access plan for one admitted artifact and defining host classloader. */

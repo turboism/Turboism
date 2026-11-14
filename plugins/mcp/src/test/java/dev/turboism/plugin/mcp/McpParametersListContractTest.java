@@ -41,12 +41,12 @@ import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.permission.CubismPermissionException;
-import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.appearance.PaletteEntry;
 import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
+import dev.turboism.test.Stubs;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import java.time.Duration;
 import java.util.List;
@@ -193,7 +193,7 @@ final class McpParametersListContractTest {
                         emptySelection(),
                         emptyRead(),
                         emptyClipMasks(),
-                        silentLogger(),
+                        Stubs.noopLogger(),
                         counting)
                 .call(McpTools.PARAMETERS_LIST, Map.of());
 
@@ -266,7 +266,7 @@ final class McpParametersListContractTest {
                         emptySelection(),
                         emptyRead(),
                         emptyClipMasks(),
-                        silentLogger(),
+                        Stubs.noopLogger(),
                         immediateUi())
                 .call(McpTools.PARAMETERS_LIST, arguments);
     }
@@ -633,24 +633,5 @@ final class McpParametersListContractTest {
 
     private static UiScheduler immediateUi() {
         return FakeDirectUiScheduler.direct();
-    }
-
-    private static PluginLogger silentLogger() {
-        return new PluginLogger() {
-            @Override
-            public void debug(final String message) {}
-
-            @Override
-            public void info(final String message) {}
-
-            @Override
-            public void warn(final String message) {}
-
-            @Override
-            public void error(final String message) {}
-
-            @Override
-            public void error(final String message, final Throwable throwable) {}
-        };
     }
 }

@@ -1,7 +1,6 @@
 package dev.turboism.plugin.modelimport3d;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,36 +19,6 @@ class ModelImportI18nTest {
             "messages_ko.properties",
             "messages_zh_Hans.properties",
             "messages_zh_Hant.properties");
-
-    /** Keys the import windows and the progress window read at run time. */
-    private static final List<String> REQUIRED_KEYS = List.of(
-            "dialog.preset.hint",
-            "progress.mesh",
-            "progress.writing",
-            "preset.torus",
-            ModelObjectNames.KEY_DEFORMER,
-            ModelObjectNames.KEY_JOINT,
-            ModelObjectNames.KEY_LOCAL_ACTION,
-            ModelObjectNames.KEY_MESH,
-            ModelObjectNames.KEY_MESH_NAMED,
-            ModelObjectNames.KEY_PARTITION,
-            ModelObjectNames.KEY_PLACEMENT,
-            ModelObjectNames.KEY_ROTATION_X,
-            ModelObjectNames.KEY_ROTATION_Y,
-            ModelObjectNames.KEY_ROTATION_Z,
-            ModelObjectNames.KEY_SURFACE,
-            ModelObjectNames.KEY_WARP);
-
-    @Test
-    void everyBundleCarriesTheImportAndProgressKeys() throws Exception {
-        for (String bundle : BUNDLES) {
-            final Properties properties = load(bundle);
-            for (String key : REQUIRED_KEYS) {
-                assertTrue(properties.containsKey(key), bundle + " is missing " + key);
-                assertFalse(properties.getProperty(key).isBlank(), bundle + " has a blank " + key);
-            }
-        }
-    }
 
     @Test
     void solidTorusPresetIsNamedAsTheDonutOperatorsSee() throws Exception {

@@ -1,6 +1,7 @@
 package dev.turboism.automesh.host;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.StaticSelector;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
@@ -55,8 +56,8 @@ public final class AutoMeshPanelAttachTransformer implements ClassFileTransforme
 
         public Site {
             container = Objects.requireNonNull(container, "container");
-            ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
-            descriptor = requireText(descriptor, "descriptor");
+            ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
+            descriptor = Requirements.text(descriptor, "descriptor");
             if (!descriptor.endsWith(VOID_RETURN_SUFFIX)) {
                 throw new IllegalArgumentException("attach sites must return void: " + descriptor);
             }
@@ -379,13 +380,5 @@ public final class AutoMeshPanelAttachTransformer implements ClassFileTransforme
             }
             super.visitIntInsn(Opcodes.SIPUSH, value);
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

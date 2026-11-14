@@ -1,6 +1,6 @@
 package dev.turboism.distribution;
 
-import java.util.Objects;
+import dev.turboism.internal.Requirements;
 
 /** Plugin package identity plus the raw transport observation the inspector made. */
 public final class PluginPackageIdentity {
@@ -10,8 +10,8 @@ public final class PluginPackageIdentity {
     private final long rawArchiveSize;
 
     PluginPackageIdentity(String packageId, String version, String rawArchiveSha256, long rawArchiveSize) {
-        this.packageId = text(packageId, "packageId");
-        this.version = text(version, "version");
+        this.packageId = Requirements.text(packageId, "packageId");
+        this.version = Requirements.text(version, "version");
         this.rawArchiveSha256 = hash(rawArchiveSha256, "rawArchiveSha256");
         if (rawArchiveSize < 0) throw new IllegalArgumentException("rawArchiveSize must be non-negative");
         this.rawArchiveSize = rawArchiveSize;
@@ -38,14 +38,8 @@ public final class PluginPackageIdentity {
     }
 
     private static String hash(String value, String name) {
-        value = text(value, name);
+        value = Requirements.text(value, name);
         if (!value.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("Invalid " + name);
-        return value;
-    }
-
-    private static String text(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
         return value;
     }
 }

@@ -82,7 +82,7 @@ final class VerifiedSkippedFrameMeshSetupElisionInstaller implements AutoCloseab
     }
 
     private static Optional<SkippedFrameMeshSetupElisionTarget> resolve(final Path artifact) throws Exception {
-        return SkippedFrameMeshSetupElisionTarget.of(HostArtifactDigest.from(artifact));
+        return SkippedFrameMeshSetupElisionTarget.of(HostArtifactDigest.cached(artifact));
     }
 
     private static List<WeaveTarget> targets(final SkippedFrameMeshSetupElisionTarget target, final WeaveSource source)

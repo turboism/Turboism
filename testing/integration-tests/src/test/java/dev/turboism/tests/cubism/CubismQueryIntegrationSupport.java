@@ -49,7 +49,7 @@ final class CubismQueryIntegrationSupport {
         final DisposableScope disposableScope = new DisposableScope();
         final CorePluginContext context = new CorePluginContext(new CorePluginContext.Dependencies(
                 TestPluginDependencies.descriptor(permissionIds),
-                TestPluginDependencies.silentLogger(),
+                Stubs.noopLogger(),
                 TestPluginDependencies.paths(),
                 TestPluginDependencies.directUiScheduler(),
                 directRuntimeScheduler(),

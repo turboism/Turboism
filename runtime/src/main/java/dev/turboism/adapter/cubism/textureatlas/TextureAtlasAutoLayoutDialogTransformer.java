@@ -1,8 +1,9 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
+import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
-import java.util.Objects;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -30,10 +31,10 @@ public final class TextureAtlasAutoLayoutDialogTransformer implements ClassFileT
             final String constructorDescriptor,
             final ClassLoader expectedClassLoader,
             final String ingressKey) {
-        this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
-        this.constructorDescriptor = requireText(constructorDescriptor, "constructorDescriptor");
+        this.ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
+        this.constructorDescriptor = Requirements.text(constructorDescriptor, "constructorDescriptor");
         this.expectedClassLoader = expectedClassLoader;
-        this.ingressKey = requireText(ingressKey, "ingressKey");
+        this.ingressKey = Requirements.text(ingressKey, "ingressKey");
     }
 
     @Override
@@ -51,7 +52,8 @@ public final class TextureAtlasAutoLayoutDialogTransformer implements ClassFileT
         }
         final boolean[] transformed = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter writer =
+                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -112,11 +114,5 @@ public final class TextureAtlasAutoLayoutDialogTransformer implements ClassFileT
                 },
                 ClassReader.EXPAND_FRAMES);
         return transformed[0] ? writer.toByteArray() : null;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

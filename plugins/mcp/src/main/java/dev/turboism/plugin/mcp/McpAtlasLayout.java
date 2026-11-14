@@ -24,7 +24,7 @@ final class McpAtlasLayout {
         var rows = new ArrayList<Map<String, Object>>();
         int vertices = 0;
         for (var item : snapshot.items()) {
-            text(item.textureId(), 4096);
+            McpDomainSupport.text(item.textureId(), 4096);
             if (item.width() > MAX_DIMENSION || item.height() > MAX_DIMENSION) throw new Budget();
             var row = new LinkedHashMap<String, Object>();
             row.put("textureId", item.textureId());
@@ -50,9 +50,9 @@ final class McpAtlasLayout {
         }
         var result = Map.<String, Object>of(
                 "documentId",
-                text(snapshot.documentId(), 4096),
+                McpDomainSupport.text(snapshot.documentId(), 4096),
                 "modelId",
-                text(snapshot.modelId(), 4096),
+                McpDomainSupport.text(snapshot.modelId(), 4096),
                 "atlasIdHash",
                 McpWriteResults.digest(Map.of("nativeAtlasId", snapshot.atlasId())),
                 "constraints",
@@ -81,12 +81,12 @@ final class McpAtlasLayout {
                 || plan.pageWidth() > MAX_DIMENSION
                 || plan.pageHeight() > MAX_DIMENSION) throw new Budget();
         if (!plan.polygonPages().isEmpty() || plan.scale() != 1D) throw new UnsupportedOperationException();
-        plan.pageNames().forEach(n -> text(n, 128));
+        plan.pageNames().forEach(n -> McpDomainSupport.text(n, 128));
         var placements = plan.placements().stream()
                 .sorted(Comparator.comparing(TextureAtlasPlacement::textureId))
                 .map(p -> Map.<String, Object>of(
                         "textureId",
-                        text(p.textureId(), 4096),
+                        McpDomainSupport.text(p.textureId(), 4096),
                         "pageIndex",
                         p.pageIndex(),
                         "x",
@@ -128,7 +128,7 @@ final class McpAtlasLayout {
         if (!(map.get("scale") instanceof Number n) || new BigDecimal(n.toString()).compareTo(BigDecimal.ONE) != 0)
             throw new IllegalArgumentException();
         var names = list(map.get("pageNames"), MAX_PAGES).stream()
-                .map(v -> text(v, 128))
+                .map(v -> McpDomainSupport.text(v, 128))
                 .toList();
         var sizes = list(map.get("pageSizes"), MAX_PAGES).stream()
                 .map(v -> {
@@ -141,7 +141,7 @@ final class McpAtlasLayout {
                     var row = fields(v, "textureId", "pageIndex", "x", "y", "width", "height", "rotated");
                     if (!(row.get("rotated") instanceof Boolean rotation)) throw new IllegalArgumentException();
                     return new TextureAtlasPlacement(
-                            text(row.get("textureId"), 4096),
+                            McpDomainSupport.text(row.get("textureId"), 4096),
                             integer(row.get("pageIndex")),
                             integer(row.get("x")),
                             integer(row.get("y")),
@@ -266,14 +266,6 @@ final class McpAtlasLayout {
         int size = Json.stringify(value).getBytes(StandardCharsets.UTF_8).length;
         if (size > MAX_BYTES) throw new Budget();
         return size;
-    }
-
-    static String text(Object value, int max) {
-        if (!(value instanceof String s)
-                || s.isBlank()
-                || s.length() > max
-                || s.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException();
-        return s;
     }
 
     static int integer(Object value) {

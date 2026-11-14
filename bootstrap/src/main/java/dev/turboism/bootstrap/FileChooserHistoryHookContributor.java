@@ -30,7 +30,7 @@ final class FileChooserHistoryHookContributor implements HookContributor {
     public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
-        final var profile = FileChooserHistoryHostProfile.forArtifact(HostArtifactDigest.from(host.artifact()))
+        final var profile = FileChooserHistoryHostProfile.forArtifact(HostArtifactDigest.cached(host.artifact()))
                 .or(() -> environment
                         .admittedRuntimeGeneration()
                         .flatMap(FileChooserHistoryHostProfile::forReviewedVersion))

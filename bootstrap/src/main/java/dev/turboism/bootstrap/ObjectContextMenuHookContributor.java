@@ -39,7 +39,7 @@ final class ObjectContextMenuHookContributor implements HookContributor {
         final var runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
         final ObjectContextMenuHostProfile profile = ObjectContextMenuHostProfile.forArtifact(
-                        HostArtifactDigest.from(host.artifact()))
+                        HostArtifactDigest.cached(host.artifact()))
                 .or(() -> environment
                         .admittedRuntimeGeneration()
                         .flatMap(ObjectContextMenuHostProfile::forReviewedVersion))
@@ -63,7 +63,7 @@ final class ObjectContextMenuHookContributor implements HookContributor {
             handles.add(installer);
 
             final ParameterPointContextMenuHostProfile parameterPointProfile =
-                    ParameterPointContextMenuHostProfile.forArtifact(HostArtifactDigest.from(host.artifact()))
+                    ParameterPointContextMenuHostProfile.forArtifact(HostArtifactDigest.cached(host.artifact()))
                             .or(() -> environment
                                     .admittedRuntimeGeneration()
                                     .flatMap(ParameterPointContextMenuHostProfile::forReviewedVersion))

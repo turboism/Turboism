@@ -29,6 +29,7 @@ import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.test.Stubs;
+import dev.turboism.test.plugin.FakePluginPaths;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import dev.turboism.testkit.RuntimeTestKit;
 import java.lang.reflect.Proxy;
@@ -36,7 +37,6 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -652,117 +652,16 @@ class CorePluginContextConstructorTest {
     }
 
     private static PluginDescriptor descriptor() {
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return "dev.turboism.test.ConstructorTest";
-            }
-
-            @Override
-            public String name() {
-                return "Constructor Test";
-            }
-
-            @Override
-            public String version() {
-                return "0.1.0";
-            }
-
-            @Override
-            public String description() {
-                return "Test";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of("dev.turboism.test.ConstructorTestPlugin");
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "Project License";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.of("https://turboism.dev");
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of();
-            }
-
-            @Override
-            public I18n i18n() {
-                return new I18n() {
-                    @Override
-                    public String baseName() {
-                        return "META-INF/turboism/i18n/messages";
-                    }
-
-                    @Override
-                    public List<String> locales() {
-                        return List.of();
-                    }
-                };
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return List.of(new PermissionRef() {
-                    @Override
-                    public String id() {
-                        return "turboism.cubism.project.read";
-                    }
-
-                    @Override
-                    public String scope() {
-                        return "application";
-                    }
-
-                    @Override
-                    public Optional<String> reason() {
-                        return Optional.of("Constructor matrix test");
-                    }
-                });
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "none";
-                    }
-                };
-            }
-        };
+        return Stubs.descriptorBuilder("dev.turboism.test.ConstructorTest")
+                .name("Constructor Test")
+                .version("0.1.0")
+                .entrypoints("dev.turboism.test.ConstructorTestPlugin")
+                .license("Project License")
+                .website("https://turboism.dev")
+                .permissions(
+                        Stubs.permissionRef("turboism.cubism.project.read", "application", "Constructor matrix test"))
+                .i18n("META-INF/turboism/i18n/messages")
+                .build();
     }
 
     private static PluginLogger logger() {
@@ -770,35 +669,11 @@ class CorePluginContextConstructorTest {
     }
 
     private static PluginPaths paths(final Path dataDir) {
-        return new PluginPaths() {
-            @Override
-            public Path dataDir() {
-                return dataDir;
-            }
-
-            @Override
-            public Path logsDir() {
-                return dataDir.resolve("logs");
-            }
-
-            @Override
-            public Path stateDir() {
-                return dataDir.resolve("state");
-            }
-
-            @Override
-            public Path cacheDir() {
-                return dataDir.resolve("cache");
-            }
-        };
+        return FakePluginPaths.of(dataDir, dataDir.resolve("state"), dataDir.resolve("cache"));
     }
 
     private static UiScheduler uiScheduler() {
         return FakeDirectUiScheduler.immediateOnly();
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
     }
 
     private static DiagnosticReport diagnostics() {
@@ -816,7 +691,7 @@ class CorePluginContextConstructorTest {
 
         private Fixture(final Path dataDir) {
             this.session = new HostSession(() -> Optional.empty());
-            this.scheduler = scheduler();
+            this.scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
             this.dependencies = dependencies(dataDir, scheduler);
         }
 

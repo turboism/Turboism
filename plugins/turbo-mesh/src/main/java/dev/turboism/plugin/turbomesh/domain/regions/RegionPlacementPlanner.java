@@ -281,14 +281,6 @@ public final class RegionPlacementPlanner {
         return constraints;
     }
 
-    private static int[] toArray(final List<Integer> values) {
-        final int[] out = new int[values.size()];
-        for (int i = 0; i < out.length; i++) {
-            out[i] = values.get(i);
-        }
-        return out;
-    }
-
     private static void checkInterrupted() {
         if (Thread.currentThread().isInterrupted()) {
             throw new CancellationException("texture region planning was interrupted");
@@ -322,7 +314,7 @@ public final class RegionPlacementPlanner {
                 final List<RegionPlacementPlan.Constraint> constraints,
                 final int vertexCountBeforeMerge,
                 final ShapeFamily shapeFamily) {
-            final int[] raw = toArray(mesh.triangleIndices());
+            final int[] raw = RegionArrays.toIntArray(mesh.triangleIndices());
             final List<Point2> points = mesh.points();
             final int[] remap = usedRemap(raw, points.size());
             final List<Point2> kept = remap == null ? points : compactPoints(points, remap);

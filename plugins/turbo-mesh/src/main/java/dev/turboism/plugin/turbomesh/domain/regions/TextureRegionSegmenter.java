@@ -254,8 +254,8 @@ final class TextureRegionSegmenter {
         final double scale = GRAPH_SCALE / 255.0;
         final int[] order = orderByCost(grid);
         for (final int edge : order) {
-            final int rootA = find(parent, grid.source(edge));
-            final int rootB = find(parent, grid.target(edge));
+            final int rootA = DisjointSets.find(parent, grid.source(edge));
+            final int rootB = DisjointSets.find(parent, grid.target(edge));
             if (rootA == rootB) {
                 continue;
             }
@@ -269,8 +269,8 @@ final class TextureRegionSegmenter {
             }
         }
         for (final int edge : order) {
-            final int rootA = find(parent, grid.source(edge));
-            final int rootB = find(parent, grid.target(edge));
+            final int rootA = DisjointSets.find(parent, grid.source(edge));
+            final int rootB = DisjointSets.find(parent, grid.target(edge));
             if (rootA == rootB) {
                 continue;
             }
@@ -345,7 +345,7 @@ final class TextureRegionSegmenter {
             final int height,
             final double threshold,
             final int minArea) {
-        final int labelCount = maxLabel(labels) + 1;
+        final int labelCount = RegionArrays.maxLabel(labels) + 1;
         final long[] counts = new long[labelCount];
         final double[] sumL = new double[labelCount];
         final double[] sumA = new double[labelCount];
@@ -503,9 +503,9 @@ final class TextureRegionSegmenter {
         final boolean[] present = new boolean[parent.length];
         final int[] resolved = new int[labels.length];
         // Zero must stay the outside marker even when the crop holds no empty pixel.
-        present[find(parent, 0)] = true;
+        present[DisjointSets.find(parent, 0)] = true;
         for (int i = 0; i < labels.length; i++) {
-            resolved[i] = find(parent, labels[i]);
+            resolved[i] = DisjointSets.find(parent, labels[i]);
             present[resolved[i]] = true;
         }
         final int[] rank = new int[parent.length];
@@ -526,7 +526,7 @@ final class TextureRegionSegmenter {
         final int[] root = new int[pixels];
         final boolean[] present = new boolean[pixels];
         for (int i = 0; i < pixels; i++) {
-            root[i] = find(parent, i);
+            root[i] = DisjointSets.find(parent, i);
             present[root[i]] = true;
         }
         final int[] rank = new int[pixels];
@@ -543,20 +543,6 @@ final class TextureRegionSegmenter {
         return out;
     }
 
-    private static int find(final int[] parent, final int start) {
-        int root = start;
-        while (parent[root] != root) {
-            root = parent[root];
-        }
-        int cursor = start;
-        while (parent[cursor] != root) {
-            final int next = parent[cursor];
-            parent[cursor] = root;
-            cursor = next;
-        }
-        return root;
-    }
-
     private static int join(final int[] parent, final int a, final int b) {
         if (a < b) {
             parent[b] = a;
@@ -564,14 +550,6 @@ final class TextureRegionSegmenter {
         }
         parent[a] = b;
         return b;
-    }
-
-    private static int maxLabel(final int[] labels) {
-        int max = 0;
-        for (final int label : labels) {
-            max = Math.max(max, label);
-        }
-        return max;
     }
 
     private static float[][] smoothedPlanes(final float[] rgb, final int width, final int height) {

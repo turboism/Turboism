@@ -338,13 +338,13 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
                 transformer.admittedClassLoader() == null ? hostClassLoader : transformer.admittedClassLoader();
         if (owner == null) return;
         try {
-            for (Class<?> type : instrumentation.getAllLoadedClasses()) {
+            // One enumeration, but one request per owner: a refused owner must not hide the
+            // restore of the owners that follow it.
+            final List<Class<?>> targets = VerifiedHookInstallerSupport.LoadedClassIndex.snapshot(instrumentation)
+                    .select(owner, type -> isTarget(safeName(type)) && instrumentation.isModifiableClass(type));
+            for (final Class<?> type : targets) {
                 try {
-                    if (type.getClassLoader() == owner
-                            && isTarget(safeName(type))
-                            && instrumentation.isModifiableClass(type)) {
-                        instrumentation.retransformClasses(type);
-                    }
+                    VerifiedHookInstallerSupport.retransformAll(instrumentation, List.of(type));
                 } catch (Throwable failure) {
                     FatalErrors.rethrowIfFatal(failure);
                     failures.add("MESH_MIRROR_RESTORE_FAILED owner=" + safeName(type));

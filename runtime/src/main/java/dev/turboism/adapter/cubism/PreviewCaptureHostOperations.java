@@ -794,7 +794,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             for (Component current = component; current != null; current = current.getParent()) {
                 final String name = current.getClass().getName();
                 if (name.contains("GLJPanelWrapper$b")) {
-                    final java.lang.reflect.Field wrapper = current.getClass().getDeclaredField("b");
+                    final java.lang.reflect.Field wrapper = MethodHandleCache.declaredField(current.getClass(), "b");
                     ReflectAccess.open(wrapper);
                     final Object host = wrapper.get(current);
                     return MethodHandleCache.method(host.getClass(), "getSharedDrawable")

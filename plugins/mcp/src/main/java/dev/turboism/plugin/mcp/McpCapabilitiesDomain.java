@@ -1,6 +1,9 @@
 package dev.turboism.plugin.mcp;
 
-import dev.turboism.sdk.json.Json;
+import static dev.turboism.plugin.mcp.McpDomainSupport.envelope;
+import static dev.turboism.plugin.mcp.McpSchemas.entry;
+import static dev.turboism.plugin.mcp.McpSchemas.immutableMap;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -78,14 +81,6 @@ final class McpCapabilitiesDomain {
 
     private static Map<String, Object> failure(final String code) {
         return immutableMap(entry("ok", false), entry("code", code), entry("operations", List.of()));
-    }
-
-    private static Map<String, Object> envelope(final Map<String, Object> output) {
-        final Map<String, Object> safe = McpJsonSupport.encodable(output);
-        return immutableMap(
-                entry("content", List.of(immutableMap(entry("type", "text"), entry("text", Json.stringify(safe))))),
-                entry("structuredContent", safe),
-                entry("isError", !Boolean.TRUE.equals(safe.get("ok"))));
     }
 
     private static Map<String, Object> definition() {
@@ -273,18 +268,5 @@ final class McpCapabilitiesDomain {
                                         immutableMap(entry("type", "array"), entry("items", exceptionSchema))))),
                 entry("required", List.of("schemaVersion", "trackedOwners", "entries", "temporaryPublicExceptions")),
                 entry("additionalProperties", false));
-    }
-
-    @SafeVarargs
-    private static Map<String, Object> immutableMap(final Map.Entry<String, Object>... entries) {
-        final Map<String, Object> values = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : entries) {
-            values.put(entry.getKey(), entry.getValue());
-        }
-        return Collections.unmodifiableMap(values);
-    }
-
-    private static Map.Entry<String, Object> entry(final String key, final Object value) {
-        return Map.entry(key, value);
     }
 }

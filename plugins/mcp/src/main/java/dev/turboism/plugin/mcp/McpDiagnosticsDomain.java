@@ -1,16 +1,16 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.entry;
+import static dev.turboism.plugin.mcp.McpSchemas.linked;
+
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.core.CoreCapabilities;
 import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
 import dev.turboism.sdk.cubism.core.CoreVersion;
-import dev.turboism.sdk.cubism.model.AtlasTexture;
 import dev.turboism.sdk.cubism.model.CubismModel;
-import dev.turboism.sdk.cubism.model.ModelImageEntry;
 import dev.turboism.sdk.cubism.model.ModelImageGroup;
 import dev.turboism.sdk.cubism.model.ModelStatistics;
 import dev.turboism.sdk.cubism.model.ModelTextures;
-import dev.turboism.sdk.cubism.model.RawTexture;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.ui.workspace.WorkspaceInfo;
@@ -274,7 +274,7 @@ final class McpDiagnosticsDomain {
                     entry(
                             "rawImages",
                             value.rawImages().stream()
-                                    .map(McpDiagnosticsDomain::rawTexture)
+                                    .map(McpTextureProjection::rawTexture)
                                     .toList()),
                     entry(
                             "modelImageGroups",
@@ -284,7 +284,7 @@ final class McpDiagnosticsDomain {
                     entry(
                             "textureAtlases",
                             value.textureAtlases().stream()
-                                    .map(McpDiagnosticsDomain::atlasTexture)
+                                    .map(McpTextureProjection::atlasTexture)
                                     .toList()));
         });
     }
@@ -344,14 +344,6 @@ final class McpDiagnosticsDomain {
         }
     }
 
-    private static Map<String, Object> rawTexture(final RawTexture value) {
-        return linked(
-                entry("id", value.id().value()),
-                entry("name", value.name()),
-                entry("width", value.width()),
-                entry("height", value.height()));
-    }
-
     private static Map<String, Object> modelImageGroup(final ModelImageGroup value) {
         return linked(
                 entry("groupName", value.groupName()),
@@ -359,26 +351,8 @@ final class McpDiagnosticsDomain {
                 entry(
                         "modelImages",
                         value.modelImages().stream()
-                                .map(McpDiagnosticsDomain::modelImage)
+                                .map(McpTextureProjection::modelImage)
                                 .toList()));
-    }
-
-    private static Map<String, Object> modelImage(final ModelImageEntry value) {
-        return linked(
-                entry("id", value.id().value()),
-                entry("name", value.name()),
-                entry("width", value.width()),
-                entry("height", value.height()));
-    }
-
-    private static Map<String, Object> atlasTexture(final AtlasTexture value) {
-        return linked(
-                entry("id", value.id().value()),
-                entry("name", value.name()),
-                entry("width", value.width()),
-                entry("height", value.height()),
-                entry("atlasVersion", value.atlasVersion()),
-                entry("modelImageCount", value.modelImageCount()));
     }
 
     private static Integer optionalInt(final java.util.OptionalInt value) {
@@ -451,16 +425,5 @@ final class McpDiagnosticsDomain {
                 entry("title", title),
                 entry("description", description),
                 entry("mimeType", "application/json"));
-    }
-
-    @SafeVarargs
-    private static LinkedHashMap<String, Object> linked(final Map.Entry<String, Object>... entries) {
-        final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : entries) result.put(entry.getKey(), entry.getValue());
-        return result;
-    }
-
-    private static Map.Entry<String, Object> entry(final String key, final Object value) {
-        return new java.util.AbstractMap.SimpleImmutableEntry<>(key, value);
     }
 }

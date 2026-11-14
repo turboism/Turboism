@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.*;
 
 final class McpDocumentLifecycleSchemas {
@@ -66,9 +68,9 @@ final class McpDocumentLifecycleSchemas {
                 "kind",
                 Map.of("enum", List.of("MODEL", "ANIMATION_SCENE", "IMAGE", "GAME_DATA", "PHYSICS_SETTINGS", "OTHER")),
                 "contentId",
-                nullable(),
+                nullableText(),
                 "modelId",
-                nullable()));
+                nullableText()));
     }
 
     private static Map<String, Object> state() {
@@ -80,16 +82,16 @@ final class McpDocumentLifecycleSchemas {
                 "kind",
                 Map.of("enum", List.of("MODEL", "ANIMATION", "IMAGE", "GAME_DATA", "OTHER")),
                 "documentIds",
-                array(text(4096), 256)));
+                boundedArray(text(4096), 256)));
         var project = object(Map.of(
                 "projectId",
                 text(4096),
                 "name",
                 text(4096),
                 "documents",
-                array(document(), 128),
+                boundedArray(document(), 128),
                 "contents",
-                array(content, 128)));
+                boundedArray(content, 128)));
         return object(Map.of(
                 "hostObserved",
                 Map.of("type", "boolean"),
@@ -111,7 +113,7 @@ final class McpDocumentLifecycleSchemas {
                         "enum",
                         List.of("QUEUED", "RUNNING", "READY", "EXECUTED_NOT_READY", "NOT_APPLIED", "OUTCOME_UNKNOWN")));
         p.put("code", text(128));
-        p.put("nativeStatus", nullable());
+        p.put("nativeStatus", nullableText());
         p.put("afterState", nullable(state()));
         p.put("authoringReady", Map.of("type", "boolean"));
         for (String key : List.of("existingModelContentsVerified", "persistenceVerified", "retrySafe"))
@@ -131,20 +133,7 @@ final class McpDocumentLifecycleSchemas {
         return Map.of("type", List.of("string", "null"), "minLength", 1, "maxLength", 4096);
     }
 
-    private static Map<String, Object> text(int max) {
-        return Map.of("type", "string", "minLength", 1, "maxLength", max);
-    }
-
     private static Map<String, Object> array(Map<String, Object> item, int max) {
         return Map.of("type", "array", "items", item, "maxItems", max);
-    }
-
-    private static Map<String, Object> constant(Object value) {
-        return Map.of("const", value);
-    }
-
-    private static Map<String, Object> object(Map<String, Object> p) {
-        return Map.of(
-                "type", "object", "properties", p, "required", List.copyOf(p.keySet()), "additionalProperties", false);
     }
 }

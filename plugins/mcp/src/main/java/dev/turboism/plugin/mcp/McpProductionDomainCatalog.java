@@ -1,6 +1,10 @@
 package dev.turboism.plugin.mcp;
 
-import dev.turboism.sdk.json.Json;
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+import static dev.turboism.plugin.mcp.McpSchemas.entry;
+import static dev.turboism.plugin.mcp.McpSchemas.linked;
+import static dev.turboism.plugin.mcp.McpWriteResults.toolResult;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -233,14 +237,6 @@ final class McpProductionDomainCatalog {
         return linked(entry("ok", false), entry("error", linked(entry("code", code), entry("message", message))));
     }
 
-    private static Map<String, Object> toolResult(final Map<String, Object> output, final boolean error) {
-        final Map<String, Object> safe = McpJsonSupport.encodable(output);
-        return linked(
-                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(safe))))),
-                entry("structuredContent", safe),
-                entry("isError", error));
-    }
-
     private static Map<String, Object> applyDefinition() {
         return linked(
                 entry("name", APPLY),
@@ -250,7 +246,7 @@ final class McpProductionDomainCatalog {
                         "Applies ordered create, rename, reparent, and delete operations to the active Cubism model. Each operation reports its own result; stopOnError defaults to false so completed operations are preserved and partial success is explicit."),
                 entry(
                         "inputSchema",
-                        objectSchema(
+                        McpSchemas.object(
                                 linked(
                                         entry(
                                                 "operations",
@@ -286,14 +282,14 @@ final class McpProductionDomainCatalog {
                         createArtMeshSchema(true),
                         createWarpDeformerSchema(),
                         createRotationDeformerSchema(),
-                        objectSchema(
+                        McpSchemas.object(
                                 linked(
                                         entry("operation", enumSchema(List.of("rename"))),
                                         entry("kind", modelObjectKindSchema()),
                                         entry("id", stringSchema()),
                                         entry("name", stringSchema())),
                                 List.of("operation", "kind", "id", "name")),
-                        objectSchema(
+                        McpSchemas.object(
                                 linked(
                                         entry("operation", enumSchema(List.of("reparent"))),
                                         entry("kind", modelObjectKindSchema()),
@@ -301,7 +297,7 @@ final class McpProductionDomainCatalog {
                                         entry("parent", parentSchema(modelObjectKindSchema())),
                                         entry("index", Map.of("type", "integer", "minimum", -1))),
                                 List.of("operation", "kind", "id", "parent")),
-                        objectSchema(
+                        McpSchemas.object(
                                 linked(
                                         entry("operation", enumSchema(List.of("delete"))),
                                         entry("kind", modelObjectKindSchema()),
@@ -311,7 +307,7 @@ final class McpProductionDomainCatalog {
     }
 
     private static Map<String, Object> createPartSchema() {
-        return objectSchema(
+        return McpSchemas.object(
                 linked(
                         entry("operation", enumSchema(List.of("create"))),
                         entry("kind", enumSchema(List.of("part"))),
@@ -336,7 +332,7 @@ final class McpProductionDomainCatalog {
                             entry("minItems", 3),
                             entry("items", Map.of("type", "integer", "minimum", 0))));
         }
-        return objectSchema(
+        return McpSchemas.object(
                 properties,
                 explicitGeometry
                         ? List.of("operation", "kind", "name", "positions", "uvs", "triangleIndices")
@@ -344,7 +340,7 @@ final class McpProductionDomainCatalog {
     }
 
     private static Map<String, Object> createWarpDeformerSchema() {
-        return objectSchema(
+        return McpSchemas.object(
                 linked(
                         entry("operation", enumSchema(List.of("create"))),
                         entry("kind", enumSchema(List.of("warp_deformer"))),
@@ -362,7 +358,7 @@ final class McpProductionDomainCatalog {
     }
 
     private static Map<String, Object> createRotationDeformerSchema() {
-        return objectSchema(
+        return McpSchemas.object(
                 linked(
                         entry("operation", enumSchema(List.of("create"))),
                         entry("kind", enumSchema(List.of("rotation_deformer"))),
@@ -378,7 +374,7 @@ final class McpProductionDomainCatalog {
     }
 
     private static Map<String, Object> parentSchema(final Map<String, Object> kind) {
-        return objectSchema(linked(entry("kind", kind), entry("id", stringSchema())), List.of("kind", "id"));
+        return McpSchemas.object(linked(entry("kind", kind), entry("id", stringSchema())), List.of("kind", "id"));
     }
 
     private static Map<String, Object> modelObjectKindSchema() {
@@ -404,21 +400,9 @@ final class McpProductionDomainCatalog {
                 entry("minItems", minimumItems),
                 entry(
                         "items",
-                        objectSchema(
+                        McpSchemas.object(
                                 linked(entry("x", Map.of("type", "number")), entry("y", Map.of("type", "number"))),
                                 List.of("x", "y"))));
-    }
-
-    private static Map<String, Object> objectSchema(final Map<String, Object> properties, final List<String> required) {
-        return linked(
-                entry("type", "object"),
-                entry("properties", properties),
-                entry("required", required),
-                entry("additionalProperties", false));
-    }
-
-    private static Map<String, Object> enumSchema(final List<String> values) {
-        return Map.of("type", "string", "enum", values);
     }
 
     private static Map<String, Object> stringSchema() {
@@ -474,16 +458,5 @@ final class McpProductionDomainCatalog {
                 throw new IllegalArgumentException("unknown argument: " + key);
             }
         }
-    }
-
-    @SafeVarargs
-    private static LinkedHashMap<String, Object> linked(final Map.Entry<String, Object>... entries) {
-        final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : entries) result.put(entry.getKey(), entry.getValue());
-        return result;
-    }
-
-    private static Map.Entry<String, Object> entry(final String key, final Object value) {
-        return new java.util.AbstractMap.SimpleImmutableEntry<>(key, value);
     }
 }

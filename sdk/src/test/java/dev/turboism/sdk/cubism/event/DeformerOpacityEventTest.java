@@ -36,21 +36,7 @@ class DeformerOpacityEventTest {
 
             @Override
             public IntSequence parameters() {
-                return ints();
-            }
-        };
-    }
-
-    private static IntSequence ints() {
-        return new IntSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public int get(final int index) {
-                throw new IndexOutOfBoundsException(index);
+                return TestSequences.ints();
             }
         };
     }

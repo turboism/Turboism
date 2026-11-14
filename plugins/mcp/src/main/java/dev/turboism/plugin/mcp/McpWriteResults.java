@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import dev.turboism.sdk.json.Json;
 import java.nio.charset.StandardCharsets;
@@ -63,6 +65,21 @@ final class McpWriteResults {
                 safe,
                 "isError",
                 !Boolean.TRUE.equals(value.get("ok")));
+    }
+
+    /**
+     * Wraps {@code output} as an MCP tool result whose error flag the caller decides, for tools that
+     * report a failure through a non-{@code ok} field.
+     */
+    static Map<String, Object> toolResult(final Map<String, Object> output, final boolean error) {
+        final Map<String, Object> safe = McpJsonSupport.encodable(output);
+        return McpSchemas.linked(
+                McpSchemas.entry(
+                        "content",
+                        List.of(McpSchemas.linked(
+                                McpSchemas.entry("type", "text"), McpSchemas.entry("text", Json.stringify(safe))))),
+                McpSchemas.entry("structuredContent", safe),
+                McpSchemas.entry("isError", error));
     }
 
     private static Object canonical(Object v) {
@@ -138,17 +155,5 @@ final class McpWriteResults {
 
     private static Map<String, Object> nullable() {
         return Map.of("type", List.of("string", "null"));
-    }
-
-    private static Map<String, Object> object(Map<String, Object> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
     }
 }

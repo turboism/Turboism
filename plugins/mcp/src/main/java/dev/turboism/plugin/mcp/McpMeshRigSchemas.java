@@ -1,12 +1,14 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.*;
 
 final class McpMeshRigSchemas {
     static Map<String, Object> definition() {
         var fields = new LinkedHashMap<String, Object>();
-        for (String field : List.of("documentId", "modelId", "objectId")) fields.put(field, string(4096));
-        for (String field : List.of("snapshotId", "operationId")) fields.put(field, string(128));
+        for (String field : List.of("documentId", "modelId", "objectId")) fields.put(field, text(4096));
+        for (String field : List.of("snapshotId", "operationId")) fields.put(field, text(128));
         var anchor = object(Map.of(
                 "vertexIndex",
                 Map.of("type", "integer", "minimum", 0, "maximum", 4095),
@@ -26,15 +28,10 @@ final class McpMeshRigSchemas {
                         3,
                         "items",
                         object(Map.of(
-                                "parameterGuid",
-                                string(4096),
-                                "negativeAnchors",
-                                anchors,
-                                "positiveAnchors",
-                                anchors))));
+                                "parameterGuid", text(4096), "negativeAnchors", anchors, "positiveAnchors", anchors))));
         fields.put("policy", Map.of("const", "REPLACE_POSITIONS_FROM_DEFAULT"));
         var direction =
-                object(Map.of("parameterGuid", string(4096), "side", Map.of("enum", List.of("NEGATIVE", "POSITIVE"))));
+                object(Map.of("parameterGuid", text(4096), "side", Map.of("enum", List.of("NEGATIVE", "POSITIVE"))));
         fields.put(
                 "cornerCorrections",
                 Map.of(
@@ -71,9 +68,9 @@ final class McpMeshRigSchemas {
                 "writeRequest",
                 McpKeyformWriteSchemas.input(),
                 "limitations",
-                Map.of("type", "array", "items", string(256), "maxItems", 8)));
+                Map.of("type", "array", "items", text(256), "maxItems", 8)));
         var error = object(Map.of(
-                "ok", Map.of("const", false), "error", object(Map.of("code", string(128), "message", string(1024)))));
+                "ok", Map.of("const", false), "error", object(Map.of("code", text(128), "message", text(1024)))));
         return Map.of(
                 "name",
                 McpMeshRigDomain.PLAN,
@@ -87,21 +84,5 @@ final class McpMeshRigSchemas {
                 Map.of("oneOf", List.of(success, error)),
                 "annotations",
                 Map.of("readOnlyHint", true, "destructiveHint", false, "idempotentHint", true, "openWorldHint", false));
-    }
-
-    private static Map<String, Object> string(int max) {
-        return Map.of("type", "string", "minLength", 1, "maxLength", max);
-    }
-
-    private static Map<String, Object> object(Map<String, Object> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
     }
 }

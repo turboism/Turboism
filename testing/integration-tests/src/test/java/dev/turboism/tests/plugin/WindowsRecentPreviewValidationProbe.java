@@ -109,11 +109,6 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private static final Set<String> RECENT_LABELS =
             Set.of("recent", "recent files", "open recent", "最近使用したファイル", "最近的文件", "最近使用的文件", "최근 파일");
 
-    enum HostCloseRoute {
-        SYNTHETIC_WINDOW_CLOSING,
-        ROBOT_ALT_F4
-    }
-
     private PluginContext context;
     private volatile Thread validationThread;
     private volatile String phase = "start";
@@ -194,7 +189,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             fixtureName = System.getProperty("turboism.validation.fixtureName", "fixture.cmo3");
             workingName = scratchName(fixtureName);
             runId = System.getProperty("turboism.validation.runId", "unknown");
-            hostCloseRoute(hostVersion);
+            WindowsHistoryNativeUiHostClose.hostCloseRoute(hostVersion);
             openScratchDocument();
             validateRecentList();
             final RecentFileId id = recentId.get();
@@ -1481,12 +1476,13 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private void requestHostClose() {
         try {
             final Window target = onEdt(() -> selectHostWindow(Window.getWindows()));
-            final HostCloseRoute route = hostCloseRoute(hostVersion);
+            final WindowsHistoryNativeUiHostClose.HostCloseRoute route =
+                    WindowsHistoryNativeUiHostClose.hostCloseRoute(hostVersion);
             // The Robot route is retried once: Alt+F4 only reaches the window
             // that holds real input focus, and a frame-chrome click can leave
             // focus elsewhere, so the first attempt can land on nothing.
             for (int attempt = 1; attempt <= 2; attempt++) {
-                if (route == HostCloseRoute.ROBOT_ALT_F4) {
+                if (route == WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4) {
                     final Robot robot = new Robot();
                     activateWindowForMenus(robot, target);
                     robot.keyPress(KeyEvent.VK_ALT);
@@ -1511,7 +1507,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                     }
                     Thread.sleep(200L);
                 }
-                if (closed || route != HostCloseRoute.ROBOT_ALT_F4) {
+                if (closed || route != WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4) {
                     context.logger().info("Recent preview host close confirmed=" + closed);
                     return;
                 }
@@ -1576,43 +1572,6 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     }
 
     // --- pure helpers (unit-tested) ---------------------------------------------------
-
-    /**
-     * The same reviewed host-close mapping as {@link WindowsHistoryNativeUiHostClose}:
-     * focused Robot Alt+F4 is the verified 5302 route, while every other admitted exact
-     * host accepts the synthetic task-window close event.
-     */
-    static HostCloseRoute hostCloseRoute(final String hostVersion) {
-        if (hostVersion == null) {
-            throw new IllegalArgumentException(
-                    "turboism.validation.hostVersion must be an exact installed version code");
-        }
-        return switch (hostVersion) {
-            case "5000",
-                    "5001",
-                    "5002",
-                    "5003",
-                    "5004",
-                    "5005",
-                    "5006",
-                    "5100",
-                    "5101",
-                    "5102",
-                    "5103",
-                    "5200",
-                    "5201",
-                    "5202",
-                    "5203",
-                    "5300",
-                    "5301",
-                    "5303",
-                    "5304" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
-            case "5302" -> HostCloseRoute.ROBOT_ALT_F4;
-            default ->
-                throw new IllegalArgumentException(
-                        "turboism.validation.hostVersion must be an exact installed version code: " + hostVersion);
-        };
-    }
 
     static boolean isOpaqueHexId(final String value) {
         if (value == null || value.length() != 64) return false;

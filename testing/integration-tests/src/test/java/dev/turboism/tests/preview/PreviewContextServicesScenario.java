@@ -4,11 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.bootstrap.HostRuntimeIngress;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.kernel.KernelLog;
 import dev.turboism.kernel.LocalPluginRuntime;
+import dev.turboism.testkit.RuntimeTestKit;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,7 +37,7 @@ final class PreviewContextServicesScenario {
     private static void loadAndAssert(final Path home, final Path markerDirectory, final Path temporaryDirectory)
             throws Exception {
         final KernelLog log = new KernelLog(home.resolve("logs/turboism.log"));
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostRuntimeIngress hostIngress = new HostRuntimeIngress();
         final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, hostIngress.adapterAccess(), log);
         try {
@@ -127,12 +126,5 @@ final class PreviewContextServicesScenario {
         } else {
             System.setProperty(property, previousValue);
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
-                ignored -> {});
     }
 }

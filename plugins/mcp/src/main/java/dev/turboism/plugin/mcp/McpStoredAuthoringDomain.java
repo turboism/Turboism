@@ -1,6 +1,8 @@
 package dev.turboism.plugin.mcp;
 
 import static dev.turboism.plugin.mcp.McpAuthoringProjection.*;
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+import static dev.turboism.plugin.mcp.McpWriteResults.envelope;
 
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
@@ -267,11 +269,11 @@ final class McpStoredAuthoringDomain {
 
     private static Map<String, Object> definition(String name, String kind) {
         var inputFields = new LinkedHashMap<String, Object>();
-        inputFields.put("documentId", string());
-        inputFields.put("modelId", string());
-        inputFields.put("objectId", string());
-        inputFields.put("snapshotId", string());
-        inputFields.put("offset", integer());
+        inputFields.put("documentId", id());
+        inputFields.put("modelId", id());
+        inputFields.put("objectId", id());
+        inputFields.put("snapshotId", id());
+        inputFields.put("offset", nonNegativeInteger());
         inputFields.put("limit", Map.of("type", "integer", "minimum", 1, "maximum", MAX_PAGE_ROWS));
         var input = Map.of(
                 "type",
@@ -293,29 +295,29 @@ final class McpStoredAuthoringDomain {
         var output = new LinkedHashMap<String, Object>();
         output.put("ok", Map.of("const", true));
         output.put("kind", Map.of("const", kind));
-        output.put("objectId", string());
-        output.put("sourceGuid", string());
-        output.put("snapshotId", string());
+        output.put("objectId", id());
+        output.put("sourceGuid", id());
+        output.put("snapshotId", id());
         output.put(
                 "state",
                 object(Map.of(
                         "documentId",
-                        string(),
+                        id(),
                         "modelId",
-                        string(),
+                        id(),
                         "historyGeneration",
-                        integer(),
+                        nonNegativeInteger(),
                         "historyRevision",
-                        integer(),
+                        nonNegativeInteger(),
                         "historyDocumentBinding",
                         Map.of("type", "string"),
                         "historyManagerBinding",
                         Map.of("type", "string"))));
-        output.put("coordinateSpace", string());
+        output.put("coordinateSpace", id());
         output.put(
                 "rows", Map.of("type", "array", "maxItems", MAX_PAGE_ROWS, "items", Map.of("oneOf", rowAlternatives)));
-        output.put("offset", integer());
-        output.put("totalRows", integer());
+        output.put("offset", nonNegativeInteger());
+        output.put("totalRows", nonNegativeInteger());
         output.put("nextOffset", Map.of("type", List.of("integer", "null")));
         return Map.of(
                 "name",
@@ -335,7 +337,7 @@ final class McpStoredAuthoringDomain {
                                         "ok",
                                         Map.of("const", false),
                                         "error",
-                                        object(Map.of("code", string(), "message", string())))))),
+                                        object(Map.of("code", id(), "message", id())))))),
                 "annotations",
                 Map.of("readOnlyHint", true, "destructiveHint", false, "idempotentHint", true, "openWorldHint", false));
     }
@@ -357,17 +359,6 @@ final class McpStoredAuthoringDomain {
         }
         if (result < 0 || result > maximum) throw new IllegalArgumentException("Page index out of bounds");
         return result;
-    }
-
-    private static Map<String, Object> envelope(Map<String, Object> output) {
-        var safe = McpJsonSupport.encodable(output);
-        return Map.of(
-                "content",
-                List.of(Map.of("type", "text", "text", Json.stringify(safe))),
-                "structuredContent",
-                safe,
-                "isError",
-                !Boolean.TRUE.equals(output.get("ok")));
     }
 
     private static Map<String, Object> error(String code, String message) {

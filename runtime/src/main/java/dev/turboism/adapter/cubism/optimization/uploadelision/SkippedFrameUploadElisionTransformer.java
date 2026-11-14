@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.optimization.uploadelision;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -126,12 +128,8 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
                 return null;
             }
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader;
-                }
-            };
+            final ClassWriter writer =
+                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
             final UploadVisitor[] applied = {null};
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
@@ -356,17 +354,8 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
             final Label discard = new Label(), resume = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(SkippedFrameUploadElisionBridge.PREDICATE_PROPERTY);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
-            super.visitInsn(Opcodes.DUP);
-            super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BiPredicate");
+            SlotBridgeEmitter.emitSlot(
+                    this, SkippedFrameUploadElisionBridge.PREDICATE_PROPERTY, "java/util/function/BiPredicate");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BiPredicate");
             super.visitVarInsn(Opcodes.ALOAD, 0);
@@ -394,17 +383,7 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
             final Label discard = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(property);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
-            super.visitInsn(Opcodes.DUP);
-            super.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/Runnable");
+            SlotBridgeEmitter.emitSlot(this, property, "java/lang/Runnable");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Runnable");
             super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/lang/Runnable", "run", "()V", true);
@@ -432,17 +411,7 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
             super.visitVarInsn(Opcodes.ASTORE, tmp);
             super.visitTryCatchBlock(start, end, inner, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(SkippedFrameUploadElisionBridge.FAILURE_PROPERTY);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
-            super.visitInsn(Opcodes.DUP);
-            super.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/Runnable");
+            SlotBridgeEmitter.emitSlot(this, SkippedFrameUploadElisionBridge.FAILURE_PROPERTY, "java/lang/Runnable");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Runnable");
             super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/lang/Runnable", "run", "()V", true);

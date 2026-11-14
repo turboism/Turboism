@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.*;
 
 final class McpEvaluatedMeshSchemas {
@@ -7,7 +9,7 @@ final class McpEvaluatedMeshSchemas {
         var fields = new LinkedHashMap<String, Object>();
         for (String key : List.of("documentId", "modelId", "objectId", "authoringSnapshotId", "snapshotId"))
             fields.put(key, text());
-        fields.put("offset", integer());
+        fields.put("offset", nonNegativeInteger());
         fields.put("limit", Map.of("type", "integer", "minimum", 1, "maximum", 512));
         var input = Map.of(
                 "type",
@@ -25,12 +27,12 @@ final class McpEvaluatedMeshSchemas {
         var state = new LinkedHashMap<String, Object>();
         for (String k : List.of("documentId", "modelId", "historyDocumentBinding", "historyManagerBinding"))
             state.put(k, Map.of("type", "string"));
-        for (String k : List.of("historyGeneration", "historyRevision")) state.put(k, integer());
+        for (String k : List.of("historyGeneration", "historyRevision")) state.put(k, nonNegativeInteger());
         output.put("state", object(state));
         output.put("freshness", Map.of("const", "UNPROVEN"));
         output.put("rows", Map.of("type", "array", "items", rows(), "maxItems", 512));
-        output.put("offset", integer());
-        output.put("totalRows", integer());
+        output.put("offset", nonNegativeInteger());
+        output.put("totalRows", nonNegativeInteger());
         output.put("nextOffset", Map.of("type", List.of("integer", "null")));
         return Map.of(
                 "name",
@@ -80,10 +82,10 @@ final class McpEvaluatedMeshSchemas {
                         "interpolatedIdentity",
                         Map.of("type", "boolean"),
                         "pointCount",
-                        integer())));
+                        nonNegativeInteger())));
         rows.add(row(
                 "calculated_position",
-                Map.of("index", integer(), "x", Map.of("type", "number"), "y", Map.of("type", "number"))));
+                Map.of("index", nonNegativeInteger(), "x", Map.of("type", "number"), "y", Map.of("type", "number"))));
         for (String kind : List.of("live", "consumed")) {
             rows.add(row(
                     kind + "_state",
@@ -107,21 +109,5 @@ final class McpEvaluatedMeshSchemas {
 
     private static Map<String, Object> text() {
         return Map.of("type", "string", "minLength", 1, "maxLength", 4096);
-    }
-
-    private static Map<String, Object> integer() {
-        return Map.of("type", "integer", "minimum", 0);
-    }
-
-    private static Map<String, Object> object(Map<String, Object> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
     }
 }

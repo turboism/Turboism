@@ -1,5 +1,6 @@
 package dev.turboism.hostread;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.hostread.AsyncHostReadError;
 import dev.turboism.sdk.hostread.AsyncHostReadErrorCode;
 import dev.turboism.sdk.hostread.AsyncHostReadHandle;
@@ -58,7 +59,7 @@ public final class RuntimeAsyncHostReadService implements AsyncHostReadService, 
             final RuntimePluginTaskScheduler tasks,
             final DisposableScope scope,
             final Duration closeTimeout) {
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.permissions = Set.copyOf(Objects.requireNonNull(permissions, "permissions"));
         this.source = Objects.requireNonNull(source, "source");
         this.lane = Objects.requireNonNull(lane, "lane");
@@ -245,13 +246,5 @@ public final class RuntimeAsyncHostReadService implements AsyncHostReadService, 
     private AsyncHostReadSubmission rejected(final AsyncHostReadErrorCode code) {
         return new AsyncHostReadSubmission(
                 AsyncHostReadSubmissionStatus.REJECTED, Optional.empty(), Optional.of(error(code)));
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

@@ -1,5 +1,6 @@
 package dev.turboism.ui.toolbar;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.ui.VerticalToolbarContribution;
 import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.host.EditorUiFamily;
@@ -10,8 +11,8 @@ public record VerticalToolbarContributionDescriptor(
         String pluginId, String contributionId, VerticalToolbarContribution contribution) {
 
     public VerticalToolbarContributionDescriptor {
-        pluginId = requireText(pluginId, "pluginId");
-        contributionId = requireText(contributionId, "contributionId");
+        pluginId = Requirements.text(pluginId, "pluginId");
+        contributionId = Requirements.text(contributionId, "contributionId");
         contribution = Objects.requireNonNull(contribution, "contribution");
     }
 
@@ -37,13 +38,5 @@ public record VerticalToolbarContributionDescriptor(
         }
         return new VerticalToolbarContributionDescriptor(
                 requested.identity().pluginId(), strip.contributionId(), strip);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

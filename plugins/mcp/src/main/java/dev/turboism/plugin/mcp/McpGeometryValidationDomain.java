@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpWriteResults.envelope;
+
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot;
 import dev.turboism.sdk.json.Json;
@@ -62,9 +64,12 @@ final class McpGeometryValidationDomain {
             if (!args.keySet().containsAll(required) || !allowed.containsAll(args.keySet()))
                 throw new IllegalArgumentException();
             var initial = context.get();
-            if (!text(args.get("documentId")).equals(initial.binding().get("documentId"))
-                    || !text(args.get("modelId")).equals(initial.binding().get("modelId"))) throw new Stale();
-            String id = text(args.get("objectId")), sid = text(args.get("snapshotId"));
+            if (!McpDomainSupport.text(args.get("documentId"), 4096)
+                            .equals(initial.binding().get("documentId"))
+                    || !McpDomainSupport.text(args.get("modelId"), 4096)
+                            .equals(initial.binding().get("modelId"))) throw new Stale();
+            String id = McpDomainSupport.text(args.get("objectId"), 4096),
+                    sid = McpDomainSupport.text(args.get("snapshotId"), 4096);
             var snapshot = snapshots.get(sid, McpRequestRegistry.currentSessionId());
             if (!snapshot.kind().equals("art_mesh")
                     || !(snapshot.nativeSnapshot() instanceof ArtMeshAuthoringSnapshot mesh))
@@ -74,7 +79,9 @@ final class McpGeometryValidationDomain {
                     || !mesh.artMeshId().value().equals(id)
                     || !mesh.sourceGuid().equals(snapshot.sourceGuid())) throw new Stale();
             if (!(args.get("includeSource") instanceof Boolean includeSource)) throw new IllegalArgumentException();
-            String reference = args.get("referenceFormGuid") == null ? null : text(args.get("referenceFormGuid"));
+            String reference = args.get("referenceFormGuid") == null
+                    ? null
+                    : McpDomainSupport.text(args.get("referenceFormGuid"), 4096);
             if (!(args.get("formGuids") instanceof List<?> values) || values.size() > 32)
                 throw new IllegalArgumentException();
             var selected =
@@ -86,16 +93,16 @@ final class McpGeometryValidationDomain {
                     "minimumEdgeCompression",
                     "maximumTriangleAspectRatio");
             var thresholds = new McpGeometryQuality.Thresholds(
-                    number(rawThresholds.get("minimumAreaRatio")),
-                    number(rawThresholds.get("maximumEdgeStretch")),
-                    number(rawThresholds.get("minimumEdgeCompression")),
-                    number(rawThresholds.get("maximumTriangleAspectRatio")));
-            int maxFindings = integer(args.get("maxFindings"));
+                    McpDomainSupport.number(rawThresholds.get("minimumAreaRatio")),
+                    McpDomainSupport.number(rawThresholds.get("maximumEdgeStretch")),
+                    McpDomainSupport.number(rawThresholds.get("minimumEdgeCompression")),
+                    McpDomainSupport.number(rawThresholds.get("maximumTriangleAspectRatio")));
+            int maxFindings = McpDomainSupport.integer(args.get("maxFindings"));
             var output = new LinkedHashMap<String, Object>();
             output.put("ok", true);
             output.put("objectId", id);
             output.put("snapshotId", sid);
-            output.put("sourceGuid", text(snapshot.sourceGuid()));
+            output.put("sourceGuid", McpDomainSupport.text(snapshot.sourceGuid(), 4096));
             output.put("state", initial.binding());
             output.put("includeSource", includeSource);
             output.put("referenceFormGuid", reference);
@@ -210,17 +217,6 @@ final class McpGeometryValidationDomain {
         if (!initial.binding().equals(context.get().binding())) throw new Stale();
     }
 
-    private static Map<String, Object> envelope(Map<String, Object> output) {
-        var safe = McpJsonSupport.encodable(output);
-        return Map.of(
-                "content",
-                List.of(Map.of("type", "text", "text", Json.stringify(safe))),
-                "structuredContent",
-                safe,
-                "isError",
-                !Boolean.TRUE.equals(output.get("ok")));
-    }
-
     private static Map<String, Object> fields(Object raw, String... keys) {
         if (!(raw instanceof Map<?, ?> map) || !map.keySet().equals(Set.of(keys))) throw new IllegalArgumentException();
         var result = new LinkedHashMap<String, Object>();
@@ -232,21 +228,6 @@ final class McpGeometryValidationDomain {
         if (!(raw instanceof String value) || value.isBlank() || value.length() > 4096)
             throw new IllegalArgumentException();
         return value;
-    }
-
-    private static double number(Object raw) {
-        if (!(raw instanceof Number value) || !Double.isFinite(value.doubleValue()))
-            throw new IllegalArgumentException();
-        return value.doubleValue();
-    }
-
-    private static int integer(Object raw) {
-        if (!(raw instanceof Number number)) throw new IllegalArgumentException();
-        try {
-            return new java.math.BigDecimal(number.toString()).intValueExact();
-        } catch (ArithmeticException ex) {
-            throw new IllegalArgumentException(ex);
-        }
     }
 
     private static final class Stale extends IllegalStateException {}

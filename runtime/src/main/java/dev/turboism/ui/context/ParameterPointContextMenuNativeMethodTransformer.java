@@ -2,6 +2,7 @@ package dev.turboism.ui.context;
 
 import dev.turboism.adapter.cubism.profile.CubismPaletteHostProfile;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.Objects;
@@ -26,10 +27,10 @@ public final class ParameterPointContextMenuNativeMethodTransformer implements C
             final String descriptor,
             final String menuGetter,
             final ClassLoader loader) {
-        this.owner = requireText(owner, "owner");
-        this.method = requireText(method, "method");
-        this.descriptor = requireText(descriptor, "descriptor");
-        this.menuGetter = requireText(menuGetter, "menuGetter");
+        this.owner = Requirements.text(owner, "owner");
+        this.method = Requirements.text(method, "method");
+        this.descriptor = Requirements.text(descriptor, "descriptor");
+        this.menuGetter = Requirements.text(menuGetter, "menuGetter");
         this.loader = Objects.requireNonNull(loader, "loader");
     }
 
@@ -138,11 +139,5 @@ public final class ParameterPointContextMenuNativeMethodTransformer implements C
         dev.turboism.runtime.log.RuntimeDiagnostics.warn(
                 "context-menu", "Parameter-point menu binding found " + matches[0] + " matches in " + className);
         return null;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

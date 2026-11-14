@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -56,11 +58,11 @@ public final class TextureAtlasAutoLayoutTransformer implements ClassFileTransfo
             final String handledReturnKey,
             final String nativeBodyEntryKey,
             final String nativeCompletionKey) {
-        this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
-        this.methodName = requireText(methodName, "methodName");
-        this.descriptor = requireText(descriptor, "descriptor");
+        this.ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
+        this.methodName = Requirements.text(methodName, "methodName");
+        this.descriptor = Requirements.text(descriptor, "descriptor");
         this.expectedClassLoader = expectedClassLoader;
-        this.callbackKey = requireText(callbackKey, "callbackKey");
+        this.callbackKey = Requirements.text(callbackKey, "callbackKey");
         this.handledReturnKey = Objects.requireNonNull(handledReturnKey, "handledReturnKey");
         this.nativeBodyEntryKey = Objects.requireNonNull(nativeBodyEntryKey, "nativeBodyEntryKey");
         this.nativeCompletionKey = Objects.requireNonNull(nativeCompletionKey, "nativeCompletionKey");
@@ -81,7 +83,8 @@ public final class TextureAtlasAutoLayoutTransformer implements ClassFileTransfo
         }
         final boolean[] transformed = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter writer =
+                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -256,11 +259,5 @@ public final class TextureAtlasAutoLayoutTransformer implements ClassFileTransfo
             FatalErrors.rethrowIfFatal(ignored);
             // diagnostics are best-effort
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

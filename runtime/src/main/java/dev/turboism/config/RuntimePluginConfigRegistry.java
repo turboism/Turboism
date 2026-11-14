@@ -8,6 +8,7 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureDomain;
 import dev.turboism.failure.RuntimeFailureSink;
+import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.config.PluginConfigException;
@@ -141,7 +142,7 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
         this.pluginDataDir = Objects.requireNonNull(pluginDataDir, "pluginDataDir")
                 .toAbsolutePath()
                 .normalize();
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.failureSink = RuntimeFailureSink.require(failureSink);
         this.io = io == null ? newIoExecutor(this.pluginId) : io;
@@ -176,7 +177,7 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
         requireOpen();
         final String scope = scopeKey(relativePath);
         requireScope(readScopes, scope, "read");
-        final String propertyKey = requireText(key, "key");
+        final String propertyKey = Requirements.text(key, "key");
         final Future<Optional<String>> result;
         try {
             result = io.submit(() -> readProperty(scope, propertyKey));
@@ -208,7 +209,7 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
         requireOpen();
         final String scope = scopeKey(relativePath);
         requireScope(writeScopes, scope, "write");
-        final String propertyKey = requireText(key, "key");
+        final String propertyKey = Requirements.text(key, "key");
         final String propertyValue = Objects.requireNonNull(value, "value");
         final Future<PluginConfigException> result;
         try {
@@ -373,7 +374,7 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
     }
 
     private String scopeKey(final String relativePath) {
-        final String value = requireText(relativePath, "relativePath");
+        final String value = Requirements.text(relativePath, "relativePath");
         final Path relative = Path.of(value).normalize();
         if (relative.isAbsolute() || startsWithParent(relative)) {
             throw new IllegalArgumentException(
@@ -458,13 +459,5 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
         return code.startsWith("CONFIG_READ_")
                 ? "Plugin config read failed safely."
                 : "Plugin config write failed safely.";
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

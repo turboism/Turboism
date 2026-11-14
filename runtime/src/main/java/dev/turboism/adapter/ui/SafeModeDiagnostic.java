@@ -1,5 +1,6 @@
 package dev.turboism.adapter.ui;
 
+import dev.turboism.internal.Requirements;
 import java.util.Objects;
 
 /**
@@ -17,8 +18,8 @@ public record SafeModeDiagnostic(Code code, String capability, String message) {
 
     public SafeModeDiagnostic {
         code = Objects.requireNonNull(code, "code");
-        capability = requireText(capability, "capability");
-        message = requireText(message, "message");
+        capability = Requirements.text(capability, "capability");
+        message = Requirements.text(message, "message");
     }
 
     /**
@@ -102,14 +103,6 @@ public record SafeModeDiagnostic(Code code, String capability, String message) {
     public static SafeModeDiagnostic permissionDenied(final String capabilityId) {
         return new SafeModeDiagnostic(
                 Code.PERMISSION_DENIED, capabilityId, "Permission denied for host adapter capability.");
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     /** Machine-readable reason a capability degraded to safe mode. */

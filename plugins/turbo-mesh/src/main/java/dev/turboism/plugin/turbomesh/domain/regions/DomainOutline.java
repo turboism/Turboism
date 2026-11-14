@@ -103,7 +103,7 @@ final class DomainOutline {
             final long qy = Math.round(y / NODE_TOLERANCE);
             for (long dx = -1; dx <= 1; dx++) {
                 for (long dy = -1; dy <= 1; dy++) {
-                    final List<Integer> bucket = buckets.get(key(qx + dx, qy + dy));
+                    final List<Integer> bucket = buckets.get(RegionArrays.cellKey(qx + dx, qy + dy));
                     if (bucket == null) {
                         continue;
                     }
@@ -121,7 +121,8 @@ final class DomainOutline {
             }
             xs[size] = x;
             ys[size] = y;
-            buckets.computeIfAbsent(key(qx, qy), ignored -> new ArrayList<>()).add(size);
+            buckets.computeIfAbsent(RegionArrays.cellKey(qx, qy), ignored -> new ArrayList<>())
+                    .add(size);
             return size++;
         }
 
@@ -141,10 +142,6 @@ final class DomainOutline {
 
         double[] ys() {
             return Arrays.copyOf(ys, size);
-        }
-
-        private static long key(final long qx, final long qy) {
-            return (qx << 32) ^ (qy & 0xFFFF_FFFFL);
         }
     }
 }

@@ -44,7 +44,7 @@ public final class OffCanvasBackgroundHostAccess implements Consumer<Color> {
     public OffCanvasBackgroundHostAccess(final Path artifact, final ClassLoader loader)
             throws IOException, ReflectiveOperationException {
         Objects.requireNonNull(loader, "loader");
-        final String version = ReviewedHostArtifacts.cubismVersionOf(HostArtifactDigest.from(artifact))
+        final String version = ReviewedHostArtifacts.cubismVersionOf(HostArtifactDigest.cached(artifact))
                 .orElseThrow(() -> new IllegalArgumentException("Unreviewed off-canvas appearance artifact"));
         final Path source = artifact.toRealPath();
         final Class<?> colors = type("com.live2d.cubism.view.gl.SGFramework.h$d", loader, source);

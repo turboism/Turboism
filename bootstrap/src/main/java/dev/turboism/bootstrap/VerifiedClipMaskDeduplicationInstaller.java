@@ -88,7 +88,7 @@ final class VerifiedClipMaskDeduplicationInstaller implements AutoCloseable {
     }
 
     private static Optional<String> resolve(final Path artifact) throws Exception {
-        return ReviewedHostArtifacts.cubismVersionOf(HostArtifactDigest.from(artifact));
+        return ReviewedHostArtifacts.cubismVersionOf(HostArtifactDigest.cached(artifact));
     }
 
     private static List<WeaveTarget> targets(final String cubismVersion, final WeaveSource source) throws Exception {

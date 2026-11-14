@@ -32,7 +32,7 @@ class LocalPluginRuntimeShellAdmissionTest {
     @Test
     void failedShellAdmissionClosesRuntimeWithDiagnostic() throws Exception {
         final Path home = temporary.resolve("home");
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         final IllegalStateException compositionFailure = new IllegalStateException("shell-compose-boom");
 
@@ -57,7 +57,7 @@ class LocalPluginRuntimeShellAdmissionTest {
     @Test
     void admittedShellStartsButIsNotReportedAsAPlugin() throws Exception {
         final Path home = temporary.resolve("home2");
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         final AtomicBoolean shellStarted = new AtomicBoolean();
         final AtomicBoolean shellClosed = new AtomicBoolean();
@@ -98,7 +98,7 @@ class LocalPluginRuntimeShellAdmissionTest {
     @Test
     void explicitNullAdmissionRunsHeadless() throws Exception {
         final Path home = temporary.resolve("home3");
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
 
         try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
@@ -120,7 +120,7 @@ class LocalPluginRuntimeShellAdmissionTest {
     @Test
     void shellAdmissionUsesItsOwnDeadlineSeparateFromPluginLoads() throws Exception {
         final Path home = temporary.resolve("home4");
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         final AtomicBoolean shellStarted = new AtomicBoolean();
         final PluginLifecyclePolicy policy = new PluginLifecyclePolicy(
@@ -178,9 +178,5 @@ class LocalPluginRuntimeShellAdmissionTest {
             cursor = cursor.getCause();
         }
         return null;
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
     }
 }

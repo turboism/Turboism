@@ -2,8 +2,6 @@ package dev.turboism.plugin.mcp;
 
 import dev.turboism.sdk.cubism.id.*;
 import dev.turboism.sdk.cubism.model.*;
-import dev.turboism.sdk.json.Json;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /** Detached metadata only. Current source, linked candidates and inactive inputs remain distinct. */
@@ -339,8 +337,9 @@ final class McpAssetSourceProjection {
         if (size > max) throw new Budget();
     }
 
-    static int bytes(Map<String, ?> value) {
-        return Json.stringify(value).getBytes(StandardCharsets.UTF_8).length;
+    /** Encoded UTF-8 size of {@code value}; the page budget is measured on the wire bytes. */
+    static int bytes(final Map<String, ?> value) {
+        return McpDomainSupport.bytes(value);
     }
 
     private record LayerKey(String raw, String layer) {}

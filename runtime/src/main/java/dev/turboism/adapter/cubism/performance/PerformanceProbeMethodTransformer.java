@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.performance;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import java.lang.instrument.ClassFileTransformer;
 import java.net.URI;
 import java.nio.file.Path;
@@ -68,15 +69,8 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
         final ClassReader reader = new ClassReader(classfileBuffer);
         final Map<Target, Integer> locals = findMaxLocals(reader, classTargets);
         final boolean[] changed = {false};
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-            @Override
-            protected ClassLoader getClassLoader() {
-                // ASM resolves frame merges without class initialization. Host-only classes
-                // must come from the attested loader, not the agent's implementation loader.
-                // Resolution failures propagate; never guess Object for an unknown hierarchy.
-                return expectedLoader == null ? super.getClassLoader() : expectedLoader;
-            }
-        };
+        final ClassWriter writer =
+                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, expectedLoader);
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override

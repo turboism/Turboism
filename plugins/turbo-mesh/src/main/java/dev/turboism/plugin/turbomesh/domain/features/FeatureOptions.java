@@ -1,5 +1,7 @@
 package dev.turboism.plugin.turbomesh.domain.features;
 
+import dev.turboism.plugin.turbomesh.domain.PropertyOverrides;
+
 /** Tunables for the 0.2.0 feature-aware placement path. All lengths are UV units. */
 public record FeatureOptions(
         boolean enabled,
@@ -195,23 +197,27 @@ public record FeatureOptions(
         return new FeatureOptions(
                 enabled,
                 fixed.preset(),
-                doubleProperty("turboMesh.features.boundaryBandUv", fixed.boundaryBandUv(), 0.004, 0.25),
-                doubleProperty("turboMesh.features.cornerBandUv", fixed.cornerBandUv(), 0.002, 0.25),
-                doubleProperty("turboMesh.features.narrowWidthUv", fixed.narrowWidthUv(), 0.004, 0.5),
-                doubleProperty("turboMesh.features.weightBoundary", fixed.weightBoundary(), 0.0, 4.0),
-                doubleProperty("turboMesh.features.weightCorner", fixed.weightCorner(), 0.0, 4.0),
-                doubleProperty("turboMesh.features.weightNarrow", fixed.weightNarrow(), 0.0, 4.0),
-                doubleProperty("turboMesh.features.weightTexture", fixed.weightTexture(), 0.0, 4.0),
-                doubleProperty("turboMesh.features.textureContrast", fixed.textureContrast(), 0.02, 1.0),
-                doubleProperty("turboMesh.features.directionInfluence", fixed.directionInfluence(), 0.0, 1.0),
-                doubleProperty("turboMesh.features.baseDensity", fixed.baseDensity(), 0.0, 1.0),
-                doubleProperty("turboMesh.features.minRadiusFactor", fixed.minRadiusFactor(), 0.05, 1.0),
-                doubleProperty(
+                PropertyOverrides.doubleProperty(
+                        "turboMesh.features.boundaryBandUv", fixed.boundaryBandUv(), 0.004, 0.25),
+                PropertyOverrides.doubleProperty("turboMesh.features.cornerBandUv", fixed.cornerBandUv(), 0.002, 0.25),
+                PropertyOverrides.doubleProperty("turboMesh.features.narrowWidthUv", fixed.narrowWidthUv(), 0.004, 0.5),
+                PropertyOverrides.doubleProperty("turboMesh.features.weightBoundary", fixed.weightBoundary(), 0.0, 4.0),
+                PropertyOverrides.doubleProperty("turboMesh.features.weightCorner", fixed.weightCorner(), 0.0, 4.0),
+                PropertyOverrides.doubleProperty("turboMesh.features.weightNarrow", fixed.weightNarrow(), 0.0, 4.0),
+                PropertyOverrides.doubleProperty("turboMesh.features.weightTexture", fixed.weightTexture(), 0.0, 4.0),
+                PropertyOverrides.doubleProperty(
+                        "turboMesh.features.textureContrast", fixed.textureContrast(), 0.02, 1.0),
+                PropertyOverrides.doubleProperty(
+                        "turboMesh.features.directionInfluence", fixed.directionInfluence(), 0.0, 1.0),
+                PropertyOverrides.doubleProperty("turboMesh.features.baseDensity", fixed.baseDensity(), 0.0, 1.0),
+                PropertyOverrides.doubleProperty(
+                        "turboMesh.features.minRadiusFactor", fixed.minRadiusFactor(), 0.05, 1.0),
+                PropertyOverrides.doubleProperty(
                         "turboMesh.features.cornerTurnRadians",
                         fixed.cornerTurnRadians(),
                         Math.toRadians(5.0),
                         Math.toRadians(170.0)),
-                intProperty("turboMesh.features.cornerScales", fixed.cornerScales(), 1, 6));
+                PropertyOverrides.intProperty("turboMesh.features.cornerScales", fixed.cornerScales(), 1, 6));
     }
 
     private static DensityPreset parsePreset(final String name) {
@@ -224,23 +230,5 @@ public record FeatureOptions(
             }
         }
         return null;
-    }
-
-    private static double doubleProperty(final String name, final double fallback, final double min, final double max) {
-        try {
-            final double value = Double.parseDouble(System.getProperty(name, "").trim());
-            return Math.max(min, Math.min(max, value));
-        } catch (RuntimeException ignored) {
-            return fallback;
-        }
-    }
-
-    private static int intProperty(final String name, final int fallback, final int min, final int max) {
-        try {
-            final int value = Integer.parseInt(System.getProperty(name, "").trim());
-            return Math.max(min, Math.min(max, value));
-        } catch (RuntimeException ignored) {
-            return fallback;
-        }
     }
 }

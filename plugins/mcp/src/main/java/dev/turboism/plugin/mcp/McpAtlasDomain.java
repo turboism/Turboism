@@ -173,7 +173,7 @@ final class McpAtlasDomain implements AutoCloseable {
         try {
             var snapshot = get(args);
             verify(snapshot.binding, snapshot.nativeState);
-            String operation = McpAtlasLayout.text(args.get("operationId"), 128);
+            String operation = McpDomainSupport.text(args.get("operationId"), 128);
             var layout = McpAtlasLayout.shelf(snapshot.nativeState, snapshot.pixels);
             var request = Map.<String, Object>of(
                     "documentId",
@@ -217,7 +217,7 @@ final class McpAtlasDomain implements AutoCloseable {
         if (session.isBlank()) return error("SESSION_REQUIRED");
         String id;
         try {
-            id = McpAtlasLayout.text(args.get("operationId"), 128);
+            id = McpDomainSupport.text(args.get("operationId"), 128);
         } catch (RuntimeException failure) {
             return error(code(failure));
         }
@@ -293,7 +293,8 @@ final class McpAtlasDomain implements AutoCloseable {
                                 : "APPLIED";
                         try {
                             var afterContext = context.get();
-                            if (!sameScope(snapshot.binding, afterContext.binding())) throw new Stale();
+                            if (!McpDomainSupport.sameScope(snapshot.binding, afterContext.binding()))
+                                throw new Stale();
                             var after = capture(afterContext.binding());
                             String actual = McpWriteResults.digest(McpAtlasLayout.project(after.currentPlan()));
                             synchronized (this) {
@@ -353,7 +354,7 @@ final class McpAtlasDomain implements AutoCloseable {
     private synchronized Snapshot get(Map<String, Object> args) {
         if (closed) throw new UnsupportedOperationException();
         prune();
-        var value = snapshots.get(McpAtlasLayout.text(args.get("snapshotId"), 128));
+        var value = snapshots.get(McpDomainSupport.text(args.get("snapshotId"), 128));
         if (value == null || !value.session.equals(McpRequestRegistry.currentSessionId()))
             throw new NoSuchElementException();
         scope(args, value.binding);
@@ -366,16 +367,10 @@ final class McpAtlasDomain implements AutoCloseable {
     }
 
     private static void scope(Map<String, Object> args, Map<String, Object> binding) {
-        if (!McpAtlasLayout.text(args.get("documentId"), 4096).equals(binding.get("documentId"))
-                || !McpAtlasLayout.text(args.get("modelId"), 4096).equals(binding.get("modelId"))) throw new Stale();
-        McpAtlasLayout.text(binding.get("historyDocumentBinding"), 4096);
-        McpAtlasLayout.text(binding.get("historyManagerBinding"), 4096);
-    }
-
-    private static boolean sameScope(Map<String, Object> a, Map<String, Object> b) {
-        return List.of("documentId", "modelId", "historyGeneration", "historyDocumentBinding", "historyManagerBinding")
-                .stream()
-                .allMatch(k -> Objects.equals(a.get(k), b.get(k)));
+        if (!McpDomainSupport.text(args.get("documentId"), 4096).equals(binding.get("documentId"))
+                || !McpDomainSupport.text(args.get("modelId"), 4096).equals(binding.get("modelId"))) throw new Stale();
+        McpDomainSupport.text(binding.get("historyDocumentBinding"), 4096);
+        McpDomainSupport.text(binding.get("historyManagerBinding"), 4096);
     }
 
     private synchronized boolean stopped(Job job) {

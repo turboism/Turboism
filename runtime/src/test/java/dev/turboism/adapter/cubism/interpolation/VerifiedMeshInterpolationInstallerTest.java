@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.interpolation;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.HostArtifactDigestCache;
 import java.io.IOException;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Proxy;

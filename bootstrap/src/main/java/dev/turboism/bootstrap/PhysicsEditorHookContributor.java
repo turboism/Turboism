@@ -31,7 +31,7 @@ final class PhysicsEditorHookContributor implements HookContributor {
         final var runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
         final PhysicsEditorHostProfile profile = PhysicsEditorHostProfile.forArtifact(
-                        HostArtifactDigest.from(host.artifact()))
+                        HostArtifactDigest.cached(host.artifact()))
                 .or(() -> environment.admittedRuntimeGeneration().flatMap(PhysicsEditorHostProfile::forReviewedVersion))
                 .orElseThrow(() -> new IllegalStateException("Unsupported Physics Settings host artifact"));
         final VerifiedPhysicsEditorHookInstaller installer = new VerifiedPhysicsEditorHookInstaller(

@@ -74,8 +74,8 @@ public final class HostDialogAutomationValidationProbe implements CubismPlugin {
 
             final Window hostWindow =
                     onHostThread(() -> WindowsParameterValidationProbe.selectHostWindow(Window.getWindows()));
-            final WindowsParameterValidationProbe.HostCloseRoute route =
-                    WindowsParameterValidationProbe.hostCloseRoute(hostVersion);
+            final WindowsHistoryNativeUiHostClose.HostCloseRoute route =
+                    WindowsHistoryNativeUiHostClose.hostCloseRoute(hostVersion);
 
             // 1. First close request: the unsaved-changes confirmation must appear and CANCEL must keep the host alive.
             final HostDialogOutcome cancelOutcome = requestCloseAndAct(route, hostWindow, HostDialogAction.CANCEL);
@@ -133,7 +133,7 @@ public final class HostDialogAutomationValidationProbe implements CubismPlugin {
 
     /** Triggers the version-routed close and acts on the resulting confirmation dialog. */
     private HostDialogOutcome requestCloseAndAct(
-            final WindowsParameterValidationProbe.HostCloseRoute route,
+            final WindowsHistoryNativeUiHostClose.HostCloseRoute route,
             final Window hostWindow,
             final HostDialogAction action)
             throws Exception {
@@ -145,8 +145,8 @@ public final class HostDialogAutomationValidationProbe implements CubismPlugin {
     }
 
     private static void triggerClose(
-            final WindowsParameterValidationProbe.HostCloseRoute route, final Window hostWindow) throws Exception {
-        if (route == WindowsParameterValidationProbe.HostCloseRoute.ROBOT_ALT_F4) {
+            final WindowsHistoryNativeUiHostClose.HostCloseRoute route, final Window hostWindow) throws Exception {
+        if (route == WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4) {
             // Robot Alt+F4 is a global keystroke: it lands on whatever window owns the focus,
             // so bring the host window to front and wait for focus to settle first.
             onHostThread(() -> {

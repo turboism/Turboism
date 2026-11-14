@@ -1,11 +1,15 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpDomainSupport.envelope;
+import static dev.turboism.plugin.mcp.McpJsonSupport.safeMessage;
+import static dev.turboism.plugin.mcp.McpSchemas.entry;
+import static dev.turboism.plugin.mcp.McpSchemas.immutableMap;
+
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
-import dev.turboism.sdk.json.Json;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -435,14 +439,6 @@ final class McpTransactionDomain {
                 entry("diagnosticId", diagnosticId));
     }
 
-    private static Map<String, Object> envelope(final Map<String, Object> output) {
-        final Map<String, Object> safe = McpJsonSupport.encodable(output);
-        return immutableMap(
-                entry("content", List.of(immutableMap(entry("type", "text"), entry("text", Json.stringify(safe))))),
-                entry("structuredContent", safe),
-                entry("isError", !Boolean.TRUE.equals(safe.get("ok"))));
-    }
-
     private static Map<String, Object> toolDefinition() {
         return immutableMap(
                 entry("name", TRANSACTION_EXECUTE),
@@ -629,24 +625,6 @@ final class McpTransactionDomain {
             return List.copyOf(copy);
         }
         return value;
-    }
-
-    private static String safeMessage(final RuntimeException failure) {
-        final String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
-
-    @SafeVarargs
-    private static Map<String, Object> immutableMap(final Map.Entry<String, Object>... entries) {
-        final Map<String, Object> values = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : entries) {
-            values.put(entry.getKey(), entry.getValue());
-        }
-        return Collections.unmodifiableMap(values);
-    }
-
-    private static Map.Entry<String, Object> entry(final String key, final Object value) {
-        return Map.entry(key, value);
     }
 
     private static RequestRejected rejectedRequest(final String diagnosticId) {

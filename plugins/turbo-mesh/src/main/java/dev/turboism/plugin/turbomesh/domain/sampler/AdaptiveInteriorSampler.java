@@ -1,6 +1,7 @@
 package dev.turboism.plugin.turbomesh.domain.sampler;
 
 import dev.turboism.plugin.turbomesh.domain.DomainMask;
+import dev.turboism.plugin.turbomesh.domain.InteriorSampler;
 import dev.turboism.plugin.turbomesh.domain.PlacementSettings;
 import dev.turboism.plugin.turbomesh.domain.RegionSegmenter;
 import dev.turboism.plugin.turbomesh.domain.features.FeatureField;
@@ -109,7 +110,7 @@ public final class AdaptiveInteriorSampler {
         long rng = dev.turboism.plugin.turbomesh.domain.InteriorSampler.mix64(settings.seed() ^ 0xC0FFEE1234ABL);
         for (int i = order.length - 1; i > 0; i--) {
             rng = dev.turboism.plugin.turbomesh.domain.InteriorSampler.mix64(rng);
-            final int j = (int) (toUnit(rng) % (i + 1));
+            final int j = (int) (InteriorSampler.toUnit(rng) % (i + 1));
             final int tmp = order[i];
             order[i] = order[j];
             order[j] = tmp;
@@ -205,9 +206,9 @@ public final class AdaptiveInteriorSampler {
                 final double u = u0 + (cell % w) * cellUv;
                 final double v = v0 + (cell / w) * cellUv;
                 rng = dev.turboism.plugin.turbomesh.domain.InteriorSampler.mix64(rng);
-                final double ju = (toUnit(rng) - 0.5) * 0.5 * rMin;
+                final double ju = (InteriorSampler.toUnit(rng) - 0.5) * 0.5 * rMin;
                 rng = dev.turboism.plugin.turbomesh.domain.InteriorSampler.mix64(rng);
-                final double jv = (toUnit(rng) - 0.5) * 0.5 * rMin;
+                final double jv = (InteriorSampler.toUnit(rng) - 0.5) * 0.5 * rMin;
                 final double pu = u + ju;
                 final double pv = v + jv;
                 final int at = mask.cellAtUv(pu, pv);
@@ -219,10 +220,6 @@ public final class AdaptiveInteriorSampler {
             }
         }
         return out;
-    }
-
-    private static double toUnit(final long bits) {
-        return (bits >>> 11) * (1.0 / (1L << 53));
     }
 
     /** View of {@code field} with direction confidence zeroed — the isotropic fallback metric. */

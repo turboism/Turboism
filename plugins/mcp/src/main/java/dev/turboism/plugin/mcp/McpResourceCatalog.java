@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpJsonSupport.safeMessage;
+
 import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import java.util.List;
@@ -118,11 +120,6 @@ final class McpResourceCatalog {
             }
         }
         return new ResourceFailure(ResourceFailure.Kind.FAILED, "resource read failed", failure);
-    }
-
-    private static String safeMessage(final RuntimeException failure) {
-        final String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     static final class ResourceNotFound extends RuntimeException {

@@ -8,6 +8,7 @@ import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.work.PluginWorkResult;
 import dev.turboism.core.runtime.work.PluginWorkStatus;
 import dev.turboism.core.runtime.work.PluginWorkSubmission;
+import dev.turboism.internal.Requirements;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.plugin.WorkBudget;
 import java.time.Duration;
@@ -309,7 +310,7 @@ public final class RuntimeScheduler {
      * @throws IllegalArgumentException if {@code pluginId} is blank
      */
     public PluginWorkSubmission submitCompletion(String pluginId, Runnable callback) {
-        requireText(pluginId, "pluginId");
+        Requirements.text(pluginId, "pluginId");
         Objects.requireNonNull(callback, "callback");
         if (closed.get()) {
             return rejected(PluginWorkStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
@@ -489,14 +490,6 @@ public final class RuntimeScheduler {
                 CancellationContext.clear();
             }
         };
-    }
-
-    private static String requireText(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private static PluginWorkSubmission rejected(PluginWorkStatus status, String failureCode) {

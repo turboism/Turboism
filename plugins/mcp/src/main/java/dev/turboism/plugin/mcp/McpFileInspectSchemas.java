@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.*;
 
 final class McpFileInspectSchemas {
@@ -47,21 +49,5 @@ final class McpFileInspectSchemas {
                         true,
                         "openWorldHint",
                         false));
-    }
-
-    private static Map<String, Object> text(int max) {
-        return Map.of("type", "string", "minLength", 1, "maxLength", max);
-    }
-
-    private static Map<String, Object> object(Map<String, Object> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
     }
 }

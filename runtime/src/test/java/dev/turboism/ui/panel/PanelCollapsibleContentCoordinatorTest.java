@@ -12,10 +12,7 @@ import dev.turboism.sdk.ui.CollapsibleSectionContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
 import java.awt.Component;
-import java.awt.Graphics2D;
 import java.awt.Point;
-import java.awt.event.MouseEvent;
-import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -353,18 +350,19 @@ class PanelCollapsibleContentCoordinatorTest {
         // 注入分区是真实可折叠分区：点击热区翻转，i18n 标签（Locale.CHINESE → 收起/展开）。
         JPanel injected = sections.get(1);
         assertTrue(CollapsibleSection.isExpanded(injected));
-        assertEquals("收起", borderOf(injected).actionText());
+        assertEquals("收起", SwingPanelTestSupport.borderOf(injected).actionText());
 
         injected.setSize(400, 200);
-        paint(injected);
-        Point hotspot = centerOf(borderOf(injected).actionBounds());
-        injected.dispatchEvent(click(injected, hotspot));
+        SwingPanelTestSupport.paint(injected);
+        Point hotspot = SwingPanelTestSupport.centerOf(
+                SwingPanelTestSupport.borderOf(injected).actionBounds());
+        injected.dispatchEvent(SwingPanelTestSupport.click(injected, hotspot));
         assertFalse(CollapsibleSection.isExpanded(injected));
-        assertEquals("展开", borderOf(injected).actionText());
+        assertEquals("展开", SwingPanelTestSupport.borderOf(injected).actionText());
 
-        injected.dispatchEvent(click(injected, hotspot));
+        injected.dispatchEvent(SwingPanelTestSupport.click(injected, hotspot));
         assertTrue(CollapsibleSection.isExpanded(injected));
-        assertEquals("收起", borderOf(injected).actionText());
+        assertEquals("收起", SwingPanelTestSupport.borderOf(injected).actionText());
     }
 
     private static List<JPanel> sectionPanels(final Component root) {
@@ -405,33 +403,5 @@ class PanelCollapsibleContentCoordinatorTest {
         return text.startsWith("<html>") && text.endsWith("</html>")
                 ? text.substring("<html>".length(), text.length() - "</html>".length())
                 : text;
-    }
-
-    private static void paint(JPanel panel) {
-        BufferedImage image = new BufferedImage(400, 200, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D graphics = image.createGraphics();
-        panel.paint(graphics);
-        graphics.dispose();
-    }
-
-    private static MouseEvent click(JPanel panel, Point point) {
-        return new MouseEvent(
-                panel,
-                MouseEvent.MOUSE_CLICKED,
-                System.currentTimeMillis(),
-                0,
-                point.x,
-                point.y,
-                1,
-                false,
-                MouseEvent.BUTTON1);
-    }
-
-    private static Point centerOf(java.awt.Rectangle bounds) {
-        return new Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
-    }
-
-    private static CollapsibleSection.CollapsibleTitledBorder borderOf(JPanel panel) {
-        return (CollapsibleSection.CollapsibleTitledBorder) panel.getBorder();
     }
 }

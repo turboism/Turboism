@@ -60,7 +60,7 @@ final class VerifiedAsyncReadbackInstaller implements AutoCloseable {
 
     private static Optional<Path> resolve(final Path artifact) throws Exception {
         final Path jogl = joglArtifact(artifact);
-        return AsyncReadbackTarget.admitted(HostArtifactDigest.from(jogl)) ? Optional.of(jogl) : Optional.empty();
+        return AsyncReadbackTarget.admitted(HostArtifactDigest.cached(jogl)) ? Optional.of(jogl) : Optional.empty();
     }
 
     private static Path joglArtifact(final Path artifact) {

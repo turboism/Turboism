@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 class DrawableStateLifecycleContractTest {
     @Test
     void transformsAndPublishesVisibilityLockAndGeometry() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler();
         try {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
             final DrawableLifecycleCoordinator coordinator = new DrawableLifecycleCoordinator();
@@ -134,10 +134,6 @@ class DrawableStateLifecycleContractTest {
                     UnsupportedOperationException.class, () -> event.drawable().replaceGeometry(replacement));
             completion.countDown();
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler();
     }
 
     private static ArtMeshGeometry geometry(final float value) {

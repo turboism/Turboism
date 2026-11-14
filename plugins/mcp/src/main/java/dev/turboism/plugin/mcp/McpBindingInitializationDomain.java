@@ -6,8 +6,6 @@ import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.id.*;
 import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.cubism.transaction.*;
-import dev.turboism.sdk.json.Json;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -82,9 +80,9 @@ final class McpBindingInitializationDomain {
             var current = context.get();
             scope(args, current);
             String session = McpRequestRegistry.currentSessionId();
-            var expected = snapshots.get(text(args.get("authoringSnapshotId"), 128), session);
-            if (!expected.kind().equals(text(args.get("kind"), 64))
-                    || !expected.objectId().equals(text(args.get("objectId"), 4096))
+            var expected = snapshots.get(McpDomainSupport.text(args.get("authoringSnapshotId"), 128), session);
+            if (!expected.kind().equals(McpDomainSupport.text(args.get("kind"), 64))
+                    || !expected.objectId().equals(McpDomainSupport.text(args.get("objectId"), 4096))
                     || !expected.binding().equals(current.binding())) throw new Stale();
             var original = expected.nativeSnapshot();
             McpBindingGridSnapshot.initial(original);
@@ -105,7 +103,7 @@ final class McpBindingInitializationDomain {
                     metadata,
                     axes,
                     clock.getAsLong(),
-                    bytes(Map.of(
+                    McpDomainSupport.bytes(Map.of(
                             "source",
                             McpBindingGridSnapshot.projection(original),
                             "metadata",
@@ -154,7 +152,7 @@ final class McpBindingInitializationDomain {
         String beforeHash = null;
         try {
             fields(args, "documentId", "modelId", "planId", "operationId", "target");
-            id = text(args.get("operationId"), 128);
+            id = McpDomainSupport.text(args.get("operationId"), 128);
             key = new Key(McpRequestRegistry.currentSessionId(), id);
             String fingerprint = digest(args);
             synchronized (operations) {
@@ -179,7 +177,7 @@ final class McpBindingInitializationDomain {
             Plan prepared;
             synchronized (plans) {
                 prune();
-                prepared = plans.get(text(args.get("planId"), 128));
+                prepared = plans.get(McpDomainSupport.text(args.get("planId"), 128));
                 if (prepared == null || !prepared.session.equals(key.session)) throw new NoSuchElementException();
             }
             if (!prepared.expected.binding().equals(current.binding())) throw new Stale();
@@ -285,7 +283,7 @@ final class McpBindingInitializationDomain {
         var now = context.get();
         if (exactHistory
                 ? !plan.expected.binding().equals(now.binding())
-                : !sameScope(plan.expected.binding(), now.binding())) throw new Stale();
+                : !McpDomainSupport.sameScope(plan.expected.binding(), now.binding())) throw new Stale();
         if (!expectedNative.equals(nativeSnapshot(now.model(), plan.expected))
                 || !plan.metadata.equals(metadata(now.model(), plan.expected))
                 || !plan.parameters.equals(parameters(now.model()))
@@ -357,7 +355,7 @@ final class McpBindingInitializationDomain {
         var guids = new HashSet<String>();
         var rows = new ArrayList<Map<String, Object>>();
         for (var p : all) {
-            String id = text(p.id().value(), 4096), guid = text(p.guid(), 4096);
+            String id = McpDomainSupport.text(p.id().value(), 4096), guid = McpDomainSupport.text(p.guid(), 4096);
             if (!ids.add(id) || !guids.add(guid)) throw new UnsupportedOperationException();
             float min = finite(p.getMinimumValue()),
                     max = finite(p.getMaximumValue()),
@@ -379,7 +377,7 @@ final class McpBindingInitializationDomain {
                 throw new McpBindingGridSnapshot.Budget();
             rows.add(Collections.unmodifiableMap(row));
         }
-        if (bytes(Map.of("parameters", rows)) > 240 * 1024) throw new McpBindingGridSnapshot.Budget();
+        if (McpDomainSupport.bytes(Map.of("parameters", rows)) > 240 * 1024) throw new McpBindingGridSnapshot.Budget();
         return List.copyOf(rows);
     }
 
@@ -392,7 +390,8 @@ final class McpBindingInitializationDomain {
             @SuppressWarnings("unchecked")
             var row = (Map<String, Object>) raw;
             fields(row, "parameterId", "parameterGuid", "keys");
-            String id = text(row.get("parameterId"), 4096), guid = text(row.get("parameterGuid"), 128);
+            String id = McpDomainSupport.text(row.get("parameterId"), 4096),
+                    guid = McpDomainSupport.text(row.get("parameterGuid"), 128);
             var p = parameters.stream()
                     .filter(r -> id.equals(r.get("id")) && guid.equals(r.get("guid")))
                     .findFirst()
@@ -445,7 +444,7 @@ final class McpBindingInitializationDomain {
 
     private Map<String, Object> result(Map<String, Object> args) {
         fields(args, "operationId");
-        String id = text(args.get("operationId"), 128);
+        String id = McpDomainSupport.text(args.get("operationId"), 128);
         synchronized (operations) {
             var op = operations.get(new Key(McpRequestRegistry.currentSessionId(), id));
             return envelope(
@@ -466,15 +465,11 @@ final class McpBindingInitializationDomain {
         plans.values().removeIf(p -> clock.getAsLong() - p.created >= McpAuthoringSnapshotStore.TTL_NANOS);
     }
 
-    private static boolean sameScope(Map<String, Object> a, Map<String, Object> b) {
-        return List.of("documentId", "modelId", "historyGeneration", "historyDocumentBinding", "historyManagerBinding")
-                .stream()
-                .allMatch(k -> Objects.equals(a.get(k), b.get(k)));
-    }
-
     private static void scope(Map<String, Object> args, McpStoredAuthoringDomain.Context current) {
-        if (!text(args.get("documentId"), 4096).equals(current.binding().get("documentId"))
-                || !text(args.get("modelId"), 4096).equals(current.binding().get("modelId"))) throw new Stale();
+        if (!McpDomainSupport.text(args.get("documentId"), 4096)
+                        .equals(current.binding().get("documentId"))
+                || !McpDomainSupport.text(args.get("modelId"), 4096)
+                        .equals(current.binding().get("modelId"))) throw new Stale();
     }
 
     private static String hash(Plan plan, Object nativeState) {
@@ -495,7 +490,7 @@ final class McpBindingInitializationDomain {
 
     private static void budget(Object nativeState) {
         McpBindingGridSnapshot.view(nativeState);
-        if (bytes(Map.of("source", McpBindingGridSnapshot.projection(nativeState))) > MAX_BYTES)
+        if (McpDomainSupport.bytes(Map.of("source", McpBindingGridSnapshot.projection(nativeState))) > MAX_BYTES)
             throw new McpBindingGridSnapshot.Budget();
     }
 
@@ -537,18 +532,6 @@ final class McpBindingInitializationDomain {
 
     private static float finite(float value) {
         return McpBindingGridSnapshot.zero(value);
-    }
-
-    private static int bytes(Map<String, Object> value) {
-        return Json.stringify(value).getBytes(StandardCharsets.UTF_8).length;
-    }
-
-    private static String text(Object value, int max) {
-        if (!(value instanceof String s)
-                || s.isBlank()
-                || s.length() > max
-                || s.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException();
-        return s;
     }
 
     private static void fields(Map<String, Object> args, String... names) {

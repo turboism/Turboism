@@ -1,5 +1,6 @@
 package dev.turboism.ui.settings;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.settings.SettingsContribution;
 import dev.turboism.sdk.ui.settings.SettingsContributionSource;
@@ -23,7 +24,7 @@ public final class SettingsContributionStore implements SettingsContributionSour
 
     /** Registers one runtime-validated contribution under its owning plugin. */
     public Registration register(final String pluginId, final SettingsContribution contribution) {
-        final String owner = requireText(pluginId, "pluginId");
+        final String owner = Requirements.text(pluginId, "pluginId");
         final SettingsContribution value = Objects.requireNonNull(contribution, "contribution");
         final String identity = owner + ':' + value.id();
         synchronized (this) {
@@ -146,12 +147,6 @@ public final class SettingsContributionStore implements SettingsContributionSour
                 .thenComparingInt(value -> value.contribution().tab().index().orElse(Integer.MAX_VALUE))
                 .thenComparing(Entry::pluginId)
                 .thenComparing(value -> value.contribution().id());
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 
     private record Entry(String identity, String pluginId, SettingsContribution contribution) {}

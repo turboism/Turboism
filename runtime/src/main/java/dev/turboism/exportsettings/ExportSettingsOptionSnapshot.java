@@ -1,5 +1,6 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.internal.Requirements;
 import java.util.Objects;
 
 /**
@@ -13,19 +14,11 @@ import java.util.Objects;
 public record ExportSettingsOptionSnapshot(String optionId, String label, String pluginId, long pluginGeneration) {
 
     public ExportSettingsOptionSnapshot {
-        optionId = requireText(optionId, "optionId");
+        optionId = Requirements.text(optionId, "optionId");
         label = Objects.requireNonNull(label, "label");
-        pluginId = requireText(pluginId, "pluginId");
+        pluginId = Requirements.text(pluginId, "pluginId");
         if (pluginGeneration < 0L) {
             throw new IllegalArgumentException("pluginGeneration must not be negative");
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

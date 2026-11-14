@@ -92,13 +92,11 @@ final class VerifiedMeshToolSessionHookInstaller implements AutoCloseable {
             transformer.resetTransformedCount();
             instrumentation.addTransformer(transformer, true);
             transformerAdded = true;
-            for (final Class<?> target : targets) {
-                try {
-                    instrumentation.retransformClasses(target);
-                } catch (Throwable failure) {
-                    dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
-                    throw new IllegalStateException("mesh-editor target retransform failed", failure);
-                }
+            try {
+                VerifiedHookInstallerSupport.retransformAll(instrumentation, targets);
+            } catch (Throwable failure) {
+                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
+                throw new IllegalStateException("mesh-editor target retransform failed", failure);
             }
             if (transformer.transformedCount() != targets.size()) {
                 throw new IllegalStateException(TRANSFORM_DELTA_MISMATCH + ": expected " + targets.size()
@@ -203,15 +201,16 @@ final class VerifiedMeshToolSessionHookInstaller implements AutoCloseable {
      */
     private void restoreLoadedOwners() {
         try {
-            for (final Class<?> type : instrumentation.getAllLoadedClasses()) {
-                if (type == null
-                        || !transformer
-                                .targetClassNames()
-                                .contains(type.getName().replace('.', '/'))) continue;
-                if (type.getClassLoader() != hostClassLoader) continue;
+            final List<Class<?>> targets = VerifiedHookInstallerSupport.LoadedClassIndex.snapshot(instrumentation)
+                    .select(
+                            hostClassLoader,
+                            type -> transformer
+                                    .targetClassNames()
+                                    .contains(type.getName().replace('.', '/')));
+            for (final Class<?> type : targets) {
                 if (!instrumentation.isModifiableClass(type)) throw new IllegalStateException(TARGET_UNMODIFIABLE);
-                instrumentation.retransformClasses(type);
             }
+            VerifiedHookInstallerSupport.retransformAll(instrumentation, targets);
         } catch (Throwable failure) {
             dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("mesh-editor bytecode restore failed", failure);

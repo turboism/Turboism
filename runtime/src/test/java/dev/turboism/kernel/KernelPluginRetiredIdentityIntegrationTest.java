@@ -81,7 +81,7 @@ class KernelPluginRetiredIdentityIntegrationTest {
         final Path plugins = home.resolve("plugins");
         writePlugin(plugins, temporary.resolve("retired"), "renamed-retired.jar", RETIRED_ID, RETIRED_MARKER);
         writePlugin(plugins, temporary.resolve("successor"), "clipmask-viewer.jar", SUCCESSOR_ID, SUCCESSOR_MARKER);
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
 
         try (KernelLog log = new KernelLog(home.resolve("logs/turboism.log"))) {
@@ -125,7 +125,7 @@ class KernelPluginRetiredIdentityIntegrationTest {
                 SUPERSEDED_BACKUP_ID,
                 SUPERSEDED_BACKUP_MARKER);
         writePlugin(plugins, temporary.resolve("replacement"), "webdav-backup.jar", WEBDAV_ID, WEBDAV_MARKER);
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
         final HostSession host = new HostSession(Optional::empty);
         final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
 
@@ -162,10 +162,6 @@ class KernelPluginRetiredIdentityIntegrationTest {
             System.clearProperty(WEBDAV_MARKER);
             System.clearProperty(SUPERSEDED_BACKUP_MARKER);
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 16);
     }
 
     private static void writePlugin(

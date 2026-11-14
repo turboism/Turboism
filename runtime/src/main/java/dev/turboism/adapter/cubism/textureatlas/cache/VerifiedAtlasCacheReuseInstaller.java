@@ -96,17 +96,17 @@ public final class VerifiedAtlasCacheReuseInstaller {
         Objects.requireNonNull(diagnostic, "diagnostic");
 
         if (targetAlreadyLoaded(instrumentation)) {
-            report(diagnostic, "ATLAS_CACHE_REUSE_TARGET_ALREADY_LOADED");
+            FatalErrors.reportSafely(diagnostic, "ATLAS_CACHE_REUSE_TARGET_ALREADY_LOADED");
             return Installation.declined(Status.TARGET_ALREADY_LOADED);
         }
 
         final AtlasCacheReuseTransformer transformer = new AtlasCacheReuseTransformer();
         try {
             instrumentation.addTransformer(transformer, false);
-            report(diagnostic, "ATLAS_CACHE_REUSE_INSTALLED");
+            FatalErrors.reportSafely(diagnostic, "ATLAS_CACHE_REUSE_INSTALLED");
             return Installation.installed(instrumentation, transformer);
         } catch (RuntimeException failure) {
-            report(diagnostic, "ATLAS_CACHE_REUSE_INSTALL_FAILED");
+            FatalErrors.reportSafely(diagnostic, "ATLAS_CACHE_REUSE_INSTALL_FAILED");
             return Installation.declined(Status.INSTALL_FAILED);
         }
     }
@@ -128,9 +128,5 @@ public final class VerifiedAtlasCacheReuseInstaller {
             names.add(target.className());
         }
         return java.util.Set.copyOf(names);
-    }
-
-    private static void report(final Consumer<String> diagnostic, final String code) {
-        FatalErrors.reportSafely(diagnostic, code);
     }
 }

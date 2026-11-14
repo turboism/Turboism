@@ -4,6 +4,7 @@ import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureDomain;
 import dev.turboism.failure.RuntimeFailureSink;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.storage.PluginStorage;
@@ -72,7 +73,7 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
             final CleanupEvidenceCollector cleanupEvidence,
             final RuntimeFailureSink failureSink)
             throws IOException {
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.permissions = Set.copyOf(Objects.requireNonNull(permissions, "permissions"));
         this.backend = new ConfinedStorageBackend(roots, cleanupEvidence);
         this.failureSink = RuntimeFailureSink.require(failureSink);
@@ -81,7 +82,7 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
 
     @Override
     public CompletionStage<StorageReadResult<String>> readUtf8(final StoragePath path, final int maxBytes) {
-        requireNonNegative(maxBytes, "maxBytes");
+        Requirements.nonNegative(maxBytes, "maxBytes");
         if (!has(PermissionIds.TURBOISM_FILE_READ)) {
             return io.immediate(readFailure(path, StorageErrorCode.PERMISSION_DENIED, "storage.readUtf8"));
         }
@@ -96,7 +97,7 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
 
     @Override
     public CompletionStage<StorageReadResult<byte[]>> readBytes(final StoragePath path, final int maxBytes) {
-        requireNonNegative(maxBytes, "maxBytes");
+        Requirements.nonNegative(maxBytes, "maxBytes");
         if (!has(PermissionIds.TURBOISM_FILE_READ)) {
             return io.immediate(readFailure(path, StorageErrorCode.PERMISSION_DENIED, "storage.readBytes"));
         }
@@ -133,7 +134,7 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
 
     @Override
     public CompletionStage<StorageListResult> list(final StoragePath directory, final int maxEntries) {
-        requireNonNegative(maxEntries, "maxEntries");
+        Requirements.nonNegative(maxEntries, "maxEntries");
         if (maxEntries > ConfinedStorageBackend.MAX_LIST_ENTRIES) {
             throw new IllegalArgumentException("maxEntries exceeds runtime limit");
         }
@@ -209,13 +210,6 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
     private static void requirePaths(final StoragePath source, final StoragePath target) {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(target, "target");
-    }
-
-    private static int requireNonNegative(final int value, final String name) {
-        if (value < 0) {
-            throw new IllegalArgumentException(name + " must not be negative");
-        }
-        return value;
     }
 
     private <T> StorageReadResult<T> observe(final StorageReadResult<T> result, final String operationId) {
@@ -304,13 +298,5 @@ public final class RuntimePluginStorage implements PluginStorage, AutoCloseable 
             return PermissionIds.TURBOISM_FILE_READ;
         }
         return requiresWrite ? PermissionIds.TURBOISM_FILE_WRITE : null;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

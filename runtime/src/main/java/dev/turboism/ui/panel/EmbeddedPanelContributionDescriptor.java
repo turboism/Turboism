@@ -1,5 +1,6 @@
 package dev.turboism.ui.panel;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.ui.contribution.EditorUiContribution;
@@ -17,10 +18,10 @@ public record EmbeddedPanelContributionDescriptor(
         boolean floatingByDefault) {
 
     public EmbeddedPanelContributionDescriptor {
-        pluginId = requireText(pluginId, "pluginId");
-        contributionId = requireText(contributionId, "contributionId");
-        title = requireText(title, "title");
-        placement = requireText(placement, "placement");
+        pluginId = Requirements.text(pluginId, "pluginId");
+        contributionId = Requirements.text(contributionId, "contributionId");
+        title = Requirements.text(title, "title");
+        placement = Requirements.text(placement, "placement");
         content = Objects.requireNonNull(content, "content");
     }
 
@@ -52,13 +53,5 @@ public record EmbeddedPanelContributionDescriptor(
                 panel.priority(),
                 panel.content(),
                 panel.floatingByDefault());
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

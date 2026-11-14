@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.*;
 
 /** Closed path-free metadata contracts. PSD IDs are not raw-layer IDs or file grants. */
@@ -9,8 +11,11 @@ final class McpAssetSourceSchemas {
         var input = new LinkedHashMap<String, Object>();
         input.put("documentId", id());
         input.put("modelId", id());
-        if (scoped) input.put("query", object(Map.of("artMeshIds", array(id(), 64), "modelImageIds", array(id(), 64))));
-        input.put("snapshotId", string(1, 128));
+        if (scoped)
+            input.put(
+                    "query",
+                    object(Map.of("artMeshIds", boundedArray(id(), 64), "modelImageIds", boundedArray(id(), 64))));
+        input.put("snapshotId", text(1, 128));
         input.put("offset", integer(0, Integer.MAX_VALUE));
         input.put("limit", integer(1, 256));
         var required = new ArrayList<>(List.of("documentId", "modelId"));
@@ -58,11 +63,11 @@ final class McpAssetSourceSchemas {
                 "ok",
                 Map.of("const", true),
                 "snapshotId",
-                string(1, 128),
+                text(1, 128),
                 "projection",
                 Map.of("const", scoped ? "SCOPED_SOURCES" : "RELATIONS"),
                 "queryFingerprint",
-                string(64, 64),
+                text(64, 64),
                 "state",
                 state,
                 "observation",
@@ -70,7 +75,7 @@ final class McpAssetSourceSchemas {
                 "counts",
                 counts,
                 "rows",
-                array(rows(scoped), 256),
+                boundedArray(rows(scoped), 256),
                 "offset",
                 integer(0, 32768),
                 "totalRows",
@@ -90,9 +95,7 @@ final class McpAssetSourceSchemas {
                 "inputSchema",
                 inputSchema,
                 "outputSchema",
-                Map.of(
-                        "oneOf",
-                        List.of(success, object(Map.of("ok", Map.of("const", false), "error", string(1, 128))))),
+                Map.of("oneOf", List.of(success, object(Map.of("ok", Map.of("const", false), "error", text(1, 128))))),
                 "annotations",
                 Map.of("readOnlyHint", true, "destructiveHint", false, "idempotentHint", true, "openWorldHint", false));
     }
@@ -143,8 +146,8 @@ final class McpAssetSourceSchemas {
             var details = new LinkedHashMap<>(raw());
             details.put("sourceKind", Map.of("enum", List.of("PSD", "UNKNOWN")));
             details.put("replaced", Map.of("type", "boolean"));
-            details.put("importedAt", nullable(string(0, 4096)));
-            details.put("sourceModifiedAt", nullable(string(0, 4096)));
+            details.put("importedAt", nullable(text(0, 4096)));
+            details.put("sourceModifiedAt", nullable(text(0, 4096)));
             details.put("projectTreeVisible", nullable(Map.of("type", "boolean")));
             alternatives.add(row("raw_image_details", details));
             alternatives.add(row(
@@ -161,7 +164,7 @@ final class McpAssetSourceSchemas {
                             "entryKind",
                             Map.of("enum", List.of("PIXEL", "GROUP")),
                             "name",
-                            string(0, 4096),
+                            text(0, 4096),
                             "psdLayerId",
                             nullable(id()),
                             "childCount",
@@ -172,19 +175,19 @@ final class McpAssetSourceSchemas {
                             "modelImageId",
                             id(),
                             "name",
-                            string(0, 4096),
+                            text(0, 4096),
                             "width",
                             integer(1, Integer.MAX_VALUE),
                             "height",
                             integer(1, Integer.MAX_VALUE),
                             "linkedRawImageIds",
-                            array(id(), 16384),
+                            boundedArray(id(), 16384),
                             "currentRawImageId",
                             nullable(id()),
                             "currentSourceResolved",
                             Map.of("type", "boolean"),
                             "usingArtMeshIds",
-                            array(id(), 16384))));
+                            boundedArray(id(), 16384))));
             alternatives.add(row(
                     "layer_input",
                     Map.of(
@@ -212,13 +215,13 @@ final class McpAssetSourceSchemas {
                             "groupIndex",
                             integer(0, 255),
                             "name",
-                            string(0, 4096),
+                            text(0, 4096),
                             "memo",
-                            string(0, 4096),
+                            text(0, 4096),
                             "modelImageIds",
-                            array(id(), 16384),
+                            boundedArray(id(), 16384),
                             "linkedRawImageIds",
-                            array(id(), 16384),
+                            boundedArray(id(), 16384),
                             "projectTreeVisible",
                             nullable(Map.of("type", "boolean")))));
         }
@@ -240,7 +243,7 @@ final class McpAssetSourceSchemas {
                 "rawImageId",
                 id(),
                 "name",
-                string(0, 4096),
+                text(0, 4096),
                 "width",
                 integer(1, Integer.MAX_VALUE),
                 "height",
@@ -253,35 +256,7 @@ final class McpAssetSourceSchemas {
         return object(all);
     }
 
-    private static Map<String, Object> nullable(Object schema) {
-        return Map.of("oneOf", List.of(schema, Map.of("type", "null")));
-    }
-
     private static Map<String, Object> id() {
-        return string(1, 4096);
-    }
-
-    private static Map<String, Object> string(int min, int max) {
-        return Map.of("type", "string", "minLength", min, "maxLength", max);
-    }
-
-    private static Map<String, Object> integer(long min, long max) {
-        return Map.of("type", "integer", "minimum", min, "maximum", max);
-    }
-
-    private static Map<String, Object> array(Object schema, int max) {
-        return Map.of("type", "array", "maxItems", max, "items", schema);
-    }
-
-    private static Map<String, Object> object(Map<String, Object> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
+        return text(1, 4096);
     }
 }

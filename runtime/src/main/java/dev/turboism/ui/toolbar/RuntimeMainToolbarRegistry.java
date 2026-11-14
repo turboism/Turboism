@@ -2,6 +2,7 @@ package dev.turboism.ui.toolbar;
 
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
+import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -76,7 +77,7 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
             final EditorUiContributionAuthority contributionAuthority) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.visibilitySink = Optional.ofNullable(visibilitySink);
         this.contributionAuthority = Objects.requireNonNull(contributionAuthority, "contributionAuthority");
     }
@@ -130,7 +131,7 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
     public Registration contribute(final MainToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         return contributeNormalized(
-                requireText(contribution.contributionId(), "contributionId"),
+                Requirements.text(contribution.contributionId(), "contributionId"),
                 contribution.order(),
                 resolveLabel(contribution));
     }
@@ -139,7 +140,7 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
     public Registration contributeButton(final MainToolbarButtonContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         return contributeNormalized(
-                requireText(contribution.contributionId(), "contributionId"),
+                Requirements.text(contribution.contributionId(), "contributionId"),
                 contribution.order(),
                 resolveButtonLabels(contribution));
     }
@@ -180,7 +181,7 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
         return new MainToolbarContribution(
                 contribution.contributionId(),
                 contribution.actionId(),
-                pluginLocalization.text(requireText(contribution.labelKey(), "labelKey")),
+                pluginLocalization.text(Requirements.text(contribution.labelKey(), "labelKey")),
                 contribution.iconResourcePath(),
                 contribution.anchor(),
                 contribution.order());
@@ -194,8 +195,8 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
         return new MainToolbarButtonContribution(
                 contribution.contributionId(),
                 contribution.actionId(),
-                pluginLocalization.text(requireText(contribution.labelKey(), "labelKey")),
-                pluginLocalization.text(requireText(contribution.tooltipKey(), "tooltipKey")),
+                pluginLocalization.text(Requirements.text(contribution.labelKey(), "labelKey")),
+                pluginLocalization.text(Requirements.text(contribution.tooltipKey(), "tooltipKey")),
                 contribution.icons(),
                 contribution.placement(),
                 contribution.order());
@@ -231,14 +232,6 @@ public final class RuntimeMainToolbarRegistry implements MainToolbarRegistry {
     private PluginTask task(final String contributionId) {
         return new PluginTask(
                 UI_TASK_TYPE, pluginId, "main toolbar visibility for " + contributionId, DEFAULT_CAPABILITY);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private final class ToolbarRegistration implements Registration {

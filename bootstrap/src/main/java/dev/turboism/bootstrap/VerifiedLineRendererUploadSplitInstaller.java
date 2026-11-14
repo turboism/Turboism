@@ -44,12 +44,12 @@ final class VerifiedLineRendererUploadSplitInstaller implements AutoCloseable {
         // The digest read stays after the shared gate so a refused hook never opens the artifact.
         return VerifiedInstall.admits(
                         ADMISSION, config, requested, Runtime.version().feature())
-                && LineRendererUploadSplitTarget.of(HostArtifactDigest.from(artifact))
+                && LineRendererUploadSplitTarget.of(HostArtifactDigest.cached(artifact))
                         .isPresent();
     }
 
     private static Optional<LineRendererUploadSplitTarget> resolve(final Path artifact) throws Exception {
-        return LineRendererUploadSplitTarget.of(HostArtifactDigest.from(artifact));
+        return LineRendererUploadSplitTarget.of(HostArtifactDigest.cached(artifact));
     }
 
     private WeaveSpec<LineRendererUploadSplitTarget> spec() {

@@ -52,7 +52,7 @@ final class VerifiedClipMaskProbeInstaller implements AutoCloseable {
             throws Exception {
         this.instrumentation = instrumentation;
         this.hostClassLoader = loader;
-        final HostArtifactDigest digest = HostArtifactDigest.from(artifact);
+        final HostArtifactDigest digest = HostArtifactDigest.cached(artifact);
         cubismVersion = ReviewedHostArtifacts.cubismVersionOf(digest)
                 .orElseThrow(() -> new IllegalArgumentException("clip mask probe unsupported host artifact"));
         artifactSha256 = digest.sha256();
@@ -158,14 +158,13 @@ final class VerifiedClipMaskProbeInstaller implements AutoCloseable {
                 verify.add(loaded);
             }
         }
-        for (final Class<?> type : verify) {
-            try {
-                if (!instrumentation.isModifiableClass(type)) continue;
-                instrumentation.retransformClasses(type);
-            } catch (Exception | Error problem) {
-                // @containment-exempt: problem is merged and rethrown below with fatal error prioritized
-                failure = dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, problem);
-            }
+        try {
+            VerifiedHookInstallerSupport.retransformAll(
+                    instrumentation,
+                    verify.stream().filter(instrumentation::isModifiableClass).toList());
+        } catch (Exception | Error problem) {
+            // @containment-exempt: problem is merged and rethrown below with fatal error prioritized
+            failure = dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(failure, problem);
         }
         installed = false;
         restored = failure == null;

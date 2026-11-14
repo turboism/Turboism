@@ -1,8 +1,9 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
+import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
-import java.util.Objects;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -28,13 +29,13 @@ public final class TextureAtlasDataModelTransformer implements ClassFileTransfor
             final String dataModelGetterName,
             final String dataModelGetterDescriptor,
             final String captureKey) {
-        this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
-        this.methodName = requireText(methodName, "methodName");
-        this.descriptor = requireText(descriptor, "descriptor");
+        this.ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
+        this.methodName = Requirements.text(methodName, "methodName");
+        this.descriptor = Requirements.text(descriptor, "descriptor");
         this.expectedClassLoader = expectedClassLoader;
-        this.dataModelGetterName = requireText(dataModelGetterName, "dataModelGetterName");
-        this.dataModelGetterDescriptor = requireText(dataModelGetterDescriptor, "dataModelGetterDescriptor");
-        this.captureKey = requireText(captureKey, "captureKey");
+        this.dataModelGetterName = Requirements.text(dataModelGetterName, "dataModelGetterName");
+        this.dataModelGetterDescriptor = Requirements.text(dataModelGetterDescriptor, "dataModelGetterDescriptor");
+        this.captureKey = Requirements.text(captureKey, "captureKey");
     }
 
     @Override
@@ -52,7 +53,8 @@ public final class TextureAtlasDataModelTransformer implements ClassFileTransfor
         }
         final boolean[] transformed = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter writer =
+                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -101,11 +103,5 @@ public final class TextureAtlasDataModelTransformer implements ClassFileTransfor
                 },
                 ClassReader.EXPAND_FRAMES);
         return transformed[0] ? writer.toByteArray() : null;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

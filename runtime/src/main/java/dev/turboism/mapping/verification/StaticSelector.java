@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.internal.Requirements;
 import java.util.Objects;
 
 /** A single exact class/member selector to verify against JAR metadata. */
@@ -17,14 +18,14 @@ public record StaticSelector(
     public static final int ACCESS_STATIC = 0x0008;
 
     public StaticSelector {
-        mappingId = requireText(mappingId, "mappingId");
-        alias = requireText(alias, "alias");
+        mappingId = Requirements.text(mappingId, "mappingId");
+        alias = Requirements.text(alias, "alias");
         kind = Objects.requireNonNull(kind, "kind");
         ownerInternalName = requireInternalName(ownerInternalName);
         // INHERITS pins a direct declared ancestor in memberName instead of a
         // member/descriptor pair; CLASS keeps both empty as before.
-        memberName = kind == Kind.CLASS ? "" : requireText(memberName, "memberName");
-        descriptor = kind == Kind.CLASS || kind == Kind.INHERITS ? "" : requireText(descriptor, "descriptor");
+        memberName = kind == Kind.CLASS ? "" : Requirements.text(memberName, "memberName");
+        descriptor = kind == Kind.CLASS || kind == Kind.INHERITS ? "" : Requirements.text(descriptor, "descriptor");
         if (kind == Kind.INHERITS) {
             memberName = requireInternalName(memberName);
         }
@@ -239,7 +240,7 @@ public record StaticSelector(
     }
 
     private static String requireInternalName(final String value) {
-        final String internalName = requireText(value, "ownerInternalName");
+        final String internalName = Requirements.text(value, "ownerInternalName");
         if (internalName.startsWith("/")
                 || internalName.endsWith("/")
                 || internalName.contains(".")
@@ -247,14 +248,6 @@ public record StaticSelector(
             throw new IllegalArgumentException("ownerInternalName must be a JVM internal name");
         }
         return internalName;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     /** Which kind of host member a selector pins. */

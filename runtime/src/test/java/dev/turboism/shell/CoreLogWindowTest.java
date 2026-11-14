@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.runtime.RuntimeLogReader;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.awt.Color;
 import java.awt.GraphicsEnvironment;
 import java.util.List;
@@ -20,27 +21,7 @@ import org.junit.jupiter.api.Test;
 
 class CoreLogWindowTest {
 
-    private static final PluginLocalization I18N = new PluginLocalization() {
-        @Override
-        public Locale locale() {
-            return Locale.ENGLISH;
-        }
-
-        @Override
-        public String text(final String key) {
-            return key;
-        }
-
-        @Override
-        public String format(final String key, final Object... arguments) {
-            return key;
-        }
-
-        @Override
-        public boolean contains(final String key) {
-            return true;
-        }
-    };
+    private static final PluginLocalization I18N = FakePluginContext.passThroughLocalization(Locale.ENGLISH);
 
     private static final List<String> LINES = List.of(
             "2026-01-01T00:00:00Z [INFO] [runtime] startup",

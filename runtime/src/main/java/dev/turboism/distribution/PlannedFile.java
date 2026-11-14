@@ -1,5 +1,6 @@
 package dev.turboism.distribution;
 
+import dev.turboism.internal.Requirements;
 import java.util.Objects;
 
 /**
@@ -17,10 +18,10 @@ public final class PlannedFile {
     private final long size;
 
     PlannedFile(String role, String archivePath, String installPath, String sha256, long size) {
-        this.role = require(role, "role");
-        this.archivePath = require(archivePath, "archivePath");
-        this.installPath = require(installPath, "installPath");
-        this.sha256 = require(sha256, "sha256");
+        this.role = Requirements.text(role, "role");
+        this.archivePath = Requirements.text(archivePath, "archivePath");
+        this.installPath = Requirements.text(installPath, "installPath");
+        this.sha256 = Requirements.text(sha256, "sha256");
         if (!sha256.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("Invalid sha256");
         if (size < 0) throw new IllegalArgumentException("size must be non-negative");
         this.size = size;
@@ -71,11 +72,5 @@ public final class PlannedFile {
     public String toString() {
         return "PlannedFile[role=" + role + ", archivePath=" + archivePath + ", installPath=" + installPath
                 + ", sha256=" + sha256 + ", size=" + size + "]";
-    }
-
-    private static String require(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

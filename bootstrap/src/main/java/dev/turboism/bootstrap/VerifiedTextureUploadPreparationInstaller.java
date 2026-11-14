@@ -4,11 +4,9 @@ import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationBridge;
 import dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
+import dev.turboism.core.io.Sha256;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 
@@ -71,7 +69,7 @@ final class VerifiedTextureUploadPreparationInstaller implements VerifiedHookIns
     private static List<WeaveTarget> targets(
             final ReviewedHostContract.Bound<String> contract, final WeaveSource source) throws Exception {
         final Path jogl = joglArtifact(source.artifact());
-        if (!JOGL_SHA256.equals(sha256(jogl))) {
+        if (!JOGL_SHA256.equals(Sha256.hexOf(jogl))) {
             throw new IllegalArgumentException("texture preparation requires reviewed JOGL artifact");
         }
         final String factoryOwner = TextureUploadPreparationTransformer.ownerForVersion(contract.sourceVersion());
@@ -118,15 +116,5 @@ final class VerifiedTextureUploadPreparationInstaller implements VerifiedHookIns
 
     boolean restored() {
         return hook != null && hook.restored();
-    }
-
-    private static String sha256(Path path) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        try (var input = Files.newInputStream(path)) {
-            byte[] buffer = new byte[65536];
-            int count;
-            while ((count = input.read(buffer)) != -1) digest.update(buffer, 0, count);
-        }
-        return HexFormat.of().formatHex(digest.digest());
     }
 }

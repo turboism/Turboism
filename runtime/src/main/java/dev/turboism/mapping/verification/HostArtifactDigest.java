@@ -1,11 +1,11 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.core.io.Sha256;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Objects;
@@ -32,7 +32,7 @@ public record HostArtifactDigest(long size, String sha256) {
      */
     public static HostArtifactDigest from(final Path artifact) throws IOException {
         Objects.requireNonNull(artifact, "artifact");
-        final MessageDigest digest = sha256Digest();
+        final MessageDigest digest = Sha256.digest();
         try (InputStream input = Files.newInputStream(artifact)) {
             final byte[] buffer = new byte[8192];
             int read;
@@ -43,12 +43,24 @@ public record HostArtifactDigest(long size, String sha256) {
         return new HostArtifactDigest(Files.size(artifact), HexFormat.of().formatHex(digest.digest()));
     }
 
+    /**
+     * Returns the digest of a host artifact from the shared cache.
+     *
+     * <p>Use this method for identity lookups that repeat during one launch. Use {@link #from}
+     * when a caller must measure the bytes again, for example a before-and-after comparison.
+     *
+     * @param artifact file to digest
+     * @return its byte length and lowercase hex SHA-256
+     * @throws IOException if the file cannot be read, or if it changes during the measurement
+     * @throws NullPointerException if {@code artifact} is {@code null}
+     */
+    public static HostArtifactDigest cached(final Path artifact) throws IOException {
+        Objects.requireNonNull(artifact, "artifact");
+        return HostArtifactDigestCache.shared().digest(artifact);
+    }
+
     static MessageDigest sha256Digest() {
-        try {
-            return MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
+        return Sha256.digest();
     }
 
     private static String requireSha256(final String value) {

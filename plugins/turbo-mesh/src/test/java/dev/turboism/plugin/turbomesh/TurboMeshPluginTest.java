@@ -49,6 +49,7 @@ import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -439,27 +440,7 @@ class TurboMeshPluginTest {
             @Override
             public void error(final String message, final Throwable throwable) {}
         };
-        final PluginLocalization localization = new PluginLocalization() {
-            @Override
-            public Locale locale() {
-                return Locale.ENGLISH;
-            }
-
-            @Override
-            public String text(final String key) {
-                return key;
-            }
-
-            @Override
-            public String format(final String key, final Object... args) {
-                return key;
-            }
-
-            @Override
-            public boolean contains(final String key) {
-                return true;
-            }
-        };
+        final PluginLocalization localization = FakePluginContext.passThroughLocalization(Locale.ENGLISH);
         final CubismFacade cubism = new CubismFacade() {
             @Override
             public CubismRuntimeSnapshot runtime() {

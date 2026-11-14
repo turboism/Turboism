@@ -1,6 +1,7 @@
 package dev.turboism.update;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import dev.turboism.core.io.Sha256;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.io.EOFException;
 import java.io.IOException;
@@ -13,12 +14,9 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -295,7 +293,7 @@ public final class FrameworkUpdateDownloader {
                     final ArrayNode inventory = UpdateFileSupport.JSON.createArrayNode();
                     closure.forEach((hash, bytes) ->
                             inventory.addObject().put("bytes", bytes).put("sha256", hash));
-                    if (!sha(UpdateFileSupport.JSON.writeValueAsBytes(inventory))
+                    if (!Sha256.hex(UpdateFileSupport.JSON.writeValueAsBytes(inventory))
                             .equals(capability.objectsSha256())) {
                         throw new IOException("Discovery object closure mismatch");
                     }
@@ -734,13 +732,5 @@ public final class FrameworkUpdateDownloader {
 
     private static boolean strong(final String etag) {
         return etag != null && etag.length() <= 512 && etag.matches("\"[\\x21\\x23-\\x7E]*\"");
-    }
-
-    private static String sha(final byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException(impossible);
-        }
     }
 }

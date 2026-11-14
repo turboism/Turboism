@@ -74,7 +74,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
         final var contract =
                 ReviewedHostContract.requireBound(ReviewedHostContract.resolve(artifact, CANDIDATES), "uniform cache");
         final String editorVersion = contract.sourceVersion();
-        final HostArtifactDigest editor = HostArtifactDigest.from(artifact);
+        final HostArtifactDigest editor = HostArtifactDigest.cached(artifact);
         if (context.jvmFeature() < 17 || !context.instrumentation().isRetransformClassesSupported()) {
             throw new IllegalStateException("uniform cache requires JVM17+ retransformation");
         }
@@ -82,7 +82,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                 .getParent()
                 .resolve("jogl/jogl-all.jar")
                 .normalize();
-        if (!ReviewedHostArtifacts.CUBISM_5_3_03_JOGL.equals(HostArtifactDigest.from(joglArtifact))) {
+        if (!ReviewedHostArtifacts.CUBISM_5_3_03_JOGL.equals(HostArtifactDigest.cached(joglArtifact))) {
             throw new IllegalArgumentException("uniform cache bundled JOGL identity mismatch");
         }
         bridge = new UniformLocationHookBridge(loader);

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.core;
 
+import dev.turboism.internal.Requirements;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -21,30 +22,16 @@ record CoreParameterDefinition(
         Optional<Boolean> repeat) {
 
     CoreParameterDefinition {
-        id = requireText(id, "id");
-        requireFinite(minimumValue, "minimumValue");
-        requireFinite(maximumValue, "maximumValue");
-        requireFinite(defaultValue, "defaultValue");
-        requireFinite(currentValue, "currentValue");
+        id = Requirements.text(id, "id");
+        Requirements.finite(minimumValue, "minimumValue");
+        Requirements.finite(maximumValue, "maximumValue");
+        Requirements.finite(defaultValue, "defaultValue");
+        Requirements.finite(currentValue, "currentValue");
         keyValues = List.copyOf(Objects.requireNonNull(keyValues, "keyValues"));
         for (Float keyValue : keyValues) {
             Objects.requireNonNull(keyValue, "keyValues element");
-            requireFinite(keyValue, "keyValues element");
+            Requirements.finite(keyValue, "keyValues element");
         }
         repeat = Objects.requireNonNull(repeat, "repeat");
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
-    }
-
-    private static void requireFinite(final float value, final String name) {
-        if (!Float.isFinite(value)) {
-            throw new IllegalArgumentException(name + " must be finite");
-        }
     }
 }

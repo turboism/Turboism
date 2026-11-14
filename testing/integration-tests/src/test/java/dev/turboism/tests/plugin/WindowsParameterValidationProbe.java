@@ -934,48 +934,6 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         UNSUPPORTED_CONFIRMATION
     }
 
-    enum HostCloseRoute {
-        SYNTHETIC_WINDOW_CLOSING,
-        ROBOT_ALT_F4
-    }
-
-    /**
-     * The same reviewed host-close mapping as {@link WindowsHistoryNativeUiHostClose}:
-     * focused Robot Alt+F4 is the verified 5302 route, while every other admitted exact
-     * host accepts the synthetic task-window close event.
-     */
-    static HostCloseRoute hostCloseRoute(final String hostVersion) {
-        if (hostVersion == null) {
-            throw new IllegalArgumentException(
-                    "turboism.validation.hostVersion must be an exact installed version code");
-        }
-        return switch (hostVersion) {
-            case "5000",
-                    "5001",
-                    "5002",
-                    "5003",
-                    "5004",
-                    "5005",
-                    "5006",
-                    "5100",
-                    "5101",
-                    "5102",
-                    "5103",
-                    "5200",
-                    "5201",
-                    "5202",
-                    "5203",
-                    "5300",
-                    "5301",
-                    "5303",
-                    "5304" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
-            case "5302" -> HostCloseRoute.ROBOT_ALT_F4;
-            default ->
-                throw new IllegalArgumentException(
-                        "turboism.validation.hostVersion must be an exact installed version code: " + hostVersion);
-        };
-    }
-
     /** Chooses the non-saving branch without depending on localized button text. */
     static HostCloseDecision hostCloseDecision(
             final boolean confirmationVisible, final int optionType, final int enabledButtonCount) {
@@ -3782,8 +3740,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     private void requestAutomatedHostClose() {
         try {
             final java.awt.Window target = onHostThread(() -> selectHostWindow(java.awt.Window.getWindows()));
-            final HostCloseRoute route = hostCloseRoute(System.getProperty("turboism.validation.hostVersion"));
-            if (route == HostCloseRoute.ROBOT_ALT_F4) {
+            final WindowsHistoryNativeUiHostClose.HostCloseRoute route = WindowsHistoryNativeUiHostClose.hostCloseRoute(
+                    System.getProperty("turboism.validation.hostVersion"));
+            if (route == WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4) {
                 pressAltF4(new java.awt.Robot());
                 context.logger().info("Automated host close requested via Alt+F4");
             } else {

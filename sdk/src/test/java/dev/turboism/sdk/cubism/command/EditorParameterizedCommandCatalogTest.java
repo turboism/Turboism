@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.command;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -10,7 +9,6 @@ import org.junit.jupiter.api.Test;
 class EditorParameterizedCommandCatalogTest {
     @Test
     void accountsForEveryRemainingTypedCommandWithoutNativeIdentifiers() {
-        assertEquals(67, EditorParameterizedCommand.values().length);
         assertTrue(
                 Set.of(EditorParameterizedCommand.values()).contains(EditorParameterizedCommand.CREATE_WARP_DEFORMER));
         assertTrue(

@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.*;
 
 /** Closed ordinary-write union; never accepts arbitrary SDK method/property names. */
@@ -15,7 +17,7 @@ final class McpKeyformWriteSchemas {
                         ? "Read a historical operation result in the current MCP session without touching the model. Missing result means unknown, not unchanged. Retention lasts until server stops, at most 256 admitted operations; no eviction/replay."
                         : "Edit independent non-default ordinary ArtMesh/Warp/Rotation forms using issued session snapshots. All targets are preflighted against complete stored state and parent identities before one SDK transaction. ArtMesh edits accept positions, integer drawOrder (0..1000), and/or absolute ordinary opacity (0..1, requires observed stored opacity and independent native admission); omitted fields retain expected snapshot values. Combined batches preserve omitted fields; opacity batches include all retained target vertices in the point budget. Max 8 objects/64 forms/16384 points/768KiB. Reuse the same operationId and exact request to retrieve an admitted result; conflicting reuse is rejected. Query keyforms.result after timeout; do not blindly retry. No default/shared/Morph/topology writes, parameter movement, file saving or UI selection. Reread snapshots after commit. This tool owns its transaction and cannot nest in transaction.execute.",
                 "inputSchema",
-                query ? object(Map.of("operationId", identity(128))) : input(),
+                query ? object(Map.of("operationId", text(128))) : input(),
                 "outputSchema",
                 output(),
                 "annotations",
@@ -31,7 +33,8 @@ final class McpKeyformWriteSchemas {
     }
 
     static Map<String, Object> input() {
-        var coordinates = array(object(Map.of("parameterGuid", identity(4096), "value", Map.of("type", "number"))), 64);
+        var coordinates = nonEmptyBoundedArray(
+                object(Map.of("parameterGuid", text(4096), "value", Map.of("type", "number"))), 64);
         var point = object(Map.of("x", Map.of("type", "number"), "y", Map.of("type", "number")));
         var rotation = object(Map.of(
                 "angle",
@@ -56,21 +59,23 @@ final class McpKeyformWriteSchemas {
                     };
             Map<String, Object> edit = object(Map.of(
                     "formGuid",
-                    identity(4096),
+                    text(4096),
                     "coordinates",
                     coordinates,
                     field,
-                    kind.equals("rotation_deformer") ? rotation : array(point, McpKeyformWritePlan.MAX_POINTS)));
+                    kind.equals("rotation_deformer")
+                            ? rotation
+                            : nonEmptyBoundedArray(point, McpKeyformWritePlan.MAX_POINTS)));
             if (kind.equals("art_mesh")) {
                 var alternatives = new ArrayList<Object>();
                 var names = List.of("positions", "drawOrder", "opacity");
                 var schemas = List.of(
-                        array(point, McpKeyformWritePlan.MAX_POINTS),
+                        nonEmptyBoundedArray(point, McpKeyformWritePlan.MAX_POINTS),
                         Map.of("type", "integer", "minimum", 0, "maximum", 1000),
                         Map.of("type", "number", "minimum", 0, "maximum", 1));
                 for (int mask = 1; mask < 8; mask++) {
                     var fields = new java.util.LinkedHashMap<String, Object>();
-                    fields.put("formGuid", identity(4096));
+                    fields.put("formGuid", text(4096));
                     fields.put("coordinates", coordinates);
                     for (int bit = 0; bit < 3; bit++)
                         if ((mask & (1 << bit)) != 0) fields.put(names.get(bit), schemas.get(bit));
@@ -82,21 +87,21 @@ final class McpKeyformWriteSchemas {
                     "kind",
                     Map.of("const", kind),
                     "objectId",
-                    identity(4096),
+                    text(4096),
                     "snapshotId",
-                    identity(128),
+                    text(128),
                     "edits",
-                    array(edit, McpKeyformWritePlan.MAX_EDITS))));
+                    nonEmptyBoundedArray(edit, McpKeyformWritePlan.MAX_EDITS))));
         }
         return object(Map.of(
                 "documentId",
-                identity(4096),
+                text(4096),
                 "modelId",
-                identity(4096),
+                text(4096),
                 "operationId",
-                identity(128),
+                text(128),
                 "targets",
-                array(Map.of("oneOf", targets), McpKeyformWriteDomain.MAX_TARGETS)));
+                nonEmptyBoundedArray(Map.of("oneOf", targets), McpKeyformWriteDomain.MAX_TARGETS)));
     }
 
     private static Map<String, Object> output() {
@@ -159,29 +164,5 @@ final class McpKeyformWriteSchemas {
         fields.put("receipt", Map.of("oneOf", List.of(receipt, Map.of("type", "null"))));
         fields.put("targets", Map.of("type", "array", "maxItems", McpKeyformWriteDomain.MAX_TARGETS, "items", target));
         return object(fields);
-    }
-
-    private static Map<String, Object> object(Map<String, Object> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
-    }
-
-    private static Map<String, Object> array(Map<String, Object> item, int max) {
-        return Map.of("type", "array", "minItems", 1, "maxItems", max, "items", item);
-    }
-
-    private static Map<String, Object> identity(int max) {
-        return Map.of("type", "string", "minLength", 1, "maxLength", max);
-    }
-
-    private static Map<String, Object> nullableString() {
-        return Map.of("type", List.of("string", "null"));
     }
 }

@@ -1,5 +1,6 @@
 package dev.turboism.runtime.log;
 
+import dev.turboism.internal.Requirements;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -117,8 +118,8 @@ public final class RuntimeDiagnostics {
             final Level level, final String component, final String message, final Throwable failure) {
         try {
             final Level checkedLevel = Objects.requireNonNull(level, "level");
-            final String checkedComponent = requireText(component, "component");
-            final String checkedMessage = requireText(message, "message");
+            final String checkedComponent = Requirements.text(component, "component");
+            final String checkedMessage = Requirements.text(message, "message");
             final Sink sink;
             synchronized (STATE_LOCK) {
                 sink = SINK.get();
@@ -136,10 +137,4 @@ public final class RuntimeDiagnostics {
     }
 
     private record Entry(Level level, String component, String message, Throwable failure) {}
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
-    }
 }

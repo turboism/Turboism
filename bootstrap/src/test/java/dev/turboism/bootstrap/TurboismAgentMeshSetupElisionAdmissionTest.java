@@ -30,8 +30,8 @@ final class TurboismAgentMeshSetupElisionAdmissionTest {
     @Test
     void admitsOnlyAfterFullRuntimeAdmission() {
         final var contributor = new SkippedFrameMeshSetupElisionHookContributor();
-        assertTrue(contributor.admitted(environment(true)));
-        assertFalse(contributor.admitted(environment(false)));
+        assertTrue(contributor.admitted(HookEnvironments.admitted(true)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted(false)));
     }
 
     @Test
@@ -70,7 +70,7 @@ final class TurboismAgentMeshSetupElisionAdmissionTest {
                 "true",
                 () -> withProperty(OptimizationCatalog.MODEL_UPDATE_SKIP.property(), "false", () -> {
                     final var contributor = new SkippedFrameMeshSetupElisionHookContributor();
-                    assertNotNull(contributor.install(environment(true)));
+                    assertNotNull(contributor.install(HookEnvironments.admitted(true)));
                     assertFalse(System.getProperties()
                             .containsKey(
                                     dev.turboism.adapter.cubism.optimization.meshsetup
@@ -85,7 +85,7 @@ final class TurboismAgentMeshSetupElisionAdmissionTest {
                 "true",
                 () -> withProperty(OptimizationCatalog.MODEL_UPDATE_SKIP.property(), "true", () -> {
                     final var contributor = new SkippedFrameMeshSetupElisionHookContributor();
-                    assertNotNull(contributor.install(environment(true)));
+                    assertNotNull(contributor.install(HookEnvironments.admitted(true)));
                 }));
     }
 
@@ -98,12 +98,5 @@ final class TurboismAgentMeshSetupElisionAdmissionTest {
             if (prior == null) System.clearProperty(name);
             else System.setProperty(name, prior);
         }
-    }
-
-    private static HookEnvironment environment(final boolean admitted) {
-        return HookEnvironment.builder()
-                .profile("5.3.03")
-                .fullRuntimeAdmission(admitted)
-                .build();
     }
 }

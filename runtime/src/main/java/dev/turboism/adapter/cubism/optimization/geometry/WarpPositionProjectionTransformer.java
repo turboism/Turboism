@@ -1,7 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.geometry;
 
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -87,12 +89,8 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
                 failure = "expected two native point-ref call sites";
                 return null;
             }
-            ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader;
-                }
-            };
+            ClassWriter writer =
+                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
             Projection[] visitor = {null};
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
@@ -165,17 +163,8 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
                         nativePath = new Label();
                 super.visitTryCatchBlock(start, end, error, "java/lang/Throwable");
                 super.visitLabel(start);
-                super.visitMethodInsn(
-                        Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-                super.visitLdcInsn(WarpPositionProjectionBridge.CALLBACK_PROPERTY);
-                super.visitMethodInsn(
-                        Opcodes.INVOKEVIRTUAL,
-                        "java/util/Properties",
-                        "get",
-                        "(Ljava/lang/Object;)Ljava/lang/Object;",
-                        false);
-                super.visitInsn(Opcodes.DUP);
-                super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Function");
+                SlotBridgeEmitter.emitSlot(
+                        this, WarpPositionProjectionBridge.CALLBACK_PROPERTY, "java/util/function/Function");
                 super.visitJumpInsn(Opcodes.IFEQ, discard);
                 super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Function");
                 super.visitVarInsn(Opcodes.ALOAD, base);

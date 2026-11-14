@@ -3,6 +3,7 @@ package dev.turboism.ui.appearance.control;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
+import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
@@ -165,7 +166,7 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             final LongSupplier hostGeneration,
             final LongSupplier providerGeneration,
             final NativeLabelColorAuthoring nativeAuthoring) {
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         requireGeneration(pluginGeneration, "pluginGeneration");
         this.pluginGeneration = pluginGeneration;
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
@@ -381,7 +382,7 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         final Optional<PaletteAppearanceCoordinator.Scope> scope = captureScope(expectedModelId, modelGeneration);
         if (scope.isEmpty()) return null;
         try {
-            return new Bound(scope.orElseThrow(), requireText(idSupplier.get(), "objectId"));
+            return new Bound(scope.orElseThrow(), Requirements.text(idSupplier.get(), "objectId"));
         } catch (RuntimeException unavailable) {
             return null;
         }
@@ -861,12 +862,6 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
                 snapshot.maxValue(),
                 snapshot.visible(),
                 snapshot.editable());
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 
     private static void requireGeneration(final long value, final String name) {

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.cubism.model.Point2;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,10 +24,10 @@ final class BrushHitTest {
 
     static boolean contains(
             final float x, final float y, final float centerX, final float centerY, final float radius) {
-        requireFinite(x, "x");
-        requireFinite(y, "y");
-        requireFinite(centerX, "centerX");
-        requireFinite(centerY, "centerY");
+        Requirements.finite(x, "x");
+        Requirements.finite(y, "y");
+        Requirements.finite(centerX, "centerX");
+        Requirements.finite(centerY, "centerY");
         requireRadius(radius);
         final float dx = x - centerX;
         final float dy = y - centerY;
@@ -58,12 +59,12 @@ final class BrushHitTest {
             final float endX,
             final float endY,
             final float radius) {
-        requireFinite(x, "x");
-        requireFinite(y, "y");
-        requireFinite(startX, "startX");
-        requireFinite(startY, "startY");
-        requireFinite(endX, "endX");
-        requireFinite(endY, "endY");
+        Requirements.finite(x, "x");
+        Requirements.finite(y, "y");
+        Requirements.finite(startX, "startX");
+        Requirements.finite(startY, "startY");
+        Requirements.finite(endX, "endX");
+        Requirements.finite(endY, "endY");
         requireRadius(radius);
         final float dx = endX - startX;
         final float dy = endY - startY;
@@ -78,11 +79,7 @@ final class BrushHitTest {
     }
 
     private static void requireRadius(final float radius) {
-        requireFinite(radius, "radius");
+        Requirements.finite(radius, "radius");
         if (radius < 0.0f) throw new IllegalArgumentException("radius must be non-negative");
-    }
-
-    private static void requireFinite(final float value, final String name) {
-        if (!Float.isFinite(value)) throw new IllegalArgumentException(name + " must be finite");
     }
 }

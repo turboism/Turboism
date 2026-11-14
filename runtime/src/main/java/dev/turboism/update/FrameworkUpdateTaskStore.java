@@ -2,12 +2,10 @@ package dev.turboism.update;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.io.Sha256;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -27,7 +25,7 @@ final class FrameworkUpdateTaskStore {
             final Path installation) {
         this.descriptor = descriptor;
         final ObjectNode input = UpdateFileSupport.JSON.createObjectNode();
-        input.put("root", hash(installation.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        input.put("root", Sha256.hex(installation.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         final InstalledBuild old = context.installedBuild();
         final ObjectNode installed = input.putObject("installed");
         installed.put("version", old.version().map(Object::toString).orElse("unknown"));
@@ -39,8 +37,8 @@ final class FrameworkUpdateTaskStore {
         final ObjectNode evidence = input.putObject("evidence");
         new TreeMap<>(context.installedFrameworkHashes()).forEach(evidence::put);
         input.put("updater", context.currentUpdaterVersion()).put("platform", context.supportedPlatform());
-        binding = hash(bytes(input));
-        id = hash(bytes(base(descriptor, binding)));
+        binding = Sha256.hex(bytes(input));
+        id = Sha256.hex(bytes(base(descriptor, binding)));
     }
 
     void begin(final FrameworkUpdateCache cache, final boolean recover) throws IOException {
@@ -134,7 +132,8 @@ final class FrameworkUpdateTaskStore {
                 throw new IOException("Invalid task record");
             }
             final UpdateIncrementalDiscovery descriptor = UpdateIncrementalDiscovery.parse(record.get("descriptor"));
-            final String id = hash(bytes(base(descriptor, record.path("binding").asText())));
+            final String id =
+                    Sha256.hex(bytes(base(descriptor, record.path("binding").asText())));
             if (!id.equals(record.path("id").asText())
                     || !path.getFileName().toString().equals("task-" + id + ".json")) {
                 throw new IOException("Task filename/identity mismatch");
@@ -193,11 +192,8 @@ final class FrameworkUpdateTaskStore {
         }
     }
 
+    /** Returns the lowercase hexadecimal SHA-256 digest of {@code bytes}. */
     static String hash(final byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException(impossible);
-        }
+        return Sha256.hex(bytes);
     }
 }

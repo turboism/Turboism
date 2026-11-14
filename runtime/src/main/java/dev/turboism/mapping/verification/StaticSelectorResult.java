@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.internal.Requirements;
 import java.util.Objects;
 
 /**
@@ -15,7 +16,7 @@ public record StaticSelectorResult(StaticSelector selector, StaticVerificationSt
     public StaticSelectorResult {
         selector = Objects.requireNonNull(selector, "selector");
         status = Objects.requireNonNull(status, "status");
-        message = requireText(message, "message");
+        message = Requirements.text(message, "message");
     }
 
     /**
@@ -24,13 +25,5 @@ public record StaticSelectorResult(StaticSelector selector, StaticVerificationSt
      */
     public String alias() {
         return selector.alias();
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

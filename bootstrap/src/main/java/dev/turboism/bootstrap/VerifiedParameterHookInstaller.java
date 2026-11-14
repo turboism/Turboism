@@ -99,10 +99,4 @@ final class VerifiedParameterHookInstaller implements AutoCloseable {
         instrumentation.removeTransformer(transformer);
         NativeParameterLifecycleBridge.uninstall(bridge);
     }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
-    }
 }

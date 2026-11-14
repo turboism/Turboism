@@ -1,6 +1,7 @@
 package dev.turboism.ui.context;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
@@ -42,13 +43,13 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
             final int expectedAppendPoints,
             final int injectionPoint,
             final int... sourceLocals) {
-        this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
-        this.methodName = requireText(methodName, "methodName");
-        this.descriptor = requireText(descriptor, "descriptor");
+        this.ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
+        this.methodName = Requirements.text(methodName, "methodName");
+        this.descriptor = Requirements.text(descriptor, "descriptor");
         this.expectedClassLoader = Objects.requireNonNull(expectedClassLoader, "expectedClassLoader");
-        this.appendOwnerInternalName = requireText(appendOwnerInternalName, "appendOwnerInternalName");
-        this.appendMethodName = requireText(appendMethodName, "appendMethodName");
-        this.appendDescriptor = requireText(appendDescriptor, "appendDescriptor");
+        this.appendOwnerInternalName = Requirements.text(appendOwnerInternalName, "appendOwnerInternalName");
+        this.appendMethodName = Requirements.text(appendMethodName, "appendMethodName");
+        this.appendDescriptor = Requirements.text(appendDescriptor, "appendDescriptor");
         this.location = Objects.requireNonNull(location, "location");
         if (expectedAppendPoints <= 0 || injectionPoint <= 0 || injectionPoint > expectedAppendPoints) {
             throw new IllegalArgumentException("append cardinality and injection point must be positive and bounded");
@@ -215,11 +216,5 @@ public final class ObjectContextMenuAppendNativeMethodTransformer implements Cla
                 "Context-menu binding found " + appendPoints[0] + " append points in " + className + " (expected "
                         + expectedAppendPoints + ")");
         return null;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

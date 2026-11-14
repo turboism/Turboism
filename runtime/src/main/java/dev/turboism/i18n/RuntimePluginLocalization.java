@@ -1,5 +1,6 @@
 package dev.turboism.i18n;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.text.MessageFormat;
@@ -41,7 +42,7 @@ public final class RuntimePluginLocalization implements PluginLocalization {
             final Map<String, Map<String, String>> catalogs,
             final Set<String> invalidCatalogs,
             final LocalizationDiagnosticSink diagnostics) {
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         final PluginLocaleResolver.Resolution selected = Objects.requireNonNull(resolution, "resolution");
         this.locale = selected.locale();
         this.catalogOrder = List.copyOf(catalogOrder);
@@ -119,7 +120,7 @@ public final class RuntimePluginLocalization implements PluginLocalization {
             final PluginDescriptor.I18n i18n,
             final PluginLocaleResolver.Resolution resolution,
             final LocalizationDiagnosticSink diagnostics) {
-        requireText(pluginId, "pluginId");
+        Requirements.text(pluginId, "pluginId");
         Objects.requireNonNull(pluginClassLoader, "pluginClassLoader");
         final PluginDescriptor.I18n descriptorI18n = Objects.requireNonNull(i18n, "i18n");
         // baseName() implicitly declares the base catalog: it is always
@@ -156,7 +157,7 @@ public final class RuntimePluginLocalization implements PluginLocalization {
 
     @Override
     public String text(final String key) {
-        final String normalizedKey = requireText(key, "key");
+        final String normalizedKey = Requirements.text(key, "key");
         final Optional<String> value = lookup(normalizedKey);
         if (value.isPresent()) {
             return value.orElseThrow();
@@ -167,7 +168,7 @@ public final class RuntimePluginLocalization implements PluginLocalization {
 
     @Override
     public String format(final String key, final Object... arguments) {
-        final String normalizedKey = requireText(key, "key");
+        final String normalizedKey = Requirements.text(key, "key");
         final Optional<String> pattern = lookup(normalizedKey);
         if (pattern.isEmpty()) {
             warnMissingOnce(normalizedKey);
@@ -184,7 +185,7 @@ public final class RuntimePluginLocalization implements PluginLocalization {
 
     @Override
     public boolean contains(final String key) {
-        return lookup(requireText(key, "key")).isPresent();
+        return lookup(Requirements.text(key, "key")).isPresent();
     }
 
     private Optional<String> lookup(final String key) {
@@ -414,13 +415,5 @@ public final class RuntimePluginLocalization implements PluginLocalization {
 
     private static String marker(final String key) {
         return "⟦" + key + "⟧";
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

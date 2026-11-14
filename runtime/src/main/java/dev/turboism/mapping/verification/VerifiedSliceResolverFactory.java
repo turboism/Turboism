@@ -34,7 +34,7 @@ public final class VerifiedSliceResolverFactory implements SliceResolverFactory 
     public VerifiedMemberResolver create(
             final Path reviewedRecord, final Path verifiedArtifact, final ClassLoader hostClassLoader)
             throws IOException {
-        final HostArtifactDigest artifact = HostArtifactDigest.from(verifiedArtifact);
+        final HostArtifactDigest artifact = HostArtifactDigest.cached(verifiedArtifact);
         return workflow.create(
                 reviewedRecord,
                 verifiedArtifact,

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.sdk.cubism.ProjectContentKind;
@@ -12,7 +13,7 @@ import java.util.Optional;
 public record ProjectLifecycleHostProfile(
         String hostVersion, List<ProjectLifecycleNativeMethodTransformer.Binding> bindings) {
     public ProjectLifecycleHostProfile {
-        hostVersion = requireText(hostVersion, "hostVersion");
+        hostVersion = Requirements.text(hostVersion, "hostVersion");
         bindings = List.copyOf(Objects.requireNonNull(bindings, "bindings"));
         if (bindings.isEmpty()) throw new IllegalArgumentException("bindings must not be empty");
     }
@@ -79,11 +80,5 @@ public record ProjectLifecycleHostProfile(
                                 "(ZZ)Z",
                                 ProjectContentKind.ANIMATION,
                                 ProjectFileOperationType.CLOSE))));
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

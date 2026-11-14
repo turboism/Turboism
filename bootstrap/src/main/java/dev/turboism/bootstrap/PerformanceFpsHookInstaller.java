@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -78,7 +79,7 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
                 instrumentation,
                 hostArtifact,
                 hostClassLoader,
-                fpsTargets(HostArtifactDigest.from(hostArtifact), admittedGeneration),
+                fpsTargets(HostArtifactDigest.cached(hostArtifact), admittedGeneration),
                 LAF_READY_TIMEOUT_MILLIS);
     }
 
@@ -246,14 +247,14 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
      */
     private void retransformLoadedTargets() {
         try {
-            for (Class<?> loaded : loadedTargetClasses()) {
-                final String owner = loaded.getName().replace('.', '/');
-                if (transformer.wovenOwners().contains(owner)) {
-                    continue; // already instrumented on load; retransform would double-count
-                }
-                instrumentation.retransformClasses(loaded);
-            }
-        } catch (java.lang.instrument.UnmodifiableClassException failure) {
+            // Already-instrumented owners are skipped so the deferred pass cannot double-count.
+            final Set<String> woven = transformer.wovenOwners();
+            VerifiedHookInstallerSupport.retransformAll(
+                    instrumentation,
+                    loadedTargetClasses().stream()
+                            .filter(loaded -> !woven.contains(loaded.getName().replace('.', '/')))
+                            .toList());
+        } catch (Exception failure) {
             throw new IllegalStateException("performance FPS hook target retransformation failed", failure);
         }
     }
@@ -297,14 +298,10 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
         instrumentation.removeTransformer(transformer);
         Throwable cleanupFailure = null;
         try {
-            for (Class<?> target : loadedTargetClasses()) {
-                try {
-                    instrumentation.retransformClasses(target);
-                } catch (Throwable failure) {
-                    FatalErrors.rethrowIfFatal(failure);
-                    cleanupFailure = failure;
-                }
-            }
+            VerifiedHookInstallerSupport.retransformAll(instrumentation, loadedTargetClasses());
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            cleanupFailure = failure;
         } finally {
             if (carrierOwned) {
                 PerformanceProbeCarrier.clear(mounted);

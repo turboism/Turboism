@@ -1,5 +1,6 @@
 package dev.turboism.ui.toolbar;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.ui.contribution.EditorUiContribution;
 import java.util.Objects;
@@ -15,11 +16,11 @@ public record MainToolbarContributionDescriptor(
         MainToolbarRegistry.Placement placement,
         int order) {
     public MainToolbarContributionDescriptor {
-        pluginId = requireText(pluginId, "pluginId");
-        contributionId = requireText(contributionId, "contributionId");
-        actionId = requireText(actionId, "actionId");
-        label = requireText(label, "label");
-        tooltip = requireText(tooltip, "tooltip");
+        pluginId = Requirements.text(pluginId, "pluginId");
+        contributionId = Requirements.text(contributionId, "contributionId");
+        actionId = Requirements.text(actionId, "actionId");
+        label = Requirements.text(label, "label");
+        tooltip = Requirements.text(tooltip, "tooltip");
         icons = Objects.requireNonNull(icons, "icons");
         placement = Objects.requireNonNull(placement, "placement");
     }
@@ -69,7 +70,7 @@ public record MainToolbarContributionDescriptor(
     }
 
     private static MainToolbarRegistry.Placement compatiblePlacement(final String anchor) {
-        return switch (requireText(anchor, "anchor")) {
+        return switch (Requirements.text(anchor, "anchor")) {
             case "start", "first" -> MainToolbarRegistry.Placement.first();
             case "end", "last" -> MainToolbarRegistry.Placement.last();
             case "before:host-home-entry" ->
@@ -82,13 +83,5 @@ public record MainToolbarContributionDescriptor(
                 MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_BRUSH_SELECTION_TOOL);
             default -> throw new IllegalArgumentException("Unsupported compatible main toolbar anchor: " + anchor);
         };
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

@@ -52,7 +52,7 @@ class RotationDeformerEventTest {
 
             @Override
             public IntSequence parameters() {
-                return ints();
+                return TestSequences.ints();
             }
 
             @Override
@@ -75,19 +75,5 @@ class RotationDeformerEventTest {
 
     private static RotationDeformerForm form(final float angle) {
         return new RotationDeformerForm(angle, 0, 0, 1, false, false);
-    }
-
-    private static IntSequence ints() {
-        return new IntSequence() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public int get(final int index) {
-                throw new IndexOutOfBoundsException(index);
-            }
-        };
     }
 }

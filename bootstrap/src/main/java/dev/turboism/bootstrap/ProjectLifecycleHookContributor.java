@@ -42,7 +42,7 @@ final class ProjectLifecycleHookContributor implements HookContributor {
     public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
-        final var profile = ProjectLifecycleHostProfile.forArtifact(HostArtifactDigest.from(host.artifact()))
+        final var profile = ProjectLifecycleHostProfile.forArtifact(HostArtifactDigest.cached(host.artifact()))
                 .or(() -> environment
                         .admittedRuntimeGeneration()
                         .flatMap(ProjectLifecycleHostProfile::forReviewedVersion))

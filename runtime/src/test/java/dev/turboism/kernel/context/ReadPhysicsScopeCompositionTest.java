@@ -55,6 +55,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.test.Stubs;
+import dev.turboism.test.plugin.FakePluginPaths;
 import dev.turboism.test.ui.FakeDirectUiScheduler;
 import dev.turboism.testkit.RuntimeTestKit;
 import dev.turboism.ui.UiHostStateSource;
@@ -82,7 +83,7 @@ class ReadPhysicsScopeCompositionTest {
     void retainedDirectReadPathsFailClosedAfterPluginScopeCloses() throws Exception {
         final HostProbe probe = new HostProbe(List.of());
         final DisposableScope scope = new DisposableScope();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         try {
             final DefaultCubismServicesFactory factory =
                     DefaultCubismServicesFactoryTestSupport.withModelAccess(probe.adapters(), probe.modelAccess());
@@ -127,7 +128,7 @@ class ReadPhysicsScopeCompositionTest {
     void retainedClipMaskServiceFailsClosedAfterPluginScopeCloses() throws Exception {
         final HostProbe probe = new HostProbe(List.of(new ClipMaskSnapshot("guid-x", List.of("guid-m"), false)));
         final DisposableScope scope = new DisposableScope();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         try {
             final DefaultCubismServicesFactory factory =
                     DefaultCubismServicesFactoryTestSupport.withModelAccess(probe.adapters(), probe.modelAccess());
@@ -157,7 +158,7 @@ class ReadPhysicsScopeCompositionTest {
         final HostProbe probeB = new HostProbe(List.of());
         final DisposableScope scopeA = new DisposableScope();
         final DisposableScope scopeB = new DisposableScope();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         try {
             final DefaultCubismServicesFactory factory =
                     DefaultCubismServicesFactoryTestSupport.withModelAccess(probeA.adapters(), probeA.modelAccess());
@@ -193,7 +194,7 @@ class ReadPhysicsScopeCompositionTest {
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
         final DisposableScope scopeA = new DisposableScope();
         final DisposableScope scopeB = new DisposableScope();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         try {
             final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withEditorCommands(
                     probe.adapters(),
@@ -234,7 +235,7 @@ class ReadPhysicsScopeCompositionTest {
         final HostProbe probe = new HostProbe(List.of());
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
         final DisposableScope scope = new DisposableScope();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         try {
             final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withEditorCommands(
                     probe.adapters(),
@@ -270,7 +271,7 @@ class ReadPhysicsScopeCompositionTest {
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
         final DisposableScope scopeA = new DisposableScope();
         final DisposableScope scopeB = new DisposableScope();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         try {
             final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withEditorCommands(
                     probe.adapters(),
@@ -320,7 +321,7 @@ class ReadPhysicsScopeCompositionTest {
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
         final DisposableScope scopeA = new DisposableScope();
         final DisposableScope scopeB = new DisposableScope();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         try {
             final DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withEditorCommands(
                     probe.adapters(),
@@ -361,7 +362,7 @@ class ReadPhysicsScopeCompositionTest {
     void physicsServiceStaysPermissionGatedWhileScopeIsActive() throws Exception {
         final HostProbe probe = new HostProbe(List.of());
         final DisposableScope scope = new DisposableScope();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(CLOCK, 1, 4);
         try {
             final DefaultCubismServicesFactory factory =
                     DefaultCubismServicesFactoryTestSupport.withModelAccess(probe.adapters(), probe.modelAccess());
@@ -722,120 +723,15 @@ class ReadPhysicsScopeCompositionTest {
     };
 
     private static PluginDescriptor descriptor(final String id, final String... permissions) {
-        final List<PluginDescriptor.PermissionRef> refs = java.util.Arrays.stream(permissions)
-                .<PluginDescriptor.PermissionRef>map(permission -> new PluginDescriptor.PermissionRef() {
-                    @Override
-                    public String id() {
-                        return permission;
-                    }
-
-                    @Override
-                    public String scope() {
-                        return "application";
-                    }
-
-                    @Override
-                    public Optional<String> reason() {
-                        return Optional.empty();
-                    }
-                })
-                .toList();
-        return new PluginDescriptor() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String name() {
-                return id;
-            }
-
-            @Override
-            public String version() {
-                return "0.1.0";
-            }
-
-            @Override
-            public String description() {
-                return "Test";
-            }
-
-            @Override
-            public List<String> entrypoints() {
-                return List.of("dev.turboism.test.ScopePlugin");
-            }
-
-            @Override
-            public String turboismApi() {
-                return "[0.67.0,1.0.0)";
-            }
-
-            @Override
-            public List<Author> authors() {
-                return List.of();
-            }
-
-            @Override
-            public String license() {
-                return "Project License";
-            }
-
-            @Override
-            public Optional<String> website() {
-                return Optional.empty();
-            }
-
-            @Override
-            public List<String> resources() {
-                return List.of();
-            }
-
-            @Override
-            public I18n i18n() {
-                return new I18n() {
-                    @Override
-                    public String baseName() {
-                        return "META-INF/turboism/i18n/messages";
-                    }
-
-                    @Override
-                    public List<String> locales() {
-                        return List.of();
-                    }
-                };
-            }
-
-            @Override
-            public List<DependencyRef> dependencies() {
-                return List.of();
-            }
-
-            @Override
-            public List<PermissionRef> permissions() {
-                return refs;
-            }
-
-            @Override
-            public List<String> capabilities() {
-                return List.of();
-            }
-
-            @Override
-            public Environment environment() {
-                return new Environment() {
-                    @Override
-                    public boolean requiresCubism() {
-                        return false;
-                    }
-
-                    @Override
-                    public String ui() {
-                        return "none";
-                    }
-                };
-            }
-        };
+        return Stubs.descriptorBuilder(id)
+                .version("0.1.0")
+                .entrypoints("dev.turboism.test.ScopePlugin")
+                .license("Project License")
+                .permissions(java.util.Arrays.stream(permissions)
+                        .map(Stubs::permissionRef)
+                        .toList())
+                .i18n("META-INF/turboism/i18n/messages")
+                .build();
     }
 
     private static PluginLogger logger() {
@@ -843,35 +739,11 @@ class ReadPhysicsScopeCompositionTest {
     }
 
     private static PluginPaths paths() {
-        return new PluginPaths() {
-            @Override
-            public Path dataDir() {
-                return Path.of(".");
-            }
-
-            @Override
-            public Path logsDir() {
-                return Path.of(".");
-            }
-
-            @Override
-            public Path stateDir() {
-                return Path.of(".");
-            }
-
-            @Override
-            public Path cacheDir() {
-                return Path.of(".");
-            }
-        };
+        return FakePluginPaths.of(Path.of("."));
     }
 
     private static UiScheduler uiScheduler() {
         return FakeDirectUiScheduler.immediateOnly();
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(CLOCK, 1, 4);
     }
 
     private static DiagnosticReport diagnostics() {

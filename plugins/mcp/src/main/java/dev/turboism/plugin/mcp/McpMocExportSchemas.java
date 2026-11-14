@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.*;
 
 final class McpMocExportSchemas {
@@ -181,33 +183,5 @@ final class McpMocExportSchemas {
                 Map.of("const", false),
                 "omittedAssets",
                 array(text(64), 6, 6)));
-    }
-
-    private static Map<String, Object> text(int max) {
-        return Map.of("type", "string", "minLength", 1, "maxLength", max);
-    }
-
-    private static Map<String, Object> integer(long min, long max) {
-        return Map.of("type", "integer", "minimum", min, "maximum", max);
-    }
-
-    private static Map<String, Object> nullable(Object schema) {
-        return Map.of("oneOf", List.of(schema, Map.of("type", "null")));
-    }
-
-    private static Map<String, Object> array(Object schema, int min, int max) {
-        return Map.of("type", "array", "items", schema, "minItems", min, "maxItems", max);
-    }
-
-    private static Map<String, Object> object(Map<String, ?> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
     }
 }

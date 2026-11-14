@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.internal.Requirements;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -20,8 +21,8 @@ record StaticVerificationRecord(
         String safeMode,
         List<StaticSelector> selectors) {
     public StaticVerificationRecord {
-        verificationId = requireText(verificationId, "verificationId");
-        adapterSliceId = requireText(adapterSliceId, "adapterSliceId");
+        verificationId = Requirements.text(verificationId, "verificationId");
+        adapterSliceId = Requirements.text(adapterSliceId, "adapterSliceId");
         capabilityIds = List.copyOf(Objects.requireNonNull(capabilityIds, "capabilityIds"));
         if (capabilityIds.isEmpty()) {
             throw new IllegalArgumentException("capabilityIds must not be empty");
@@ -31,25 +32,17 @@ record StaticVerificationRecord(
         }
         capabilityConditions =
                 java.util.Map.copyOf(Objects.requireNonNull(capabilityConditions, "capabilityConditions"));
-        cubismVersion = requireText(cubismVersion, "cubismVersion");
-        profileId = requireText(profileId, "profileId");
+        cubismVersion = Requirements.text(cubismVersion, "cubismVersion");
+        profileId = Requirements.text(profileId, "profileId");
         artifact = Objects.requireNonNull(artifact, "artifact");
-        evidencePath = requireText(evidencePath, "evidencePath");
-        owner = requireText(owner, "owner");
-        verifiedBy = requireText(verifiedBy, "verifiedBy");
+        evidencePath = Requirements.text(evidencePath, "evidencePath");
+        owner = Requirements.text(owner, "owner");
+        verifiedBy = Requirements.text(verifiedBy, "verifiedBy");
         verifiedAt = Objects.requireNonNull(verifiedAt, "verifiedAt");
-        safeMode = requireText(safeMode, "safeMode");
+        safeMode = Requirements.text(safeMode, "safeMode");
         selectors = List.copyOf(Objects.requireNonNull(selectors, "selectors"));
         if (selectors.isEmpty()) {
             throw new IllegalArgumentException("selectors must not be empty");
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

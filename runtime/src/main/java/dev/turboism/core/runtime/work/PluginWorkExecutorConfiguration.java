@@ -1,5 +1,6 @@
 package dev.turboism.core.runtime.work;
 
+import dev.turboism.internal.Requirements;
 import java.time.Duration;
 import java.util.Objects;
 
@@ -37,11 +38,11 @@ public final class PluginWorkExecutorConfiguration {
             throw new IllegalArgumentException("shutdownTimeout must be positive");
         }
         this.timeoutDuration = Objects.requireNonNull(timeoutDuration, "timeoutDuration");
-        this.bulkheadPoolSize = requirePositive(bulkheadPoolSize, "bulkheadPoolSize");
-        this.queueCapacity = requirePositive(queueCapacity, "queueCapacity");
+        this.bulkheadPoolSize = Requirements.positive(bulkheadPoolSize, "bulkheadPoolSize");
+        this.queueCapacity = Requirements.positive(queueCapacity, "queueCapacity");
         this.circuitBreakerFailureRateThreshold =
                 requireThreshold(circuitBreakerFailureRateThreshold, "circuitBreakerFailureRateThreshold");
-        this.longLaneConcurrency = requirePositive(longLaneConcurrency, "longLaneConcurrency");
+        this.longLaneConcurrency = Requirements.positive(longLaneConcurrency, "longLaneConcurrency");
         this.longRunningThreshold = Objects.requireNonNull(longRunningThreshold, "longRunningThreshold");
         this.longRunningReportInterval = Objects.requireNonNull(longRunningReportInterval, "longRunningReportInterval");
     }
@@ -122,13 +123,6 @@ public final class PluginWorkExecutorConfiguration {
 
     Duration longRunningReportInterval() {
         return longRunningReportInterval;
-    }
-
-    private static int requirePositive(int value, String name) {
-        if (value < 1) {
-            throw new IllegalArgumentException(name + " must be positive");
-        }
-        return value;
     }
 
     private static long requirePositiveMillis(long value, String name) {

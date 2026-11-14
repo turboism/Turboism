@@ -33,6 +33,10 @@ public final class EditorObjectHookRegistry {
     public static final String OBSERVE_PERMISSION = ParameterHookRegistry.OBSERVE_PERMISSION;
     public static final String INTERCEPT_PERMISSION = ParameterHookRegistry.INTERCEPT_PERMISSION;
 
+    /** Declaring classes whose callback counts as the inherited no-op, not an override. */
+    private static final java.util.Set<Class<?>> EDITOR_OBJECT_HOOK_BASES = java.util.Set.of(
+            DrawableHooks.class, DeformerHooks.class, SemanticOperationHooks.class, TurboismPlugin.class);
+
     private final EditorObjectLifecycleCoordinator coordinator;
     private final ConcurrentHashMap<String, HookOwnership> ownerships = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<PluginEventOwnerKey, List<Registration>> eventAdapters = new ConcurrentHashMap<>();
@@ -743,11 +747,8 @@ public final class EditorObjectHookRegistry {
                         default ->
                             throw new IllegalArgumentException("Unknown editor-object hook method: " + methodName);
                     };
-            final java.lang.reflect.Method method = entrypoint.getClass().getMethod(methodName, parameterTypes);
-            return method.getDeclaringClass() != DrawableHooks.class
-                    && method.getDeclaringClass() != DeformerHooks.class
-                    && method.getDeclaringClass() != SemanticOperationHooks.class
-                    && method.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
+            return HookEntrypointSupport.overrides(
+                    entrypoint.getClass(), methodName, parameterTypes, EDITOR_OBJECT_HOOK_BASES);
         } catch (NoSuchMethodException failure) {
             throw new IllegalStateException("Editor-object hook contract is unavailable: " + methodName, failure);
         }
@@ -768,15 +769,11 @@ public final class EditorObjectHookRegistry {
 
     private static boolean subscribes(
             final Object entrypoint, final Class<? extends dev.turboism.sdk.event.EventBus.TurboismEvent> eventType) {
-        return java.util.Arrays.stream(entrypoint.getClass().getMethods())
-                .anyMatch(method -> method.isAnnotationPresent(dev.turboism.sdk.event.SubscribeEvent.class)
-                        && method.getParameterCount() == 1
-                        && method.getParameterTypes()[0].isAssignableFrom(eventType));
+        return HookEntrypointSupport.subscribes(entrypoint, eventType);
     }
 
     private static boolean hasPermission(final PluginDescriptor descriptor, final String permissionId) {
-        return descriptor.permissions().stream()
-                .anyMatch(permission -> permission.id().equals(permissionId));
+        return HookEntrypointSupport.hasPermission(descriptor, permissionId);
     }
 
     private final class HookOwnership {

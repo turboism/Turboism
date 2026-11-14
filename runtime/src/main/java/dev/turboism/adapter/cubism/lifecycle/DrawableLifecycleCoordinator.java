@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.cubism.event.DrawableGeometryEvent;
 import dev.turboism.sdk.cubism.event.DrawableLockEvent;
 import dev.turboism.sdk.cubism.event.DrawableOpacityEvent;
@@ -87,7 +88,7 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
      * @throws IllegalArgumentException when {@code pluginId} is blank
      */
     public void unregister(final String pluginId) {
-        final String id = requireText(pluginId, "pluginId");
+        final String id = Requirements.text(pluginId, "pluginId");
         synchronized (registrationLock) {
             plugins.removeIf(
                     registration -> registration.plugin().descriptor().id().equals(id));
@@ -96,7 +97,7 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
     }
 
     void unregister(final String pluginId, final Object token) {
-        final String id = requireText(pluginId, "pluginId");
+        final String id = Requirements.text(pluginId, "pluginId");
         final Object generation = Objects.requireNonNull(token, "token");
         synchronized (registrationLock) {
             final boolean removed = plugins.removeIf(registration -> registration.token() == generation
@@ -453,12 +454,6 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 
     @FunctionalInterface

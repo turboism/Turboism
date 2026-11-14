@@ -1,5 +1,6 @@
 package dev.turboism.automesh;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithmRegistry;
@@ -42,7 +43,7 @@ public final class RuntimeAutoMeshAlgorithmRegistry implements AutoMeshAlgorithm
             final PermissionChecker permissions,
             final boolean capabilityGranted,
             final AutoMeshAlgorithmCatalog catalog) {
-        this.pluginId = text(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         if (pluginGeneration < 0) {
             throw new IllegalArgumentException("pluginGeneration must not be negative");
         }
@@ -157,13 +158,5 @@ public final class RuntimeAutoMeshAlgorithmRegistry implements AutoMeshAlgorithm
         }
         first.addSuppressed(next);
         return first;
-    }
-
-    private static String text(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

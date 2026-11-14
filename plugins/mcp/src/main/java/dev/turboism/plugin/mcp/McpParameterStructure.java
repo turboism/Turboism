@@ -116,7 +116,7 @@ final class McpParameterStructure {
         if (nativeGroups.size() > MAX_GROUPS || nativeParams.size() > MAX_PARAMETERS) throw new Budget();
         var groups = new ArrayList<Group>();
         for (var g : nativeGroups) {
-            String id = text(g.id().value(), 4096);
+            String id = McpDomainSupport.text(g.id().value(), 4096);
             final List<ParameterGroupChild> children;
             try {
                 children = g.orderedChildren();
@@ -124,7 +124,7 @@ final class McpParameterStructure {
                 throw new UnsupportedOperationException("Mixed parameter order SDK API is unavailable.", unavailable);
             }
             if (children.size() > MAX_GROUPS + MAX_PARAMETERS) throw new Budget();
-            for (var c : children) text(c.id(), 4096);
+            for (var c : children) McpDomainSupport.text(c.id(), 4096);
             var childGroups = children.stream()
                     .filter(c -> c.kind() == ParameterGroupChild.Kind.GROUP)
                     .map(ParameterGroupChild::id)
@@ -141,27 +141,29 @@ final class McpParameterStructure {
             groups.add(new Group(
                     id,
                     optional(g.name()),
-                    g.parentId().map(v -> text(v.value(), 4096)).orElse(null),
+                    g.parentId()
+                            .map(v -> McpDomainSupport.text(v.value(), 4096))
+                            .orElse(null),
                     children));
         }
         var params = new ArrayList<Param>();
         var parameterIds = new HashSet<String>();
         var parameterGuids = new HashSet<String>();
         for (var p : nativeParams) {
-            if (!parameterIds.add(text(p.id().value(), 4096))) throw new Ambiguous();
+            if (!parameterIds.add(McpDomainSupport.text(p.id().value(), 4096))) throw new Ambiguous();
             if (p.index() != params.size()) throw new InvalidState();
             float min = p.getMinimumValue(), max = p.getMaximumValue(), def = p.getDefaultValue();
             if (!Float.isFinite(min) || !Float.isFinite(max) || !Float.isFinite(def) || min > def || def > max)
                 throw new InvalidState();
             String guid;
             try {
-                guid = text(p.guid(), 4096);
+                guid = McpDomainSupport.text(p.guid(), 4096);
             } catch (NoSuchMethodError | AbstractMethodError e) {
                 throw new UnsupportedOperationException("Parameter GUID SDK reader unavailable", e);
             }
             if (!parameterGuids.add(guid)) throw new InvalidState();
             params.add(new Param(
-                    text(p.id().value(), 4096),
+                    McpDomainSupport.text(p.id().value(), 4096),
                     guid,
                     optional(p.name()),
                     p.type(),
@@ -170,7 +172,9 @@ final class McpParameterStructure {
                     max,
                     def,
                     p.combined().orElse(null),
-                    p.combinedWith().map(v -> text(v.value(), 4096)).orElse(null)));
+                    p.combinedWith()
+                            .map(v -> McpDomainSupport.text(v.value(), 4096))
+                            .orElse(null)));
         }
         var state = new State(groups, params);
         validate(state);
@@ -179,7 +183,7 @@ final class McpParameterStructure {
     }
 
     private static String optional(Optional<String> value) {
-        return value.map(v -> text(v, 4096)).orElse(null);
+        return value.map(v -> McpDomainSupport.text(v, 4096)).orElse(null);
     }
 
     static void validate(State state) {
@@ -250,7 +254,7 @@ final class McpParameterStructure {
         var refs = new HashMap<String, String>();
         for (Object edit : edits) {
             var op = fieldsWithKind(edit);
-            String kind = text(op.get("kind"), 64);
+            String kind = McpDomainSupport.text(op.get("kind"), 64);
             var groups = new LinkedHashMap<String, Group>();
             state.groups.forEach(g -> groups.put(g.id, g));
             var params = new ArrayList<>(state.parameters);
@@ -259,7 +263,8 @@ final class McpParameterStructure {
             switch (kind) {
                 case "create_group" -> {
                     fields(op, "kind", "ref", "name");
-                    String ref = text(op.get("ref"), 64), name = text(op.get("name"), 256);
+                    String ref = McpDomainSupport.text(op.get("ref"), 64),
+                            name = McpDomainSupport.text(op.get("name"), 256);
                     if (refs.putIfAbsent(ref, NEW + ref) != null) throw new IllegalArgumentException();
                     String id = NEW + ref;
                     if (groups.containsKey(id))
@@ -273,7 +278,8 @@ final class McpParameterStructure {
                 case "rename_group" -> {
                     fields(op, "kind", "group", "name");
                     var g = state.group(target(op.get("group"), refs));
-                    groups.put(g.id, new Group(g.id, text(op.get("name"), 256), g.parentId, g.children));
+                    groups.put(
+                            g.id, new Group(g.id, McpDomainSupport.text(op.get("name"), 256), g.parentId, g.children));
                 }
                 case "remove_group" -> {
                     fields(op, "kind", "group", "expectedGroupIds", "expectedParameterIds");
@@ -299,7 +305,7 @@ final class McpParameterStructure {
                 }
                 case "move_parameter" -> {
                     fields(op, "kind", "parameterId", "targetGroup", "insertIndex");
-                    var p = state.parameter(text(op.get("parameterId"), 4096));
+                    var p = state.parameter(McpDomainSupport.text(op.get("parameterId"), 4096));
                     requireUnpaired(p);
                     var old = state.parent(p.id);
                     var target = state.group(target(op.get("targetGroup"), refs));
@@ -321,8 +327,8 @@ final class McpParameterStructure {
                 }
                 case "combine" -> {
                     fields(op, "kind", "parameterId", "partnerId");
-                    var first = state.parameter(text(op.get("parameterId"), 4096));
-                    var second = state.parameter(text(op.get("partnerId"), 4096));
+                    var first = state.parameter(McpDomainSupport.text(op.get("parameterId"), 4096));
+                    var second = state.parameter(McpDomainSupport.text(op.get("partnerId"), 4096));
                     if (first.id.equals(second.id)
                             || first.type != ParameterType.NORMAL
                             || second.type != ParameterType.NORMAL) throw new IllegalArgumentException();
@@ -342,7 +348,7 @@ final class McpParameterStructure {
                 }
                 case "uncombine" -> {
                     fields(op, "kind", "parameterId");
-                    var p = state.parameter(text(op.get("parameterId"), 4096));
+                    var p = state.parameter(McpDomainSupport.text(op.get("parameterId"), 4096));
                     if (p.combined == null) throw new UnsupportedOperationException();
                     if (p.partnerId != null) {
                         replace(params, p.pair(false, null));
@@ -402,12 +408,12 @@ final class McpParameterStructure {
     static String target(Object raw, Map<String, String> refs) {
         var m = fieldsWithKind(raw);
         if (m.keySet().equals(Set.of("id"))) {
-            String id = text(m.get("id"), 4096);
+            String id = McpDomainSupport.text(m.get("id"), 4096);
             if (refs.containsValue(id)) throw new IllegalArgumentException();
             return id;
         }
         fields(m, "createdRef");
-        String ref = text(m.get("createdRef"), 64);
+        String ref = McpDomainSupport.text(m.get("createdRef"), 64);
         return Objects.requireNonNull(refs.get(ref), "unknown createdRef");
     }
 
@@ -425,14 +431,6 @@ final class McpParameterStructure {
         return Collections.unmodifiableMap(result);
     }
 
-    static String text(Object raw, int max) {
-        if (!(raw instanceof String s)
-                || s.isBlank()
-                || s.length() > max
-                || s.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException();
-        return s;
-    }
-
     static int integer(Object raw, int max) {
         if (!(raw instanceof Number n)
                 || !Double.isFinite(n.doubleValue())
@@ -444,7 +442,7 @@ final class McpParameterStructure {
 
     private static List<String> ids(Object raw, int max) {
         if (!(raw instanceof List<?> values) || values.size() > max) throw new IllegalArgumentException();
-        var result = values.stream().map(v -> text(v, 4096)).toList();
+        var result = values.stream().map(v -> McpDomainSupport.text(v, 4096)).toList();
         if (new HashSet<>(result).size() != result.size()) throw new IllegalArgumentException();
         return result;
     }

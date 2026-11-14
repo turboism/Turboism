@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 import dev.turboism.core.event.PluginEventOwnerKey;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -21,6 +22,10 @@ public final class ParameterHookRegistry {
             dev.turboism.sdk.permission.PermissionIds.TURBOISM_CUBISM_MODEL_OBSERVE;
     public static final String INTERCEPT_PERMISSION =
             dev.turboism.sdk.permission.PermissionIds.TURBOISM_CUBISM_MODEL_INTERCEPT;
+
+    /** Declaring classes whose callback counts as the inherited no-op, not an override. */
+    private static final java.util.Set<Class<?>> PARAMETER_HOOK_BASES =
+            java.util.Set.of(ParameterHooks.class, TurboismPlugin.class);
 
     private final ParameterLifecycleCoordinator coordinator;
     private final Object lifecycleLock = new Object();
@@ -172,7 +177,7 @@ public final class ParameterHookRegistry {
 
     /** Removes legacy parameter hooks registered for the plugin identifier. */
     public void unregister(final String pluginId) {
-        final String id = requireText(pluginId, "pluginId");
+        final String id = Requirements.text(pluginId, "pluginId");
         synchronized (lifecycleLock) {
             coordinator.unregister(id);
             registrations.entrySet().removeIf(entry -> {
@@ -214,10 +219,8 @@ public final class ParameterHookRegistry {
                             new Class<?>[] {dev.turboism.sdk.cubism.model.Parameter.class, float.class, float.class};
                         default -> throw new IllegalArgumentException("Unknown parameter hook method: " + methodName);
                     };
-            final java.lang.reflect.Method implementation =
-                    entrypoint.getClass().getMethod(methodName, parameterTypes);
-            return implementation.getDeclaringClass() != ParameterHooks.class
-                    && implementation.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
+            return HookEntrypointSupport.overrides(
+                    entrypoint.getClass(), methodName, parameterTypes, PARAMETER_HOOK_BASES);
         } catch (NoSuchMethodException failure) {
             throw new IllegalStateException("Parameter hook contract is unavailable: " + methodName, failure);
         }
@@ -225,10 +228,7 @@ public final class ParameterHookRegistry {
 
     private static boolean subscribes(
             final Object entrypoint, final Class<? extends dev.turboism.sdk.event.EventBus.TurboismEvent> eventType) {
-        return java.util.Arrays.stream(entrypoint.getClass().getMethods())
-                .anyMatch(method -> method.isAnnotationPresent(dev.turboism.sdk.event.SubscribeEvent.class)
-                        && method.getParameterCount() == 1
-                        && method.getParameterTypes()[0].isAssignableFrom(eventType));
+        return HookEntrypointSupport.subscribes(entrypoint, eventType);
     }
 
     private static RuntimeException hookFailure(
@@ -245,16 +245,7 @@ public final class ParameterHookRegistry {
     }
 
     private static boolean hasPermission(final PluginDescriptor descriptor, final String permissionId) {
-        return descriptor.permissions().stream()
-                .anyMatch(permission -> permission.id().equals(permissionId));
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
+        return HookEntrypointSupport.hasPermission(descriptor, permissionId);
     }
 
     private record AdapterRegistration(List<Registration> registrations) {

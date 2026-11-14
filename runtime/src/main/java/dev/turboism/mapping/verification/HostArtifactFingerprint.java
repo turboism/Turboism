@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.internal.Requirements;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Locale;
@@ -9,7 +10,7 @@ import java.util.Objects;
 public record HostArtifactFingerprint(String cubismVersion, long size, String sha256) {
 
     public HostArtifactFingerprint {
-        cubismVersion = requireText(cubismVersion, "cubismVersion");
+        cubismVersion = Requirements.text(cubismVersion, "cubismVersion");
         if (size < 0) {
             throw new IllegalArgumentException("size must not be negative");
         }
@@ -27,7 +28,7 @@ public record HostArtifactFingerprint(String cubismVersion, long size, String sh
      * @throws IOException if the file cannot be read
      */
     public static HostArtifactFingerprint from(final String cubismVersion, final Path artifact) throws IOException {
-        final HostArtifactDigest digest = HostArtifactDigest.from(artifact);
+        final HostArtifactDigest digest = HostArtifactDigest.cached(artifact);
         return new HostArtifactFingerprint(cubismVersion, digest.size(), digest.sha256());
     }
 
@@ -44,18 +45,10 @@ public record HostArtifactFingerprint(String cubismVersion, long size, String sh
     }
 
     private static String requireSha256(final String value) {
-        final String normalized = requireText(value, "sha256").toLowerCase(Locale.ROOT);
+        final String normalized = Requirements.text(value, "sha256").toLowerCase(Locale.ROOT);
         if (!normalized.matches("[0-9a-f]{64}")) {
             throw new IllegalArgumentException("sha256 must be 64 lowercase hexadecimal characters");
         }
         return normalized;
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

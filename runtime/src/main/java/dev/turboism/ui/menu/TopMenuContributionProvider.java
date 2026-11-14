@@ -1,5 +1,6 @@
 package dev.turboism.ui.menu;
 
+import dev.turboism.core.runtime.Registrations;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.action.EditorUiActionRouter;
@@ -133,10 +134,10 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             reconciler.reconcile();
             registrations.add(reconciler);
             registrations.add(host.onRebuild(reconciler::reconcile));
-            return () -> closeAll(registrations);
+            return () -> Registrations.closeReverseThrowingFirst(registrations);
         } catch (RuntimeException | Error failure) {
             // @containment-exempt: cleanups run and merge before rethrow with fatal prioritized
-            Throwable toThrow = closeAllSuppressing(registrations, failure);
+            Throwable toThrow = Registrations.closeReverseMergingFatal(registrations, failure);
             if (registrations.isEmpty()) {
                 toThrow = reconciler.closeSuppressing(toThrow);
             }
@@ -157,7 +158,7 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             if (closed) {
                 return;
             }
-            closeAll(installed);
+            Registrations.closeReverseThrowingFirst(installed);
             installed = List.of();
             if (menus.isEmpty()) {
                 return;
@@ -171,7 +172,7 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
                 }
             } catch (RuntimeException | Error failure) {
                 // @containment-exempt: cleanups run and merge before rethrow with fatal prioritized
-                final Throwable toThrow = closeAllSuppressing(next, failure);
+                final Throwable toThrow = Registrations.closeReverseMergingFatal(next, failure);
                 throw FatalErrors.propagate(toThrow);
             }
             installed = List.copyOf(next);
@@ -185,7 +186,7 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             closed = true;
             final List<Registration> current = installed;
             installed = List.of();
-            closeAll(current);
+            Registrations.closeReverseThrowingFirst(current);
         }
 
         private Throwable closeSuppressing(final Throwable failure) {
@@ -210,25 +211,4 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
     private static final String SHARED_ROOT_OWNER = "shared";
 
     private record MenuKey(String owner, String rootLabel, boolean shared) {}
-
-    private static void closeAll(final List<? extends Registration> registrations) {
-        final Throwable failure = closeAllSuppressing(registrations, null);
-        if (failure != null) {
-            throw FatalErrors.propagate(failure);
-        }
-    }
-
-    private static Throwable closeAllSuppressing(
-            final List<? extends Registration> registrations, final Throwable failure) {
-        Throwable accumulated = failure;
-        for (int index = registrations.size() - 1; index >= 0; index--) {
-            try {
-                registrations.get(index).close();
-            } catch (RuntimeException | Error cleanupFailure) {
-                // @containment-exempt: cleanup failure merged across all registrations with fatal prioritized
-                accumulated = FatalErrors.mergeForCleanup(accumulated, cleanupFailure);
-            }
-        }
-        return accumulated;
-    }
 }

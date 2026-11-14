@@ -60,7 +60,7 @@ final class VerifiedCanvasCompositeElisionInstaller implements AutoCloseable {
     }
 
     private static Optional<CanvasCompositeElisionTarget> resolve(final Path artifact) throws Exception {
-        return CanvasCompositeElisionTarget.of(HostArtifactDigest.from(artifact));
+        return CanvasCompositeElisionTarget.of(HostArtifactDigest.cached(artifact));
     }
 
     private WeaveSpec<CanvasCompositeElisionTarget> spec(final boolean production) {

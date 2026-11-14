@@ -151,16 +151,17 @@ public final class NativeDeformerControlRowAppearanceBridge {
             final Object tree = accessor.invoke(null, outer);
             if (tree == null
                     || tree.getClass().getClassLoader() != hostClassLoader
-                    || !isTypeOrSuper(tree.getClass(), treeOwner.replace('/', '.'))) return null;
+                    || !NativeBridgeReflection.isTypeOrSuper(tree.getClass(), treeOwner.replace('/', '.'))) return null;
             final Object path = invoke(tree, pathForRowMethod, int.class, row);
-            final Object rowValue = path == null ? null : invoke(path, "getLastPathComponent");
+            final Object rowValue = path == null ? null : NativeBridgeReflection.invoke(path, "getLastPathComponent");
             if (!exact(rowValue, rowOwner)) return null;
-            final Object source = invoke(rowValue, rowSourceMethod);
+            final Object source = NativeBridgeReflection.invoke(rowValue, rowSourceMethod);
             if (source == null
                     || source.getClass().getClassLoader() != hostClassLoader
-                    || !isTypeOrSuper(source.getClass(), deformerSourceOwner.replace('/', '.'))) return null;
-            final Object id = invoke(source, deformerIdMethod);
-            final Object value = id == null ? null : invoke(id, idStringMethod);
+                    || !NativeBridgeReflection.isTypeOrSuper(source.getClass(), deformerSourceOwner.replace('/', '.')))
+                return null;
+            final Object id = NativeBridgeReflection.invoke(source, deformerIdMethod);
+            final Object value = id == null ? null : NativeBridgeReflection.invoke(id, idStringMethod);
             return value instanceof String text && !text.isBlank() ? text : null;
         }
 
@@ -168,13 +169,6 @@ public final class NativeDeformerControlRowAppearanceBridge {
             return value != null
                     && value.getClass().getClassLoader() == hostClassLoader
                     && value.getClass().getName().equals(owner.replace('/', '.'));
-        }
-
-        private static boolean isTypeOrSuper(final Class<?> type, final String expected) {
-            for (Class<?> current = type; current != null; current = current.getSuperclass()) {
-                if (current.getName().equals(expected)) return true;
-            }
-            return false;
         }
 
         private static void requireText(final String value) {
@@ -193,11 +187,5 @@ public final class NativeDeformerControlRowAppearanceBridge {
         final Method method = MethodHandleCache.method(target.getClass(), name, type);
         if (!method.canAccess(target) && !method.trySetAccessible()) return null;
         return method.invoke(target, argument);
-    }
-
-    private static Object invoke(final Object target, final String name) throws ReflectiveOperationException {
-        final Method method = MethodHandleCache.method(target.getClass(), name);
-        if (!method.canAccess(target) && !method.trySetAccessible()) return null;
-        return method.invoke(target);
     }
 }

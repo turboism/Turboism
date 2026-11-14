@@ -1,6 +1,7 @@
 package dev.turboism.storage;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.Requirements;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.task.PluginCompletionFuture;
@@ -33,7 +34,7 @@ final class StorageIoExecutor implements AutoCloseable {
             final DisposableScope disposableScope) {
         this.taskScheduler = Objects.requireNonNull(taskScheduler, "taskScheduler");
         this.executor = RuntimeThreads.serialLane(
-                64, RuntimeThreads.daemonThreads("turboism-storage-" + requireText(pluginId, "pluginId")));
+                64, RuntimeThreads.daemonThreads("turboism-storage-" + Requirements.text(pluginId, "pluginId")));
         try {
             Objects.requireNonNull(disposableScope, "disposableScope").register(this);
         } catch (RuntimeException exception) {
@@ -101,14 +102,6 @@ final class StorageIoExecutor implements AutoCloseable {
         synchronized (lifecycleLock) {
             operations.remove(operation);
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private final class Operation<T> implements Runnable {

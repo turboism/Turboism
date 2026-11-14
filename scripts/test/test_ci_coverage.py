@@ -762,7 +762,6 @@ scripts/test/test_cubism_host_validation_arguments.sh
 scripts/test/test_cubism_host_validation_cleanup.sh
 scripts/test/test_cubism_host_validation_java_evidence.sh
 scripts/test/test_cubism_host_validation_local.sh
-scripts/test/test_cubism_host_validation_lock.sh
 scripts/test/test_cubism_host_validation_project_copy.sh
 scripts/test/test_dependency_inventory.py
 scripts/test/test_alias_vocabulary.py

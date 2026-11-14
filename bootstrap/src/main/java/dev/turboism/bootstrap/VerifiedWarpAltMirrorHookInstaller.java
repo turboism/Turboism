@@ -248,16 +248,16 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
         final var transformed = transformer.transformedOwners();
         if (owner == null || transformed.isEmpty()) return;
         try {
-            for (final Class<?> type : instrumentation.getAllLoadedClasses()) {
-                if (type.getClassLoader() != owner
-                        || !transformed.contains(type.getName().replace('.', '/'))) {
-                    continue;
-                }
+            // One enumeration, but one request per owner: a refused owner must not hide the
+            // restore of the owners that follow it.
+            final List<Class<?>> targets = VerifiedHookInstallerSupport.LoadedClassIndex.snapshot(instrumentation)
+                    .select(owner, type -> transformed.contains(type.getName().replace('.', '/')));
+            for (final Class<?> type : targets) {
                 try {
                     if (!instrumentation.isModifiableClass(type)) {
                         throw new IllegalStateException("warp target is not modifiable: " + type.getName());
                     }
-                    instrumentation.retransformClasses(type);
+                    VerifiedHookInstallerSupport.retransformAll(instrumentation, List.of(type));
                 } catch (Throwable failure) {
                     FatalErrors.rethrowIfFatal(failure);
                     failures.add(failure);
@@ -273,6 +273,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
 
     /** Premain guarantee: the exact targets must not already be defined when we register. */
     private void rejectLoadedTargets() {
+        final var loaded = VerifiedHookInstallerSupport.LoadedClassIndex.snapshot(instrumentation);
         for (final String name : List.of(
                 artMeshMoveClassName,
                 pointMoveClassName,
@@ -281,10 +282,8 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                 greenTickClassName,
                 actionDispatchClassName,
                 inputIngressClassName)) {
-            for (final Class<?> type : instrumentation.getAllLoadedClasses()) {
-                if (name.equals(type.getName())) {
-                    throw new IllegalStateException("warp alt mirror target is already loaded: " + name);
-                }
+            if (loaded.containsName(name)) {
+                throw new IllegalStateException("warp alt mirror target is already loaded: " + name);
             }
         }
     }

@@ -53,7 +53,7 @@ final class SkippedFrameUploadElisionHookContributor extends NativeOptimizationH
         if (production
                 && !validation
                 && !VerifiedSkippedFrameUploadElisionInstaller.admitted(
-                        HostArtifactDigest.from(host.artifact()),
+                        HostArtifactDigest.cached(host.artifact()),
                         environment.plan().policy(),
                         true,
                         Runtime.version().feature())) {

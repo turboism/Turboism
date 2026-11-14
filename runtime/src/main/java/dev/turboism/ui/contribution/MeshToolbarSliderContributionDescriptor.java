@@ -1,5 +1,6 @@
 package dev.turboism.ui.contribution;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.ui.host.EditorUiFamily;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -27,11 +28,11 @@ public final class MeshToolbarSliderContributionDescriptor {
             int currentValue,
             int order,
             IntConsumer onChanged) {
-        this.pluginId = text(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         if (pluginGeneration < 0) throw new IllegalArgumentException("pluginGeneration must not be negative");
         this.pluginGeneration = pluginGeneration;
-        this.controlId = text(controlId, "controlId");
-        this.label = text(label, "label");
+        this.controlId = Requirements.text(controlId, "controlId");
+        this.label = Requirements.text(label, "label");
         if (minimum > maximum) throw new IllegalArgumentException("minimum must not exceed maximum");
         if (currentValue < minimum || currentValue > maximum) {
             throw new IllegalArgumentException("currentValue must be within the slider range");
@@ -86,7 +87,7 @@ public final class MeshToolbarSliderContributionDescriptor {
     /** Builds the generation-qualified contribution identity for a slider. */
     public static String contributionId(final long generation, final String controlId) {
         if (generation < 0) throw new IllegalArgumentException("generation must not be negative");
-        return generation + ":slider:" + text(controlId, "controlId");
+        return generation + ":slider:" + Requirements.text(controlId, "controlId");
     }
 
     /** Remembers a validated value before the plugin callback can synchronously rebuild the toolbar. */
@@ -119,11 +120,5 @@ public final class MeshToolbarSliderContributionDescriptor {
             throw new IllegalArgumentException("invalid exact-generation mesh-toolbar slider contribution");
         }
         return descriptor;
-    }
-
-    private static String text(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

@@ -2,6 +2,7 @@ package dev.turboism.ui.toolbar;
 
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
+import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -76,7 +77,7 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
             final EditorUiContributionAuthority contributionAuthority) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.visibilitySink = Optional.ofNullable(visibilitySink);
         this.contributionAuthority = Objects.requireNonNull(contributionAuthority, "contributionAuthority");
     }
@@ -130,8 +131,8 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
     public Registration contribute(final PaletteToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(PermissionIds.TURBOISM_UI_TOOLBAR_PALETTE_CONTRIBUTE, "ui.palette-toolbar.contribute");
-        final String id = requireText(contribution.contributionId(), "contributionId");
-        requireText(contribution.paletteId(), "paletteId");
+        final String id = Requirements.text(contribution.contributionId(), "contributionId");
+        Requirements.text(contribution.paletteId(), "paletteId");
         final PaletteToolbarContribution resolved = resolveLabel(contribution);
         final StoredContribution stored = new StoredContribution(resolved);
         final StoredContribution previous = contributions.put(id, stored);
@@ -169,7 +170,7 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
         return new PaletteToolbarContribution(
                 contribution.contributionId(),
                 contribution.actionId(),
-                pluginLocalization.text(requireText(contribution.labelKey(), "labelKey")),
+                pluginLocalization.text(Requirements.text(contribution.labelKey(), "labelKey")),
                 contribution.iconResourcePath(),
                 contribution.paletteId(),
                 contribution.anchor(),
@@ -199,14 +200,6 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
                 pluginId,
                 "palette toolbar visibility for " + contribution.paletteId() + ":" + contribution.contributionId(),
                 DEFAULT_CAPABILITY);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private final class ToolbarRegistration implements Registration {

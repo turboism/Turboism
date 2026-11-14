@@ -1,6 +1,7 @@
 package dev.turboism.permissions;
 
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
@@ -77,10 +78,10 @@ public final class CubismPermissionGate {
      * @throws IllegalArgumentException if any supplied argument is blank
      */
     public void require(final String permissionId, final String operationId, final String capabilityId) {
-        requireText(permissionId, "permissionId");
-        requireText(operationId, "operationId");
+        Requirements.text(permissionId, "permissionId");
+        Requirements.text(operationId, "operationId");
         if (capabilityId != null) {
-            requireText(capabilityId, "capabilityId");
+            Requirements.text(capabilityId, "capabilityId");
         }
         if (grantedPermissions.stream().anyMatch(permission -> permissionId.equals(permission.id()))) {
             return;
@@ -89,13 +90,5 @@ public final class CubismPermissionGate {
                 pluginId, permissionId, operationId, capabilityId, DiagnosticReport.Severity.WARNING, clock.instant()));
         throw new CubismPermissionException("Plugin " + pluginId + " is missing required Cubism permission "
                 + permissionId + " for " + operationId);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

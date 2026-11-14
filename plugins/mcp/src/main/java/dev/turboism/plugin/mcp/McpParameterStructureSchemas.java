@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.*;
 
 final class McpParameterStructureSchemas {
@@ -60,8 +62,8 @@ final class McpParameterStructureSchemas {
         return Map.of(
                 "oneOf",
                 List.of(
-                        object(Map.of("kind", constant("create_group"), "ref", string(64), "name", string(256))),
-                        object(Map.of("kind", constant("rename_group"), "group", target(), "name", string(256))),
+                        object(Map.of("kind", constant("create_group"), "ref", text(64), "name", text(256))),
+                        object(Map.of("kind", constant("rename_group"), "group", target(), "name", text(256))),
                         object(Map.of(
                                 "kind",
                                 constant("remove_group"),
@@ -85,23 +87,30 @@ final class McpParameterStructureSchemas {
     }
 
     private static Map<String, Object> target() {
-        return Map.of("oneOf", List.of(object(Map.of("id", id())), object(Map.of("createdRef", string(64)))));
+        return Map.of("oneOf", List.of(object(Map.of("id", id())), object(Map.of("createdRef", text(64)))));
     }
 
     private static Map<String, Object> structure() {
         var child = object(Map.of("kind", Map.of("type", "string", "enum", List.of("GROUP", "PARAMETER")), "id", id()));
         var group = object(Map.of(
-                "id", id(), "name", nullableString(), "parentId", nullableString(), "children", array(child, 0, 640)));
+                "id",
+                id(),
+                "name",
+                nullableBoundedString(),
+                "parentId",
+                nullableBoundedString(),
+                "children",
+                array(child, 0, 640)));
         var p = new LinkedHashMap<String, Object>();
         p.put("id", id());
         p.put("guid", id());
         p.put("index", integer(0, 511));
-        p.put("name", nullableString());
+        p.put("name", nullableBoundedString());
         p.put("type", Map.of("type", "string", "enum", List.of("NORMAL", "BLEND_SHAPE", "UNKNOWN")));
         p.put("repeat", Map.of("type", List.of("boolean", "null")));
         p.put("combined", Map.of("type", List.of("boolean", "null")));
         for (String key : List.of("minimum", "maximum", "default")) p.put(key, Map.of("type", "number"));
-        p.put("partnerId", nullableString());
+        p.put("partnerId", nullableBoundedString());
         return object(Map.of("groups", array(group, 1, 128), "parameters", array(object(p), 0, 512)));
     }
 
@@ -150,7 +159,7 @@ final class McpParameterStructureSchemas {
                         1,
                         16),
                 "provisionalGroups",
-                array(object(Map.of("ref", string(64), "provisionalId", id())), 0, 16),
+                array(object(Map.of("ref", text(64), "provisionalId", id())), 0, 16),
                 "writeAdmission",
                 constant("NOT_CHECKED"))));
     }
@@ -159,8 +168,8 @@ final class McpParameterStructureSchemas {
         var schema = new LinkedHashMap<>(McpWriteResults.schema());
         @SuppressWarnings("unchecked")
         var props = new LinkedHashMap<>((Map<String, Object>) schema.get("properties"));
-        props.put("createdGroups", array(object(Map.of("ref", string(64), "groupId", id())), 0, 16));
-        props.put("actualAfterHash", nullableString());
+        props.put("createdGroups", array(object(Map.of("ref", text(64), "groupId", id())), 0, 16));
+        props.put("actualAfterHash", nullableBoundedString());
         props.put("rollbackStateVerified", Map.of("type", "boolean"));
         schema.put("properties", props);
         schema.put("required", List.copyOf(props.keySet()));
@@ -171,43 +180,8 @@ final class McpParameterStructureSchemas {
         return Map.of("oneOf", List.of(success, object(Map.of("ok", constant(false), "error", id()))));
     }
 
-    private static Map<String, Object> id() {
-        return string(4096);
-    }
-
-    private static Map<String, Object> shortId() {
-        return string(128);
-    }
-
-    private static Map<String, Object> string(int max) {
-        return Map.of("type", "string", "minLength", 1, "maxLength", max);
-    }
-
-    private static Map<String, Object> nullableString() {
+    /** String schema that admits JSON {@code null} under the 4096-character cap, with no minimum. */
+    private static Map<String, Object> nullableBoundedString() {
         return Map.of("type", List.of("string", "null"), "maxLength", 4096);
-    }
-
-    private static Map<String, Object> integer(int min, int max) {
-        return Map.of("type", "integer", "minimum", min, "maximum", max);
-    }
-
-    private static Map<String, Object> constant(Object value) {
-        return Map.of("const", value);
-    }
-
-    private static Map<String, Object> array(Map<String, Object> item, int min, int max) {
-        return Map.of("type", "array", "items", item, "minItems", min, "maxItems", max);
-    }
-
-    private static Map<String, Object> object(Map<String, Object> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
     }
 }

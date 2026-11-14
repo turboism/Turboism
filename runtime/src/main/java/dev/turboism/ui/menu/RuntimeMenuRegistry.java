@@ -2,6 +2,7 @@ package dev.turboism.ui.menu;
 
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.contract.PluginTask;
+import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -69,7 +70,7 @@ public final class RuntimeMenuRegistry implements MenuRegistry {
             final PermissionChecker permissionChecker,
             final EditorUiContributionAuthority contributionAuthority) {
         this.dispatcher = Objects.requireNonNull(dispatcher, "dispatcher");
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.contributionAuthority = Objects.requireNonNull(contributionAuthority, "contributionAuthority");
     }
@@ -135,14 +136,6 @@ public final class RuntimeMenuRegistry implements MenuRegistry {
 
     private PluginTask task(final String actionId) {
         return new PluginTask(UI_TASK_TYPE, pluginId, "menu visibility for " + actionId, DEFAULT_CAPABILITY);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private final class MenuRegistration implements Registration {

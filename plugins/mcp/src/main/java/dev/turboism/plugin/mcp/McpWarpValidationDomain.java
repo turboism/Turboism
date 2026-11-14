@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpWriteResults.envelope;
+
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.json.Json;
@@ -61,9 +63,12 @@ final class McpWarpValidationDomain {
             if (!args.keySet().containsAll(required) || !allowed.containsAll(args.keySet()))
                 throw new IllegalArgumentException();
             var initial = context.get();
-            if (!text(args.get("documentId")).equals(initial.binding().get("documentId"))
-                    || !text(args.get("modelId")).equals(initial.binding().get("modelId"))) throw new Stale();
-            String id = text(args.get("objectId")), sid = text(args.get("snapshotId"));
+            if (!McpDomainSupport.text(args.get("documentId"), 4096)
+                            .equals(initial.binding().get("documentId"))
+                    || !McpDomainSupport.text(args.get("modelId"), 4096)
+                            .equals(initial.binding().get("modelId"))) throw new Stale();
+            String id = McpDomainSupport.text(args.get("objectId"), 4096),
+                    sid = McpDomainSupport.text(args.get("snapshotId"), 4096);
             var entry = snapshots.get(sid, McpRequestRegistry.currentSessionId());
             if (!"warp_deformer".equals(entry.kind())
                     || !(entry.nativeSnapshot() instanceof WarpAuthoringSnapshot warp))
@@ -72,12 +77,12 @@ final class McpWarpValidationDomain {
                     || !entry.binding().equals(initial.binding())
                     || !warp.deformerId().value().equals(id)
                     || !warp.sourceGuid().equals(entry.sourceGuid())) throw new Stale();
-            String reference = text(args.get("referenceFormGuid"));
+            String reference = McpDomainSupport.text(args.get("referenceFormGuid"), 4096);
             if (!(args.get("formGuids") instanceof List<?> raw) || raw.isEmpty() || raw.size() > 32)
                 throw new IllegalArgumentException();
             var selected = raw.stream().map(McpWarpValidationDomain::text).toList();
-            double threshold = number(args.get("minimumAbsJacobianRatio"));
-            int max = integer(args.get("maxFindings"));
+            double threshold = McpDomainSupport.number(args.get("minimumAbsJacobianRatio"));
+            int max = McpDomainSupport.integer(args.get("maxFindings"));
             verify(entry, initial);
             WarpAuthoringSnapshot analyzed = warp;
             List<?> proposed = List.of();
@@ -190,36 +195,10 @@ final class McpWarpValidationDomain {
         if (!initial.binding().equals(context.get().binding())) throw new Stale();
     }
 
-    private static Map<String, Object> envelope(Map<String, Object> output) {
-        var safe = McpJsonSupport.encodable(output);
-        return Map.of(
-                "content",
-                List.of(Map.of("type", "text", "text", Json.stringify(safe))),
-                "structuredContent",
-                safe,
-                "isError",
-                !Boolean.TRUE.equals(output.get("ok")));
-    }
-
     private static String text(Object raw) {
         if (!(raw instanceof String value) || value.isBlank() || value.length() > 4096)
             throw new IllegalArgumentException();
         return value;
-    }
-
-    private static double number(Object raw) {
-        if (!(raw instanceof Number value) || !Double.isFinite(value.doubleValue()))
-            throw new IllegalArgumentException();
-        return value.doubleValue();
-    }
-
-    private static int integer(Object raw) {
-        if (!(raw instanceof Number number)) throw new IllegalArgumentException();
-        try {
-            return new java.math.BigDecimal(number.toString()).intValueExact();
-        } catch (ArithmeticException ex) {
-            throw new IllegalArgumentException(ex);
-        }
     }
 
     private static final class Stale extends IllegalStateException {}

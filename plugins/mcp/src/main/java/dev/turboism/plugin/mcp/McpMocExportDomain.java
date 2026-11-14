@@ -120,8 +120,8 @@ final class McpMocExportDomain implements AutoCloseable {
                     || !Objects.equals(args.get("modelId"), current.binding().get("modelId"))) throw new Stale();
             String session = McpRequestRegistry.currentSessionId();
             if (session.isBlank()) return error("SESSION_REQUIRED");
-            String operation = McpAtlasLayout.text(args.get("operationId"), 128),
-                    grant = McpAtlasLayout.text(args.get("grantId"), 128);
+            String operation = McpDomainSupport.text(args.get("operationId"), 128),
+                    grant = McpDomainSupport.text(args.get("grantId"), 128);
             var settings = McpMocPackage.settings(args.get("settings"));
             var raw = (Map<?, ?>) args.get("budgets");
             var budget = new McpMocPackage.Budgets(
@@ -302,7 +302,7 @@ final class McpMocExportDomain implements AutoCloseable {
 
     private Map<String, Object> source(McpStoredAuthoringDomain.Context current, McpMocPackage.Budgets budget) {
         for (String key : List.of("documentId", "modelId", "historyDocumentBinding", "historyManagerBinding"))
-            McpAtlasLayout.text(current.binding().get(key), 4096);
+            McpDomainSupport.text(current.binding().get(key), 4096);
         var atlases = current.model().textures().textureAtlases();
         if (atlases.isEmpty()) throw new EmptyAtlas();
         if (atlases.size() > 32) throw new Limit();
@@ -310,7 +310,7 @@ final class McpMocExportDomain implements AutoCloseable {
         var ids = new HashSet<String>();
         long pixels = 0;
         for (var atlas : atlases) {
-            String id = McpAtlasLayout.text(atlas.id().value(), 4096);
+            String id = McpDomainSupport.text(atlas.id().value(), 4096);
             if (!ids.add(id)) throw new IllegalArgumentException();
             int width = atlas.width(), height = atlas.height();
             if (width < 1
@@ -324,7 +324,7 @@ final class McpMocExportDomain implements AutoCloseable {
                     "id",
                     id,
                     "name",
-                    McpAtlasLayout.text(atlas.name(), 128),
+                    McpDomainSupport.text(atlas.name(), 128),
                     "width",
                     width,
                     "height",

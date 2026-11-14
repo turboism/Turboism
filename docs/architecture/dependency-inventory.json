@@ -674,6 +674,10 @@
       ],
       [
         "dev.turboism.core",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.core",
         "dev.turboism.permissions"
       ],
       [
@@ -683,6 +687,10 @@
       [
         "dev.turboism.core",
         "dev.turboism.task"
+      ],
+      [
+        "dev.turboism.diagnostics",
+        "dev.turboism.internal"
       ],
       [
         "dev.turboism.distribution",
@@ -721,6 +729,10 @@
         "dev.turboism.ui"
       ],
       [
+        "dev.turboism.failure",
+        "dev.turboism.internal"
+      ],
+      [
         "dev.turboism.filechooser",
         "dev.turboism.internal"
       ],
@@ -738,11 +750,19 @@
       ],
       [
         "dev.turboism.hostread",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.hostread",
         "dev.turboism.runtime"
       ],
       [
         "dev.turboism.hostread",
         "dev.turboism.task"
+      ],
+      [
+        "dev.turboism.i18n",
+        "dev.turboism.internal"
       ],
       [
         "dev.turboism.kernel",
@@ -897,6 +917,10 @@
         "dev.turboism.diagnostics"
       ],
       [
+        "dev.turboism.permissions",
+        "dev.turboism.internal"
+      ],
+      [
         "dev.turboism.pluginmanagement",
         "dev.turboism.config"
       ],
@@ -955,6 +979,10 @@
       [
         "dev.turboism.recentpreview",
         "dev.turboism.permissions"
+      ],
+      [
+        "dev.turboism.runtime",
+        "dev.turboism.internal"
       ],
       [
         "dev.turboism.screenshot",
@@ -1034,6 +1062,10 @@
       ],
       [
         "dev.turboism.storage",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.storage",
         "dev.turboism.runtime"
       ],
       [
@@ -1051,6 +1083,10 @@
       [
         "dev.turboism.task",
         "dev.turboism.failure"
+      ],
+      [
+        "dev.turboism.task",
+        "dev.turboism.internal"
       ],
       [
         "dev.turboism.ui",
@@ -1107,6 +1143,10 @@
       [
         "dev.turboism.userfile",
         "dev.turboism.failure"
+      ],
+      [
+        "dev.turboism.userfile",
+        "dev.turboism.internal"
       ],
       [
         "dev.turboism.userfile",

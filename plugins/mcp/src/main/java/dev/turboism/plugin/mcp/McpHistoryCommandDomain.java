@@ -1,5 +1,9 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpJsonSupport.safeMessage;
+import static dev.turboism.plugin.mcp.McpSchemas.entry;
+import static dev.turboism.plugin.mcp.McpSchemas.immutableMap;
+
 import dev.turboism.sdk.cubism.command.EditorCanvasSettingsRequest;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
@@ -843,24 +847,6 @@ final class McpHistoryCommandDomain {
         final String result = Objects.requireNonNull(value, name).strip();
         if (result.isEmpty()) throw new IllegalArgumentException(name + " must not be blank");
         return result;
-    }
-
-    private static String safeMessage(final RuntimeException failure) {
-        final String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
-
-    @SafeVarargs
-    private static Map<String, Object> immutableMap(final Map.Entry<String, Object>... entries) {
-        final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : entries) {
-            result.put(entry.getKey(), entry.getValue());
-        }
-        return Collections.unmodifiableMap(result);
-    }
-
-    private static Map.Entry<String, Object> entry(final String key, final Object value) {
-        return new java.util.AbstractMap.SimpleImmutableEntry<>(key, value);
     }
 
     record ResourceDefinition(String uri, String name, String description, String mimeType) {

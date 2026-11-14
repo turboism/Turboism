@@ -100,7 +100,7 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
     }
 
     private static Optional<SkippedFrameUploadElisionTarget> resolve(final Path artifact) throws Exception {
-        return SkippedFrameUploadElisionTarget.of(HostArtifactDigest.from(artifact));
+        return SkippedFrameUploadElisionTarget.of(HostArtifactDigest.cached(artifact));
     }
 
     private static List<WeaveTarget> targets(final SkippedFrameUploadElisionTarget target, final WeaveSource source)

@@ -1,5 +1,6 @@
 package dev.turboism.ui.context;
 
+import dev.turboism.core.runtime.Registrations;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
@@ -116,11 +117,11 @@ public final class ContextMenuContributionProvider implements EditorUiContributi
                         "host.addItem()"));
             }
         } catch (RuntimeException | Error failure) {
-            closeAllSuppressing(registrations, failure);
+            Registrations.closeReverseSuppressing(registrations, failure);
             throw failure;
         }
         return () -> {
-            closeAll(registrations);
+            Registrations.closeReverseThrowingFirst(registrations);
             if (panelTabMenus != null) panelTabMenus.update(hostGeneration, List.of());
         };
     }
@@ -151,34 +152,6 @@ public final class ContextMenuContributionProvider implements EditorUiContributi
         @Override
         public java.util.Optional<ContextMenuSelection> contextMenuSelection() {
             return java.util.Optional.of(selection);
-        }
-    }
-
-    private static void closeAll(final List<? extends Registration> registrations) {
-        RuntimeException first = null;
-        for (int index = registrations.size() - 1; index >= 0; index--) {
-            try {
-                registrations.get(index).close();
-            } catch (RuntimeException exception) {
-                if (first == null) {
-                    first = exception;
-                } else {
-                    first.addSuppressed(exception);
-                }
-            }
-        }
-        if (first != null) {
-            throw first;
-        }
-    }
-
-    private static void closeAllSuppressing(final List<? extends Registration> registrations, final Throwable failure) {
-        for (int index = registrations.size() - 1; index >= 0; index--) {
-            try {
-                registrations.get(index).close();
-            } catch (RuntimeException cleanupFailure) {
-                failure.addSuppressed(cleanupFailure);
-            }
         }
     }
 }

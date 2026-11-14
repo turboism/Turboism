@@ -1,5 +1,6 @@
 package dev.turboism.ui.menu;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.host.EditorUiFamily;
@@ -19,14 +20,14 @@ public record TopMenuItemDescriptor(
         String actionId,
         int order) {
     public TopMenuItemDescriptor {
-        pluginId = requireText(pluginId, "pluginId");
-        contributionId = requireText(contributionId, "contributionId");
-        nativeItemId = requireText(nativeItemId, "nativeItemId");
-        rootLabel = requireText(rootLabel, "rootLabel");
+        pluginId = Requirements.text(pluginId, "pluginId");
+        contributionId = Requirements.text(contributionId, "contributionId");
+        nativeItemId = Requirements.text(nativeItemId, "nativeItemId");
+        rootLabel = Requirements.text(rootLabel, "rootLabel");
         submenuPath = List.copyOf(Objects.requireNonNull(submenuPath, "submenuPath"));
-        submenuPath.forEach(segment -> requireText(segment, "submenuPath segment"));
-        label = requireText(label, "label");
-        actionId = requireText(actionId, "actionId");
+        submenuPath.forEach(segment -> Requirements.text(segment, "submenuPath segment"));
+        label = Requirements.text(label, "label");
+        actionId = Requirements.text(actionId, "actionId");
     }
 
     static Optional<TopMenuItemDescriptor> from(final EditorUiContribution<?> contribution) {
@@ -44,7 +45,7 @@ public record TopMenuItemDescriptor(
         if (path.size() < 2) {
             throw new IllegalArgumentException("top-menu path must contain a top-level menu and a leaf item");
         }
-        path.forEach(segment -> requireText(segment, "menuPath segment"));
+        path.forEach(segment -> Requirements.text(segment, "menuPath segment"));
         final String pluginId = contribution.identity().pluginId();
         final String contributionId = contribution.identity().contributionId();
         return Optional.of(new TopMenuItemDescriptor(
@@ -56,13 +57,5 @@ public record TopMenuItemDescriptor(
                 path.get(path.size() - 1),
                 payload.actionId(),
                 contribution.order()));
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

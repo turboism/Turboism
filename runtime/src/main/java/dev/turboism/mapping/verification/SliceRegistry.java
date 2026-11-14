@@ -95,7 +95,7 @@ public final class SliceRegistry {
      * @throws IOException if the artifact cannot be read
      */
     public static String corePublicApiProfileForArtifact(final Path artifact) throws IOException {
-        return CorePublicApiVerificationManifest.profileFor(HostArtifactDigest.from(artifact));
+        return CorePublicApiVerificationManifest.profileFor(HostArtifactDigest.cached(artifact));
     }
 
     /**

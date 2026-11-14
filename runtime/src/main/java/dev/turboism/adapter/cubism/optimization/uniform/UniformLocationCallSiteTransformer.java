@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.uniform;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -185,12 +186,8 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
             final int[] sites = {0};
             final int base = Math.max(localBase, locals(bytes));
             ClassReader reader = new ClassReader(bytes);
-            ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader;
-                }
-            };
+            ClassWriter writer =
+                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override

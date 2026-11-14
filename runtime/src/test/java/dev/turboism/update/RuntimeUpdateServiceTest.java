@@ -38,7 +38,7 @@ final class RuntimeUpdateServiceTest {
     void currentReleaseKeepsItsNotesButAnOlderFeedCannotMasqueradeAsInstalledNotes(@TempDir final Path home)
             throws Exception {
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service =
                 service(home, scheduler, new MutableSettings(false), transport, Duration.ofDays(1), Duration.ofDays(1));
         try {
@@ -61,7 +61,7 @@ final class RuntimeUpdateServiceTest {
     void startsAutomaticallyOnlyAfterTheConfiguredDelayAndPersistsTheAttempt(@TempDir final Path home)
             throws Exception {
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service = service(
                 home, scheduler, new MutableSettings(false), transport, Duration.ofMillis(150), Duration.ofDays(1));
         try {
@@ -83,7 +83,7 @@ final class RuntimeUpdateServiceTest {
                 .save(new UpdateStateStore.State(
                         Optional.of(NOW.minusSeconds(60)), Optional.empty(), Optional.empty()));
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service = service(
                 home, scheduler, new MutableSettings(false), transport, Duration.ofMillis(20), Duration.ofDays(1));
         try {
@@ -105,7 +105,7 @@ final class RuntimeUpdateServiceTest {
                 .save(new UpdateStateStore.State(
                         Optional.of(NOW.minusSeconds(60)), Optional.empty(), Optional.empty()));
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service =
                 service(home, scheduler, new MutableSettings(false), transport, Duration.ZERO, Duration.ofHours(24));
         try {
@@ -124,7 +124,7 @@ final class RuntimeUpdateServiceTest {
     @Test
     void coalescesManualChecksAndEmitsOneReminderForOneVersion(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service =
                 service(home, scheduler, new MutableSettings(false), transport, Duration.ofDays(1), Duration.ofDays(1));
         final List<CoreUpdateService.Snapshot> snapshots = new ArrayList<>();
@@ -157,7 +157,7 @@ final class RuntimeUpdateServiceTest {
     @Test
     void automaticChecksCanBeDisabledWithoutDisablingAnExplicitManualCheck(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service =
                 service(home, scheduler, new MutableSettings(false), transport, Duration.ofDays(1), Duration.ofDays(1));
         try {
@@ -182,7 +182,7 @@ final class RuntimeUpdateServiceTest {
     @Test
     void safeModeMakesBothAutomaticAndManualRequestsUnavailable(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service =
                 service(home, scheduler, new MutableSettings(true), transport, Duration.ZERO, Duration.ofDays(1));
         try {
@@ -206,7 +206,7 @@ final class RuntimeUpdateServiceTest {
     void reportsNetworkFailureAndRejectsAResponseThatArrivesAfterClose(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
         final List<String> diagnostics = new ArrayList<>();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service = new RuntimeUpdateService(
                 home,
                 scheduler,
@@ -246,7 +246,7 @@ final class RuntimeUpdateServiceTest {
                 .save(new UpdateStateStore.State(Optional.of(NOW.plusSeconds(1)), Optional.empty(), Optional.empty()));
         final DeferredTransport transport = new DeferredTransport();
         final List<String> diagnostics = new ArrayList<>();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service = new RuntimeUpdateService(
                 home,
                 scheduler,
@@ -270,7 +270,7 @@ final class RuntimeUpdateServiceTest {
     @Test
     void unknownOrDevelopmentLocalVersionNeverStartsNetworkRequests(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service = new RuntimeUpdateService(
                 home,
                 scheduler,
@@ -295,7 +295,7 @@ final class RuntimeUpdateServiceTest {
     @Test
     void closeDuringTransportStartupCancelsTheLateCreatedStage(@TempDir final Path home) throws Exception {
         final LateStageTransport transport = new LateStageTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service =
                 service(home, scheduler, new MutableSettings(false), transport, Duration.ofDays(1), Duration.ofDays(1));
         try {
@@ -317,7 +317,7 @@ final class RuntimeUpdateServiceTest {
     void disablingAutomaticChecksDuringTransportStartupCancelsTheLateCreatedStage(@TempDir final Path home)
             throws Exception {
         final LateStageTransport transport = new LateStageTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service =
                 service(home, scheduler, new MutableSettings(false), transport, Duration.ZERO, Duration.ofDays(1));
         try {
@@ -338,7 +338,7 @@ final class RuntimeUpdateServiceTest {
     void closeCancelsTheActualHttpConnectionRead(@TempDir final Path home) throws Exception {
         final BlockingHttpInputStream body = new BlockingHttpInputStream();
         final TrackingHttpConnection connection = new TrackingHttpConnection(body);
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service = service(
                 home,
                 scheduler,
@@ -365,7 +365,7 @@ final class RuntimeUpdateServiceTest {
     void disablingAutomaticChecksClosesTheActualHttpConnectionRead(@TempDir final Path home) throws Exception {
         final BlockingHttpInputStream body = new BlockingHttpInputStream();
         final TrackingHttpConnection connection = new TrackingHttpConnection(body);
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service = service(
                 home,
                 scheduler,
@@ -394,7 +394,7 @@ final class RuntimeUpdateServiceTest {
         final CountDownLatch releaseDisconnect = new CountDownLatch(1);
         final TrackingHttpConnection connection =
                 new TrackingHttpConnection(body, disconnectStarted, releaseDisconnect);
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service = service(
                 home,
                 scheduler,
@@ -441,7 +441,7 @@ final class RuntimeUpdateServiceTest {
         final CountDownLatch releaseDisconnect = new CountDownLatch(1);
         final TrackingHttpConnection connection =
                 new TrackingHttpConnection(body, disconnectStarted, releaseDisconnect);
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service = service(
                 home,
                 scheduler,
@@ -484,7 +484,7 @@ final class RuntimeUpdateServiceTest {
     @Test
     void incrementalMetadataNeverMixesFailedResponsesWithCachedIdentity(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service =
                 service(home, scheduler, new MutableSettings(false), transport, Duration.ofDays(1), Duration.ofDays(1));
         try {
@@ -554,7 +554,7 @@ final class RuntimeUpdateServiceTest {
         new UpdateStateStore(home)
                 .save(new UpdateStateStore.State(Optional.empty(), Optional.of(discovery), Optional.of("\"v50\"")));
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service =
                 service(home, scheduler, new MutableSettings(false), transport, Duration.ofDays(1), Duration.ofDays(1));
         try {
@@ -593,14 +593,10 @@ final class RuntimeUpdateServiceTest {
                 ignored -> {});
     }
 
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
-    }
-
     @Test
     void aLargerRecordedBuildNumberIsOfferedAsAnUpdate(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final List<String> diagnostics = new ArrayList<>();
         final RuntimeUpdateService service = installedService(
                 home,
@@ -628,7 +624,7 @@ final class RuntimeUpdateServiceTest {
     @Test
     void aLowerBuildNumberIsNeverAdvertisedAsAnUpdateAcrossVersionOrdering(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service = installedService(
                 home,
                 scheduler,
@@ -652,7 +648,7 @@ final class RuntimeUpdateServiceTest {
     @Test
     void anEqualBuildNumberWithADifferentVersionIsAConflictNotAnUpdate(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final List<String> diagnostics = new ArrayList<>();
         final RuntimeUpdateService service = installedService(
                 home,
@@ -677,7 +673,7 @@ final class RuntimeUpdateServiceTest {
     @Test
     void unnumberedLegacyInstallationsCompareByNumericVersion(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service = installedService(
                 home,
                 scheduler,
@@ -702,7 +698,7 @@ final class RuntimeUpdateServiceTest {
     void aChannelWithoutAPublishedBuildIsUpToDateWhileAnUnavailableServiceIsNot(@TempDir final Path home)
             throws Exception {
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService service =
                 service(home, scheduler, new MutableSettings(false), transport, Duration.ofDays(1), Duration.ofDays(1));
         try {
@@ -730,7 +726,7 @@ final class RuntimeUpdateServiceTest {
     @Test
     void anInvalidDocumentIsUnavailableAndNeverUpToDate(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final List<String> diagnostics = new ArrayList<>();
         final RuntimeUpdateService service = installedService(
                 home,
@@ -766,7 +762,7 @@ final class RuntimeUpdateServiceTest {
         assertFalse(prefs.automaticPluginUpdatesEnabled());
 
         final DeferredTransport transport = new DeferredTransport();
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService betaService = installedService(
                 home,
                 scheduler,
@@ -846,7 +842,7 @@ final class RuntimeUpdateServiceTest {
                 + "]}}";
 
         final DeferredTransport transportFull = new DeferredTransport();
-        final RuntimeScheduler schedulerFull = scheduler();
+        final RuntimeScheduler schedulerFull = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService serviceFull = installedService(
                 home,
                 schedulerFull,
@@ -867,7 +863,7 @@ final class RuntimeUpdateServiceTest {
         }
 
         final DeferredTransport transportThin = new DeferredTransport();
-        final RuntimeScheduler schedulerThin = scheduler();
+        final RuntimeScheduler schedulerThin = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final RuntimeUpdateService serviceThin = installedService(
                 home,
                 schedulerThin,

@@ -67,7 +67,7 @@ final class DirectedBoundary {
                 previous = current;
                 current = edges.get(next)[1];
             }
-            chains.add(toArray(chain));
+            chains.add(RegionArrays.toIntArray(chain));
         }
         return chains;
     }
@@ -116,13 +116,5 @@ final class DirectedBoundary {
             }
         }
         return best;
-    }
-
-    private static int[] toArray(final List<Integer> values) {
-        final int[] out = new int[values.size()];
-        for (int i = 0; i < out.length; i++) {
-            out[i] = values.get(i);
-        }
-        return out;
     }
 }

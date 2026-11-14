@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.filechooser;
 
+import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.reflect.ReflectAccess;
 import java.io.File;
 import java.lang.reflect.Field;
@@ -112,40 +113,31 @@ public final class FileChooserHistoryHostAdapter {
     }
 
     private static Object readFieldDeep(final Object target, final String name) {
-        for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
-            try {
-                final Field field = type.getDeclaredField(name);
-                ReflectAccess.open(field);
-                return field.get(target);
-            } catch (NoSuchFieldException ignored) {
-                // keep walking the hierarchy
-            } catch (ReflectiveOperationException failure) {
-                throw new IllegalStateException(
-                        "cannot read field " + name + " on " + target.getClass().getName(), failure);
-            }
+        try {
+            final Field field = MethodHandleCache.declaredFieldUp(target.getClass(), name);
+            ReflectAccess.open(field);
+            return field.get(target);
+        } catch (NoSuchFieldException absent) {
+            throw new IllegalStateException(
+                    "field " + name + " not found on " + target.getClass().getName());
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException(
+                    "cannot read field " + name + " on " + target.getClass().getName(), failure);
         }
-        throw new IllegalStateException(
-                "field " + name + " not found on " + target.getClass().getName());
     }
 
     private static void writeFieldDeep(final Object target, final String name, final Object value) {
-        for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
-            try {
-                final Field field = type.getDeclaredField(name);
-                ReflectAccess.open(field);
-                field.set(target, value);
-                return;
-            } catch (NoSuchFieldException ignored) {
-                // keep walking the hierarchy
-            } catch (ReflectiveOperationException failure) {
-                throw new IllegalStateException(
-                        "cannot write field " + name + " on "
-                                + target.getClass().getName(),
-                        failure);
-            }
+        try {
+            final Field field = MethodHandleCache.declaredFieldUp(target.getClass(), name);
+            ReflectAccess.open(field);
+            field.set(target, value);
+        } catch (NoSuchFieldException absent) {
+            throw new IllegalStateException(
+                    "field " + name + " not found on " + target.getClass().getName());
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException(
+                    "cannot write field " + name + " on " + target.getClass().getName(), failure);
         }
-        throw new IllegalStateException(
-                "field " + name + " not found on " + target.getClass().getName());
     }
 
     private static Object invoke(
@@ -154,7 +146,7 @@ public final class FileChooserHistoryHostAdapter {
             return null;
         }
         try {
-            final Method method = target.getClass().getMethod(name, types);
+            final Method method = MethodHandleCache.method(target.getClass(), name, types);
             return method.invoke(target, argument);
         } catch (ReflectiveOperationException failure) {
             throw new IllegalStateException(
@@ -167,7 +159,7 @@ public final class FileChooserHistoryHostAdapter {
             return null;
         }
         try {
-            final Method method = target.getClass().getMethod(name);
+            final Method method = MethodHandleCache.method(target.getClass(), name);
             return method.invoke(target);
         } catch (ReflectiveOperationException failure) {
             throw new IllegalStateException(

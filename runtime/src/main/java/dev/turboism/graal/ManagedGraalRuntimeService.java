@@ -2,6 +2,7 @@ package dev.turboism.graal;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.core.io.Sha256;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.runtime.json.RuntimeJson;
@@ -542,7 +543,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             final AtomicReference<InputStream> activeBody,
             final AtomicBoolean timedOut)
             throws IOException, InterruptedException, InstallFailure {
-        final MessageDigest digest = sha256();
+        final MessageDigest digest = Sha256.digest();
         URI current = operation.manifest.uri;
         int redirects = 0;
         while (true) {
@@ -1125,14 +1126,6 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             if (remaining > 0) retained.write(buffer, 0, Math.min(read, remaining));
         }
         return retained.toString(StandardCharsets.UTF_8);
-    }
-
-    private static MessageDigest sha256() {
-        try {
-            return MessageDigest.getInstance("SHA-256");
-        } catch (java.security.NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 unavailable", impossible);
-        }
     }
 
     private static void closeQuietly(final InputStream input) {

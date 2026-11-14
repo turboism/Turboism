@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.core;
 
+import dev.turboism.internal.Requirements;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -37,7 +38,7 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
     @Override
     public void refusePublication(final String identity) {
         synchronized (monitor) {
-            refusedPublishIdentities.add(requireText(identity, "identity"));
+            refusedPublishIdentities.add(Requirements.text(identity, "identity"));
         }
     }
 
@@ -63,7 +64,7 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
      * Publishes an Editor-owned borrowed model after a verified acquisition adapter resolves it.
      */
     void publishBorrowedModel(final Object model, final String identity) {
-        transitionTo(Objects.requireNonNull(model, "model"), requireText(identity, "identity"));
+        transitionTo(Objects.requireNonNull(model, "model"), Requirements.text(identity, "identity"));
     }
 
     /**
@@ -122,8 +123,8 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
     public CoreModelAcquisition acquire(final CorePublicApiProvider provider) {
         Objects.requireNonNull(provider, "provider");
         final boolean providerAvailable = provider.available();
-        final String providerId = requireText(provider.providerId(), "provider.providerId()");
-        final String artifactProfile = requireText(provider.artifactProfile(), "provider.artifactProfile()");
+        final String providerId = Requirements.text(provider.providerId(), "provider.providerId()");
+        final String artifactProfile = Requirements.text(provider.artifactProfile(), "provider.artifactProfile()");
 
         synchronized (monitor) {
             if (closed) {
@@ -296,13 +297,5 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
         if (interrupted) {
             Thread.currentThread().interrupt();
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

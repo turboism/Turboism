@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 class SemanticOperationEventContractTest {
     @Test
     void publishesBeforeChangedOnlyOnAndAlwaysAfter() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler();
         try {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
             final SemanticOperationLifecycleCoordinator coordinator = new SemanticOperationLifecycleCoordinator();
@@ -63,7 +63,7 @@ class SemanticOperationEventContractTest {
 
     @Test
     void anObservedHostEditPublishesOnAndAfterWithoutABefore() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler();
         try {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
             final SemanticOperationLifecycleCoordinator coordinator = new SemanticOperationLifecycleCoordinator();
@@ -139,9 +139,5 @@ class SemanticOperationEventContractTest {
                     ? Optional.empty()
                     : observed.get(0).operation().label();
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler();
     }
 }

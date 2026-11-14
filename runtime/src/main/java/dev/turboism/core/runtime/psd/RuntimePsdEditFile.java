@@ -1,5 +1,6 @@
 package dev.turboism.core.runtime.psd;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.psd.PsdEditFile;
 import dev.turboism.sdk.cubism.psd.PsdFileOperationResult;
@@ -76,7 +77,7 @@ final class RuntimePsdEditFile implements PsdEditFile {
             final PsdSaveWatcher.Scheduler scheduler,
             final LongSupplier nanoClock,
             final String baselineDigest) {
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.binding = Objects.requireNonNull(binding, "binding");
         this.allocation = Objects.requireNonNull(allocation, "allocation");
         this.registry = Objects.requireNonNull(registry, "registry");
@@ -302,12 +303,6 @@ final class RuntimePsdEditFile implements PsdEditFile {
 
     private static PsdFileOperationResult result(final PsdFileOperationResult.Status status, final String diagnostic) {
         return new PsdFileOperationResult(status, diagnostic);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 
     /** Removes exactly this subscription; it never revokes the handle or stops other subscribers. */

@@ -1,5 +1,6 @@
 package dev.turboism.ui.appearance.control;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.appearance.PaletteEntryState;
 import dev.turboism.sdk.ui.appearance.UiColor;
@@ -59,8 +60,8 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
             long hostGeneration,
             long providerGeneration) {
         public Scope {
-            contentId = requireText(contentId, "contentId");
-            modelId = requireText(modelId, "modelId");
+            contentId = Requirements.text(contentId, "contentId");
+            modelId = Requirements.text(modelId, "modelId");
             requireGeneration(contentGeneration, "contentGeneration");
             requireGeneration(modelGeneration, "modelGeneration");
             requireGeneration(hostGeneration, "hostGeneration");
@@ -288,7 +289,7 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
 
     /** Removes every transient override owned by one successfully closed content object. */
     public void removeContent(final String contentId) {
-        final String id = requireText(contentId, "contentId");
+        final String id = Requirements.text(contentId, "contentId");
         boolean changed;
         synchronized (monitor) {
             if (closed) return;
@@ -305,11 +306,11 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
             final String objectId,
             final Property property,
             final Object value) {
-        final String owner = requireText(pluginId, "pluginId");
+        final String owner = Requirements.text(pluginId, "pluginId");
         requireGeneration(pluginGeneration, "pluginGeneration");
         Objects.requireNonNull(scope, "scope");
         Objects.requireNonNull(palette, "palette");
-        final String id = requireText(objectId, "objectId");
+        final String id = Requirements.text(objectId, "objectId");
         Objects.requireNonNull(property, "property");
         final Object checkedValue = checkValue(property, value);
         final Key key = new Key(owner, pluginGeneration, scope.contentId(), scope.modelId(), palette, id, property);
@@ -332,7 +333,7 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
     PaletteEntryState resolve(final Scope scope, final Palette palette, final String objectId) {
         Objects.requireNonNull(scope, "scope");
         Objects.requireNonNull(palette, "palette");
-        final String id = requireText(objectId, "objectId");
+        final String id = Requirements.text(objectId, "objectId");
         synchronized (monitor) {
             requireOpen();
             requireCurrent(scope);
@@ -348,7 +349,7 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
     Optional<PaletteEntryState> resolveCurrent(
             final long hostGeneration, final Palette palette, final String objectId) {
         Objects.requireNonNull(palette, "palette");
-        final String id = requireText(objectId, "objectId");
+        final String id = Requirements.text(objectId, "objectId");
         synchronized (monitor) {
             if (closed || currentScope == null || currentScope.hostGeneration() != hostGeneration) {
                 return Optional.empty();
@@ -359,7 +360,7 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
     }
 
     void removePlugin(final String pluginId, final long pluginGeneration) {
-        final String owner = requireText(pluginId, "pluginId");
+        final String owner = Requirements.text(pluginId, "pluginId");
         requireGeneration(pluginGeneration, "pluginGeneration");
         boolean changed;
         synchronized (monitor) {
@@ -484,12 +485,6 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
                 yield value;
             }
         };
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 
     private static void requireGeneration(final long value, final String name) {

@@ -1,5 +1,6 @@
 package dev.turboism.ui.panel;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import java.util.Objects;
@@ -49,7 +50,7 @@ public final class RuntimeEmbeddedPanelActivationCoordinator implements AutoClos
      * @throws IllegalStateException if this coordinator is closed or no target is bound
      */
     public void activate(final String pluginId, final EmbeddedPanelId panelId) {
-        final String owner = requireText(pluginId, "pluginId");
+        final String owner = Requirements.text(pluginId, "pluginId");
         final EmbeddedPanelId requested = Objects.requireNonNull(panelId, "panelId");
         final ActivationTarget target;
         synchronized (monitor) {
@@ -75,7 +76,7 @@ public final class RuntimeEmbeddedPanelActivationCoordinator implements AutoClos
      * @throws IllegalStateException if this coordinator is closed or no target is bound
      */
     public void activateFloating(final String pluginId, final EmbeddedPanelId panelId) {
-        final String owner = requireText(pluginId, "pluginId");
+        final String owner = Requirements.text(pluginId, "pluginId");
         final EmbeddedPanelId requested = Objects.requireNonNull(panelId, "panelId");
         final ActivationTarget target;
         synchronized (monitor) {
@@ -113,14 +114,6 @@ public final class RuntimeEmbeddedPanelActivationCoordinator implements AutoClos
         if (closed) {
             throw new IllegalStateException("embedded-panel activation coordinator is closed");
         }
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 
     private record Binding(long hostGeneration, ActivationTarget target) {}

@@ -11,16 +11,9 @@ final class TurboismAgentTextureAtlasAdmissionTest {
     @Test
     void admitsExact5303OnlyAfterFullRuntimeAdmission() {
         final TextureAtlasDataModelHookContributor contributor = new TextureAtlasDataModelHookContributor();
-        assertTrue(contributor.admitted(environment("5.3.03", true)));
-        assertFalse(contributor.admitted(environment("5.3.03", false)));
-        assertFalse(contributor.admitted(environment("5.4.00", true)));
+        assertTrue(contributor.admitted(HookEnvironments.admitted("5.3.03", true)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted("5.3.03", false)));
+        assertFalse(contributor.admitted(HookEnvironments.admitted("5.4.00", true)));
         assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
-    }
-
-    private static HookEnvironment environment(final String profile, final boolean admitted) {
-        return HookEnvironment.builder()
-                .profile(profile)
-                .fullRuntimeAdmission(admitted)
-                .build();
     }
 }

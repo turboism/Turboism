@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.lifecycle.ProjectContentIdentity;
 import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.ProjectWorkspaceAliases;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.VerifiedAccessException;
@@ -109,7 +110,7 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
 
     public VerifiedProjectWorkspaceHostOperations(final VerifiedMemberResolver resolver, final String hostVersion) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
-        this.hostVersion = requireText(hostVersion, "hostVersion");
+        this.hostVersion = Requirements.text(hostVersion, "hostVersion");
         final ClassLoader hostClassLoader = resolver.hostClassLoader();
         this.modelingDocumentType = hostClass(hostClassLoader, MODELING_DOCUMENT_CLASS);
         this.animationSceneDocumentType = hostClass(hostClassLoader, ANIMATION_SCENE_DOCUMENT_CLASS);
@@ -619,11 +620,5 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
                 SafeModeDiagnostic.Code.VALIDATION_FAILURE,
                 capabilityId,
                 "Project/workspace host data could not be converted safely.");
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

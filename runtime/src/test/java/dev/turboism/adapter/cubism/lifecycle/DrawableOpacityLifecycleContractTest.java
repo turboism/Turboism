@@ -67,7 +67,7 @@ class DrawableOpacityLifecycleContractTest {
 
     @Test
     void annotatedOpacityTransformsAndPublishesDetachedCompletion() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final DrawableLifecycleCoordinator coordinator = new DrawableLifecycleCoordinator();
         coordinator.attachEventBroker(broker);
@@ -89,7 +89,7 @@ class DrawableOpacityLifecycleContractTest {
 
     @Test
     void editorWriteAndEventsDoNotRequireAnEvaluatedCoreModel() throws Exception {
-        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler();
         try (DrawableLifecycleCoordinator coordinator = new DrawableLifecycleCoordinator()) {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
             coordinator.attachEventBroker(broker);
@@ -200,10 +200,6 @@ class DrawableOpacityLifecycleContractTest {
                     UnsupportedOperationException.class, () -> event.drawable().setOpacity(1.0F));
             completion.countDown();
         }
-    }
-
-    private static RuntimeScheduler scheduler() {
-        return RuntimeTestKit.scheduler();
     }
 
     private static DrawableLifecycleCoordinator.PluginHooks plugin(

@@ -1,17 +1,19 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpSchemas.*;
+
 import java.util.*;
 
 final class McpWarpValidationSchemas {
     static Map<String, Object> definition() {
         var input = new LinkedHashMap<String, Object>();
         for (String k : List.of("documentId", "modelId", "objectId", "snapshotId", "referenceFormGuid"))
-            input.put(k, string());
-        input.put("formGuids", Map.of("type", "array", "minItems", 1, "maxItems", 32, "items", string()));
+            input.put(k, id());
+        input.put("formGuids", Map.of("type", "array", "minItems", 1, "maxItems", 32, "items", id()));
         input.put("minimumAbsJacobianRatio", Map.of("type", "number", "minimum", 0, "maximum", 1));
         input.put("maxFindings", Map.of("type", "integer", "minimum", 1, "maximum", 200));
         var required = List.copyOf(input.keySet());
-        var coordinate = object(Map.of("parameterGuid", string(), "value", Map.of("type", "number")));
+        var coordinate = object(Map.of("parameterGuid", id(), "value", Map.of("type", "number")));
         var point = object(Map.of("x", Map.of("type", "number"), "y", Map.of("type", "number")));
         input.put(
                 "proposedEdits",
@@ -25,49 +27,49 @@ final class McpWarpValidationSchemas {
                         "items",
                         object(Map.of(
                                 "formGuid",
-                                string(),
+                                id(),
                                 "coordinates",
-                                array(coordinate, 16),
+                                boundedArray(coordinate, 16),
                                 "controlPoints",
-                                array(point, 16384)))));
+                                boundedArray(point, 16384)))));
         var in = new LinkedHashMap<>(object(input));
         in.put("required", required);
         var output = new LinkedHashMap<String, Object>();
         output.put("ok", Map.of("const", true));
         for (String k : List.of("objectId", "snapshotId", "sourceGuid", "coordinateSpace", "referenceFormGuid"))
-            output.put(k, string());
+            output.put(k, id());
         var state = new LinkedHashMap<String, Object>();
         for (String k : List.of("documentId", "modelId", "historyDocumentBinding", "historyManagerBinding"))
             state.put(k, Map.of("type", "string"));
-        state.put("historyGeneration", integer());
-        state.put("historyRevision", integer());
+        state.put("historyGeneration", nonNegativeInteger());
+        state.put("historyRevision", nonNegativeInteger());
         output.put("state", object(state));
-        output.put("checkedForms", array(string(), 32));
-        output.put("proposedEditCount", integer());
+        output.put("checkedForms", boundedArray(id(), 32));
+        output.put("proposedEditCount", nonNegativeInteger());
         output.put("minimumAbsJacobianRatio", Map.of("type", "number", "minimum", 0, "maximum", 1));
-        output.put("implementedChecks", array(string(), 32));
-        output.put("notImplementedChecks", array(string(), 32));
+        output.put("implementedChecks", boundedArray(id(), 32));
+        output.put("notImplementedChecks", boundedArray(id(), 32));
         output.put("verdict", Map.of("enum", List.of("NO_FINDINGS_FOR_IMPLEMENTED_CHECKS", "FINDINGS")));
         for (String k : List.of("analysisComplete", "comparisonComplete", "findingsTruncated"))
             output.put(k, Map.of("type", "boolean"));
         output.put(
                 "findings",
-                array(
+                boundedArray(
                         object(Map.of(
                                 "code",
-                                string(),
+                                id(),
                                 "severity",
                                 Map.of("const", "WARNING"),
                                 "scope",
                                 Map.of("enum", List.of("reference", "target")),
                                 "formGuid",
-                                string(),
+                                id(),
                                 "row",
-                                integer(),
+                                nonNegativeInteger(),
                                 "column",
-                                integer(),
+                                nonNegativeInteger(),
                                 "controlPointIndices",
-                                array(integer(), 4),
+                                boundedArray(nonNegativeInteger(), 4),
                                 "observedMinimumAbsJacobianRatio",
                                 Map.of("type", "number"),
                                 "threshold",
@@ -81,7 +83,7 @@ final class McpWarpValidationSchemas {
                 "referenceIrregularCells",
                 "skippedOrientationComparisons",
                 "findingCount",
-                "retainedFindingCount")) stats.put(k, integer());
+                "retainedFindingCount")) stats.put(k, nonNegativeInteger());
         output.put("statistics", object(stats));
         return Map.of(
                 "name",
@@ -101,32 +103,8 @@ final class McpWarpValidationSchemas {
                                         "ok",
                                         Map.of("const", false),
                                         "error",
-                                        object(Map.of("code", string(), "message", string())))))),
+                                        object(Map.of("code", id(), "message", id())))))),
                 "annotations",
                 Map.of("readOnlyHint", true, "destructiveHint", false, "idempotentHint", true, "openWorldHint", false));
-    }
-
-    private static Map<String, Object> object(Map<String, Object> fields) {
-        return Map.of(
-                "type",
-                "object",
-                "properties",
-                fields,
-                "required",
-                List.copyOf(fields.keySet()),
-                "additionalProperties",
-                false);
-    }
-
-    private static Map<String, Object> array(Map<String, Object> items, int max) {
-        return Map.of("type", "array", "items", items, "maxItems", max);
-    }
-
-    private static Map<String, Object> integer() {
-        return Map.of("type", "integer", "minimum", 0);
-    }
-
-    private static Map<String, Object> string() {
-        return Map.of("type", "string", "minLength", 1, "maxLength", 4096);
     }
 }

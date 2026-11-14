@@ -1,14 +1,16 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.core.io.Sha256;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HexFormat;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.jar.JarFile;
 
 /** Shared admission, capture and restoration primitives for the verified hook installers. */
@@ -131,8 +133,8 @@ final class VerifiedHookInstallerSupport {
     }
 
     /** Returns the lowercase SHA-256 digest of {@code bytes} as hexadecimal text. */
-    static String sha256Hex(final byte[] bytes) throws Exception {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    static String sha256Hex(final byte[] bytes) {
+        return Sha256.hex(bytes);
     }
 
     /**
@@ -140,11 +142,7 @@ final class VerifiedHookInstallerSupport {
      * callback where checked exceptions cannot be thrown.
      */
     static String sha256HexUnchecked(final byte[] bytes) {
-        try {
-            return sha256Hex(bytes);
-        } catch (Exception impossible) {
-            throw new AssertionError("SHA-256 is a standard JCA digest algorithm", impossible);
-        }
+        return Sha256.hex(bytes);
     }
 
     /**
@@ -183,16 +181,86 @@ final class VerifiedHookInstallerSupport {
             final Collection<String> targetClassNames,
             final ClassLoader hostClassLoader)
             throws Exception {
-        int count = 0;
+        final List<Class<?>> targets = new ArrayList<>();
         for (final Class<?> loaded : instrumentation.getAllLoadedClasses()) {
             if (loaded != null
                     && loaded.getClassLoader() == hostClassLoader
                     && targetClassNames.contains(loaded.getName())
                     && instrumentation.isModifiableClass(loaded)) {
-                instrumentation.retransformClasses(loaded);
-                count++;
+                targets.add(loaded);
             }
         }
-        return count;
+        if (!targets.isEmpty()) {
+            // One request lets the JVM reach a single safepoint for the whole target set.
+            instrumentation.retransformClasses(targets.toArray(Class<?>[]::new));
+        }
+        return targets.size();
+    }
+
+    /**
+     * Retransforms {@code targets} in one request, so installation reaches one safepoint.
+     *
+     * @return the number of retransformed classes
+     */
+    static int retransformAll(final Instrumentation instrumentation, final Collection<Class<?>> targets)
+            throws Exception {
+        if (targets.isEmpty()) {
+            return 0;
+        }
+        instrumentation.retransformClasses(targets.toArray(Class<?>[]::new));
+        return targets.size();
+    }
+
+    /**
+     * One enumeration of the loaded classes, so an installation pass scans the JVM once.
+     *
+     * <p>A snapshot is only valid while no installer between the scan and the use can load the
+     * classes it looks for. Installation registers its transformers first and then retransforms,
+     * so the snapshot taken after registration sees every owner the pass must reach.</p>
+     */
+    static final class LoadedClassIndex {
+
+        private final Class<?>[] classes;
+
+        private LoadedClassIndex(final Class<?>[] classes) {
+            this.classes = classes;
+        }
+
+        /** Captures the currently loaded classes. */
+        static LoadedClassIndex snapshot(final Instrumentation instrumentation) {
+            return new LoadedClassIndex(instrumentation.getAllLoadedClasses());
+        }
+
+        /**
+         * Returns the loaded classes that {@code filter} accepts under {@code loader}.
+         *
+         * @param loader the defining loader every accepted class must have
+         * @param filter additional acceptance test, such as an owner-name check
+         * @return the accepted classes in enumeration order
+         */
+        List<Class<?>> select(final ClassLoader loader, final Predicate<Class<?>> filter) {
+            final List<Class<?>> selected = new ArrayList<>();
+            for (final Class<?> loaded : classes) {
+                if (loaded != null && loaded.getClassLoader() == loader && filter.test(loaded)) {
+                    selected.add(loaded);
+                }
+            }
+            return selected;
+        }
+
+        /**
+         * Reports whether any loaded class has the exact binary name, whatever its loader.
+         *
+         * @param binaryName the binary class name to look for
+         * @return {@code true} when that name is already defined
+         */
+        boolean containsName(final String binaryName) {
+            for (final Class<?> loaded : classes) {
+                if (loaded != null && loaded.getName().equals(binaryName)) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 }

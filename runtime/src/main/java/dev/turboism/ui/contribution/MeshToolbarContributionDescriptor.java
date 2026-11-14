@@ -1,5 +1,6 @@
 package dev.turboism.ui.contribution;
 
+import dev.turboism.internal.Requirements;
 import dev.turboism.ui.host.EditorUiFamily;
 import java.util.Objects;
 
@@ -17,10 +18,10 @@ public record MeshToolbarContributionDescriptor(
         String disabledSelectedIconResourcePath,
         int order) {
     public MeshToolbarContributionDescriptor {
-        pluginId = text(pluginId, "pluginId");
+        pluginId = Requirements.text(pluginId, "pluginId");
         if (pluginGeneration < 0) throw new IllegalArgumentException("pluginGeneration must not be negative");
-        toolId = text(toolId, "toolId");
-        label = text(label, "label");
+        toolId = Requirements.text(toolId, "toolId");
+        label = Requirements.text(label, "label");
         iconResourcePath = resource(iconResourcePath, "iconResourcePath");
         activeIconResourcePath = resource(activeIconResourcePath, "activeIconResourcePath");
         rollOverIconResourcePath = resource(rollOverIconResourcePath, "rollOverIconResourcePath");
@@ -49,7 +50,7 @@ public record MeshToolbarContributionDescriptor(
     /** Builds the generation-qualified contribution identity for a tool. */
     public static String contributionId(final long generation, final String toolId) {
         if (generation < 0) throw new IllegalArgumentException("generation must not be negative");
-        return generation + ":tool:" + text(toolId, "toolId");
+        return generation + ":tool:" + Requirements.text(toolId, "toolId");
     }
 
     /** Wraps this descriptor as an editor UI contribution. */
@@ -76,16 +77,10 @@ public record MeshToolbarContributionDescriptor(
     }
 
     private static String resource(final String value, final String name) {
-        final String path = text(value, name);
+        final String path = Requirements.text(value, name);
         if (path.startsWith("/") || path.contains("..") || path.contains("\\")) {
             throw new IllegalArgumentException(name + " must be a normalized plugin resource path");
         }
         return path;
-    }
-
-    private static String text(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }

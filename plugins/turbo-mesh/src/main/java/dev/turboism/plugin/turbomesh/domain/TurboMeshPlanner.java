@@ -728,7 +728,7 @@ public final class TurboMeshPlanner {
             return false;
         }
         for (final List<Point2> ring : holeRings) {
-            if (pointInRing(ring, u, v) && distToRing(ring, u, v) > ON_EDGE_EPS) {
+            if (RingContainment.pointInRing(ring, u, v) && distToRing(ring, u, v) > ON_EDGE_EPS) {
                 return false;
             }
         }
@@ -761,23 +761,14 @@ public final class TurboMeshPlanner {
 
     /** Even-odd containment or boundary graze within {@link #ON_EDGE_EPS}. */
     private static boolean pointInOrOnRing(final List<Point2> ring, final double u, final double v) {
-        return pointInRing(ring, u, v) || distToRing(ring, u, v) <= ON_EDGE_EPS;
+        return RingContainment.pointInRing(ring, u, v) || distToRing(ring, u, v) <= ON_EDGE_EPS;
     }
 
-    /** Even-odd ray-cast containment (no boundary tolerance). */
-    private static boolean pointInRing(final List<Point2> ring, final double u, final double v) {
-        boolean inside = false;
-        for (int i = 0, j = ring.size() - 1; i < ring.size(); j = i++) {
-            final Point2 a = ring.get(i);
-            final Point2 b = ring.get(j);
-            if ((a.y() > v) != (b.y() > v) && u < (b.x() - a.x()) * (v - a.y()) / (b.y() - a.y()) + a.x()) {
-                inside = !inside;
-            }
-        }
-        return inside;
-    }
-
-    /** Whether {@code inner}'s mid-edge point lies inside {@code ring}. */
+    /**
+     * Whether {@code inner}'s mid-edge point lies inside or on {@code ring}. Unlike
+     * {@link RingContainment#ringHoldsRing}, a boundary graze within {@link #ON_EDGE_EPS} counts as
+     * containment, because sampled rings can touch after smoothing.
+     */
     private static boolean ringHoldsRing(final List<Point2> ring, final List<Point2> inner) {
         final Point2 a = inner.get(0);
         final Point2 b = inner.get(1 % inner.size());

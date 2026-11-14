@@ -10,6 +10,7 @@ import dev.turboism.core.runtime.work.PluginWorkSubmission;
 import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureDomain;
 import dev.turboism.failure.RuntimeFailureSink;
+import dev.turboism.internal.Requirements;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.task.FixedDelayTaskRequest;
@@ -67,7 +68,7 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
             final DisposableScope disposableScope,
             final CleanupEvidenceCollector cleanupEvidence,
             final RuntimeFailureSink failureSink) {
-        this.pluginId = requireText(pluginId, "pluginId");
+        this.pluginId = Requirements.text(pluginId, "pluginId");
         this.runtimeScheduler = Objects.requireNonNull(runtimeScheduler, "runtimeScheduler");
         this.disposableScope = Objects.requireNonNull(disposableScope, "disposableScope");
         this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
@@ -377,13 +378,5 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
             case RUNTIME_UNAVAILABLE -> TaskRejectionReason.RUNTIME_UNAVAILABLE;
             case FAILED, TIMED_OUT, SUCCEEDED, CANCELED -> TaskRejectionReason.RUNTIME_UNAVAILABLE;
         };
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }

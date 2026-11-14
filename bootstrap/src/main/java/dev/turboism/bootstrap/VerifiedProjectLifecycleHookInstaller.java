@@ -7,6 +7,8 @@ import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfile;
 import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleNativeMethodTransformer;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.Instrumentation;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -50,14 +52,14 @@ final class VerifiedProjectLifecycleHookInstaller implements AutoCloseable {
         NativeProjectLifecycleBridge.install(bridge);
         instrumentation.addTransformer(transformer, true);
         try {
-            int retransformed = 0;
+            final var loadedIndex = VerifiedHookInstallerSupport.LoadedClassIndex.snapshot(instrumentation);
             final Set<String> seenLoaded = new java.util.HashSet<>();
-            for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
+            final List<Class<?>> retransformTargets = new ArrayList<>();
+            for (Class<?> loaded : loadedIndex.select(hostClassLoader, type -> true)) {
                 if (targetClassNames.contains(loaded.getName())) {
                     seenLoaded.add(loaded.getName());
-                    if (loaded.getClassLoader() == hostClassLoader && instrumentation.isModifiableClass(loaded)) {
-                        instrumentation.retransformClasses(loaded);
-                        retransformed++;
+                    if (instrumentation.isModifiableClass(loaded)) {
+                        retransformTargets.add(loaded);
                     } else {
                         dev.turboism.runtime.log.RuntimeDiagnostics.warn(
                                 "lifecycle",
@@ -67,6 +69,7 @@ final class VerifiedProjectLifecycleHookInstaller implements AutoCloseable {
                     }
                 }
             }
+            final int retransformed = VerifiedHookInstallerSupport.retransformAll(instrumentation, retransformTargets);
             dev.turboism.runtime.log.RuntimeDiagnostics.info(
                     "lifecycle",
                     "Installed verified lifecycle hooks; retransformed=" + retransformed

@@ -6,8 +6,6 @@ import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.transaction.*;
-import dev.turboism.sdk.json.Json;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -87,7 +85,7 @@ final class McpMaskDomain {
             var objects = capture(initial, ids(args.get("objectIds"), MAX_OBJECTS, false), true);
             var expected = new State(initial.binding(), objects);
             verify(expected, true);
-            if (bytes(expected.json()) > 64 * 1024) throw new Budget();
+            if (McpDomainSupport.bytes(expected.json()) > 64 * 1024) throw new Budget();
             String id = UUID.randomUUID().toString();
             synchronized (snapshots) {
                 prune();
@@ -107,7 +105,7 @@ final class McpMaskDomain {
         boolean reserved = false;
         try {
             fields(args, "documentId", "modelId", "snapshotId", "operationId", "replacements");
-            id = text(args.get("operationId"), 128);
+            id = McpDomainSupport.text(args.get("operationId"), 128);
             key = new Key(McpRequestRegistry.currentSessionId(), id);
             String fingerprint = digest(args);
             synchronized (operations) {
@@ -123,7 +121,7 @@ final class McpMaskDomain {
             Snapshot issued;
             synchronized (snapshots) {
                 prune();
-                issued = snapshots.get(text(args.get("snapshotId"), 128));
+                issued = snapshots.get(McpDomainSupport.text(args.get("snapshotId"), 128));
             }
             if (issued == null || !issued.session.equals(key.session)) throw new NoSuchElementException();
             var before = issued.state;
@@ -135,7 +133,7 @@ final class McpMaskDomain {
             var batch = new ArrayList<ClipMaskReplacement>();
             for (Object raw : edits) {
                 var edit = fields(raw, "objectId", "maskIds", "inverted");
-                String objectId = text(edit.get("objectId"), 4096);
+                String objectId = McpDomainSupport.text(edit.get("objectId"), 4096);
                 var old = byId.get(objectId);
                 if (old == null) throw new IllegalArgumentException();
                 var maskIds = ids(edit.get("maskIds"), MAX_OBJECTS, false);
@@ -159,7 +157,8 @@ final class McpMaskDomain {
                             .toList());
             // Keep an existing dependency graph readable, but never introduce a new cycle.
             if (!before.objects.equals(after.objects)) rejectNewCycles(before.objects, after.objects);
-            if (bytes(args) > 128 * 1024 || bytes(after.json()) > 64 * 1024) throw new Budget();
+            if (McpDomainSupport.bytes(args) > 128 * 1024 || McpDomainSupport.bytes(after.json()) > 64 * 1024)
+                throw new Budget();
             verify(before, true);
             var transactions = cubism.authoringTransactions();
             synchronized (operations) {
@@ -220,7 +219,7 @@ final class McpMaskDomain {
 
     private Map<String, Object> result(Map<String, Object> args) {
         fields(args, "operationId");
-        String id = text(args.get("operationId"), 128);
+        String id = McpDomainSupport.text(args.get("operationId"), 128);
         synchronized (operations) {
             var retained = operations.get(new Key(McpRequestRegistry.currentSessionId(), id));
             return envelope(
@@ -244,13 +243,19 @@ final class McpMaskDomain {
         for (int i = 0; i < pending.size(); i++) {
             var id = pending.get(i);
             var mesh = current.model().drawables().find(new ArtMeshId(id));
-            var masks = mesh.maskIds().stream().map(v -> text(v.value(), 4096)).toList();
+            var masks = mesh.maskIds().stream()
+                    .map(v -> McpDomainSupport.text(v.value(), 4096))
+                    .toList();
             if (masks.size() > MAX_OBJECTS || new HashSet<>(masks).size() != masks.size()) throw new Budget();
             objects.add(new Mask(
                     id,
-                    text(mesh.guid(), 4096),
-                    mesh.parentPartId().map(v -> text(v.value(), 4096)).orElse(null),
-                    mesh.parentDeformerId().map(v -> text(v.value(), 4096)).orElse(null),
+                    McpDomainSupport.text(mesh.guid(), 4096),
+                    mesh.parentPartId()
+                            .map(v -> McpDomainSupport.text(v.value(), 4096))
+                            .orElse(null),
+                    mesh.parentDeformerId()
+                            .map(v -> McpDomainSupport.text(v.value(), 4096))
+                            .orElse(null),
                     masks,
                     mesh.invertedMask()));
             if (closure)
@@ -281,8 +286,10 @@ final class McpMaskDomain {
     }
 
     private static void requireScope(Map<String, Object> args, McpStoredAuthoringDomain.Context context) {
-        if (!text(args.get("documentId"), 4096).equals(context.binding().get("documentId"))
-                || !text(args.get("modelId"), 4096).equals(context.binding().get("modelId"))) throw new Stale();
+        if (!McpDomainSupport.text(args.get("documentId"), 4096)
+                        .equals(context.binding().get("documentId"))
+                || !McpDomainSupport.text(args.get("modelId"), 4096)
+                        .equals(context.binding().get("modelId"))) throw new Stale();
     }
 
     private void prune() {
@@ -328,14 +335,6 @@ final class McpMaskDomain {
         return result;
     }
 
-    private static String text(Object raw, int max) {
-        if (!(raw instanceof String s)
-                || s.isBlank()
-                || s.length() > max
-                || s.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException();
-        return s;
-    }
-
     private static List<?> list(Object raw, int max, boolean empty) {
         if (!(raw instanceof List<?> l) || l.size() > max || (!empty && l.isEmpty()))
             throw new IllegalArgumentException();
@@ -343,13 +342,11 @@ final class McpMaskDomain {
     }
 
     private static List<String> ids(Object raw, int max, boolean empty) {
-        var ids = list(raw, max, empty).stream().map(v -> text(v, 4096)).toList();
+        var ids = list(raw, max, empty).stream()
+                .map(v -> McpDomainSupport.text(v, 4096))
+                .toList();
         if (new HashSet<>(ids).size() != ids.size()) throw new IllegalArgumentException();
         return ids;
-    }
-
-    private static int bytes(Map<String, Object> v) {
-        return Json.stringify(v).getBytes(StandardCharsets.UTF_8).length;
     }
 
     private record Mask(

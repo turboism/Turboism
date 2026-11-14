@@ -156,24 +156,12 @@ public record PlacementSettings(
                 edgeStitchCells);
     }
 
-    /** Reads an int override from {@code System.getProperty}, clamped to the given range. */
     static int intProperty(final String name, final int fallback, final int min, final int max) {
-        try {
-            final int value = Integer.parseInt(System.getProperty(name, "").trim());
-            return Math.max(min, Math.min(max, value));
-        } catch (RuntimeException ignored) {
-            return fallback;
-        }
+        return PropertyOverrides.intProperty(name, fallback, min, max);
     }
 
-    /** Reads a double override from {@code System.getProperty}, clamped to the given range. */
     static double doubleProperty(final String name, final double fallback, final double min, final double max) {
-        try {
-            final double value = Double.parseDouble(System.getProperty(name, "").trim());
-            return Math.max(min, Math.min(max, value));
-        } catch (RuntimeException ignored) {
-            return fallback;
-        }
+        return PropertyOverrides.doubleProperty(name, fallback, min, max);
     }
 
     /** System-property overrides kept for bring-up; the settings dialog lands separately. */
