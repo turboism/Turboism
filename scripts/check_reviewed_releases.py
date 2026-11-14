@@ -347,7 +347,6 @@ r2_JAVA_ROOTS = (
     "graal-host/src/main",
     "packaging/java-installer/listener-src",
     "buildSrc/src/main",
-    "templates",
     "scripts/verification-sources/templates",
 )
 r2_JAVA_ROOT_GLOBS = ("plugins/*/src/main",)

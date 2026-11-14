@@ -18,7 +18,7 @@ private val admittedAsmCoordinate = "$admittedAsmGroup:asm:9.7.1"
 private fun Project.admissionBuildScripts() = fileTree(rootDir) {
     include("**/*.gradle", "**/*.gradle.kts", "**/libs.versions.toml")
     exclude(".git/**", "**/.gradle/**", "**/build/**", "**/dist/**", "**/release/**",
-        "templates/**", ".worktrees/**")
+        ".worktrees/**")
 }
 
 private fun verifyResolvedBytecodeDependencyGraph(project: Project) {

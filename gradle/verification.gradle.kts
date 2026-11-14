@@ -399,7 +399,7 @@ val checkReviewedReleases by tasks.registering(Exec::class) {
                 "core/compatibility-policy/src/main/**/*.java",
                 "core/event-processor/src/main/**/*.java",
                 "graal-host/src/main/**/*.java", "buildSrc/src/main/**/*.java",
-                "packaging/java-installer/listener-src/**/*.java", "templates/**/*.java",
+                "packaging/java-installer/listener-src/**/*.java",
                 "plugins/*/src/main/**/*.java", "plugins/mcp/src/main/resources/META-INF/turboism/mcp-sdk-coverage.json",
                 "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/*.json",
                 "testing/integration-tests/src/test/java/dev/turboism/tests/plugin/Windows*.java",
@@ -642,8 +642,6 @@ val checkPluginApiRanges by tasks.registering(Exec::class) {
     description = "Validate plugin SDK API ranges and synchronize README declarations."
     inputs.files("scripts/sync_plugin_api.py", "scripts/turboism_dev/versions.py", "gradle/common-java.gradle.kts")
     inputs.files(fileTree("plugins") { include("*/src/main/resources/META-INF/turboism/plugin.json", "*/README*.md") })
-    inputs.dir("templates/plugin-template/src/main/resources")
-    inputs.files(fileTree("templates/plugin-template") { include("README*.md") })
     commandLine("python3", "scripts/sync_plugin_api.py")
     VerificationStamps.apply(this)
 }
@@ -1036,18 +1034,6 @@ val checkHostProbeResultContract by tasks.registering(Exec::class) {
         "scripts.test.test_host_validation_probe_wrappers",
         "scripts.test.test_host_validation_probe_result_layout"
     )
-}
-
-val checkPluginTemplateSetup by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Runs offline unit tests for the plugin template setup scripts."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/test/test_plugin_template_setup.py",
-        fileTree("templates/plugin-template") { include("**/*") }
-    )
-    VerificationStamps.apply(this)
-    commandLine("python3", "scripts/test/test_plugin_template_setup.py")
 }
 
 /*
@@ -1479,25 +1465,22 @@ registerWorkspaceHostValidation("validateWorkspaceHost5302", "5302", "5.3.02")
 registerWorkspaceHostValidation("validateWorkspaceHost5203", "5203", "5.2.03")
 
 /*
- * External-consumer gate for templates/plugin-template: the template is copied to a
- * unique temporary directory and built exactly like a third-party consumer would —
+ * External-consumer gate: stages an inline minimal standalone plugin project to a
+ * unique temporary directory and builds it exactly like a third-party consumer would —
  * the SDK is the real :sdk:jar artifact dropped into libs/, and every declared
  * repository is cleared through an init script so nothing resolves from ~/.m2 or
  * the monorepo. The produced plugin JAR is bound to its tracked descriptor through
  * the production PluginMetaValidationCli / FirstPartyMetadataVerificationCli gate
- * tools (runtime-internal; they never enter the template compile classpath). The
+ * tools (runtime-internal; they never enter the consumer compile classpath). The
  * cleared repositories are what makes the gate fail closed on a drifted descriptor
  * or an SDK that only ~/.m2 could supply, so a stale local cache cannot mask drift.
  */
 tasks.register<Exec>("checkExternalPluginTemplate") {
     group = "verification"
-    description = "Builds templates/plugin-template as an external consumer and validates the plugin JAR through production contract tools."
+    description = "Builds a minimal external-consumer plugin fixture and validates the plugin JAR through production contract tools."
     dependsOn(":sdk:jar", ":event-processor:jar", ":runtime:classes")
     workingDir(rootDir)
-    inputs.files(
-        "scripts/test/check_external_plugin_template.py",
-        fileTree("templates/plugin-template") { include("**/*") }
-    )
+    inputs.files("scripts/test/check_external_plugin_template.py")
     inputs.file(provider {
         project(":sdk").tasks.named<Jar>("jar").get().archiveFile
     }).withPathSensitivity(org.gradle.api.tasks.PathSensitivity.NONE)

@@ -77,7 +77,7 @@ Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
 
 プラグインを作るだけなら Turboism 本体のクローンやビルドは不要で、**JDK 17 以上**があれば開発できます：
 
-1. [templates/plugin-template](../../templates/plugin-template/) を別プロジェクトとしてコピーし、`./scripts/setup.sh`（Windows は `.\scripts\setup.ps1`）を実行して `turboism-sdk-<version>.jar` と `turboism-event-processor-<version>.jar` を取得・検証します（手動で `libs/` に配置することも可能です）。
+1. [プラグインテンプレート](https://github.com/turboism/turboism-plugin-template) から新規リポジトリを作成し、`./scripts/setup.sh`（Windows は `.\scripts\setup.ps1`）を実行して `turboism-sdk-<version>.jar` と `turboism-event-processor-<version>.jar` を取得・検証します（手動で `libs/` に配置することも可能です）。
 2. `./gradlew build`（Windows は `gradlew.bat build`）でビルドします。
 
 このリポジトリ内で試す場合は、[デモプラグイン](../../plugins/demo/README.md)（[build.gradle.kts](../../plugins/demo/build.gradle.kts)、[plugin.json](../../plugins/demo/src/main/resources/META-INF/turboism/plugin.json)）を参照し、次のコマンドでビルドできます：
@@ -110,7 +110,7 @@ cd Turboism
 - [ユーザー・開発者向けドキュメント](https://docs.turboism.dev)
 - [アーキテクチャ](../architecture/ARCHITECTURE.md) · [ロードマップ](../ROADMAP.md)
 - [SDK API 契約](../../sdk/api-contracts/) · [現在の公開 SDK サーフェス](../../sdk/api-contracts/current.txt)
-- [プラグイン開発ガイド](../../sdk/plugin-author-guide.md) · [プラグインテンプレート](../../templates/plugin-template/) · [デモプラグイン](../../plugins/demo/README.md)
+- [プラグイン開発ガイド](../../sdk/plugin-author-guide.md) · [プラグインテンプレート](https://github.com/turboism/turboism-plugin-template) · [デモプラグイン](../../plugins/demo/README.md)
 - [リリース手順](../RELEASING.md) · [変更履歴](CHANGELOG.md)
 
 ## ライセンス

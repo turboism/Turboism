@@ -77,7 +77,7 @@ Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
 
 플러그인을 개발할 때는 Turboism 저장소를 클론하거나 빌드할 필요 없이 **JDK 17 이상**만 있으면 됩니다:
 
-1. [templates/plugin-template](../../templates/plugin-template/)을 독립 프로젝트로 복사한 뒤 `./scripts/setup.sh`(Windows는 `.\scripts\setup.ps1`)를 실행해 `turboism-sdk-<version>.jar`와 `turboism-event-processor-<version>.jar`를 내려받아 검증하거나, 직접 `libs/` 폴더에 넣으세요.
+1. [플러그인 템플릿](https://github.com/turboism/turboism-plugin-template)에서 프로젝트를 생성한 뒤 `./scripts/setup.sh`(Windows는 `.\scripts\setup.ps1`)를 실행해 `turboism-sdk-<version>.jar`와 `turboism-event-processor-<version>.jar`를 내려받아 검증하거나, 직접 `libs/` 폴더에 넣으세요.
 2. `./gradlew build`(Windows는 `gradlew.bat build`)로 빌드합니다.
 
 이 저장소 내부에서 테스트할 때는 [데모 플러그인](../../plugins/demo/README.md)([build.gradle.kts](../../plugins/demo/build.gradle.kts), [plugin.json](../../plugins/demo/src/main/resources/META-INF/turboism/plugin.json))을 참고해 다음 명령으로 빌드할 수 있습니다:
@@ -110,7 +110,7 @@ cd Turboism
 - [사용자 및 개발자 문서](https://docs.turboism.dev)
 - [아키텍처](../architecture/ARCHITECTURE.md) · [로드맵](../ROADMAP.md)
 - [SDK API 계약](../../sdk/api-contracts/) · [현재 공개 SDK 표면](../../sdk/api-contracts/current.txt)
-- [플러그인 개발 가이드](../../sdk/plugin-author-guide.md) · [플러그인 템플릿](../../templates/plugin-template/) · [데모 플러그인](../../plugins/demo/README.md)
+- [플러그인 개발 가이드](../../sdk/plugin-author-guide.md) · [플러그인 템플릿](https://github.com/turboism/turboism-plugin-template) · [데모 플러그인](../../plugins/demo/README.md)
 - [릴리스 절차](../RELEASING.md) · [변경 기록](CHANGELOG.md)
 
 ## 라이선스

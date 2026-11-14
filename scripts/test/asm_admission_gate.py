@@ -72,9 +72,7 @@ def strip_comments(text: str) -> str:
 
 def source_files(root: Path) -> list[Path]:
     result: list[Path] = []
-    # templates/ scaffolds standalone out-of-repo plugin builds and is not part
-    # of this repository's production dependency graphs.
-    ignored = {".git", ".gradle", "build", "dist", "release", "templates"}
+    ignored = {".git", ".gradle", "build", "dist", "release"}
     for base, dirs, files in os.walk(root):
         dirs[:] = [d for d in dirs if d not in ignored]
         for name in files:

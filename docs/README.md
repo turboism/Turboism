@@ -14,7 +14,7 @@ User and plugin developer guides publish at [docs.turboism.dev](https://docs.tur
 - [Plugin Author Guide](../sdk/plugin-author-guide.md)
 - [SDK Event Coverage](../sdk/event-coverage.md)
 - [SDK API Baselines](../sdk/api-contracts/)
-- [Standalone Plugin Template](../templates/plugin-template/README.md)
+- [Standalone Plugin Template](https://github.com/turboism/turboism-plugin-template)
 
 ## Architecture and Governance
 

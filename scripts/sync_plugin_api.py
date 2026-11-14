@@ -18,7 +18,7 @@ def main() -> int:
     parser.add_argument("--write", action="store_true", help="synchronize README ranges to plugin metadata")
     args = parser.parse_args()
     current = tuple(map(int, framework_version(ROOT).split(".")))
-    modules = sorted((ROOT / "plugins").iterdir()) + [ROOT / "templates/plugin-template"]
+    modules = sorted((ROOT / "plugins").iterdir())
     stale = []
     for module in modules:
         descriptor = module / "src/main/resources/META-INF/turboism/plugin.json"

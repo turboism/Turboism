@@ -77,7 +77,7 @@ Run `TurboismInstaller-<version>.exe` and follow the wizard (available in Englis
 
 You do not need to clone or build Turboism to write a plugin—only **JDK 17+** is required:
 
-1. Copy [templates/plugin-template](templates/plugin-template/) as a standalone project and run `./scripts/setup.sh` (or `.\scripts\setup.ps1` on Windows) to fetch and verify `turboism-sdk-<version>.jar` and `turboism-event-processor-<version>.jar`, or place them in `libs/` manually.
+1. Create a project from the [standalone plugin template](https://github.com/turboism/turboism-plugin-template) and run `./scripts/setup.sh` (or `.\scripts\setup.ps1` on Windows) to fetch and verify `turboism-sdk-<version>.jar` and `turboism-event-processor-<version>.jar`, or place them in `libs/` manually.
 2. Build with `./gradlew build` (`gradlew.bat build` on Windows).
 
 If you are working inside this repository, refer to the [demo plugin](plugins/demo/README.md) ([build.gradle.kts](plugins/demo/build.gradle.kts), [plugin.json](plugins/demo/src/main/resources/META-INF/turboism/plugin.json)) and build it with:
@@ -110,7 +110,7 @@ cd Turboism
 - [User and developer docs](https://docs.turboism.dev)
 - [Architecture](docs/architecture/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md)
 - [SDK API contracts](sdk/api-contracts/) · [Current public SDK surface](sdk/api-contracts/current.txt)
-- [Plugin Author Guide](sdk/plugin-author-guide.md) · [Plugin template](templates/plugin-template/) · [Demo plugin](plugins/demo/README.md)
+- [Plugin Author Guide](sdk/plugin-author-guide.md) · [Plugin template](https://github.com/turboism/turboism-plugin-template) · [Demo plugin](plugins/demo/README.md)
 - [Release process](docs/RELEASING.md) · [Changelog](docs/en/CHANGELOG.md)
 
 ## License
