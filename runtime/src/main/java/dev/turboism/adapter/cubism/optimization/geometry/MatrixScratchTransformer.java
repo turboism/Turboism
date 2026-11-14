@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.geometry;
 
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -16,15 +17,16 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
- * Experimental invocation-local matrix-product scratch space. No state or output
- * is shared between calls; original traversal, input getters and arithmetic order
- * remain intact. Requires separate exact artifact and native-math admission.
+ * Invocation-local matrix-product scratch space and cached local-to-parent bridge. No output
+ * matrix is shared across invocations; original traversal and arithmetic order remain intact.
  */
 public final class MatrixScratchTransformer implements ClassFileTransformer {
     /** Candidate opt-in property; absent means the original allocation path. */
     public static final String ENABLE_PROPERTY = "turboism.optimization.matrixScratch";
     /** Installer-owned AtomicBoolean; a user request alone never admits reuse. */
     public static final String ADMISSION_PROPERTY = "turboism.matrix-scratch.admission";
+    /** Property key for the bridge callback slot. */
+    public static final String CALLBACK_PROPERTY = MatrixScratchBridge.CALLBACK_PROPERTY;
     /** Exact transform class containing the attested parent traversal. */
     public static final String OWNER = "com/live2d/graphics3d/component/GTransform";
     /** Exact native method under investigation. */
@@ -34,7 +36,37 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
     /** Exact parent-chain method descriptor. */
     public static final String DESCRIPTOR = "()L" + MATRIX + ";";
 
+    private static final String PRODUCT_OWNER = "com/live2d/graphics3d/type/a";
+    private static final String PRODUCT_METHOD = "a";
     private static final String PRODUCT_DESCRIPTOR = "(L" + MATRIX + ";L" + MATRIX + ";)L" + MATRIX + ";";
+    private static final String THROWABLE = "java/lang/Throwable";
+    private static final String BOOLEAN = "java/lang/Boolean";
+    private static final String GET_BOOLEAN = "getBoolean";
+    private static final String GET_BOOLEAN_DESC = "(Ljava/lang/String;)Z";
+    private static final String SYSTEM = "java/lang/System";
+    private static final String GET_PROPERTIES = "getProperties";
+    private static final String GET_PROPERTIES_DESC = "()Ljava/util/Properties;";
+    private static final String PROPERTIES = "java/util/Properties";
+    private static final String PROPERTIES_GET = "get";
+    private static final String PROPERTIES_GET_DESC = "(Ljava/lang/Object;)Ljava/lang/Object;";
+    private static final String ATOMIC_BOOLEAN = "java/util/concurrent/atomic/AtomicBoolean";
+    private static final String ATOMIC_GET = "get";
+    private static final String ATOMIC_GET_DESC = "()Z";
+    private static final String FUNCTION = "java/util/function/Function";
+    private static final String FUNCTION_APPLY = "apply";
+    private static final String FUNCTION_APPLY_DESC = "(Ljava/lang/Object;)Ljava/lang/Object;";
+    private static final String INIT_METHOD = "<init>";
+    private static final String VOID_DESC = "()V";
+    private static final String MATRIX_ARRAY_METHOD = "a";
+    private static final String MATRIX_ARRAY_DESC = "()[F";
+    private static final String MATRIX_MUL_METHOD = "b";
+    private static final String MATRIX_MUL_DESC = "([F[F[FZ)V";
+    private static final String REJECT_ABSENT_MESSAGE = "native matrix method absent";
+    private static final String REJECT_PRODUCT_MESSAGE = "expected one native product site";
+    private static final String REJECT_SOURCE_MESSAGE = "matrix source mismatch";
+    private static final String REJECT_CHANGED_MESSAGE = "matrix parent method changed";
+    private static final int EXPECTED_PRODUCT_SITES = 1;
+    private static final int MIN_LOCALS = 1;
     private final ClassLoader loader;
     private final Path artifact;
     private final List<String> shape;
@@ -52,7 +84,7 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
         this.loader = Objects.requireNonNull(loader);
         this.artifact = Objects.requireNonNull(artifact).toAbsolutePath().normalize();
         shape = ReviewedMethodShape.read(reference, OWNER, METHOD, DESCRIPTOR);
-        if (shape == null) throw new IllegalArgumentException("native matrix method absent");
+        if (shape == null) throw new IllegalArgumentException(REJECT_ABSENT_MESSAGE);
         int[] inspection = {-1, 0};
         new ClassReader(reference)
                 .accept(
@@ -76,8 +108,8 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
                             }
                         },
                         ClassReader.SKIP_DEBUG);
-        if (inspection[0] < 1 || inspection[1] != 1)
-            throw new IllegalArgumentException("expected one native product site");
+        if (inspection[0] < MIN_LOCALS || inspection[1] != EXPECTED_PRODUCT_SITES)
+            throw new IllegalArgumentException(REJECT_PRODUCT_MESSAGE);
         localBase = inspection[0];
     }
     /** Returns the latest rejection, or null. */
@@ -105,20 +137,15 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
                             Path.of(domain.getCodeSource().getLocation().toURI())
                                     .toAbsolutePath()
                                     .normalize())) {
-                failure = "matrix source mismatch";
+                failure = REJECT_SOURCE_MESSAGE;
                 return null;
             }
             if (!shape.equals(ReviewedMethodShape.read(bytes, OWNER, METHOD, DESCRIPTOR))) {
-                failure = "matrix parent method changed";
+                failure = REJECT_CHANGED_MESSAGE;
                 return null;
             }
             ClassReader reader = new ClassReader(bytes);
-            ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-            };
+            ClassWriter writer = HostClassWriters.computeFrames(reader, loader);
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override
@@ -143,7 +170,7 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
     }
 
     private static final class ScratchVisitor extends MethodVisitor {
-        private final int enabled, first, second, left, right, destination;
+        private final int enabled, first, second, left, right, destination, bridge;
         private final java.util.List<Handler> nativeHandlers = new java.util.ArrayList<>();
 
         ScratchVisitor(MethodVisitor original, int base) {
@@ -154,6 +181,7 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
             left = base + 3;
             right = base + 4;
             destination = base + 5;
+            bridge = base + 6;
         }
 
         @Override
@@ -163,37 +191,43 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
             super.visitVarInsn(Opcodes.ASTORE, first);
             super.visitInsn(Opcodes.ACONST_NULL);
             super.visitVarInsn(Opcodes.ASTORE, second);
+            super.visitInsn(Opcodes.ACONST_NULL);
+            super.visitVarInsn(Opcodes.ASTORE, bridge);
             super.visitInsn(Opcodes.ICONST_0);
             super.visitVarInsn(Opcodes.ISTORE, enabled);
             Label start = new Label(),
+                    popTwoAndEnd = new Label(),
+                    popOneAndEnd = new Label(),
                     end = new Label(),
                     failed = new Label(),
                     done = new Label(),
-                    discard = new Label();
-            super.visitTryCatchBlock(start, end, failed, "java/lang/Throwable");
+                    popAndFallback = new Label(),
+                    nativeTraversal = new Label();
+            super.visitTryCatchBlock(start, end, failed, THROWABLE);
             super.visitLabel(start);
             super.visitLdcInsn(ENABLE_PROPERTY);
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/Boolean", "getBoolean", "(Ljava/lang/String;)Z", false);
+            super.visitMethodInsn(Opcodes.INVOKESTATIC, BOOLEAN, GET_BOOLEAN, GET_BOOLEAN_DESC, false);
             super.visitJumpInsn(Opcodes.IFEQ, end);
-            this.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            this.visitLdcInsn(ADMISSION_PROPERTY);
-            this.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
-            this.visitInsn(Opcodes.DUP);
-            this.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/concurrent/atomic/AtomicBoolean");
-            super.visitJumpInsn(Opcodes.IFEQ, discard);
-            super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/concurrent/atomic/AtomicBoolean");
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL, "java/util/concurrent/atomic/AtomicBoolean", "get", "()Z", false);
+            super.visitMethodInsn(Opcodes.INVOKESTATIC, SYSTEM, GET_PROPERTIES, GET_PROPERTIES_DESC, false);
+            super.visitInsn(Opcodes.DUP);
+            super.visitLdcInsn(ADMISSION_PROPERTY);
+            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, PROPERTIES, PROPERTIES_GET, PROPERTIES_GET_DESC, false);
+            super.visitInsn(Opcodes.DUP);
+            super.visitTypeInsn(Opcodes.INSTANCEOF, ATOMIC_BOOLEAN);
+            super.visitJumpInsn(Opcodes.IFEQ, popTwoAndEnd);
+            super.visitTypeInsn(Opcodes.CHECKCAST, ATOMIC_BOOLEAN);
+            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, ATOMIC_BOOLEAN, ATOMIC_GET, ATOMIC_GET_DESC, false);
+            super.visitInsn(Opcodes.DUP);
             super.visitVarInsn(Opcodes.ISTORE, enabled);
+            super.visitJumpInsn(Opcodes.IFEQ, popOneAndEnd);
+            // Lookup callback slot inside the same Properties handle when admitted.
+            super.visitLdcInsn(CALLBACK_PROPERTY);
+            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, PROPERTIES, PROPERTIES_GET, PROPERTIES_GET_DESC, false);
+            super.visitVarInsn(Opcodes.ASTORE, bridge);
             super.visitJumpInsn(Opcodes.GOTO, end);
-            super.visitLabel(discard);
+            super.visitLabel(popTwoAndEnd);
+            super.visitInsn(Opcodes.POP);
+            super.visitLabel(popOneAndEnd);
             super.visitInsn(Opcodes.POP);
             super.visitLabel(end);
             super.visitJumpInsn(Opcodes.GOTO, done);
@@ -201,7 +235,25 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
             super.visitInsn(Opcodes.POP);
             super.visitInsn(Opcodes.ICONST_0);
             super.visitVarInsn(Opcodes.ISTORE, enabled);
+            super.visitInsn(Opcodes.ACONST_NULL);
+            super.visitVarInsn(Opcodes.ASTORE, bridge);
             super.visitLabel(done);
+
+            super.visitVarInsn(Opcodes.ALOAD, bridge);
+            super.visitTypeInsn(Opcodes.INSTANCEOF, FUNCTION);
+            super.visitJumpInsn(Opcodes.IFEQ, nativeTraversal);
+            super.visitVarInsn(Opcodes.ALOAD, bridge);
+            super.visitTypeInsn(Opcodes.CHECKCAST, FUNCTION);
+            super.visitVarInsn(Opcodes.ALOAD, 0);
+            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, FUNCTION, FUNCTION_APPLY, FUNCTION_APPLY_DESC, true);
+            super.visitInsn(Opcodes.DUP);
+            super.visitTypeInsn(Opcodes.INSTANCEOF, MATRIX);
+            super.visitJumpInsn(Opcodes.IFEQ, popAndFallback);
+            super.visitTypeInsn(Opcodes.CHECKCAST, MATRIX);
+            super.visitInsn(Opcodes.ARETURN);
+            super.visitLabel(popAndFallback);
+            super.visitInsn(Opcodes.POP);
+            super.visitLabel(nativeTraversal);
         }
 
         @Override
@@ -213,7 +265,7 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
         public void visitMaxs(int stack, int locals) {
             for (Handler handler : nativeHandlers)
                 super.visitTryCatchBlock(handler.start(), handler.end(), handler.target(), handler.type());
-            super.visitMaxs(stack, Math.max(locals, destination + 1));
+            super.visitMaxs(stack, Math.max(locals, bridge + 1));
         }
 
         @Override
@@ -246,7 +298,7 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
             // false chooses the same four-term multiplication as the allocating helper.
             // Destination is invocation-local and never aliases either original operand.
             super.visitInsn(Opcodes.ICONST_0);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, MATRIX, "b", "([F[F[FZ)V", false);
+            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, MATRIX, MATRIX_MUL_METHOD, MATRIX_MUL_DESC, false);
             super.visitVarInsn(Opcodes.ALOAD, destination);
             super.visitJumpInsn(Opcodes.GOTO, done);
             super.visitLabel(nativeProduct);
@@ -262,7 +314,7 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
             super.visitJumpInsn(Opcodes.IFNONNULL, ready);
             super.visitTypeInsn(Opcodes.NEW, MATRIX);
             super.visitInsn(Opcodes.DUP);
-            super.visitMethodInsn(Opcodes.INVOKESPECIAL, MATRIX, "<init>", "()V", false);
+            super.visitMethodInsn(Opcodes.INVOKESPECIAL, MATRIX, INIT_METHOD, VOID_DESC, false);
             super.visitVarInsn(Opcodes.ASTORE, slot);
             super.visitLabel(ready);
             super.visitVarInsn(Opcodes.ALOAD, slot);
@@ -271,7 +323,7 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
 
         private void array(int slot) {
             super.visitVarInsn(Opcodes.ALOAD, slot);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, MATRIX, "a", "()[F", false);
+            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, MATRIX, MATRIX_ARRAY_METHOD, MATRIX_ARRAY_DESC, false);
         }
     }
 
@@ -280,8 +332,8 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
     private static boolean product(int opcode, String owner, String name, String descriptor, boolean itf) {
         return opcode == Opcodes.INVOKESTATIC
                 && !itf
-                && owner.equals("com/live2d/graphics3d/type/a")
-                && name.equals("a")
+                && owner.equals(PRODUCT_OWNER)
+                && name.equals(PRODUCT_METHOD)
                 && descriptor.equals(PRODUCT_DESCRIPTOR);
     }
 

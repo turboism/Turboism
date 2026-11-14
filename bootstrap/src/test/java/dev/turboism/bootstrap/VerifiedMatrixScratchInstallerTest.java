@@ -3,6 +3,7 @@ package dev.turboism.bootstrap;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchBridge;
 import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import java.lang.instrument.ClassFileTransformer;
@@ -14,6 +15,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -23,12 +25,22 @@ import org.junit.jupiter.api.Test;
 /** Offline protocol tests using actual reference classes, never a running Editor. */
 class VerifiedMatrixScratchInstallerTest {
     private static final String GATE = MatrixScratchTransformer.ADMISSION_PROPERTY;
+    private static final String CALLBACK = MatrixScratchTransformer.CALLBACK_PROPERTY;
+    private static final String STATS = MatrixScratchBridge.STATS_PROPERTY;
     private final Object previousGate = System.getProperties().get(GATE);
+    private final Object previousCallback = System.getProperties().get(CALLBACK);
+    private final Object previousStats = System.getProperties().get(STATS);
 
     @AfterEach
     void restore() {
-        if (previousGate == null) System.getProperties().remove(GATE);
-        else System.getProperties().put(GATE, previousGate);
+        restoreProperty(GATE, previousGate);
+        restoreProperty(CALLBACK, previousCallback);
+        restoreProperty(STATS, previousStats);
+    }
+
+    private static void restoreProperty(String key, Object previousValue) {
+        if (previousValue == null) System.getProperties().remove(key);
+        else System.getProperties().put(key, previousValue);
     }
 
     @Test
@@ -78,20 +90,31 @@ class VerifiedMatrixScratchInstallerTest {
     @Test
     void armsOnlyAfterTransformAndRestoresBeforeRemovingOwnedGate() throws Exception {
         System.getProperties().remove(GATE);
+        System.getProperties().remove(CALLBACK);
+        System.getProperties().remove(STATS);
         try (Fixture f = fixture();
                 var installer = new VerifiedMatrixScratchInstaller(f.context())) {
             assertFalse(System.getProperties().containsKey(GATE));
+            assertFalse(System.getProperties().containsKey(CALLBACK));
+            assertFalse(System.getProperties().containsKey(STATS));
             installer.install();
             AtomicBoolean gate = (AtomicBoolean) System.getProperties().get(GATE);
             assertTrue(gate.get());
+            assertTrue(System.getProperties().containsKey(CALLBACK));
+            assertTrue(System.getProperties().containsKey(STATS));
+            assertNotNull(f.transformedTransformBytes);
+            assertFalse(Arrays.equals(f.originalTransformBytes, f.transformedTransformBytes));
             assertEquals(2, f.active.size(), "one pure dependency observer and one matrix transform");
             assertTrue(f.installObservedDisarmed);
             installer.close();
             assertFalse(gate.get(), "old bytecode cannot start reuse during restoration");
             assertTrue(f.restoreObservedDisarmed);
+            assertArrayEquals(f.originalTransformBytes, f.lastRetransformedTransformBytes);
             assertTrue(installer.restored());
             assertTrue(f.active.isEmpty());
             assertFalse(System.getProperties().containsKey(GATE));
+            assertFalse(System.getProperties().containsKey(CALLBACK));
+            assertFalse(System.getProperties().containsKey(STATS));
             installer.close();
             assertThrows(IllegalStateException.class, installer::install);
         }
@@ -100,12 +123,16 @@ class VerifiedMatrixScratchInstallerTest {
     @Test
     void transformationFailureDisarmsAndRollsBack() throws Exception {
         System.getProperties().remove(GATE);
+        System.getProperties().remove(CALLBACK);
+        System.getProperties().remove(STATS);
         try (Fixture f = fixture();
                 var installer = new VerifiedMatrixScratchInstaller(f.context())) {
             f.failTransform = true;
             assertThrows(Exception.class, installer::install);
             assertTrue(f.active.isEmpty());
             assertFalse(System.getProperties().containsKey(GATE));
+            assertFalse(System.getProperties().containsKey(CALLBACK));
+            assertFalse(System.getProperties().containsKey(STATS));
             assertTrue(installer.restored());
         }
     }
@@ -114,10 +141,14 @@ class VerifiedMatrixScratchInstallerTest {
     void occupiedAdmissionIsPreservedAndNeverReused() throws Exception {
         AtomicBoolean foreign = new AtomicBoolean(true);
         System.getProperties().put(GATE, foreign);
+        System.getProperties().remove(CALLBACK);
+        System.getProperties().remove(STATS);
         try (Fixture f = fixture();
                 var installer = new VerifiedMatrixScratchInstaller(f.context())) {
             assertThrows(IllegalStateException.class, installer::install);
             assertSame(foreign, System.getProperties().get(GATE));
+            assertFalse(System.getProperties().containsKey(CALLBACK));
+            assertFalse(System.getProperties().containsKey(STATS));
             assertTrue(foreign.get());
             assertTrue(f.active.isEmpty());
         }
@@ -126,29 +157,39 @@ class VerifiedMatrixScratchInstallerTest {
     @Test
     void changedNativeMathCannotBeAdmitted() throws Exception {
         System.getProperties().remove(GATE);
+        System.getProperties().remove(CALLBACK);
+        System.getProperties().remove(STATS);
         try (Fixture f = fixture()) {
             f.changeMatrixBody = true;
             assertThrows(IllegalStateException.class, () -> new VerifiedMatrixScratchInstaller(f.context()));
             assertTrue(f.active.isEmpty());
             assertFalse(System.getProperties().containsKey(GATE));
+            assertFalse(System.getProperties().containsKey(CALLBACK));
+            assertFalse(System.getProperties().containsKey(STATS));
         }
     }
 
     @Test
     void dependencyChangeBetweenPreparationAndInstallIsRejected() throws Exception {
         System.getProperties().remove(GATE);
+        System.getProperties().remove(CALLBACK);
+        System.getProperties().remove(STATS);
         try (Fixture f = fixture();
                 var installer = new VerifiedMatrixScratchInstaller(f.context())) {
             f.changeMatrixBody = true;
             assertThrows(IllegalStateException.class, installer::install);
             assertTrue(f.active.isEmpty());
             assertFalse(System.getProperties().containsKey(GATE));
+            assertFalse(System.getProperties().containsKey(CALLBACK));
+            assertFalse(System.getProperties().containsKey(STATS));
         }
     }
 
     @Test
     void laterObservedMathChangeRetiresReuseWithoutRewritingTheDependency() throws Exception {
         System.getProperties().remove(GATE);
+        System.getProperties().remove(CALLBACK);
+        System.getProperties().remove(STATS);
         try (Fixture f = fixture();
                 var installer = new VerifiedMatrixScratchInstaller(f.context())) {
             installer.install();
@@ -166,6 +207,8 @@ class VerifiedMatrixScratchInstallerTest {
     @Test
     void failedRemovalCannotBeReportedAsRestoredAndCanBeRetried() throws Exception {
         System.getProperties().remove(GATE);
+        System.getProperties().remove(CALLBACK);
+        System.getProperties().remove(STATS);
         try (Fixture f = fixture();
                 var installer = new VerifiedMatrixScratchInstaller(f.context())) {
             installer.install();
@@ -175,6 +218,8 @@ class VerifiedMatrixScratchInstallerTest {
             assertFalse(gate.get());
             assertFalse(installer.restored());
             assertFalse(System.getProperties().containsKey(GATE));
+            assertFalse(System.getProperties().containsKey(CALLBACK));
+            assertFalse(System.getProperties().containsKey(STATS));
             f.failRemoval = false;
             installer.close();
             assertTrue(installer.restored());
@@ -195,6 +240,7 @@ class VerifiedMatrixScratchInstallerTest {
         final List<ClassFileTransformer> active = new ArrayList<>();
         boolean failTransform, failRemoval, changeMatrixBody;
         boolean installObservedDisarmed, restoreObservedDisarmed, observedInstallation;
+        byte[] originalTransformBytes, transformedTransformBytes, lastRetransformedTransformBytes;
 
         Fixture(Path artifact) throws Exception {
             this.artifact = artifact;
@@ -241,6 +287,11 @@ class VerifiedMatrixScratchInstallerTest {
                                         && type.getName().equals(MatrixScratchTransformer.MATRIX.replace('/', '.'))) {
                                     bytes = changeMatrix(bytes);
                                 }
+                                boolean isTarget =
+                                        type.getName().equals(MatrixScratchTransformer.OWNER.replace('/', '.'));
+                                if (isTarget && originalTransformBytes == null) {
+                                    originalTransformBytes = bytes;
+                                }
                                 for (ClassFileTransformer transformer : List.copyOf(active)) {
                                     byte[] next = transformer.transform(
                                             type.getModule(),
@@ -250,6 +301,12 @@ class VerifiedMatrixScratchInstallerTest {
                                             type.getProtectionDomain(),
                                             bytes);
                                     if (next != null) bytes = next;
+                                }
+                                if (isTarget) {
+                                    if (installing) {
+                                        transformedTransformBytes = bytes;
+                                    }
+                                    lastRetransformedTransformBytes = bytes;
                                 }
                             }
                             yield null;

@@ -2,6 +2,7 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchBridge;
 import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import java.lang.instrument.ClassFileTransformer;
@@ -44,9 +45,25 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 1;
 
+    private static final String PRODUCT_CLASS = "com.live2d.graphics3d.type.a";
+    private static final String PRODUCT_METHOD = "a";
+    private static final String GET_LOCAL_TO_PARENT = "getLocalToParentMatrix";
+    private static final String GET_ENTITY = "getEntity";
+    private static final String GET_PARENT_ENTITY = "getParentEntity";
+    private static final String GET_TRANSFORM = "getTransform";
+    private static final String GET_POSITION = "getPosition";
+    private static final String GET_EULER_ANGLES = "getEulerAngles";
+    private static final String GET_SCALE = "getScale";
+    private static final String VECTOR_GET_X = "getX";
+    private static final String VECTOR_GET_Y = "getY";
+    private static final String VECTOR_GET_Z = "getZ";
+    private static final String MATRIX_INIT = "<init>";
+    private static final String MATRIX_INIT_DESC = "()V";
+
     private final InstallContext context;
     private final Class<?> target;
     private final MatrixScratchTransformer transformer;
+    private final MatrixScratchBridge bridge;
     private final AtomicBoolean admission = new AtomicBoolean();
     private final AtomicReference<Throwable> dependencyRejection = new AtomicReference<>();
     private final Map<Class<?>, List<Body>> dependencies = new LinkedHashMap<>();
@@ -74,7 +91,7 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
         }
         target = Class.forName(MatrixScratchTransformer.OWNER.replace('/', '.'), false, loader);
         Class<?> matrix = Class.forName(MatrixScratchTransformer.MATRIX.replace('/', '.'), false, loader);
-        Class<?> product = Class.forName("com.live2d.graphics3d.type.a", false, loader);
+        Class<?> product = Class.forName(PRODUCT_CLASS, false, loader);
         Map<Class<?>, byte[]> captured = new LinkedHashMap<>();
         try (JarFile jar = new JarFile(source.toFile())) {
             require(
@@ -85,18 +102,27 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
                     MatrixScratchTransformer.METHOD,
                     MatrixScratchTransformer.DESCRIPTOR,
                     captured);
-            require(jar, source, loader, target.getMethod("getLocalToParentMatrix"), captured);
-            Method entity = target.getMethod("getEntity");
+            require(jar, source, loader, target.getMethod(GET_LOCAL_TO_PARENT), captured);
+            Method position = target.getMethod(GET_POSITION);
+            require(jar, source, loader, position, captured);
+            require(jar, source, loader, target.getMethod(GET_EULER_ANGLES), captured);
+            require(jar, source, loader, target.getMethod(GET_SCALE), captured);
+            Class<?> vector = position.getReturnType();
+            require(jar, source, loader, vector.getMethod(VECTOR_GET_X), captured);
+            require(jar, source, loader, vector.getMethod(VECTOR_GET_Y), captured);
+            require(jar, source, loader, vector.getMethod(VECTOR_GET_Z), captured);
+            Method entity = target.getMethod(GET_ENTITY);
             require(jar, source, loader, entity, captured);
-            require(jar, source, loader, entity.getReturnType().getMethod("getParentEntity"), captured);
-            require(jar, source, loader, entity.getReturnType().getMethod("getTransform"), captured);
+            require(jar, source, loader, entity.getReturnType().getMethod(GET_PARENT_ENTITY), captured);
+            require(jar, source, loader, entity.getReturnType().getMethod(GET_TRANSFORM), captured);
             // The original product uses scalar accessors; the candidate uses backing arrays.
             // Verify all matrix method bodies, not just the new multiplication descriptor.
-            require(jar, source, loader, matrix, "<init>", "()V", captured);
+            require(jar, source, loader, matrix, MATRIX_INIT, MATRIX_INIT_DESC, captured);
             for (Method method : matrix.getDeclaredMethods()) require(jar, source, loader, method, captured);
-            require(jar, source, loader, product.getMethod("a", matrix, matrix), captured);
+            require(jar, source, loader, product.getMethod(PRODUCT_METHOD, matrix, matrix), captured);
             transformer = new MatrixScratchTransformer(
                     loader, source, VerifiedHookInstallerSupport.readReferenceBytes(jar, target));
+            bridge = new MatrixScratchBridge(loader, admission);
             originalTargetSha = VerifiedHookInstallerSupport.sha256Hex(captured.get(target));
         }
         dependencyGuard = new ClassFileTransformer() {
@@ -161,9 +187,9 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
 
                     @Override
                     public void withdrawn(final VerifiedInstall<ReviewedHostContract.Bound<String>> closing) {
-                        // The gate is disarmed before the restoration proof, so bytecode that still runs
-                        // the woven traversal cannot start a reuse while its dependencies are restored.
+                        // Disarm both the admission gate and bridge before restoring original bytecode.
                         admission.set(false);
+                        bridge.deactivate();
                     }
                 });
     }
@@ -240,10 +266,14 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     private void publish() throws Exception {
         properties = System.getProperties();
         synchronized (properties) {
-            if (properties.containsKey(MatrixScratchTransformer.ADMISSION_PROPERTY)) {
+            if (properties.containsKey(MatrixScratchTransformer.ADMISSION_PROPERTY)
+                    || properties.containsKey(MatrixScratchBridge.CALLBACK_PROPERTY)
+                    || properties.containsKey(MatrixScratchBridge.STATS_PROPERTY)) {
                 throw new IllegalStateException("matrix admission slot is occupied");
             }
             properties.put(MatrixScratchTransformer.ADMISSION_PROPERTY, admission);
+            properties.put(MatrixScratchBridge.CALLBACK_PROPERTY, bridge.callback());
+            properties.put(MatrixScratchBridge.STATS_PROPERTY, bridge.statistics());
         }
         for (final var dependency : dependencies.entrySet()) {
             verifyBodies(dependency.getKey(), capture(dependency.getKey()), dependency.getValue());
@@ -253,11 +283,18 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     /** Disarms reuse and withdraws the admission slot, if this installation still owns it. */
     private void withdraw() {
         admission.set(false);
+        bridge.close();
         final Properties installed = properties;
         if (installed == null) return;
         synchronized (installed) {
             if (installed.get(MatrixScratchTransformer.ADMISSION_PROPERTY) == admission) {
                 installed.remove(MatrixScratchTransformer.ADMISSION_PROPERTY);
+            }
+            if (installed.get(MatrixScratchBridge.CALLBACK_PROPERTY) == bridge.callback()) {
+                installed.remove(MatrixScratchBridge.CALLBACK_PROPERTY);
+            }
+            if (installed.get(MatrixScratchBridge.STATS_PROPERTY) == bridge.statistics()) {
+                installed.remove(MatrixScratchBridge.STATS_PROPERTY);
             }
         }
     }
@@ -266,19 +303,21 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     private void arm() {
         final Properties installed = properties;
         synchronized (installed) {
-            // Identity comparison is intentional: the properties table stores this exact
-            // AtomicBoolean instance (see publish above), so reference inequality means another
-            // installation claimed the admission slot.
+            // Identity comparison checks that this installer still owns every published slot.
             @SuppressWarnings("ReferenceEquality")
             boolean ownershipChanged = System.getProperties() != installed
-                    || installed.get(MatrixScratchTransformer.ADMISSION_PROPERTY) != admission;
+                    || installed.get(MatrixScratchTransformer.ADMISSION_PROPERTY) != admission
+                    || installed.get(MatrixScratchBridge.CALLBACK_PROPERTY) != bridge.callback()
+                    || installed.get(MatrixScratchBridge.STATS_PROPERTY) != bridge.statistics();
             if (ownershipChanged) {
                 throw new IllegalStateException("matrix admission ownership changed");
             }
             admission.set(true);
+            bridge.activate();
             // A guard invocation racing arming cannot revive a rejected dependency.
             if (dependencyRejection.get() != null) {
                 admission.set(false);
+                bridge.deactivate();
                 throw new IllegalStateException(
                         "matrix dependencies changed during installation", dependencyRejection.get());
             }

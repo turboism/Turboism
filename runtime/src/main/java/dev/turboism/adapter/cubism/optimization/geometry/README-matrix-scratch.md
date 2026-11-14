@@ -11,51 +11,64 @@ whole-Editor performance acceptance. Do not reuse the uniform cache's speedup.
 ```
 
 The bootstrap installs it only after full runtime admission, a reviewed exact
-Editor digest, JVM 17+ and hook-policy approval. The known profiles are Cubism
-5.2.00–5.3.04; their mathematical dependencies are verified against
+Editor digest, JVM 17+ and hook-policy approval. Known contracts cover Cubism
+5.0.00–5.3.04; mathematical dependencies are verified against
 each version's own original archive. Unknown binaries and safe mode remain native.
 The policy identifier is `cubism.render.matrix-scratch`.
 
-`VerifiedMatrixScratchInstaller` checks the actual loaded parent traversal,
-entity/parent accessors, matrix methods and allocating product helper. It rechecks
-them immediately before installation. An installer-owned AtomicBoolean in
-`turboism.matrix-scratch.admission` is false during installation and is armed only
-after the target was rewritten successfully. An absent, wrong-typed or false gate
-keeps the original path even with the request enabled. Do not set the admission
-slot manually.
+`VerifiedMatrixScratchInstaller` checks the loaded parent traversal,
+entity/parent accessors, transform vectors (`position`, `eulerAngles`, `scale`),
+matrix methods and allocating product helper. It rechecks them before installation.
+An installer-owned `AtomicBoolean` in `turboism.matrix-scratch.admission` remains
+false during installation and arms only after target rewriting succeeds. The installer
+publishes a `MatrixScratchBridge` callback in `turboism.matrix-scratch.callback` and
+statistics supplier in `turboism.matrix-scratch.stats` only while armed. Do not set
+any internal matrix-scratch property manually.
 
 A non-mutating dependency observer retires the gate on an observed incompatible
-retransformation. Later matching observations do not revive it. Arbitrary
-unmanaged agents rewriting code after our observer are not a supported admission
-mechanism. Closing disarms first, removes only owned slots/transformers and
-verifies restoration of the target's original full class digest. Failed removal
-or restoration is reported as a failure, not successful cleanup.
+retransformation. Later matching observations do not revive it. Closing disarms
+first, deactivates the bridge, removes only owned slots/transformers and verifies
+restoration of the target's original full class digest. Failed removal or
+restoration is reported as a failure, not successful cleanup.
 
 ## Computation and ownership
 
-Only `GTransform.getLocalToWorldMatrix()`'s allocating parent-product call is
-conditional. Each invocation still reads each real parent and local transform in
-the native order. No transform, topology or world-matrix result is cached across
-calls or frames. At most two lazily-created product destinations alternate inside
-one invocation. The root-only return alias is unchanged; product results from
-separate invocations are not shared. Input matrices are never the destination.
-The original four-term native general multiplication remains in the same order.
+Only `GTransform.getLocalToWorldMatrix()` is conditional. When both
+`turboism.optimization.matrixScratch` and `turboism.matrix-scratch.admission` are true:
 
-The implementation is not a skip-render optimization. Selection, geometry writes,
-Undo/Redo, draw calls, GL uploads, error queries and uniform writes are not removed.
-Do not enable by default until three interaction workloads, pixel comparisons and
-resource-accounted OFF/ON results support doing so.
+1. If `MatrixScratchBridge` is published in `turboism.matrix-scratch.callback`, it walks
+   the live parent chain using `getEntity().getParentEntity()` and
+   `getEntity().getTransform()`.
+2. Each node reads `internalStaticMatrixLocalToParent` first. Non-null overrides read
+   its backing `float[16]` directly; `parent == null` returns the static matrix alias.
+3. Otherwise `MatrixScratchBridge` checks a thread-confined `WeakReference`-keyed
+   identity table against all nine exact `Float.floatToRawIntBits` values of
+   `position`, `eulerAngles` and `scale`.
+4. Cache misses compute `localToParent` in exact host Euler order directly into the
+   cached `float[16]` snapshot without calling `getLocalToParentMatrix()` or allocating
+   intermediate `GMatrix44` objects. Cache hits reuse the cached `float[16]` directly.
+5. Chain multiplication alternates two thread-local `float[16]` scratch arrays using
+   the exact four-term native float order and allocates at most one returned `GMatrix44`.
+6. If the callback is absent or returns `null`, execution falls back to the two-destination
+   in-place `GMatrix44.b` scratch loop, or to the native loop when disarmed.
+
+Never return a shared mutable world `GMatrix44` to callers (except the native root
+`internalStaticMatrixLocalToParent` alias). This optimization never skips selection,
+geometry writes, Undo/Redo, draw calls, GL uploads, error queries or uniform writes.
+Do not enable by default until whole-Editor interaction benchmarks support promotion.
 
 ## Verification
 
-With `TURBOISM_UNIFORM_HOST_JAR` set explicitly to a reviewed local application JAR:
+With `turboism.test.cubismRefDir` set to your local Cubism reference artifact directory (covering
+all 20 reviewed releases `5.0.00`–`5.3.04`) or `TURBOISM_UNIFORM_HOST_JAR` set
+explicitly to a reviewed local application JAR:
 
 ```bash
 ./gradlew --no-watch-fs \
   :runtime:test --tests 'dev.turboism.adapter.cubism.optimization.geometry.MatrixScratch*' \
-  :bootstrap:test --tests 'dev.turboism.bootstrap.VerifiedMatrixScratchInstallerTest' \
-  --rerun-tasks
-./gradlew --no-watch-fs devCheck
+  -Dturboism.test.cubismRefDir=/path/to/cubism-host-artifacts
+./gradlew --no-watch-fs \
+  :bootstrap:test :checkCompatibilityMatrix :checkReviewedReleases :bootstrap:checkBootstrapJarLicenses
 ```
 
 The artifact tests instantiate only pure native math classes, compare 2,048 sets
