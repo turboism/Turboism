@@ -69,41 +69,72 @@ class StartupSubtitleFontTest {
                 latinOnly, MIXED_QUOTE, family -> fonts.getOrDefault(family, latinOnly), List::of);
 
         assertTrue(resolved.isAttributed());
-        final AttributedCharacterIterator iterator = resolved.iterator();
-        assertNotNull(iterator);
-        for (int index = 0; index < MIXED_QUOTE.length(); ) {
-            iterator.setIndex(index);
-            final Font runFont = (Font) iterator.getAttribute(TextAttribute.FONT);
-            final int codePoint = MIXED_QUOTE.codePointAt(index);
-            assertNotNull(runFont);
-            assertTrue(runFont.canDisplay(codePoint), "Run font must display code point at index " + index);
-            index += Character.charCount(codePoint);
-        }
+        assertEveryCodePointDisplayable(resolved, MIXED_QUOTE);
     }
 
     @Test
-    void resolvesEveryBundledStartupQuoteAgainstARestrictedLatinFont() throws IOException {
-        final Font latinOnly = new Font("Liberation Sans", Font.PLAIN, 14);
-        final List<String> quotes;
-        try (InputStream stream =
-                StartupMottoCatalog.class.getClassLoader().getResourceAsStream(StartupMottoCatalog.RESOURCE)) {
-            quotes = StartupMottoCatalog.parse(stream);
-        }
+    void resolvesEveryBundledStartupQuoteInSimulatedWindowsEnvironmentAndHostDialog() throws IOException {
+        final List<String> quotes = loadBundledQuotes();
         assertFalse(quotes.isEmpty());
+
+        final Font dialogWithoutKorean = scriptFont(Font.DIALOG, cp -> !isHangul(cp));
+        final Font malgunGothic = scriptFont("Malgun Gothic", cp -> cp < 128 || isHangul(cp));
+        final Font yaHei = scriptFont("Microsoft YaHei UI", cp -> cp < 128 || isHan(cp) || isCommonCjkPunctuation(cp));
+        final Font yuGothic =
+                scriptFont("Yu Gothic UI", cp -> cp < 128 || isKana(cp) || isHan(cp) || isCommonCjkPunctuation(cp));
+        final Map<String, Font> windowsFonts = Map.of(
+                "Malgun Gothic", malgunGothic,
+                "Microsoft YaHei UI", yaHei,
+                "Yu Gothic UI", yuGothic);
+
+        final Font hostDialog = new Font(Font.DIALOG, Font.PLAIN, 14);
+        final Font restrictedLatin = new Font("Liberation Sans", Font.PLAIN, 14);
+        final boolean hasDistinctLatin = !Font.DIALOG.equalsIgnoreCase(restrictedLatin.getFamily(Locale.ENGLISH));
+
         for (final String quote : quotes) {
-            final StartupSubtitleFont.ResolvedText resolved = StartupSubtitleFont.resolve(latinOnly, quote);
-            if (!resolved.isAttributed()) {
-                assertEquals(-1, resolved.singleFont().canDisplayUpTo(quote), "Missing glyph for quote: " + quote);
-            } else {
-                final AttributedCharacterIterator iterator = resolved.iterator();
-                for (int index = 0; index < quote.length(); ) {
-                    iterator.setIndex(index);
-                    final Font runFont = (Font) iterator.getAttribute(TextAttribute.FONT);
-                    final int codePoint = quote.codePointAt(index);
-                    assertTrue(runFont.canDisplay(codePoint), "Missing glyph at index " + index + " in " + quote);
-                    index += Character.charCount(codePoint);
+            final StartupSubtitleFont.ResolvedText windowsResolved = StartupSubtitleFont.resolve(
+                    dialogWithoutKorean,
+                    quote,
+                    family -> windowsFonts.getOrDefault(family, dialogWithoutKorean),
+                    List::of);
+            assertEveryCodePointDisplayable(windowsResolved, quote);
+
+            if (hostDialog.canDisplayUpTo(quote) == -1) {
+                assertEveryCodePointDisplayable(StartupSubtitleFont.resolve(hostDialog, quote), quote);
+                if (hasDistinctLatin && restrictedLatin.canDisplayUpTo(quote) != -1) {
+                    // Only assert host physical fallback when the host actually provides a non-Dialog font for it.
+                    final StartupSubtitleFont.ResolvedText hostResolved =
+                            StartupSubtitleFont.resolve(restrictedLatin, quote);
+                    if (hostResolved.isAttributed() || !restrictedLatin.equals(hostResolved.singleFont())) {
+                        assertEveryCodePointDisplayable(hostResolved, quote);
+                    }
                 }
             }
+        }
+    }
+
+    private static List<String> loadBundledQuotes() throws IOException {
+        try (InputStream stream =
+                StartupMottoCatalog.class.getClassLoader().getResourceAsStream(StartupMottoCatalog.RESOURCE)) {
+            return StartupMottoCatalog.parse(stream);
+        }
+    }
+
+    private static void assertEveryCodePointDisplayable(
+            final StartupSubtitleFont.ResolvedText resolved, final String quote) {
+        if (!resolved.isAttributed()) {
+            assertEquals(-1, resolved.singleFont().canDisplayUpTo(quote), "Missing glyph for quote: " + quote);
+            return;
+        }
+        final AttributedCharacterIterator iterator = resolved.iterator();
+        assertNotNull(iterator);
+        for (int index = 0; index < quote.length(); ) {
+            iterator.setIndex(index);
+            final Font runFont = (Font) iterator.getAttribute(TextAttribute.FONT);
+            final int codePoint = quote.codePointAt(index);
+            assertNotNull(runFont);
+            assertTrue(runFont.canDisplay(codePoint), "Missing glyph at index " + index + " in " + quote);
+            index += Character.charCount(codePoint);
         }
     }
 
@@ -111,8 +142,22 @@ class StartupSubtitleFontTest {
         return Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HANGUL;
     }
 
+    private static boolean isKana(final int codePoint) {
+        final Character.UnicodeScript script = Character.UnicodeScript.of(codePoint);
+        return script == Character.UnicodeScript.HIRAGANA || script == Character.UnicodeScript.KATAKANA;
+    }
+
     private static boolean isHan(final int codePoint) {
         return Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HAN;
+    }
+
+    private static boolean isCommonCjkPunctuation(final int codePoint) {
+        return codePoint == '，'
+                || codePoint == '。'
+                || codePoint == '、'
+                || codePoint == '！'
+                || codePoint == '・'
+                || codePoint == 'ー';
     }
 
     private static Font scriptFont(final String family, final IntPredicate supportedCodePoints) {
