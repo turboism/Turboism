@@ -1226,6 +1226,77 @@ class SwingPanelViewRendererTest {
         });
     }
 
+    @Test
+    void spaceBetweenLeftRowExpandsUnpinnedTextBlockToAvailableWidth() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.flatCard(
+                            "cube",
+                            "board.open",
+                            PanelView.spaceBetween(
+                                    PanelView.leftRow(
+                                            PanelView.centered(PanelView.text("thumb"), 110, 96),
+                                            PanelView.padded(
+                                                    PanelView.column(
+                                                            PanelView.text("cube.cmo3", false, 1.15f),
+                                                            PanelView.text("2025-01-22 17:01", true, 1.15f)),
+                                                    0,
+                                                    16,
+                                                    0,
+                                                    0)),
+                                    PanelView.button("delete", "Delete", "board.delete"))),
+                    (action, event) -> {});
+            final JPanel card = assertInstanceOf(JPanel.class, rendered);
+            final JLabel timestamp = findLabel(card, "2025-01-22 17:01");
+            final int naturalWidth = timestamp.getPreferredSize().width;
+            final int naturalHeight = timestamp.getPreferredSize().height;
+            card.setSize(600, 120);
+            layoutDeep(card);
+            assertTrue(
+                    timestamp.getWidth() > naturalWidth,
+                    "timestamp label must expand into the available row width instead of squeezing to preferred width: "
+                            + timestamp.getWidth() + " vs " + naturalWidth);
+            assertEquals(
+                    naturalHeight,
+                    timestamp.getHeight(),
+                    "timestamp must remain single-line without wrapping or clipping");
+        });
+    }
+
+    private static JLabel findLabel(final Component component, final String text) {
+        if (component instanceof JLabel label
+                && label.getText() != null
+                && label.getText().contains(text)) {
+            return label;
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                final JLabel match = findLabelOrNull(child, text);
+                if (match != null) {
+                    return match;
+                }
+            }
+        }
+        throw new AssertionError("label not found: " + text);
+    }
+
+    private static JLabel findLabelOrNull(final Component component, final String text) {
+        if (component instanceof JLabel label
+                && label.getText() != null
+                && label.getText().contains(text)) {
+            return label;
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                final JLabel match = findLabelOrNull(child, text);
+                if (match != null) {
+                    return match;
+                }
+            }
+        }
+        return null;
+    }
+
     private static EmbeddedPanelContributionDescriptor boardDescriptor() {
         return new EmbeddedPanelContributionDescriptor(
                 "board-plugin", "board", "Recent", "viewport", 20, PanelView.text("Recent"), false);

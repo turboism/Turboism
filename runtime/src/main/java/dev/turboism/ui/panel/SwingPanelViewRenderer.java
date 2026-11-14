@@ -149,7 +149,7 @@ public final class SwingPanelViewRenderer {
         } else if (previous instanceof PanelView.SpaceBetween
                 && view instanceof PanelView.SpaceBetween next
                 && current instanceof JPanel panel) {
-            updateBorderChild(panel, BorderLayout.WEST, next.left(), action, locale);
+            updateBorderChild(panel, BorderLayout.CENTER, next.left(), action, locale);
             updateBorderChild(panel, BorderLayout.EAST, next.right(), action, locale);
             retained = true;
         } else if (previous instanceof PanelView.IconButton old
@@ -264,28 +264,36 @@ public final class SwingPanelViewRenderer {
             final String html = text.centered()
                     ? "<html><div style='text-align:center'>" + escaped + "</div></html>"
                     : "<html>" + escaped + "</html>";
-            final JLabel label = new ThemedLabel(html, text.grayed() ? LabelRole.MUTED : LabelRole.NORMAL);
+            final JLabel label = new ThemedLabel("", text.grayed() ? LabelRole.MUTED : LabelRole.NORMAL);
+            label.putClientProperty(javax.swing.JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
             if (text.fontScale() != 1.0f) {
                 final java.awt.Font font = label.getFont();
                 if (font != null) {
                     label.setFont(font.deriveFont(font.getSize2D() * text.fontScale()));
                 }
             }
+            label.setText(html);
             return label;
         }
         if (view instanceof PanelView.LeftRow leftRow) {
             final JPanel panel = new JPanel(new BorderLayout());
             panel.setOpaque(false);
             panel.add(renderNode(leftRow.left(), action, false, locale, iconResolver), BorderLayout.WEST);
+            final JComponent rightContent = renderNode(leftRow.right(), action, false, locale, iconResolver);
             final JPanel right = new JPanel(new GridBagLayout());
             right.setOpaque(false);
             final GridBagConstraints constraints = new GridBagConstraints();
             constraints.gridx = 0;
             constraints.gridy = 0;
             constraints.anchor = GridBagConstraints.WEST;
+            // Stretch unpinned content across the remaining row width so short titles do not
+            // squeeze sibling labels down to a rounded HTML preferred width and wrap/clip them.
+            constraints.fill = rightContent.getMaximumSize().width == Integer.MAX_VALUE
+                    ? GridBagConstraints.HORIZONTAL
+                    : GridBagConstraints.NONE;
             constraints.weightx = 1.0;
             constraints.weighty = 1.0;
-            right.add(renderNode(leftRow.right(), action, false, locale, iconResolver), constraints);
+            right.add(rightContent, constraints);
             panel.add(right, BorderLayout.CENTER);
             panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, panel.getPreferredSize().height));
             return panel;
@@ -293,7 +301,7 @@ public final class SwingPanelViewRenderer {
         if (view instanceof PanelView.SpaceBetween between) {
             final JPanel panel = new JPanel(new BorderLayout());
             panel.setOpaque(false);
-            panel.add(renderNode(between.left(), action, false, locale, iconResolver), BorderLayout.WEST);
+            panel.add(renderNode(between.left(), action, false, locale, iconResolver), BorderLayout.CENTER);
             panel.add(renderNode(between.right(), action, false, locale, iconResolver), BorderLayout.EAST);
             panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, panel.getPreferredSize().height));
             return panel;
@@ -328,7 +336,9 @@ public final class SwingPanelViewRenderer {
                 constraints.weighty = 1.0;
             }
             panel.add(content, constraints);
-            panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+            if (centered.preferredWidth() <= 0) {
+                panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+            }
             return panel;
         }
         if (view instanceof PanelView.Link link) {

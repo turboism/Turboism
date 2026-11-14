@@ -997,6 +997,10 @@
         "dev.turboism.permissions"
       ],
       [
+        "dev.turboism.screenshot",
+        "dev.turboism.runtime"
+      ],
+      [
         "dev.turboism.script",
         "dev.turboism.core"
       ],

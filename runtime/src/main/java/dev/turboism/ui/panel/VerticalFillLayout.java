@@ -27,14 +27,15 @@ final class VerticalFillLayout implements LayoutManager2 {
 
     @Override
     public Dimension preferredLayoutSize(final Container parent) {
-        int width = parent.getWidth();
+        final int knownWidth = parent.getWidth();
+        int width = knownWidth;
         int height = 0;
         for (Component child : parent.getComponents()) {
-            // A child whose width is already known (previous layout pass)
+            // A child whose container width is already known (previous layout pass)
             // must report its height at that width, not at the unwrapped
             // preferred width.
-            if (width > 0) {
-                sizeHtmlView(child, width);
+            if (knownWidth > 0) {
+                sizeHtmlView(child, knownWidth);
             }
             Dimension preferred = child.getPreferredSize();
             width = Math.max(width, preferred.width);

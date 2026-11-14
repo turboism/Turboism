@@ -179,6 +179,68 @@ final class RuntimeScreenshotCaptureServiceTest {
         assertEquals(fallback, service.capture(request).toCompletableFuture().join());
     }
 
+    @Test
+    void nativeRenderRunsOnEdtAndPreservesTransparentBackground() throws Exception {
+        final boolean[] onEdt = {false};
+        final int[] argb = {0x00000000, 0xFF336699, 0x00000000, 0x80AABBCC};
+        final dev.turboism.sdk.cubism.model.CubismRenderedPixels transparentPixels =
+                new dev.turboism.sdk.cubism.model.CubismRenderedPixels(2, 2, argb);
+        final dev.turboism.sdk.cubism.model.CubismModel model =
+                (dev.turboism.sdk.cubism.model.CubismModel) java.lang.reflect.Proxy.newProxyInstance(
+                        RuntimeScreenshotCaptureServiceTest.class.getClassLoader(),
+                        new Class<?>[] {dev.turboism.sdk.cubism.model.CubismModel.class},
+                        (proxy, method, args) -> {
+                            if ("renderPixels".equals(method.getName())) {
+                                onEdt[0] = javax.swing.SwingUtilities.isEventDispatchThread();
+                                return transparentPixels;
+                            }
+                            return dev.turboism.test.Stubs.defaultValue(method.getReturnType());
+                        });
+        final RuntimeScreenshotCaptureService service = new RuntimeScreenshotCaptureService(
+                ScreenshotCaptureAdapter.connected(
+                        ignored -> CompletableFuture.failedStage(new IllegalStateException("must not run"))),
+                PermissionChecker.allowAll(),
+                () -> () -> model,
+                () -> java.util.Optional.of(new RecentFileId("one")));
+
+        final ScreenshotCaptureResult result = service.capture(
+                        new ScreenshotCaptureRequest(new RecentFileId("one"), 150, 150))
+                .toCompletableFuture()
+                .join();
+
+        assertTrue(onEdt[0], "native renderPixels must run on the Swing EDT");
+        final var decoded = javax.imageio.ImageIO.read(
+                new java.io.ByteArrayInputStream(result.image().png()));
+        assertEquals(0x00000000, decoded.getRGB(0, 0));
+        assertEquals(0xFF336699, decoded.getRGB(1, 0));
+    }
+
+    @Test
+    void rejectsMismatchedActiveFileWithoutCallingNativeRenderOrFallback() {
+        final int[] calls = {0};
+        final RuntimeScreenshotCaptureService service = new RuntimeScreenshotCaptureService(
+                ScreenshotCaptureAdapter.connected(ignored -> {
+                    calls[0]++;
+                    return CompletableFuture.failedStage(new IllegalStateException("must not run"));
+                }),
+                PermissionChecker.allowAll(),
+                () -> {
+                    calls[0]++;
+                    return modelAccessReturning(pixels(4, 4));
+                },
+                () -> java.util.Optional.of(new RecentFileId("other")));
+
+        final var failure = assertThrows(
+                java.util.concurrent.CompletionException.class,
+                () -> service.capture(new ScreenshotCaptureRequest(new RecentFileId("one"), 150, 150))
+                        .toCompletableFuture()
+                        .join());
+        assertTrue(
+                failure.getCause()
+                        instanceof dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureTargetUnavailableException);
+        assertEquals(0, calls[0]);
+    }
+
     /**
      * Builds a model access whose render returns the given raster; a zero-sized raster models a
      * host that cannot render, which must fall through instead of failing the capture.
