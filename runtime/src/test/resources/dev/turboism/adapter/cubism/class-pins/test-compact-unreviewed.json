@@ -1,0 +1,10 @@
+{
+  "default": [
+    "com/example/Shared"
+  ],
+  "overrides": {
+    "9.9.99": [
+      "com/example/Special"
+    ]
+  }
+}

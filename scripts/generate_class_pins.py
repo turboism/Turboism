@@ -3,10 +3,16 @@
 
 The hook target tables consumed by ``ClassPinTable`` live as JSON resources under
 ``runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/``. Each
-file maps a Cubism Editor version to the internal names of the host classes the
-hook rewrites or reads. The whole-artifact identity in ``ReviewedHostArtifacts``
-plus each hook's method-shape gate admit the bytes, so no per-class digest is
-recorded here.
+file names, per reviewed Cubism Editor version, the internal names of the host
+classes the hook rewrites or reads. The whole-artifact identity in
+``ReviewedHostArtifacts`` plus each hook's method-shape gate admit the bytes, so
+no per-class digest is recorded here.
+
+Tables use the compact shape: one ``default`` class list plus ``overrides`` for
+the versions that deviate. A reviewed version absent from ``overrides`` inherits
+``default``, so a table whose classes never changed carries a single block.
+``turboism_dev.class_pins`` owns the read, expand and fold rules for both the
+compact and the legacy flat shape.
 
 This tool removes the manual step of locating host classes when a new reviewed
 host version arrives: point it at the host JAR and it rewrites the version block
@@ -16,10 +22,9 @@ the JAR entry checked is ``<key>.class``.
 Modes:
 
 - ``update --jar HOST.jar --version X.Y.Z`` writes the version block listing
-  every class key known to the selected tables. Other version blocks are
-  preserved byte-for-byte in semantics (re-serialised with the same 2-space
-  format). A missing class aborts that file unless ``--allow-partial`` is
-  given, in which case found classes are still written and the missing ones
+  every class key known to the selected tables, then folds the table back into
+  the compact shape. A missing class aborts that file unless ``--allow-partial``
+  is given, in which case found classes are still written and the missing ones
   reported.
 - ``check --jar HOST.jar --version X.Y.Z`` verifies every declared class in the
   given version block exists in the JAR and exits non-zero on any missing entry.
@@ -44,15 +49,24 @@ import sys
 import zipfile
 from pathlib import Path
 
-from turboism_dev.json_io import dump_json, read_json, write_json
+from preview.reviewed_host_artifacts import SOURCE_RELATIVE, load_releases
+from turboism_dev import class_pins
+from turboism_dev.json_io import dump_json
 from turboism_dev.paths import repo_root
 
 ROOT = repo_root()
 PIN_DIR = ROOT / "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins"
 
 
-def _load_pin_files(selected: list[str]) -> dict[str, tuple[Path, dict]]:
-    files: dict[str, tuple[Path, dict]] = {}
+def admitted_versions(root: Path = ROOT) -> list[str]:
+    """Reviewed Editor versions a compact table expands over, oldest first."""
+    return [release["version"] for release in load_releases(root / SOURCE_RELATIVE)]
+
+
+def _load_pin_files(selected: list[str]) -> dict[str, tuple[Path, dict[str, list[str]]]]:
+    """Read the selected tables and return name -> (path, expanded version map)."""
+    versions = admitted_versions()
+    files: dict[str, tuple[Path, dict[str, list[str]]]] = {}
     if selected:
         candidates = [PIN_DIR / f"{name}.json" for name in selected]
     else:
@@ -61,29 +75,18 @@ def _load_pin_files(selected: list[str]) -> dict[str, tuple[Path, dict]]:
         if not path.is_file():
             raise SystemExit(f"target table not found: {path}")
         try:
-            data = read_json(path)
-        except Exception as failure:
-            raise SystemExit(f"target table {path} is not valid JSON: {failure}")
-        if not isinstance(data, dict):
-            raise SystemExit(f"target table {path} must contain a top-level object")
-        files[path.stem] = (path, data)
+            files[path.stem] = (path, class_pins.load(path, versions))
+        except class_pins.ClassPinError as failure:
+            raise SystemExit(str(failure))
     if not files:
         raise SystemExit(f"no target tables selected under {PIN_DIR}")
     return files
 
 
-def _collect_class_keys(tables: dict[str, dict], extra: list[str]) -> dict[str, set[str]]:
-    """Return table-name -> set of class keys (union across versions, plus extras)."""
-    keys: dict[str, set[str]] = {}
-    for name, data in tables.items():
-        collected: set[str] = set()
-        for version, block in data.items():
-            if not isinstance(block, list):
-                raise SystemExit(
-                    f"target table {name}.json version '{version}' is not a list")
-            collected.update(block)
-        keys[name] = collected
-    return keys
+def _collect_class_keys(tables: dict[str, dict[str, list[str]]]) -> dict[str, set[str]]:
+    """Return table-name -> set of class keys (union across versions)."""
+    return {name: {key for block in table.values() for key in block}
+            for name, table in tables.items()}
 
 
 def _present_members(jar: zipfile.ZipFile, internal_names: set[str]) -> tuple[list[str], list[str]]:
@@ -96,28 +99,29 @@ def _present_members(jar: zipfile.ZipFile, internal_names: set[str]) -> tuple[li
     return present, missing
 
 
-def _write_table(path: Path, data: dict) -> None:
-    write_json(path, data, indent=2)
+def _write_table(path: Path, table: dict[str, list[str]]) -> None:
+    """Write the compact form of an expanded table."""
+    class_pins.write(path, class_pins.fold(table))
 
 
 def _cmd_update(args: argparse.Namespace) -> int:
+    versions = admitted_versions()
     if args.new:
         table_path = PIN_DIR / f"{args.new}.json"
-        data = {}
+        table: dict[str, list[str]] = {}
         if table_path.is_file():
-            data = read_json(table_path)
-        tables = {args.new: (table_path, data)}
+            table = class_pins.load(table_path, versions)
+        tables = {args.new: (table_path, table)}
         class_keys = {args.new: set(args.classes)}
         if not args.classes:
             raise SystemExit("--new requires at least one --class entry")
     else:
         tables = _load_pin_files(args.pin)
-        class_keys = _collect_class_keys(
-            {name: data for name, (path, data) in tables.items()}, [])
+        class_keys = _collect_class_keys({name: table for name, (path, table) in tables.items()})
 
     with zipfile.ZipFile(args.jar) as jar:
         exit_code = 0
-        for name, (path, data) in tables.items():
+        for name, (path, table) in tables.items():
             present, missing = _present_members(jar, class_keys[name])
             if missing:
                 print(f"{name}: {len(missing)} class(es) absent from JAR:", file=sys.stderr)
@@ -129,13 +133,13 @@ def _cmd_update(args: argparse.Namespace) -> int:
                     exit_code = 1
                     continue
             block = sorted(present)
-            updated = dict(data)
+            updated = dict(table)
             updated[args.version] = block
             # Deterministic order: version keys sorted ascending.
-            ordered = {v: updated[v] for v in sorted(updated)}
+            ordered = {version: updated[version] for version in sorted(updated)}
             if args.dry_run:
                 print(f"--- {path} ---")
-                print(dump_json(ordered, indent=2).rstrip("\n"))
+                print(dump_json(class_pins.canonical(class_pins.fold(ordered)), indent=2).rstrip("\n"))
             else:
                 _write_table(path, ordered)
                 print(f"{name}: wrote {len(block)} target(s) for {args.version} -> {path}")
@@ -146,8 +150,8 @@ def _cmd_check(args: argparse.Namespace) -> int:
     tables = _load_pin_files(args.pin)
     failures = 0
     with zipfile.ZipFile(args.jar) as jar:
-        for name, (path, data) in tables.items():
-            block = data.get(args.version)
+        for name, (path, table) in tables.items():
+            block = table.get(args.version)
             if block is None:
                 print(f"{name}: no targets recorded for version {args.version}", file=sys.stderr)
                 failures += 1

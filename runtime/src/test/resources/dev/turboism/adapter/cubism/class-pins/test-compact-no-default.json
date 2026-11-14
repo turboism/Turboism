@@ -1,0 +1,7 @@
+{
+  "overrides": {
+    "5.3.04": [
+      "com/example/Special"
+    ]
+  }
+}

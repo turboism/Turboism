@@ -58,23 +58,35 @@ def stage_launcher(source: Path, host: Path, destination: Path) -> None:
 
 
 def factory_contract(version: str, host_jar: Path, agent_jar: Path) -> dict[str, str]:
-    """Bind the probe to the same frozen version pin shipped in the product agent."""
+    """Bind the probe to the same frozen version pin shipped in the product agent.
+
+    The pin table declares the reviewed factory class name only; the whole-artifact
+    identity is proven before this call, so the class digest is recorded as evidence
+    rather than compared against a second pin.
+    """
     if len(version) != 4 or not version.isdigit():
         raise ValueError("expected a reviewed four-digit version code")
     dotted = version[0] + "." + version[1] + "." + version[2:]
     resource = "dev/turboism/adapter/cubism/class-pins/texture-upload-preparation.json"
     with zipfile.ZipFile(agent_jar) as agent:
         encoded = agent.read(resource)
-    pins = json.loads(encoded).get(dotted, {})
+    data = json.loads(encoded)
+    # Compact tables state one `default` block plus per-version overrides; the legacy
+    # flat shape keys the versions directly. Both resolve to the same class list.
+    if "default" in data:
+        pins = data.get("overrides", {}).get(dotted, data["default"])
+    else:
+        pins = data.get(dotted, [])
     if len(pins) != 1:
         raise ValueError("no single reviewed texture factory for " + dotted)
-    owner, expected = next(iter(pins.items()))
+    owner = pins[0]
     if not re.fullmatch(r"com/live2d/graphics3d/shader/[A-Za-z_$][A-Za-z0-9_$]*", owner):
         raise ValueError("unexpected texture factory package")
     with zipfile.ZipFile(host_jar) as host:
-        actual = hashlib.sha256(host.read(owner + ".class")).hexdigest()
-    if actual != expected:
-        raise ValueError("texture factory differs from the product's reviewed pin")
+        try:
+            actual = hashlib.sha256(host.read(owner + ".class")).hexdigest()
+        except KeyError as missing:
+            raise ValueError("host lacks the pinned texture factory " + owner) from missing
     return {"owner": owner.replace("/", "."), "classSha256": actual,
             "pinResourceSha256": hashlib.sha256(encoded).hexdigest()}
 

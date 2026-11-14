@@ -1,0 +1,162 @@
+{
+  "5.0.00": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.0.01": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.0.02": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.0.03": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.0.04": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.0.05": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.0.06": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.1.00": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.1.01": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.1.02": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.1.03": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.2.00": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.2.01": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.2.02": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.2.03": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.3.00": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.3.01": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.3.02": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.3.03": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ],
+  "5.3.04": [
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+    "com/live2d/graphics3d/type/GVector2",
+    "com/live2d/graphics3d/type/f"
+  ]
+}

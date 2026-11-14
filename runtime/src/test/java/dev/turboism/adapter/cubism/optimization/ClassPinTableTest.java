@@ -1,14 +1,43 @@
 package dev.turboism.adapter.cubism.optimization;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 
 class ClassPinTableTest {
+
+    /**
+     * Tables that ship in the runtime jar. The {@code legacy-} copies carry the
+     * pre-compaction flat shape of the same tables.
+     */
+    private static final List<String> SHIPPED_TABLES = List.of(
+            "float-array-parse",
+            "image-archive-reuse",
+            "incremental-update",
+            "matrix-scratch",
+            "mesh-interpolation",
+            "mesh-mirror",
+            "mesh-triangulation-hash",
+            "model-update-skip",
+            "reinit-pair-elision",
+            "shader-uniform",
+            "startup-suppression",
+            "texture-upload-preparation",
+            "uniform-location-lifecycle",
+            "warp-alt-mirror",
+            "warp-position-projection");
 
     @Test
     void loadsWellFormedResource() {
@@ -59,5 +88,93 @@ class ClassPinTableTest {
         assertThrows(UnsupportedOperationException.class, () -> table.put("x", List.of()));
         assertThrows(
                 UnsupportedOperationException.class, () -> table.get("5.2.03").add("x"));
+    }
+
+    @Test
+    void compactTableCoversEveryReviewedVersion() {
+        final Map<String, List<String>> table = ClassPinTable.load("test-compact");
+        assertEquals(ReviewedHostArtifacts.reviewedCubismVersions(), table.keySet());
+        for (final var entry : table.entrySet()) {
+            assertEquals(List.of("com/example/Shared"), entry.getValue(), entry.getKey());
+        }
+    }
+
+    @Test
+    void compactOverridesReplaceTheDefaultBlock() {
+        final Map<String, List<String>> table = ClassPinTable.load("test-compact-override");
+        assertEquals(List.of("com/example/Shared"), table.get("5.0.00"));
+        assertEquals(List.of("com/example/Shared"), table.get("5.3.03"));
+        assertEquals(List.of("com/example/Special"), table.get("5.3.04"));
+    }
+
+    @Test
+    void compactTableWithoutDefaultFailsClosed() {
+        assertThrows(IllegalStateException.class, () -> ClassPinTable.load("test-compact-no-default"));
+    }
+
+    @Test
+    void compactTableMixingVersionKeysFailsClosed() {
+        assertThrows(IllegalStateException.class, () -> ClassPinTable.load("test-compact-mixed"));
+    }
+
+    @Test
+    void compactOverrideForUnreviewedVersionFailsClosed() {
+        assertThrows(IllegalStateException.class, () -> ClassPinTable.load("test-compact-unreviewed"));
+    }
+
+    @Test
+    void compactOverrideRepeatingDefaultFailsClosed() {
+        assertThrows(IllegalStateException.class, () -> ClassPinTable.load("test-compact-redundant"));
+    }
+
+    @Test
+    void compactBlankTargetFailsClosed() {
+        assertThrows(IllegalStateException.class, () -> ClassPinTable.load("test-compact-blank"));
+    }
+
+    @Test
+    void repeatedLoadReturnsTheSameCachedMap() {
+        final Map<String, List<String>> first = ClassPinTable.load("test-fixture");
+        assertSame(first, ClassPinTable.load("test-fixture"));
+        assertSame(first.get("5.2.03"), ClassPinTable.load("test-fixture").get("5.2.03"));
+    }
+
+    @Test
+    void concurrentLoadsAgreeOnOneCachedMap() throws Exception {
+        final ExecutorService pool = Executors.newFixedThreadPool(8);
+        try {
+            final List<Callable<Map<String, List<String>>>> loads = new ArrayList<>();
+            for (int index = 0; index < 64; index++) {
+                loads.add(() -> ClassPinTable.load("warp-position-projection"));
+            }
+            final List<Future<Map<String, List<String>>>> futures = pool.invokeAll(loads);
+            Map<String, List<String>> expected = null;
+            for (final Future<Map<String, List<String>>> future : futures) {
+                final Map<String, List<String>> loaded = future.get();
+                if (expected == null) {
+                    expected = loaded;
+                }
+                assertSame(expected, loaded);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    /**
+     * The compact rewrite must not change one declared class: every shipped table
+     * resolves to exactly the pre-compaction flat table over all reviewed versions.
+     */
+    @Test
+    void compactTablesMatchTheirLegacyFlatCopies() {
+        final List<String> reviewedOrder = ReviewedHostArtifacts.all().stream()
+                .map(artifact -> ReviewedHostArtifacts.cubismVersionOf(artifact).orElseThrow())
+                .toList();
+        for (final String name : SHIPPED_TABLES) {
+            final Map<String, List<String>> compact = ClassPinTable.load(name);
+            final Map<String, List<String>> legacy = ClassPinTable.load("legacy-" + name);
+            assertEquals(reviewedOrder, List.copyOf(compact.keySet()), name);
+            assertEquals(new TreeMap<>(legacy), new TreeMap<>(compact), name);
+        }
     }
 }

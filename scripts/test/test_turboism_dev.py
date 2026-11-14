@@ -13,6 +13,7 @@ import sys
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from turboism_dev.class_pins import ClassPinError, canonical, declared_versions, expand, fold, load, write
 from turboism_dev.json_io import dump_json, read_json, write_json
 from turboism_dev.paths import REPO_ROOT, repo_root, scripts_dir
 from turboism_dev.versions import (
@@ -101,6 +102,103 @@ class TestTurboismDevVersions(unittest.TestCase):
         ver = framework_version()
         self.assertTrue(bool(ver))
         self.assertRegex(ver, r"^\d+\.\d+\.\d+$")
+
+
+class TestTurboismDevClassPins(unittest.TestCase):
+    """Compact and legacy shapes must expand to the same version -> classes map."""
+
+    VERSIONS = ("5.0.00", "5.0.01", "5.1.00")
+    LEGACY = {
+        "5.0.00": ["com/example/A", "com/example/B"],
+        "5.0.01": ["com/example/A", "com/example/B"],
+        "5.1.00": ["com/example/A"],
+    }
+
+    def test_legacy_and_compact_expand_identically(self) -> None:
+        compact = {"default": ["com/example/A", "com/example/B"],
+                   "overrides": {"5.1.00": ["com/example/A"]}}
+        self.assertEqual(self.LEGACY, expand(self.LEGACY, self.VERSIONS))
+        self.assertEqual(self.LEGACY, expand(compact, self.VERSIONS))
+
+    def test_default_covers_a_version_the_file_does_not_name(self) -> None:
+        compact = {"default": ["com/example/A"]}
+        self.assertEqual(
+            {"5.0.00": ["com/example/A"], "5.2.03": ["com/example/A"]},
+            expand(compact, ("5.0.00", "5.2.03")),
+        )
+
+    def test_fold_keeps_only_differing_versions_as_overrides(self) -> None:
+        self.assertEqual(
+            {"default": ["com/example/A", "com/example/B"],
+             "overrides": {"5.1.00": ["com/example/A"]}},
+            fold(self.LEGACY, self.VERSIONS),
+        )
+
+    def test_fold_of_an_identical_table_drops_the_overrides_block(self) -> None:
+        identical = {version: ["com/example/A"] for version in self.VERSIONS}
+        self.assertEqual({"default": ["com/example/A"]}, fold(identical, self.VERSIONS))
+
+    def test_fold_round_trips_through_expand(self) -> None:
+        folded = fold(self.LEGACY, self.VERSIONS)
+        self.assertEqual(self.LEGACY, expand(folded, self.VERSIONS))
+
+    def test_compact_requires_the_admitted_versions(self) -> None:
+        with self.assertRaises(ClassPinError):
+            expand({"default": ["com/example/A"]})
+
+    def test_compact_rejects_unknown_fields(self) -> None:
+        with self.assertRaises(ClassPinError):
+            expand({"default": ["com/example/A"], "5.0.00": ["com/example/A"]}, self.VERSIONS)
+
+    def test_compact_rejects_an_unadmitted_override(self) -> None:
+        with self.assertRaises(ClassPinError):
+            expand({"default": ["com/example/A"],
+                    "overrides": {"5.4.00": ["com/example/B"]}}, self.VERSIONS)
+
+    def test_compact_rejects_a_redundant_override(self) -> None:
+        with self.assertRaises(ClassPinError):
+            expand({"default": ["com/example/A"],
+                    "overrides": {"5.0.00": ["com/example/A"]}}, self.VERSIONS)
+
+    def test_blank_and_duplicate_targets_fail_closed(self) -> None:
+        for block in ([""], ["   "], ["com/example/A", "com/example/A"]):
+            with self.subTest(block=block):
+                with self.assertRaises(ClassPinError):
+                    expand({"5.0.00": block}, self.VERSIONS)
+                with self.assertRaises(ClassPinError):
+                    expand({"default": block}, self.VERSIONS)
+
+    def test_empty_blocks_fail_closed(self) -> None:
+        with self.assertRaises(ClassPinError):
+            expand({"5.0.00": []}, self.VERSIONS)
+        with self.assertRaises(ClassPinError):
+            expand({"default": []}, self.VERSIONS)
+
+    def test_canonical_orders_default_first_and_sorts_overrides(self) -> None:
+        document = {"overrides": {"5.1.00": ["com/example/A"], "5.0.00": ["com/example/C"]},
+                    "default": ["com/example/A"]}
+        self.assertEqual(
+            {"default": ["com/example/A"],
+             "overrides": {"5.0.00": ["com/example/C"], "5.1.00": ["com/example/A"]}},
+            canonical(document),
+        )
+
+    def test_declared_versions_skips_non_version_keys(self) -> None:
+        self.assertEqual(["5.0.00"], declared_versions({"default": [], "5.0.00": []}))
+
+    def test_load_and_write_round_trip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "pins.json"
+            write(path, fold(self.LEGACY, self.VERSIONS))
+            self.assertEqual(self.LEGACY, load(path, self.VERSIONS))
+            self.assertIn("\"default\"", path.read_text(encoding="utf-8"))
+
+    def test_load_reports_the_offending_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "pins.json"
+            path.write_text('{"default": []}', encoding="utf-8")
+            with self.assertRaisesRegex(ClassPinError, "pins.json"):
+                load(path, self.VERSIONS)
 
 
 class TestImportMechanism(unittest.TestCase):

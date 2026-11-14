@@ -24,7 +24,13 @@ bundle="$repo_root/build/preview/$worktree_id"
 factory_owner="$(python3 - "$bundle/turboism-agent.jar" "$(turboism_dotted_version "$version")" <<'PY'
 import json, re, sys, zipfile
 with zipfile.ZipFile(sys.argv[1]) as agent:
-    pins = json.loads(agent.read('dev/turboism/adapter/cubism/class-pins/texture-upload-preparation.json')).get(sys.argv[2], [])
+    data = json.loads(agent.read('dev/turboism/adapter/cubism/class-pins/texture-upload-preparation.json'))
+# Compact tables state one `default` block plus per-version overrides; the legacy
+# flat shape keys the versions directly. Both resolve to the same class list.
+if 'default' in data:
+    pins = data.get('overrides', {}).get(sys.argv[2], data['default'])
+else:
+    pins = data.get(sys.argv[2], [])
 if len(pins) != 1:
     raise SystemExit('texture validation requires one reviewed factory class')
 owner = pins[0]

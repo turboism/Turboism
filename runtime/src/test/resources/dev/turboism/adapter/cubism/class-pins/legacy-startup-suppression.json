@@ -1,0 +1,82 @@
+{
+  "5.0.00": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.0.01": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.0.02": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.0.03": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.0.04": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.0.05": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.0.06": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.1.00": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.1.01": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.1.02": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.1.03": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.2.00": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.2.01": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.2.02": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.2.03": [
+    "com/live2d/cubism/CECubismEditorApp",
+    "com/live2d/cubism/CEAppCtrl"
+  ],
+  "5.3.00": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.3.01": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ],
+  "5.3.02": [
+    "com/live2d/cubism/CECubismEditorApp",
+    "com/live2d/cubism/CEAppCtrl"
+  ],
+  "5.3.03": [
+    "com/live2d/cubism/CECubismEditorApp",
+    "com/live2d/cubism/CEAppCtrl"
+  ],
+  "5.3.04": [
+    "com/live2d/cubism/CEAppCtrl",
+    "com/live2d/cubism/CECubismEditorApp"
+  ]
+}

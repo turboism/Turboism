@@ -4,7 +4,6 @@ from pathlib import Path
 import tempfile
 import unittest
 import json
-import hashlib
 import zipfile
 from summarize_native import case
 
@@ -61,9 +60,8 @@ class NativePreparationTest(unittest.TestCase):
             with zipfile.ZipFile(host, "w") as out:
                 for _, dotted, suffix in versions:
                     owner = "com/live2d/graphics3d/shader/" + suffix
-                    data = ("fixture-" + suffix).encode()
-                    out.writestr(owner + ".class", data)
-                    pins[dotted] = {owner: hashlib.sha256(data).hexdigest()}
+                    out.writestr(owner + ".class", ("fixture-" + suffix).encode())
+                    pins[dotted] = [owner]
             with zipfile.ZipFile(agent, "w") as out:
                 out.writestr("dev/turboism/adapter/cubism/class-pins/texture-upload-preparation.json", json.dumps(pins))
             for code, _, suffix in versions:
@@ -71,10 +69,40 @@ class NativePreparationTest(unittest.TestCase):
                 self.assertEqual("com.live2d.graphics3d.shader." + suffix, result["owner"])
             with self.assertRaises(ValueError):
                 runner.factory_contract("9999", host, agent)
-            with zipfile.ZipFile(host, "w") as out:
-                out.writestr("com/live2d/graphics3d/shader/A.class", b"changed")
+            missing = root / "missing.jar"
+            with zipfile.ZipFile(missing, "w") as out:
+                out.writestr("com/live2d/graphics3d/shader/other.class", b"other")
             with self.assertRaises(ValueError):
-                runner.factory_contract("5304", host, agent)
+                runner.factory_contract("5304", missing, agent)
+
+    def test_compact_pin_table_resolves_default_and_overrides(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            agent, host = root / "agent.jar", root / "host.jar"
+            compact = {
+                "default": ["com/live2d/graphics3d/shader/w"],
+                "overrides": {
+                    "5.2.03": ["com/live2d/graphics3d/shader/y"],
+                    "5.3.04": ["com/live2d/graphics3d/shader/A"],
+                },
+            }
+            with zipfile.ZipFile(host, "w") as out:
+                for suffix in ("w", "y", "A"):
+                    out.writestr("com/live2d/graphics3d/shader/" + suffix + ".class",
+                                 ("fixture-" + suffix).encode())
+            with zipfile.ZipFile(agent, "w") as out:
+                out.writestr("dev/turboism/adapter/cubism/class-pins/texture-upload-preparation.json",
+                             json.dumps(compact))
+            for code, suffix in (("5000", "w"), ("5203", "y"), ("5304", "A")):
+                self.assertEqual("com.live2d.graphics3d.shader." + suffix,
+                                 runner.factory_contract(code, host, agent)["owner"])
+            # An unreviewed version inherits `default`; a host that lacks the pinned
+            # class fails closed instead of reporting a factory it never shipped.
+            missing = root / "missing.jar"
+            with zipfile.ZipFile(missing, "w") as out:
+                out.writestr("com/live2d/graphics3d/shader/other.class", b"other")
+            with self.assertRaises(ValueError):
+                runner.factory_contract("5000", missing, agent)
 
     def test_readiness_uses_nested_runtime_log_directory(self):
         with tempfile.TemporaryDirectory() as temporary:
