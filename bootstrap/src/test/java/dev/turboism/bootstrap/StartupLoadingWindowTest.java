@@ -168,6 +168,42 @@ class StartupLoadingWindowTest {
     }
 
     @Test
+    void koreanMottoRendersAndKeepsWindowSizeStableAcrossPhases() throws Exception {
+        try (StartupLoadingWindow loading = StartupLoadingWindow.openWithMotto("직면하라, 그리고 창조하라.")) {
+            final Dialog window = awaitWindow();
+            Thread.sleep(200L);
+            final AtomicReference<Dimension> initial = new AtomicReference<>();
+            final AtomicReference<Canvas> found = new AtomicReference<>();
+            EventQueue.invokeAndWait(() -> {
+                initial.set(window.getSize());
+                found.set((Canvas) window.getComponents()[0]);
+            });
+            final BufferedImage rendered = paint(found.get());
+            final int textColumn = 18 + 22 + 14;
+            int subtitlePixels = 0;
+            for (int y = rendered.getHeight() / 2; y < rendered.getHeight(); y++) {
+                for (int x = textColumn; x < rendered.getWidth(); x++) {
+                    if (rendered.getRGB(x, y) != Color.WHITE.getRGB()) {
+                        subtitlePixels++;
+                    }
+                }
+            }
+            assertTrue(subtitlePixels > 0, "Korean subtitle must render visible pixels");
+            for (final StartupLoadingWindow.Phase phase : List.of(
+                    StartupLoadingWindow.Phase.INITIALIZING,
+                    StartupLoadingWindow.Phase.PLUGINS,
+                    StartupLoadingWindow.Phase.INTERFACE)) {
+                loading.phase(phase);
+                Thread.sleep(120L);
+                final AtomicReference<Dimension> current = new AtomicReference<>();
+                EventQueue.invokeAndWait(() -> current.set(window.getSize()));
+                assertEquals(initial.get(), current.get(), "Phase switches must not resize a Korean motto window");
+            }
+        }
+        assertNoWindow();
+    }
+
+    @Test
     void terminalMessageGrowsTheWindowWithoutMovingItsCenter() throws Exception {
         try (StartupLoadingWindow loading = StartupLoadingWindow.open()) {
             final Dialog window = awaitWindow();

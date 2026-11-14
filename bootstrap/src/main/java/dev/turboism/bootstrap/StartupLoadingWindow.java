@@ -22,6 +22,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
+import java.util.EnumMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Timer;
@@ -66,6 +67,7 @@ final class StartupLoadingWindow implements AutoCloseable {
     private static final int TEXT_GAP = 14;
     private static final int LINE_GAP = 3;
     private static final int ARC_DEGREES = 100;
+    private static final String ELLIPSIS = "…";
     /**
      * Widest subtitle the motto may occupy. A catalog line above this budget is elided, so an
      * edited quote can never stretch the undecorated window across the screen.
@@ -93,11 +95,17 @@ final class StartupLoadingWindow implements AutoCloseable {
     private volatile int renderedKey = Integer.MIN_VALUE;
     private volatile int renderedAngle;
     // Dialog, canvas, back buffer and fade state are owned exclusively by the EDT.
+    private final Map<Phase, StartupSubtitleFont.ResolvedText> phaseSubtitles = new EnumMap<>(Phase.class);
     private Dialog window;
     private Canvas content;
     private BufferedImage backBuffer;
-    private String displayedSubtitle;
+    private StartupSubtitleFont.ResolvedText mottoSubtitle;
+    private StartupSubtitleFont.ResolvedText displayedSubtitle;
     private String displayedMessage;
+    private int stableSubtitleWidth;
+    private int stableSubtitleHeight;
+    private int stableSubtitleAscent;
+    private int displayedSubtitleAscent;
     private float contentAlpha = MIN_FADE_ALPHA;
     private boolean windowOpacity;
     private boolean fadeSettled;
@@ -245,7 +253,13 @@ final class StartupLoadingWindow implements AutoCloseable {
             }
         };
         content.setBackground(BACKGROUND);
-        displayedSubtitle = displayedSubtitle();
+        mottoSubtitle = fitSubtitle(motto);
+        for (final Phase candidate : Phase.values()) {
+            phaseSubtitles.put(candidate, StartupSubtitleFont.resolve(SUBTITLE_FONT, message(candidate)));
+        }
+        cacheStableSubtitleMetrics();
+        displayedSubtitle = terminalAt == 0L ? mottoSubtitle : phaseSubtitles.get(phase);
+        displayedSubtitleAscent = Math.max(stableSubtitleAscent, measureAscent(displayedSubtitle));
         displayedMessage = message();
         window.getAccessibleContext().setAccessibleDescription(displayedMessage);
         content.setPreferredSize(contentSize(displayedSubtitle));
@@ -270,9 +284,10 @@ final class StartupLoadingWindow implements AutoCloseable {
             displayedMessage = message;
             window.getAccessibleContext().setAccessibleDescription(message);
         }
-        final String subtitle = displayedSubtitle();
-        if (subtitle.equals(displayedSubtitle)) return;
+        final StartupSubtitleFont.ResolvedText subtitle = terminalAt == 0L ? mottoSubtitle : phaseSubtitles.get(phase);
+        if (subtitle.text().equals(displayedSubtitle.text())) return;
         displayedSubtitle = subtitle;
+        displayedSubtitleAscent = Math.max(stableSubtitleAscent, measureAscent(subtitle));
         final Dimension size = contentSize(subtitle);
         if (size.equals(content.getPreferredSize())) return;
         content.setPreferredSize(size);
@@ -304,50 +319,72 @@ final class StartupLoadingWindow implements AutoCloseable {
         }
     }
 
-    private Dimension contentSize(final String subtitle) {
+    private Dimension contentSize(final StartupSubtitleFont.ResolvedText subtitle) {
         final FontMetrics title = content.getFontMetrics(TITLE_FONT);
-        final FontMetrics body = content.getFontMetrics(SUBTITLE_FONT);
-        final int textWidth =
-                Math.max(Math.max(title.stringWidth(TITLE), stableSubtitleWidth(body)), body.stringWidth(subtitle));
-        final int textHeight = title.getHeight() + LINE_GAP + body.getHeight();
+        final int textWidth = Math.max(Math.max(title.stringWidth(TITLE), stableSubtitleWidth), measureWidth(subtitle));
+        final int textHeight = title.getHeight() + LINE_GAP + Math.max(stableSubtitleHeight, measureHeight(subtitle));
         return new Dimension(
                 PADDING * 2 + SPINNER_SIZE + TEXT_GAP + textWidth, PADDING * 2 + Math.max(SPINNER_SIZE, textHeight));
     }
 
     /**
-     * Width every non-terminal subtitle needs, so a phase change never resizes the window. The
-     * motto sets the base width; the progress messages only raise it when they are wider.
+     * Caches the widest and tallest non-terminal subtitle metrics so phase transitions never resize
+     * the window or shift the baseline.
      */
-    private int stableSubtitleWidth(final FontMetrics body) {
-        int width = Math.min(body.stringWidth(motto), MAX_SUBTITLE_WIDTH);
-        for (final Phase phase : Phase.values()) {
-            if (phase == Phase.FAILED || phase == Phase.TIMED_OUT) continue;
-            width = Math.max(width, body.stringWidth(message(phase)));
+    private void cacheStableSubtitleMetrics() {
+        final FontMetrics baseBody = content.getFontMetrics(SUBTITLE_FONT);
+        int width = Math.min(measureWidth(mottoSubtitle), MAX_SUBTITLE_WIDTH);
+        int height = Math.max(baseBody.getHeight(), measureHeight(mottoSubtitle));
+        int ascent = Math.max(baseBody.getAscent(), measureAscent(mottoSubtitle));
+        for (final Phase candidate : Phase.values()) {
+            if (candidate == Phase.FAILED || candidate == Phase.TIMED_OUT) continue;
+            final StartupSubtitleFont.ResolvedText resolved = phaseSubtitles.get(candidate);
+            width = Math.max(width, measureWidth(resolved));
+            height = Math.max(height, measureHeight(resolved));
+            ascent = Math.max(ascent, measureAscent(resolved));
         }
-        return width;
+        stableSubtitleWidth = width;
+        stableSubtitleHeight = height;
+        stableSubtitleAscent = ascent;
     }
 
     /**
-     * Subtitle as painted. Only the motto is elided: a phase message is fixed text the window was
-     * already sized for, so cutting it would hide the very state the operator needs to read.
+     * Elides only the motto when it exceeds {@link #MAX_SUBTITLE_WIDTH}; fixed phase messages keep
+     * their full text so operators always see the current state.
      */
-    private String displayedSubtitle() {
-        final String text = subtitle();
-        return terminalAt == 0L ? fit(text, content.getFontMetrics(SUBTITLE_FONT)) : text;
-    }
-
-    private static String fit(final String text, final FontMetrics body) {
-        if (body.stringWidth(text) <= MAX_SUBTITLE_WIDTH) return text;
-        final String ellipsis = "…";
+    private StartupSubtitleFont.ResolvedText fitSubtitle(final String text) {
+        final StartupSubtitleFont.ResolvedText full = StartupSubtitleFont.resolve(SUBTITLE_FONT, text);
+        if (measureWidth(full) <= MAX_SUBTITLE_WIDTH) return full;
+        final Font single = full.singleFont();
+        final FontMetrics fastMetrics =
+                single != null && single.canDisplay(ELLIPSIS.codePointAt(0)) ? content.getFontMetrics(single) : null;
         int end = text.length();
-        while (end > 0 && body.stringWidth(text.substring(0, end) + ellipsis) > MAX_SUBTITLE_WIDTH) {
-            end--;
+        while (end > 0) {
+            final int previous = Character.offsetByCodePoints(text, end, -1);
+            final String candidate = text.substring(0, previous) + ELLIPSIS;
+            if (fastMetrics != null) {
+                if (fastMetrics.stringWidth(candidate) <= MAX_SUBTITLE_WIDTH) {
+                    return StartupSubtitleFont.resolve(SUBTITLE_FONT, candidate);
+                }
+            } else {
+                final StartupSubtitleFont.ResolvedText resolved = StartupSubtitleFont.resolve(SUBTITLE_FONT, candidate);
+                if (measureWidth(resolved) <= MAX_SUBTITLE_WIDTH) return resolved;
+            }
+            end = previous;
         }
-        return end == 0 ? ellipsis : text.substring(0, end) + ellipsis;
+        return StartupSubtitleFont.resolve(SUBTITLE_FONT, ELLIPSIS);
     }
 
-    private String subtitle() {
-        return terminalAt == 0L ? motto : message();
+    private int measureWidth(final StartupSubtitleFont.ResolvedText resolved) {
+        return resolved.width(content, SUBTITLE_FONT);
+    }
+
+    private int measureHeight(final StartupSubtitleFont.ResolvedText resolved) {
+        return resolved.height(content, SUBTITLE_FONT);
+    }
+
+    private int measureAscent(final StartupSubtitleFont.ResolvedText resolved) {
+        return resolved.ascent(content, SUBTITLE_FONT);
     }
 
     private void paintContent(final Graphics2D target) {
@@ -427,14 +464,12 @@ final class StartupLoadingWindow implements AutoCloseable {
         }
         graphics.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
         final FontMetrics title = graphics.getFontMetrics(TITLE_FONT);
-        final FontMetrics subtitle = graphics.getFontMetrics(SUBTITLE_FONT);
         final int x = PADDING + SPINNER_SIZE + TEXT_GAP;
         graphics.setColor(TITLE_COLOR);
         graphics.setFont(TITLE_FONT);
         graphics.drawString(TITLE, x, PADDING + title.getAscent());
         graphics.setColor(SUBTITLE_COLOR);
-        graphics.setFont(SUBTITLE_FONT);
-        graphics.drawString(displayedSubtitle, x, PADDING + title.getHeight() + LINE_GAP + subtitle.getAscent());
+        displayedSubtitle.draw(graphics, x, PADDING + title.getHeight() + LINE_GAP + displayedSubtitleAscent);
         final int spinnerY = (height - SPINNER_SIZE) / 2;
         if (terminalAt != 0L) {
             graphics.setColor(WARNING_COLOR);
