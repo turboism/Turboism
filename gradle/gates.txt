@@ -50,6 +50,7 @@ member devCheck checkAsmDependencyModel
 member devCheck checkResolvedBytecodeDependencyGraph
 member devCheck checkInstallerPluginSections
 member devCheck checkProbeTerminalSelftest
+member devCheck checkSessionGateSelftest
 member devCheck checkHostProbeResultContract
 member devCheck checkCleanWorktreeSafety
 member devCheck checkHostCleanupEnvMerge

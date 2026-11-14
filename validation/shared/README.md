@@ -9,6 +9,7 @@
 - `src/dev/turboism/validation/shared/verdict/ProbeAssertions.java` — 断言记录器（`record(name, expected, actual, ProbeTerminal)`）、计数器与结果行布局；结果尾部只能经 `appendPublication(report, Records, terminalKey)` 发布。
 
 `verdict/` 的两个类是四个终态探针（animation-timeline、atlas-polygon、clipmask-viewer、parameter-batch-transfer）唯一的判定来源。离线用例：`bash validation/shared/check-probe-terminal.sh`。
+`src/dev/turboism/validation/SessionGate.java` 是触发等待与 session 钩子的单一源：`SessionGate.trigger(stateDir)` 返回可配置的 `Trigger`，由它轮询 `exerciser.flag`、执行 standalone 截止时间（超时默认 `halt(2)`，需要先写结果文件的探针覆写 `onTimeout`）、并处理 session 模式的 go-flag/finished.flag 语义；探针只提供自己的日志标记、轮询间隔与超时动作。九份探针各自的轮询循环曾分叉，`check_validation_tools_sync.py` 现拒绝 `validation/` 内（`SessionGate.java` 除外）再次声明 `void runWhenFlagged(`，并要求每个 flag 探针的 `build.sh` 编译该源。
 
 - `probe-build.sh` — 插件探针的共享构建步骤：`probe_sdk_jar` 按 `scripts/dev/worktree-id.sh` 定位当前 worktree 的 SDK jar，`probe_build_plugin_jar <base> <out.jar> <sources...>` 完成 javac、META-INF 暂存、打包，并要求 `META-INF/turboism/plugin.json`（及 `PROBE_REQUIRED_ENTRIES`）真的进包；最后打印产物与 sha256。调用方只声明自己的源码、产物路径与额外事实（`PROBE_JAVAC_FLAGS`）。**不新增构建依赖**：描述符契约不在共享层重写，探针自己的场景事实（如 parameter-lock 的 schema/id/permissions/UI）在各自 build.sh 对已打包 jar 断言，仍只需 SDK jar。
 - `verdict/ProbeAssertions.appendPublication` 是唯一的结果文件尾部发布点：counters → 断言记录 → 终态行，顺序不再由各探针各自维护；探针只提供业务断言与头部/证据行。

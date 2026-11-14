@@ -98,13 +98,13 @@ import java.util.function.LongSupplier;
  */
 public final class BoundingBoxOverlayHostValidationPlugin implements TurboismPlugin {
 
-    private static final String FLAG = "exerciser.flag";
+    private static final String FLAG_TIMEOUT_MARKER = "BOUNDING_BOX_PROBE_FLAG_TIMEOUT";
+    private static final String TRIGGER_MARKER = "BOUNDING_BOX_PROBE_TRIGGER_RECEIVED";
     private static final String RESULT_FILE_NAME = "bounding-box-overlay-host-validation-result.properties";
     private static final String MANUAL_MODE_PROPERTY = "turboism.validation.boundingBoxManual";
     private static final String MANUAL_CLOSE_FLAG = "manual-close.flag";
     private static final String MANUAL_ABSENCE_FLAG = "manual-absence-confirmed.flag";
 
-    private static final long FLAG_TIMEOUT_MILLIS = 240_000L;
     private static final long DETECTION_TIMEOUT_MILLIS = 240_000L;
     private static final long DETECTION_STEP_MILLIS = 500L;
     private static final long STABILITY_GAP_MILLIS = 800L;
@@ -181,7 +181,7 @@ public final class BoundingBoxOverlayHostValidationPlugin implements TurboismPlu
         this.context = context;
         this.logger = context.logger();
         this.stateDir = context.paths().stateDir();
-        final Thread exerciser = new Thread(this::runWhenFlagged, "bounding-box-overlay-host-exerciser");
+        final Thread exerciser = new Thread(this::awaitTrigger, "bounding-box-overlay-host-exerciser");
         exerciser.setDaemon(true);
         exerciser.start();
         logger.info("BOUNDING_BOX_PROBE_READY stateDir=" + stateDir);
@@ -206,24 +206,14 @@ public final class BoundingBoxOverlayHostValidationPlugin implements TurboismPlu
         logger.info("BOUNDING_BOX_PROBE_SHUTDOWN");
     }
 
-    private void runWhenFlagged() {
-        final Path flag = stateDir.resolve(FLAG);
-        final long deadline = System.currentTimeMillis() + FLAG_TIMEOUT_MILLIS;
-        while (System.currentTimeMillis() < deadline) {
-            if (Files.isRegularFile(flag)) {
-                logger.info("BOUNDING_BOX_PROBE_TRIGGER_RECEIVED flag=" + flag);
-                runMatrix();
-                return;
-            }
-            try {
-                Thread.sleep(2_000L);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-        logger.warn("BOUNDING_BOX_PROBE_FLAG_TIMEOUT flag=" + flag);
-        Runtime.getRuntime().halt(2);
+    private void awaitTrigger() {
+        dev.turboism.validation.SessionGate.trigger(stateDir)
+            .timeoutMarker(FLAG_TIMEOUT_MARKER)
+            .triggerMarker(TRIGGER_MARKER)
+            .log(logger::info)
+            .warn(logger::warn)
+            .onTrigger(this::runMatrix)
+            .await();
     }
 
     // ------------------------------------------------------------------

@@ -83,6 +83,44 @@ LOCAL_TERMINAL_RE = re.compile(
     r"\bcomputeTerminal\s*\(|\bString\s+terminal\s*=\s*\"PASS\""
 )
 
+# A local trigger wait. SessionGate.trigger owns the poll loop, the standalone deadline and
+# the session turn/finished handling; nine probe copies of the loop had drifted apart before
+# the shared gate existed, so a new private copy is rejected here.
+LOCAL_TRIGGER_GATE_RE = re.compile(r"\bvoid\s+runWhenFlagged\s*\(")
+TRIGGER_GATE_SOURCE = "validation/shared/src/dev/turboism/validation/SessionGate.java"
+TRIGGER_GATE_CALL = "SessionGate.trigger("
+
+# Flag-gated probes that must reach the shared gate instead of polling their own trigger.
+TRIGGER_GATE_CONSUMERS = {
+    "validation/animation-timeline-host-probe/src/dev/turboism/validation/animationtimeline/AnimationTimelineHostValidationPlugin.java": (
+        "validation/animation-timeline-host-probe/build.sh",
+    ),
+    "validation/atlas-polygon-host-probe/src/dev/turboism/validation/atlaspolygon/AtlasPolygonHostValidationPlugin.java": (
+        "validation/atlas-polygon-host-probe/build.sh",
+    ),
+    "validation/bounding-box-overlay-host-probe/src/dev/turboism/validation/boundingbox/BoundingBoxOverlayHostValidationPlugin.java": (
+        "validation/bounding-box-overlay-host-probe/build.sh",
+    ),
+    "validation/clipmask-viewer-host-probe/src/dev/turboism/validation/clipmaskviewer/ClipMaskViewerHostValidationPlugin.java": (
+        "validation/clipmask-viewer-host-probe/build.sh",
+    ),
+    "validation/deformer-rename-host-probe/src/dev/turboism/validation/deformerrename/DeformerRenameHostValidationPlugin.java": (
+        "validation/deformer-rename-host-probe/build.sh",
+    ),
+    "validation/edit-host-probe/src/dev/turboism/validation/edithost/EditHostValidationPlugin.java": (
+        "validation/edit-host-probe/build.sh",
+    ),
+    "validation/parameter-batch-transfer-host-probe/src/dev/turboism/validation/parameterbatchtransfer/ParameterBatchTransferHostValidationPlugin.java": (
+        "validation/parameter-batch-transfer-host-probe/build.sh",
+    ),
+    "validation/selection-lag-probe/src/dev/turboism/validation/selectionlag/SelectionLagProbePlugin.java": (
+        "validation/selection-lag-probe/build.sh",
+    ),
+    "validation/theme-host-probe/src/dev/turboism/validation/theme/ThemeHostValidationPlugin.java": (
+        "validation/theme-host-probe/build.sh",
+    ),
+}
+
 # A result tail written outside the shared publication: the counter block, an
 # assertion-record block, or a terminal line appended straight to the report. Probes
 # publish through ProbeAssertions.appendPublication, which owns that order.
@@ -172,6 +210,47 @@ def findings(root: Path):
                     violations.append(
                         f"{build}: does not compile the shared evidence source {shared}"
                     )
+
+    violations += trigger_gate_findings(root)
+    return violations
+
+
+def trigger_gate_findings(root: Path) -> list[str]:
+    """Rejects a private trigger-wait copy and a consumer that skips the shared gate."""
+    violations = []
+    base = root / ROOT
+    canonical = root / TRIGGER_GATE_SOURCE
+    if not canonical.is_file():
+        violations.append(f"{TRIGGER_GATE_SOURCE}: shared trigger gate is missing")
+    for path in sorted(base.rglob("*.java")):
+        relative = path.relative_to(root).as_posix()
+        if relative == TRIGGER_GATE_SOURCE:
+            continue
+        match = LOCAL_TRIGGER_GATE_RE.search(path.read_text(encoding="utf-8"))
+        if match:
+            violations.append(
+                f"{relative}: declares a local trigger wait ({match.group(0).strip()}); "
+                "call SessionGate.trigger(...) instead"
+            )
+
+    for relative, build_scripts in sorted(TRIGGER_GATE_CONSUMERS.items()):
+        source = root / relative
+        if not source.is_file():
+            violations.append(f"{relative}: flag-gated probe source is missing")
+            continue
+        text = source.read_text(encoding="utf-8")
+        if TRIGGER_GATE_CALL not in text:
+            violations.append(
+                f"{relative}: does not wait through the shared gate; "
+                f"call {TRIGGER_GATE_CALL}...).await()"
+            )
+        for build in build_scripts:
+            build_path = root / build
+            build_text = build_path.read_text(encoding="utf-8") if build_path.is_file() else ""
+            if TRIGGER_GATE_SOURCE not in build_text:
+                violations.append(
+                    f"{build}: does not compile the shared trigger gate {TRIGGER_GATE_SOURCE}"
+                )
     return violations
 
 

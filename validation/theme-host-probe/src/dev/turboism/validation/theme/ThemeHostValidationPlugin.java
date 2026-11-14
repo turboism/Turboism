@@ -13,7 +13,6 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import javax.swing.UIManager;
 import java.awt.Color;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -26,8 +25,7 @@ import java.util.Map;
  */
 public final class ThemeHostValidationPlugin implements TurboismPlugin {
 
-    private static final String FLAG = "exerciser.flag";
-    private static final long FLAG_TIMEOUT_MILLIS = 240_000L;
+    private static final String FLAG_TIMEOUT_MARKER = "THEME_EXERCISER_FLAG_TIMEOUT";
     private static final long SETTLE_STEP_MILLIS = 2_000L;
 
     private static final String[] SAMPLE_KEYS = {
@@ -54,7 +52,7 @@ public final class ThemeHostValidationPlugin implements TurboismPlugin {
         this.stateDir = context.paths().stateDir();
         final Map<String, String> nativeSnapshot = stableSnapshot(30_000L);
         logger.info("THEME_EXERCISER_NATIVE " + render(nativeSnapshot));
-        final Thread exerciser = new Thread(this::runWhenFlagged, "theme-host-exerciser");
+        final Thread exerciser = new Thread(this::awaitTrigger, "theme-host-exerciser");
         exerciser.setDaemon(true);
         exerciser.start();
         logger.info("THEME_EXERCISER_READY stateDir=" + stateDir);
@@ -75,23 +73,12 @@ public final class ThemeHostValidationPlugin implements TurboismPlugin {
         logger.info("THEME_EXERCISER_SHUTDOWN");
     }
 
-    private void runWhenFlagged() {
-        final Path flag = stateDir.resolve(FLAG);
-        final long deadline = System.currentTimeMillis() + FLAG_TIMEOUT_MILLIS;
-        while (System.currentTimeMillis() < deadline) {
-            if (Files.isRegularFile(flag)) {
-                runMatrix();
-                return;
-            }
-            try {
-                Thread.sleep(2_000L);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-        logger.warn("THEME_EXERCISER_FLAG_TIMEOUT flag=" + flag);
-        Runtime.getRuntime().halt(2);
+    private void awaitTrigger() {
+        dev.turboism.validation.SessionGate.trigger(stateDir)
+            .timeoutMarker(FLAG_TIMEOUT_MARKER)
+            .warn(logger::warn)
+            .onTrigger(this::runMatrix)
+            .await();
     }
 
     private void runMatrix() {

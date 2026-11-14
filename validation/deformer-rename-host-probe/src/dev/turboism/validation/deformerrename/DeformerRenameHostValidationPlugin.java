@@ -40,7 +40,7 @@ import javax.swing.SwingUtilities;
 public final class DeformerRenameHostValidationPlugin implements TurboismPlugin {
 
     private static final String EXERCISER_THREAD_NAME = "deformer-rename-host-exerciser";
-    private static final String FLAG_FILE_NAME = "exerciser.flag";
+    private static final String FLAG_TIMEOUT_MARKER = "DEFORMER_RENAME_PROBE_FLAG_TIMEOUT";
     private static final String RESULT_FILE_NAME = "deformer-rename-validation-result.properties";
     private static final String PLUGIN_ID = "dev.turboism.validation.deformer-rename";
     private static final String RUN_ID_PROPERTY = "turboism.validation.runId";
@@ -49,8 +49,6 @@ public final class DeformerRenameHostValidationPlugin implements TurboismPlugin 
     private static final String STATUS_KEY = "status";
     private static final String RENAME_SUFFIX = " [probe]";
 
-    private static final long FLAG_POLL_MILLIS = 2_000L;
-    private static final long FLAG_TIMEOUT_MILLIS = 240_000L;
     private static final long MODEL_POLL_MILLIS = 1_000L;
     private static final long MODEL_AWAIT_MAX_MILLIS = 240_000L;
     private static final long EDT_TIMEOUT_MILLIS = 300_000L;
@@ -60,7 +58,6 @@ public final class DeformerRenameHostValidationPlugin implements TurboismPlugin 
     private static final int UNAVAILABLE_METRIC = -1;
     private static final int SINGLE_UNDO_STEP = 1;
     private static final int NORMAL_EXIT_CODE = 0;
-    private static final int TIMEOUT_HALT_CODE = 2;
 
     private PluginLogger logger;
     private PluginContext context;
@@ -87,7 +84,7 @@ public final class DeformerRenameHostValidationPlugin implements TurboismPlugin 
         this.context = context;
         this.logger = context.logger();
         this.stateDir = context.paths().stateDir();
-        final Thread exerciser = new Thread(this::runWhenFlagged, EXERCISER_THREAD_NAME);
+        final Thread exerciser = new Thread(this::awaitTrigger, EXERCISER_THREAD_NAME);
         exerciser.setDaemon(true);
         exerciser.start();
         logger.info("DEFORMER_RENAME_PROBE_READY stateDir=" + stateDir);
@@ -108,23 +105,12 @@ public final class DeformerRenameHostValidationPlugin implements TurboismPlugin 
         logger.info("DEFORMER_RENAME_PROBE_SHUTDOWN");
     }
 
-    private void runWhenFlagged() {
-        final Path flag = stateDir.resolve(FLAG_FILE_NAME);
-        final long deadline = System.currentTimeMillis() + FLAG_TIMEOUT_MILLIS;
-        while (System.currentTimeMillis() < deadline) {
-            if (Files.isRegularFile(flag)) {
-                runProbe();
-                return;
-            }
-            try {
-                Thread.sleep(FLAG_POLL_MILLIS);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-        logger.warn("DEFORMER_RENAME_PROBE_FLAG_TIMEOUT flag=" + flag);
-        Runtime.getRuntime().halt(TIMEOUT_HALT_CODE);
+    private void awaitTrigger() {
+        dev.turboism.validation.SessionGate.trigger(stateDir)
+            .timeoutMarker(FLAG_TIMEOUT_MARKER)
+            .warn(logger::warn)
+            .onTrigger(this::runProbe)
+            .await();
     }
 
     private void runProbe() {

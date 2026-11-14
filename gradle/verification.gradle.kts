@@ -985,6 +985,26 @@ val hostProbeDirectories = listOf(
     "validation/parameter-batch-transfer-host-probe"
 )
 
+// The shared trigger gate owns the wait nine probes used to implement themselves. Its self check
+// compiles SessionGate against a temporary state directory and an injected clock, so a regression
+// in the deadline, the session turn or the timeout action fails offline instead of on a host run.
+val checkSessionGateSelftest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs the offline shared trigger-gate contract (standalone deadline, session turn, step marker)."
+    workingDir(rootDir)
+    val script = "validation/shared/check-session-gate.sh"
+    inputs.files(fileTree("validation/shared") { include("**/*") })
+    inputs.files(hostProbeDirectories.map { directory -> fileTree(directory) { include("**/*") } })
+    doFirst {
+        // A missing check must fail instead of turning into an empty green run.
+        require(rootProject.file(script).isFile) {
+            "$script is missing: the shared trigger-gate contract cannot be verified"
+        }
+    }
+    VerificationStamps.apply(this)
+    commandLine("bash", script)
+}
+
 val checkProbeTerminalSelftest by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs the offline shared probe-terminal contract (PASS/FAIL/BLOCKED/SKIPPED, zero assertions)."
