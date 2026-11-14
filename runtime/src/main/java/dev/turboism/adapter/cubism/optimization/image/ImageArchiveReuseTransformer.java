@@ -1,8 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.image;
 
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
-import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -79,8 +77,12 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
                     failure = "unexpected decode/archive call-site shape";
                     return null;
                 }
-            final ClassWriter writer =
-                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, expectedLoader);
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return expectedLoader == null ? super.getClassLoader() : expectedLoader;
+                }
+            };
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override
@@ -218,7 +220,17 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
                     done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            SlotBridgeEmitter.emitSlot(this, KEY, "java/util/function/BiFunction");
+            this.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+            this.visitLdcInsn(KEY);
+            this.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
+            this.visitInsn(Opcodes.DUP);
+            this.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BiFunction");
             super.visitJumpInsn(Opcodes.IFEQ, notCallback);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BiFunction");
             super.visitVarInsn(Opcodes.ALOAD, 0);

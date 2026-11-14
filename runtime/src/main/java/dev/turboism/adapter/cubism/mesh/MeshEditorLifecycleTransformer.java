@@ -1,6 +1,5 @@
 package dev.turboism.adapter.cubism.mesh;
 
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.core.reflect.CodeSources;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
@@ -79,8 +78,12 @@ public final class MeshEditorLifecycleTransformer implements ClassFileTransforme
         }
         try {
             final ClassReader reader = new ClassReader(classfileBuffer);
-            final ClassWriter writer =
-                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader == null ? super.getClassLoader() : loader;
+                }
+            };
             final int[] startCount = {0};
             final int[] endCount = {0};
             final int[] setModeCount = {0};

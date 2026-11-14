@@ -1,7 +1,5 @@
 package dev.turboism.adapter.cubism.integration;
 
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
-import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
@@ -178,8 +176,12 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
         if (matches[0] != 1 || !hasCode[0] || rejected[0]) {
             return reject("target shape or existing callback marker rejected: matches=" + matches[0]);
         }
-        final ClassWriter writer =
-                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, expectedClassLoader);
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected ClassLoader getClassLoader() {
+                return expectedClassLoader == null ? super.getClassLoader() : expectedClassLoader;
+            }
+        };
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
@@ -246,7 +248,13 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
 
         mv.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
         mv.visitLabel(start);
-        SlotBridgeEmitter.emitSlot(mv, callbackKey, "java/util/function/BiFunction");
+        mv.visitMethodInsn(
+                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+        mv.visitLdcInsn(callbackKey);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BiFunction");
         mv.visitJumpInsn(Opcodes.IFNE, receiver);
         mv.visitInsn(Opcodes.POP);
         mv.visitJumpInsn(Opcodes.GOTO, end);

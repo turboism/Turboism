@@ -1,8 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.modelupdate.incremental;
 
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
-import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -166,8 +164,12 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
             final List<Site> sites = sites();
             int rewritten = 0;
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer =
-                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader == null ? super.getClassLoader() : loader;
+                }
+            };
             final int[] counter = {0};
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
@@ -271,7 +273,13 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
     /** {@code System.getProperties().get(key)} duplicated + instanceof-checked. */
     private static void emitGuardHead(
             final MethodVisitor mv, final String property, final String iface, final Label miss) {
-        SlotBridgeEmitter.emitSlot(mv, property, iface);
+        mv.visitMethodInsn(
+                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+        mv.visitLdcInsn(property);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitTypeInsn(Opcodes.INSTANCEOF, iface);
         mv.visitJumpInsn(Opcodes.IFEQ, miss);
         mv.visitTypeInsn(Opcodes.CHECKCAST, iface);
     }

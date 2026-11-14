@@ -1,8 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.sorting;
 
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
-import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -120,8 +118,12 @@ public final class SortingInfoCacheTransformer implements ClassFileTransformer {
                 return null;
             }
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer =
-                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader == null ? super.getClassLoader() : loader;
+                }
+            };
             final boolean[] applied = {false};
             reader.accept(new SortingVisitor(writer, applied), ClassReader.EXPAND_FRAMES);
             if (!applied[0]) {
@@ -221,8 +223,17 @@ public final class SortingInfoCacheTransformer implements ClassFileTransformer {
             super.visitJumpInsn(Opcodes.IFLT, nativePath);
 
             // slot = System.getProperties().get(SKIPPED_FRAME_PROPERTY)
-            SlotBridgeEmitter.emitSlot(
-                    this, ModelUpdateSkipBridge.SKIPPED_FRAME_PROPERTY, "java/util/concurrent/atomic/AtomicBoolean");
+            this.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+            this.visitLdcInsn(ModelUpdateSkipBridge.SKIPPED_FRAME_PROPERTY);
+            this.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
+            this.visitInsn(Opcodes.DUP);
+            this.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/concurrent/atomic/AtomicBoolean");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/concurrent/atomic/AtomicBoolean");
             super.visitMethodInsn(

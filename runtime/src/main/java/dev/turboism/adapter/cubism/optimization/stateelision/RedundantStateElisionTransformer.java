@@ -1,8 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.stateelision;
 
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
-import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -161,8 +159,12 @@ public final class RedundantStateElisionTransformer implements ClassFileTransfor
                 }
             }
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer =
-                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader == null ? super.getClassLoader() : loader;
+                }
+            };
             invalidatorNames.clear();
             final int[] sites = {0};
             reader.accept(
@@ -216,7 +218,13 @@ public final class RedundantStateElisionTransformer implements ClassFileTransfor
     private static void slotLookup(
             final MethodVisitor mv, final String property, final Label start, final Label discard) {
         mv.visitLabel(start);
-        SlotBridgeEmitter.emitSlot(mv, property, "java/lang/invoke/MethodHandle");
+        mv.visitMethodInsn(
+                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+        mv.visitLdcInsn(property);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/invoke/MethodHandle");
         mv.visitJumpInsn(Opcodes.IFEQ, discard);
         mv.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/invoke/MethodHandle");
     }

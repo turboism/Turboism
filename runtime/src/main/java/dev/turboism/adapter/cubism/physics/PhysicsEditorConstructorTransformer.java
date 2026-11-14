@@ -1,6 +1,5 @@
 package dev.turboism.adapter.cubism.physics;
 
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.Objects;
@@ -39,8 +38,12 @@ public final class PhysicsEditorConstructorTransformer implements ClassFileTrans
                 || (expectedClassLoader != null && loader != expectedClassLoader)) return null;
         final boolean[] transformed = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer =
-                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected ClassLoader getClassLoader() {
+                return loader == null ? super.getClassLoader() : loader;
+            }
+        };
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override

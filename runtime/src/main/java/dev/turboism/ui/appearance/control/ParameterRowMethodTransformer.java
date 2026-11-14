@@ -1,6 +1,5 @@
 package dev.turboism.ui.appearance.control;
 
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.internal.Requirements;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
@@ -40,8 +39,12 @@ public final class ParameterRowMethodTransformer implements ClassFileTransformer
         if (!owner.equals(className) || candidateLoader != loader || bytes == null) return null;
         final boolean[] changed = {false};
         final ClassReader reader = new ClassReader(bytes);
-        final ClassWriter writer =
-                new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected ClassLoader getClassLoader() {
+                return loader == null ? super.getClassLoader() : loader;
+            }
+        };
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override

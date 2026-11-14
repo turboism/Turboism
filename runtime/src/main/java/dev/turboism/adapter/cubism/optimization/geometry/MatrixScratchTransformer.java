@@ -1,9 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.geometry;
 
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
-import dev.turboism.adapter.cubism.optimization.HostClassWriter;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
-import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -115,8 +113,12 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
                 return null;
             }
             ClassReader reader = new ClassReader(bytes);
-            ClassWriter writer =
-                    new HostClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, loader);
+            ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader == null ? super.getClassLoader() : loader;
+                }
+            };
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override
@@ -174,7 +176,17 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
             super.visitMethodInsn(
                     Opcodes.INVOKESTATIC, "java/lang/Boolean", "getBoolean", "(Ljava/lang/String;)Z", false);
             super.visitJumpInsn(Opcodes.IFEQ, end);
-            SlotBridgeEmitter.emitSlot(this, ADMISSION_PROPERTY, "java/util/concurrent/atomic/AtomicBoolean");
+            this.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+            this.visitLdcInsn(ADMISSION_PROPERTY);
+            this.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
+            this.visitInsn(Opcodes.DUP);
+            this.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/concurrent/atomic/AtomicBoolean");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/concurrent/atomic/AtomicBoolean");
             super.visitMethodInsn(
