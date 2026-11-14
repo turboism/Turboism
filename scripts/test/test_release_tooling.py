@@ -299,12 +299,14 @@ class RootReadmeTest(unittest.TestCase):
     }
 
     PAGES = {
-        "README.md": ["Copyright and notices", "About", "Supported Cubism Editor versions",
-                      "Installation", "Development", "Documentation"],
-        "README.zh-CN.md": ["版权声明", "项目简介", "支持的 Cubism Editor 版本", "安装", "开发", "文档"],
-        "README.ja.md": ["著作権と注意事項", "プロジェクト概要", "対応する Cubism Editor のバージョン",
-                         "インストール", "開発", "ドキュメント"],
-        "README.ko.md": ["저작권 및 고지", "프로젝트 소개", "지원하는 Cubism Editor 버전", "설치", "개발", "문서"],
+        "README.md": ["Disclaimer", "About", "Current Features", "Platform Support",
+                      "Cubism Support", "Installation", "Development", "Documentation", "License"],
+        "README.zh-CN.md": ["免责声明", "项目简介", "当前功能", "平台支持",
+                            "Cubism 兼容支持", "安装", "开发", "文档", "开源协议"],
+        "README.ja.md": ["免責事項", "概要", "現在の機能", "対応プラットフォーム",
+                         "Cubism 対応状況", "インストール", "開発", "ドキュメント", "ライセンス"],
+        "README.ko.md": ["면책 조항", "소개", "현재 기능", "플랫폼 지원",
+                         "Cubism 지원 현황", "설치", "개발", "문서", "라이선스"],
     }
 
     def read_page(self, filename: str) -> str:
@@ -325,13 +327,15 @@ class RootReadmeTest(unittest.TestCase):
                 text = self.read_page(filename)
                 self.assertEqual(re.findall(r"(?m)^## (.+)$", text), headings)
                 self.assertEqual(re.findall(r"(?m)^### (EXE|ZIP)\b", text), ["EXE", "ZIP"])
-                copyright_section = text.split("## " + headings[1], 1)[0]
-                self.assertIn("Copyright © 2026 Turboism Contributors", copyright_section)
-                self.assertIn("(../../LICENSE)", copyright_section)
-                self.assertIn("(EULA.md)", copyright_section)
+                disclaimer_section = text.split("## " + headings[1], 1)[0]
+                self.assertIn("(../../LICENSE)", disclaimer_section)
+                self.assertIn("(EULA.md)", disclaimer_section)
+                self.assertIn("Live2D Inc.", disclaimer_section)
                 eula_path = self.EULA_PATHS[filename]
                 self.assertTrue((ROOT / eula_path).is_file())
-                self.assertIn("Live2D Inc.", copyright_section)
+                license_section = text.split("## " + headings[-1], 1)[1]
+                self.assertIn("Copyright © 2026 Turboism Contributors", license_section)
+                self.assertIn("(../../LICENSE)", license_section)
 
     def test_shared_versions_artifacts_and_development_requirements(self):
         for filename in self.PAGES:
