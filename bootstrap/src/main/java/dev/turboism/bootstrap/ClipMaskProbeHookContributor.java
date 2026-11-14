@@ -47,8 +47,8 @@ final class ClipMaskProbeHookContributor extends NativeOptimizationHookContribut
             return refused("preference-disabled");
         }
         final var host = environment.host().orElseThrow();
-        final VerifiedClipMaskProbeInstaller installer =
-                new VerifiedClipMaskProbeInstaller(environment.instrumentation(), host.artifact(), host.classLoader());
+        final VerifiedClipMaskProbeInstaller installer = new VerifiedClipMaskProbeInstaller(
+                environment.instrumentation(), host.artifact(), host.classLoader(), environment.loadedClasses());
         installer.install();
         log(
                 environment,

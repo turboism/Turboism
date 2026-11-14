@@ -5,6 +5,7 @@ import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.ui.panel.FloatingFrameDisposeNativeMethodTransformer;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Installs the exact palette-frame disposal transformer only for verified selectors. */
@@ -13,14 +14,28 @@ final class VerifiedFloatingFrameDisposeHookInstaller implements AutoCloseable {
     private final Instrumentation instrumentation;
     private final StaticSelector dispose;
     private final ClassLoader hostClassLoader;
+    private final LoadedClassIndex loadedClasses;
     private final AtomicBoolean installed = new AtomicBoolean();
     private FloatingFrameDisposeNativeMethodTransformer transformer;
 
     VerifiedFloatingFrameDisposeHookInstaller(
             final Instrumentation instrumentation, final StaticSelector dispose, final ClassLoader hostClassLoader) {
+        this(instrumentation, dispose, hostClassLoader, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install
+     */
+    VerifiedFloatingFrameDisposeHookInstaller(
+            final Instrumentation instrumentation,
+            final StaticSelector dispose,
+            final ClassLoader hostClassLoader,
+            final LoadedClassIndex loadedClasses) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.dispose = Objects.requireNonNull(dispose, "dispose");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        this.loadedClasses = loadedClasses;
         if (dispose.kind() != StaticSelector.Kind.METHOD
                 || (dispose.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
             throw new IllegalArgumentException(
@@ -38,7 +53,10 @@ final class VerifiedFloatingFrameDisposeHookInstaller implements AutoCloseable {
                 throw new IllegalStateException("Floating-frame dispose retransformation is unavailable");
             }
             VerifiedHookInstallerSupport.retransformIfLoaded(
-                    instrumentation, dispose.ownerInternalName().replace('/', '.'), hostClassLoader);
+                    instrumentation,
+                    loadedClasses(),
+                    Set.of(dispose.ownerInternalName().replace('/', '.')),
+                    hostClassLoader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             close();
@@ -52,5 +70,9 @@ final class VerifiedFloatingFrameDisposeHookInstaller implements AutoCloseable {
         final FloatingFrameDisposeNativeMethodTransformer current = transformer;
         transformer = null;
         if (current != null) instrumentation.removeTransformer(current);
+    }
+
+    private LoadedClassIndex loadedClasses() {
+        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
     }
 }

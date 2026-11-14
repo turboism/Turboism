@@ -28,7 +28,8 @@ final class PerformanceProbeHookContributor implements HookContributor {
                 host.classLoader(),
                 options.home().resolve("lib/performance-probe-carrier.jar"),
                 options.performanceProbeScenario(),
-                environment.admittedRuntimeGeneration());
+                environment.admittedRuntimeGeneration(),
+                environment.loadedClasses());
         installer.install(
                 options.performanceProbeCapture(),
                 options.performanceProbeScenario(),

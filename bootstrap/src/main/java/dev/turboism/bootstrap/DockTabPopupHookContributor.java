@@ -42,7 +42,8 @@ final class DockTabPopupHookContributor implements HookContributor {
                 resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.operation"),
                 resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.palette-field"),
                 resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.menu-append"),
-                host.classLoader());
+                host.classLoader(),
+                environment.loadedClasses());
         installer.install();
         return installer;
     }

@@ -58,7 +58,7 @@ final class ObjectContextMenuHookContributor implements HookContributor {
             handles.add(NativeParameterPointContextMenuBridge.install(parameterPointHandler));
 
             final VerifiedObjectContextMenuHookInstaller installer = new VerifiedObjectContextMenuHookInstaller(
-                    environment.instrumentation(), profile.bindings(), host.classLoader());
+                    environment.instrumentation(), profile.bindings(), host.classLoader(), environment.loadedClasses());
             installer.install();
             handles.add(installer);
 
@@ -74,7 +74,8 @@ final class ObjectContextMenuHookContributor implements HookContributor {
                             environment.instrumentation(),
                             parameterPointProfile.owner(),
                             parameterPointProfile.contextDescriptor(),
-                            host.classLoader());
+                            host.classLoader(),
+                            environment.loadedClasses());
             parameterPointInstaller.install();
             handles.add(parameterPointInstaller);
         } catch (Throwable failure) {

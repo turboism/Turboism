@@ -22,6 +22,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
     private final MeshMirrorNativeMethodTransformer transformer;
     private final String[] targetClassNames;
     private final Consumer<String> diagnostic;
+    private final LoadedClassIndex loadedClasses;
     private final List<String> diagnostics = new ArrayList<>();
     private dev.turboism.sdk.plugin.Registration contributionObserver;
     private final Object lifecycleLock = new Object();
@@ -93,11 +94,29 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
             final MeshMirrorHostProfile profile,
             final java.util.Set<String> targetOwners,
             final Consumer<String> diagnostic) {
+        this(instrumentation, hostClassLoader, hostArtifact, axis, ui, profile, targetOwners, diagnostic, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install
+     */
+    VerifiedMeshMirrorHookInstaller(
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final Path hostArtifact,
+            final RuntimeMeshMirrorAxisService axis,
+            final RuntimeMeshEditUiService ui,
+            final MeshMirrorHostProfile profile,
+            final java.util.Set<String> targetOwners,
+            final Consumer<String> diagnostic,
+            final LoadedClassIndex loadedClasses) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = hostClassLoader;
         this.axis = axis;
         this.ui = ui;
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
+        this.loadedClasses = loadedClasses;
         this.transformer = new MeshMirrorNativeMethodTransformer(
                 profile,
                 hostClassLoader,
@@ -177,8 +196,10 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
                         throw new IllegalStateException("mesh mirror lazy target loader mismatch: " + target);
                     }
                 }
-                for (Class<?> type : instrumentation.getAllLoadedClasses()) {
-                    if (type.getClassLoader() == loader) missing.remove(safeName(type));
+                // The forced definitions above are newer than any snapshot taken before them.
+                final LoadedClassIndex loaded = LoadedClassIndex.snapshot(instrumentation);
+                for (Class<?> type : loaded.select(loader, ignored -> true)) {
+                    missing.remove(safeName(type));
                 }
                 if (!missing.isEmpty()) {
                     throw new IllegalStateException("mesh mirror lazy targets were not observed: " + missing);
@@ -340,7 +361,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         try {
             // One enumeration, but one request per owner: a refused owner must not hide the
             // restore of the owners that follow it.
-            final List<Class<?>> targets = VerifiedHookInstallerSupport.LoadedClassIndex.snapshot(instrumentation)
+            final List<Class<?>> targets = LoadedClassIndex.snapshot(instrumentation)
                     .select(owner, type -> isTarget(safeName(type)) && instrumentation.isModifiableClass(type));
             for (final Class<?> type : targets) {
                 try {
@@ -359,20 +380,28 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
     }
 
     private void rejectLoadedTargets() {
-        final Class<?>[] loaded;
+        final LoadedClassIndex loaded;
         try {
-            loaded = instrumentation.getAllLoadedClasses();
+            loaded = loadedClasses();
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             report("MESH_MIRROR_UNAVAILABLE_LOADED_CLASS_ENUMERATION_FAILED");
             throw new IllegalStateException("mesh mirror loaded-class enumeration failed", failure);
         }
-        for (Class<?> type : loaded) {
-            if (isTarget(safeName(type))) {
-                report("MESH_MIRROR_UNAVAILABLE_TARGET_ALREADY_LOADED owner=" + safeName(type));
-                throw new IllegalStateException("mesh mirror target is already loaded: " + safeName(type));
+        for (final String target : targetClassNames) {
+            if (loaded.containsName(target)) {
+                report("MESH_MIRROR_UNAVAILABLE_TARGET_ALREADY_LOADED owner=" + target);
+                throw new IllegalStateException("mesh mirror target is already loaded: " + target);
             }
         }
+    }
+
+    /**
+     * @return the phase snapshot this installer was handed, or a fresh one when it installs on its
+     *     own outside a phase pass
+     */
+    private LoadedClassIndex loadedClasses() {
+        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
     }
 
     private void report(final String message) {

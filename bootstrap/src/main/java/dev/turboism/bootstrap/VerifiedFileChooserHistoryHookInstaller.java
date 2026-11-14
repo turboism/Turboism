@@ -7,6 +7,7 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -21,6 +22,7 @@ final class VerifiedFileChooserHistoryHookInstaller implements AutoCloseable {
     private final FileChooserHistoryNativeMethodTransformer transformer;
     private final NativeFileChooserHistoryBridge bridge;
     private final String targetClassName;
+    private final LoadedClassIndex loadedClasses;
     private final AtomicBoolean installed = new AtomicBoolean(false);
 
     VerifiedFileChooserHistoryHookInstaller(
@@ -28,8 +30,22 @@ final class VerifiedFileChooserHistoryHookInstaller implements AutoCloseable {
             final ClassLoader hostClassLoader,
             final FileChooserHistoryHostProfile profile,
             final FileChooserHistoryService service) {
+        this(instrumentation, hostClassLoader, profile, service, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install
+     */
+    VerifiedFileChooserHistoryHookInstaller(
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final FileChooserHistoryHostProfile profile,
+            final FileChooserHistoryService service,
+            final LoadedClassIndex loadedClasses) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        this.loadedClasses = loadedClasses;
         final FileChooserHistoryHostProfile reviewed = Objects.requireNonNull(profile, "profile");
         this.transformer = new FileChooserHistoryNativeMethodTransformer(
                 reviewed.fileChooserClassInternalName(), reviewed.saveDialogMethods(), hostClassLoader);
@@ -48,8 +64,8 @@ final class VerifiedFileChooserHistoryHookInstaller implements AutoCloseable {
         NativeFileChooserHistoryBridge.install(bridge);
         instrumentation.addTransformer(transformer, true);
         try {
-            final int retransformed =
-                    VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassName, hostClassLoader);
+            final int retransformed = VerifiedHookInstallerSupport.retransformIfLoaded(
+                    instrumentation, loadedClasses(), Set.of(targetClassName), hostClassLoader);
             dev.turboism.runtime.log.RuntimeDiagnostics.debug(
                     "file-chooser", "Installed verified file-chooser hooks; retransformed=" + retransformed);
         } catch (Throwable failure) {
@@ -66,5 +82,13 @@ final class VerifiedFileChooserHistoryHookInstaller implements AutoCloseable {
         }
         instrumentation.removeTransformer(transformer);
         NativeFileChooserHistoryBridge.uninstall(bridge);
+    }
+
+    /**
+     * @return the phase snapshot this installer was handed, or a fresh one when it installs on its
+     *     own outside a phase pass
+     */
+    private LoadedClassIndex loadedClasses() {
+        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
     }
 }

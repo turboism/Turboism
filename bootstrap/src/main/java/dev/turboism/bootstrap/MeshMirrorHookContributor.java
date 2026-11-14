@@ -98,7 +98,8 @@ final class MeshMirrorHookContributor implements HookContributor {
                 null,
                 profile,
                 java.util.Set.copyOf(MeshMirrorHostProfile.reviewedClassSha256().get(bound.sourceVersion())),
-                ignored -> {});
+                ignored -> {},
+                environment.loadedClasses());
         bound.requireUnchanged(hostArtifact);
         candidate.install();
         try {

@@ -38,7 +38,8 @@ final class FpsHookContributor implements HookContributor {
                 environment.instrumentation(),
                 host.artifact(),
                 host.classLoader(),
-                environment.admittedRuntimeGeneration());
+                environment.admittedRuntimeGeneration(),
+                environment.loadedClasses());
         try {
             PerformanceFpsHookRegistry.publish(installer);
         } catch (Throwable failure) {

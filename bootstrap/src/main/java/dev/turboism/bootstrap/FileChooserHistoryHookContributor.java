@@ -36,7 +36,11 @@ final class FileChooserHistoryHookContributor implements HookContributor {
                         .flatMap(FileChooserHistoryHostProfile::forReviewedVersion))
                 .orElseThrow(() -> new IllegalStateException("Unsupported file-chooser history host artifact"));
         final VerifiedFileChooserHistoryHookInstaller installer = new VerifiedFileChooserHistoryHookInstaller(
-                environment.instrumentation(), host.classLoader(), profile, runtime.fileChooserHistoryService());
+                environment.instrumentation(),
+                host.classLoader(),
+                profile,
+                runtime.fileChooserHistoryService(),
+                environment.loadedClasses());
         installer.install();
         runtime.info("bootstrap", id() + " installation=COMPLETE");
         return installer;

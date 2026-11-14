@@ -52,7 +52,8 @@ final class ProjectLifecycleHookContributor implements HookContributor {
                 host.classLoader(),
                 profile,
                 runtime.hostAccess().projectFileLifecycle(),
-                runtime.hostAccess().editorLifecycleEvents());
+                runtime.hostAccess().editorLifecycleEvents(),
+                environment.loadedClasses());
         installer.install();
         runtime.info("bootstrap", id() + " installation=COMPLETE");
         return installer;

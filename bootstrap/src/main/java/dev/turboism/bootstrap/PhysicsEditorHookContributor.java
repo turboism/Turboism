@@ -38,7 +38,8 @@ final class PhysicsEditorHookContributor implements HookContributor {
                 environment.instrumentation(),
                 host.classLoader(),
                 runtime.hostAccess().physicsEditorCoordinator(),
-                profile);
+                profile,
+                environment.loadedClasses());
         installer.install();
         return installer;
     }

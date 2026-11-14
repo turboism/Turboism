@@ -41,7 +41,8 @@ final class FloatingTabCloseHookContributor implements HookContributor {
                 environment.instrumentation(),
                 resolver.verifiedSelector("cubism.ui-panel.floating-tab-close.operation"),
                 resolver.verifiedSelector("cubism.ui-panel.floating-tab-close.palette-field"),
-                host.classLoader());
+                host.classLoader(),
+                environment.loadedClasses());
         installer.install();
         environment
                 .runtime()

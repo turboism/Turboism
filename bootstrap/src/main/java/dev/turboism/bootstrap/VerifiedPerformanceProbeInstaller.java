@@ -58,6 +58,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     private final AtomicBoolean installed = new AtomicBoolean();
     private final AtomicBoolean admitted = new AtomicBoolean();
     private final List<Class<?>> transformed = new ArrayList<>();
+    private final LoadedClassIndex loadedClasses;
     private final ScheduledExecutorService reporter = Executors.newSingleThreadScheduledExecutor(runnable -> {
         final Thread thread = new Thread(runnable, "turboism-performance-probe");
         thread.setDaemon(true);
@@ -75,7 +76,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
             final Path carrierJar,
             final String scenario)
             throws Exception {
-        this(instrumentation, hostArtifact, hostClassLoader, carrierJar, scenario, java.util.Optional.empty());
+        this(instrumentation, hostArtifact, hostClassLoader, carrierJar, scenario, java.util.Optional.empty(), null);
     }
 
     /**
@@ -93,8 +94,25 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
             final String scenario,
             final java.util.Optional<String> admittedGeneration)
             throws Exception {
+        this(instrumentation, hostArtifact, hostClassLoader, carrierJar, scenario, admittedGeneration, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install
+     */
+    VerifiedPerformanceProbeInstaller(
+            final Instrumentation instrumentation,
+            final Path hostArtifact,
+            final ClassLoader hostClassLoader,
+            final Path carrierJar,
+            final String scenario,
+            final java.util.Optional<String> admittedGeneration,
+            final LoadedClassIndex loadedClasses)
+            throws Exception {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        this.loadedClasses = loadedClasses;
         final HostArtifactDigest digest = HostArtifactDigest.cached(hostArtifact);
         final ProbeProfile profile = profileForArtifact(digest, scenario, admittedGeneration);
         this.cubismVersion = profile.cubismVersion();
@@ -197,7 +215,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                     .map(target -> target.ownerInternalName().replace('/', '.'))
                     .distinct()
                     .toList();
-            final List<Class<?>> loadedTargets = VerifiedHookInstallerSupport.LoadedClassIndex.snapshot(instrumentation)
+            final List<Class<?>> loadedTargets = loadedClasses()
                     .select(
                             hostClassLoader,
                             loaded -> targetNames.contains(loaded.getName())
@@ -290,18 +308,28 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
         }
     }
 
-    /** Currently loaded classes this transformer actually instrumented, pinned to the host loader. */
+    /**
+     * Currently loaded classes this transformer actually instrumented, pinned to the host loader.
+     *
+     * <p>The close path runs long after the install pass, so it samples the JVM again instead of
+     * reusing the phase snapshot.</p>
+     */
     private List<Class<?>> currentlyLoadedTargets() {
         final Set<String> instrumentedOwners = transformer.wovenOwners();
-        final List<Class<?>> loaded = new ArrayList<>();
-        for (Class<?> candidate : instrumentation.getAllLoadedClasses()) {
-            if (instrumentedOwners.contains(candidate.getName().replace('.', '/'))
-                    && candidate.getClassLoader() == hostClassLoader
-                    && instrumentation.isModifiableClass(candidate)) {
-                loaded.add(candidate);
-            }
-        }
-        return loaded;
+        return LoadedClassIndex.snapshot(instrumentation)
+                .select(
+                        hostClassLoader,
+                        candidate ->
+                                instrumentedOwners.contains(candidate.getName().replace('.', '/'))
+                                        && instrumentation.isModifiableClass(candidate));
+    }
+
+    /**
+     * @return the phase snapshot this installer was handed, or a fresh one when it installs on its
+     *     own outside a phase pass
+     */
+    private LoadedClassIndex loadedClasses() {
+        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
     }
 
     private void appendCarrier(final Path carrierJar) throws IOException {
