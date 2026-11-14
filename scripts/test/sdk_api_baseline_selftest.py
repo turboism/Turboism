@@ -95,15 +95,29 @@ def verify_plugin_consumer_guard(args: argparse.Namespace) -> None:
         "sdk-api-schema\t1\n"
         "class\tname=dev/sdk/Consumed\tflags=public\n"
         "class\tname=dev/sdk/Unconsumed\tflags=public\n"
-        "class\tname=dev/sdk/Unconsumed$Nested\tflags=public\n",
+        "class\tname=dev/sdk/Unconsumed$Nested\tflags=public\n"
+        "class\tname=dev/sdk/CommentedOut\tflags=public\n"
+        "class\tname=dev/sdk/BlockCommentedOut\tflags=public\n"
+        "class\tname=dev/sdk/StringOnly\tflags=public\n",
         encoding="utf-8",
     )
     plugins = args.tmp / "guard-plugins"
     source = plugins / "demo" / "src" / "main" / "java" / "Demo.java"
     source.parent.mkdir(parents=True, exist_ok=True)
-    source.write_text("final class Demo { Consumed consumed; }\n", encoding="utf-8")
+    # A type named only in a comment or a string literal never links the type.
+    source.write_text(
+        "final class Demo { Consumed consumed; }\n"
+        "// CommentedOut is mentioned in prose only.\n"
+        "/* BlockCommentedOut is mentioned in a block comment. */\n"
+        "final class Names { static final String TEXT = \"StringOnly\"; }\n",
+        encoding="utf-8",
+    )
     allow_list = args.tmp / "guard-list.txt"
-    allow_list.write_text("# reviewed entries\ndev.sdk.Unconsumed\n", encoding="utf-8")
+    allow_list.write_text(
+        "# reviewed entries\ndev.sdk.Unconsumed\ndev.sdk.CommentedOut\n"
+        "dev.sdk.BlockCommentedOut\ndev.sdk.StringOnly\n",
+        encoding="utf-8",
+    )
     arguments = (
         "--input", str(surface), "--current", str(surface),
         "--plugins", str(plugins), "--no-consumer-list", str(allow_list),
@@ -118,6 +132,9 @@ def verify_plugin_consumer_guard(args: argparse.Namespace) -> None:
         fail("plugin-consumer guard accepted a public type without a plugin consumer")
     if "dev.sdk.Consumed" in output:
         fail("plugin-consumer guard reported a type a plugin source names")
+    for mentioned in ("CommentedOut", "BlockCommentedOut", "StringOnly"):
+        if mentioned in output:
+            fail(f"plugin-consumer guard counted {mentioned} from a comment or string literal")
 
 
 def verify_incubating_exclusion(args: argparse.Namespace) -> None:

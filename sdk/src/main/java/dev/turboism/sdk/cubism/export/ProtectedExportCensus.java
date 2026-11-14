@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.export;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -22,7 +21,6 @@ import java.util.Set;
  * {@link #deformerGuids()}; a deformer whose host parent edge is absent or points outside
  * the deformer census is a root (the host's own downward traversal semantics).</p>
  */
-@Incubating
 @CubismEditor({
     "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
     "5.3.03", "5.3.04"

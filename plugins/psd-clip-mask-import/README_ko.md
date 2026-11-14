@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: psd, import, clip-mask
-turboismApi: "[0.67.4,1.0.0)"
+turboismApi: "[0.67.4,)"
 requiresCubism: true
 interface: embedded
 ---
@@ -36,7 +36,7 @@ interface: embedded
 
 ## 요구 사항 및 호환성
 
-- **SDK API 範囲:** `[0.67.4,1.0.0)`。
+- **SDK API 範囲:** `[0.67.4,)`。
 - **Cubism:** 対応する厳密なバージョンが、アクティブモデルの PSD 関係、クリッピングマスク読み取り、順序付き置換、トランザクション/Undo、埋め込みパネル、ダイアログ、状態通知サービスを提供する必要があります。
 - **インターフェースモード:** `embedded`。
 - **プラグインの依存関係:** 宣言されていません。

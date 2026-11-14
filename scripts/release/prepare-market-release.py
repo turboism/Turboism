@@ -646,18 +646,21 @@ def parse_strict_version(version: str) -> tuple[int, int, int]:
 
 
 def dependency_range_contains(version_range: str, version: str) -> bool:
-    """Match runtime VersionRange: exact or bounded half-open interval."""
+    """Match runtime VersionRange: exact, bounded half-open, or unbounded half-open interval."""
     strict = r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
     if not isinstance(version_range, str) or re.fullmatch(
-        rf"{strict}|\[{strict},{strict}\)", version_range
+        rf"{strict}|\[{strict},(?:{strict})?\)", version_range
     ) is None:
         raise MarketError(f"unsupported dependency version range {version_range!r}")
     actual = parse_strict_version(version)
-    if isinstance(version_range, str) and version_range.startswith("[") and version_range.endswith(")"):
+    if version_range.startswith("[") and version_range.endswith(")"):
         bounds = version_range[1:-1].split(",")
         if len(bounds) != 2:
             raise MarketError(f"unsupported dependency version range {version_range!r}")
-        lower, upper = map(parse_strict_version, bounds)
+        lower = parse_strict_version(bounds[0])
+        if not bounds[1]:
+            return lower <= actual
+        upper = parse_strict_version(bounds[1])
         if lower >= upper:
             raise MarketError(f"dependency version range inverted or empty: {version_range!r}")
         return lower <= actual < upper

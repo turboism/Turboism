@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.preview;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 
 /**
  * Reports that a {@link PreviewFrameSource} is no longer live.
@@ -10,7 +9,6 @@ import dev.turboism.sdk.Incubating;
  * generation all fence the source, so a late capture observes this failure instead of reading a
  * host surface that no longer belongs to it.</p>
  */
-@Incubating
 @CubismEditor
 public final class PreviewFrameSourceClosedException extends IllegalStateException {
 

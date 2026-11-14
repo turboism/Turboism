@@ -1,9 +1,6 @@
 package dev.turboism.sdk.script;
 
-import dev.turboism.sdk.Incubating;
-
 /** Script languages currently supported by Turboism. */
-@Incubating
 public enum ScriptLanguage {
     JAVASCRIPT("js");
 

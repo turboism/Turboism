@@ -61,6 +61,31 @@ class PanelViewContractTest {
     }
 
     @Test
+    void imageNodesCompareByPngContentSoRepaintsReuseTheRenderedComponent() {
+        final byte[] png = java.util.Base64.getDecoder()
+                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+        final byte[] sameBytes = png.clone();
+
+        assertEquals(PanelView.image(png, "thumbnail"), PanelView.image(sameBytes, "thumbnail"));
+        assertEquals(
+                PanelView.image(png, "thumbnail").hashCode(),
+                PanelView.image(sameBytes, "thumbnail").hashCode());
+        assertFalse(PanelView.image(png, "thumbnail").equals(PanelView.image(png, "other")));
+
+        final PanelView.ScaledImage scaled = PanelView.scaledImage(png, "thumbnail", 150, 120);
+        assertEquals(scaled, PanelView.scaledImage(sameBytes, "thumbnail", 150, 120));
+        assertEquals(
+                scaled.hashCode(),
+                PanelView.scaledImage(sameBytes, "thumbnail", 150, 120).hashCode());
+        assertFalse(scaled.equals(PanelView.scaledImage(png, "thumbnail", 120, 150)));
+        assertFalse(scaled.equals(PanelView.image(png, "thumbnail")));
+
+        final String rendered = scaled.toString();
+        assertTrue(rendered.contains("pngBytes=" + png.length + " bytes"), rendered);
+        assertFalse(rendered.contains("[B@"), rendered);
+    }
+
+    @Test
     void scaledImageNodeCarriesSourcePixelsAndLogicalDisplayBounds() {
         final byte[] png = java.util.Base64.getDecoder()
                 .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");

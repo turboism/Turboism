@@ -10,17 +10,14 @@ import java.lang.annotation.Target;
  * Marks an SDK type or member as incubating: published for early adopters but
  * not yet covered by the compatibility promises of the stable API surface.
  *
- * <p>Incubating API may change or be removed between framework versions —
- * including breaking signature changes — and is excluded from the SDK's
- * exact-API compatibility baselines. A declaration on a type covers every
- * member it contains; a member-level declaration narrows a stable type's
- * incubating surface.</p>
+ * <p>The annotation type is retained so existing plugin sources and compiled
+ * bytecode keep linking; the SDK no longer applies it. Every public SDK element
+ * now belongs to the stable surface and follows the standard compatibility
+ * rules. Do not add new usages: declare a real {@link CubismEditor} availability
+ * contract instead of a maturity marker.</p>
  *
- * <p>Removal of {@code @Incubating} is a one-way promotion: once an element
- * ships without it, the standard additive/compatible evolution rules apply
- * after the first stable release establishes the SDK compatibility baseline.
- * Before that freeze, unannotated APIs may also undergo reviewed breaking changes.
- * Plugin authors should treat incubating dependencies as version-pinned.</p>
+ * <p>A declaration on a type covered every member it contained; a member-level
+ * declaration narrowed a stable type's incubating surface.</p>
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)

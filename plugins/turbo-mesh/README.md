@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, artmesh, editing
-turboismApi: "[0.70.0,1.0.0)"
+turboismApi: "[0.70.0,)"
 requiresCubism: true
 interface: embedded
 ---
@@ -24,7 +24,7 @@ Custom ArtMesh point placement: curvature-aware boundary resampling, autonomous 
 | Plugin ID | `dev.turboism.plugin.turbo-mesh` |
 | Category | `modeling` |
 | Tags | mesh, artmesh, editing |
-| Turboism API | `[0.70.0,1.0.0)` |
+| Turboism API | `[0.70.0,)` |
 | Requires Cubism | Yes |
 | Interface | `embedded` |
 | License | Project License |
@@ -39,7 +39,7 @@ Custom ArtMesh point placement: curvature-aware boundary resampling, autonomous 
 
 ## Requirements and compatibility
 
-- **Turboism API:** `[0.70.0,1.0.0)`.
+- **Turboism API:** `[0.70.0,)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.2.03`, `5.3.02`, and `5.3.03`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.

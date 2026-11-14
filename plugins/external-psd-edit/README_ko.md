@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: psd, texture, external-edit
-turboismApi: "[0.67.2,1.0.0)"
+turboismApi: "[0.67.2,)"
 requiresCubism: true
 interface: embedded
 ---
@@ -39,7 +39,7 @@ ArtMesh を右クリックして完全な原画 PSD を設定したエディタ�
 
 ## 요구 사항 및 호환성
 
-- **SDK API 範囲:** `[0.67.2,1.0.0)`。
+- **SDK API 範囲:** `[0.67.2,)`。
 - **Cubism:** 必須。書き出しと置換には Cubism ネイティブのレイヤー画像書き出しおよび原画置換機能（Cubism 5.2.00 以降）を使用します。
 - **インターフェースモード:** `embedded`。
 - **プラグイン依存関係:** なし。

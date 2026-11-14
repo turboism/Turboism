@@ -2,6 +2,7 @@ package dev.turboism.sdk.ui;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -280,6 +281,9 @@ public sealed interface PanelView
     /**
      * PNG image node (for example a recent-file preview thumbnail) with accessibility
      * alt text. The runtime renders it as an image label sized to the decoded pixels.
+     *
+     * <p>Equality compares the PNG bytes by content, so a repaint that rebuilds the same
+     * image keeps the rendered component instead of decoding the PNG again.</p>
      */
     record Image(byte[] pngBytes, String altText) implements PanelView {
         public Image {
@@ -291,12 +295,32 @@ public sealed interface PanelView
         public byte[] pngBytes() {
             return pngBytes.clone();
         }
+
+        @Override
+        public boolean equals(final Object other) {
+            return other instanceof Image image
+                    && altText.equals(image.altText)
+                    && Arrays.equals(pngBytes, image.pngBytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * altText.hashCode() + Arrays.hashCode(pngBytes);
+        }
+
+        @Override
+        public String toString() {
+            return "Image[pngBytes=" + pngBytes.length + " bytes, altText=" + altText + "]";
+        }
     }
 
     /**
      * High-resolution PNG image node with explicit logical display bounds. The runtime
      * fits the image into the bounds while preserving aspect ratio, and supplies the
      * original pixels to HiDPI painting without increasing the panel's logical size.
+     *
+     * <p>Equality compares the PNG bytes by content, so a repaint that rebuilds the same
+     * image keeps the rendered component instead of decoding and rescaling the PNG again.</p>
      */
     record ScaledImage(byte[] pngBytes, String altText, int maxWidth, int maxHeight) implements PanelView {
         private static final int MAX_DISPLAY_DIMENSION = 4096;
@@ -311,6 +335,26 @@ public sealed interface PanelView
         @Override
         public byte[] pngBytes() {
             return pngBytes.clone();
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            return other instanceof ScaledImage image
+                    && maxWidth == image.maxWidth
+                    && maxHeight == image.maxHeight
+                    && altText.equals(image.altText)
+                    && Arrays.equals(pngBytes, image.pngBytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * (31 * (31 * altText.hashCode() + Arrays.hashCode(pngBytes)) + maxWidth) + maxHeight;
+        }
+
+        @Override
+        public String toString() {
+            return "ScaledImage[pngBytes=" + pngBytes.length + " bytes, altText=" + altText + ", maxWidth=" + maxWidth
+                    + ", maxHeight=" + maxHeight + "]";
         }
 
         private static void requireDisplayDimension(final int value, final String name) {

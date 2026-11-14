@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.export;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +20,6 @@ import java.util.regex.Pattern;
  * <p>Target tokens are private strings, not host-issued identifiers: a drawable-ID token
  * is never an identifier the host handed out.</p>
  */
-@Incubating
 @CubismEditor({
     "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
     "5.3.03", "5.3.04"
@@ -72,7 +70,6 @@ public record ProtectedExportPlan(
     }
 
     /** One censused identity's planned protected name and private ID token. */
-    @Incubating
     @CubismEditor({
         "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
         "5.3.03", "5.3.04"

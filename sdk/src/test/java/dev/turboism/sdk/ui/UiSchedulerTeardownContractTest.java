@@ -2,7 +2,6 @@ package dev.turboism.sdk.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.plugin.Registration;
@@ -12,7 +11,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * Contract for the incubating {@link UiScheduler#runUiTeardown} default: existing
+ * Contract for the stable {@link UiScheduler#runUiTeardown} default: existing
  * implementers keep compiling, and the fallback only schedules the cleanup and reports it as
  * deferred.
  */
@@ -41,8 +40,8 @@ class UiSchedulerTeardownContractTest {
     }
 
     @Test
-    void teardownMethodIsIncubating() throws Exception {
-        assertTrue(UiScheduler.class
+    void teardownMethodIsPartOfTheStableSurface() throws Exception {
+        assertFalse(UiScheduler.class
                 .getMethod("runUiTeardown", Runnable.class, Duration.class)
                 .isAnnotationPresent(Incubating.class));
     }

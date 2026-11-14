@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: analysis
 tags: clip-mask, viewer, graph
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.68.1,)"
 requiresCubism: true
 interface: swing
 ---
@@ -36,7 +36,7 @@ Inspects clip-mask relationships, duplicates, order conflicts, and related ArtMe
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.68.1,1.0.0)`.
+- **SDK API range:** `[0.68.1,)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.

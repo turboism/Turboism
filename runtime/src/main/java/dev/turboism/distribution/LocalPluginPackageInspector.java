@@ -3,6 +3,7 @@ package dev.turboism.distribution;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.core.archive.ArchiveStructureException;
 import dev.turboism.core.archive.StrictZipArchive;
+import dev.turboism.core.version.VersionRange;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
@@ -276,8 +277,7 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
     }
 
     private static boolean strictApi(String value) {
-        String version = "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)";
-        return value != null && (value.matches(version) || value.matches("\\[" + version + "," + version + "\\)"));
+        return VersionRange.isValid(value);
     }
 
     private static void require(boolean valid, String code, String path) throws Exception {

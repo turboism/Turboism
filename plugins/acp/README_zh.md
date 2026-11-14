@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: integration
 tags: automation, acp, agent
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.68.1,)"
 requiresCubism: true
 interface: swing
 ---
@@ -50,7 +50,7 @@ interface: swing
 
 ## 要求与兼容性
 
-- SDK API 范围 `[0.68.1,1.0.0)`。
+- SDK API 范围 `[0.68.1,)`。
 - 用户安装并已配置登录／模型的原版 CLI，或 ACP v1 兼容 Agent 可执行文件，可从 PATH 访问或在 **管理 Agent…** 中配置为自定义命令。
 - 需要 MCP 工具访问时，由捆绑的 `dev.turboism.plugin.mcp` 插件提供 Turboism MCP 服务器。
 - 需要已安装的 Cubism Editor 宿主；插件不在独立预览中运行。

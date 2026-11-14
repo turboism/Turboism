@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 
 /**
  * Plugin-defined integer slider in the native mesh toolbar.
@@ -11,7 +10,6 @@ import dev.turboism.sdk.Incubating;
  *
  * <p><strong>Preview API:</strong> this contract may evolve before stabilization.</p>
  */
-@Incubating
 @CubismEditor
 public interface MeshToolbarSlider {
     /** Returns the plugin-generation-local control identifier. */

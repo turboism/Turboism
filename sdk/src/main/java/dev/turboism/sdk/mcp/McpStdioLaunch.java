@@ -1,6 +1,5 @@
 package dev.turboism.sdk.mcp;
 
-import dev.turboism.sdk.Incubating;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.List;
@@ -13,7 +12,6 @@ import java.util.Objects;
  * carries the bearer token. The bridge process reads the token itself inside the MCP plugin
  * state directory.</p>
  */
-@Incubating
 public final class McpStdioLaunch {
 
     private static final int MAX_ARGS = 16;

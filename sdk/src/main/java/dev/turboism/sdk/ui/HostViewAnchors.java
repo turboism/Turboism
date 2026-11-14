@@ -1,7 +1,5 @@
 package dev.turboism.sdk.ui;
 
-import dev.turboism.sdk.Incubating;
-
 /**
  * Anchor identifiers ({@link HostViewPanel#attach}) naming the host views a plugin may
  * contribute a panel into.
@@ -10,7 +8,6 @@ import dev.turboism.sdk.Incubating;
  * adapters can render into, so a new host window arrives as a runtime adapter and a new
  * constant here rather than as another attachment interface.</p>
  */
-@Incubating
 public final class HostViewAnchors {
 
     /** The native texture-atlas editor window; panels are appended below the editor view. */

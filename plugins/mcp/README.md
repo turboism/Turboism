@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: integration
 tags: mcp, automation, external-tools
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.68.1,)"
 requiresCubism: true
 interface: swing
 ---
@@ -37,7 +37,7 @@ Runs a token-gated MCP Streamable HTTP server on the local loopback interface, p
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.68.1,1.0.0)`.
+- **SDK API range:** `[0.68.1,)`.
 - **Cubism:** Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`. A host-facing resource fails closed when its public SDK capability is unavailable; it never fabricates an empty success.
 - **Transport:** MCP Streamable HTTP using protocol `2025-11-25`, with compatibility negotiation for the supported earlier protocol versions.
 - **Interface mode:** `swing`, with a local connection-details window.
@@ -379,7 +379,7 @@ No telemetry is sent by this plugin. Plugin lifecycle and failure records can ap
 
 ### 0.68.1
 
-- Raised the minimum Turboism API to 0.68.0, matching the SDK members this plugin uses.
+- Raised the minimum Turboism API to [0.68.1,), matching the SDK members this plugin uses.
 
 ### 0.1.0
 

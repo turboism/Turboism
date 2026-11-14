@@ -45,6 +45,30 @@ class LocalPluginJarPreparerTest {
     }
 
     @Test
+    void stagesAPluginJarDeclaringAnUnboundedApiRange() throws Exception {
+        final Path source = root.resolve("unbounded.jar");
+        Files.write(source, pluginJar("example.plugin", "1.0.0", "[0.67.0,)"));
+
+        final LocalPluginJarPreparer.Prepared result = assertInstanceOf(
+                LocalPluginJarPreparer.Prepared.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
+
+        assertEquals("[0.67.0,)", result.value().descriptor().turboismApi());
+    }
+
+    @Test
+    void rejectsAPluginJarWhoseApiRangeIsNotHalfOpen() throws Exception {
+        final Path source = root.resolve("closed.jar");
+        Files.write(source, pluginJar("example.plugin", "1.0.0", "[0.67.0,1.0.0]"));
+
+        final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
+                LocalPluginJarPreparer.PreparationRejected.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
+
+        assertEquals("PLUGIN_META_BAD_VERSION_RANGE", rejected.code());
+    }
+
+    @Test
     void rejectsSourceMutationAfterSnapshot() throws Exception {
         final Path source = root.resolve("sample.jar");
         Files.write(source, pluginJar("example.plugin", "1.0.0"));
@@ -423,10 +447,14 @@ class LocalPluginJarPreparerTest {
     }
 
     private static byte[] pluginJar(final String id, final String version) throws Exception {
+        return pluginJar(id, version, "[0.67.0,1.0.0)");
+    }
+
+    private static byte[] pluginJar(final String id, final String version, final String turboismApi) throws Exception {
         final String descriptor = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":2,"
                 + "\"id\":\"" + id + "\",\"name\":\"Example\",\"version\":\"" + version + "\","
                 + "\"description\":\"Example\",\"entrypoints\":[\"example.Plugin\"],"
-                + "\"turboismApi\":\"[0.67.0,1.0.0)\",\"authors\":[{\"name\":\"Test\"}],"
+                + "\"turboismApi\":\"" + turboismApi + "\",\"authors\":[{\"name\":\"Test\"}],"
                 + "\"license\":\"Test\",\"website\":\"https://example.test\",\"resources\":[],"
                 + "\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[]},"
                 + "\"dependencies\":[],\"permissions\":[],\"capabilities\":[],"

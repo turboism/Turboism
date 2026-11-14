@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: launcher, commands, shortcut
-turboismApi: "[0.68.1,1.0.0)"
+turboismApi: "[0.68.1,)"
 requiresCubism: true
 interface: swing
 ---
@@ -39,7 +39,7 @@ interface: swing
 
 ## 요구 사항 및 호환성
 
-- **SDK API 範囲:** `[0.68.1,1.0.0)`。
+- **SDK API 範囲:** `[0.68.1,)`。
 - **Cubism:** Cubism が必要です。レビュー済みの Editor（`5.2.03`、`5.3.02`、`5.3.03` など）をサポートし、宣言されたサービスと機能が利用可能な場合にのみ各機能を提供します。
 - **インターフェースモード:** `swing`。
 - **プラグイン依存関係:** なし。

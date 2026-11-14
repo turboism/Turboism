@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 
 /**
  * Runtime-owned selection brush bound to one mesh-tool activation.
@@ -11,7 +10,6 @@ import dev.turboism.sdk.Incubating;
  *
  * <p><strong>Preview API:</strong> this contract may evolve before stabilization.</p>
  */
-@Incubating
 @CubismEditor(from = "5.0.00")
 public interface MeshBrush extends AutoCloseable {
     /** Smallest supported radius, in active component pixels. */

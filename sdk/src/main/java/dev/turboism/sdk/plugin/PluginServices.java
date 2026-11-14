@@ -209,7 +209,46 @@ public final class PluginServices {
             case MODEL_OBJECTS ->
                 available(context.modelObjects(), dev.turboism.sdk.cubism.model.ModelObjectService.unavailable());
             case CONFIG -> available(context.config(), dev.turboism.sdk.config.PluginConfigRegistry.unavailable());
-            default -> null;
+            // Directory-only registrations: the plugin resolves these through
+            // PluginServiceDirectory, never through a PluginContext accessor.
+            case CUBISM_CLIP_MASKS,
+                    RECENT_FILES,
+                    SCREENSHOTS,
+                    RECENT_PREVIEWS,
+                    RECENT_PREVIEW_CACHE,
+                    PHYSICS_EDITOR,
+                    PREVIEW_FRAMES,
+                    FILE_CHOOSER_HISTORY,
+                    MESH_EDIT,
+                    MESH_MIRROR_CONTROL,
+                    MESH_EDIT_CONTRIBUTION,
+                    MESH_TOOLS,
+                    AUTOMESH_ALGORITHMS,
+                    MODELING_TOOLS,
+                    EDITOR_COMMANDS,
+                    ACTION_CATALOG,
+                    BACKUP,
+                    MAIN_TOOLBAR,
+                    PALETTE_TOOLBAR,
+                    PALETTE_FILTER,
+                    SCENE_TABLE,
+                    UI_HOST,
+                    HOST_VIEW_PANEL,
+                    HOST_DIALOGS,
+                    APPEARANCE,
+                    WORKSPACE,
+                    WORKSPACE_LAYOUT,
+                    CONTEXT_MENU,
+                    CUBISM_LOG,
+                    RUNTIME_SETTINGS,
+                    MCP_CONNECTIONS,
+                    PERFORMANCE_STATS,
+                    ART_MESH_MIRROR,
+                    WARP_ALT_MIRROR_PARTICIPATION,
+                    VIEW_CONTEXT_MENU,
+                    UI_RESOURCES,
+                    EXPORT_SETTINGS,
+                    PROJECT_WORK_TIME -> null;
         };
     }
 

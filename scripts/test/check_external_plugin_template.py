@@ -258,12 +258,13 @@ def sdk_version_from(jar: Path) -> str:
 
 
 def api_range_for(sdk_version: str) -> str:
+    """Declare the fixture's floor as the SDK minor line it was built from, with no upper bound."""
     match = re.match(r"^(\d+)\.(\d+)\.(\d+)", sdk_version)
     if not match:
-        return "[0.67.0,1.0.0)"
+        return "[0.67.0,)"
     major = int(match.group(1))
     minor = int(match.group(2))
-    return f"[{major}.{minor}.0,{major + 1}.0.0)"
+    return f"[{major}.{minor}.0,)"
 
 
 def build_descriptor(sdk_version: str) -> str:

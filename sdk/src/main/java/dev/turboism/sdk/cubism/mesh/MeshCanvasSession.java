@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.List;
@@ -24,7 +23,6 @@ import java.util.function.Consumer;
  *
  * <p><strong>Preview API:</strong> this contract may evolve before stabilization.</p>
  */
-@Incubating
 @CubismEditor(from = "5.0.00")
 public interface MeshCanvasSession extends AutoCloseable {
 

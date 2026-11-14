@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: parameter, lock, palette, safety
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.0,)"
 requiresCubism: true
 interface: embedded
 ---
@@ -42,7 +42,7 @@ Cubism 매개변수 값의 의도치 않은 수정을 방지하고, 세션 간 �
 
 ## 요구 사항 및 호환성
 
-- **SDK API 범위:** `[0.67.0,1.0.0)`.
+- **SDK API 범위:** `[0.67.0,)`.
 - **Cubism:** Cubism이 필요합니다. Turboism은 현재 검토된 에디터 아티팩트 `5.0.00`부터 `5.3.04`(`5.3.03` 포함)까지 엄격하게 허용합니다.
 - **인터페이스 모드:** `embedded`.
 - **플러그인 종속성:** 선언되지 않음.

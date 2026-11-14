@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -19,7 +18,6 @@ import java.util.function.Consumer;
  * against the live mesh and applies them itself, so plugin code cannot directly mutate host
  * geometry.</p>
  */
-@Incubating
 @CubismEditor(from = "5.0.00")
 public interface MeshEditContributionSurface {
 

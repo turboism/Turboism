@@ -1,6 +1,5 @@
 package dev.turboism.sdk.mcp;
 
-import dev.turboism.sdk.Incubating;
 import java.net.URI;
 import java.util.Locale;
 import java.util.Objects;
@@ -11,7 +10,6 @@ import java.util.Optional;
  * the bearer that authorizes mutating operations is read only by the stdio bridge process inside
  * the MCP plugin state directory.
  */
-@Incubating
 public final class McpHttpConnection {
 
     private final URI endpoint;

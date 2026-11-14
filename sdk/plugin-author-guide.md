@@ -22,10 +22,13 @@ Keep the SDK dependency `compileOnly` and the event processor on
 Plugin Management, and restart. See the template for offline setup and pinned
 release selection.
 
-The descriptor's `turboismApi` uses `[min,max)`: the minimum is inclusive and the
-maximum exclusive. Choose the minimum framework API that supplies every SDK
+The descriptor's `turboismApi` uses `[min,)`: the minimum is inclusive and the
+range has no upper bound, so every later framework API stays admitted. Choose the
+minimum framework API that supplies every SDK
 member you use; compiling against a new SDK does not make its additions work on
-an older runtime. See [API compatibility](../compatibility/plugin-api.md) for
+an older runtime. The bounded form `[min,max)` remains valid when a plugin must
+reject a known-incompatible API line. See
+[API compatibility](../compatibility/plugin-api.md) for
 base-version normalization and official-plugin range checks. Before the first
 stable release, breaking SDK changes are allowed; an API range alone does not
 prove compatibility with every future pre-stable runtime.

@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.preview;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 import java.util.Optional;
 
 /**
@@ -13,7 +12,6 @@ import java.util.Optional;
  * the plugin generation is retired. A capture never reads the desktop, only the preview's own
  * framebuffer.</p>
  */
-@Incubating
 @CubismEditor
 public interface PreviewFrameService {
 

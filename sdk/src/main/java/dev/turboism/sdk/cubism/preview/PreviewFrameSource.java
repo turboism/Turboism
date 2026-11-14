@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.preview;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.PanelView;
@@ -20,7 +19,6 @@ import java.util.function.BiConsumer;
  * reads back on the calling thread — an implementation reads the framebuffer on its own thread and
  * completes the returned stage there.</p>
  */
-@Incubating
 @CubismEditor
 public interface PreviewFrameSource extends AutoCloseable {
 

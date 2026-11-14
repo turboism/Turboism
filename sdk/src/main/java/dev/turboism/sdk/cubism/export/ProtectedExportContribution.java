@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.export;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 import java.util.Objects;
 
 /**
@@ -14,7 +13,6 @@ import java.util.Objects;
  * it builds the census, calls the planner and verifies the plan before it stages
  * anything.</p>
  */
-@Incubating
 @CubismEditor({
     "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
     "5.3.03", "5.3.04"

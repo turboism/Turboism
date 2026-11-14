@@ -10,6 +10,7 @@ from pathlib import Path
 
 from sdk_api_baseline import BaselineError, GENERATOR_VERSION, SCHEMA_VERSION, canonical_dump, sha256_bytes
 from sdk_api_baseline_cli_io import COMMIT_RE, FORMAT, load_baseline, write_output
+from turboism_dev.java_source import strip_java_noise
 
 CLASS_RECORD = re.compile(r"^class\tname=(?P<name>[^\t]+)")
 SOURCE_IDENTIFIER = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*")
@@ -70,9 +71,15 @@ def _public_types(surface: bytes) -> set[str]:
 
 
 def _plugin_identifiers(plugins: Path) -> set[str]:
+    """Collect identifiers a plugin source really references.
+
+    Comments and string literals are blanked first: a type name that only appears in
+    prose or a literal never links the type, so counting it would hide a public SDK type
+    that no first-party plugin consumes.
+    """
     identifiers: set[str] = set()
     for source in sorted(plugins.glob(f"*/{PLUGIN_SOURCE_SUFFIX}/**/*.java")):
-        identifiers.update(SOURCE_IDENTIFIER.findall(source.read_text(encoding="utf-8")))
+        identifiers.update(SOURCE_IDENTIFIER.findall(strip_java_noise(source.read_text(encoding="utf-8"))))
     return identifiers
 
 
