@@ -9,6 +9,10 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +36,10 @@ import javax.swing.WindowConstants;
  * or keyboard activation) that collapses/expands the chart independently,
  * and every row starts expanded. A collapsed row reclaims its vertical
  * space, and the chart itself never repeats the header title.
+ *
+ * <p>The window hides on close, so the refresh timer follows visibility: it runs only while the
+ * window is on screen and stops when the window is hidden, minimized away or iconified. A hidden
+ * window therefore costs no repaint work, and reopening it restarts the timer.</p>
  */
 final class PerfStatsWindow {
 
@@ -68,6 +76,8 @@ final class PerfStatsWindow {
     private final Map<String, String> titles;
     private final JFrame frame;
     private final Timer refresh;
+    /** Set by {@link #start()} or {@link #showAndFront()}; gates the visibility-driven timer. */
+    private boolean started;
 
     PerfStatsWindow(
             final String title,
@@ -89,6 +99,35 @@ final class PerfStatsWindow {
         frame.setContentPane(rows);
         frame.setSize(480, 500);
         refresh = new Timer(1000, ignored -> frame.repaint());
+        frame.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentShown(final ComponentEvent event) {
+                syncRefresh();
+            }
+
+            @Override
+            public void componentHidden(final ComponentEvent event) {
+                syncRefresh();
+            }
+        });
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(final WindowEvent event) {
+                // HIDE_ON_CLOSE hides the frame after this callback, so stop here instead of
+                // relying on the later component-hidden event.
+                refresh.stop();
+            }
+
+            @Override
+            public void windowDeiconified(final WindowEvent event) {
+                syncRefresh();
+            }
+
+            @Override
+            public void windowIconified(final WindowEvent event) {
+                syncRefresh();
+            }
+        });
     }
 
     private void addRow(
@@ -105,21 +144,47 @@ final class PerfStatsWindow {
     }
 
     void showAndFront() {
+        started = true;
         frame.setVisible(true);
         frame.toFront();
+        syncRefresh();
     }
 
     void start() {
-        refresh.start();
+        started = true;
+        syncRefresh();
     }
 
     void dispose() {
+        started = false;
         refresh.stop();
         frame.dispose();
     }
 
     boolean isVisible() {
         return frame.isVisible();
+    }
+
+    /** True while the periodic repaint timer is scheduled. */
+    boolean isRefreshing() {
+        return refresh.isRunning();
+    }
+
+    /**
+     * Aligns the refresh timer with the window state.
+     *
+     * <p>The timer must run only while the window can show a repaint, so a hidden or iconified
+     * window stops paying for a 1 Hz repaint of invisible content.</p>
+     */
+    private void syncRefresh() {
+        final boolean active = started && frame.isVisible() && !isIconified();
+        if (active == refresh.isRunning()) return;
+        if (active) refresh.start();
+        else refresh.stop();
+    }
+
+    private boolean isIconified() {
+        return (frame.getExtendedState() & java.awt.Frame.ICONIFIED) != 0;
     }
 
     /**

@@ -29,6 +29,12 @@ public final class NativeArtMeshSymmetryBridge {
     private static final String MODELING_VIEW_CLASS = "com.live2d.cubism.view.context.CEViewContext_ModelingView";
     private static final String MAIN_EDIT_MODE_CLASS = "com.live2d.cubism.doc.modeling.CModelingEditMode_Main";
     private static final String ARTMESH_SOURCE_CLASS = "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshSource";
+    private static final String ART_MESH_FORM_CLASS = "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm";
+    private static final String TRANSFORM_CLASS = "com.live2d.doc.selection.ITransformBetweenLocalAndCanvas";
+    private static final String TRANSFORM_FIELD = "transformBetweenLocalAndCanvas";
+    private static final String DRAG_ACTION_PACKAGE = "com.live2d.cubism.view.context.action.";
+    private static final String HOST_ADAPTER_PACKAGE = "dev.turboism.";
+    private static final String THREAD_CLASS = "java.lang.Thread";
     private static final double DEGREES_TO_TENTHS = 10.0;
     private static final float AXIS_LINE_DARK_WIDTH = 4.0f;
     private static final float AXIS_LINE_LIGHT_WIDTH = 1.5f;
@@ -51,6 +57,7 @@ public final class NativeArtMeshSymmetryBridge {
     private static final int LIGHT_RGB = 255;
     private static final Color LABEL_OUTLINE_COLOR = new Color(DARK_R, DARK_G, DARK_B);
     private static final Color LABEL_FILL_COLOR = new Color(LIGHT_RGB, LIGHT_RGB, LIGHT_RGB);
+    private static final StackWalker STACK_WALKER = StackWalker.getInstance();
     private static final Map<Object, State> STATES = Collections.synchronizedMap(new WeakHashMap<>());
     private static final ThreadLocal<State> CURRENT = new ThreadLocal<>();
     private static final ThreadLocal<Boolean> APPLYING = ThreadLocal.withInitial(() -> false);
@@ -486,9 +493,7 @@ public final class NativeArtMeshSymmetryBridge {
                     != index) return true;
             // Mirror the actual weighted displacement in canvas coordinates. Parent transforms
             // can be nonlinear and index-dependent, so blending in canvas space is not equivalent.
-            Field transformField = MethodHandleCache.declaredFieldUp(ref.getClass(), "transformBetweenLocalAndCanvas");
-            ReflectAccess.open(transformField);
-            Object transform = transformField.get(ref);
+            Object transform = COUNTERPARTS.get(ref.getClass()).transform().get(ref);
             Object localTarget =
                     transform == null ? target : call(transform, "transformCanvasToLocal", target, null, index);
             ArtMeshMirrorAxis.Point local = read(call(ref, "getPos"));
@@ -521,8 +526,7 @@ public final class NativeArtMeshSymmetryBridge {
         State state = CURRENT.get();
         if (state == null || state.axis == null) return;
         try {
-            ClassLoader loader = ref.getClass().getClassLoader();
-            if (!Class.forName(REF, false, loader).isInstance(ref)) return;
+            if (!COUNTERPARTS.get(ref.getClass()).isMeshPointRef(ref)) return;
             Object model = call(call(state.view.get(), "getCurrentEditMode"), "getCurrentModel");
             Object source = call(ref, "d");
             Object mesh = call(model, "getArtMesh", call(source, "getId"));
@@ -550,16 +554,22 @@ public final class NativeArtMeshSymmetryBridge {
         }
     }
 
+    /**
+     * Accepts only writes issued by a reviewed drag action.
+     *
+     * <p>Point dragging and brush movement use different, version-obfuscated action owners.
+     * The active left-button gesture and main-modeling view gate writes; scripts, undo, and
+     * non-action writes cannot enter this path. The walk stops at the first frame outside the
+     * adapter, so a drag tick never materializes the whole stack.</p>
+     */
     private static boolean dragCaller() {
-        for (StackTraceElement frame : Thread.currentThread().getStackTrace()) {
-            String name = frame.getClassName();
-            if (name.startsWith("dev.turboism.") || name.equals("java.lang.Thread") || name.equals(EX)) continue;
-            // Point dragging and brush movement use different, version-obfuscated action
-            // owners. The active left-button gesture and main-modeling view gate writes;
-            // scripts, undo, and non-action writes cannot enter this path.
-            return name.startsWith("com.live2d.cubism.view.context.action.");
-        }
-        return false;
+        return STACK_WALKER.walk(frames -> frames.map(StackWalker.StackFrame::getClassName)
+                .filter(name -> !name.startsWith(HOST_ADAPTER_PACKAGE))
+                .filter(name -> !name.equals(THREAD_CLASS))
+                .filter(name -> !name.equals(EX))
+                .findFirst()
+                .map(name -> name.startsWith(DRAG_ACTION_PACKAGE))
+                .orElse(false));
     }
 
     private static Pairing pairing(State state, Object ref) throws ReflectiveOperationException {
@@ -586,25 +596,91 @@ public final class NativeArtMeshSymmetryBridge {
     }
 
     private static Object counterpart(Object ref, int index) throws ReflectiveOperationException {
-        ClassLoader loader = ref.getClass().getClassLoader();
-        Class<?> base = Class.forName(REF, false, loader);
+        CounterpartHandles handles = COUNTERPARTS.get(ref.getClass());
+        if (!handles.isMeshPointRef(ref)) throw new NoSuchMethodException(REF);
         Object source = call(ref, "d"), form = call(ref, "g"), coord = call(ref, "c");
-        Object result = base.getConstructor(
-                        source.getClass(),
-                        int.class,
-                        float[].class,
-                        int.class,
-                        coord.getClass(),
-                        Class.forName("com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm", false, loader))
+        Object base = handles.baseConstructor(source.getClass(), coord.getClass())
                 .newInstance(source, index, call(ref, "h"), call(ref, "i"), coord, form);
-        Field transform = MethodHandleCache.declaredFieldUp(ref.getClass(), "transformBetweenLocalAndCanvas");
-        ReflectAccess.open(transform);
-        return Class.forName(EX, false, loader)
-                .getConstructor(
-                        base,
-                        Class.forName("com.live2d.doc.selection.ITransformBetweenLocalAndCanvas", false, loader),
-                        Class.forName("com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm", false, loader))
-                .newInstance(result, transform.get(ref), form);
+        return handles.exConstructor.newInstance(base, handles.transform().get(ref), form);
+    }
+
+    /**
+     * Per-ref-class handles for counterpart construction.
+     *
+     * <p>The host resolves the point-ref classes, both constructors and the local-to-canvas
+     * field once per class loader. A drag tick then only allocates host objects, so a per-point
+     * write no longer pays for a class or constructor lookup. The entry is keyed by the ref
+     * class, so an isolated host loader keeps its own handles and no host class outlives its
+     * loader through this cache.</p>
+     */
+    private static final ClassValue<CounterpartHandles> COUNTERPARTS = new ClassValue<>() {
+        @Override
+        protected CounterpartHandles computeValue(Class<?> refType) {
+            return CounterpartHandles.resolve(refType);
+        }
+    };
+
+    private static final class CounterpartHandles {
+        /** Marks a ref class that no reviewed host loader backs. */
+        private static final CounterpartHandles UNAVAILABLE = new CounterpartHandles(null, null, null, null);
+
+        private final Class<?> baseType;
+        private final Class<?> formType;
+        private final Field transform;
+        final Constructor<?> exConstructor;
+        private volatile BaseConstructor baseConstructor;
+
+        private CounterpartHandles(
+                Class<?> baseType, Class<?> formType, Field transform, Constructor<?> exConstructor) {
+            this.baseType = baseType;
+            this.formType = formType;
+            this.transform = transform;
+            this.exConstructor = exConstructor;
+        }
+
+        static CounterpartHandles resolve(Class<?> refType) {
+            ClassLoader loader = refType.getClassLoader();
+            try {
+                Class<?> base = Class.forName(REF, false, loader);
+                Class<?> form = Class.forName(ART_MESH_FORM_CLASS, false, loader);
+                Class<?> transformType = Class.forName(TRANSFORM_CLASS, false, loader);
+                Constructor<?> ex = Class.forName(EX, false, loader).getConstructor(base, transformType, form);
+                return new CounterpartHandles(base, form, transformField(refType), ex);
+            } catch (ClassNotFoundException | NoSuchMethodException unavailable) {
+                return UNAVAILABLE;
+            }
+        }
+
+        private static Field transformField(Class<?> refType) {
+            try {
+                return ReflectAccess.open(MethodHandleCache.declaredFieldUp(refType, TRANSFORM_FIELD));
+            } catch (NoSuchFieldException absent) {
+                return null;
+            }
+        }
+
+        boolean isMeshPointRef(Object ref) {
+            return baseType != null && baseType.isInstance(ref);
+        }
+
+        Field transform() throws NoSuchFieldException {
+            if (transform == null) throw new NoSuchFieldException(TRANSFORM_FIELD);
+            return transform;
+        }
+
+        Constructor<?> baseConstructor(Class<?> sourceType, Class<?> coordinateType) throws NoSuchMethodException {
+            BaseConstructor cached = baseConstructor;
+            if (cached != null && cached.sourceType == sourceType && cached.coordinateType == coordinateType) {
+                return cached.constructor;
+            }
+            if (baseType == null) throw new NoSuchMethodException(REF);
+            Constructor<?> resolved =
+                    baseType.getConstructor(sourceType, int.class, float[].class, int.class, coordinateType, formType);
+            baseConstructor = new BaseConstructor(sourceType, coordinateType, resolved);
+            return resolved;
+        }
+
+        private record BaseConstructor(Class<?> sourceType, Class<?> coordinateType, Constructor<?> constructor) {}
     }
 
     private record ProjectedAxis(ArtMeshMirrorAxis.Point center, ArtMeshMirrorAxis.Point direction, float scale) {}

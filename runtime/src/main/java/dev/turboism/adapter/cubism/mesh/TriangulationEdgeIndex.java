@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Edge-indexed adjunct for the host triangulator's per-edge triangle lookup.
@@ -44,6 +44,9 @@ import java.util.Map;
  *       {@code LinkedHashSet.hashCode()} is AbstractSet's O(T) element sum and set equality is
  *       O(T²), so keying by value would reintroduce the scan being removed. The pinned official
  *       triangles/points held in the state have no back-reference to the owning set.</li>
+ *   <li>The registry is a {@link java.util.concurrent.ConcurrentHashMap}, so a registered set
+ *       resolves without a class monitor. Independent triangulations therefore never serialize
+ *       on each other, and only registration, discard and invalidation mutate the registry.</li>
  * </ul>
  */
 @SuppressWarnings({"rawtypes", "unchecked"}) // the woven descriptors ARE raw
@@ -123,28 +126,69 @@ public final class TriangulationEdgeIndex {
     /** Weak identity registration on the target's final {@code b} field instance. */
     private static final ReferenceQueue<LinkedHashSet> COLLECTED = new ReferenceQueue<>();
 
-    static final Map<SetKey, St> STATES = new HashMap<>();
-    // All registry access holds this class's monitor. Never store the lookup probe;
-    // its temporary strong owner reference is cleared before releasing that monitor.
-    private static final SetLookup LOOKUP = new SetLookup();
+    /**
+     * Process-wide registry of index states, keyed by weak identity of the owning set.
+     *
+     * <p>A registered set answers {@link #st} with a plain map read, so independent triangulations
+     * no longer serialize on one class monitor. Only a miss, {@link #discard} and
+     * {@link #invalidate} take the mutation path, which drains the collection queue and updates the
+     * entry atomically. The transient {@link LookupKey} probe is never stored: the map holds only
+     * {@link SetKey} values, so no strong owner reference can leak.</p>
+     */
+    static final ConcurrentHashMap<SetKey, St> STATES = new ConcurrentHashMap<>();
 
-    private static final class SetLookup {
+    /**
+     * Read-only probe for {@link #STATES}.
+     *
+     * <p>It carries the same identity hash and reference equality as {@link SetKey} but holds no
+     * queue registration, so it can never become a map key and no strong owner reference is
+     * retained. Each thread reuses one instance and clears it after every lookup.</p>
+     */
+    private static final class LookupKey {
+        private int hash;
         private LinkedHashSet set;
+
+        void bind(final LinkedHashSet set) {
+            this.set = java.util.Objects.requireNonNull(set);
+            hash = System.identityHashCode(set);
+        }
+
+        void clear() {
+            set = null;
+            hash = 0;
+        }
 
         @Override
         public int hashCode() {
-            return System.identityHashCode(set);
-        }
-
-        @SuppressWarnings("ReferenceEquality") // probe follows the weak registry's identity contract
-        private boolean matches(final SetKey key) {
-            return set != null && set == key.get();
+            return hash;
         }
 
         @Override
+        @SuppressWarnings("ReferenceEquality") // identity is the registry's explicit key contract
         public boolean equals(final Object other) {
-            return this == other || other instanceof SetKey key && matches(key);
+            if (this == other) return true;
+            if (other instanceof SetKey key) return set == key.get();
+            return other instanceof LookupKey key && set == key.set;
         }
+    }
+
+    /**
+     * Reusable per-thread probe, so a hot lookup allocates nothing.
+     *
+     * <p>The owner reference is cleared before the probe leaves the calling method: a parked
+     * thread must not keep a released set alive. Only the lookup path uses this probe; the
+     * registering path allocates a {@link SetKey} with its queue registration.</p>
+     */
+    private static final ThreadLocal<LookupKey> PROBE = ThreadLocal.withInitial(() -> new LookupKey());
+
+    private static LookupKey bind(final LinkedHashSet set) {
+        final LookupKey probe = PROBE.get();
+        probe.bind(set);
+        return probe;
+    }
+
+    private static void unbind(final LookupKey probe) {
+        probe.clear();
     }
 
     static final class SetKey extends WeakReference<LinkedHashSet> {
@@ -164,72 +208,87 @@ public final class TriangulationEdgeIndex {
         @SuppressWarnings("ReferenceEquality") // identity is the registry's explicit key contract
         public boolean equals(final Object other) {
             if (this == other) return true; // allows removal after the reference is cleared
-            if (other instanceof SetLookup lookup) return lookup.matches(this);
+            if (other instanceof LookupKey probe) return probe.set == get();
             if (!(other instanceof SetKey key)) return false;
             final LinkedHashSet set = get();
             return set != null && set == key.get();
         }
     }
 
+    /** Drains collected keys; an empty queue costs one unsynchronized read. */
     private static void expungeCollected() {
         Reference<? extends LinkedHashSet> key;
         while ((key = COLLECTED.poll()) != null) STATES.remove(key);
     }
 
-    // Synchronize only the process-wide registry, not the original set's operations.
-    // Independent TriangleList instances may be used concurrently; a single original
-    // LinkedHashSet retains its original thread-safety contract.
+    /**
+     * Returns the index state of {@code s}, registering one on first use.
+     *
+     * <p>A registered set resolves through one concurrent map read, so independent triangulations
+     * no longer serialize on a class monitor. Only a miss, {@link #discard} and {@link #invalidate}
+     * create or mutate an entry.</p>
+     */
     @SuppressWarnings("CollectionIncompatibleType") // Probe and stored weak key share identity equals/hash.
-    static synchronized St st(final LinkedHashSet s) {
-        expungeCollected();
+    static St st(final LinkedHashSet s) {
+        final LinkedHashSet owner = java.util.Objects.requireNonNull(s);
+        final LookupKey probe = bind(owner);
+        final St existing;
         try {
-            LOOKUP.set = java.util.Objects.requireNonNull(s);
-            St t = STATES.get(LOOKUP);
-            if (t == null) {
-                t = new St();
-                STATES.put(new SetKey(s, COLLECTED), t);
-            }
-            return t;
+            existing = STATES.get(probe);
         } finally {
-            LOOKUP.set = null;
-            Reference.reachabilityFence(s);
+            unbind(probe);
         }
+        if (existing != null) {
+            Reference.reachabilityFence(owner);
+            return existing;
+        }
+        return register(owner);
     }
 
-    @SuppressWarnings("CollectionIncompatibleType") // HashMap.remove accepts the transient equal-key probe.
-    private static synchronized void discard(final LinkedHashSet s) {
+    private static St register(final LinkedHashSet s) {
         expungeCollected();
+        final St created = new St();
+        final St existing = STATES.putIfAbsent(new SetKey(s, COLLECTED), created);
+        Reference.reachabilityFence(s);
+        return existing != null ? existing : created;
+    }
+
+    @SuppressWarnings("CollectionIncompatibleType") // ConcurrentHashMap.remove accepts the transient equal-key probe.
+    private static void discard(final LinkedHashSet s) {
+        expungeCollected();
+        final LookupKey probe = bind(s);
+        final St removed;
         try {
-            LOOKUP.set = java.util.Objects.requireNonNull(s);
-            final St t = STATES.remove(LOOKUP);
-            if (t != null) {
-                t.byKey.clear();
-                t.keys.clear();
-                clearPending(t);
-                // Once inconsistency was proven, keep only a weak-keyed tombstone:
-                // clear may release triangles, but must not reactivate a dead index.
-                if (t.dead) STATES.put(new SetKey(s, COLLECTED), t);
-            }
+            removed = STATES.remove(probe);
         } finally {
-            LOOKUP.set = null;
-            Reference.reachabilityFence(s);
+            unbind(probe);
         }
+        if (removed != null) {
+            removed.byKey.clear();
+            removed.keys.clear();
+            clearPending(removed);
+            // Once inconsistency was proven, keep only a weak-keyed tombstone:
+            // clear may release triangles, but must not reactivate a dead index.
+            if (removed.dead) STATES.putIfAbsent(new SetKey(s, COLLECTED), removed);
+        }
+        Reference.reachabilityFence(s);
     }
 
     @SuppressWarnings("CollectionIncompatibleType") // Never store the strong lookup probe.
-    private static synchronized void invalidate(final LinkedHashSet s) {
+    private static void invalidate(final LinkedHashSet s) {
         expungeCollected();
+        final LookupKey probe = bind(s);
+        final St existing;
         try {
-            LOOKUP.set = java.util.Objects.requireNonNull(s);
-            final St t = STATES.get(LOOKUP);
-            if (t != null) {
-                t.dead = true;
-                clearPending(t);
-            }
+            existing = STATES.get(probe);
         } finally {
-            LOOKUP.set = null;
-            Reference.reachabilityFence(s);
+            unbind(probe);
         }
+        if (existing != null) {
+            existing.dead = true;
+            clearPending(existing);
+        }
+        Reference.reachabilityFence(s);
     }
 
     /**
