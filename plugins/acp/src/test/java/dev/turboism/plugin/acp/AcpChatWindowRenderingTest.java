@@ -1082,6 +1082,48 @@ final class AcpChatWindowRenderingTest {
         SwingUtilities.invokeAndWait(windowRef.get()::dispose);
     }
 
+    @Test
+    void toolImagesSuppressMetadataCaptionAndProvideCopyAndSaveAsContextMenu() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        final var windowRef = new java.util.concurrent.atomic.AtomicReference<AcpChatWindow>();
+        final var base = AcpAttachment.fromClipboard(
+                new java.awt.image.BufferedImage(64, 48, java.awt.image.BufferedImage.TYPE_INT_RGB));
+        final var toolAttachment = new AcpAttachment(
+                "Tool image · 54d17d9c · reported: capture=c824 · doc=d1 · model=m1 · revision=1 · 64×48",
+                base.mimeType(),
+                base.uri(),
+                base.data(),
+                base.byteSize());
+        SwingUtilities.invokeAndWait(() -> {
+            final AcpChatWindow window = new AcpChatWindow(localization(), "codex", "", "");
+            windowRef.set(window);
+            window.clearTranscript();
+            window.appendAttachment(toolAttachment, false);
+        });
+        try {
+            awaitEdt(() -> {
+                final var document = component(windowRef.get(), "transcript", JTextPane.class)
+                        .getStyledDocument();
+                return StyleConstants.getIcon(document.getCharacterElement(0).getAttributes()) != null;
+            });
+            SwingUtilities.invokeAndWait(() -> {
+                final AcpChatWindow window = windowRef.get();
+                final JTextPane transcript = component(window, "transcript", JTextPane.class);
+                assertFalse(transcript.getText().contains("Tool image"));
+                assertFalse(transcript.getText().contains("reported:"));
+                final AcpChatWindow.ImageSource source = window.imageAtOffset(0);
+                assertTrue(source != null);
+                assertEquals(toolAttachment.data(), source.attachment().data());
+                final AcpThemeControls.ThemedPopupMenu menu = window.buildImageContextMenu(source);
+                assertEquals(2, menu.selectableItems().size());
+                assertEquals("Copy", menu.selectableItems().get(0).getText());
+                assertEquals("Save As…", menu.selectableItems().get(1).getText());
+            });
+        } finally {
+            SwingUtilities.invokeAndWait(windowRef.get()::dispose);
+        }
+    }
+
     private static void toggleSummaryWithKeyboard(final JTextPane transcript) {
         toggleDisclosureWithKeyboard(transcript, transcript.getText().contains("Commands:") ? "Commands:" : "Tools:");
     }

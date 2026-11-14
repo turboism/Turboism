@@ -8,8 +8,13 @@ import java.util.Map;
 /** Bounded tool-reported render provenance for a thumbnail; never infers current pose or freshness. */
 final class AcpToolImageLabel {
     static final int MAX_METADATA_CHARS = 256 * 1024;
+    static final String TOOL_IMAGE_PREFIX = "Tool image · ";
 
     private AcpToolImageLabel() {}
+
+    static boolean isToolImageLabel(final String text) {
+        return text != null && text.startsWith(TOOL_IMAGE_PREFIX);
+    }
 
     static String label(String toolId, List<?> contents, int imageIndex) {
         return label(toolId, contents, imageIndex, java.util.function.UnaryOperator.identity());
