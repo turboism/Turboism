@@ -472,6 +472,70 @@ public final class OptimizationCatalog {
                     new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, MESH_SETUP_ELISION, ""),
                     new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, CLIP_MASK_DEDUPLICATION, "")));
 
+    /**
+     * Diagnostic-only: elides redundant AWT cursor refreshes during layout validation and
+     * out-of-bounds container pointer queries; derives its default from {@link #INPUT_PATH_ELISION}.
+     */
+    public static final Optimization CURSOR_VALIDATION_ELISION = new Optimization(
+            "",
+            "",
+            Optimization.Access.DIAGNOSTIC_ONLY,
+            List.of("turboism.optimization.cursorValidationElision"),
+            List.of("TURBOISM_CURSOR_VALIDATION_ELISION"),
+            Set.of("cubism.input.cursor-validation-elision"),
+            Optional.empty(),
+            "",
+            "",
+            List.of(new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, INPUT_PATH_ELISION, "")));
+
+    /**
+     * Diagnostic-only: caches depth-first scene mouse-handler lists and selectively invalidates on
+     * mouse-handler topology mutations; derives its default from {@link #INPUT_PATH_ELISION}.
+     */
+    public static final Optimization SCENE_HANDLER_CACHE = new Optimization(
+            "",
+            "",
+            Optimization.Access.DIAGNOSTIC_ONLY,
+            List.of("turboism.optimization.sceneHandlerCache"),
+            List.of("TURBOISM_SCENE_HANDLER_CACHE"),
+            Set.of("cubism.input.scene-handler-cache"),
+            Optional.empty(),
+            "",
+            "",
+            List.of(new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, INPUT_PATH_ELISION, "")));
+
+    /**
+     * Diagnostic-only: caches {@code GCamera.getWorldToCameraMatrix()} across unchanged root camera
+     * transforms; derives its default from {@link #MATRIX_SCRATCH}.
+     */
+    public static final Optimization CAMERA_MATRIX_CACHE = new Optimization(
+            "",
+            "",
+            Optimization.Access.DIAGNOSTIC_ONLY,
+            List.of("turboism.optimization.cameraMatrixCache"),
+            List.of("TURBOISM_CAMERA_MATRIX_CACHE"),
+            Set.of("cubism.render.camera-matrix-cache"),
+            Optional.empty(),
+            "",
+            "",
+            List.of(new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, MATRIX_SCRATCH, "")));
+
+    /**
+     * Diagnostic-only: elides disabled outside-of-parent warp control-point boxing and buffer
+     * uploads; derives its default from {@link #WARP_POSITION_PROJECTION}.
+     */
+    public static final Optimization WARP_NORMAL_POINT_ELISION = new Optimization(
+            "",
+            "",
+            Optimization.Access.DIAGNOSTIC_ONLY,
+            List.of("turboism.optimization.warpNormalPointElision"),
+            List.of("TURBOISM_WARP_NORMAL_POINT_ELISION"),
+            Set.of("cubism.deformer.warp-normal-point-elision"),
+            Optional.empty(),
+            "",
+            "",
+            List.of(new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, WARP_POSITION_PROJECTION, "")));
+
     /** Every row, in declaration order. */
     private static final List<Optimization> ALL = List.of(
             MODEL_UPDATE_SKIP,
@@ -504,7 +568,11 @@ public final class OptimizationCatalog {
             CLIP_MASK_PROBE,
             GL_GET_ERROR_ELISION,
             REDUNDANT_STATE_ELISION,
-            SORTING_INFO_CACHE);
+            SORTING_INFO_CACHE,
+            CURSOR_VALIDATION_ELISION,
+            SCENE_HANDLER_CACHE,
+            CAMERA_MATRIX_CACHE,
+            WARP_NORMAL_POINT_ELISION);
 
     static {
         validate(ALL);

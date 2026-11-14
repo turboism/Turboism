@@ -2,13 +2,19 @@ package dev.turboism.ui.table;
 
 import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.ui.host.EdtDispatch;
+import java.awt.AWTEvent;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Point;
+import java.awt.Toolkit;
 import java.awt.Window;
+import java.awt.event.AWTEventListener;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ContainerEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -33,9 +39,8 @@ import javax.swing.table.JTableHeader;
 public final class SceneTableHostOperations
         implements RuntimeSceneTableService.Host, dev.turboism.ui.filter.PaletteFilterHostOperations.SceneFilterSink {
 
-    private static final int FAST_CONNECT_ATTEMPTS = 600;
+    private static final int FAST_CONNECT_ATTEMPTS = 8;
     private static final int CONNECT_DELAY_MS = 250;
-    private static final int IDLE_CONNECT_DELAY_MS = 2_000;
     private static final java.util.regex.Pattern UUID_PATTERN =
             java.util.regex.Pattern.compile("(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
     private static final String PALETTE_PROPERTY = "dev.turboism.scenePalette";
@@ -61,6 +66,8 @@ public final class SceneTableHostOperations
     private final Map<Integer, Object> originalHeaders = new LinkedHashMap<>();
     private boolean manualReordering;
     private boolean detaching;
+    private AWTEventListener discoveryListener;
+    private boolean pendingDiscoveryCheck;
 
     public SceneTableHostOperations() {
         this(SceneTableHostProfile::bindArtifact, SceneTableHostOperations::resolvePalette, (delay, operation) -> {
@@ -122,6 +129,7 @@ public final class SceneTableHostOperations
             if (token != connectionToken.get()) return;
             detachCurrent();
             bindings = bound;
+            installDiscoveryListener(bound, token);
             pollForPalette(bound, token, 0);
         });
         return state;
@@ -145,6 +153,7 @@ public final class SceneTableHostOperations
         if (nativePalette != null) {
             try {
                 if (attachNow(nativePalette, bound)) {
+                    removeDiscoveryListener();
                     if (token == connectionToken.get()) state = State.CONNECTED;
                 } else {
                     schedulePoll(bound, token, attempt + 1);
@@ -158,10 +167,59 @@ public final class SceneTableHostOperations
     }
 
     private void schedulePoll(final SceneTableHostProfile.Bound bound, final long token, final int attempt) {
-        final boolean fast = attempt < FAST_CONNECT_ATTEMPTS;
-        retryScheduler.schedule(
-                fast ? CONNECT_DELAY_MS : IDLE_CONNECT_DELAY_MS,
-                () -> onEdt(() -> pollForPalette(bound, token, attempt)));
+        if (attempt >= FAST_CONNECT_ATTEMPTS) return;
+        retryScheduler.schedule(CONNECT_DELAY_MS, () -> onEdt(() -> pollForPalette(bound, token, attempt)));
+    }
+
+    private void installDiscoveryListener(final SceneTableHostProfile.Bound bound, final long token) {
+        removeDiscoveryListener();
+        final AWTEventListener listener = event -> {
+            if (token != connectionToken.get() || state != State.CONNECTING || pendingDiscoveryCheck) return;
+            final Component candidate = switch (event.getID()) {
+                case ContainerEvent.COMPONENT_ADDED -> event instanceof ContainerEvent ce ? ce.getChild() : null;
+                case ComponentEvent.COMPONENT_SHOWN, WindowEvent.WINDOW_OPENED ->
+                    event.getSource() instanceof Component c ? c : null;
+                default -> null;
+            };
+            if (candidate == null || (!candidate.isShowing() && !(candidate instanceof JTable))) return;
+            pendingDiscoveryCheck = true;
+            onEdt(() -> {
+                pendingDiscoveryCheck = false;
+                if (token != connectionToken.get() || state != State.CONNECTING) return;
+                final Object found = findScenePalette(candidate, bound);
+                if (found != null) {
+                    try {
+                        if (attachNow(found, bound)) {
+                            removeDiscoveryListener();
+                            if (token == connectionToken.get()) state = State.CONNECTED;
+                        }
+                    } catch (RuntimeException | LinkageError failure) {
+                        failConnection(token);
+                    }
+                }
+            });
+        };
+        try {
+            Toolkit.getDefaultToolkit()
+                    .addAWTEventListener(
+                            listener,
+                            AWTEvent.COMPONENT_EVENT_MASK | AWTEvent.CONTAINER_EVENT_MASK | AWTEvent.WINDOW_EVENT_MASK);
+            discoveryListener = listener;
+        } catch (RuntimeException ignored) {
+            // Headless environments without a functional toolkit rely on initial startup polls.
+        }
+    }
+
+    private void removeDiscoveryListener() {
+        final AWTEventListener listener = discoveryListener;
+        discoveryListener = null;
+        pendingDiscoveryCheck = false;
+        if (listener == null) return;
+        try {
+            Toolkit.getDefaultToolkit().removeAWTEventListener(listener);
+        } catch (RuntimeException ignored) {
+            // Toolkit teardown may occur during JVM shutdown.
+        }
     }
 
     private void failConnection(final long token) {
@@ -247,7 +305,10 @@ public final class SceneTableHostOperations
             final SceneTableHostProfile.Bound bound = bindings;
             if (bound == null) return;
             try {
-                if (attachNow(nativePalette, bound)) state = State.CONNECTED;
+                if (attachNow(nativePalette, bound)) {
+                    removeDiscoveryListener();
+                    state = State.CONNECTED;
+                }
             } catch (RuntimeException | LinkageError failure) {
                 state = State.FAILED;
                 detachCurrent();
@@ -714,6 +775,7 @@ public final class SceneTableHostOperations
 
     private void detachCurrent() {
         detaching = true;
+        removeDiscoveryListener();
         try {
             final JTable currentTable = table;
             if (currentTable != null) {

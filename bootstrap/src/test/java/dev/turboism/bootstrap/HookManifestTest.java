@@ -89,7 +89,11 @@ final class HookManifestTest {
                         // Inspector shader-only property changes skip the full rebuild.
                         InspectorPropertyBypassHookContributor.class,
                         // Skipped-frame sorting-info reuse and indexed GMeshContainer lookup.
-                        SortingInfoCacheHookContributor.class),
+                        SortingInfoCacheHookContributor.class,
+                        CursorValidationElisionHookContributor.class,
+                        SceneHandlerCacheHookContributor.class,
+                        CameraMatrixCacheHookContributor.class,
+                        WarpNormalPointElisionHookContributor.class),
                 contributors.stream().map(HookContributor::getClass).toList());
     }
 

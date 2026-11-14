@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.geometry;
 
+import dev.turboism.adapter.cubism.interpolation.MeshInterpolationTransformer;
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
@@ -30,6 +31,7 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
     private final ClassLoader loader;
     private final Path artifact;
     private final List<String> shape;
+    private final List<String> composedShape;
     private volatile String failure;
     private volatile int matches;
 
@@ -39,6 +41,15 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
         this.artifact = artifact == null ? null : artifact.toAbsolutePath().normalize();
         shape = ReviewedMethodShape.read(reference, TARGET, METHOD, DESCRIPTOR);
         if (shape == null) throw new IllegalArgumentException("reviewed position consumer absent");
+        List<String> derived = null;
+        if (MeshInterpolationTransformer.OWNER.equals(TARGET)) {
+            try {
+                derived = MeshInterpolationTransformer.composedShape(reference);
+            } catch (RuntimeException ignored) {
+                derived = null;
+            }
+        }
+        composedShape = derived;
     }
 
     @Override
@@ -56,7 +67,8 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
                             Path.of(domain.getCodeSource().getLocation().toURI())
                                     .toAbsolutePath()
                                     .normalize())) return null;
-            if (!shape.equals(ReviewedMethodShape.read(bytes, TARGET, METHOD, DESCRIPTOR))) {
+            List<String> observed = ReviewedMethodShape.read(bytes, TARGET, METHOD, DESCRIPTOR);
+            if (!shape.equals(observed) && (composedShape == null || !composedShape.equals(observed))) {
                 failure = "native position consumer differs from reviewed method";
                 return null;
             }

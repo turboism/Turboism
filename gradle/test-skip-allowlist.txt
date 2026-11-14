@@ -42,6 +42,7 @@ dev.turboism.adapter.cubism.warpalt.WarpAltMirrorActionContextTest.configuredHos
 dev.turboism.adapter.cubism.optimization.meshsetup.SkippedFrameMeshSetupElisionArtifactTest.* # requires -Dturboism.test.cubism5302Jar / TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskBridgeArtifactTest.* # requires TURBOISM_CUBISM_REF and TURBOISM_CUBISM_JOGL exact-host evidence.
 dev.turboism.adapter.cubism.optimization.sorting.SortingInfoCacheArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
+dev.turboism.adapter.cubism.optimization.scenehandler.InputAndRenderWeavesArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.lineupload.LineRendererUploadSplitArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.deferred.DeferredGlErrorCheckArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.readback.AsyncReadbackArtifactTest.* # requires TURBOISM_UNIFORM_HOST_JAR (bundled JOGL) exact-host evidence.

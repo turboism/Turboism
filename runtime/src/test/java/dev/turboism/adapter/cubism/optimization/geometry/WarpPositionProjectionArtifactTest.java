@@ -39,6 +39,15 @@ class WarpPositionProjectionArtifactTest {
         exercise(ReviewedHostArtifacts.CUBISM_5_3_04, "5.3.04");
     }
 
+    private static byte[] composeWithMeshInterpolation(
+            ClassLoader loader, byte[] bytes, ProtectionDomain domain) {
+        var meshTransformer = new dev.turboism.adapter.cubism.interpolation.MeshInterpolationTransformer(ignored -> {});
+        byte[] patched = meshTransformer.transform(
+                loader, WarpPositionProjectionTransformer.TARGET, null, domain, bytes);
+        assertNotNull(patched, "mesh interpolation transform should succeed on reviewed artifact");
+        return patched;
+    }
+
     private static void exercise(final HostArtifactDigest expected, final String version) throws Exception {
         String configured = System.getProperty("turboism.test.cubism" + version.replace(".", "") + "Jar", "");
         if (configured.isBlank()) {
@@ -75,6 +84,17 @@ class WarpPositionProjectionArtifactTest {
                     transformer.transform(null, loader, WarpPositionProjectionTransformer.TARGET, null, domain, bytes);
             assertNotNull(output, transformer.failure());
             assertEquals(1, transformer.matches());
+
+            byte[] meshPatched = dev.turboism.adapter.cubism.interpolation.MeshInterpolationTransformer.composedShape(bytes) != null
+                    ? composeWithMeshInterpolation(loader, bytes, domain)
+                    : null;
+            if (meshPatched != null) {
+                var composedTransformer = new WarpPositionProjectionTransformer(loader, artifact, bytes);
+                byte[] composedOutput = composedTransformer.transform(
+                        null, loader, WarpPositionProjectionTransformer.TARGET, null, domain, meshPatched);
+                assertNotNull(composedOutput, composedTransformer.failure());
+                assertEquals(1, composedTransformer.matches());
+            }
             List<String[]> methods = new ArrayList<>();
             new ClassReader(bytes)
                     .accept(

@@ -117,3 +117,11 @@ dev.turboism.bootstrap.ExtendedInterpolationSetupHookContributor
 dev.turboism.bootstrap.InspectorPropertyBypassHookContributor
 # Skipped-frame sorting-info reuse and allocation-free GMeshRenderer.getMeshContainer().
 dev.turboism.bootstrap.SortingInfoCacheHookContributor
+# AWT layout-validation cursor refresh and out-of-bounds pointer query elision.
+dev.turboism.bootstrap.CursorValidationElisionHookContributor
+# Depth-first scene mouse-handler cache with selective topology invalidation.
+dev.turboism.bootstrap.SceneHandlerCacheHookContributor
+# Root-camera world-to-camera matrix cache across unchanged camera transforms.
+dev.turboism.bootstrap.CameraMatrixCacheHookContributor
+# Disabled outside-of-parent warp control-point boxing and buffer upload elision.
+dev.turboism.bootstrap.WarpNormalPointElisionHookContributor

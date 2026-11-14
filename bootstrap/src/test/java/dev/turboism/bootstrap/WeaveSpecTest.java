@@ -74,6 +74,22 @@ class WeaveSpecTest {
         // The two hooks that invented their own target list keep one rewritten site per transformer.
         assertEquals(1, VerifiedUniformLocationInstaller.EXPECTED_MATCHES, VerifiedUniformLocationInstaller.HOOK_ID);
         assertEquals(1, VerifiedMatrixScratchInstaller.EXPECTED_MATCHES, VerifiedMatrixScratchInstaller.HOOK_ID);
+        assertEquals(
+                2,
+                VerifiedCursorValidationElisionInstaller.EXPECTED_MATCHES,
+                VerifiedCursorValidationElisionInstaller.HOOK_ID);
+        assertEquals(
+                3,
+                VerifiedSceneHandlerCacheInstaller.EXPECTED_MATCHES,
+                VerifiedSceneHandlerCacheInstaller.HOOK_ID);
+        assertEquals(
+                1,
+                VerifiedCameraMatrixCacheInstaller.EXPECTED_MATCHES,
+                VerifiedCameraMatrixCacheInstaller.HOOK_ID);
+        assertEquals(
+                1,
+                VerifiedWarpNormalPointElisionInstaller.EXPECTED_MATCHES,
+                VerifiedWarpNormalPointElisionInstaller.HOOK_ID);
     }
 
     @Test
@@ -130,6 +146,22 @@ class WeaveSpecTest {
         // The shader query plus the four lifecycle roles, and the one rewritten traversal.
         assertEquals(5, VerifiedUniformLocationInstaller.EXPECTED_OWNERS, VerifiedUniformLocationInstaller.HOOK_ID);
         assertEquals(1, VerifiedMatrixScratchInstaller.EXPECTED_OWNERS, VerifiedMatrixScratchInstaller.HOOK_ID);
+        assertEquals(
+                2,
+                VerifiedCursorValidationElisionInstaller.EXPECTED_OWNERS,
+                VerifiedCursorValidationElisionInstaller.HOOK_ID);
+        assertEquals(
+                3,
+                VerifiedSceneHandlerCacheInstaller.EXPECTED_OWNERS,
+                VerifiedSceneHandlerCacheInstaller.HOOK_ID);
+        assertEquals(
+                1,
+                VerifiedCameraMatrixCacheInstaller.EXPECTED_OWNERS,
+                VerifiedCameraMatrixCacheInstaller.HOOK_ID);
+        assertEquals(
+                1,
+                VerifiedWarpNormalPointElisionInstaller.EXPECTED_OWNERS,
+                VerifiedWarpNormalPointElisionInstaller.HOOK_ID);
     }
 
     @Test
@@ -157,6 +189,10 @@ class WeaveSpecTest {
         assertRow(VerifiedInspectorPropertyBypassInstaller.ADMISSION, PolicyCheck.SKIP, JvmCheck.AT_LEAST_17);
         assertRow(VerifiedUniformLocationInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
         assertRow(VerifiedMatrixScratchInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+        assertRow(VerifiedCursorValidationElisionInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+        assertRow(VerifiedSceneHandlerCacheInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+        assertRow(VerifiedCameraMatrixCacheInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+        assertRow(VerifiedWarpNormalPointElisionInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.ANY);
     }
 
     private static void assertRow(final Admission admission, final PolicyCheck policyCheck, final JvmCheck jvmCheck) {

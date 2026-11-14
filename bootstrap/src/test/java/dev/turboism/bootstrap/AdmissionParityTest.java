@@ -277,7 +277,52 @@ class AdmissionParityTest {
                         VerifiedWarpPositionProjectionInstaller.ADMISSION,
                         new Frozen(true, "EXACTLY_17"),
                         (policy, requested, jvm) ->
-                                VerifiedWarpPositionProjectionInstaller.admitted(artifact(), policy, requested, jvm)));
+                                VerifiedWarpPositionProjectionInstaller.admitted(artifact(), policy, requested, jvm)),
+                new Row(
+                        "cursor-validation-elision",
+                        VerifiedCursorValidationElisionInstaller.ADMISSION,
+                        new Frozen(true, "AT_LEAST_17"),
+                        (policy, requested, jvm) -> {
+                            try {
+                                return VerifiedCursorValidationElisionInstaller.admitted(
+                                        artifact(), policy, requested, jvm);
+                            } catch (final java.io.IOException impossible) {
+                                throw new AssertionError(impossible);
+                            }
+                        }),
+                new Row(
+                        "scene-handler-cache",
+                        VerifiedSceneHandlerCacheInstaller.ADMISSION,
+                        new Frozen(true, "AT_LEAST_17"),
+                        (policy, requested, jvm) -> {
+                            try {
+                                return VerifiedSceneHandlerCacheInstaller.admitted(artifact(), policy, requested, jvm);
+                            } catch (final java.io.IOException impossible) {
+                                throw new AssertionError(impossible);
+                            }
+                        }),
+                new Row(
+                        "camera-matrix-cache",
+                        VerifiedCameraMatrixCacheInstaller.ADMISSION,
+                        new Frozen(true, "AT_LEAST_17"),
+                        (policy, requested, jvm) -> {
+                            try {
+                                return VerifiedCameraMatrixCacheInstaller.admitted(artifact(), policy, requested, jvm);
+                            } catch (final java.io.IOException impossible) {
+                                throw new AssertionError(impossible);
+                            }
+                        }),
+                new Row(
+                        "warp-normal-point-elision",
+                        VerifiedWarpNormalPointElisionInstaller.ADMISSION,
+                        new Frozen(true, "ANY"),
+                        (policy, requested, jvm) -> {
+                            try {
+                                return VerifiedWarpNormalPointElisionInstaller.admitted(artifact(), policy, requested);
+                            } catch (final java.io.IOException impossible) {
+                                throw new AssertionError(impossible);
+                            }
+                        }));
     }
 
     private static RuntimeStartupConfig open() {

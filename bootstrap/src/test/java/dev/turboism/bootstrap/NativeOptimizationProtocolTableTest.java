@@ -98,11 +98,15 @@ final class NativeOptimizationProtocolTableTest {
         }
         assertEquals(
                 Set.of(
+                        "TURBOISM_CAMERA_MATRIX_CACHE",
                         "TURBOISM_CANVAS_COMPOSITE",
                         "TURBOISM_CLIP_MASK_PROBE",
+                        "TURBOISM_CURSOR_VALIDATION_ELISION",
                         "TURBOISM_GL_ERROR_ELISION",
+                        "TURBOISM_SCENE_HANDLER_CACHE",
                         "TURBOISM_SORTING_INFO_CACHE",
-                        "TURBOISM_STATE_ELISION"),
+                        "TURBOISM_STATE_ELISION",
+                        "TURBOISM_WARP_NORMAL_POINT_ELISION"),
                 diagnosticOnly);
     }
 

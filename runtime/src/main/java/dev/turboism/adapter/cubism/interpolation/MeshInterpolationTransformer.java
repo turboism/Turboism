@@ -96,6 +96,12 @@ public final class MeshInterpolationTransformer implements ClassFileTransformer 
         }
     }
 
+    /** Returns the reviewed method shape produced when {@link #patch} transforms {@code reference}. */
+    public static java.util.List<String> composedShape(byte[] reference) {
+        return dev.turboism.adapter.cubism.optimization.ReviewedMethodShape.read(
+                patch(java.util.Objects.requireNonNull(reference, "reference")), OWNER, METHOD, DESC);
+    }
+
     static byte[] patch(byte[] bytes) {
         ClassReader reader = new ClassReader(StructureLookupPatch.patch(bytes));
         if (!reader.getClassName().equals(OWNER)) throw new IllegalArgumentException("owner");
