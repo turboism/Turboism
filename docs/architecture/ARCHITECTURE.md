@@ -19,21 +19,17 @@ The authoritative project list is `settings.gradle.kts`.
 
 ```text
 :bootstrap
-  Java Agent entrypoint, launch artifact, and the install-time hook layer. It is
-  not a thin entrypoint: it holds the verified bytecode-weaving hooks, their
-  reviewed contract tables, and the admission protocol every hook shares.
-  Current size: ~16,300 main LOC across 127 main sources, of which 49
-  `*HookContributor` classes and 43 `Verified*Installer` classes carry the hook
-  surface. It depends on `:runtime` with `implementation` scope — 403 import
-  statements across 53 runtime packages — because a hook needs the runtime's
-  reviewed contracts, its 67 `*Transformer` classes and its bridges to weave the
-  host. That dependency is why the module is large, and it is one-way.
-  The shipped fat JAR relocates every private implementation library (Jackson,
-  ASM, Resilience4j, SLF4J) under dev.turboism.agent.shaded.*, so its
-  Boot-Class-Path entry no longer exposes those package names to host or plugin
-  classloaders. dev.turboism.* framework types stay unrelocated: bootstrap-injected
-  bridges and the single shared SDK type identity depend on it. This is not a
-  sandbox for untrusted plugins.
+  Java Agent entrypoint, launch artifact, and the install-time hook layer. It
+  holds the verified bytecode-weaving hooks, their reviewed contract tables, and
+  the shared admission protocol (`VerifiedInstall`). It depends one-way on
+  `:runtime` (`implementation` scope) because hooks consume the runtime's
+  reviewed contracts, bytecode transformers, and host bridges.
+  The shipped fat JAR relocates private implementation libraries (Jackson, ASM,
+  Resilience4j, SLF4J) under `dev.turboism.agent.shaded.*` so its
+  `Boot-Class-Path` entry does not expose them to host or plugin classloaders.
+  `dev.turboism.*` framework types remain unrelocated so bootstrap-injected
+  bridges and the shared SDK type identity stay intact. This is not a sandbox
+  for untrusted plugins.
 
 :sdk
   The only public dependency for first-party and third-party plugins.
@@ -46,24 +42,24 @@ The authoritative project list is `settings.gradle.kts`.
   compile against them and their classloaders refuse dev.turboism.internal.*.
 
 :persistence-core
-  Pure typed-config codec, schema-admission and in-memory migration kernel
+  Pure typed-config codec, schema-admission, and in-memory migration kernel
   (`dev.turboism.persistence.config.*`): the four frozen value codecs, the
-  canonical `turboism-typed-config-v1` document format, registration validation
-  and the migration walk. Depends only on :sdk; no file IO, reflection,
-  scheduler, UI or Cubism host access. :runtime owns the file store, I/O lane,
-  failure reporting and host-facing facade on top of it, and ordinary
-  plugins/SDK consumers never see this module (#112).
+  canonical `turboism-typed-config-v1` document format, registration validation,
+  and the migration walk. Depends only on `:sdk`; no file IO, reflection,
+  scheduler, UI, or Cubism host access. `:runtime` owns the file store, IO lane,
+  failure reporting, and host-facing facade on top of it, and ordinary
+  plugins/SDK consumers never see this module.
 
 :compatibility-policy
   Pure Cubism compatibility admission policy (`dev.turboism.compatibility.policy.*`):
   the generated exact reviewed release matrix (version, declared build, Core
   runtime tuple, explicit full-runtime decision), the exact reviewed-release
   predicate, `@CubismEditor` declaration validation/range expansion/version
-  permission and the selector requirement predicate over version, capability and
-  alias evidence. Depends only on :sdk and never loads Cubism, reflects over
-  host classes, reads host artifacts or touches files/UI/classloaders. :runtime
-  keeps host artifact digests, verified-member resolution, ASM probes, host
-  identity detection and plugin activation on top of it (#113).
+  permission, and the selector requirement predicate over version, capability,
+  and alias evidence. Depends only on `:sdk` and never loads Cubism, reflects
+  over host classes, reads host artifacts, or touches files/UI/classloaders.
+  `:runtime` keeps host artifact digests, verified-member resolution, ASM
+  probes, host identity detection, and plugin activation on top of it.
 
 :event-processor
   Compile-time annotation processor (`dev.turboism.eventprocessor.*`) for
@@ -170,9 +166,10 @@ Turboism publishes one public SDK tier. Before the first formal release, maintai
 Exact API baselines accumulate one per reviewed SDK revision and stay in release verification. A baseline may be retired only once a stable (1.x) SDK baseline supersedes it, and the retirement must be recorded in that release's notes; the newest baseline is never retired.
 
 Public SDK changes show up as a diff in `sdk/api-contracts/current.txt`.
-`checkCompletedCommit` runs `checkSdkApiCurrent` against the generated surface;
-refresh with `./gradlew updateSdkApiCurrent` and review the diff. The immutable
-v21/release baselines are separate: new baselines are re-anchored at release,
+`checkCompletedCommit` runs `checkSdkApiCurrent` against the generated surface
+(and checks the plugin-consumer guard in `sdk/api-contracts/no-plugin-consumer.txt`);
+refresh `current.txt` with `./gradlew updateSdkApiCurrent` and review the diff.
+Published release baselines, once established at 1.0, are maintained separately
 without rewriting existing baselines or their anchors.
 
 Sole documented exception to the no-UI-type surface rule: `dev.turboism.sdk.ui.window.TurboismWindowFactory` constructs plugin-owned JDK Swing windows and applies the Turboism window icon; it is not part of the `UiHostCapabilityService` host contract. No other package may expose JDK UI types.
@@ -215,11 +212,14 @@ Turboism-owned detached model
 For an Editor-attached model, Editor authoring state is the only write source of truth. Turboism does not maintain bidirectional synchronization between a separate Core mutation state and Editor state.
 
 Core remains responsible for evaluation, rendering-facing state, and result reads.
-Editor `CModel` and Core `CubismModel` are distinct objects. The admitted Editor
-selectors currently provide no verified acquisition path to a borrowed Core model;
-Core-only evaluated properties remain unavailable in that case. Event snapshots
-preserve unavailable optional metadata without blocking verified Editor authoring
-writes or inventing evaluated values. A natural `setValue` call is routed through the Editor authoring path when the object belongs to an Editor document.
+Editor `CModel` and Core `CubismModel` are distinct objects: `EditorBackedCubismModelAccess`
+joins borrowed Core evaluated snapshots through `CoreEvaluatedJoin`
+(`BorrowedCoreModelSource`), keyed by Editor binding identity and pinned to the
+Core generation. When a profile lacks verified Core selectors or Core
+publication is refused, Core-only evaluated properties fail closed cleanly
+without blocking Editor authoring writes or inventing evaluated values. A natural
+`setValue` call routes through the Editor authoring path whenever the object
+belongs to an Editor document.
 
 ## 5. Reference lifecycle
 
@@ -253,17 +253,22 @@ is matched by exact declaring type and method name, so no other method can ride 
 exemption releases UI resources only: a plugin must not use it to run other host operations
 after fencing, and no second argument-taking verb may be added to the exemption.
 
-依赖方向（plugin → sdk → runtime）的封闭例外：仅 `EarlyThemeAppearanceBootstrap`
-可以在插件加载前读取 `ui-theme` 的选择文档
-`config/dev.turboism.plugin.uitheme/ui-theme/selection.cfg`。
-文档限 typed-config schema version 1，选择键限 `selected-theme`，原生主题哨兵限 `__native__`。
-该读取器还可以读取 `data/dev.turboism.plugin.uitheme/themes/` 下所选主题包的颜色数据。
-Cubism 在首次访问 GL 场景时缓存画布外背景色，因此颜色注入必须早于插件加载和 SDK 服务初始化。
-当前仅有这个启动前消费者，因此保留读取器，不新增公共 SDK 契约。
-读取器只读，校验完整文档结构。格式无效时只输出一条有界诊断。
-例外仅覆盖此读取器、此选择文档及上述所选主题颜色数据，不允许其他运行时读取器或插件私有文档。
-`ThemeSelectionConfigTest` 与 `EarlyThemeAppearanceBootstrapTest` 分别在各自模块固定同一组常量。
-运行时测试不读取插件源码。
+Closed exception to the `plugin -> sdk -> runtime` dependency direction:
+`EarlyThemeAppearanceBootstrap` may read `ui-theme`'s selection document
+(`config/dev.turboism.plugin.uitheme/ui-theme/selection.cfg`) before plugins load.
+The document is restricted to typed-config schema version 1, selection key
+`selected-theme`, and native sentinel `__native__`; the bootstrap reader may
+also read color data for the selected theme package under
+`data/dev.turboism.plugin.uitheme/themes/`. Because Cubism caches its
+off-canvas background color on first GL scene access, color injection must run
+before plugin loading and SDK service initialization. Because this is the only
+pre-startup consumer, the dedicated reader stays without introducing a new
+public SDK contract. The reader is read-only, validates the full document
+structure, and emits at most one bounded diagnostic on invalid format. No other
+runtime reader or plugin-private document falls under this exception.
+`ThemeSelectionConfigTest` and `EarlyThemeAppearanceBootstrapTest` pin the
+shared constants independently in their respective modules, and runtime tests
+do not read plugin source files.
 
 ## 6. Invocation and event lifecycle
 
@@ -427,10 +432,10 @@ malformed token, a duplicate entry, an unloadable class, a class that does not i
 no hook installs. The identity rule exists because two contributors with one report id would silently
 overwrite each other's installation outcome.
 
-The verified native-optimization family is the pilot migration: seven hooks that differed only in
-their report label, preference and installer now declare one token each. The seven contributor
-classes they replaced are gone, and the installers gained only an `admits(InstallContext)` method and
-the `VerifiedHookInstaller` marker.
+Both entry styles remain supported: `@`-prefixed tokens cover hooks whose
+contributor only differs by report label, preference gate, and installer
+factory, while class-named `HookContributor` entries remain for hooks with
+custom installation logic.
 
 ## 10. Transactions and writes
 
@@ -485,42 +490,24 @@ Hook eligibility in the static probe is separate from runtime readiness. Bytecod
 ### Local host-validation admission
 
 `scripts/preview/host_validation.py` separates immutable preparation and durable
-submission from a separately supervised `serve` worker. All managed worktrees use
-one current-UID queue root and one host-admission lock. The scheduler allocates
-execution across version-isolated slots (default 8 slots), serializing tasks targeting
-the same Cubism version while allowing different versions to run concurrently;
-`performance-host` and `interactive-desktop` remain globally exclusive, and legacy
-protocols remain serialized. Build and prepare work may run in parallel, but must
-not launch the host or execute UI hooks.
+submission from a separately supervised `serve` worker. Managed worktrees share
+one current-UID queue root and host-admission lock. Version-isolated execution
+slots (default 8 slots) serialize tasks targeting the same Cubism version while
+allowing different versions to run concurrently (`performance-host` and
+`interactive-desktop` remain globally exclusive).
 
-The worker consumes verified input/tool snapshots, records an attempt before
-launch permission, and passes inherited admission ownership to the common
-Runner. Completion requires matching structured lifecycle and cleanup evidence;
-an expired heartbeat, vanished PID or exit code alone cannot release the host.
-Unknown ownership/cleanup quarantines the host for evidence-based inspection.
-External sessions are never killed or adopted. Old checkouts and unmanaged
-launchers must be retired at a safe boundary before rollout; the queue does not
-claim to intercept arbitrary manual official-BAT launches.
+Workers consume immutable input snapshots, pass admission ownership to the
+common Runner, and require matching structured lifecycle and cleanup evidence
+before releasing the host; expired heartbeats or raw exit codes never release a
+host alone, and unknown cleanup state quarantines the host for inspection. On
+Linux, each run binds a fresh delegated systemd user cgroup so late children
+cannot outlive the run, and finalization verifies cleanup before archiving
+evidence. Unrecovered cross-boot orphan attempts may be recorded administratively
+as `abandoned` without ever counting as passing or proving cleanup. See
+`scripts/preview/README-host-validation-scheduling.md` for CLI, service
+lifecycle, and recovery details.
 
-The Linux backend binds a fresh delegated systemd user cgroup before acknowledging
-Runner execution. Its outside supervisor holds kernel directory/events/kill FDs;
-late children and `setsid` remain covered without PID-tree or environment matching.
-Only bound-cgroup empty/destruction proof permits finalization. A snapshot finalizer
-then rechecks official files, runtime dependencies, fixture and staged artifacts,
-archives evidence and removes only a successful task prefix. Preliminary Runner
-results cannot claim final cleanup. Unsupported containment fails closed.
-
-A separate administrative `abandoned` state exists solely to register proven
-cross-boot orphan attempts that can never produce a final verdict. It is not a
-validation terminal state: it never counts as PASS, never releases the host and
-never proves cleanup safe, and the record plus its evidence stay permanently
-protected. The normal recovery and cleanup gates above are unchanged.
-See `scripts/preview/README-host-validation-scheduling.md` for local-only CLI,
-recovery, service lifecycle and Agent adoption. The service is opt-in and is not
-installed or started by Gradle. Actual exact-host acceptance is a separate gate,
-not a conclusion drawn from the scheduler's isolated process tests.
-
-Real-host verification is automation-first. Test-only plugins call the public SDK and emit structured assertions. Host scripts launch the official Editor, poll readiness and terminal result markers, batch compatible assertions in one session, and collect hashes, values, Undo/Redo, persistence, cleanup, and timing evidence. Every run copies the selected host project into its task directory and prefixes the copy name with the validation purpose/run ID; independent CoW prefixes and homes isolate task execution, while concurrency is governed by the scheduler, version slots, and global resource exclusivity. The golden prefix and source project remain immutable shared inputs. Managed exact-host runs schedule through version-isolated execution slots (default 8 slots, same-version serialized, different versions concurrent, with global exclusivity for performance-host and interactive-desktop) under the single-UID host-admission lock until task-owned cleanup is proven. UI automation is reserved for entry points that cannot yet be reached through a semantic SDK operation. Screenshots are last-resort evidence for visual-only facts or failure diagnosis.
+Real-host verification is automation-first. Test-only plugins call the public SDK and emit structured assertions. Host scripts launch the official Editor, poll readiness and terminal result markers, batch compatible assertions in one session, and collect hashes, values, Undo/Redo, persistence, cleanup, and timing evidence. Every run copies the selected host project into an isolated task directory and prefix while keeping golden prefixes and source projects immutable. UI automation is reserved for entry points that cannot yet be reached through a semantic SDK operation. Screenshots are last-resort evidence for visual-only facts or failure diagnosis.
 
 Fake providers, static selector records, classfile inspection, and document consistency never promote a provider to real-host readiness.
 

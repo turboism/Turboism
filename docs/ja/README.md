@@ -2,80 +2,95 @@
 
 # Turboism
 
-## 著作権と注意事項
+## 免責事項
 
-Copyright © 2026 Turboism Contributors。Turboism は [AGPL-3.0-only](../../LICENSE) に基づくオープンソースソフトウェアです。
+Turboism は独立したサードパーティープロジェクトであり、Live2D Inc. との提携・推奨・スポンサー関係はなく、Cubism 公式製品ではありません（Live2D、Cubism および関連標章は Live2D Inc. または各権利者に帰属します）。
 
-本バージョンには GNU Affero General Public License 第 3 版のみ（`AGPL-3.0-only`）が適用されます。第三者のコンポーネントおよび個別のライセンス表記があるファイルには、それぞれのライセンスが適用されます。
+Turboism は Cubism Editor を配布せず、ライセンス認証の回避、制限機能の解除、保有ライセンスの範囲を超えた権限取得・利用を補助することは一切ありません。別途、正規ライセンスを取得した Cubism Editor が必要です。
 
-Turboism は**独立したサードパーティープロジェクト**であり、Live2D Inc. との提携関係はなく、同社による推奨やスポンサー提供も受けていません。Live2D、Cubism および関連する名称・標章の権利は、Live2D Inc. またはそれぞれの権利者に帰属します。Turboism は Cubism Editor を配布せず、そのライセンスを付与・代替したり、認証を回避したりするものではありません。別途、正規のライセンスを取得した Cubism Editor をインストールする必要があります。
+本ソフトウェアは [AGPL-3.0-only](../../LICENSE) の下で**現状のまま**提供されます。導入前に [EULA](EULA.md) をご確認のうえ、プロジェクトのバックアップを各自で保管してください。
 
-インストール前に[エンドユーザー実行声明・免責事項](EULA.md)をお読みください。この声明は AGPL-3.0-only が付与する権利を制限するものではなく、簡体字中国語の正式文書が優先されます。本ソフトウェアは**現状のまま**提供されます。プロジェクトの内容を変更するプラグインや自動化機能を使う前に、独立したバックアップを保存してください。
+## 概要
 
-## プロジェクト概要
+Turboism は **Live2D Cubism Editor** 向けのランタイム拡張ツール兼プラグインフレームワーク（Windows 主軸）です。Java Agent と公開 SDK をベースに、パラメータ・メッシュ編集支援、PSD 補助、パレット拡張、ローカル自動化などの機能を追加します（利用可能な機能はプラグインと Editor バージョンに依存します）。
 
-Turboism は **Live2D Cubism Editor** 向けの、Windows を主な対象とするランタイム拡張ツール兼プラグインフレームワークです。Java Agent と公開 SDK により、パラメータ・メッシュツール、PSD 補助機能、パレット拡張、ローカル自動化などのモデリング作業を支援します。利用できる機能は、インストール済みプラグイン、権限、Editor の正確なバージョンによって異なります。
+## 現在の機能
 
-## 対応する Cubism Editor のバージョン
+### フレームワーク
+
+- **パフォーマンス・JVM チューニング**：描画、モデル更新、クリッピングマスク、テクスチャ転送、メッシュ分割などのオプトイン最適化に加え、Cubism 用 JVM 設定（ZGC / GraalVM 等）の切り替えや起動ダイアログ抑制に対応。
+- **プラグイン基盤・マーケット**：内蔵のプラグイン管理と Ed25519 署名付きマーケットプレイス（導入・更新・有効化切替）、権限および Cubism バージョンごとのアドミッション検証、フレームワーク更新確認を提供。
+- **シェル統合・開発基盤**：Turboism メニュー、ツールバーホーム入口、共通設定・キーバインド画面、保存先履歴、診断ログ、公開 Java SDK（`dev.turboism:sdk`）、別プロセス動作の GraalJS スクリプトホストを実装。
+
+### ファーストパーティプラグイン
+
+標準リリースには 35 個のファーストパーティプラグインを同梱しています（`parameter-lock` はプラグインマーケットから導入可能）。各プラグインの対応バージョンは[プラグイン互換性マトリクス](../../compatibility/cubism/plugins_ja.md)を参照してください：
+
+- **モデリング・メッシュ・デフォーマ**：`turbo-mesh`（曲率対応の自由打点・三角形分割）、`geometric-mesh-layout`（円形・多角形メッシュ生成）、`selection-brush`、`artmesh-mirror`、`mesh-edit-mirror-axis-enhance`、`boundingbox-warp-mirror`、`warp-deformer-alt-symmetry`、`deformer-batch-rename`。
+- **パラメータ・物理演算・アニメーション**：`parameter`（CSV 入出力・バインド反転/移行）、`parameter-batch-transfer`、`parameter-sync`、`parameter-lock` *（マーケット）*、`physics-editor`（物理リスト一括選択・状態保持）、`frame-animation-import`（連番・スプライトシート取込）。
+- **PSD・3D・テクスチャアトラス**：`external-psd-edit`（外部アプリでの元 PSD リアルタイム編集）、`psd-clip-mask-import`、`model-import-3d`（GLB/glTF/OBJ 取込）、`atlas-maxrects-bssf`、`atlas-dalsoo-polygon`、`atlas-bitmask-nesting`、`atlas-folder-layout`、`texture-atlas-stats`。
+- **ワークスペース・UI・検査**：`ui-theme`、`command-palette`（`Ctrl+K`）、`cubism-tab-filter`、`palette-label-style`、`scene-palette-enhancer`、`recent-project-board`、`recent-preview`、`history-panel`（履歴タイムライン）、`clipmask-viewer`、`perf-stats`、`project-work-time`。
+- **バックアップ・書き出し・AI / 自動化**：`webdav-backup`、`protected-export`（Cubism 5.1+ 向け保護書き出し）、`mcp`（ローカル MCP サーバー）、`acp`（ACP v1 エージェント会話ウィンドウ）。
+
+## 対応プラットフォーム
+
+- **Windows（x64）** が現在主にサポート・メンテナンスされているプラットフォームです。
+- **macOS**：Java のクロスプラットフォーム性により macOS 上でも動作する可能性があります（現在は未検証のプレビュー版 `turboism-<version>.zip` のみ提供）。現時点では macOS 環境での検証・保守は行えていないため、macOS をお持ちでテストや開発にご協力いただける方は [GitHub Issues](https://github.com/turboism/Turboism/issues) までご連絡ください。
+
+## Cubism 対応状況
 
 | Cubism Editor | 対応状況 |
 | --- | --- |
-| **5.0.00 – 5.0.06** | 当該バージョン専用のアダプターを提供。未対応：自動バックアップ、自動揺れ読み取り、ジオメトリ読み取り、統合ブリッジ、モデリングカスタムツール、保護付きエクスポート、トップメニュー統合、MOC エクスポート読み取り、パーツインスペクター書き込み。部分対応：アニメーション/タイムライン |
-| **5.1.00 – 5.1.03** | 当該バージョン専用のアダプターを提供。未対応：ジオメトリ読み取り、モデリングカスタムツール、MOC エクスポート読み取り、パーツインスペクター書き込み。部分対応：アニメーション/タイムライン。統合ブリッジは 5.1.02 未満では部分対応 |
-| **5.2.00 – 5.2.03** | 当該バージョン専用のアダプターを提供。Cubism 5.3 専用サーフェス（アルファ合成、パーツインスペクター書き込み、MOC エクスポート読み取り、Core parameterRepeat）のみ未対応 |
-| **5.3.00 – 5.3.04** | 当該バージョン専用のアダプターを提供。完全対応：検証済みの全ケイパビリティグループを利用可能 |
+| **5.0.00 – 5.0.06** | 一部対応 — 自動バックアップ、自動揺れ読み取り、ジオメトリ読み取り、統合ブリッジ、モデリングカスタムツール、保護付きエクスポート、トップメニュー統合、MOC エクスポート読み取り、パーツインスペクター書き込みが未対応。アニメーション/タイムラインは一部対応 |
+| **5.1.00 – 5.1.03** | 一部対応 — ジオメトリ読み取り、モデリングカスタムツール、MOC エクスポート読み取り、パーツインスペクター書き込みが未対応。アニメーション/タイムラインは一部対応（5.1.02 未満の統合ブリッジも一部対応） |
+| **5.2.00 – 5.2.03** | ほぼ完全対応 — 5.3 専用 API（アルファ合成、パーツインスペクター書き込み、MOC エクスポート読み取り、Core parameterRepeat）のみ未対応 |
+| **5.3.00 – 5.3.04** | 完全対応 — 検証済みの全機能グループが利用可能 |
 
-Cubism のホスト環境として対応しているのは **Windows x64** です。記載のない Editor バージョンとの互換性は保証しません。必要なアダプターや機能が利用できない場合は、安全のため動作を拒否します。対応バージョンであっても、すべてのプラグイン機能が利用できるとは限りません。バージョンごとの詳細は[ケイパビリティマトリクス](../../compatibility/cubism/capabilities_ja.md)を参照してください。
-
-macOS ではポータブル ZIP アーカイブ（`turboism-<version>.zip`）を展開して使用できます。ただし、macOS のパッケージングはプレビュー段階で、Cubism ホストとしての動作は未検証です。
-
-対応するホスト環境および検証環境は **ネイティブ Windows x64** と **Linux** です。Windows x64 では Cubism ホスト検証をそのまま実行します。Linux では同じ検証を Proton（Wine）経由で実行し、ヘッドレスの Gradle・lint・ユニットテスト検査は Xvfb 上で実行します。どちらも Turboism の開発と検証に対応した環境です。エンドユーザー向けの Cubism ホストとして提供するのは Windows x64 のみです。
+記載のないバージョンや未対応機能は安全のため無効化されます。API ごとの詳細は[ケイパビリティマトリクス](../../compatibility/cubism/capabilities_ja.md)をご覧ください。
 
 ## インストール
 
-[最新の GitHub Release](https://github.com/turboism/Turboism/releases/latest)からパッケージと対応する `.sha256` ファイルをダウンロードしてください。標準パッケージにはすべての同梱プラグインが含まれます：
+Cubism Editor を終了してプロジェクトをバックアップしたうえで、[最新の GitHub Release](https://github.com/turboism/Turboism/releases/latest) からパッケージをダウンロードしてください。標準パッケージには同梱のファーストパーティプラグインと GraalJS のオフライン依存が含まれています（互換 GraalVM ランタイムは設定ツールから別途導入できます）。
 
-- **Windows インストーラー**：`TurboismInstaller-<version>.exe`。
-- **ポータブルパッケージ**：`turboism-<version>.zip`。
-
-どちらの標準パッケージにも GraalJS のオフラインエンジン依存が含まれます。互換性のある GraalVM ランタイムは設定ツールで別途インストールします。
-
-以下のインストール方法を選びます。インストールや更新の前に Cubism を終了し、プロジェクトをバックアップしてください。
-
-すべての Turboism インストーラーは**英語、簡体字中国語、日本語、韓国語**に対応しています。言語の選択はインストーラー自身の表示だけを変え、実行時の Turboism の言語は引き続き `config.json` の `locale` で決まります。
-
-現在のインストーラーにはコード署名がありません。`.sha256` ファイルはダウンロードと同じ場所で配布されるため、破損は検出できますが、リリースの差し替えがないことは証明できません。独立した信頼の基点は Ed25519 署名付きプラグインカタログのみです。実行前に、ダウンロードしたファイルの SHA-256 を付属のチェックサムと照合してください。PowerShell の例です（`<version>` はダウンロードしたバージョンに置き換えます）。
+現在のインストーラーにはコード署名がないため、実行前に `.sha256` でハッシュを確認することを推奨します：
 
 ```powershell
 Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
 ```
 
-### EXE — Windows での推奨方法
+### EXE インストーラー（Windows 推奨）
 
-`TurboismInstaller-<version>.exe` を実行し、インストール先と起動オプションを選択してください。同梱プラグインはすべてインストールされ、後からプラグイン管理で有効・無効を切り替えられます。ようこそページの前に英語・簡体字中国語・日本語・韓国語を選択できます。完了後は Turboism ショートカットを使用してください。
+`TurboismInstaller-<version>.exe` を実行し、ウィザードに従ってインストールしてください（インストーラー UI は英語・簡体字中国語・日本語・韓国語に対応。実行時言語は `config.json` で設定します）。Cubism 公式の起動 `.bat` との統合は既定で有効（アンインストール時に自動復元）となり、アップグレード時は既存の `disabledPlugins` 設定を引き継ぎます。導入後は生成されたショートカットから起動してください。
 
-Cubism 公式の起動 BAT との統合は**既定で選択されています**。不要な場合は起動オプションページで選択を解除してください。統合はハッシュ検証付きのバックアップを使用し、アンインストール時に元の BAT ファイルを復元します。後から手動で編集されたファイルは自動復元できない場合があります。これらのインストーラー管理下のバックアップとは別に、プロジェクトのバックアップを保存してください。
+### ZIP（ポータブル版）
 
-インストーラーは既存の環境を更新し、現在の同梱プラグインをインストールして既存の `disabledPlugins` を保持します。
-
-### ZIP — Windows での手動セットアップ
-
-1. ランタイムと同梱プラグインを含む `turboism-<version>.zip` をダウンロードします。
-2. **アーカイブ全体**を独立した Turboism フォルダーに展開してください。Cubism のインストール先には展開しないでください。
-3. 展開先のフォルダーから設定ツールを開きます。
-
+1. `turboism-<version>.zip` を Cubism 本体とは別のフォルダーに展開します。
+2. 設定ツールを実行し、対象の Cubism とプラグインを選択して保存します：
    ```powershell
    powershell -NoProfile -ExecutionPolicy Bypass -File ".\configure_turboism.ps1"
    ```
-
-   実行ポリシーの指定は、この PowerShell プロセスだけに適用されます。使用する Cubism のインストール先とプラグインを選択し、保存してください。
-4. 作成された Turboism ショートカット、または同じフォルダー内の `launch-cubism-turboism.bat` から Cubism を起動します。
-
-どのリリースパッケージにも、管理対象の fx ランタイムファイルや開発専用の Turboism with fx プラグインは含まれません。
+3. 生成されたショートカット、またはフォルダー内の `launch-cubism-turboism.bat` から Cubism を起動します。
 
 ## 開発
 
-**Git と JDK 17** が必要です。リポジトリに付属する Gradle Wrapper を使用するため、Gradle を別途インストールする必要はありません。
+### プラグイン開発
+
+プラグインを作るだけなら Turboism 本体のクローンやビルドは不要で、**JDK 17 以上**があれば開発できます：
+
+1. [templates/plugin-template](../../templates/plugin-template/) を別プロジェクトとしてコピーし、`./scripts/setup.sh`（Windows は `.\scripts\setup.ps1`）を実行して `turboism-sdk-<version>.jar` と `turboism-event-processor-<version>.jar` を取得・検証します（手動で `libs/` に配置することも可能です）。
+2. `./gradlew build`（Windows は `gradlew.bat build`）でビルドします。
+
+このリポジトリ内で試す場合は、[デモプラグイン](../../plugins/demo/README.md)（[build.gradle.kts](../../plugins/demo/build.gradle.kts)、[plugin.json](../../plugins/demo/src/main/resources/META-INF/turboism/plugin.json)）を参照し、次のコマンドでビルドできます：
+
+```bash
+./gradlew :plugins:demo:test :plugins:demo:jar
+```
+
+> 注：`plugins:demo` は開発専用であり、配布パッケージには含まれません。プラグインは `:sdk`（`dev.turboism:sdk`）のみを `compileOnly` で参照し、SDK の同梱やランタイム内部・`com.live2d.*` への直接依存は避けてください。ライフサイクルや権限ルールは[プラグイン開発ガイド](../../sdk/plugin-author-guide.md)に記載しています。
+
+### フレームワーク開発
+
+**Git** と **JDK 17** が必要です（リポジトリ内の `./gradlew` / Windows では `gradlew.bat` を使用）：
 
 ```bash
 git clone https://github.com/turboism/Turboism.git
@@ -83,27 +98,21 @@ cd Turboism
 ./gradlew devCheck
 ```
 
-Windows では `./gradlew` の代わりに `gradlew.bat` を使用してください。変更は専用の機能ブランチまたは worktree で行ってください。
-
-プラグイン開発は、[デモプラグイン](../../plugins/demo/README.md)、その[ビルド設定](../../plugins/demo/build.gradle.kts)、[プラグイン記述ファイル](../../plugins/demo/src/main/resources/META-INF/turboism/plugin.json)を参考に始められます。プラグインは `compileOnly` で `:sdk` に依存し、ランタイムの内部実装や `com.live2d.*` クラスには直接依存しないでください。
-
-このリポジトリの**外側**でプラグインを開発する場合、Turboism 本体のビルドは不要です。各 GitHub Release には `turboism-sdk-<version>.jar` と `turboism-event-processor-<version>.jar`（`.sha256` サイドカー付き）が同梱されます。[templates/plugin-template](../../templates/plugin-template/) を独立したプロジェクトとしてコピーし、セットアップスクリプトを実行する（または JAR を `libs/` ディレクトリに入れる）か、その README の手順に従ってください。フレームワーク貢献者は、SDK と `@SubscribeEvent` アノテーションプロセッサをローカル Maven リポジトリに公開し、`mavenLocal()` から `dev.turboism:sdk` と `dev.turboism:event-processor` を解決することもできます：
-
-```bash
-./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal
-```
-
-```bash
-./gradlew :plugins:demo:test :plugins:demo:jar
-```
-
-デモは開発専用であり、リリースパッケージには含まれません。変更を提出する前に、影響範囲のテストと `./gradlew devCheck` を実行してください。API、ライフサイクル、トランザクション、検証の規則は[アーキテクチャ](../architecture/ARCHITECTURE.md)を参照してください。
+- **開発・検証環境**：**Windows x64** ではネイティブの Cubism ホスト検証を実行でき、**Linux** では Xvfb 上でのヘッドレス検査・単体テストと Proton（Wine）経由の Cubism ホスト検証に対応しています。
+- **ローカル SDK 検証**：スタンドアロンプラグインからローカル変更を参照したい場合は、SDK と `@SubscribeEvent` アノテーションプロセッサを `~/.m2` に公開できます：
+  ```bash
+  ./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal
+  ```
+- モジュール境界、トランザクション、検証ゲートの詳細は[アーキテクチャ](../architecture/ARCHITECTURE.md)を参照してください。
 
 ## ドキュメント
 
 - [ユーザー・開発者向けドキュメント](https://docs.turboism.dev)
-- [アーキテクチャ](../architecture/ARCHITECTURE.md)と[ロードマップ](../ROADMAP.md)
-- [SDK API 契約と互換性](../../sdk/api-contracts/)と[現在の公開 SDK サーフェス](../../sdk/api-contracts/current.txt)
-- [デモプラグイン](../../plugins/demo/README.md)とスタンドアロンの[プラグインテンプレート](../../templates/plugin-template/)
-- [Java インストーラーの詳細](../../packaging/java-installer/README-java-installer.md)
-- [リリース手順](../RELEASING.md)と[変更履歴](../en/CHANGELOG.md)
+- [アーキテクチャ](../architecture/ARCHITECTURE.md) · [ロードマップ](../ROADMAP.md)
+- [SDK API 契約](../../sdk/api-contracts/) · [現在の公開 SDK サーフェス](../../sdk/api-contracts/current.txt)
+- [プラグイン開発ガイド](../../sdk/plugin-author-guide.md) · [プラグインテンプレート](../../templates/plugin-template/) · [デモプラグイン](../../plugins/demo/README.md)
+- [リリース手順](../RELEASING.md) · [変更履歴](CHANGELOG.md)
+
+## ライセンス
+
+Copyright © 2026 Turboism Contributors. 本ソフトウェアは [AGPL-3.0-only](../../LICENSE) の下で公開されています（サードパーティー部品には各ライセンスが適用されます）。
