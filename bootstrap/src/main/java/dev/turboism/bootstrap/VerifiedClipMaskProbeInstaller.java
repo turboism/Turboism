@@ -43,6 +43,7 @@ final class VerifiedClipMaskProbeInstaller implements AutoCloseable {
     private final Set<String> owners;
     private final ClipMaskProbeMethodTransformer transformer;
     private final ClipMaskProbeBridge bridge;
+    private final LoadedClassIndex loadedClasses;
     private final Set<Class<?>> retransformed = new LinkedHashSet<>();
     private volatile Set<String> pendingOwners = Set.of();
     private boolean installed;
@@ -50,8 +51,22 @@ final class VerifiedClipMaskProbeInstaller implements AutoCloseable {
 
     VerifiedClipMaskProbeInstaller(final Instrumentation instrumentation, final Path artifact, final ClassLoader loader)
             throws Exception {
+        this(instrumentation, artifact, loader, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install
+     */
+    VerifiedClipMaskProbeInstaller(
+            final Instrumentation instrumentation,
+            final Path artifact,
+            final ClassLoader loader,
+            final LoadedClassIndex loadedClasses)
+            throws Exception {
         this.instrumentation = instrumentation;
         this.hostClassLoader = loader;
+        this.loadedClasses = loadedClasses;
         final HostArtifactDigest digest = HostArtifactDigest.cached(artifact);
         cubismVersion = ReviewedHostArtifacts.cubismVersionOf(digest)
                 .orElseThrow(() -> new IllegalArgumentException("clip mask probe unsupported host artifact"));
@@ -92,18 +107,21 @@ final class VerifiedClipMaskProbeInstaller implements AutoCloseable {
 
     private void retransformIfLoaded() throws Exception {
         final Set<String> pending = new TreeSet<>(owners);
-        for (final Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-            if (loaded == null
-                    || loaded.getClassLoader() != hostClassLoader
-                    || !owners.contains(loaded.getName().replace('.', '/'))) {
+        for (final Class<?> loaded : loadedClasses().select(hostClassLoader, type -> true)) {
+            final String owner = loaded.getName().replace('.', '/');
+            if (!owners.contains(owner)) {
                 continue;
             }
-            pending.remove(loaded.getName().replace('.', '/'));
+            pending.remove(owner);
             if (!instrumentation.isModifiableClass(loaded)) continue;
             instrumentation.retransformClasses(loaded);
             retransformed.add(loaded);
         }
         pendingOwners = pending;
+    }
+
+    private LoadedClassIndex loadedClasses() {
+        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
     }
 
     /** @return how many consults were injected so far */
@@ -149,10 +167,10 @@ final class VerifiedClipMaskProbeInstaller implements AutoCloseable {
         Throwable failure = null;
         final Set<String> woven = transformer.wovenOwners();
         final List<Class<?>> verify = new ArrayList<>(retransformed);
-        for (final Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-            if (loaded != null
-                    && loaded.getClassLoader() == hostClassLoader
-                    && woven.contains(loaded.getName().replace('.', '/'))
+        // Restoration must observe owners defined after the install snapshot, so it enumerates
+        // again instead of reusing the phase snapshot.
+        for (final Class<?> loaded : LoadedClassIndex.snapshot(instrumentation).select(hostClassLoader, type -> true)) {
+            if (woven.contains(loaded.getName().replace('.', '/'))
                     && instrumentation.isModifiableClass(loaded)
                     && !verify.contains(loaded)) {
                 verify.add(loaded);

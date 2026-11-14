@@ -44,7 +44,7 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
           "versions": "5.0.00-5.0.02",
@@ -94,7 +94,7 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
           "versions": "5.0.00-5.0.02",
@@ -174,7 +174,7 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
           "versions": "5.0.00-5.0.02",
@@ -224,7 +224,7 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
           "versions": "5.0.00-5.0.02",
@@ -308,7 +308,7 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
           "versions": "5.1.00-5.2.03",
@@ -350,7 +350,7 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.3.00-5.3.04",
+      "versions": "5.3.00-",
       "mappingId": [
         {
           "versions": "5.3.00-5.3.01,5.3.04",
@@ -400,7 +400,7 @@
       ]
     },
     {
-      "versions": "5.3.00-5.3.04",
+      "versions": "5.3.00-",
       "value": [
         0,
         1,
@@ -413,7 +413,7 @@
   ],
   "layouts": [
     {
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "value": {
         "keyOrder": [
           "format",

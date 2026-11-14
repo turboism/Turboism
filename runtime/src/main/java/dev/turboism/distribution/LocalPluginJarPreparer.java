@@ -1,5 +1,6 @@
 package dev.turboism.distribution;
 
+import dev.turboism.core.version.VersionRange;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -141,8 +142,7 @@ public final class LocalPluginJarPreparer {
     }
 
     private static boolean strictApi(final String value) {
-        final String version = "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)";
-        return value != null && (value.matches(version) || value.matches("\\[" + version + "," + version + "\\)"));
+        return VersionRange.isValid(value);
     }
 
     private static void require(final boolean valid, final String code, final String path) throws Exception {

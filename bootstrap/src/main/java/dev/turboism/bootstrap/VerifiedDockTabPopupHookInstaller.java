@@ -5,6 +5,7 @@ import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.ui.panel.DockTabPopupNativeMethodTransformer;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Installs the exact-version dock-tab popup transformer and removes it reversibly. */
@@ -15,6 +16,7 @@ final class VerifiedDockTabPopupHookInstaller implements AutoCloseable {
     private final StaticSelector paletteField;
     private final StaticSelector menuAppend;
     private final ClassLoader hostClassLoader;
+    private final LoadedClassIndex loadedClasses;
     private final AtomicBoolean installed = new AtomicBoolean();
     private DockTabPopupNativeMethodTransformer transformer;
 
@@ -24,11 +26,26 @@ final class VerifiedDockTabPopupHookInstaller implements AutoCloseable {
             final StaticSelector paletteField,
             final StaticSelector menuAppend,
             final ClassLoader hostClassLoader) {
+        this(instrumentation, operation, paletteField, menuAppend, hostClassLoader, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install
+     */
+    VerifiedDockTabPopupHookInstaller(
+            final Instrumentation instrumentation,
+            final StaticSelector operation,
+            final StaticSelector paletteField,
+            final StaticSelector menuAppend,
+            final ClassLoader hostClassLoader,
+            final LoadedClassIndex loadedClasses) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.operation = Objects.requireNonNull(operation, "operation");
         this.paletteField = Objects.requireNonNull(paletteField, "paletteField");
         this.menuAppend = Objects.requireNonNull(menuAppend, "menuAppend");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        this.loadedClasses = loadedClasses;
         if (operation.kind() != StaticSelector.Kind.METHOD
                 || paletteField.kind() != StaticSelector.Kind.FIELD
                 || menuAppend.kind() != StaticSelector.Kind.METHOD
@@ -58,7 +75,10 @@ final class VerifiedDockTabPopupHookInstaller implements AutoCloseable {
                 throw new IllegalStateException("Dock-tab popup retransformation is unavailable");
             }
             VerifiedHookInstallerSupport.retransformIfLoaded(
-                    instrumentation, operation.ownerInternalName().replace('/', '.'), hostClassLoader);
+                    instrumentation,
+                    loadedClasses(),
+                    Set.of(operation.ownerInternalName().replace('/', '.')),
+                    hostClassLoader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             close();
@@ -72,5 +92,9 @@ final class VerifiedDockTabPopupHookInstaller implements AutoCloseable {
         final DockTabPopupNativeMethodTransformer current = transformer;
         transformer = null;
         if (current != null) instrumentation.removeTransformer(current);
+    }
+
+    private LoadedClassIndex loadedClasses() {
+        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
     }
 }

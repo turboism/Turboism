@@ -999,7 +999,10 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
         self.assertFalse(pmr.dependency_range_contains("0.67.1", "0.67.0"))
         self.assertTrue(pmr.dependency_range_contains("[0.1.0,0.68.0)", "0.1.0"))
         self.assertFalse(pmr.dependency_range_contains("[0.1.0,0.68.0)", "0.68.0"))
-        for invalid in ("[0.68.0,0.1.0)", "[00.1.0,0.68.0)", ">=0.1.0"):
+        self.assertTrue(pmr.dependency_range_contains("[0.1.0,)", "0.1.0"))
+        self.assertTrue(pmr.dependency_range_contains("[0.1.0,)", "9.9.9"))
+        self.assertFalse(pmr.dependency_range_contains("[0.1.0,)", "0.0.9"))
+        for invalid in ("[0.68.0,0.1.0)", "[00.1.0,0.68.0)", ">=0.1.0", "[0.1.0,0.2.0]"):
             with self.subTest(invalid=invalid), self.assertRaises(pmr.MarketError):
                 pmr.dependency_range_contains(invalid, "0.67.1")
 

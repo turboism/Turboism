@@ -1,6 +1,5 @@
 package dev.turboism.sdk.mcp;
 
-import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.Optional;
 
@@ -15,7 +14,6 @@ import java.util.Optional;
  * for mutating operations; the token itself lives owner-only in the plugin state directory and is
  * never part of the published connection material.</p>
  */
-@Incubating
 public interface McpConnectionService {
 
     /**

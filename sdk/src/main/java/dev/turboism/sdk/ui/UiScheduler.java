@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui;
 
-import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.plugin.Registration;
 import java.time.Duration;
 
@@ -45,7 +44,6 @@ public interface UiScheduler {
      *     when it was deferred
      * @throws IllegalStateException when this scheduler has already been closed
      */
-    @Incubating
     default boolean runUiTeardown(Runnable cleanup, Duration timeout) {
         runOnUiThread(cleanup);
         return false;

@@ -5,12 +5,9 @@ import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Predicate;
 import java.util.jar.JarFile;
 
 /** Shared admission, capture and restoration primitives for the verified hook installers. */
@@ -174,6 +171,10 @@ final class VerifiedHookInstallerSupport {
      * Retransforms every already-loaded class whose binary name is in {@code targetClassNames} and
      * whose defining loader is {@code hostClassLoader}.
      *
+     * <p>This overload enumerates the loaded classes itself. A hook that installs inside a phase
+     * pass must prefer the {@link LoadedClassIndex} overload, so every hook of that pass shares one
+     * enumeration.</p>
+     *
      * @return the number of retransformed classes
      */
     static int retransformIfLoaded(
@@ -181,20 +182,31 @@ final class VerifiedHookInstallerSupport {
             final Collection<String> targetClassNames,
             final ClassLoader hostClassLoader)
             throws Exception {
-        final List<Class<?>> targets = new ArrayList<>();
-        for (final Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-            if (loaded != null
-                    && loaded.getClassLoader() == hostClassLoader
-                    && targetClassNames.contains(loaded.getName())
-                    && instrumentation.isModifiableClass(loaded)) {
-                targets.add(loaded);
-            }
-        }
-        if (!targets.isEmpty()) {
-            // One request lets the JVM reach a single safepoint for the whole target set.
-            instrumentation.retransformClasses(targets.toArray(Class<?>[]::new));
-        }
-        return targets.size();
+        return retransformIfLoaded(
+                instrumentation, LoadedClassIndex.snapshot(instrumentation), targetClassNames, hostClassLoader);
+    }
+
+    /**
+     * Retransforms every class of {@code index} whose binary name is in {@code targetClassNames} and
+     * whose defining loader is {@code hostClassLoader}.
+     *
+     * <p>The index resolves the target names directly, so the lookup costs the number of target
+     * names instead of the number of loaded classes.</p>
+     *
+     * @param index the loaded-class snapshot shared by this install pass
+     * @return the number of retransformed classes
+     */
+    static int retransformIfLoaded(
+            final Instrumentation instrumentation,
+            final LoadedClassIndex index,
+            final Collection<String> targetClassNames,
+            final ClassLoader hostClassLoader)
+            throws Exception {
+        return retransformAll(
+                instrumentation,
+                index.select(targetClassNames, hostClassLoader).stream()
+                        .filter(instrumentation::isModifiableClass)
+                        .toList());
     }
 
     /**
@@ -209,58 +221,5 @@ final class VerifiedHookInstallerSupport {
         }
         instrumentation.retransformClasses(targets.toArray(Class<?>[]::new));
         return targets.size();
-    }
-
-    /**
-     * One enumeration of the loaded classes, so an installation pass scans the JVM once.
-     *
-     * <p>A snapshot is only valid while no installer between the scan and the use can load the
-     * classes it looks for. Installation registers its transformers first and then retransforms,
-     * so the snapshot taken after registration sees every owner the pass must reach.</p>
-     */
-    static final class LoadedClassIndex {
-
-        private final Class<?>[] classes;
-
-        private LoadedClassIndex(final Class<?>[] classes) {
-            this.classes = classes;
-        }
-
-        /** Captures the currently loaded classes. */
-        static LoadedClassIndex snapshot(final Instrumentation instrumentation) {
-            return new LoadedClassIndex(instrumentation.getAllLoadedClasses());
-        }
-
-        /**
-         * Returns the loaded classes that {@code filter} accepts under {@code loader}.
-         *
-         * @param loader the defining loader every accepted class must have
-         * @param filter additional acceptance test, such as an owner-name check
-         * @return the accepted classes in enumeration order
-         */
-        List<Class<?>> select(final ClassLoader loader, final Predicate<Class<?>> filter) {
-            final List<Class<?>> selected = new ArrayList<>();
-            for (final Class<?> loaded : classes) {
-                if (loaded != null && loaded.getClassLoader() == loader && filter.test(loaded)) {
-                    selected.add(loaded);
-                }
-            }
-            return selected;
-        }
-
-        /**
-         * Reports whether any loaded class has the exact binary name, whatever its loader.
-         *
-         * @param binaryName the binary class name to look for
-         * @return {@code true} when that name is already defined
-         */
-        boolean containsName(final String binaryName) {
-            for (final Class<?> loaded : classes) {
-                if (loaded != null && loaded.getName().equals(binaryName)) {
-                    return true;
-                }
-            }
-            return false;
-        }
     }
 }

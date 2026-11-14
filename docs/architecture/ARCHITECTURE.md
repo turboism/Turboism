@@ -163,14 +163,15 @@ and the shape stays frozen in the published API baselines.
 
 Turboism publishes one public SDK tier. Before the first formal release, maintainers review the generated public classfile surface without treating a pre-release snapshot as a compatibility promise. The first released SDK artifact establishes the compatibility baseline for later releases. Cubism Editor version restrictions are declared separately with `@CubismEditor` and exact-version catalogs. The full version-adaptation contract — coverage targets, evidence requirements, derivation tooling, and the `devCheck` gates that enforce it — lives in `.github/CONTRIBUTING.md` under "Cubism version adaptation".
 
-Exact API baselines accumulate one per reviewed SDK revision and stay in release verification. A baseline may be retired only once a stable (1.x) SDK baseline supersedes it, and the retirement must be recorded in that release's notes; the newest baseline is never retired.
+Exact API baselines accumulated one per reviewed SDK revision while the SDK was pre-release; that directory (`sdk/api-contracts/baselines/`) no longer exists. The reviewed surface is now the single snapshot `sdk/api-contracts/current.txt`, and `compatibility/sdk-api-since.json` records the first framework API that shipped each class and member. `checkSdkApiCurrent` compares the generated surface against `current.txt` byte for byte, so a change is a reviewed diff rather than a new baseline file. Once a stable (1.x) SDK baseline exists, a published release baseline is maintained separately without rewriting its anchors.
 
 Public SDK changes show up as a diff in `sdk/api-contracts/current.txt`.
 `checkCompletedCommit` runs `checkSdkApiCurrent` against the generated surface
 (and checks the plugin-consumer guard in `sdk/api-contracts/no-plugin-consumer.txt`);
 refresh `current.txt` with `./gradlew updateSdkApiCurrent` and review the diff.
-Published release baselines, once established at 1.0, are maintained separately
-without rewriting existing baselines or their anchors.
+`python3 scripts/sdk_api_since.py --write` refreshes `compatibility/sdk-api-since.json`
+from the release tags, which is what `checkPluginApiFloors` reads to verify that each
+plugin's `turboismApi` lower bound covers every SDK member the plugin links.
 
 Sole documented exception to the no-UI-type surface rule: `dev.turboism.sdk.ui.window.TurboismWindowFactory` constructs plugin-owned JDK Swing windows and applies the Turboism window icon; it is not part of the `UiHostCapabilityService` host contract. No other package may expose JDK UI types.
 

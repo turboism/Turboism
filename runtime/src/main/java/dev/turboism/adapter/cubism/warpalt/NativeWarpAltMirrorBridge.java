@@ -57,6 +57,13 @@ public final class NativeWarpAltMirrorBridge {
             "com.live2d.cubism.view.context.action.O$b",
             "com.live2d.cubism.view.context.action.L$b");
 
+    private static final String HOST_ADAPTER_PACKAGE = "dev.turboism.";
+    private static final String THREAD_CLASS = "java.lang.Thread";
+    private static final String POINT_WRITE_METHOD = "moveToOnLocal";
+    private static final String CANVAS_WRAPPER_CLASS = "com.live2d.cubism.doc.model.deformer.warp.r";
+    private static final String CANVAS_WRAPPER_METHOD = "a";
+    private static final StackWalker STACK_WALKER = StackWalker.getInstance();
+
     private static final AtomicReference<Binding> INSTALLED = new AtomicReference<>();
     /** Armed mirror axis published by the plugin: 0=off, 1=vertical, 2=horizontal. */
     private static final java.util.concurrent.atomic.AtomicInteger ARMED_AXIS =
@@ -643,20 +650,24 @@ public final class NativeWarpAltMirrorBridge {
      * {@code WarpPointRef.moveToOnLocal}. Stack frames carrying the hooked
      * method itself ({@code WarpPointRef} or its subclass {@code r}) and
      * bridge frames are skipped; the first remaining frame is the caller.
+     *
+     * <p>The frame stream short-circuits at that first remaining frame, so a drag tick pays for
+     * the frames it inspects instead of for a full stack snapshot.</p>
      */
     private static boolean pointMoveCallerIsDragAction() {
-        for (final StackTraceElement frame : Thread.currentThread().getStackTrace()) {
-            final String className = frame.getClassName();
-            if (className.startsWith("dev.turboism.")
-                    || className.startsWith("java.lang.Thread")
-                    || "moveToOnLocal".equals(frame.getMethodName())
-                    || (className.equals("com.live2d.cubism.doc.model.deformer.warp.r")
-                            && "a".equals(frame.getMethodName()))) {
-                continue;
-            }
-            return POINT_MOVE_DRAG_CALLERS.contains(className);
-        }
-        return false;
+        return STACK_WALKER.walk(frames -> frames.filter(NativeWarpAltMirrorBridge::isCallerCandidate)
+                .map(StackWalker.StackFrame::getClassName)
+                .findFirst()
+                .map(POINT_MOVE_DRAG_CALLERS::contains)
+                .orElse(false));
+    }
+
+    private static boolean isCallerCandidate(final StackWalker.StackFrame frame) {
+        final String className = frame.getClassName();
+        return !className.startsWith(HOST_ADAPTER_PACKAGE)
+                && !className.startsWith(THREAD_CLASS)
+                && !POINT_WRITE_METHOD.equals(frame.getMethodName())
+                && !(CANVAS_WRAPPER_CLASS.equals(className) && CANVAS_WRAPPER_METHOD.equals(frame.getMethodName()));
     }
 
     /** Resolves the warp binder behind a temporary handler, or null for other handlers. */

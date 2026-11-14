@@ -9,6 +9,7 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Installs and owns the exact native parameter lifecycle transformer. */
@@ -23,6 +24,7 @@ final class VerifiedParameterHookInstaller implements AutoCloseable {
     private final ClassLoader hostClassLoader;
     private final ParameterNativeMethodTransformer transformer;
     private final NativeParameterLifecycleBridge bridge;
+    private final LoadedClassIndex loadedClasses;
     private final AtomicBoolean installed = new AtomicBoolean(false);
 
     VerifiedParameterHookInstaller(
@@ -33,9 +35,26 @@ final class VerifiedParameterHookInstaller implements AutoCloseable {
             final ClassLoader hostClassLoader,
             final ParameterLifecycleCoordinator coordinator,
             final CubismModelAccess modelAccess) {
+        this(instrumentation, selector, sourceId, idValue, hostClassLoader, coordinator, modelAccess, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install
+     */
+    VerifiedParameterHookInstaller(
+            final Instrumentation instrumentation,
+            final StaticSelector selector,
+            final StaticSelector sourceId,
+            final StaticSelector idValue,
+            final ClassLoader hostClassLoader,
+            final ParameterLifecycleCoordinator coordinator,
+            final CubismModelAccess modelAccess,
+            final LoadedClassIndex loadedClasses) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.targetClassName = selector.ownerInternalName().replace('/', '.');
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        this.loadedClasses = loadedClasses;
         this.transformer = new ParameterNativeMethodTransformer(
                 selector.ownerInternalName(),
                 selector.memberName(),
@@ -56,6 +75,20 @@ final class VerifiedParameterHookInstaller implements AutoCloseable {
             final ClassLoader hostClassLoader,
             final ParameterLifecycleCoordinator coordinator,
             final CubismModelAccess modelAccess) {
+        return fromVerifiedResolver(instrumentation, resolver, hostClassLoader, coordinator, modelAccess, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install
+     */
+    static VerifiedParameterHookInstaller fromVerifiedResolver(
+            final Instrumentation instrumentation,
+            final VerifiedMemberResolver resolver,
+            final ClassLoader hostClassLoader,
+            final ParameterLifecycleCoordinator coordinator,
+            final CubismModelAccess modelAccess,
+            final LoadedClassIndex loadedClasses) {
         final StaticSelector selector =
                 Objects.requireNonNull(resolver, "resolver").verifiedSelector(PARAMETER_OPERATION_ALIAS);
         final StaticSelector sourceId = resolver.verifiedSelector(PARAMETER_SOURCE_ID_ALIAS);
@@ -69,7 +102,7 @@ final class VerifiedParameterHookInstaller implements AutoCloseable {
             throw new IllegalArgumentException("Verified parameter operation must be an instance method.");
         }
         return new VerifiedParameterHookInstaller(
-                instrumentation, selector, sourceId, idValue, hostClassLoader, coordinator, modelAccess);
+                instrumentation, selector, sourceId, idValue, hostClassLoader, coordinator, modelAccess, loadedClasses);
     }
 
     void install() throws Exception {
@@ -83,7 +116,8 @@ final class VerifiedParameterHookInstaller implements AutoCloseable {
         NativeParameterLifecycleBridge.install(bridge);
         instrumentation.addTransformer(transformer, true);
         try {
-            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassName, hostClassLoader);
+            VerifiedHookInstallerSupport.retransformIfLoaded(
+                    instrumentation, loadedClasses(), Set.of(targetClassName), hostClassLoader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             close();
@@ -98,5 +132,9 @@ final class VerifiedParameterHookInstaller implements AutoCloseable {
         }
         instrumentation.removeTransformer(transformer);
         NativeParameterLifecycleBridge.uninstall(bridge);
+    }
+
+    private LoadedClassIndex loadedClasses() {
+        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
     }
 }

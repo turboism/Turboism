@@ -45,6 +45,7 @@ import re
 import sys
 from pathlib import Path
 
+from turboism_dev import class_pins
 from turboism_dev.alias_vocabulary import VocabularyError, constants as vocabulary_constants
 from turboism_dev.alias_vocabulary import declaration as vocabulary_declaration
 from turboism_dev.json_io import read_json
@@ -464,9 +465,9 @@ def render_model_update_targets(root: Path) -> dict[str, str]:
     if used != set(profiles):
         raise GenerationError("model-update targets: unused profiles")
     try:
-        pins = {name: read_json(root / MODEL_UPDATE_PINS / (name + '.json'))
+        pins = {name: class_pins.load(root / MODEL_UPDATE_PINS / (name + '.json'), versions)
                 for name in ('model-update-skip', 'incremental-update')}
-    except (ValueError, OSError) as exc:
+    except (class_pins.ClassPinError, OSError) as exc:
         raise GenerationError(f"model-update targets: missing/invalid class pins: {exc}") from exc
     rows = []
     shape = document['entryDescriptor']

@@ -1,9 +1,6 @@
 package dev.turboism.sdk.event;
 
-import dev.turboism.sdk.Incubating;
-
 /** Runtime-owned registration sink used by generated subscriber catalogs. */
-@Incubating
 public interface EventSubscriberRegistrar {
 
     /**

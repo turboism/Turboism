@@ -224,7 +224,7 @@ class CubismVersionSidecarTest {
     @Test
     void allShippedSidecarsAreValidDeclarations() throws IOException, DescriptorParseException {
         final List<Path> sidecars = shippedSidecars();
-        assertEquals(40, sidecars.size(), "expected 40 shipped cubism-versions.json sidecars");
+        assertEquals(39, sidecars.size(), "expected 39 shipped cubism-versions.json sidecars");
 
         for (Path sidecar : sidecars) {
             final Path descriptor = sidecar.getParent().resolve("plugin.json");
@@ -246,13 +246,11 @@ class CubismVersionSidecarTest {
             throw new IllegalStateException("Cannot locate repository root from user.dir");
         }
         final List<Path> sidecars = new ArrayList<>();
-        for (String root : List.of("plugins", "templates")) {
-            try (Stream<Path> modules = Files.list(current.resolve(root))) {
-                for (Path module : modules.toList()) {
-                    final Path sidecar = module.resolve("src/main/resources/" + CubismVersionSidecar.ENTRY);
-                    if (Files.isRegularFile(sidecar)) {
-                        sidecars.add(sidecar);
-                    }
+        try (Stream<Path> modules = Files.list(current.resolve("plugins"))) {
+            for (Path module : modules.toList()) {
+                final Path sidecar = module.resolve("src/main/resources/" + CubismVersionSidecar.ENTRY);
+                if (Files.isRegularFile(sidecar)) {
+                    sidecars.add(sidecar);
                 }
             }
         }

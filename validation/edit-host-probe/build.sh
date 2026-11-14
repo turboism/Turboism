@@ -7,4 +7,5 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../shared/probe-build.sh"
 
 probe_build_plugin_jar validation/edit-host-probe \
   build/edit-host-validation-probe.jar \
+  validation/shared/src/dev/turboism/validation/SessionGate.java \
   validation/edit-host-probe/src/dev/turboism/validation/edithost/EditHostValidationPlugin.java

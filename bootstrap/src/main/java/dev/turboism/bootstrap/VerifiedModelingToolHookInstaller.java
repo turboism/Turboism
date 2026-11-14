@@ -35,6 +35,7 @@ final class VerifiedModelingToolHookInstaller implements AutoCloseable {
     private final Runnable bindBridge;
     private final Runnable unbindBridge;
     private final ModelingToolLifecycleTransformer transformer;
+    private final LoadedClassIndex loadedClasses;
     private boolean restorePending;
     private boolean installed;
     private boolean transformerAdded;
@@ -48,12 +49,37 @@ final class VerifiedModelingToolHookInstaller implements AutoCloseable {
             final Path expectedArtifact,
             final Runnable bindBridge,
             final Runnable unbindBridge) {
+        this(
+                instrumentation,
+                attachmentMode,
+                hostClassLoader,
+                profile,
+                expectedArtifact,
+                bindBridge,
+                unbindBridge,
+                null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install
+     */
+    VerifiedModelingToolHookInstaller(
+            final Instrumentation instrumentation,
+            final AttachmentMode attachmentMode,
+            final ClassLoader hostClassLoader,
+            final ModelingToolHostProfile profile,
+            final Path expectedArtifact,
+            final Runnable bindBridge,
+            final Runnable unbindBridge,
+            final LoadedClassIndex loadedClasses) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.attachmentMode = Objects.requireNonNull(attachmentMode, "attachmentMode");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.profile = Objects.requireNonNull(profile, "profile");
         this.bindBridge = Objects.requireNonNull(bindBridge, "bindBridge");
         this.unbindBridge = Objects.requireNonNull(unbindBridge, "unbindBridge");
+        this.loadedClasses = loadedClasses;
         this.transformer = new ModelingToolLifecycleTransformer(
                 profile,
                 hostClassLoader,
@@ -148,7 +174,7 @@ final class VerifiedModelingToolHookInstaller implements AutoCloseable {
     private List<Class<?>> preflight() {
         final Class<?>[] loaded;
         try {
-            loaded = instrumentation.getAllLoadedClasses();
+            loaded = loadedClasses().all();
         } catch (Throwable failure) {
             dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException(TARGET_ENUMERATION_FAILED, failure);
@@ -203,12 +229,13 @@ final class VerifiedModelingToolHookInstaller implements AutoCloseable {
      */
     private void restoreLoadedOwners() {
         try {
-            for (final Class<?> type : instrumentation.getAllLoadedClasses()) {
-                if (type == null
-                        || !transformer
-                                .targetClassNames()
-                                .contains(type.getName().replace('.', '/'))) continue;
-                if (type.getClassLoader() != hostClassLoader) continue;
+            final List<Class<?>> targets = loadedClasses()
+                    .select(
+                            hostClassLoader,
+                            type -> transformer
+                                    .targetClassNames()
+                                    .contains(type.getName().replace('.', '/')));
+            for (final Class<?> type : targets) {
                 if (!instrumentation.isModifiableClass(type)) throw new IllegalStateException(TARGET_UNMODIFIABLE);
                 instrumentation.retransformClasses(type);
             }
@@ -216,5 +243,13 @@ final class VerifiedModelingToolHookInstaller implements AutoCloseable {
             dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("native tool bytecode restore failed", failure);
         }
+    }
+
+    /**
+     * @return the phase snapshot this installer was handed, or a fresh one when it installs on its
+     *     own outside a phase pass
+     */
+    private LoadedClassIndex loadedClasses() {
+        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
     }
 }

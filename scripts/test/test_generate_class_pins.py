@@ -11,6 +11,10 @@ import unittest
 import zipfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from turboism_dev import class_pins
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/generate_class_pins.py"
@@ -18,6 +22,9 @@ SPEC = importlib.util.spec_from_file_location("generate_class_pins", SCRIPT)
 GEN = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(GEN)
+
+# Synthetic admitted universe: a new version joins it and inherits `default`.
+VERSIONS = ("5.3.02", "5.3.03", "9.9.99")
 
 
 def write_jar(path: Path, classes: dict[str, bytes]) -> None:
@@ -53,10 +60,13 @@ class GenerateClassPinsTest(unittest.TestCase):
         }
         write_pin_dir(self.root, self.tables)
         self._old_pin_dir = GEN.PIN_DIR
+        self._old_versions = GEN.admitted_versions
         GEN.PIN_DIR = self.root / "class-pins"
+        GEN.admitted_versions = lambda root=GEN.ROOT: list(VERSIONS)
 
     def tearDown(self) -> None:
         GEN.PIN_DIR = self._old_pin_dir
+        GEN.admitted_versions = self._old_versions
         self._tmp.cleanup()
 
     def _args(self, mode: str, **over):
@@ -67,24 +77,52 @@ class GenerateClassPinsTest(unittest.TestCase):
         base.update(over)
         return type("Args", (), base)
 
+    def _expanded(self, name: str) -> dict[str, list[str]]:
+        return class_pins.load(GEN.PIN_DIR / f"{name}.json", VERSIONS)
+
     def test_update_adds_version_block_to_all_tables(self):
         rc = GEN._cmd_update(self._args("update"))
         self.assertEqual(0, rc)
-        for name, table in self.tables.items():
-            written = json.loads((GEN.PIN_DIR / f"{name}.json").read_text())
-            # every class key ever named by the table is declared under the new version
-            keys = {k for block in table.values() for k in block}
+        for name in self.tables:
+            written = self._expanded(name)
+            keys = {k for block in self.tables[name].values() for k in block}
             self.assertEqual(sorted(keys), sorted(written["9.9.99"]))
             # pre-existing blocks survive untouched
-            for version, block in table.items():
+            for version, block in self.tables[name].items():
                 self.assertEqual(block, written[version])
-        written = json.loads((GEN.PIN_DIR / "hook-one.json").read_text())
-        self.assertIn("com/example/A", written["9.9.99"])
+        self.assertIn("com/example/A", self._expanded("hook-one")["9.9.99"])
+
+    def test_update_folds_an_identical_table_into_one_default_block(self):
+        GEN._cmd_update(self._args("update", pin=["hook-one"]))
+        document = json.loads((GEN.PIN_DIR / "hook-one.json").read_text())
+        self.assertEqual({"default": ["com/example/A"]}, document)
+
+    def test_update_keeps_only_differing_versions_as_overrides(self):
+        write_pin_dir(self.root, {
+            "hook-three": {
+                "5.3.02": ["com/example/A"],
+                "5.3.03": ["com/example/A"],
+            },
+        })
+        GEN._cmd_update(self._args("update", pin=["hook-three"]))
+        document = json.loads((GEN.PIN_DIR / "hook-three.json").read_text())
+        # The new version declares the union of every key, so all three blocks agree
+        # and the table collapses to a single `default` with no overrides block.
+        self.assertEqual({"default": ["com/example/A"]}, document)
+
+    def test_update_tie_prefers_the_newest_block_as_default(self):
+        GEN._cmd_update(self._args("update", pin=["hook-two"]))
+        document = json.loads((GEN.PIN_DIR / "hook-two.json").read_text())
+        self.assertEqual(["com/example/B", "com/example/C$D"], document["default"])
+        self.assertEqual(
+            {"5.3.02": ["com/example/B"], "5.3.03": ["com/example/C$D"]},
+            document["overrides"],
+        )
 
     def test_update_selected_pin_only(self):
         GEN._cmd_update(self._args("update", pin=["hook-one"]))
-        one = json.loads((GEN.PIN_DIR / "hook-one.json").read_text())
-        two = json.loads((GEN.PIN_DIR / "hook-two.json").read_text())
+        one = self._expanded("hook-one")
+        two = self._expanded("hook-two")
         self.assertIn("9.9.99", one)
         self.assertNotIn("9.9.99", two)
 
@@ -94,7 +132,7 @@ class GenerateClassPinsTest(unittest.TestCase):
         })
         rc = GEN._cmd_update(self._args("update", pin=["hook-gap"]))
         self.assertEqual(1, rc)
-        written = json.loads((GEN.PIN_DIR / "hook-gap.json").read_text())
+        written = self._expanded("hook-gap")
         self.assertNotIn("9.9.99", written)
 
     def test_allow_partial_writes_found_classes(self):
@@ -106,7 +144,7 @@ class GenerateClassPinsTest(unittest.TestCase):
         rc = GEN._cmd_update(self._args(
             "update", pin=["hook-gap"], allow_partial=True))
         self.assertEqual(0, rc)
-        written = json.loads((GEN.PIN_DIR / "hook-gap.json").read_text())
+        written = self._expanded("hook-gap")
         self.assertEqual(["com/example/A"], list(written["9.9.99"]))
 
     def test_new_pin_file(self):
@@ -114,7 +152,7 @@ class GenerateClassPinsTest(unittest.TestCase):
             "update", new="hook-fresh",
             classes=["com/example/A", "com/example/C$D"]))
         self.assertEqual(0, rc)
-        written = json.loads((GEN.PIN_DIR / "hook-fresh.json").read_text())
+        written = self._expanded("hook-fresh")
         self.assertEqual(
             ["com/example/A", "com/example/C$D"], sorted(written["9.9.99"]))
 
@@ -133,7 +171,7 @@ class GenerateClassPinsTest(unittest.TestCase):
     def test_dry_run_does_not_write(self):
         rc = GEN._cmd_update(self._args("update", dry_run=True))
         self.assertEqual(0, rc)
-        written = json.loads((GEN.PIN_DIR / "hook-one.json").read_text())
+        written = self._expanded("hook-one")
         self.assertNotIn("9.9.99", written)
 
     def test_cli_end_to_end(self):

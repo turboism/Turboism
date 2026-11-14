@@ -22,12 +22,12 @@
   "fieldRanges": [
     {
       "field": "verifiedBy",
-      "versions": "5.3.00-5.3.04",
+      "versions": "5.3.00-",
       "value": "turboism-static-verifier"
     },
     {
       "field": "safeMode",
-      "versions": "5.3.00-5.3.01,5.3.03-5.3.04",
+      "versions": "5.3.00-5.3.01,5.3.03-",
       "value": "FPS counting stays disabled with one bounded diagnostic when the exact 5.3.03 artifact, host classloader, or any owner/member/descriptor does not match; partial instrumentation is not allowed and this static record does not admit the 5.3.03 FPS installer."
     }
   ],
@@ -85,10 +85,10 @@
         "requiredAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.performance.reinit_model_instance"
         },
         {
@@ -119,10 +119,10 @@
         "requiredAccessFlags",
         "status"
       ],
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-",
       "mappingId": [
         {
-          "versions": "5.0.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.0.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.performance.update_model_instances"
         },
         {
@@ -153,10 +153,10 @@
         "requiredAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.1.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.performance.modeling_pre_render_update"
         },
         {
@@ -187,10 +187,10 @@
         "requiredAccessFlags",
         "status"
       ],
-      "versions": "5.3.00-5.3.04",
+      "versions": "5.3.00-",
       "mappingId": [
         {
-          "versions": "5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.performance.render_scene"
         },
         {
@@ -221,10 +221,10 @@
         "requiredAccessFlags",
         "status"
       ],
-      "versions": "5.3.00-5.3.04",
+      "versions": "5.3.00-",
       "mappingId": [
         {
-          "versions": "5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.performance.render_system"
         },
         {
@@ -255,10 +255,10 @@
         "requiredAccessFlags",
         "status"
       ],
-      "versions": "5.3.00-5.3.04",
+      "versions": "5.3.00-",
       "mappingId": [
         {
-          "versions": "5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.performance.scene_traversal"
         },
         {
@@ -289,10 +289,10 @@
         "requiredAccessFlags",
         "status"
       ],
-      "versions": "5.3.00-5.3.04",
+      "versions": "5.3.00-",
       "mappingId": [
         {
-          "versions": "5.3.00-5.3.01,5.3.03-5.3.04",
+          "versions": "5.3.00-5.3.01,5.3.03-",
           "id": "cubism.mapping.v5_3_03.performance.renderer_dispatch"
         },
         {
@@ -321,7 +321,7 @@
       ]
     },
     {
-      "versions": "5.3.00-5.3.04",
+      "versions": "5.3.00-",
       "value": [
         4,
         3,

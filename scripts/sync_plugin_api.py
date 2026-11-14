@@ -10,7 +10,27 @@ from pathlib import Path
 from turboism_dev.versions import framework_version
 
 ROOT = Path(__file__).resolve().parents[1]
-API_RANGE = re.compile(r"\[[0-9]+\.[0-9]+\.[0-9]+,[0-9]+\.[0-9]+\.[0-9]+\)")
+VERSION = r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
+# Mirrors dev.turboism.core.version.VersionRange: exact, bounded half-open, or unbounded half-open.
+API_RANGE = re.compile(rf"(?:{VERSION}|\[{VERSION},(?:{VERSION})?\))")
+BOUNDED_RANGE = re.compile(rf"\[({VERSION}),({VERSION})\)")
+UNBOUNDED_RANGE = re.compile(rf"\[({VERSION}),\)")
+
+
+def parse_range(value: str) -> tuple[tuple[int, ...], tuple[int, ...] | None]:
+    """Return the lower bound and the exclusive upper bound, or None when unbounded."""
+    bounded = BOUNDED_RANGE.fullmatch(value)
+    if bounded:
+        return tuple(map(int, bounded.group(1).split("."))), tuple(map(int, bounded.group(2).split(".")))
+    unbounded = UNBOUNDED_RANGE.fullmatch(value)
+    if unbounded:
+        return tuple(map(int, unbounded.group(1).split("."))), None
+    raise ValueError(f"expected an exact version or a half-open SDK API range, got {value}")
+
+
+def admits(current: tuple[int, ...], bounds: tuple[tuple[int, ...], tuple[int, ...] | None]) -> bool:
+    lower, upper = bounds
+    return lower <= current and (upper is None or current < upper)
 
 
 def main() -> int:
@@ -27,18 +47,15 @@ def main() -> int:
         data = json.loads(descriptor.read_text(encoding="utf-8"))
         declared = data["turboismApi"]
         if not API_RANGE.fullmatch(declared):
-            raise ValueError(f"{descriptor}: expected a half-open SDK API range")
-        lower, upper = [tuple(map(int, value.split("."))) for value in declared[1:-1].split(",")]
-        if not lower <= current < upper:
+            raise ValueError(f"{descriptor}: expected an exact version or a half-open SDK API range")
+        if not admits(current, parse_range(declared)):
             raise ValueError(f"{descriptor}: SDK API range {declared} does not include framework {framework_version(ROOT)}")
         for dep in data.get("dependencies", ()):
             dep_range = dep.get("version", "")
-            if API_RANGE.fullmatch(dep_range):
-                dep_lower, dep_upper = [tuple(map(int, value.split("."))) for value in dep_range[1:-1].split(",")]
-                if not dep_lower <= current < dep_upper:
-                    raise ValueError(
-                        f"{descriptor}: dependency {dep.get('id')} range {dep_range} does not include framework {framework_version(ROOT)}"
-                    )
+            if API_RANGE.fullmatch(dep_range) and not admits(current, parse_range(dep_range)):
+                raise ValueError(
+                    f"{descriptor}: dependency {dep.get('id')} range {dep_range} does not include framework {framework_version(ROOT)}"
+                )
         for path in sorted(module.glob("README*.md")):
             text = path.read_text(encoding="utf-8")
             # Restrict replacements to turboismApi and the displayed SDK API range.

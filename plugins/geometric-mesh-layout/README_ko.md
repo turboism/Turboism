@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, artmesh, editing
-turboismApi: "[0.70.0,1.0.0)"
+turboismApi: "[0.70.0,)"
 requiresCubism: true
 interface: embedded
 ---
@@ -34,7 +34,7 @@ interface: embedded
 
 ## 요구 사항 및 호환성
 
-Turboism API: `[0.70.0,1.0.0)`. Cubism Editor: 5.0.00–5.3.04.
+Turboism API: `[0.70.0,)`. Cubism Editor: [0.70.0,)0–[0.70.0,)4.
 
 <!-- compatibility:begin -->
 **Cubism Editor 버전 지원(자동 생성):** 검토된 모든 버전(5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04, 정확한 버전 20개).

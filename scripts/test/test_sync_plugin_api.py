@@ -47,6 +47,18 @@ class PluginApiSyncTest(unittest.TestCase):
         self.assertIn('dependency: `[0.1.0,0.68.0)`', self.readme.read_text())
         self.assertEqual(0, self.run_sync())
 
+    def test_unbounded_range_is_accepted_and_synchronized(self):
+        self.descriptor.write_text(json.dumps({"turboismApi": "[0.67.0,)"}))
+        self.assertEqual(1, self.run_sync())
+        self.assertEqual(0, self.run_sync(True))
+        self.assertIn('SDK API: `[0.67.0,)`', self.readme.read_text())
+        self.assertEqual(0, self.run_sync())
+
+    def test_unbounded_range_below_the_framework_version_is_rejected(self):
+        self.descriptor.write_text(json.dumps({"turboismApi": "[0.68.0,)"}))
+        with self.assertRaises(ValueError):
+            self.run_sync(True)
+
     def test_future_floor_and_expired_ceiling_are_rejected(self):
         for value in ["[0.68.0,1.0.0)", "[0.66.0,0.67.1)", "[1.0.0,0.67.0)"]:
             with self.subTest(value=value):

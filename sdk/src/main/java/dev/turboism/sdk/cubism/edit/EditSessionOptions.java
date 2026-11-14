@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -15,7 +14,6 @@ import java.util.Optional;
  * @param undoCancelListener when present, registers a {@link EditSessionListener} for the
  *     duration of the session, equivalent to {@code NotifyUndoCancel} with {@code Enabled = true}
  */
-@Incubating
 @CubismEditor(from = "5.1.02", to = "5.3.99")
 public record EditSessionOptions(boolean silent, Optional<EditSessionListener> undoCancelListener) {
 

@@ -36,6 +36,38 @@ class VersionRangeTest {
     }
 
     @Test
+    void unboundedIntervalAdmitsEveryVersionAtOrAboveItsLowerBound() {
+        VersionRange range = VersionRange.parse("[0.67.0,)");
+        assertTrue(range.contains(PluginVersion.parse("0.67.0")));
+        assertTrue(range.contains(PluginVersion.parse("0.99.9")));
+        assertTrue(range.contains(PluginVersion.parse("1.0.0")));
+        assertTrue(range.contains(PluginVersion.parse("2147483647.2147483647.2147483647")));
+        assertFalse(range.contains(PluginVersion.parse("0.66.9")));
+        assertEquals("[0.67.0,)", range.toString());
+    }
+
+    @Test
+    void isValidAcceptsEverySupportedFormAndRejectsTheRest() {
+        for (String valid : new String[] {"1.2.3", "[0.1.0,0.2.0)", "[0.67.0,)"}) {
+            assertTrue(VersionRange.isValid(valid), valid);
+        }
+        for (String invalid : new String[] {
+            "",
+            " 1.2.3",
+            "1.2",
+            "[0.67.0,1.0.0]",
+            "[0.67.0]",
+            "[0.67.0, )",
+            "[0.067.0,1.0.0)",
+            "[1.0.0,1.0.0)",
+            "[2.0.0,1.0.0)"
+        }) {
+            assertFalse(VersionRange.isValid(invalid), invalid);
+        }
+        assertFalse(VersionRange.isValid(null));
+    }
+
+    @Test
     void rejectsEqualAndInvertedIntervals() {
         assertThrows(IllegalArgumentException.class, () -> VersionRange.parse("[1.0.0,1.0.0)"));
         assertThrows(IllegalArgumentException.class, () -> VersionRange.parse("[2.0.0,1.0.0)"));
@@ -48,6 +80,8 @@ class VersionRangeTest {
         assertEquals(
                 "[0.0.0," + maximum + ")",
                 VersionRange.parse("[0.0.0," + maximum + ")").toString());
+        assertEquals("[0.0.0,)", VersionRange.parse("[0.0.0,)").toString());
+        assertTrue(VersionRange.parse("[0.0.0,)").contains(PluginVersion.parse(maximum)));
         assertThrows(IllegalArgumentException.class, () -> VersionRange.parse("2147483648.0.0"));
         assertThrows(IllegalArgumentException.class, () -> VersionRange.parse("[0.0.0,0.0.2147483648)"));
     }

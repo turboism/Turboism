@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: physics, editing, simulation
-turboismApi: "[0.70.0,1.0.0)"
+turboismApi: "[0.70.0,)"
 requiresCubism: true
 interface: swing
 ---
@@ -48,7 +48,7 @@ GIF 내보내기에는 로컬 **Gifsicle** 설치가 필요합니다. `gifsicle`
 
 ## 요구 사항 및 호환성
 
-- **SDK API 範囲:** `[0.70.0,1.0.0)`。
+- **SDK API 範囲:** `[0.70.0,)`。
 - **Cubism:** Cubism が必要です。Turboism は現在、正確にレビュー済みの Editor アーティファクト `5.0.00` から `5.3.04`（計20個の正確なバージョン）を受け入れています。このプラグインは、宣言されたサービスと機能が利用可能な場合にのみ、各ホスト向け機能を公開します。
 - **インターフェースモード:** `swing`。
 - **プラグイン依存関係:** 宣言されていません。

@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: deformer, rename, batch-edit
-turboismApi: "[0.70.0,1.0.0)"
+turboismApi: "[0.70.0,)"
 requiresCubism: true
 interface: swing
 ---
@@ -102,7 +102,7 @@ Turboism 0.67.0 이상 버전과 열려 있는 Cubism 모델이 필요합니다.
 
 ### 0.68.1
 
-- 플러그인이 실제로 사용하는 SDK 멤버에 맞춰 최소 Turboism API를 0.68.0으로 올렸습니다.
+- 플러그인이 실제로 사용하는 SDK 멤버에 맞춰 최소 Turboism API를 [0.70.0,)으로 올렸습니다.
 
 ### 0.1.0
 

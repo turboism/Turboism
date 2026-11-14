@@ -118,7 +118,7 @@ class GenerateVerificationSourcesTest(unittest.TestCase):
         self.assertEqual([], violations)
         self.assertEqual(0, equivalent)
         rendered = GEN.render_all(ROOT)
-        self.assertEqual(111, len(rendered))
+        self.assertEqual(107, len(rendered))
 
     def test_live_clipmask_vocabulary_covers_every_record_alias(self):
         rendered = GEN.render_all(ROOT)[VOCABULARY_RELPATH]

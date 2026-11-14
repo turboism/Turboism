@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: deformer, rename, batch-edit
-turboismApi: "[0.70.0,1.0.0)"
+turboismApi: "[0.70.0,)"
 requiresCubism: true
 interface: swing
 ---
@@ -102,7 +102,7 @@ interface: swing
 
 ### 0.68.1
 
-- 将最低 Turboism API 提升到 0.68.0，与插件实际使用的 SDK 成员一致。
+- 将最低 Turboism API 提升到 [0.70.0,)，与插件实际使用的 SDK 成员一致。
 
 ### 0.1.0
 

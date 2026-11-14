@@ -48,10 +48,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.class.manager_class"
         },
         {
@@ -82,10 +82,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.field.manager_instance"
         },
         {
@@ -116,10 +116,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.is_enabled"
         },
         {
@@ -150,10 +150,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.set_enabled"
         },
         {
@@ -184,10 +184,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.set_interval_minute"
         },
         {
@@ -218,10 +218,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.attach_pack"
         },
         {
@@ -252,10 +252,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.get_interval_minute"
         },
         {
@@ -286,10 +286,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.set_max_mb"
         },
         {
@@ -320,10 +320,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.get_max_mb"
         },
         {
@@ -354,10 +354,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.update"
         },
         {
@@ -388,10 +388,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.backup_dir"
         },
         {
@@ -422,10 +422,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.class.app_controller_class"
         },
         {
@@ -456,10 +456,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.app_controller_get_complete_pack"
         },
         {
@@ -490,10 +490,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.class.complete_pack_class"
         },
         {
@@ -524,10 +524,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.complete_pack_file_contents"
         },
         {
@@ -558,10 +558,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.class.file_content_class"
         },
         {
@@ -592,10 +592,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.file_content_last_auto_backup_time"
         },
         {
@@ -626,10 +626,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.file_content_set_last_auto_backup_time"
         },
         {
@@ -660,10 +660,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.file_content_last_saved_time"
         },
         {
@@ -694,10 +694,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.file_content_modified_after_saving"
         },
         {
@@ -728,10 +728,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.file_content_file"
         },
         {
@@ -762,10 +762,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.autobackup.method.app_controller_instance"
         },
         {
@@ -796,10 +796,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.document_uid_modeling"
         },
         {
@@ -830,10 +830,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.scene_docs"
         },
         {
@@ -864,10 +864,10 @@
         "forbiddenAccessFlags",
         "status"
       ],
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "mappingId": [
         {
-          "versions": "5.1.00-5.2.02,5.3.00-5.3.04",
+          "versions": "5.1.00-5.2.02,5.3.00-",
           "id": "cubism.mapping.v5_3_02.method.document_uid_scene"
         },
         {
@@ -879,7 +879,7 @@
   ],
   "selectorOrder": [
     {
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-",
       "value": [
         0,
         1,
@@ -911,7 +911,7 @@
   ],
   "layouts": [
     {
-      "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+      "versions": "5.1.00-5.2.02,5.3.00-5.3.01,5.3.03-",
       "value": {
         "keyOrder": [
           "format",

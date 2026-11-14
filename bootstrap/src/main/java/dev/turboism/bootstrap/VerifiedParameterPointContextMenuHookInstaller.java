@@ -7,6 +7,7 @@ import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Reversible exact-version Q-menu show hooks. */
@@ -16,6 +17,7 @@ final class VerifiedParameterPointContextMenuHookInstaller implements AutoClosea
     private final String owner;
     private final String contextDescriptor;
     private final ClassLoader loader;
+    private final LoadedClassIndex loadedClasses;
     private final List<ClassFileTransformer> transformers = new ArrayList<>();
     private final AtomicBoolean installed = new AtomicBoolean();
 
@@ -24,10 +26,24 @@ final class VerifiedParameterPointContextMenuHookInstaller implements AutoClosea
             final String owner,
             final String contextDescriptor,
             final ClassLoader loader) {
+        this(instrumentation, owner, contextDescriptor, loader, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install and on restore
+     */
+    VerifiedParameterPointContextMenuHookInstaller(
+            final Instrumentation instrumentation,
+            final String owner,
+            final String contextDescriptor,
+            final ClassLoader loader,
+            final LoadedClassIndex loadedClasses) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.owner = Objects.requireNonNull(owner, "owner");
         this.contextDescriptor = Objects.requireNonNull(contextDescriptor, "contextDescriptor");
         this.loader = Objects.requireNonNull(loader, "loader");
+        this.loadedClasses = loadedClasses;
     }
 
     void install() {
@@ -41,7 +57,7 @@ final class VerifiedParameterPointContextMenuHookInstaller implements AutoClosea
             transformers.add(new ParameterPointContextMenuNativeMethodTransformer(
                     owner, "b", "(" + contextDescriptor + "II)V", "h", loader));
             transformers.forEach(value -> instrumentation.addTransformer(value, true));
-            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, owner.replace('/', '.'), loader);
+            retransformOwner();
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             close();
@@ -57,10 +73,21 @@ final class VerifiedParameterPointContextMenuHookInstaller implements AutoClosea
         }
         transformers.clear();
         try {
+            // Restoration must observe classes defined after the install snapshot, so it enumerates
+            // again instead of reusing the phase snapshot.
             VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, owner.replace('/', '.'), loader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("Verified parameter-point context-menu hook restoration failed", failure);
         }
+    }
+
+    private void retransformOwner() throws Exception {
+        VerifiedHookInstallerSupport.retransformIfLoaded(
+                instrumentation, loadedClasses(), Set.of(owner.replace('/', '.')), loader);
+    }
+
+    private LoadedClassIndex loadedClasses() {
+        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
     }
 }

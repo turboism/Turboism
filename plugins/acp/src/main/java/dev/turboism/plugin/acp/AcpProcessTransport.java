@@ -14,12 +14,27 @@ import java.util.concurrent.TimeUnit;
 /** Native process transport for a user-installed ACP agent executable. */
 final class AcpProcessTransport implements AcpTransport {
 
-    private static final long DESCENDANT_SAMPLE_MILLIS = 10L;
+    /**
+     * Fast sampling window after launch. A short-lived helper forked by the agent start-up path
+     * exists only for a few milliseconds, so the sampler must observe it before it exits.
+     */
+    private static final long DESCENDANT_LAUNCH_SAMPLE_MILLIS = 10L;
+    /** Steady-state sampling period; a long session must not traverse /proc at launch rate. */
+    private static final long DESCENDANT_STEADY_SAMPLE_MILLIS = 400L;
+    /** Duration of the launch window that uses {@link #DESCENDANT_LAUNCH_SAMPLE_MILLIS}. */
+    private static final long DESCENDANT_LAUNCH_WINDOW_MILLIS = 200L;
+
     private static final long DESCENDANT_SAMPLER_JOIN_MILLIS = 250L;
 
     private final Process process;
     private final java.util.Map<Long, ProcessHandle> retained = new ConcurrentHashMap<>();
     private final Thread descendantSampler;
+    /** Released to wake a parked sampler for one more traversal. */
+    private final java.util.concurrent.Semaphore samplerSignal = new java.util.concurrent.Semaphore(0);
+    /** Latched by {@link #terminate} so a parked sampler exits after one final traversal. */
+    private volatile boolean samplerStopRequested;
+
+    private final long launchedAtNanos = System.nanoTime();
 
     private AcpProcessTransport(final Process process) {
         this.process = Objects.requireNonNull(process, "process");
@@ -31,6 +46,9 @@ final class AcpProcessTransport implements AcpTransport {
                 new Thread(this::sampleDescendantsWhileParentLives, "turboism-acp-descendant-sampler-" + process.pid());
         descendantSampler.setDaemon(true);
         descendantSampler.start();
+        // Exit is the last moment a descendant still reports this process as its parent. Sampling
+        // immediately keeps a helper forked just before exit inside the retained set.
+        process.onExit().thenRun(samplerSignal::release);
     }
 
     static boolean tracksDescendants(final String operatingSystem) {
@@ -187,7 +205,8 @@ final class AcpProcessTransport implements AcpTransport {
         } while (System.nanoTime() < deadline);
 
         retainDescendants();
-        descendantSampler.interrupt();
+        samplerStopRequested = true;
+        samplerSignal.release();
         if (joinSamplerInterrupted()) interrupted = true;
         retainDescendants();
         final java.util.List<ProcessHandle> survivors = retained.values().stream()
@@ -223,16 +242,35 @@ final class AcpProcessTransport implements AcpTransport {
     }
 
     private void sampleDescendantsWhileParentLives() {
-        while (process.isAlive()) {
+        while (!samplerStopRequested) {
             retainDescendants();
+            if (!process.isAlive()) break;
             try {
-                Thread.sleep(DESCENDANT_SAMPLE_MILLIS);
+                samplerSignal.tryAcquire(sampleIntervalMillis(), TimeUnit.MILLISECONDS);
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
                 return;
             }
         }
         retainDescendants();
+    }
+
+    /**
+     * Returns the sampling period for the current point in the session.
+     *
+     * <p>Launch uses the fast period so a helper forked during start-up is retained before it
+     * exits. After {@link #DESCENDANT_LAUNCH_WINDOW_MILLIS} the sampler backs off to the steady
+     * period, which cuts the steady-state process-tree traversal rate by an order of magnitude.</p>
+     */
+    private long sampleIntervalMillis() {
+        return sampleIntervalMillis(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - launchedAtNanos));
+    }
+
+    /** Sampling period for an elapsed session time; the launch window uses the fast period. */
+    static long sampleIntervalMillis(final long elapsedMillis) {
+        return elapsedMillis < DESCENDANT_LAUNCH_WINDOW_MILLIS
+                ? DESCENDANT_LAUNCH_SAMPLE_MILLIS
+                : DESCENDANT_STEADY_SAMPLE_MILLIS;
     }
 
     private boolean joinSamplerInterrupted() {

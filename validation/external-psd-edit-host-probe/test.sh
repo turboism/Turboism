@@ -169,8 +169,10 @@ with tempfile.TemporaryDirectory(prefix="external-psd-wrapper-argv-") as tempora
     gates = preview / "host_validation_static_gates.py"
     shutil.copy2(wrapper_source.with_name(gates.name), gates)
     executable(preview / "host-validation-env.sh", """
+TURBOISM_HOST_VALIDATION_DEFAULT_VERSION=5302
 fixture_src="$PWD/fixture.cmo3"
 fixture_sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+turboism_require_task_version() { return 0; }
 turboism_select_fixture() {
   fixture_src="$PWD/fixture.cmo3"
   fixture_sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

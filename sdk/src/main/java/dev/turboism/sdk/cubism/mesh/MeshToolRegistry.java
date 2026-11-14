@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.plugin.Registration;
 
 /**
@@ -13,7 +12,6 @@ import dev.turboism.sdk.plugin.Registration;
  *
  * <p><strong>Preview API:</strong> this contract may evolve before stabilization.</p>
  */
-@Incubating
 @CubismEditor(from = "5.0.00")
 public interface MeshToolRegistry extends AutoCloseable {
     /**

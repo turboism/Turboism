@@ -1,7 +1,6 @@
 package dev.turboism.sdk.ui;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 
 /**
  * Framework capability: contributes plugin-owned {@link PanelView} content into a named
@@ -13,7 +12,6 @@ import dev.turboism.sdk.Incubating;
  * the content is rendered when the view is constructed and again after every host rebuild,
  * so a plugin never tracks the host's UI lifecycle.</p>
  */
-@Incubating
 @CubismEditor(from = "5.2.00")
 public interface HostViewPanel {
 

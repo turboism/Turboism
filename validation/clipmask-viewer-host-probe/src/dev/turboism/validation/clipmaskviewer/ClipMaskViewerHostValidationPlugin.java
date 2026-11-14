@@ -54,8 +54,9 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin {
 
-    private static final String FLAG = "exerciser.flag";
-    private static final long FLAG_TIMEOUT_MILLIS = 240_000L;
+    private static final String FLAG_TIMEOUT_MARKER = "CLIPMASK_VIEWER_PROBE_FLAG_TIMEOUT";
+    private static final String SESSION_ENDED_MARKER =
+        "CLIPMASK_VIEWER_PROBE_SESSION_ENDED_WITHOUT_TURN";
     // Post-flag model-await budget. On the exact host the fixture document
     // takes ~2.5 min to become a modeling document, so 240 s matches the
     // peer probe's startup precedent.
@@ -113,7 +114,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
         this.context = context;
         this.logger = context.logger();
         this.stateDir = context.paths().stateDir();
-        final Thread exerciser = new Thread(this::runWhenFlagged, "clipmask-viewer-host-exerciser");
+        final Thread exerciser = new Thread(this::awaitTrigger, "clipmask-viewer-host-exerciser");
         exerciser.setDaemon(true);
         exerciser.start();
         logger.info("CLIPMASK_VIEWER_PROBE_READY stateDir=" + stateDir);
@@ -134,39 +135,18 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
         logger.info("CLIPMASK_VIEWER_PROBE_SHUTDOWN");
     }
 
-    private void runWhenFlagged() {
-        final Path flag = stateDir.resolve(FLAG);
-        final boolean session = dev.turboism.validation.SessionGate.enabled();
-        final Path finished = session ? dev.turboism.validation.SessionGate.finishedFlag(stateDir) : null;
-        // A session runs many steps: the flag arrives only when this step's turn
-        // comes, so there is no wait deadline — the coordinator's finished flag
-        // is the only way out besides the flag itself.
-        final long deadline = session
-            ? Long.MAX_VALUE
-            : System.currentTimeMillis() + FLAG_TIMEOUT_MILLIS;
-        while (System.currentTimeMillis() < deadline) {
-            answerNewerModelWarning();
-            if (Files.isRegularFile(flag)) {
-                runMatrix();
-                return;
-            }
-            if (finished != null && Files.isRegularFile(finished)) {
-                logger.info("CLIPMASK_VIEWER_PROBE_SESSION_ENDED_WITHOUT_TURN flag=" + flag);
-                return;
-            }
-            try {
-                Thread.sleep(2_000L);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-        logger.warn("CLIPMASK_VIEWER_PROBE_FLAG_TIMEOUT flag=" + flag);
-        if (session) {
-            dev.turboism.validation.SessionGate.complete(stateDir, "FAIL");
-            return;
-        }
-        Runtime.getRuntime().halt(2);
+    private void awaitTrigger() {
+        // A session grants the turn later, so the wait ends only on the trigger file or the
+        // session finished flag; only standalone keeps the 240 s deadline and its halt.
+        dev.turboism.validation.SessionGate.trigger(stateDir)
+            .timeoutMarker(FLAG_TIMEOUT_MARKER)
+            .sessionEndedMarker(SESSION_ENDED_MARKER)
+            .sessionAware()
+            .log(logger::info)
+            .warn(logger::warn)
+            .beforePoll(this::answerNewerModelWarning)
+            .onTrigger(this::runMatrix)
+            .await();
     }
 
     // ------------------------------------------------------------------

@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: parameter, sync, link, workflow
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.0,)"
 requiresCubism: true
 interface: swing
 ---
@@ -37,7 +37,7 @@ interface: swing
 
 ## 요구 사항 및 호환성
 
-- **SDK API 범위:** `[0.67.0,1.0.0)`.
+- **SDK API 범위:** `[0.67.0,)`.
 - **Cubism:** Cubism이 필요합니다. Turboism은 현재 검토된 에디터 아티팩트 `5.0.00`부터 `5.3.04`까지 허용하며, 선언된 서비스 및 기능을 사용할 수 있을 때 호스트 기능을 노출합니다.
 - **인터페이스 모드:** `swing`.
 - **플러그인 종속성:** 선언되지 않음.

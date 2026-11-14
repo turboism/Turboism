@@ -251,6 +251,33 @@ final class ArtMeshMirrorTickTest {
     }
 
     @Test
+    void counterpartHandlesResolveOncePerRefClassAndRejectForeignLoaders() throws Exception {
+        final ClassValue<?> counterparts = counterpartCache();
+        final Class<?> refType = counterparts.get(StubRef.class).getClass();
+        final Object first = counterparts.get(StubRef.class);
+        final Object second = counterparts.get(StubRef.class);
+        assertSame(first, second, "the counterpart handles must be resolved once per ref class");
+        assertEquals(refType, second.getClass());
+
+        // A ref class with no reviewed host loader behind it must fail closed instead of
+        // caching a partially resolved handle set.
+        final Object unresolved = counterparts.get(String.class);
+        final java.lang.reflect.Method isMeshPointRef =
+                unresolved.getClass().getDeclaredMethod("isMeshPointRef", Object.class);
+        isMeshPointRef.setAccessible(true);
+        assertFalse((Boolean) isMeshPointRef.invoke(unresolved, new Object()), "an unrelated class must not match");
+    }
+
+    private static ClassValue<?> counterpartCache() throws ReflectiveOperationException {
+        final Field field = NativeArtMeshSymmetryBridge.class.getDeclaredField("COUNTERPARTS");
+        field.setAccessible(true);
+        return (ClassValue<?>) field.get(null);
+    }
+
+    /** Stand-in ref class: the cache key, never constructed by this test. */
+    static final class StubRef {}
+
+    @Test
     void bytecodeVerificationRequiresPureGetter() {
         final WarpAltMirrorHostProfile profile = WarpAltMirrorHostProfile.reviewed5302And5303();
 

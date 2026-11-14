@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.preview;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 import java.util.Objects;
 
 /**
@@ -16,7 +15,6 @@ import java.util.Objects;
  * @param height the frame height in pixels, at least 1
  * @param png the encoded frame, starting with the eight-byte PNG signature
  */
-@Incubating
 @CubismEditor
 public record PreviewFrame(int width, int height, byte[] png) {
 

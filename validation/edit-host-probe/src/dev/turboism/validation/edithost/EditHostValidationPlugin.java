@@ -78,11 +78,10 @@ import java.util.function.BooleanSupplier;
  */
 public final class EditHostValidationPlugin implements TurboismPlugin {
 
-    private static final String FLAG = "exerciser.flag";
+    private static final String FLAG_TIMEOUT_MARKER = "EDIT_PROBE_FLAG_TIMEOUT";
     private static final String PLUGIN_ID = "dev.turboism.validation.edit-host";
     private static final String RESULT_FILE = "edit-host-validation-result.properties";
     private static final String MODE_PROPERTY = "turboism.edit.validation.mode";
-    private static final long FLAG_TIMEOUT_MILLIS = 240_000L;
     private static final long DOCUMENT_AWAIT_MAX_MILLIS = 240_000L;
     private static final long EDT_TIMEOUT_MILLIS = 30_000L;
     private static final long STATE_AWAIT_MILLIS = 20_000L;
@@ -109,7 +108,7 @@ public final class EditHostValidationPlugin implements TurboismPlugin {
         this.context = context;
         this.logger = context.logger();
         this.stateDir = context.paths().stateDir();
-        final Thread exerciser = new Thread(this::runWhenFlagged, "edit-host-validation-exerciser");
+        final Thread exerciser = new Thread(this::awaitTrigger, "edit-host-validation-exerciser");
         exerciser.setDaemon(true);
         exerciser.start();
         logger.info("EDIT_PROBE_READY stateDir=" + stateDir);
@@ -130,26 +129,22 @@ public final class EditHostValidationPlugin implements TurboismPlugin {
         logger.info("EDIT_PROBE_SHUTDOWN");
     }
 
-    private void runWhenFlagged() {
-        final Path flag = stateDir.resolve(FLAG);
-        final long deadline = System.currentTimeMillis() + FLAG_TIMEOUT_MILLIS;
-        while (System.currentTimeMillis() < deadline) {
-            if (Files.isRegularFile(flag)) {
-                runMatrix();
-                return;
-            }
-            try {
-                Thread.sleep(2_000L);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-        logger.warn("EDIT_PROBE_FLAG_TIMEOUT flag=" + flag);
+    private void awaitTrigger() {
+        dev.turboism.validation.SessionGate.trigger(stateDir)
+            .timeoutMarker(FLAG_TIMEOUT_MARKER)
+            .warn(logger::warn)
+            .onTrigger(this::runMatrix)
+            .onTimeout(this::recordMissingTrigger)
+            .await();
+    }
+
+    /** Publishes the missing-trigger verdict before the host ends, so the run is never silent. */
+    private void recordMissingTrigger() {
         record("meta.flag", "fail",
-            "exerciser flag not seen within " + FLAG_TIMEOUT_MILLIS + " ms: " + flag);
+            "exerciser flag not seen within "
+                + dev.turboism.validation.SessionGate.TRIGGER_TIMEOUT_MILLIS + " ms");
         writeResultFile(0L);
-        Runtime.getRuntime().halt(2);
+        Runtime.getRuntime().halt(dev.turboism.validation.SessionGate.TRIGGER_TIMEOUT_HALT_CODE);
     }
 
     private void runMatrix() {

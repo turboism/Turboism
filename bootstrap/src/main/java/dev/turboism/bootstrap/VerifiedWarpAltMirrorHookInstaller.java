@@ -29,6 +29,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
     private final String inputIngressClassName;
     private final String artMeshMoveClassName;
     private final Consumer<String> diagnostic;
+    private final LoadedClassIndex loadedClasses;
     private final Object lifecycleLock = new Object();
     private boolean installed;
     private boolean bound;
@@ -59,9 +60,25 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
             final WarpAltMirrorHostProfile profile,
             final java.util.Set<String> targetOwners,
             final Consumer<String> diagnostic) {
+        this(instrumentation, hostClassLoader, hostArtifact, profile, targetOwners, diagnostic, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install
+     */
+    VerifiedWarpAltMirrorHookInstaller(
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final Path hostArtifact,
+            final WarpAltMirrorHostProfile profile,
+            final java.util.Set<String> targetOwners,
+            final Consumer<String> diagnostic,
+            final LoadedClassIndex loadedClasses) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.profile = Objects.requireNonNull(profile, "profile");
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
+        this.loadedClasses = loadedClasses;
         this.transformer = new WarpAltMirrorNativeMethodTransformer(
                 profile,
                 hostClassLoader,
@@ -250,7 +267,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
         try {
             // One enumeration, but one request per owner: a refused owner must not hide the
             // restore of the owners that follow it.
-            final List<Class<?>> targets = VerifiedHookInstallerSupport.LoadedClassIndex.snapshot(instrumentation)
+            final List<Class<?>> targets = LoadedClassIndex.snapshot(instrumentation)
                     .select(owner, type -> transformed.contains(type.getName().replace('.', '/')));
             for (final Class<?> type : targets) {
                 try {
@@ -273,7 +290,7 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
 
     /** Premain guarantee: the exact targets must not already be defined when we register. */
     private void rejectLoadedTargets() {
-        final var loaded = VerifiedHookInstallerSupport.LoadedClassIndex.snapshot(instrumentation);
+        final var loaded = loadedClasses();
         for (final String name : List.of(
                 artMeshMoveClassName,
                 pointMoveClassName,
@@ -295,5 +312,13 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
             dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(ignored);
             // A broken diagnostic sink must never break hook lifecycle.
         }
+    }
+
+    /**
+     * @return the phase snapshot this installer was handed, or a fresh one when it installs on its
+     *     own outside a phase pass
+     */
+    private LoadedClassIndex loadedClasses() {
+        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
     }
 }

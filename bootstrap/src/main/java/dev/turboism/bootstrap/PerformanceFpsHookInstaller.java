@@ -14,7 +14,6 @@ import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.ui.appearance.SwingFlatLafHostOperations;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -53,6 +52,7 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
     private PerformanceProbeCallback callback;
     private boolean carrierOwned;
     private final long lafReadyTimeoutMillis;
+    private final LoadedClassIndex loadedClasses;
 
     public PerformanceFpsHookInstaller(
             final Instrumentation instrumentation, final Path hostArtifact, final ClassLoader hostClassLoader)
@@ -75,12 +75,27 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
             final ClassLoader hostClassLoader,
             final java.util.Optional<String> admittedGeneration)
             throws Exception {
+        this(instrumentation, hostArtifact, hostClassLoader, admittedGeneration, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes when the deferred pass runs
+     */
+    PerformanceFpsHookInstaller(
+            final Instrumentation instrumentation,
+            final Path hostArtifact,
+            final ClassLoader hostClassLoader,
+            final java.util.Optional<String> admittedGeneration,
+            final LoadedClassIndex loadedClasses)
+            throws Exception {
         this(
                 instrumentation,
                 hostArtifact,
                 hostClassLoader,
                 fpsTargets(HostArtifactDigest.cached(hostArtifact), admittedGeneration),
-                LAF_READY_TIMEOUT_MILLIS);
+                LAF_READY_TIMEOUT_MILLIS,
+                loadedClasses);
     }
 
     private static List<PerformanceProbeMethodTransformer.Target> fpsTargets(
@@ -128,11 +143,26 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
             final ClassLoader hostClassLoader,
             final List<PerformanceProbeMethodTransformer.Target> targets,
             final long lafReadyTimeoutMillis) {
+        this(instrumentation, hostArtifact, hostClassLoader, targets, lafReadyTimeoutMillis, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes when the deferred pass runs
+     */
+    PerformanceFpsHookInstaller(
+            final Instrumentation instrumentation,
+            final Path hostArtifact,
+            final ClassLoader hostClassLoader,
+            final List<PerformanceProbeMethodTransformer.Target> targets,
+            final long lafReadyTimeoutMillis,
+            final LoadedClassIndex loadedClasses) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.targets = List.copyOf(targets);
         this.transformer = new PerformanceProbeMethodTransformer(hostClassLoader, hostArtifact, targets);
         this.lafReadyTimeoutMillis = lafReadyTimeoutMillis;
+        this.loadedClasses = loadedClasses;
     }
 
     /**
@@ -264,15 +294,17 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
                 .map(target -> target.ownerInternalName().replace('/', '.'))
                 .distinct()
                 .toList();
-        final List<Class<?>> loaded = new ArrayList<>();
-        for (Class<?> candidate : instrumentation.getAllLoadedClasses()) {
-            if (targetNames.contains(candidate.getName())
-                    && candidate.getClassLoader() == hostClassLoader
-                    && instrumentation.isModifiableClass(candidate)) {
-                loaded.add(candidate);
-            }
-        }
-        return loaded;
+        return loadedClasses().select(targetNames, hostClassLoader).stream()
+                .filter(instrumentation::isModifiableClass)
+                .toList();
+    }
+
+    /**
+     * @return the phase snapshot this installer was handed, or a fresh one when it installs on its
+     *     own outside a phase pass
+     */
+    private LoadedClassIndex loadedClasses() {
+        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
     }
 
     @Override

@@ -5,6 +5,7 @@ import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.ui.panel.FloatingTabCloseNativeMethodTransformer;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Installs the exact floating-tab close interception transformer for verified selectors. */
@@ -14,6 +15,7 @@ final class VerifiedFloatingTabCloseHookInstaller implements AutoCloseable {
     private final StaticSelector operation;
     private final StaticSelector paletteField;
     private final ClassLoader hostClassLoader;
+    private final LoadedClassIndex loadedClasses;
     private final AtomicBoolean installed = new AtomicBoolean();
     private FloatingTabCloseNativeMethodTransformer transformer;
 
@@ -22,10 +24,24 @@ final class VerifiedFloatingTabCloseHookInstaller implements AutoCloseable {
             final StaticSelector operation,
             final StaticSelector paletteField,
             final ClassLoader hostClassLoader) {
+        this(instrumentation, operation, paletteField, hostClassLoader, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install
+     */
+    VerifiedFloatingTabCloseHookInstaller(
+            final Instrumentation instrumentation,
+            final StaticSelector operation,
+            final StaticSelector paletteField,
+            final ClassLoader hostClassLoader,
+            final LoadedClassIndex loadedClasses) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.operation = Objects.requireNonNull(operation, "operation");
         this.paletteField = Objects.requireNonNull(paletteField, "paletteField");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        this.loadedClasses = loadedClasses;
         if (operation.kind() != StaticSelector.Kind.METHOD
                 || paletteField.kind() != StaticSelector.Kind.FIELD
                 || !operation.ownerInternalName().equals(paletteField.ownerInternalName())
@@ -50,7 +66,10 @@ final class VerifiedFloatingTabCloseHookInstaller implements AutoCloseable {
                 throw new IllegalStateException("Floating-tab close retransformation is unavailable");
             }
             VerifiedHookInstallerSupport.retransformIfLoaded(
-                    instrumentation, operation.ownerInternalName().replace('/', '.'), hostClassLoader);
+                    instrumentation,
+                    loadedClasses(),
+                    Set.of(operation.ownerInternalName().replace('/', '.')),
+                    hostClassLoader);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             close();
@@ -64,5 +83,9 @@ final class VerifiedFloatingTabCloseHookInstaller implements AutoCloseable {
         final FloatingTabCloseNativeMethodTransformer current = transformer;
         transformer = null;
         if (current != null) instrumentation.removeTransformer(current);
+    }
+
+    private LoadedClassIndex loadedClasses() {
+        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
     }
 }

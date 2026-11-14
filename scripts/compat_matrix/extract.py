@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import re
 
+from turboism_dev import class_pins
 from turboism_dev.json_io import read_json
 from turboism_dev.versions import cubism_version_key as version_key, reviewed_range_versions
 
@@ -316,7 +317,11 @@ def load_commands(root: Path, reviewed: list[str]) -> list[dict]:
 
 
 def load_class_pins(root: Path) -> dict[str, dict]:
-    """pin name -> {versions, loadedBy} derived from ClassPinTable.load sites."""
+    """pin name -> {versions, loadedBy} derived from ClassPinTable.load sites.
+
+    A compact table's versions are the admitted ones it expands over; a legacy flat
+    table keeps its own version keys.
+    """
     loaded_by: dict[str, str] = {}
     runtime_dir = root / RUNTIME_MAIN
     if runtime_dir.is_dir():
@@ -326,11 +331,15 @@ def load_class_pins(root: Path) -> dict[str, dict]:
     pins: dict[str, dict] = {}
     pins_dir = root / CLASS_PINS_DIR
     if pins_dir.is_dir():
+        admitted = sorted(load_reviewed_versions(root), key=version_key)
         for path in sorted(pins_dir.glob("*.json")):
             doc = read_json(path)
-            versions = sorted(
-                (k for k in doc if VERSION_RE.match(k)), key=version_key
-            )
+            if class_pins.is_compact(doc):
+                versions = list(class_pins.expand(doc, admitted))
+            else:
+                versions = sorted(
+                    (k for k in doc if VERSION_RE.match(k)), key=version_key
+                )
             pins[path.stem] = {
                 "versions": versions,
                 "loadedBy": loaded_by.get(path.stem),

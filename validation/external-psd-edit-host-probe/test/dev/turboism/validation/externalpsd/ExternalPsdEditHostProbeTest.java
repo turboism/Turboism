@@ -237,12 +237,12 @@ public final class ExternalPsdEditHostProbeTest {
         testBoundedSettleInterrupt();
 
         final byte[] psd = syntheticPsd("LayerA", "B2");
-        final List<int[]> names = ExternalPsdEditHostProbe.layerNameRanges(psd);
+        final List<int[]> names = PsdStructureInspection.layerNameRanges(psd);
         assertEquals(2, names.size(), "two layer names parsed");
         assertEquals("LayerA", slice(psd, names.get(0)), "first name");
         assertEquals("B2", slice(psd, names.get(1)), "second name");
 
-        final Optional<byte[]> first = ExternalPsdEditHostProbe.mutateLayerName(psd, 1);
+        final Optional<byte[]> first = PsdStructureInspection.mutateLayerName(psd, 1);
         assertTrue(first.isPresent(), "mutation present");
         final byte[] mutated = first.orElseThrow();
         assertEquals(psd.length, mutated.length, "mutation preserves length");
@@ -251,28 +251,28 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(1, diffs, "exactly one byte differs");
         assertTrue(!Arrays.equals(psd, mutated), "digest changes");
 
-        final Optional<byte[]> second = ExternalPsdEditHostProbe.mutateLayerName(psd, 2);
+        final Optional<byte[]> second = PsdStructureInspection.mutateLayerName(psd, 2);
         assertTrue(second.isPresent(), "cycle 2 mutates second layer");
         assertTrue(!Arrays.equals(mutated, second.orElseThrow()), "distinct content per cycle");
 
-        assertTrue(ExternalPsdEditHostProbe.layerNameRanges(new byte[10]).isEmpty(),
+        assertTrue(PsdStructureInspection.layerNameRanges(new byte[10]).isEmpty(),
             "truncated input yields no ranges");
-        assertTrue(ExternalPsdEditHostProbe.layerNameRanges(
+        assertTrue(PsdStructureInspection.layerNameRanges(
             "not a psd".getBytes(StandardCharsets.UTF_8)).isEmpty(),
             "non-PSD input yields no ranges");
-        assertTrue(ExternalPsdEditHostProbe.mutateLayerName(
+        assertTrue(PsdStructureInspection.mutateLayerName(
             "not a psd".getBytes(StandardCharsets.UTF_8), 1).isEmpty(),
             "non-PSD input cannot mutate");
 
         // A file whose first name byte already equals the replacement still differs.
         final byte[] startsWithA = syntheticPsd("apple", "B2");
-        final byte[] changed = ExternalPsdEditHostProbe.mutateLayerName(startsWithA, 1)
+        final byte[] changed = PsdStructureInspection.mutateLayerName(startsWithA, 1)
             .orElseThrow();
         assertTrue(!Arrays.equals(startsWithA, changed), "same-letter cycle still differs");
 
         // mutationFor coordinates must describe exactly the byte applyMutation writes,
         // so a reopen stage can re-verify the persisted marker by coordinates alone.
-        final var marker = ExternalPsdEditHostProbe.mutationFor(psd, 1).orElseThrow();
+        final var marker = PsdStructureInspection.mutationFor(psd, 1).orElseThrow();
         final int[] markedRange = names.get(marker.layer());
         assertEquals(marker.letter(),
             (char) first.orElseThrow()[markedRange[0] + marker.nameOffset()],
@@ -284,24 +284,24 @@ public final class ExternalPsdEditHostProbeTest {
 
     private static void testContentProfileSelection() {
         assertEquals(PsdValidationContent.Profile.SEVEN_LAYER_CONTROL,
-            ExternalPsdEditHostProbe.parseContentProfile(null),
+            TargetResolution.parseContentProfile(null),
             "missing content profile defaults to control7");
         assertEquals(PsdValidationContent.Profile.SEVEN_LAYER_CONTROL,
-            ExternalPsdEditHostProbe.parseContentProfile("control7"),
+            TargetResolution.parseContentProfile("control7"),
             "control7 selects the seven-layer profile");
         assertEquals(PsdValidationContent.Profile.F1_2048_20,
-            ExternalPsdEditHostProbe.parseContentProfile("f1"),
+            TargetResolution.parseContentProfile("f1"),
             "f1 selects the 2048/20 profile");
-        assertEquals("f1", ExternalPsdEditHostProbe.contentProfileName(
+        assertEquals("f1", TargetResolution.contentProfileName(
             PsdValidationContent.Profile.F1_2048_20),
             "F1 result evidence uses the namespaced profile name");
-        assertTrue(!ExternalPsdEditHostProbe.contentValidationRequired(
+        assertTrue(!TargetResolution.contentValidationRequired(
             PsdValidationContent.Profile.SEVEN_LAYER_CONTROL, false),
             "control7 keeps the non-persist diagnostic path unchanged");
-        assertTrue(ExternalPsdEditHostProbe.contentValidationRequired(
+        assertTrue(TargetResolution.contentValidationRequired(
             PsdValidationContent.Profile.F1_2048_20, false),
             "F1 requires RGB shape/content validation before mutation");
-        expectIllegalArgument(() -> ExternalPsdEditHostProbe.parseContentProfile("unknown"),
+        expectIllegalArgument(() -> TargetResolution.parseContentProfile("unknown"),
             "unknown content profile is rejected before any export or mutation");
     }
 
@@ -310,16 +310,16 @@ public final class ExternalPsdEditHostProbeTest {
         final String previous = System.getProperty(property);
         try {
             System.clearProperty(property);
-            assertTrue(!ExternalPsdEditHostProbe.f2AcceptanceRequested(),
+            assertTrue(!TargetResolution.f2AcceptanceRequested(),
                 "F2 acceptance is opt-in and must stay off without the property");
             System.setProperty(property, "true");
-            assertTrue(ExternalPsdEditHostProbe.f2AcceptanceRequested(),
+            assertTrue(TargetResolution.f2AcceptanceRequested(),
                 "F2 acceptance runs only when explicitly requested");
             System.setProperty(property, "false");
-            assertTrue(!ExternalPsdEditHostProbe.f2AcceptanceRequested(),
+            assertTrue(!TargetResolution.f2AcceptanceRequested(),
                 "F2 acceptance treats false as off");
             System.setProperty(property, "unexpected");
-            assertTrue(!ExternalPsdEditHostProbe.f2AcceptanceRequested(),
+            assertTrue(!TargetResolution.f2AcceptanceRequested(),
                 "F2 acceptance fails closed for unrecognized values");
         } finally {
             if (previous == null) System.clearProperty(property);
@@ -328,37 +328,37 @@ public final class ExternalPsdEditHostProbeTest {
     }
 
     private static void testPerformanceAdmission() {
-        final var admitted = ExternalPsdEditHostProbe.performanceAdmission(
+        final var admitted = PerformanceEvidence.performanceAdmission(
             "pipeline", PsdValidationContent.Profile.F1_2048_20, 10, "1");
         assertTrue(admitted.requested() && admitted.admitted(),
             "only an explicit F1 ten-cycle pipeline admits performance observation");
 
-        final var disabled = ExternalPsdEditHostProbe.performanceAdmission(
+        final var disabled = PerformanceEvidence.performanceAdmission(
             "pipeline", PsdValidationContent.Profile.F1_2048_20, 10, "0");
         assertTrue(!disabled.requested() && !disabled.admitted(),
             "default/zero performance opt-in does not start a sampler");
 
-        final var control = ExternalPsdEditHostProbe.performanceAdmission(
+        final var control = PerformanceEvidence.performanceAdmission(
             "pipeline", PsdValidationContent.Profile.SEVEN_LAYER_CONTROL, 10, "1");
         assertTrue(control.requested() && !control.admitted(),
             "control7 cannot start the F1 performance sampler");
         assertContains(control.diagnostic(), "f1", "control7 rejection explains the profile gate");
 
-        final var shortRun = ExternalPsdEditHostProbe.performanceAdmission(
+        final var shortRun = PerformanceEvidence.performanceAdmission(
             "pipeline", PsdValidationContent.Profile.F1_2048_20, 3, "1");
         assertTrue(!shortRun.admitted(), "fewer than ten cycles cannot be admitted");
         assertContains(shortRun.diagnostic(), "10", "cycle-count rejection is explicit");
 
-        final var gui = ExternalPsdEditHostProbe.performanceAdmission(
+        final var gui = PerformanceEvidence.performanceAdmission(
             "gui", PsdValidationContent.Profile.F1_2048_20, 10, "1");
         assertTrue(!gui.admitted(), "GUI phase cannot start the pipeline sampler");
-        expectIllegalArgument(() -> ExternalPsdEditHostProbe.parsePerformanceOptIn("yes"),
+        expectIllegalArgument(() -> PerformanceEvidence.parsePerformanceOptIn("yes"),
             "unrecognized performance opt-in is rejected fail-closed");
     }
 
     private static void testPerformanceTimingAndCoverage() {
-        final ExternalPsdEditHostProbe.PerformanceTimingSample sample =
-            ExternalPsdEditHostProbe.performanceTimingSampleForTest(100L, 120L, 150L, 220L);
+        final PerformanceEvidence.PerformanceTimingSample sample =
+            PerformanceEvidence.performanceTimingSampleForTest(100L, 120L, 150L, 220L);
         assertTrue(sample.available(), "ordered write/callback/public/fresh events are observable");
         assertEquals(50L, sample.writeCompleteToPublicCompletionUpperBoundNanos(),
             "write-to-public timing has the documented upper-bound meaning");
@@ -367,18 +367,18 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(100L, sample.revisionCallbackToFreshObservationLowerBoundNanos(),
             "callback-to-fresh timing has the documented lower-bound meaning");
 
-        final var callbackBeforeWrite = ExternalPsdEditHostProbe.performanceTimingSampleForTest(
+        final var callbackBeforeWrite = PerformanceEvidence.performanceTimingSampleForTest(
             100L, 99L, 150L, 220L);
         assertTrue(!callbackBeforeWrite.available(),
             "a callback timestamp before write completion is unavailable, not a native timing");
-        final var freshBeforePublic = ExternalPsdEditHostProbe.performanceTimingSampleForTest(
+        final var freshBeforePublic = PerformanceEvidence.performanceTimingSampleForTest(
             100L, 120L, 150L, 149L);
         assertTrue(!freshBeforePublic.available(),
             "out-of-order fresh observation is unavailable");
 
         final Properties evidence = new Properties();
-        final ExternalPsdEditHostProbe.PerformanceCycleTimings timings =
-            new ExternalPsdEditHostProbe.PerformanceCycleTimings();
+        final PerformanceEvidence.PerformanceCycleTimings timings =
+            new PerformanceEvidence.PerformanceCycleTimings();
         for (int index = 0; index < 10; index++) {
             final long write = 1_000L + index * 100L;
             timings.record(evidence, "cycle." + (index + 1) + ".", write,
@@ -397,32 +397,32 @@ public final class ExternalPsdEditHostProbeTest {
         final ExternalPsdPerformanceSampler.Snapshot complete =
             new ExternalPsdPerformanceSampler.Snapshot(1L, 1L, false,
                 5L, 0L, 10L, 100L, 50L, 100L, 0L, "");
-        assertTrue(ExternalPsdEditHostProbe.performanceCoverageComplete(complete, 10, 10),
+        assertTrue(PerformanceEvidence.performanceCoverageComplete(complete, 10, 10),
             "coverage helper accepts only a complete sampler plus ten timing samples");
         final ExternalPsdPerformanceSampler.Snapshot pending =
             new ExternalPsdPerformanceSampler.Snapshot(1L, 1L, true,
                 5L, 20L, 10L, 100L, 50L, 100L, 0L, "");
-        assertTrue(!ExternalPsdEditHostProbe.performanceCoverageComplete(pending, 10, 10),
+        assertTrue(!PerformanceEvidence.performanceCoverageComplete(pending, 10, 10),
             "pending EDT heartbeat cannot be reported as complete");
         final ExternalPsdPerformanceSampler.Snapshot failed =
             new ExternalPsdPerformanceSampler.Snapshot(1L, 1L, false,
                 5L, 0L, 10L, 100L, 50L, 100L, 1L, "dispatch failed");
-        assertTrue(!ExternalPsdEditHostProbe.performanceCoverageComplete(failed, 10, 10),
+        assertTrue(!PerformanceEvidence.performanceCoverageComplete(failed, 10, 10),
             "sampler failure cannot be reported as complete evidence");
-        assertTrue(!ExternalPsdEditHostProbe.performanceCoverageComplete(complete, 0, 10),
+        assertTrue(!PerformanceEvidence.performanceCoverageComplete(complete, 0, 10),
             "zero timing samples cannot be reported as complete evidence");
     }
 
     private static void testSharedModelImageRelationGate() {
-        final ExternalPsdEditHostProbe.TargetIdentity target =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity target =
+            new TargetResolution.TargetIdentity(
                 "document-f1", "model-f1", "binding-f1", 12L,
                 "model-image-f1", "ArtMesh4", "raw-f1");
         final TextureRelationsSnapshot shared = lineageRelationSnapshotWithUsers(
             "binding-f1", 12L, "model-image-f1", "ArtMesh4", new RawImageId("raw-f1"),
             List.of("ArtMesh4", "ArtMesh5"));
         final Properties accepted = new Properties();
-        assertEquals(2, ExternalPsdEditHostProbe.requireSharedModelImageRelation(
+        assertEquals(2, TargetResolution.requireSharedModelImageRelation(
             accepted, "relation.modelImage", target, shared,
             PsdValidationContent.Profile.F1_2048_20),
             "F1 records both users of the shared model image");
@@ -432,7 +432,7 @@ public final class ExternalPsdEditHostProbeTest {
             "relation.modelImage.containsTargetArtMesh"),
             "F1 shared relation includes the selected ArtMesh");
         final Properties stable = new Properties();
-        ExternalPsdEditHostProbe.requireStableSharedModelImageRelation(
+        TargetResolution.requireStableSharedModelImageRelation(
             stable, "relation.modelImage", target, shared,
             PsdValidationContent.Profile.F1_2048_20,
             List.of("ArtMesh4", "ArtMesh5"));
@@ -440,7 +440,7 @@ public final class ExternalPsdEditHostProbeTest {
             "F1 records the unchanged shared model-image user set");
 
         final Properties changedUsers = new Properties();
-        expectIllegalState(() -> ExternalPsdEditHostProbe.requireStableSharedModelImageRelation(
+        expectIllegalState(() -> TargetResolution.requireStableSharedModelImageRelation(
             changedUsers, "relation.modelImage", target,
             lineageRelationSnapshotWithUsers("binding-f1", 12L, "model-image-f1",
                 "ArtMesh4", new RawImageId("raw-f1"), List.of("ArtMesh4", "ArtMesh6")),
@@ -451,14 +451,14 @@ public final class ExternalPsdEditHostProbeTest {
             "changed F1 shared relation records rejection");
 
         final Properties control = new Properties();
-        assertEquals(1, ExternalPsdEditHostProbe.requireSharedModelImageRelation(
+        assertEquals(1, TargetResolution.requireSharedModelImageRelation(
             control, "relation.modelImage", target,
             lineageRelationSnapshot("binding-f1", 12L, "model-image-f1", "ArtMesh4",
                 new RawImageId("raw-f1")), PsdValidationContent.Profile.SEVEN_LAYER_CONTROL),
             "control7 records but does not require a shared model image");
 
         final Properties single = new Properties();
-        expectIllegalState(() -> ExternalPsdEditHostProbe.requireSharedModelImageRelation(
+        expectIllegalState(() -> TargetResolution.requireSharedModelImageRelation(
             single, "relation.modelImage", target,
             lineageRelationSnapshot("binding-f1", 12L, "model-image-f1", "ArtMesh4",
                 new RawImageId("raw-f1")), PsdValidationContent.Profile.F1_2048_20),
@@ -467,11 +467,11 @@ public final class ExternalPsdEditHostProbeTest {
             "unshared F1 relation records rejection");
 
         final Properties wrongTarget = new Properties();
-        final ExternalPsdEditHostProbe.TargetIdentity absentMesh =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity absentMesh =
+            new TargetResolution.TargetIdentity(
                 "document-f1", "model-f1", "binding-f1", 12L,
                 "model-image-f1", "ArtMesh9", "raw-f1");
-        expectIllegalState(() -> ExternalPsdEditHostProbe.requireSharedModelImageRelation(
+        expectIllegalState(() -> TargetResolution.requireSharedModelImageRelation(
             wrongTarget, "relation.modelImage", absentMesh, shared,
             PsdValidationContent.Profile.F1_2048_20),
             "F1 rejects a shared relation that omits the stable target ArtMesh");
@@ -519,111 +519,111 @@ public final class ExternalPsdEditHostProbeTest {
 
     private static void testPersistEvidenceGate() {
         final Properties valid = validPersistEvidence();
-        ExternalPsdEditHostProbe.requirePersistEvidence(valid);
+        PersistSaveChecks.requirePersistEvidence(valid);
 
         final Properties missing = copy(valid);
         missing.remove("persist.postEditTargetRgbSha256");
-        expectIllegalState(() -> ExternalPsdEditHostProbe.requirePersistEvidence(missing),
+        expectIllegalState(() -> PersistSaveChecks.requirePersistEvidence(missing),
             "missing target RGB evidence is rejected");
 
         final Properties sameContent = copy(valid);
         sameContent.setProperty("persist.postEditTargetRgbSha256",
             sameContent.getProperty("persist.baselineTargetRgbSha256"));
-        expectIllegalState(() -> ExternalPsdEditHostProbe.requirePersistEvidence(sameContent),
+        expectIllegalState(() -> PersistSaveChecks.requirePersistEvidence(sameContent),
             "unchanged target RGB evidence is rejected");
 
         final Properties unstableBaseline = copy(valid);
         unstableBaseline.setProperty("persist.baselineSecondTargetRgbSha256", "c".repeat(64));
-        expectIllegalState(() -> ExternalPsdEditHostProbe.requirePersistEvidence(unstableBaseline),
+        expectIllegalState(() -> PersistSaveChecks.requirePersistEvidence(unstableBaseline),
             "unstable baseline evidence is rejected");
 
         final Properties incompleteQuarantine = copy(valid);
         incompleteQuarantine.setProperty("persist.tempQuarantine.sourceMissing", "false");
-        expectIllegalState(() -> ExternalPsdEditHostProbe.requirePersistEvidence(
+        expectIllegalState(() -> PersistSaveChecks.requirePersistEvidence(
             incompleteQuarantine), "incomplete quarantine evidence is rejected");
 
         final Properties uppercase = copy(valid);
         uppercase.setProperty("persist.baselineTargetRgbSha256", "A".repeat(64));
-        expectIllegalState(() -> ExternalPsdEditHostProbe.requirePersistEvidence(uppercase),
+        expectIllegalState(() -> PersistSaveChecks.requirePersistEvidence(uppercase),
             "non-canonical hash evidence is rejected");
     }
 
     private static void testPersistSaveLifecycleGate() {
-        final var identity = new ExternalPsdEditHostProbe.TargetIdentity(
+        final var identity = new TargetResolution.TargetIdentity(
             "persist-document", "persist-model", "persist-binding", 7L,
             "persist-model-image", "persist-art-mesh", "persist-raw");
-        final var beforeFirstSave = new ExternalPsdEditHostProbe.PersistDocumentState(
+        final var beforeFirstSave = new PersistSaveChecks.PersistDocumentState(
             identity, Optional.of("content-before-first-save"), "untitled", "persist-window",
             true, true);
-        final var afterFirstSave = new ExternalPsdEditHostProbe.PersistDocumentState(
+        final var afterFirstSave = new PersistSaveChecks.PersistDocumentState(
             identity, Optional.of("content-after-first-save"), "persisted-document.cmo3",
             "persist-window", true, true);
-        final var oldSameName = new ExternalPsdEditHostProbe.PersistSaveEvent(
+        final var oldSameName = new PersistSaveChecks.PersistSaveEvent(
             4L, dev.turboism.sdk.cubism.ProjectFileOperationType.SAVE, true,
             Optional.of("content-before-first-save"), Optional.of("content-after-first-save"),
             Optional.of("persisted-document.cmo3"));
-        final var firstSave = new ExternalPsdEditHostProbe.PersistSaveEvent(
+        final var firstSave = new PersistSaveChecks.PersistSaveEvent(
             8L, dev.turboism.sdk.cubism.ProjectFileOperationType.SAVE, true,
             Optional.of("content-before-first-save"), Optional.of("content-after-first-save"),
             Optional.empty());
-        final var first = ExternalPsdEditHostProbe.validatePersistSaveAfter(
+        final var first = PersistSaveChecks.validatePersistSaveAfter(
             5L, beforeFirstSave, afterFirstSave, List.of(oldSameName, firstSave),
             "persisted-document.cmo3");
         assertTrue(first.accepted(), "first save with no request filename is accepted");
         assertEquals(Optional.empty(), first.event().requestFileName(),
             "first save request filename remains absent diagnostic data");
 
-        final var missingBeforeContentId = new ExternalPsdEditHostProbe.PersistDocumentState(
+        final var missingBeforeContentId = new PersistSaveChecks.PersistDocumentState(
             identity, Optional.empty(), "untitled", "persist-window", true, true);
-        final var missingBefore = ExternalPsdEditHostProbe.validatePersistSaveAfter(
+        final var missingBefore = PersistSaveChecks.validatePersistSaveAfter(
             5L, missingBeforeContentId, afterFirstSave, List.of(firstSave),
             "persisted-document.cmo3");
         assertTrue(!missingBefore.accepted(), "missing before contentId is rejected");
         assertContains(missingBefore.diagnostic(), "before document contentId",
             "missing before contentId rejection names the missing identity");
 
-        final var beforeSaveAs = new ExternalPsdEditHostProbe.PersistDocumentState(
+        final var beforeSaveAs = new PersistSaveChecks.PersistDocumentState(
             identity, Optional.of("content-existing"), "old-model.cmo3", "persist-window", true,
             true);
-        final var afterSaveAs = new ExternalPsdEditHostProbe.PersistDocumentState(
+        final var afterSaveAs = new PersistSaveChecks.PersistDocumentState(
             identity, Optional.of("content-existing"), "persisted-document.cmo3",
             "persist-window", true, true);
-        final var oldRequestSaveAs = new ExternalPsdEditHostProbe.PersistSaveEvent(
+        final var oldRequestSaveAs = new PersistSaveChecks.PersistSaveEvent(
             11L, dev.turboism.sdk.cubism.ProjectFileOperationType.SAVE, true,
             Optional.of("content-existing"), Optional.of("content-existing"),
             Optional.of("old-model.cmo3"));
-        final var saveAs = ExternalPsdEditHostProbe.validatePersistSaveAfter(
+        final var saveAs = PersistSaveChecks.validatePersistSaveAfter(
             10L, beforeSaveAs, afterSaveAs, List.of(oldRequestSaveAs),
             "persisted-document.cmo3");
         assertTrue(saveAs.accepted(), "SAVE_AS old request filename is not saved-file evidence");
         assertEquals(Optional.of("old-model.cmo3"), saveAs.event().requestFileName(),
             "old SAVE_AS request filename is retained only for diagnostics");
 
-        final var oldOnly = ExternalPsdEditHostProbe.validatePersistSaveAfter(
+        final var oldOnly = PersistSaveChecks.validatePersistSaveAfter(
             5L, beforeFirstSave, afterFirstSave, List.of(oldSameName),
             "persisted-document.cmo3");
         assertTrue(!oldOnly.accepted(), "same-name event before execute is rejected");
         assertContains(oldOnly.diagnostic(), "post-execute",
             "old event rejection names the execute sequence boundary");
 
-        final var wrongContent = new ExternalPsdEditHostProbe.PersistSaveEvent(
+        final var wrongContent = new PersistSaveChecks.PersistSaveEvent(
             12L, dev.turboism.sdk.cubism.ProjectFileOperationType.SAVE, true,
             Optional.of("wrong-content"), Optional.of("content-existing"),
             Optional.of("old-model.cmo3"));
-        final var wrong = ExternalPsdEditHostProbe.validatePersistSaveAfter(
+        final var wrong = PersistSaveChecks.validatePersistSaveAfter(
             10L, beforeSaveAs, afterSaveAs, List.of(wrongContent),
             "persisted-document.cmo3");
         assertTrue(!wrong.accepted(), "wrong content SAVE event is rejected");
         assertContains(wrong.diagnostic(), "request contentId",
             "wrong content rejection names the request content identity");
 
-        final var changedDocument = new ExternalPsdEditHostProbe.PersistDocumentState(
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final var changedDocument = new PersistSaveChecks.PersistDocumentState(
+            new TargetResolution.TargetIdentity(
                 "other-document", "persist-model", "persist-binding", 7L,
                 "persist-model-image", "persist-art-mesh", "persist-raw"),
             Optional.of("content-existing"), "persisted-document.cmo3", "persist-window",
             true, true);
-        final var changed = ExternalPsdEditHostProbe.validatePersistSaveAfter(
+        final var changed = PersistSaveChecks.validatePersistSaveAfter(
             10L, beforeSaveAs, changedDocument, List.of(oldRequestSaveAs),
             "persisted-document.cmo3");
         assertTrue(!changed.accepted(), "changed document after SAVE is rejected");
@@ -632,36 +632,36 @@ public final class ExternalPsdEditHostProbeTest {
     }
 
     private static void testSaveAsAdmissionGate() throws Exception {
-        final var identity = new ExternalPsdEditHostProbe.TargetIdentity(
+        final var identity = new TargetResolution.TargetIdentity(
             "admission-document", "admission-model", "admission-binding", 9L,
             "admission-model-image", "admission-art-mesh", "admission-raw");
-        final var current = new ExternalPsdEditHostProbe.PersistDocumentState(
+        final var current = new PersistSaveChecks.PersistDocumentState(
             identity, Optional.empty(), "untitled", "admission-window", true, true);
         final AtomicInteger commandCalls = new AtomicInteger();
         final var valid = onEdt(() ->
-            ExternalPsdEditHostProbe.executeSaveAsIfAdmittedOnEdtForTest(
+            PersistSaveChecks.executeSaveAsIfAdmittedOnEdtForTest(
                 identity, "admission-window", current, false, commandCalls::incrementAndGet));
         assertTrue(valid.admitted(), "same-EDT stable document/window admission executes");
         assertEquals(1, commandCalls.get(), "valid admission executes one command");
 
-        final var changed = new ExternalPsdEditHostProbe.PersistDocumentState(
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final var changed = new PersistSaveChecks.PersistDocumentState(
+            new TargetResolution.TargetIdentity(
                 "changed-document", "admission-model", "admission-binding", 9L,
                 "admission-model-image", "admission-art-mesh", "admission-raw"),
             Optional.empty(), "untitled", "admission-window", true, true);
         final var changedResult = onEdt(() ->
-            ExternalPsdEditHostProbe.executeSaveAsIfAdmittedOnEdtForTest(
+            PersistSaveChecks.executeSaveAsIfAdmittedOnEdtForTest(
                 identity, "admission-window", changed, false, commandCalls::incrementAndGet));
         assertTrue(!changedResult.admitted(), "changed document is rejected before command");
         assertEquals(1, commandCalls.get(), "changed document performs zero commands");
 
         final var stoppedResult = onEdt(() ->
-            ExternalPsdEditHostProbe.executeSaveAsIfAdmittedOnEdtForTest(
+            PersistSaveChecks.executeSaveAsIfAdmittedOnEdtForTest(
                 identity, "admission-window", current, true, commandCalls::incrementAndGet));
         assertTrue(!stoppedResult.admitted(), "stopped task is rejected before command");
         assertEquals(1, commandCalls.get(), "stopped task performs zero commands");
 
-        final AtomicReference<ExternalPsdEditHostProbe.PersistDocumentState> queuedState =
+        final AtomicReference<PersistSaveChecks.PersistDocumentState> queuedState =
             new AtomicReference<>(current);
         final AtomicBoolean queuedStopped = new AtomicBoolean(false);
         final CountDownLatch blockerEntered = new CountDownLatch(1);
@@ -676,13 +676,13 @@ public final class ExternalPsdEditHostProbeTest {
         });
         assertTrue(blockerEntered.await(5, TimeUnit.SECONDS),
             "EDT queue blocker started for changed-document admission");
-        final AtomicReference<ExternalPsdEditHostProbe.SaveAsAdmission> queuedChangedResult =
+        final AtomicReference<PersistSaveChecks.SaveAsAdmission> queuedChangedResult =
             new AtomicReference<>();
         final CountDownLatch changedDone = new CountDownLatch(1);
         SwingUtilities.invokeLater(() -> {
             try {
                 queuedChangedResult.set(
-                    ExternalPsdEditHostProbe.executeSaveAsIfAdmittedOnEdtForTest(
+                    PersistSaveChecks.executeSaveAsIfAdmittedOnEdtForTest(
                         identity, "admission-window", queuedState::get,
                         queuedStopped::get, commandCalls::incrementAndGet));
             } finally {
@@ -712,13 +712,13 @@ public final class ExternalPsdEditHostProbeTest {
             "EDT queue blocker started for stopped admission");
         queuedState.set(current);
         queuedStopped.set(false);
-        final AtomicReference<ExternalPsdEditHostProbe.SaveAsAdmission> queuedStoppedResult =
+        final AtomicReference<PersistSaveChecks.SaveAsAdmission> queuedStoppedResult =
             new AtomicReference<>();
         final CountDownLatch stoppedDone = new CountDownLatch(1);
         SwingUtilities.invokeLater(() -> {
             try {
                 queuedStoppedResult.set(
-                    ExternalPsdEditHostProbe.executeSaveAsIfAdmittedOnEdtForTest(
+                    PersistSaveChecks.executeSaveAsIfAdmittedOnEdtForTest(
                         identity, "admission-window", queuedState::get,
                         queuedStopped::get, commandCalls::incrementAndGet));
             } finally {
@@ -739,8 +739,8 @@ public final class ExternalPsdEditHostProbeTest {
         final var genericNo = saveDialogSnapshot(
             List.of("dialog", "bound-window"), true, 1, "", false, "", false,
             List.of("No"), List.of("No"), false, false);
-        final var genericDecision = ExternalPsdEditHostProbe.classifySaveDialogForTest(genericNo);
-        assertEquals(ExternalPsdEditHostProbe.SaveDialogOutcome.OBSERVE_ONLY,
+        final var genericDecision = PersistSaveChecks.classifySaveDialogForTest(genericNo);
+        assertEquals(PersistSaveChecks.SaveDialogOutcome.OBSERVE_ONLY,
             genericDecision.outcome(), "generic No label cannot infer unused-raw keep semantics");
         assertContains(genericDecision.diagnostic(), "CUB3-3054",
             "generic dialog records the exact official message proof still missing");
@@ -748,36 +748,36 @@ public final class ExternalPsdEditHostProbeTest {
         final var wrongOwner = saveDialogSnapshot(
             List.of("dialog", "other-window"), false, 1, "", false, "", false,
             List.of("No"), List.of("No"), false, false);
-        assertEquals(ExternalPsdEditHostProbe.SaveDialogOutcome.REJECTED,
-            ExternalPsdEditHostProbe.classifySaveDialogForTest(wrongOwner).outcome(),
+        assertEquals(PersistSaveChecks.SaveDialogOutcome.REJECTED,
+            PersistSaveChecks.classifySaveDialogForTest(wrongOwner).outcome(),
             "wrong owner chain receives no action");
 
         final var multiple = saveDialogSnapshot(
             List.of("dialog", "bound-window"), true, 2, "", false, "", false,
             List.of("No"), List.of("No"), false, false);
-        assertEquals(ExternalPsdEditHostProbe.SaveDialogOutcome.REJECTED,
-            ExternalPsdEditHostProbe.classifySaveDialogForTest(multiple).outcome(),
+        assertEquals(PersistSaveChecks.SaveDialogOutcome.REJECTED,
+            PersistSaveChecks.classifySaveDialogForTest(multiple).outcome(),
             "multiple matching dialogs receive no action");
 
         final var closed = saveDialogSnapshot(
             List.of("dialog", "bound-window"), true, 1, "", false, "", false,
             List.of("No"), List.of("No"), false, true);
-        assertEquals(ExternalPsdEditHostProbe.SaveDialogOutcome.REJECTED,
-            ExternalPsdEditHostProbe.classifySaveDialogForTest(closed).outcome(),
+        assertEquals(PersistSaveChecks.SaveDialogOutcome.REJECTED,
+            PersistSaveChecks.classifySaveDialogForTest(closed).outcome(),
             "delayed callback after close receives no action");
 
         final var staticProof = saveDialogSnapshot(
             List.of("dialog", "bound-window"), true, 1, "CUB3-3054", true, "aM.b", true,
             List.of("No"), List.of("aM.b"), false, false);
-        assertEquals(ExternalPsdEditHostProbe.SaveDialogOutcome.KEEP,
-            ExternalPsdEditHostProbe.classifySaveDialogForTest(staticProof).outcome(),
+        assertEquals(PersistSaveChecks.SaveDialogOutcome.KEEP,
+            PersistSaveChecks.classifySaveDialogForTest(staticProof).outcome(),
             "only exact message and aM.b keep-action evidence can authorize a future click");
     }
 
     private static void testDialogButtonShapeOnEdt() throws Exception {
-        final List<ExternalPsdEditHostProbe.DialogButtonEvidence> evidence = onEdt(() -> {
+        final List<PersistSaveChecks.DialogButtonEvidence> evidence = onEdt(() -> {
             final List<String> labels =
-                ExternalPsdEditHostProbe.officialOptionButtonLabelsOnEdtForTest();
+                PersistSaveChecks.officialOptionButtonLabelsOnEdtForTest();
             final JButton yes = new JButton(labels.get(0));
             final JButton no = new JButton(labels.get(1));
             final JButton cancel = new JButton(labels.get(2));
@@ -789,7 +789,7 @@ public final class ExternalPsdEditHostProbeTest {
             no.setActionMap(actionMap);
             final JOptionPane pane = new JOptionPane();
             pane.setOptions(new Object[] {yes, no, cancel});
-            final var proof = ExternalPsdEditHostProbe.UnusedRawDialogProof.forTest(
+            final var proof = PersistSaveChecks.UnusedRawDialogProof.forTest(
                 "CUB3-3054: %d unused raw images: %s",
                 TestKeepAction.class.getName());
             assertTrue(proof.messageMatchesOnEdt(
@@ -817,13 +817,13 @@ public final class ExternalPsdEditHostProbeTest {
             "non-three-button option shape is observe-only");
     }
 
-    private static ExternalPsdEditHostProbe.SaveDialogSnapshot saveDialogSnapshot(
+    private static PersistSaveChecks.SaveDialogSnapshot saveDialogSnapshot(
         final List<String> ownerChain, final boolean ownerMatches, final int candidateCount,
         final String messageKey, final boolean messageTemplateProven,
         final String keepActionCommand, final boolean keepActionProven,
         final List<String> buttons, final List<String> actionCommands,
         final boolean stopped, final boolean closed) {
-        return new ExternalPsdEditHostProbe.SaveDialogSnapshot(
+        return new PersistSaveChecks.SaveDialogSnapshot(
             "dialog", "bound-window", ownerChain, ownerMatches, true, true,
             "persist-document", "persist-document", 7L, 7L, true, messageKey,
             messageTemplateProven, keepActionCommand, keepActionProven, List.of("message"),
@@ -843,16 +843,16 @@ public final class ExternalPsdEditHostProbeTest {
             "a".repeat(64), new PsdValidationContent.Bounds(451, 450, 551, 550),
             100, 100, List.of(0, 1, 2));
 
-        ExternalPsdEditHostProbe.requireStableBaseline(baseline, same);
-        expectIllegalState(() -> ExternalPsdEditHostProbe.requireStableBaseline(
+        PersistSaveChecks.requireStableBaseline(baseline, same);
+        expectIllegalState(() -> PersistSaveChecks.requireStableBaseline(
             baseline, unstable), "baseline bounds instability is rejected");
-        ExternalPsdEditHostProbe.requireChangedPost(baseline, changed);
-        expectIllegalState(() -> ExternalPsdEditHostProbe.requireChangedPost(baseline, same),
+        PersistSaveChecks.requireChangedPost(baseline, changed);
+        expectIllegalState(() -> PersistSaveChecks.requireChangedPost(baseline, same),
             "unchanged native post fingerprint is rejected");
-        ExternalPsdEditHostProbe.requireReopenTarget("b".repeat(64), changed);
-        expectIllegalState(() -> ExternalPsdEditHostProbe.requireReopenTarget(
+        PersistSaveChecks.requireReopenTarget("b".repeat(64), changed);
+        expectIllegalState(() -> PersistSaveChecks.requireReopenTarget(
             "a".repeat(64), changed), "reopen digest mismatch is rejected");
-        expectIllegalState(() -> ExternalPsdEditHostProbe.requireReopenTarget(
+        expectIllegalState(() -> PersistSaveChecks.requireReopenTarget(
             "B".repeat(64), changed), "reopen expected digest must be lowercase");
     }
 
@@ -860,23 +860,23 @@ public final class ExternalPsdEditHostProbeTest {
         final HistorySnapshot unavailable = HistorySnapshot.unavailable();
         final HistoryMoveResult moved = new HistoryMoveResult(
             HistoryMoveResult.Outcome.MOVED, unavailable, Optional.empty());
-        ExternalPsdEditHostProbe.requireHistoryMoved(moved, "undo");
+        PersistSaveChecks.requireHistoryMoved(moved, "undo");
 
         final HistoryMoveResult unchanged = new HistoryMoveResult(
             HistoryMoveResult.Outcome.NO_CHANGE, unavailable, Optional.empty());
-        expectIllegalState(() -> ExternalPsdEditHostProbe.requireHistoryMoved(unchanged, "redo"),
+        expectIllegalState(() -> PersistSaveChecks.requireHistoryMoved(unchanged, "redo"),
             "redo without MOVED is rejected");
     }
 
     private static void testTempCandidateBinding() throws Exception {
         final Path oldCandidate = Path.of("/tmp/external PSD old/turboism-psd-old");
         final Path newCandidate = Path.of("/tmp/external PSD new/turboism-psd-new");
-        assertEquals(newCandidate, ExternalPsdEditHostProbe.uniqueNewTempCandidate(
+        assertEquals(newCandidate, SessionFileReadiness.uniqueNewTempCandidate(
             Set.of(oldCandidate), Set.of(oldCandidate, newCandidate)),
             "exactly one new candidate is bound");
-        expectIllegalState(() -> ExternalPsdEditHostProbe.uniqueNewTempCandidate(
+        expectIllegalState(() -> SessionFileReadiness.uniqueNewTempCandidate(
             Set.of(oldCandidate), Set.of(oldCandidate)), "missing candidate is rejected");
-        expectIllegalState(() -> ExternalPsdEditHostProbe.uniqueNewTempCandidate(
+        expectIllegalState(() -> SessionFileReadiness.uniqueNewTempCandidate(
             Set.of(oldCandidate), Set.of(oldCandidate, newCandidate,
                 Path.of("/tmp/external PSD another/turboism-psd-another"))),
             "ambiguous candidates are rejected");
@@ -884,12 +884,12 @@ public final class ExternalPsdEditHostProbeTest {
         final Path root = Files.createTempDirectory("external PSD candidate root ");
         try {
             final Path directory = Files.createDirectory(root.resolve("turboism-psd-valid"));
-            expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.requireTrackedTempFile(
+            expectIllegalStateChecked(() -> SessionFileReadiness.requireTrackedTempFile(
                 directory, root), "candidate without the runtime PSD is rejected");
             final Path outside = Files.createTempFile("external PSD candidate outside ", ".psd");
             try {
                 Files.createSymbolicLink(directory.resolve("external-edit.psd"), outside);
-                expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.requireTrackedTempFile(
+                expectIllegalStateChecked(() -> SessionFileReadiness.requireTrackedTempFile(
                     directory, root), "candidate PSD symlink is rejected");
                 Files.delete(directory.resolve("external-edit.psd"));
             } finally {
@@ -897,7 +897,7 @@ public final class ExternalPsdEditHostProbeTest {
             }
             Files.write(directory.resolve("external-edit.psd"), new byte[]{1});
             assertEquals(directory.resolve("external-edit.psd").toRealPath(),
-                ExternalPsdEditHostProbe.requireTrackedTempFile(directory, root),
+                SessionFileReadiness.requireTrackedTempFile(directory, root),
                 "valid candidate PSD is bound without mtime guessing");
         } finally {
             deleteTree(root);
@@ -906,12 +906,12 @@ public final class ExternalPsdEditHostProbeTest {
 
     private static void testSessionPsdReadiness() throws Exception {
         final byte[] valid = validationPsd();
-        final ExternalPsdEditHostProbe.FileKeySupplier unavailableKey = attributes -> null;
+        final SessionFileReadiness.FileKeySupplier unavailableKey = attributes -> null;
         final byte[] unsupportedDepth = valid.clone();
         unsupportedDepth[22] = 0;
         unsupportedDepth[23] = 16;
-        final ExternalPsdEditHostProbe.PsdStructureValidation depthFailure =
-            ExternalPsdEditHostProbe.inspectPsdStructure(unsupportedDepth);
+        final PsdStructureInspection.PsdStructureValidation depthFailure =
+            PsdStructureInspection.inspectPsdStructure(unsupportedDepth);
         assertTrue(!depthFailure.complete(), "unsupported bit depth is rejected");
         assertContains(depthFailure.reason(), "bit depth",
             "unsupported depth reports the header section");
@@ -920,8 +920,8 @@ public final class ExternalPsdEditHostProbeTest {
         final int compositeOffset = compositeOffset(unsupportedCompression);
         unsupportedCompression[compositeOffset] = 0;
         unsupportedCompression[compositeOffset + 1] = 2;
-        final ExternalPsdEditHostProbe.PsdStructureValidation compressionFailure =
-            ExternalPsdEditHostProbe.inspectPsdStructure(unsupportedCompression);
+        final PsdStructureInspection.PsdStructureValidation compressionFailure =
+            PsdStructureInspection.inspectPsdStructure(unsupportedCompression);
         assertTrue(!compressionFailure.complete(), "unsupported compression is rejected");
         assertContains(compressionFailure.reason(), "compression",
             "unsupported compression reports the composite section");
@@ -951,8 +951,8 @@ public final class ExternalPsdEditHostProbeTest {
                 }
             }, "external-psd-readiness-fixture-writer");
             writer.start();
-            final ExternalPsdEditHostProbe.StablePsdSnapshot snapshot =
-                ExternalPsdEditHostProbe.awaitSessionFileForTest(
+            final SessionFileReadiness.StablePsdSnapshot snapshot =
+                SessionFileReadiness.awaitSessionFileForTest(
                     root, before, 5000L, () -> false,
                     millis -> Thread.sleep(Math.min(millis, 5L)), unavailableKey);
             writer.join(2000L);
@@ -963,12 +963,12 @@ public final class ExternalPsdEditHostProbeTest {
             assertTrue(snapshot.observation().structure().complete(),
                 "stable session snapshot includes complete PSD structure evidence");
 
-            ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(snapshot, unavailableKey);
-            final byte[] renamed = ExternalPsdEditHostProbe.mutateLayerName(snapshot.bytes(), 1)
+            SessionFileReadiness.confirmSessionFileForWriteForTest(snapshot, unavailableKey);
+            final byte[] renamed = PsdStructureInspection.mutateLayerName(snapshot.bytes(), 1)
                 .orElseThrow();
             Files.write(snapshot.path(), renamed);
             expectSessionReadinessFailure(
-                () -> ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(
+                () -> SessionFileReadiness.confirmSessionFileForWriteForTest(
                     snapshot, unavailableKey),
                 "write precondition rejects a changed session snapshot");
         } finally {
@@ -980,12 +980,12 @@ public final class ExternalPsdEditHostProbeTest {
             final Path directory = Files.createDirectory(
                 truncatedRoot.resolve("turboism-psd-truncated"));
             final byte[] truncated = Arrays.copyOf(valid, valid.length - 1);
-            assertTrue(!ExternalPsdEditHostProbe.layerNameRanges(truncated).isEmpty(),
+            assertTrue(!PsdStructureInspection.layerNameRanges(truncated).isEmpty(),
                 "truncated fixture still has a mutable layer name candidate");
             Files.write(directory.resolve("external-edit.psd"), truncated);
-            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+            final SessionFileReadiness.SessionFileReadinessException failure =
                 expectSessionReadinessFailure(
-                    () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                    () -> SessionFileReadiness.awaitSessionFileForTest(
                         truncatedRoot, Set.of(), 30L, () -> false, millis -> Thread.sleep(1L),
                         unavailableKey),
                     "truncated PSD cannot pass merely because a layer name is readable");
@@ -999,9 +999,9 @@ public final class ExternalPsdEditHostProbeTest {
         try {
             Files.createDirectory(ambiguousRoot.resolve("turboism-psd-first"));
             Files.createDirectory(ambiguousRoot.resolve("turboism-psd-second"));
-            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+            final SessionFileReadiness.SessionFileReadinessException failure =
                 expectSessionReadinessFailure(
-                    () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                    () -> SessionFileReadiness.awaitSessionFileForTest(
                         ambiguousRoot, Set.of(), 1000L, () -> false, millis -> {
                             throw new AssertionError("ambiguous candidates must fail immediately");
                         }, attributes -> null), "multiple new candidate directories are rejected");
@@ -1015,9 +1015,9 @@ public final class ExternalPsdEditHostProbeTest {
         try {
             final Path old = Files.createDirectory(oldRoot.resolve("turboism-psd-old"));
             Files.write(old.resolve("external-edit.psd"), valid);
-            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+            final SessionFileReadiness.SessionFileReadinessException failure =
                 expectSessionReadinessFailure(
-                    () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                    () -> SessionFileReadiness.awaitSessionFileForTest(
                         oldRoot, Set.of(old.toAbsolutePath().normalize()), 20L,
                         () -> false, millis -> Thread.sleep(1L)),
                     "an old session directory is never reused");
@@ -1031,9 +1031,9 @@ public final class ExternalPsdEditHostProbeTest {
         final Path outside = Files.createTempDirectory("external PSD symlink outside ");
         try {
             Files.createSymbolicLink(symlinkRoot.resolve("turboism-psd-link"), outside);
-            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+            final SessionFileReadiness.SessionFileReadinessException failure =
                 expectSessionReadinessFailure(
-                    () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                    () -> SessionFileReadiness.awaitSessionFileForTest(
                         symlinkRoot, Set.of(), 1000L, () -> false, millis -> {
                             throw new AssertionError("symlink candidate must fail immediately");
                         }, unavailableKey), "candidate symlink is rejected before file access");
@@ -1052,9 +1052,9 @@ public final class ExternalPsdEditHostProbeTest {
             Files.write(file, valid);
             final AtomicInteger sleeps = new AtomicInteger();
             final Path replacement = replacementRoot.resolve("replacement.psd");
-            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+            final SessionFileReadiness.SessionFileReadinessException failure =
                 expectSessionReadinessFailure(
-                    () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                    () -> SessionFileReadiness.awaitSessionFileForTest(
                         replacementRoot, Set.of(), 1000L, () -> false, millis -> {
                             if (sleeps.incrementAndGet() == 1) {
                                 try {
@@ -1081,16 +1081,16 @@ public final class ExternalPsdEditHostProbeTest {
                 parentSymlinkRoot.resolve("turboism-psd-parent"));
             final Path file = directory.resolve("external-edit.psd");
             Files.write(file, valid);
-            final ExternalPsdEditHostProbe.StablePsdSnapshot snapshot =
-                ExternalPsdEditHostProbe.awaitSessionFileForTest(
+            final SessionFileReadiness.StablePsdSnapshot snapshot =
+                SessionFileReadiness.awaitSessionFileForTest(
                     parentSymlinkRoot, Set.of(), 5000L, () -> false,
                     millis -> Thread.sleep(Math.min(millis, 5L)), unavailableKey);
             final Path moved = parentSymlinkRoot.resolve("turboism-psd-parent-moved");
             Files.move(directory, moved);
             Files.createSymbolicLink(directory, parentOutside);
-            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+            final SessionFileReadiness.SessionFileReadinessException failure =
                 expectSessionReadinessFailure(
-                    () -> ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(
+                    () -> SessionFileReadiness.confirmSessionFileForWriteForTest(
                         snapshot, unavailableKey),
                     "write precondition rejects a parent-directory symlink replacement");
             assertContains(failure.getMessage(), "symlink",
@@ -1102,9 +1102,9 @@ public final class ExternalPsdEditHostProbeTest {
 
         final Path stoppedRoot = Files.createTempDirectory("external PSD stopped readiness ");
         try {
-            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+            final SessionFileReadiness.SessionFileReadinessException failure =
                 expectSessionReadinessFailure(
-                    () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                    () -> SessionFileReadiness.awaitSessionFileForTest(
                         stoppedRoot, Set.of(), 1000L, () -> true, millis -> {
                             throw new AssertionError("stopped wait must not sleep");
                         }), "stopped wait fails closed");
@@ -1133,13 +1133,13 @@ public final class ExternalPsdEditHostProbeTest {
                 root.resolve("turboism-psd-transition"));
             Files.write(directory.resolve("external-edit.psd"), valid);
             final AtomicInteger keyIndex = new AtomicInteger();
-            final ExternalPsdEditHostProbe.FileKeySupplier changingKey = attributes -> {
+            final SessionFileReadiness.FileKeySupplier changingKey = attributes -> {
                 final int index = keyIndex.getAndIncrement();
                 return keys[Math.min(index, keys.length - 1)];
             };
-            final ExternalPsdEditHostProbe.SessionFileReadinessException failure =
+            final SessionFileReadiness.SessionFileReadinessException failure =
                 expectSessionReadinessFailure(
-                    () -> ExternalPsdEditHostProbe.awaitSessionFileForTest(
+                    () -> SessionFileReadiness.awaitSessionFileForTest(
                         root, Set.of(), 3000L, () -> false,
                         millis -> Thread.sleep(Math.min(millis, 5L)), changingKey), message);
             assertContains(failure.getMessage(), expectedDiagnostic, message + " diagnostic");
@@ -1150,7 +1150,7 @@ public final class ExternalPsdEditHostProbeTest {
 
     private static void testNullFileKeySessionReadiness() throws Exception {
         final byte[] valid = validationPsd();
-        final ExternalPsdEditHostProbe.FileKeySupplier unavailableKey = attributes -> null;
+        final SessionFileReadiness.FileKeySupplier unavailableKey = attributes -> null;
         final Path root = Files.createTempDirectory("external PSD null file-key readiness ");
         try {
             final Path directory = Files.createDirectory(
@@ -1159,8 +1159,8 @@ public final class ExternalPsdEditHostProbeTest {
             Files.write(file, valid);
             final Properties readiness = new Properties();
 
-            final ExternalPsdEditHostProbe.StablePsdSnapshot snapshot =
-                ExternalPsdEditHostProbe.awaitSessionFileForTest(
+            final SessionFileReadiness.StablePsdSnapshot snapshot =
+                SessionFileReadiness.awaitSessionFileForTest(
                     root, Set.of(), 3000L, readiness, () -> false,
                     millis -> Thread.sleep(Math.min(millis, 5L)), unavailableKey);
             assertArrayEquals(valid, snapshot.bytes(),
@@ -1193,7 +1193,7 @@ public final class ExternalPsdEditHostProbeTest {
                 "readiness result records the authenticated real task path");
 
             final Properties writeCheck = new Properties();
-            ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(
+            SessionFileReadiness.confirmSessionFileForWriteForTest(
                 snapshot, writeCheck, unavailableKey);
             assertEquals("UNAVAILABLE",
                 writeCheck.getProperty("gui.session.writeCheck.fileKeyStatus"),
@@ -1205,7 +1205,7 @@ public final class ExternalPsdEditHostProbeTest {
                 writeCheck.getProperty("gui.session.writeCheck.byteLength"),
                 "write check records the complete bytes read before mutation");
 
-            final byte[] changed = ExternalPsdEditHostProbe.mutateLayerName(valid, 1)
+            final byte[] changed = PsdStructureInspection.mutateLayerName(valid, 1)
                 .orElseThrow();
             Files.write(file, changed);
             Files.setLastModifiedTime(file,
@@ -1213,7 +1213,7 @@ public final class ExternalPsdEditHostProbeTest {
                     snapshot.observation().modifiedMillis()));
             final Properties changedWriteCheck = new Properties();
             expectSessionReadinessFailure(
-                () -> ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(
+                () -> SessionFileReadiness.confirmSessionFileForWriteForTest(
                     snapshot, changedWriteCheck, unavailableKey),
                 "null-key write confirmation rejects changed bytes even with the old mtime");
             assertEquals("UNAVAILABLE",
@@ -1226,28 +1226,28 @@ public final class ExternalPsdEditHostProbeTest {
 
     private static void testRawPsdStructureBoundaries() {
         final RawPsdFixture fixture = rawPsd();
-        final ExternalPsdEditHostProbe.PsdStructureValidation valid =
-            ExternalPsdEditHostProbe.inspectPsdStructure(fixture.bytes());
+        final PsdStructureInspection.PsdStructureValidation valid =
+            PsdStructureInspection.inspectPsdStructure(fixture.bytes());
         assertTrue(valid.complete(), "raw layer and composite boundaries are accepted");
 
         final byte[] shortLayer = fixture.bytes().clone();
         putU32(shortLayer, fixture.firstLayerChannelLengthOffset(), 2);
-        assertTrue(!ExternalPsdEditHostProbe.inspectPsdStructure(shortLayer).complete(),
+        assertTrue(!PsdStructureInspection.inspectPsdStructure(shortLayer).complete(),
             "raw layer one-byte-short boundary is rejected");
 
         final byte[] longLayer = fixture.bytes().clone();
         putU32(longLayer, fixture.firstLayerChannelLengthOffset(), 4);
-        assertTrue(!ExternalPsdEditHostProbe.inspectPsdStructure(longLayer).complete(),
+        assertTrue(!PsdStructureInspection.inspectPsdStructure(longLayer).complete(),
             "raw layer one-byte-long boundary is rejected");
 
         final byte[] shortComposite = Arrays.copyOf(
             fixture.bytes(), fixture.bytes().length - 1);
-        assertTrue(!ExternalPsdEditHostProbe.inspectPsdStructure(shortComposite).complete(),
+        assertTrue(!PsdStructureInspection.inspectPsdStructure(shortComposite).complete(),
             "raw composite one-byte-short boundary is rejected");
 
         final byte[] longComposite = Arrays.copyOf(
             fixture.bytes(), fixture.bytes().length + 1);
-        assertTrue(!ExternalPsdEditHostProbe.inspectPsdStructure(longComposite).complete(),
+        assertTrue(!PsdStructureInspection.inspectPsdStructure(longComposite).complete(),
             "raw composite one-byte-long boundary is rejected");
     }
 
@@ -1265,8 +1265,8 @@ public final class ExternalPsdEditHostProbeTest {
             "configured real session sample is a regular non-symlink file");
         final byte[] original = Files.readAllBytes(source);
         final String digest = sha256(original);
-        final ExternalPsdEditHostProbe.PsdStructureValidation structure =
-            ExternalPsdEditHostProbe.inspectPsdStructure(original);
+        final PsdStructureInspection.PsdStructureValidation structure =
+            PsdStructureInspection.inspectPsdStructure(original);
         System.out.println("REAL_SESSION_SAMPLE path=" + source + " bytes=" + original.length
             + " sha256=" + digest + " complete=" + structure.complete()
             + " layers=" + structure.layerCount() + " compositeEnd=" + structure.compositeEnd()
@@ -1278,16 +1278,16 @@ public final class ExternalPsdEditHostProbeTest {
             final Path directory = Files.createDirectory(root.resolve("turboism-psd-real-copy"));
             final Path copy = directory.resolve("external-edit.psd");
             Files.copy(source, copy);
-            final ExternalPsdEditHostProbe.FileKeySupplier unavailableKey = attributes -> null;
-            final ExternalPsdEditHostProbe.StablePsdSnapshot snapshot =
-                ExternalPsdEditHostProbe.awaitSessionFileForTest(
+            final SessionFileReadiness.FileKeySupplier unavailableKey = attributes -> null;
+            final SessionFileReadiness.StablePsdSnapshot snapshot =
+                SessionFileReadiness.awaitSessionFileForTest(
                     root, Set.of(), 5000L, () -> false,
                     millis -> Thread.sleep(Math.min(millis, 5L)), unavailableKey);
             assertArrayEquals(original, snapshot.bytes(),
                 "production readiness helper reads the exact real PSD bytes in a temp copy");
             assertEquals("UNAVAILABLE", snapshot.observation().fileKeyStatus(),
                 "real PSD copy exercises the null-key readiness path");
-            ExternalPsdEditHostProbe.confirmSessionFileForWriteForTest(snapshot, unavailableKey);
+            SessionFileReadiness.confirmSessionFileForWriteForTest(snapshot, unavailableKey);
             assertArrayEquals(original, Files.readAllBytes(copy),
                 "production write precondition is read-only for the real PSD copy");
             System.out.println("REAL_SESSION_SAMPLE_HELPERS=PASS copy=" + copy
@@ -1376,13 +1376,13 @@ public final class ExternalPsdEditHostProbeTest {
         return buffer.position();
     }
 
-    private static ExternalPsdEditHostProbe.SessionFileReadinessException
+    private static SessionFileReadiness.SessionFileReadinessException
         expectSessionReadinessFailure(final ThrowingAction action, final String message)
         throws Exception {
         try {
             action.run();
             throw new AssertionError(message);
-        } catch (ExternalPsdEditHostProbe.SessionFileReadinessException expected) {
+        } catch (SessionFileReadiness.SessionFileReadinessException expected) {
             return expected;
         }
     }
@@ -1397,8 +1397,8 @@ public final class ExternalPsdEditHostProbeTest {
             Files.write(second.resolve("external-edit.psd"), new byte[]{4, 5, 6});
             final Path destination = taskRoot.resolve("quarantine with spaces");
 
-            final ExternalPsdEditHostProbe.QuarantineReport report =
-                ExternalPsdEditHostProbe.moveTrackedTempDirectories(
+            final TempExportTracker.QuarantineReport report =
+                TempExportTracker.moveTrackedTempDirectories(
                     List.of(first, second), tempRoot, taskRoot, destination);
             assertEquals("MOVED", report.status(), "all tracked directories are moved atomically");
             assertTrue(report.taskOwned(), "quarantine remains under the task root");
@@ -1428,7 +1428,7 @@ public final class ExternalPsdEditHostProbeTest {
             Files.write(source.resolve("external-edit.psd"), new byte[]{7});
             final Path destination = conflictTask.resolve("quarantine");
             Files.createDirectory(destination);
-            expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.moveTrackedTempDirectories(
+            expectIllegalStateChecked(() -> TempExportTracker.moveTrackedTempDirectories(
                 List.of(source), conflictTemp, conflictTask, destination),
                 "existing quarantine destination is rejected");
             assertTrue(Files.exists(source, LinkOption.NOFOLLOW_LINKS),
@@ -1445,7 +1445,7 @@ public final class ExternalPsdEditHostProbeTest {
             final Path source = Files.createDirectory(symlinkTemp.resolve("turboism-psd-source"));
             Files.write(source.resolve("external-edit.psd"), new byte[]{8});
             Files.createSymbolicLink(source.resolve("escape"), outside);
-            expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.moveTrackedTempDirectories(
+            expectIllegalStateChecked(() -> TempExportTracker.moveTrackedTempDirectories(
                 List.of(source), symlinkTemp, symlinkTask, symlinkTask.resolve("quarantine")),
                 "source child symlink is rejected");
             assertTrue(Files.exists(source, LinkOption.NOFOLLOW_LINKS),
@@ -1469,8 +1469,8 @@ public final class ExternalPsdEditHostProbeTest {
             Files.write(second.resolve("external-edit.psd"), new byte[]{2});
             final Path destination = taskRoot.resolve("quarantine with spaces");
             final AtomicInteger calls = new AtomicInteger();
-            final ExternalPsdEditHostProbe.QuarantineReport report =
-                ExternalPsdEditHostProbe.moveTrackedTempDirectories(
+            final TempExportTracker.QuarantineReport report =
+                TempExportTracker.moveTrackedTempDirectories(
                     List.of(first, second), tempRoot, taskRoot, destination,
                     (source, target) -> {
                         if (calls.incrementAndGet() == 2) {
@@ -1498,8 +1498,8 @@ public final class ExternalPsdEditHostProbeTest {
 
     /** Cleanup failures fail the phase, but every handle is still attempted. */
     private static void testTrackerStopAggregation() throws Exception {
-        final ExternalPsdEditHostProbe.TempTracker tracker =
-            new ExternalPsdEditHostProbe.TempTracker();
+        final TempExportTracker.TempTracker tracker =
+            new TempExportTracker.TempTracker();
         final AtomicInteger laterStops = new AtomicInteger();
         tracker.register("failed", stoppingFile(new IllegalStateException(
             "injected stop failure"), new AtomicInteger()), Path.of("/tmp"));
@@ -1514,8 +1514,8 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(1, laterStops.get(), "later handles are still stopped after a failure");
         assertTrue(!tracker.allStopped(), "a stop failure prevents allStopped success");
 
-        final ExternalPsdEditHostProbe.TempTracker aggregateTracker =
-            new ExternalPsdEditHostProbe.TempTracker();
+        final TempExportTracker.TempTracker aggregateTracker =
+            new TempExportTracker.TempTracker();
         aggregateTracker.register("first-failure", stoppingFile(new IllegalStateException(
             "first cleanup failure"), new AtomicInteger()), Path.of("/tmp"));
         aggregateTracker.register("second-failure", stoppingFile(new IllegalStateException(
@@ -1531,8 +1531,8 @@ public final class ExternalPsdEditHostProbeTest {
         }
 
         final AtomicInteger afterErrorStops = new AtomicInteger();
-        final ExternalPsdEditHostProbe.TempTracker errorTracker =
-            new ExternalPsdEditHostProbe.TempTracker();
+        final TempExportTracker.TempTracker errorTracker =
+            new TempExportTracker.TempTracker();
         errorTracker.register("error", stoppingFile(new AssertionError("injected error"),
             new AtomicInteger()), Path.of("/tmp"));
         errorTracker.register("after-error", stoppingFile(null, afterErrorStops), Path.of("/tmp"));
@@ -1544,12 +1544,12 @@ public final class ExternalPsdEditHostProbeTest {
         }
         assertEquals(1, afterErrorStops.get(), "Error cleanup still attempts later handles");
 
-        final ExternalPsdEditHostProbe.TempTracker primaryTracker =
-            new ExternalPsdEditHostProbe.TempTracker();
+        final TempExportTracker.TempTracker primaryTracker =
+            new TempExportTracker.TempTracker();
         primaryTracker.register("cleanup", stoppingFile(new IllegalStateException(
             "cleanup root"), new AtomicInteger()), Path.of("/tmp"));
         final IllegalStateException primary = new IllegalStateException("phase root");
-        ExternalPsdEditHostProbe.stopAllPreservingPrimary(
+        TempExportTracker.stopAllPreservingPrimary(
             primaryTracker, new Properties(), primary);
         assertTrue(primary.getSuppressed().length == 1,
             "cleanup failure is suppressed on the phase's primary failure");
@@ -1577,17 +1577,17 @@ public final class ExternalPsdEditHostProbeTest {
     }
 
     private static void testFinalCycleSelection() {
-        assertTrue(!ExternalPsdEditHostProbe.isFinalRgbMutationCycle(1, 3),
+        assertTrue(!PerformanceEvidence.isFinalRgbMutationCycle(1, 3),
             "early cycles do not invert RGB content");
-        assertTrue(!ExternalPsdEditHostProbe.isFinalRgbMutationCycle(2, 3),
+        assertTrue(!PerformanceEvidence.isFinalRgbMutationCycle(2, 3),
             "middle cycles do not invert RGB content");
-        assertTrue(ExternalPsdEditHostProbe.isFinalRgbMutationCycle(3, 3),
+        assertTrue(PerformanceEvidence.isFinalRgbMutationCycle(3, 3),
             "only the final cycle inverts RGB content");
-        assertTrue(ExternalPsdEditHostProbe.isFinalRgbMutationCycle(1, 1),
+        assertTrue(PerformanceEvidence.isFinalRgbMutationCycle(1, 1),
             "a one-cycle run still has one final inversion");
-        expectIllegalArgument(() -> ExternalPsdEditHostProbe.isFinalRgbMutationCycle(0, 3),
+        expectIllegalArgument(() -> PerformanceEvidence.isFinalRgbMutationCycle(0, 3),
             "zero cycle is rejected");
-        expectIllegalArgument(() -> ExternalPsdEditHostProbe.isFinalRgbMutationCycle(4, 3),
+        expectIllegalArgument(() -> PerformanceEvidence.isFinalRgbMutationCycle(4, 3),
             "cycle beyond requested count is rejected");
     }
 
@@ -1597,8 +1597,8 @@ public final class ExternalPsdEditHostProbeTest {
             final String baseline = targetFingerprint(baselineBytes);
             byte[] current = baselineBytes;
             for (int cycle = 1; cycle <= cycles; cycle++) {
-                final ExternalPsdEditHostProbe.CycleWritePlan plan =
-                    ExternalPsdEditHostProbe.prepareSaveCycleBytes(
+                final SessionFileReadiness.CycleWritePlan plan =
+                    SessionFileReadiness.prepareSaveCycleBytes(
                         current, cycle, cycles, true);
                 final String first = targetFingerprint(plan.firstWrite());
                 if (cycle < cycles) {
@@ -1634,23 +1634,23 @@ public final class ExternalPsdEditHostProbeTest {
         final TextureRelationsSnapshot twoAdded = rawRelationSnapshot("binding-1", 7,
             oldRaw, newRaw, otherRaw);
 
-        final var zero = ExternalPsdEditHostProbe.rawImageRelationDelta(before, unchanged);
+        final var zero = RawExportCoordination.rawImageRelationDelta(before, unchanged);
         assertEquals("ZERO", zero.status().name(), "zero raw candidates are explicit");
         assertEquals(0, zero.candidateCount(), "zero candidate count is recorded");
 
-        final var unique = ExternalPsdEditHostProbe.rawImageRelationDelta(
+        final var unique = RawExportCoordination.rawImageRelationDelta(
             before, duplicateAdded);
         assertEquals("UNIQUE", unique.status().name(),
             "duplicate raw entries still identify one new raw");
         assertEquals(List.of(newRaw), unique.addedRawImages(),
             "unique raw candidate is not duplicated");
 
-        final var multiple = ExternalPsdEditHostProbe.rawImageRelationDelta(before, twoAdded);
+        final var multiple = RawExportCoordination.rawImageRelationDelta(before, twoAdded);
         assertEquals("MULTIPLE", multiple.status().name(),
             "multiple new raws are ambiguous");
         assertEquals(2, multiple.candidateCount(), "multiple candidate count is explicit");
 
-        final var switched = ExternalPsdEditHostProbe.rawImageRelationDelta(
+        final var switched = RawExportCoordination.rawImageRelationDelta(
             before, rawRelationSnapshot("binding-2", 7, oldRaw, newRaw));
         assertEquals("IDENTITY_CHANGED", switched.status().name(),
             "binding changes reject raw attribution");
@@ -1661,21 +1661,21 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(1, switched.candidateCount(),
             "identity change records candidates without licensing an export");
         final Properties switchedResult = new Properties();
-        ExternalPsdEditHostProbe.recordRawImageRelationDelta(
+        RawExportCoordination.recordRawImageRelationDelta(
             switchedResult, "cycle.3.rawRelation", switched);
         assertNull(switchedResult.getProperty("cycle.3.rawRelation.newRawId"),
             "identity-changed candidates are not labeled as an export target");
-        final var switchedGeneration = ExternalPsdEditHostProbe.rawImageRelationDelta(
+        final var switchedGeneration = RawExportCoordination.rawImageRelationDelta(
             before, rawRelationSnapshot("binding-1", 8, oldRaw, newRaw));
         assertEquals("IDENTITY_CHANGED", switchedGeneration.status().name(),
             "generation changes reject raw attribution");
-        final var unavailable = ExternalPsdEditHostProbe.rawImageRelationDelta(
+        final var unavailable = RawExportCoordination.rawImageRelationDelta(
             before, TextureRelationsSnapshot.unavailable());
         assertEquals("UNAVAILABLE", unavailable.status().name(),
             "unavailable relations reject raw attribution");
 
         final Properties result = new Properties();
-        ExternalPsdEditHostProbe.recordRawImageRelationSnapshot(
+        RawExportCoordination.recordRawImageRelationSnapshot(
             result, "cycle.1.rawRelation.before", before, "");
         assertEquals("AVAILABLE", result.getProperty("cycle.1.rawRelation.before.status"),
             "available relation snapshot is recorded");
@@ -1688,7 +1688,7 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals("[raw-old]",
             result.getProperty("cycle.1.rawRelation.before.rawIds"),
             "relation raw IDs are recorded");
-        ExternalPsdEditHostProbe.recordRawImageRelationDelta(
+        RawExportCoordination.recordRawImageRelationDelta(
             result, "cycle.1.rawRelation", unique);
         assertEquals("UNIQUE", result.getProperty("cycle.1.rawRelation.status"),
             "raw delta status is recorded");
@@ -1699,9 +1699,9 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals("[raw-old, raw-new]",
             result.getProperty("cycle.1.rawRelation.afterRawIds"),
             "raw relation diagnostics record a de-duplicated ID set");
-        ExternalPsdEditHostProbe.recordRawImageRelationDelta(
+        RawExportCoordination.recordRawImageRelationDelta(
             result, "cycle.0.rawRelation", zero);
-        ExternalPsdEditHostProbe.recordRawImageRelationDelta(
+        RawExportCoordination.recordRawImageRelationDelta(
             result, "cycle.2.rawRelation", multiple);
         assertEquals("ZERO", result.getProperty("cycle.0.rawRelation.status"),
             "zero raw status is recorded");
@@ -1709,39 +1709,39 @@ public final class ExternalPsdEditHostProbeTest {
             "multiple raw status is recorded");
 
         final Properties zeroGate = new Properties();
-        assertTrue(ExternalPsdEditHostProbe.requireRawImageDeltaForCycle(
+        assertTrue(TargetResolution.requireRawImageDeltaForCycle(
             zeroGate, "cycle.0.", zero, newRaw).isEmpty(),
             "ZERO delta remains diagnostic-only");
         assertEquals("NOT_ATTEMPTED", zeroGate.getProperty("cycle.0.raw.new.status"),
             "ZERO delta keeps the historical NOT_ATTEMPTED raw export status");
 
         final Properties lineageGate = new Properties();
-        assertEquals(newRaw, ExternalPsdEditHostProbe.requireRawImageDeltaForCycle(
+        assertEquals(newRaw, TargetResolution.requireRawImageDeltaForCycle(
             lineageGate, "cycle.ab.", unique, newRaw).orElseThrow(),
             "A→B unique candidate is accepted only for explicit after raw");
-        final var nextUnique = ExternalPsdEditHostProbe.rawImageRelationDelta(
+        final var nextUnique = RawExportCoordination.rawImageRelationDelta(
             rawRelationSnapshot("binding-1", 7, oldRaw, newRaw),
             rawRelationSnapshot("binding-1", 7, oldRaw, newRaw, otherRaw));
-        assertEquals(otherRaw, ExternalPsdEditHostProbe.requireRawImageDeltaForCycle(
+        assertEquals(otherRaw, TargetResolution.requireRawImageDeltaForCycle(
             lineageGate, "cycle.bc.", nextUnique, otherRaw).orElseThrow(),
             "B→C unique candidate remains accepted for explicit after raw");
 
         final Properties multipleGate = new Properties();
-        expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.requireRawImageDeltaForCycle(
+        expectIllegalStateChecked(() -> TargetResolution.requireRawImageDeltaForCycle(
             multipleGate, "cycle.multiple.", multiple, newRaw),
             "MULTIPLE delta remains fail-closed");
         assertEquals("REJECTED", multipleGate.getProperty("cycle.multiple.raw.new.status"),
             "MULTIPLE delta records rejection before aborting");
 
         final Properties identityGate = new Properties();
-        expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.requireRawImageDeltaForCycle(
+        expectIllegalStateChecked(() -> TargetResolution.requireRawImageDeltaForCycle(
             identityGate, "cycle.identity.", switched, newRaw),
             "IDENTITY_CHANGED delta remains fail-closed");
         assertEquals("REJECTED", identityGate.getProperty("cycle.identity.raw.new.status"),
             "IDENTITY_CHANGED delta records rejection before aborting");
 
         final Properties unavailableGate = new Properties();
-        expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.requireRawImageDeltaForCycle(
+        expectIllegalStateChecked(() -> TargetResolution.requireRawImageDeltaForCycle(
             unavailableGate, "cycle.unavailable.", unavailable, newRaw),
             "UNAVAILABLE delta remains fail-closed");
         assertEquals("REJECTED", unavailableGate.getProperty(
@@ -1749,7 +1749,7 @@ public final class ExternalPsdEditHostProbeTest {
             "UNAVAILABLE delta records rejection before aborting");
 
         final Properties mismatchGate = new Properties();
-        expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.requireRawImageDeltaForCycle(
+        expectIllegalStateChecked(() -> TargetResolution.requireRawImageDeltaForCycle(
             mismatchGate, "cycle.mismatch.", unique, otherRaw),
             "unique candidate different from explicit after remains fail-closed");
         assertEquals("REJECTED", mismatchGate.getProperty("cycle.mismatch.raw.new.status"),
@@ -1758,11 +1758,11 @@ public final class ExternalPsdEditHostProbeTest {
         final AtomicInteger exports = new AtomicInteger();
         final AtomicInteger stops = new AtomicInteger();
         final byte[] validPsd = validationPsd();
-        final var inspected = ExternalPsdEditHostProbe.inspectUniqueNewRaw(
+        final var inspected = RawExportCoordination.inspectUniqueNewRaw(
             result, "cycle.1.raw.new", oldRaw, unique, candidate -> {
                 exports.incrementAndGet();
                 assertEquals(newRaw, candidate, "only the unique new raw is exported");
-                return new ExternalPsdEditHostProbe.RawImageExportHandle() {
+                return new RawExportCoordination.RawImageExportHandle() {
                     @Override public RawImageId rawId() { return candidate; }
                     @Override public byte[] bytes() { return validPsd; }
                     @Override public PsdFileOperationResult stop() {
@@ -1786,7 +1786,7 @@ public final class ExternalPsdEditHostProbeTest {
             "new raw stop status is recorded");
 
         final Properties writeResult = new Properties();
-        ExternalPsdEditHostProbe.recordCycleWrittenPsd(
+        TargetResolution.recordCycleWrittenPsd(
             writeResult, "cycle.1.", validPsd);
         assertEquals(Integer.toString(validPsd.length),
             writeResult.getProperty("cycle.1.write.bytes"),
@@ -1799,9 +1799,9 @@ public final class ExternalPsdEditHostProbeTest {
 
         final AtomicInteger failedStops = new AtomicInteger();
         final Properties invalidResult = new Properties();
-        expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.inspectUniqueNewRaw(
+        expectIllegalStateChecked(() -> RawExportCoordination.inspectUniqueNewRaw(
             invalidResult, "cycle.2.raw.new", oldRaw, unique, candidate -> {
-                return new ExternalPsdEditHostProbe.RawImageExportHandle() {
+                return new RawExportCoordination.RawImageExportHandle() {
                     @Override public RawImageId rawId() { return candidate; }
                     @Override public byte[] bytes() { return "not-a-psd".getBytes(
                         StandardCharsets.UTF_8); }
@@ -1818,9 +1818,9 @@ public final class ExternalPsdEditHostProbeTest {
             "invalid new raw evidence remains an explicit failure");
 
         final Properties stopFailureResult = new Properties();
-        expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.inspectUniqueNewRaw(
+        expectIllegalStateChecked(() -> RawExportCoordination.inspectUniqueNewRaw(
             stopFailureResult, "cycle.2.raw.new", oldRaw, unique, candidate ->
-                new ExternalPsdEditHostProbe.RawImageExportHandle() {
+                new RawExportCoordination.RawImageExportHandle() {
                     @Override public RawImageId rawId() { return candidate; }
                     @Override public byte[] bytes() { return validPsd; }
                     @Override public PsdFileOperationResult stop() {
@@ -1831,7 +1831,7 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals("FAILED", stopFailureResult.getProperty("cycle.2.raw.new.stopStatus"),
             "new raw stop failure is recorded");
 
-        expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.inspectUniqueNewRaw(
+        expectIllegalStateChecked(() -> RawExportCoordination.inspectUniqueNewRaw(
             new Properties(), "cycle.3.raw.new", oldRaw, multiple,
             candidate -> { throw new AssertionError("ambiguous raw must not be exported"); }),
             "ambiguous new raw is not guessed or exported");
@@ -1842,11 +1842,11 @@ public final class ExternalPsdEditHostProbeTest {
         final RawImageId newRaw = new RawImageId("raw-new");
         final TextureRelationsSnapshot beforeRelations = rawRelationSnapshot(
             "binding-1", 7, oldRaw);
-        final ExternalPsdEditHostProbe.RawImageRelationDelta unique =
-            ExternalPsdEditHostProbe.rawImageRelationDelta(
+        final RawExportCoordination.RawImageRelationDelta unique =
+            RawExportCoordination.rawImageRelationDelta(
             beforeRelations, rawRelationSnapshot("binding-1", 7, oldRaw, newRaw));
-        final ExternalPsdEditHostProbe.TargetIdentity expected =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity expected =
+            new TargetResolution.TargetIdentity(
                 "document-1", "model-1", "binding-1", 7L, "model-image-1",
                 "art-mesh-1", newRaw.value());
         final byte[] validPsd = validationPsd();
@@ -1950,8 +1950,8 @@ public final class ExternalPsdEditHostProbeTest {
 
     private static Properties assertCoordinatedUnavailable(final RawExportFixture fixture,
         final String label, final RawImageId oldRaw, final RawImageId newRaw,
-        final ExternalPsdEditHostProbe.RawImageRelationDelta delta,
-        final ExternalPsdEditHostProbe.TargetIdentity expected, final String assertion,
+        final RawExportCoordination.RawImageRelationDelta delta,
+        final TargetResolution.TargetIdentity expected, final String assertion,
         final int expectedCoordinatorStops)
         throws Exception {
         final Properties result = new Properties();
@@ -1988,16 +1988,16 @@ public final class ExternalPsdEditHostProbeTest {
         final RawImageId rawA = new RawImageId("lineage-A");
         final RawImageId rawB = new RawImageId("lineage-B");
         final RawImageId rawC = new RawImageId("lineage-C");
-        final ExternalPsdEditHostProbe.TargetIdentity targetA =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity targetA =
+            new TargetResolution.TargetIdentity(
                 "document-lineage", "model-lineage", "binding-lineage", 7L,
                 "model-image-lineage", "art-mesh-lineage", rawA.value());
-        final ExternalPsdEditHostProbe.TargetIdentity targetB =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity targetB =
+            new TargetResolution.TargetIdentity(
                 "document-lineage", "model-lineage", "binding-lineage", 7L,
                 "model-image-lineage", "art-mesh-lineage", rawB.value());
-        final ExternalPsdEditHostProbe.TargetIdentity targetC =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity targetC =
+            new TargetResolution.TargetIdentity(
                 "document-lineage", "model-lineage", "binding-lineage", 7L,
                 "model-image-lineage", "art-mesh-lineage", rawC.value());
         final PsdFileRevision revisionAB = new PsdFileRevision() { };
@@ -2009,72 +2009,72 @@ public final class ExternalPsdEditHostProbeTest {
             PsdReplaceResult.Status.APPLIED, "B to C", rawB, Optional.of(rawC),
             Optional.of(revisionBC), Optional.empty());
 
-        final ExternalPsdEditHostProbe.TargetIdentity acceptedB =
-            ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+        final TargetResolution.TargetIdentity acceptedB =
+            PersistSaveChecks.acceptAppliedTargetLineage(
                 targetA, revisionAB, appliedAB, lineageRelationSnapshot(
                     "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage",
                     rawB), targetB);
         assertEquals(rawB.value(), acceptedB.rawId(),
             "APPLIED A→B advances the current lineage raw");
-        final ExternalPsdEditHostProbe.TargetIdentity acceptedC =
-            ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+        final TargetResolution.TargetIdentity acceptedC =
+            PersistSaveChecks.acceptAppliedTargetLineage(
                 acceptedB, revisionBC, appliedBC, lineageRelationSnapshot(
                     "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage",
                     rawC), targetC);
         assertEquals(rawC.value(), acceptedC.rawId(),
             "APPLIED B→C advances from the prior current raw, not initial raw");
 
-        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+        expectIllegalState(() -> PersistSaveChecks.acceptAppliedTargetLineage(
             targetA, revisionAB, appliedAB, lineageRelationSnapshot(
                 "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawB),
             targetC), "wrong after raw is rejected");
-        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+        expectIllegalState(() -> PersistSaveChecks.acceptAppliedTargetLineage(
             targetA, revisionAB, appliedAB, lineageRelationSnapshot(
                 "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawA),
             targetB), "wrong current raw is rejected");
-        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+        expectIllegalState(() -> PersistSaveChecks.acceptAppliedTargetLineage(
             targetA, revisionAB, appliedAB, lineageRelationSnapshotWithRaws(
                 "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawB,
                 List.of(rawA, rawC)),
             targetB), "current after raw absent from relations is rejected");
-        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+        expectIllegalState(() -> PersistSaveChecks.acceptAppliedTargetLineage(
             targetA, revisionAB, appliedAB, lineageRelationSnapshot(
                 "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawB),
-            new ExternalPsdEditHostProbe.TargetIdentity(
+            new TargetResolution.TargetIdentity(
                 "other-document", "model-lineage", "binding-lineage", 7L,
                 "model-image-lineage", "art-mesh-lineage", rawB.value())),
             "document change is rejected");
-        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+        expectIllegalState(() -> PersistSaveChecks.acceptAppliedTargetLineage(
             targetA, revisionAB, appliedAB, lineageRelationSnapshot(
                 "other-binding", 7L, "model-image-lineage", "art-mesh-lineage", rawB),
             targetB), "binding change is rejected");
-        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+        expectIllegalState(() -> PersistSaveChecks.acceptAppliedTargetLineage(
             targetA, revisionAB, appliedAB, lineageRelationSnapshot(
                 "binding-lineage", 8L, "model-image-lineage", "art-mesh-lineage", rawB),
             targetB), "after-relation generation change is rejected");
-        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+        expectIllegalState(() -> PersistSaveChecks.acceptAppliedTargetLineage(
             targetA, revisionAB, appliedAB, lineageRelationSnapshot(
                 "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawB),
-            new ExternalPsdEditHostProbe.TargetIdentity(
+            new TargetResolution.TargetIdentity(
                 "document-lineage", "model-lineage", "binding-lineage", 7L,
                 "other-model-image", "art-mesh-lineage", rawB.value())),
             "model-image change is rejected");
-        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+        expectIllegalState(() -> PersistSaveChecks.acceptAppliedTargetLineage(
             targetA, revisionAB, appliedAB, lineageRelationSnapshot(
                 "binding-lineage", 7L, "model-image-lineage", "other-art-mesh", rawB),
             targetB), "after-relation ArtMesh change is rejected");
-        expectIllegalState(() -> ExternalPsdEditHostProbe.acceptAppliedTargetLineage(
+        expectIllegalState(() -> PersistSaveChecks.acceptAppliedTargetLineage(
             targetA, revisionBC, appliedAB, lineageRelationSnapshot(
                 "binding-lineage", 7L, "model-image-lineage", "art-mesh-lineage", rawB),
             targetB), "consumed revision mismatch is rejected");
 
         // Undo must target B (the last replacement-before target), while redo targets C.
-        assertTrue(ExternalPsdEditHostProbe.targetIdentityMatches(targetB,
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        assertTrue(TargetResolution.targetIdentityMatches(targetB,
+            new TargetResolution.TargetIdentity(
                 "document-lineage", "model-lineage", "binding-lineage", 7L,
                 "model-image-lineage", "art-mesh-lineage", rawB.value())),
             "Undo target retains the stable anchor and last-before raw B");
-        assertTrue(ExternalPsdEditHostProbe.targetIdentityMatches(targetC,
+        assertTrue(TargetResolution.targetIdentityMatches(targetC,
             acceptedC), "Redo target retains the applied raw C");
     }
 
@@ -2187,45 +2187,45 @@ public final class ExternalPsdEditHostProbeTest {
 
     private static PsdValidationContent.Fingerprint inspectWithCoordinatedExport(
         final Properties result, final String prefix, final RawImageId oldRaw,
-        final ExternalPsdEditHostProbe.RawImageRelationDelta delta,
-        final ExternalPsdEditHostProbe.TargetIdentity expected, final RawExportFixture fixture)
+        final RawExportCoordination.RawImageRelationDelta delta,
+        final TargetResolution.TargetIdentity expected, final RawExportFixture fixture)
         throws Exception {
-        return ExternalPsdEditHostProbe.inspectUniqueNewRaw(
+        return RawExportCoordination.inspectUniqueNewRaw(
             result, prefix, oldRaw, delta, candidate ->
-                ExternalPsdEditHostProbe.coordinateNewRawExport(
+                RawExportCoordination.coordinateNewRawExport(
                     result, prefix, expected, candidate,
                     fixture::startOnEdt, fixture::observeAfterOnEdt, fixture::stopCoordinated));
     }
 
-    private static ExternalPsdEditHostProbe.RawExportObservation rawExportObservation(
+    private static RawExportCoordination.RawExportObservation rawExportObservation(
         final String documentId, final String modelId, final String binding,
         final String modelImageId, final RawImageId candidate, final RawImageId currentRaw,
         final long generation, final int modelImageCount, final int candidateCount) {
-        return new ExternalPsdEditHostProbe.RawExportObservation(
+        return new RawExportCoordination.RawExportObservation(
             documentId, modelId, binding, modelImageId, "art-mesh-1", candidate.value(),
             currentRaw.value(), generation, modelImageCount, candidateCount, true, "");
     }
 
     private static final class RawExportFixture {
-        private final ExternalPsdEditHostProbe.RawExportObservation before;
-        private final ExternalPsdEditHostProbe.RawExportObservation postExport;
-        private ExternalPsdEditHostProbe.RawExportObservation after;
+        private final RawExportCoordination.RawExportObservation before;
+        private final RawExportCoordination.RawExportObservation postExport;
+        private RawExportCoordination.RawExportObservation after;
         private final byte[] bytes;
         private int exportCalls;
         private int coordinatorStopCalls;
         private int handleStopCalls;
 
-        private RawExportFixture(final ExternalPsdEditHostProbe.RawExportObservation before,
-            final ExternalPsdEditHostProbe.RawExportObservation after, final byte[] bytes) {
+        private RawExportFixture(final RawExportCoordination.RawExportObservation before,
+            final RawExportCoordination.RawExportObservation after, final byte[] bytes) {
             this.before = before;
             this.postExport = after;
             this.after = before;
             this.bytes = bytes;
         }
 
-        private ExternalPsdEditHostProbe.RawExportStarted startOnEdt(final RawImageId candidate,
-            final ExternalPsdEditHostProbe.RawExportPreflight preflight) throws Exception {
-            final AtomicReference<ExternalPsdEditHostProbe.RawExportStarted> started =
+        private RawExportCoordination.RawExportStarted startOnEdt(final RawImageId candidate,
+            final RawExportCoordination.RawExportPreflight preflight) throws Exception {
+            final AtomicReference<RawExportCoordination.RawExportStarted> started =
                 new AtomicReference<>();
             final AtomicReference<Throwable> failure = new AtomicReference<>();
             final Runnable action = () -> {
@@ -2235,8 +2235,8 @@ public final class ExternalPsdEditHostProbeTest {
                     preflight.verify(before);
                     exportCalls++;
                     after = postExport;
-                    final ExternalPsdEditHostProbe.RawImageExportHandle handle =
-                        new ExternalPsdEditHostProbe.RawImageExportHandle() {
+                    final RawExportCoordination.RawImageExportHandle handle =
+                        new RawExportCoordination.RawImageExportHandle() {
                             @Override public RawImageId rawId() { return candidate; }
                             @Override public byte[] bytes() { return bytes; }
                             @Override public PsdFileOperationResult stop() {
@@ -2245,7 +2245,7 @@ public final class ExternalPsdEditHostProbeTest {
                                     PsdFileOperationResult.Status.STOPPED, "stopped");
                             }
                         };
-                    started.set(new ExternalPsdEditHostProbe.RawExportStarted(before, handle));
+                    started.set(new RawExportCoordination.RawExportStarted(before, handle));
                 } catch (Throwable error) {
                     failure.set(error);
                 }
@@ -2256,9 +2256,9 @@ public final class ExternalPsdEditHostProbeTest {
             return started.get();
         }
 
-        private ExternalPsdEditHostProbe.RawExportObservation observeAfterOnEdt(
+        private RawExportCoordination.RawExportObservation observeAfterOnEdt(
             final RawImageId candidate) throws Exception {
-            final AtomicReference<ExternalPsdEditHostProbe.RawExportObservation> observed =
+            final AtomicReference<RawExportCoordination.RawExportObservation> observed =
                 new AtomicReference<>();
             final AtomicReference<Throwable> failure = new AtomicReference<>();
             SwingUtilities.invokeAndWait(() -> {
@@ -2276,7 +2276,7 @@ public final class ExternalPsdEditHostProbeTest {
         }
 
         private PsdFileOperationResult stopCoordinated(
-            final ExternalPsdEditHostProbe.RawImageExportHandle handle) {
+            final RawExportCoordination.RawImageExportHandle handle) {
             coordinatorStopCalls++;
             return new PsdFileOperationResult(
                 PsdFileOperationResult.Status.STOPPED, "coordinated stop");
@@ -2313,12 +2313,12 @@ public final class ExternalPsdEditHostProbeTest {
         final PsdValidationContent.Fingerprint fingerprint =
             new PsdValidationContent.Fingerprint(
                 "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2));
-        final ExternalPsdEditHostProbe.DiagnosticObservation observation =
-            ExternalPsdEditHostProbe.DiagnosticObservation.available(
+        final DiagnosticObservationRecorder.DiagnosticObservation observation =
+            DiagnosticObservationRecorder.DiagnosticObservation.available(
                 "raw-1", "model-1", "selector-raw-1=[layer-6]",
                 "document-1/layer-6/name=layer/artMeshIds=[ArtMesh4]", fingerprint);
         final Properties result = new Properties();
-        ExternalPsdEditHostProbe.recordDiagnosticObservation(
+        DiagnosticObservationRecorder.recordDiagnosticObservation(
             result, "persist.observation.baseline", observation);
         assertEquals("AVAILABLE", result.getProperty("persist.observation.baseline.status"),
             "available boundary is recorded");
@@ -2337,9 +2337,9 @@ public final class ExternalPsdEditHostProbeTest {
             "fresh native RGB fingerprint is recorded");
 
         final Properties unavailable = new Properties();
-        ExternalPsdEditHostProbe.recordDiagnosticObservation(
+        DiagnosticObservationRecorder.recordDiagnosticObservation(
             unavailable, "persist.observation.importCompletion",
-            ExternalPsdEditHostProbe.DiagnosticObservation.unavailable(
+            DiagnosticObservationRecorder.DiagnosticObservation.unavailable(
                 "psdDocuments unavailable"));
         assertEquals("UNAVAILABLE", unavailable.getProperty(
             "persist.observation.importCompletion.status"),
@@ -2353,7 +2353,7 @@ public final class ExternalPsdEditHostProbeTest {
             PsdReplaceResult.Status.APPLIED, "public completion", raw,
             java.util.Optional.of(raw), java.util.Optional.of(new PsdFileRevision() { }),
             java.util.Optional.empty());
-        ExternalPsdEditHostProbe.recordImportCompletion(
+        DiagnosticObservationRecorder.recordImportCompletion(
             result, "cycle.1", applied);
         assertEquals("true", result.getProperty("cycle.1.importCompletion.observed"),
             "public import completion is recorded");
@@ -2368,65 +2368,65 @@ public final class ExternalPsdEditHostProbeTest {
         final PsdValidationContent.Fingerprint fingerprint =
             new PsdValidationContent.Fingerprint(
                 "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2));
-        final ExternalPsdEditHostProbe.TargetIdentity expected =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity expected =
+            new TargetResolution.TargetIdentity(
                 "document-1", "model-1", "binding-1", 7L, "model-image-1",
                 "art-mesh-1", "raw-1");
-        final ExternalPsdEditHostProbe.TargetIdentity same =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity same =
+            new TargetResolution.TargetIdentity(
                 "document-1", "model-1", "binding-1", 7L, "model-image-1",
                 "art-mesh-1", "raw-1");
-        final ExternalPsdEditHostProbe.TargetIdentity switchedModel =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity switchedModel =
+            new TargetResolution.TargetIdentity(
                 "document-1", "model-2", "binding-1", 7L, "model-image-1",
                 "art-mesh-1", "raw-1");
-        final ExternalPsdEditHostProbe.TargetIdentity switchedDocument =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity switchedDocument =
+            new TargetResolution.TargetIdentity(
                 "document-2", "model-1", "binding-1", 7L, "model-image-1",
                 "art-mesh-1", "raw-1");
-        final ExternalPsdEditHostProbe.TargetIdentity switchedBinding =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity switchedBinding =
+            new TargetResolution.TargetIdentity(
                 "document-1", "model-1", "binding-2", 7L, "model-image-1",
                 "art-mesh-1", "raw-1");
-        final ExternalPsdEditHostProbe.TargetIdentity switchedRaw =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity switchedRaw =
+            new TargetResolution.TargetIdentity(
                 "document-1", "model-1", "binding-1", 7L, "model-image-1",
                 "art-mesh-1", "raw-2");
 
-        assertTrue(ExternalPsdEditHostProbe.targetIdentityMatches(expected, same),
+        assertTrue(TargetResolution.targetIdentityMatches(expected, same),
             "the captured target identity matches itself");
-        assertEquals("AVAILABLE", ExternalPsdEditHostProbe.diagnosticStatusForTarget(
+        assertEquals("AVAILABLE", PersistSaveChecks.diagnosticStatusForTarget(
             expected, same, true, true, fingerprint).name(),
             "a complete observation for the bound target is available");
         for (final var mismatch : List.of(
             switchedModel, switchedDocument, switchedBinding, switchedRaw)) {
-            assertTrue(!ExternalPsdEditHostProbe.targetIdentityMatches(expected, mismatch),
+            assertTrue(!TargetResolution.targetIdentityMatches(expected, mismatch),
                 "target identity mismatch is detected: " + mismatch);
-            assertEquals("UNAVAILABLE", ExternalPsdEditHostProbe.diagnosticStatusForTarget(
+            assertEquals("UNAVAILABLE", PersistSaveChecks.diagnosticStatusForTarget(
                 expected, mismatch, true, true, fingerprint).name(),
                 "target identity mismatch cannot be combined with an available observation");
         }
 
-        final ExternalPsdEditHostProbe.TargetIdentity legacyIncomplete =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity legacyIncomplete =
+            new TargetResolution.TargetIdentity(
                 "document-1", "model-1", "binding-1", "model-image-1", "raw-1");
-        assertTrue(!ExternalPsdEditHostProbe.targetIdentityMatches(
+        assertTrue(!TargetResolution.targetIdentityMatches(
             legacyIncomplete, legacyIncomplete),
             "legacy five-field identity is rejected fail-closed");
-        assertTrue(!ExternalPsdEditHostProbe.stableTargetIdentityMatches(
+        assertTrue(!TargetResolution.stableTargetIdentityMatches(
             legacyIncomplete, legacyIncomplete),
             "legacy five-field identity cannot satisfy the stable anchor");
-        assertEquals("UNAVAILABLE", ExternalPsdEditHostProbe.diagnosticStatusForTarget(
+        assertEquals("UNAVAILABLE", PersistSaveChecks.diagnosticStatusForTarget(
             legacyIncomplete, legacyIncomplete, true, true, fingerprint).name(),
             "legacy five-field identity remains unavailable diagnostic evidence");
 
-        final ExternalPsdEditHostProbe.DiagnosticObservation observation =
-            new ExternalPsdEditHostProbe.DiagnosticObservation(
-                ExternalPsdEditHostProbe.DiagnosticStatus.AVAILABLE,
+        final DiagnosticObservationRecorder.DiagnosticObservation observation =
+            new DiagnosticObservationRecorder.DiagnosticObservation(
+                DiagnosticObservationRecorder.DiagnosticStatus.AVAILABLE,
                 "", "[raw-1]", "[model-image-1]", "selector", "live",
                 true, true, fingerprint, same, true, 11L, 22L, 33L, 44L);
         final Properties result = new Properties();
-        ExternalPsdEditHostProbe.recordDiagnosticObservation(
+        DiagnosticObservationRecorder.recordDiagnosticObservation(
             result, "persist.observation.bound", observation);
         assertEquals("true", result.getProperty(
             "persist.observation.bound.target.identityVerified"),
@@ -2441,13 +2441,13 @@ public final class ExternalPsdEditHostProbeTest {
             "persist.observation.bound.observation.metadataStartedAtEpochMs"),
             "metadata observation start time is recorded");
 
-        final ExternalPsdEditHostProbe.DiagnosticObservation mismatched =
-            new ExternalPsdEditHostProbe.DiagnosticObservation(
-                ExternalPsdEditHostProbe.DiagnosticStatus.UNAVAILABLE,
+        final DiagnosticObservationRecorder.DiagnosticObservation mismatched =
+            new DiagnosticObservationRecorder.DiagnosticObservation(
+                DiagnosticObservationRecorder.DiagnosticStatus.UNAVAILABLE,
                 "target identity changed", "[raw-2]", "[model-image-1]", "selector", "live",
                 true, true, fingerprint, switchedRaw, false, 11L, 22L, 33L, 44L);
         final Properties unavailable = new Properties();
-        ExternalPsdEditHostProbe.recordDiagnosticObservation(
+        DiagnosticObservationRecorder.recordDiagnosticObservation(
             unavailable, "persist.observation.switched", mismatched);
         assertEquals("UNAVAILABLE", unavailable.getProperty(
             "persist.observation.switched.status"),
@@ -2463,12 +2463,12 @@ public final class ExternalPsdEditHostProbeTest {
         final PsdValidationContent.Fingerprint fingerprint =
             new PsdValidationContent.Fingerprint(
                 "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2));
-        final ExternalPsdEditHostProbe.TargetIdentity expected =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity expected =
+            new TargetResolution.TargetIdentity(
                 "cmo-document-id", "model-1", "binding-1", 7L, "model-image-1",
                 "art-mesh-1", "raw-guid-target");
-        final ExternalPsdEditHostProbe.TargetIdentity observed =
-            new ExternalPsdEditHostProbe.TargetIdentity(
+        final TargetResolution.TargetIdentity observed =
+            new TargetResolution.TargetIdentity(
                 "cmo-document-id", "model-1", "binding-1", 7L, "model-image-1",
                 "art-mesh-1", "raw-guid-target");
         final PsdLayerSnapshot layer = new PsdLayerSnapshot(
@@ -2482,42 +2482,42 @@ public final class ExternalPsdEditHostProbeTest {
 
         assertTrue(!expected.documentId().equals(targetSnapshot.documentId()),
             "CMO document ID is distinct from the PSD raw GUID");
-        assertTrue(ExternalPsdEditHostProbe.hasUniquePsdSnapshotForRawImage(
+        assertTrue(PersistSaveChecks.hasUniquePsdSnapshotForRawImage(
             List.of(targetSnapshot, otherSnapshot), expected.rawId()),
             "the PSD snapshot matching the target RawImageId is available");
-        assertTrue(!ExternalPsdEditHostProbe.hasUniquePsdSnapshotForRawImage(
+        assertTrue(!PersistSaveChecks.hasUniquePsdSnapshotForRawImage(
             List.of(otherSnapshot), expected.rawId()),
             "a snapshot for another raw image is rejected");
-        assertEquals("AVAILABLE", ExternalPsdEditHostProbe.diagnosticStatusForTarget(
+        assertEquals("AVAILABLE", PersistSaveChecks.diagnosticStatusForTarget(
             expected, observed, true, true, fingerprint, true).name(),
             "matching raw snapshot does not require matching the CMO document ID");
-        assertEquals("UNAVAILABLE", ExternalPsdEditHostProbe.diagnosticStatusForTarget(
+        assertEquals("UNAVAILABLE", PersistSaveChecks.diagnosticStatusForTarget(
             expected, observed, true, true, fingerprint, false).name(),
             "missing target raw snapshot keeps the diagnostic unavailable");
     }
 
     private static void testDiagnosticBudgetIsRecomputedPerStage() {
         final long started = System.nanoTime() - TimeUnit.MILLISECONDS.toNanos(20);
-        final long remaining = ExternalPsdEditHostProbe.remainingDiagnosticBudgetMillis(
+        final long remaining = DiagnosticObservationRecorder.remainingDiagnosticBudgetMillis(
             started, 1000L);
         assertTrue(remaining > 0L && remaining < 1000L,
             "a later diagnostic stage receives only the remaining budget");
 
         final PsdValidationContent.Bounds bounds = new PsdValidationContent.Bounds(
             450, 450, 550, 550);
-        final ExternalPsdEditHostProbe.DiagnosticObservation observation =
-            ExternalPsdEditHostProbe.DiagnosticObservation.available(
+        final DiagnosticObservationRecorder.DiagnosticObservation observation =
+            DiagnosticObservationRecorder.DiagnosticObservation.available(
                 "raw-1", "model-1", "selector", "live",
                 new PsdValidationContent.Fingerprint(
                     "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2)));
         final AtomicInteger sdkStageCalls = new AtomicInteger();
-        final ExternalPsdEditHostProbe.BoundedSettleResult exhaustedStage =
-            ExternalPsdEditHostProbe.awaitBoundedSettle(
+        final DiagnosticObservationRecorder.BoundedSettleResult exhaustedStage =
+            DiagnosticObservationRecorder.awaitBoundedSettle(
                 observation,
                 remainingMillis -> {
                     // Reproduce a stage that reaches its deadline after the supplier was
                     // admitted. The next SDK-stage seam must reject before the call counter.
-                    ExternalPsdEditHostProbe.remainingDiagnosticBudgetMillis(
+                    DiagnosticObservationRecorder.remainingDiagnosticBudgetMillis(
                         System.nanoTime() - TimeUnit.MILLISECONDS.toNanos(2000),
                         remainingMillis);
                     sdkStageCalls.incrementAndGet();
@@ -2528,7 +2528,7 @@ public final class ExternalPsdEditHostProbeTest {
             "an exhausted positive budget stops the supplier stage");
         assertEquals(0, sdkStageCalls.get(),
             "an exhausted positive budget cannot enter the next SDK stage");
-        assertEquals(0L, ExternalPsdEditHostProbe.remainingDiagnosticBudgetMillis(
+        assertEquals(0L, DiagnosticObservationRecorder.remainingDiagnosticBudgetMillis(
             System.nanoTime(), 0L),
             "the explicit zero budget remains the unlimited sentinel");
     }
@@ -2567,7 +2567,7 @@ public final class ExternalPsdEditHostProbeTest {
             List.of(new ArtMeshTextureInputs(
                 mesh, List.of(TextureInputBinding.modelImage(model)), OptionalInt.of(0))));
         final Properties result = new Properties();
-        ExternalPsdEditHostProbe.recordRelationProjection(
+        RawExportCoordination.recordRelationProjection(
             result, "persist.observation.baseline.relations", relations);
         assertEquals("[raw-1]", result.getProperty(
             "persist.observation.baseline.relations.rawIds"),
@@ -2584,7 +2584,7 @@ public final class ExternalPsdEditHostProbeTest {
 
         final PsdLayerSnapshot layer = new PsdLayerSnapshot(
             "layer-6", "Target", true, List.of(mesh), Optional.empty(), List.of());
-        final String live = ExternalPsdEditHostProbe.livePsdDocuments(List.of(
+        final String live = RawExportCoordination.livePsdDocuments(List.of(
             new PsdClipMaskDocumentSnapshot(
                 "document-1", "textures/source.psd", List.of(layer))));
         assertContains(live, "layerId=layer-6", "live PSD projection records layer ID");
@@ -2596,19 +2596,19 @@ public final class ExternalPsdEditHostProbeTest {
     private static void testBoundedSettleFailureAndTimeoutEvidence() throws Exception {
         final PsdValidationContent.Bounds bounds = new PsdValidationContent.Bounds(
             450, 450, 550, 550);
-        final ExternalPsdEditHostProbe.DiagnosticObservation first =
-            ExternalPsdEditHostProbe.DiagnosticObservation.available(
+        final DiagnosticObservationRecorder.DiagnosticObservation first =
+            DiagnosticObservationRecorder.DiagnosticObservation.available(
                 "raw-1", "model-1", "selector", "live-a",
                 new PsdValidationContent.Fingerprint(
                     "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2)));
-        final ExternalPsdEditHostProbe.DiagnosticObservation second =
-            ExternalPsdEditHostProbe.DiagnosticObservation.available(
+        final DiagnosticObservationRecorder.DiagnosticObservation second =
+            DiagnosticObservationRecorder.DiagnosticObservation.available(
                 "raw-1", "model-1", "selector", "live-b",
                 new PsdValidationContent.Fingerprint(
                     "b".repeat(64), bounds, 100, 100, List.of(0, 1, 2)));
         final AtomicInteger changing = new AtomicInteger();
-        final ExternalPsdEditHostProbe.BoundedSettleResult timeout =
-            ExternalPsdEditHostProbe.awaitBoundedSettle(
+        final DiagnosticObservationRecorder.BoundedSettleResult timeout =
+            DiagnosticObservationRecorder.awaitBoundedSettle(
                 first, () -> changing.getAndIncrement() % 2 == 0 ? second : first,
                 3, 1000, ignored -> { });
         assertEquals("TIMEOUT", timeout.status().name(),
@@ -2616,7 +2616,7 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(3, timeout.attempts(), "timeout retains bounded attempt count");
         assertContains(timeout.criterion(), "consecutive", "timeout retains stability criterion");
         final Properties timeoutEvidence = new Properties();
-        ExternalPsdEditHostProbe.recordBoundedSettle(
+        DiagnosticObservationRecorder.recordBoundedSettle(
             timeoutEvidence, "persist.observation.cycle.1.boundedSettle", timeout);
         assertEquals("3", timeoutEvidence.getProperty(
             "persist.observation.cycle.1.boundedSettle.attempts"),
@@ -2628,16 +2628,16 @@ public final class ExternalPsdEditHostProbeTest {
             "persist.observation.cycle.1.boundedSettle.durationMs")) >= 0,
             "timeout evidence records elapsed duration");
 
-        final ExternalPsdEditHostProbe.BoundedSettleResult stable =
-            ExternalPsdEditHostProbe.awaitBoundedSettle(
+        final DiagnosticObservationRecorder.BoundedSettleResult stable =
+            DiagnosticObservationRecorder.awaitBoundedSettle(
                 first, () -> second, 3, 1000, ignored -> { });
         assertEquals("STABLE", stable.status().name(),
             "a changed observation that remains stable is accepted");
         assertEquals(2, stable.attempts(),
             "settle requires two equal observations after the completion boundary");
 
-        final ExternalPsdEditHostProbe.BoundedSettleResult lateEqual =
-            ExternalPsdEditHostProbe.awaitBoundedSettle(
+        final DiagnosticObservationRecorder.BoundedSettleResult lateEqual =
+            DiagnosticObservationRecorder.awaitBoundedSettle(
                 first, () -> {
                     Thread.sleep(40);
                     return first;
@@ -2649,8 +2649,8 @@ public final class ExternalPsdEditHostProbeTest {
 
         final AtomicReference<Long> remainingBudget = new AtomicReference<>(0L);
         final AtomicInteger recordedLate = new AtomicInteger();
-        final ExternalPsdEditHostProbe.BoundedSettleResult lateBounded =
-            ExternalPsdEditHostProbe.awaitBoundedSettle(
+        final DiagnosticObservationRecorder.BoundedSettleResult lateBounded =
+            DiagnosticObservationRecorder.awaitBoundedSettle(
                 first,
                 remainingMillis -> {
                     remainingBudget.set(remainingMillis);
@@ -2671,7 +2671,7 @@ public final class ExternalPsdEditHostProbeTest {
             "late observation explains the timeout");
 
         final Properties stableEvidence = new Properties();
-        ExternalPsdEditHostProbe.recordBoundedSettle(
+        DiagnosticObservationRecorder.recordBoundedSettle(
             stableEvidence, "persist.observation.stable.boundedSettle", stable);
         assertEquals("UNAVAILABLE", stableEvidence.getProperty(
             "persist.observation.stable.boundedSettle.nativeCompletion"),
@@ -2683,7 +2683,7 @@ public final class ExternalPsdEditHostProbeTest {
         final AtomicReference<Throwable> edtFailure = new AtomicReference<>();
         SwingUtilities.invokeAndWait(() -> {
             try {
-                ExternalPsdEditHostProbe.awaitBoundedSettle(
+                DiagnosticObservationRecorder.awaitBoundedSettle(
                     first, () -> first, 1, 1000, ignored -> { });
             } catch (Throwable failure) {
                 edtFailure.set(failure);
@@ -2692,10 +2692,10 @@ public final class ExternalPsdEditHostProbeTest {
         assertTrue(edtFailure.get() instanceof IllegalStateException,
             "settle refuses to block the EDT");
 
-        final ExternalPsdEditHostProbe.BoundedSettleResult unavailable =
-            ExternalPsdEditHostProbe.awaitBoundedSettle(
+        final DiagnosticObservationRecorder.BoundedSettleResult unavailable =
+            DiagnosticObservationRecorder.awaitBoundedSettle(
                 first,
-                () -> ExternalPsdEditHostProbe.DiagnosticObservation.unavailable(
+                () -> DiagnosticObservationRecorder.DiagnosticObservation.unavailable(
                     "relations unavailable"),
                 3, 1000, ignored -> { });
         assertEquals("UNAVAILABLE", unavailable.status().name(),
@@ -2703,8 +2703,8 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(1, unavailable.attempts(),
             "unavailable boundary records the attempted observation");
 
-        final ExternalPsdEditHostProbe.BoundedSettleResult failure =
-            ExternalPsdEditHostProbe.awaitBoundedSettle(
+        final DiagnosticObservationRecorder.BoundedSettleResult failure =
+            DiagnosticObservationRecorder.awaitBoundedSettle(
                 first, () -> { throw new IOException("injected observation failure"); },
                 2, 1000, ignored -> { });
         assertEquals("FAILED", failure.status().name(),
@@ -2718,7 +2718,7 @@ public final class ExternalPsdEditHostProbeTest {
     private static void testFreshDiagnosticFailureEvidence() {
         final Properties result = new Properties();
         final IOException failure = new IOException("injected first fresh export failure");
-        ExternalPsdEditHostProbe.recordFreshDiagnosticFailure(
+        DiagnosticObservationRecorder.recordFreshDiagnosticFailure(
             result,
             "cycle.1.importCompletion",
             "persist.observation.cycle.1.boundedSettle",
@@ -2743,13 +2743,13 @@ public final class ExternalPsdEditHostProbeTest {
         try {
             final PsdValidationContent.Bounds bounds = new PsdValidationContent.Bounds(
                 450, 450, 550, 550);
-            final ExternalPsdEditHostProbe.DiagnosticObservation observation =
-                ExternalPsdEditHostProbe.DiagnosticObservation.available(
+            final DiagnosticObservationRecorder.DiagnosticObservation observation =
+                DiagnosticObservationRecorder.DiagnosticObservation.available(
                     "raw-1", "model-1", "selector", "live",
                     new PsdValidationContent.Fingerprint(
                         "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2)));
-            final ExternalPsdEditHostProbe.BoundedSettleResult interrupted =
-                ExternalPsdEditHostProbe.awaitBoundedSettle(
+            final DiagnosticObservationRecorder.BoundedSettleResult interrupted =
+                DiagnosticObservationRecorder.awaitBoundedSettle(
                     observation,
                     () -> { throw new InterruptedException("injected settle interrupt"); },
                     2,
@@ -2997,7 +2997,7 @@ public final class ExternalPsdEditHostProbeTest {
     }
 
     private static final class MutableGuiDiagnosticClock
-        implements ExternalPsdEditHostProbe.GuiDiagnosticClock {
+        implements GuiReadinessDiagnostics.GuiDiagnosticClock {
         private final AtomicLong nanos = new AtomicLong();
 
         @Override public long nanoTime() { return nanos.get(); }
@@ -3019,9 +3019,9 @@ public final class ExternalPsdEditHostProbeTest {
         final var modern = new OfficialPsdReplacementBaseline.CompositionObservation(
             "document", "model", 5030000, Map.of("ArtMesh",
                 new OfficialPsdReplacementBaseline.Composition("mesh-guid", "MULTIPLY_R2", "OVER")));
-        ExternalPsdEditHostProbe.requireCompositionProfile(legacy, "legacy");
-        ExternalPsdEditHostProbe.requireCompositionProfile(modern, "normal");
-        ExternalPsdEditHostProbe.requireSameComposition(legacy, legacy);
+        TargetResolution.requireCompositionProfile(legacy, "legacy");
+        TargetResolution.requireCompositionProfile(modern, "normal");
+        TargetResolution.requireSameComposition(legacy, legacy);
         for (final var changed : List.of(modern,
             new OfficialPsdReplacementBaseline.CompositionObservation(
                 "other-document", "model", 5030000, legacy.meshes()),
@@ -3033,20 +3033,20 @@ public final class ExternalPsdEditHostProbeTest {
             new OfficialPsdReplacementBaseline.CompositionObservation(
                 "document", "model", 5030000, Map.of()))) {
             try {
-                ExternalPsdEditHostProbe.requireSameComposition(legacy, changed);
+                TargetResolution.requireSameComposition(legacy, changed);
                 throw new AssertionError("changed composition/version/coverage was accepted");
             } catch (IllegalStateException expected) { }
         }
         try {
-            ExternalPsdEditHostProbe.requireCompositionProfile(modern, "legacy");
+            TargetResolution.requireCompositionProfile(modern, "legacy");
             throw new AssertionError("modern MULTIPLY_R2 was accepted as old MULTIPLY");
         } catch (IllegalStateException expected) { }
     }
 
     private static void testPopupTriggerDispatch() {
-        assertTrue(!ExternalPsdEditHostProbe.popupTriggerOnPress("Windows 11"),
+        assertTrue(!GuiRowDispatch.popupTriggerOnPress("Windows 11"),
             "Windows popup trigger is on release");
-        assertTrue(ExternalPsdEditHostProbe.popupTriggerOnPress("Linux"),
+        assertTrue(GuiRowDispatch.popupTriggerOnPress("Linux"),
             "non-Windows popup trigger is on press");
 
         assertSinglePopupTrigger(true, MouseEvent.MOUSE_PRESSED);
@@ -3056,7 +3056,7 @@ public final class ExternalPsdEditHostProbeTest {
     private static void assertSinglePopupTrigger(final boolean triggerOnPress,
         final int expectedTriggerEvent) {
         final RecordingComponent component = new RecordingComponent();
-        final var dispatch = ExternalPsdEditHostProbe.dispatchRightClick(
+        final var dispatch = GuiRowDispatch.dispatchRightClick(
             component, 10, 12, triggerOnPress);
         assertContains(dispatch.diagnostic(), "synthetic=",
             "synthetic event coordinates are recorded");
@@ -3076,9 +3076,9 @@ public final class ExternalPsdEditHostProbeTest {
     private static void testRightClickDispatchFailure() {
         final ThrowingComponent component = new ThrowingComponent();
         try {
-            ExternalPsdEditHostProbe.dispatchRightClick(component, 10, 12, true);
+            GuiRowDispatch.dispatchRightClick(component, 10, 12, true);
             throw new AssertionError("right-click handler failures must be exposed");
-        } catch (ExternalPsdEditHostProbe.RightClickDispatchException failure) {
+        } catch (GuiRowDispatch.RightClickDispatchException failure) {
             assertEquals(2L, component.events().stream()
                 .filter(event -> event.getButton() == MouseEvent.BUTTON3).count(),
                 "release is attempted after press failure");
@@ -3107,7 +3107,7 @@ public final class ExternalPsdEditHostProbeTest {
                 // menu-shortcut lookup; the production probe still dispatches normally.
             }
         };
-        final var dispatch = ExternalPsdEditHostProbe.dispatchRightClick(table, 2, 2, true);
+        final var dispatch = GuiRowDispatch.dispatchRightClick(table, 2, 2, true);
         assertContains(dispatch.diagnostic(), "target=",
             "dispatch target identity is recorded");
         assertContains(dispatch.diagnostic(), "renderer=",
@@ -3122,7 +3122,7 @@ public final class ExternalPsdEditHostProbeTest {
 
     private static void testRendererPreparationFollowsDispatch() {
         final OrderedTable table = new OrderedTable();
-        ExternalPsdEditHostProbe.dispatchRightClick(table, 2, 2, true);
+        GuiRowDispatch.dispatchRightClick(table, 2, 2, true);
         assertTrue(table.rightClickSeen(), "right-click events run before renderer preparation");
         assertTrue(table.rendererPrepared(), "live renderer diagnostic is still recorded");
     }
@@ -3130,9 +3130,9 @@ public final class ExternalPsdEditHostProbeTest {
     private static void testReplacedTargetAfterSelection() {
         final ReplacingComponent captured = new ReplacingComponent();
         final RecordingComponent replacement = new RecordingComponent();
-        final var dispatch = ExternalPsdEditHostProbe.dispatchRightClickAfterSelection(
+        final var dispatch = GuiRowDispatch.dispatchRightClickAfterSelection(
             captured, 10, 12, true,
-            () -> new ExternalPsdEditHostProbe.DispatchTarget(replacement, 20, 22));
+            () -> new GuiRowDispatch.DispatchTarget(replacement, 20, 22));
 
         assertTrue(captured.detached(), "selection phase records the captured component as detached");
         assertEquals(0L, captured.events().stream()
@@ -3151,7 +3151,7 @@ public final class ExternalPsdEditHostProbeTest {
     private static void testUnrelocatableTargetIsRejected() {
         final ReplacingComponent captured = new ReplacingComponent();
         try {
-            ExternalPsdEditHostProbe.dispatchRightClickAfterSelection(
+            GuiRowDispatch.dispatchRightClickAfterSelection(
                 captured, 10, 12, true, () -> null);
             throw new AssertionError("missing replacement target must be rejected");
         } catch (RuntimeException failure) {
@@ -3161,7 +3161,7 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(0L, captured.events().stream()
             .filter(event -> event.getButton() == MouseEvent.BUTTON3).count(),
             "unrelocatable target receives no right-click events");
-        assertEquals(3, ExternalPsdEditHostProbe.rowDispatchAttemptLimit(),
+        assertEquals(3, GuiRowDispatch.rowDispatchAttemptLimit(),
             "row relocation retries are bounded");
     }
 
@@ -3169,14 +3169,14 @@ public final class ExternalPsdEditHostProbeTest {
         final String sourceClass = ExactHostRowTarget.ART_MESH_SOURCE_CLASS_NAME;
         final ExactHostRowTarget.Identity capturedIdentity = new ExactHostRowTarget.Identity(
             ExactHostRowTarget.RowFamily.PARTS, sourceClass, "ArtMesh4");
-        final ExternalPsdEditHostProbe.ExactCapturedRow captured = exactCapturedRow(
+        final ExactHostRowDispatch.ExactCapturedRow captured = exactCapturedRow(
             capturedIdentity, "capture-table", "capture-window", "capture-model", 2,
             true, false);
         final LiveComponent rebuiltComponent = new LiveComponent();
-        final ExternalPsdEditHostProbe.ExactCurrentRow rebuilt = exactCurrentRow(
+        final ExactHostRowDispatch.ExactCurrentRow rebuilt = exactCurrentRow(
             capturedIdentity, "replacement-table", "capture-window", "replacement-model", 8,
             true, false, rebuiltComponent);
-        final var relocated = ExternalPsdEditHostProbe.resolveExactActiveRowForTest(
+        final var relocated = ExactHostRowDispatch.resolveExactActiveRowForTest(
             captured, List.of(rebuilt));
         assertTrue(relocated.available(), "same family/source/domain identity relocates after rebuild");
         assertSame(rebuiltComponent, relocated.row().component(),
@@ -3184,13 +3184,13 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(8, relocated.row().descriptor().viewRow(),
             "rebuild relocation uses the fresh row, not the captured row index");
 
-        final var differentId = ExternalPsdEditHostProbe.resolveExactActiveRowForTest(
+        final var differentId = ExactHostRowDispatch.resolveExactActiveRowForTest(
             captured, List.of(exactCurrentRow(
                 new ExactHostRowTarget.Identity(ExactHostRowTarget.RowFamily.PARTS,
                     sourceClass, "ArtMesh5"), "other-table", "capture-window", "other-model", 8,
                 true, false, new LiveComponent())));
         assertTrue(!differentId.available(), "a different captured ArtMesh ID is not a candidate");
-        final var differentFamily = ExternalPsdEditHostProbe.resolveExactActiveRowForTest(
+        final var differentFamily = ExactHostRowDispatch.resolveExactActiveRowForTest(
             captured, List.of(exactCurrentRow(
                 new ExactHostRowTarget.Identity(ExactHostRowTarget.RowFamily.DEFORMER,
                     sourceClass, "ArtMesh4"), "other-table", "capture-window", "other-model", 8,
@@ -3198,7 +3198,7 @@ public final class ExternalPsdEditHostProbeTest {
         assertTrue(!differentFamily.available(), "a different row family is not a candidate");
         final LiveComponent mismatchComponent = new LiveComponent();
         final var mismatchDispatch = onEdt(() ->
-            ExternalPsdEditHostProbe.dispatchExactResolvedRowForTest(
+            ExactHostRowDispatch.dispatchExactResolvedRowForTest(
                 captured, exactCurrentRow(
                     new ExactHostRowTarget.Identity(ExactHostRowTarget.RowFamily.PARTS,
                         sourceClass, "ArtMesh5"), "other-table", "capture-window", "other-model", 2,
@@ -3208,14 +3208,14 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(0, mismatchComponent.mouseEvents().size(),
             "different target receives no left or right click");
 
-        final var otherWindow = ExternalPsdEditHostProbe.resolveExactActiveRowForTest(
+        final var otherWindow = ExactHostRowDispatch.resolveExactActiveRowForTest(
             captured, List.of(exactCurrentRow(capturedIdentity, "other-table", "other-window",
                 "other-model", 8, true, false, new LiveComponent())));
         assertTrue(!otherWindow.available(), "same ID in another window is rejected");
         assertContains(otherWindow.reason(), "another window",
             "cross-window exact target rejection is explicit");
 
-        final var ambiguous = ExternalPsdEditHostProbe.resolveExactActiveRowForTest(
+        final var ambiguous = ExactHostRowDispatch.resolveExactActiveRowForTest(
             captured, List.of(
                 rebuilt,
                 exactCurrentRow(capturedIdentity, "second-table", "capture-window", "second-model",
@@ -3226,10 +3226,10 @@ public final class ExternalPsdEditHostProbeTest {
 
         final var changedState = exactCurrentRow(capturedIdentity, "replacement-table",
             "capture-window", "replacement-model", 8, false, false, rebuiltComponent);
-        assertTrue(!ExternalPsdEditHostProbe.sameExactStateForTest(captured, changedState),
+        assertTrue(!ExactHostRowDispatch.sameExactStateForTest(captured, changedState),
             "visibility change is not treated as the same exact target state");
         final var stateDispatch = onEdt(() ->
-            ExternalPsdEditHostProbe.dispatchExactResolvedRowForTest(
+            ExactHostRowDispatch.dispatchExactResolvedRowForTest(
                 captured, changedState, changedState));
         assertContains(stateDispatch.diagnostic(), "not-dispatched",
             "state change is rejected before selection and right-click");
@@ -3241,14 +3241,14 @@ public final class ExternalPsdEditHostProbeTest {
             ExactHostRowTarget.nameCellForTest(nameTable, 0).orElseThrow());
         final ExactHostRowTarget.Identity nameIdentity = new ExactHostRowTarget.Identity(
             ExactHostRowTarget.RowFamily.DEFORMER, sourceClass, "ArtMesh4");
-        final ExternalPsdEditHostProbe.ExactCapturedRow nameCaptured =
-            new ExternalPsdEditHostProbe.ExactCapturedRow(nameIdentity, "name-table",
+        final ExactHostRowDispatch.ExactCapturedRow nameCaptured =
+            new ExactHostRowDispatch.ExactCapturedRow(nameIdentity, "name-table",
                 "name-window", "name-model", nameCell.viewRow(), nameCell.modelRow(), nameCell,
                 new ExactHostRowTarget.VisibilityLockState(true, false));
-        final ExternalPsdEditHostProbe.ExactCurrentRow nameCurrent =
-            new ExternalPsdEditHostProbe.ExactCurrentRow(nameCaptured, nameTable);
+        final ExactHostRowDispatch.ExactCurrentRow nameCurrent =
+            new ExactHostRowDispatch.ExactCurrentRow(nameCaptured, nameTable);
         final var offEdtDispatch =
-            ExternalPsdEditHostProbe.dispatchExactResolvedRowForTest(
+            ExactHostRowDispatch.dispatchExactResolvedRowForTest(
                 nameCaptured, nameCurrent, nameCurrent);
         assertContains(offEdtDispatch.diagnostic(), "must run on EDT",
             "exact Swing dispatch seam rejects off-EDT access");
@@ -3257,7 +3257,7 @@ public final class ExternalPsdEditHostProbeTest {
         final Object drawBefore = nameTable.getModel().getValueAt(0, 0);
         final Object lockBefore = nameTable.getModel().getValueAt(0, 1);
         final var nameDispatch = onEdt(() ->
-            ExternalPsdEditHostProbe.dispatchExactResolvedRowForTest(
+            ExactHostRowDispatch.dispatchExactResolvedRowForTest(
                 nameCaptured, nameCurrent, nameCurrent));
         assertContains(nameDispatch.diagnostic(), "afterLeft=",
             "exact dispatch records the refreshed row identity and state");
@@ -3273,21 +3273,21 @@ public final class ExternalPsdEditHostProbeTest {
             "name-column events do not change Lock state");
     }
 
-    private static ExternalPsdEditHostProbe.ExactCapturedRow exactCapturedRow(
+    private static ExactHostRowDispatch.ExactCapturedRow exactCapturedRow(
         final ExactHostRowTarget.Identity identity, final String widget, final String window,
         final String model, final int row, final boolean visible, final boolean locked) {
         final ExactHostRowTarget.NameCell cell = new ExactHostRowTarget.NameCell(
             row, row, 2, ExactHostRowTarget.NAME_MODEL_COLUMN,
             new Rectangle(0, row * 20, 120, 20), new Point(60, row * 20 + 10));
-        return new ExternalPsdEditHostProbe.ExactCapturedRow(identity, widget, window, model,
+        return new ExactHostRowDispatch.ExactCapturedRow(identity, widget, window, model,
             row, row, cell, new ExactHostRowTarget.VisibilityLockState(visible, locked));
     }
 
-    private static ExternalPsdEditHostProbe.ExactCurrentRow exactCurrentRow(
+    private static ExactHostRowDispatch.ExactCurrentRow exactCurrentRow(
         final ExactHostRowTarget.Identity identity, final String widget, final String window,
         final String model, final int row, final boolean visible, final boolean locked,
         final Component component) {
-        return new ExternalPsdEditHostProbe.ExactCurrentRow(
+        return new ExactHostRowDispatch.ExactCurrentRow(
             exactCapturedRow(identity, widget, window, model, row, visible, locked), component);
     }
 
@@ -3296,12 +3296,12 @@ public final class ExternalPsdEditHostProbeTest {
         final Component replacement = new RecordingComponent();
         final var captured = capturedRow("widget-a", "window-a", 2, "mesh-a", true);
 
-        final var sameIdentity = ExternalPsdEditHostProbe.resolveActiveRowForTest(
+        final var sameIdentity = GuiRowDispatch.resolveActiveRowForTest(
             captured, List.of(currentRow("widget-a", "window-a", 2, "mesh-a", true, original)));
         assertTrue(sameIdentity.available(), "same widget and row identity resolves");
         assertSame(original, sameIdentity.row().component(), "same identity keeps target");
 
-        final var sameIdentityWithDuplicate = ExternalPsdEditHostProbe.resolveActiveRowForTest(
+        final var sameIdentityWithDuplicate = GuiRowDispatch.resolveActiveRowForTest(
             captured, List.of(
                 currentRow("widget-a", "window-a", 2, "mesh-a", true, original),
                 currentRow("widget-b", "window-a", 8, "mesh-a", true, replacement)));
@@ -3310,32 +3310,32 @@ public final class ExternalPsdEditHostProbeTest {
         assertSame(original, sameIdentityWithDuplicate.row().component(),
             "same identity branch preserves the captured target constraint");
 
-        final var moved = ExternalPsdEditHostProbe.resolveActiveRowForTest(
+        final var moved = GuiRowDispatch.resolveActiveRowForTest(
             captured, List.of(currentRow("widget-a", "window-a", 7, "mesh-a", true, original)));
         assertTrue(moved.available(), "a uniquely keyed row can move within its widget");
         assertEquals(7, moved.row().row(), "row movement resolves the new row index");
 
-        final var replaced = ExternalPsdEditHostProbe.resolveActiveRowForTest(
+        final var replaced = GuiRowDispatch.resolveActiveRowForTest(
             captured, List.of(currentRow("widget-b", "window-a", 8, "mesh-a", true, replacement)));
         assertTrue(replaced.available(), "a replacement component can be relocated");
         assertSame(replacement, replaced.row().component(),
             "replacement component is the resolved target");
         assertEquals(8, replaced.row().row(), "replacement row is used instead of captured index");
 
-        final var otherWindow = ExternalPsdEditHostProbe.resolveActiveRowForTest(
+        final var otherWindow = GuiRowDispatch.resolveActiveRowForTest(
             captured, List.of(currentRow("widget-b", "window-b", 8, "mesh-a", true, replacement)));
         assertTrue(!otherWindow.available(), "matching row in another window is rejected");
         assertContains(otherWindow.reason(), "captured window",
             "cross-window rejection identifies the captured window constraint");
 
-        final var ambiguous = ExternalPsdEditHostProbe.resolveActiveRowForTest(
+        final var ambiguous = GuiRowDispatch.resolveActiveRowForTest(
             captured, List.of(
                 currentRow("widget-b", "window-a", 8, "mesh-a", true, replacement),
                 currentRow("widget-c", "window-a", 9, "mesh-a", true, new RecordingComponent())));
         assertTrue(!ambiguous.available(), "duplicate same-window keys are rejected");
         assertContains(ambiguous.reason(), "ambiguous", "ambiguous row rejection is explicit");
 
-        final var unavailable = ExternalPsdEditHostProbe.resolveActiveRowForTest(
+        final var unavailable = GuiRowDispatch.resolveActiveRowForTest(
             capturedRow("widget-a", "window-a", 2, "", false),
             List.of(currentRow("widget-a", "window-a", 2, "mesh-a", true, original)));
         assertTrue(!unavailable.available(), "an unavailable capture key is rejected");
@@ -3350,13 +3350,13 @@ public final class ExternalPsdEditHostProbeTest {
             ExactHostRowTarget.RowFamily.PARTS, sourceClass, expectedDomainId);
         final ExactHostRowTarget.Identity deformerIdentity = new ExactHostRowTarget.Identity(
             ExactHostRowTarget.RowFamily.DEFORMER, sourceClass, expectedDomainId);
-        final ExternalPsdEditHostProbe.ExactCapturedRow parts = exactCapturedRow(
+        final ExactHostRowDispatch.ExactCapturedRow parts = exactCapturedRow(
             partsIdentity, "parts-table", "active-window", "parts-model", 4, true, false);
-        final ExternalPsdEditHostProbe.ExactCapturedRow deformer = exactCapturedRow(
+        final ExactHostRowDispatch.ExactCapturedRow deformer = exactCapturedRow(
             deformerIdentity, "deformer-table", "active-window", "deformer-model", 2,
             true, false);
 
-        final var bothFamilies = ExternalPsdEditHostProbe.selectExactTargetRowsForTest(
+        final var bothFamilies = ExactHostRowDispatch.selectExactTargetRowsForTest(
             List.of(parts, deformer), "active-window", expectedDomainId);
         assertTrue(bothFamilies.available(),
             "one Parts and one Deformer row for the same ArtMesh are legal entrances");
@@ -3369,17 +3369,17 @@ public final class ExternalPsdEditHostProbeTest {
             bothFamilies.rows().get(1).identity().rowFamily(),
             "Parts is the deterministic fallback entrance");
 
-        final var duplicateFamily = ExternalPsdEditHostProbe.selectExactTargetRowsForTest(
+        final var duplicateFamily = ExactHostRowDispatch.selectExactTargetRowsForTest(
             List.of(parts, exactCapturedRow(partsIdentity, "parts-table-2", "active-window",
                 "parts-model-2", 9, true, false)), "active-window", expectedDomainId);
         assertTrue(!duplicateFamily.available(),
             "multiple active candidates in one row family are rejected");
-        assertEquals(ExternalPsdEditHostProbe.ExactTargetSelectionStatus.AMBIGUOUS,
+        assertEquals(ExactHostRowDispatch.ExactTargetSelectionStatus.AMBIGUOUS,
             duplicateFamily.status(), "same-family duplication is classified as ambiguous");
         assertContains(duplicateFamily.reason(), "same row family",
             "same-family ambiguity explains the target constraint");
 
-        final var activeAndOtherWindow = ExternalPsdEditHostProbe.selectExactTargetRowsForTest(
+        final var activeAndOtherWindow = ExactHostRowDispatch.selectExactTargetRowsForTest(
             List.of(parts, exactCapturedRow(deformerIdentity, "other-window-table",
                 "other-window", "other-model", 1, true, false)),
             "active-window", expectedDomainId);
@@ -3391,31 +3391,31 @@ public final class ExternalPsdEditHostProbeTest {
             activeAndOtherWindow.rows().get(0).windowIdentity(),
             "selection cannot fall back to another window");
 
-        final var onlyOtherWindow = ExternalPsdEditHostProbe.selectExactTargetRowsForTest(
+        final var onlyOtherWindow = ExactHostRowDispatch.selectExactTargetRowsForTest(
             List.of(exactCapturedRow(deformerIdentity, "other-window-table", "other-window",
                 "other-model", 1, true, false)), "active-window", expectedDomainId);
         assertTrue(!onlyOtherWindow.available(),
             "a matching row only in another window is rejected");
-        assertEquals(ExternalPsdEditHostProbe.ExactTargetSelectionStatus.REJECTED,
+        assertEquals(ExactHostRowDispatch.ExactTargetSelectionStatus.REJECTED,
             onlyOtherWindow.status(), "cross-window fallback is a hard rejection");
         assertContains(onlyOtherWindow.reason(), "another window",
             "cross-window rejection is explicit");
 
-        final var unknownWindow = ExternalPsdEditHostProbe.selectExactTargetRowsForTest(
+        final var unknownWindow = ExactHostRowDispatch.selectExactTargetRowsForTest(
             List.of(parts, deformer), "", expectedDomainId);
         assertTrue(!unknownWindow.available(),
             "an unproven active window cannot select any target");
-        assertEquals(ExternalPsdEditHostProbe.ExactTargetSelectionStatus.REJECTED,
+        assertEquals(ExactHostRowDispatch.ExactTargetSelectionStatus.REJECTED,
             unknownWindow.status(), "unknown active window is fail-closed");
 
-        final var differentId = ExternalPsdEditHostProbe.selectExactTargetRowsForTest(
+        final var differentId = ExactHostRowDispatch.selectExactTargetRowsForTest(
             List.of(exactCapturedRow(new ExactHostRowTarget.Identity(
                 ExactHostRowTarget.RowFamily.PARTS, sourceClass, "ArtMesh5"),
                 "different-id-table", "active-window", "different-id-model", 3,
                 true, false)), "active-window", expectedDomainId);
         assertTrue(!differentId.available(),
             "a different ArtMesh domain ID cannot be selected");
-        assertEquals(ExternalPsdEditHostProbe.ExactTargetSelectionStatus.NOT_FOUND,
+        assertEquals(ExactHostRowDispatch.ExactTargetSelectionStatus.NOT_FOUND,
             differentId.status(), "different domain IDs are not treated as ambiguity");
         assertEquals(0, differentId.rows().size(),
             "a different domain ID produces no click candidate");
@@ -3427,12 +3427,12 @@ public final class ExternalPsdEditHostProbeTest {
             ExactHostRowTarget.RowFamily.PARTS, sourceClass, "ArtMesh4");
         final ExactHostRowTarget.Identity deformerIdentity = new ExactHostRowTarget.Identity(
             ExactHostRowTarget.RowFamily.DEFORMER, sourceClass, "ArtMesh4");
-        final List<ExternalPsdEditHostProbe.ExactCapturedRow> rows = List.of(
+        final List<ExactHostRowDispatch.ExactCapturedRow> rows = List.of(
             exactCapturedRow(partsIdentity, "parts-table", "document-window", "parts-model",
                 4, true, false),
             exactCapturedRow(deformerIdentity, "deformer-table", "document-window",
                 "deformer-model", 2, true, false));
-        final var bound = ExternalPsdEditHostProbe.validateTaskWindowBindingForTest(
+        final var bound = TargetResolution.validateTaskWindowBindingForTest(
             "external-psd-edit-025.cmo3", "external-psd-edit-025.cmo3", "document-1",
             "model-1", "document-window", "ArtMesh4", rows);
         assertTrue(bound.bound(),
@@ -3443,17 +3443,17 @@ public final class ExternalPsdEditHostProbeTest {
             "task-window evidence records the complete ArtMesh domain ID");
 
         final var sameWindowAfterSaveAs =
-            ExternalPsdEditHostProbe.validateTaskWindowBindingForTest(
+            TargetResolution.validateTaskWindowBindingForTest(
                 "external-psd-edit-025.cmo3", "external-psd-edit-025.cmo3", "document-1",
                 "model-1", "document-window", "ArtMesh4", rows);
         assertTrue(sameWindowAfterSaveAs.bound(),
             "SAVE_AS does not require re-resolving the retained document window");
-        final var focusChanged = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+        final var focusChanged = TargetResolution.decideGuiWindowBindingForTest(
             "document-window", "other-window", true, true);
         assertTrue(focusChanged.waitForBoundWindow() && !focusChanged.bindNow(),
             "a changed active window cannot replace the retained task document window");
 
-        final var onlyOtherWindow = ExternalPsdEditHostProbe.validateTaskWindowBindingForTest(
+        final var onlyOtherWindow = TargetResolution.validateTaskWindowBindingForTest(
             "external-psd-edit-025.cmo3", "external-psd-edit-025.cmo3", "document-1", "model-1",
             "document-window", "ArtMesh4", List.of(exactCapturedRow(deformerIdentity,
                 "other-table", "other-window", "other-model", 2, true, false)));
@@ -3462,13 +3462,13 @@ public final class ExternalPsdEditHostProbeTest {
         assertContains(onlyOtherWindow.diagnostic(), "another window",
             "cross-window task binding rejection is explicit");
 
-        final var fixtureMismatch = ExternalPsdEditHostProbe.validateTaskWindowBindingForTest(
+        final var fixtureMismatch = TargetResolution.validateTaskWindowBindingForTest(
             "external-psd-edit-025.cmo3", "different-document.cmo3", "document-1", "model-1",
             "document-window", "ArtMesh4", rows);
         assertTrue(!fixtureMismatch.bound(),
             "a non-task fixture document cannot license the host close target");
 
-        final var missingDocument = ExternalPsdEditHostProbe.validateTaskWindowBindingForTest(
+        final var missingDocument = TargetResolution.validateTaskWindowBindingForTest(
             "external-psd-edit-025.cmo3", "external-psd-edit-025.cmo3", "", "model-1",
             "document-window", "ArtMesh4", rows);
         assertTrue(!missingDocument.bound(),
@@ -3480,10 +3480,10 @@ public final class ExternalPsdEditHostProbeTest {
             {"a", "b|String:c"},
             {"a|String:b", "c"}
         }, new Object[]{"one", "two"});
-        final var first = ExternalPsdEditHostProbe.rowKeyForTest(
-            collision, ExternalPsdEditHostProbe.RowKind.TABLE, 0);
-        final var second = ExternalPsdEditHostProbe.rowKeyForTest(
-            collision, ExternalPsdEditHostProbe.RowKind.TABLE, 1);
+        final var first = GuiRowDispatch.rowKeyForTest(
+            collision, GuiRowDispatch.RowKind.TABLE, 0);
+        final var second = GuiRowDispatch.rowKeyForTest(
+            collision, GuiRowDispatch.RowKind.TABLE, 1);
         assertTrue(first.available() && second.available(),
             "ordinary table values have stable keys");
         assertTrue(!first.value().equals(second.value()),
@@ -3493,41 +3493,41 @@ public final class ExternalPsdEditHostProbeTest {
         final JTable longValues = new JTable(new Object[][]{
             {prefix + "a"}, {prefix + "b"}
         }, new Object[]{"one"});
-        final var longFirst = ExternalPsdEditHostProbe.rowKeyForTest(
-            longValues, ExternalPsdEditHostProbe.RowKind.TABLE, 0);
-        final var longSecond = ExternalPsdEditHostProbe.rowKeyForTest(
-            longValues, ExternalPsdEditHostProbe.RowKind.TABLE, 1);
+        final var longFirst = GuiRowDispatch.rowKeyForTest(
+            longValues, GuiRowDispatch.RowKind.TABLE, 0);
+        final var longSecond = GuiRowDispatch.rowKeyForTest(
+            longValues, GuiRowDispatch.RowKind.TABLE, 1);
         assertTrue(!longFirst.value().equals(longSecond.value()),
             "full values, not a 256-character preview, identify rows");
 
         final JTable throwing = new JTable(new Object[][]{{new ThrowingValue()}},
             new Object[]{"one"});
-        assertTrue(!ExternalPsdEditHostProbe.rowKeyForTest(
-            throwing, ExternalPsdEditHostProbe.RowKind.TABLE, 0).available(),
+        assertTrue(!GuiRowDispatch.rowKeyForTest(
+            throwing, GuiRowDispatch.RowKind.TABLE, 0).available(),
             "toString failure makes the row key unavailable");
 
         final Object identityOnly = new Object();
         final JTable defaultString = new JTable(new Object[][]{{identityOnly}},
             new Object[]{"one"});
-        assertTrue(!ExternalPsdEditHostProbe.rowKeyForTest(
-            defaultString, ExternalPsdEditHostProbe.RowKind.TABLE, 0).available(),
+        assertTrue(!GuiRowDispatch.rowKeyForTest(
+            defaultString, GuiRowDispatch.RowKind.TABLE, 0).available(),
             "Object class-at-identity text is not a stable cross-component key");
     }
 
     private static void testBoundedRowDispatches() throws Exception {
         final int[] calls = {0};
-        final int exhausted = ExternalPsdEditHostProbe.runBoundedRowDispatches(attempt -> {
+        final int exhausted = GuiRowDispatch.runBoundedRowDispatches(attempt -> {
             calls[0]++;
             assertEquals(calls[0], attempt, "retry attempt numbers are sequential");
             return true;
         });
-        assertEquals(ExternalPsdEditHostProbe.rowDispatchAttemptLimit(), exhausted,
+        assertEquals(GuiRowDispatch.rowDispatchAttemptLimit(), exhausted,
             "retry loop stops at its configured upper bound");
-        assertEquals(ExternalPsdEditHostProbe.rowDispatchAttemptLimit(), calls[0],
+        assertEquals(GuiRowDispatch.rowDispatchAttemptLimit(), calls[0],
             "retry operation is invoked only through the upper bound");
 
         calls[0] = 0;
-        final int stopped = ExternalPsdEditHostProbe.runBoundedRowDispatches(attempt -> {
+        final int stopped = GuiRowDispatch.runBoundedRowDispatches(attempt -> {
             calls[0]++;
             return attempt < 2;
         });
@@ -3540,21 +3540,21 @@ public final class ExternalPsdEditHostProbeTest {
         try {
             final Path expected = state.resolve("gui-ready.flag");
             assertEquals(expected.toAbsolutePath().normalize(),
-                ExternalPsdEditHostProbe.guiReadyTriggerPathForTest(state),
+                HostCloseCoordinator.guiReadyTriggerPathForTest(state),
                 "GUI trigger is fixed below the context-owned state directory");
 
-            final var missing = ExternalPsdEditHostProbe.waitForGuiReadyTriggerForTest(
+            final var missing = GuiReadinessDiagnostics.waitForGuiReadyTriggerForTest(
                 state, 15L, () -> false, millis -> Thread.sleep(1L));
             assertTrue(!missing.ready(), "missing GUI trigger times out");
             assertContains(missing.diagnostic(), "timeout", "missing trigger timeout is explicit");
 
             Files.writeString(expected, "old");
-            final var oldArm = ExternalPsdEditHostProbe.prepareGuiTriggerForTest(state);
+            final var oldArm = GuiReadinessDiagnostics.prepareGuiTriggerForTest(state);
             assertTrue(!oldArm.armed(), "pre-existing trigger does not arm the production wait");
             assertTrue(oldArm.path() == null, "rejected old trigger has no armed path");
             assertContains(oldArm.diagnostic(), "pre-existed",
                 "old trigger rejection is explicit before the armed marker");
-            final var old = ExternalPsdEditHostProbe.waitForArmedGuiTriggerForTest(
+            final var old = GuiReadinessDiagnostics.waitForArmedGuiTriggerForTest(
                 oldArm, 1000L, () -> false, millis -> {
                     throw new AssertionError("pre-existing trigger must not be polled");
                 });
@@ -3564,11 +3564,10 @@ public final class ExternalPsdEditHostProbeTest {
             // A late worker can be scheduled after Runner has observed the armed marker and
             // created the trigger. The first poll must accept that new file without mtime/sleep
             // heuristics.
-            final var armed = ExternalPsdEditHostProbe.prepareGuiTriggerForTest(state);
+            final var armed = GuiReadinessDiagnostics.prepareGuiTriggerForTest(state);
             assertTrue(armed.armed(), "a clean state directory arms the production wait");
             Files.writeString(expected, "arrived-after-armed");
-            final var immediatelyAvailable = ExternalPsdEditHostProbe
-                .waitForArmedGuiTriggerForTest(armed, 1000L, () -> false, millis -> {
+            final var immediatelyAvailable = GuiReadinessDiagnostics.waitForArmedGuiTriggerForTest(armed, 1000L, () -> false, millis -> {
                     throw new AssertionError("already-created post-arm trigger is immediate");
                 });
             assertTrue(immediatelyAvailable.ready(),
@@ -3580,7 +3579,7 @@ public final class ExternalPsdEditHostProbeTest {
             final Path target = state.resolve("target");
             Files.writeString(target, "target");
             Files.createSymbolicLink(expected, target);
-            final var symlink = ExternalPsdEditHostProbe.waitForGuiReadyTriggerForTest(
+            final var symlink = GuiReadinessDiagnostics.waitForGuiReadyTriggerForTest(
                 state, 1000L, () -> false, millis -> {
                     throw new AssertionError("symlink trigger must not be polled");
                 });
@@ -3590,7 +3589,7 @@ public final class ExternalPsdEditHostProbeTest {
             Files.delete(target);
 
             final AtomicInteger polls = new AtomicInteger();
-            final var delayed = ExternalPsdEditHostProbe.waitForGuiReadyTriggerForTest(
+            final var delayed = GuiReadinessDiagnostics.waitForGuiReadyTriggerForTest(
                 state, 1000L, () -> false, millis -> {
                     if (polls.incrementAndGet() == 2) {
                         try {
@@ -3605,7 +3604,7 @@ public final class ExternalPsdEditHostProbeTest {
             assertEquals(expected, delayed.path(), "accepted trigger path is task-local");
             Files.delete(expected);
 
-            final var nonRegular = ExternalPsdEditHostProbe.waitForGuiReadyTriggerForTest(
+            final var nonRegular = GuiReadinessDiagnostics.waitForGuiReadyTriggerForTest(
                 state, 1000L, () -> false, millis -> {
                     try {
                         Files.createDirectory(expected);
@@ -3621,8 +3620,7 @@ public final class ExternalPsdEditHostProbeTest {
             final Path stateLink = state.resolveSibling(state.getFileName() + "-link");
             Files.createSymbolicLink(stateLink, state);
             try {
-                final var invalidState = ExternalPsdEditHostProbe
-                    .waitForGuiReadyTriggerForTest(stateLink, 1000L, () -> false,
+                final var invalidState = GuiReadinessDiagnostics.waitForGuiReadyTriggerForTest(stateLink, 1000L, () -> false,
                         millis -> { throw new AssertionError("symlink state must not poll"); });
                 assertTrue(!invalidState.ready(), "symlink state directory is rejected");
                 assertContains(invalidState.diagnostic(), "state directory",
@@ -3697,7 +3695,7 @@ public final class ExternalPsdEditHostProbeTest {
         try {
             final MutableGuiDiagnosticClock clock = new MutableGuiDiagnosticClock();
             final AtomicInteger samples = new AtomicInteger();
-            final var diagnostics = ExternalPsdEditHostProbe.startGuiWaitDiagnosticsForTest(
+            final var diagnostics = GuiReadinessDiagnostics.startGuiWaitDiagnosticsForTest(
                 notDueState, "not-due-run", clock.nanoTime(), () -> false, () -> false,
                 new AtomicReference<>("armed-waiting-for-trigger"), clock,
                 millis -> Thread.sleep(1L), () -> {
@@ -3718,7 +3716,7 @@ public final class ExternalPsdEditHostProbeTest {
         try {
             final MutableGuiDiagnosticClock clock = new MutableGuiDiagnosticClock();
             final AtomicInteger samples = new AtomicInteger();
-            final var diagnostics = ExternalPsdEditHostProbe.startGuiWaitDiagnosticsForTest(
+            final var diagnostics = GuiReadinessDiagnostics.startGuiWaitDiagnosticsForTest(
                 readyState, "ready-run", clock.nanoTime(), () -> false, () -> true,
                 new AtomicReference<>("armed-waiting-for-trigger"), clock,
                 millis -> { throw new AssertionError("ready trigger must not be delayed"); },
@@ -3739,7 +3737,7 @@ public final class ExternalPsdEditHostProbeTest {
         try {
             final MutableGuiDiagnosticClock clock = new MutableGuiDiagnosticClock();
             final AtomicBoolean trigger = new AtomicBoolean();
-            final var diagnostics = ExternalPsdEditHostProbe.startGuiWaitDiagnosticsForTest(
+            final var diagnostics = GuiReadinessDiagnostics.startGuiWaitDiagnosticsForTest(
                 twoState, "two-sample-run", clock.nanoTime(), () -> false, trigger::get,
                 new AtomicReference<>("armed-waiting-for-trigger"), clock,
                 millis -> {
@@ -3774,7 +3772,7 @@ public final class ExternalPsdEditHostProbeTest {
         try {
             final MutableGuiDiagnosticClock clock = new MutableGuiDiagnosticClock();
             final AtomicBoolean trigger = new AtomicBoolean();
-            final var diagnostics = ExternalPsdEditHostProbe.startGuiWaitDiagnosticsForTest(
+            final var diagnostics = GuiReadinessDiagnostics.startGuiWaitDiagnosticsForTest(
                 failureState, "failure-run", clock.nanoTime(), () -> false, trigger::get,
                 new AtomicReference<>("armed-waiting-for-trigger"), clock,
                 millis -> {
@@ -3804,7 +3802,7 @@ public final class ExternalPsdEditHostProbeTest {
             final CountDownLatch secondSampleWaitStarted = new CountDownLatch(1);
             final CountDownLatch releaseSecondSampleWait = new CountDownLatch(1);
             final AtomicInteger samples = new AtomicInteger();
-            final var diagnostics = ExternalPsdEditHostProbe.startGuiWaitDiagnosticsForTest(
+            final var diagnostics = GuiReadinessDiagnostics.startGuiWaitDiagnosticsForTest(
                 disabledState, "disabled-run", clock.nanoTime(), () -> false, () -> false,
                 new AtomicReference<>("armed-waiting-for-trigger"), clock,
                 millis -> {
@@ -3840,8 +3838,8 @@ public final class ExternalPsdEditHostProbeTest {
         try {
             final MutableGuiDiagnosticClock clock = new MutableGuiDiagnosticClock();
             final String oversized = "x".repeat(
-                ExternalPsdEditHostProbe.GUI_WAIT_DIAGNOSTIC_MAX_BYTES * 4);
-            final var diagnostics = ExternalPsdEditHostProbe.startGuiWaitDiagnosticsForTest(
+                GuiReadinessDiagnostics.GUI_WAIT_DIAGNOSTIC_MAX_BYTES * 4);
+            final var diagnostics = GuiReadinessDiagnostics.startGuiWaitDiagnosticsForTest(
                 boundedState, "bounded-run", clock.nanoTime(), () -> false, () -> false,
                 new AtomicReference<>("armed-waiting-for-trigger"), clock,
                 millis -> {
@@ -3852,7 +3850,7 @@ public final class ExternalPsdEditHostProbeTest {
                 "oversized diagnostic samples remain bounded and terminate");
             for (final Path file : diagnosticFiles(boundedState)) {
                 assertTrue(Files.size(file)
-                    <= ExternalPsdEditHostProbe.GUI_WAIT_DIAGNOSTIC_MAX_BYTES,
+                    <= GuiReadinessDiagnostics.GUI_WAIT_DIAGNOSTIC_MAX_BYTES,
                     "diagnostic file size is bounded");
                 assertContains(Files.readString(file), "diagnostic output truncated",
                     "oversized diagnostic output records truncation");
@@ -3886,7 +3884,7 @@ public final class ExternalPsdEditHostProbeTest {
         try {
             assertTrue(startedThreads.await(2L, java.util.concurrent.TimeUnit.SECONDS),
                 "real ThreadMXBean smoke threads started");
-            final String dump = ExternalPsdEditHostProbe.captureGuiThreadDumpForTest();
+            final String dump = GuiReadinessDiagnostics.captureGuiThreadDumpForTest();
             assertContains(dump,
                 "threadDumpSource=java.lang.management.ThreadMXBean.dumpAllThreads",
                 "real smoke uses the same-JVM ThreadMXBean dump");
@@ -3911,8 +3909,7 @@ public final class ExternalPsdEditHostProbeTest {
         final String oldPhase = System.getProperty("turboism.validation.externalpsd.phase");
         final String oldRunId = System.getProperty("turboism.validation.externalpsd.runId");
         try {
-            final var edt = onEdt(() -> ExternalPsdEditHostProbe
-                .waitForGuiReadyTriggerForTest(state, 10_000L, () -> false,
+            final var edt = onEdt(() -> GuiReadinessDiagnostics.waitForGuiReadyTriggerForTest(state, 10_000L, () -> false,
                     millis -> { throw new AssertionError("EDT wait must return immediately"); }));
             assertTrue(!edt.ready(), "EDT cannot wait for the GUI trigger");
             assertContains(edt.diagnostic(), "off the EDT",
@@ -3957,43 +3954,43 @@ public final class ExternalPsdEditHostProbeTest {
     }
 
     private static void testGuiWindowBinding() {
-        final var noTarget = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+        final var noTarget = TargetResolution.decideGuiWindowBindingForTest(
             "", "window-a", true, false);
         assertTrue(!noTarget.bindNow(),
             "a reviewed window without the exact target is not bound");
         assertTrue(!noTarget.waitForBoundWindow(),
             "an unbound window without the target can continue searching");
 
-        final var firstTarget = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+        final var firstTarget = TargetResolution.decideGuiWindowBindingForTest(
             "", "window-a", true, true);
         assertTrue(firstTarget.bindNow(),
             "the first proven window containing the exact target becomes bound");
 
-        final var sameWindow = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+        final var sameWindow = TargetResolution.decideGuiWindowBindingForTest(
             "window-a", "window-a", true, true);
         assertTrue(!sameWindow.bindNow() && !sameWindow.waitForBoundWindow(),
             "the bound target window remains usable");
 
-        final var otherWindow = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+        final var otherWindow = TargetResolution.decideGuiWindowBindingForTest(
             "window-a", "window-b", true, true);
         assertTrue(!otherWindow.bindNow() && otherWindow.waitForBoundWindow(),
             "focus change never rebinds the target to another window");
         assertContains(otherWindow.diagnostic(), "window-a",
             "focus-change diagnostic retains the original window identity");
 
-        final var restoredWindow = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+        final var restoredWindow = TargetResolution.decideGuiWindowBindingForTest(
             "window-a", "window-a", true, true);
         assertTrue(!restoredWindow.bindNow() && !restoredWindow.waitForBoundWindow(),
             "the original bound window becomes usable again after focus returns");
         assertContains(restoredWindow.diagnostic(), "window-a",
             "restored-window diagnostic retains the original binding");
 
-        final var hiddenBoundWindow = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+        final var hiddenBoundWindow = TargetResolution.decideGuiWindowBindingForTest(
             "window-a", "", false, false);
         assertTrue(hiddenBoundWindow.waitForBoundWindow(),
             "an unproven active window waits for the original bound window");
 
-        final var hiddenBeforeBinding = ExternalPsdEditHostProbe.decideGuiWindowBindingForTest(
+        final var hiddenBeforeBinding = TargetResolution.decideGuiWindowBindingForTest(
             "", "", false, false);
         assertTrue(!hiddenBeforeBinding.bindNow() && !hiddenBeforeBinding.waitForBoundWindow(),
             "without an established target window no window is selected blindly");
@@ -4046,21 +4043,21 @@ public final class ExternalPsdEditHostProbeTest {
     }
 
     private static void testPrepareFixturePhaseDispatch() {
-        assertTrue(ExternalPsdEditHostProbe.isPrepareFixturePhase("prepare-fixture"),
+        assertTrue(TargetResolution.isPrepareFixturePhase("prepare-fixture"),
             "prepare-fixture has its dedicated pre-readiness dispatch");
-        assertTrue(!ExternalPsdEditHostProbe.isPrepareFixturePhase("pipeline"),
+        assertTrue(!TargetResolution.isPrepareFixturePhase("pipeline"),
             "pipeline remains on ordinary readiness");
-        assertTrue(!ExternalPsdEditHostProbe.isPrepareFixturePhase("reopen"),
+        assertTrue(!TargetResolution.isPrepareFixturePhase("reopen"),
             "reopen remains on ordinary readiness");
-        assertTrue(!ExternalPsdEditHostProbe.isPrepareFixturePhase("gui"),
+        assertTrue(!TargetResolution.isPrepareFixturePhase("gui"),
             "gui remains on trigger and ordinary readiness");
-        assertTrue(!ExternalPsdEditHostProbe.isPrepareFixturePhase(null),
+        assertTrue(!TargetResolution.isPrepareFixturePhase(null),
             "missing phase cannot enter preparation implicitly");
     }
 
     private static void testNativeCloseDialogHandling() throws Exception {
         final AtomicInteger closeCalls = new AtomicInteger();
-        final var dispatched = ExternalPsdEditHostProbe.dispatchBoundWindowCloseForTest(
+        final var dispatched = HostCloseCoordinator.dispatchBoundWindowCloseForTest(
             "bound-window", "bound-window", true, true, closeCalls::incrementAndGet);
         assertTrue(dispatched.dispatched(), "the exact bound host window receives WINDOW_CLOSING");
         assertEquals(1, closeCalls.get(), "the native close event is dispatched once");
@@ -4068,52 +4065,52 @@ public final class ExternalPsdEditHostProbeTest {
             "close diagnostic names the native event");
 
         final AtomicInteger rejectedCalls = new AtomicInteger();
-        final var wrongWindow = ExternalPsdEditHostProbe.dispatchBoundWindowCloseForTest(
+        final var wrongWindow = HostCloseCoordinator.dispatchBoundWindowCloseForTest(
             "bound-window", "other-window", true, true, rejectedCalls::incrementAndGet);
         assertTrue(!wrongWindow.dispatched(), "a different window cannot receive the close event");
         assertEquals(0, rejectedCalls.get(), "cross-window close is not dispatched");
-        final var hiddenWindow = ExternalPsdEditHostProbe.dispatchBoundWindowCloseForTest(
+        final var hiddenWindow = HostCloseCoordinator.dispatchBoundWindowCloseForTest(
             "bound-window", "bound-window", false, true, rejectedCalls::incrementAndGet);
         assertTrue(!hiddenWindow.dispatched(), "a hidden bound window is rejected");
 
         final AtomicInteger noCalls = new AtomicInteger();
-        final var noDialog = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var noDialog = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(), List.of());
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.NO_DIALOG,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.NO_DIALOG,
             noDialog.outcome(), "no dialog permits the host's natural close path");
 
         final var oldDialog = closeDialog("old-dialog", "bound-window", true, noCalls);
         final var newDialog = closeDialog("new-dialog", "bound-window", true, noCalls);
-        final var oldModelessForAssociation = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+        final var oldModelessForAssociation = new HostCloseCoordinator.CloseDialogSnapshot(
             "old-modeless", "bound-window", true, true, true, false, "MODELESS", 0,
             List.of(), List.of(), -1, () -> { }, () -> false);
-        final var associated = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var associated = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(oldModelessForAssociation),
             List.of(oldModelessForAssociation, newDialog));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.DISMISS_NO,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.DISMISS_NO,
             associated.outcome(), "only a new dialog from this close is eligible");
         associated.dismissNo().run();
         assertEquals(1, noCalls.get(), "the exact no-save option is selected once");
 
-        final var disabledNo = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
-            "bound-window", List.of(), List.of(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+        final var disabledNo = HostCloseCoordinator.classifyCloseDialogForTest(
+            "bound-window", List.of(), List.of(new HostCloseCoordinator.CloseDialogSnapshot(
                 "disabled-no", "bound-window", true, true, true, true, "APPLICATION_MODAL", 1,
                 List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
                 List.of("Yes (Y)", "No (N)", "Cancel (C)"), 0, noCalls::incrementAndGet,
                 () -> false)));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.REJECTED,
             disabledNo.outcome(), "a disabled No option is rejected before action");
         assertContains(disabledNo.diagnostic(), "not enabled/showing/displayable",
             "disabled No rejection explains the operability requirement");
 
         final AtomicInteger gatedCalls = new AtomicInteger();
-        final var gatedDecision = ExternalPsdEditHostProbe.CloseDialogDecision.dismissNo(
+        final var gatedDecision = HostCloseCoordinator.CloseDialogDecision.dismissNo(
             "late inspection test", gatedCalls::incrementAndGet);
         final AtomicBoolean coordinatorActive = new AtomicBoolean(true);
         final AtomicBoolean noActionClaimed = new AtomicBoolean();
-        final AtomicReference<ExternalPsdEditHostProbe.CloseDialogInspection> firstInspection =
+        final AtomicReference<HostCloseCoordinator.CloseDialogInspection> firstInspection =
             new AtomicReference<>();
-        final AtomicReference<ExternalPsdEditHostProbe.CloseDialogInspection> lateInspection =
+        final AtomicReference<HostCloseCoordinator.CloseDialogInspection> lateInspection =
             new AtomicReference<>();
         final java.util.concurrent.CountDownLatch edtStarted =
             new java.util.concurrent.CountDownLatch(1);
@@ -4133,12 +4130,12 @@ public final class ExternalPsdEditHostProbeTest {
             assertTrue(edtStarted.await(1, java.util.concurrent.TimeUnit.SECONDS),
                 "the EDT blocker starts before late inspections are queued");
             SwingUtilities.invokeLater(() -> {
-                firstInspection.set(ExternalPsdEditHostProbe.dismissNoForTest(
+                firstInspection.set(HostCloseCoordinator.dismissNoForTest(
                     gatedDecision, coordinatorActive, noActionClaimed));
                 inspectionsDone.countDown();
             });
             SwingUtilities.invokeLater(() -> {
-                lateInspection.set(ExternalPsdEditHostProbe.dismissNoForTest(
+                lateInspection.set(HostCloseCoordinator.dismissNoForTest(
                     gatedDecision, coordinatorActive, noActionClaimed));
                 inspectionsDone.countDown();
             });
@@ -4157,7 +4154,7 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(1, gatedCalls.get(),
             "multiple queued inspections produce at most one No button action");
         coordinatorActive.set(false);
-        final var cancelledInspection = onEdt(() -> ExternalPsdEditHostProbe.dismissNoForTest(
+        final var cancelledInspection = onEdt(() -> HostCloseCoordinator.dismissNoForTest(
             gatedDecision, coordinatorActive, noActionClaimed));
         assertTrue(!cancelledInspection.dismissedNo(),
             "an inspection queued after coordinator cancellation cannot act");
@@ -4165,15 +4162,15 @@ public final class ExternalPsdEditHostProbeTest {
             "cancelled late inspection does not perform a second action");
 
         final AtomicInteger failedCalls = new AtomicInteger();
-        final var failedDecision = ExternalPsdEditHostProbe.CloseDialogDecision.dismissNo(
+        final var failedDecision = HostCloseCoordinator.CloseDialogDecision.dismissNo(
             "failing action test", () -> {
                 failedCalls.incrementAndGet();
                 throw new IllegalStateException("button action failed");
             });
         final AtomicBoolean failedClaim = new AtomicBoolean();
-        final var failedInspection = onEdt(() -> ExternalPsdEditHostProbe.dismissNoForTest(
+        final var failedInspection = onEdt(() -> HostCloseCoordinator.dismissNoForTest(
             failedDecision, new AtomicBoolean(true), failedClaim));
-        final var failedLateInspection = onEdt(() -> ExternalPsdEditHostProbe.dismissNoForTest(
+        final var failedLateInspection = onEdt(() -> HostCloseCoordinator.dismissNoForTest(
             failedDecision, new AtomicBoolean(true), failedClaim));
         assertTrue(failedInspection.rejected() && !failedInspection.dismissedNo(),
             "a failed No action is not reported as dismissed");
@@ -4182,67 +4179,67 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(1, failedCalls.get(),
             "a failed action remains bounded to one real button attempt");
 
-        final var crossWindow = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var crossWindow = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(), List.of(
                 closeDialog("cross-window", "other-window", false, new AtomicInteger())));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.REJECTED,
             crossWindow.outcome(), "a dialog from another window is rejected");
         assertContains(crossWindow.diagnostic(), "owner",
             "cross-window dialog rejection records its owner");
-        final var mismatchedOwnerEvidence = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var mismatchedOwnerEvidence = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(), List.of(
                 closeDialog("mismatched-owner", "other-window", true, new AtomicInteger())));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.REJECTED,
             mismatchedOwnerEvidence.outcome(), "inconsistent owner evidence is rejected");
 
-        final var multiple = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var multiple = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(), List.of(
                 closeDialog("dialog-a", "bound-window", true, new AtomicInteger()),
                 closeDialog("dialog-b", "bound-window", true, new AtomicInteger())));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.REJECTED,
             multiple.outcome(), "multiple close dialogs are rejected");
         assertContains(multiple.diagnostic(), "multiple",
             "multiple dialog rejection is explicit");
 
-        final var unknown = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
-            "bound-window", List.of(), List.of(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+        final var unknown = HostCloseCoordinator.classifyCloseDialogForTest(
+            "bound-window", List.of(), List.of(new HostCloseCoordinator.CloseDialogSnapshot(
                 "unknown-dialog", "bound-window", true, true, true, true, "APPLICATION_MODAL", 1,
                 List.of("javax.swing.JButton", "javax.swing.JButton"),
                 List.of("Yes (Y)", "No (N)"), 0, () -> { }, () -> true)));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.REJECTED,
             unknown.outcome(), "unknown option semantics are rejected");
         assertContains(unknown.diagnostic(), "options",
             "unknown option rejection explains the missing exact shape");
 
-        final var missingNoAction = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
-            "bound-window", List.of(), List.of(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+        final var missingNoAction = HostCloseCoordinator.classifyCloseDialogForTest(
+            "bound-window", List.of(), List.of(new HostCloseCoordinator.CloseDialogSnapshot(
                 "missing-no-action", "bound-window", true, true, true, true,
                 "APPLICATION_MODAL", 1,
                 List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
                 List.of("Yes (Y)", "No (N)", "Cancel (C)"), 0, null, () -> false)));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.REJECTED,
             missingNoAction.outcome(), "a verified shape without a No action is rejected");
 
-        final String watchdog = ExternalPsdEditHostProbe.exitThreadDiagnosticForTest();
-        assertTrue(watchdog.length() <= ExternalPsdEditHostProbe.EXIT_DIAGNOSTIC_MAX_CHARS,
+        final String watchdog = PersistSaveChecks.exitThreadDiagnosticForTest();
+        assertTrue(watchdog.length() <= PersistSaveChecks.EXIT_DIAGNOSTIC_MAX_CHARS,
             "exit watchdog diagnostics have a hard output bound");
         assertContains(watchdog, "JVM exit watchdog", "exit watchdog records its bounded purpose");
 
-        final var preExisting = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var preExisting = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(oldDialog), List.of(oldDialog));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.REJECTED,
             preExisting.outcome(), "a pre-existing owner dialog is not treated as this close");
         assertContains(preExisting.diagnostic(), "modality=",
             "pre-existing dialog rejection records modality evidence");
 
         final AtomicInteger modelessToolCalls = new AtomicInteger();
-        final var oldModelessTool = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+        final var oldModelessTool = new HostCloseCoordinator.CloseDialogSnapshot(
             "javax.swing.JDialog@old-tool", "bound-window", true, true, true, false,
             "MODELESS", 0, List.of(), List.of(), -1,
             modelessToolCalls::incrementAndGet, () -> false);
-        final var oldModelessDecision = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var oldModelessDecision = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(oldModelessTool), List.of(oldModelessTool));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.NO_DIALOG,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.NO_DIALOG,
             oldModelessDecision.outcome(),
             "an unchanged exact modeless tool dialog is safely excluded");
         assertContains(oldModelessDecision.diagnostic(), "excludedPreExisting=",
@@ -4256,15 +4253,15 @@ public final class ExternalPsdEditHostProbeTest {
 
         final AtomicInteger oldModelessActionCalls = new AtomicInteger();
         final AtomicInteger saveNoCalls = new AtomicInteger();
-        final var oldModeless = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+        final var oldModeless = new HostCloseCoordinator.CloseDialogSnapshot(
             "javax.swing.JDialog@old-modeless", "bound-window", true, true, true, false,
             "MODELESS", 0, List.of(), List.of(), -1,
             oldModelessActionCalls::incrementAndGet, () -> false);
         final var saveModal = closeDialog("javax.swing.JDialog@save-modal", "bound-window",
             true, saveNoCalls);
-        final var dualWindow = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var dualWindow = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(oldModeless), List.of(oldModeless, saveModal));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.DISMISS_NO,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.DISMISS_NO,
             dualWindow.outcome(),
             "a new exact save modal is selected beside an unchanged modeless tool window");
         assertContains(dualWindow.diagnostic(), "excludedPreExisting=",
@@ -4274,79 +4271,79 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(0, oldModelessActionCalls.get(),
             "the pre-existing modeless window receives no action");
 
-        final var changedModality = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+        final var changedModality = new HostCloseCoordinator.CloseDialogSnapshot(
             "javax.swing.JDialog@old-modeless", "bound-window", true, true, true, true,
             "APPLICATION_MODAL", 1,
             List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
             List.of("Yes (Y)", "No (N)", "Cancel (C)"), 0, () -> { }, () -> true);
-        final var modalityChanged = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var modalityChanged = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(oldModeless), List.of(changedModality));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.REJECTED,
             modalityChanged.outcome(), "a pre-existing dialog changing modality is rejected");
         assertContains(modalityChanged.diagnostic(), "modality=APPLICATION_MODAL",
             "modality changes remain visible in rejection evidence");
 
-        final var changedPanes = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+        final var changedPanes = new HostCloseCoordinator.CloseDialogSnapshot(
             "javax.swing.JDialog@old-modeless", "bound-window", true, true, true, false,
             "MODELESS", 1, List.of("javax.swing.JButton"), List.of("unexpected"), 0,
             () -> { }, () -> false);
-        final var panesChanged = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var panesChanged = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(oldModeless), List.of(changedPanes));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.REJECTED,
             panesChanged.outcome(), "a pre-existing dialog gaining an option pane is rejected");
         assertContains(panesChanged.diagnostic(), "panes=1",
             "pane changes remain visible in rejection evidence");
 
-        final var changedOwner = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+        final var changedOwner = new HostCloseCoordinator.CloseDialogSnapshot(
             "javax.swing.JDialog@old-modeless", "other-window", false, true, true, false,
             "MODELESS", 0, List.of(), List.of(), -1, () -> { }, () -> false);
-        final var ownerChanged = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var ownerChanged = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(oldModeless), List.of(changedOwner));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.REJECTED,
             ownerChanged.outcome(), "a pre-existing dialog changing owner is rejected");
         assertContains(ownerChanged.diagnostic(), "owner=other-window",
             "owner changes remain visible in rejection evidence");
 
-        final var changedVisibility = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+        final var changedVisibility = new HostCloseCoordinator.CloseDialogSnapshot(
             "javax.swing.JDialog@old-modeless", "bound-window", true, false, true, false,
             "MODELESS", 0, List.of(), List.of(), -1, () -> { }, () -> false);
-        final var visibilityChanged = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var visibilityChanged = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(oldModeless), List.of(changedVisibility));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.REJECTED,
             visibilityChanged.outcome(), "a pre-existing dialog becoming hidden is rejected");
 
-        final var unknownModality = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+        final var unknownModality = new HostCloseCoordinator.CloseDialogSnapshot(
             "javax.swing.JDialog@old-modeless", "bound-window", true, true, true, false,
             "UNKNOWN", 0, List.of(), List.of(), -1, () -> { }, () -> false);
-        final var unknownPreExisting = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var unknownPreExisting = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(oldModeless), List.of(unknownModality));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.REJECTED,
             unknownPreExisting.outcome(), "unknown pre-existing modality is rejected");
         assertContains(unknownPreExisting.diagnostic(), "modality=UNKNOWN",
             "unknown modality is explicit in rejection evidence");
 
-        final var changedIdentity = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var changedIdentity = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(oldModeless), List.of(saveModal));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.REJECTED,
             changedIdentity.outcome(),
             "a changed pre-existing identity cannot be mistaken for a new save modal");
         assertContains(changedIdentity.diagnostic(), "pre-existing",
             "identity changes explain the retained before-window evidence");
 
-        final var preExistingPane = new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+        final var preExistingPane = new HostCloseCoordinator.CloseDialogSnapshot(
             "javax.swing.JDialog@old-pane", "bound-window", true, true, true, false,
             "MODELESS", 1, List.of("javax.swing.JButton"), List.of("tool"), 0,
             () -> { }, () -> false);
-        final var preExistingPaneDecision = ExternalPsdEditHostProbe.classifyCloseDialogForTest(
+        final var preExistingPaneDecision = HostCloseCoordinator.classifyCloseDialogForTest(
             "bound-window", List.of(preExistingPane), List.of(preExistingPane));
-        assertEquals(ExternalPsdEditHostProbe.CloseDialogOutcome.REJECTED,
+        assertEquals(HostCloseCoordinator.CloseDialogOutcome.REJECTED,
             preExistingPaneDecision.outcome(),
             "a pre-existing JOptionPane is not silently excluded");
 
-        final var closeTrace = new ExternalPsdEditHostProbe.CloseSessionTrace("close-test");
+        final var closeTrace = new HostCloseCoordinator.CloseSessionTrace("close-test");
         closeTrace.recordBefore(List.of(oldModelessTool));
         closeTrace.recordDispatchAttempt();
-        closeTrace.recordDispatch(ExternalPsdEditHostProbe.CloseDispatchResult.dispatched(
+        closeTrace.recordDispatch(HostCloseCoordinator.CloseDispatchResult.dispatched(
             "event=WINDOW_CLOSING target=bound-window"));
         closeTrace.recordInspection(List.of(newDialog));
         closeTrace.recordInspection(List.of(newDialog));
@@ -4366,18 +4363,18 @@ public final class ExternalPsdEditHostProbeTest {
         assertContains(closeTraceDiagnostic, "optionLabels=",
             "close diagnostics include option labels in before/after inventories");
         assertTrue(utf8Bytes(closeTraceDiagnostic)
-                <= ExternalPsdEditHostProbe.CLOSE_TRACE_MAX_BYTES,
+                <= HostCloseCoordinator.CLOSE_TRACE_MAX_BYTES,
             "close trace diagnostics have a hard UTF-8 byte bound");
 
-        final var generatedSessionA = new ExternalPsdEditHostProbe.CloseSessionTrace();
-        final var generatedSessionB = new ExternalPsdEditHostProbe.CloseSessionTrace();
+        final var generatedSessionA = new HostCloseCoordinator.CloseSessionTrace();
+        final var generatedSessionB = new HostCloseCoordinator.CloseSessionTrace();
         assertTrue(!generatedSessionA.sessionId().equals(generatedSessionB.sessionId()),
             "repeated close coordinators receive distinct session identities");
 
         final Properties state = new Properties();
         state.setProperty("gui.after.diagnostic", "auto-import not attempted");
-        ExternalPsdEditHostProbe.recordGuiTargetState(state, "after",
-            new ExternalPsdEditHostProbe.GuiTargetState(true, "binding", 7L, "raw", true, ""));
+        GuiRowDispatch.recordGuiTargetState(state, "after",
+            new GuiRowDispatch.GuiTargetState(true, "binding", 7L, "raw", true, ""));
         assertTrue(!state.containsKey("gui.after.diagnostic"),
             "a successful target observation clears the stale diagnostic placeholder");
     }
@@ -4405,9 +4402,9 @@ public final class ExternalPsdEditHostProbeTest {
         }, "close-timing-within-budget-releaser");
         withinBudgetReleaser.start();
         final AtomicInteger withinBudgetDispatches = new AtomicInteger();
-        final ExternalPsdEditHostProbe.CloseTimingResult withinBudget;
+        final HostCloseCoordinator.CloseTimingResult withinBudget;
         try {
-            withinBudget = ExternalPsdEditHostProbe.closeTimingForTest(() -> {
+            withinBudget = HostCloseCoordinator.closeTimingForTest(() -> {
                 withinBudgetEntered.countDown();
                 try {
                     if (!releaseWithinBudget.await(2, TimeUnit.SECONDS)) {
@@ -4458,9 +4455,9 @@ public final class ExternalPsdEditHostProbeTest {
         }, "close-timing-exhausted-releaser");
         exhaustedReleaser.start();
         final AtomicInteger exhaustedDispatches = new AtomicInteger();
-        final ExternalPsdEditHostProbe.CloseTimingResult exhausted;
+        final HostCloseCoordinator.CloseTimingResult exhausted;
         try {
-            exhausted = ExternalPsdEditHostProbe.closeTimingForTest(() -> {
+            exhausted = HostCloseCoordinator.closeTimingForTest(() -> {
                 exhaustedEntered.countDown();
                 try {
                     if (!releaseAfterExhaustion.await(2, TimeUnit.SECONDS)) {
@@ -4503,24 +4500,24 @@ public final class ExternalPsdEditHostProbeTest {
     private static void testCloseDiagnosticBudgets() {
         final String longLabel = "标签🚀".repeat(512);
         assertTrue(utf8Bytes(longLabel)
-                > ExternalPsdEditHostProbe.CLOSE_DIALOG_FIELD_MAX_BYTES,
+                > HostCloseCoordinator.CLOSE_DIALOG_FIELD_MAX_BYTES,
             "long-label input crosses the per-field byte boundary");
-        final ExternalPsdEditHostProbe.CloseDialogSnapshot longLabelDialog =
-            new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+        final HostCloseCoordinator.CloseDialogSnapshot longLabelDialog =
+            new HostCloseCoordinator.CloseDialogSnapshot(
                 "long-label-dialog", "bound-window", true, true, true, true,
                 "APPLICATION_MODAL", 1,
                 List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
                 List.of(longLabel, "No (N)", "Cancel (C)"), 0, () -> { }, () -> true);
-        final var longLabelTrace = new ExternalPsdEditHostProbe.CloseSessionTrace("long-label");
+        final var longLabelTrace = new HostCloseCoordinator.CloseSessionTrace("long-label");
         longLabelTrace.recordBefore(List.of(longLabelDialog));
         longLabelTrace.recordDispatchAttempt();
-        longLabelTrace.recordDispatch(ExternalPsdEditHostProbe.CloseDispatchResult.dispatched(
+        longLabelTrace.recordDispatch(HostCloseCoordinator.CloseDispatchResult.dispatched(
             "dispatch-" + "界".repeat(512)));
         longLabelTrace.recordInspection(List.of(longLabelDialog));
         longLabelTrace.recordReason("rejected identity=" + "拒绝".repeat(1024));
         final String longLabelDiagnostic = longLabelTrace.diagnostic();
         assertTrue(utf8Bytes(longLabelDiagnostic)
-                <= ExternalPsdEditHostProbe.CLOSE_TRACE_MAX_BYTES,
+                <= HostCloseCoordinator.CLOSE_TRACE_MAX_BYTES,
             "Unicode labels stay inside the trace UTF-8 byte budget");
         assertNoUnpairedSurrogates(longLabelDiagnostic,
             "UTF-8 truncation does not split a surrogate pair");
@@ -4529,18 +4526,18 @@ public final class ExternalPsdEditHostProbeTest {
         assertContains(longLabelDiagnostic, "…",
             "long-label trace records truncation");
 
-        final List<ExternalPsdEditHostProbe.CloseDialogSnapshot> manyDialogs = new ArrayList<>();
+        final List<HostCloseCoordinator.CloseDialogSnapshot> manyDialogs = new ArrayList<>();
         for (int index = 0; index < 40; index++) {
-            manyDialogs.add(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+            manyDialogs.add(new HostCloseCoordinator.CloseDialogSnapshot(
                 "dialog-" + index, "bound-window", true, true, true, false,
                 "MODELESS", 0, List.of(), List.of(), -1, () -> { }, () -> false));
         }
-        final var manyDialogTrace = new ExternalPsdEditHostProbe.CloseSessionTrace("many-dialogs");
+        final var manyDialogTrace = new HostCloseCoordinator.CloseSessionTrace("many-dialogs");
         manyDialogTrace.recordBefore(manyDialogs);
         manyDialogTrace.recordInspection(manyDialogs);
         final String manyDialogDiagnostic = manyDialogTrace.diagnostic();
         assertTrue(utf8Bytes(manyDialogDiagnostic)
-                <= ExternalPsdEditHostProbe.CLOSE_TRACE_MAX_BYTES,
+                <= HostCloseCoordinator.CLOSE_TRACE_MAX_BYTES,
             "more than 32 dialogs stay inside the trace UTF-8 byte budget");
         assertContains(manyDialogDiagnostic, "count=40",
             "dialog inventory records the full dialog count");
@@ -4549,33 +4546,33 @@ public final class ExternalPsdEditHostProbeTest {
 
         final String longIdentity = "identity-" + "界".repeat(256);
         final String longOwner = "owner-" + "界".repeat(256);
-        final List<ExternalPsdEditHostProbe.CloseDialogSnapshot> oversizedDialogs =
+        final List<HostCloseCoordinator.CloseDialogSnapshot> oversizedDialogs =
             new ArrayList<>();
         for (int index = 0; index < 40; index++) {
-            oversizedDialogs.add(new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+            oversizedDialogs.add(new HostCloseCoordinator.CloseDialogSnapshot(
                 longIdentity + index, longOwner, true, true, true, true,
                 "APPLICATION_MODAL", 1,
                 List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
                 List.of(longLabel, "No (N)", "Cancel (C)"), 0, () -> { }, () -> true));
         }
         int rawInventoryBytes = 0;
-        for (final ExternalPsdEditHostProbe.CloseDialogSnapshot dialog : oversizedDialogs) {
+        for (final HostCloseCoordinator.CloseDialogSnapshot dialog : oversizedDialogs) {
             rawInventoryBytes += utf8Bytes(dialog.diagnostic());
         }
-        assertTrue(rawInventoryBytes > ExternalPsdEditHostProbe.CLOSE_TRACE_BEFORE_MAX_BYTES
-                && rawInventoryBytes > ExternalPsdEditHostProbe.CLOSE_TRACE_AFTER_MAX_BYTES,
+        assertTrue(rawInventoryBytes > HostCloseCoordinator.CLOSE_TRACE_BEFORE_MAX_BYTES
+                && rawInventoryBytes > HostCloseCoordinator.CLOSE_TRACE_AFTER_MAX_BYTES,
             "before and after inputs both cross their independent byte boundaries");
-        final var oversizedTrace = new ExternalPsdEditHostProbe.CloseSessionTrace("oversized");
+        final var oversizedTrace = new HostCloseCoordinator.CloseSessionTrace("oversized");
         oversizedTrace.recordBefore(oversizedDialogs);
         oversizedTrace.recordDispatchAttempt();
-        oversizedTrace.recordDispatch(ExternalPsdEditHostProbe.CloseDispatchResult.rejected(
+        oversizedTrace.recordDispatch(HostCloseCoordinator.CloseDispatchResult.rejected(
             "dispatch-rejected-" + longIdentity));
         oversizedTrace.recordInspection(oversizedDialogs);
         oversizedTrace.recordReason("rejected identity " + longIdentity
             + " reason=" + "未知".repeat(2048));
         final String oversizedDiagnostic = oversizedTrace.diagnostic();
         assertTrue(utf8Bytes(oversizedDiagnostic)
-                <= ExternalPsdEditHostProbe.CLOSE_TRACE_MAX_BYTES,
+                <= HostCloseCoordinator.CLOSE_TRACE_MAX_BYTES,
             "oversized before and after inventories stay bounded independently");
         assertContains(oversizedDiagnostic, "closeSession=oversized",
             "oversized trace retains session identity");
@@ -4600,16 +4597,16 @@ public final class ExternalPsdEditHostProbeTest {
         assertContains(oversizedDiagnostic, "rejected identity",
             "oversized trace retains the identity rejection reason prefix");
         assertTrue(utf8Bytes(diagnosticField(oversizedDiagnostic, "before=", " after="))
-                <= ExternalPsdEditHostProbe.CLOSE_TRACE_BEFORE_MAX_BYTES,
+                <= HostCloseCoordinator.CLOSE_TRACE_BEFORE_MAX_BYTES,
             "before inventory uses its own byte budget");
         assertTrue(utf8Bytes(diagnosticField(oversizedDiagnostic, "after=", " dispatch="))
-                <= ExternalPsdEditHostProbe.CLOSE_TRACE_AFTER_MAX_BYTES,
+                <= HostCloseCoordinator.CLOSE_TRACE_AFTER_MAX_BYTES,
             "after inventory uses its own byte budget");
         assertTrue(utf8Bytes(diagnosticField(oversizedDiagnostic, "dispatch=", " reason="))
-                <= ExternalPsdEditHostProbe.CLOSE_TRACE_DISPATCH_MAX_BYTES,
+                <= HostCloseCoordinator.CLOSE_TRACE_DISPATCH_MAX_BYTES,
             "dispatch evidence uses its own byte budget");
         assertTrue(utf8Bytes(diagnosticField(oversizedDiagnostic, "reason=", null))
-                <= ExternalPsdEditHostProbe.CLOSE_TRACE_REASON_MAX_BYTES,
+                <= HostCloseCoordinator.CLOSE_TRACE_REASON_MAX_BYTES,
             "decision reason uses its own byte budget");
         assertTrue(oversizedDiagnostic.indexOf("before=")
                 < oversizedDiagnostic.indexOf("after="),
@@ -4621,10 +4618,10 @@ public final class ExternalPsdEditHostProbeTest {
                 < oversizedDiagnostic.indexOf("reason="),
             "dispatch is emitted before reason");
 
-        final String resultDiagnostic = ExternalPsdEditHostProbe.closeDiagnosticForTest(
+        final String resultDiagnostic = HostCloseCoordinator.closeDiagnosticForTest(
             oversizedTrace, "result-reason=" + "结果".repeat(4096));
         assertTrue(utf8Bytes(resultDiagnostic)
-                <= ExternalPsdEditHostProbe.CLOSE_DIAGNOSTIC_MAX_BYTES,
+                <= HostCloseCoordinator.CLOSE_DIAGNOSTIC_MAX_BYTES,
             "result plus trace has a hard UTF-8 byte bound");
         assertNoUnpairedSurrogates(resultDiagnostic,
             "final close diagnostic does not split a surrogate pair");
@@ -4639,10 +4636,10 @@ public final class ExternalPsdEditHostProbeTest {
         final int separator = resultDiagnostic.indexOf("; ");
         assertTrue(separator > 0, "final close diagnostic retains its result/trace separator");
         assertTrue(utf8Bytes(resultDiagnostic.substring(0, separator))
-                <= ExternalPsdEditHostProbe.CLOSE_RESULT_REASON_MAX_BYTES,
+                <= HostCloseCoordinator.CLOSE_RESULT_REASON_MAX_BYTES,
             "result reason uses its own byte budget");
         assertTrue(utf8Bytes(resultDiagnostic.substring(separator + 2))
-                <= ExternalPsdEditHostProbe.CLOSE_TRACE_MAX_BYTES,
+                <= HostCloseCoordinator.CLOSE_TRACE_MAX_BYTES,
             "final trace uses its own byte budget");
     }
 
@@ -4657,10 +4654,10 @@ public final class ExternalPsdEditHostProbeTest {
         return diagnostic.substring(valueStart, end);
     }
 
-    private static ExternalPsdEditHostProbe.CloseDialogSnapshot closeDialog(
+    private static HostCloseCoordinator.CloseDialogSnapshot closeDialog(
         final String dialog, final String owner, final boolean ownerMatches,
         final AtomicInteger noCalls) {
-        return new ExternalPsdEditHostProbe.CloseDialogSnapshot(
+        return new HostCloseCoordinator.CloseDialogSnapshot(
             dialog, owner, ownerMatches, true, true, true, "APPLICATION_MODAL", 1,
             List.of("javax.swing.JButton", "javax.swing.JButton", "javax.swing.JButton"),
             List.of("Yes (Y)", "No (N)", "Cancel (C)"), 0, noCalls::incrementAndGet,
@@ -4672,18 +4669,18 @@ public final class ExternalPsdEditHostProbeTest {
         else System.setProperty(name, value);
     }
 
-    private static ExternalPsdEditHostProbe.CapturedRow capturedRow(
+    private static GuiRowDispatch.CapturedRow capturedRow(
         final String widget, final String window, final int row, final String key,
         final boolean keyAvailable) {
-        return new ExternalPsdEditHostProbe.CapturedRow(
-            ExternalPsdEditHostProbe.RowKind.TABLE, "HostTable", widget, window, row,
+        return new GuiRowDispatch.CapturedRow(
+            GuiRowDispatch.RowKind.TABLE, "HostTable", widget, window, row,
             key, keyAvailable, "(0,0,10,10)");
     }
 
-    private static ExternalPsdEditHostProbe.CurrentRow currentRow(
+    private static GuiRowDispatch.CurrentRow currentRow(
         final String widget, final String window, final int row, final String key,
         final boolean keyAvailable, final Component component) {
-        return new ExternalPsdEditHostProbe.CurrentRow(
+        return new GuiRowDispatch.CurrentRow(
             capturedRow(widget, window, row, key, keyAvailable), component,
             new Rectangle(0, row * 10, 100, 10));
     }
@@ -4692,7 +4689,7 @@ public final class ExternalPsdEditHostProbeTest {
         final JPopupMenu popup = new JPopupMenu();
         final javax.swing.JMenuItem item = new javax.swing.JMenuItem("Edit PSD Externally");
         popup.add(item);
-        final String marker = ExternalPsdEditHostProbe.popupMarker(popup);
+        final String marker = GuiRowDispatch.popupMarker(popup);
         assertContains(marker, "javax.swing.JPopupMenu@", "popup class and identity are recorded");
         assertContains(marker, "javax.swing.JMenuItem@", "menu child class and identity are recorded");
         assertContains(marker, "menuItem=true", "menu item subtype is identified");
@@ -4704,25 +4701,25 @@ public final class ExternalPsdEditHostProbeTest {
     private static void testPopupAttemptAssociation() {
         final JPopupMenu old = new JPopupMenu();
         final JPopupMenu fresh = new JPopupMenu();
-        assertSame(old, ExternalPsdEditHostProbe.popupForAttempt(
+        assertSame(old, GuiRowDispatch.popupForAttempt(
             List.of(old), List.of(old), List.of(old)),
             "a successfully dismissed popup may be reused for this attempt");
-        assertSame(fresh, ExternalPsdEditHostProbe.popupForAttempt(
+        assertSame(fresh, GuiRowDispatch.popupForAttempt(
             List.of(old), List.of(), List.of(old, fresh)),
             "a new visible popup is associated with this attempt");
-        assertNull(ExternalPsdEditHostProbe.popupForAttempt(
+        assertNull(GuiRowDispatch.popupForAttempt(
             List.of(old), List.of(), List.of(old)),
             "an old popup that was not dismissed is rejected as stale");
     }
 
     private static void testAutoImportEvidence() {
-        final var stableA = new ExternalPsdEditHostProbe.TargetIdentity(
+        final var stableA = new TargetResolution.TargetIdentity(
             "document-a", "model-a", "binding-a", 7L, "model-image-a", "art-mesh-a", "raw-a");
-        final var stableB = new ExternalPsdEditHostProbe.TargetIdentity(
+        final var stableB = new TargetResolution.TargetIdentity(
             "document-a", "model-a", "binding-a", 7L, "model-image-a", "art-mesh-a", "raw-b");
-        final var before = new ExternalPsdEditHostProbe.GuiTargetState(
+        final var before = new GuiRowDispatch.GuiTargetState(
             true, stableA, false, "");
-        final var wrapperAppliedSameRaw = new ExternalPsdEditHostProbe.GuiTargetState(
+        final var wrapperAppliedSameRaw = new GuiRowDispatch.GuiTargetState(
             true, stableA, true, "");
         final var written = new PsdValidationContent.Fingerprint(
             "b".repeat(64), new PsdValidationContent.Bounds(450, 450, 550, 550),
@@ -4731,29 +4728,29 @@ public final class ExternalPsdEditHostProbeTest {
             "c".repeat(64), new PsdValidationContent.Bounds(450, 450, 550, 550),
             100, 100, List.of(0, 1, 2));
 
-        assertTrue(!ExternalPsdEditHostProbe.acceptsAutoImport(
+        assertTrue(!GuiRowDispatch.acceptsAutoImport(
             before, wrapperAppliedSameRaw, "raw-a"),
             "legacy wrapper false-to-true flag is never native application evidence");
-        assertTrue(ExternalPsdEditHostProbe.acceptsNativeGuiApplication(
+        assertTrue(GuiRowDispatch.acceptsNativeGuiApplication(
             before, wrapperAppliedSameRaw, stableA, written, written),
             "same raw is accepted only when fresh native RGB matches the written mutation");
-        assertTrue(!ExternalPsdEditHostProbe.acceptsNativeGuiApplication(
+        assertTrue(!GuiRowDispatch.acceptsNativeGuiApplication(
             before, wrapperAppliedSameRaw, stableA, written, different),
             "wrapper transition with a mismatched fresh RGB is rejected");
-        assertTrue(ExternalPsdEditHostProbe.acceptsNativeGuiApplication(
-            before, new ExternalPsdEditHostProbe.GuiTargetState(true, stableB, false, ""),
+        assertTrue(GuiRowDispatch.acceptsNativeGuiApplication(
+            before, new GuiRowDispatch.GuiTargetState(true, stableB, false, ""),
             stableA, written, written),
             "incoming current raw with matching fresh RGB is accepted independently of wrapper flag");
-        assertTrue(!ExternalPsdEditHostProbe.acceptsNativeGuiApplication(
-            before, new ExternalPsdEditHostProbe.GuiTargetState(true,
-                new ExternalPsdEditHostProbe.TargetIdentity(
+        assertTrue(!GuiRowDispatch.acceptsNativeGuiApplication(
+            before, new GuiRowDispatch.GuiTargetState(true,
+                new TargetResolution.TargetIdentity(
                     "document-b", "model-a", "binding-a", 7L,
                     "model-image-a", "art-mesh-a", "raw-b"), false, ""),
             stableA, written, written),
             "document switch is rejected even when current RGB matches");
-        assertTrue(!ExternalPsdEditHostProbe.acceptsNativeGuiApplication(
-            new ExternalPsdEditHostProbe.GuiTargetState(true, stableA, true, ""),
-            new ExternalPsdEditHostProbe.GuiTargetState(true, stableB, false, ""),
+        assertTrue(!GuiRowDispatch.acceptsNativeGuiApplication(
+            new GuiRowDispatch.GuiTargetState(true, stableA, true, ""),
+            new GuiRowDispatch.GuiTargetState(true, stableB, false, ""),
             stableA, written, written),
             "an initially replaced target is not a new GUI application");
     }
@@ -4868,18 +4865,18 @@ public final class ExternalPsdEditHostProbeTest {
     }
 
     private static void testStaleEditorReadEvidence() {
-        ExternalPsdEditHostProbe.requireStaleEditorReadRejected(() -> {
+        TargetResolution.requireStaleEditorReadRejected(() -> {
             throw new IllegalStateException(
                 "Cubism model reference is stale for the active Editor model generation.");
         });
         boolean rejected = false;
         try {
-            ExternalPsdEditHostProbe.requireStaleEditorReadRejected(() -> {});
+            TargetResolution.requireStaleEditorReadRejected(() -> {});
         } catch (IllegalStateException expected) { rejected = true; }
         assertTrue(rejected, "readable old model must fail stale-read evidence");
         var unrelated = new IllegalStateException("relations unavailable");
         try {
-            ExternalPsdEditHostProbe.requireStaleEditorReadRejected(() -> { throw unrelated; });
+            TargetResolution.requireStaleEditorReadRejected(() -> { throw unrelated; });
             throw new AssertionError("unrelated read failure accepted as stale");
         } catch (IllegalStateException expected) {
             assertTrue(expected == unrelated, "unrelated read failure must propagate");

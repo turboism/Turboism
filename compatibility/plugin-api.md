@@ -13,15 +13,16 @@ The properties record `version`, `Implementation-Version` and `apiVersion`.
 The runtime JAR manifest also records `Implementation-Version` and `Turboism-API-Version`.
 The SDK JAR remains the byte-exact reviewed library and receives no build metadata.
 
-Plugins declare `turboismApi: "[0.67.0,1.0.0)"`: they need at least `0.67.0`
-and accept subsequent framework APIs below `1.0.0`. Prerelease suffixes do not
-lower the runtime API version. Old `[0.1.0,0.2.0)` plugins fail discovery with
-`TURBOISM_API_INCOMPATIBLE`; the diagnostic includes the actual runtime API.
-Market installation and automatic update selection use the same runtime API.
+Plugins declare `turboismApi: "[0.67.0,)"`: they need at least `0.67.0` and
+accept every later framework API, because the range has no artificial upper
+bound. Prerelease suffixes do not lower the runtime API version. Old
+`[0.1.0,0.2.0)` plugins fail discovery with `TURBOISM_API_INCOMPATIBLE`; the
+diagnostic includes the actual runtime API. Market installation and automatic
+update selection use the same runtime API.
 
 The runtime API follows the framework version; a plugin's lower bound records the
 minimum API it actually needs. A framework patch release alone does not raise it.
-Plugins that only rely on the baseline API keep `[0.67.0,1.0.0)`, while plugins
+Plugins that only rely on the baseline API keep `[0.67.0,)`, while plugins
 that adopt newer SDK members raise their floor accordingly (for example `0.67.2`,
 `0.67.4`, `0.68.1`, or `0.70.0`). When a plugin starts using a newer SDK API,
 update that plugin's `plugin.json` range deliberately, then synchronize its README:

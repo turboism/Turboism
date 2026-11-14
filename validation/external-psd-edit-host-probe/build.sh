@@ -25,6 +25,18 @@ javac --release 17 -Xlint:all -cp "${sdk[0]}" -d "$out" \
   "$src/dev/turboism/validation/externalpsd/OfficialSecondDocumentOpen.java" \
   "$src/dev/turboism/validation/externalpsd/WindowsPsdHandleObservation.java" \
   "$src/dev/turboism/validation/externalpsd/AtomicReplaceFileControl.java" \
+  "$src/dev/turboism/validation/externalpsd/DiagnosticObservationRecorder.java" \
+  "$src/dev/turboism/validation/externalpsd/ExactHostRowDispatch.java" \
+  "$src/dev/turboism/validation/externalpsd/GuiRowDispatch.java" \
+  "$src/dev/turboism/validation/externalpsd/GuiReadinessDiagnostics.java" \
+  "$src/dev/turboism/validation/externalpsd/HostCloseCoordinator.java" \
+  "$src/dev/turboism/validation/externalpsd/PerformanceEvidence.java" \
+  "$src/dev/turboism/validation/externalpsd/PersistSaveChecks.java" \
+  "$src/dev/turboism/validation/externalpsd/PsdStructureInspection.java" \
+  "$src/dev/turboism/validation/externalpsd/RawExportCoordination.java" \
+  "$src/dev/turboism/validation/externalpsd/SessionFileReadiness.java" \
+  "$src/dev/turboism/validation/externalpsd/TargetResolution.java" \
+  "$src/dev/turboism/validation/externalpsd/TempExportTracker.java" \
   "$src/dev/turboism/validation/externalpsd/ExternalPsdEditHostProbe.java"
 cp -R "$src/META-INF" "$out/"
 [[ $# -eq 0 ]] || { echo 'Usage: build.sh' >&2; exit 2; }

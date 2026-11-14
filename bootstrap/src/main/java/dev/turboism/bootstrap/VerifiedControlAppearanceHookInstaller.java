@@ -40,6 +40,7 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
     private final NativeParameterAppearanceBridge.Selectors parameterSelectors;
     private final NativePartTreeAppearanceBridge.Selectors partSelectors;
     private final PaletteAppearanceCoordinator coordinator;
+    private final LoadedClassIndex loadedClasses;
     private final AtomicBoolean installed = new AtomicBoolean();
 
     private VerifiedControlAppearanceHookInstaller(
@@ -53,6 +54,36 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
             final NativeParameterAppearanceBridge.Selectors parameterSelectors,
             final NativePartTreeAppearanceBridge.Selectors partSelectors,
             final PaletteAppearanceCoordinator coordinator) {
+        this(
+                instrumentation,
+                hostClassLoader,
+                hostGeneration,
+                transformers,
+                targetClassNames,
+                deformerTreeSelectors,
+                deformerControlSelectors,
+                parameterSelectors,
+                partSelectors,
+                coordinator,
+                null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install
+     */
+    private VerifiedControlAppearanceHookInstaller(
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final long hostGeneration,
+            final List<ClassFileTransformer> transformers,
+            final Set<String> targetClassNames,
+            final NativeDeformerTreeAppearanceBridge.Selectors deformerTreeSelectors,
+            final NativeDeformerControlRowAppearanceBridge.Selectors deformerControlSelectors,
+            final NativeParameterAppearanceBridge.Selectors parameterSelectors,
+            final NativePartTreeAppearanceBridge.Selectors partSelectors,
+            final PaletteAppearanceCoordinator coordinator,
+            final LoadedClassIndex loadedClasses) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.hostGeneration = hostGeneration;
@@ -63,6 +94,7 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
         this.parameterSelectors = Objects.requireNonNull(parameterSelectors, "parameterSelectors");
         this.partSelectors = Objects.requireNonNull(partSelectors, "partSelectors");
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
+        this.loadedClasses = loadedClasses;
     }
 
     static VerifiedControlAppearanceHookInstaller fromVerifiedResolver(
@@ -70,6 +102,19 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
             final VerifiedMemberResolver resolver,
             final long hostGeneration,
             final PaletteAppearanceCoordinator coordinator) {
+        return fromVerifiedResolver(instrumentation, resolver, hostGeneration, coordinator, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install
+     */
+    static VerifiedControlAppearanceHookInstaller fromVerifiedResolver(
+            final Instrumentation instrumentation,
+            final VerifiedMemberResolver resolver,
+            final long hostGeneration,
+            final PaletteAppearanceCoordinator coordinator,
+            final LoadedClassIndex loadedClasses) {
         Objects.requireNonNull(resolver, "resolver");
         if (!supportsStaticProfile(resolver.cubismVersion()) || hostGeneration <= 0) {
             throw new IllegalArgumentException("control appearance requires an exact supported active generation");
@@ -209,7 +254,8 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
                         idValue.memberName(),
                         partChildren.memberName(),
                         loader),
-                coordinator);
+                coordinator,
+                loadedClasses);
     }
 
     static boolean supportsStaticProfile(final String cubismVersion) {
@@ -260,14 +306,16 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
 
     private List<Class<?>> loadedTargets() {
         final List<Class<?>> targets = new ArrayList<>();
-        for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-            if (targetClassNames.contains(loaded.getName())
-                    && loaded.getClassLoader() == hostClassLoader
-                    && instrumentation.isModifiableClass(loaded)) {
+        for (Class<?> loaded : loadedClasses().select(targetClassNames, hostClassLoader)) {
+            if (instrumentation.isModifiableClass(loaded)) {
                 targets.add(loaded);
             }
         }
         return targets;
+    }
+
+    private LoadedClassIndex loadedClasses() {
+        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
     }
 
     private static ParameterRowMethodTransformer.MethodSelector method(final StaticSelector selector) {

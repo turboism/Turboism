@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 from pathlib import Path
 import sys
@@ -26,6 +27,41 @@ with tempfile.TemporaryDirectory() as reference_directory:
     # Wiring uses committed records only; no proprietary host JAR is needed.
     with patch.dict(os.environ, {"TURBOISM_CUBISM_REF": reference_directory}):
         SPEC.loader.exec_module(MATRIX)
+
+
+class VersionTableTest(unittest.TestCase):
+    def test_version_facts_derive_from_the_canonical_release_table(self):
+        import cubism_matrix.constants as constants_module
+
+        releases = json.loads(constants_module.REVIEWED_RELEASES.read_text(encoding="utf-8"))["releases"]
+        admitted = tuple(release["version"] for release in releases)
+        self.assertEqual(admitted, constants_module.ADMITTED_VERSIONS)
+        self.assertEqual(admitted, constants_module.ALL_VERSIONS)
+        self.assertEqual(
+            {release["version"]: release["build"] for release in releases},
+            constants_module.DECLARED_BUILDS,
+        )
+        self.assertEqual(
+            tuple(v for v in admitted if v not in constants_module.REVIEWED),
+            constants_module.TARGET_VERSIONS,
+        )
+        self.assertEqual(
+            set(admitted),
+            set(constants_module.TARGET_VERSIONS) | set(constants_module.REVIEWED),
+        )
+
+    def test_a_new_release_enters_the_derived_views(self):
+        import cubism_matrix.constants as constants_module
+
+        grown = json.loads(constants_module.REVIEWED_RELEASES.read_text(encoding="utf-8"))
+        grown["releases"].append(dict(grown["releases"][-1], version="9.9.99", build=999990001))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / constants_module.REVIEWED_RELEASES.name
+            path.write_text(json.dumps(grown), encoding="utf-8")
+            with patch.object(constants_module, "REVIEWED_RELEASES", path):
+                releases = constants_module._reviewed_releases()
+        self.assertEqual("9.9.99", releases[-1]["version"])
+        self.assertEqual(999990001, releases[-1]["build"])
 
 
 class EditorModelRefreshTest(unittest.TestCase):

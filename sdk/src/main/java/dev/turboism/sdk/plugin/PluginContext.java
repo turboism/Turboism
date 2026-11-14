@@ -1,6 +1,5 @@
 package dev.turboism.sdk.plugin;
 
-import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -76,7 +75,6 @@ public interface PluginContext {
     }
 
     /** Returns the script discovery and execution service. */
-    @Incubating
     default ScriptService scripts() {
         return ScriptService.unavailable();
     }

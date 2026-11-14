@@ -491,6 +491,38 @@ class PerfStatsPluginLifecycleTest {
     }
 
     @Test
+    void windowRefreshTimerFollowsWindowVisibility() throws Exception {
+        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless(), "requires a displayable window");
+        final PerfStatsWindow window = new PerfStatsWindow(
+                "Performance",
+                java.util.Map.of(
+                        ChartStore.KEY_CPU, "CPU",
+                        ChartStore.KEY_FPS, "FPS",
+                        ChartStore.KEY_HEAP, "Heap",
+                        ChartStore.KEY_NONHEAP, "Non-heap",
+                        ChartStore.KEY_GC, "GC"),
+                "Expand",
+                "Collapse",
+                new ChartStore(120));
+        try {
+            onEdt(window::showAndFront);
+            assertTrue(window.isRefreshing(), "a shown window must run the refresh timer");
+
+            // HIDE_ON_CLOSE keeps the frame alive; the timer must not repaint a hidden window.
+            final java.awt.Window hidden = frame(window);
+            onEdt(() -> hidden.dispatchEvent(
+                    new java.awt.event.WindowEvent(hidden, java.awt.event.WindowEvent.WINDOW_CLOSING)));
+            assertFalse(window.isRefreshing(), "a hidden window must stop the refresh timer");
+
+            onEdt(window::showAndFront);
+            assertTrue(window.isRefreshing(), "reopening the window must restart the refresh timer");
+        } finally {
+            onEdt(window::dispose);
+        }
+        assertFalse(window.isRefreshing(), "dispose must leave the refresh timer stopped");
+    }
+
+    @Test
     void oldOpensSamplesAndDeferredCleanupCannotAffectNewGeneration() throws Exception {
         Assumptions.assumeFalse(GraphicsEnvironment.isHeadless());
         final var fixture = new Fixture();

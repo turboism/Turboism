@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.mesh.automesh;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.List;
 import java.util.Optional;
@@ -25,7 +24,6 @@ import java.util.Optional;
  *
  * <p><strong>Preview API:</strong> this contract may evolve before stabilization.</p>
  */
-@Incubating
 @CubismEditor
 public interface AutoMeshAlgorithmRegistry extends AutoCloseable {
 

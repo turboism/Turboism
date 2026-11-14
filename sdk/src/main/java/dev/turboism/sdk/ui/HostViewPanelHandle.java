@@ -1,7 +1,6 @@
 package dev.turboism.sdk.ui;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 
 /**
  * Plugin-owned handle for content contributed through {@link HostViewPanel#attach}.
@@ -10,7 +9,6 @@ import dev.turboism.sdk.Incubating;
  * renderer and its concrete widget types stay owned by the runtime adapter. Every method is
  * safe to call from any thread and never throws because the host view moved on.</p>
  */
-@Incubating
 @CubismEditor(from = "5.2.00")
 public interface HostViewPanelHandle extends AutoCloseable {
 

@@ -24,9 +24,12 @@ import reviewed_host_artifacts  # noqa: E402
 REVIEWED_VERSIONS = tuple(
     reviewed_host_artifacts.compact(version) for version in reviewed_host_artifacts.load()
 )
+REVIEWED_VERSIONS_DOTTED = tuple(reviewed_host_artifacts.load())
 
 import check_reviewed_releases as version_derivation  # noqa: E402
 import host_validation as scheduler  # noqa: E402
+from turboism_dev import class_pins  # noqa: E402
+
 queue = scheduler.queue
 
 # Python 3.10 does not export SQLite result-code constants. These public SQLite
@@ -328,7 +331,10 @@ class HostValidationSchedulerTest(unittest.TestCase):
             "/class-pins/uniform-location-lifecycle.json"
         )
         pin_versions = {
-            key.replace(".", "") for key in json.loads(pins_path.read_text(encoding="utf-8"))
+            version.replace(".", "")
+            for version in class_pins.expand(
+                json.loads(pins_path.read_text(encoding="utf-8")), REVIEWED_VERSIONS_DOTTED
+            )
         }
         self.assertEqual(
             pin_versions,

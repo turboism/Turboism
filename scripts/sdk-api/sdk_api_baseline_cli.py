@@ -3,6 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
+
+# The tool runs both directly and through Gradle; add the scripts root so the shared
+# turboism_dev helpers resolve in both cases.
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
 
 from sdk_api_baseline import BaselineError, canonical_dump
 from sdk_api_baseline_cli_commands import capture, verify, verify_current

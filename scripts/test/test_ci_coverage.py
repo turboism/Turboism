@@ -9,6 +9,7 @@ how test-source coverage is proven.
 from __future__ import annotations
 
 import fnmatch
+import json
 import re
 import shlex
 import sys
@@ -70,6 +71,15 @@ def dependency_graph(bodies: dict[str, list[str]]) -> dict[str, set[str]]:
 
 
 GATES_MANIFEST = Path('gradle/gates.txt')
+# A first-party plugin module in settings.gradle.kts, and the two distribution rosters that decide
+# where it ships. The market manifest must select the same plugins as the market roster. Includes
+# are written without a leading colon (`"plugins:demo"`); rosters always carry one.
+PLUGIN_INCLUDE = re.compile(r'"(?::)?plugins:([\w-]+)"')
+RELEASE_ROSTER = 'packaging/release-plugins.txt'
+MARKET_ROSTER = 'packaging/market-plugins.txt'
+MARKET_MANIFEST = 'packaging/market-plugins.json'
+DEVELOPMENT_ONLY = 'development-only'
+PUBLISHED_DELIVERY = frozenset({'bundled', 'store-candidate'})
 
 
 class Aggregate(NamedTuple):
@@ -553,15 +563,17 @@ def check_declarations(root: Path, manifest: Manifest) -> None:
 
     Every aggregate is registered from gradle/gates.txt in gradle/verification.gradle.kts and no
     other script re-opens one, so a member is added in one place instead of being patched from
-    whichever script owns the task.
+    whichever script owns the task. The scan recurses: the leaf tasks live in
+    gradle/verification/*.gradle.kts, and a nested script that re-opened an aggregate would
+    otherwise escape the rule.
     """
     reopen = re.compile(r'tasks\.(?:named|register|getByName)(?:<[^>]+>)?\(\s*"([\w:]+)"')
-    for file in [root / 'build.gradle.kts', *sorted((root / 'gradle').glob('*.gradle.kts'))]:
+    for file in [root / 'build.gradle.kts', *sorted((root / 'gradle').rglob('*.gradle.kts'))]:
         if file.name == 'verification.gradle.kts':
             continue
         patched = sorted({name for name in reopen.findall(file.read_text(encoding='utf-8'))
                           if name in manifest.aggregates})
-        assert not patched, f'{file.name} re-opens aggregate gates: {patched}'
+        assert not patched, f'{file.relative_to(root)} re-opens aggregate gates: {patched}'
     verification = (root / 'gradle/verification.gradle.kts').read_text(encoding='utf-8')
     assert 'GateManifest.load' in verification, \
         'gradle/verification.gradle.kts must register the aggregates from gradle/gates.txt'
@@ -646,6 +658,73 @@ def check_opt_in_gradle_tests(bodies: dict[str, list[str]], covered: set[str]) -
             f'opt-in evidence class must stay excluded from :runtime:test: {class_name}'
     assert any(token.startswith('legacyEvidenceTests') for token in ordinary), \
         'the ordinary runtime suite must keep excluding legacy evidence tests'
+
+
+def first_party_plugin_modules(root: Path) -> set[str]:
+    """Every `:plugins:<slug>` module settings.gradle.kts includes, as a slug."""
+    settings = (root / 'settings.gradle.kts').read_text(encoding='utf-8')
+    return set(PLUGIN_INCLUDE.findall(settings))
+
+
+def roster_projects(root: Path, relative: str) -> set[str]:
+    """One `:plugins:<slug>` per line in a packaging roster; `#` comments are free."""
+    lines = (root / relative).read_text(encoding='utf-8').splitlines()
+    return {line.strip().removeprefix(':plugins:')
+            for line in lines if line.strip() and not line.lstrip().startswith('#')}
+
+
+def readme_delivery(root: Path, slug: str) -> str | None:
+    """The `delivery:` value of a plugin README front matter, or None when it declares none."""
+    readme = root / 'plugins' / slug / 'README.md'
+    if not readme.is_file():
+        return None
+    match = re.search(r'^delivery:\s*(\S+)\s*$', readme.read_text(encoding='utf-8'), re.MULTILINE)
+    return match.group(1) if match else None
+
+
+def check_plugin_registry(root: Path) -> None:
+    """A first-party plugin's distribution roster is a function of its declared delivery role.
+
+    Adding a plugin module used to require four independent edits (settings, release roster, market
+    roster, market manifest) with nothing tying them together, so a new official plugin could ship
+    in no package and no directory while every gate stayed green. The invariant: the modules
+    missing from every roster are exactly the modules that declare `delivery: development-only`.
+    A development-only plugin that reaches a roster fails here too, because that would publish an
+    unsupported plugin.
+
+    The two rosters are deliberately not equal: `release-plugins.txt` is what the installer bundles
+    and `market-plugins.txt` is what the Plugin Directory publishes, so a bundled-only or
+    market-only plugin is a real, reviewable decision. Each roster is asserted against the delivery
+    role it implies instead of against the other roster.
+    """
+    included = first_party_plugin_modules(root)
+    assert included, 'settings.gradle.kts declares no :plugins: module'
+    release = roster_projects(root, RELEASE_ROSTER)
+    market = roster_projects(root, MARKET_ROSTER)
+    market_manifest = {entry['project'].removeprefix(':plugins:')
+                       for entry in json.loads((root / MARKET_MANIFEST).read_text(encoding='utf-8'))['plugins']}
+    for roster, name in ((release, RELEASE_ROSTER), (market, MARKET_ROSTER),
+                         (market_manifest, MARKET_MANIFEST)):
+        unknown = sorted(roster - included)
+        assert not unknown, f'{name} lists modules settings.gradle.kts does not include: {unknown}'
+    assert market == market_manifest, (
+        f'{MARKET_MANIFEST} and {MARKET_ROSTER} must select the same plugins; '
+        f'only in the manifest: {sorted(market_manifest - market)}; '
+        f'only in the roster: {sorted(market - market_manifest)}')
+    unpublished = included - release - market
+    development_only = {slug for slug in included if readme_delivery(root, slug) == DEVELOPMENT_ONLY}
+    assert unpublished == development_only, (
+        'a plugin outside every release/market roster must declare '
+        f'`delivery: {DEVELOPMENT_ONLY}` in its README, and vice versa; '
+        f'unrostered but not development-only: {sorted(unpublished - development_only)}; '
+        f'development-only but rostered: {sorted(development_only - unpublished)}')
+    # A rostered plugin states one of the published roles, so a copy-pasted development-only README
+    # cannot hide behind a roster entry.
+    for slug in sorted(release | market):
+        delivery = readme_delivery(root, slug)
+        assert delivery in PUBLISHED_DELIVERY, (
+            f'plugins/{slug} is rostered for publication but its README declares delivery={delivery!r}; '
+            f'expected one of {sorted(PUBLISHED_DELIVERY)}')
 
 
 def check_sources(root: Path, bodies: dict[str, list[str]], covered: set[str]) -> None:
@@ -939,6 +1018,7 @@ def contract(root: Path) -> None:
         'PR workflows must cover the complete release closure; '
         f'missing: {sorted(release - executed)}; unexpected: {sorted(executed - release)}')
     check_sources(root, bodies, member_names(covered))
+    check_plugin_registry(root)
 
 
 class CiCoverageContractTest(unittest.TestCase):

@@ -224,6 +224,12 @@ final class VerifiedInstall<T> implements AutoCloseable {
                 registered.add(target);
             }
         }
+        // Building the plan may have defined targets the phase snapshot cannot answer for; the
+        // registration below only needs the sample the phase already paid for otherwise.
+        context.invalidateLoadedClassesUnlessContains(registered.stream()
+                .map(WeaveTarget::type)
+                .filter(Objects::nonNull)
+                .toList());
         bridge.install();
         for (final WeaveTarget target : registered) {
             if (registrations.add(target.transformer())) {

@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -18,7 +17,6 @@ import java.util.Optional;
  * @param diagnosticId stable diagnostic id; present iff {@code outcome} is
  *     {@link EditSessionCloseOutcome#FAILED}
  */
-@Incubating
 @CubismEditor(from = "5.1.02", to = "5.3.99")
 public record EditSessionCloseResult(
         EditSessionCloseOutcome outcome, Optional<CancelSource> cancelSource, Optional<String> diagnosticId) {

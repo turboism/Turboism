@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.modeling;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import java.util.Objects;
@@ -11,7 +10,6 @@ import java.util.Objects;
  * Requires cubism.modeling.custom-tools and turboism.ui.toolbar.main.contribute. Closing a
  * registration revokes only its exact generation; closing the service revokes all owned tools.
  */
-@Incubating
 @CubismEditor(from = "5.2.00")
 public interface ModelingToolRegistry extends AutoCloseable {
     /** Registers a tool at a semantic main-toolbar placement. */

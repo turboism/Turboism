@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: deformer, rename, batch-edit
-turboismApi: "[0.70.0,1.0.0)"
+turboismApi: "[0.70.0,)"
 requiresCubism: true
 interface: swing
 ---
@@ -102,7 +102,7 @@ Turboism 0.67.0 以降と開いたモデルが必要です。以下の互換性�
 
 ### 0.68.1
 
-- 実際に使用する SDK メンバーに合わせて、必要な Turboism API の下限を 0.68.0 に引き上げました。
+- 実際に使用する SDK メンバーに合わせて、必要な Turboism API の下限を [0.70.0,) に引き上げました。
 
 ### 0.1.0
 

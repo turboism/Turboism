@@ -56,7 +56,8 @@ final class ModelingToolHookContributor implements HookContributor {
                 ModelingToolHostProfile.from(resolver),
                 host.artifact(),
                 () -> NativeModelingToolBridge.install(owner, coordinator),
-                () -> NativeModelingToolBridge.uninstall(owner));
+                () -> NativeModelingToolBridge.uninstall(owner),
+                environment.loadedClasses());
         try {
             coordinator.connect(resolver, generation);
             installer.install();

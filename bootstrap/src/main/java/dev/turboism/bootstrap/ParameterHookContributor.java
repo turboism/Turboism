@@ -32,7 +32,8 @@ final class ParameterHookContributor implements HookContributor {
                 runtime.editorModelResolver(),
                 host.classLoader(),
                 runtime.hostAccess().parameterLifecycle(),
-                runtime.hostAccess().modelAccess());
+                runtime.hostAccess().modelAccess(),
+                environment.loadedClasses());
         installer.install();
         runtime.info("bootstrap", id() + " installation=COMPLETE");
         return installer;

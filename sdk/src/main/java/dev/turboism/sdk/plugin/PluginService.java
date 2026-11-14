@@ -1,7 +1,5 @@
 package dev.turboism.sdk.plugin;
 
-import dev.turboism.sdk.Incubating;
-
 /**
  * One optional service slot on {@link PluginContext}.
  *
@@ -17,8 +15,7 @@ import dev.turboism.sdk.Incubating;
  * individual version-routed members succeed on the active host.</p>
  *
  * <p>The catalog itself is stable, while a member's service type keeps its own maturity:
- * members whose constant carries {@link Incubating} resolve to incubating service types and
- * may still change between framework versions.</p>
+ * a service type may still change between framework versions on its own schedule.</p>
  */
 public enum PluginService {
 
@@ -35,7 +32,6 @@ public enum PluginService {
     STORAGE(dev.turboism.sdk.storage.PluginStorage.class),
 
     /** {@link PluginContext#scripts()} */
-    @Incubating
     SCRIPTS(dev.turboism.sdk.script.ScriptService.class),
 
     /** {@link PluginContext#userFiles()} */
@@ -72,7 +68,6 @@ public enum PluginService {
     PHYSICS_EDITOR(dev.turboism.sdk.cubism.physics.PhysicsEditorService.class),
 
     /** {@link dev.turboism.sdk.cubism.preview.PreviewFrameService} */
-    @Incubating
     PREVIEW_FRAMES(dev.turboism.sdk.cubism.preview.PreviewFrameService.class),
 
     /** {@link dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService} */
@@ -85,25 +80,20 @@ public enum PluginService {
      * Directory-only mesh mirror control: axis, counterparts, movement participation and
      * eligible-tool extensions on one surface; no {@link PluginContext} accessor.
      */
-    @Incubating
     MESH_MIRROR_CONTROL(dev.turboism.sdk.cubism.mesh.MeshMirrorControl.class),
 
     /**
      * Directory-only mesh edit contribution surface: host-edit participation and tool-area
      * contributions on one surface; no {@link PluginContext} accessor.
      */
-    @Incubating
     MESH_EDIT_CONTRIBUTION(dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface.class),
 
     /** Directory-only custom mesh tools; no {@link PluginContext} accessor. */
-    @Incubating
     MESH_TOOLS(dev.turboism.sdk.cubism.mesh.MeshToolRegistry.class),
 
     /** Directory-only auto-mesh algorithm registry; no {@link PluginContext} accessor. */
-    @Incubating
     AUTOMESH_ALGORITHMS(dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithmRegistry.class),
     /** Directory-only ordinary modeling tools; no {@link PluginContext} accessor. */
-    @Incubating
     MODELING_TOOLS(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class),
 
     /** {@link dev.turboism.sdk.cubism.command.EditorCommandService} */
@@ -131,7 +121,6 @@ public enum PluginService {
     UI_HOST(dev.turboism.sdk.ui.UiHostCapabilityService.class),
 
     /** {@link dev.turboism.sdk.ui.HostViewPanel} */
-    @Incubating
     HOST_VIEW_PANEL(dev.turboism.sdk.ui.HostViewPanel.class),
 
     /** {@link dev.turboism.sdk.ui.dialog.HostDialogAutomationService} */
@@ -159,7 +148,6 @@ public enum PluginService {
     RUNTIME_SETTINGS(dev.turboism.sdk.runtime.RuntimeSettingsService.class),
 
     /** {@link dev.turboism.sdk.mcp.McpConnectionService} */
-    @Incubating
     MCP_CONNECTIONS(dev.turboism.sdk.mcp.McpConnectionService.class),
 
     /** {@link dev.turboism.sdk.performance.PerformanceProbeService} */

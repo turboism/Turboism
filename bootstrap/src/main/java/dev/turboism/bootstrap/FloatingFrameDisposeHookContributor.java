@@ -40,7 +40,8 @@ final class FloatingFrameDisposeHookContributor implements HookContributor {
         final VerifiedFloatingFrameDisposeHookInstaller installer = new VerifiedFloatingFrameDisposeHookInstaller(
                 environment.instrumentation(),
                 resolver.verifiedSelector("cubism.ui-panel.palette-frame.raw-disposed"),
-                host.classLoader());
+                host.classLoader(),
+                environment.loadedClasses());
         installer.install();
         environment
                 .runtime()

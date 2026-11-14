@@ -1059,6 +1059,30 @@ class SwingPanelViewRendererTest {
     }
 
     @Test
+    void identicalImageBytesKeepTheRenderedLabelsInsteadOfReDecodingThePng() throws Exception {
+        final byte[] png = java.util.Base64.getDecoder()
+                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent root = SwingPanelViewRenderer.render(
+                    PanelView.column(
+                            PanelView.image(png, "thumbnail"), PanelView.scaledImage(png, "preview", 150, 120)),
+                    (action, event) -> {});
+            final Component image = root.getComponent(0);
+            final Component scaled = root.getComponent(1);
+            final JComponent updated = SwingPanelViewRenderer.update(
+                    root,
+                    PanelView.column(
+                            PanelView.image(png.clone(), "thumbnail"),
+                            PanelView.scaledImage(png.clone(), "preview", 150, 120)),
+                    (action, event) -> {},
+                    java.util.Locale.ENGLISH);
+            assertSame(root, updated);
+            assertSame(image, root.getComponent(0));
+            assertSame(scaled, root.getComponent(1));
+        });
+    }
+
+    @Test
     void layoutChangesRetainTheHeaderAndItsActionControl() throws Exception {
         final byte[] png = java.util.Base64.getDecoder()
                 .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");

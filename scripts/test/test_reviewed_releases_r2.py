@@ -304,6 +304,26 @@ class VersionMonotonicityTest(unittest.TestCase):
             path.write_text(json.dumps(document))
             self.assertEqual([], live(root))
 
+    def test_compact_class_pin_table_has_no_patch_hole(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_tree(root)
+            path = root / gate.r2_CLASS_PINS_DIR / "demo.json"
+            path.write_text(json.dumps({"default": ["com/example/A"]}))
+            self.assertEqual([], live(root))
+
+    def test_compact_class_pin_invalid_override_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_tree(root)
+            path = root / gate.r2_CLASS_PINS_DIR / "demo.json"
+            path.write_text(json.dumps(
+                {"default": ["com/example/A"],
+                 "overrides": {"5.4.01": ["com/example/B"]}}))
+            problems = live(root)
+            self.assertTrue(any("class-pins" in f.message() for f in problems),
+                            [f.message() for f in problems])
+
     def test_host_validation_task_hole_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

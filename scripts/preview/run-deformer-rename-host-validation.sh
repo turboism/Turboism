@@ -27,8 +27,20 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle_root="$repo_root/build/manual-test/$worktree_id/windows-deformer-rename-validation"
 probe_jar="$repo_root/build/deformer-rename-validation-exerciser.jar"
-plugin_jar="$(ls -t "$repo_root"/build/worktree/"$worktree_id"/deformer-batch-rename/libs/deformer-batch-rename-*.jar | head -1)"
+plugin_jar="$(find "$repo_root/build/worktree/$worktree_id/deformer-batch-rename/libs" -maxdepth 1 -name 'deformer-batch-rename-*.jar' -type f 2>/dev/null | head -1 || true)"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
+
+# The probe jar has no Gradle task of its own, so the wrapper is the only place that can
+# report its absence. Without this guard the runner starts the host and the missing plugin
+# surfaces as a load failure inside the editor instead of here.
+if [ ! -f "$probe_jar" ]; then
+  echo "error: probe jar not found at $probe_jar; run ./gradlew :sdk:jar && validation/deformer-rename-host-probe/build.sh first" >&2
+  exit 1
+fi
+if [ -z "$plugin_jar" ] || [ ! -f "$plugin_jar" ]; then
+  echo "error: production plugin jar not found under build/worktree/$worktree_id/deformer-batch-rename/libs/; build :plugins:deformer-batch-rename:jar first" >&2
+  exit 1
+fi
 
 exec bash "$runner" \
   --name deformer-rename \

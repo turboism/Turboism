@@ -66,7 +66,8 @@ final class MeshToolSessionHookContributor implements HookContributor {
                 profile,
                 host.artifact().toAbsolutePath().normalize(),
                 () -> NativeMeshToolSessionBridge.install(owner, generation, sessions, listener),
-                () -> NativeMeshToolSessionBridge.uninstall(owner));
+                () -> NativeMeshToolSessionBridge.uninstall(owner),
+                environment.loadedClasses());
         installer.install();
         return installer;
     }

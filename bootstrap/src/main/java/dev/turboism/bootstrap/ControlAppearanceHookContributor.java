@@ -40,7 +40,8 @@ final class ControlAppearanceHookContributor implements HookContributor {
                         environment.instrumentation(),
                         resolver,
                         generation,
-                        runtime.hostAccess().paletteAppearanceCoordinator());
+                        runtime.hostAccess().paletteAppearanceCoordinator(),
+                        environment.loadedClasses());
         installer.install();
         return installer;
     }

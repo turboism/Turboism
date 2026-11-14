@@ -20,14 +20,28 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
     private final Instrumentation instrumentation;
     private final List<Binding> bindings;
     private final ClassLoader hostClassLoader;
+    private final LoadedClassIndex loadedClasses;
     private final AtomicBoolean installed = new AtomicBoolean();
     private final List<ClassFileTransformer> transformers = new ArrayList<>();
 
     VerifiedObjectContextMenuHookInstaller(
             final Instrumentation instrumentation, final List<Binding> bindings, final ClassLoader hostClassLoader) {
+        this(instrumentation, bindings, hostClassLoader, null);
+    }
+
+    /**
+     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
+     *     enumerate the loaded classes on install
+     */
+    VerifiedObjectContextMenuHookInstaller(
+            final Instrumentation instrumentation,
+            final List<Binding> bindings,
+            final ClassLoader hostClassLoader,
+            final LoadedClassIndex loadedClasses) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.bindings = List.copyOf(Objects.requireNonNull(bindings, "bindings"));
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        this.loadedClasses = loadedClasses;
         if (this.bindings.isEmpty()) {
             throw new IllegalArgumentException("object context-menu bindings must not be empty");
         }
@@ -48,6 +62,7 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
             }
             VerifiedHookInstallerSupport.retransformIfLoaded(
                     instrumentation,
+                    loadedClasses(),
                     owners.stream().map(owner -> owner.replace('/', '.')).toList(),
                     hostClassLoader);
         } catch (Throwable failure) {
@@ -67,6 +82,8 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
         }
         transformers.clear();
         try {
+            // Restoration must observe classes defined after the install snapshot, so it enumerates
+            // again instead of reusing the phase snapshot.
             VerifiedHookInstallerSupport.retransformIfLoaded(
                     instrumentation,
                     owners.stream().map(owner -> owner.replace('/', '.')).toList(),
@@ -75,6 +92,10 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
             FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("Verified object context-menu hook restoration failed", failure);
         }
+    }
+
+    private LoadedClassIndex loadedClasses() {
+        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
     }
 
     record Binding(

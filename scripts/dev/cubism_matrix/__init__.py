@@ -16,6 +16,7 @@ from .bytecode import (
     verify_selector,
 )
 from .constants import (
+    ADMITTED_VERSIONS,
     ALL_VERSIONS,
     CATALOG_SLICES,
     DECLARED_BUILDS,
@@ -30,6 +31,7 @@ from .constants import (
     PROFILE_DIR,
     REF_DIR,
     REVIEWED,
+    REVIEWED_RELEASES,
     ROOT,
     SELECTOR_IDENTITY,
     SLICE_OF,
@@ -101,6 +103,7 @@ from .wire import (
 )
 
 __all__ = [
+    "ADMITTED_VERSIONS",
     "ALL_VERSIONS",
     "CATALOG_SLICES",
     "DECLARED_BUILDS",
@@ -116,6 +119,7 @@ __all__ = [
     "PROFILE_DIR",
     "REF_DIR",
     "REVIEWED",
+    "REVIEWED_RELEASES",
     "ROOT",
     "SELECTOR_IDENTITY",
     "SLICE_OF",

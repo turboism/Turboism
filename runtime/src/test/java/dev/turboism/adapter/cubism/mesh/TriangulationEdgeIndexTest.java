@@ -465,6 +465,40 @@ final class TriangulationEdgeIndexTest {
     }
 
     @Test
+    void registeredSetLookupsDoNotWaitForTheRegistryMonitor() throws Exception {
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        final Tri t = tri(1, 1, 2, 3);
+        TriangulationEdgeIndex.add(set, t, t.ia, t.ib, t.ic);
+        final var state = TriangulationEdgeIndex.st(set);
+        final var executor = Executors.newSingleThreadExecutor();
+        try {
+            // A mutation lane parks inside the registry monitor. A registered set must still
+            // answer from another thread, which is the whole point of the lock-free read path.
+            final var holding = new java.util.concurrent.CountDownLatch(1);
+            final var release = new java.util.concurrent.CountDownLatch(1);
+            executor.submit(() -> {
+                synchronized (TriangulationEdgeIndex.class) {
+                    holding.countDown();
+                    release.await();
+                }
+                return null;
+            });
+            assertTrue(holding.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            final var lookup = Executors.newSingleThreadExecutor();
+            try {
+                final var resolved = lookup.submit(() -> TriangulationEdgeIndex.st(set));
+                assertSame(state, resolved.get(5, java.util.concurrent.TimeUnit.SECONDS));
+            } finally {
+                lookup.shutdownNow();
+            }
+            release.countDown();
+        } finally {
+            executor.shutdownNow();
+            TriangulationEdgeIndex.clear(set);
+        }
+    }
+
+    @Test
     void clearingASetReleasesItsRegisteredState() {
         final LinkedHashSet<Tri> set = new LinkedHashSet<>();
         final Tri t = tri(1, 1, 2, 3);

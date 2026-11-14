@@ -14,6 +14,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from turboism_dev import class_pins
 from turboism_dev.json_io import dump_json, read_json
 from turboism_dev.paths import COMPATIBILITY_MATRIX, repo_root
 from turboism_dev.versions import (reviewed_range_versions, cubism_version_key, dotted_to_compact,
@@ -185,13 +186,20 @@ def r1_index_md(root: Path) -> set[str]:
 
 
 def r1_class_pin_tables(root: Path) -> tuple[set[str], list[str]]:
-    """Union of version keys across class-pins/*.json plus per-file problems."""
+    """Union of version keys across class-pins/*.json plus per-file problems.
+
+    A compact table covers every admitted version through ``default``; an override
+    may only name an admitted version and must differ from ``default``. A legacy
+    flat table keeps its own key set, which the caller compares as a subset.
+    """
     base = root / r1_CLASS_PINS_DIR
     versions: set[str] = set()
     problems: list[str] = []
     if not base.is_dir():
         problems.append(f"{r1_CLASS_PINS_DIR}: directory missing")
         return versions, problems
+    admitted = admitted_versions(root)
+    ordered_admitted = sorted(admitted, key=parse_dotted)
     for pin in sorted(base.glob("*.json")):
         try:
             document = read_json(pin)
@@ -201,20 +209,12 @@ def r1_class_pin_tables(root: Path) -> tuple[set[str], list[str]]:
         if not isinstance(document, dict):
             problems.append(f"{r1_CLASS_PINS_DIR}/{pin.name}: top-level object expected")
             continue
-        for version, block in document.items():
-            versions.add(str(version))
-            if not isinstance(block, list) or not block:
-                problems.append(
-                    f"{r1_CLASS_PINS_DIR}/{pin.name}: version '{version}' must list at least "
-                    "one target class"
-                )
-                continue
-            for class_name in block:
-                if not isinstance(class_name, str) or not class_name.strip():
-                    problems.append(
-                        f"{r1_CLASS_PINS_DIR}/{pin.name}: version '{version}' names a blank "
-                        "target class"
-                    )
+        try:
+            flat = class_pins.expand(document, ordered_admitted)
+        except class_pins.ClassPinError as exc:
+            problems.append(f"{r1_CLASS_PINS_DIR}/{pin.name}: {exc}")
+            continue
+        versions.update(admitted if class_pins.is_compact(document) else flat)
     return versions, problems
 
 
@@ -745,6 +745,14 @@ def r2_collect_class_pins(
             continue
         if not isinstance(document, dict):
             problems.append(f"{r2_CLASS_PINS_DIR}/{pin.name}: top-level object expected")
+            continue
+        if class_pins.is_compact(document):
+            # `default` restates every admitted version, so a compact table has no
+            # patch hole by construction; its overrides are validated by R1.
+            try:
+                class_pins.expand(document, sorted(admitted, key=parse_dotted))
+            except class_pins.ClassPinError as exc:
+                problems.append(f"{r2_CLASS_PINS_DIR}/{pin.name}: {exc}")
             continue
         declared = {str(v) for v in document}
         missing = missing_higher(declared, admitted)
@@ -1311,10 +1319,14 @@ def r4_derive_all_task_versions(
         row["directory"]: set(row.get("supportedVersions", []))
         for row in matrix.get("plugins", [])
     }
-    pin_versions = {
-        path.stem: set(read_json(path))
-        for path in (root / r2_CLASS_PINS_DIR).glob("*.json")
-    }
+    pin_versions: dict[str, set[str]] = {}
+    for path in (root / r2_CLASS_PINS_DIR).glob("*.json"):
+        document = read_json(path)
+        pin_versions[path.stem] = (
+            set(class_pins.expand(document, reviewed))
+            if class_pins.is_compact(document)
+            else set(document)
+        )
     task_plugin_aliases: dict[str, str] = dict(
         matrix.get("taskPluginAliases", {})
     )

@@ -45,7 +45,10 @@ gate that cannot name its harm gets removed rather than maintained. All aggregat
 gates are declared in exactly one manifest, `gradle/gates.txt`, and registered in
 exactly one file, `gradle/verification.gradle.kts`; a new task registered anywhere
 else is either a leaf helper or a wiring mistake, and
-`scripts/test/test_ci_coverage.py` asserts the manifest stays complete.
+`scripts/test/test_ci_coverage.py` asserts the manifest stays complete. The leaf
+tasks live in `gradle/verification/*.gradle.kts` by domain, so a leaf change does
+not touch the file every branch edits; the contract scans that directory
+recursively and fails if any script there re-opens an aggregate.
 
 Review routing follows from the same reasoning: `.github/CODEOWNERS` is a single
 default rule because a per-path table of the same owner carries no information.

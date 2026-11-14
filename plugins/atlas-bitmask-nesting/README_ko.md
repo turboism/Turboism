@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, polygon, auto-layout
-turboismApi: "[0.67.4,1.0.0)"
+turboismApi: "[0.67.4,)"
 requiresCubism: true
 interface: none
 ---
@@ -34,7 +34,7 @@ interface: none
 
 ## 요구 사항 및 호환성
 
-Java 17+、Turboism API [0.67.4,1.0.0)、自動生成一覧にある Cubism 5.0–5.3 が必要です。5.2–5.3 は輪郭配置に対応し、5.0–5.1 では輪郭サービスが利用できない場合に矩形配置を使用します。既存の AUTO バックエンド値と bitmask-nesting 診断を使用し、SDK 列挙型の追加は不要です。
+Java 17+、Turboism API [0.67.4,)、自動生成一覧にある Cubism 5.0–5.3 が必要です。5.2–5.3 は輪郭配置に対応し、5.0–5.1 では輪郭サービスが利用できない場合に矩形配置を使用します。既存の AUTO バックエンド値と bitmask-nesting 診断を使用し、SDK 列挙型の追加は不要です。
 
 <!-- compatibility:begin -->
 **Cubism Editor 버전 지원(자동 생성):** 검토된 모든 버전(5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04, 정확한 버전 20개).

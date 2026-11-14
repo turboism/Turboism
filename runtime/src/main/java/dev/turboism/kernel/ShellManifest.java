@@ -66,7 +66,7 @@ public final class ShellManifest {
             FrameworkBuildInfo.current().version(),
             "Built-in menu, toolbar, settings, tab, and plugin management.",
             List.of(),
-            "[" + FrameworkBuildInfo.current().apiVersion() + ",1.0.0)",
+            "[" + FrameworkBuildInfo.current().apiVersion() + ",)",
             List.of(new CoreAuthor("Turboism Contributors", Optional.empty())),
             "Project License",
             Optional.of("https://turboism.dev"),

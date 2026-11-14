@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.Set;
 
@@ -18,7 +17,6 @@ import java.util.Set;
  * already performs the edit natively there is no interception and no callback, so behaviour
  * cannot be applied twice.</p>
  */
-@Incubating
 @CubismEditor(from = "5.0.00")
 public interface MeshMirrorControl {
 

@@ -28,6 +28,7 @@ trap 'rm -rf "$out"' EXIT
 
 # 1. Compile the plugin and the detector against the SDK.
 javac --release 17 -cp "$sdk_jar" -d "$out/plugin" \
+  "validation/shared/src/dev/turboism/validation/SessionGate.java" \
   "$base/src/dev/turboism/validation/boundingbox/BoundingBoxOverlayHostValidationPlugin.java" \
   "$base/src/dev/turboism/validation/boundingbox/BoundingBoxIconDetector.java"
 
@@ -128,6 +129,7 @@ jar cf "$output" -C "$out/plugin" .
 missing=0
 for entry in \
   META-INF/turboism/plugin.json \
+  dev/turboism/validation/SessionGate.class \
   dev/turboism/validation/boundingbox/BoundingBoxOverlayHostValidationPlugin.class \
   dev/turboism/validation/boundingbox/BoundingBoxIconDetector.class \
   icons/icon-a.png \

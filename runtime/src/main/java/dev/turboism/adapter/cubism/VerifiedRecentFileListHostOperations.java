@@ -13,9 +13,9 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -34,6 +34,8 @@ public final class VerifiedRecentFileListHostOperations implements RecentFileAda
     private final VerifiedMemberResolver panelResolver;
     private final Consumer<String> diagnostics;
     private final Map<RecentFileId, Path> paths = new LinkedHashMap<>();
+    /** Lowercase hex encoder for the opaque recent-file id; one instance is thread-safe. */
+    private static final HexFormat HEX = HexFormat.of();
 
     public VerifiedRecentFileListHostOperations(
             final VerifiedMemberResolver projectResolver, final VerifiedMemberResolver panelResolver) {
@@ -167,9 +169,7 @@ public final class VerifiedRecentFileListHostOperations implements RecentFileAda
         try {
             final byte[] digest = MessageDigest.getInstance("SHA-256")
                     .digest(RecentMenuChain.pathKey(path).getBytes(StandardCharsets.UTF_8));
-            final StringBuilder value = new StringBuilder(64);
-            for (byte item : digest) value.append(String.format(Locale.ROOT, "%02x", item));
-            return new RecentFileId(value.toString());
+            return new RecentFileId(HEX.formatHex(digest));
         } catch (java.security.NoSuchAlgorithmException impossible) {
             throw new IllegalStateException(impossible);
         }

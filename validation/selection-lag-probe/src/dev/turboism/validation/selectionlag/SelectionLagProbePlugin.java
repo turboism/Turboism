@@ -47,8 +47,7 @@ import java.util.concurrent.TimeoutException;
  */
 public final class SelectionLagProbePlugin implements TurboismPlugin {
 
-    private static final String FLAG = "exerciser.flag";
-    private static final long FLAG_TIMEOUT_MILLIS = 240_000L;
+    private static final String FLAG_TIMEOUT_MARKER = "SELECTION_LAG_PROBE_FLAG_TIMEOUT";
     private static final long MODEL_AWAIT_MAX_MILLIS = 240_000L;
     private static final long EDT_TIMEOUT_MILLIS = 5_000L;
     private static final int STACK_DEPTH = 64;
@@ -108,7 +107,7 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
         this.context = context;
         this.logger = context.logger();
         this.stateDir = context.paths().stateDir();
-        final Thread probe = new Thread(this::runWhenFlagged, "selection-lag-host-probe");
+        final Thread probe = new Thread(this::awaitTrigger, "selection-lag-host-probe");
         probe.setDaemon(true);
         probe.start();
         logger.info("SELECTION_LAG_PROBE_READY stateDir=" + stateDir);
@@ -129,23 +128,13 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
         logger.info("SELECTION_LAG_PROBE_SHUTDOWN");
     }
 
-    private void runWhenFlagged() {
-        final Path flag = stateDir.resolve(FLAG);
-        final long deadlineNanos = clock.nanoTime() + TimeUnit.MILLISECONDS.toNanos(FLAG_TIMEOUT_MILLIS);
-        while (clock.nanoTime() < deadlineNanos) {
-            if (Files.isRegularFile(flag)) {
-                runProbe();
-                return;
-            }
-            try {
-                Thread.sleep(2_000L);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-        logger.warn("SELECTION_LAG_PROBE_FLAG_TIMEOUT flag=" + flag);
-        Runtime.getRuntime().halt(2);
+    private void awaitTrigger() {
+        dev.turboism.validation.SessionGate.trigger(stateDir)
+            .nanoClock(clock::nanoTime)
+            .timeoutMarker(FLAG_TIMEOUT_MARKER)
+            .warn(logger::warn)
+            .onTrigger(this::runProbe)
+            .await();
     }
 
     // ------------------------------------------------------------------

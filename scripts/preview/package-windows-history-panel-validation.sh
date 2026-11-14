@@ -178,13 +178,16 @@ tmp4="$(mktemp -d "$repo_root/build/.history-native-ui.XXXXXX")"
 trap 'rm -rf "$tmp" "$tmp2" "$tmp3" "$tmp4"' EXIT
 mkdir -p "$tmp4/$probe_class_dir" "$tmp4/META-INF/turboism/i18n"
 # The operator-driven probe embeds the native sampler it reuses for its snapshots, so the
-# read-only manager probe classes are packaged here too.
+# read-only manager probe classes are packaged here too. The probe and its collaborators share
+# one prefix, so a single glob ships them together while the test guard below still rejects any
+# test class.
 find "$test_classes/$probe_class_dir" -maxdepth 1 -type f \
-  \( -name "$native_ui_class.class" -o -name "$native_ui_class\$*.class" \
+  \( -name 'WindowsHistoryNativeUiIngress*.class' \
      -o -name "$host_close_class.class" -o -name "$host_close_class\$*.class" \
      -o -name "$probe_class.class" -o -name "$probe_class\$*.class" \
      -o -name "$mesh_edit_class.class" -o -name "$mesh_edit_class\$*.class" \
      -o -name 'WindowsProbeHarness.class' -o -name 'WindowsProbeHarness\$*.class' \) \
+  ! \( -name '*Test.class' -o -name '*Test\$*.class' \) \
   -exec cp {} "$tmp4/$probe_class_dir/" \;
 cp "$native_ui_descriptor" "$tmp4/META-INF/turboism/plugin.json"
 : > "$tmp4/META-INF/turboism/i18n/messages.properties"

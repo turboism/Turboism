@@ -36,6 +36,7 @@ final class HookEnvironment {
     private final Path workingDirectory;
     private final RuntimeStartupConfig startupPolicy;
     private final OptimizationPlan plan;
+    private final LoadedClassSnapshot loadedClasses;
 
     private HookEnvironment(final Builder builder) {
         this.instrumentation = builder.instrumentation;
@@ -52,6 +53,8 @@ final class HookEnvironment {
         this.workingDirectory = builder.workingDirectory;
         this.startupPolicy = builder.startupPolicy;
         this.plan = builder.plan != null ? builder.plan : launchPlan(this.options);
+        this.loadedClasses =
+                builder.loadedClasses != null ? builder.loadedClasses : new LoadedClassSnapshot(this.instrumentation);
     }
 
     HookEnvironment forHook(final String hookId) {
@@ -70,7 +73,29 @@ final class HookEnvironment {
                 .workingDirectory(workingDirectory)
                 .startupPolicy(startupPolicy)
                 .plan(plan)
+                .loadedClasses(loadedClasses)
                 .build();
+    }
+
+    /**
+     * The loaded-class snapshot every hook of this install phase shares, so one phase pass pays one
+     * {@link Instrumentation#getAllLoadedClasses()} enumeration instead of one per hook.
+     *
+     * <p>The snapshot is sampled on first use and dropped when a hook defines a class it cannot
+     * answer for, because the sample taken before that definition cannot contain the class the next
+     * hook looks for.</p>
+     *
+     * @return the shared snapshot of this phase
+     */
+    LoadedClassIndex loadedClasses() {
+        return loadedClasses.current();
+    }
+
+    /**
+     * @return the provider of this phase's snapshot, for a hook that must also invalidate it
+     */
+    LoadedClassSnapshot loadedClassSnapshot() {
+        return loadedClasses;
     }
 
     /**
@@ -371,6 +396,7 @@ final class HookEnvironment {
         private Path workingDirectory = Path.of(".");
         private RuntimeStartupConfig startupPolicy;
         private OptimizationPlan plan;
+        private LoadedClassSnapshot loadedClasses;
 
         Builder plan(final OptimizationPlan value) {
             this.plan = value;
@@ -439,6 +465,11 @@ final class HookEnvironment {
 
         Builder startupPolicy(final RuntimeStartupConfig value) {
             this.startupPolicy = value;
+            return this;
+        }
+
+        Builder loadedClasses(final LoadedClassSnapshot value) {
+            this.loadedClasses = value;
             return this;
         }
 

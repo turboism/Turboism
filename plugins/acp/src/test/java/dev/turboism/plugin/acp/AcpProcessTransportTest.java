@@ -44,6 +44,17 @@ final class AcpProcessTransportTest {
     }
 
     @Test
+    void descendantSamplingBacksOffAfterTheLaunchWindow() {
+        // A short-lived helper forked at start-up must be seen, so the launch window samples fast.
+        assertTrue(AcpProcessTransport.sampleIntervalMillis(0L) <= 10L);
+        assertTrue(AcpProcessTransport.sampleIntervalMillis(199L) <= 10L);
+        // A long session must not traverse the process tree at launch rate.
+        final long steady = AcpProcessTransport.sampleIntervalMillis(200L);
+        assertTrue(steady >= 250L && steady <= 500L, "steady sampling period was " + steady + "ms");
+        assertEquals(steady, AcpProcessTransport.sampleIntervalMillis(3_600_000L));
+    }
+
+    @Test
     void windowsTeardownSkipsProcessHandleDescendantEnumeration() {
         assertFalse(AcpProcessTransport.tracksDescendants("Windows 11"));
         assertFalse(AcpProcessTransport.tracksDescendants("windows server 2025"));

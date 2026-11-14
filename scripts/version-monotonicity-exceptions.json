@@ -56,47 +56,7 @@
     },
     {
       "kind": "java-file",
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/FileChooserHistoryVerificationManifest.java",
-      "site": "5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The manifest names one exact version.",
-      "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane (admits5303ValidationCandidate); the lane runs one version by design."
-    },
-    {
-      "kind": "java-file",
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/NativeControlAppearancePersistenceVerificationManifest.java",
-      "site": "5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The manifest names one exact version.",
-      "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
-    },
-    {
-      "kind": "java-file",
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ParameterLifecycleVerificationManifest.java",
-      "site": "5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The manifest names one exact version.",
-      "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
-    },
-    {
-      "kind": "java-file",
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/PerformanceFpsVerificationManifest.java",
-      "site": "5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The manifest names one exact version.",
-      "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
-    },
-    {
-      "kind": "java-file",
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ProjectLifecycleVerificationManifest.java",
       "site": "5.3.03",
       "missing": [
         "5.3.04"

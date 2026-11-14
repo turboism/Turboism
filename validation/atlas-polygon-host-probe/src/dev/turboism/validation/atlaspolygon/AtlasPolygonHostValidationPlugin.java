@@ -69,8 +69,7 @@ import java.util.function.Consumer;
  */
 public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
 
-    private static final String FLAG = "exerciser.flag";
-    private static final long FLAG_TIMEOUT_MILLIS = 240_000L;
+    private static final String FLAG_TIMEOUT_MARKER = "ATLAS_POLYGON_PROBE_FLAG_TIMEOUT";
     private static final long MODEL_AWAIT_MAX_MILLIS = 240_000L;
     private static final long EDT_TIMEOUT_MILLIS = 30_000L;
     private static final long ATLAS_OPEN_TIMEOUT_MILLIS = 120_000L;
@@ -119,7 +118,7 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         this.context = Objects.requireNonNull(context, "context");
         this.logger = context.logger();
         this.stateDir = context.paths().stateDir();
-        final Thread exerciser = new Thread(this::runWhenFlagged, "atlas-polygon-host-exerciser");
+        final Thread exerciser = new Thread(this::awaitTrigger, "atlas-polygon-host-exerciser");
         exerciser.setDaemon(true);
         exerciser.start();
         logger.info("ATLAS_POLYGON_PROBE_READY stateDir=" + stateDir);
@@ -140,23 +139,12 @@ public final class AtlasPolygonHostValidationPlugin implements TurboismPlugin {
         logger.info("ATLAS_POLYGON_PROBE_SHUTDOWN");
     }
 
-    private void runWhenFlagged() {
-        final Path flag = stateDir.resolve(FLAG);
-        final long deadline = System.currentTimeMillis() + FLAG_TIMEOUT_MILLIS;
-        while (System.currentTimeMillis() < deadline) {
-            if (Files.isRegularFile(flag)) {
-                run();
-                return;
-            }
-            try {
-                Thread.sleep(2_000L);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-        logger.warn("ATLAS_POLYGON_PROBE_FLAG_TIMEOUT flag=" + flag);
-        Runtime.getRuntime().halt(2);
+    private void awaitTrigger() {
+        dev.turboism.validation.SessionGate.trigger(stateDir)
+            .timeoutMarker(FLAG_TIMEOUT_MARKER)
+            .warn(logger::warn)
+            .onTrigger(this::run)
+            .await();
     }
 
     private void run() {
