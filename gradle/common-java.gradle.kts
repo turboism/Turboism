@@ -1,3 +1,4 @@
+import dev.turboism.gradle.CommandLine
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.testing.Test
@@ -52,18 +53,23 @@ val selectedPattern = when (turboismBuildChannel) {
 if (turboismFrameworkVersion.length > 96 || !Regex(selectedPattern).matches(turboismFrameworkVersion)) {
     throw GradleException("Version does not match the selected channel")
 }
-// Local source identity comes from the checkout, never from the update API.
+// Local source identity comes from the checkout, never from the update API. Both probes are
+// ValueSources so the git commands run at most once per build and only their plain results enter
+// the configuration cache; the values are still read here because the version identity is a
+// configuration-time input of every module.
 val actualSource = runCatching {
-    providers.exec {
-        commandLine("git", "rev-parse", "HEAD")
-        isIgnoreExitValue = true
-    }.standardOutput.asText.get().trim()
+    CommandLine.value(
+        project,
+        commandLine = listOf("git", "rev-parse", "HEAD"),
+        workingDirectory = rootDir,
+    ).get().trimmedStandardOutput()
 }.getOrDefault("").ifEmpty { "unknown" }
 val dirtySource = runCatching {
-    providers.exec {
-        commandLine("git", "status", "--porcelain", "--untracked-files=no")
-        isIgnoreExitValue = true
-    }.standardOutput.asText.get()
+    CommandLine.value(
+        project,
+        commandLine = listOf("git", "status", "--porcelain", "--untracked-files=no"),
+        workingDirectory = rootDir,
+    ).get().trimmedStandardOutput()
 }.getOrDefault("").isNotBlank()
 val suppliedSource = providers.environmentVariable("TURBOISM_SOURCE_REVISION").orElse("").get()
 val turboismBuildSource = suppliedSource.ifEmpty { actualSource }
@@ -98,11 +104,16 @@ rootProject.extra["turboismBuildMetadata"] = linkedMapOf(
 tasks.register("printBuildInfo") {
     group = "help"
     description = "Print the exact local/CI version identity without building, allocating or publishing"
-    val metadata = rootProject.extra["turboismBuildMetadata"] as Map<*, *>
+    // The identity is a plain map and two strings by the time the action runs, so the action
+    // captures no Project and the configuration cache can store this task.
+    val metadata = (rootProject.extra["turboismBuildMetadata"] as Map<*, *>)
+        .entries.associate { (key, value) -> key.toString() to value.toString() }
+    val worktreeId = resolvedWorktreeId
+    val worktreeIdError = (rootProject.extra["turboismWorktreeIdError"] as String?).orEmpty()
     doLast {
         metadata.forEach { (key, value) -> println("$key=$value") }
-        println("worktreeId=$resolvedWorktreeId")
-        println("worktreeIdError=${(rootProject.extra["turboismWorktreeIdError"] as String?).orEmpty()}")
+        println("worktreeId=$worktreeId")
+        println("worktreeIdError=$worktreeIdError")
     }
 }
 allprojects {

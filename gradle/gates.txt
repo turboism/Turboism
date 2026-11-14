@@ -132,7 +132,7 @@ member checkCompletedCommit checkNativeHookHandles
 member checkCompletedCommit checkNativeTextureFactorySelection
 
 # --- checkReleasePackaging: the release delta, once, without the completed-commit closure ------
-aggregate checkReleasePackaging group="release verification" owner=".github/workflows/unified-channel-checks.yml:169" description="Runs the release-only gates (supply chain, release tooling, market metadata, installer contracts) without the public completed-commit closure." harm="an unsigned, unversioned or wrongly localized installer reaches a user because the release delta never ran against the release build identity" release-flags
+aggregate checkReleasePackaging group="release verification" owner=".github/workflows/unified-channel-checks.yml:171" description="Runs the release-only gates (supply chain, release tooling, market metadata, installer contracts) without the public completed-commit closure." harm="an unsigned, unversioned or wrongly localized installer reaches a user because the release delta never ran against the release build identity" release-flags
 member checkReleasePackaging checkReleaseTooling
 member checkReleasePackaging checkInstallerVersion
 member checkReleasePackaging checkMarketReleaseMetadata

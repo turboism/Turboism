@@ -1,3 +1,4 @@
+import dev.turboism.gradle.CommandLine
 import dev.turboism.gradle.internal.MappingReviewArgsFile
 import dev.turboism.gradle.internal.VerificationStamps
 import org.gradle.api.tasks.JavaExec
@@ -17,24 +18,18 @@ plugins {
 // --resolve prints the sanitized ID on stdout and its validation verdict on
 // stderr without failing, so configuration never fails on a forbidden or
 // malformed ID; tasks that consume the ID fail closed on turboismWorktreeIdError.
+//
+// The probe is a ValueSource, not providers.exec: the script runs at most once per build and only
+// its plain result enters the configuration cache. The value therefore stays lazy here, and the
+// consumers below read it through a Provider instead of blocking configuration.
 val worktreeIdOverride = providers.gradleProperty("turboismWorktreeId")
     .orElse(providers.environmentVariable("TURBOISM_WORKTREE_ID"))
-val worktreeIdProbe = providers.exec {
-    commandLine("bash", "scripts/dev/worktree-id.sh", "--resolve")
-    workingDir(rootProject.layout.projectDirectory)
-    isIgnoreExitValue = true
-    worktreeIdOverride.orNull?.let { environment("TURBOISM_WORKTREE_ID", it) }
-}
-val worktreeIdProbeSucceeded = runCatching {
-    worktreeIdProbe.result.get().exitValue == 0
-        && worktreeIdProbe.standardOutput.asText.get().trim().isNotBlank()
-}.getOrDefault(false)
-val probedWorktreeId = runCatching {
-    worktreeIdProbe.standardOutput.asText.get().trim()
-}.getOrDefault("")
-val probedWorktreeIdError = runCatching {
-    worktreeIdProbe.standardError.asText.get().trim()
-}.getOrDefault("")
+val worktreeIdProbe = CommandLine.value(
+    project,
+    commandLine = listOf("bash", "scripts/dev/worktree-id.sh", "--resolve"),
+    workingDirectory = rootProject.layout.projectDirectory.asFile,
+    environment = worktreeIdOverride.orNull?.let { mapOf("TURBOISM_WORKTREE_ID" to it) }.orEmpty(),
+)
 
 // Best-effort name mangling for the no-bash fallback only; the authoritative
 // verdict stays with the script, so consumers fail closed when it cannot run.
@@ -43,18 +38,40 @@ fun sanitizeWorktreeId(raw: String): String = raw.lowercase()
     .trim('-')
     .replace(Regex("-{2,}"), "-")
 
-val resolvedWorktreeId = probedWorktreeId
-    .ifBlank { sanitizeWorktreeId(worktreeIdOverride.orElse("").get()) }
-    .ifBlank { sanitizeWorktreeId(rootProject.layout.projectDirectory.asFile.name) }
-    .let { if (it.isBlank() || it == "." || it == "..") "worktree" else it }
+val probedWorktreeId = worktreeIdProbe.map { it.trimmedStandardOutput() }
+val probedWorktreeIdError = worktreeIdProbe.map { it.standardError.trim() }
+val worktreeIdProbeSucceeded = worktreeIdProbe.map { it.succeeded() && it.trimmedStandardOutput().isNotBlank() }
 
-rootProject.extra["turboismResolvedWorktreeId"] = resolvedWorktreeId
-rootProject.extra["turboismWorktreeIdError"] = if (worktreeIdProbeSucceeded) {
-    probedWorktreeIdError.ifBlank { null }
-} else {
-    "Worktree ID could not be resolved by scripts/dev/worktree-id.sh " +
-        "(bash unavailable or resolution failed); cannot validate $resolvedWorktreeId"
+val resolvedWorktreeId = probedWorktreeId.zip(worktreeIdProbeSucceeded) { probed, succeeded ->
+    if (succeeded) probed else ""
+}.zip(worktreeIdOverride.orElse("")) { probed, override ->
+    probed.ifBlank { sanitizeWorktreeId(override) }
+}.map { candidate ->
+    candidate.ifBlank { sanitizeWorktreeId(rootProject.layout.projectDirectory.asFile.name) }
+}.map { candidate ->
+    if (candidate.isBlank() || candidate == "." || candidate == "..") "worktree" else candidate
 }
+
+val worktreeIdError = worktreeIdProbeSucceeded.zip(resolvedWorktreeId) { succeeded, id -> succeeded to id }
+    .zip(probedWorktreeIdError) { (succeeded, id), error ->
+        if (succeeded) {
+            error
+        } else {
+            "Worktree ID could not be resolved by scripts/dev/worktree-id.sh " +
+                "(bash unavailable or resolution failed); cannot validate $id"
+        }
+    }
+
+/*
+ * The build directory of every module is build/worktree/<id>/<module>, so the ID has to be a
+ * concrete string while Gradle configures the build: a Provider cannot name a directory. This is
+ * the one read of the probe at configuration time, and it stays configuration-cache compatible
+ * because the ValueSource stores only the resolved result. Every other consumer reads the same
+ * resolved value from rootProject.extra.
+ */
+rootProject.extra["turboismResolvedWorktreeId"] = resolvedWorktreeId.get()
+// An empty verdict means "the script approved this ID"; consumers test for null, not for "".
+rootProject.extra["turboismWorktreeIdError"] = worktreeIdError.get().ifBlank { null }
 
 allprojects {
     repositories {
@@ -145,6 +162,18 @@ tasks.register<JavaExec>("mappingReview") {
 }
 
 apply(from = "gradle/common-java.gradle.kts")
+/*
+ * Every subproject must be evaluated before the gate scripts below configure, and the reason is
+ * not the `@token` collections (those are providers now). gradle/asm-admission.gradle.kts builds
+ * `productionMainSourceSets` by reading each subproject's SourceSetContainer while it configures;
+ * an unevaluated subproject has no source set yet, so it silently drops out of
+ * checkAsmSupplyChainAdmission and checkResolvedBytecodeDependencyGraph. A narrowed list therefore
+ * turns the supply-chain gate green over a smaller module set, which is a silent gate shrink.
+ *
+ * This stays the one configuration-time cost the build accepts. gradle.properties records it as a
+ * configuration-cache blocker: the evaluation order itself is not the blocker, but the eager
+ * cross-project reads that need it are.
+ */
 subprojects.forEach { evaluationDependsOn(it.path) }
 apply(from = "gradle/module-boundaries.gradle.kts")
 apply(from = "gradle/asm-admission.gradle.kts")
