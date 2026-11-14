@@ -174,6 +174,124 @@ final class ArtMeshMirrorRenderingTest {
         }
     }
 
+    @Test
+    void pointDragMirrorsWithoutRepeatedSelectionPollingAndUpdatesForm() throws Exception {
+        try (var loader = hostForPointDrag()) {
+            Object view = loader.loadClass("com.live2d.cubism.view.context.CEViewContext_ModelingView")
+                    .getConstructor()
+                    .newInstance();
+            Object edit = view.getClass().getField("edit").get(view);
+            Object selector = edit.getClass().getField("selector").get(edit);
+            Object model = edit.getClass().getField("model").get(edit);
+            Object mesh = model.getClass().getMethod("getArtMesh", String.class).invoke(model, "one");
+            Object form = mesh.getClass().getMethod("getCalculatedForm").invoke(mesh);
+            float[] positions = {-10f, 0f, 10f, 0f, 0f, 20f};
+            form.getClass().getField("positions").set(form, positions);
+            Object meshSource = mesh.getClass().getMethod("getSource").invoke(mesh);
+            Object coord = loader.loadClass("com.live2d.doc.CoordType")
+                    .getConstructor()
+                    .newInstance();
+            Class<?> baseType = loader.loadClass("com.live2d.cubism.doc.model.drawable.artMesh.MeshPointRef");
+            Class<?> exType = loader.loadClass("com.live2d.cubism.doc.model.drawable.artMesh.MeshPointRefEx");
+            Class<?> transformType = loader.loadClass("com.live2d.doc.selection.ITransformBetweenLocalAndCanvas");
+            Class<?> vectorType = loader.loadClass("com.live2d.graphics3d.type.GVector2");
+            Object nonlinearTransform = java.lang.reflect.Proxy.newProxyInstance(
+                    loader, new Class<?>[] {transformType}, (proxy, method, args) -> {
+                        float x = (float) vectorType.getMethod("getX").invoke(args[0]);
+                        float y = (float) vectorType.getMethod("getY").invoke(args[0]);
+                        if (method.getName().equals("transformLocalToCanvas")) {
+                            return vectorType
+                                    .getConstructor(float.class, float.class)
+                                    .newInstance(x * 2f, y);
+                        }
+                        if (method.getName().equals("transformCanvasToLocal")) {
+                            return vectorType
+                                    .getConstructor(float.class, float.class)
+                                    .newInstance(x * 0.5f, y);
+                        }
+                        throw new UnsupportedOperationException(method.getName());
+                    });
+            Object base0 = baseType.getConstructor(
+                            meshSource.getClass(),
+                            int.class,
+                            float[].class,
+                            int.class,
+                            coord.getClass(),
+                            form.getClass())
+                    .newInstance(meshSource, 0, positions, 0, coord, form);
+            Object base1 = baseType.getConstructor(
+                            meshSource.getClass(),
+                            int.class,
+                            float[].class,
+                            int.class,
+                            coord.getClass(),
+                            form.getClass())
+                    .newInstance(meshSource, 1, positions, 0, coord, form);
+            Object ref0 = exType.getConstructor(baseType, transformType, form.getClass())
+                    .newInstance(base0, nonlinearTransform, form);
+            Object ref1 = exType.getConstructor(baseType, transformType, form.getClass())
+                    .newInstance(base1, nonlinearTransform, form);
+
+            NativeWarpAltMirrorBridge.install(true);
+            try (var participation = NativeArtMeshSymmetryBridge.service().participate()) {
+                NativeArtMeshSymmetryBridge.service().setEnabled(true);
+                // Press on vertex 0 side (x=480, away from axis at x=500 -> point drag, not axis drag).
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 480, 400, 1))));
+                int pollsAfterPress =
+                        selector.getClass().getField("selectedCalls").getInt(selector);
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_DRAGGED, 470, 410, 1))));
+                assertEquals(
+                        pollsAfterPress,
+                        selector.getClass().getField("selectedCalls").getInt(selector),
+                        "point drag must not re-poll selected meshes on MOUSE_DRAGGED");
+
+                // Move vertex 0 to canvas (-24, 6) with weight 0.5: local (-10, 0) -> (-12, 6), blended (-11, 3),
+                // canvas (-22, 3), delta (-2, 3) reflected across vertical axis at x=0 -> (+2, 3),
+                // counterpart canvas (20, 0) + (2, 3) = (22, 3) -> local (11, 3).
+                Object target =
+                        vectorType.getConstructor(float.class, float.class).newInstance(-24f, 6f);
+                com.live2d.cubism.view.context.action.U$b.writeArtMesh(ref0, target, 0.5f);
+                assertEquals(-11f, positions[0], 1e-5f);
+                assertEquals(3f, positions[1], 1e-5f);
+                assertEquals(11f, positions[2], 1e-5f);
+                assertEquals(3f, positions[3], 1e-5f);
+                assertEquals(2, form.getClass().getField("updatedCalls").getInt(form));
+
+                // Second call on counterpart in the same tick must be skipped as already mirrored.
+                com.live2d.cubism.view.context.action.U$b.writeArtMesh(ref1, target, 0.5f);
+                assertEquals(11f, positions[2], 1e-5f);
+                assertEquals(3f, positions[3], 1e-5f);
+
+                // Starting a new tick clears per-tick deduplication so subsequent drags apply again.
+                Object viewContextClass = loader.loadClass("com.live2d.cubism.view.context.CEViewContext");
+                Object manager = loader.loadClass("com.live2d.cubism.view.context.actionManager.CEActionManager")
+                        .getConstructor((Class<?>) viewContextClass)
+                        .newInstance(view);
+                NativeWarpAltMirrorBridge.diagMouseAction(manager, null);
+                Object nextTarget =
+                        vectorType.getConstructor(float.class, float.class).newInstance(-26f, 6f);
+                com.live2d.cubism.view.context.action.U$b.writeArtMesh(ref0, nextTarget, 1.0f);
+                assertEquals(-13f, positions[0], 1e-5f);
+                assertEquals(6f, positions[1], 1e-5f);
+                assertEquals(13f, positions[2], 1e-5f);
+                assertEquals(6f, positions[3], 1e-5f);
+
+                // Weight mirroring must resolve getArtMesh(CDrawableId) rather than casting CDrawableId to
+                // CDrawableGuid.
+                Object pointSelector = loader.loadClass("com.live2d.doc.selection.PointSelector")
+                        .getConstructor()
+                        .newInstance();
+                NativeArtMeshSymmetryBridge.weight(pointSelector, base0, 0.75f, false, true);
+                assertEquals(
+                        1, pointSelector.getClass().getField("setWeightCalls").getInt(pointSelector));
+                assertEquals(
+                        0.75f, pointSelector.getClass().getField("lastWeight").getFloat(pointSelector), 1e-5f);
+            }
+        }
+    }
+
     private URLClassLoader hostWithImageLabel() throws Exception {
         var files = new ArrayList<String>();
         source(files, "com.live2d.graphics3d.type.GVector2", """
@@ -334,6 +452,229 @@ final class ArtMeshMirrorRenderingTest {
         final Class<?> mouseType =
                 loader.loadClass("com.live2d.cubism.view.context.CEViewContext_ModelingView$NativeMouse");
         return type.getConstructor(mouseType).newInstance(mouse);
+    }
+
+    private URLClassLoader hostForPointDrag() throws Exception {
+        var files = new ArrayList<String>();
+        source(files, "com.live2d.graphics3d.type.GVector2", """
+            public class GVector2 {float x,y; public GVector2(float x,float y){this.x=x;this.y=y;}
+            public float getX(){return x;} public float getY(){return y;}
+            public void setX(float x){this.x=x;} public void setY(float y){this.y=y;}}
+            """);
+        source(files, "com.live2d.type.CPoint", """
+            public class CPoint {public int x,y;public CPoint(int x,int y){this.x=x;this.y=y;}}
+            """);
+        source(files, "com.live2d.type.CColor", "public class CColor {public CColor(int r,int g,int b){}}");
+        source(files, "com.live2d.type.CFont", "public class CFont {public CFont(int size){}}");
+        source(files, "com.live2d.doc.CoordType", "public class CoordType {}");
+        source(files, "com.live2d.doc.selection.ITransformBetweenLocalAndCanvas", """
+            import com.live2d.graphics3d.type.GVector2;
+            public interface ITransformBetweenLocalAndCanvas {
+                GVector2 transformLocalToCanvas(GVector2 src, GVector2 dst, int index);
+                GVector2 transformCanvasToLocal(GVector2 src, GVector2 dst, int index);
+            }
+            """);
+        source(files, "com.live2d.type.CDrawableGuid", "public class CDrawableGuid {}");
+        source(files, "com.live2d.type.CDeformerGuid", "public class CDeformerGuid {}");
+        source(files, "com.live2d.cubism.doc.model.id.CDrawableId", "public class CDrawableId {}");
+        source(files, "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshSource", """
+            import com.live2d.cubism.doc.model.id.CDrawableId;
+            public class CArtMeshSource {
+                private final CDrawableId id = new CDrawableId();
+                public CDrawableId getId() { return id; }
+            }
+            """);
+        source(files, "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm", """
+            import com.live2d.doc.selection.ITransformBetweenLocalAndCanvas;
+            public class CArtMeshForm {
+                public float[] positions = new float[] {-10f, 0f, 10f, 0f};
+                public int updatedCalls;
+                public float[] getPositions() { return positions; }
+                public void setUpdated() { updatedCalls++; }
+                public MeshPointRefEx getCompatiblePointRefEx(
+                        MeshPointRef ref, ITransformBetweenLocalAndCanvas transform) {
+                    return new MeshPointRefEx(ref, transform, this);
+                }
+            }
+            """);
+        source(files, "com.live2d.cubism.doc.model.drawable.artMesh.MeshPointRef", """
+            import com.live2d.doc.CoordType;
+            import com.live2d.graphics3d.type.GVector2;
+            public class MeshPointRef {
+                private final CArtMeshSource source;
+                private final int index;
+                private final float[] positions;
+                private final int step;
+                private final CoordType coord;
+                private final CArtMeshForm form;
+                public MeshPointRef(CArtMeshSource s, int i, float[] p, int st, CoordType c, CArtMeshForm f) {
+                    source=s; index=i; positions=p; step=st; coord=c; form=f;
+                }
+                public int a() { return index; }
+                public CoordType c() { return coord; }
+                public CArtMeshSource d() { return source; }
+                public CArtMeshForm g() { return form; }
+                public float[] h() { return positions; }
+                public int i() { return step; }
+                public GVector2 getPos() { return new GVector2(positions[index * 2], positions[index * 2 + 1]); }
+                public void moveToOnLocal(GVector2 target, float weight) {
+                    positions[index * 2] = positions[index * 2] * (1f - weight) + target.getX() * weight;
+                    positions[index * 2 + 1] = positions[index * 2 + 1] * (1f - weight) + target.getY() * weight;
+                    if (form != null) form.setUpdated();
+                }
+            }
+            """);
+        source(files, "com.live2d.cubism.doc.model.drawable.artMesh.MeshPointRefEx", """
+            import com.live2d.doc.selection.ITransformBetweenLocalAndCanvas;
+            import com.live2d.graphics3d.type.GVector2;
+            public class MeshPointRefEx extends MeshPointRef {
+                private final ITransformBetweenLocalAndCanvas transformBetweenLocalAndCanvas;
+                public MeshPointRefEx(MeshPointRef base, ITransformBetweenLocalAndCanvas t, CArtMeshForm f) {
+                    super(base.d(), base.a(), base.h(), base.i(), base.c(), f);
+                    transformBetweenLocalAndCanvas = t;
+                }
+                public GVector2 e() {
+                    GVector2 out = transformBetweenLocalAndCanvas == null
+                            ? null : transformBetweenLocalAndCanvas.transformLocalToCanvas(getPos(), null, a());
+                    return out != null ? out : getPos();
+                }
+                public void a(GVector2 target, float weight) {
+                    GVector2 local = transformBetweenLocalAndCanvas == null
+                            ? null : transformBetweenLocalAndCanvas.transformCanvasToLocal(target, null, a());
+                    moveToOnLocal(local != null ? local : target, weight);
+                }
+            }
+            """);
+        source(files, "com.live2d.cubism.doc.modeling.CModelingEditMode_Main", """
+            import com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm;
+            import com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshSource;
+            public class CModelingEditMode_Main {
+                public final Selector selector = new Selector();
+                public final Model model = new Model();
+                public Selector getSelector() { return selector; }
+                public Model getCurrentModel() { return model; }
+                public static class Selector {
+                    public int selectedCalls;
+                    public java.util.List<Selection> getSelected() {
+                        selectedCalls++;
+                        return java.util.List.of(new Selection());
+                    }
+                }
+                public static class Selection {
+                    public Object getSource() { return new CArtMeshSource(); }
+                    public String getGuid() { return "one"; }
+                }
+                public static class Model {
+                    final Object source = new Object();
+                    final Mesh mesh = new Mesh();
+                    final com.live2d.doc.selection.ITransformBetweenLocalAndCanvas identity =
+                            new com.live2d.doc.selection.ITransformBetweenLocalAndCanvas() {
+                                public com.live2d.graphics3d.type.GVector2 transformLocalToCanvas(
+                                        com.live2d.graphics3d.type.GVector2 s,
+                                        com.live2d.graphics3d.type.GVector2 d,
+                                        int i) {
+                                    return s;
+                                }
+                                public com.live2d.graphics3d.type.GVector2 transformCanvasToLocal(
+                                        com.live2d.graphics3d.type.GVector2 s,
+                                        com.live2d.graphics3d.type.GVector2 d,
+                                        int i) {
+                                    return s;
+                                }
+                            };
+                    public Object getSource() { return source; }
+                    public Mesh getArtMesh(com.live2d.type.CDrawableGuid guid) { return mesh; }
+                    public Mesh getArtMesh(com.live2d.cubism.doc.model.id.CDrawableId id) { return mesh; }
+                    public Mesh getArtMesh(String id) { return mesh; }
+                    public com.live2d.doc.selection.ITransformBetweenLocalAndCanvas getDeformerTransform(
+                            com.live2d.type.CDeformerGuid guid) {
+                        return identity;
+                    }
+                }
+                public static class Mesh {
+                    private final CArtMeshSource source = new CArtMeshSource();
+                    private final CArtMeshForm form = new CArtMeshForm();
+                    private final com.live2d.type.CDeformerGuid deformerGuid = new com.live2d.type.CDeformerGuid();
+                    public CArtMeshSource getSource() { return source; }
+                    public CArtMeshForm getCalculatedForm() { return form; }
+                    public com.live2d.type.CDeformerGuid getTargetDeformerGuid() { return deformerGuid; }
+                }
+            }
+            """);
+        source(files, "com.live2d.doc.selection.PointSelector", """
+            public class PointSelector {
+                public int setWeightCalls;
+                public float lastWeight;
+                public Object getCompatible(Object ref) { return ref; }
+                public void setWeight(Object ref, float w) { setWeightCalls++; lastWeight = w; }
+                public boolean add(Object ref, float w, boolean reorder) { return true; }
+            }
+            """);
+        source(files, "com.live2d.cubism.view.context.CEViewContext", "public class CEViewContext {}");
+        source(files, "com.live2d.cubism.view.context.actionManager.CEActionManager", """
+            import com.live2d.cubism.view.context.CEViewContext;
+            public class CEActionManager {
+                private final CEViewContext viewContext;
+                public CEActionManager(CEViewContext viewContext) { this.viewContext = viewContext; }
+                public final CEViewContext getViewContext() { return viewContext; }
+            }
+            """);
+        source(files, "com.live2d.cubism.view.context.CEViewContext_ModelingView", """
+            import com.live2d.graphics3d.type.GVector2;
+            import com.live2d.type.*;
+            public class CEViewContext_ModelingView extends com.live2d.cubism.view.context.CEViewContext {
+                public final com.live2d.cubism.doc.modeling.CModelingEditMode_Main edit =
+                        new com.live2d.cubism.doc.modeling.CModelingEditMode_Main();
+                public final Camera camera = new Camera();
+                public final Drawer drawer = new Drawer();
+                public Object getCurrentEditMode() { return edit; }
+                public Camera getCameraManager() { return camera; }
+                public void repaintCanvas() {}
+                public static class NativeMouse extends java.awt.event.MouseEvent {
+                    public NativeMouse(int id, int x, int y, int clicks) {
+                        super(new java.awt.Canvas(), id, 1L, 0, x, y, clicks, false, java.awt.event.MouseEvent.BUTTON1);
+                    }
+                }
+                public static class NativeEvent {
+                    public final NativeMouse mouse;
+                    public final CPoint point;
+                    public NativeEvent(NativeMouse m) { mouse = m; point = new CPoint(m.getX(), m.getY()); }
+                    public NativeMouse f() { return mouse; }
+                    public CPoint K() { return point; }
+                }
+                public Render getRenderSystem() { return new Render(); }
+                public Scene getSceneGraph() { return new Scene(); }
+                public class Render { public Drawer b() { return drawer; } }
+                public static class Scene { public Object getObjectsOnComponent() { return this; } }
+                public static class Rect {
+                    public int getX() { return 0; }
+                    public int getY() { return 0; }
+                    public int getWidth() { return 1000; }
+                    public int getHeight() { return 800; }
+                }
+                public static class Camera {
+                    public boolean isSafeEditOnPlaneXY() { return true; }
+                    public Rect getComponentRect() { return new Rect(); }
+                    public GVector2 documentToComponent(GVector2 p) {
+                        return new GVector2(500 + p.getX(), 400 + p.getY());
+                    }
+                    public GVector2 componentToDocument(CPoint p) {
+                        return new GVector2(p.x - 500, p.y - 400);
+                    }
+                }
+                public static class Drawer {
+                    public void a(Object ignored) {}
+                    public void a(int order) {}
+                    public void a(GVector2 a, GVector2 b, CColor c, float width, float z) {}
+                    public void a(String s, CFont f, float x, float y, float z, float size, CColor c) {}
+                }
+            }
+            """);
+        Path classes = Files.createDirectories(root.resolve("point-drag-classes"));
+        var args = new ArrayList<>(List.of("-d", classes.toString()));
+        args.addAll(files);
+        assertEquals(0, ToolProvider.getSystemJavaCompiler().run(null, null, null, args.toArray(String[]::new)));
+        return new URLClassLoader(new URL[] {classes.toUri().toURL()}, ClassLoader.getPlatformClassLoader());
     }
 
     private URLClassLoader host() throws Exception {

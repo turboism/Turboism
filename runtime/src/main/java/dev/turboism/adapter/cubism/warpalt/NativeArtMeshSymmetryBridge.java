@@ -16,6 +16,7 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -32,6 +33,12 @@ public final class NativeArtMeshSymmetryBridge {
     private static final String ART_MESH_FORM_CLASS = "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm";
     private static final String TRANSFORM_CLASS = "com.live2d.doc.selection.ITransformBetweenLocalAndCanvas";
     private static final String TRANSFORM_FIELD = "transformBetweenLocalAndCanvas";
+    private static final String GVECTOR2_CLASS = "com.live2d.graphics3d.type.GVector2";
+    private static final String CPOINT_CLASS = "com.live2d.type.CPoint";
+    private static final String CCOLOR_CLASS = "com.live2d.type.CColor";
+    private static final String CFONT_CLASS = "com.live2d.type.CFont";
+    private static final String LAYER_ENUM_CLASS = "com.live2d.graphics3d.component.a.c$b";
+    private static final String LAYER_BASE_CLASS = "com.live2d.graphics3d.component.a.c";
     private static final String DRAG_ACTION_PACKAGE = "com.live2d.cubism.view.context.action.";
     private static final String HOST_ADAPTER_PACKAGE = "dev.turboism.";
     private static final String THREAD_CLASS = "java.lang.Thread";
@@ -55,12 +62,31 @@ public final class NativeArtMeshSymmetryBridge {
     private static final int DARK_G = 24;
     private static final int DARK_B = 28;
     private static final int LIGHT_RGB = 255;
+    private static final int MAX_MESH_VERTICES = 10_000;
+    private static final float SCREEN_PAIR_TOLERANCE_PX = 20.0f;
+    private static final float HANDLE_HIT_RADIUS_PX = 12.0f;
+    private static final float CENTER_HIT_RADIUS_PX = 11.0f;
+    private static final float LINE_HIT_DISTANCE_PX = 5.0f;
+    private static final float MARKER_DIAMOND_RADIUS_PX = 9.0f;
+    private static final float MARKER_SQUARE_RADIUS_PX = 8.0f;
+    private static final float PROBE_MIN_STEP = 1024.0f;
+    private static final float PROBE_ULP_MULTIPLIER = 64.0f;
+    private static final float ROTATION_ARM_MIN_PX = 32.0f;
+    private static final float DEFAULT_ROTATION_RADIUS = 64.0f;
+    private static final MethodType OBJECT_GETTER_TYPE = MethodType.methodType(Object.class, Object.class);
+    private static final MethodType OBJECT_ARG_OBJECT_TYPE =
+            MethodType.methodType(Object.class, Object.class, Object.class);
+    private static final MethodType FLOAT_GETTER_TYPE = MethodType.methodType(float.class, Object.class);
+    private static final MethodType INT_GETTER_TYPE = MethodType.methodType(int.class, Object.class);
+    private static final MethodType BOOLEAN_GETTER_TYPE = MethodType.methodType(boolean.class, Object.class);
+    private static final MethodType VOID_OBJECT_TYPE = MethodType.methodType(void.class, Object.class);
     private static final Color LABEL_OUTLINE_COLOR = new Color(DARK_R, DARK_G, DARK_B);
     private static final Color LABEL_FILL_COLOR = new Color(LIGHT_RGB, LIGHT_RGB, LIGHT_RGB);
-    private static final StackWalker STACK_WALKER = StackWalker.getInstance();
+    private static final StackWalker STACK_WALKER = createStackWalker();
     private static final Map<Object, State> STATES = Collections.synchronizedMap(new WeakHashMap<>());
     private static final ThreadLocal<State> CURRENT = new ThreadLocal<>();
     private static final ThreadLocal<Boolean> APPLYING = ThreadLocal.withInitial(() -> false);
+    private static final ThreadLocal<ScratchVectors> SCRATCH_VECTORS = new ThreadLocal<>();
     private static final Set<String> REPORTED = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static volatile int mode;
     private static final RuntimeArtMeshMirrorService SERVICE = new RuntimeArtMeshMirrorService();
@@ -83,6 +109,7 @@ public final class NativeArtMeshSymmetryBridge {
                 state.resetGesture = false;
                 state.pairs.clear();
                 state.written.clear();
+                state.writtenBits.clear();
                 hideAngleLabel(state);
                 Object view = state.view == null ? null : state.view.get();
                 if (view != null) {
@@ -118,6 +145,7 @@ public final class NativeArtMeshSymmetryBridge {
         ArtMeshMirrorAxis.Point last;
         final Map<float[], Pairing> pairs = new IdentityHashMap<>();
         final Map<float[], Set<Integer>> written = new IdentityHashMap<>();
+        final Map<float[], BitSet> writtenBits = new IdentityHashMap<>();
     }
 
     private record Pairing(int[] counterparts) {}
@@ -133,6 +161,7 @@ public final class NativeArtMeshSymmetryBridge {
                 state.resetGesture = false;
                 state.pairs.clear();
                 state.written.clear();
+                state.writtenBits.clear();
                 if (next == 0) hideAngleLabel(state);
             }
         }
@@ -144,6 +173,7 @@ public final class NativeArtMeshSymmetryBridge {
         STATES.clear();
         CURRENT.remove();
         APPLYING.remove();
+        SCRATCH_VECTORS.remove();
         REPORTED.clear();
     }
 
@@ -152,16 +182,23 @@ public final class NativeArtMeshSymmetryBridge {
     }
 
     private static State state(Object view) throws Throwable {
-        if (!enabled() || view == null || !view.getClass().getName().equals(MODELING_VIEW_CLASS)) return null;
+        if (!enabled() || view == null) return null;
         StateHandles handles = STATE_HANDLES.get(view.getClass());
+        if (!handles.isModelingView) return null;
         Object edit = handles.getCurrentEditMode.invokeExact(view);
         // Exclude form-animation and mesh-topology editors, which own different write policies.
-        if (edit == null || !edit.getClass().getName().equals(MAIN_EDIT_MODE_CLASS)) return null;
-        Object model = handles.getCurrentModel.invoke(edit);
-        Object source = handles.getModelSource(model).invoke(model);
+        if (edit == null
+                || (edit.getClass() != handles.editType
+                        && !edit.getClass().getName().equals(MAIN_EDIT_MODE_CLASS))) {
+            return null;
+        }
+        Object model = handles.getCurrentModel.invokeExact(edit);
+        Object source = handles.getModelSource(model).invokeExact(model);
         synchronized (STATES) {
             State state = STATES.computeIfAbsent(source, ignored -> new State());
-            state.view = new java.lang.ref.WeakReference<>(view);
+            if (state.view == null || state.view.get() != view) {
+                state.view = new java.lang.ref.WeakReference<>(view);
+            }
             return state;
         }
     }
@@ -169,15 +206,36 @@ public final class NativeArtMeshSymmetryBridge {
     /** Called before native input dispatch. Only a hit on the axis controls captures a gesture. */
     public static boolean input(Object view, Object event) {
         try {
+            if (!enabled() || view == null || event == null) {
+                CURRENT.remove();
+                return false;
+            }
+            EventHandles eventHandles = EVENT_HANDLES.get(event.getClass());
+            if (eventHandles.awt == null) {
+                CURRENT.remove();
+                return false;
+            }
+            Object awt = eventHandles.awt.invokeExact(event);
+            if (!(awt instanceof MouseEvent mouse)) {
+                CURRENT.remove();
+                return false;
+            }
+            int id = mouse.getID();
+            if (id != MouseEvent.MOUSE_PRESSED && id != MouseEvent.MOUSE_DRAGGED && id != MouseEvent.MOUSE_RELEASED) {
+                CURRENT.remove();
+                return false;
+            }
             State state = state(view);
             CURRENT.remove();
             if (state == null) return false;
+            if (id == MouseEvent.MOUSE_DRAGGED
+                    && state.drag == 0
+                    && state.axis != null
+                    && !state.selectedMeshes.isEmpty()) {
+                CURRENT.set(state);
+                return false;
+            }
             ViewUiHandles handles = VIEW_UI_HANDLES.get(view.getClass());
-            EventHandles eventHandles = EVENT_HANDLES.get(event.getClass());
-            if (eventHandles.awt == null) return false;
-            Object awt = eventHandles.awt.invoke(event);
-            if (!(awt instanceof MouseEvent mouse)) return false;
-            int id = mouse.getID();
             // Skip selection polling while actively dragging the captured axis.
             if (!(state.drag != 0 && id == MouseEvent.MOUSE_DRAGGED)) {
                 if (!syncSelectedMeshes(view, state, handles)) {
@@ -193,6 +251,7 @@ public final class NativeArtMeshSymmetryBridge {
                 state.resetGesture = false;
                 state.pairs.clear();
                 state.written.clear();
+                clearWrittenBits(state);
             }
             if (state.axis == null) initialize(view, state);
             if (state.axis == null) return false;
@@ -206,6 +265,7 @@ public final class NativeArtMeshSymmetryBridge {
                     state.resetGesture = false;
                     state.pairs.clear();
                     state.written.clear();
+                    clearWrittenBits(state);
                     if (captured) {
                         handles.repaintCanvas.invokeExact(view);
                         return true;
@@ -214,10 +274,10 @@ public final class NativeArtMeshSymmetryBridge {
                 return false;
             }
             Object camera = handles.getCameraManager.invokeExact(view);
-            if (!(boolean) handles.isSafeEditOnPlaneXY.invoke(camera)) return false;
+            if (!(boolean) handles.isSafeEditOnPlaneXY.invokeExact(camera)) return false;
             if (eventHandles.componentPoint == null) return false;
-            Object eventPoint = eventHandles.componentPoint.invoke(event);
-            ArtMeshMirrorAxis.Point point = read(handles, handles.componentToDocument.invoke(camera, eventPoint));
+            Object eventPoint = eventHandles.componentPoint.invokeExact(event);
+            ArtMeshMirrorAxis.Point point = read(handles, handles.componentToDocument.invokeExact(camera, eventPoint));
             if (id == MouseEvent.MOUSE_PRESSED && mouse.getButton() == MouseEvent.BUTTON1)
                 state.movement = new NativeWarpPointGesture.Gesture(view, point.x(), point.y());
             if (id == MouseEvent.MOUSE_PRESSED
@@ -229,15 +289,15 @@ public final class NativeArtMeshSymmetryBridge {
                 ProjectedAxis projection = projectAxis(handles, camera, state.axis);
                 ArtMeshMirrorAxis.Point center = projection.center();
                 ArtMeshMirrorAxis.Point handle = rotationHandle(projection, state.axis);
-                if (distance(screen, handle) <= 12) state.drag = 3;
-                else if (distance(screen, center) <= 11) state.drag = 2;
+                if (distance(screen, handle) <= HANDLE_HIT_RADIUS_PX) state.drag = 3;
+                else if (distance(screen, center) <= CENTER_HIT_RADIUS_PX) state.drag = 2;
                 else {
                     float dx = projection.direction().x();
                     float dy = projection.direction().y();
                     double length = Math.hypot(dx, dy);
                     double perpendicular =
                             Math.abs((screen.x() - center.x()) * dy - (screen.y() - center.y()) * dx) / length;
-                    if (perpendicular <= 5) state.drag = 1;
+                    if (perpendicular <= LINE_HIT_DISTANCE_PX) state.drag = 1;
                 }
                 if (state.drag != 0) state.vertexGesture = false;
                 state.last = point;
@@ -274,7 +334,8 @@ public final class NativeArtMeshSymmetryBridge {
         try {
             State state = state(NativeWarpAltMirrorBridge.actionView(manager));
             if (state != null) {
-                state.written.clear();
+                if (!state.written.isEmpty()) state.written.clear();
+                clearWrittenBits(state);
                 CURRENT.set(state);
             }
         } catch (Throwable failure) {
@@ -284,10 +345,18 @@ public final class NativeArtMeshSymmetryBridge {
         }
     }
 
+    private static void clearWrittenBits(State state) {
+        if (!state.writtenBits.isEmpty()) {
+            for (BitSet bits : state.writtenBits.values()) {
+                bits.clear();
+            }
+        }
+    }
+
     private static boolean syncSelectedMeshes(Object view, State state, ViewUiHandles handles) throws Throwable {
         Object edit = handles.getCurrentEditMode.invokeExact(view);
-        Object selector = handles.getSelector.invoke(edit);
-        Object selectedList = handles.getSelected.invoke(selector);
+        Object selector = handles.getSelector.invokeExact(edit);
+        Object selectedList = handles.getSelected.invokeExact(selector);
         if (!(selectedList instanceof Iterable<?> iterable)) {
             if (!state.selectedMeshes.isEmpty()) clearAxisForSelectionChange(state, Set.of());
             return false;
@@ -299,9 +368,9 @@ public final class NativeArtMeshSymmetryBridge {
             if (selection == null) continue;
             SelectionHandles sel = SELECTION_HANDLES.get(selection.getClass());
             if (sel.getSource == null || sel.getGuid == null) continue;
-            Object source = sel.getSource.invoke(selection);
-            if (source != null && source.getClass().getName().equals(ARTMESH_SOURCE_CLASS)) {
-                String guid = String.valueOf(sel.getGuid.invoke(selection));
+            Object source = sel.getSource.invokeExact(selection);
+            if (source != null && ART_MESH_SOURCE_TYPES.get(source.getClass())) {
+                String guid = String.valueOf(sel.getGuid.invokeExact(selection));
                 if (previous.contains(guid)) {
                     matched++;
                 } else {
@@ -318,9 +387,9 @@ public final class NativeArtMeshSymmetryBridge {
             if (selection == null) continue;
             SelectionHandles sel = SELECTION_HANDLES.get(selection.getClass());
             if (sel.getSource == null || sel.getGuid == null) continue;
-            Object source = sel.getSource.invoke(selection);
-            if (source != null && source.getClass().getName().equals(ARTMESH_SOURCE_CLASS)) {
-                selected.add(String.valueOf(sel.getGuid.invoke(selection)));
+            Object source = sel.getSource.invokeExact(selection);
+            if (source != null && ART_MESH_SOURCE_TYPES.get(source.getClass())) {
+                selected.add(String.valueOf(sel.getGuid.invokeExact(selection)));
             }
         }
         if (!selected.equals(previous)) {
@@ -337,33 +406,34 @@ public final class NativeArtMeshSymmetryBridge {
         state.resetGesture = false;
         state.pairs.clear();
         state.written.clear();
+        state.writtenBits.clear();
         hideAngleLabel(state);
     }
 
     private static void initialize(Object view, State state) throws Throwable {
         ViewUiHandles handles = VIEW_UI_HANDLES.get(view.getClass());
         Object edit = handles.getCurrentEditMode.invokeExact(view);
-        Object model = handles.getCurrentModel.invoke(edit);
-        Object selections = handles.getSelected.invoke(handles.getSelector.invoke(edit));
+        Object model = handles.getCurrentModel.invokeExact(edit);
+        Object selections = handles.getSelected.invokeExact(handles.getSelector.invokeExact(edit));
         if (!(selections instanceof Iterable<?> list)) return;
         java.util.List<Object> forms = new java.util.ArrayList<>();
         for (Object selection : list) {
             if (selection == null) continue;
             SelectionHandles sel = SELECTION_HANDLES.get(selection.getClass());
             if (sel.getSource == null || sel.getGuid == null) continue;
-            Object source = sel.getSource.invoke(selection);
-            if (source == null || !source.getClass().getName().equals(ARTMESH_SOURCE_CLASS)) continue;
-            Object guid = sel.getGuid.invoke(selection);
+            Object source = sel.getSource.invokeExact(selection);
+            if (source == null || !ART_MESH_SOURCE_TYPES.get(source.getClass())) continue;
+            Object guid = sel.getGuid.invokeExact(selection);
             if (guid == null) continue;
             MethodHandle getArtMesh = handles.getArtMeshForGuid(guid.getClass());
-            Object mesh = getArtMesh.invoke(model, guid);
-            if (mesh != null) forms.add(handles.getCalculatedForm.invoke(mesh));
+            Object mesh = getArtMesh.invokeExact(model, guid);
+            if (mesh != null) forms.add(handles.getCalculatedForm.invokeExact(mesh));
         }
         state.axis = axisForCalculatedForms(forms, mode);
         if (state.axis != null) {
             Object camera = handles.getCameraManager.invokeExact(view);
-            state.axis.setRotationRadius(
-                    64 / projectAxis(handles, camera, state.axis).scale());
+            state.axis.setRotationRadius(DEFAULT_ROTATION_RADIUS
+                    / projectAxis(handles, camera, state.axis).scale());
         }
     }
 
@@ -371,16 +441,25 @@ public final class NativeArtMeshSymmetryBridge {
             throws ReflectiveOperationException {
         float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY;
         float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY;
-        for (Object form : forms) {
-            // Calculated forms already contain canvas coordinates. Applying the model's
-            // local-to-canvas transform again would push the pivot far outside the viewport.
-            float[] positions = (float[]) call(form, "getPositions");
-            for (int i = 0; i + 1 < positions.length; i += 2) {
-                minX = Math.min(minX, positions[i]);
-                maxX = Math.max(maxX, positions[i]);
-                minY = Math.min(minY, positions[i + 1]);
-                maxY = Math.max(maxY, positions[i + 1]);
+        try {
+            for (Object form : forms) {
+                if (form == null) continue;
+                // Calculated forms already contain canvas coordinates. Applying the model's
+                // local-to-canvas transform again would push the pivot far outside the viewport.
+                float[] positions =
+                        (float[]) FORM_POSITIONS.get(form.getClass()).invokeExact(form);
+                for (int i = 0; i + 1 < positions.length; i += 2) {
+                    minX = Math.min(minX, positions[i]);
+                    maxX = Math.max(maxX, positions[i]);
+                    minY = Math.min(minY, positions[i + 1]);
+                    maxY = Math.max(maxY, positions[i + 1]);
+                }
             }
+        } catch (ReflectiveOperationException | RuntimeException | Error failure) {
+            throw failure;
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            throw new ReflectiveOperationException(failure);
         }
         return Float.isFinite(minX)
                 ? new ArtMeshMirrorAxis(
@@ -398,34 +477,34 @@ public final class NativeArtMeshSymmetryBridge {
             if (state.axis == null) initialize(view, state);
             if (state.axis == null) return;
             Object camera = handles.getCameraManager.invokeExact(view);
-            if (!(boolean) handles.isSafeEditOnPlaneXY.invoke(camera)) return;
+            if (!(boolean) handles.isSafeEditOnPlaneXY.invokeExact(camera)) return;
             DrawingResources resources = DRAWING.get(view.getClass());
             Object renderSystem = handles.getRenderSystem.invokeExact(view);
-            Object drawer = handles.drawerOf.invoke(renderSystem);
+            Object drawer = handles.drawerOf.invokeExact(renderSystem);
             Object graph = handles.getSceneGraph.invokeExact(view);
-            Object objectsOnComponent = handles.getObjectsOnComponent.invoke(graph);
-            handles.drawerSetEntity.invoke(drawer, objectsOnComponent);
-            handles.drawerSetLayer.invoke(drawer, resources.layer);
+            Object objectsOnComponent = handles.getObjectsOnComponent.invokeExact(graph);
+            handles.drawerSetEntity.invokeExact(drawer, objectsOnComponent);
+            handles.drawerSetLayer.invokeExact(drawer, resources.layer);
             ProjectedAxis projection = projectAxis(handles, camera, state.axis);
             var center = projection.center();
             var direction = projection.direction();
-            Object rect = handles.getComponentRect.invoke(camera);
-            float left = (float) handles.rectX.invoke(rect);
-            float top = (float) handles.rectY.invoke(rect);
-            float width = (float) handles.rectWidth.invoke(rect);
-            float height = (float) handles.rectHeight.invoke(rect);
+            Object rect = handles.getComponentRect.invokeExact(camera);
+            float left = (float) handles.rectX.invokeExact(rect);
+            float top = (float) handles.rectY.invokeExact(rect);
+            float width = (float) handles.rectWidth.invokeExact(rect);
+            float height = (float) handles.rectHeight.invokeExact(rect);
             float radius = (float) (Math.hypot(center.x() - left, center.y() - top) + Math.hypot(width, height));
-            var start = new ArtMeshMirrorAxis.Point(
-                    center.x() - direction.x() * radius, center.y() - direction.y() * radius);
-            var end = new ArtMeshMirrorAxis.Point(
-                    center.x() + direction.x() * radius, center.y() + direction.y() * radius);
-            handles.drawerSetOrder.invoke(drawer, ORDER_AXIS_DARK);
-            line(handles, drawer, start, end, resources.dark, AXIS_LINE_DARK_WIDTH);
-            handles.drawerSetOrder.invoke(drawer, ORDER_AXIS_LIGHT);
-            line(handles, drawer, start, end, resources.light, AXIS_LINE_LIGHT_WIDTH);
-            marker(handles, drawer, center, resources, true);
+            float startX = center.x() - direction.x() * radius;
+            float startY = center.y() - direction.y() * radius;
+            float endX = center.x() + direction.x() * radius;
+            float endY = center.y() + direction.y() * radius;
+            handles.drawerSetOrder.invokeExact(drawer, ORDER_AXIS_DARK);
+            line(handles, drawer, startX, startY, endX, endY, resources.dark, AXIS_LINE_DARK_WIDTH);
+            handles.drawerSetOrder.invokeExact(drawer, ORDER_AXIS_LIGHT);
+            line(handles, drawer, startX, startY, endX, endY, resources.light, AXIS_LINE_LIGHT_WIDTH);
+            marker(handles, drawer, center.x(), center.y(), resources, true);
             var handle = rotationHandle(projection, state.axis);
-            marker(handles, drawer, handle, resources, false);
+            marker(handles, drawer, handle.x(), handle.y(), resources, false);
             long tenths = Math.round(Math.toDegrees(state.axis.angle()) * DEGREES_TO_TENTHS);
             if (state.angleLabel == null || state.labelTenths != tenths) {
                 state.labelTenths = tenths;
@@ -442,7 +521,7 @@ public final class NativeArtMeshSymmetryBridge {
                         handle.y() + LABEL_OFFSET_Y);
             } else {
                 // Fallback path for synthetic test hosts without GImageEntity.
-                handles.drawerSetOrder.invoke(drawer, ORDER_LABEL_OUTLINE);
+                handles.drawerSetOrder.invokeExact(drawer, ORDER_LABEL_OUTLINE);
                 for (int side = 0; side < 4; side++) {
                     float dx = side == 0 ? -1 : side == 1 ? 1 : 0;
                     float dy = side == 2 ? -1 : side == 3 ? 1 : 0;
@@ -455,7 +534,7 @@ public final class NativeArtMeshSymmetryBridge {
                             handle.y() + LABEL_OFFSET_Y + dy,
                             resources.dark);
                 }
-                handles.drawerSetOrder.invoke(drawer, ORDER_LABEL_FILL);
+                handles.drawerSetOrder.invokeExact(drawer, ORDER_LABEL_FILL);
                 angleText(
                         handles,
                         drawer,
@@ -478,73 +557,187 @@ public final class NativeArtMeshSymmetryBridge {
         if (state == null || !state.vertexGesture || state.axis == null || state.movement == null || !dragCaller())
             return false;
         try {
-            float[] positions = (float[]) call(ref, "h");
-            int index = ((Number) call(ref, "a")).intValue();
-            Set<Integer> written = state.written.computeIfAbsent(positions, ignored -> new java.util.HashSet<>());
-            if (written.contains(index)) return true;
-            Pairing pairs = pairing(state, ref);
+            CounterpartHandles handles = COUNTERPARTS.get(ref.getClass());
+            if (!handles.isMeshPointRef(ref)) return false;
+            float[] positions = (float[]) handles.getPositions.invokeExact(ref);
+            int index = (int) handles.getIndex.invokeExact(ref);
+            if (index < 0 || index * 2 + 1 >= positions.length) return false;
+            BitSet written = state.writtenBits.computeIfAbsent(positions, ignored -> new BitSet());
+            if (written.get(index)) return true;
+            Pairing pairs = pairing(state, ref, handles, positions);
             int counterpart = pairs.counterparts[index];
-            if (counterpart < 0) return false;
-            Object other = counterpart(ref, counterpart);
-            ArtMeshMirrorAxis.Point current = read(call(ref, "e"));
-            ArtMeshMirrorAxis.Point otherCurrent = read(call(other, "e"));
-            if (state.movement.driver(
-                            positions, index, counterpart, current.x(), current.y(), otherCurrent.x(), otherCurrent.y())
-                    != index) return true;
+            if (counterpart < 0 || counterpart * 2 + 1 >= positions.length) return false;
+
+            Object transform = handles.getTransform == null ? null : handles.getTransform.invokeExact(ref);
+            TransformHandles transformHandles = transform == null ? null : TRANSFORMS.get(transform.getClass());
+            float localX = positions[index * 2];
+            float localY = positions[index * 2 + 1];
+            float otherLocalX = positions[counterpart * 2];
+            float otherLocalY = positions[counterpart * 2 + 1];
+
+            float currentX;
+            float currentY;
+            float otherX;
+            float otherY;
+            ScratchVectors scratch = transform != null ? scratchVectors(handles) : null;
+            if (transform == null) {
+                currentX = localX;
+                currentY = localY;
+                otherX = otherLocalX;
+                otherY = otherLocalY;
+            } else {
+                Object src = prepareSrcVector(handles, scratch, localX, localY);
+                Object out = transformHandles.toCanvas.invokeExact(
+                        transform, src, scratch == null ? null : scratch.dst, index);
+                if (out == null) out = src;
+                currentX = (float) handles.vectorX.invokeExact(out);
+                currentY = (float) handles.vectorY.invokeExact(out);
+
+                Object otherSrc = prepareSrcVector(handles, scratch, otherLocalX, otherLocalY);
+                Object otherOut = transformHandles.toCanvas.invokeExact(
+                        transform, otherSrc, scratch == null ? null : scratch.dst, counterpart);
+                if (otherOut == null) otherOut = otherSrc;
+                otherX = (float) handles.vectorX.invokeExact(otherOut);
+                otherY = (float) handles.vectorY.invokeExact(otherOut);
+            }
+
+            if (state.movement.driver(positions, index, counterpart, currentX, currentY, otherX, otherY) != index) {
+                return true;
+            }
+
             // Mirror the actual weighted displacement in canvas coordinates. Parent transforms
             // can be nonlinear and index-dependent, so blending in canvas space is not equivalent.
-            Object transform = COUNTERPARTS.get(ref.getClass()).transform().get(ref);
-            Object localTarget =
-                    transform == null ? target : call(transform, "transformCanvasToLocal", target, null, index);
-            ArtMeshMirrorAxis.Point local = read(call(ref, "getPos"));
-            ArtMeshMirrorAxis.Point requested = read(localTarget);
-            ArtMeshMirrorAxis.Point blended = new ArtMeshMirrorAxis.Point(
-                    local.x() * (1 - weight) + requested.x() * weight,
-                    local.y() * (1 - weight) + requested.y() * weight);
-            ArtMeshMirrorAxis.Point actual = transform == null
-                    ? blended
-                    : read(call(transform, "transformLocalToCanvas", vector(ref, blended), null, index));
-            ArtMeshMirrorAxis.Point delta = state.axis.reflectVector(actual.minus(current));
-            ArtMeshMirrorAxis.Point next = read(call(other, "e")).plus(delta);
-            APPLYING.set(true);
-            try {
-                call(other, "a", vector(ref, next), 1f);
-            } finally {
-                APPLYING.set(false);
+            float reqX;
+            float reqY;
+            float actualX;
+            float actualY;
+            if (transform == null) {
+                reqX = (float) handles.vectorX.invokeExact(target);
+                reqY = (float) handles.vectorY.invokeExact(target);
+                actualX = localX * (1.0f - weight) + reqX * weight;
+                actualY = localY * (1.0f - weight) + reqY * weight;
+            } else if (weight == 1.0f) {
+                actualX = (float) handles.vectorX.invokeExact(target);
+                actualY = (float) handles.vectorY.invokeExact(target);
+            } else {
+                Object localTarget = transformHandles.toLocal.invokeExact(
+                        transform, target, scratch == null ? null : scratch.dst, index);
+                if (localTarget == null) localTarget = target;
+                reqX = (float) handles.vectorX.invokeExact(localTarget);
+                reqY = (float) handles.vectorY.invokeExact(localTarget);
+                float blendedX = localX * (1.0f - weight) + reqX * weight;
+                float blendedY = localY * (1.0f - weight) + reqY * weight;
+                Object blendedSrc = prepareSrcVector(handles, scratch, blendedX, blendedY);
+                Object actualOut = transformHandles.toCanvas.invokeExact(
+                        transform, blendedSrc, scratch == null ? null : scratch.dst, index);
+                if (actualOut == null) actualOut = blendedSrc;
+                actualX = (float) handles.vectorX.invokeExact(actualOut);
+                actualY = (float) handles.vectorY.invokeExact(actualOut);
             }
-            written.add(index);
-            written.add(counterpart);
+
+            float vx = actualX - currentX;
+            float vy = actualY - currentY;
+            float normalX = -state.axis.dirY();
+            float normalY = state.axis.dirX();
+            float signedDist = vx * normalX + vy * normalY;
+            float dx = vx - 2.0f * signedDist * normalX;
+            float dy = vy - 2.0f * signedDist * normalY;
+            float nextX = otherX + dx;
+            float nextY = otherY + dy;
+            if (!Float.isFinite(nextX) || !Float.isFinite(nextY)) return false;
+
+            if (handles.formSetUpdated != null) {
+                float nextLocalX;
+                float nextLocalY;
+                if (transform == null) {
+                    nextLocalX = nextX;
+                    nextLocalY = nextY;
+                } else {
+                    Object nextSrc = prepareSrcVector(handles, scratch, nextX, nextY);
+                    Object nextLocal = transformHandles.toLocal.invokeExact(
+                            transform, nextSrc, scratch == null ? null : scratch.dst, counterpart);
+                    if (nextLocal == null) nextLocal = nextSrc;
+                    nextLocalX = (float) handles.vectorX.invokeExact(nextLocal);
+                    nextLocalY = (float) handles.vectorY.invokeExact(nextLocal);
+                }
+                positions[counterpart * 2] = nextLocalX;
+                positions[counterpart * 2 + 1] = nextLocalY;
+                Object form = handles.getForm.invokeExact(ref);
+                if (form != null) handles.formSetUpdated.invokeExact(form);
+            } else if (handles.moveRef != null) {
+                Object other = counterpart(ref, counterpart, handles);
+                Object nextVec = handles.vectorCtor.invokeExact(nextX, nextY);
+                APPLYING.set(true);
+                try {
+                    handles.moveRef.invokeExact(other, nextVec, 1.0f);
+                } finally {
+                    APPLYING.set(false);
+                }
+            }
+            written.set(index);
+            written.set(counterpart);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             report(failure);
         }
         return false;
     }
+
     /** Shares the same pairing as movement; native selector operations retain their own undo semantics. */
     static void weight(Object selector, Object ref, float weight, boolean reorder, boolean setOnly) {
         if (!enabled() || APPLYING.get() || selector == null || ref == null) return;
         State state = CURRENT.get();
         if (state == null || state.axis == null) return;
         try {
-            if (!COUNTERPARTS.get(ref.getClass()).isMeshPointRef(ref)) return;
-            Object model = call(call(state.view.get(), "getCurrentEditMode"), "getCurrentModel");
-            Object source = call(ref, "d");
-            Object mesh = call(model, "getArtMesh", call(source, "getId"));
-            if (mesh == null || call(mesh, "getSource") != source) return;
-            Object form = call(ref, "g");
-            if (form == null) form = call(mesh, "getCalculatedForm");
-            Object ex = call(form, "getCompatiblePointRefEx", ref, model);
-            Pairing pairs = pairing(state, ex);
-            int index = ((Number) call(ex, "a")).intValue();
+            CounterpartHandles handles = COUNTERPARTS.get(ref.getClass());
+            if (!handles.isMeshPointRef(ref)) return;
+            Object view = state.view == null ? null : state.view.get();
+            if (view == null) return;
+            ViewUiHandles uiHandles = VIEW_UI_HANDLES.get(view.getClass());
+            Object edit = uiHandles.getCurrentEditMode.invokeExact(view);
+            Object model = uiHandles.getCurrentModel.invokeExact(edit);
+            Object source = handles.getSource.invokeExact(ref);
+            WeightHandles weightHandles = WEIGHT_HANDLES.get(source.getClass());
+            Object drawableId = weightHandles.sourceGetId.invokeExact(source);
+            Object mesh = uiHandles.getArtMeshForGuid(drawableId.getClass()).invokeExact(model, drawableId);
+            if (mesh == null) return;
+            WeightMeshHandles meshHandles = WEIGHT_MESH_HANDLES.get(mesh.getClass());
+            if (meshHandles.getSource.invokeExact(mesh) != source) return;
+            Object form = handles.getForm.invokeExact(ref);
+            if (form == null) form = uiHandles.getCalculatedForm.invokeExact(mesh);
+            WeightFormHandles formHandles = WEIGHT_FORM_HANDLES.get(form.getClass());
+            Object ex;
+            if (formHandles.takesTransform) {
+                Object transform = handles.getTransform == null ? null : handles.getTransform.invokeExact(ref);
+                if (transform == null && meshHandles.getTargetDeformerGuid != null) {
+                    WeightModelHandles modelHandles = WEIGHT_MODEL_HANDLES.get(model.getClass());
+                    if (modelHandles.getDeformerTransform != null) {
+                        Object deformerGuid = meshHandles.getTargetDeformerGuid.invokeExact(mesh);
+                        if (deformerGuid != null) {
+                            transform = modelHandles.getDeformerTransform.invokeExact(model, deformerGuid);
+                        }
+                    }
+                }
+                if (transform == null) return;
+                ex = formHandles.getCompatiblePointRefEx.invokeExact(form, ref, transform);
+            } else {
+                ex = formHandles.getCompatiblePointRefEx.invokeExact(form, ref, model);
+            }
+            if (ex == null) return;
+            CounterpartHandles exHandles = COUNTERPARTS.get(ex.getClass());
+            float[] positions = (float[]) exHandles.getPositions.invokeExact(ex);
+            Pairing pairs = pairing(state, ex, exHandles, positions);
+            int index = (int) exHandles.getIndex.invokeExact(ex);
             int counterpart = pairs.counterparts[index];
             if (counterpart < 0) return;
-            Object other = counterpart(ex, counterpart);
-            Object compatible = call(selector, "getCompatible", other);
+            Object other = counterpart(ex, counterpart, exHandles);
+            SelectorHandles selHandles = SELECTOR_HANDLES.get(selector.getClass());
+            Object compatible = selHandles.getCompatible.invokeExact(selector, other);
             if (compatible != null) other = compatible;
             APPLYING.set(true);
             try {
-                if (setOnly) call(selector, "setWeight", other, weight);
-                else call(selector, "add", other, weight, reorder);
+                if (setOnly) selHandles.setWeight.invokeExact(selector, other, weight);
+                else selHandles.add.invokeExact(selector, other, weight, reorder);
             } finally {
                 APPLYING.set(false);
             }
@@ -562,56 +755,153 @@ public final class NativeArtMeshSymmetryBridge {
      * non-action writes cannot enter this path. The walk stops at the first frame outside the
      * adapter, so a drag tick never materializes the whole stack.</p>
      */
-    private static boolean dragCaller() {
-        return STACK_WALKER.walk(frames -> frames.map(StackWalker.StackFrame::getClassName)
-                .filter(name -> !name.startsWith(HOST_ADAPTER_PACKAGE))
-                .filter(name -> !name.equals(THREAD_CLASS))
-                .filter(name -> !name.equals(EX))
-                .findFirst()
-                .map(name -> name.startsWith(DRAG_ACTION_PACKAGE))
-                .orElse(false));
+    private enum CallerKind {
+        SKIP,
+        DRAG_ACTION,
+        OTHER
     }
 
-    private static Pairing pairing(State state, Object ref) throws ReflectiveOperationException {
-        float[] positions = (float[]) call(ref, "h");
+    private static final ClassValue<CallerKind> CALLER_KINDS = new ClassValue<>() {
+        @Override
+        protected CallerKind computeValue(Class<?> type) {
+            String name = type.getName();
+            if (name.startsWith(HOST_ADAPTER_PACKAGE) || name.equals(THREAD_CLASS) || name.equals(EX)) {
+                return CallerKind.SKIP;
+            }
+            return name.startsWith(DRAG_ACTION_PACKAGE) ? CallerKind.DRAG_ACTION : CallerKind.OTHER;
+        }
+    };
+
+    private static StackWalker createStackWalker() {
+        try {
+            return StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
+        } catch (SecurityException unavailable) {
+            return StackWalker.getInstance();
+        }
+    }
+
+    private static boolean dragCaller() {
+        return STACK_WALKER.walk(frames -> frames.map(NativeArtMeshSymmetryBridge::classifyCallerFrame)
+                        .filter(kind -> kind != CallerKind.SKIP)
+                        .findFirst()
+                        .orElse(CallerKind.OTHER))
+                == CallerKind.DRAG_ACTION;
+    }
+
+    private static CallerKind classifyCallerFrame(StackWalker.StackFrame frame) {
+        try {
+            return CALLER_KINDS.get(frame.getDeclaringClass());
+        } catch (UnsupportedOperationException withoutClassRef) {
+            String name = frame.getClassName();
+            if (name.startsWith(HOST_ADAPTER_PACKAGE) || name.equals(THREAD_CLASS) || name.equals(EX)) {
+                return CallerKind.SKIP;
+            }
+            return name.startsWith(DRAG_ACTION_PACKAGE) ? CallerKind.DRAG_ACTION : CallerKind.OTHER;
+        }
+    }
+
+    private static Pairing pairing(State state, Object ref, CounterpartHandles handles, float[] positions)
+            throws Throwable {
         Pairing cached = state.pairs.get(positions);
         if (cached != null && cached.counterparts.length * 2 == positions.length) return cached;
         int count = positions.length / 2;
-        if (count == 0 || count > 10000 || count * 2 != positions.length)
+        if (count == 0 || count > MAX_MESH_VERTICES || count * 2 != positions.length)
             throw new IllegalArgumentException("mesh size");
-        ArtMeshMirrorAxis.Point[] points = new ArtMeshMirrorAxis.Point[count];
-        for (int i = 0; i < count; i++) points[i] = read(call(counterpart(ref, i), "e"));
-        Pairing value = new Pairing(pairForView(state.view.get(), state.axis, points));
+        Object transform = handles.getTransform == null ? null : handles.getTransform.invokeExact(ref);
+        float[] canvasPositions;
+        if (transform == null) {
+            canvasPositions = positions;
+        } else {
+            TransformHandles transformHandles = TRANSFORMS.get(transform.getClass());
+            canvasPositions = new float[count * 2];
+            ScratchVectors scratch = scratchVectors(handles);
+            for (int i = 0; i < count; i++) {
+                Object src = prepareSrcVector(handles, scratch, positions[i * 2], positions[i * 2 + 1]);
+                Object out =
+                        transformHandles.toCanvas.invokeExact(transform, src, scratch == null ? null : scratch.dst, i);
+                if (out == null) out = src;
+                canvasPositions[i * 2] = (float) handles.vectorX.invokeExact(out);
+                canvasPositions[i * 2 + 1] = (float) handles.vectorY.invokeExact(out);
+            }
+        }
+        Pairing value = new Pairing(pairForView(state.view.get(), state.axis, canvasPositions, count));
         state.pairs.put(positions, value);
         return value;
     }
 
     static int[] pairForView(Object view, ArtMeshMirrorAxis axis, ArtMeshMirrorAxis.Point[] points)
             throws ReflectiveOperationException {
+        float[] xy = new float[points.length * 2];
+        for (int i = 0; i < points.length; i++) {
+            xy[i * 2] = points[i].x();
+            xy[i * 2 + 1] = points[i].y();
+        }
+        return pairForView(view, axis, xy, points.length);
+    }
+
+    private static int[] pairForView(Object view, ArtMeshMirrorAxis axis, float[] xy, int count)
+            throws ReflectiveOperationException {
         // Match the native topology editor's move tolerance: 20 component pixels.
         // A mesh-relative tolerance rejects slightly misaligned arbitrary-angle pairs.
-        Object camera = call(view, "getCameraManager");
-        float tolerance = 20f / projectAxis(camera, view, axis).scale();
-        return axis.pair(points, tolerance);
+        try {
+            ViewUiHandles handles = VIEW_UI_HANDLES.get(view.getClass());
+            Object camera = handles.getCameraManager.invokeExact(view);
+            float tolerance = SCREEN_PAIR_TOLERANCE_PX
+                    / projectAxis(handles, camera, axis).scale();
+            return axis.pair(xy, count, tolerance);
+        } catch (ReflectiveOperationException | RuntimeException | Error failure) {
+            throw failure;
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            throw new ReflectiveOperationException(failure);
+        }
     }
 
-    private static Object counterpart(Object ref, int index) throws ReflectiveOperationException {
-        CounterpartHandles handles = COUNTERPARTS.get(ref.getClass());
+    private static Object counterpart(Object ref, int index, CounterpartHandles handles) throws Throwable {
         if (!handles.isMeshPointRef(ref)) throw new NoSuchMethodException(REF);
-        Object source = call(ref, "d"), form = call(ref, "g"), coord = call(ref, "c");
+        Object source = handles.getSource.invokeExact(ref);
+        Object form = handles.getForm.invokeExact(ref);
+        Object coord = handles.getCoord.invokeExact(ref);
+        float[] positions = (float[]) handles.getPositions.invokeExact(ref);
+        int step = (int) handles.getStep.invokeExact(ref);
         Object base = handles.baseConstructor(source.getClass(), coord.getClass())
-                .newInstance(source, index, call(ref, "h"), call(ref, "i"), coord, form);
-        return handles.exConstructor.newInstance(base, handles.transform().get(ref), form);
+                .invokeExact(source, index, positions, step, coord, form);
+        Object transform = handles.getTransform == null ? null : handles.getTransform.invokeExact(ref);
+        return handles.exCtor.invokeExact(base, transform, form);
     }
+
+    private static ScratchVectors scratchVectors(CounterpartHandles handles) throws Throwable {
+        if (handles.vectorSetX == null || handles.vectorSetY == null) return null;
+        ScratchVectors current = SCRATCH_VECTORS.get();
+        if (current == null || current.vectorType != handles.vectorType) {
+            current = new ScratchVectors(
+                    handles.vectorType,
+                    handles.vectorCtor.invokeExact(0.0f, 0.0f),
+                    handles.vectorCtor.invokeExact(0.0f, 0.0f));
+            SCRATCH_VECTORS.set(current);
+        }
+        return current;
+    }
+
+    private static Object prepareSrcVector(CounterpartHandles handles, ScratchVectors scratch, float x, float y)
+            throws Throwable {
+        if (scratch == null) {
+            return handles.vectorCtor.invokeExact(x, y);
+        }
+        Object vec = scratch.src;
+        handles.vectorSetX.invokeExact(vec, x);
+        handles.vectorSetY.invokeExact(vec, y);
+        return vec;
+    }
+
+    private record ScratchVectors(Class<?> vectorType, Object src, Object dst) {}
 
     /**
-     * Per-ref-class handles for counterpart construction.
+     * Per-ref-class handles for zero-reflection point reads, writes, and counterpart construction.
      *
-     * <p>The host resolves the point-ref classes, both constructors and the local-to-canvas
-     * field once per class loader. A drag tick then only allocates host objects, so a per-point
-     * write no longer pays for a class or constructor lookup. The entry is keyed by the ref
-     * class, so an isolated host loader keeps its own handles and no host class outlives its
-     * loader through this cache.</p>
+     * <p>The host resolves the point-ref classes, constructors, methods, vector accessors and the
+     * local-to-canvas field once per class loader. A drag tick then executes through exact
+     * {@link MethodHandle} invocations with zero reflective lookups or method-array allocations.</p>
      */
     private static final ClassValue<CounterpartHandles> COUNTERPARTS = new ClassValue<>() {
         @Override
@@ -622,32 +912,125 @@ public final class NativeArtMeshSymmetryBridge {
 
     private static final class CounterpartHandles {
         /** Marks a ref class that no reviewed host loader backs. */
-        private static final CounterpartHandles UNAVAILABLE = new CounterpartHandles(null, null, null, null);
+        private static final CounterpartHandles UNAVAILABLE = new CounterpartHandles();
 
         private final Class<?> baseType;
         private final Class<?> formType;
-        private final Field transform;
-        final Constructor<?> exConstructor;
+        private final Class<?> vectorType;
+        final MethodHandle getPositions;
+        final MethodHandle getIndex;
+        final MethodHandle getStep;
+        final MethodHandle getSource;
+        final MethodHandle getForm;
+        final MethodHandle getCoord;
+        final MethodHandle moveRef;
+        final MethodHandle getTransform;
+        final MethodHandle formSetUpdated;
+        final MethodHandle vectorCtor;
+        final MethodHandle vectorX;
+        final MethodHandle vectorY;
+        final MethodHandle vectorSetX;
+        final MethodHandle vectorSetY;
+        final MethodHandle exCtor;
         private volatile BaseConstructor baseConstructor;
 
+        private CounterpartHandles() {
+            this.baseType = null;
+            this.formType = null;
+            this.vectorType = null;
+            this.getPositions = null;
+            this.getIndex = null;
+            this.getStep = null;
+            this.getSource = null;
+            this.getForm = null;
+            this.getCoord = null;
+            this.moveRef = null;
+            this.getTransform = null;
+            this.formSetUpdated = null;
+            this.vectorCtor = null;
+            this.vectorX = null;
+            this.vectorY = null;
+            this.vectorSetX = null;
+            this.vectorSetY = null;
+            this.exCtor = null;
+        }
+
         private CounterpartHandles(
-                Class<?> baseType, Class<?> formType, Field transform, Constructor<?> exConstructor) {
+                Class<?> refType,
+                Class<?> baseType,
+                Class<?> formType,
+                Class<?> vectorType,
+                Field transformField,
+                Constructor<?> ex)
+                throws ReflectiveOperationException {
+            MethodHandles.Lookup lookup = MethodHandles.lookup();
             this.baseType = baseType;
             this.formType = formType;
-            this.transform = transform;
-            this.exConstructor = exConstructor;
+            this.vectorType = vectorType;
+            this.getPositions = ViewUiHandles.unreflect(lookup, refType, "h", 0)
+                    .asType(MethodType.methodType(float[].class, Object.class));
+            this.getIndex = ViewUiHandles.unreflect(lookup, refType, "a", 0).asType(INT_GETTER_TYPE);
+            this.getStep = ViewUiHandles.unreflect(lookup, refType, "i", 0).asType(INT_GETTER_TYPE);
+            this.getSource = ViewUiHandles.unreflect(lookup, refType, "d", 0).asType(OBJECT_GETTER_TYPE);
+            this.getForm = ViewUiHandles.unreflect(lookup, refType, "g", 0).asType(OBJECT_GETTER_TYPE);
+            this.getCoord = ViewUiHandles.unreflect(lookup, refType, "c", 0).asType(OBJECT_GETTER_TYPE);
+            this.moveRef = tryUnreflect(
+                    lookup,
+                    refType,
+                    "a",
+                    MethodType.methodType(void.class, Object.class, Object.class, float.class),
+                    vectorType,
+                    float.class);
+            this.getTransform = transformField == null
+                    ? null
+                    : lookup.unreflectGetter(transformField).asType(OBJECT_GETTER_TYPE);
+            this.formSetUpdated = tryUnreflect(lookup, formType, "setUpdated", VOID_OBJECT_TYPE);
+            Constructor<?> vCtor = vectorType.getConstructor(float.class, float.class);
+            ReflectAccess.open(vCtor);
+            this.vectorCtor = lookup.unreflectConstructor(vCtor)
+                    .asType(MethodType.methodType(Object.class, float.class, float.class));
+            this.vectorX =
+                    ViewUiHandles.unreflect(lookup, vectorType, "getX", 0).asType(FLOAT_GETTER_TYPE);
+            this.vectorY =
+                    ViewUiHandles.unreflect(lookup, vectorType, "getY", 0).asType(FLOAT_GETTER_TYPE);
+            this.vectorSetX = tryUnreflect(
+                    lookup,
+                    vectorType,
+                    "setX",
+                    MethodType.methodType(void.class, Object.class, float.class),
+                    float.class);
+            this.vectorSetY = tryUnreflect(
+                    lookup,
+                    vectorType,
+                    "setY",
+                    MethodType.methodType(void.class, Object.class, float.class),
+                    float.class);
+            ReflectAccess.open(ex);
+            this.exCtor = lookup.unreflectConstructor(ex)
+                    .asType(MethodType.methodType(Object.class, Object.class, Object.class, Object.class));
         }
 
         static CounterpartHandles resolve(Class<?> refType) {
             ClassLoader loader = refType.getClassLoader();
             try {
                 Class<?> base = Class.forName(REF, false, loader);
+                if (!base.isAssignableFrom(refType)) return UNAVAILABLE;
                 Class<?> form = Class.forName(ART_MESH_FORM_CLASS, false, loader);
                 Class<?> transformType = Class.forName(TRANSFORM_CLASS, false, loader);
+                Class<?> vectorType = Class.forName(GVECTOR2_CLASS, false, loader);
                 Constructor<?> ex = Class.forName(EX, false, loader).getConstructor(base, transformType, form);
-                return new CounterpartHandles(base, form, transformField(refType), ex);
-            } catch (ClassNotFoundException | NoSuchMethodException unavailable) {
+                return new CounterpartHandles(refType, base, form, vectorType, transformField(refType), ex);
+            } catch (ReflectiveOperationException unavailable) {
                 return UNAVAILABLE;
+            }
+        }
+
+        private static MethodHandle tryUnreflect(
+                MethodHandles.Lookup lookup, Class<?> owner, String name, MethodType adapted, Class<?>... params) {
+            try {
+                return ViewUiHandles.unreflectExact(lookup, owner, name, params).asType(adapted);
+            } catch (ReflectiveOperationException unavailable) {
+                return null;
             }
         }
 
@@ -663,52 +1046,227 @@ public final class NativeArtMeshSymmetryBridge {
             return baseType != null && baseType.isInstance(ref);
         }
 
-        Field transform() throws NoSuchFieldException {
-            if (transform == null) throw new NoSuchFieldException(TRANSFORM_FIELD);
-            return transform;
-        }
-
-        Constructor<?> baseConstructor(Class<?> sourceType, Class<?> coordinateType) throws NoSuchMethodException {
+        MethodHandle baseConstructor(Class<?> sourceType, Class<?> coordinateType) throws NoSuchMethodException {
             BaseConstructor cached = baseConstructor;
             if (cached != null && cached.sourceType == sourceType && cached.coordinateType == coordinateType) {
-                return cached.constructor;
+                return cached.handle;
             }
             if (baseType == null) throw new NoSuchMethodException(REF);
             Constructor<?> resolved =
                     baseType.getConstructor(sourceType, int.class, float[].class, int.class, coordinateType, formType);
-            baseConstructor = new BaseConstructor(sourceType, coordinateType, resolved);
-            return resolved;
+            ReflectAccess.open(resolved);
+            MethodHandle handle;
+            try {
+                handle = MethodHandles.lookup()
+                        .unreflectConstructor(resolved)
+                        .asType(MethodType.methodType(
+                                Object.class,
+                                Object.class,
+                                int.class,
+                                float[].class,
+                                int.class,
+                                Object.class,
+                                Object.class));
+            } catch (IllegalAccessException failure) {
+                throw new NoSuchMethodException(failure.getMessage());
+            }
+            baseConstructor = new BaseConstructor(sourceType, coordinateType, handle);
+            return handle;
         }
 
-        private record BaseConstructor(Class<?> sourceType, Class<?> coordinateType, Constructor<?> constructor) {}
+        private record BaseConstructor(Class<?> sourceType, Class<?> coordinateType, MethodHandle handle) {}
+    }
+
+    private static final ClassValue<TransformHandles> TRANSFORMS = new ClassValue<>() {
+        @Override
+        protected TransformHandles computeValue(Class<?> transformType) {
+            try {
+                return new TransformHandles(transformType);
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException(failure);
+            }
+        }
+    };
+
+    private static final class TransformHandles {
+        private static final MethodType TRANSFORM_METHOD_TYPE =
+                MethodType.methodType(Object.class, Object.class, Object.class, Object.class, int.class);
+        final MethodHandle toLocal;
+        final MethodHandle toCanvas;
+
+        TransformHandles(Class<?> transformType) throws ReflectiveOperationException {
+            ClassLoader loader = transformType.getClassLoader();
+            Class<?> owner = transformType;
+            try {
+                Class<?> iface = Class.forName(TRANSFORM_CLASS, false, loader);
+                if (iface.isAssignableFrom(transformType)) owner = iface;
+            } catch (ClassNotFoundException ignored) {
+                // Fall back to the concrete runtime class.
+            }
+            MethodHandles.Lookup lookup = MethodHandles.lookup();
+            this.toLocal = resolveTransformMethod(lookup, owner, "transformCanvasToLocal");
+            this.toCanvas = resolveTransformMethod(lookup, owner, "transformLocalToCanvas");
+        }
+
+        private static MethodHandle resolveTransformMethod(MethodHandles.Lookup lookup, Class<?> owner, String name)
+                throws ReflectiveOperationException {
+            for (Method candidate : MethodHandleCache.overloads(owner, name, 3)) {
+                Class<?>[] params = candidate.getParameterTypes();
+                if (params[2] == int.class) {
+                    ReflectAccess.open(candidate);
+                    return lookup.unreflect(candidate).asType(TRANSFORM_METHOD_TYPE);
+                }
+            }
+            throw new NoSuchMethodException(owner.getName() + "#" + name + "/3");
+        }
+    }
+
+    private static final ClassValue<Boolean> ART_MESH_SOURCE_TYPES = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(Class<?> type) {
+            return type.getName().equals(ARTMESH_SOURCE_CLASS);
+        }
+    };
+
+    private static final ClassValue<MethodHandle> FORM_POSITIONS = new ClassValue<>() {
+        @Override
+        protected MethodHandle computeValue(Class<?> formType) {
+            try {
+                return ViewUiHandles.unreflect(MethodHandles.lookup(), formType, "getPositions", 0)
+                        .asType(MethodType.methodType(float[].class, Object.class));
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException(failure);
+            }
+        }
+    };
+
+    private static final ClassValue<WeightHandles> WEIGHT_HANDLES = new ClassValue<>() {
+        @Override
+        protected WeightHandles computeValue(Class<?> sourceType) {
+            try {
+                return new WeightHandles(sourceType);
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException(failure);
+            }
+        }
+    };
+
+    private static final class WeightHandles {
+        final MethodHandle sourceGetId;
+
+        WeightHandles(Class<?> sourceType) throws ReflectiveOperationException {
+            sourceGetId = ViewUiHandles.unreflect(MethodHandles.lookup(), sourceType, "getId", 0)
+                    .asType(OBJECT_GETTER_TYPE);
+        }
+    }
+
+    private static final ClassValue<WeightMeshHandles> WEIGHT_MESH_HANDLES = new ClassValue<>() {
+        @Override
+        protected WeightMeshHandles computeValue(Class<?> meshType) {
+            try {
+                return new WeightMeshHandles(meshType);
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException(failure);
+            }
+        }
+    };
+
+    private static final class WeightMeshHandles {
+        final MethodHandle getSource;
+        final MethodHandle getTargetDeformerGuid;
+
+        WeightMeshHandles(Class<?> meshType) throws ReflectiveOperationException {
+            MethodHandles.Lookup lookup = MethodHandles.lookup();
+            getSource =
+                    ViewUiHandles.unreflect(lookup, meshType, "getSource", 0).asType(OBJECT_GETTER_TYPE);
+            getTargetDeformerGuid =
+                    CounterpartHandles.tryUnreflect(lookup, meshType, "getTargetDeformerGuid", OBJECT_GETTER_TYPE);
+        }
+    }
+
+    private static final ClassValue<WeightModelHandles> WEIGHT_MODEL_HANDLES = new ClassValue<>() {
+        @Override
+        protected WeightModelHandles computeValue(Class<?> modelType) {
+            return new WeightModelHandles(modelType);
+        }
+    };
+
+    private static final class WeightModelHandles {
+        final MethodHandle getDeformerTransform;
+
+        WeightModelHandles(Class<?> modelType) {
+            MethodHandle resolved = null;
+            try {
+                resolved = ViewUiHandles.unreflect(MethodHandles.lookup(), modelType, "getDeformerTransform", 1)
+                        .asType(OBJECT_ARG_OBJECT_TYPE);
+            } catch (ReflectiveOperationException ignored) {
+                // Absent on synthetic test models without deformer transforms.
+            }
+            getDeformerTransform = resolved;
+        }
+    }
+
+    private static final ClassValue<WeightFormHandles> WEIGHT_FORM_HANDLES = new ClassValue<>() {
+        @Override
+        protected WeightFormHandles computeValue(Class<?> formType) {
+            try {
+                return new WeightFormHandles(formType);
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException(failure);
+            }
+        }
+    };
+
+    private static final class WeightFormHandles {
+        final MethodHandle getCompatiblePointRefEx;
+        final boolean takesTransform;
+
+        WeightFormHandles(Class<?> formType) throws ReflectiveOperationException {
+            MethodHandle raw = ViewUiHandles.unreflect(MethodHandles.lookup(), formType, "getCompatiblePointRefEx", 2);
+            takesTransform = raw.type().parameterType(2).getName().equals(TRANSFORM_CLASS);
+            getCompatiblePointRefEx =
+                    raw.asType(MethodType.methodType(Object.class, Object.class, Object.class, Object.class));
+        }
+    }
+
+    private static final ClassValue<SelectorHandles> SELECTOR_HANDLES = new ClassValue<>() {
+        @Override
+        protected SelectorHandles computeValue(Class<?> selectorType) {
+            try {
+                return new SelectorHandles(selectorType);
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException(failure);
+            }
+        }
+    };
+
+    private static final class SelectorHandles {
+        final MethodHandle getCompatible;
+        final MethodHandle setWeight;
+        final MethodHandle add;
+
+        SelectorHandles(Class<?> selectorType) throws ReflectiveOperationException {
+            MethodHandles.Lookup lookup = MethodHandles.lookup();
+            getCompatible = ViewUiHandles.unreflect(lookup, selectorType, "getCompatible", 1)
+                    .asType(OBJECT_ARG_OBJECT_TYPE);
+            setWeight = ViewUiHandles.unreflect(lookup, selectorType, "setWeight", 2)
+                    .asType(MethodType.methodType(void.class, Object.class, Object.class, float.class));
+            add = ViewUiHandles.unreflect(lookup, selectorType, "add", 3)
+                    .asType(MethodType.methodType(void.class, Object.class, Object.class, float.class, boolean.class));
+        }
     }
 
     private record ProjectedAxis(ArtMeshMirrorAxis.Point center, ArtMeshMirrorAxis.Point direction, float scale) {}
 
-    private static ProjectedAxis projectAxis(Object camera, Object view, ArtMeshMirrorAxis axis)
-            throws ReflectiveOperationException {
-        try {
-            return projectAxis(VIEW_UI_HANDLES.get(view.getClass()), camera, axis);
-        } catch (ReflectiveOperationException | RuntimeException | Error failure) {
-            throw failure;
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            throw new ReflectiveOperationException(failure);
-        }
-    }
-
     private static ProjectedAxis projectAxis(ViewUiHandles handles, Object camera, ArtMeshMirrorAxis axis)
             throws Throwable {
         var pivot = axis.pivot();
-        var center = project(handles, camera, pivot);
+        var center = project(handles, camera, pivot.x(), pivot.y());
         // A one-unit probe can round to the same screen pixel when zoomed out, or
         // to the same model float at large coordinates. Use a well-separated probe.
-        float step = Math.max(1024, Math.max(Math.ulp(pivot.x()), Math.ulp(pivot.y())) * 64);
-        var direction = axis.direction();
-        var end = project(
-                handles,
-                camera,
-                new ArtMeshMirrorAxis.Point(pivot.x() + direction.x() * step, pivot.y() + direction.y() * step));
+        float step =
+                Math.max(PROBE_MIN_STEP, Math.max(Math.ulp(pivot.x()), Math.ulp(pivot.y())) * PROBE_ULP_MULTIPLIER);
+        var end = project(handles, camera, pivot.x() + axis.dirX() * step, pivot.y() + axis.dirY() * step);
         var delta = end.minus(center);
         float length = (float) Math.hypot(delta.x(), delta.y());
         if (!(length > 0)) throw new IllegalStateException("degenerate camera projection");
@@ -718,11 +1276,18 @@ public final class NativeArtMeshSymmetryBridge {
 
     private static ArtMeshMirrorAxis.Point rotationHandle(Object camera, Object view, ArtMeshMirrorAxis axis)
             throws ReflectiveOperationException {
-        return rotationHandle(projectAxis(camera, view, axis), axis);
+        try {
+            return rotationHandle(projectAxis(VIEW_UI_HANDLES.get(view.getClass()), camera, axis), axis);
+        } catch (ReflectiveOperationException | RuntimeException | Error failure) {
+            throw failure;
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            throw new ReflectiveOperationException(failure);
+        }
     }
 
     private static ArtMeshMirrorAxis.Point rotationHandle(ProjectedAxis projection, ArtMeshMirrorAxis axis) {
-        float arm = Math.max(32, axis.rotationRadius() * projection.scale());
+        float arm = Math.max(ROTATION_ARM_MIN_PX, axis.rotationRadius() * projection.scale());
         return new ArtMeshMirrorAxis.Point(
                 projection.center().x() + projection.direction().x() * arm,
                 projection.center().y() + projection.direction().y() * arm);
@@ -745,17 +1310,14 @@ public final class NativeArtMeshSymmetryBridge {
         final LabelHandles labelHandles;
 
         DrawingResources(ClassLoader loader) throws ReflectiveOperationException {
-            var color = Class.forName("com.live2d.type.CColor", false, loader)
-                    .getConstructor(int.class, int.class, int.class);
+            var color = Class.forName(CCOLOR_CLASS, false, loader).getConstructor(int.class, int.class, int.class);
             dark = color.newInstance(DARK_R, DARK_G, DARK_B);
             light = color.newInstance(LIGHT_RGB, LIGHT_RGB, LIGHT_RGB);
-            font = Class.forName("com.live2d.type.CFont", false, loader)
+            font = Class.forName(CFONT_CLASS, false, loader)
                     .getConstructor(int.class)
                     .newInstance(LABEL_FONT_CTOR_SIZE);
             awtFont = resolveAwtFont(font);
-            layer = Class.forName("com.live2d.graphics3d.component.a.c$b", false, loader)
-                    .getField("a")
-                    .get(null);
+            layer = Class.forName(LAYER_ENUM_CLASS, false, loader).getField("a").get(null);
             labelHandles = LabelHandles.tryResolve(loader);
         }
 
@@ -783,18 +1345,18 @@ public final class NativeArtMeshSymmetryBridge {
             graphics = image.createGraphics();
             graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            Object resource = handles.resourceCtor.invoke(image, true);
-            texture = handles.textureCtor.invoke(resource, null, true);
-            Object filterMode = handles.getFilterMode.invoke(texture);
-            handles.setMinFilter.invoke(filterMode, handles.minFilterLinear);
-            handles.setMagFilter.invoke(filterMode, handles.magFilterLinear);
-            handles.setPreload.invoke(texture, true);
+            Object resource = handles.resourceCtor.invokeExact(image, true);
+            texture = handles.textureCtor.invokeExact(resource, (Object) null, true);
+            Object filterMode = handles.getFilterMode.invokeExact(texture);
+            handles.setMinFilter.invokeExact(filterMode, handles.minFilterLinear);
+            handles.setMagFilter.invokeExact(filterMode, handles.magFilterLinear);
+            handles.setPreload.invokeExact(texture, true);
             Object initialBounds =
-                    handles.rectCtor.invoke(0f, 0f, (float) LABEL_IMAGE_WIDTH, (float) LABEL_IMAGE_HEIGHT);
-            entity = handles.imageEntityCtor.invoke("ArtMeshMirrorAngleLabel", texture, false, initialBounds);
-            Object renderer = handles.getMeshRenderer.invoke(entity);
-            handles.setSortingLayer.invoke(renderer, layer);
-            handles.setOrderInLayer.invoke(renderer, ORDER_LABEL_FILL);
+                    handles.rectCtor.invokeExact(0f, 0f, (float) LABEL_IMAGE_WIDTH, (float) LABEL_IMAGE_HEIGHT);
+            entity = handles.imageEntityCtor.invokeExact("ArtMeshMirrorAngleLabel", texture, false, initialBounds);
+            Object renderer = handles.getMeshRenderer.invokeExact(entity);
+            handles.setSortingLayer.invokeExact(renderer, layer);
+            handles.setOrderInLayer.invokeExact(renderer, ORDER_LABEL_FILL);
         }
 
         void updateText(String text, Font font, LabelHandles handles) throws Throwable {
@@ -810,7 +1372,7 @@ public final class NativeArtMeshSymmetryBridge {
             }
             graphics.setColor(LABEL_FILL_COLOR);
             graphics.drawString(text, LABEL_DRAW_X, LABEL_DRAW_BASELINE_Y);
-            handles.reinitTexture.invoke(texture);
+            handles.reinitTexture.invokeExact(texture);
         }
     }
 
@@ -827,14 +1389,14 @@ public final class NativeArtMeshSymmetryBridge {
             widget.updateText(state.angleLabel, resources.awtFont, handles);
             state.labelDirty = false;
         }
-        Object transform = handles.getTransform.invoke(widget.entity);
-        Object pos = handles.getPosition.invoke(transform);
-        handles.setVector3.invoke(pos, x + LABEL_IMAGE_WIDTH * 0.5f, y + LABEL_IMAGE_HEIGHT * 0.5f, 0f);
-        if (handles.getParentEntity.invoke(widget.entity) != objectsOnComponent) {
-            Object children = handles.getChildren.invoke(objectsOnComponent);
-            handles.addEntity.invoke(children, widget.entity, 0);
+        Object transform = handles.getTransform.invokeExact(widget.entity);
+        Object pos = handles.getPosition.invokeExact(transform);
+        handles.setVector3.invokeExact(pos, x + LABEL_IMAGE_WIDTH * 0.5f, y + LABEL_IMAGE_HEIGHT * 0.5f, 0f);
+        if (handles.getParentEntity.invokeExact(widget.entity) != objectsOnComponent) {
+            Object children = handles.getChildren.invokeExact(objectsOnComponent);
+            handles.addEntity.invokeExact(children, widget.entity, 0);
         }
-        handles.setVolatile.invoke(graph, widget.entity);
+        handles.setVolatile.invokeExact(graph, widget.entity);
     }
 
     private static void hideAngleLabel(State state) {
@@ -842,7 +1404,7 @@ public final class NativeArtMeshSymmetryBridge {
         try {
             LabelHandles handles = DRAWING.get(state.angleWidget.entity.getClass()).labelHandles;
             if (handles != null) {
-                handles.setEnabled.invoke(state.angleWidget.entity, false);
+                handles.setEnabled.invokeExact(state.angleWidget.entity, false);
             }
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -858,54 +1420,49 @@ public final class NativeArtMeshSymmetryBridge {
             float y,
             Object color)
             throws Throwable {
-        handles.drawerText.invoke(drawer, text, resources.font, x, y, 0f, LABEL_FONT_SIZE_PT, color);
+        handles.drawerText.invokeExact(drawer, text, resources.font, x, y, 0f, LABEL_FONT_SIZE_PT, color);
     }
 
     private static void marker(
-            ViewUiHandles handles,
-            Object drawer,
-            ArtMeshMirrorAxis.Point center,
-            DrawingResources resources,
-            boolean diamond)
+            ViewUiHandles handles, Object drawer, float x, float y, DrawingResources resources, boolean diamond)
             throws Throwable {
-        float r = diamond ? 9 : 8, x = center.x(), y = center.y();
-        ArtMeshMirrorAxis.Point[] corners = diamond
-                ? new ArtMeshMirrorAxis.Point[] {
-                    new ArtMeshMirrorAxis.Point(x, y - r), new ArtMeshMirrorAxis.Point(x + r, y),
-                    new ArtMeshMirrorAxis.Point(x, y + r), new ArtMeshMirrorAxis.Point(x - r, y)
-                }
-                : new ArtMeshMirrorAxis.Point[] {
-                    new ArtMeshMirrorAxis.Point(x - r, y - r), new ArtMeshMirrorAxis.Point(x + r, y - r),
-                    new ArtMeshMirrorAxis.Point(x + r, y + r), new ArtMeshMirrorAxis.Point(x - r, y + r)
-                };
+        float r = diamond ? MARKER_DIAMOND_RADIUS_PX : MARKER_SQUARE_RADIUS_PX;
+        float x0 = diamond ? x : x - r;
+        float y0 = y - r;
+        float x1 = x + r;
+        float y1 = diamond ? y : y - r;
+        float x2 = diamond ? x : x + r;
+        float y2 = y + r;
+        float x3 = x - r;
+        float y3 = diamond ? y : y + r;
         for (int layer = 0; layer < 2; layer++) {
-            handles.drawerSetOrder.invoke(drawer, ORDER_MARKER_BASE + layer);
+            handles.drawerSetOrder.invokeExact(drawer, ORDER_MARKER_BASE + layer);
             float width = layer == 0 ? AXIS_LINE_DARK_WIDTH : AXIS_LINE_LIGHT_WIDTH;
             Object color = layer == 0 ? resources.dark : resources.light;
-            for (int edge = 0; edge < 4; edge++) {
-                line(handles, drawer, corners[edge], corners[(edge + 1) % 4], color, width);
-            }
+            line(handles, drawer, x0, y0, x1, y1, color, width);
+            line(handles, drawer, x1, y1, x2, y2, color, width);
+            line(handles, drawer, x2, y2, x3, y3, color, width);
+            line(handles, drawer, x3, y3, x0, y0, color, width);
         }
     }
 
     private static ArtMeshMirrorAxis.Point project(ViewUiHandles handles, Object camera, ArtMeshMirrorAxis.Point point)
             throws Throwable {
-        return read(
-                handles, handles.documentToComponent.invoke(camera, handles.vectorCtor.invoke(point.x(), point.y())));
+        return project(handles, camera, point.x(), point.y());
+    }
+
+    private static ArtMeshMirrorAxis.Point project(ViewUiHandles handles, Object camera, float x, float y)
+            throws Throwable {
+        return read(handles, handles.documentToComponent.invokeExact(camera, handles.vectorCtor.invokeExact(x, y)));
     }
 
     private static void line(
-            ViewUiHandles handles,
-            Object drawer,
-            ArtMeshMirrorAxis.Point a,
-            ArtMeshMirrorAxis.Point b,
-            Object color,
-            float width)
+            ViewUiHandles handles, Object drawer, float x1, float y1, float x2, float y2, Object color, float width)
             throws Throwable {
-        handles.drawerLine.invoke(
+        handles.drawerLine.invokeExact(
                 drawer,
-                handles.vectorCtor.invoke(a.x(), a.y()),
-                handles.vectorCtor.invoke(b.x(), b.y()),
+                handles.vectorCtor.invokeExact(x1, y1),
+                handles.vectorCtor.invokeExact(x2, y2),
                 color,
                 width,
                 0f);
@@ -913,27 +1470,6 @@ public final class NativeArtMeshSymmetryBridge {
 
     private static double distance(ArtMeshMirrorAxis.Point a, ArtMeshMirrorAxis.Point b) {
         return Math.hypot(a.x() - b.x(), a.y() - b.y());
-    }
-
-    private static final ClassValue<Constructor<?>> VECTORS = new ClassValue<>() {
-        @Override
-        protected Constructor<?> computeValue(Class<?> type) {
-            try {
-                return Class.forName("com.live2d.graphics3d.type.GVector2", false, type.getClassLoader())
-                        .getConstructor(float.class, float.class);
-            } catch (ReflectiveOperationException failure) {
-                throw new IllegalStateException(failure);
-            }
-        }
-    };
-
-    private static Object vector(Object host, ArtMeshMirrorAxis.Point point) throws ReflectiveOperationException {
-        return VECTORS.get(host.getClass()).newInstance(point.x(), point.y());
-    }
-
-    private static ArtMeshMirrorAxis.Point read(Object vector) throws ReflectiveOperationException {
-        return new ArtMeshMirrorAxis.Point(
-                ((Number) call(vector, "getX")).floatValue(), ((Number) call(vector, "getY")).floatValue());
     }
 
     private static ArtMeshMirrorAxis.Point read(ViewUiHandles handles, Object vector) throws Throwable {
@@ -944,6 +1480,9 @@ public final class NativeArtMeshSymmetryBridge {
     private static final ClassValue<StateHandles> STATE_HANDLES = new ClassValue<>() {
         @Override
         protected StateHandles computeValue(Class<?> viewType) {
+            if (!viewType.getName().equals(MODELING_VIEW_CLASS)) {
+                return StateHandles.UNAVAILABLE;
+            }
             try {
                 return new StateHandles(viewType);
             } catch (ReflectiveOperationException failure) {
@@ -956,7 +1495,8 @@ public final class NativeArtMeshSymmetryBridge {
         @Override
         protected MethodHandle computeValue(Class<?> modelType) {
             try {
-                return ViewUiHandles.unreflect(MethodHandles.lookup(), modelType, "getSource", 0);
+                return ViewUiHandles.unreflect(MethodHandles.lookup(), modelType, "getSource", 0)
+                        .asType(OBJECT_GETTER_TYPE);
             } catch (ReflectiveOperationException failure) {
                 throw new IllegalStateException(failure);
             }
@@ -964,16 +1504,29 @@ public final class NativeArtMeshSymmetryBridge {
     };
 
     private static final class StateHandles {
+        private static final StateHandles UNAVAILABLE = new StateHandles();
+
+        final boolean isModelingView;
+        final Class<?> editType;
         final MethodHandle getCurrentEditMode;
         final MethodHandle getCurrentModel;
 
+        private StateHandles() {
+            this.isModelingView = false;
+            this.editType = null;
+            this.getCurrentEditMode = null;
+            this.getCurrentModel = null;
+        }
+
         StateHandles(Class<?> viewType) throws ReflectiveOperationException {
+            this.isModelingView = true;
             ClassLoader loader = viewType.getClassLoader();
             MethodHandles.Lookup lookup = MethodHandles.lookup();
             getCurrentEditMode = ViewUiHandles.unreflect(lookup, viewType, "getCurrentEditMode", 0)
-                    .asType(MethodType.methodType(Object.class, Object.class));
-            Class<?> editType = Class.forName(MAIN_EDIT_MODE_CLASS, false, loader);
-            getCurrentModel = ViewUiHandles.unreflect(lookup, editType, "getCurrentModel", 0);
+                    .asType(OBJECT_GETTER_TYPE);
+            editType = Class.forName(MAIN_EDIT_MODE_CLASS, false, loader);
+            getCurrentModel = ViewUiHandles.unreflect(lookup, editType, "getCurrentModel", 0)
+                    .asType(OBJECT_GETTER_TYPE);
         }
 
         MethodHandle getModelSource(Object model) {
@@ -1000,7 +1553,7 @@ public final class NativeArtMeshSymmetryBridge {
 
         private static MethodHandle tryUnreflect(MethodHandles.Lookup lookup, Class<?> type, String name) {
             try {
-                return ViewUiHandles.unreflect(lookup, type, name, 0);
+                return ViewUiHandles.unreflect(lookup, type, name, 0).asType(OBJECT_GETTER_TYPE);
             } catch (ReflectiveOperationException ignored) {
                 return null;
             }
@@ -1026,7 +1579,7 @@ public final class NativeArtMeshSymmetryBridge {
 
         private static MethodHandle tryUnreflect(MethodHandles.Lookup lookup, Class<?> type, String name) {
             try {
-                return ViewUiHandles.unreflect(lookup, type, name, 0);
+                return ViewUiHandles.unreflect(lookup, type, name, 0).asType(OBJECT_GETTER_TYPE);
             } catch (ReflectiveOperationException ignored) {
                 return null;
             }
@@ -1054,6 +1607,7 @@ public final class NativeArtMeshSymmetryBridge {
         final MethodHandle getSelector;
         final Class<?> modelType;
         final MethodHandle getArtMeshByGuid;
+        final MethodHandle getArtMeshById;
         final MethodHandle getArtMeshByString;
         final MethodHandle getCalculatedForm;
         final MethodHandle getSelected;
@@ -1079,92 +1633,134 @@ public final class NativeArtMeshSymmetryBridge {
         ViewUiHandles(Class<?> viewType) throws ReflectiveOperationException {
             ClassLoader loader = viewType.getClassLoader();
             MethodHandles.Lookup lookup = MethodHandles.lookup();
-            getCurrentEditMode = unreflect(lookup, viewType, "getCurrentEditMode", 0)
-                    .asType(MethodType.methodType(Object.class, Object.class));
+            getCurrentEditMode =
+                    unreflect(lookup, viewType, "getCurrentEditMode", 0).asType(OBJECT_GETTER_TYPE);
             MethodHandle rawCamera = unreflect(lookup, viewType, "getCameraManager", 0);
             Class<?> cameraType = rawCamera.type().returnType();
-            getCameraManager = rawCamera.asType(MethodType.methodType(Object.class, Object.class));
+            getCameraManager = rawCamera.asType(OBJECT_GETTER_TYPE);
 
             MethodHandle rawRenderSystem = unreflect(lookup, viewType, "getRenderSystem", 0);
             Class<?> renderSystemType = rawRenderSystem.type().returnType();
-            getRenderSystem = rawRenderSystem.asType(MethodType.methodType(Object.class, Object.class));
+            getRenderSystem = rawRenderSystem.asType(OBJECT_GETTER_TYPE);
 
             MethodHandle rawSceneGraph = unreflect(lookup, viewType, "getSceneGraph", 0);
             Class<?> graphType = rawSceneGraph.type().returnType();
-            getSceneGraph = rawSceneGraph.asType(MethodType.methodType(Object.class, Object.class));
+            getSceneGraph = rawSceneGraph.asType(OBJECT_GETTER_TYPE);
 
-            repaintCanvas = unreflect(lookup, viewType, "repaintCanvas", 0)
-                    .asType(MethodType.methodType(void.class, Object.class));
+            repaintCanvas = unreflect(lookup, viewType, "repaintCanvas", 0).asType(VOID_OBJECT_TYPE);
 
             Class<?> editType = Class.forName(MAIN_EDIT_MODE_CLASS, false, loader);
-            getCurrentModel = unreflect(lookup, editType, "getCurrentModel", 0);
-            getSelector = unreflect(lookup, editType, "getSelector", 0);
-            modelType = getCurrentModel.type().returnType();
-            getArtMeshByGuid = findArtMeshLookup(lookup, modelType, false);
-            getArtMeshByString = findArtMeshLookup(lookup, modelType, true);
-            MethodHandle sampleArtMesh = getArtMeshByGuid != null ? getArtMeshByGuid : getArtMeshByString;
+            MethodHandle rawModel = unreflect(lookup, editType, "getCurrentModel", 0);
+            modelType = rawModel.type().returnType();
+            getCurrentModel = rawModel.asType(OBJECT_GETTER_TYPE);
+            MethodHandle rawSelector = unreflect(lookup, editType, "getSelector", 0);
+            Class<?> selectorType = rawSelector.type().returnType();
+            getSelector = rawSelector.asType(OBJECT_GETTER_TYPE);
+            MethodHandle rawByGuid = findArtMeshLookup(lookup, modelType, "Guid");
+            MethodHandle rawById = findArtMeshLookup(lookup, modelType, "Id");
+            MethodHandle rawByString = findArtMeshLookup(lookup, modelType, "String");
+            MethodHandle sampleArtMesh = rawByGuid != null ? rawByGuid : rawById != null ? rawById : rawByString;
             if (sampleArtMesh == null) {
                 throw new NoSuchMethodException(modelType.getName() + "#getArtMesh/1");
             }
-            getCalculatedForm = unreflect(lookup, sampleArtMesh.type().returnType(), "getCalculatedForm", 0);
+            getCalculatedForm = unreflect(lookup, sampleArtMesh.type().returnType(), "getCalculatedForm", 0)
+                    .asType(OBJECT_GETTER_TYPE);
+            getArtMeshByGuid = rawByGuid == null ? null : rawByGuid.asType(OBJECT_ARG_OBJECT_TYPE);
+            getArtMeshById = rawById == null ? null : rawById.asType(OBJECT_ARG_OBJECT_TYPE);
+            getArtMeshByString = rawByString == null ? null : rawByString.asType(OBJECT_ARG_OBJECT_TYPE);
 
-            Class<?> selectorType = getSelector.type().returnType();
-            getSelected = unreflect(lookup, selectorType, "getSelected", 0);
+            getSelected = unreflect(lookup, selectorType, "getSelected", 0).asType(OBJECT_GETTER_TYPE);
 
-            isSafeEditOnPlaneXY = unreflect(lookup, cameraType, "isSafeEditOnPlaneXY", 0);
-            Class<?> cpointType = Class.forName("com.live2d.type.CPoint", false, loader);
-            Class<?> vectorType = Class.forName("com.live2d.graphics3d.type.GVector2", false, loader);
-            componentToDocument = unreflectExact(lookup, cameraType, "componentToDocument", cpointType);
-            documentToComponent = unreflectExact(lookup, cameraType, "documentToComponent", vectorType);
-            getComponentRect = unreflect(lookup, cameraType, "getComponentRect", 0);
-
-            Class<?> rectType = getComponentRect.type().returnType();
-            rectX = unreflect(lookup, rectType, "getX", 0).asType(MethodType.methodType(float.class, rectType));
-            rectY = unreflect(lookup, rectType, "getY", 0).asType(MethodType.methodType(float.class, rectType));
-            rectWidth = unreflect(lookup, rectType, "getWidth", 0).asType(MethodType.methodType(float.class, rectType));
-            rectHeight =
-                    unreflect(lookup, rectType, "getHeight", 0).asType(MethodType.methodType(float.class, rectType));
+            isSafeEditOnPlaneXY =
+                    unreflect(lookup, cameraType, "isSafeEditOnPlaneXY", 0).asType(BOOLEAN_GETTER_TYPE);
+            Class<?> cpointType = Class.forName(CPOINT_CLASS, false, loader);
+            Class<?> vectorType = Class.forName(GVECTOR2_CLASS, false, loader);
+            componentToDocument = unreflectExact(lookup, cameraType, "componentToDocument", cpointType)
+                    .asType(OBJECT_ARG_OBJECT_TYPE);
+            documentToComponent = unreflectExact(lookup, cameraType, "documentToComponent", vectorType)
+                    .asType(OBJECT_ARG_OBJECT_TYPE);
+            MethodHandle rawComponentRect = unreflect(lookup, cameraType, "getComponentRect", 0);
+            Class<?> rectType = rawComponentRect.type().returnType();
+            getComponentRect = rawComponentRect.asType(OBJECT_GETTER_TYPE);
+            rectX = unreflect(lookup, rectType, "getX", 0).asType(FLOAT_GETTER_TYPE);
+            rectY = unreflect(lookup, rectType, "getY", 0).asType(FLOAT_GETTER_TYPE);
+            rectWidth = unreflect(lookup, rectType, "getWidth", 0).asType(FLOAT_GETTER_TYPE);
+            rectHeight = unreflect(lookup, rectType, "getHeight", 0).asType(FLOAT_GETTER_TYPE);
 
             Constructor<?> vCtor = vectorType.getConstructor(float.class, float.class);
             ReflectAccess.open(vCtor);
-            vectorCtor = lookup.unreflectConstructor(vCtor);
-            vectorX = unreflect(lookup, vectorType, "getX", 0).asType(MethodType.methodType(float.class, Object.class));
-            vectorY = unreflect(lookup, vectorType, "getY", 0).asType(MethodType.methodType(float.class, Object.class));
+            vectorCtor = lookup.unreflectConstructor(vCtor)
+                    .asType(MethodType.methodType(Object.class, float.class, float.class));
+            vectorX = unreflect(lookup, vectorType, "getX", 0).asType(FLOAT_GETTER_TYPE);
+            vectorY = unreflect(lookup, vectorType, "getY", 0).asType(FLOAT_GETTER_TYPE);
 
-            drawerOf = unreflect(lookup, renderSystemType, "b", 0);
-            getObjectsOnComponent = unreflect(lookup, graphType, "getObjectsOnComponent", 0);
+            MethodHandle rawDrawerOf = unreflect(lookup, renderSystemType, "b", 0);
+            drawerOf = rawDrawerOf.asType(OBJECT_GETTER_TYPE);
+            getObjectsOnComponent =
+                    unreflect(lookup, graphType, "getObjectsOnComponent", 0).asType(OBJECT_GETTER_TYPE);
 
-            Class<?> drawerType = drawerOf.type().returnType();
-            drawerSetEntity = findDrawerSetter(lookup, drawerType, Object.class);
-            drawerSetLayer = findDrawerLayerSetter(lookup, drawerType, loader);
-            drawerSetOrder = unreflectExact(lookup, drawerType, "a", int.class);
-            drawerLine = findDrawerLine(lookup, drawerType, vectorType, loader);
-            drawerText = findDrawerText(lookup, drawerType, loader);
+            Class<?> drawerType = rawDrawerOf.type().returnType();
+            drawerSetEntity = findDrawerSetter(lookup, drawerType, Object.class)
+                    .asType(MethodType.methodType(void.class, Object.class, Object.class));
+            drawerSetLayer = findDrawerLayerSetter(lookup, drawerType, loader)
+                    .asType(MethodType.methodType(void.class, Object.class, Object.class));
+            drawerSetOrder = unreflectExact(lookup, drawerType, "a", int.class)
+                    .asType(MethodType.methodType(void.class, Object.class, int.class));
+            drawerLine = findDrawerLine(lookup, drawerType, vectorType, loader)
+                    .asType(MethodType.methodType(
+                            void.class,
+                            Object.class,
+                            Object.class,
+                            Object.class,
+                            Object.class,
+                            float.class,
+                            float.class));
+            drawerText = findDrawerText(lookup, drawerType, loader)
+                    .asType(MethodType.methodType(
+                            void.class,
+                            Object.class,
+                            String.class,
+                            Object.class,
+                            float.class,
+                            float.class,
+                            float.class,
+                            float.class,
+                            Object.class));
         }
 
-        MethodHandle getArtMeshForGuid(Class<?> guidType) throws NoSuchMethodException {
-            if (guidType == String.class && getArtMeshByString != null) {
+        MethodHandle getArtMeshForGuid(Class<?> idType) throws NoSuchMethodException {
+            if (idType == String.class && getArtMeshByString != null) {
                 return getArtMeshByString;
+            }
+            if (idType.getName().endsWith("Guid") && getArtMeshByGuid != null) {
+                return getArtMeshByGuid;
+            }
+            if (idType.getName().endsWith("Id") && getArtMeshById != null) {
+                return getArtMeshById;
             }
             if (getArtMeshByGuid != null) {
                 return getArtMeshByGuid;
             }
+            if (getArtMeshById != null) {
+                return getArtMeshById;
+            }
             if (getArtMeshByString != null) {
                 return getArtMeshByString;
             }
-            throw new NoSuchMethodException(modelType.getName() + "#getArtMesh(" + guidType.getName() + ")");
+            throw new NoSuchMethodException(modelType.getName() + "#getArtMesh(" + idType.getName() + ")");
         }
 
-        private static MethodHandle findArtMeshLookup(
-                MethodHandles.Lookup lookup, Class<?> modelType, boolean stringOnly)
+        private static MethodHandle findArtMeshLookup(MethodHandles.Lookup lookup, Class<?> modelType, String suffix)
                 throws ReflectiveOperationException {
             for (Method method : MethodHandleCache.overloads(modelType, "getArtMesh", 1)) {
                 Class<?> param = method.getParameterTypes()[0];
-                if (stringOnly && param == String.class) {
+                if ("String".equals(suffix) && param == String.class) {
                     ReflectAccess.open(method);
                     return lookup.unreflect(method);
                 }
-                if (!stringOnly && param != String.class && param.getName().endsWith("Guid")) {
+                if (!"String".equals(suffix)
+                        && param != String.class
+                        && param.getName().endsWith(suffix)) {
                     ReflectAccess.open(method);
                     return lookup.unreflect(method);
                 }
@@ -1207,7 +1803,7 @@ public final class NativeArtMeshSymmetryBridge {
                 MethodHandles.Lookup lookup, Class<?> drawerType, ClassLoader loader)
                 throws ReflectiveOperationException {
             try {
-                Class<?> layerType = Class.forName("com.live2d.graphics3d.component.a.c", false, loader);
+                Class<?> layerType = Class.forName(LAYER_BASE_CLASS, false, loader);
                 return unreflectExact(lookup, drawerType, "a", layerType);
             } catch (ClassNotFoundException | NoSuchMethodException ignored) {
                 return findDrawerSetter(lookup, drawerType, Object.class);
@@ -1217,14 +1813,14 @@ public final class NativeArtMeshSymmetryBridge {
         private static MethodHandle findDrawerLine(
                 MethodHandles.Lookup lookup, Class<?> drawerType, Class<?> vectorType, ClassLoader loader)
                 throws ReflectiveOperationException {
-            Class<?> colorType = Class.forName("com.live2d.type.CColor", false, loader);
+            Class<?> colorType = Class.forName(CCOLOR_CLASS, false, loader);
             return unreflectExact(lookup, drawerType, "a", vectorType, vectorType, colorType, float.class, float.class);
         }
 
         private static MethodHandle findDrawerText(MethodHandles.Lookup lookup, Class<?> drawerType, ClassLoader loader)
                 throws ReflectiveOperationException {
-            Class<?> fontType = Class.forName("com.live2d.type.CFont", false, loader);
-            Class<?> colorType = Class.forName("com.live2d.type.CColor", false, loader);
+            Class<?> fontType = Class.forName(CFONT_CLASS, false, loader);
+            Class<?> colorType = Class.forName(CCOLOR_CLASS, false, loader);
             return unreflectExact(
                     lookup,
                     drawerType,
@@ -1268,57 +1864,76 @@ public final class NativeArtMeshSymmetryBridge {
             Class<?> resourceClass = Class.forName("com.live2d.graphics.CImageResource", false, loader);
             Constructor<?> rCtor = resourceClass.getConstructor(BufferedImage.class, boolean.class);
             ReflectAccess.open(rCtor);
-            resourceCtor = lookup.unreflectConstructor(rCtor);
+            resourceCtor = lookup.unreflectConstructor(rCtor)
+                    .asType(MethodType.methodType(Object.class, BufferedImage.class, boolean.class));
 
             Class<?> affineClass = Class.forName("com.live2d.type.CAffine", false, loader);
             Class<?> texture2DClass = Class.forName("com.live2d.graphics3d.texture.GTexture2D", false, loader);
             Constructor<?> tCtor = texture2DClass.getConstructor(resourceClass, affineClass, boolean.class);
             ReflectAccess.open(tCtor);
-            textureCtor = lookup.unreflectConstructor(tCtor);
+            textureCtor = lookup.unreflectConstructor(tCtor)
+                    .asType(MethodType.methodType(Object.class, Object.class, Object.class, boolean.class));
 
             Class<?> textureClass = Class.forName("com.live2d.graphics3d.texture.GTexture", false, loader);
-            getFilterMode = unreflect(lookup, textureClass, "getFilterMode");
-            Class<?> filterModeClass = getFilterMode.type().returnType();
+            MethodHandle rawFilterMode = unreflect(lookup, textureClass, "getFilterMode");
+            Class<?> filterModeClass = rawFilterMode.type().returnType();
+            getFilterMode = rawFilterMode.asType(OBJECT_GETTER_TYPE);
             Class<?> minFilterClass = Class.forName("com.live2d.graphics3d.texture.MinFilter", false, loader);
             Class<?> magFilterClass = Class.forName("com.live2d.graphics3d.texture.MagFilter", false, loader);
-            setMinFilter = unreflect(lookup, filterModeClass, "setMinFilter", minFilterClass);
-            setMagFilter = unreflect(lookup, filterModeClass, "setMagFilter", magFilterClass);
-            setPreload = unreflect(lookup, textureClass, "setPreload", boolean.class);
-            reinitTexture = unreflect(lookup, textureClass, "reinitTexture");
+            setMinFilter = unreflect(lookup, filterModeClass, "setMinFilter", minFilterClass)
+                    .asType(MethodType.methodType(void.class, Object.class, Object.class));
+            setMagFilter = unreflect(lookup, filterModeClass, "setMagFilter", magFilterClass)
+                    .asType(MethodType.methodType(void.class, Object.class, Object.class));
+            setPreload = unreflect(lookup, textureClass, "setPreload", boolean.class)
+                    .asType(MethodType.methodType(void.class, Object.class, boolean.class));
+            reinitTexture = unreflect(lookup, textureClass, "reinitTexture").asType(VOID_OBJECT_TYPE);
             minFilterLinear = minFilterClass.getField("LINEAR").get(null);
             magFilterLinear = magFilterClass.getField("LINEAR").get(null);
 
             Class<?> rectClass = Class.forName("com.live2d.graphics3d.type.GRectF", false, loader);
             Constructor<?> rectC = rectClass.getConstructor(float.class, float.class, float.class, float.class);
             ReflectAccess.open(rectC);
-            rectCtor = lookup.unreflectConstructor(rectC);
+            rectCtor = lookup.unreflectConstructor(rectC)
+                    .asType(MethodType.methodType(Object.class, float.class, float.class, float.class, float.class));
 
             Class<?> imageEntityClass = Class.forName("com.live2d.graphics3d.geometry.GImageEntity", false, loader);
             Constructor<?> ieCtor =
                     imageEntityClass.getConstructor(String.class, textureClass, boolean.class, rectClass);
             ReflectAccess.open(ieCtor);
-            imageEntityCtor = lookup.unreflectConstructor(ieCtor);
+            imageEntityCtor = lookup.unreflectConstructor(ieCtor)
+                    .asType(MethodType.methodType(
+                            Object.class, String.class, Object.class, boolean.class, Object.class));
 
-            getMeshRenderer = unreflect(lookup, imageEntityClass, "getMeshRenderer");
-            Class<?> rendererClass = getMeshRenderer.type().returnType();
-            Class<?> layerClass = Class.forName("com.live2d.graphics3d.component.a.c", false, loader);
-            setSortingLayer = unreflect(lookup, rendererClass, "setSortingLayer", layerClass);
-            setOrderInLayer = unreflect(lookup, rendererClass, "setOrderInLayer", int.class);
+            MethodHandle rawMeshRenderer = unreflect(lookup, imageEntityClass, "getMeshRenderer");
+            Class<?> rendererClass = rawMeshRenderer.type().returnType();
+            getMeshRenderer = rawMeshRenderer.asType(OBJECT_GETTER_TYPE);
+            Class<?> layerClass = Class.forName(LAYER_BASE_CLASS, false, loader);
+            setSortingLayer = unreflect(lookup, rendererClass, "setSortingLayer", layerClass)
+                    .asType(MethodType.methodType(void.class, Object.class, Object.class));
+            setOrderInLayer = unreflect(lookup, rendererClass, "setOrderInLayer", int.class)
+                    .asType(MethodType.methodType(void.class, Object.class, int.class));
 
             Class<?> entityClass = Class.forName("com.live2d.graphics3d.entity.GEntity", false, loader);
-            getTransform = unreflect(lookup, entityClass, "getTransform");
-            Class<?> transformClass = getTransform.type().returnType();
-            getPosition = unreflect(lookup, transformClass, "getPosition");
-            Class<?> vec3Class = getPosition.type().returnType();
-            setVector3 = unreflect(lookup, vec3Class, "set", float.class, float.class, float.class);
-            getParentEntity = unreflect(lookup, entityClass, "getParentEntity");
-            getChildren = unreflect(lookup, entityClass, "getChildren");
-            Class<?> entitiesClass = getChildren.type().returnType();
-            addEntity = unreflect(lookup, entitiesClass, "add", entityClass, int.class);
-            setEnabled = unreflect(lookup, entityClass, "setEnabled", boolean.class);
+            MethodHandle rawTransform = unreflect(lookup, entityClass, "getTransform");
+            Class<?> transformClass = rawTransform.type().returnType();
+            getTransform = rawTransform.asType(OBJECT_GETTER_TYPE);
+            MethodHandle rawPosition = unreflect(lookup, transformClass, "getPosition");
+            Class<?> vec3Class = rawPosition.type().returnType();
+            getPosition = rawPosition.asType(OBJECT_GETTER_TYPE);
+            setVector3 = unreflect(lookup, vec3Class, "set", float.class, float.class, float.class)
+                    .asType(MethodType.methodType(void.class, Object.class, float.class, float.class, float.class));
+            getParentEntity = unreflect(lookup, entityClass, "getParentEntity").asType(OBJECT_GETTER_TYPE);
+            MethodHandle rawChildren = unreflect(lookup, entityClass, "getChildren");
+            Class<?> entitiesClass = rawChildren.type().returnType();
+            getChildren = rawChildren.asType(OBJECT_GETTER_TYPE);
+            addEntity = unreflect(lookup, entitiesClass, "add", entityClass, int.class)
+                    .asType(MethodType.methodType(void.class, Object.class, Object.class, int.class));
+            setEnabled = unreflect(lookup, entityClass, "setEnabled", boolean.class)
+                    .asType(MethodType.methodType(void.class, Object.class, boolean.class));
 
             Class<?> sceneGraphClass = Class.forName("com.live2d.graphics3d.sceneGraph.GSceneGraph", false, loader);
-            setVolatile = unreflect(lookup, sceneGraphClass, "setVolatile", entityClass);
+            setVolatile = unreflect(lookup, sceneGraphClass, "setVolatile", entityClass)
+                    .asType(MethodType.methodType(void.class, Object.class, Object.class));
         }
 
         static LabelHandles tryResolve(ClassLoader loader) {
@@ -1344,68 +1959,5 @@ public final class NativeArtMeshSymmetryBridge {
         if (REPORTED.add(reason))
             dev.turboism.runtime.log.RuntimeDiagnostics.info(
                     "warp-alt-mirror", "ARTMESH_SYMMETRY_SKIPPED reason=" + reason);
-    }
-
-    private record Invocation(String name, java.util.List<Class<?>> arguments) {}
-
-    private static final ClassValue<java.util.concurrent.ConcurrentMap<Invocation, Method>> METHODS =
-            new ClassValue<>() {
-                @Override
-                protected java.util.concurrent.ConcurrentMap<Invocation, Method> computeValue(Class<?> type) {
-                    return new java.util.concurrent.ConcurrentHashMap<>();
-                }
-            };
-
-    private static Object call(Object target, String name, Object... args) throws ReflectiveOperationException {
-        if (target == null) throw new NoSuchMethodException(name);
-        var types = new java.util.ArrayList<Class<?>>(args.length);
-        for (Object argument : args) types.add(argument == null ? Void.class : argument.getClass());
-        var key = new Invocation(name, java.util.List.copyOf(types));
-        var cache = METHODS.get(target.getClass());
-        Method method = cache.get(key);
-        if (method == null) {
-            int best = Integer.MAX_VALUE;
-            for (Method candidate : MethodHandleCache.overloads(target.getClass(), name, args.length)) {
-                Class<?>[] parameters = candidate.getParameterTypes();
-                int score = 0;
-                for (int i = 0; i < parameters.length; i++) {
-                    Class<?> expected = parameters[i];
-                    Class<?> actual = types.get(i);
-                    if (actual == Void.class && !expected.isPrimitive()) {
-                        score += 2;
-                        continue;
-                    }
-                    if (expected.isPrimitive()) expected = boxed(expected);
-                    if (expected == actual) continue;
-                    if (!expected.isAssignableFrom(actual)) {
-                        score = Integer.MAX_VALUE;
-                        break;
-                    }
-                    score += 1;
-                }
-                if (score < best) {
-                    best = score;
-                    method = candidate;
-                }
-                if (score == 0) break;
-            }
-            if (method == null)
-                throw new NoSuchMethodException(target.getClass().getName() + "#" + name);
-            ReflectAccess.open(method);
-            cache.putIfAbsent(key, method);
-        }
-        return method.invoke(target, args);
-    }
-
-    private static Class<?> boxed(Class<?> type) {
-        if (type == int.class) return Integer.class;
-        if (type == float.class) return Float.class;
-        if (type == boolean.class) return Boolean.class;
-        if (type == double.class) return Double.class;
-        if (type == long.class) return Long.class;
-        if (type == short.class) return Short.class;
-        if (type == byte.class) return Byte.class;
-        if (type == char.class) return Character.class;
-        return type;
     }
 }
