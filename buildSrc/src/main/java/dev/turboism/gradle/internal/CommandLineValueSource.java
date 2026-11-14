@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import javax.inject.Inject;
 
@@ -81,6 +82,20 @@ public abstract class CommandLineValueSource
         /** Standard output trimmed, which is what a single-line probe result means. */
         public String trimmedStandardOutput() {
             return standardOutput.trim();
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            return other instanceof Result that
+                && exitValue == that.exitValue
+                && Objects.equals(standardOutput, that.standardOutput)
+                && Objects.equals(standardError, that.standardError)
+                && Objects.equals(failure, that.failure);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(exitValue, standardOutput, standardError, failure);
         }
     }
 

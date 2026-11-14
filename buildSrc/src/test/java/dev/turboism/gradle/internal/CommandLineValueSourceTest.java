@@ -53,4 +53,13 @@ class CommandLineValueSourceTest {
         assertTrue(result.succeeded());
         assertEquals("", result.trimmedStandardOutput());
     }
+
+    @Test
+    void identicalOutcomesCompareEqualForConfigurationCacheReuse() {
+        CommandLineValueSource.Result first = new CommandLineValueSource.Result(0, "id-42\n", "", "");
+        CommandLineValueSource.Result second = new CommandLineValueSource.Result(0, "id-42\n", "", "");
+
+        assertEquals(first, second);
+        assertEquals(first.hashCode(), second.hashCode());
+    }
 }
