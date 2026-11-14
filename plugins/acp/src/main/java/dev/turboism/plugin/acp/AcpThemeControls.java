@@ -292,6 +292,38 @@ final class AcpThemeControls {
         }
     }
 
+    /** Shows {@code popup} at invoker coordinates {@code (x, y)}, clamped to the screen's usable bounds. */
+    static void showPopupAt(final JComponent invoker, final JPopupMenu popup, final int x, final int y) {
+        if (invoker == null || popup == null || !invoker.isShowing()) return;
+        applyThemeTree(popup);
+        if (popup instanceof ThemedPopupMenu themed) {
+            themed.prepareForShow();
+        }
+        final Dimension size = popup.getPreferredSize();
+        int clampedX = x;
+        int clampedY = y;
+        final GraphicsConfiguration gc = invoker.getGraphicsConfiguration();
+        if (gc != null) {
+            final Rectangle screen = gc.getBounds();
+            final Insets screenInsets = Toolkit.getDefaultToolkit().getScreenInsets(gc);
+            final int usableLeft = screen.x + screenInsets.left;
+            final int usableTop = screen.y + screenInsets.top;
+            final int usableRight = screen.x + screen.width - screenInsets.right;
+            final int usableBottom = screen.y + screen.height - screenInsets.bottom;
+            final Point onScreen = invoker.getLocationOnScreen();
+            final int maxX = usableRight - onScreen.x - size.width;
+            final int minX = usableLeft - onScreen.x;
+            final int maxY = usableBottom - onScreen.y - size.height;
+            final int minY = usableTop - onScreen.y;
+            clampedX = Math.max(minX, Math.min(clampedX, Math.max(minX, maxX)));
+            clampedY = Math.max(minY, Math.min(clampedY, Math.max(minY, maxY)));
+        }
+        popup.show(invoker, clampedX, clampedY);
+        if (popup instanceof ThemedPopupMenu themed) {
+            themed.focusInitialControl();
+        }
+    }
+
     private static Color withAlpha(final Color base, final int alpha) {
         return new Color(base.getRed(), base.getGreen(), base.getBlue(), Math.max(0, Math.min(255, alpha)));
     }

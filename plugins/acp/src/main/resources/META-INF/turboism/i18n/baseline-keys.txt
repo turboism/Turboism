@@ -32,6 +32,11 @@ composer.placeholder
 composer.suggestion.folder-colors
 composer.suggestion.mask-import
 composer.suggestion.missing-display
+image.copy-failed
+image.filter-description
+image.menu.copy
+image.menu.save-as
+image.save-failed
 label.agent
 label.agent-external-detail
 label.agent-install-hint

@@ -110,6 +110,30 @@ final class AcpChatWindowTest {
     }
 
     @Test
+    void preCachesLookAndFeelUiClassesSoIsolatedPluginLoadersResolveTextAreaUi() {
+        final javax.swing.UIDefaults defaults = new javax.swing.UIDefaults();
+        final String uiClassName = "javax.swing.plaf.basic.BasicTextAreaUI";
+        defaults.put("TextAreaUI", uiClassName);
+        final ClassLoader isolatedPluginLoader = new ClassLoader(null) {
+            @Override
+            public Class<?> loadClass(final String name) throws ClassNotFoundException {
+                if (uiClassName.equals(name)) {
+                    throw new ClassNotFoundException("blocked by plugin boundary: " + name);
+                }
+                return ClassLoader.getPlatformClassLoader().loadClass(name);
+            }
+        };
+
+        assertEquals(null, defaults.getUIClass("TextAreaUI", isolatedPluginLoader));
+
+        AcpChatWindow.installFallbackSwingUis(defaults);
+
+        assertEquals(
+                javax.swing.plaf.basic.BasicTextAreaUI.class, defaults.getUIClass("TextAreaUI", isolatedPluginLoader));
+        assertEquals("javax.swing.plaf.basic.BasicPopupMenuUI", defaults.get("PopupMenuUI"));
+    }
+
+    @Test
     void permissionDialogHasAConcreteMinimumSize() {
         final Dimension minimum = AcpChatWindow.permissionDialogMinimum();
         assertTrue(minimum.width >= 460);
@@ -290,6 +314,36 @@ final class AcpChatWindowTest {
                 AcpComposerPlaceholder.choose(
                         catalog(Map.of("composer.placeholder", "Message the agent…")), new java.util.Random(1)));
         assertEquals("", AcpComposerPlaceholder.choose(catalog(Map.of()), new java.util.Random(1)));
+    }
+
+    @Test
+    void transcriptImageUtilitiesCopyFullResolutionAndSaveWithExpectedFormat(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path directory) throws Exception {
+        final var source = new java.awt.image.BufferedImage(640, 480, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        final var base = AcpAttachment.fromClipboard(source);
+        final var toolImage = new AcpAttachment(
+                "Tool image · abc · reported: capture=c1", base.mimeType(), base.uri(), base.data(), base.byteSize());
+
+        assertEquals("image.png", AcpTranscriptImages.suggestedFileName(toolImage));
+        assertEquals(
+                directory.resolve("pose.png"), AcpTranscriptImages.ensureExtension(directory.resolve("pose"), "png"));
+
+        final var clipboard = new java.awt.datatransfer.Clipboard("test-image-clipboard");
+        final var decoded = AcpTranscriptImages.toBufferedImage(toolImage, null);
+        assertEquals(640, decoded.getWidth());
+        assertEquals(480, decoded.getHeight());
+        AcpTranscriptImages.copyToClipboard(decoded, clipboard);
+        assertTrue(clipboard.isDataFlavorAvailable(java.awt.datatransfer.DataFlavor.imageFlavor));
+        final var copied = (java.awt.Image) clipboard.getData(java.awt.datatransfer.DataFlavor.imageFlavor);
+        assertEquals(640, copied.getWidth(null));
+
+        final var pngOut = directory.resolve("saved.png");
+        AcpTranscriptImages.saveToFile(toolImage, null, pngOut);
+        assertEquals(640, javax.imageio.ImageIO.read(pngOut.toFile()).getWidth());
+
+        final var jpgOut = directory.resolve("saved.jpg");
+        AcpTranscriptImages.saveToFile(toolImage, null, jpgOut);
+        assertEquals(640, javax.imageio.ImageIO.read(jpgOut.toFile()).getWidth());
     }
 
     private static PluginLocalization catalog(final Map<String, String> entries) {

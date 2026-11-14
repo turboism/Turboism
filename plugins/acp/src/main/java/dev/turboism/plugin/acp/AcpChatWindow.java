@@ -94,6 +94,7 @@ final class AcpChatWindow implements AcpChatController.View {
             Pattern.compile("^!\\[[^\\]]*\\]\\(([^\\r\\n]+)\\)$", Pattern.MULTILINE);
     private static final String SEND_ACTION = "turboism-acp.send-prompt";
     private static final String DISCLOSURE = "turboism-acp.disclosure";
+    private static final String IMAGE_SOURCE = "turboism-acp.image-source";
     private static final String DETECTED_MARKER = "  ✓";
     private static final String AGENT_MENU_CARET = " ▾";
     private static final Dimension PERMISSION_DIALOG_MINIMUM = new Dimension(460, 200);
@@ -212,6 +213,16 @@ final class AcpChatWindow implements AcpChatController.View {
             final String savedCustomCommand,
             final String savedInitialPrompt,
             final java.util.function.LongSupplier taskClock) {
+        this(localization, selectedAgentId, savedCustomCommand, savedInitialPrompt, ensureSwingUis(taskClock), true);
+    }
+
+    private AcpChatWindow(
+            final PluginLocalization localization,
+            final String selectedAgentId,
+            final String savedCustomCommand,
+            final String savedInitialPrompt,
+            final java.util.function.LongSupplier taskClock,
+            final boolean ignored) {
         this.taskClock = Objects.requireNonNull(taskClock, "taskClock");
         this.turnMeter = new AcpTurnMeter(this.taskClock);
         taskTimer = new javax.swing.Timer(TASK_TIMER_MILLIS, event -> refreshTaskStatus());
@@ -225,12 +236,20 @@ final class AcpChatWindow implements AcpChatController.View {
         rebuildComposerOptions(List.of());
         refreshTheme();
         uiDefaultsListener = event -> {
-            if ("lookAndFeel".equals(event.getPropertyName()) && themeReady && acceptingEvents.get()) {
-                SwingUtilities.invokeLater(this::refreshTheme);
+            if ("lookAndFeel".equals(event.getPropertyName())) {
+                installFallbackSwingUis(UIManager.getDefaults());
+                if (themeReady && acceptingEvents.get()) {
+                    SwingUtilities.invokeLater(this::refreshTheme);
+                }
             }
         };
         UIManager.addPropertyChangeListener(uiDefaultsListener);
         themeReady = true;
+    }
+
+    private static java.util.function.LongSupplier ensureSwingUis(final java.util.function.LongSupplier taskClock) {
+        installFallbackSwingUis(UIManager.getDefaults());
+        return Objects.requireNonNull(taskClock, "taskClock");
     }
 
     void bind(
@@ -2127,20 +2146,22 @@ final class AcpChatWindow implements AcpChatController.View {
             } catch (IllegalArgumentException failure) {
                 continue;
             }
-            new javax.swing.SwingWorker<javax.swing.ImageIcon, Void>() {
+            new javax.swing.SwingWorker<LoadedInlineImage, Void>() {
                 @Override
-                protected javax.swing.ImageIcon doInBackground() throws Exception {
-                    return AcpAttachment.fromPath(path).preview();
+                protected LoadedInlineImage doInBackground() throws Exception {
+                    final AcpAttachment attachment = AcpAttachment.fromPath(path);
+                    return new LoadedInlineImage(attachment, attachment.preview());
                 }
 
                 @Override
                 protected void done() {
                     if (!acceptingEvents.get() || !transcriptEntries.contains(entry)) return;
                     try {
-                        final javax.swing.ImageIcon preview = get();
-                        if (preview == null) return;
+                        final LoadedInlineImage loaded = get();
+                        if (loaded == null || loaded.preview() == null) return;
                         final int before = entry.weight();
-                        entry.inlineImages.put(reference, preview);
+                        entry.inlineAttachments.put(reference, loaded.attachment());
+                        entry.inlineImages.put(reference, loaded.preview());
                         transcriptChars += entry.weight() - before;
                         if (trimTranscript()) {
                             renderTranscript();
@@ -2163,14 +2184,17 @@ final class AcpChatWindow implements AcpChatController.View {
     @Override
     public void appendAttachment(final AcpAttachment attachment, final boolean user) {
         if (!acceptingEvents.get()) return;
+        final boolean isImage = attachment.mimeType().startsWith("image/");
         final TranscriptEntry entry = new TranscriptEntry(
                 user ? Sender.USER : Sender.AGENT, "", "", "", new StringBuilder(attachment.name()));
         entry.attachment = true;
+        entry.attachmentData = attachment;
+        entry.loadingImage = isImage;
         transcriptEntries.add(entry);
         transcriptChars += entry.weight();
         trimTranscript();
         renderTranscript();
-        if (!attachment.mimeType().startsWith("image/")) return;
+        if (!isImage) return;
         new javax.swing.SwingWorker<javax.swing.ImageIcon, Void>() {
             @Override
             protected javax.swing.ImageIcon doInBackground() throws Exception {
@@ -2179,6 +2203,7 @@ final class AcpChatWindow implements AcpChatController.View {
 
             @Override
             protected void done() {
+                entry.loadingImage = false;
                 if (!acceptingEvents.get() || !transcriptEntries.contains(entry)) return;
                 try {
                     final int previousWeight = entry.weight();
@@ -2186,7 +2211,12 @@ final class AcpChatWindow implements AcpChatController.View {
                     transcriptChars += entry.weight() - previousWeight;
                     trimTranscript();
                 } catch (Exception failure) {
-                    entry.content.append(" · ").append(localization.text("attachment.preview-unavailable"));
+                    if (AcpToolImageLabel.isToolImageLabel(entry.content.toString())) {
+                        entry.content.setLength(0);
+                        entry.content.append(localization.text("attachment.preview-unavailable"));
+                    } else {
+                        entry.content.append(" · ").append(localization.text("attachment.preview-unavailable"));
+                    }
                 }
                 renderTranscript();
             }
@@ -2666,16 +2696,20 @@ final class AcpChatWindow implements AcpChatController.View {
         if (entry.image != null) {
             final SimpleAttributeSet imageStyle = new SimpleAttributeSet();
             StyleConstants.setIcon(imageStyle, entry.image);
+            imageStyle.addAttribute(IMAGE_SOURCE, new ImageSource(entry.attachmentData, entry.image));
             document.insertString(start, " ", imageStyle);
             document.insertString(start + 1, "\n", contentAttributes(entry.sender));
         }
-        AcpMessageRenderer.StreamRender stream = AcpMessageRenderer.insert(
-                document,
-                document.getLength() == before ? start : start + 2,
-                renderedEntry(entry),
-                contentAttributes(entry.sender),
-                entry.sender == Sender.AGENT,
-                entry.inlineImages);
+        AcpMessageRenderer.StreamRender stream = null;
+        if (!suppressAttachmentCaption(entry)) {
+            stream = AcpMessageRenderer.insert(
+                    document,
+                    document.getLength() == before ? start : start + 2,
+                    renderedEntry(entry),
+                    contentAttributes(entry.sender),
+                    entry.sender == Sender.AGENT,
+                    entry.inlineImages);
+        }
         final int contentLength = document.getLength() - before;
         entry.renderedStart = start;
         entry.stream = entry.image == null ? stream : null;
@@ -2684,6 +2718,12 @@ final class AcpChatWindow implements AcpChatController.View {
         entry.renderedFooterLength = footerLen;
         entry.renderedLength = contentLength + footerLen;
         document.setParagraphAttributes(document.getLength(), 0, new SimpleAttributeSet(), true);
+    }
+
+    private static boolean suppressAttachmentCaption(final TranscriptEntry entry) {
+        return entry.attachment
+                && (entry.image != null || entry.loadingImage)
+                && AcpToolImageLabel.isToolImageLabel(entry.content.toString());
     }
 
     private int insertEntryTimestamp(final StyledDocument document, final TranscriptEntry entry, final int offset)
@@ -2760,6 +2800,9 @@ final class AcpChatWindow implements AcpChatController.View {
             final int length,
             final int contentLength)
             throws javax.swing.text.BadLocationException {
+        if (length <= 0 && contentLength <= 0) {
+            return;
+        }
         if (entry.sender == Sender.USER) {
             final SimpleAttributeSet userMiddle = new SimpleAttributeSet();
             userMiddle.addAttribute(AcpTranscriptEditorKit.USER_BACKGROUND, AcpChatTheme.surface());
@@ -2993,11 +3036,27 @@ final class AcpChatWindow implements AcpChatController.View {
             }
 
             @Override
+            public void mousePressed(final MouseEvent event) {
+                maybeShowImageContextMenu(event);
+            }
+
+            @Override
+            public void mouseReleased(final MouseEvent event) {
+                maybeShowImageContextMenu(event);
+            }
+
+            @Override
             public void mouseMoved(final MouseEvent event) {
-                transcript.setCursor(Cursor.getPredefinedCursor(
-                        disclosureAt(transcript.viewToModel2D(event.getPoint())) == null
-                                ? Cursor.TEXT_CURSOR
-                                : Cursor.HAND_CURSOR));
+                final java.awt.Point point = event.getPoint();
+                final int cursorType;
+                if (disclosureAt(transcript.viewToModel2D(point)) != null) {
+                    cursorType = Cursor.HAND_CURSOR;
+                } else if (imageAtPoint(point) != null) {
+                    cursorType = Cursor.DEFAULT_CURSOR;
+                } else {
+                    cursorType = Cursor.TEXT_CURSOR;
+                }
+                transcript.setCursor(Cursor.getPredefinedCursor(cursorType));
             }
         };
         transcript.addMouseListener(mouse);
@@ -3011,6 +3070,146 @@ final class AcpChatWindow implements AcpChatController.View {
                 toggleDisclosure(transcript.getCaretPosition());
             }
         });
+    }
+
+    private void maybeShowImageContextMenu(final MouseEvent event) {
+        if (!event.isPopupTrigger()) return;
+        final ImageSource source = imageAtPoint(event.getPoint());
+        if (source == null) return;
+        event.consume();
+        final AcpThemeControls.ThemedPopupMenu menu = buildImageContextMenu(source);
+        AcpThemeControls.showPopupAt(transcript, menu, event.getX(), event.getY());
+    }
+
+    AcpThemeControls.ThemedPopupMenu buildImageContextMenu(final ImageSource source) {
+        Objects.requireNonNull(source, "source");
+        final AcpThemeControls.ThemedPopupMenu menu = new AcpThemeControls.ThemedPopupMenu();
+        menu.setName("turboism-acp.image-context-menu");
+        final var copyItem = menu.addChoice(localization.text("image.menu.copy"), false, null, () -> copyImage(source));
+        copyItem.setName("turboism-acp.image-menu-copy");
+        final var saveItem =
+                menu.addChoice(localization.text("image.menu.save-as"), false, null, () -> saveImageAs(source));
+        saveItem.setName("turboism-acp.image-menu-save-as");
+        menu.finish();
+        return menu;
+    }
+
+    ImageSource imageAtPoint(final java.awt.Point point) {
+        if (point == null) return null;
+        final int length = transcript.getDocument().getLength();
+        if (length <= 0) return null;
+        final int offset = transcript.viewToModel2D(point);
+        final int[] candidates = offset > 0 ? new int[] {offset, offset - 1} : new int[] {offset};
+        for (int candidate : candidates) {
+            if (candidate < 0 || candidate >= length) continue;
+            final ImageSource source = imageAtOffset(candidate);
+            if (source == null) continue;
+            if (isPointInsideIcon(candidate, source.icon(), point)) {
+                return source;
+            }
+        }
+        return null;
+    }
+
+    ImageSource imageAtOffset(final int offset) {
+        if (offset < 0 || offset >= transcript.getDocument().getLength()) return null;
+        final var attributes =
+                transcript.getStyledDocument().getCharacterElement(offset).getAttributes();
+        if (attributes.getAttribute(IMAGE_SOURCE) instanceof ImageSource source) {
+            return source;
+        }
+        final javax.swing.Icon icon = StyleConstants.getIcon(attributes);
+        if (icon instanceof javax.swing.ImageIcon imageIcon) {
+            return new ImageSource(findInlineAttachment(imageIcon), imageIcon);
+        }
+        return null;
+    }
+
+    private AcpAttachment findInlineAttachment(final javax.swing.ImageIcon icon) {
+        for (TranscriptEntry entry : transcriptEntries) {
+            for (var entryImage : entry.inlineImages.entrySet()) {
+                if (entryImage.getValue() == icon) {
+                    return entry.inlineAttachments.get(entryImage.getKey());
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean isPointInsideIcon(final int offset, final javax.swing.Icon icon, final java.awt.Point point) {
+        if (icon == null) return false;
+        try {
+            final java.awt.geom.Rectangle2D rect = transcript.modelToView2D(offset);
+            if (rect == null) return false;
+            final double left = rect.getX();
+            final double top = rect.getY();
+            final double right = left + icon.getIconWidth();
+            final double bottom = top + icon.getIconHeight();
+            return point.x >= left && point.x <= right && point.y >= top && point.y <= bottom;
+        } catch (javax.swing.text.BadLocationException failure) {
+            return false;
+        }
+    }
+
+    private void copyImage(final ImageSource source) {
+        new javax.swing.SwingWorker<java.awt.image.BufferedImage, Void>() {
+            @Override
+            protected java.awt.image.BufferedImage doInBackground() throws Exception {
+                return AcpTranscriptImages.toBufferedImage(source.attachment(), source.icon());
+            }
+
+            @Override
+            protected void done() {
+                if (!acceptingEvents.get()) return;
+                try {
+                    AcpTranscriptImages.copyToSystemClipboard(get());
+                } catch (Exception failure) {
+                    final Throwable cause = failure.getCause() == null ? failure : failure.getCause();
+                    final String message = localization.format("image.copy-failed", AcpClient.failureDetails(cause));
+                    agentStatus.setText(message);
+                    agentStatus.setToolTipText(message);
+                }
+            }
+        }.execute();
+    }
+
+    private void saveImageAs(final ImageSource source) {
+        final javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
+        final String suggested = AcpTranscriptImages.suggestedFileName(source.attachment());
+        final String defaultExtension = AcpTranscriptImages.extensionForMime(
+                source.attachment() == null ? null : source.attachment().mimeType());
+        chooser.setSelectedFile(new java.io.File(suggested));
+        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                localization.format("image.filter-description", "*." + defaultExtension),
+                defaultExtension,
+                "png",
+                "jpg",
+                "jpeg",
+                "gif",
+                "bmp"));
+        if (chooser.showSaveDialog(agentFrame) != javax.swing.JFileChooser.APPROVE_OPTION) return;
+        final java.nio.file.Path target =
+                AcpTranscriptImages.ensureExtension(chooser.getSelectedFile().toPath(), defaultExtension);
+        new javax.swing.SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                AcpTranscriptImages.saveToFile(source.attachment(), source.icon(), target);
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                if (!acceptingEvents.get()) return;
+                try {
+                    get();
+                } catch (Exception failure) {
+                    final Throwable cause = failure.getCause() == null ? failure : failure.getCause();
+                    final String message = localization.format("image.save-failed", AcpClient.failureDetails(cause));
+                    agentStatus.setText(message);
+                    agentStatus.setToolTipText(message);
+                }
+            }
+        }.execute();
     }
 
     private TranscriptEntry disclosureAt(final int offset) {
@@ -3083,6 +3282,7 @@ final class AcpChatWindow implements AcpChatController.View {
                 Map.entry("CheckBoxUI", "javax.swing.plaf.basic.BasicCheckBoxUI"),
                 Map.entry("ComboBoxUI", "javax.swing.plaf.basic.BasicComboBoxUI"),
                 Map.entry("EditorPaneUI", "javax.swing.plaf.basic.BasicEditorPaneUI"),
+                Map.entry("FileChooserUI", "javax.swing.plaf.basic.BasicFileChooserUI"),
                 Map.entry("LabelUI", "javax.swing.plaf.basic.BasicLabelUI"),
                 Map.entry("ListUI", "javax.swing.plaf.basic.BasicListUI"),
                 Map.entry("MenuUI", "javax.swing.plaf.basic.BasicMenuUI"),
@@ -3090,6 +3290,7 @@ final class AcpChatWindow implements AcpChatController.View {
                 Map.entry("OptionPaneUI", "javax.swing.plaf.basic.BasicOptionPaneUI"),
                 Map.entry("PanelUI", "javax.swing.plaf.basic.BasicPanelUI"),
                 Map.entry("PasswordFieldUI", "javax.swing.plaf.basic.BasicPasswordFieldUI"),
+                Map.entry("PopupMenuUI", "javax.swing.plaf.basic.BasicPopupMenuUI"),
                 Map.entry("RootPaneUI", "javax.swing.plaf.basic.BasicRootPaneUI"),
                 Map.entry("ScrollPaneUI", "javax.swing.plaf.basic.BasicScrollPaneUI"),
                 Map.entry("SeparatorUI", "javax.swing.plaf.basic.BasicSeparatorUI"),
@@ -3101,9 +3302,17 @@ final class AcpChatWindow implements AcpChatController.View {
                 Map.entry("ToolTipUI", "javax.swing.plaf.basic.BasicToolTipUI"),
                 Map.entry("ViewportUI", "javax.swing.plaf.basic.BasicViewportUI"));
         // MultiUIDefaults.putIfAbsent bypasses the active LookAndFeel table and overwrites global UIs.
+        // Resolving each UI class now caches the Class<?> via the LookAndFeel/context loader so
+        // plugin Swing subclasses never load LookAndFeel UI classes through an isolated plugin loader.
+        final javax.swing.LookAndFeel laf = UIManager.getLookAndFeel();
+        final ClassLoader lafLoader = laf != null ? laf.getClass().getClassLoader() : null;
+        final ClassLoader uiLoader = defaults.get("ClassLoader") instanceof ClassLoader loader ? loader : lafLoader;
         fallbacks.forEach((key, value) -> {
             if (defaults.get(key) == null) {
                 defaults.put(key, value);
+            }
+            if (defaults.getUIClass(key, uiLoader) == null && uiLoader != null) {
+                defaults.getUIClass(key, null);
             }
         });
     }
@@ -3239,6 +3448,10 @@ final class AcpChatWindow implements AcpChatController.View {
         }
     }
 
+    record ImageSource(AcpAttachment attachment, javax.swing.ImageIcon icon) {}
+
+    private record LoadedInlineImage(AcpAttachment attachment, javax.swing.ImageIcon preview) {}
+
     private static final class TranscriptEntry {
         private final Sender sender;
         private final String id;
@@ -3250,9 +3463,12 @@ final class AcpChatWindow implements AcpChatController.View {
         private boolean expanded;
         private boolean detailExpanded;
         private boolean attachment;
+        private boolean loadingImage;
+        private AcpAttachment attachmentData;
         private String timestampText;
         private javax.swing.ImageIcon image;
         private final Map<String, javax.swing.ImageIcon> inlineImages = new LinkedHashMap<>();
+        private final Map<String, AcpAttachment> inlineAttachments = new LinkedHashMap<>();
         private final java.util.Set<String> requestedImages = new java.util.HashSet<>();
         private int renderedStart = -1;
         private int renderedLength;
