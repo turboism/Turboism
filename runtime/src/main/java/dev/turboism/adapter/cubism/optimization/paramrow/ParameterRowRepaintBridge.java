@@ -5,6 +5,7 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.ref.WeakReference;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -105,16 +106,39 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
     private static final int ROW_BITS_INDEX = 1;
     private static final int CACHED_VALUE_PAIR_SIZE = 2;
 
+    private static final int EDIT_REF_DOC = 0;
+    private static final int EDIT_REF_MODEL = 1;
+    private static final int EDIT_REF_EDIT_MODE = 2;
+    private static final int EDIT_REF_CURRENT_UNDO = 3;
+    private static final int EDIT_REF_UNDO_MGR = 4;
+    private static final int EDIT_REF_TOP_UNDO = 5;
+    private static final int EDIT_REF_LINKED_UNDO_MGR = 6;
+    private static final int EDIT_REF_LINKED_TOP_UNDO = 7;
+    private static final int EDIT_REF_SIZE = 8;
+
+    private static final int EDIT_LONG_MODIFIED_MS = 0;
+    private static final int EDIT_LONG_ALL_OBJECTS_COUNT = 1;
+    private static final int EDIT_LONG_UNDO_POS = 2;
+    private static final int EDIT_LONG_UNDO_SIZE = 3;
+    private static final int EDIT_LONG_LINKED_POS = 4;
+    private static final int EDIT_LONG_LINKED_SIZE = 5;
+    private static final int EDIT_LONG_EDITING = 6;
+    private static final int EDIT_LONG_SIZE = 7;
+
     private static final String STAT_INVOCATIONS = "invocations";
     private static final String STAT_BASELINE_PASSES = "baselinePasses";
     private static final String STAT_INCREMENTAL_PASSES = "incrementalPasses";
+    private static final String STAT_KEYFORM_HASHED_PASSES = "keyformHashedPasses";
+    private static final String STAT_KEYFORM_ELIDED_PASSES = "keyformElidedPasses";
     private static final String STAT_ELIDED_ROWS = "elidedRows";
     private static final String STAT_REPAINTED_ROWS = "repaintedRows";
     private static final String STAT_RESIZED_DOUBLES = "resizedDoubles";
     private static final String STAT_INVALIDATIONS = "invalidations";
     private static final String STAT_FAILURES = "failures";
+    private static final String EXTENDS_ERROR_INFIX = " does not extend ";
 
     private static final String GENERATED_PACKAGE = "dev/turboism/generated/accessor/";
+    private static final String EDIT_STATE_READER_INTERNAL = GENERATED_PACKAGE + "EditStateReader";
     private static final String KEYFORM_HASHER_INTERNAL = GENERATED_PACKAGE + "ParamKeyformHasher";
     private static final String ROW_CLASSIFIER_INTERNAL = GENERATED_PACKAGE + "ParamRowClassifier";
     private static final String ROW_SYNC_1_INTERNAL = GENERATED_PACKAGE + "ParamRowSyncer1";
@@ -202,6 +226,13 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
     private static final String HELPER_MIX_SINGLE_WIDGET_METHOD = "mixSingleWidget";
     private static final String HELPER_MIX_SINGLE_WIDGET_DESC =
             "(JL" + ParameterRowRepaintTarget.WIDGET_OWNER + ";)J";
+    private static final String HELPER_READ_UNDO_STATE_METHOD = "readUndoState";
+    private static final String HELPER_READ_UNDO_STATE_DESC =
+            "(L" + ParameterRowRepaintTarget.UNDO_MANAGER_OWNER + ";"
+                    + OBJECT_ARRAY_INTERNAL
+                    + "I"
+                    + LONG_ARRAY_INTERNAL
+                    + "II)Z";
 
     private static final String INIT_METHOD = "<init>";
     private static final String VOID_DESC = "()V";
@@ -221,6 +252,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
     private final MethodHandle selectedRowsHandle;
     private final MethodHandle showKeyformsHandle;
 
+    private final BiPredicate<Object, Object> editStateReader;
     private final BiConsumer<Object, Object> keyformHasher;
     private final ToIntFunction<Object> rowClassifier;
     private final BiPredicate<Object, Object> rowSyncer1;
@@ -241,6 +273,8 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
     private final long[] hashScratch = new long[HASH_SCRATCH_SIZE];
     private final Object[] visualPacket = new Object[VISUAL_PACKET_SIZE];
     private final Object[] syncContext = new Object[SYNC_CTX_SIZE];
+    private final Object[] editStateRefs = new Object[EDIT_REF_SIZE];
+    private final long[] editStateLongs = new long[EDIT_LONG_SIZE];
 
     private final AtomicBoolean active = new AtomicBoolean();
     private final Object lock = new Object();
@@ -255,6 +289,8 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
     private long invocations;
     private long baselinePasses;
     private long incrementalPasses;
+    private long keyformHashedPasses;
+    private long keyformElidedPasses;
     private long elidedRows;
     private long repaintedRows;
     private long resizedDoubles;
@@ -280,10 +316,96 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         int rootChildrenCount;
         int flatRowsCount;
         long passId = INITIAL_PASS_ID;
+        boolean keyformHashesValid;
+        WeakReference<Object> editModeRef;
+        long lastModifiedTimeMs;
+        long allObjectsCount;
+        WeakReference<Object> undoManagerRef;
+        long undoPos;
+        long undoSize;
+        boolean hasTopUndo;
+        WeakReference<Object> topUndoRef;
+        boolean hasLinkedUndo;
+        WeakReference<Object> linkedUndoManagerRef;
+        long linkedUndoPos;
+        long linkedUndoSize;
+        boolean hasLinkedTopUndo;
+        WeakReference<Object> linkedTopUndoRef;
 
         ControllerSnapshot(final Object doc, final Object model) {
             this.docRef = new WeakReference<>(doc);
             this.modelRef = new WeakReference<>(model);
+        }
+
+        boolean matchesEditState(final Object[] refs, final long[] longs) {
+            if (!keyformHashesValid) {
+                return false;
+            }
+            if (!sameRef(editModeRef, true, refs[EDIT_REF_EDIT_MODE])
+                    || !sameRef(undoManagerRef, true, refs[EDIT_REF_UNDO_MGR])
+                    || !sameRef(topUndoRef, hasTopUndo, refs[EDIT_REF_TOP_UNDO])
+                    || !sameRef(linkedUndoManagerRef, hasLinkedUndo, refs[EDIT_REF_LINKED_UNDO_MGR])
+                    || !sameRef(linkedTopUndoRef, hasLinkedTopUndo, refs[EDIT_REF_LINKED_TOP_UNDO])) {
+                return false;
+            }
+            return lastModifiedTimeMs == longs[EDIT_LONG_MODIFIED_MS]
+                    && allObjectsCount == longs[EDIT_LONG_ALL_OBJECTS_COUNT]
+                    && undoPos == longs[EDIT_LONG_UNDO_POS]
+                    && undoSize == longs[EDIT_LONG_UNDO_SIZE]
+                    && linkedUndoPos == longs[EDIT_LONG_LINKED_POS]
+                    && linkedUndoSize == longs[EDIT_LONG_LINKED_SIZE];
+        }
+
+        void recordEditState(final Object[] refs, final long[] longs) {
+            lastModifiedTimeMs = longs[EDIT_LONG_MODIFIED_MS];
+            allObjectsCount = longs[EDIT_LONG_ALL_OBJECTS_COUNT];
+            undoPos = longs[EDIT_LONG_UNDO_POS];
+            undoSize = longs[EDIT_LONG_UNDO_SIZE];
+            linkedUndoPos = longs[EDIT_LONG_LINKED_POS];
+            linkedUndoSize = longs[EDIT_LONG_LINKED_SIZE];
+            editModeRef = updateRef(editModeRef, refs[EDIT_REF_EDIT_MODE]);
+            undoManagerRef = updateRef(undoManagerRef, refs[EDIT_REF_UNDO_MGR]);
+            final Object topUndo = refs[EDIT_REF_TOP_UNDO];
+            hasTopUndo = topUndo != null;
+            topUndoRef = updateRef(topUndoRef, topUndo);
+            final Object linkedMgr = refs[EDIT_REF_LINKED_UNDO_MGR];
+            hasLinkedUndo = linkedMgr != null;
+            linkedUndoManagerRef = updateRef(linkedUndoManagerRef, linkedMgr);
+            final Object linkedTop = refs[EDIT_REF_LINKED_TOP_UNDO];
+            hasLinkedTopUndo = linkedTop != null;
+            linkedTopUndoRef = updateRef(linkedTopUndoRef, linkedTop);
+            keyformHashesValid = true;
+        }
+
+        void clearEditState() {
+            keyformHashesValid = false;
+            editModeRef = null;
+            undoManagerRef = null;
+            hasTopUndo = false;
+            topUndoRef = null;
+            hasLinkedUndo = false;
+            linkedUndoManagerRef = null;
+            hasLinkedTopUndo = false;
+            linkedTopUndoRef = null;
+        }
+
+        private static boolean sameRef(
+                final WeakReference<Object> cached, final boolean hadValue, final Object live) {
+            if (!hadValue) {
+                return live == null;
+            }
+            return cached != null && live != null && cached.refersTo(live);
+        }
+
+        private static WeakReference<Object> updateRef(
+                final WeakReference<Object> existing, final Object target) {
+            if (target == null) {
+                return null;
+            }
+            if (existing != null && existing.refersTo(target)) {
+                return existing;
+            }
+            return new WeakReference<>(target);
         }
     }
 
@@ -366,6 +488,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
                 HostHandles.load(loader, ParameterRowRepaintTarget.CONTROLLABLE_INTERFACE)
                         .isInterface();
         final Map<String, byte[]> generated = new HashMap<>();
+        generated.put(binaryName(EDIT_STATE_READER_INTERNAL), buildEditStateReaderClass(loader));
         generated.put(
                 binaryName(KEYFORM_HASHER_INTERNAL),
                 buildKeyformHasherClass(loader, controllableIsInterface));
@@ -383,6 +506,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         generated.put(binaryName(ROW_LAYOUT_CHILDREN_INTERNAL), buildRowLayoutChildrenReaderClass(loader));
 
         final AccessorLoader accessorLoader = new AccessorLoader(loader, generated);
+        editStateReader = (BiPredicate<Object, Object>) instantiate(accessorLoader, EDIT_STATE_READER_INTERNAL);
         keyformHasher = (BiConsumer<Object, Object>) instantiate(accessorLoader, KEYFORM_HASHER_INTERNAL);
         rowClassifier = (ToIntFunction<Object>) instantiate(accessorLoader, ROW_CLASSIFIER_INTERNAL);
         rowSyncer1 = (BiPredicate<Object, Object>) instantiate(accessorLoader, ROW_SYNC_1_INTERNAL);
@@ -453,6 +577,8 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
                     STAT_INVOCATIONS, invocations,
                     STAT_BASELINE_PASSES, baselinePasses,
                     STAT_INCREMENTAL_PASSES, incrementalPasses,
+                    STAT_KEYFORM_HASHED_PASSES, keyformHashedPasses,
+                    STAT_KEYFORM_ELIDED_PASSES, keyformElidedPasses,
                     STAT_ELIDED_ROWS, elidedRows,
                     STAT_REPAINTED_ROWS, repaintedRows,
                     STAT_RESIZED_DOUBLES, resizedDoubles,
@@ -537,10 +663,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         }
         snapshot.showKeyforms = showKeyforms;
 
-        for (final long[] bucket : snapshot.keyformHashes.values()) {
-            bucket[0] = 0L;
-        }
-        keyformHasher.accept(model, snapshot.keyformHashes);
+        refreshKeyformHashesIfNeeded(snapshot, doc, model, baseline);
 
         final PassContext context = new PassContext(
                 model,
@@ -560,6 +683,41 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         }
         syncRemainingFlatRows(flatRows, paramSet, snapshot, passId);
         return true;
+    }
+
+    private void refreshKeyformHashesIfNeeded(
+            final ControllerSnapshot snapshot, final Object doc, final Object model, final boolean baseline) {
+        editStateRefs[EDIT_REF_DOC] = doc;
+        editStateRefs[EDIT_REF_MODEL] = model;
+        final boolean hasEditState;
+        try {
+            hasEditState = editStateReader.test(editStateRefs, editStateLongs);
+        } finally {
+            editStateRefs[EDIT_REF_DOC] = null;
+            editStateRefs[EDIT_REF_MODEL] = null;
+        }
+        final boolean editIdle = hasEditState
+                && editStateLongs[EDIT_LONG_EDITING] == 0L
+                && editStateRefs[EDIT_REF_CURRENT_UNDO] == null;
+        final boolean skipKeyformHash = !baseline
+                && editIdle
+                && snapshot.matchesEditState(editStateRefs, editStateLongs);
+        if (skipKeyformHash) {
+            keyformElidedPasses++;
+            Arrays.fill(editStateRefs, null);
+            return;
+        }
+        for (final long[] bucket : snapshot.keyformHashes.values()) {
+            bucket[0] = 0L;
+        }
+        keyformHasher.accept(model, snapshot.keyformHashes);
+        if (editIdle) {
+            snapshot.recordEditState(editStateRefs, editStateLongs);
+        } else {
+            snapshot.clearEditState();
+        }
+        keyformHashedPasses++;
+        Arrays.fill(editStateRefs, null);
     }
 
     private Object consumeHighlightGuid(final Object controller) throws Throwable {
@@ -909,10 +1067,25 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
                 HostHandles.load(loader, ParameterRowRepaintTarget.MORPH_TARGET_SET_OWNER);
         final Class<?> morphTargetType =
                 HostHandles.load(loader, ParameterRowRepaintTarget.MORPH_TARGET_OWNER);
+        final Class<?> modelingDocType =
+                HostHandles.load(loader, ParameterRowRepaintTarget.MODELING_DOCUMENT_OWNER);
+        final Class<?> editModeBaseType =
+                HostHandles.load(loader, ParameterRowRepaintTarget.EDIT_MODE_BASE_OWNER);
+        final Class<?> editModeType =
+                HostHandles.load(loader, ParameterRowRepaintTarget.EDIT_MODE_OWNER);
+        final Class<?> undoManagerType =
+                HostHandles.load(loader, ParameterRowRepaintTarget.UNDO_MANAGER_OWNER);
+        HostHandles.load(loader, ParameterRowRepaintTarget.GROUP_UNDO_OWNER);
+        if (!editModeType.isAssignableFrom(editModeBaseType)) {
+            throw new ReflectiveOperationException(
+                    editModeBaseType.getName() + EXTENDS_ERROR_INFIX + editModeType.getName());
+        }
 
         final MethodType objToObj = MethodType.methodType(Object.class, Object.class);
         final MethodType objToList = MethodType.methodType(List.class, Object.class);
         final MethodType objToBool = MethodType.methodType(boolean.class, Object.class);
+        final MethodType objToInt = MethodType.methodType(int.class, Object.class);
+        final MethodType objToLong = MethodType.methodType(long.class, Object.class);
         final MethodType objToFloat = MethodType.methodType(float.class, Object.class);
         final MethodType objFloatToVoid = MethodType.methodType(void.class, Object.class, float.class);
         final MethodType objToVoid = MethodType.methodType(void.class, Object.class);
@@ -1044,11 +1217,6 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
                 ParameterRowRepaintTarget.IS_VISIBLE_METHOD,
                 ParameterRowRepaintTarget.BOOLEAN_GETTER_DESCRIPTOR,
                 objToBool);
-        HostHandles.virtual(
-                widgetType,
-                ParameterRowRepaintTarget.GET_BACKGROUND_COLOR_METHOD,
-                ParameterRowRepaintTarget.COLOR_GETTER_DESCRIPTOR,
-                objToObj);
         HostHandles.virtual(
                 widgetType,
                 ParameterRowRepaintTarget.GET_JCOMPONENT_METHOD,
@@ -1204,6 +1372,360 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
                 ParameterRowRepaintTarget.GET_KEY_VALUE_METHOD,
                 ParameterRowRepaintTarget.BOXED_FLOAT_GETTER_DESCRIPTOR,
                 objToObj);
+        HostHandles.virtual(
+                modelingDocType,
+                ParameterRowRepaintTarget.GET_CURRENT_EDIT_MODE_METHOD,
+                ParameterRowRepaintTarget.MODELING_EDIT_MODE_GETTER_DESCRIPTOR,
+                objToObj);
+        HostHandles.virtual(
+                editModeType,
+                ParameterRowRepaintTarget.IS_EDITING_METHOD,
+                ParameterRowRepaintTarget.BOOLEAN_GETTER_DESCRIPTOR,
+                objToBool);
+        HostHandles.virtual(
+                editModeType,
+                ParameterRowRepaintTarget.GET_CURRENT_UNDO_METHOD,
+                ParameterRowRepaintTarget.GROUP_UNDO_GETTER_DESCRIPTOR,
+                objToObj);
+        HostHandles.virtual(
+                editModeType,
+                ParameterRowRepaintTarget.GET_LAST_MODIFIED_TIME_MS_METHOD,
+                ParameterRowRepaintTarget.LONG_GETTER_DESCRIPTOR,
+                objToLong);
+        HostHandles.virtual(
+                editModeType,
+                ParameterRowRepaintTarget.GET_UNDO_MANAGER_METHOD,
+                ParameterRowRepaintTarget.UNDO_MANAGER_GETTER_DESCRIPTOR,
+                objToObj);
+        HostHandles.virtual(
+                editModeType,
+                ParameterRowRepaintTarget.GET_LINKED_UNDO_MANAGER_METHOD,
+                ParameterRowRepaintTarget.UNDO_MANAGER_GETTER_DESCRIPTOR,
+                objToObj);
+        HostHandles.virtual(
+                undoManagerType,
+                ParameterRowRepaintTarget.GET_CURRENT_POS_METHOD,
+                ParameterRowRepaintTarget.INT_GETTER_DESCRIPTOR,
+                objToInt);
+        HostHandles.virtual(
+                undoManagerType,
+                ParameterRowRepaintTarget.GET_UNDO_LIST_METHOD,
+                ParameterRowRepaintTarget.LIST_GETTER_DESCRIPTOR,
+                objToList);
+    }
+
+    private static byte[] buildEditStateReaderClass(final ClassLoader hostLoader) {
+        final ClassWriter cw = frameWriter(hostLoader);
+        cw.visit(
+                Opcodes.V17,
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_SUPER,
+                EDIT_STATE_READER_INTERNAL,
+                null,
+                OBJECT_INTERNAL,
+                new String[] {BIPREDICATE_INTERNAL});
+        emitDefaultConstructor(cw);
+
+        final int refsLocal = 1;
+        final int longsLocal = 2;
+        final int docLocal = 3;
+        final int modelLocal = 4;
+        final int listLocal = 5;
+        final int editModeLocal = 6;
+        final int undoMgrLocal = 7;
+        final int linkedMgrLocal = 8;
+
+        final MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, ACCEPT_TEST_METHOD, TEST_TWO_DESC, null, null);
+        mv.visitCode();
+        mv.visitVarInsn(Opcodes.ALOAD, LOCAL_ARG_1);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, OBJECT_ARRAY_INTERNAL);
+        mv.visitVarInsn(Opcodes.ASTORE, refsLocal);
+        mv.visitVarInsn(Opcodes.ALOAD, LOCAL_ARG_2);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, LONG_ARRAY_INTERNAL);
+        mv.visitVarInsn(Opcodes.ASTORE, longsLocal);
+
+        final Label fail = new Label();
+        mv.visitVarInsn(Opcodes.ALOAD, refsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_REF_DOC);
+        mv.visitInsn(Opcodes.AALOAD);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitTypeInsn(Opcodes.INSTANCEOF, ParameterRowRepaintTarget.MODELING_DOCUMENT_OWNER);
+        final Label docOk = new Label();
+        mv.visitJumpInsn(Opcodes.IFNE, docOk);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitJumpInsn(Opcodes.GOTO, fail);
+        mv.visitLabel(docOk);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, ParameterRowRepaintTarget.MODELING_DOCUMENT_OWNER);
+        mv.visitVarInsn(Opcodes.ASTORE, docLocal);
+
+        mv.visitVarInsn(Opcodes.ALOAD, refsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_REF_MODEL);
+        mv.visitInsn(Opcodes.AALOAD);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitTypeInsn(Opcodes.INSTANCEOF, ParameterRowRepaintTarget.MODEL_OWNER);
+        final Label modelOk = new Label();
+        mv.visitJumpInsn(Opcodes.IFNE, modelOk);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitJumpInsn(Opcodes.GOTO, fail);
+        mv.visitLabel(modelOk);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, ParameterRowRepaintTarget.MODEL_OWNER);
+        mv.visitVarInsn(Opcodes.ASTORE, modelLocal);
+
+        mv.visitVarInsn(Opcodes.ALOAD, modelLocal);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                ParameterRowRepaintTarget.MODEL_OWNER,
+                ParameterRowRepaintTarget.GET_ALL_OBJECTS_METHOD,
+                ParameterRowRepaintTarget.LIST_GETTER_DESCRIPTOR,
+                false);
+        mv.visitVarInsn(Opcodes.ASTORE, listLocal);
+        mv.visitVarInsn(Opcodes.ALOAD, listLocal);
+        mv.visitJumpInsn(Opcodes.IFNULL, fail);
+        mv.visitVarInsn(Opcodes.ALOAD, longsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_LONG_ALL_OBJECTS_COUNT);
+        mv.visitVarInsn(Opcodes.ALOAD, listLocal);
+        mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_INTERNAL, LIST_SIZE_METHOD, LIST_SIZE_DESC, true);
+        mv.visitInsn(Opcodes.I2L);
+        mv.visitInsn(Opcodes.LASTORE);
+
+        mv.visitVarInsn(Opcodes.ALOAD, docLocal);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                ParameterRowRepaintTarget.MODELING_DOCUMENT_OWNER,
+                ParameterRowRepaintTarget.GET_CURRENT_EDIT_MODE_METHOD,
+                ParameterRowRepaintTarget.MODELING_EDIT_MODE_GETTER_DESCRIPTOR,
+                false);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitTypeInsn(Opcodes.INSTANCEOF, ParameterRowRepaintTarget.EDIT_MODE_OWNER);
+        final Label editModeOk = new Label();
+        mv.visitJumpInsn(Opcodes.IFNE, editModeOk);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitJumpInsn(Opcodes.GOTO, fail);
+        mv.visitLabel(editModeOk);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, ParameterRowRepaintTarget.EDIT_MODE_OWNER);
+        mv.visitVarInsn(Opcodes.ASTORE, editModeLocal);
+
+        mv.visitVarInsn(Opcodes.ALOAD, refsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_REF_EDIT_MODE);
+        mv.visitVarInsn(Opcodes.ALOAD, editModeLocal);
+        mv.visitInsn(Opcodes.AASTORE);
+
+        mv.visitVarInsn(Opcodes.ALOAD, longsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_LONG_EDITING);
+        mv.visitVarInsn(Opcodes.ALOAD, editModeLocal);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                ParameterRowRepaintTarget.EDIT_MODE_OWNER,
+                ParameterRowRepaintTarget.IS_EDITING_METHOD,
+                ParameterRowRepaintTarget.BOOLEAN_GETTER_DESCRIPTOR,
+                false);
+        mv.visitInsn(Opcodes.I2L);
+        mv.visitInsn(Opcodes.LASTORE);
+
+        mv.visitVarInsn(Opcodes.ALOAD, refsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_REF_CURRENT_UNDO);
+        mv.visitVarInsn(Opcodes.ALOAD, editModeLocal);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                ParameterRowRepaintTarget.EDIT_MODE_OWNER,
+                ParameterRowRepaintTarget.GET_CURRENT_UNDO_METHOD,
+                ParameterRowRepaintTarget.GROUP_UNDO_GETTER_DESCRIPTOR,
+                false);
+        mv.visitInsn(Opcodes.AASTORE);
+
+        mv.visitVarInsn(Opcodes.ALOAD, longsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_LONG_MODIFIED_MS);
+        mv.visitVarInsn(Opcodes.ALOAD, editModeLocal);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                ParameterRowRepaintTarget.EDIT_MODE_OWNER,
+                ParameterRowRepaintTarget.GET_LAST_MODIFIED_TIME_MS_METHOD,
+                ParameterRowRepaintTarget.LONG_GETTER_DESCRIPTOR,
+                false);
+        mv.visitInsn(Opcodes.LASTORE);
+
+        mv.visitVarInsn(Opcodes.ALOAD, editModeLocal);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                ParameterRowRepaintTarget.EDIT_MODE_OWNER,
+                ParameterRowRepaintTarget.GET_UNDO_MANAGER_METHOD,
+                ParameterRowRepaintTarget.UNDO_MANAGER_GETTER_DESCRIPTOR,
+                false);
+        mv.visitVarInsn(Opcodes.ASTORE, undoMgrLocal);
+        mv.visitVarInsn(Opcodes.ALOAD, undoMgrLocal);
+        mv.visitJumpInsn(Opcodes.IFNULL, fail);
+        mv.visitVarInsn(Opcodes.ALOAD, refsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_REF_UNDO_MGR);
+        mv.visitVarInsn(Opcodes.ALOAD, undoMgrLocal);
+        mv.visitInsn(Opcodes.AASTORE);
+
+        mv.visitVarInsn(Opcodes.ALOAD, undoMgrLocal);
+        mv.visitVarInsn(Opcodes.ALOAD, refsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_REF_TOP_UNDO);
+        mv.visitVarInsn(Opcodes.ALOAD, longsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_LONG_UNDO_POS);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_LONG_UNDO_SIZE);
+        mv.visitMethodInsn(
+                Opcodes.INVOKESTATIC,
+                EDIT_STATE_READER_INTERNAL,
+                HELPER_READ_UNDO_STATE_METHOD,
+                HELPER_READ_UNDO_STATE_DESC,
+                false);
+        mv.visitJumpInsn(Opcodes.IFEQ, fail);
+
+        mv.visitVarInsn(Opcodes.ALOAD, editModeLocal);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                ParameterRowRepaintTarget.EDIT_MODE_OWNER,
+                ParameterRowRepaintTarget.GET_LINKED_UNDO_MANAGER_METHOD,
+                ParameterRowRepaintTarget.UNDO_MANAGER_GETTER_DESCRIPTOR,
+                false);
+        mv.visitVarInsn(Opcodes.ASTORE, linkedMgrLocal);
+
+        final Label noLinked = new Label();
+        mv.visitVarInsn(Opcodes.ALOAD, linkedMgrLocal);
+        mv.visitJumpInsn(Opcodes.IFNULL, noLinked);
+        mv.visitVarInsn(Opcodes.ALOAD, linkedMgrLocal);
+        mv.visitVarInsn(Opcodes.ALOAD, undoMgrLocal);
+        mv.visitJumpInsn(Opcodes.IF_ACMPEQ, noLinked);
+
+        mv.visitVarInsn(Opcodes.ALOAD, refsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_REF_LINKED_UNDO_MGR);
+        mv.visitVarInsn(Opcodes.ALOAD, linkedMgrLocal);
+        mv.visitInsn(Opcodes.AASTORE);
+        mv.visitVarInsn(Opcodes.ALOAD, linkedMgrLocal);
+        mv.visitVarInsn(Opcodes.ALOAD, refsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_REF_LINKED_TOP_UNDO);
+        mv.visitVarInsn(Opcodes.ALOAD, longsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_LONG_LINKED_POS);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_LONG_LINKED_SIZE);
+        mv.visitMethodInsn(
+                Opcodes.INVOKESTATIC,
+                EDIT_STATE_READER_INTERNAL,
+                HELPER_READ_UNDO_STATE_METHOD,
+                HELPER_READ_UNDO_STATE_DESC,
+                false);
+        mv.visitJumpInsn(Opcodes.IFEQ, fail);
+        mv.visitInsn(Opcodes.ICONST_1);
+        mv.visitInsn(Opcodes.IRETURN);
+
+        mv.visitLabel(noLinked);
+        mv.visitVarInsn(Opcodes.ALOAD, refsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_REF_LINKED_UNDO_MGR);
+        mv.visitInsn(Opcodes.ACONST_NULL);
+        mv.visitInsn(Opcodes.AASTORE);
+        mv.visitVarInsn(Opcodes.ALOAD, refsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_REF_LINKED_TOP_UNDO);
+        mv.visitInsn(Opcodes.ACONST_NULL);
+        mv.visitInsn(Opcodes.AASTORE);
+        mv.visitVarInsn(Opcodes.ALOAD, longsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_LONG_LINKED_POS);
+        mv.visitInsn(Opcodes.LCONST_0);
+        mv.visitInsn(Opcodes.LASTORE);
+        mv.visitVarInsn(Opcodes.ALOAD, longsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, EDIT_LONG_LINKED_SIZE);
+        mv.visitInsn(Opcodes.LCONST_0);
+        mv.visitInsn(Opcodes.LASTORE);
+        mv.visitInsn(Opcodes.ICONST_1);
+        mv.visitInsn(Opcodes.IRETURN);
+
+        mv.visitLabel(fail);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.IRETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+
+        emitReadUndoStateHelper(cw);
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
+    private static void emitReadUndoStateHelper(final ClassWriter cw) {
+        final int mgrLocal = 0;
+        final int refsLocal = 1;
+        final int topRefIdxLocal = 2;
+        final int longsLocal = 3;
+        final int posLongIdxLocal = 4;
+        final int sizeLongIdxLocal = 5;
+        final int posLocal = 6;
+        final int listLocal = 7;
+        final int sizeLocal = 8;
+
+        final MethodVisitor mv = cw.visitMethod(
+                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC,
+                HELPER_READ_UNDO_STATE_METHOD,
+                HELPER_READ_UNDO_STATE_DESC,
+                null,
+                null);
+        mv.visitCode();
+        final Label fail = new Label();
+
+        mv.visitVarInsn(Opcodes.ALOAD, mgrLocal);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                ParameterRowRepaintTarget.UNDO_MANAGER_OWNER,
+                ParameterRowRepaintTarget.GET_CURRENT_POS_METHOD,
+                ParameterRowRepaintTarget.INT_GETTER_DESCRIPTOR,
+                false);
+        mv.visitVarInsn(Opcodes.ISTORE, posLocal);
+
+        mv.visitVarInsn(Opcodes.ALOAD, mgrLocal);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                ParameterRowRepaintTarget.UNDO_MANAGER_OWNER,
+                ParameterRowRepaintTarget.GET_UNDO_LIST_METHOD,
+                ParameterRowRepaintTarget.LIST_GETTER_DESCRIPTOR,
+                false);
+        mv.visitVarInsn(Opcodes.ASTORE, listLocal);
+        mv.visitVarInsn(Opcodes.ALOAD, listLocal);
+        mv.visitJumpInsn(Opcodes.IFNULL, fail);
+
+        mv.visitVarInsn(Opcodes.ALOAD, listLocal);
+        mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_INTERNAL, LIST_SIZE_METHOD, LIST_SIZE_DESC, true);
+        mv.visitVarInsn(Opcodes.ISTORE, sizeLocal);
+
+        mv.visitVarInsn(Opcodes.ILOAD, posLocal);
+        mv.visitJumpInsn(Opcodes.IFLT, fail);
+        mv.visitVarInsn(Opcodes.ILOAD, posLocal);
+        mv.visitVarInsn(Opcodes.ILOAD, sizeLocal);
+        mv.visitJumpInsn(Opcodes.IF_ICMPGT, fail);
+
+        mv.visitVarInsn(Opcodes.ALOAD, longsLocal);
+        mv.visitVarInsn(Opcodes.ILOAD, posLongIdxLocal);
+        mv.visitVarInsn(Opcodes.ILOAD, posLocal);
+        mv.visitInsn(Opcodes.I2L);
+        mv.visitInsn(Opcodes.LASTORE);
+
+        mv.visitVarInsn(Opcodes.ALOAD, longsLocal);
+        mv.visitVarInsn(Opcodes.ILOAD, sizeLongIdxLocal);
+        mv.visitVarInsn(Opcodes.ILOAD, sizeLocal);
+        mv.visitInsn(Opcodes.I2L);
+        mv.visitInsn(Opcodes.LASTORE);
+
+        final Label nullTop = new Label();
+        final Label storeTop = new Label();
+        mv.visitVarInsn(Opcodes.ALOAD, refsLocal);
+        mv.visitVarInsn(Opcodes.ILOAD, topRefIdxLocal);
+        mv.visitVarInsn(Opcodes.ILOAD, posLocal);
+        mv.visitJumpInsn(Opcodes.IFLE, nullTop);
+        mv.visitVarInsn(Opcodes.ALOAD, listLocal);
+        mv.visitVarInsn(Opcodes.ILOAD, posLocal);
+        mv.visitInsn(Opcodes.ICONST_1);
+        mv.visitInsn(Opcodes.ISUB);
+        mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_INTERNAL, LIST_GET_METHOD, LIST_GET_DESC, true);
+        mv.visitJumpInsn(Opcodes.GOTO, storeTop);
+        mv.visitLabel(nullTop);
+        mv.visitInsn(Opcodes.ACONST_NULL);
+        mv.visitLabel(storeTop);
+        mv.visitInsn(Opcodes.AASTORE);
+
+        mv.visitInsn(Opcodes.ICONST_1);
+        mv.visitInsn(Opcodes.IRETURN);
+
+        mv.visitLabel(fail);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.IRETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
     }
 
     private static String binaryName(final String internalName) {
@@ -2203,7 +2725,6 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         mv.visitEnd();
 
         emitMixSingleWidgetHelper(cw);
-        emitColorArgbHelper(cw, WIDGET_VISUAL_HASHER_INTERNAL);
         emitMixFlagHelper(cw, WIDGET_VISUAL_HASHER_INTERNAL);
         emitMix64Helper(cw, WIDGET_VISUAL_HASHER_INTERNAL);
         cw.visitEnd();
@@ -2233,22 +2754,6 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
                 false);
         mv.visitMethodInsn(
                 Opcodes.INVOKESTATIC, WIDGET_VISUAL_HASHER_INTERNAL, HELPER_MIX_FLAG_METHOD, HELPER_MIX_FLAG_DESC, false);
-        mv.visitVarInsn(Opcodes.ALOAD, widgetLocal);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                ParameterRowRepaintTarget.WIDGET_OWNER,
-                ParameterRowRepaintTarget.GET_BACKGROUND_COLOR_METHOD,
-                ParameterRowRepaintTarget.COLOR_GETTER_DESCRIPTOR,
-                false);
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC,
-                WIDGET_VISUAL_HASHER_INTERNAL,
-                HELPER_COLOR_ARGB_METHOD,
-                HELPER_COLOR_ARGB_DESC,
-                false);
-        mv.visitInsn(Opcodes.I2L);
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, WIDGET_VISUAL_HASHER_INTERNAL, HELPER_MIX64_METHOD, HELPER_MIX64_DESC, false);
         mv.visitVarInsn(Opcodes.LSTORE, hashLocal);
 
         mv.visitVarInsn(Opcodes.ALOAD, widgetLocal);

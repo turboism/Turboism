@@ -222,9 +222,6 @@ public record ParameterRowRepaintTarget(
     /** Widget visibility getter on {@code CWidget}. */
     public static final String IS_VISIBLE_METHOD = "isVisible";
 
-    /** Widget background color getter on {@code CWidget}. */
-    public static final String GET_BACKGROUND_COLOR_METHOD = "getBackgroundColor";
-
     /** Swing component getter on {@code CWidget}. */
     public static final String GET_JCOMPONENT_METHOD = "getJComponent";
 
@@ -408,6 +405,63 @@ public record ParameterRowRepaintTarget(
     /** Boxed float getter descriptor. */
     public static final String BOXED_FLOAT_GETTER_DESCRIPTOR = "()Ljava/lang/Float;";
 
+    /** Modeling document owner. */
+    public static final String MODELING_DOCUMENT_OWNER =
+            "com/live2d/cubism/doc/modeling/CModelingDocument";
+
+    /** Modeling edit mode base class owner. */
+    public static final String EDIT_MODE_BASE_OWNER =
+            "com/live2d/cubism/doc/modeling/CModelingEditMode_Base";
+
+    /** Abstract edit mode superclass owner. */
+    public static final String EDIT_MODE_OWNER = "com/live2d/cubism/doc/ACEditMode";
+
+    /** Undo manager owner. */
+    public static final String UNDO_MANAGER_OWNER = "com/live2d/undo/CUndoManager";
+
+    /** Group undo owner. */
+    public static final String GROUP_UNDO_OWNER = "com/live2d/undo/GroupUndo";
+
+    /** Current edit mode getter on {@code CModelingDocument}. */
+    public static final String GET_CURRENT_EDIT_MODE_METHOD = "getCurrentEditMode";
+
+    /** Descriptor of {@code CModelingDocument.getCurrentEditMode()}. */
+    public static final String MODELING_EDIT_MODE_GETTER_DESCRIPTOR =
+            "()Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Base;";
+
+    /** Active transaction flag getter on {@code ACEditMode}. */
+    public static final String IS_EDITING_METHOD = "isEditing";
+
+    /** In-flight group undo getter on {@code ACEditMode}. */
+    public static final String GET_CURRENT_UNDO_METHOD = "getCurrentUndo";
+
+    /** Descriptor of {@code ACEditMode.getCurrentUndo()}. */
+    public static final String GROUP_UNDO_GETTER_DESCRIPTOR = "()Lcom/live2d/undo/GroupUndo;";
+
+    /** Last modification timestamp getter on {@code ACEditMode}. */
+    public static final String GET_LAST_MODIFIED_TIME_MS_METHOD = "getLastModifiedTimeMs";
+
+    /** Long no-arg getter descriptor. */
+    public static final String LONG_GETTER_DESCRIPTOR = "()J";
+
+    /** Primary undo manager getter on {@code ACEditMode}. */
+    public static final String GET_UNDO_MANAGER_METHOD = "getUndoManager";
+
+    /** Linked undo manager getter on {@code ACEditMode}. */
+    public static final String GET_LINKED_UNDO_MANAGER_METHOD = "getLinkedUndoManager";
+
+    /** Undo manager getter descriptor. */
+    public static final String UNDO_MANAGER_GETTER_DESCRIPTOR = "()Lcom/live2d/undo/CUndoManager;";
+
+    /** Undo cursor position getter on {@code CUndoManager}. */
+    public static final String GET_CURRENT_POS_METHOD = "getCurrentPos";
+
+    /** Integer no-arg getter descriptor. */
+    public static final String INT_GETTER_DESCRIPTOR = "()I";
+
+    /** Undo stack list getter on {@code CUndoManager}. */
+    public static final String GET_UNDO_LIST_METHOD = "getUndoList";
+
     public ParameterRowRepaintTarget {
         Objects.requireNonNull(digest, "digest");
         Objects.requireNonNull(version, "version");
@@ -508,7 +562,6 @@ public record ParameterRowRepaintTarget(
                 new MethodDep(BLOCKER_OWNER, IS_BLOCK_METHOD, BOOLEAN_GETTER_DESCRIPTOR),
                 new MethodDep(WIDGET_OWNER, REPAINT_METHOD, VOID_METHOD_DESCRIPTOR),
                 new MethodDep(WIDGET_OWNER, IS_VISIBLE_METHOD, BOOLEAN_GETTER_DESCRIPTOR),
-                new MethodDep(WIDGET_OWNER, GET_BACKGROUND_COLOR_METHOD, COLOR_GETTER_DESCRIPTOR),
                 new MethodDep(WIDGET_OWNER, GET_JCOMPONENT_METHOD, JCOMPONENT_GETTER_DESCRIPTOR),
                 new MethodDep(COLOR_OWNER, GET_JCOLOR_METHOD, JCOLOR_GETTER_DESCRIPTOR),
                 new MethodDep(PARAMETER_GROUP_OWNER, GET_NAME_METHOD, STRING_GETTER_DESCRIPTOR),
@@ -546,7 +599,19 @@ public record ParameterRowRepaintTarget(
                 new MethodDep(KEYFORM_BINDING_SOURCE_OWNER, GET_KEYS_METHOD, LIST_GETTER_DESCRIPTOR),
                 new MethodDep(MORPH_TARGET_SET_OWNER, GET_MORPH_TARGETS_METHOD, LIST_GETTER_DESCRIPTOR),
                 new MethodDep(MORPH_TARGET_OWNER, GET_PARAMETER_GUID_METHOD, PARAM_GUID_GETTER_DESCRIPTOR),
-                new MethodDep(MORPH_TARGET_OWNER, GET_KEY_VALUE_METHOD, BOXED_FLOAT_GETTER_DESCRIPTOR));
+                new MethodDep(MORPH_TARGET_OWNER, GET_KEY_VALUE_METHOD, BOXED_FLOAT_GETTER_DESCRIPTOR),
+                new MethodDep(
+                        MODELING_DOCUMENT_OWNER,
+                        GET_CURRENT_EDIT_MODE_METHOD,
+                        MODELING_EDIT_MODE_GETTER_DESCRIPTOR),
+                new MethodDep(EDIT_MODE_OWNER, IS_EDITING_METHOD, BOOLEAN_GETTER_DESCRIPTOR),
+                new MethodDep(EDIT_MODE_OWNER, GET_CURRENT_UNDO_METHOD, GROUP_UNDO_GETTER_DESCRIPTOR),
+                new MethodDep(EDIT_MODE_OWNER, GET_LAST_MODIFIED_TIME_MS_METHOD, LONG_GETTER_DESCRIPTOR),
+                new MethodDep(EDIT_MODE_OWNER, GET_UNDO_MANAGER_METHOD, UNDO_MANAGER_GETTER_DESCRIPTOR),
+                new MethodDep(
+                        EDIT_MODE_OWNER, GET_LINKED_UNDO_MANAGER_METHOD, UNDO_MANAGER_GETTER_DESCRIPTOR),
+                new MethodDep(UNDO_MANAGER_OWNER, GET_CURRENT_POS_METHOD, INT_GETTER_DESCRIPTOR),
+                new MethodDep(UNDO_MANAGER_OWNER, GET_UNDO_LIST_METHOD, LIST_GETTER_DESCRIPTOR));
     }
 
     /** Returns all host fields verified before arming the weave. */

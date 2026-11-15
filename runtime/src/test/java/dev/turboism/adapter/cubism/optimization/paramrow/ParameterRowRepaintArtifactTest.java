@@ -20,8 +20,6 @@ import java.nio.file.Path;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -59,7 +57,12 @@ class ParameterRowRepaintArtifactTest {
     private static final int DEFAULT_WIDTH = 200;
     private static final int DEFAULT_HEIGHT = 22;
     private static final int HOVER_RGB = 0xFF334455;
+    private static final int BG_ONLY_RGB = 0xFF445566;
     private static final int ALT_VIS_RGB = 0x80AABBCC;
+    private static final int PURE_DRAG_PASSES = 4;
+    private static final int UNDO_CAPACITY = 2;
+    private static final float DRAG_DELTA = 1.5f;
+    private static final float KEY_POINT_NEG_ONE = -1.0f;
 
     private static final String TEST_SYNTHETIC_CONTROLLER =
             "com/live2d/cubism/view/palette/parameter/s";
@@ -72,6 +75,8 @@ class ParameterRowRepaintArtifactTest {
     private static final String STAT_ELIDED_ROWS = "elidedRows";
     private static final String STAT_BASELINE_PASSES = "baselinePasses";
     private static final String STAT_INCREMENTAL_PASSES = "incrementalPasses";
+    private static final String STAT_KEYFORM_HASHED_PASSES = "keyformHashedPasses";
+    private static final String STAT_KEYFORM_ELIDED_PASSES = "keyformElidedPasses";
     private static final String STAT_INVALIDATIONS = "invalidations";
     private static final String STAT_FAILURES = "failures";
     private static final String STAT_RESIZED_DOUBLES = "resizedDoubles";
@@ -165,53 +170,123 @@ class ParameterRowRepaintArtifactTest {
             // 1. Cold baseline updates all rows, double-row layout, and group header once.
             assertTrue(selectionUpdate.test(args));
             assertEquals(1L, bridge.snapshot().get(STAT_BASELINE_PASSES));
+            assertEquals(1L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
+            assertEquals(0L, bridge.snapshot().get(STAT_KEYFORM_ELIDED_PASSES));
             assertEquals(0L, bridge.snapshot().get(STAT_FAILURES));
+            assertEquals(0, fixture.backgroundColorCallCount());
+            assertEquals(1, fixture.keyformScanCount());
             assertEquals(1, fixture.doubleResizeCount());
             assertEquals(1, fixture.groupRepaintCount());
             assertAllRowsRepaintedOnce(fixture);
             fixture.clearCounters();
 
-            // 2. Completely unchanged frame elides every row, double resize, and folder repaint.
+            // 2. Completely unchanged frame elides every row, double resize, folder repaint, and keyform scan.
             assertTrue(selectionUpdate.test(args));
             assertEquals(1L, bridge.snapshot().get(STAT_INCREMENTAL_PASSES));
+            assertEquals(1L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
+            assertEquals(1L, bridge.snapshot().get(STAT_KEYFORM_ELIDED_PASSES));
             assertEquals(SIBLING_ROW_COUNT + 2L, bridge.snapshot().get(STAT_ELIDED_ROWS));
+            assertEquals(0, fixture.backgroundColorCallCount());
+            assertEquals(0, fixture.keyformScanCount());
             assertEquals(0, fixture.totalRepaints());
             assertEquals(0, fixture.doubleResizeCount());
             assertEquals(0, fixture.groupRepaintCount());
             assertEquals(0, fixture.selectedObjectsUpdates());
 
-            // 3. Updating 1 parameter syncs and repaints only that single row.
-            fixture.setParamValue(0, UPDATED_PARAM_VALUE);
-            assertTrue(selectionUpdate.test(args));
-            assertEquals(1, fixture.rowRepaints(0));
-            assertEquals(1, fixture.totalRepaints());
-            assertEquals(0, fixture.groupRepaintCount());
-            assertEquals(0, fixture.doubleResizeCount());
-            fixture.clearCounters();
+            // 3. Repeated pure parameter-value drags sync only the dragged row and elide keyform scans.
+            for (int step = 0; step < PURE_DRAG_PASSES; step++) {
+                fixture.setParamValue(0, UPDATED_PARAM_VALUE + step * DRAG_DELTA);
+                assertTrue(selectionUpdate.test(args));
+                assertEquals(1, fixture.rowRepaints(0));
+                assertEquals(1, fixture.totalRepaints());
+                assertEquals(0, fixture.groupRepaintCount());
+                assertEquals(0, fixture.doubleResizeCount());
+                assertEquals(0, fixture.keyformScanCount());
+                assertEquals(0, fixture.backgroundColorCallCount());
+                fixture.clearCounters();
+            }
+            assertEquals(1L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
+            assertEquals(1L + PURE_DRAG_PASSES, bridge.snapshot().get(STAT_KEYFORM_ELIDED_PASSES));
 
-            // 4. Changing parameter min/max metadata repaints only that affected row.
+            // 4. Changing parameter min/max metadata repaints only that affected row without keyform scan.
             fixture.setParamMax(1, UPDATED_MAX_VALUE);
             assertTrue(selectionUpdate.test(args));
             assertEquals(1, fixture.rowRepaints(1));
             assertEquals(1, fixture.totalRepaints());
+            assertEquals(0, fixture.keyformScanCount());
             fixture.clearCounters();
 
-            // 5. Adding a secondary keyform triggers DoubleParameterRowWidget.resize() + repaint only on double row.
-            fixture.addSecondaryKeyform(KEY_POINT_ZERO, KEY_POINT_ONE);
+            // 5. Adding a secondary keyform via edit transaction invalidates keyform cache and resizes double row.
+            fixture.addSecondaryKeyformWithEdit(KEY_POINT_ZERO, KEY_POINT_ONE);
             assertTrue(selectionUpdate.test(args));
+            assertEquals(2L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
+            assertEquals(1, fixture.keyformScanCount());
             assertEquals(1, fixture.doubleResizeCount());
             assertEquals(1, fixture.doubleRowRepaints());
             assertEquals(0, fixture.rowRepaints(0));
             fixture.clearCounters();
 
-            // 6. Morph-target change triggers resize and repaint on affected double row without full palette repaint.
-            fixture.setSecondaryMorphKey(MORPH_KEY_HALF);
+            // 6. Undo & redo keyform edits invalidate keyform cache cleanly even on a(false).
+            fixture.undoKeyformEdit();
             assertTrue(selectionUpdate.test(args));
+            assertEquals(3L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
+            assertEquals(1, fixture.keyformScanCount());
             assertEquals(1, fixture.doubleResizeCount());
             assertEquals(1, fixture.doubleRowRepaints());
             fixture.clearCounters();
 
-            // 7. Highlight clear marks only the targeted parameter row dirty.
+            fixture.redoKeyformEdit();
+            assertTrue(selectionUpdate.test(args));
+            assertEquals(4L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
+            assertEquals(1, fixture.keyformScanCount());
+            assertEquals(1, fixture.doubleResizeCount());
+            assertEquals(1, fixture.doubleRowRepaints());
+            fixture.clearCounters();
+
+            // 7. In-progress edit disables keyform elision on each tick until endEdit settles.
+            fixture.beginInFlightEdit();
+            fixture.setSecondaryMorphKey(MORPH_KEY_HALF);
+            assertTrue(selectionUpdate.test(args));
+            assertEquals(5L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
+            assertEquals(1, fixture.keyformScanCount());
+            assertEquals(1, fixture.doubleResizeCount());
+            assertEquals(1, fixture.doubleRowRepaints());
+            fixture.clearCounters();
+
+            assertTrue(selectionUpdate.test(args));
+            assertEquals(6L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
+            assertEquals(1, fixture.keyformScanCount());
+            fixture.clearCounters();
+
+            fixture.endInFlightEdit();
+            assertTrue(selectionUpdate.test(args));
+            assertEquals(7L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
+            assertEquals(1, fixture.keyformScanCount());
+            fixture.clearCounters();
+
+            // Post-edit drag resumes keyform elision immediately.
+            fixture.setParamValue(0, UPDATED_PARAM_VALUE);
+            assertTrue(selectionUpdate.test(args));
+            assertEquals(7L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
+            assertEquals(0, fixture.keyformScanCount());
+            fixture.clearCounters();
+
+            // 8. Undo-capacity eviction keeps pos/size equal while replacing top GroupUndo and still invalidates.
+            fixture.commitEvictingEdit(KEY_POINT_NEG_ONE);
+            assertTrue(selectionUpdate.test(args));
+            assertEquals(8L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
+            assertEquals(1, fixture.keyformScanCount());
+            assertEquals(1, fixture.doubleResizeCount());
+            fixture.clearCounters();
+
+            // 9. Linked undo manager edit (Form Animation mode) invalidates keyform cache.
+            fixture.commitLinkedEdit(KEY_POINT_ONE);
+            assertTrue(selectionUpdate.test(args));
+            assertEquals(9L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
+            assertEquals(1, fixture.keyformScanCount());
+            fixture.clearCounters();
+
+            // 10. Highlight clear marks only the targeted parameter row dirty.
             fixture.setHighlightToRow(2);
             assertTrue(selectionUpdate.test(args));
             assertNull(fixture.getHighlightField());
@@ -219,28 +294,36 @@ class ParameterRowRepaintArtifactTest {
             assertEquals(1, fixture.totalRepaints());
             fixture.clearCounters();
 
-            // 8. Canvas selection change updates selectedObjects$cubism and repaints parameter rows, not group.
+            // 11. Canvas selection change updates selectedObjects$cubism and repaints parameter rows, not group.
             fixture.toggleSelectedObject();
             assertTrue(selectionUpdate.test(args));
             assertTrue(fixture.selectedObjectsUpdates() >= SIBLING_ROW_COUNT);
             assertEquals(0, fixture.groupRepaintCount());
             fixture.clearCounters();
 
-            // 9. Lock state toggle on one row repaints only that row.
+            // 12. Lock state toggle on one row repaints only that row.
             fixture.toggleLock(3);
             assertTrue(selectionUpdate.test(args));
             assertEquals(1, fixture.rowRepaints(3));
             assertEquals(1, fixture.totalRepaints());
             fixture.clearCounters();
 
-            // 10. Bounds / hover background shift on one row repaints only that row.
+            // 13. Bounds / JComponent background change repaints only that row without calling getBackgroundColor().
             fixture.shiftRowBoundsAndBg(4, SHIFTED_BOUNDS_Y, HOVER_RGB);
             assertTrue(selectionUpdate.test(args));
             assertEquals(1, fixture.rowRepaints(4));
             assertEquals(1, fixture.totalRepaints());
+            assertEquals(0, fixture.backgroundColorCallCount());
             fixture.clearCounters();
 
-            // 11. Parameter visibility color change repaints affected row; group visibility repaints group only.
+            fixture.setRowBackgroundColor(4, BG_ONLY_RGB);
+            assertTrue(selectionUpdate.test(args));
+            assertEquals(1, fixture.rowRepaints(4));
+            assertEquals(1, fixture.totalRepaints());
+            assertEquals(0, fixture.backgroundColorCallCount());
+            fixture.clearCounters();
+
+            // 14. Parameter visibility color change repaints affected row; group visibility repaints group only.
             fixture.setVisibilityColor(5, ALT_VIS_RGB);
             assertTrue(selectionUpdate.test(args));
             assertEquals(1, fixture.rowRepaints(5));
@@ -253,19 +336,34 @@ class ParameterRowRepaintArtifactTest {
             assertEquals(1, fixture.totalRepaints());
             fixture.clearCounters();
 
-            // 12. Show-keyforms flag toggle triggers resize on double rows and repaint on parameter rows.
+            // 15. Show-keyforms flag toggle triggers resize on double rows and repaint on parameter rows.
             fixture.toggleShowKeyforms();
             assertTrue(selectionUpdate.test(args));
             assertEquals(1, fixture.doubleResizeCount());
             assertEquals(0, fixture.groupRepaintCount());
             fixture.clearCounters();
 
-            // 13. Structure invalidation resets controller baseline so the next pass rebuilds state cleanly.
+            // 16. Structure invalidation resets controller baseline so the next pass rebuilds state cleanly.
             invalidate.accept(fixture.controller);
             assertEquals(1L, bridge.snapshot().get(STAT_INVALIDATIONS));
             assertTrue(selectionUpdate.test(args));
             assertEquals(2L, bridge.snapshot().get(STAT_BASELINE_PASSES));
+            assertEquals(10L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
             assertFalse(bridge.snapshot().get(STAT_RESIZED_DOUBLES) == 0L);
+            fixture.clearCounters();
+
+            // 17. Fail-closed fallback: non-CModelingDocument doc always hashes keyforms without throwing.
+            final Object[] opaqueDocArgs = {fixture.controller, new Object(), fixture.model};
+            assertTrue(selectionUpdate.test(opaqueDocArgs));
+            assertEquals(3L, bridge.snapshot().get(STAT_BASELINE_PASSES));
+            assertEquals(11L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
+            assertEquals(1, fixture.keyformScanCount());
+            fixture.clearCounters();
+            assertTrue(selectionUpdate.test(opaqueDocArgs));
+            assertEquals(12L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
+            assertEquals(1, fixture.keyformScanCount());
+            assertEquals(0L, bridge.snapshot().get(STAT_FAILURES));
+            assertEquals(0, fixture.backgroundColorCallCount());
         }
     }
 
@@ -435,24 +533,78 @@ class ParameterRowRepaintArtifactTest {
 
         defineSimpleClass(out, "com/live2d/ui/CWidget", "java/lang/Object", cw -> {
             cw.visitField(Opcodes.ACC_PUBLIC, "repaintCount", "I", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "bgColorCalls", "I", null, null).visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "visible", "Z", null, null).visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "bgColor", "Lcom/live2d/type/CColor;", null, null).visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "jcomp", "Ljavax/swing/JComponent;", null, null).visitEnd();
             addDefaultInit(cw, "java/lang/Object");
-            final MethodVisitor repaint = cw.visitMethod(Opcodes.ACC_PUBLIC, "repaint", "()V", null, null);
-            repaint.visitCode();
-            repaint.visitVarInsn(Opcodes.ALOAD, 0);
-            repaint.visitInsn(Opcodes.DUP);
-            repaint.visitFieldInsn(Opcodes.GETFIELD, "com/live2d/ui/CWidget", "repaintCount", "I");
-            repaint.visitInsn(Opcodes.ICONST_1);
-            repaint.visitInsn(Opcodes.IADD);
-            repaint.visitFieldInsn(Opcodes.PUTFIELD, "com/live2d/ui/CWidget", "repaintCount", "I");
-            repaint.visitInsn(Opcodes.RETURN);
-            repaint.visitMaxs(3, 1);
-            repaint.visitEnd();
+            addIncrementMethod(cw, "repaint", "()V", "com/live2d/ui/CWidget", "repaintCount", Opcodes.RETURN);
             addGetter(cw, "isVisible", "()Z", "com/live2d/ui/CWidget", "visible", "Z", Opcodes.IRETURN);
-            addGetter(cw, "getBackgroundColor", "()Lcom/live2d/type/CColor;", "com/live2d/ui/CWidget", "bgColor", "Lcom/live2d/type/CColor;", Opcodes.ARETURN);
+            final MethodVisitor getBg = cw.visitMethod(
+                    Opcodes.ACC_PUBLIC, "getBackgroundColor", "()Lcom/live2d/type/CColor;", null, null);
+            getBg.visitCode();
+            getBg.visitVarInsn(Opcodes.ALOAD, 0);
+            getBg.visitInsn(Opcodes.DUP);
+            getBg.visitFieldInsn(Opcodes.GETFIELD, "com/live2d/ui/CWidget", "bgColorCalls", "I");
+            getBg.visitInsn(Opcodes.ICONST_1);
+            getBg.visitInsn(Opcodes.IADD);
+            getBg.visitFieldInsn(Opcodes.PUTFIELD, "com/live2d/ui/CWidget", "bgColorCalls", "I");
+            getBg.visitVarInsn(Opcodes.ALOAD, 0);
+            getBg.visitFieldInsn(Opcodes.GETFIELD, "com/live2d/ui/CWidget", "bgColor", "Lcom/live2d/type/CColor;");
+            getBg.visitInsn(Opcodes.ARETURN);
+            getBg.visitMaxs(3, 1);
+            getBg.visitEnd();
             addGetter(cw, "getJComponent", "()Ljavax/swing/JComponent;", "com/live2d/ui/CWidget", "jcomp", "Ljavax/swing/JComponent;", Opcodes.ARETURN);
+        });
+
+        defineSimpleClass(out, "com/live2d/undo/GroupUndo", "java/lang/Object", cw ->
+                addDefaultInit(cw, "java/lang/Object"));
+
+        defineSimpleClass(out, "com/live2d/undo/CUndoManager", "java/lang/Object", cw -> {
+            cw.visitField(Opcodes.ACC_PUBLIC, "currentPos", "I", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "undoList", "Ljava/util/List;", null, null).visitEnd();
+            addDefaultInit(cw, "java/lang/Object");
+            addGetter(cw, "getCurrentPos", "()I", "com/live2d/undo/CUndoManager", "currentPos", "I", Opcodes.IRETURN);
+            addGetter(cw, "getUndoList", "()Ljava/util/List;", "com/live2d/undo/CUndoManager", "undoList", "Ljava/util/List;", Opcodes.ARETURN);
+        });
+
+        defineSimpleClass(out, "com/live2d/cubism/doc/ACEditMode", "java/lang/Object", cw -> {
+            cw.visitField(Opcodes.ACC_PUBLIC, "editing", "Z", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "currentUndo", "Lcom/live2d/undo/GroupUndo;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "lastModifiedTimeMs", "J", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "undoManager", "Lcom/live2d/undo/CUndoManager;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "linkedUndoManager", "Lcom/live2d/undo/CUndoManager;", null, null).visitEnd();
+            addDefaultInit(cw, "java/lang/Object");
+            addGetter(cw, "isEditing", "()Z", "com/live2d/cubism/doc/ACEditMode", "editing", "Z", Opcodes.IRETURN);
+            addGetter(cw, "getCurrentUndo", "()Lcom/live2d/undo/GroupUndo;", "com/live2d/cubism/doc/ACEditMode", "currentUndo", "Lcom/live2d/undo/GroupUndo;", Opcodes.ARETURN);
+            addGetter(cw, "getLastModifiedTimeMs", "()J", "com/live2d/cubism/doc/ACEditMode", "lastModifiedTimeMs", "J", Opcodes.LRETURN);
+            addGetter(cw, "getUndoManager", "()Lcom/live2d/undo/CUndoManager;", "com/live2d/cubism/doc/ACEditMode", "undoManager", "Lcom/live2d/undo/CUndoManager;", Opcodes.ARETURN);
+            addGetter(cw, "getLinkedUndoManager", "()Lcom/live2d/undo/CUndoManager;", "com/live2d/cubism/doc/ACEditMode", "linkedUndoManager", "Lcom/live2d/undo/CUndoManager;", Opcodes.ARETURN);
+        });
+
+        defineSimpleClass(
+                out,
+                "com/live2d/cubism/doc/modeling/CModelingEditMode_Base",
+                "com/live2d/cubism/doc/ACEditMode",
+                cw -> addDefaultInit(cw, "com/live2d/cubism/doc/ACEditMode"));
+
+        defineSimpleClass(out, "com/live2d/cubism/doc/modeling/CModelingDocument", "java/lang/Object", cw -> {
+            cw.visitField(
+                    Opcodes.ACC_PUBLIC,
+                    "currentEditMode",
+                    "Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Base;",
+                    null,
+                    null)
+                    .visitEnd();
+            addDefaultInit(cw, "java/lang/Object");
+            addGetter(
+                    cw,
+                    "getCurrentEditMode",
+                    "()Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Base;",
+                    "com/live2d/cubism/doc/modeling/CModelingDocument",
+                    "currentEditMode",
+                    "Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Base;",
+                    Opcodes.ARETURN);
         });
 
         defineSimpleClass(out, "com/live2d/ui/control/CBlocker", "java/lang/Object", cw -> {
@@ -545,8 +697,22 @@ class ParameterRowRepaintArtifactTest {
 
         defineSimpleClass(out, "com/live2d/cubism/doc/model/interpolator/KeyformGridSource", "java/lang/Object", cw -> {
             cw.visitField(Opcodes.ACC_PUBLIC, "bindings", "Ljava/util/List;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "bindingsCalls", "I", null, null).visitEnd();
             addDefaultInit(cw, "java/lang/Object");
-            addGetter(cw, "getKeyformBindings", "()Ljava/util/List;", "com/live2d/cubism/doc/model/interpolator/KeyformGridSource", "bindings", "Ljava/util/List;", Opcodes.ARETURN);
+            final MethodVisitor getBindings = cw.visitMethod(
+                    Opcodes.ACC_PUBLIC, "getKeyformBindings", "()Ljava/util/List;", null, null);
+            getBindings.visitCode();
+            getBindings.visitVarInsn(Opcodes.ALOAD, 0);
+            getBindings.visitInsn(Opcodes.DUP);
+            getBindings.visitFieldInsn(Opcodes.GETFIELD, "com/live2d/cubism/doc/model/interpolator/KeyformGridSource", "bindingsCalls", "I");
+            getBindings.visitInsn(Opcodes.ICONST_1);
+            getBindings.visitInsn(Opcodes.IADD);
+            getBindings.visitFieldInsn(Opcodes.PUTFIELD, "com/live2d/cubism/doc/model/interpolator/KeyformGridSource", "bindingsCalls", "I");
+            getBindings.visitVarInsn(Opcodes.ALOAD, 0);
+            getBindings.visitFieldInsn(Opcodes.GETFIELD, "com/live2d/cubism/doc/model/interpolator/KeyformGridSource", "bindings", "Ljava/util/List;");
+            getBindings.visitInsn(Opcodes.ARETURN);
+            getBindings.visitMaxs(3, 1);
+            getBindings.visitEnd();
         });
 
         defineInterface(out, "com/live2d/cubism/doc/model/morphTarget/IKeyFormMorphTarget", cw -> {
@@ -855,6 +1021,26 @@ class ParameterRowRepaintArtifactTest {
         mv.visitEnd();
     }
 
+    private static void addIncrementMethod(
+            final ClassWriter cw,
+            final String methodName,
+            final String descriptor,
+            final String owner,
+            final String counterField,
+            final int returnOpcode) {
+        final MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, methodName, descriptor, null, null);
+        mv.visitCode();
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitFieldInsn(Opcodes.GETFIELD, owner, counterField, "I");
+        mv.visitInsn(Opcodes.ICONST_1);
+        mv.visitInsn(Opcodes.IADD);
+        mv.visitFieldInsn(Opcodes.PUTFIELD, owner, counterField, "I");
+        mv.visitInsn(returnOpcode);
+        mv.visitMaxs(3, 1);
+        mv.visitEnd();
+    }
+
     private static void addCounterVoidMethod(
             final ClassWriter cw,
             final String methodName,
@@ -961,12 +1147,21 @@ class ParameterRowRepaintArtifactTest {
     private static final class SyntheticPaletteFixture {
         final ClassLoader loader;
         final Object controller;
-        final Object doc = new Object();
+        final Object doc;
+        final Object editMode;
+        final Object undoManager;
+        final Object linkedUndoManager;
+        final List<Object> undoList = new ArrayList<>();
+        final List<Object> linkedUndoList = new ArrayList<>();
         final Object model;
+        final Object grid;
         final Object groupWidget;
+        final Object groupMain;
         final Object foldingPane;
         final Object doubleWidget;
+        final Object doubleMain;
         final List<Object> singleWidgets = new ArrayList<>();
+        final List<Object> singleMainWidgets = new ArrayList<>();
         final List<Object> paramSources = new ArrayList<>();
         final List<Object> params = new ArrayList<>();
         final List<Object> paramGuids = new ArrayList<>();
@@ -980,22 +1175,39 @@ class ParameterRowRepaintArtifactTest {
         final List<Object> selectedObjects = new ArrayList<>();
         final Object colorClass;
         Object paramTypeEnum;
+        long modifiedMs = 1L;
+        int undoPos;
+        int linkedUndoPos;
 
         private SyntheticPaletteFixture(
                 final ClassLoader loader,
                 final Object controller,
+                final Object doc,
+                final Object editMode,
+                final Object undoManager,
+                final Object linkedUndoManager,
                 final Object model,
+                final Object grid,
                 final Object groupWidget,
+                final Object groupMain,
                 final Object foldingPane,
                 final Object doubleWidget,
+                final Object doubleMain,
                 final Object secMorphTarget,
                 final Object objOne) {
             this.loader = loader;
             this.controller = controller;
+            this.doc = doc;
+            this.editMode = editMode;
+            this.undoManager = undoManager;
+            this.linkedUndoManager = linkedUndoManager;
             this.model = model;
+            this.grid = grid;
             this.groupWidget = groupWidget;
+            this.groupMain = groupMain;
             this.foldingPane = foldingPane;
             this.doubleWidget = doubleWidget;
+            this.doubleMain = doubleMain;
             this.secMorphTarget = secMorphTarget;
             this.objOne = objOne;
             this.colorClass = null;
@@ -1090,8 +1302,33 @@ class ParameterRowRepaintArtifactTest {
             rootChildren.add(doubleWidget);
             flatRows.add(doubleWidget);
 
+            final Object doc = instantiate(loader, "com.live2d.cubism.doc.modeling.CModelingDocument");
+            final Object editMode = instantiate(loader, "com.live2d.cubism.doc.modeling.CModelingEditMode_Base");
+            final Object undoManager = instantiate(loader, "com.live2d.undo.CUndoManager");
+            final Object linkedUndoManager = instantiate(loader, "com.live2d.undo.CUndoManager");
+            setField(doc, "currentEditMode", editMode);
+            setField(editMode, "lastModifiedTimeMs", 1L);
+            setField(editMode, "undoManager", undoManager);
+            setField(editMode, "linkedUndoManager", undoManager);
+
             final SyntheticPaletteFixture fixture = new SyntheticPaletteFixture(
-                    loader, controller, model, groupWidget, foldingPane, doubleWidget, secMorphTarget, objOne);
+                    loader,
+                    controller,
+                    doc,
+                    editMode,
+                    undoManager,
+                    linkedUndoManager,
+                    model,
+                    grid,
+                    groupWidget,
+                    groupMain,
+                    foldingPane,
+                    doubleWidget,
+                    dblMain,
+                    secMorphTarget,
+                    objOne);
+            setField(undoManager, "undoList", fixture.undoList);
+            setField(linkedUndoManager, "undoList", fixture.linkedUndoList);
             fixture.paramTypeEnum = typeInst;
             fixture.secKeys.addAll(secKeys);
             setField(secBinding, "keys", fixture.secKeys);
@@ -1108,6 +1345,7 @@ class ParameterRowRepaintArtifactTest {
                 final Object main = instantiate(loader, "com.live2d.ui.CWidget");
                 final Object bgColor = createColor(loader, Color.GRAY);
                 final JPanel panel = new JPanel();
+                panel.setBackground(Color.GRAY);
                 panel.setBounds(0, i * DEFAULT_HEIGHT, DEFAULT_WIDTH, DEFAULT_HEIGHT);
                 setupWidgetWithFields(row, bgColor, panel);
                 setupWidgetVisuals(loader, main, Color.GRAY);
@@ -1125,6 +1363,7 @@ class ParameterRowRepaintArtifactTest {
                 flatRows.add(row);
 
                 fixture.singleWidgets.add(row);
+                fixture.singleMainWidgets.add(main);
                 fixture.paramSources.add(src);
                 fixture.params.add(param);
                 fixture.paramGuids.add(guid);
@@ -1147,9 +1386,64 @@ class ParameterRowRepaintArtifactTest {
             setField(paramSources.get(index), "maxValue", maxValue);
         }
 
-        void addSecondaryKeyform(final float key1, final float key2) {
+        void addSecondaryKeyformWithEdit(final float key1, final float key2) throws Exception {
             secKeys.add(key1);
             secKeys.add(key2);
+            commitEdit();
+        }
+
+        void undoKeyformEdit() throws Exception {
+            secKeys.clear();
+            undoPos = Math.max(0, undoPos - 1);
+            setField(undoManager, "currentPos", undoPos);
+        }
+
+        void redoKeyformEdit() throws Exception {
+            secKeys.add(KEY_POINT_ZERO);
+            secKeys.add(KEY_POINT_ONE);
+            undoPos = Math.min(undoList.size(), undoPos + 1);
+            setField(undoManager, "currentPos", undoPos);
+        }
+
+        void beginInFlightEdit() throws Exception {
+            setField(editMode, "editing", Boolean.TRUE);
+            setField(editMode, "currentUndo", instantiate(loader, "com.live2d.undo.GroupUndo"));
+        }
+
+        void endInFlightEdit() throws Exception {
+            setField(editMode, "editing", Boolean.FALSE);
+            setField(editMode, "currentUndo", null);
+            commitEdit();
+        }
+
+        void commitEvictingEdit(final float extraKey) throws Exception {
+            while (undoList.size() < UNDO_CAPACITY) {
+                commitEdit();
+            }
+            secKeys.add(extraKey);
+            undoList.remove(0);
+            undoList.add(instantiate(loader, "com.live2d.undo.GroupUndo"));
+            undoPos = undoList.size();
+            setField(undoManager, "currentPos", undoPos);
+        }
+
+        void commitLinkedEdit(final float extraKey) throws Exception {
+            secKeys.add(extraKey);
+            setField(editMode, "linkedUndoManager", linkedUndoManager);
+            linkedUndoList.add(instantiate(loader, "com.live2d.undo.GroupUndo"));
+            linkedUndoPos = linkedUndoList.size();
+            setField(linkedUndoManager, "currentPos", linkedUndoPos);
+        }
+
+        private void commitEdit() throws Exception {
+            while (undoList.size() > undoPos) {
+                undoList.remove(undoList.size() - 1);
+            }
+            undoList.add(instantiate(loader, "com.live2d.undo.GroupUndo"));
+            undoPos = undoList.size();
+            modifiedMs++;
+            setField(undoManager, "currentPos", undoPos);
+            setField(editMode, "lastModifiedTimeMs", modifiedMs);
         }
 
         void setSecondaryMorphKey(final float value) throws Exception {
@@ -1182,7 +1476,11 @@ class ParameterRowRepaintArtifactTest {
 
         void shiftRowBoundsAndBg(final int index, final int y, final int rgb) throws Exception {
             components.get(index).setBounds(0, y, DEFAULT_WIDTH, DEFAULT_HEIGHT);
-            setField(bgColors.get(index), "awtColor", new Color(rgb, true));
+            components.get(index).setBackground(new Color(rgb, true));
+        }
+
+        void setRowBackgroundColor(final int index, final int rgb) throws Exception {
+            components.get(index).setBackground(new Color(rgb, true));
         }
 
         void setVisibilityColor(final int index, final int rgb) throws Exception {
@@ -1231,13 +1529,37 @@ class ParameterRowRepaintArtifactTest {
             return sum;
         }
 
+        int keyformScanCount() throws Exception {
+            return (int) getField(grid, "bindingsCalls");
+        }
+
+        int backgroundColorCallCount() throws Exception {
+            int sum = (int) getField(groupWidget, "bgColorCalls")
+                    + (int) getField(groupMain, "bgColorCalls")
+                    + (int) getField(doubleWidget, "bgColorCalls")
+                    + (int) getField(doubleMain, "bgColorCalls");
+            for (int i = 0; i < singleWidgets.size(); i++) {
+                sum += (int) getField(singleWidgets.get(i), "bgColorCalls");
+                sum += (int) getField(singleMainWidgets.get(i), "bgColorCalls");
+            }
+            return sum;
+        }
+
         void clearCounters() throws Exception {
+            setField(grid, "bindingsCalls", 0);
+            setField(groupWidget, "bgColorCalls", 0);
+            setField(groupMain, "bgColorCalls", 0);
+            setField(doubleWidget, "bgColorCalls", 0);
+            setField(doubleMain, "bgColorCalls", 0);
             setField(doubleWidget, "repaintCount", 0);
             setField(doubleWidget, "resizeCount", 0);
             setField(groupWidget, "repaintCount", 0);
-            for (final Object row : singleWidgets) {
+            for (int i = 0; i < singleWidgets.size(); i++) {
+                final Object row = singleWidgets.get(i);
                 setField(row, "repaintCount", 0);
                 setField(row, "selectedObjectsCalls", 0);
+                setField(row, "bgColorCalls", 0);
+                setField(singleMainWidgets.get(i), "bgColorCalls", 0);
             }
         }
 
@@ -1273,6 +1595,7 @@ class ParameterRowRepaintArtifactTest {
         private static void setupWidgetVisuals(
                 final ClassLoader loader, final Object widget, final Color color) throws Exception {
             final JPanel panel = new JPanel();
+            panel.setBackground(color);
             panel.setBounds(0, 0, DEFAULT_WIDTH, DEFAULT_HEIGHT);
             setupWidgetWithFields(widget, createColor(loader, color), panel);
         }
