@@ -15,6 +15,7 @@ import dev.turboism.sdk.ui.resource.UiIconRef;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.event.MouseEvent;
@@ -1284,6 +1285,29 @@ class SwingPanelViewRendererTest {
                     naturalHeight,
                     timestamp.getHeight(),
                     "timestamp must remain single-line without wrapping or clipping");
+        });
+    }
+
+    @Test
+    void columnKeepsNaturalPreferredHeightAfterZeroWidthLayoutPass() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final JComponent rendered = SwingPanelViewRenderer.render(
+                    PanelView.column(
+                            PanelView.text("long-recent-preview-model-name.cmo3"),
+                            PanelView.text("2026-10-22 13:38:58")),
+                    (action, event) -> {});
+            final Dimension natural = rendered.getPreferredSize();
+
+            rendered.setSize(0, 0);
+            rendered.doLayout();
+            assertEquals(natural, rendered.getPreferredSize());
+
+            rendered.setSize(40, 200);
+            rendered.doLayout();
+            assertTrue(rendered.getPreferredSize().height > natural.height);
+
+            rendered.setSize(0, 0);
+            assertEquals(natural, rendered.getPreferredSize());
         });
     }
 

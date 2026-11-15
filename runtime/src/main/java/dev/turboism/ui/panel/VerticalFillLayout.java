@@ -4,8 +4,10 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.LayoutManager2;
+import java.awt.Window;
 import javax.swing.JComponent;
 import javax.swing.JScrollPane;
+import javax.swing.SwingUtilities;
 import javax.swing.plaf.basic.BasicHTML;
 import javax.swing.text.View;
 
@@ -15,6 +17,9 @@ import javax.swing.text.View;
  * height (so long lists scroll inside the panel instead of being clipped).
  */
 final class VerticalFillLayout implements LayoutManager2 {
+
+    private static final int PLACEHOLDER_WINDOW_EXTENT = 1;
+    private static final int MINIMUM_HTML_WIDTH = 1;
 
     @Override
     public void addLayoutComponent(final String name, final Component component) {}
@@ -27,15 +32,15 @@ final class VerticalFillLayout implements LayoutManager2 {
 
     @Override
     public Dimension preferredLayoutSize(final Container parent) {
-        final int knownWidth = parent.getWidth();
+        final int knownWidth = hasKnownWidth(parent) ? parent.getWidth() : 0;
         int width = knownWidth;
         int height = 0;
         for (Component child : parent.getComponents()) {
-            // A child whose container width is already known (previous layout pass)
-            // must report its height at that width, not at the unwrapped
-            // preferred width.
+            // Re-measure HTML views at the container width when known, or restore natural unwrapped spans.
             if (knownWidth > 0) {
                 sizeHtmlView(child, knownWidth);
+            } else {
+                resetHtmlView(child);
             }
             Dimension preferred = child.getPreferredSize();
             width = Math.max(width, preferred.width);
@@ -57,23 +62,18 @@ final class VerticalFillLayout implements LayoutManager2 {
     @Override
     public void layoutContainer(final Container parent) {
         Component[] children = parent.getComponents();
-        if (children.length == 0) {
+        if (children.length == 0 || !hasKnownWidth(parent)) {
             return;
         }
         int width = parent.getWidth();
-        // Lay each HTML child's text out at the available width first, so the
-        // preferred heights below reflect wrapped lines instead of one
-        // unwrapped line.
+        // Size HTML views at the container width before reading child preferred heights.
         for (Component child : children) {
             sizeHtmlView(child, width);
         }
-        int fixed = 0;
         int scrollIndex = -1;
         for (int i = 0; i < children.length; i++) {
             if (children[i] instanceof JScrollPane) {
                 scrollIndex = i;
-            } else {
-                fixed += children[i].getPreferredSize().height;
             }
         }
         int y = 0;
@@ -87,6 +87,17 @@ final class VerticalFillLayout implements LayoutManager2 {
         }
     }
 
+    private static boolean hasKnownWidth(final Container parent) {
+        if (parent.getWidth() <= 0) {
+            return false;
+        }
+        final Window window = SwingUtilities.getWindowAncestor(parent);
+        return window == null
+                || window.isVisible()
+                || window.getWidth() > PLACEHOLDER_WINDOW_EXTENT
+                || window.getHeight() > PLACEHOLDER_WINDOW_EXTENT;
+    }
+
     /**
      * Sizes the BasicHTML view (when present) to the target width so the
      * component's preferred height reflects the wrapped text. Plain children
@@ -96,15 +107,20 @@ final class VerticalFillLayout implements LayoutManager2 {
         if (child instanceof JComponent component) {
             Object html = component.getClientProperty(BasicHTML.propertyKey);
             if (html instanceof View view) {
-                // Horizontal non-HTML overhead (icon, insets, gap, chrome):
-                // the component's preferred width minus the HTML text span,
-                // measured BEFORE resizing so it stays stable across passes
-                // (JLabel overhead = 0, JCheckBox overhead ≈ 25). The HTML
-                // view gets only the text budget, so the laid-out preferred
-                // width fits the actual bounds instead of overflowing.
+                // Subtract non-HTML chrome before resizing so wrapped text fits the actual bounds.
                 int htmlSpan = (int) Math.ceil(view.getPreferredSpan(View.X_AXIS));
                 int overhead = Math.max(0, component.getPreferredSize().width - htmlSpan);
-                view.setSize(Math.max(1, width - overhead), Short.MAX_VALUE);
+                view.setSize(Math.max(MINIMUM_HTML_WIDTH, width - overhead), Short.MAX_VALUE);
+            }
+        }
+    }
+
+    private static void resetHtmlView(final Component child) {
+        if (child instanceof JComponent component) {
+            Object html = component.getClientProperty(BasicHTML.propertyKey);
+            if (html instanceof View view && view.getViewCount() > 0) {
+                final float naturalWidth = view.getView(0).getPreferredSpan(View.X_AXIS);
+                view.setSize(naturalWidth, Short.MAX_VALUE);
             }
         }
     }
