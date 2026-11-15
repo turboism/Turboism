@@ -131,3 +131,5 @@ dev.turboism.bootstrap.WarpGridInterpolationHookContributor
 dev.turboism.bootstrap.ParameterRowRepaintHookContributor
 # Allocation-free 2D bounding-box pre-check in mesh hit testing.
 dev.turboism.bootstrap.MeshHitTestHookContributor
+# Indexed render-pass traversal, single getRenderer cache, and cached draw debug labels.
+dev.turboism.bootstrap.RenderPassTraversalHookContributor

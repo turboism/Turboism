@@ -46,17 +46,17 @@ final class OptimizationCatalogTest {
 
     @Test
     void everyDeclaredOptimizationIsTheOneTheProductShips() {
-        assertEquals(38, OptimizationCatalog.all().size());
+        assertEquals(39, OptimizationCatalog.all().size());
         assertEquals(26, OptimizationCatalog.persisted().size());
         assertEquals(
-                12,
+                13,
                 OptimizationCatalog.all().size()
                         - OptimizationCatalog.persisted().size());
         assertEquals(26, OptimizationCatalog.placed().size());
         assertEquals(22, OptimizationCatalog.launcherFieldNames().size());
         assertEquals(22, OptimizationCatalog.booleanLauncherFieldNames().size());
         assertEquals(4, OptimizationCatalog.rootFieldNames().size());
-        assertEquals(39, OptimizationCatalog.protocols().size(), "27 reported protocols plus 12 probe protocols");
+        assertEquals(40, OptimizationCatalog.protocols().size(), "27 reported protocols plus 13 probe protocols");
     }
 
     /**

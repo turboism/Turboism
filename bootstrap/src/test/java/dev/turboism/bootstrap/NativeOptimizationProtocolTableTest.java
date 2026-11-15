@@ -105,6 +105,7 @@ final class NativeOptimizationProtocolTableTest {
                         "TURBOISM_GL_ERROR_ELISION",
                         "TURBOISM_MESH_HIT_TEST",
                         "TURBOISM_PARAMETER_ROW_REPAINT",
+                        "TURBOISM_RENDER_PASS_TRAVERSAL",
                         "TURBOISM_SCENE_HANDLER_CACHE",
                         "TURBOISM_SORTING_INFO_CACHE",
                         "TURBOISM_STATE_ELISION",

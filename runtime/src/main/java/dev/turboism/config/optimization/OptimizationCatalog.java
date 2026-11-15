@@ -584,6 +584,23 @@ public final class OptimizationCatalog {
             "",
             List.of(new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, INPUT_PATH_ELISION, "")));
 
+    /**
+     * Diagnostic-only: replaces render-pass iterator traversal with indexed list loops, caches
+     * {@code GEntity.getRenderer()} per entity, and eliminates per-draw debug label concatenations;
+     * derives its default from {@link #MATRIX_SCRATCH}.
+     */
+    public static final Optimization RENDER_PASS_TRAVERSAL = new Optimization(
+            "",
+            "",
+            Optimization.Access.DIAGNOSTIC_ONLY,
+            List.of("turboism.optimization.renderPassTraversal"),
+            List.of("TURBOISM_RENDER_PASS_TRAVERSAL"),
+            Set.of("cubism.render.render-pass-traversal"),
+            Optional.empty(),
+            "",
+            "",
+            List.of(new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, MATRIX_SCRATCH, "")));
+
     /** Every row, in declaration order. */
     private static final List<Optimization> ALL = List.of(
             MODEL_UPDATE_SKIP,
@@ -623,7 +640,8 @@ public final class OptimizationCatalog {
             WARP_NORMAL_POINT_ELISION,
             WARP_GRID_INTERPOLATION,
             PARAMETER_ROW_REPAINT,
-            MESH_HIT_TEST);
+            MESH_HIT_TEST,
+            RENDER_PASS_TRAVERSAL);
 
     static {
         validate(ALL);

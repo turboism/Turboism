@@ -356,6 +356,17 @@ class AdmissionParityTest {
                             } catch (final java.io.IOException impossible) {
                                 throw new AssertionError(impossible);
                             }
+                        }),
+                new Row(
+                        "render-pass-traversal",
+                        VerifiedRenderPassTraversalInstaller.ADMISSION,
+                        new Frozen(true, "AT_LEAST_17"),
+                        (policy, requested, jvm) -> {
+                            try {
+                                return VerifiedRenderPassTraversalInstaller.admitted(artifact(), policy, requested, jvm);
+                            } catch (final java.io.IOException impossible) {
+                                throw new AssertionError(impossible);
+                            }
                         }));
     }
 

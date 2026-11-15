@@ -99,6 +99,10 @@ class WeaveSpecTest {
                 VerifiedParameterRowRepaintInstaller.EXPECTED_MATCHES,
                 VerifiedParameterRowRepaintInstaller.HOOK_ID);
         assertEquals(1, VerifiedMeshHitTestInstaller.EXPECTED_MATCHES, VerifiedMeshHitTestInstaller.HOOK_ID);
+        assertEquals(
+                1,
+                VerifiedRenderPassTraversalInstaller.EXPECTED_MATCHES,
+                VerifiedRenderPassTraversalInstaller.HOOK_ID);
     }
 
     @Test
@@ -180,6 +184,10 @@ class WeaveSpecTest {
                 VerifiedParameterRowRepaintInstaller.EXPECTED_OWNERS,
                 VerifiedParameterRowRepaintInstaller.HOOK_ID);
         assertEquals(1, VerifiedMeshHitTestInstaller.EXPECTED_OWNERS, VerifiedMeshHitTestInstaller.HOOK_ID);
+        assertEquals(
+                1,
+                VerifiedRenderPassTraversalInstaller.EXPECTED_OWNERS,
+                VerifiedRenderPassTraversalInstaller.HOOK_ID);
     }
 
     @Test
@@ -214,6 +222,7 @@ class WeaveSpecTest {
         assertRow(VerifiedWarpGridInterpolationInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.ANY);
         assertRow(VerifiedParameterRowRepaintInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
         assertRow(VerifiedMeshHitTestInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.ANY);
+        assertRow(VerifiedRenderPassTraversalInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
     }
 
     private static void assertRow(final Admission admission, final PolicyCheck policyCheck, final JvmCheck jvmCheck) {
