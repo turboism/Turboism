@@ -158,8 +158,7 @@ public record RenderPassTraversalTarget(
         return List.copyOf(deps);
     }
 
-    private static RenderPassTraversalTarget targetForVersion(
-            final HostArtifactDigest digest, final String version) {
+    private static RenderPassTraversalTarget targetForVersion(final HostArtifactDigest digest, final String version) {
         if (version.startsWith(VERSION_PREFIX_53)) {
             return new RenderPassTraversalTarget(
                     digest,
@@ -172,13 +171,7 @@ public record RenderPassTraversalTarget(
         }
         final String shaderHelper = version.startsWith(VERSION_PREFIX_52) ? SHADER_HELPER_52 : SHADER_HELPER_50;
         return new RenderPassTraversalTarget(
-                digest,
-                version,
-                RENDER_SYSTEM_50,
-                RENDER_IMPL_DESCRIPTOR_50,
-                shaderHelper,
-                false,
-                EXPECTED_SITES_50);
+                digest, version, RENDER_SYSTEM_50, RENDER_IMPL_DESCRIPTOR_50, shaderHelper, false, EXPECTED_SITES_50);
     }
 
     /** Identifies a reviewed host member required by the rewritten bytecode. */

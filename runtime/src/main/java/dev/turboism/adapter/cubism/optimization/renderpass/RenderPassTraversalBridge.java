@@ -110,10 +110,7 @@ public final class RenderPassTraversalBridge implements AutoCloseable {
     }
 
     private static void restoreOrRemove(
-            final Properties properties,
-            final String key,
-            final Object expectedValue,
-            final Object previousValue) {
+            final Properties properties, final String key, final Object expectedValue, final Object previousValue) {
         final Object current = properties.get(key);
         if (current != expectedValue) {
             return;

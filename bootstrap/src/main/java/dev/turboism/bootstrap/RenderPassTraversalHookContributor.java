@@ -23,7 +23,10 @@ final class RenderPassTraversalHookContributor extends NativeOptimizationHookCon
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedRenderPassTraversalInstaller.admitted(
-                host.artifact(), environment.plan().policy(), true, Runtime.version().feature())) {
+                host.artifact(),
+                environment.plan().policy(),
+                true,
+                Runtime.version().feature())) {
             debug(environment, id() + STATUS_NOT_ADMITTED);
             return refused(VerifiedInstall.ADMISSION_REFUSED);
         }

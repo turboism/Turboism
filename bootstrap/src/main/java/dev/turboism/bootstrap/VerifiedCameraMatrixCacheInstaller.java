@@ -48,11 +48,9 @@ final class VerifiedCameraMatrixCacheInstaller implements AutoCloseable {
                 "camera matrix cache",
                 VerifiedCameraMatrixCacheInstaller::resolve,
                 new WeavePlan<>(
-                        VerifiedCameraMatrixCacheInstaller::targets,
-                        VerifiedCameraMatrixCacheInstaller::sitesProven),
+                        VerifiedCameraMatrixCacheInstaller::targets, VerifiedCameraMatrixCacheInstaller::sitesProven),
                 (target, launch) -> {
-                    final CameraMatrixCacheBridge bridge =
-                            new CameraMatrixCacheBridge(launch.hostLoader());
+                    final CameraMatrixCacheBridge bridge = new CameraMatrixCacheBridge(launch.hostLoader());
                     return BridgeLayer.of(bridge::install, bridge);
                 },
                 WeaveEffects.none());
@@ -76,9 +74,8 @@ final class VerifiedCameraMatrixCacheInstaller implements AutoCloseable {
     }
 
     private static String sitesProven(final List<WeaveTarget> targets) {
-        final int sites = targets.get(0)
-                .transformer(CameraMatrixCacheTransformer.class)
-                .sites();
+        final int sites =
+                targets.get(0).transformer(CameraMatrixCacheTransformer.class).sites();
         return sites == EXPECTED_SITES ? null : "sites=" + sites;
     }
 

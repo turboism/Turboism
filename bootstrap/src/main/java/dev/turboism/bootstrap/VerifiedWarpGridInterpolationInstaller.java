@@ -37,8 +37,7 @@ final class VerifiedWarpGridInterpolationInstaller implements AutoCloseable {
             VerifiedWarpGridInterpolationInstaller::resolve,
             new WeavePlan<>(VerifiedWarpGridInterpolationInstaller::targets, WeavePlan.PostCheck.NONE),
             (target, context) -> {
-                final WarpGridInterpolationBridge bridge =
-                        WarpGridInterpolationBridge.open(context.hostLoader());
+                final WarpGridInterpolationBridge bridge = WarpGridInterpolationBridge.open(context.hostLoader());
                 return BridgeLayer.of(bridge::install, bridge);
             },
             WeaveEffects.none());
@@ -53,7 +52,8 @@ final class VerifiedWarpGridInterpolationInstaller implements AutoCloseable {
     static boolean admitted(final Path artifact, final RuntimeStartupConfig config, final boolean requested)
             throws IOException {
         // Evaluate shared admission before opening the artifact digest.
-        return VerifiedInstall.admits(ADMISSION, config, requested, Runtime.version().feature())
+        return VerifiedInstall.admits(
+                        ADMISSION, config, requested, Runtime.version().feature())
                 && WarpGridInterpolationTarget.of(HostArtifactDigest.cached(artifact))
                         .isPresent();
     }
@@ -62,8 +62,8 @@ final class VerifiedWarpGridInterpolationInstaller implements AutoCloseable {
         return WarpGridInterpolationTarget.of(HostArtifactDigest.cached(artifact));
     }
 
-    private static List<WeaveTarget> targets(
-            final WarpGridInterpolationTarget target, final WeaveSource source) throws Exception {
+    private static List<WeaveTarget> targets(final WarpGridInterpolationTarget target, final WeaveSource source)
+            throws Exception {
         final Class<?> owner = source.load(WarpGridInterpolationTarget.OWNER);
         for (final WarpGridInterpolationTarget.Dep dep : target.dependencies()) {
             final Class<?> depOwner = source.load(dep.owner());
@@ -73,8 +73,8 @@ final class VerifiedWarpGridInterpolationInstaller implements AutoCloseable {
         }
         final WarpGridInterpolationTransformer transformer = new WarpGridInterpolationTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(owner), target);
-        return List.of(WeaveTarget.single(
-                owner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
+        return List.of(
+                WeaveTarget.single(owner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)

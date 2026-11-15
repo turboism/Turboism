@@ -27,8 +27,7 @@ final class VerifiedRenderPassTraversalInstaller implements AutoCloseable {
 
     private static final String FEATURE_NAME = "render pass traversal";
     private static final String SITES_PREFIX = "sites=";
-    private static final String REFUSED_MESSAGE =
-            "render pass traversal refused: host-not-supported-or-hook-disabled";
+    private static final String REFUSED_MESSAGE = "render pass traversal refused: host-not-supported-or-hook-disabled";
     private static final String METHOD_SEPARATOR = ".";
     private static final String SHADER_DEFAULT_METHOD = "a";
     private static final String SHADER_DEFAULT_DESC_PREFIX = "(L";
@@ -40,8 +39,7 @@ final class VerifiedRenderPassTraversalInstaller implements AutoCloseable {
             FEATURE_NAME,
             VerifiedRenderPassTraversalInstaller::resolve,
             new WeavePlan<>(
-                    VerifiedRenderPassTraversalInstaller::targets,
-                    VerifiedRenderPassTraversalInstaller::sitesProven),
+                    VerifiedRenderPassTraversalInstaller::targets, VerifiedRenderPassTraversalInstaller::sitesProven),
             (target, launch) -> {
                 final RenderPassTraversalBridge bridge = new RenderPassTraversalBridge();
                 return BridgeLayer.of(bridge::install, bridge);
@@ -67,8 +65,8 @@ final class VerifiedRenderPassTraversalInstaller implements AutoCloseable {
         return RenderPassTraversalTarget.of(HostArtifactDigest.cached(artifact));
     }
 
-    private static List<WeaveTarget> targets(
-            final RenderPassTraversalTarget target, final WeaveSource source) throws Exception {
+    private static List<WeaveTarget> targets(final RenderPassTraversalTarget target, final WeaveSource source)
+            throws Exception {
         final Class<?> renderSystem = source.load(target.renderSystemOwner());
         source.load(RenderPassTraversalTarget.GROUP_RENDERER_OWNER);
         source.load(RenderPassTraversalTarget.CARRAY_LIST_OWNER);

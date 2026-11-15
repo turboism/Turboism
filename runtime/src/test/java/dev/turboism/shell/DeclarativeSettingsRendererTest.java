@@ -6,6 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.config.NativeOptimizationConfig;
+import dev.turboism.config.OptimizationSettingsFileService;
+import dev.turboism.config.PerformanceSettingsConfig;
+import dev.turboism.config.RuntimeConfigRepository;
 import dev.turboism.config.optimization.Optimization;
 import dev.turboism.config.optimization.OptimizationCatalog;
 import dev.turboism.config.optimization.OptimizationPreset;
@@ -31,11 +35,15 @@ import java.awt.Rectangle;
 import java.awt.event.FocusEvent;
 import java.awt.event.MouseWheelEvent;
 import java.lang.reflect.Method;
+import java.net.URI;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
@@ -46,6 +54,7 @@ import javax.swing.JTextField;
 import javax.swing.Scrollable;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class DeclarativeSettingsRendererTest {
 
@@ -1054,10 +1063,10 @@ class DeclarativeSettingsRendererTest {
                 assertEquals("off", ((SettingsControl.Option) combo.getSelectedItem()).value());
 
                 final List<JCheckBox> boxes = checkboxes(scroll);
-                assertEquals(26, boxes.size());
+                assertEquals(35, boxes.size());
                 assertTrue(boxes.stream().noneMatch(JCheckBox::isSelected));
 
-                // 1. Selecting BALANCED updates all 26 checkboxes immediately without persisting yet.
+                // 1. Selecting BALANCED updates all 35 checkboxes immediately without persisting yet.
                 selectOption(combo, OptimizationPreset.BALANCED.configValue());
                 for (final Optimization optimization : OptimizationCatalog.persisted()) {
                     final JCheckBox box = findCheckBoxByName(boxes, optimization.contributionId());
@@ -1109,6 +1118,115 @@ class DeclarativeSettingsRendererTest {
                 assertEquals(OptimizationPreset.OFF, OptimizationPreset.detect(stored));
             }
         });
+    }
+
+    @Test
+    void hotpathSectionRendersAllNineTogglesReferenceLinkAndPersistsOnRestart(@TempDir final Path home)
+            throws Exception {
+        final List<Optimization> hotpath = List.of(
+                OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_ELISION,
+                OptimizationCatalog.WARP_GRID_INTERPOLATION,
+                OptimizationCatalog.WARP_NORMAL_POINT_ELISION,
+                OptimizationCatalog.CAMERA_MATRIX_CACHE,
+                OptimizationCatalog.RENDER_PASS_TRAVERSAL,
+                OptimizationCatalog.MESH_HIT_TEST,
+                OptimizationCatalog.SCENE_HANDLER_CACHE,
+                OptimizationCatalog.CURSOR_VALIDATION_ELISION,
+                OptimizationCatalog.PARAMETER_ROW_REPAINT);
+        final URI expectedUri = OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_REFERENCE_URI;
+        final AtomicReference<URI> openedUri = new AtomicReference<>();
+        CoreWindows.setTestSettingsLinkObserver(openedUri::set);
+        try (OptimizationSettingsFileService service = new OptimizationSettingsFileService(home)) {
+            final List<SettingsSnapshot.Entry> entries = new java.util.ArrayList<>();
+            entries.add(new SettingsSnapshot.Entry(
+                    "turboism.core", OptimizationSettingsContribution.createPreset(localization(), service)));
+            entries.add(new SettingsSnapshot.Entry(
+                    "turboism.core",
+                    CubismJvmSettingsContribution.createPerformanceRecommendationNote(localization())));
+            for (final SettingsContribution contribution :
+                    OptimizationSettingsContribution.create(localization(), service)) {
+                entries.add(new SettingsSnapshot.Entry("turboism.core", contribution));
+            }
+            entries.sort(java.util.Comparator.comparingInt(
+                    entry -> entry.contribution().index().orElse(Integer.MAX_VALUE)));
+
+            SwingUtilities.invokeAndWait(() -> {
+                try (CoreWindows windows = new CoreWindows(
+                        localization(),
+                        settings(),
+                        () -> List.of(
+                                new SettingsSnapshot.Tab("performance", "Performance", OptionalInt.of(200), entries)),
+                        plugins(),
+                        RuntimeLogReader.unavailable(),
+                        dev.turboism.internal.core.KeybindingService.unavailable())) {
+                    final CoreWindows.RenderedSettings rendered = render(windows);
+                    final JScrollPane scroll =
+                            assertInstanceOf(JScrollPane.class, rendered.tabs().getComponentAt(0));
+                    final JPanel form = (JPanel) scroll.getViewport().getView();
+                    final JPanel topSection = findCollapsibleSection(form);
+                    assertTrue(topSection != null, "top collapsible section must render");
+                    assertTrue(
+                            topSection.getToolTipText() != null
+                                    && topSection
+                                            .getToolTipText()
+                                            .contains("settings.performance.section.hotpath.tooltip"),
+                            "top section must carry the hotpath tooltip");
+
+                    final List<JCheckBox> sectionBoxes = checkboxes(topSection);
+                    assertEquals(
+                            hotpath.stream().map(Optimization::contributionId).toList(),
+                            sectionBoxes.stream().map(JCheckBox::getName).toList(),
+                            "hotpath section must render all 9 promoted checkboxes in placement order");
+
+                    final JButton referenceButton = findButtonByName(
+                            topSection,
+                            OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_ELISION.contributionId() + ".reference");
+                    assertTrue(referenceButton != null, "Comment_4556 toggle must render its reference link button");
+                    assertEquals(expectedUri.toString(), referenceButton.getToolTipText());
+                    rendered.tabs().setSize(780, 560);
+                    layoutTree(rendered.tabs());
+                    assertTrue(
+                            sectionBoxes.get(0).getWidth() > referenceButton.getWidth(),
+                            "checkbox caption must retain primary row width beside its reference link");
+                    referenceButton.doClick();
+                    assertEquals(expectedUri, openedUri.get(), "clicking reference link must open Comment_4556 URL");
+
+                    for (final JCheckBox box : sectionBoxes) {
+                        box.doClick();
+                    }
+                    assertTrue(rendered.save().getAsBoolean());
+                }
+            });
+
+            final var persistedRoot = new RuntimeConfigRepository(home, ignored -> {}).read();
+            final PerformanceSettingsConfig reloaded = PerformanceSettingsConfig.load(home, ignored -> {});
+            final NativeOptimizationConfig nativeReloaded = NativeOptimizationConfig.load(home, ignored -> {});
+            for (final Optimization optimization : hotpath) {
+                assertTrue(
+                        persistedRoot.path("launcher").path(optimization.key()).asBoolean(false),
+                        "config.json launcher." + optimization.key() + " must persist true");
+                final PerformanceSettingsConfig.Field field =
+                        PerformanceSettingsConfig.Field.forKey(optimization.key());
+                assertEquals("true", reloaded.value(field).value());
+                assertEquals("global-config", reloaded.value(field).source());
+                assertTrue(nativeReloaded.choice(optimization).enabled());
+                assertEquals(
+                        "global-config", nativeReloaded.choice(optimization).source());
+            }
+        } finally {
+            CoreWindows.clearTestSettingsLinkObserver();
+        }
+    }
+
+    private static JButton findButtonByName(final Component root, final String name) {
+        if (root instanceof JButton button && name.equals(button.getName())) return button;
+        if (root instanceof Container container) {
+            for (final Component child : container.getComponents()) {
+                final JButton found = findButtonByName(child, name);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     private static JComboBox<?> findComboBox(final Component root) {

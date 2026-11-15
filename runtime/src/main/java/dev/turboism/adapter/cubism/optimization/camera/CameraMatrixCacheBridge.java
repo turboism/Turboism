@@ -290,8 +290,7 @@ public final class CameraMatrixCacheBridge implements AutoCloseable {
     }
 
     private boolean writeTransformState(
-            final Object entity, final Object transform, final int[] outBits, final int base)
-            throws Throwable {
+            final Object entity, final Object transform, final int[] outBits, final int base) throws Throwable {
         final Object position = (Object) positionHandle.invokeExact(transform);
         final Object euler = (Object) eulerAnglesHandle.invokeExact(transform);
         final Object scale = (Object) scaleHandle.invokeExact(transform);

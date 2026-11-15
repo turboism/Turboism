@@ -89,6 +89,14 @@ class OptimizationSettingsContributionTest {
 
         toggle.binding().write(false);
         assertFalse(settings.enabled(optimization.key()), "an explicit opt-out is persisted too");
+        if (optimization.equals(OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_ELISION)) {
+            assertTrue(toggle.referenceLink().isPresent());
+            assertEquals(
+                    OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_REFERENCE_URI,
+                    toggle.referenceLink().orElseThrow().uri());
+        } else {
+            assertTrue(toggle.referenceLink().isEmpty());
+        }
     }
 
     @ParameterizedTest
@@ -119,7 +127,7 @@ class OptimizationSettingsContributionTest {
     }
 
     @Test
-    void thePageIsTheSixSectionNotesPlusEveryPlacedRow() {
+    void thePageIsTheSevenSectionNotesPlusEveryPlacedRow() {
         final List<SettingsContribution> contributions =
                 OptimizationSettingsContribution.create(localization(), new RecordingSettings(false));
 
@@ -134,7 +142,7 @@ class OptimizationSettingsContributionTest {
                 contributions.subList(0, OptimizationCatalog.SECTIONS.size()).stream()
                         .map(SettingsContribution::id)
                         .toList(),
-                "the six section notes come first, in catalogue section order");
+                "the seven section notes come first, in catalogue section order");
         assertEquals(
                 OptimizationCatalog.placed().stream()
                         .map(Optimization::contributionId)
@@ -155,6 +163,7 @@ class OptimizationSettingsContributionTest {
 
         assertEquals(
                 List.of(
+                        "performance.section.hotpath",
                         "performance.section.heavy-model",
                         "performance.section.model",
                         "performance.section.rendering",
@@ -163,7 +172,7 @@ class OptimizationSettingsContributionTest {
                         "performance.section.jvm"),
                 List.copyOf(notes.keySet()));
         assertEquals(
-                List.of(60, 71, 80, 90, 100, 110),
+                List.of(50, 60, 71, 80, 90, 100, 110),
                 notes.values().stream().map(note -> note.index().orElseThrow()).toList(),
                 "the section notes keep the indexes the reviewed layout pins");
         for (final SettingsContribution note : notes.values()) {
@@ -227,7 +236,7 @@ class OptimizationSettingsContributionTest {
                 OptimizationSettingsContribution.createPreset(localization(), settings);
         assertEquals(OptimizationSettingsContribution.PRESET_CONTRIBUTION_ID, contribution.id());
         assertEquals("performance", contribution.tab().id());
-        assertEquals(OptionalInt.of(59), contribution.index());
+        assertEquals(OptionalInt.of(48), contribution.index());
         assertEquals(
                 Optional.of(OptimizationSettingsContribution.PRESET_TOOLTIP_KEY),
                 CubismJvmSettingsContribution.tooltipKey(contribution.id()));

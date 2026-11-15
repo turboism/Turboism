@@ -204,8 +204,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
         HostHandles.virtual(vectorType, VECTOR_X_METHOD, FLOAT_GETTER_DESCRIPTOR, floatUnary);
         HostHandles.virtual(vectorType, VECTOR_Y_METHOD, FLOAT_GETTER_DESCRIPTOR, floatUnary);
         HostHandles.virtual(vectorType, VECTOR_Z_METHOD, FLOAT_GETTER_DESCRIPTOR, floatUnary);
-        HostHandles.construct(
-                matrixType, MATRIX_CONSTRUCTOR_DESCRIPTOR, MethodType.methodType(Object.class));
+        HostHandles.construct(matrixType, MATRIX_CONSTRUCTOR_DESCRIPTOR, MethodType.methodType(Object.class));
         HostHandles.virtual(
                 matrixType,
                 MATRIX_DATA_METHOD,
@@ -223,12 +222,15 @@ public final class MatrixScratchBridge implements AutoCloseable {
                 PARENT_READER_BINARY, buildParentReaderClass(loader),
                 ALLOCATOR_BINARY, buildAllocatorClass(loader));
         final AccessorLoader accessorLoader = new AccessorLoader(loader, generated, exactStaticMatrixGetter);
-        selfReader = (BiFunction<Object, Object, Object>)
-                Class.forName(SELF_READER_BINARY, true, accessorLoader).getConstructor().newInstance();
-        parentReader = (BiFunction<Object, Object, Object>)
-                Class.forName(PARENT_READER_BINARY, true, accessorLoader).getConstructor().newInstance();
-        matrixAllocator = (Function<Object, Object>)
-                Class.forName(ALLOCATOR_BINARY, true, accessorLoader).getConstructor().newInstance();
+        selfReader = (BiFunction<Object, Object, Object>) Class.forName(SELF_READER_BINARY, true, accessorLoader)
+                .getConstructor()
+                .newInstance();
+        parentReader = (BiFunction<Object, Object, Object>) Class.forName(PARENT_READER_BINARY, true, accessorLoader)
+                .getConstructor()
+                .newInstance();
+        matrixAllocator = (Function<Object, Object>) Class.forName(ALLOCATOR_BINARY, true, accessorLoader)
+                .getConstructor()
+                .newInstance();
     }
 
     /** Activates bridge resolution once bytecode verification completes. */
@@ -381,8 +383,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
         return result;
     }
 
-    private static float[] resolveNodeData(
-            final Object transform, final Object[] packet, final ThreadState state) {
+    private static float[] resolveNodeData(final Object transform, final Object[] packet, final ThreadState state) {
         if (packet[PACKET_STATIC_MATRIX_INDEX] != null) {
             state.staticHits++;
             final float[] data = (float[]) packet[PACKET_STATIC_DATA_INDEX];
@@ -535,12 +536,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
                 null,
                 OBJECT_INTERNAL,
                 new String[] {BIFUNCTION_INTERNAL});
-        cw.visitField(
-                        Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
-                        STATIC_GETTER_FIELD,
-                        METHOD_HANDLE_DESC,
-                        null,
-                        null)
+        cw.visitField(Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, STATIC_GETTER_FIELD, METHOD_HANDLE_DESC, null, null)
                 .visitEnd();
 
         final MethodVisitor clinit = cw.visitMethod(Opcodes.ACC_STATIC, CLINIT_METHOD, VOID_DESC, null, null);
@@ -559,8 +555,8 @@ public final class MatrixScratchBridge implements AutoCloseable {
 
         emitDefaultConstructor(cw);
 
-        final MethodVisitor mv = cw.visitMethod(
-                Opcodes.ACC_PUBLIC, BIFUNCTION_APPLY_METHOD, BIFUNCTION_APPLY_DESC, null, null);
+        final MethodVisitor mv =
+                cw.visitMethod(Opcodes.ACC_PUBLIC, BIFUNCTION_APPLY_METHOD, BIFUNCTION_APPLY_DESC, null, null);
         mv.visitCode();
         mv.visitVarInsn(Opcodes.ALOAD, LOCAL_ARG_1);
         mv.visitTypeInsn(Opcodes.CHECKCAST, MatrixScratchTransformer.OWNER);
@@ -571,11 +567,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
 
         mv.visitVarInsn(Opcodes.ALOAD, LOCAL_ARG_1);
         mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                MatrixScratchTransformer.OWNER,
-                GET_ENTITY_METHOD,
-                GET_ENTITY_DESCRIPTOR,
-                false);
+                Opcodes.INVOKEVIRTUAL, MatrixScratchTransformer.OWNER, GET_ENTITY_METHOD, GET_ENTITY_DESCRIPTOR, false);
         mv.visitVarInsn(Opcodes.ASTORE, LOCAL_FIRST_WORK);
         final Label hasEntity = new Label();
         mv.visitVarInsn(Opcodes.ALOAD, LOCAL_FIRST_WORK);
@@ -587,8 +579,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
         mv.visitVarInsn(Opcodes.ALOAD, LOCAL_ARG_2);
         mv.visitIntInsn(Opcodes.BIPUSH, PACKET_PARENT_INDEX);
         mv.visitVarInsn(Opcodes.ALOAD, LOCAL_FIRST_WORK);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, ENTITY_OWNER, GET_PARENT_METHOD, GET_PARENT_DESCRIPTOR, false);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, ENTITY_OWNER, GET_PARENT_METHOD, GET_PARENT_DESCRIPTOR, false);
         mv.visitInsn(Opcodes.AASTORE);
 
         emitStaticAndVectorRead(mv, LOCAL_ARG_1, LOCAL_ARG_2, true);
@@ -609,8 +600,8 @@ public final class MatrixScratchBridge implements AutoCloseable {
                 new String[] {BIFUNCTION_INTERNAL});
         emitDefaultConstructor(cw);
 
-        final MethodVisitor mv = cw.visitMethod(
-                Opcodes.ACC_PUBLIC, BIFUNCTION_APPLY_METHOD, BIFUNCTION_APPLY_DESC, null, null);
+        final MethodVisitor mv =
+                cw.visitMethod(Opcodes.ACC_PUBLIC, BIFUNCTION_APPLY_METHOD, BIFUNCTION_APPLY_DESC, null, null);
         mv.visitCode();
         mv.visitVarInsn(Opcodes.ALOAD, LOCAL_ARG_1);
         mv.visitTypeInsn(Opcodes.CHECKCAST, ENTITY_OWNER);
@@ -620,8 +611,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
         mv.visitVarInsn(Opcodes.ASTORE, LOCAL_ARG_2);
 
         mv.visitVarInsn(Opcodes.ALOAD, LOCAL_ARG_1);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, ENTITY_OWNER, GET_TRANSFORM_METHOD, GET_TRANSFORM_DESCRIPTOR, false);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, ENTITY_OWNER, GET_TRANSFORM_METHOD, GET_TRANSFORM_DESCRIPTOR, false);
         mv.visitVarInsn(Opcodes.ASTORE, LOCAL_FIRST_WORK);
         final Label hasTransform = new Label();
         mv.visitVarInsn(Opcodes.ALOAD, LOCAL_FIRST_WORK);
@@ -633,8 +623,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
         mv.visitVarInsn(Opcodes.ALOAD, LOCAL_ARG_2);
         mv.visitIntInsn(Opcodes.BIPUSH, PACKET_PARENT_INDEX);
         mv.visitVarInsn(Opcodes.ALOAD, LOCAL_ARG_1);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, ENTITY_OWNER, GET_PARENT_METHOD, GET_PARENT_DESCRIPTOR, false);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, ENTITY_OWNER, GET_PARENT_METHOD, GET_PARENT_DESCRIPTOR, false);
         mv.visitInsn(Opcodes.AASTORE);
 
         emitStaticAndVectorRead(mv, LOCAL_FIRST_WORK, LOCAL_ARG_2, false);
@@ -655,8 +644,8 @@ public final class MatrixScratchBridge implements AutoCloseable {
                 new String[] {FUNCTION_INTERNAL});
         emitDefaultConstructor(cw);
 
-        final MethodVisitor mv = cw.visitMethod(
-                Opcodes.ACC_PUBLIC, FUNCTION_APPLY_METHOD, FUNCTION_APPLY_DESC, null, null);
+        final MethodVisitor mv =
+                cw.visitMethod(Opcodes.ACC_PUBLIC, FUNCTION_APPLY_METHOD, FUNCTION_APPLY_DESC, null, null);
         mv.visitCode();
         mv.visitVarInsn(Opcodes.ALOAD, LOCAL_ARG_1);
         mv.visitTypeInsn(Opcodes.CHECKCAST, OBJECT_ARRAY_INTERNAL);
@@ -689,10 +678,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
     }
 
     private static void emitStaticAndVectorRead(
-            final MethodVisitor mv,
-            final int transformLocal,
-            final int packetLocal,
-            final boolean returnBooleanTrue) {
+            final MethodVisitor mv, final int transformLocal, final int packetLocal, final boolean returnBooleanTrue) {
         mv.visitFieldInsn(Opcodes.GETSTATIC, SELF_READER_INTERNAL, STATIC_GETTER_FIELD, METHOD_HANDLE_DESC);
         mv.visitVarInsn(Opcodes.ALOAD, transformLocal);
         mv.visitMethodInsn(
@@ -730,27 +716,15 @@ public final class MatrixScratchBridge implements AutoCloseable {
 
         mv.visitVarInsn(Opcodes.ALOAD, transformLocal);
         mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                MatrixScratchTransformer.OWNER,
-                GET_POSITION_METHOD,
-                VECTOR3_DESCRIPTOR,
-                false);
+                Opcodes.INVOKEVIRTUAL, MatrixScratchTransformer.OWNER, GET_POSITION_METHOD, VECTOR3_DESCRIPTOR, false);
         mv.visitVarInsn(Opcodes.ASTORE, LOCAL_POSITION);
         mv.visitVarInsn(Opcodes.ALOAD, transformLocal);
         mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                MatrixScratchTransformer.OWNER,
-                GET_EULER_METHOD,
-                VECTOR3_DESCRIPTOR,
-                false);
+                Opcodes.INVOKEVIRTUAL, MatrixScratchTransformer.OWNER, GET_EULER_METHOD, VECTOR3_DESCRIPTOR, false);
         mv.visitVarInsn(Opcodes.ASTORE, LOCAL_EULER);
         mv.visitVarInsn(Opcodes.ALOAD, transformLocal);
         mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                MatrixScratchTransformer.OWNER,
-                GET_SCALE_METHOD,
-                VECTOR3_DESCRIPTOR,
-                false);
+                Opcodes.INVOKEVIRTUAL, MatrixScratchTransformer.OWNER, GET_SCALE_METHOD, VECTOR3_DESCRIPTOR, false);
         mv.visitVarInsn(Opcodes.ASTORE, LOCAL_SCALE);
 
         final Label missingVec = new Label();
@@ -848,9 +822,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
         private Object bootstrapPayload;
 
         AccessorLoader(
-                final ClassLoader parent,
-                final Map<String, byte[]> classes,
-                final MethodHandle bootstrapPayload) {
+                final ClassLoader parent, final Map<String, byte[]> classes, final MethodHandle bootstrapPayload) {
             super(parent);
             this.classes = classes;
             this.bootstrapPayload = bootstrapPayload;

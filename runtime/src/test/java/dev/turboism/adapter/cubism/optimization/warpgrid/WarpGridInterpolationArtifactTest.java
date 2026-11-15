@@ -78,12 +78,7 @@ class WarpGridInterpolationArtifactTest {
                 final WarpGridInterpolationTransformer transformer =
                         new WarpGridInterpolationTransformer(loader, artifact, original, target);
                 final byte[] rewrittenBytes = transformer.transform(
-                        null,
-                        loader,
-                        WarpGridInterpolationTarget.OWNER,
-                        null,
-                        protectionDomain(artifact),
-                        original);
+                        null, loader, WarpGridInterpolationTarget.OWNER, null, protectionDomain(artifact), original);
                 assertNotNull(rewrittenBytes, version + ": " + transformer.failure());
                 assertEquals(1, transformer.matches(), version);
                 assertNull(transformer.failure(), version);
@@ -137,8 +132,7 @@ class WarpGridInterpolationArtifactTest {
             try (WarpGridInterpolationBridge bridge = WarpGridInterpolationBridge.open(rewrittenLoader)) {
                 bridge.install();
                 final MethodHandle publishedHandle = assertInstanceOf(
-                        MethodHandle.class,
-                        System.getProperties().get(WarpGridInterpolationBridge.OOB_PROPERTY));
+                        MethodHandle.class, System.getProperties().get(WarpGridInterpolationBridge.OOB_PROPERTY));
                 assertEquals(
                         WarpGridInterpolationTarget.DESCRIPTOR,
                         publishedHandle.type().descriptorString());
@@ -175,24 +169,42 @@ class WarpGridInterpolationArtifactTest {
 
         // Edge cases covering every border triangle band, far OOB, NaN, -0.0f, Inf, and nextDown(1.0f).
         final float[] edgePts = {
-            -0.0f, -0.0f,
-            1.0f, 1.0f,
-            Math.nextDown(1.0f), 0.5f,
-            -0.5f, -0.5f,
-            -0.5f, 1.5f,
-            -0.5f, 0.4f,
-            1.5f, -0.5f,
-            1.5f, 1.5f,
-            1.5f, 0.6f,
-            0.4f, -0.5f,
-            0.6f, 1.5f,
-            -2.0f, 0.5f,
-            3.0f, 0.5f,
-            -3.5f, 4.25f,
-            Float.NaN, 0.25f,
-            0.25f, Float.NaN,
-            Float.POSITIVE_INFINITY, 0.5f,
-            0.0f, Math.nextDown(1.0f)
+            -0.0f,
+            -0.0f,
+            1.0f,
+            1.0f,
+            Math.nextDown(1.0f),
+            0.5f,
+            -0.5f,
+            -0.5f,
+            -0.5f,
+            1.5f,
+            -0.5f,
+            0.4f,
+            1.5f,
+            -0.5f,
+            1.5f,
+            1.5f,
+            1.5f,
+            0.6f,
+            0.4f,
+            -0.5f,
+            0.6f,
+            1.5f,
+            -2.0f,
+            0.5f,
+            3.0f,
+            0.5f,
+            -3.5f,
+            4.25f,
+            Float.NaN,
+            0.25f,
+            0.25f,
+            Float.NaN,
+            Float.POSITIVE_INFINITY,
+            0.5f,
+            0.0f,
+            Math.nextDown(1.0f)
         };
         final int count = edgePts.length / COORD_STRIDE;
         assertBitParity(original, rewritten, edgePts, count, 0, COORD_STRIDE, regularGrid, 3, 2, true, false);
@@ -299,7 +311,8 @@ class WarpGridInterpolationArtifactTest {
                 int.class,
                 int.class,
                 boolean.class);
-        final MethodHandle handle = java.lang.invoke.MethodHandles.lookup().unreflect(method).bindTo(singleton);
+        final MethodHandle handle =
+                java.lang.invoke.MethodHandles.lookup().unreflect(method).bindTo(singleton);
         return handle::invokeExact;
     }
 
@@ -324,7 +337,8 @@ class WarpGridInterpolationArtifactTest {
     private static URL[] urlsUnder(final Path directory) throws Exception {
         final List<URL> urls = new ArrayList<>();
         try (var files = Files.walk(directory, MAX_WALK_DEPTH)) {
-            for (final Path path : files.filter(p -> p.toString().endsWith(JAR_EXTENSION)).toList()) {
+            for (final Path path :
+                    files.filter(p -> p.toString().endsWith(JAR_EXTENSION)).toList()) {
                 urls.add(path.toUri().toURL());
             }
         }
@@ -349,12 +363,7 @@ class WarpGridInterpolationArtifactTest {
             final Invocation original, final Invocation rewritten, final WarpGridInterpolationBridge bridge)
             throws Throwable {
         final float[] grid = buildGrid(2, 2, 5.0f, -3.0f, 12.0f, 8.0f, false);
-        final float[] mixed = {
-            0.25f, 0.25f,
-            1.0f, 0.5f,
-            0.5f, 0.75f,
-            -0.5f, 1.5f
-        };
+        final float[] mixed = {0.25f, 0.25f, 1.0f, 0.5f, 0.5f, 0.75f, -0.5f, 1.5f};
         final int count = mixed.length / COORD_STRIDE;
 
         assertBitParity(original, rewritten, mixed, count, 0, COORD_STRIDE, grid, 2, 2, true, false);
@@ -467,8 +476,8 @@ class WarpGridInterpolationArtifactTest {
     }
 
     private static Path referenceRoot() {
-        final String configured = System.getProperty(
-                REF_DIR_PROPERTY, System.getenv().getOrDefault(REF_DIR_ENV, ""));
+        final String configured =
+                System.getProperty(REF_DIR_PROPERTY, System.getenv().getOrDefault(REF_DIR_ENV, ""));
         assumeTrue(!configured.isBlank(), "exact Cubism reference directory not configured");
         final Path root = Path.of(configured);
         assumeTrue(Files.isDirectory(root), "reference directory absent: " + root);

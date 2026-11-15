@@ -44,7 +44,8 @@ public final class WarpNormalPointElisionTransformer implements ClassFileTransfo
             final byte[] reference,
             final WarpNormalPointElisionTarget target) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         Objects.requireNonNull(reference, "reference");
         Objects.requireNonNull(target, "target");
         methodShape = ReviewedMethodShape.read(
@@ -133,7 +134,9 @@ public final class WarpNormalPointElisionTransformer implements ClassFileTransfo
     }
 
     private boolean matchesArtifactSource(final ProtectionDomain domain) {
-        if (domain == null || domain.getCodeSource() == null || domain.getCodeSource().getLocation() == null) {
+        if (domain == null
+                || domain.getCodeSource() == null
+                || domain.getCodeSource().getLocation() == null) {
             return false;
         }
         try {
@@ -146,8 +149,7 @@ public final class WarpNormalPointElisionTransformer implements ClassFileTransfo
         }
     }
 
-    private static MethodVisitor wrapDrawNormalPoint(
-            final MethodVisitor downstream, final int[] localSites) {
+    private static MethodVisitor wrapDrawNormalPoint(final MethodVisitor downstream, final int[] localSites) {
         return new MethodVisitor(Opcodes.ASM9, downstream) {
             private boolean afterHighlightCheck;
             private boolean injected;

@@ -221,18 +221,15 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
     private static final String HELPER_ACCUMULATE_MORPHS_DESC =
             "(L" + HASH_MAP_INTERNAL + ";L" + ParameterRowRepaintTarget.MORPH_TARGET_SET_OWNER + ";IJ)V";
     private static final String HELPER_RECORD_BUCKET_METHOD = "recordBucket";
-    private static final String HELPER_RECORD_BUCKET_DESC =
-            "(L" + HASH_MAP_INTERNAL + ";" + OBJECT_DESC + "J)V";
+    private static final String HELPER_RECORD_BUCKET_DESC = "(L" + HASH_MAP_INTERNAL + ";" + OBJECT_DESC + "J)V";
     private static final String HELPER_MIX_SINGLE_WIDGET_METHOD = "mixSingleWidget";
-    private static final String HELPER_MIX_SINGLE_WIDGET_DESC =
-            "(JL" + ParameterRowRepaintTarget.WIDGET_OWNER + ";)J";
+    private static final String HELPER_MIX_SINGLE_WIDGET_DESC = "(JL" + ParameterRowRepaintTarget.WIDGET_OWNER + ";)J";
     private static final String HELPER_READ_UNDO_STATE_METHOD = "readUndoState";
-    private static final String HELPER_READ_UNDO_STATE_DESC =
-            "(L" + ParameterRowRepaintTarget.UNDO_MANAGER_OWNER + ";"
-                    + OBJECT_ARRAY_INTERNAL
-                    + "I"
-                    + LONG_ARRAY_INTERNAL
-                    + "II)Z";
+    private static final String HELPER_READ_UNDO_STATE_DESC = "(L" + ParameterRowRepaintTarget.UNDO_MANAGER_OWNER + ";"
+            + OBJECT_ARRAY_INTERNAL
+            + "I"
+            + LONG_ARRAY_INTERNAL
+            + "II)Z";
 
     private static final String INIT_METHOD = "<init>";
     private static final String VOID_DESC = "()V";
@@ -389,16 +386,14 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
             linkedTopUndoRef = null;
         }
 
-        private static boolean sameRef(
-                final WeakReference<Object> cached, final boolean hadValue, final Object live) {
+        private static boolean sameRef(final WeakReference<Object> cached, final boolean hadValue, final Object live) {
             if (!hadValue) {
                 return live == null;
             }
             return cached != null && live != null && cached.refersTo(live);
         }
 
-        private static WeakReference<Object> updateRef(
-                final WeakReference<Object> existing, final Object target) {
+        private static WeakReference<Object> updateRef(final WeakReference<Object> existing, final Object target) {
             if (target == null) {
                 return null;
             }
@@ -430,8 +425,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
      * @throws ReflectiveOperationException when any reviewed member is unavailable
      */
     @SuppressWarnings("unchecked")
-    public ParameterRowRepaintBridge(
-            final ClassLoader loader, final ParameterRowRepaintTarget target)
+    public ParameterRowRepaintBridge(final ClassLoader loader, final ParameterRowRepaintTarget target)
             throws ReflectiveOperationException {
         Objects.requireNonNull(loader, "loader");
         Objects.requireNonNull(target, "target");
@@ -484,14 +478,12 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         rowPacket[ROW_PACKET_GROUP_COLOR_INDEX] = groupColorScratch;
         visualPacket[VISUAL_PACKET_HASH_INDEX] = hashScratch;
 
-        final boolean controllableIsInterface =
-                HostHandles.load(loader, ParameterRowRepaintTarget.CONTROLLABLE_INTERFACE)
-                        .isInterface();
+        final boolean controllableIsInterface = HostHandles.load(
+                        loader, ParameterRowRepaintTarget.CONTROLLABLE_INTERFACE)
+                .isInterface();
         final Map<String, byte[]> generated = new HashMap<>();
         generated.put(binaryName(EDIT_STATE_READER_INTERNAL), buildEditStateReaderClass(loader));
-        generated.put(
-                binaryName(KEYFORM_HASHER_INTERNAL),
-                buildKeyformHasherClass(loader, controllableIsInterface));
+        generated.put(binaryName(KEYFORM_HASHER_INTERNAL), buildKeyformHasherClass(loader, controllableIsInterface));
         generated.put(binaryName(ROW_CLASSIFIER_INTERNAL), buildRowClassifierClass(loader));
         generated.put(binaryName(ROW_SYNC_1_INTERNAL), buildRowSyncerClass(loader, ROW_SYNC_1_INTERNAL, false));
         generated.put(binaryName(ROW_SYNC_2_INTERNAL), buildRowSyncerClass(loader, ROW_SYNC_2_INTERNAL, true));
@@ -511,21 +503,19 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         rowClassifier = (ToIntFunction<Object>) instantiate(accessorLoader, ROW_CLASSIFIER_INTERNAL);
         rowSyncer1 = (BiPredicate<Object, Object>) instantiate(accessorLoader, ROW_SYNC_1_INTERNAL);
         rowSyncer2 = (BiPredicate<Object, Object>) instantiate(accessorLoader, ROW_SYNC_2_INTERNAL);
-        paramSourceHasher = (BiFunction<Object, Object, Object>)
-                instantiate(accessorLoader, PARAM_SOURCE_HASHER_INTERNAL);
-        widgetVisualHasher = (BiConsumer<Object, Object>)
-                instantiate(accessorLoader, WIDGET_VISUAL_HASHER_INTERNAL);
-        singleRowAccessor = (BiFunction<Object, Object, Object>)
-                instantiate(accessorLoader, SINGLE_ROW_ACCESSOR_INTERNAL);
-        doubleRowAccessor = (BiFunction<Object, Object, Object>)
-                instantiate(accessorLoader, DOUBLE_ROW_ACCESSOR_INTERNAL);
+        paramSourceHasher =
+                (BiFunction<Object, Object, Object>) instantiate(accessorLoader, PARAM_SOURCE_HASHER_INTERNAL);
+        widgetVisualHasher = (BiConsumer<Object, Object>) instantiate(accessorLoader, WIDGET_VISUAL_HASHER_INTERNAL);
+        singleRowAccessor =
+                (BiFunction<Object, Object, Object>) instantiate(accessorLoader, SINGLE_ROW_ACCESSOR_INTERNAL);
+        doubleRowAccessor =
+                (BiFunction<Object, Object, Object>) instantiate(accessorLoader, DOUBLE_ROW_ACCESSOR_INTERNAL);
         doubleRowResizer = (Consumer<Object>) instantiate(accessorLoader, DOUBLE_ROW_RESIZER_INTERNAL);
-        groupRowAccessor = (BiFunction<Object, Object, Object>)
-                instantiate(accessorLoader, GROUP_ROW_ACCESSOR_INTERNAL);
+        groupRowAccessor =
+                (BiFunction<Object, Object, Object>) instantiate(accessorLoader, GROUP_ROW_ACCESSOR_INTERNAL);
         widgetRepainter = (Consumer<Object>) instantiate(accessorLoader, WIDGET_REPAINTER_INTERNAL);
         modelParamSetReader = (Function<Object, Object>) instantiate(accessorLoader, MODEL_PARAM_SET_INTERNAL);
-        rowLayoutChildrenReader = (Function<Object, Object>)
-                instantiate(accessorLoader, ROW_LAYOUT_CHILDREN_INTERNAL);
+        rowLayoutChildrenReader = (Function<Object, Object>) instantiate(accessorLoader, ROW_LAYOUT_CHILDREN_INTERNAL);
     }
 
     /** Publishes incremental selection and invalidation callbacks into {@link System#getProperties()}. */
@@ -637,8 +627,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         final Object paramSet = modelParamSetReader.apply(model);
 
         ControllerSnapshot snapshot = cache.get(controller);
-        final boolean baseline = isStructuralMismatch(
-                snapshot, doc, model, rootChildren.size(), flatRows.size());
+        final boolean baseline = isStructuralMismatch(snapshot, doc, model, rootChildren.size(), flatRows.size());
         if (baseline) {
             snapshot = new ControllerSnapshot(doc, model);
             snapshot.rootChildrenCount = rootChildren.size();
@@ -650,8 +639,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         }
 
         final long passId = ++snapshot.passId;
-        final boolean selectionChanged =
-                baseline || !sameElements(snapshot.selectedObjects, selectedObjects);
+        final boolean selectionChanged = baseline || !sameElements(snapshot.selectedObjects, selectedObjects);
         if (selectionChanged) {
             snapshot.selectedObjects = copyRefs(selectedObjects);
         }
@@ -696,12 +684,10 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
             editStateRefs[EDIT_REF_DOC] = null;
             editStateRefs[EDIT_REF_MODEL] = null;
         }
-        final boolean editIdle = hasEditState
-                && editStateLongs[EDIT_LONG_EDITING] == 0L
-                && editStateRefs[EDIT_REF_CURRENT_UNDO] == null;
-        final boolean skipKeyformHash = !baseline
-                && editIdle
-                && snapshot.matchesEditState(editStateRefs, editStateLongs);
+        final boolean editIdle =
+                hasEditState && editStateLongs[EDIT_LONG_EDITING] == 0L && editStateRefs[EDIT_REF_CURRENT_UNDO] == null;
+        final boolean skipKeyformHash =
+                !baseline && editIdle && snapshot.matchesEditState(editStateRefs, editStateLongs);
         if (skipKeyformHash) {
             keyformElidedPasses++;
             Arrays.fill(editStateRefs, null);
@@ -777,8 +763,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         final Object param1Guid = paramSourceHasher.apply(paramSource, hashScratch);
         final boolean rowSelected = containsRef(context.selectedPaletteRows(), widget);
         final long keyformHash = lookupKeyformHash(context.snapshot().keyformHashes, param1Guid);
-        final boolean highlightChanged =
-                param1Guid != null && Objects.equals(param1Guid, context.highlightGuid());
+        final boolean highlightChanged = param1Guid != null && Objects.equals(param1Guid, context.highlightGuid());
 
         long hash = hashScratch[0];
         hash = mix64(hash, keyformHash);
@@ -798,8 +783,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         state.visualHash = hash;
 
         final boolean forceSync = context.baseline() || isNew;
-        final boolean valueChanged =
-                syncRowValue(widget, context.paramSet(), rowSyncer1, state.val1Bits, forceSync);
+        final boolean valueChanged = syncRowValue(widget, context.paramSet(), rowSyncer1, state.val1Bits, forceSync);
         if (visualChanged && !valueChanged) {
             widgetRepainter.accept(widget);
         }
@@ -837,9 +821,8 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         }
 
         final boolean rowSelected = containsRef(context.selectedPaletteRows(), widget);
-        final boolean highlightChanged =
-                (param1Guid != null && Objects.equals(param1Guid, context.highlightGuid()))
-                        || (param2Guid != null && Objects.equals(param2Guid, context.highlightGuid()));
+        final boolean highlightChanged = (param1Guid != null && Objects.equals(param1Guid, context.highlightGuid()))
+                || (param2Guid != null && Objects.equals(param2Guid, context.highlightGuid()));
 
         long hash = mix64(hashScratch[0], resizeHash);
         hash = mixFlag(hash, locked);
@@ -857,10 +840,8 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         state.visualHash = hash;
 
         final boolean forceSync = context.baseline() || isNew;
-        final boolean val1Changed =
-                syncRowValue(widget, context.paramSet(), rowSyncer1, state.val1Bits, forceSync);
-        final boolean val2Changed =
-                syncRowValue(widget, context.paramSet(), rowSyncer2, state.val2Bits, forceSync);
+        final boolean val1Changed = syncRowValue(widget, context.paramSet(), rowSyncer1, state.val1Bits, forceSync);
+        final boolean val2Changed = syncRowValue(widget, context.paramSet(), rowSyncer2, state.val2Bits, forceSync);
         final boolean valueChanged = val1Changed || val2Changed;
 
         if (visualChanged && !valueChanged) {
@@ -1048,33 +1029,23 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         final Class<?> foldingPaneType = HostHandles.load(loader, ParameterRowRepaintTarget.FOLDING_PANE_OWNER);
         final Class<?> blockerType = HostHandles.load(loader, ParameterRowRepaintTarget.BLOCKER_OWNER);
         final Class<?> colorType = HostHandles.load(loader, ParameterRowRepaintTarget.COLOR_OWNER);
-        final Class<?> paramGroupType =
-                HostHandles.load(loader, ParameterRowRepaintTarget.PARAMETER_GROUP_OWNER);
+        final Class<?> paramGroupType = HostHandles.load(loader, ParameterRowRepaintTarget.PARAMETER_GROUP_OWNER);
         final Class<?> modelType = HostHandles.load(loader, ParameterRowRepaintTarget.MODEL_OWNER);
         final Class<?> paramSetType = HostHandles.load(loader, ParameterRowRepaintTarget.PARAMETER_SET_OWNER);
         final Class<?> paramType = HostHandles.load(loader, ParameterRowRepaintTarget.PARAMETER_OWNER);
-        final Class<?> paramSourceType =
-                HostHandles.load(loader, ParameterRowRepaintTarget.PARAMETER_SOURCE_OWNER);
-        final Class<?> controllableType =
-                HostHandles.load(loader, ParameterRowRepaintTarget.CONTROLLABLE_INTERFACE);
+        final Class<?> paramSourceType = HostHandles.load(loader, ParameterRowRepaintTarget.PARAMETER_SOURCE_OWNER);
+        final Class<?> controllableType = HostHandles.load(loader, ParameterRowRepaintTarget.CONTROLLABLE_INTERFACE);
         final Class<?> controllableSourceType =
                 HostHandles.load(loader, ParameterRowRepaintTarget.CONTROLLABLE_SOURCE_OWNER);
-        final Class<?> gridSourceType =
-                HostHandles.load(loader, ParameterRowRepaintTarget.KEYFORM_GRID_SOURCE_OWNER);
+        final Class<?> gridSourceType = HostHandles.load(loader, ParameterRowRepaintTarget.KEYFORM_GRID_SOURCE_OWNER);
         final Class<?> bindingSourceType =
                 HostHandles.load(loader, ParameterRowRepaintTarget.KEYFORM_BINDING_SOURCE_OWNER);
-        final Class<?> morphSetType =
-                HostHandles.load(loader, ParameterRowRepaintTarget.MORPH_TARGET_SET_OWNER);
-        final Class<?> morphTargetType =
-                HostHandles.load(loader, ParameterRowRepaintTarget.MORPH_TARGET_OWNER);
-        final Class<?> modelingDocType =
-                HostHandles.load(loader, ParameterRowRepaintTarget.MODELING_DOCUMENT_OWNER);
-        final Class<?> editModeBaseType =
-                HostHandles.load(loader, ParameterRowRepaintTarget.EDIT_MODE_BASE_OWNER);
-        final Class<?> editModeType =
-                HostHandles.load(loader, ParameterRowRepaintTarget.EDIT_MODE_OWNER);
-        final Class<?> undoManagerType =
-                HostHandles.load(loader, ParameterRowRepaintTarget.UNDO_MANAGER_OWNER);
+        final Class<?> morphSetType = HostHandles.load(loader, ParameterRowRepaintTarget.MORPH_TARGET_SET_OWNER);
+        final Class<?> morphTargetType = HostHandles.load(loader, ParameterRowRepaintTarget.MORPH_TARGET_OWNER);
+        final Class<?> modelingDocType = HostHandles.load(loader, ParameterRowRepaintTarget.MODELING_DOCUMENT_OWNER);
+        final Class<?> editModeBaseType = HostHandles.load(loader, ParameterRowRepaintTarget.EDIT_MODE_BASE_OWNER);
+        final Class<?> editModeType = HostHandles.load(loader, ParameterRowRepaintTarget.EDIT_MODE_OWNER);
+        final Class<?> undoManagerType = HostHandles.load(loader, ParameterRowRepaintTarget.UNDO_MANAGER_OWNER);
         HostHandles.load(loader, ParameterRowRepaintTarget.GROUP_UNDO_OWNER);
         if (!editModeType.isAssignableFrom(editModeBaseType)) {
             throw new ReflectiveOperationException(
@@ -1734,11 +1705,12 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
 
     private static Object instantiate(final ClassLoader loader, final String internalName)
             throws ReflectiveOperationException {
-        return Class.forName(binaryName(internalName), true, loader).getConstructor().newInstance();
+        return Class.forName(binaryName(internalName), true, loader)
+                .getConstructor()
+                .newInstance();
     }
 
-    private static byte[] buildKeyformHasherClass(
-            final ClassLoader hostLoader, final boolean controllableIsInterface) {
+    private static byte[] buildKeyformHasherClass(final ClassLoader hostLoader, final boolean controllableIsInterface) {
         final ClassWriter cw = frameWriter(hostLoader);
         cw.visit(
                 Opcodes.V17,
@@ -1853,11 +1825,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
     }
 
     private static void emitGridAccumulateCall(
-            final MethodVisitor mv,
-            final int sourceLocal,
-            final int idxLocal,
-            final String method,
-            final long salt) {
+            final MethodVisitor mv, final int sourceLocal, final int idxLocal, final String method, final long salt) {
         mv.visitVarInsn(Opcodes.ALOAD, LOCAL_ARG_2);
         mv.visitVarInsn(Opcodes.ALOAD, sourceLocal);
         mv.visitMethodInsn(
@@ -1886,11 +1854,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         mv.visitVarInsn(Opcodes.ALOAD, LOCAL_ARG_2);
         mv.visitVarInsn(Opcodes.ALOAD, sourceLocal);
         mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                ParameterRowRepaintTarget.CONTROLLABLE_SOURCE_OWNER,
-                method,
-                descriptor,
-                false);
+                Opcodes.INVOKEVIRTUAL, ParameterRowRepaintTarget.CONTROLLABLE_SOURCE_OWNER, method, descriptor, false);
         mv.visitVarInsn(Opcodes.ILOAD, idxLocal);
         mv.visitLdcInsn(salt);
         mv.visitMethodInsn(
@@ -2026,8 +1990,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         mv.visitLabel(isFloat);
         mv.visitTypeInsn(Opcodes.CHECKCAST, FLOAT_INTERNAL);
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, FLOAT_INTERNAL, FLOAT_VALUE_METHOD, FLOAT_VALUE_DESC, false);
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, FLOAT_INTERNAL, FLOAT_TO_BITS_METHOD, FLOAT_TO_BITS_DESC, false);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, FLOAT_INTERNAL, FLOAT_TO_BITS_METHOD, FLOAT_TO_BITS_DESC, false);
 
         mv.visitLabel(afterBits);
         mv.visitVarInsn(Opcodes.ISTORE, bitsLocal);
@@ -2153,8 +2116,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         mv.visitJumpInsn(Opcodes.IFNULL, keyNull);
         mv.visitVarInsn(Opcodes.ALOAD, keyValueLocal);
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, FLOAT_INTERNAL, FLOAT_VALUE_METHOD, FLOAT_VALUE_DESC, false);
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, FLOAT_INTERNAL, FLOAT_TO_BITS_METHOD, FLOAT_TO_BITS_DESC, false);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, FLOAT_INTERNAL, FLOAT_TO_BITS_METHOD, FLOAT_TO_BITS_DESC, false);
         mv.visitInsn(Opcodes.I2L);
         mv.visitJumpInsn(Opcodes.GOTO, afterKey);
         mv.visitLabel(keyNull);
@@ -2255,8 +2217,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
                 new String[] {TO_INT_FUNCTION_INTERNAL});
         emitDefaultConstructor(cw);
 
-        final MethodVisitor mv = cw.visitMethod(
-                Opcodes.ACC_PUBLIC, APPLY_AS_INT_METHOD, APPLY_AS_INT_DESC, null, null);
+        final MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, APPLY_AS_INT_METHOD, APPLY_AS_INT_DESC, null, null);
         mv.visitCode();
         emitInstanceReturn(mv, ParameterRowRepaintTarget.SINGLE_ROW_OWNER, ROW_KIND_SINGLE);
         emitInstanceReturn(mv, ParameterRowRepaintTarget.DOUBLE_ROW_OWNER, ROW_KIND_DOUBLE);
@@ -2341,8 +2302,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         mv.visitIntInsn(Opcodes.BIPUSH, SYNC_CTX_FORCE_INDEX);
         mv.visitInsn(Opcodes.AALOAD);
         mv.visitTypeInsn(Opcodes.CHECKCAST, BOOLEAN_INTERNAL);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, BOOLEAN_INTERNAL, BOOLEAN_VALUE_METHOD, BOOLEAN_VALUE_DESC, false);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, BOOLEAN_INTERNAL, BOOLEAN_VALUE_METHOD, BOOLEAN_VALUE_DESC, false);
         mv.visitVarInsn(Opcodes.ISTORE, forceLocal);
 
         mv.visitVarInsn(Opcodes.ALOAD, rowLocal);
@@ -2387,8 +2347,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
                 false);
         mv.visitVarInsn(Opcodes.FSTORE, modelValLocal);
         mv.visitVarInsn(Opcodes.FLOAD, modelValLocal);
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, FLOAT_INTERNAL, FLOAT_TO_BITS_METHOD, FLOAT_TO_BITS_DESC, false);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, FLOAT_INTERNAL, FLOAT_TO_BITS_METHOD, FLOAT_TO_BITS_DESC, false);
         mv.visitVarInsn(Opcodes.ISTORE, modelBitsLocal);
 
         final String rowGetMethod = secondary
@@ -2405,8 +2364,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
                 rowGetMethod,
                 ParameterRowRepaintTarget.FLOAT_GETTER_DESCRIPTOR,
                 true);
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, FLOAT_INTERNAL, FLOAT_TO_BITS_METHOD, FLOAT_TO_BITS_DESC, false);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, FLOAT_INTERNAL, FLOAT_TO_BITS_METHOD, FLOAT_TO_BITS_DESC, false);
         mv.visitVarInsn(Opcodes.ISTORE, rowBitsLocal);
 
         final Label applySync = new Label();
@@ -2449,8 +2407,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
                 rowGetMethod,
                 ParameterRowRepaintTarget.FLOAT_GETTER_DESCRIPTOR,
                 true);
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, FLOAT_INTERNAL, FLOAT_TO_BITS_METHOD, FLOAT_TO_BITS_DESC, false);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, FLOAT_INTERNAL, FLOAT_TO_BITS_METHOD, FLOAT_TO_BITS_DESC, false);
         mv.visitInsn(Opcodes.IASTORE);
         mv.visitInsn(Opcodes.ICONST_1);
         mv.visitInsn(Opcodes.IRETURN);
@@ -2517,7 +2474,8 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
 
         mv.visitVarInsn(Opcodes.LLOAD, hashLocal);
         mv.visitVarInsn(Opcodes.ALOAD, guidLocal);
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, OBJECTS_INTERNAL, OBJECTS_HASHCODE_METHOD, OBJECTS_HASHCODE_DESC, false);
+        mv.visitMethodInsn(
+                Opcodes.INVOKESTATIC, OBJECTS_INTERNAL, OBJECTS_HASHCODE_METHOD, OBJECTS_HASHCODE_DESC, false);
         mv.visitInsn(Opcodes.I2L);
         mv.visitMethodInsn(
                 Opcodes.INVOKESTATIC, PARAM_SOURCE_HASHER_INTERNAL, HELPER_MIX64_METHOD, HELPER_MIX64_DESC, false);
@@ -2622,7 +2580,8 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
             final String desc) {
         mv.visitVarInsn(Opcodes.ALOAD, srcLocal);
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, srcOwner, method, desc, false);
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, OBJECTS_INTERNAL, OBJECTS_HASHCODE_METHOD, OBJECTS_HASHCODE_DESC, false);
+        mv.visitMethodInsn(
+                Opcodes.INVOKESTATIC, OBJECTS_INTERNAL, OBJECTS_HASHCODE_METHOD, OBJECTS_HASHCODE_DESC, false);
         mv.visitInsn(Opcodes.I2L);
         mv.visitMethodInsn(Opcodes.INVOKESTATIC, helperOwner, HELPER_MIX64_METHOD, HELPER_MIX64_DESC, false);
     }
@@ -2649,11 +2608,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
             final String method) {
         mv.visitVarInsn(Opcodes.ALOAD, srcLocal);
         mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                srcOwner,
-                method,
-                ParameterRowRepaintTarget.BOOLEAN_GETTER_DESCRIPTOR,
-                false);
+                Opcodes.INVOKEVIRTUAL, srcOwner, method, ParameterRowRepaintTarget.BOOLEAN_GETTER_DESCRIPTOR, false);
         mv.visitMethodInsn(Opcodes.INVOKESTATIC, helperOwner, HELPER_MIX_FLAG_METHOD, HELPER_MIX_FLAG_DESC, false);
     }
 
@@ -2753,7 +2708,11 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
                 ParameterRowRepaintTarget.BOOLEAN_GETTER_DESCRIPTOR,
                 false);
         mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, WIDGET_VISUAL_HASHER_INTERNAL, HELPER_MIX_FLAG_METHOD, HELPER_MIX_FLAG_DESC, false);
+                Opcodes.INVOKESTATIC,
+                WIDGET_VISUAL_HASHER_INTERNAL,
+                HELPER_MIX_FLAG_METHOD,
+                HELPER_MIX_FLAG_DESC,
+                false);
         mv.visitVarInsn(Opcodes.LSTORE, hashLocal);
 
         mv.visitVarInsn(Opcodes.ALOAD, widgetLocal);
@@ -2769,8 +2728,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         mv.visitJumpInsn(Opcodes.IFNULL, done);
 
         mv.visitVarInsn(Opcodes.ALOAD, compLocal);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, JCOMPONENT_INTERNAL, JCOMPONENT_BG_METHOD, JCOMPONENT_BG_DESC, false);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, JCOMPONENT_INTERNAL, JCOMPONENT_BG_METHOD, JCOMPONENT_BG_DESC, false);
         mv.visitVarInsn(Opcodes.ASTORE, jBgLocal);
 
         mv.visitVarInsn(Opcodes.LLOAD, hashLocal);
@@ -2800,8 +2758,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         mv.visitEnd();
     }
 
-    private static void emitMixComponentInt(
-            final MethodVisitor mv, final int compLocal, final String method) {
+    private static void emitMixComponentInt(final MethodVisitor mv, final int compLocal, final String method) {
         mv.visitVarInsn(Opcodes.ALOAD, compLocal);
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, JCOMPONENT_INTERNAL, method, INT_GETTER_DESC, false);
         mv.visitInsn(Opcodes.I2L);
@@ -3268,11 +3225,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
 
     private static void emitColorArgbHelper(final ClassWriter cw, final String helperOwner) {
         final MethodVisitor mv = cw.visitMethod(
-                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC,
-                HELPER_COLOR_ARGB_METHOD,
-                HELPER_COLOR_ARGB_DESC,
-                null,
-                null);
+                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, HELPER_COLOR_ARGB_METHOD, HELPER_COLOR_ARGB_DESC, null, null);
         mv.visitCode();
         final Label nonNullColor = new Label();
         mv.visitVarInsn(Opcodes.ALOAD, STATIC_SLOT_0);
@@ -3304,11 +3257,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
 
     private static void emitMixFlagHelper(final ClassWriter cw, final String helperOwner) {
         final MethodVisitor mv = cw.visitMethod(
-                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC,
-                HELPER_MIX_FLAG_METHOD,
-                HELPER_MIX_FLAG_DESC,
-                null,
-                null);
+                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, HELPER_MIX_FLAG_METHOD, HELPER_MIX_FLAG_DESC, null, null);
         mv.visitCode();
         mv.visitVarInsn(Opcodes.LLOAD, STATIC_SLOT_0);
         mv.visitVarInsn(Opcodes.ILOAD, STATIC_SLOT_2);
@@ -3328,11 +3277,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
 
     private static void emitMix64Helper(final ClassWriter cw, final String helperOwner) {
         final MethodVisitor mv = cw.visitMethod(
-                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC,
-                HELPER_MIX64_METHOD,
-                HELPER_MIX64_DESC,
-                null,
-                null);
+                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, HELPER_MIX64_METHOD, HELPER_MIX64_DESC, null, null);
         mv.visitCode();
         mv.visitVarInsn(Opcodes.LLOAD, STATIC_SLOT_0);
         mv.visitVarInsn(Opcodes.LLOAD, STATIC_SLOT_2);

@@ -79,13 +79,9 @@ class WeaveSpecTest {
                 VerifiedCursorValidationElisionInstaller.EXPECTED_MATCHES,
                 VerifiedCursorValidationElisionInstaller.HOOK_ID);
         assertEquals(
-                3,
-                VerifiedSceneHandlerCacheInstaller.EXPECTED_MATCHES,
-                VerifiedSceneHandlerCacheInstaller.HOOK_ID);
+                3, VerifiedSceneHandlerCacheInstaller.EXPECTED_MATCHES, VerifiedSceneHandlerCacheInstaller.HOOK_ID);
         assertEquals(
-                1,
-                VerifiedCameraMatrixCacheInstaller.EXPECTED_MATCHES,
-                VerifiedCameraMatrixCacheInstaller.HOOK_ID);
+                1, VerifiedCameraMatrixCacheInstaller.EXPECTED_MATCHES, VerifiedCameraMatrixCacheInstaller.HOOK_ID);
         assertEquals(
                 1,
                 VerifiedWarpNormalPointElisionInstaller.EXPECTED_MATCHES,
@@ -95,14 +91,10 @@ class WeaveSpecTest {
                 VerifiedWarpGridInterpolationInstaller.EXPECTED_MATCHES,
                 VerifiedWarpGridInterpolationInstaller.HOOK_ID);
         assertEquals(
-                1,
-                VerifiedParameterRowRepaintInstaller.EXPECTED_MATCHES,
-                VerifiedParameterRowRepaintInstaller.HOOK_ID);
+                1, VerifiedParameterRowRepaintInstaller.EXPECTED_MATCHES, VerifiedParameterRowRepaintInstaller.HOOK_ID);
         assertEquals(1, VerifiedMeshHitTestInstaller.EXPECTED_MATCHES, VerifiedMeshHitTestInstaller.HOOK_ID);
         assertEquals(
-                1,
-                VerifiedRenderPassTraversalInstaller.EXPECTED_MATCHES,
-                VerifiedRenderPassTraversalInstaller.HOOK_ID);
+                1, VerifiedRenderPassTraversalInstaller.EXPECTED_MATCHES, VerifiedRenderPassTraversalInstaller.HOOK_ID);
         assertEquals(
                 1,
                 VerifiedExtendedInterpolationSiblingInstaller.EXPECTED_MATCHES,
@@ -167,14 +159,8 @@ class WeaveSpecTest {
                 2,
                 VerifiedCursorValidationElisionInstaller.EXPECTED_OWNERS,
                 VerifiedCursorValidationElisionInstaller.HOOK_ID);
-        assertEquals(
-                3,
-                VerifiedSceneHandlerCacheInstaller.EXPECTED_OWNERS,
-                VerifiedSceneHandlerCacheInstaller.HOOK_ID);
-        assertEquals(
-                1,
-                VerifiedCameraMatrixCacheInstaller.EXPECTED_OWNERS,
-                VerifiedCameraMatrixCacheInstaller.HOOK_ID);
+        assertEquals(3, VerifiedSceneHandlerCacheInstaller.EXPECTED_OWNERS, VerifiedSceneHandlerCacheInstaller.HOOK_ID);
+        assertEquals(1, VerifiedCameraMatrixCacheInstaller.EXPECTED_OWNERS, VerifiedCameraMatrixCacheInstaller.HOOK_ID);
         assertEquals(
                 1,
                 VerifiedWarpNormalPointElisionInstaller.EXPECTED_OWNERS,
@@ -184,14 +170,10 @@ class WeaveSpecTest {
                 VerifiedWarpGridInterpolationInstaller.EXPECTED_OWNERS,
                 VerifiedWarpGridInterpolationInstaller.HOOK_ID);
         assertEquals(
-                1,
-                VerifiedParameterRowRepaintInstaller.EXPECTED_OWNERS,
-                VerifiedParameterRowRepaintInstaller.HOOK_ID);
+                1, VerifiedParameterRowRepaintInstaller.EXPECTED_OWNERS, VerifiedParameterRowRepaintInstaller.HOOK_ID);
         assertEquals(1, VerifiedMeshHitTestInstaller.EXPECTED_OWNERS, VerifiedMeshHitTestInstaller.HOOK_ID);
         assertEquals(
-                1,
-                VerifiedRenderPassTraversalInstaller.EXPECTED_OWNERS,
-                VerifiedRenderPassTraversalInstaller.HOOK_ID);
+                1, VerifiedRenderPassTraversalInstaller.EXPECTED_OWNERS, VerifiedRenderPassTraversalInstaller.HOOK_ID);
         assertEquals(
                 1,
                 VerifiedExtendedInterpolationSiblingInstaller.EXPECTED_OWNERS,

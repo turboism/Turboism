@@ -98,20 +98,11 @@ final class NativeOptimizationProtocolTableTest {
         }
         assertEquals(
                 Set.of(
-                        "TURBOISM_CAMERA_MATRIX_CACHE",
                         "TURBOISM_CANVAS_COMPOSITE",
                         "TURBOISM_CLIP_MASK_PROBE",
-                        "TURBOISM_CURSOR_VALIDATION_ELISION",
-                        "TURBOISM_EXTENDED_INTERPOLATION_SIBLING_ELISION",
                         "TURBOISM_GL_ERROR_ELISION",
-                        "TURBOISM_MESH_HIT_TEST",
-                        "TURBOISM_PARAMETER_ROW_REPAINT",
-                        "TURBOISM_RENDER_PASS_TRAVERSAL",
-                        "TURBOISM_SCENE_HANDLER_CACHE",
                         "TURBOISM_SORTING_INFO_CACHE",
-                        "TURBOISM_STATE_ELISION",
-                        "TURBOISM_WARP_GRID_INTERPOLATION",
-                        "TURBOISM_WARP_NORMAL_POINT_ELISION"),
+                        "TURBOISM_STATE_ELISION"),
                 diagnosticOnly);
     }
 

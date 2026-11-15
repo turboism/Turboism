@@ -81,8 +81,7 @@ public record ExtendedInterpolationSiblingTarget(HostArtifactDigest digest, Stri
     public static final String GET_PART_SOURCE_SET_METHOD = "getPartSourceSet";
 
     /** Descriptor of {@code CModelSource.getPartSourceSet()}. */
-    public static final String GET_PART_SOURCE_SET_DESCRIPTOR =
-            "()Lcom/live2d/cubism/doc/model/parts/CPartSourceSet;";
+    public static final String GET_PART_SOURCE_SET_DESCRIPTOR = "()Lcom/live2d/cubism/doc/model/parts/CPartSourceSet;";
 
     /** Linear all-objects getter name anchored on unmodified host bytecode. */
     public static final String GET_ALL_OBJECTS_METHOD = "getAllObjects";

@@ -97,12 +97,7 @@ class MeshHitTestArtifactTest {
                 final byte[] original = readClassBytes(artifact, MeshHitTestTarget.OWNER);
                 final MeshHitTestTransformer transformer = createTransformer(loader, artifact, original, target);
                 final byte[] rewrittenBytes = transformer.transform(
-                        null,
-                        loader,
-                        MeshHitTestTarget.OWNER,
-                        null,
-                        protectionDomain(artifact),
-                        original);
+                        null, loader, MeshHitTestTarget.OWNER, null, protectionDomain(artifact), original);
                 assertNotNull(rewrittenBytes, version + ": " + transformer.failure());
                 assertEquals(1, transformer.matches(), version);
                 assertEquals(MeshHitTestTransformer.EXPECTED_SITES, transformer.sites(), version);
@@ -111,15 +106,9 @@ class MeshHitTestArtifactTest {
                 // Verify fail-closed refusal for wrong loader, wrong domain, and altered shape.
                 try (URLClassLoader otherLoader = hostLoader(artifact.getParent())) {
                     assertNull(transformer.transform(
-                            null,
-                            otherLoader,
-                            MeshHitTestTarget.OWNER,
-                            null,
-                            protectionDomain(artifact),
-                            original));
+                            null, otherLoader, MeshHitTestTarget.OWNER, null, protectionDomain(artifact), original));
                 }
-                assertNull(transformer.transform(
-                        null, loader, MeshHitTestTarget.OWNER, null, null, original));
+                assertNull(transformer.transform(null, loader, MeshHitTestTarget.OWNER, null, null, original));
                 assertNull(transformer.transform(
                         null,
                         loader,
@@ -147,12 +136,7 @@ class MeshHitTestArtifactTest {
             final MeshHitTestTransformer transformer =
                     createTransformer(rewrittenLoader, artifact, originalBytes, target);
             final byte[] rewrittenBytes = transformer.transform(
-                    null,
-                    rewrittenLoader,
-                    MeshHitTestTarget.OWNER,
-                    null,
-                    protectionDomain(artifact),
-                    originalBytes);
+                    null, rewrittenLoader, MeshHitTestTarget.OWNER, null, protectionDomain(artifact), originalBytes);
             assertNotNull(rewrittenBytes, transformer.failure());
             final ProtectionDomain signedDomain =
                     Class.forName(OWNER_DOT_NAME, false, originalLoader).getProtectionDomain();
@@ -168,8 +152,8 @@ class MeshHitTestArtifactTest {
         }
     }
 
-    private static void verifyDeterministicParity(
-            final MeshHarness orig, final MeshHarness rewr, final boolean mesh3) throws Exception {
+    private static void verifyDeterministicParity(final MeshHarness orig, final MeshHarness rewr, final boolean mesh3)
+            throws Exception {
         final float[] positions = mesh3
                 ? new float[] {0.0f, 0.0f, 5.0f, 4.0f, 0.0f, -2.0f, 2.0f, 3.0f, 1.0f}
                 : new float[] {0.0f, 0.0f, 4.0f, 0.0f, 2.0f, 3.0f};
@@ -266,8 +250,8 @@ class MeshHitTestArtifactTest {
                 || !threadMx.isThreadAllocatedMemorySupported()) {
             return;
         }
-        final Object mesh = rewr.createMesh(
-                false, new float[] {0.0f, 0.0f, 4.0f, 0.0f, 2.0f, 3.0f}, new int[] {0, 1, 2});
+        final Object mesh =
+                rewr.createMesh(false, new float[] {0.0f, 0.0f, 4.0f, 0.0f, 2.0f, 3.0f}, new int[] {0, 1, 2});
         final Object outside = rewr.createPoint(10.0f, 10.0f);
         for (int i = 0; i < WARMUP_ITERS; i++) {
             rewr.contains(mesh, outside, null);
@@ -282,10 +266,7 @@ class MeshHitTestArtifactTest {
     }
 
     private static MeshHitTestTransformer createTransformer(
-            final ClassLoader loader,
-            final Path artifact,
-            final byte[] meshBaseBytes,
-            final MeshHitTestTarget target)
+            final ClassLoader loader, final Path artifact, final byte[] meshBaseBytes, final MeshHitTestTarget target)
             throws Exception {
         final byte[] gmesh2Bytes = readClassBytes(artifact, MeshHitTestTarget.GMESH2_OWNER);
         final byte[] gmesh3Bytes = readClassBytes(artifact, MeshHitTestTarget.GMESH3_OWNER);
@@ -308,8 +289,7 @@ class MeshHitTestArtifactTest {
                             final String descriptor,
                             final String signature,
                             final String[] exceptions) {
-                        final MethodVisitor mv =
-                                super.visitMethod(access, name, descriptor, signature, exceptions);
+                        final MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
                         if (!MeshHitTestTarget.CONTAINS_METHOD.equals(name)
                                 || !MeshHitTestTarget.CONTAINS_DESCRIPTOR.equals(descriptor)) {
                             return mv;
@@ -348,7 +328,8 @@ class MeshHitTestArtifactTest {
     private static URL[] urlsUnder(final Path directory) throws Exception {
         final List<URL> urls = new ArrayList<>();
         try (var files = Files.walk(directory, MAX_WALK_DEPTH)) {
-            for (final Path path : files.filter(p -> p.toString().endsWith(JAR_EXTENSION)).toList()) {
+            for (final Path path :
+                    files.filter(p -> p.toString().endsWith(JAR_EXTENSION)).toList()) {
                 urls.add(path.toUri().toURL());
             }
         }
@@ -370,8 +351,8 @@ class MeshHitTestArtifactTest {
     }
 
     private static Path referenceRoot() {
-        final String configured = System.getProperty(
-                REF_DIR_PROPERTY, System.getenv().getOrDefault(REF_DIR_ENV, ""));
+        final String configured =
+                System.getProperty(REF_DIR_PROPERTY, System.getenv().getOrDefault(REF_DIR_ENV, ""));
         assumeTrue(!configured.isBlank(), "exact Cubism reference directory not configured");
         final Path root = Path.of(configured);
         assumeTrue(Files.isDirectory(root), "reference directory absent: " + root);
@@ -405,9 +386,9 @@ class MeshHitTestArtifactTest {
             this.setIndices3 = gmesh3Class.getMethod(SET_INDICES_METHOD, int[].class);
         }
 
-        private Object createMesh(final boolean mesh3, final float[] positions, final int[] indices)
-                throws Exception {
-            final Object mesh = (mesh3 ? gmesh3Class : gmesh2Class).getConstructor().newInstance();
+        private Object createMesh(final boolean mesh3, final float[] positions, final int[] indices) throws Exception {
+            final Object mesh =
+                    (mesh3 ? gmesh3Class : gmesh2Class).getConstructor().newInstance();
             (mesh3 ? setPositions3 : setPositions2).invoke(mesh, positions);
             (mesh3 ? setIndices3 : setIndices2).invoke(mesh, indices);
             return mesh;
@@ -494,21 +475,11 @@ class MeshHitTestArtifactTest {
             mv.visitIntInsn(Opcodes.BIPUSH, INT_BYTES);
             mv.visitInsn(Opcodes.IMUL);
             mv.visitMethodInsn(
-                    Opcodes.INVOKESTATIC,
-                    BYTE_BUFFER_OWNER,
-                    ALLOCATE_DIRECT_METHOD,
-                    ALLOCATE_DIRECT_DESC,
-                    false);
+                    Opcodes.INVOKESTATIC, BYTE_BUFFER_OWNER, ALLOCATE_DIRECT_METHOD, ALLOCATE_DIRECT_DESC, false);
+            mv.visitMethodInsn(Opcodes.INVOKESTATIC, BYTE_ORDER_OWNER, NATIVE_ORDER_METHOD, NATIVE_ORDER_DESC, false);
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, BYTE_BUFFER_OWNER, ORDER_METHOD, ORDER_DESC, false);
             mv.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, BYTE_ORDER_OWNER, NATIVE_ORDER_METHOD, NATIVE_ORDER_DESC, false);
-            mv.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL, BYTE_BUFFER_OWNER, ORDER_METHOD, ORDER_DESC, false);
-            mv.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    BYTE_BUFFER_OWNER,
-                    AS_INT_BUFFER_METHOD,
-                    AS_INT_BUFFER_DESC,
-                    false);
+                    Opcodes.INVOKEVIRTUAL, BYTE_BUFFER_OWNER, AS_INT_BUFFER_METHOD, AS_INT_BUFFER_DESC, false);
             mv.visitInsn(Opcodes.ARETURN);
             mv.visitMaxs(0, 0);
             mv.visitEnd();

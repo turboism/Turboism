@@ -56,8 +56,7 @@ class RenderPassTraversalArtifactTest {
     private static final String TEST_RENDERER_DOT = TEST_RENDERER_INTERNAL.replace('/', '.');
     private static final String TEST_GL3_INTERNAL = "com/live2d/graphics3d/TestStubGl3";
     private static final String TEST_GL3_DOT = TEST_GL3_INTERNAL.replace('/', '.');
-    private static final String GROUP_RENDERER_DOT =
-            RenderPassTraversalTarget.GROUP_RENDERER_OWNER.replace('/', '.');
+    private static final String GROUP_RENDERER_DOT = RenderPassTraversalTarget.GROUP_RENDERER_OWNER.replace('/', '.');
     private static final String GENTITY_DOT = RenderPassTraversalTarget.ENTITY_OWNER.replace('/', '.');
     private static final String GCAMERA_DOT = "com.live2d.graphics3d.GCamera";
     private static final String RENDER_CONTEXT_DOT = "com.live2d.graphics3d.a";
@@ -103,8 +102,8 @@ class RenderPassTraversalArtifactTest {
                 final RenderPassTraversalTransformer transformer =
                         new RenderPassTraversalTransformer(loader, artifact, original, target);
 
-                final byte[] rewritten = transformer.transform(
-                        null, loader, target.renderSystemOwner(), null, domain, original);
+                final byte[] rewritten =
+                        transformer.transform(null, loader, target.renderSystemOwner(), null, domain, original);
                 assertNotNull(rewritten, target.version() + ": " + transformer.failure());
                 assertEquals(1, transformer.matches(), target.version());
                 assertEquals(target.expectedSites(), transformer.sites(), target.version());
@@ -112,12 +111,11 @@ class RenderPassTraversalArtifactTest {
 
                 verifyRewrittenBytecode(target, rewritten);
 
-                final ProtectionDomain signedDomain =
-                        Class.forName(target.renderSystemOwner().replace('/', '.'), false, loader)
-                                .getProtectionDomain();
+                final ProtectionDomain signedDomain = Class.forName(
+                                target.renderSystemOwner().replace('/', '.'), false, loader)
+                        .getProtectionDomain();
                 try (HostClassLoader verifyLoader = hostLoader(artifact.getParent())) {
-                    verifyLoader.installOverride(
-                            target.renderSystemOwner().replace('/', '.'), rewritten, signedDomain);
+                    verifyLoader.installOverride(target.renderSystemOwner().replace('/', '.'), rewritten, signedDomain);
                     final Class<?> verifiedClass =
                             Class.forName(target.renderSystemOwner().replace('/', '.'), true, verifyLoader);
                     assertTrue(verifiedClass.getDeclaredMethods().length > 0, target.version());
@@ -141,7 +139,8 @@ class RenderPassTraversalArtifactTest {
                 continue;
             }
             final HostArtifactDigest digest = HostArtifactDigest.from(artifact);
-            final RenderPassTraversalTarget renderTarget = RenderPassTraversalTarget.of(digest).orElseThrow();
+            final RenderPassTraversalTarget renderTarget =
+                    RenderPassTraversalTarget.of(digest).orElseThrow();
             final String owner = renderTarget.renderSystemOwner();
             final ProtectionDomain domain = protectionDomain(artifact);
 
@@ -193,8 +192,7 @@ class RenderPassTraversalArtifactTest {
                 if (version.startsWith("5.3.")) {
                     final PerformanceProbeMethodTransformer perfProbe = new PerformanceProbeMethodTransformer(
                             loader, artifact, PerformanceProbeTargets.cubism5302());
-                    final byte[] perfThenDone =
-                            perfProbe.transform(null, loader, owner, null, domain, clipThenRender);
+                    final byte[] perfThenDone = perfProbe.transform(null, loader, owner, null, domain, clipThenRender);
                     assertNotNull(perfThenDone, version + " perf-probe-composition");
                     finalVerifyBytes = perfThenDone;
                 }
@@ -204,8 +202,7 @@ class RenderPassTraversalArtifactTest {
                         Class.forName(owner.replace('/', '.'), false, loader).getProtectionDomain();
                 try (HostClassLoader verifyLoader = hostLoader(artifact.getParent())) {
                     verifyLoader.installOverride(owner.replace('/', '.'), finalVerifyBytes, signedDomain);
-                    final Class<?> verifiedClass =
-                            Class.forName(owner.replace('/', '.'), true, verifyLoader);
+                    final Class<?> verifiedClass = Class.forName(owner.replace('/', '.'), true, verifyLoader);
                     assertTrue(verifiedClass.getDeclaredMethods().length > 0, version);
                 }
             }
@@ -228,10 +225,11 @@ class RenderPassTraversalArtifactTest {
         }
     }
 
-    private static void verifyLiveParityOnVersion(
-            final Path artifact, final Path jogl, final String version) throws Throwable {
+    private static void verifyLiveParityOnVersion(final Path artifact, final Path jogl, final String version)
+            throws Throwable {
         final HostArtifactDigest digest = HostArtifactDigest.from(artifact);
-        final RenderPassTraversalTarget target = RenderPassTraversalTarget.of(digest).orElseThrow();
+        final RenderPassTraversalTarget target =
+                RenderPassTraversalTarget.of(digest).orElseThrow();
         final byte[] originalBytes = readClassBytes(artifact, target.renderSystemOwner());
         final String ownerDot = target.renderSystemOwner().replace('/', '.');
 
@@ -265,10 +263,10 @@ class RenderPassTraversalArtifactTest {
             runOnEdt(() -> {
                 for (final boolean singleEntityFlag : new boolean[] {false, true}) {
                     for (final boolean ignoreGroupBranch : new boolean[] {false, true}) {
-                        final List<String> origLog = executeScenario(
-                                origLoader, target, singleEntityFlag, ignoreGroupBranch, GL_NO_ERROR);
-                        final List<String> rewrLog = executeScenario(
-                                rewrLoader, target, singleEntityFlag, ignoreGroupBranch, GL_NO_ERROR);
+                        final List<String> origLog =
+                                executeScenario(origLoader, target, singleEntityFlag, ignoreGroupBranch, GL_NO_ERROR);
+                        final List<String> rewrLog =
+                                executeScenario(rewrLoader, target, singleEntityFlag, ignoreGroupBranch, GL_NO_ERROR);
                         assertEquals(
                                 origLog,
                                 rewrLog,
@@ -278,18 +276,14 @@ class RenderPassTraversalArtifactTest {
 
                 // Verify fallback path when bridge is closed (properties absent).
                 bridge.close();
-                final List<String> origLogNoBridge =
-                        executeScenario(origLoader, target, false, false, GL_NO_ERROR);
-                final List<String> rewrLogNoBridge =
-                        executeScenario(rewrLoader, target, false, false, GL_NO_ERROR);
+                final List<String> origLogNoBridge = executeScenario(origLoader, target, false, false, GL_NO_ERROR);
+                final List<String> rewrLogNoBridge = executeScenario(rewrLoader, target, false, false, GL_NO_ERROR);
                 assertEquals(origLogNoBridge, rewrLogNoBridge, version + " fallback-without-bridge");
 
                 // Verify exact GL error formatting parity when bridge is active.
                 bridge.install();
-                final List<String> origErr =
-                        executeScenario(origLoader, target, false, false, GL_INVALID_OPERATION);
-                final List<String> rewrErr =
-                        executeScenario(rewrLoader, target, false, false, GL_INVALID_OPERATION);
+                final List<String> origErr = executeScenario(origLoader, target, false, false, GL_INVALID_OPERATION);
+                final List<String> rewrErr = executeScenario(rewrLoader, target, false, false, GL_INVALID_OPERATION);
                 assertEquals(origErr, rewrErr, version + " glError-parity");
 
                 if ("5.3.04".equals(version)) {
@@ -307,8 +301,7 @@ class RenderPassTraversalArtifactTest {
             final int glErrorCode)
             throws Exception {
         final List<String> events = new ArrayList<>();
-        final Class<?> renderSysClass =
-                Class.forName(target.renderSystemOwner().replace('/', '.'), true, loader);
+        final Class<?> renderSysClass = Class.forName(target.renderSystemOwner().replace('/', '.'), true, loader);
         final Class<?> entityClass = Class.forName(GENTITY_DOT, true, loader);
         final Class<?> groupRendererClass = Class.forName(GROUP_RENDERER_DOT, true, loader);
         final Class<?> stubClass = Class.forName(TEST_RENDERER_DOT, true, loader);
@@ -330,23 +323,20 @@ class RenderPassTraversalArtifactTest {
         final Method unaryPlusChild = entityClass.getMethod("unaryPlus", entityClass);
         final Method setEnabled = entityClass.getMethod("setEnabled", boolean.class);
         final Method setRenderer = entityClass.getMethod(
-                "setRenderer",
-                Class.forName(RenderPassTraversalTarget.RENDERER_OWNER.replace('/', '.'), true, loader));
+                "setRenderer", Class.forName(RenderPassTraversalTarget.RENDERER_OWNER.replace('/', '.'), true, loader));
 
         // Build scene graph covering opaque, transparent, disabled subtree, disabled renderer, and groups.
-        final Object e1 = createEntityWithRenderer(
-                entityClass, stubClass, "opaque-1", opaqueMat, 1.0f, true, events);
-        final Object e2 = createEntityWithRenderer(
-                entityClass, stubClass, "trans-1", transMat, 2.0f, true, events);
-        final Object eDisabled = createEntityWithRenderer(
-                entityClass, stubClass, "disabled-parent", opaqueMat, 3.0f, true, events);
+        final Object e1 = createEntityWithRenderer(entityClass, stubClass, "opaque-1", opaqueMat, 1.0f, true, events);
+        final Object e2 = createEntityWithRenderer(entityClass, stubClass, "trans-1", transMat, 2.0f, true, events);
+        final Object eDisabled =
+                createEntityWithRenderer(entityClass, stubClass, "disabled-parent", opaqueMat, 3.0f, true, events);
         setEnabled.invoke(eDisabled, false);
-        final Object eDisabledChild = createEntityWithRenderer(
-                entityClass, stubClass, "child-of-disabled", opaqueMat, 4.0f, true, events);
+        final Object eDisabledChild =
+                createEntityWithRenderer(entityClass, stubClass, "child-of-disabled", opaqueMat, 4.0f, true, events);
         unaryPlusChild.invoke(eDisabled, eDisabledChild);
 
-        final Object eDisabledRenderer = createEntityWithRenderer(
-                entityClass, stubClass, "disabled-renderer", opaqueMat, 5.0f, false, events);
+        final Object eDisabledRenderer =
+                createEntityWithRenderer(entityClass, stubClass, "disabled-renderer", opaqueMat, 5.0f, false, events);
         final Object eVisibleChild = createEntityWithRenderer(
                 entityClass, stubClass, "child-of-disabled-renderer", transMat, 6.0f, true, events);
         unaryPlusChild.invoke(eDisabledRenderer, eVisibleChild);
@@ -359,8 +349,8 @@ class RenderPassTraversalArtifactTest {
         final Object groupRendererEnabled = groupSerializationCtor.newInstance();
         setRenderer.invoke(eGroupEnabled, groupRendererEnabled);
         entityClass.getMethod("setSkipDrawing_testImpl", boolean.class).invoke(eGroupEnabled, true);
-        final Object insideEnabledGroup = createEntityWithRenderer(
-                entityClass, stubClass, "inside-enabled-group", opaqueMat, 7.0f, true, events);
+        final Object insideEnabledGroup =
+                createEntityWithRenderer(entityClass, stubClass, "inside-enabled-group", opaqueMat, 7.0f, true, events);
         if (testIgnoreGroup && target.hasRecursiveTraverseMethod()) {
             entityClass.getMethod("setIgnoreGroupRenderer", boolean.class).invoke(insideEnabledGroup, true);
         }
@@ -391,7 +381,8 @@ class RenderPassTraversalArtifactTest {
 
         final Object camera = cameraClass.getConstructor(String.class).newInstance("test-cam");
         final Object renderCtx = findRenderContextCtor(ctxClass).newInstance(glProxy, camera, null);
-        final Object crect = crectClass.getConstructor(int.class, int.class, int.class, int.class)
+        final Object crect = crectClass
+                .getConstructor(int.class, int.class, int.class, int.class)
                 .newInstance(0, 0, 100, 100);
 
         // Disable m flag (clipping pass) since no real GL texture/FBO is bound.
@@ -418,7 +409,8 @@ class RenderPassTraversalArtifactTest {
                 System.setErr(previousErr);
                 final String errText = errCapture.toString(java.nio.charset.StandardCharsets.UTF_8);
                 final int lineEnd = errText.indexOf('\n');
-                final String firstLine = lineEnd >= 0 ? errText.substring(0, lineEnd).trim() : errText.trim();
+                final String firstLine =
+                        lineEnd >= 0 ? errText.substring(0, lineEnd).trim() : errText.trim();
                 assertTrue(firstLine.contains("draw["), "expected draw label in GL error:\n" + errText);
                 events.add(firstLine);
             }
@@ -427,9 +419,7 @@ class RenderPassTraversalArtifactTest {
     }
 
     private static void verifyAllocationReduction(
-            final HostClassLoader origLoader,
-            final HostClassLoader rewrLoader,
-            final RenderPassTraversalTarget target)
+            final HostClassLoader origLoader, final HostClassLoader rewrLoader, final RenderPassTraversalTarget target)
             throws Exception {
         final com.sun.management.ThreadMXBean threadMx =
                 (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
@@ -468,8 +458,7 @@ class RenderPassTraversalArtifactTest {
         private final Object renderCtx;
         private final Object crect;
 
-        private BenchScene(
-                final HostClassLoader loader, final RenderPassTraversalTarget target, final int entityCount)
+        private BenchScene(final HostClassLoader loader, final RenderPassTraversalTarget target, final int entityCount)
                 throws Exception {
             final Class<?> renderSysClass =
                     Class.forName(target.renderSystemOwner().replace('/', '.'), true, loader);
@@ -489,22 +478,24 @@ class RenderPassTraversalArtifactTest {
             final Method unaryPlus = entityClass.getMethod("unaryPlus", entityClass);
             final List<String> sink = new ArrayList<>();
             for (int i = 0; i < entityCount; i++) {
-                final Object parent = createEntityWithRenderer(
-                        entityClass, stubClass, "p-" + i, mat, (float) i, true, sink);
-                final Object child = createEntityWithRenderer(
-                        entityClass, stubClass, "c-" + i, mat, (float) i + 0.5f, true, sink);
+                final Object parent =
+                        createEntityWithRenderer(entityClass, stubClass, "p-" + i, mat, (float) i, true, sink);
+                final Object child =
+                        createEntityWithRenderer(entityClass, stubClass, "c-" + i, mat, (float) i + 0.5f, true, sink);
                 unaryPlus.invoke(parent, child);
                 unaryPlus.invoke(root, parent);
             }
             renderSysClass.getMethod("d", boolean.class).invoke(null, false);
             renderSysClass.getMethod("b", boolean.class).invoke(null, false);
-            this.renderSys = renderSysClass.getConstructor(entityClass, boolean.class).newInstance(root, false);
+            this.renderSys =
+                    renderSysClass.getConstructor(entityClass, boolean.class).newInstance(root, false);
             this.renderMethod = renderSysClass.getMethod("a", ctxClass, crectClass, boolean.class, boolean.class);
             final Object camera = cameraClass.getConstructor(String.class).newInstance("bench-cam");
             final Class<?> stubGlClass = Class.forName(TEST_GL3_DOT, true, loader);
             final Object glProxy = stubGlClass.getConstructor(int.class).newInstance(GL_NO_ERROR);
             this.renderCtx = findRenderContextCtor(ctxClass).newInstance(glProxy, camera, null);
-            this.crect = crectClass.getConstructor(int.class, int.class, int.class, int.class)
+            this.crect = crectClass
+                    .getConstructor(int.class, int.class, int.class, int.class)
                     .newInstance(0, 0, 100, 100);
         }
 
@@ -541,12 +532,11 @@ class RenderPassTraversalArtifactTest {
             final List<String> eventSink)
             throws Exception {
         final Object entity = entityClass.getConstructor().newInstance();
-        final Object renderer = stubClass.getConstructor(String.class, List.class, float.class, Object.class)
+        final Object renderer = stubClass
+                .getConstructor(String.class, List.class, float.class, Object.class)
                 .newInstance(label, eventSink, zOrder, material);
         stubClass.getMethod("setEnabled", boolean.class).invoke(renderer, rendererEnabled);
-        entityClass
-                .getMethod("setRenderer", stubClass.getSuperclass())
-                .invoke(entity, renderer);
+        entityClass.getMethod("setRenderer", stubClass.getSuperclass()).invoke(entity, renderer);
         return entity;
     }
 
@@ -569,11 +559,7 @@ class RenderPassTraversalArtifactTest {
         cw.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "zOrder", "F", null, null);
 
         final MethodVisitor init = cw.visitMethod(
-                Opcodes.ACC_PUBLIC,
-                "<init>",
-                "(Ljava/lang/String;Ljava/util/List;FLjava/lang/Object;)V",
-                null,
-                null);
+                Opcodes.ACC_PUBLIC, "<init>", "(Ljava/lang/String;Ljava/util/List;FLjava/lang/Object;)V", null, null);
         init.visitCode();
         init.visitVarInsn(Opcodes.ALOAD, 0);
         init.visitVarInsn(Opcodes.ALOAD, 4);
@@ -598,11 +584,7 @@ class RenderPassTraversalArtifactTest {
         init.visitEnd();
 
         final MethodVisitor zOrderMv = cw.visitMethod(
-                Opcodes.ACC_PUBLIC,
-                "getSortingZOrder__testImpl",
-                "(Lcom/live2d/graphics3d/GCamera;)F",
-                null,
-                null);
+                Opcodes.ACC_PUBLIC, "getSortingZOrder__testImpl", "(Lcom/live2d/graphics3d/GCamera;)F", null, null);
         zOrderMv.visitCode();
         zOrderMv.visitVarInsn(Opcodes.ALOAD, 0);
         zOrderMv.visitFieldInsn(Opcodes.GETFIELD, TEST_RENDERER_INTERNAL, "zOrder", "F");
@@ -610,19 +592,14 @@ class RenderPassTraversalArtifactTest {
         zOrderMv.visitMaxs(0, 0);
         zOrderMv.visitEnd();
 
-        final MethodVisitor renderMv = cw.visitMethod(
-                Opcodes.ACC_PUBLIC,
-                "render",
-                "(Lcom/live2d/graphics3d/a;)V",
-                null,
-                null);
+        final MethodVisitor renderMv =
+                cw.visitMethod(Opcodes.ACC_PUBLIC, "render", "(Lcom/live2d/graphics3d/a;)V", null, null);
         renderMv.visitCode();
         renderMv.visitVarInsn(Opcodes.ALOAD, 0);
         renderMv.visitFieldInsn(Opcodes.GETFIELD, TEST_RENDERER_INTERNAL, "sink", "Ljava/util/List;");
         renderMv.visitVarInsn(Opcodes.ALOAD, 0);
         renderMv.visitFieldInsn(Opcodes.GETFIELD, TEST_RENDERER_INTERNAL, "label", "Ljava/lang/String;");
-        renderMv.visitMethodInsn(
-                Opcodes.INVOKEINTERFACE, "java/util/List", "add", "(Ljava/lang/Object;)Z", true);
+        renderMv.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/List", "add", "(Ljava/lang/Object;)Z", true);
         renderMv.visitInsn(Opcodes.POP);
         renderMv.visitInsn(Opcodes.RETURN);
         renderMv.visitMaxs(0, 0);
@@ -711,8 +688,7 @@ class RenderPassTraversalArtifactTest {
         return cw.toByteArray();
     }
 
-    private static void verifyRewrittenBytecode(
-            final RenderPassTraversalTarget target, final byte[] rewritten) {
+    private static void verifyRewrittenBytecode(final RenderPassTraversalTarget target, final byte[] rewritten) {
         final int[] counters = new int[7];
         new ClassReader(rewritten)
                 .accept(
@@ -735,7 +711,8 @@ class RenderPassTraversalArtifactTest {
                                 return new MethodVisitor(Opcodes.ASM9) {
                                     @Override
                                     public void visitLdcInsn(final Object value) {
-                                        if (isImpl && RenderPassTraversalBridge.PRE_DRAW_LABELS_PROPERTY.equals(value)) {
+                                        if (isImpl
+                                                && RenderPassTraversalBridge.PRE_DRAW_LABELS_PROPERTY.equals(value)) {
                                             counters[5]++;
                                         } else if (isImpl
                                                 && RenderPassTraversalBridge.POST_DRAW_LABELS_PROPERTY.equals(value)) {
@@ -789,8 +766,7 @@ class RenderPassTraversalArtifactTest {
             final ProtectionDomain domain,
             final byte[] original)
             throws Exception {
-        final RenderPassTraversalTransformer t =
-                new RenderPassTraversalTransformer(loader, artifact, original, target);
+        final RenderPassTraversalTransformer t = new RenderPassTraversalTransformer(loader, artifact, original, target);
         try (HostClassLoader wrongLoader = hostLoader(artifact.getParent())) {
             assertNull(t.transform(null, wrongLoader, target.renderSystemOwner(), null, domain, original));
             assertNotNull(t.failure());
@@ -830,8 +806,7 @@ class RenderPassTraversalArtifactTest {
         }
     }
 
-    private static byte[] injectNop(
-            final byte[] original, final String targetMethod, final String targetDesc) {
+    private static byte[] injectNop(final byte[] original, final String targetMethod, final String targetDesc) {
         final ClassReader reader = new ClassReader(original);
         final ClassWriter writer = new ClassWriter(reader, 0);
         reader.accept(
@@ -843,8 +818,7 @@ class RenderPassTraversalArtifactTest {
                             final String descriptor,
                             final String signature,
                             final String[] exceptions) {
-                        final MethodVisitor mv =
-                                super.visitMethod(access, name, descriptor, signature, exceptions);
+                        final MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
                         if (!targetMethod.equals(name) || !targetDesc.equals(descriptor)) {
                             return mv;
                         }
@@ -899,7 +873,8 @@ class RenderPassTraversalArtifactTest {
     private static URL[] urlsUnder(final Path directory, final Path extraJar) throws Exception {
         final List<URL> urls = new ArrayList<>();
         try (var files = Files.walk(directory, MAX_WALK_DEPTH)) {
-            for (final Path path : files.filter(p -> p.toString().endsWith(JAR_EXTENSION)).toList()) {
+            for (final Path path :
+                    files.filter(p -> p.toString().endsWith(JAR_EXTENSION)).toList()) {
                 urls.add(path.toUri().toURL());
             }
         }
@@ -942,8 +917,8 @@ class RenderPassTraversalArtifactTest {
     }
 
     private static Path referenceRoot() {
-        final String configured = System.getProperty(
-                REF_DIR_PROPERTY, System.getenv().getOrDefault(REF_DIR_ENV, ""));
+        final String configured =
+                System.getProperty(REF_DIR_PROPERTY, System.getenv().getOrDefault(REF_DIR_ENV, ""));
         assumeTrue(!configured.isBlank(), "exact Cubism reference directory not configured");
         final Path root = Path.of(configured);
         assumeTrue(Files.isDirectory(root), "reference directory absent: " + root);
@@ -1011,19 +986,20 @@ class RenderPassTraversalArtifactTest {
                 "java/lang/Object",
                 null);
         final MethodVisitor mv = cw.visitMethod(
-                Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
-                "newDirectIntBuffer",
-                "(I)Ljava/nio/IntBuffer;",
-                null,
-                null);
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "newDirectIntBuffer", "(I)Ljava/nio/IntBuffer;", null, null);
         mv.visitCode();
         mv.visitVarInsn(Opcodes.ILOAD, 0);
         mv.visitInsn(Opcodes.ICONST_4);
         mv.visitInsn(Opcodes.IMUL);
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/nio/ByteBuffer", "allocateDirect", "(I)Ljava/nio/ByteBuffer;", false);
+        mv.visitMethodInsn(
+                Opcodes.INVOKESTATIC, "java/nio/ByteBuffer", "allocateDirect", "(I)Ljava/nio/ByteBuffer;", false);
         mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/nio/ByteOrder", "nativeOrder", "()Ljava/nio/ByteOrder;", false);
         mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, "java/nio/ByteBuffer", "order", "(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;", false);
+                Opcodes.INVOKEVIRTUAL,
+                "java/nio/ByteBuffer",
+                "order",
+                "(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;",
+                false);
         mv.visitMethodInsn(
                 Opcodes.INVOKEVIRTUAL, "java/nio/ByteBuffer", "asIntBuffer", "()Ljava/nio/IntBuffer;", false);
         mv.visitInsn(Opcodes.ARETURN);
@@ -1059,7 +1035,8 @@ class RenderPassTraversalArtifactTest {
         clinit.visitEnd();
 
         for (final String name : new String[] {"a", "b", "c", "d"}) {
-            final MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, name, "()L" + gshader + ";", null, null);
+            final MethodVisitor mv =
+                    cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, name, "()L" + gshader + ";", null, null);
             mv.visitCode();
             mv.visitTypeInsn(Opcodes.NEW, gshader);
             mv.visitInsn(Opcodes.DUP);

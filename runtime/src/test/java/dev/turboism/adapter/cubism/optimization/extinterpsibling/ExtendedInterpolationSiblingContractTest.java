@@ -30,7 +30,8 @@ final class ExtendedInterpolationSiblingContractTest {
         assertTrue(ExtendedInterpolationSiblingTarget.of(UNREVIEWED_DIGEST).isEmpty());
 
         for (final ExtendedInterpolationSiblingTarget target : targets) {
-            assertEquals(EXPECTED_METHOD_DEPENDENCIES, target.methodDependencies().size());
+            assertEquals(
+                    EXPECTED_METHOD_DEPENDENCIES, target.methodDependencies().size());
         }
     }
 
@@ -41,7 +42,9 @@ final class ExtendedInterpolationSiblingContractTest {
         assertEquals(ExtendedInterpolationSiblingTarget.ENABLE_PROPERTY, entry.property());
         assertEquals(List.of("TURBOISM_EXTENDED_INTERPOLATION_SIBLING_ELISION"), entry.protocols());
         assertEquals(1, entry.relations().size());
-        assertEquals(Optimization.Relation.Kind.DERIVED_FROM, entry.relations().get(0).kind());
+        assertEquals(
+                Optimization.Relation.Kind.DERIVED_FROM,
+                entry.relations().get(0).kind());
         assertEquals(
                 OptimizationCatalog.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP,
                 entry.relations().get(0).target());

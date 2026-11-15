@@ -66,8 +66,8 @@ final class InputAndRenderWeavesArtifactTest {
         final byte[] entitiesBytes = bytes(artifact, SceneHandlerCacheTarget.ENTITIES_OWNER);
         final byte[] componentsBytes = bytes(artifact, SceneHandlerCacheTarget.COMPONENTS_OWNER);
 
-        final SceneHandlerCacheTransformer rawTransformer = new SceneHandlerCacheTransformer(
-                loader, artifact, target, viewBytes, entitiesBytes, componentsBytes);
+        final SceneHandlerCacheTransformer rawTransformer =
+                new SceneHandlerCacheTransformer(loader, artifact, target, viewBytes, entitiesBytes, componentsBytes);
         assertNotNull(
                 rawTransformer.transform(
                         null, loader, SceneHandlerCacheTarget.VIEW_CONTEXT_OWNER, null, domain, viewBytes),
@@ -90,16 +90,11 @@ final class InputAndRenderWeavesArtifactTest {
                 .transform(null, loader, SceneHandlerCacheTarget.VIEW_CONTEXT_OWNER, null, domain, viewBytes);
         assertNotNull(mirrorTransformedView, version + " warp-alt-mirror pre-weave");
 
-        final SceneHandlerCacheTransformer composedTransformer = new SceneHandlerCacheTransformer(
-                loader, artifact, target, viewBytes, entitiesBytes, componentsBytes);
+        final SceneHandlerCacheTransformer composedTransformer =
+                new SceneHandlerCacheTransformer(loader, artifact, target, viewBytes, entitiesBytes, componentsBytes);
         assertNotNull(
                 composedTransformer.transform(
-                        null,
-                        loader,
-                        SceneHandlerCacheTarget.VIEW_CONTEXT_OWNER,
-                        null,
-                        domain,
-                        mirrorTransformedView),
+                        null, loader, SceneHandlerCacheTarget.VIEW_CONTEXT_OWNER, null, domain, mirrorTransformedView),
                 version + " composed view: " + composedTransformer.failure());
         assertNull(composedTransformer.failure(), version);
     }

@@ -64,8 +64,7 @@ class ParameterRowRepaintArtifactTest {
     private static final float DRAG_DELTA = 1.5f;
     private static final float KEY_POINT_NEG_ONE = -1.0f;
 
-    private static final String TEST_SYNTHETIC_CONTROLLER =
-            "com/live2d/cubism/view/palette/parameter/s";
+    private static final String TEST_SYNTHETIC_CONTROLLER = "com/live2d/cubism/view/palette/parameter/s";
     private static final String TEST_HIGHLIGHT_FIELD = "y";
     private static final String TEST_SHOW_KEYFORMS_METHOD = "o";
     private static final String TEST_CUBISM_JAR = "Live2D_Cubism.jar";
@@ -91,23 +90,20 @@ class ParameterRowRepaintArtifactTest {
                 continue;
             }
             final HostArtifactDigest digest = HostArtifactDigest.from(artifact);
-            final ParameterRowRepaintTarget target = ParameterRowRepaintTarget.of(digest).orElseThrow();
+            final ParameterRowRepaintTarget target =
+                    ParameterRowRepaintTarget.of(digest).orElseThrow();
             assertEquals(version, target.version());
 
             try (URLClassLoader loader = loader(artifact.getParent())) {
-                final Class<?> controllerClass = Class.forName(
-                        target.controllerOwner().replace('/', '.'), false, loader);
+                final Class<?> controllerClass =
+                        Class.forName(target.controllerOwner().replace('/', '.'), false, loader);
                 for (final ParameterRowRepaintTarget.MethodDep dep : target.methodDependencies()) {
                     verifyMethodPresent(
-                            Class.forName(dep.owner().replace('/', '.'), false, loader),
-                            dep.name(),
-                            dep.descriptor());
+                            Class.forName(dep.owner().replace('/', '.'), false, loader), dep.name(), dep.descriptor());
                 }
                 for (final ParameterRowRepaintTarget.FieldDep dep : target.fieldDependencies()) {
                     verifyFieldPresent(
-                            Class.forName(dep.owner().replace('/', '.'), false, loader),
-                            dep.name(),
-                            dep.descriptor());
+                            Class.forName(dep.owner().replace('/', '.'), false, loader), dep.name(), dep.descriptor());
                 }
 
                 final byte[] reference = bytes(artifact, target.controllerOwner());
@@ -123,10 +119,8 @@ class ParameterRowRepaintArtifactTest {
 
                 // Verify frame verification passes in an isolated child loader before bridge resolution.
                 final InMemoryDefiningLoader frameCheck = new InMemoryDefiningLoader(
-                        loader,
-                        Map.of(target.controllerOwner().replace('/', '.'), transformed));
-                final Class<?> checked =
-                        Class.forName(target.controllerOwner().replace('/', '.'), false, frameCheck);
+                        loader, Map.of(target.controllerOwner().replace('/', '.'), transformed));
+                final Class<?> checked = Class.forName(target.controllerOwner().replace('/', '.'), false, frameCheck);
                 assertNotNull(checked.getDeclaredMethods(), version);
 
                 assertFailClosedRejections(loader, artifact, reference, target, domain);
@@ -159,8 +153,8 @@ class ParameterRowRepaintArtifactTest {
             bridge.install();
             final Predicate<Object[]> selectionUpdate = (Predicate<Object[]>)
                     System.getProperties().get(ParameterRowRepaintBridge.SELECTION_UPDATE_PROPERTY);
-            final Consumer<Object> invalidate = (Consumer<Object>)
-                    System.getProperties().get(ParameterRowRepaintBridge.INVALIDATE_PROPERTY);
+            final Consumer<Object> invalidate =
+                    (Consumer<Object>) System.getProperties().get(ParameterRowRepaintBridge.INVALIDATE_PROPERTY);
             assertNotNull(selectionUpdate);
             assertNotNull(invalidate);
 
@@ -367,8 +361,7 @@ class ParameterRowRepaintArtifactTest {
         }
     }
 
-    private static void assertAllRowsRepaintedOnce(final SyntheticPaletteFixture fixture)
-            throws Exception {
+    private static void assertAllRowsRepaintedOnce(final SyntheticPaletteFixture fixture) throws Exception {
         for (int i = 0; i < SIBLING_ROW_COUNT; i++) {
             assertEquals(1, fixture.rowRepaints(i), "row " + i);
         }
@@ -391,20 +384,17 @@ class ParameterRowRepaintArtifactTest {
         final ProtectionDomain wrongDomain = domain(artifact.getParent().resolve("wrong.jar"));
         final ParameterRowRepaintTransformer wrongCodeSource =
                 new ParameterRowRepaintTransformer(loader, artifact, reference, target);
-        assertNull(wrongCodeSource.transform(
-                null, loader, target.controllerOwner(), null, wrongDomain, reference));
+        assertNull(wrongCodeSource.transform(null, loader, target.controllerOwner(), null, wrongDomain, reference));
         assertNotNull(wrongCodeSource.failure());
 
         final byte[] mutated = prependNopInUpdateMethod(reference, target);
         final ParameterRowRepaintTransformer mutatedShape =
                 new ParameterRowRepaintTransformer(loader, artifact, reference, target);
-        assertNull(mutatedShape.transform(
-                null, loader, target.controllerOwner(), null, domain, mutated));
+        assertNull(mutatedShape.transform(null, loader, target.controllerOwner(), null, domain, mutated));
         assertNotNull(mutatedShape.failure());
     }
 
-    private static byte[] prependNopInUpdateMethod(
-            final byte[] reference, final ParameterRowRepaintTarget target) {
+    private static byte[] prependNopInUpdateMethod(final byte[] reference, final ParameterRowRepaintTarget target) {
         final ClassReader reader = new ClassReader(reference);
         final ClassWriter writer = new ClassWriter(reader, 0);
         reader.accept(
@@ -416,8 +406,7 @@ class ParameterRowRepaintArtifactTest {
                             final String descriptor,
                             final String signature,
                             final String[] exceptions) {
-                        final MethodVisitor mv =
-                                super.visitMethod(access, name, descriptor, signature, exceptions);
+                        final MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
                         if (!ParameterRowRepaintTarget.UPDATE_METHOD.equals(name)
                                 || !ParameterRowRepaintTarget.UPDATE_DESCRIPTOR.equals(descriptor)) {
                             return mv;
@@ -435,8 +424,7 @@ class ParameterRowRepaintArtifactTest {
         return writer.toByteArray();
     }
 
-    private static void verifyMethodPresent(
-            final Class<?> owner, final String name, final String descriptor)
+    private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)
             throws NoSuchMethodException {
         if (matchesMethod(owner.getMethods(), name, descriptor)
                 || matchesMethod(owner.getDeclaredMethods(), name, descriptor)) {
@@ -445,8 +433,7 @@ class ParameterRowRepaintArtifactTest {
         throw new NoSuchMethodException(owner.getName() + "." + name + descriptor);
     }
 
-    private static boolean matchesMethod(
-            final Method[] methods, final String name, final String descriptor) {
+    private static boolean matchesMethod(final Method[] methods, final String name, final String descriptor) {
         for (final Method method : methods) {
             if (method.getName().equals(name)
                     && MethodType.methodType(method.getReturnType(), method.getParameterTypes())
@@ -458,8 +445,7 @@ class ParameterRowRepaintArtifactTest {
         return false;
     }
 
-    private static void verifyFieldPresent(
-            final Class<?> owner, final String name, final String descriptor)
+    private static void verifyFieldPresent(final Class<?> owner, final String name, final String descriptor)
             throws NoSuchFieldException {
         for (final Field field : owner.getDeclaredFields()) {
             if (field.getName().equals(name)
@@ -510,38 +496,56 @@ class ParameterRowRepaintArtifactTest {
         final Map<String, byte[]> out = new LinkedHashMap<>();
 
         defineSimpleClass(out, "com/live2d/type/CColor", "java/lang/Object", cw -> {
-            cw.visitField(Opcodes.ACC_PUBLIC, "awtColor", "Ljava/awt/Color;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "awtColor", "Ljava/awt/Color;", null, null)
+                    .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
-            addGetter(cw, "getJColor", "()Ljava/awt/Color;", "com/live2d/type/CColor", "awtColor", "Ljava/awt/Color;", Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getJColor",
+                    "()Ljava/awt/Color;",
+                    "com/live2d/type/CColor",
+                    "awtColor",
+                    "Ljava/awt/Color;",
+                    Opcodes.ARETURN);
         });
 
         defineSimpleClass(out, "com/live2d/type/CParameterGuid", "java/lang/Object", cw -> {
-            cw.visitField(Opcodes.ACC_PUBLIC, "key", "Ljava/lang/String;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "key", "Ljava/lang/String;", null, null)
+                    .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
         });
 
         defineSimpleClass(out, "com/live2d/cubism/doc/model/id/CParameterId", "java/lang/Object", cw -> {
-            cw.visitField(Opcodes.ACC_PUBLIC, "id", "Ljava/lang/String;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "id", "Ljava/lang/String;", null, null)
+                    .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
         });
 
-        defineSimpleClass(out, "com/live2d/cubism/doc/model/param/CParameterSource$Type", "java/lang/Object", cw ->
-                addDefaultInit(cw, "java/lang/Object"));
+        defineSimpleClass(
+                out,
+                "com/live2d/cubism/doc/model/param/CParameterSource$Type",
+                "java/lang/Object",
+                cw -> addDefaultInit(cw, "java/lang/Object"));
 
-        defineSimpleClass(out, "com/live2d/type/CArrayList", "java/util/ArrayList", cw ->
-                addDefaultInit(cw, "java/util/ArrayList"));
+        defineSimpleClass(
+                out,
+                "com/live2d/type/CArrayList",
+                "java/util/ArrayList",
+                cw -> addDefaultInit(cw, "java/util/ArrayList"));
 
         defineSimpleClass(out, "com/live2d/ui/CWidget", "java/lang/Object", cw -> {
             cw.visitField(Opcodes.ACC_PUBLIC, "repaintCount", "I", null, null).visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "bgColorCalls", "I", null, null).visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "visible", "Z", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "bgColor", "Lcom/live2d/type/CColor;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "jcomp", "Ljavax/swing/JComponent;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "bgColor", "Lcom/live2d/type/CColor;", null, null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "jcomp", "Ljavax/swing/JComponent;", null, null)
+                    .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
             addIncrementMethod(cw, "repaint", "()V", "com/live2d/ui/CWidget", "repaintCount", Opcodes.RETURN);
             addGetter(cw, "isVisible", "()Z", "com/live2d/ui/CWidget", "visible", "Z", Opcodes.IRETURN);
-            final MethodVisitor getBg = cw.visitMethod(
-                    Opcodes.ACC_PUBLIC, "getBackgroundColor", "()Lcom/live2d/type/CColor;", null, null);
+            final MethodVisitor getBg =
+                    cw.visitMethod(Opcodes.ACC_PUBLIC, "getBackgroundColor", "()Lcom/live2d/type/CColor;", null, null);
             getBg.visitCode();
             getBg.visitVarInsn(Opcodes.ALOAD, 0);
             getBg.visitInsn(Opcodes.DUP);
@@ -554,32 +558,79 @@ class ParameterRowRepaintArtifactTest {
             getBg.visitInsn(Opcodes.ARETURN);
             getBg.visitMaxs(3, 1);
             getBg.visitEnd();
-            addGetter(cw, "getJComponent", "()Ljavax/swing/JComponent;", "com/live2d/ui/CWidget", "jcomp", "Ljavax/swing/JComponent;", Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getJComponent",
+                    "()Ljavax/swing/JComponent;",
+                    "com/live2d/ui/CWidget",
+                    "jcomp",
+                    "Ljavax/swing/JComponent;",
+                    Opcodes.ARETURN);
         });
 
-        defineSimpleClass(out, "com/live2d/undo/GroupUndo", "java/lang/Object", cw ->
-                addDefaultInit(cw, "java/lang/Object"));
+        defineSimpleClass(
+                out, "com/live2d/undo/GroupUndo", "java/lang/Object", cw -> addDefaultInit(cw, "java/lang/Object"));
 
         defineSimpleClass(out, "com/live2d/undo/CUndoManager", "java/lang/Object", cw -> {
             cw.visitField(Opcodes.ACC_PUBLIC, "currentPos", "I", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "undoList", "Ljava/util/List;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "undoList", "Ljava/util/List;", null, null)
+                    .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
             addGetter(cw, "getCurrentPos", "()I", "com/live2d/undo/CUndoManager", "currentPos", "I", Opcodes.IRETURN);
-            addGetter(cw, "getUndoList", "()Ljava/util/List;", "com/live2d/undo/CUndoManager", "undoList", "Ljava/util/List;", Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getUndoList",
+                    "()Ljava/util/List;",
+                    "com/live2d/undo/CUndoManager",
+                    "undoList",
+                    "Ljava/util/List;",
+                    Opcodes.ARETURN);
         });
 
         defineSimpleClass(out, "com/live2d/cubism/doc/ACEditMode", "java/lang/Object", cw -> {
             cw.visitField(Opcodes.ACC_PUBLIC, "editing", "Z", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "currentUndo", "Lcom/live2d/undo/GroupUndo;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "lastModifiedTimeMs", "J", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "undoManager", "Lcom/live2d/undo/CUndoManager;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "linkedUndoManager", "Lcom/live2d/undo/CUndoManager;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "currentUndo", "Lcom/live2d/undo/GroupUndo;", null, null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "lastModifiedTimeMs", "J", null, null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "undoManager", "Lcom/live2d/undo/CUndoManager;", null, null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "linkedUndoManager", "Lcom/live2d/undo/CUndoManager;", null, null)
+                    .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
             addGetter(cw, "isEditing", "()Z", "com/live2d/cubism/doc/ACEditMode", "editing", "Z", Opcodes.IRETURN);
-            addGetter(cw, "getCurrentUndo", "()Lcom/live2d/undo/GroupUndo;", "com/live2d/cubism/doc/ACEditMode", "currentUndo", "Lcom/live2d/undo/GroupUndo;", Opcodes.ARETURN);
-            addGetter(cw, "getLastModifiedTimeMs", "()J", "com/live2d/cubism/doc/ACEditMode", "lastModifiedTimeMs", "J", Opcodes.LRETURN);
-            addGetter(cw, "getUndoManager", "()Lcom/live2d/undo/CUndoManager;", "com/live2d/cubism/doc/ACEditMode", "undoManager", "Lcom/live2d/undo/CUndoManager;", Opcodes.ARETURN);
-            addGetter(cw, "getLinkedUndoManager", "()Lcom/live2d/undo/CUndoManager;", "com/live2d/cubism/doc/ACEditMode", "linkedUndoManager", "Lcom/live2d/undo/CUndoManager;", Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getCurrentUndo",
+                    "()Lcom/live2d/undo/GroupUndo;",
+                    "com/live2d/cubism/doc/ACEditMode",
+                    "currentUndo",
+                    "Lcom/live2d/undo/GroupUndo;",
+                    Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getLastModifiedTimeMs",
+                    "()J",
+                    "com/live2d/cubism/doc/ACEditMode",
+                    "lastModifiedTimeMs",
+                    "J",
+                    Opcodes.LRETURN);
+            addGetter(
+                    cw,
+                    "getUndoManager",
+                    "()Lcom/live2d/undo/CUndoManager;",
+                    "com/live2d/cubism/doc/ACEditMode",
+                    "undoManager",
+                    "Lcom/live2d/undo/CUndoManager;",
+                    Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getLinkedUndoManager",
+                    "()Lcom/live2d/undo/CUndoManager;",
+                    "com/live2d/cubism/doc/ACEditMode",
+                    "linkedUndoManager",
+                    "Lcom/live2d/undo/CUndoManager;",
+                    Opcodes.ARETURN);
         });
 
         defineSimpleClass(
@@ -590,11 +641,11 @@ class ParameterRowRepaintArtifactTest {
 
         defineSimpleClass(out, "com/live2d/cubism/doc/modeling/CModelingDocument", "java/lang/Object", cw -> {
             cw.visitField(
-                    Opcodes.ACC_PUBLIC,
-                    "currentEditMode",
-                    "Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Base;",
-                    null,
-                    null)
+                            Opcodes.ACC_PUBLIC,
+                            "currentEditMode",
+                            "Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Base;",
+                            null,
+                            null)
                     .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
             addGetter(
@@ -620,55 +671,181 @@ class ParameterRowRepaintArtifactTest {
         });
 
         defineSimpleClass(out, "com/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox", "java/lang/Object", cw -> {
-            cw.visitField(Opcodes.ACC_PUBLIC, "children", "Ljava/util/List;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "children", "Ljava/util/List;", null, null)
+                    .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
-            addGetter(cw, "getChildren", "()Ljava/util/List;", "com/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox", "children", "Ljava/util/List;", Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getChildren",
+                    "()Ljava/util/List;",
+                    "com/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox",
+                    "children",
+                    "Ljava/util/List;",
+                    Opcodes.ARETURN);
         });
 
         defineSimpleClass(out, "com/live2d/cubism/doc/model/param/CParameterSource", "java/lang/Object", cw -> {
-            cw.visitField(Opcodes.ACC_PUBLIC, "guid", "Lcom/live2d/type/CParameterGuid;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "id", "Lcom/live2d/cubism/doc/model/id/CParameterId;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "name", "Ljava/lang/String;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "guid", "Lcom/live2d/type/CParameterGuid;", null, null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "id", "Lcom/live2d/cubism/doc/model/id/CParameterId;", null, null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "name", "Ljava/lang/String;", null, null)
+                    .visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "minValue", "F", null, null).visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "maxValue", "F", null, null).visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "defaultValue", "F", null, null).visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "repeat", "Z", null, null).visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "combined", "Z", null, null).visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "morphTarget", "Z", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "paramType", "Lcom/live2d/cubism/doc/model/param/CParameterSource$Type;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "visColor", "Lcom/live2d/type/CColor;", null, null).visitEnd();
+            cw.visitField(
+                            Opcodes.ACC_PUBLIC,
+                            "paramType",
+                            "Lcom/live2d/cubism/doc/model/param/CParameterSource$Type;",
+                            null,
+                            null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "visColor", "Lcom/live2d/type/CColor;", null, null)
+                    .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
-            addGetter(cw, "getGuid", "()Lcom/live2d/type/CParameterGuid;", "com/live2d/cubism/doc/model/param/CParameterSource", "guid", "Lcom/live2d/type/CParameterGuid;", Opcodes.ARETURN);
-            addGetter(cw, "getId", "()Lcom/live2d/cubism/doc/model/id/CParameterId;", "com/live2d/cubism/doc/model/param/CParameterSource", "id", "Lcom/live2d/cubism/doc/model/id/CParameterId;", Opcodes.ARETURN);
-            addGetter(cw, "getName", "()Ljava/lang/String;", "com/live2d/cubism/doc/model/param/CParameterSource", "name", "Ljava/lang/String;", Opcodes.ARETURN);
-            addGetter(cw, "getMinValue", "()F", "com/live2d/cubism/doc/model/param/CParameterSource", "minValue", "F", Opcodes.FRETURN);
-            addGetter(cw, "getMaxValue", "()F", "com/live2d/cubism/doc/model/param/CParameterSource", "maxValue", "F", Opcodes.FRETURN);
-            addGetter(cw, "getDefaultValue", "()F", "com/live2d/cubism/doc/model/param/CParameterSource", "defaultValue", "F", Opcodes.FRETURN);
-            addGetter(cw, "isRepeat", "()Z", "com/live2d/cubism/doc/model/param/CParameterSource", "repeat", "Z", Opcodes.IRETURN);
-            addGetter(cw, "getCombined", "()Z", "com/live2d/cubism/doc/model/param/CParameterSource", "combined", "Z", Opcodes.IRETURN);
-            addGetter(cw, "isMorphTarget", "()Z", "com/live2d/cubism/doc/model/param/CParameterSource", "morphTarget", "Z", Opcodes.IRETURN);
-            addGetter(cw, "getParamType", "()Lcom/live2d/cubism/doc/model/param/CParameterSource$Type;", "com/live2d/cubism/doc/model/param/CParameterSource", "paramType", "Lcom/live2d/cubism/doc/model/param/CParameterSource$Type;", Opcodes.ARETURN);
-            addGetter(cw, "getVisibilityColorAlpha50", "()Lcom/live2d/type/CColor;", "com/live2d/cubism/doc/model/param/CParameterSource", "visColor", "Lcom/live2d/type/CColor;", Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getGuid",
+                    "()Lcom/live2d/type/CParameterGuid;",
+                    "com/live2d/cubism/doc/model/param/CParameterSource",
+                    "guid",
+                    "Lcom/live2d/type/CParameterGuid;",
+                    Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getId",
+                    "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
+                    "com/live2d/cubism/doc/model/param/CParameterSource",
+                    "id",
+                    "Lcom/live2d/cubism/doc/model/id/CParameterId;",
+                    Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getName",
+                    "()Ljava/lang/String;",
+                    "com/live2d/cubism/doc/model/param/CParameterSource",
+                    "name",
+                    "Ljava/lang/String;",
+                    Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getMinValue",
+                    "()F",
+                    "com/live2d/cubism/doc/model/param/CParameterSource",
+                    "minValue",
+                    "F",
+                    Opcodes.FRETURN);
+            addGetter(
+                    cw,
+                    "getMaxValue",
+                    "()F",
+                    "com/live2d/cubism/doc/model/param/CParameterSource",
+                    "maxValue",
+                    "F",
+                    Opcodes.FRETURN);
+            addGetter(
+                    cw,
+                    "getDefaultValue",
+                    "()F",
+                    "com/live2d/cubism/doc/model/param/CParameterSource",
+                    "defaultValue",
+                    "F",
+                    Opcodes.FRETURN);
+            addGetter(
+                    cw,
+                    "isRepeat",
+                    "()Z",
+                    "com/live2d/cubism/doc/model/param/CParameterSource",
+                    "repeat",
+                    "Z",
+                    Opcodes.IRETURN);
+            addGetter(
+                    cw,
+                    "getCombined",
+                    "()Z",
+                    "com/live2d/cubism/doc/model/param/CParameterSource",
+                    "combined",
+                    "Z",
+                    Opcodes.IRETURN);
+            addGetter(
+                    cw,
+                    "isMorphTarget",
+                    "()Z",
+                    "com/live2d/cubism/doc/model/param/CParameterSource",
+                    "morphTarget",
+                    "Z",
+                    Opcodes.IRETURN);
+            addGetter(
+                    cw,
+                    "getParamType",
+                    "()Lcom/live2d/cubism/doc/model/param/CParameterSource$Type;",
+                    "com/live2d/cubism/doc/model/param/CParameterSource",
+                    "paramType",
+                    "Lcom/live2d/cubism/doc/model/param/CParameterSource$Type;",
+                    Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getVisibilityColorAlpha50",
+                    "()Lcom/live2d/type/CColor;",
+                    "com/live2d/cubism/doc/model/param/CParameterSource",
+                    "visColor",
+                    "Lcom/live2d/type/CColor;",
+                    Opcodes.ARETURN);
         });
 
         defineSimpleClass(out, "com/live2d/cubism/doc/model/param/group/CParameterGroup", "java/lang/Object", cw -> {
-            cw.visitField(Opcodes.ACC_PUBLIC, "name", "Ljava/lang/String;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "visColor", "Lcom/live2d/type/CColor;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "name", "Ljava/lang/String;", null, null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "visColor", "Lcom/live2d/type/CColor;", null, null)
+                    .visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "folderOpened", "Z", null, null).visitEnd();
             addDefaultInit(cw, "java/lang/Object");
-            addGetter(cw, "getName", "()Ljava/lang/String;", "com/live2d/cubism/doc/model/param/group/CParameterGroup", "name", "Ljava/lang/String;", Opcodes.ARETURN);
-            addGetter(cw, "getVisibilityColor", "()Lcom/live2d/type/CColor;", "com/live2d/cubism/doc/model/param/group/CParameterGroup", "visColor", "Lcom/live2d/type/CColor;", Opcodes.ARETURN);
-            addGetter(cw, "getFolderIsOpened", "()Z", "com/live2d/cubism/doc/model/param/group/CParameterGroup", "folderOpened", "Z", Opcodes.IRETURN);
+            addGetter(
+                    cw,
+                    "getName",
+                    "()Ljava/lang/String;",
+                    "com/live2d/cubism/doc/model/param/group/CParameterGroup",
+                    "name",
+                    "Ljava/lang/String;",
+                    Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getVisibilityColor",
+                    "()Lcom/live2d/type/CColor;",
+                    "com/live2d/cubism/doc/model/param/group/CParameterGroup",
+                    "visColor",
+                    "Lcom/live2d/type/CColor;",
+                    Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getFolderIsOpened",
+                    "()Z",
+                    "com/live2d/cubism/doc/model/param/group/CParameterGroup",
+                    "folderOpened",
+                    "Z",
+                    Opcodes.IRETURN);
         });
 
         defineSimpleClass(out, "com/live2d/cubism/doc/model/param/CParameter", "java/lang/Object", cw -> {
             cw.visitField(Opcodes.ACC_PUBLIC, "value", "F", null, null).visitEnd();
             addDefaultInit(cw, "java/lang/Object");
-            addGetter(cw, "getValue", "()F", "com/live2d/cubism/doc/model/param/CParameter", "value", "F", Opcodes.FRETURN);
+            addGetter(
+                    cw,
+                    "getValue",
+                    "()F",
+                    "com/live2d/cubism/doc/model/param/CParameter",
+                    "value",
+                    "F",
+                    Opcodes.FRETURN);
         });
 
         defineSimpleClass(out, "com/live2d/cubism/doc/model/param/CParameterSet", "java/lang/Object", cw -> {
-            cw.visitField(Opcodes.ACC_PUBLIC, "map", "Ljava/util/Map;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "map", "Ljava/util/Map;", null, null)
+                    .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
             final MethodVisitor get = cw.visitMethod(
                     Opcodes.ACC_PUBLIC,
@@ -678,46 +855,85 @@ class ParameterRowRepaintArtifactTest {
                     null);
             get.visitCode();
             get.visitVarInsn(Opcodes.ALOAD, 0);
-            get.visitFieldInsn(Opcodes.GETFIELD, "com/live2d/cubism/doc/model/param/CParameterSet", "map", "Ljava/util/Map;");
+            get.visitFieldInsn(
+                    Opcodes.GETFIELD, "com/live2d/cubism/doc/model/param/CParameterSet", "map", "Ljava/util/Map;");
             get.visitVarInsn(Opcodes.ALOAD, 1);
-            get.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Map", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", true);
+            get.visitMethodInsn(
+                    Opcodes.INVOKEINTERFACE, "java/util/Map", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", true);
             get.visitTypeInsn(Opcodes.CHECKCAST, "com/live2d/cubism/doc/model/param/CParameter");
             get.visitInsn(Opcodes.ARETURN);
             get.visitMaxs(2, 2);
             get.visitEnd();
         });
 
-        defineSimpleClass(out, "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource", "java/lang/Object", cw -> {
-            cw.visitField(Opcodes.ACC_PUBLIC, "guid", "Lcom/live2d/type/CParameterGuid;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "keys", "Ljava/util/List;", null, null).visitEnd();
-            addDefaultInit(cw, "java/lang/Object");
-            addGetter(cw, "getParameterGuid", "()Lcom/live2d/type/CParameterGuid;", "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource", "guid", "Lcom/live2d/type/CParameterGuid;", Opcodes.ARETURN);
-            addGetter(cw, "getKeys", "()Ljava/util/List;", "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource", "keys", "Ljava/util/List;", Opcodes.ARETURN);
-        });
+        defineSimpleClass(
+                out, "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource", "java/lang/Object", cw -> {
+                    cw.visitField(Opcodes.ACC_PUBLIC, "guid", "Lcom/live2d/type/CParameterGuid;", null, null)
+                            .visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "keys", "Ljava/util/List;", null, null)
+                            .visitEnd();
+                    addDefaultInit(cw, "java/lang/Object");
+                    addGetter(
+                            cw,
+                            "getParameterGuid",
+                            "()Lcom/live2d/type/CParameterGuid;",
+                            "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+                            "guid",
+                            "Lcom/live2d/type/CParameterGuid;",
+                            Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getKeys",
+                            "()Ljava/util/List;",
+                            "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+                            "keys",
+                            "Ljava/util/List;",
+                            Opcodes.ARETURN);
+                });
 
         defineSimpleClass(out, "com/live2d/cubism/doc/model/interpolator/KeyformGridSource", "java/lang/Object", cw -> {
-            cw.visitField(Opcodes.ACC_PUBLIC, "bindings", "Ljava/util/List;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "bindings", "Ljava/util/List;", null, null)
+                    .visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "bindingsCalls", "I", null, null).visitEnd();
             addDefaultInit(cw, "java/lang/Object");
-            final MethodVisitor getBindings = cw.visitMethod(
-                    Opcodes.ACC_PUBLIC, "getKeyformBindings", "()Ljava/util/List;", null, null);
+            final MethodVisitor getBindings =
+                    cw.visitMethod(Opcodes.ACC_PUBLIC, "getKeyformBindings", "()Ljava/util/List;", null, null);
             getBindings.visitCode();
             getBindings.visitVarInsn(Opcodes.ALOAD, 0);
             getBindings.visitInsn(Opcodes.DUP);
-            getBindings.visitFieldInsn(Opcodes.GETFIELD, "com/live2d/cubism/doc/model/interpolator/KeyformGridSource", "bindingsCalls", "I");
+            getBindings.visitFieldInsn(
+                    Opcodes.GETFIELD,
+                    "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+                    "bindingsCalls",
+                    "I");
             getBindings.visitInsn(Opcodes.ICONST_1);
             getBindings.visitInsn(Opcodes.IADD);
-            getBindings.visitFieldInsn(Opcodes.PUTFIELD, "com/live2d/cubism/doc/model/interpolator/KeyformGridSource", "bindingsCalls", "I");
+            getBindings.visitFieldInsn(
+                    Opcodes.PUTFIELD,
+                    "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+                    "bindingsCalls",
+                    "I");
             getBindings.visitVarInsn(Opcodes.ALOAD, 0);
-            getBindings.visitFieldInsn(Opcodes.GETFIELD, "com/live2d/cubism/doc/model/interpolator/KeyformGridSource", "bindings", "Ljava/util/List;");
+            getBindings.visitFieldInsn(
+                    Opcodes.GETFIELD,
+                    "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+                    "bindings",
+                    "Ljava/util/List;");
             getBindings.visitInsn(Opcodes.ARETURN);
             getBindings.visitMaxs(3, 1);
             getBindings.visitEnd();
         });
 
         defineInterface(out, "com/live2d/cubism/doc/model/morphTarget/IKeyFormMorphTarget", cw -> {
-            cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "getParameterGuid", "()Lcom/live2d/type/CParameterGuid;", null, null).visitEnd();
-            cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "getKeyValue", "()Ljava/lang/Float;", null, null).visitEnd();
+            cw.visitMethod(
+                            Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT,
+                            "getParameterGuid",
+                            "()Lcom/live2d/type/CParameterGuid;",
+                            null,
+                            null)
+                    .visitEnd();
+            cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "getKeyValue", "()Ljava/lang/Float;", null, null)
+                    .visitEnd();
         });
 
         defineClassWithInterfaces(
@@ -726,15 +942,39 @@ class ParameterRowRepaintArtifactTest {
                 "java/lang/Object",
                 new String[] {"com/live2d/cubism/doc/model/morphTarget/IKeyFormMorphTarget"},
                 cw -> {
-                    cw.visitField(Opcodes.ACC_PUBLIC, "guid", "Lcom/live2d/type/CParameterGuid;", null, null).visitEnd();
-                    cw.visitField(Opcodes.ACC_PUBLIC, "keyValue", "Ljava/lang/Float;", null, null).visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "guid", "Lcom/live2d/type/CParameterGuid;", null, null)
+                            .visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "keyValue", "Ljava/lang/Float;", null, null)
+                            .visitEnd();
                     addDefaultInit(cw, "java/lang/Object");
-                    addGetter(cw, "getParameterGuid", "()Lcom/live2d/type/CParameterGuid;", "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget", "guid", "Lcom/live2d/type/CParameterGuid;", Opcodes.ARETURN);
-                    addGetter(cw, "getKeyValue", "()Ljava/lang/Float;", "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget", "keyValue", "Ljava/lang/Float;", Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getParameterGuid",
+                            "()Lcom/live2d/type/CParameterGuid;",
+                            "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget",
+                            "guid",
+                            "Lcom/live2d/type/CParameterGuid;",
+                            Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getKeyValue",
+                            "()Ljava/lang/Float;",
+                            "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget",
+                            "keyValue",
+                            "Ljava/lang/Float;",
+                            Opcodes.ARETURN);
                 });
 
-        defineInterface(out, "com/live2d/cubism/doc/model/morphTarget/IKeyFormMorphTargetSet", cw ->
-                cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "getMorphTargets", "()Ljava/util/List;", null, null).visitEnd());
+        defineInterface(
+                out,
+                "com/live2d/cubism/doc/model/morphTarget/IKeyFormMorphTargetSet",
+                cw -> cw.visitMethod(
+                                Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT,
+                                "getMorphTargets",
+                                "()Ljava/util/List;",
+                                null,
+                                null)
+                        .visitEnd());
 
         defineClassWithInterfaces(
                 out,
@@ -742,9 +982,17 @@ class ParameterRowRepaintArtifactTest {
                 "java/lang/Object",
                 new String[] {"com/live2d/cubism/doc/model/morphTarget/IKeyFormMorphTargetSet"},
                 cw -> {
-                    cw.visitField(Opcodes.ACC_PUBLIC, "morphTargets", "Ljava/util/List;", null, null).visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "morphTargets", "Ljava/util/List;", null, null)
+                            .visitEnd();
                     addDefaultInit(cw, "java/lang/Object");
-                    addGetter(cw, "getMorphTargets", "()Ljava/util/List;", "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet", "morphTargets", "Ljava/util/List;", Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getMorphTargets",
+                            "()Ljava/util/List;",
+                            "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet",
+                            "morphTargets",
+                            "Ljava/util/List;",
+                            Opcodes.ARETURN);
                 });
 
         defineClassWithInterfaces(
@@ -753,47 +1001,160 @@ class ParameterRowRepaintArtifactTest {
                 "java/lang/Object",
                 new String[] {"com/live2d/cubism/doc/model/morphTarget/IKeyFormMorphTargetSet"},
                 cw -> {
-                    cw.visitField(Opcodes.ACC_PUBLIC, "morphTargets", "Ljava/util/List;", null, null).visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "morphTargets", "Ljava/util/List;", null, null)
+                            .visitEnd();
                     addDefaultInit(cw, "java/lang/Object");
-                    addGetter(cw, "getMorphTargets", "()Ljava/util/List;", "com/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet", "morphTargets", "Ljava/util/List;", Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getMorphTargets",
+                            "()Ljava/util/List;",
+                            "com/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet",
+                            "morphTargets",
+                            "Ljava/util/List;",
+                            Opcodes.ARETURN);
                 });
 
         defineSimpleClass(out, "com/live2d/cubism/doc/model/ACParameterControllableSource", "java/lang/Object", cw -> {
-            cw.visitField(Opcodes.ACC_PUBLIC, "grid", "Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "extGrid", "Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "morphSet", "Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "extMorphSet", "Lcom/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet;", null, null).visitEnd();
+            cw.visitField(
+                            Opcodes.ACC_PUBLIC,
+                            "grid",
+                            "Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;",
+                            null,
+                            null)
+                    .visitEnd();
+            cw.visitField(
+                            Opcodes.ACC_PUBLIC,
+                            "extGrid",
+                            "Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;",
+                            null,
+                            null)
+                    .visitEnd();
+            cw.visitField(
+                            Opcodes.ACC_PUBLIC,
+                            "morphSet",
+                            "Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet;",
+                            null,
+                            null)
+                    .visitEnd();
+            cw.visitField(
+                            Opcodes.ACC_PUBLIC,
+                            "extMorphSet",
+                            "Lcom/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet;",
+                            null,
+                            null)
+                    .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
-            addGetter(cw, "getKeyformGridSource", "()Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;", "com/live2d/cubism/doc/model/ACParameterControllableSource", "grid", "Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;", Opcodes.ARETURN);
-            addGetter(cw, "getExtendedKeyformGridSourceIfAvailable", "()Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;", "com/live2d/cubism/doc/model/ACParameterControllableSource", "extGrid", "Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;", Opcodes.ARETURN);
-            addGetter(cw, "getKeyformMorphTargetSet", "()Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet;", "com/live2d/cubism/doc/model/ACParameterControllableSource", "morphSet", "Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet;", Opcodes.ARETURN);
-            addGetter(cw, "getExtendedKeyformMorphTargetSetIfAvailable", "()Lcom/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet;", "com/live2d/cubism/doc/model/ACParameterControllableSource", "extMorphSet", "Lcom/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet;", Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getKeyformGridSource",
+                    "()Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;",
+                    "com/live2d/cubism/doc/model/ACParameterControllableSource",
+                    "grid",
+                    "Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;",
+                    Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getExtendedKeyformGridSourceIfAvailable",
+                    "()Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;",
+                    "com/live2d/cubism/doc/model/ACParameterControllableSource",
+                    "extGrid",
+                    "Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;",
+                    Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getKeyformMorphTargetSet",
+                    "()Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet;",
+                    "com/live2d/cubism/doc/model/ACParameterControllableSource",
+                    "morphSet",
+                    "Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet;",
+                    Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getExtendedKeyformMorphTargetSetIfAvailable",
+                    "()Lcom/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet;",
+                    "com/live2d/cubism/doc/model/ACParameterControllableSource",
+                    "extMorphSet",
+                    "Lcom/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet;",
+                    Opcodes.ARETURN);
         });
 
         defineSimpleClass(out, "com/live2d/cubism/doc/model/ACParameterControllable", "java/lang/Object", cw -> {
-            cw.visitField(Opcodes.ACC_PUBLIC, "source", "Lcom/live2d/cubism/doc/model/ACParameterControllableSource;", null, null).visitEnd();
+            cw.visitField(
+                            Opcodes.ACC_PUBLIC,
+                            "source",
+                            "Lcom/live2d/cubism/doc/model/ACParameterControllableSource;",
+                            null,
+                            null)
+                    .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
-            addGetter(cw, "getSource", "()Lcom/live2d/cubism/doc/model/ACParameterControllableSource;", "com/live2d/cubism/doc/model/ACParameterControllable", "source", "Lcom/live2d/cubism/doc/model/ACParameterControllableSource;", Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getSource",
+                    "()Lcom/live2d/cubism/doc/model/ACParameterControllableSource;",
+                    "com/live2d/cubism/doc/model/ACParameterControllable",
+                    "source",
+                    "Lcom/live2d/cubism/doc/model/ACParameterControllableSource;",
+                    Opcodes.ARETURN);
         });
 
-        defineSimpleClass(out, "com/live2d/cubism/doc/model/StubControllable", "com/live2d/cubism/doc/model/ACParameterControllable", cw ->
-                addDefaultInit(cw, "com/live2d/cubism/doc/model/ACParameterControllable"));
+        defineSimpleClass(
+                out,
+                "com/live2d/cubism/doc/model/StubControllable",
+                "com/live2d/cubism/doc/model/ACParameterControllable",
+                cw -> addDefaultInit(cw, "com/live2d/cubism/doc/model/ACParameterControllable"));
 
         defineSimpleClass(out, "com/live2d/cubism/doc/model/CModel", "java/lang/Object", cw -> {
-            cw.visitField(Opcodes.ACC_PUBLIC, "parameterSet", "Lcom/live2d/cubism/doc/model/param/CParameterSet;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "allObjects", "Ljava/util/List;", null, null).visitEnd();
+            cw.visitField(
+                            Opcodes.ACC_PUBLIC,
+                            "parameterSet",
+                            "Lcom/live2d/cubism/doc/model/param/CParameterSet;",
+                            null,
+                            null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "allObjects", "Ljava/util/List;", null, null)
+                    .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
-            addGetter(cw, "getParameterSet", "()Lcom/live2d/cubism/doc/model/param/CParameterSet;", "com/live2d/cubism/doc/model/CModel", "parameterSet", "Lcom/live2d/cubism/doc/model/param/CParameterSet;", Opcodes.ARETURN);
-            addGetter(cw, "getAllObjects", "()Ljava/util/List;", "com/live2d/cubism/doc/model/CModel", "allObjects", "Ljava/util/List;", Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getParameterSet",
+                    "()Lcom/live2d/cubism/doc/model/param/CParameterSet;",
+                    "com/live2d/cubism/doc/model/CModel",
+                    "parameterSet",
+                    "Lcom/live2d/cubism/doc/model/param/CParameterSet;",
+                    Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getAllObjects",
+                    "()Ljava/util/List;",
+                    "com/live2d/cubism/doc/model/CModel",
+                    "allObjects",
+                    "Ljava/util/List;",
+                    Opcodes.ARETURN);
         });
 
         defineInterface(out, "com/live2d/cubism/view/palette/parameter/ui/B", cw -> {
-            cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "getParameter1_id", "()Lcom/live2d/cubism/doc/model/id/CParameterId;", null, null).visitEnd();
-            cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "getParam_currentValue", "()F", null, null).visitEnd();
-            cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "setParam_currentValue", "(F)V", null, null).visitEnd();
-            cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "getParameter2_id", "()Lcom/live2d/cubism/doc/model/id/CParameterId;", null, null).visitEnd();
-            cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "getParamSec_currentValue", "()F", null, null).visitEnd();
-            cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "setParamSec_currentValue", "(F)V", null, null).visitEnd();
+            cw.visitMethod(
+                            Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT,
+                            "getParameter1_id",
+                            "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
+                            null,
+                            null)
+                    .visitEnd();
+            cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "getParam_currentValue", "()F", null, null)
+                    .visitEnd();
+            cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "setParam_currentValue", "(F)V", null, null)
+                    .visitEnd();
+            cw.visitMethod(
+                            Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT,
+                            "getParameter2_id",
+                            "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
+                            null,
+                            null)
+                    .visitEnd();
+            cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "getParamSec_currentValue", "()F", null, null)
+                    .visitEnd();
+            cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "setParamSec_currentValue", "(F)V", null, null)
+                    .visitEnd();
         });
 
         defineClassWithInterfaces(
@@ -802,35 +1163,97 @@ class ParameterRowRepaintArtifactTest {
                 "com/live2d/ui/CWidget",
                 new String[] {"com/live2d/cubism/view/palette/parameter/ui/B"},
                 cw -> {
-                    cw.visitField(Opcodes.ACC_PUBLIC, "parameter", "Lcom/live2d/cubism/doc/model/param/CParameterSource;", null, null).visitEnd();
-                    cw.visitField(Opcodes.ACC_PUBLIC, "blocker", "Lcom/live2d/ui/control/CBlocker;", null, null).visitEnd();
-                    cw.visitField(Opcodes.ACC_PUBLIC, "mainWidget", "Lcom/live2d/ui/CWidget;", null, null).visitEnd();
-                    cw.visitField(Opcodes.ACC_PUBLIC, "currentVal", "F", null, null).visitEnd();
-                    cw.visitField(Opcodes.ACC_PUBLIC, "selectedObjectsCalls", "I", null, null).visitEnd();
+                    cw.visitField(
+                                    Opcodes.ACC_PUBLIC,
+                                    "parameter",
+                                    "Lcom/live2d/cubism/doc/model/param/CParameterSource;",
+                                    null,
+                                    null)
+                            .visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "blocker", "Lcom/live2d/ui/control/CBlocker;", null, null)
+                            .visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "mainWidget", "Lcom/live2d/ui/CWidget;", null, null)
+                            .visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "currentVal", "F", null, null)
+                            .visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "selectedObjectsCalls", "I", null, null)
+                            .visitEnd();
                     addDefaultInit(cw, "com/live2d/ui/CWidget");
-                    addGetter(cw, "getParameter", "()Lcom/live2d/cubism/doc/model/param/CParameterSource;", "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget", "parameter", "Lcom/live2d/cubism/doc/model/param/CParameterSource;", Opcodes.ARETURN);
-                    addGetter(cw, "getBlocker", "()Lcom/live2d/ui/control/CBlocker;", "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget", "blocker", "Lcom/live2d/ui/control/CBlocker;", Opcodes.ARETURN);
-                    addGetter(cw, "getMainWidget", "()Lcom/live2d/ui/CWidget;", "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget", "mainWidget", "Lcom/live2d/ui/CWidget;", Opcodes.ARETURN);
-                    addGetter(cw, "getParam_currentValue", "()F", "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget", "currentVal", "F", Opcodes.FRETURN);
+                    addGetter(
+                            cw,
+                            "getParameter",
+                            "()Lcom/live2d/cubism/doc/model/param/CParameterSource;",
+                            "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
+                            "parameter",
+                            "Lcom/live2d/cubism/doc/model/param/CParameterSource;",
+                            Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getBlocker",
+                            "()Lcom/live2d/ui/control/CBlocker;",
+                            "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
+                            "blocker",
+                            "Lcom/live2d/ui/control/CBlocker;",
+                            Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getMainWidget",
+                            "()Lcom/live2d/ui/CWidget;",
+                            "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
+                            "mainWidget",
+                            "Lcom/live2d/ui/CWidget;",
+                            Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getParam_currentValue",
+                            "()F",
+                            "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
+                            "currentVal",
+                            "F",
+                            Opcodes.FRETURN);
                     addNullObjectMethod(cw, "getParameter2_id", "()Lcom/live2d/cubism/doc/model/id/CParameterId;");
                     addZeroFloatGetter(cw, "getParamSec_currentValue");
                     addVoidNoopMethod(cw, "setParamSec_currentValue", "(F)V");
-                    addCounterVoidMethod(cw, "setSelectedObjects$cubism", "(Ljava/util/List;)V", "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget", "selectedObjectsCalls");
+                    addCounterVoidMethod(
+                            cw,
+                            "setSelectedObjects$cubism",
+                            "(Ljava/util/List;)V",
+                            "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
+                            "selectedObjectsCalls");
 
-                    final MethodVisitor pid = cw.visitMethod(Opcodes.ACC_PUBLIC, "getParameter1_id", "()Lcom/live2d/cubism/doc/model/id/CParameterId;", null, null);
+                    final MethodVisitor pid = cw.visitMethod(
+                            Opcodes.ACC_PUBLIC,
+                            "getParameter1_id",
+                            "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
+                            null,
+                            null);
                     pid.visitCode();
                     pid.visitVarInsn(Opcodes.ALOAD, 0);
-                    pid.visitFieldInsn(Opcodes.GETFIELD, "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget", "parameter", "Lcom/live2d/cubism/doc/model/param/CParameterSource;");
-                    pid.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "com/live2d/cubism/doc/model/param/CParameterSource", "getId", "()Lcom/live2d/cubism/doc/model/id/CParameterId;", false);
+                    pid.visitFieldInsn(
+                            Opcodes.GETFIELD,
+                            "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
+                            "parameter",
+                            "Lcom/live2d/cubism/doc/model/param/CParameterSource;");
+                    pid.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "com/live2d/cubism/doc/model/param/CParameterSource",
+                            "getId",
+                            "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
+                            false);
                     pid.visitInsn(Opcodes.ARETURN);
                     pid.visitMaxs(1, 1);
                     pid.visitEnd();
 
-                    final MethodVisitor setVal = cw.visitMethod(Opcodes.ACC_PUBLIC, "setParam_currentValue", "(F)V", null, null);
+                    final MethodVisitor setVal =
+                            cw.visitMethod(Opcodes.ACC_PUBLIC, "setParam_currentValue", "(F)V", null, null);
                     setVal.visitCode();
                     setVal.visitVarInsn(Opcodes.ALOAD, 0);
                     setVal.visitVarInsn(Opcodes.FLOAD, 1);
-                    setVal.visitFieldInsn(Opcodes.PUTFIELD, "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget", "currentVal", "F");
+                    setVal.visitFieldInsn(
+                            Opcodes.PUTFIELD,
+                            "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
+                            "currentVal",
+                            "F");
                     setVal.visitVarInsn(Opcodes.ALOAD, 0);
                     setVal.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "com/live2d/ui/CWidget", "repaint", "()V", false);
                     setVal.visitInsn(Opcodes.RETURN);
@@ -844,58 +1267,168 @@ class ParameterRowRepaintArtifactTest {
                 "com/live2d/ui/CWidget",
                 new String[] {"com/live2d/cubism/view/palette/parameter/ui/B"},
                 cw -> {
-                    cw.visitField(Opcodes.ACC_PUBLIC, "parameter", "Lcom/live2d/cubism/doc/model/param/CParameterSource;", null, null).visitEnd();
-                    cw.visitField(Opcodes.ACC_PUBLIC, "parameterSec", "Lcom/live2d/cubism/doc/model/param/CParameterSource;", null, null).visitEnd();
-                    cw.visitField(Opcodes.ACC_PUBLIC, "blocker", "Lcom/live2d/ui/control/CBlocker;", null, null).visitEnd();
-                    cw.visitField(Opcodes.ACC_PUBLIC, "mainWidget", "Lcom/live2d/ui/CWidget;", null, null).visitEnd();
-                    cw.visitField(Opcodes.ACC_PUBLIC, "combinedEnable", "Z", null, null).visitEnd();
-                    cw.visitField(Opcodes.ACC_PUBLIC, "currentVal1", "F", null, null).visitEnd();
-                    cw.visitField(Opcodes.ACC_PUBLIC, "currentVal2", "F", null, null).visitEnd();
-                    cw.visitField(Opcodes.ACC_PUBLIC, "resizeCount", "I", null, null).visitEnd();
+                    cw.visitField(
+                                    Opcodes.ACC_PUBLIC,
+                                    "parameter",
+                                    "Lcom/live2d/cubism/doc/model/param/CParameterSource;",
+                                    null,
+                                    null)
+                            .visitEnd();
+                    cw.visitField(
+                                    Opcodes.ACC_PUBLIC,
+                                    "parameterSec",
+                                    "Lcom/live2d/cubism/doc/model/param/CParameterSource;",
+                                    null,
+                                    null)
+                            .visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "blocker", "Lcom/live2d/ui/control/CBlocker;", null, null)
+                            .visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "mainWidget", "Lcom/live2d/ui/CWidget;", null, null)
+                            .visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "combinedEnable", "Z", null, null)
+                            .visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "currentVal1", "F", null, null)
+                            .visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "currentVal2", "F", null, null)
+                            .visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "resizeCount", "I", null, null)
+                            .visitEnd();
                     addDefaultInit(cw, "com/live2d/ui/CWidget");
-                    addGetter(cw, "getParameter", "()Lcom/live2d/cubism/doc/model/param/CParameterSource;", "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget", "parameter", "Lcom/live2d/cubism/doc/model/param/CParameterSource;", Opcodes.ARETURN);
-                    addGetter(cw, "getParameterSec", "()Lcom/live2d/cubism/doc/model/param/CParameterSource;", "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget", "parameterSec", "Lcom/live2d/cubism/doc/model/param/CParameterSource;", Opcodes.ARETURN);
-                    addGetter(cw, "getBlocker", "()Lcom/live2d/ui/control/CBlocker;", "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget", "blocker", "Lcom/live2d/ui/control/CBlocker;", Opcodes.ARETURN);
-                    addGetter(cw, "getMainWidget", "()Lcom/live2d/ui/CWidget;", "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget", "mainWidget", "Lcom/live2d/ui/CWidget;", Opcodes.ARETURN);
-                    addGetter(cw, "getCombinedEnable", "()Z", "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget", "combinedEnable", "Z", Opcodes.IRETURN);
-                    addGetter(cw, "getParam_currentValue", "()F", "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget", "currentVal1", "F", Opcodes.FRETURN);
-                    addGetter(cw, "getParamSec_currentValue", "()F", "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget", "currentVal2", "F", Opcodes.FRETURN);
-                    addCounterVoidMethod(cw, "resize", "()V", "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget", "resizeCount");
+                    addGetter(
+                            cw,
+                            "getParameter",
+                            "()Lcom/live2d/cubism/doc/model/param/CParameterSource;",
+                            "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+                            "parameter",
+                            "Lcom/live2d/cubism/doc/model/param/CParameterSource;",
+                            Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getParameterSec",
+                            "()Lcom/live2d/cubism/doc/model/param/CParameterSource;",
+                            "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+                            "parameterSec",
+                            "Lcom/live2d/cubism/doc/model/param/CParameterSource;",
+                            Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getBlocker",
+                            "()Lcom/live2d/ui/control/CBlocker;",
+                            "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+                            "blocker",
+                            "Lcom/live2d/ui/control/CBlocker;",
+                            Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getMainWidget",
+                            "()Lcom/live2d/ui/CWidget;",
+                            "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+                            "mainWidget",
+                            "Lcom/live2d/ui/CWidget;",
+                            Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getCombinedEnable",
+                            "()Z",
+                            "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+                            "combinedEnable",
+                            "Z",
+                            Opcodes.IRETURN);
+                    addGetter(
+                            cw,
+                            "getParam_currentValue",
+                            "()F",
+                            "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+                            "currentVal1",
+                            "F",
+                            Opcodes.FRETURN);
+                    addGetter(
+                            cw,
+                            "getParamSec_currentValue",
+                            "()F",
+                            "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+                            "currentVal2",
+                            "F",
+                            Opcodes.FRETURN);
+                    addCounterVoidMethod(
+                            cw,
+                            "resize",
+                            "()V",
+                            "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+                            "resizeCount");
 
-                    final MethodVisitor p1Id = cw.visitMethod(Opcodes.ACC_PUBLIC, "getParameter1_id", "()Lcom/live2d/cubism/doc/model/id/CParameterId;", null, null);
+                    final MethodVisitor p1Id = cw.visitMethod(
+                            Opcodes.ACC_PUBLIC,
+                            "getParameter1_id",
+                            "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
+                            null,
+                            null);
                     p1Id.visitCode();
                     p1Id.visitVarInsn(Opcodes.ALOAD, 0);
-                    p1Id.visitFieldInsn(Opcodes.GETFIELD, "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget", "parameter", "Lcom/live2d/cubism/doc/model/param/CParameterSource;");
-                    p1Id.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "com/live2d/cubism/doc/model/param/CParameterSource", "getId", "()Lcom/live2d/cubism/doc/model/id/CParameterId;", false);
+                    p1Id.visitFieldInsn(
+                            Opcodes.GETFIELD,
+                            "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+                            "parameter",
+                            "Lcom/live2d/cubism/doc/model/param/CParameterSource;");
+                    p1Id.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "com/live2d/cubism/doc/model/param/CParameterSource",
+                            "getId",
+                            "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
+                            false);
                     p1Id.visitInsn(Opcodes.ARETURN);
                     p1Id.visitMaxs(1, 1);
                     p1Id.visitEnd();
 
-                    final MethodVisitor p2Id = cw.visitMethod(Opcodes.ACC_PUBLIC, "getParameter2_id", "()Lcom/live2d/cubism/doc/model/id/CParameterId;", null, null);
+                    final MethodVisitor p2Id = cw.visitMethod(
+                            Opcodes.ACC_PUBLIC,
+                            "getParameter2_id",
+                            "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
+                            null,
+                            null);
                     p2Id.visitCode();
                     p2Id.visitVarInsn(Opcodes.ALOAD, 0);
-                    p2Id.visitFieldInsn(Opcodes.GETFIELD, "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget", "parameterSec", "Lcom/live2d/cubism/doc/model/param/CParameterSource;");
-                    p2Id.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "com/live2d/cubism/doc/model/param/CParameterSource", "getId", "()Lcom/live2d/cubism/doc/model/id/CParameterId;", false);
+                    p2Id.visitFieldInsn(
+                            Opcodes.GETFIELD,
+                            "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+                            "parameterSec",
+                            "Lcom/live2d/cubism/doc/model/param/CParameterSource;");
+                    p2Id.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "com/live2d/cubism/doc/model/param/CParameterSource",
+                            "getId",
+                            "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
+                            false);
                     p2Id.visitInsn(Opcodes.ARETURN);
                     p2Id.visitMaxs(1, 1);
                     p2Id.visitEnd();
 
-                    final MethodVisitor setV1 = cw.visitMethod(Opcodes.ACC_PUBLIC, "setParam_currentValue", "(F)V", null, null);
+                    final MethodVisitor setV1 =
+                            cw.visitMethod(Opcodes.ACC_PUBLIC, "setParam_currentValue", "(F)V", null, null);
                     setV1.visitCode();
                     setV1.visitVarInsn(Opcodes.ALOAD, 0);
                     setV1.visitVarInsn(Opcodes.FLOAD, 1);
-                    setV1.visitFieldInsn(Opcodes.PUTFIELD, "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget", "currentVal1", "F");
+                    setV1.visitFieldInsn(
+                            Opcodes.PUTFIELD,
+                            "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+                            "currentVal1",
+                            "F");
                     setV1.visitVarInsn(Opcodes.ALOAD, 0);
                     setV1.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "com/live2d/ui/CWidget", "repaint", "()V", false);
                     setV1.visitInsn(Opcodes.RETURN);
                     setV1.visitMaxs(2, 2);
                     setV1.visitEnd();
 
-                    final MethodVisitor setV2 = cw.visitMethod(Opcodes.ACC_PUBLIC, "setParamSec_currentValue", "(F)V", null, null);
+                    final MethodVisitor setV2 =
+                            cw.visitMethod(Opcodes.ACC_PUBLIC, "setParamSec_currentValue", "(F)V", null, null);
                     setV2.visitCode();
                     setV2.visitVarInsn(Opcodes.ALOAD, 0);
                     setV2.visitVarInsn(Opcodes.FLOAD, 1);
-                    setV2.visitFieldInsn(Opcodes.PUTFIELD, "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget", "currentVal2", "F");
+                    setV2.visitFieldInsn(
+                            Opcodes.PUTFIELD,
+                            "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+                            "currentVal2",
+                            "F");
                     setV2.visitVarInsn(Opcodes.ALOAD, 0);
                     setV2.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "com/live2d/ui/CWidget", "repaint", "()V", false);
                     setV2.visitInsn(Opcodes.RETURN);
@@ -903,33 +1436,109 @@ class ParameterRowRepaintArtifactTest {
                     setV2.visitEnd();
                 });
 
-        defineSimpleClass(out, "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget", "com/live2d/ui/CWidget", cw -> {
-            cw.visitField(Opcodes.ACC_PUBLIC, "parameterGroup", "Lcom/live2d/cubism/doc/model/param/group/CParameterGroup;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "foldingPane", "Lcom/live2d/ui/container/CFoldingPane;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "rowLayout", "Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "mainWidget", "Lcom/live2d/ui/CWidget;", null, null).visitEnd();
-            addDefaultInit(cw, "com/live2d/ui/CWidget");
-            addGetter(cw, "getParameterGroup", "()Lcom/live2d/cubism/doc/model/param/group/CParameterGroup;", "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget", "parameterGroup", "Lcom/live2d/cubism/doc/model/param/group/CParameterGroup;", Opcodes.ARETURN);
-            addGetter(cw, "getFoldingPane", "()Lcom/live2d/ui/container/CFoldingPane;", "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget", "foldingPane", "Lcom/live2d/ui/container/CFoldingPane;", Opcodes.ARETURN);
-            addGetter(cw, "getRowLayout", "()Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;", "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget", "rowLayout", "Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;", Opcodes.ARETURN);
-            addGetter(cw, "getMainWidget", "()Lcom/live2d/ui/CWidget;", "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget", "mainWidget", "Lcom/live2d/ui/CWidget;", Opcodes.ARETURN);
-        });
+        defineSimpleClass(
+                out,
+                "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
+                "com/live2d/ui/CWidget",
+                cw -> {
+                    cw.visitField(
+                                    Opcodes.ACC_PUBLIC,
+                                    "parameterGroup",
+                                    "Lcom/live2d/cubism/doc/model/param/group/CParameterGroup;",
+                                    null,
+                                    null)
+                            .visitEnd();
+                    cw.visitField(
+                                    Opcodes.ACC_PUBLIC,
+                                    "foldingPane",
+                                    "Lcom/live2d/ui/container/CFoldingPane;",
+                                    null,
+                                    null)
+                            .visitEnd();
+                    cw.visitField(
+                                    Opcodes.ACC_PUBLIC,
+                                    "rowLayout",
+                                    "Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;",
+                                    null,
+                                    null)
+                            .visitEnd();
+                    cw.visitField(Opcodes.ACC_PUBLIC, "mainWidget", "Lcom/live2d/ui/CWidget;", null, null)
+                            .visitEnd();
+                    addDefaultInit(cw, "com/live2d/ui/CWidget");
+                    addGetter(
+                            cw,
+                            "getParameterGroup",
+                            "()Lcom/live2d/cubism/doc/model/param/group/CParameterGroup;",
+                            "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
+                            "parameterGroup",
+                            "Lcom/live2d/cubism/doc/model/param/group/CParameterGroup;",
+                            Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getFoldingPane",
+                            "()Lcom/live2d/ui/container/CFoldingPane;",
+                            "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
+                            "foldingPane",
+                            "Lcom/live2d/ui/container/CFoldingPane;",
+                            Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getRowLayout",
+                            "()Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;",
+                            "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
+                            "rowLayout",
+                            "Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;",
+                            Opcodes.ARETURN);
+                    addGetter(
+                            cw,
+                            "getMainWidget",
+                            "()Lcom/live2d/ui/CWidget;",
+                            "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
+                            "mainWidget",
+                            "Lcom/live2d/ui/CWidget;",
+                            Opcodes.ARETURN);
+                });
 
         defineSimpleClass(out, "com/live2d/cubism/view/palette/parameter/s$b", "java/lang/Object", cw -> {
-            cw.visitField(Opcodes.ACC_PUBLIC, "guid", "Lcom/live2d/type/CParameterGuid;", null, null).visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "guid", "Lcom/live2d/type/CParameterGuid;", null, null)
+                    .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
-            addGetter(cw, "a", "()Lcom/live2d/type/CParameterGuid;", "com/live2d/cubism/view/palette/parameter/s$b", "guid", "Lcom/live2d/type/CParameterGuid;", Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "a",
+                    "()Lcom/live2d/type/CParameterGuid;",
+                    "com/live2d/cubism/view/palette/parameter/s$b",
+                    "guid",
+                    "Lcom/live2d/type/CParameterGuid;",
+                    Opcodes.ARETURN);
         });
 
         defineSimpleClass(out, TEST_SYNTHETIC_CONTROLLER, "java/lang/Object", cw -> {
-            cw.visitField(Opcodes.ACC_PRIVATE, "d", "Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PRIVATE, "h", "Lcom/live2d/type/CArrayList;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PRIVATE, "n", "Ljava/util/List;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PRIVATE, "y", "Lcom/live2d/cubism/view/palette/parameter/s$b;", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PUBLIC, "selectedRows", "Ljava/util/List;", null, null).visitEnd();
+            cw.visitField(
+                            Opcodes.ACC_PRIVATE,
+                            "d",
+                            "Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;",
+                            null,
+                            null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PRIVATE, "h", "Lcom/live2d/type/CArrayList;", null, null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PRIVATE, "n", "Ljava/util/List;", null, null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PRIVATE, "y", "Lcom/live2d/cubism/view/palette/parameter/s$b;", null, null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "selectedRows", "Ljava/util/List;", null, null)
+                    .visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "showKeyforms", "Z", null, null).visitEnd();
             addDefaultInit(cw, "java/lang/Object");
-            addGetter(cw, "g", "()Ljava/util/List;", TEST_SYNTHETIC_CONTROLLER, "selectedRows", "Ljava/util/List;", Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "g",
+                    "()Ljava/util/List;",
+                    TEST_SYNTHETIC_CONTROLLER,
+                    "selectedRows",
+                    "Ljava/util/List;",
+                    Opcodes.ARETURN);
             addGetter(cw, "o", "()Z", TEST_SYNTHETIC_CONTROLLER, "showKeyforms", "Z", Opcodes.IRETURN);
         });
 
@@ -947,7 +1556,13 @@ class ParameterRowRepaintArtifactTest {
     private static void defineInterface(
             final Map<String, byte[]> out, final String internalName, final Consumer<ClassWriter> customizer) {
         final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
-        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT, internalName, null, "java/lang/Object", null);
+        cw.visit(
+                Opcodes.V17,
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT,
+                internalName,
+                null,
+                "java/lang/Object",
+                null);
         customizer.accept(cw);
         cw.visitEnd();
         out.put(internalName.replace('/', '.'), cw.toByteArray());
@@ -993,8 +1608,7 @@ class ParameterRowRepaintArtifactTest {
         mv.visitEnd();
     }
 
-    private static void addNullObjectMethod(
-            final ClassWriter cw, final String methodName, final String descriptor) {
+    private static void addNullObjectMethod(final ClassWriter cw, final String methodName, final String descriptor) {
         final MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, methodName, descriptor, null, null);
         mv.visitCode();
         mv.visitInsn(Opcodes.ACONST_NULL);
@@ -1012,8 +1626,7 @@ class ParameterRowRepaintArtifactTest {
         mv.visitEnd();
     }
 
-    private static void addVoidNoopMethod(
-            final ClassWriter cw, final String methodName, final String descriptor) {
+    private static void addVoidNoopMethod(final ClassWriter cw, final String methodName, final String descriptor) {
         final MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, methodName, descriptor, null, null);
         mv.visitCode();
         mv.visitInsn(Opcodes.RETURN);
@@ -1131,13 +1744,7 @@ class ParameterRowRepaintArtifactTest {
 
         private Class<?> defineStubClass(final String binaryName) {
             final ClassWriter cw = new ClassWriter(0);
-            cw.visit(
-                    Opcodes.V17,
-                    Opcodes.ACC_PUBLIC,
-                    binaryName.replace('.', '/'),
-                    null,
-                    "java/lang/Object",
-                    null);
+            cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, binaryName.replace('.', '/'), null, "java/lang/Object", null);
             cw.visitEnd();
             final byte[] raw = cw.toByteArray();
             return defineClass(binaryName, raw, 0, raw.length);
@@ -1258,7 +1865,8 @@ class ParameterRowRepaintArtifactTest {
             final Object grid = instantiate(loader, "com.live2d.cubism.doc.model.interpolator.KeyformGridSource");
             final List<Object> gridBindings = new ArrayList<>();
             setField(grid, "bindings", gridBindings);
-            final Object morphSet = instantiate(loader, "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTargetSet");
+            final Object morphSet =
+                    instantiate(loader, "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTargetSet");
             final List<Object> morphTargets = new ArrayList<>();
             setField(morphSet, "morphTargets", morphTargets);
             setField(ctrlSrc, "grid", grid);
@@ -1278,13 +1886,15 @@ class ParameterRowRepaintArtifactTest {
             setField(dblPrimParam, "value", INITIAL_PARAM_VALUE);
             paramMap.put(getField(dblPrimSrc, "id"), dblPrimParam);
 
-            final Object secBinding = instantiate(loader, "com.live2d.cubism.doc.model.interpolator.KeyformBindingSource");
+            final Object secBinding =
+                    instantiate(loader, "com.live2d.cubism.doc.model.interpolator.KeyformBindingSource");
             setField(secBinding, "guid", secGuid);
             final List<Float> secKeys = new ArrayList<>();
             setField(secBinding, "keys", secKeys);
             gridBindings.add(secBinding);
 
-            final Object secMorphTarget = instantiate(loader, "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget");
+            final Object secMorphTarget =
+                    instantiate(loader, "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget");
             setField(secMorphTarget, "guid", secGuid);
             setField(secMorphTarget, "keyValue", null);
             morphTargets.add(secMorphTarget);
@@ -1340,8 +1950,8 @@ class ParameterRowRepaintArtifactTest {
                 setField(param, "value", INITIAL_PARAM_VALUE);
                 paramMap.put(getField(src, "id"), param);
 
-                final Object row = instantiate(
-                        loader, "com.live2d.cubism.view.palette.parameter.ui.SingleParameterRowWidget");
+                final Object row =
+                        instantiate(loader, "com.live2d.cubism.view.palette.parameter.ui.SingleParameterRowWidget");
                 final Object main = instantiate(loader, "com.live2d.ui.CWidget");
                 final Object bgColor = createColor(loader, Color.GRAY);
                 final JPanel panel = new JPanel();
@@ -1592,16 +2202,16 @@ class ParameterRowRepaintArtifactTest {
             return cColor;
         }
 
-        private static void setupWidgetVisuals(
-                final ClassLoader loader, final Object widget, final Color color) throws Exception {
+        private static void setupWidgetVisuals(final ClassLoader loader, final Object widget, final Color color)
+                throws Exception {
             final JPanel panel = new JPanel();
             panel.setBackground(color);
             panel.setBounds(0, 0, DEFAULT_WIDTH, DEFAULT_HEIGHT);
             setupWidgetWithFields(widget, createColor(loader, color), panel);
         }
 
-        private static void setupWidgetWithFields(
-                final Object widget, final Object cColor, final JComponent comp) throws Exception {
+        private static void setupWidgetWithFields(final Object widget, final Object cColor, final JComponent comp)
+                throws Exception {
             setField(widget, "visible", Boolean.TRUE);
             setField(widget, "bgColor", cColor);
             setField(widget, "jcomp", comp);
@@ -1609,11 +2219,12 @@ class ParameterRowRepaintArtifactTest {
 
         @SuppressWarnings("unchecked")
         private static <T> T instantiate(final ClassLoader loader, final String className) throws Exception {
-            return (T) Class.forName(className.replace('/', '.'), true, loader).getConstructor().newInstance();
+            return (T) Class.forName(className.replace('/', '.'), true, loader)
+                    .getConstructor()
+                    .newInstance();
         }
 
-        private static void setField(final Object target, final String fieldName, final Object value)
-                throws Exception {
+        private static void setField(final Object target, final String fieldName, final Object value) throws Exception {
             findField(target.getClass(), fieldName).set(target, value);
         }
 
@@ -1621,8 +2232,7 @@ class ParameterRowRepaintArtifactTest {
             return findField(target.getClass(), fieldName).get(target);
         }
 
-        private static Field findField(final Class<?> type, final String fieldName)
-                throws NoSuchFieldException {
+        private static Field findField(final Class<?> type, final String fieldName) throws NoSuchFieldException {
             Class<?> cursor = type;
             while (cursor != null) {
                 try {

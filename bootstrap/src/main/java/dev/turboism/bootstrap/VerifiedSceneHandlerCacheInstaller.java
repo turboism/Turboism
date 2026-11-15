@@ -48,11 +48,9 @@ final class VerifiedSceneHandlerCacheInstaller implements AutoCloseable {
                 "scene handler cache",
                 VerifiedSceneHandlerCacheInstaller::resolve,
                 new WeavePlan<>(
-                        VerifiedSceneHandlerCacheInstaller::targets,
-                        VerifiedSceneHandlerCacheInstaller::sitesProven),
+                        VerifiedSceneHandlerCacheInstaller::targets, VerifiedSceneHandlerCacheInstaller::sitesProven),
                 (target, launch) -> {
-                    final SceneHandlerCacheBridge bridge =
-                            new SceneHandlerCacheBridge(launch.hostLoader());
+                    final SceneHandlerCacheBridge bridge = new SceneHandlerCacheBridge(launch.hostLoader());
                     return BridgeLayer.of(bridge::install, bridge);
                 },
                 WeaveEffects.none());
@@ -79,30 +77,16 @@ final class VerifiedSceneHandlerCacheInstaller implements AutoCloseable {
                 source.referenceBytes(entitiesOwner),
                 source.referenceBytes(componentsOwner));
         return List.of(
+                new WeaveTarget(viewOwner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure),
                 new WeaveTarget(
-                        viewOwner,
-                        transformer,
-                        EXPECTED_MATCHES,
-                        transformer::matches,
-                        transformer::failure),
+                        entitiesOwner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure),
                 new WeaveTarget(
-                        entitiesOwner,
-                        transformer,
-                        EXPECTED_MATCHES,
-                        transformer::matches,
-                        transformer::failure),
-                new WeaveTarget(
-                        componentsOwner,
-                        transformer,
-                        EXPECTED_MATCHES,
-                        transformer::matches,
-                        transformer::failure));
+                        componentsOwner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     private static String sitesProven(final List<WeaveTarget> targets) {
-        final int sites = targets.get(0)
-                .transformer(SceneHandlerCacheTransformer.class)
-                .sites();
+        final int sites =
+                targets.get(0).transformer(SceneHandlerCacheTransformer.class).sites();
         return sites == EXPECTED_SITES ? null : "sites=" + sites;
     }
 

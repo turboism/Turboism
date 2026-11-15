@@ -43,7 +43,8 @@ final class CursorValidationElisionTest {
                 null, null, CursorValidationElisionTarget.CONTAINER_OWNER, null, null, containerRef);
         assertNotNull(rewrittenContainer, transformer.failure());
         assertNull(transformer.failure());
-        assertTrue(new ClassReader(rewrittenContainer).getClassName()
+        assertTrue(new ClassReader(rewrittenContainer)
+                .getClassName()
                 .equals(CursorValidationElisionTarget.CONTAINER_OWNER));
 
         final byte[] reconstitutedComponent = stripDeprecatedAttribute(componentRef);

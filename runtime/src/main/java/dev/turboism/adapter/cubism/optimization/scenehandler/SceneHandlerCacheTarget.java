@@ -97,16 +97,13 @@ public record SceneHandlerCacheTarget(HostArtifactDigest digest, String version)
     public static final String COMPONENTS_LIST_DESCRIPTOR = "()Ljava/util/List;";
 
     /** Descriptor of {@code Components.a(IGComponent, int)}. */
-    public static final String COMPONENTS_ADD_DESCRIPTOR =
-            "(Lcom/live2d/graphics3d/component/IGComponent;I)V";
+    public static final String COMPONENTS_ADD_DESCRIPTOR = "(Lcom/live2d/graphics3d/component/IGComponent;I)V";
 
     /** Descriptor of {@code Components.a(IGComponent)}. */
-    public static final String COMPONENTS_REMOVE_DESCRIPTOR =
-            "(Lcom/live2d/graphics3d/component/IGComponent;)V";
+    public static final String COMPONENTS_REMOVE_DESCRIPTOR = "(Lcom/live2d/graphics3d/component/IGComponent;)V";
 
     /** Mouse-handler component owner collected by {@code CEViewContext.onInputEvent_exe}. */
-    public static final String MOUSE_HANDLER_OWNER =
-            "com/live2d/cubism/view/context/guiEntity/GMouseHandlerComponent";
+    public static final String MOUSE_HANDLER_OWNER = "com/live2d/cubism/view/context/guiEntity/GMouseHandlerComponent";
 
     public SceneHandlerCacheTarget {
         Objects.requireNonNull(digest, "digest");

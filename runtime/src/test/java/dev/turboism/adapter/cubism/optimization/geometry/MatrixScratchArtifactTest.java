@@ -164,10 +164,10 @@ class MatrixScratchArtifactTest {
     private static void verifyArtifactVersion(String version, Path artifact) throws Exception {
         URL[] urls = jarUrls(artifact.getParent());
         TransformEntry entry = readTransformEntry(artifact);
-        ProtectionDomain domain = new ProtectionDomain(new CodeSource(artifact.toUri().toURL(), entry.signers()), null);
+        ProtectionDomain domain =
+                new ProtectionDomain(new CodeSource(artifact.toUri().toURL(), entry.signers()), null);
         try (URLClassLoader unpatchedLoader = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader());
-                TransformingLoader patchedLoader =
-                        new TransformingLoader(urls, artifact, entry.bytes(), domain)) {
+                TransformingLoader patchedLoader = new TransformingLoader(urls, artifact, entry.bytes(), domain)) {
             MatrixScratchTransformer rewrite = patchedLoader.transformer();
             byte[] rewritten = patchedLoader.rewrittenBytes();
             assertNotNull(rewritten, version + ": " + rewrite.failure());
@@ -279,7 +279,8 @@ class MatrixScratchArtifactTest {
         List<URL> urls = new ArrayList<>();
         boolean hasKotlinStdlib = false;
         try (var files = Files.walk(directory, JAR_WALK_DEPTH)) {
-            for (Path path : files.filter(p -> p.toString().endsWith(JAR_SUFFIX)).toList()) {
+            for (Path path :
+                    files.filter(p -> p.toString().endsWith(JAR_SUFFIX)).toList()) {
                 if (path.getFileName().toString().startsWith(KOTLIN_STDLIB_PREFIX)) {
                     hasKotlinStdlib = true;
                 }
@@ -322,8 +323,8 @@ class MatrixScratchArtifactTest {
             super(urls, ClassLoader.getPlatformClassLoader());
             this.domain = domain;
             this.transformer = new MatrixScratchTransformer(this, artifact, original);
-            this.rewritten = this.transformer.transform(
-                    null, this, MatrixScratchTransformer.OWNER, null, domain, original);
+            this.rewritten =
+                    this.transformer.transform(null, this, MatrixScratchTransformer.OWNER, null, domain, original);
         }
 
         MatrixScratchTransformer transformer() {

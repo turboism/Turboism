@@ -29,12 +29,9 @@ public record ParameterRowRepaintTarget(
     private static final Set<String> LINE_5_0_LATE = ReviewedVersions.between("5.0.03", "5.0.06");
     private static final Set<String> LINE_5_1 = ReviewedVersions.line("5.1");
 
-    private static final String CONTROLLER_OWNER_5_0_EARLY =
-            "com/live2d/cubism/view/palette/parameter/k";
-    private static final String CONTROLLER_OWNER_5_0_TO_5_1 =
-            "com/live2d/cubism/view/palette/parameter/m";
-    private static final String CONTROLLER_OWNER_5_2_PLUS =
-            "com/live2d/cubism/view/palette/parameter/s";
+    private static final String CONTROLLER_OWNER_5_0_EARLY = "com/live2d/cubism/view/palette/parameter/k";
+    private static final String CONTROLLER_OWNER_5_0_TO_5_1 = "com/live2d/cubism/view/palette/parameter/m";
+    private static final String CONTROLLER_OWNER_5_2_PLUS = "com/live2d/cubism/view/palette/parameter/s";
 
     private static final String HIGHLIGHT_FIELD_5_0 = "z";
     private static final String HIGHLIGHT_FIELD_5_1_PLUS = "y";
@@ -65,8 +62,7 @@ public record ParameterRowRepaintTarget(
     public static final String CHILDREN_BOX_FIELD = "d";
 
     /** Field descriptor of {@link #CHILDREN_BOX_FIELD}. */
-    public static final String CHILDREN_BOX_DESCRIPTOR =
-            "Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;";
+    public static final String CHILDREN_BOX_DESCRIPTOR = "Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;";
 
     /** Controller field storing the flat {@code CArrayList} of active parameter rows. */
     public static final String ROW_LIST_FIELD = "h";
@@ -143,8 +139,7 @@ public record ParameterRowRepaintTarget(
             "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget";
 
     /** Parameter group folder widget owner. */
-    public static final String GROUP_ROW_OWNER =
-            "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget";
+    public static final String GROUP_ROW_OWNER = "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget";
 
     /** Base widget owner. */
     public static final String WIDGET_OWNER = "com/live2d/ui/CWidget";
@@ -194,8 +189,7 @@ public record ParameterRowRepaintTarget(
     public static final String GET_FOLDING_PANE_METHOD = "getFoldingPane";
 
     /** Folding pane getter descriptor. */
-    public static final String FOLDING_PANE_GETTER_DESCRIPTOR =
-            "()Lcom/live2d/ui/container/CFoldingPane;";
+    public static final String FOLDING_PANE_GETTER_DESCRIPTOR = "()Lcom/live2d/ui/container/CFoldingPane;";
 
     /** Child row layout accessor on {@code ParameterGroupRowWidget}. */
     public static final String GET_ROW_LAYOUT_METHOD = "getRowLayout";
@@ -241,8 +235,7 @@ public record ParameterRowRepaintTarget(
     public static final String JCOLOR_GETTER_DESCRIPTOR = "()Ljava/awt/Color;";
 
     /** Parameter group model owner. */
-    public static final String PARAMETER_GROUP_OWNER =
-            "com/live2d/cubism/doc/model/param/group/CParameterGroup";
+    public static final String PARAMETER_GROUP_OWNER = "com/live2d/cubism/doc/model/param/group/CParameterGroup";
 
     /** Name getter on parameters and parameter groups. */
     public static final String GET_NAME_METHOD = "getName";
@@ -260,8 +253,7 @@ public record ParameterRowRepaintTarget(
     public static final String GET_PARAMETER_SET_METHOD = "getParameterSet";
 
     /** Parameter set getter descriptor. */
-    public static final String PARAMETER_SET_GETTER_DESCRIPTOR =
-            "()Lcom/live2d/cubism/doc/model/param/CParameterSet;";
+    public static final String PARAMETER_SET_GETTER_DESCRIPTOR = "()Lcom/live2d/cubism/doc/model/param/CParameterSet;";
 
     /** All controllable model objects accessor on {@code CModel}. */
     public static final String GET_ALL_OBJECTS_METHOD = "getAllObjects";
@@ -286,8 +278,7 @@ public record ParameterRowRepaintTarget(
     public static final String GET_VALUE_METHOD = "getValue";
 
     /** Parameter source owner. */
-    public static final String PARAMETER_SOURCE_OWNER =
-            "com/live2d/cubism/doc/model/param/CParameterSource";
+    public static final String PARAMETER_SOURCE_OWNER = "com/live2d/cubism/doc/model/param/CParameterSource";
 
     /** Minimum value getter on {@code CParameterSource}. */
     public static final String GET_MIN_VALUE_METHOD = "getMinValue";
@@ -324,15 +315,13 @@ public record ParameterRowRepaintTarget(
     public static final String GET_ID_METHOD = "getId";
 
     /** Parameter ID getter descriptor. */
-    public static final String PARAM_ID_GETTER_DESCRIPTOR =
-            "()Lcom/live2d/cubism/doc/model/id/CParameterId;";
+    public static final String PARAM_ID_GETTER_DESCRIPTOR = "()Lcom/live2d/cubism/doc/model/id/CParameterId;";
 
     /** Translucent visibility color getter on {@code CParameterSource}. */
     public static final String GET_VISIBILITY_COLOR_ALPHA50_METHOD = "getVisibilityColorAlpha50";
 
     /** Model controllable runtime object owner. */
-    public static final String CONTROLLABLE_INTERFACE =
-            "com/live2d/cubism/doc/model/ACParameterControllable";
+    public static final String CONTROLLABLE_INTERFACE = "com/live2d/cubism/doc/model/ACParameterControllable";
 
     /** Source accessor on {@code ACParameterControllable}. */
     public static final String GET_SOURCE_METHOD = "getSource";
@@ -342,15 +331,13 @@ public record ParameterRowRepaintTarget(
             "()Lcom/live2d/cubism/doc/model/ACParameterControllableSource;";
 
     /** Model controllable source owner. */
-    public static final String CONTROLLABLE_SOURCE_OWNER =
-            "com/live2d/cubism/doc/model/ACParameterControllableSource";
+    public static final String CONTROLLABLE_SOURCE_OWNER = "com/live2d/cubism/doc/model/ACParameterControllableSource";
 
     /** Primary keyform grid accessor on {@code ACParameterControllableSource}. */
     public static final String GET_KEYFORM_GRID_METHOD = "getKeyformGridSource";
 
     /** Extended keyform grid accessor on {@code ACParameterControllableSource}. */
-    public static final String GET_EXT_KEYFORM_GRID_METHOD =
-            "getExtendedKeyformGridSourceIfAvailable";
+    public static final String GET_EXT_KEYFORM_GRID_METHOD = "getExtendedKeyformGridSourceIfAvailable";
 
     /** Keyform grid getter descriptor. */
     public static final String KEYFORM_GRID_GETTER_DESCRIPTOR =
@@ -364,16 +351,14 @@ public record ParameterRowRepaintTarget(
             "()Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet;";
 
     /** Extended morph target set accessor on {@code ACParameterControllableSource}. */
-    public static final String GET_EXT_MORPH_TARGET_SET_METHOD =
-            "getExtendedKeyformMorphTargetSetIfAvailable";
+    public static final String GET_EXT_MORPH_TARGET_SET_METHOD = "getExtendedKeyformMorphTargetSetIfAvailable";
 
     /** Extended morph target set getter descriptor. */
     public static final String EXT_MORPH_TARGET_SET_GETTER_DESCRIPTOR =
             "()Lcom/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet;";
 
     /** Keyform grid owner. */
-    public static final String KEYFORM_GRID_SOURCE_OWNER =
-            "com/live2d/cubism/doc/model/interpolator/KeyformGridSource";
+    public static final String KEYFORM_GRID_SOURCE_OWNER = "com/live2d/cubism/doc/model/interpolator/KeyformGridSource";
 
     /** Keyform bindings list accessor on {@code KeyformGridSource}. */
     public static final String GET_KEYFORM_BINDINGS_METHOD = "getKeyformBindings";
@@ -396,8 +381,7 @@ public record ParameterRowRepaintTarget(
     public static final String GET_MORPH_TARGETS_METHOD = "getMorphTargets";
 
     /** Morph target item interface owner. */
-    public static final String MORPH_TARGET_OWNER =
-            "com/live2d/cubism/doc/model/morphTarget/IKeyFormMorphTarget";
+    public static final String MORPH_TARGET_OWNER = "com/live2d/cubism/doc/model/morphTarget/IKeyFormMorphTarget";
 
     /** Morph key value accessor on {@code IKeyFormMorphTarget}. */
     public static final String GET_KEY_VALUE_METHOD = "getKeyValue";
@@ -406,12 +390,10 @@ public record ParameterRowRepaintTarget(
     public static final String BOXED_FLOAT_GETTER_DESCRIPTOR = "()Ljava/lang/Float;";
 
     /** Modeling document owner. */
-    public static final String MODELING_DOCUMENT_OWNER =
-            "com/live2d/cubism/doc/modeling/CModelingDocument";
+    public static final String MODELING_DOCUMENT_OWNER = "com/live2d/cubism/doc/modeling/CModelingDocument";
 
     /** Modeling edit mode base class owner. */
-    public static final String EDIT_MODE_BASE_OWNER =
-            "com/live2d/cubism/doc/modeling/CModelingEditMode_Base";
+    public static final String EDIT_MODE_BASE_OWNER = "com/live2d/cubism/doc/modeling/CModelingEditMode_Base";
 
     /** Abstract edit mode superclass owner. */
     public static final String EDIT_MODE_OWNER = "com/live2d/cubism/doc/ACEditMode";
@@ -485,23 +467,14 @@ public record ParameterRowRepaintTarget(
                 .toList();
     }
 
-    private static ParameterRowRepaintTarget targetForVersion(
-            final HostArtifactDigest digest, final String version) {
+    private static ParameterRowRepaintTarget targetForVersion(final HostArtifactDigest digest, final String version) {
         if (LINE_5_0_EARLY.contains(version)) {
             return new ParameterRowRepaintTarget(
-                    digest,
-                    version,
-                    CONTROLLER_OWNER_5_0_EARLY,
-                    HIGHLIGHT_FIELD_5_0,
-                    SHOW_KEYFORMS_METHOD_5_0);
+                    digest, version, CONTROLLER_OWNER_5_0_EARLY, HIGHLIGHT_FIELD_5_0, SHOW_KEYFORMS_METHOD_5_0);
         }
         if (LINE_5_0_LATE.contains(version)) {
             return new ParameterRowRepaintTarget(
-                    digest,
-                    version,
-                    CONTROLLER_OWNER_5_0_TO_5_1,
-                    HIGHLIGHT_FIELD_5_0,
-                    SHOW_KEYFORMS_METHOD_5_0);
+                    digest, version, CONTROLLER_OWNER_5_0_TO_5_1, HIGHLIGHT_FIELD_5_0, SHOW_KEYFORMS_METHOD_5_0);
         }
         if (LINE_5_1.contains(version)) {
             return new ParameterRowRepaintTarget(
@@ -512,11 +485,7 @@ public record ParameterRowRepaintTarget(
                     SHOW_KEYFORMS_METHOD_5_1_PLUS);
         }
         return new ParameterRowRepaintTarget(
-                digest,
-                version,
-                CONTROLLER_OWNER_5_2_PLUS,
-                HIGHLIGHT_FIELD_5_1_PLUS,
-                SHOW_KEYFORMS_METHOD_5_1_PLUS);
+                digest, version, CONTROLLER_OWNER_5_2_PLUS, HIGHLIGHT_FIELD_5_1_PLUS, SHOW_KEYFORMS_METHOD_5_1_PLUS);
     }
 
     /** Returns the descriptor of the highlight field on {@link #controllerOwner}. */
@@ -581,12 +550,10 @@ public record ParameterRowRepaintTarget(
                 new MethodDep(PARAMETER_SOURCE_OWNER, GET_COMBINED_METHOD, BOOLEAN_GETTER_DESCRIPTOR),
                 new MethodDep(PARAMETER_SOURCE_OWNER, IS_MORPH_TARGET_METHOD, BOOLEAN_GETTER_DESCRIPTOR),
                 new MethodDep(PARAMETER_SOURCE_OWNER, GET_PARAM_TYPE_METHOD, PARAM_TYPE_GETTER_DESCRIPTOR),
-                new MethodDep(
-                        PARAMETER_SOURCE_OWNER, GET_VISIBILITY_COLOR_ALPHA50_METHOD, COLOR_GETTER_DESCRIPTOR),
+                new MethodDep(PARAMETER_SOURCE_OWNER, GET_VISIBILITY_COLOR_ALPHA50_METHOD, COLOR_GETTER_DESCRIPTOR),
                 new MethodDep(CONTROLLABLE_INTERFACE, GET_SOURCE_METHOD, CONTROLLABLE_SOURCE_GETTER_DESCRIPTOR),
                 new MethodDep(CONTROLLABLE_SOURCE_OWNER, GET_KEYFORM_GRID_METHOD, KEYFORM_GRID_GETTER_DESCRIPTOR),
-                new MethodDep(
-                        CONTROLLABLE_SOURCE_OWNER, GET_EXT_KEYFORM_GRID_METHOD, KEYFORM_GRID_GETTER_DESCRIPTOR),
+                new MethodDep(CONTROLLABLE_SOURCE_OWNER, GET_EXT_KEYFORM_GRID_METHOD, KEYFORM_GRID_GETTER_DESCRIPTOR),
                 new MethodDep(
                         CONTROLLABLE_SOURCE_OWNER, GET_MORPH_TARGET_SET_METHOD, MORPH_TARGET_SET_GETTER_DESCRIPTOR),
                 new MethodDep(
@@ -594,22 +561,18 @@ public record ParameterRowRepaintTarget(
                         GET_EXT_MORPH_TARGET_SET_METHOD,
                         EXT_MORPH_TARGET_SET_GETTER_DESCRIPTOR),
                 new MethodDep(KEYFORM_GRID_SOURCE_OWNER, GET_KEYFORM_BINDINGS_METHOD, LIST_GETTER_DESCRIPTOR),
-                new MethodDep(
-                        KEYFORM_BINDING_SOURCE_OWNER, GET_PARAMETER_GUID_METHOD, PARAM_GUID_GETTER_DESCRIPTOR),
+                new MethodDep(KEYFORM_BINDING_SOURCE_OWNER, GET_PARAMETER_GUID_METHOD, PARAM_GUID_GETTER_DESCRIPTOR),
                 new MethodDep(KEYFORM_BINDING_SOURCE_OWNER, GET_KEYS_METHOD, LIST_GETTER_DESCRIPTOR),
                 new MethodDep(MORPH_TARGET_SET_OWNER, GET_MORPH_TARGETS_METHOD, LIST_GETTER_DESCRIPTOR),
                 new MethodDep(MORPH_TARGET_OWNER, GET_PARAMETER_GUID_METHOD, PARAM_GUID_GETTER_DESCRIPTOR),
                 new MethodDep(MORPH_TARGET_OWNER, GET_KEY_VALUE_METHOD, BOXED_FLOAT_GETTER_DESCRIPTOR),
                 new MethodDep(
-                        MODELING_DOCUMENT_OWNER,
-                        GET_CURRENT_EDIT_MODE_METHOD,
-                        MODELING_EDIT_MODE_GETTER_DESCRIPTOR),
+                        MODELING_DOCUMENT_OWNER, GET_CURRENT_EDIT_MODE_METHOD, MODELING_EDIT_MODE_GETTER_DESCRIPTOR),
                 new MethodDep(EDIT_MODE_OWNER, IS_EDITING_METHOD, BOOLEAN_GETTER_DESCRIPTOR),
                 new MethodDep(EDIT_MODE_OWNER, GET_CURRENT_UNDO_METHOD, GROUP_UNDO_GETTER_DESCRIPTOR),
                 new MethodDep(EDIT_MODE_OWNER, GET_LAST_MODIFIED_TIME_MS_METHOD, LONG_GETTER_DESCRIPTOR),
                 new MethodDep(EDIT_MODE_OWNER, GET_UNDO_MANAGER_METHOD, UNDO_MANAGER_GETTER_DESCRIPTOR),
-                new MethodDep(
-                        EDIT_MODE_OWNER, GET_LINKED_UNDO_MANAGER_METHOD, UNDO_MANAGER_GETTER_DESCRIPTOR),
+                new MethodDep(EDIT_MODE_OWNER, GET_LINKED_UNDO_MANAGER_METHOD, UNDO_MANAGER_GETTER_DESCRIPTOR),
                 new MethodDep(UNDO_MANAGER_OWNER, GET_CURRENT_POS_METHOD, INT_GETTER_DESCRIPTOR),
                 new MethodDep(UNDO_MANAGER_OWNER, GET_UNDO_LIST_METHOD, LIST_GETTER_DESCRIPTOR));
     }

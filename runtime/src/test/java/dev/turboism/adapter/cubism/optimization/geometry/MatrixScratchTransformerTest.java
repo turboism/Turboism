@@ -248,7 +248,8 @@ class MatrixScratchTransformerTest {
                 System.getProperties().put(CALLBACK, bridge.callback());
 
                 admission.set(false);
-                float[] expectedLast = f.values(f.result(leaves[chainCount - 1])).clone();
+                float[] expectedLast =
+                        f.values(f.result(leaves[chainCount - 1])).clone();
                 admission.set(true);
                 for (int i = 0; i < chainCount; i++) {
                     assertNotNull(f.result(leaves[i]));

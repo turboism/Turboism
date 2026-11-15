@@ -22,15 +22,13 @@ public record CameraMatrixCacheTarget(HostArtifactDigest digest, String version)
     public static final String WORLD_TO_CAMERA_METHOD = "getWorldToCameraMatrix";
 
     /** Descriptor of {@code GCamera.getWorldToCameraMatrix()}. */
-    public static final String WORLD_TO_CAMERA_DESCRIPTOR =
-            "()Lcom/live2d/graphics3d/type/GMatrix44;";
+    public static final String WORLD_TO_CAMERA_DESCRIPTOR = "()Lcom/live2d/graphics3d/type/GMatrix44;";
 
     /** Transform accessor on {@code GCamera}. */
     public static final String GET_TRANSFORM_METHOD = "getTransform";
 
     /** Descriptor of {@code GCamera.getTransform()}. */
-    public static final String GET_TRANSFORM_DESCRIPTOR =
-            "()Lcom/live2d/graphics3d/component/GTransform;";
+    public static final String GET_TRANSFORM_DESCRIPTOR = "()Lcom/live2d/graphics3d/component/GTransform;";
 
     /** Transform component owner. */
     public static final String TRANSFORM_OWNER = "com/live2d/graphics3d/component/GTransform";
@@ -39,8 +37,7 @@ public record CameraMatrixCacheTarget(HostArtifactDigest digest, String version)
     public static final String GET_ENTITY_METHOD = "getEntity";
 
     /** Descriptor of {@code GTransform.getEntity()}. */
-    public static final String GET_ENTITY_DESCRIPTOR =
-            "()Lcom/live2d/graphics3d/entity/GEntity;";
+    public static final String GET_ENTITY_DESCRIPTOR = "()Lcom/live2d/graphics3d/entity/GEntity;";
 
     /** Position vector accessor on {@code GTransform}. */
     public static final String GET_POSITION_METHOD = "getPosition";
@@ -52,8 +49,7 @@ public record CameraMatrixCacheTarget(HostArtifactDigest digest, String version)
     public static final String GET_SCALE_METHOD = "getScale";
 
     /** Descriptor returning {@code GVector3}. */
-    public static final String VECTOR3_GETTER_DESCRIPTOR =
-            "()Lcom/live2d/graphics3d/type/GVector3;";
+    public static final String VECTOR3_GETTER_DESCRIPTOR = "()Lcom/live2d/graphics3d/type/GVector3;";
 
     /** Entity owner. */
     public static final String ENTITY_OWNER = "com/live2d/graphics3d/entity/GEntity";
@@ -62,8 +58,7 @@ public record CameraMatrixCacheTarget(HostArtifactDigest digest, String version)
     public static final String GET_PARENT_ENTITY_METHOD = "getParentEntity";
 
     /** Descriptor of {@code GEntity.getParentEntity()}. */
-    public static final String GET_PARENT_ENTITY_DESCRIPTOR =
-            "()Lcom/live2d/graphics3d/entity/GEntity;";
+    public static final String GET_PARENT_ENTITY_DESCRIPTOR = "()Lcom/live2d/graphics3d/entity/GEntity;";
 
     /** 3D vector owner. */
     public static final String VECTOR3_OWNER = "com/live2d/graphics3d/type/GVector3";
@@ -87,8 +82,7 @@ public record CameraMatrixCacheTarget(HostArtifactDigest digest, String version)
     public static final String STATIC_MATRIX_FIELD = "internalStaticMatrixLocalToParent";
 
     /** Field descriptor of {@link #STATIC_MATRIX_FIELD}. */
-    public static final String MATRIX_FIELD_DESCRIPTOR =
-            "Lcom/live2d/graphics3d/type/GMatrix44;";
+    public static final String MATRIX_FIELD_DESCRIPTOR = "Lcom/live2d/graphics3d/type/GMatrix44;";
 
     public CameraMatrixCacheTarget {
         Objects.requireNonNull(digest, "digest");

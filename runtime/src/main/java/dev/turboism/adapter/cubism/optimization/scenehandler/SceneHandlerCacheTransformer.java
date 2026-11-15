@@ -72,7 +72,8 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
             final byte[] entitiesReference,
             final byte[] componentsReference) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(viewReference, "viewReference");
         Objects.requireNonNull(entitiesReference, "entitiesReference");
@@ -84,8 +85,8 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
                 SceneHandlerCacheTarget.INPUT_EVENT_METHOD,
                 SceneHandlerCacheTarget.INPUT_EVENT_DESCRIPTOR);
         composedInputEventShape = WarpAltMirrorHostProfile.forReviewedVersion(target.version())
-                .map(profile -> WarpAltMirrorNativeMethodTransformer.composedInputIngressShape(
-                        profile, viewReference, loader))
+                .map(profile ->
+                        WarpAltMirrorNativeMethodTransformer.composedInputIngressShape(profile, viewReference, loader))
                 .orElse(null);
         entitiesAddShape = ReviewedMethodShape.read(
                 entitiesReference,
@@ -188,7 +189,9 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
     }
 
     private boolean matchesArtifactSource(final ProtectionDomain domain) {
-        if (domain == null || domain.getCodeSource() == null || domain.getCodeSource().getLocation() == null) {
+        if (domain == null
+                || domain.getCodeSource() == null
+                || domain.getCodeSource().getLocation() == null) {
             return false;
         }
         try {
@@ -277,11 +280,7 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
                     super.visitTypeInsn(Opcodes.CHECKCAST, FUNCTION);
                     super.visitVarInsn(Opcodes.ALOAD, scratchSceneSlot);
                     super.visitMethodInsn(
-                            Opcodes.INVOKEINTERFACE,
-                            FUNCTION,
-                            "apply",
-                            "(Ljava/lang/Object;)Ljava/lang/Object;",
-                            true);
+                            Opcodes.INVOKEINTERFACE, FUNCTION, "apply", "(Ljava/lang/Object;)Ljava/lang/Object;", true);
                     super.visitInsn(Opcodes.DUP);
                     super.visitTypeInsn(Opcodes.INSTANCEOF, JAVA_LIST);
                     super.visitJumpInsn(Opcodes.IFEQ, cacheMiss);
@@ -492,8 +491,7 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
                 super.visitJumpInsn(Opcodes.IFEQ, skip);
                 super.visitTypeInsn(Opcodes.CHECKCAST, CONSUMER);
                 super.visitVarInsn(Opcodes.ALOAD, argumentSlot);
-                super.visitMethodInsn(
-                        Opcodes.INVOKEINTERFACE, CONSUMER, "accept", "(Ljava/lang/Object;)V", true);
+                super.visitMethodInsn(Opcodes.INVOKEINTERFACE, CONSUMER, "accept", "(Ljava/lang/Object;)V", true);
                 super.visitJumpInsn(Opcodes.GOTO, done);
                 super.visitLabel(skip);
                 super.visitInsn(Opcodes.POP);
@@ -507,11 +505,7 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
                 Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
         mv.visitLdcInsn(key);
         mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                "java/util/Properties",
-                "get",
-                "(Ljava/lang/Object;)Ljava/lang/Object;",
-                false);
+                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
     }
 
     private static int[] inspectInputEventSlots(final byte[] viewReference) {
@@ -582,10 +576,9 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
                         },
                         ClassReader.SKIP_DEBUG);
         if (result[2] != 1 || result[3] != 1 || result[0] < 0 || result[1] < 2) {
-            throw new IllegalArgumentException(
-                    "unexpected CEViewContext.onInputEvent_exe traversal layout: listSlot="
-                            + result[0] + " maxLocals=" + result[1]
-                            + " traverseCount=" + result[2] + " addAllCount=" + result[3]);
+            throw new IllegalArgumentException("unexpected CEViewContext.onInputEvent_exe traversal layout: listSlot="
+                    + result[0] + " maxLocals=" + result[1]
+                    + " traverseCount=" + result[2] + " addAllCount=" + result[3]);
         }
         return result;
     }

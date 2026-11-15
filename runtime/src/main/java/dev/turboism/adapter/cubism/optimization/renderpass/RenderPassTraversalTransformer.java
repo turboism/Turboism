@@ -94,8 +94,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
     private static final String GET_SORTING_INFO_DESCRIPTOR =
             "(Lcom/live2d/graphics3d/GCamera;)Lcom/live2d/graphics3d/component/a/b;";
     private static final String TRAVERSE_OLD_METHOD = "traverse";
-    private static final String TRAVERSE_OLD_DESCRIPTOR =
-            "(Lkotlin/jvm/functions/Function2;)Ljava/lang/Iterable;";
+    private static final String TRAVERSE_OLD_DESCRIPTOR = "(Lkotlin/jvm/functions/Function2;)Ljava/lang/Iterable;";
 
     private static final int INIT_STACK_CAPACITY = 32;
     private static final int EXPECTED_DRAW_LOOPS = 2;
@@ -155,7 +154,8 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             final byte[] reference,
             final RenderPassTraversalTarget target) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         this.target = Objects.requireNonNull(target, "target");
         Objects.requireNonNull(reference, "reference");
 
@@ -165,8 +165,8 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
                 RenderPassTraversalTarget.RENDER_IMPL_METHOD,
                 target.renderImplDescriptor());
         if (renderImplShape == null) {
-            throw new IllegalArgumentException(
-                    ERROR_ABSENT_REFERENCE + target.renderSystemOwner() + "." + RenderPassTraversalTarget.RENDER_IMPL_METHOD);
+            throw new IllegalArgumentException(ERROR_ABSENT_REFERENCE + target.renderSystemOwner() + "."
+                    + RenderPassTraversalTarget.RENDER_IMPL_METHOD);
         }
         if (target.hasRecursiveTraverseMethod()) {
             traverseShape = ReviewedMethodShape.read(
@@ -175,11 +175,10 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
                     RenderPassTraversalTarget.TRAVERSE_METHOD,
                     RenderPassTraversalTarget.TRAVERSE_DESCRIPTOR);
             if (traverseShape == null) {
-                throw new IllegalArgumentException(
-                        ERROR_ABSENT_REFERENCE
-                                + target.renderSystemOwner()
-                                + "."
-                                + RenderPassTraversalTarget.TRAVERSE_METHOD);
+                throw new IllegalArgumentException(ERROR_ABSENT_REFERENCE
+                        + target.renderSystemOwner()
+                        + "."
+                        + RenderPassTraversalTarget.TRAVERSE_METHOD);
             }
         } else {
             traverseShape = null;
@@ -228,7 +227,8 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
                     RenderPassTraversalTarget.RENDER_IMPL_METHOD,
                     target.renderImplDescriptor());
             if (!renderImplShape.equals(observedImplShape)) {
-                failure = ERROR_METHOD_SHAPE + target.renderSystemOwner() + "." + RenderPassTraversalTarget.RENDER_IMPL_METHOD;
+                failure = ERROR_METHOD_SHAPE + target.renderSystemOwner() + "."
+                        + RenderPassTraversalTarget.RENDER_IMPL_METHOD;
                 return null;
             }
             if (target.hasRecursiveTraverseMethod()) {
@@ -238,7 +238,8 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
                         RenderPassTraversalTarget.TRAVERSE_METHOD,
                         RenderPassTraversalTarget.TRAVERSE_DESCRIPTOR);
                 if (!traverseShape.equals(observedTraverseShape)) {
-                    failure = ERROR_METHOD_SHAPE + target.renderSystemOwner() + "." + RenderPassTraversalTarget.TRAVERSE_METHOD;
+                    failure = ERROR_METHOD_SHAPE + target.renderSystemOwner() + "."
+                            + RenderPassTraversalTarget.TRAVERSE_METHOD;
                     return null;
                 }
             }
@@ -293,7 +294,9 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
     }
 
     private boolean matchesArtifactSource(final ProtectionDomain domain) {
-        if (domain == null || domain.getCodeSource() == null || domain.getCodeSource().getLocation() == null) {
+        if (domain == null
+                || domain.getCodeSource() == null
+                || domain.getCodeSource().getLocation() == null) {
             return false;
         }
         try {
@@ -415,14 +418,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             List<LabelSite> labelSites) {}
 
     private record InsnEvent(
-            int pos,
-            int kind,
-            int opcode,
-            int varIndex,
-            String owner,
-            String name,
-            String desc,
-            Label label) {
+            int pos, int kind, int opcode, int varIndex, String owner, String name, String desc, Label label) {
         static final int KIND_OTHER = 0;
         static final int KIND_LABEL = 1;
         static final int KIND_VAR = 2;
@@ -639,9 +635,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
                 if (ev == null) {
                     break;
                 }
-                if (ev.kind() == InsnEvent.KIND_JUMP
-                        && ev.opcode() == Opcodes.IFEQ
-                        && loopEnd == null) {
+                if (ev.kind() == InsnEvent.KIND_JUMP && ev.opcode() == Opcodes.IFEQ && loopEnd == null) {
                     final InsnEvent prev = recent(offset + 1);
                     if (prev != null
                             && prev.kind() == InsnEvent.KIND_METHOD
@@ -682,7 +676,8 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
                 final String descriptor,
                 final Handle bootstrapMethodHandle,
                 final Object... bootstrapMethodArguments) {
-            events.add(new InsnEvent(pos, InsnEvent.KIND_OTHER, Opcodes.INVOKEDYNAMIC, -1, null, name, descriptor, null));
+            events.add(
+                    new InsnEvent(pos, InsnEvent.KIND_OTHER, Opcodes.INVOKEDYNAMIC, -1, null, name, descriptor, null));
             if (STRING_CONCAT_FACTORY_OWNER.equals(bootstrapMethodHandle.getOwner())
                     && MAKE_CONCAT_WITH_CONSTANTS_METHOD.equals(bootstrapMethodHandle.getName())
                     && INT_TO_STRING_DESCRIPTOR.equals(descriptor)
@@ -757,8 +752,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
         }
 
         @Override
-        public void visitTableSwitchInsn(
-                final int min, final int max, final Label dflt, final Label... labels) {
+        public void visitTableSwitchInsn(final int min, final int max, final Label dflt, final Label... labels) {
             events.add(new InsnEvent(pos, InsnEvent.KIND_OTHER, Opcodes.TABLESWITCH, -1, null, null, null, null));
             pos++;
         }
@@ -771,7 +765,8 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
 
         @Override
         public void visitMultiANewArrayInsn(final String descriptor, final int numDimensions) {
-            events.add(new InsnEvent(pos, InsnEvent.KIND_OTHER, Opcodes.MULTIANEWARRAY, numDimensions, descriptor, null, null, null));
+            events.add(new InsnEvent(
+                    pos, InsnEvent.KIND_OTHER, Opcodes.MULTIANEWARRAY, numDimensions, descriptor, null, null, null));
             pos++;
         }
 
@@ -818,7 +813,8 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
                         loop.drawIdxLocal));
             }
             final long preCount = labelSites.stream().filter(LabelSite::preDraw).count();
-            final long postCount = labelSites.stream().filter(site -> !site.preDraw()).count();
+            final long postCount =
+                    labelSites.stream().filter(site -> !site.preDraw()).count();
             if (labelSites.size() != EXPECTED_LABEL_SITES
                     || preCount != EXPECTED_DRAW_LOOPS
                     || postCount != EXPECTED_DRAW_LOOPS) {
@@ -843,9 +839,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
         private final int[] appliedSites;
 
         RecursiveTraverseRewriter(
-                final MethodVisitor downstream,
-                final RenderPassTraversalTarget target,
-                final int[] appliedSites) {
+                final MethodVisitor downstream, final RenderPassTraversalTarget target, final int[] appliedSites) {
             super(Opcodes.ASM9, null);
             this.downstream = downstream;
             this.target = target;
@@ -956,11 +950,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             downstream.visitVarInsn(Opcodes.ALOAD, TRAVERSE_PARAM_OUT);
             downstream.visitVarInsn(Opcodes.ALOAD, TRAVERSE_LOCAL_RENDERER);
             downstream.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    ARRAY_LIST_OWNER,
-                    COLLECTION_ADD_METHOD,
-                    COLLECTION_ADD_DESCRIPTOR,
-                    false);
+                    Opcodes.INVOKEVIRTUAL, ARRAY_LIST_OWNER, COLLECTION_ADD_METHOD, COLLECTION_ADD_DESCRIPTOR, false);
             downstream.visitInsn(Opcodes.POP);
 
             downstream.visitLabel(checkGroup);
@@ -1007,11 +997,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             downstream.visitVarInsn(Opcodes.ASTORE, TRAVERSE_LOCAL_CHILDREN);
             downstream.visitVarInsn(Opcodes.ALOAD, TRAVERSE_LOCAL_CHILDREN);
             downstream.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE,
-                    LIST_OWNER,
-                    LIST_SIZE_METHOD,
-                    LIST_SIZE_DESCRIPTOR,
-                    true);
+                    Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_SIZE_METHOD, LIST_SIZE_DESCRIPTOR, true);
             downstream.visitVarInsn(Opcodes.ISTORE, TRAVERSE_LOCAL_COUNT);
             downstream.visitInsn(Opcodes.ICONST_0);
             downstream.visitVarInsn(Opcodes.ISTORE, TRAVERSE_LOCAL_INDEX);
@@ -1023,12 +1009,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             downstream.visitVarInsn(Opcodes.ALOAD, 0);
             downstream.visitVarInsn(Opcodes.ALOAD, TRAVERSE_LOCAL_CHILDREN);
             downstream.visitVarInsn(Opcodes.ILOAD, TRAVERSE_LOCAL_INDEX);
-            downstream.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE,
-                    LIST_OWNER,
-                    LIST_GET_METHOD,
-                    LIST_GET_DESCRIPTOR,
-                    true);
+            downstream.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_GET_METHOD, LIST_GET_DESCRIPTOR, true);
             downstream.visitTypeInsn(Opcodes.CHECKCAST, RenderPassTraversalTarget.ENTITY_OWNER);
             downstream.visitVarInsn(Opcodes.ILOAD, TRAVERSE_LOCAL_NEXT_IN_GROUP);
             downstream.visitVarInsn(Opcodes.ILOAD, TRAVERSE_LOCAL_IGNORED);
@@ -1281,8 +1262,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
         }
 
         @Override
-        public void visitTableSwitchInsn(
-                final int min, final int max, final Label dflt, final Label... labels) {
+        public void visitTableSwitchInsn(final int min, final int max, final Label dflt, final Label... labels) {
             if (!skipping()) {
                 super.visitTableSwitchInsn(min, max, dflt, labels);
             }
@@ -1327,7 +1307,8 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             super.visitVarInsn(Opcodes.ASTORE, postLabelsLocal);
 
             super.visitLabel(tryStart);
-            super.visitMethodInsn(Opcodes.INVOKESTATIC, SYSTEM_OWNER, GET_PROPERTIES_METHOD, GET_PROPERTIES_DESCRIPTOR, false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, SYSTEM_OWNER, GET_PROPERTIES_METHOD, GET_PROPERTIES_DESCRIPTOR, false);
             super.visitInsn(Opcodes.DUP);
             super.visitLdcInsn(RenderPassTraversalBridge.PRE_DRAW_LABELS_PROPERTY);
             super.visitMethodInsn(
@@ -1367,10 +1348,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
         private void emitTraversalReplacement() {
             super.visitVarInsn(Opcodes.ALOAD, 0);
             super.visitFieldInsn(
-                    Opcodes.GETFIELD,
-                    target.renderSystemOwner(),
-                    FIELD_RENDERERS_H,
-                    CARRAY_LIST_DESCRIPTOR);
+                    Opcodes.GETFIELD, target.renderSystemOwner(), FIELD_RENDERERS_H, CARRAY_LIST_DESCRIPTOR);
             super.visitMethodInsn(
                     Opcodes.INVOKEVIRTUAL,
                     RenderPassTraversalTarget.CARRAY_LIST_OWNER,
@@ -1391,11 +1369,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             final Label done = new Label();
 
             super.visitVarInsn(Opcodes.ALOAD, 0);
-            super.visitFieldInsn(
-                    Opcodes.GETFIELD,
-                    target.renderSystemOwner(),
-                    FIELD_DEBUG_FLAG_D,
-                    BOOLEAN_DESCRIPTOR);
+            super.visitFieldInsn(Opcodes.GETFIELD, target.renderSystemOwner(), FIELD_DEBUG_FLAG_D, BOOLEAN_DESCRIPTOR);
             super.visitJumpInsn(Opcodes.IFEQ, childrenBranch);
 
             super.visitVarInsn(Opcodes.ALOAD, 0);
@@ -1411,10 +1385,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             super.visitVarInsn(Opcodes.ILOAD, RENDER_IMPL_PARAM_EXPORT_53);
             super.visitVarInsn(Opcodes.ALOAD, 0);
             super.visitFieldInsn(
-                    Opcodes.GETFIELD,
-                    target.renderSystemOwner(),
-                    FIELD_RENDERERS_H,
-                    CARRAY_LIST_DESCRIPTOR);
+                    Opcodes.GETFIELD, target.renderSystemOwner(), FIELD_RENDERERS_H, CARRAY_LIST_DESCRIPTOR);
             super.visitMethodInsn(
                     Opcodes.INVOKESPECIAL,
                     target.renderSystemOwner(),
@@ -1439,8 +1410,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
                     false);
             super.visitVarInsn(Opcodes.ASTORE, childrenLocal);
             super.visitVarInsn(Opcodes.ALOAD, childrenLocal);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_SIZE_METHOD, LIST_SIZE_DESCRIPTOR, true);
+            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_SIZE_METHOD, LIST_SIZE_DESCRIPTOR, true);
             super.visitVarInsn(Opcodes.ISTORE, loopLimitLocal);
             super.visitInsn(Opcodes.ICONST_0);
             super.visitVarInsn(Opcodes.ISTORE, loopIdxLocal);
@@ -1452,18 +1422,14 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             super.visitVarInsn(Opcodes.ALOAD, 0);
             super.visitVarInsn(Opcodes.ALOAD, childrenLocal);
             super.visitVarInsn(Opcodes.ILOAD, loopIdxLocal);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_GET_METHOD, LIST_GET_DESCRIPTOR, true);
+            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_GET_METHOD, LIST_GET_DESCRIPTOR, true);
             super.visitTypeInsn(Opcodes.CHECKCAST, RenderPassTraversalTarget.ENTITY_OWNER);
             super.visitInsn(Opcodes.ICONST_0);
             super.visitInsn(Opcodes.ICONST_0);
             super.visitVarInsn(Opcodes.ILOAD, RENDER_IMPL_PARAM_EXPORT_53);
             super.visitVarInsn(Opcodes.ALOAD, 0);
             super.visitFieldInsn(
-                    Opcodes.GETFIELD,
-                    target.renderSystemOwner(),
-                    FIELD_RENDERERS_H,
-                    CARRAY_LIST_DESCRIPTOR);
+                    Opcodes.GETFIELD, target.renderSystemOwner(), FIELD_RENDERERS_H, CARRAY_LIST_DESCRIPTOR);
             super.visitMethodInsn(
                     Opcodes.INVOKESPECIAL,
                     target.renderSystemOwner(),
@@ -1489,19 +1455,11 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             super.visitInsn(Opcodes.DUP);
             super.visitIntInsn(Opcodes.BIPUSH, INIT_STACK_CAPACITY);
             super.visitMethodInsn(
-                    Opcodes.INVOKESPECIAL,
-                    ARRAY_LIST_OWNER,
-                    INIT_METHOD,
-                    ARRAY_LIST_INIT_CAPACITY_DESCRIPTOR,
-                    false);
+                    Opcodes.INVOKESPECIAL, ARRAY_LIST_OWNER, INIT_METHOD, ARRAY_LIST_INIT_CAPACITY_DESCRIPTOR, false);
             super.visitVarInsn(Opcodes.ASTORE, stackLocal);
 
             super.visitVarInsn(Opcodes.ALOAD, 0);
-            super.visitFieldInsn(
-                    Opcodes.GETFIELD,
-                    target.renderSystemOwner(),
-                    FIELD_DEBUG_FLAG_D,
-                    BOOLEAN_DESCRIPTOR);
+            super.visitFieldInsn(Opcodes.GETFIELD, target.renderSystemOwner(), FIELD_DEBUG_FLAG_D, BOOLEAN_DESCRIPTOR);
             super.visitJumpInsn(Opcodes.IFEQ, pushChildrenRoots);
 
             super.visitVarInsn(Opcodes.ALOAD, stackLocal);
@@ -1513,11 +1471,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
                     ROOT_ENTITY_GETTER_DESCRIPTOR,
                     false);
             super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    ARRAY_LIST_OWNER,
-                    COLLECTION_ADD_METHOD,
-                    COLLECTION_ADD_DESCRIPTOR,
-                    false);
+                    Opcodes.INVOKEVIRTUAL, ARRAY_LIST_OWNER, COLLECTION_ADD_METHOD, COLLECTION_ADD_DESCRIPTOR, false);
             super.visitInsn(Opcodes.POP);
             super.visitJumpInsn(Opcodes.GOTO, dfsLoop);
 
@@ -1537,8 +1491,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
                     false);
             super.visitVarInsn(Opcodes.ASTORE, childrenLocal);
             super.visitVarInsn(Opcodes.ALOAD, childrenLocal);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_SIZE_METHOD, LIST_SIZE_DESCRIPTOR, true);
+            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_SIZE_METHOD, LIST_SIZE_DESCRIPTOR, true);
             super.visitInsn(Opcodes.ICONST_1);
             super.visitInsn(Opcodes.ISUB);
             super.visitVarInsn(Opcodes.ISTORE, childIdxLocal);
@@ -1549,14 +1502,9 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             super.visitVarInsn(Opcodes.ALOAD, stackLocal);
             super.visitVarInsn(Opcodes.ALOAD, childrenLocal);
             super.visitVarInsn(Opcodes.ILOAD, childIdxLocal);
+            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_GET_METHOD, LIST_GET_DESCRIPTOR, true);
             super.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_GET_METHOD, LIST_GET_DESCRIPTOR, true);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    ARRAY_LIST_OWNER,
-                    COLLECTION_ADD_METHOD,
-                    COLLECTION_ADD_DESCRIPTOR,
-                    false);
+                    Opcodes.INVOKEVIRTUAL, ARRAY_LIST_OWNER, COLLECTION_ADD_METHOD, COLLECTION_ADD_DESCRIPTOR, false);
             super.visitInsn(Opcodes.POP);
             super.visitIincInsn(childIdxLocal, -1);
             super.visitJumpInsn(Opcodes.GOTO, rootPushLoop);
@@ -1606,10 +1554,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             super.visitJumpInsn(Opcodes.IFEQ, checkGroupChildren);
             super.visitVarInsn(Opcodes.ALOAD, 0);
             super.visitFieldInsn(
-                    Opcodes.GETFIELD,
-                    target.renderSystemOwner(),
-                    FIELD_RENDERERS_H,
-                    CARRAY_LIST_DESCRIPTOR);
+                    Opcodes.GETFIELD, target.renderSystemOwner(), FIELD_RENDERERS_H, CARRAY_LIST_DESCRIPTOR);
             super.visitVarInsn(Opcodes.ALOAD, rendererLocal);
             super.visitMethodInsn(
                     Opcodes.INVOKEVIRTUAL,
@@ -1648,8 +1593,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
                     false);
             super.visitVarInsn(Opcodes.ASTORE, childrenLocal);
             super.visitVarInsn(Opcodes.ALOAD, childrenLocal);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_SIZE_METHOD, LIST_SIZE_DESCRIPTOR, true);
+            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_SIZE_METHOD, LIST_SIZE_DESCRIPTOR, true);
             super.visitInsn(Opcodes.ICONST_1);
             super.visitInsn(Opcodes.ISUB);
             super.visitVarInsn(Opcodes.ISTORE, childIdxLocal);
@@ -1660,14 +1604,9 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             super.visitVarInsn(Opcodes.ALOAD, stackLocal);
             super.visitVarInsn(Opcodes.ALOAD, childrenLocal);
             super.visitVarInsn(Opcodes.ILOAD, childIdxLocal);
+            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_GET_METHOD, LIST_GET_DESCRIPTOR, true);
             super.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_GET_METHOD, LIST_GET_DESCRIPTOR, true);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    ARRAY_LIST_OWNER,
-                    COLLECTION_ADD_METHOD,
-                    COLLECTION_ADD_DESCRIPTOR,
-                    false);
+                    Opcodes.INVOKEVIRTUAL, ARRAY_LIST_OWNER, COLLECTION_ADD_METHOD, COLLECTION_ADD_DESCRIPTOR, false);
             super.visitInsn(Opcodes.POP);
             super.visitIincInsn(childIdxLocal, -1);
             super.visitJumpInsn(Opcodes.GOTO, childPushLoop);
@@ -1681,10 +1620,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
 
             super.visitVarInsn(Opcodes.ALOAD, 0);
             super.visitFieldInsn(
-                    Opcodes.GETFIELD,
-                    target.renderSystemOwner(),
-                    FIELD_RENDERERS_H,
-                    CARRAY_LIST_DESCRIPTOR);
+                    Opcodes.GETFIELD, target.renderSystemOwner(), FIELD_RENDERERS_H, CARRAY_LIST_DESCRIPTOR);
             super.visitVarInsn(Opcodes.ASTORE, childrenLocal);
             super.visitVarInsn(Opcodes.ALOAD, childrenLocal);
             super.visitMethodInsn(
@@ -1729,8 +1665,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             super.visitInsn(Opcodes.ICONST_0);
             super.visitVarInsn(Opcodes.ISTORE, loop.drawIdxLocal());
             super.visitVarInsn(Opcodes.ALOAD, loop.sortedListLocal());
-            super.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_SIZE_METHOD, LIST_SIZE_DESCRIPTOR, true);
+            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_SIZE_METHOD, LIST_SIZE_DESCRIPTOR, true);
             super.visitVarInsn(Opcodes.ISTORE, loopLimitLocal);
 
             super.visitLabel(loopStart);
@@ -1739,8 +1674,7 @@ public final class RenderPassTraversalTransformer implements ClassFileTransforme
             super.visitJumpInsn(Opcodes.IF_ICMPGE, loopEnd);
             super.visitVarInsn(Opcodes.ALOAD, loop.sortedListLocal());
             super.visitVarInsn(Opcodes.ILOAD, loop.drawIdxLocal());
-            super.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_GET_METHOD, LIST_GET_DESCRIPTOR, true);
+            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_GET_METHOD, LIST_GET_DESCRIPTOR, true);
             super.visitTypeInsn(Opcodes.CHECKCAST, RenderPassTraversalTarget.RENDERER_OWNER);
             super.visitVarInsn(Opcodes.ASTORE, loop.rendererLocal());
         }

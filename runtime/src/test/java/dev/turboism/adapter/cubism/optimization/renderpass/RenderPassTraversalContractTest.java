@@ -26,8 +26,11 @@ final class RenderPassTraversalContractTest {
         assertEquals(EXPECTED_TOTAL_TARGETS, targets.size());
         assertTrue(RenderPassTraversalTarget.of(UNREVIEWED_DIGEST).isEmpty());
 
-        final long pre53 = targets.stream().filter(t -> !t.hasRecursiveTraverseMethod()).count();
-        final long v53 = targets.stream().filter(RenderPassTraversalTarget::hasRecursiveTraverseMethod).count();
+        final long pre53 =
+                targets.stream().filter(t -> !t.hasRecursiveTraverseMethod()).count();
+        final long v53 = targets.stream()
+                .filter(RenderPassTraversalTarget::hasRecursiveTraverseMethod)
+                .count();
         assertEquals(EXPECTED_PRE_53_TARGETS, pre53);
         assertEquals(EXPECTED_53_TARGETS, v53);
 
@@ -91,7 +94,10 @@ final class RenderPassTraversalContractTest {
         assertEquals("turboism.optimization.renderPassTraversal", entry.property());
         assertEquals(List.of("TURBOISM_RENDER_PASS_TRAVERSAL"), entry.protocols());
         assertEquals(1, entry.relations().size());
-        assertEquals(Optimization.Relation.Kind.DERIVED_FROM, entry.relations().get(0).kind());
-        assertEquals(OptimizationCatalog.MATRIX_SCRATCH, entry.relations().get(0).target());
+        assertEquals(
+                Optimization.Relation.Kind.DERIVED_FROM,
+                entry.relations().get(0).kind());
+        assertEquals(
+                OptimizationCatalog.MATRIX_SCRATCH, entry.relations().get(0).target());
     }
 }

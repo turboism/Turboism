@@ -64,8 +64,8 @@ final class VerifiedCursorValidationElisionInstaller implements AutoCloseable {
         return CursorValidationElisionTarget.of(HostArtifactDigest.cached(artifact));
     }
 
-    private static List<WeaveTarget> targets(
-            final CursorValidationElisionTarget contract, final WeaveSource source) throws Exception {
+    private static List<WeaveTarget> targets(final CursorValidationElisionTarget contract, final WeaveSource source)
+            throws Exception {
         final byte[] containerReference = readJrtBytes(CursorValidationElisionTarget.CONTAINER_JRT_PATH);
         final byte[] componentReference = readJrtBytes(CursorValidationElisionTarget.COMPONENT_JRT_PATH);
         final Class<?> containerClass =
@@ -73,26 +73,16 @@ final class VerifiedCursorValidationElisionInstaller implements AutoCloseable {
         final Class<?> componentClass =
                 Class.forName(CursorValidationElisionTarget.COMPONENT_OWNER.replace('/', '.'), false, null);
         VerifiedHookInstallerSupport.attestJdkClass(
-                containerClass,
-                "cursor validation elision JDK target attestation failed: " + containerClass.getName());
+                containerClass, "cursor validation elision JDK target attestation failed: " + containerClass.getName());
         VerifiedHookInstallerSupport.attestJdkClass(
-                componentClass,
-                "cursor validation elision JDK target attestation failed: " + componentClass.getName());
+                componentClass, "cursor validation elision JDK target attestation failed: " + componentClass.getName());
         final CursorValidationElisionTransformer transformer =
                 new CursorValidationElisionTransformer(containerReference, componentReference);
         return List.of(
                 new WeaveTarget(
-                        containerClass,
-                        transformer,
-                        EXPECTED_MATCHES,
-                        transformer::matches,
-                        transformer::failure),
+                        containerClass, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure),
                 new WeaveTarget(
-                        componentClass,
-                        transformer,
-                        EXPECTED_MATCHES,
-                        transformer::matches,
-                        transformer::failure));
+                        componentClass, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     private static String sitesProven(final List<WeaveTarget> targets) {
@@ -110,8 +100,7 @@ final class VerifiedCursorValidationElisionInstaller implements AutoCloseable {
         if (hook != null) return;
         if (!(VerifiedInstall.install(spec(), context)
                 instanceof VerifiedInstall.Attempt.Installed<CursorValidationElisionTarget> installed)) {
-            throw new IllegalStateException(
-                    "cursor validation elision refused: host-not-supported-or-hook-disabled");
+            throw new IllegalStateException("cursor validation elision refused: host-not-supported-or-hook-disabled");
         }
         hook = installed.hook();
     }

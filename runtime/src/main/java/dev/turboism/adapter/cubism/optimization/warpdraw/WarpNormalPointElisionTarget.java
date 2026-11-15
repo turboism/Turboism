@@ -37,8 +37,7 @@ public record WarpNormalPointElisionTarget(HostArtifactDigest digest, String ver
     public static final String DRAW_NORMAL_POINT_DESCRIPTOR = "(ZZ[FLcom/live2d/type/CColor;)V";
 
     /** Developer setting owner queried before enabling outside-of-parent points. */
-    public static final String DEVELOPER_SETTING_OWNER =
-            "com/live2d/cubism/setting/AppSetting$DeveloperSetting";
+    public static final String DEVELOPER_SETTING_OWNER = "com/live2d/cubism/setting/AppSetting$DeveloperSetting";
 
     /** Developer flag accessor gating outside-of-parent point visibility. */
     public static final String HIGHLIGHT_OUTSIDE_METHOD = "getHighLightOutsideOfParentDeformer";
@@ -47,12 +46,10 @@ public record WarpNormalPointElisionTarget(HostArtifactDigest digest, String ver
     public static final String BOOLEAN_GETTER_DESCRIPTOR = "()Z";
 
     /** Point entity owner used for warp grid point overlays. */
-    public static final String SIMPLE_POINTS_OWNER =
-            "com/live2d/graphics3d/geometry/GSimplePointsEntity";
+    public static final String SIMPLE_POINTS_OWNER = "com/live2d/graphics3d/geometry/GSimplePointsEntity";
 
     /** Descriptor of {@code GSimplePointsEntity}. */
-    public static final String SIMPLE_POINTS_DESCRIPTOR =
-            "Lcom/live2d/graphics3d/geometry/GSimplePointsEntity;";
+    public static final String SIMPLE_POINTS_DESCRIPTOR = "Lcom/live2d/graphics3d/geometry/GSimplePointsEntity;";
 
     /** Visibility getter on {@code GSimplePointsEntity}. */
     public static final String GET_ENABLED_METHOD = "getEnabled";

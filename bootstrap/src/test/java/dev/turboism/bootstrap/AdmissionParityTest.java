@@ -363,7 +363,8 @@ class AdmissionParityTest {
                         new Frozen(true, "AT_LEAST_17"),
                         (policy, requested, jvm) -> {
                             try {
-                                return VerifiedRenderPassTraversalInstaller.admitted(artifact(), policy, requested, jvm);
+                                return VerifiedRenderPassTraversalInstaller.admitted(
+                                        artifact(), policy, requested, jvm);
                             } catch (final java.io.IOException impossible) {
                                 throw new AssertionError(impossible);
                             }

@@ -39,22 +39,22 @@ final class OptimizationPresetTest {
     Path home;
 
     @Test
-    void balancedEnablesTheTwentyTwoUniversalOptimizationsAndLeavesFourTradeOffsOff() {
+    void balancedEnablesTheThirtyOneUniversalOptimizationsAndLeavesFourTradeOffsOff() {
         final Map<String, Boolean> balanced = OptimizationPreset.BALANCED.flags();
-        assertEquals(26, balanced.size());
+        assertEquals(35, balanced.size());
         assertEquals(
-                22, balanced.values().stream().filter(Boolean::booleanValue).count());
+                31, balanced.values().stream().filter(Boolean::booleanValue).count());
         for (final Optimization optimization : OptimizationCatalog.persisted()) {
             final boolean expected = !TRADE_OFF_KEYS.contains(optimization.key());
             assertEquals(expected, balanced.get(optimization.key()), optimization.key());
         }
 
         final Map<String, Boolean> off = OptimizationPreset.OFF.flags();
-        assertEquals(26, off.size());
+        assertEquals(35, off.size());
         assertTrue(off.values().stream().noneMatch(Boolean::booleanValue));
 
         final Map<String, Boolean> heavy = OptimizationPreset.HEAVY_EDITING.flags();
-        assertEquals(26, heavy.size());
+        assertEquals(35, heavy.size());
         assertTrue(heavy.values().stream().allMatch(Boolean::booleanValue));
     }
 
@@ -88,7 +88,7 @@ final class OptimizationPresetTest {
         assertThrows(IllegalArgumentException.class, () -> OptimizationPreset.fromConfigValue(null));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> OptimizationPreset.BALANCED.targetFlag(OptimizationCatalog.CAMERA_MATRIX_CACHE));
+                () -> OptimizationPreset.BALANCED.targetFlag(OptimizationCatalog.SORTING_INFO_CACHE));
     }
 
     @Test
@@ -101,6 +101,7 @@ final class OptimizationPresetTest {
             assertTrue(service.enabled(OptimizationCatalog.MATRIX_SCRATCH.key()));
             assertTrue(service.enabled(OptimizationCatalog.WARP_POSITION_PROJECTION.key()));
             assertTrue(service.enabled(OptimizationCatalog.INPUT_PATH_ELISION.key()));
+            assertTrue(service.enabled(OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_ELISION.key()));
             assertFalse(service.enabled(OptimizationCatalog.INCREMENTAL_UPDATE.key()));
             assertFalse(service.enabled(OptimizationCatalog.ASYNC_READBACK.key()));
             assertFalse(service.enabled(OptimizationCatalog.MESA_GL_THREAD.key()));

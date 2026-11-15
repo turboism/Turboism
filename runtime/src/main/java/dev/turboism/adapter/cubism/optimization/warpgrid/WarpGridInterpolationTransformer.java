@@ -97,7 +97,8 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             final byte[] reference,
             final WarpGridInterpolationTarget target) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         Objects.requireNonNull(reference, "reference");
         Objects.requireNonNull(target, "target");
         shape = ReviewedMethodShape.read(
@@ -156,9 +157,8 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             return writer.toByteArray();
         } catch (final Exception | LinkageError rejected) {
             final StackTraceElement[] trace = rejected.getStackTrace();
-            failure = rejected
-                    + FAILURE_LOCATOR_SEPARATOR
-                    + (trace.length == 0 ? NO_FRAMES_MARKER : trace[0].toString());
+            failure =
+                    rejected + FAILURE_LOCATOR_SEPARATOR + (trace.length == 0 ? NO_FRAMES_MARKER : trace[0].toString());
             return null;
         }
     }
@@ -169,10 +169,9 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
                 || domain.getCodeSource().getLocation() == null) {
             return false;
         }
-        return artifact.equals(
-                Path.of(domain.getCodeSource().getLocation().toURI())
-                        .toAbsolutePath()
-                        .normalize());
+        return artifact.equals(Path.of(domain.getCodeSource().getLocation().toURI())
+                .toAbsolutePath()
+                .normalize());
     }
 
     private static final class WarpGridClassVisitor extends ClassVisitor {
@@ -208,8 +207,7 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
         }
 
         @Override
-        public void visitTryCatchBlock(
-                final Label start, final Label end, final Label handler, final String type) {
+        public void visitTryCatchBlock(final Label start, final Label end, final Label handler, final String type) {
             handlers.add(new TryCatchBlock(start, end, handler, type));
         }
 
@@ -297,7 +295,8 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
         private void emitPropertyLookup(final String key) {
             visitMethodInsn(Opcodes.INVOKESTATIC, SYSTEM_INTERNAL, GET_PROPERTIES_METHOD, GET_PROPERTIES_DESC, false);
             visitLdcInsn(key);
-            visitMethodInsn(Opcodes.INVOKEVIRTUAL, PROPERTIES_INTERNAL, PROPERTIES_GET_METHOD, PROPERTIES_GET_DESC, false);
+            visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL, PROPERTIES_INTERNAL, PROPERTIES_GET_METHOD, PROPERTIES_GET_DESC, false);
         }
 
         private void emitQuadLoop(final Label oobExit) {

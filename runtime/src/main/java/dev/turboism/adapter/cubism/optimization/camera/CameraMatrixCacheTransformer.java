@@ -39,10 +39,10 @@ public final class CameraMatrixCacheTransformer implements ClassFileTransformer 
      * @param artifact official host JAR path
      * @param reference reference bytes of {@code GCamera}
      */
-    public CameraMatrixCacheTransformer(
-            final ClassLoader loader, final Path artifact, final byte[] reference) {
+    public CameraMatrixCacheTransformer(final ClassLoader loader, final Path artifact, final byte[] reference) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         Objects.requireNonNull(reference, "reference");
         methodShape = ReviewedMethodShape.read(
                 reference,
@@ -130,7 +130,9 @@ public final class CameraMatrixCacheTransformer implements ClassFileTransformer 
     }
 
     private boolean matchesArtifactSource(final ProtectionDomain domain) {
-        if (domain == null || domain.getCodeSource() == null || domain.getCodeSource().getLocation() == null) {
+        if (domain == null
+                || domain.getCodeSource() == null
+                || domain.getCodeSource().getLocation() == null) {
             return false;
         }
         try {
@@ -143,8 +145,7 @@ public final class CameraMatrixCacheTransformer implements ClassFileTransformer 
         }
     }
 
-    private static MethodVisitor wrapWorldToCameraMatrix(
-            final MethodVisitor downstream, final int[] returnSites) {
+    private static MethodVisitor wrapWorldToCameraMatrix(final MethodVisitor downstream, final int[] returnSites) {
         return new MethodVisitor(Opcodes.ASM9, downstream) {
             @Override
             public void visitCode() {
@@ -159,11 +160,7 @@ public final class CameraMatrixCacheTransformer implements ClassFileTransformer 
                 super.visitTypeInsn(Opcodes.CHECKCAST, FUNCTION);
                 super.visitVarInsn(Opcodes.ALOAD, 0);
                 super.visitMethodInsn(
-                        Opcodes.INVOKEINTERFACE,
-                        FUNCTION,
-                        "apply",
-                        "(Ljava/lang/Object;)Ljava/lang/Object;",
-                        true);
+                        Opcodes.INVOKEINTERFACE, FUNCTION, "apply", "(Ljava/lang/Object;)Ljava/lang/Object;", true);
                 super.visitInsn(Opcodes.DUP);
                 super.visitTypeInsn(Opcodes.INSTANCEOF, CameraMatrixCacheTarget.MATRIX_OWNER);
                 super.visitJumpInsn(Opcodes.IFEQ, cacheMiss);
@@ -213,10 +210,6 @@ public final class CameraMatrixCacheTransformer implements ClassFileTransformer 
                 Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
         mv.visitLdcInsn(key);
         mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                "java/util/Properties",
-                "get",
-                "(Ljava/lang/Object;)Ljava/lang/Object;",
-                false);
+                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
     }
 }

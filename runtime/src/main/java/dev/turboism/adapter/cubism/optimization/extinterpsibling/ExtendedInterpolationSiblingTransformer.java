@@ -86,7 +86,8 @@ public final class ExtendedInterpolationSiblingTransformer implements ClassFileT
             final byte[] referenceBytes,
             final ExtendedInterpolationSiblingTarget target) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         Objects.requireNonNull(referenceBytes, "referenceBytes");
         Objects.requireNonNull(target, "target");
 
@@ -129,7 +130,8 @@ public final class ExtendedInterpolationSiblingTransformer implements ClassFileT
                                     final String descriptor,
                                     final String signature,
                                     final String[] exceptions) {
-                                final boolean targetMethod = ExtendedInterpolationSiblingTarget.TARGET_METHOD.equals(name)
+                                final boolean targetMethod = ExtendedInterpolationSiblingTarget.TARGET_METHOD.equals(
+                                                name)
                                         && ExtendedInterpolationSiblingTarget.TARGET_DESCRIPTOR.equals(descriptor);
                                 if (targetMethod && (access & Opcodes.ACC_STATIC) != 0) {
                                     problems.add(ANCHOR_STATIC);
@@ -154,7 +156,10 @@ public final class ExtendedInterpolationSiblingTransformer implements ClassFileT
 
                                     @Override
                                     public void visitFieldInsn(
-                                            final int opcode, final String owner, final String fName, final String fDesc) {
+                                            final int opcode,
+                                            final String owner,
+                                            final String fName,
+                                            final String fDesc) {
                                         lastOpcode = opcode;
                                     }
 
@@ -181,7 +186,8 @@ public final class ExtendedInterpolationSiblingTransformer implements ClassFileT
                                             final String desc,
                                             final boolean isInterface) {
                                         if (targetMethod
-                                                && ExtendedInterpolationSiblingTarget.MODEL_SOURCE_OWNER.equals(owner)) {
+                                                && ExtendedInterpolationSiblingTarget.MODEL_SOURCE_OWNER.equals(
+                                                        owner)) {
                                             if (ExtendedInterpolationSiblingTarget.GET_PART_SOURCE_SET_METHOD.equals(
                                                             methodName)
                                                     && ExtendedInterpolationSiblingTarget.GET_PART_SOURCE_SET_DESCRIPTOR
@@ -319,7 +325,9 @@ public final class ExtendedInterpolationSiblingTransformer implements ClassFileT
     }
 
     private boolean matchesArtifactSource(final ProtectionDomain domain) {
-        if (domain == null || domain.getCodeSource() == null || domain.getCodeSource().getLocation() == null) {
+        if (domain == null
+                || domain.getCodeSource() == null
+                || domain.getCodeSource().getLocation() == null) {
             return false;
         }
         try {

@@ -46,7 +46,8 @@ final class VerifiedWarpNormalPointElisionInstaller implements AutoCloseable {
 
     static boolean admitted(final Path artifact, final RuntimeStartupConfig config, final boolean requested)
             throws IOException {
-        return VerifiedInstall.admits(ADMISSION, config, requested, Runtime.version().feature())
+        return VerifiedInstall.admits(
+                        ADMISSION, config, requested, Runtime.version().feature())
                 && WarpNormalPointElisionTarget.of(HostArtifactDigest.cached(artifact))
                         .isPresent();
     }
@@ -55,8 +56,8 @@ final class VerifiedWarpNormalPointElisionInstaller implements AutoCloseable {
         return WarpNormalPointElisionTarget.of(HostArtifactDigest.cached(artifact));
     }
 
-    private static List<WeaveTarget> targets(
-            final WarpNormalPointElisionTarget target, final WeaveSource source) throws Exception {
+    private static List<WeaveTarget> targets(final WarpNormalPointElisionTarget target, final WeaveSource source)
+            throws Exception {
         final Class<?> owner = source.load(WarpNormalPointElisionTarget.OWNER);
         for (final WarpNormalPointElisionTarget.MethodDep dep : target.methodDependencies()) {
             verifyMethodPresent(source.load(dep.owner()), dep.name(), dep.descriptor());
@@ -101,8 +102,7 @@ final class VerifiedWarpNormalPointElisionInstaller implements AutoCloseable {
         if (hook != null) return;
         if (!(VerifiedInstall.install(SPEC, context)
                 instanceof VerifiedInstall.Attempt.Installed<WarpNormalPointElisionTarget> installed)) {
-            throw new IllegalStateException(
-                    "warp normal-point elision refused: host-not-supported-or-hook-disabled");
+            throw new IllegalStateException("warp normal-point elision refused: host-not-supported-or-hook-disabled");
         }
         hook = installed.hook();
     }

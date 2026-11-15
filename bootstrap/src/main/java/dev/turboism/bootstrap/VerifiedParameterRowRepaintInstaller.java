@@ -28,8 +28,7 @@ final class VerifiedParameterRowRepaintInstaller implements AutoCloseable {
 
     private static final String FEATURE_NAME = "parameter row repaint";
     private static final String SITES_PREFIX = "sites=";
-    private static final String REFUSED_MESSAGE =
-            "parameter row repaint refused: host-not-supported-or-hook-disabled";
+    private static final String REFUSED_MESSAGE = "parameter row repaint refused: host-not-supported-or-hook-disabled";
     private static final String METHOD_SEPARATOR = ".";
     private static final String FIELD_SEPARATOR = ":";
 
@@ -38,11 +37,9 @@ final class VerifiedParameterRowRepaintInstaller implements AutoCloseable {
             FEATURE_NAME,
             VerifiedParameterRowRepaintInstaller::resolve,
             new WeavePlan<>(
-                    VerifiedParameterRowRepaintInstaller::targets,
-                    VerifiedParameterRowRepaintInstaller::sitesProven),
+                    VerifiedParameterRowRepaintInstaller::targets, VerifiedParameterRowRepaintInstaller::sitesProven),
             (target, launch) -> {
-                final ParameterRowRepaintBridge bridge =
-                        new ParameterRowRepaintBridge(launch.hostLoader(), target);
+                final ParameterRowRepaintBridge bridge = new ParameterRowRepaintBridge(launch.hostLoader(), target);
                 return BridgeLayer.of(bridge::install, bridge);
             },
             WeaveEffects.none());
@@ -66,8 +63,8 @@ final class VerifiedParameterRowRepaintInstaller implements AutoCloseable {
         return ParameterRowRepaintTarget.of(HostArtifactDigest.cached(artifact));
     }
 
-    private static List<WeaveTarget> targets(
-            final ParameterRowRepaintTarget target, final WeaveSource source) throws Exception {
+    private static List<WeaveTarget> targets(final ParameterRowRepaintTarget target, final WeaveSource source)
+            throws Exception {
         final Class<?> controllerOwner = source.load(target.controllerOwner());
         for (final ParameterRowRepaintTarget.MethodDep dep : target.methodDependencies()) {
             verifyMethodPresent(source.load(dep.owner()), dep.name(), dep.descriptor());
@@ -82,9 +79,8 @@ final class VerifiedParameterRowRepaintInstaller implements AutoCloseable {
     }
 
     private static String sitesProven(final List<WeaveTarget> targets) {
-        final int sites = targets.get(0)
-                .transformer(ParameterRowRepaintTransformer.class)
-                .sites();
+        final int sites =
+                targets.get(0).transformer(ParameterRowRepaintTransformer.class).sites();
         return sites == ParameterRowRepaintTransformer.EXPECTED_SITES ? null : SITES_PREFIX + sites;
     }
 
@@ -97,8 +93,7 @@ final class VerifiedParameterRowRepaintInstaller implements AutoCloseable {
         throw new NoSuchMethodException(owner.getName() + METHOD_SEPARATOR + name + descriptor);
     }
 
-    private static boolean matchesAnyMethod(
-            final Method[] methods, final String name, final String descriptor) {
+    private static boolean matchesAnyMethod(final Method[] methods, final String name, final String descriptor) {
         for (final Method method : methods) {
             if (!method.getName().equals(name)) {
                 continue;
@@ -122,8 +117,7 @@ final class VerifiedParameterRowRepaintInstaller implements AutoCloseable {
                 return;
             }
         }
-        throw new NoSuchFieldException(
-                owner.getName() + METHOD_SEPARATOR + name + FIELD_SEPARATOR + descriptor);
+        throw new NoSuchFieldException(owner.getName() + METHOD_SEPARATOR + name + FIELD_SEPARATOR + descriptor);
     }
 
     synchronized void install() throws Exception {

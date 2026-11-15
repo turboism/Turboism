@@ -39,11 +39,10 @@ class WarpPositionProjectionArtifactTest {
         exercise(ReviewedHostArtifacts.CUBISM_5_3_04, "5.3.04");
     }
 
-    private static byte[] composeWithMeshInterpolation(
-            ClassLoader loader, byte[] bytes, ProtectionDomain domain) {
+    private static byte[] composeWithMeshInterpolation(ClassLoader loader, byte[] bytes, ProtectionDomain domain) {
         var meshTransformer = new dev.turboism.adapter.cubism.interpolation.MeshInterpolationTransformer(ignored -> {});
-        byte[] patched = meshTransformer.transform(
-                loader, WarpPositionProjectionTransformer.TARGET, null, domain, bytes);
+        byte[] patched =
+                meshTransformer.transform(loader, WarpPositionProjectionTransformer.TARGET, null, domain, bytes);
         assertNotNull(patched, "mesh interpolation transform should succeed on reviewed artifact");
         return patched;
     }
@@ -85,9 +84,10 @@ class WarpPositionProjectionArtifactTest {
             assertNotNull(output, transformer.failure());
             assertEquals(1, transformer.matches());
 
-            byte[] meshPatched = dev.turboism.adapter.cubism.interpolation.MeshInterpolationTransformer.composedShape(bytes) != null
-                    ? composeWithMeshInterpolation(loader, bytes, domain)
-                    : null;
+            byte[] meshPatched =
+                    dev.turboism.adapter.cubism.interpolation.MeshInterpolationTransformer.composedShape(bytes) != null
+                            ? composeWithMeshInterpolation(loader, bytes, domain)
+                            : null;
             if (meshPatched != null) {
                 var composedTransformer = new WarpPositionProjectionTransformer(loader, artifact, bytes);
                 byte[] composedOutput = composedTransformer.transform(

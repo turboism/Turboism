@@ -3,6 +3,8 @@ package dev.turboism.sdk.ui.settings;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Supplier;
 
 /** Toolkit-neutral controls supported by the shared Turboism settings window. */
 public sealed interface SettingsControl
@@ -66,18 +68,34 @@ public sealed interface SettingsControl
         }
     }
 
-    /** Checkbox control bound to a {@code Boolean} value. */
-    record Toggle(String id, String label, SettingsBinding<Boolean> binding, SettingsChangeValidator<Boolean> validator)
+    /** Checkbox control bound to a {@code Boolean} value with an optional reference link. */
+    record Toggle(
+            String id,
+            String label,
+            SettingsBinding<Boolean> binding,
+            SettingsChangeValidator<Boolean> validator,
+            Optional<SettingsLink> referenceLink)
             implements SettingsControl {
         public Toggle {
             id = requireId(id);
             label = requireText(label, "label", 256);
             binding = Objects.requireNonNull(binding, "binding");
             validator = Objects.requireNonNull(validator, "validator");
+            referenceLink = Objects.requireNonNull(referenceLink, "referenceLink");
         }
 
+        /** Constructs a toggle control without validation or a reference link. */
         public Toggle(final String id, final String label, final SettingsBinding<Boolean> binding) {
-            this(id, label, binding, SettingsChangeValidator.acceptAll());
+            this(id, label, binding, SettingsChangeValidator.acceptAll(), Optional.empty());
+        }
+
+        /** Constructs a toggle control with validation and no reference link. */
+        public Toggle(
+                final String id,
+                final String label,
+                final SettingsBinding<Boolean> binding,
+                final SettingsChangeValidator<Boolean> validator) {
+            this(id, label, binding, validator, Optional.empty());
         }
     }
 
@@ -111,7 +129,7 @@ public sealed interface SettingsControl
             int columns,
             SettingsBinding<String> binding,
             String browseLabel,
-            java.util.function.Supplier<java.util.Optional<String>> browse)
+            Supplier<Optional<String>> browse)
             implements SettingsControl {
         public FilePath {
             id = requireId(id);

@@ -88,9 +88,7 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
     private final Supplier<Map<String, Long>> statsSupplier = this::snapshot;
 
     private WarpGridInterpolationBridge(
-            final Class<?> utilsClass,
-            final HostField singletonField,
-            final MethodHandle transformHandle) {
+            final Class<?> utilsClass, final HostField singletonField, final MethodHandle transformHandle) {
         this.utilsClass = Objects.requireNonNull(utilsClass, "utilsClass");
         this.singletonField = Objects.requireNonNull(singletonField, "singletonField");
         this.transformHandle = Objects.requireNonNull(transformHandle, "transformHandle");
@@ -112,8 +110,7 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
     public static WarpGridInterpolationBridge open(final ClassLoader hostLoader) {
         try {
             final Class<?> utilsClass = HostHandles.load(hostLoader, WarpGridInterpolationTarget.OWNER);
-            final HostField singletonField =
-                    HostHandles.field(utilsClass, WarpGridInterpolationTarget.SINGLETON_FIELD);
+            final HostField singletonField = HostHandles.field(utilsClass, WarpGridInterpolationTarget.SINGLETON_FIELD);
             final MethodHandle transformHandle = HostHandles.virtual(
                     utilsClass,
                     WarpGridInterpolationTarget.METHOD,
@@ -307,8 +304,7 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
                 dst[i] = ((pt[index] * invX) * invY + (pt[index + NEXT_X_OFFSET] * xRate) * invY)
                         + (pt[nextRow] * invX) * yRate
                         + (pt[nextRow + NEXT_X_OFFSET] * xRate) * yRate;
-                dst[i + Y_OFFSET] = ((pt[index + Y_OFFSET] * invX) * invY
-                                + (pt[index + NEXT_Y_OFFSET] * xRate) * invY)
+                dst[i + Y_OFFSET] = ((pt[index + Y_OFFSET] * invX) * invY + (pt[index + NEXT_Y_OFFSET] * xRate) * invY)
                         + (pt[nextRow + Y_OFFSET] * invX) * yRate
                         + (pt[nextRow + NEXT_Y_OFFSET] * xRate) * yRate;
                 continue;
@@ -366,8 +362,8 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
                     final float w11 = (xRate - ONE_F) + yRate;
                     final float invX = ONE_F - xRate;
                     final float invY = ONE_F - yRate;
-                    dst[i] = (pt[nextRow + NEXT_X_OFFSET] * w11 + pt[nextRow] * invX)
-                            + pt[index + NEXT_X_OFFSET] * invY;
+                    dst[i] =
+                            (pt[nextRow + NEXT_X_OFFSET] * w11 + pt[nextRow] * invX) + pt[index + NEXT_X_OFFSET] * invY;
                     dst[i + Y_OFFSET] = (pt[nextRow + NEXT_Y_OFFSET] * w11 + pt[nextRow + Y_OFFSET] * invX)
                             + pt[index + NEXT_Y_OFFSET] * invY;
                 }
@@ -653,8 +649,7 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
     }
 
     private record CornerBasis(float cx, float cy, float ux, float uy, float vx, float vy) {
-        private static CornerBasis compute(
-                final float[] pt, final int col, final int row, final int colPlus1) {
+        private static CornerBasis compute(final float[] pt, final int col, final int row, final int colPlus1) {
             final int p00Idx = ORIGIN_INDEX;
             final int pC0Idx = col << SHIFT_PAIR;
             final int p0RIdx = (row * colPlus1) << SHIFT_PAIR;

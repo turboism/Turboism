@@ -80,11 +80,19 @@ final class CoreWindows implements AutoCloseable {
     static final String PLUGIN_MARKET_PAGE = "https://turboism.dev/plugins";
 
     private static volatile Consumer<String> testUpdateUrlObserver;
+    private static volatile Consumer<URI> testSettingsLinkObserver;
     static final String ABOUT_HOMEPAGE = "https://www.turboism.dev";
     static final String ABOUT_THANKS = "https://thanks.turboism.dev";
     static final String ABOUT_LICENSE = "https://github.com/turboism/Turboism/blob/main/LICENSE";
     static final String ABOUT_EULA = "https://github.com/turboism/Turboism/blob/main/EULA.md";
     private static final int ABOUT_BODY_WIDTH = 360;
+    private static final String LINK_COLOR_KEY = "Component.linkColor";
+    private static final Color FALLBACK_LINK_COLOR = new Color(0x155dfc);
+    private static final String REFERENCE_LINK_SUFFIX = ".reference";
+    private static final int REFERENCE_LINK_VERTICAL_PADDING = 2;
+    private static final int REFERENCE_LINK_HORIZONTAL_PADDING = 4;
+    private static final String HTML_UNDERLINE_PREFIX = "<html><u>";
+    private static final String HTML_UNDERLINE_SUFFIX = "</u></html>";
     private PluginTableModel pluginTableModel;
     private JTable pluginTable;
     private TableRowSorter<PluginTableModel> pluginSorter;
@@ -571,7 +579,10 @@ final class CoreWindows implements AutoCloseable {
                 }
                 showRejectedChange(owner, decision);
             });
-            add(panel, row, checkbox, new JLabel());
+            final java.awt.Component right = toggle.referenceLink()
+                    .<java.awt.Component>map(link -> createReferenceLinkButton(toggle.id(), link))
+                    .orElseGet(JLabel::new);
+            add(panel, row, checkbox, right);
             return () -> {
                 toggle.binding().write(accepted[0]);
                 return true;
@@ -802,7 +813,50 @@ final class CoreWindows implements AutoCloseable {
         }
     }
 
+    private JButton createReferenceLinkButton(
+            final String toggleId, final dev.turboism.sdk.ui.settings.SettingsLink link) {
+        final String escapedLabel = ShellHtml.escape(link.label());
+        final JButton button = new JButton(HTML_UNDERLINE_PREFIX + escapedLabel + HTML_UNDERLINE_SUFFIX);
+        button.setName(toggleId + REFERENCE_LINK_SUFFIX);
+        button.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        button.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        button.setContentAreaFilled(false);
+        button.setBorderPainted(false);
+        button.setFocusPainted(true);
+        button.setOpaque(false);
+        button.setBorder(BorderFactory.createEmptyBorder(
+                REFERENCE_LINK_VERTICAL_PADDING,
+                REFERENCE_LINK_HORIZONTAL_PADDING,
+                REFERENCE_LINK_VERTICAL_PADDING,
+                REFERENCE_LINK_HORIZONTAL_PADDING));
+        final Color linkColor = javax.swing.UIManager.getColor(LINK_COLOR_KEY);
+        button.setForeground(linkColor != null ? linkColor : FALLBACK_LINK_COLOR);
+        button.setToolTipText(link.uri().toString());
+        button.getAccessibleContext().setAccessibleName(link.label());
+        button.addActionListener(ignored -> openSettingsLink(link));
+        return button;
+    }
+
+    /** Registers a package-private observer to intercept settings link activations during tests. */
+    static void setTestSettingsLinkObserver(final Consumer<URI> observer) {
+        testSettingsLinkObserver = Objects.requireNonNull(observer, "observer");
+    }
+
+    /** Clears the package-private test-only settings link observer. */
+    static void clearTestSettingsLinkObserver() {
+        testSettingsLinkObserver = null;
+    }
+
     private void openSettingsLink(final dev.turboism.sdk.ui.settings.SettingsLink link) {
+        final Consumer<URI> observer = testSettingsLinkObserver;
+        if (observer != null) {
+            try {
+                observer.accept(link.uri());
+            } catch (RuntimeException failure) {
+                CoreDialogs.message(settingsDialog, text("common.turboism"), link.openFailureMessage());
+            }
+            return;
+        }
         try {
             if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                 throw new IOException("desktop browsing is unavailable");
@@ -1593,7 +1647,7 @@ final class CoreWindows implements AutoCloseable {
         }
     }
 
-    /** Synchronizes the optimization preset dropdown with the 26 native optimization checkboxes. */
+    /** Synchronizes the optimization preset dropdown with the 35 native optimization checkboxes. */
     private static final class OptimizationPresetCoordinator {
         private JComboBox<SettingsControl.Option> presetCombo;
         private String[] presetAccepted;

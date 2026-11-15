@@ -46,8 +46,7 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
      * @param containerReference JRT bytes of {@code java/awt/Container.class}
      * @param componentReference JRT bytes of {@code java/awt/Component.class}
      */
-    public CursorValidationElisionTransformer(
-            final byte[] containerReference, final byte[] componentReference) {
+    public CursorValidationElisionTransformer(final byte[] containerReference, final byte[] componentReference) {
         Objects.requireNonNull(containerReference, "containerReference");
         Objects.requireNonNull(componentReference, "componentReference");
         validateShape = ReviewedMethodShape.read(
@@ -276,8 +275,7 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
                     final Label finished = new Label();
                     super.visitJumpInsn(Opcodes.IFEQ, fallback);
                     super.visitTypeInsn(Opcodes.CHECKCAST, BOOLEAN_SUPPLIER);
-                    super.visitMethodInsn(
-                            Opcodes.INVOKEINTERFACE, BOOLEAN_SUPPLIER, "getAsBoolean", "()Z", true);
+                    super.visitMethodInsn(Opcodes.INVOKEINTERFACE, BOOLEAN_SUPPLIER, "getAsBoolean", "()Z", true);
                     super.visitJumpInsn(Opcodes.IFNE, callOriginal);
                     super.visitInsn(Opcodes.POP);
                     super.visitJumpInsn(Opcodes.GOTO, finished);
@@ -312,8 +310,7 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
                     super.visitJumpInsn(Opcodes.IFEQ, fallback);
                     super.visitTypeInsn(Opcodes.CHECKCAST, PREDICATE);
                     super.visitVarInsn(Opcodes.ALOAD, 0);
-                    super.visitMethodInsn(
-                            Opcodes.INVOKEINTERFACE, PREDICATE, "test", "(Ljava/lang/Object;)Z", true);
+                    super.visitMethodInsn(Opcodes.INVOKEINTERFACE, PREDICATE, "test", "(Ljava/lang/Object;)Z", true);
                     super.visitJumpInsn(Opcodes.IFEQ, proceed);
                     super.visitInsn(Opcodes.ACONST_NULL);
                     super.visitInsn(Opcodes.ARETURN);
@@ -378,10 +375,6 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
                 Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
         mv.visitLdcInsn(key);
         mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                "java/util/Properties",
-                "get",
-                "(Ljava/lang/Object;)Ljava/lang/Object;",
-                false);
+                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
     }
 }

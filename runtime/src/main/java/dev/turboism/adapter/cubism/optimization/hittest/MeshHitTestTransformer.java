@@ -85,7 +85,8 @@ public final class MeshHitTestTransformer implements ClassFileTransformer {
             final byte[] helperReference,
             final MeshHitTestTarget target) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         Objects.requireNonNull(meshBaseReference, "meshBaseReference");
         Objects.requireNonNull(gmesh2Reference, "gmesh2Reference");
         Objects.requireNonNull(gmesh3Reference, "gmesh3Reference");
@@ -116,36 +117,39 @@ public final class MeshHitTestTransformer implements ClassFileTransformer {
     public static String resolveBoundsHelperOwner(final byte[] boundsReference) {
         Objects.requireNonNull(boundsReference, "boundsReference");
         final String[] found = new String[1];
-        new ClassReader(boundsReference).accept(new ClassVisitor(Opcodes.ASM9) {
-            @Override
-            public MethodVisitor visitMethod(
-                    final int access,
-                    final String name,
-                    final String descriptor,
-                    final String signature,
-                    final String[] exceptions) {
-                if (!MeshHitTestTarget.BOUNDS_CONTAINS_DEFAULT_METHOD.equals(name)
-                        || !MeshHitTestTarget.BOUNDS_CONTAINS_DEFAULT_DESCRIPTOR.equals(descriptor)) {
-                    return null;
-                }
-                return new MethodVisitor(Opcodes.ASM9) {
-                    @Override
-                    public void visitMethodInsn(
-                            final int opcode,
-                            final String owner,
-                            final String methodName,
-                            final String methodDesc,
-                            final boolean isInterface) {
-                        if (opcode == Opcodes.INVOKEVIRTUAL
-                                && owner.startsWith(MeshHitTestTarget.UTIL_PACKAGE_PREFIX)
-                                && MeshHitTestTarget.TOLERANCE_GETTER_METHOD.equals(methodName)
-                                && MeshHitTestTarget.FLOAT_GETTER_DESCRIPTOR.equals(methodDesc)) {
-                            found[0] = owner;
-                        }
-                    }
-                };
-            }
-        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        new ClassReader(boundsReference)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                if (!MeshHitTestTarget.BOUNDS_CONTAINS_DEFAULT_METHOD.equals(name)
+                                        || !MeshHitTestTarget.BOUNDS_CONTAINS_DEFAULT_DESCRIPTOR.equals(descriptor)) {
+                                    return null;
+                                }
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int opcode,
+                                            final String owner,
+                                            final String methodName,
+                                            final String methodDesc,
+                                            final boolean isInterface) {
+                                        if (opcode == Opcodes.INVOKEVIRTUAL
+                                                && owner.startsWith(MeshHitTestTarget.UTIL_PACKAGE_PREFIX)
+                                                && MeshHitTestTarget.TOLERANCE_GETTER_METHOD.equals(methodName)
+                                                && MeshHitTestTarget.FLOAT_GETTER_DESCRIPTOR.equals(methodDesc)) {
+                                            found[0] = owner;
+                                        }
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         if (found[0] == null) {
             throw new IllegalArgumentException(ERROR_BOUNDS_MARGIN);
         }
@@ -228,7 +232,9 @@ public final class MeshHitTestTransformer implements ClassFileTransformer {
     }
 
     private boolean matchesArtifactSource(final ProtectionDomain domain) {
-        if (domain == null || domain.getCodeSource() == null || domain.getCodeSource().getLocation() == null) {
+        if (domain == null
+                || domain.getCodeSource() == null
+                || domain.getCodeSource().getLocation() == null) {
             return false;
         }
         try {
@@ -241,69 +247,68 @@ public final class MeshHitTestTransformer implements ClassFileTransformer {
         }
     }
 
-    private static void verifySubclassGetBounds(
-            final byte[] classBytes, final String owner, final int expectedStride) {
+    private static void verifySubclassGetBounds(final byte[] classBytes, final String owner, final int expectedStride) {
         final boolean[] sawGetPositions = {false};
         final boolean[] sawBoundsInit = {false};
         final int[] capturedStride = {-1};
         final int[] extraCalls = {0};
-        new ClassReader(classBytes).accept(new ClassVisitor(Opcodes.ASM9) {
-            @Override
-            public MethodVisitor visitMethod(
-                    final int access,
-                    final String name,
-                    final String descriptor,
-                    final String signature,
-                    final String[] exceptions) {
-                if (!MeshHitTestTarget.GET_BOUNDS_METHOD.equals(name)
-                        || !MeshHitTestTarget.GET_BOUNDS_DESCRIPTOR.equals(descriptor)) {
-                    return null;
-                }
-                return new MethodVisitor(Opcodes.ASM9) {
-                    private int lastIntConst = -1;
+        new ClassReader(classBytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                if (!MeshHitTestTarget.GET_BOUNDS_METHOD.equals(name)
+                                        || !MeshHitTestTarget.GET_BOUNDS_DESCRIPTOR.equals(descriptor)) {
+                                    return null;
+                                }
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    private int lastIntConst = -1;
 
-                    @Override
-                    public void visitInsn(final int opcode) {
-                        if (opcode == Opcodes.ICONST_2) {
-                            lastIntConst = STRIDE_2D;
-                        } else if (opcode == Opcodes.ICONST_3) {
-                            lastIntConst = STRIDE_3D;
-                        } else {
-                            lastIntConst = -1;
-                        }
-                    }
+                                    @Override
+                                    public void visitInsn(final int opcode) {
+                                        if (opcode == Opcodes.ICONST_2) {
+                                            lastIntConst = STRIDE_2D;
+                                        } else if (opcode == Opcodes.ICONST_3) {
+                                            lastIntConst = STRIDE_3D;
+                                        } else {
+                                            lastIntConst = -1;
+                                        }
+                                    }
 
-                    @Override
-                    public void visitMethodInsn(
-                            final int opcode,
-                            final String callOwner,
-                            final String callName,
-                            final String callDesc,
-                            final boolean isInterface) {
-                        if (opcode == Opcodes.INVOKEVIRTUAL
-                                && owner.equals(callOwner)
-                                && MeshHitTestTarget.GET_POSITIONS_METHOD.equals(callName)
-                                && MeshHitTestTarget.GET_POSITIONS_DESCRIPTOR.equals(callDesc)) {
-                            sawGetPositions[0] = true;
-                            return;
-                        }
-                        if (opcode == Opcodes.INVOKESPECIAL
-                                && MeshHitTestTarget.BOUNDS_OWNER.equals(callOwner)
-                                && MeshHitTestTarget.INIT_METHOD.equals(callName)
-                                && MeshHitTestTarget.BOUNDS_ARRAY_INIT_DESCRIPTOR.equals(callDesc)) {
-                            sawBoundsInit[0] = true;
-                            capturedStride[0] = lastIntConst;
-                            return;
-                        }
-                        extraCalls[0]++;
-                    }
-                };
-            }
-        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-        if (!sawGetPositions[0]
-                || !sawBoundsInit[0]
-                || capturedStride[0] != expectedStride
-                || extraCalls[0] != 0) {
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int opcode,
+                                            final String callOwner,
+                                            final String callName,
+                                            final String callDesc,
+                                            final boolean isInterface) {
+                                        if (opcode == Opcodes.INVOKEVIRTUAL
+                                                && owner.equals(callOwner)
+                                                && MeshHitTestTarget.GET_POSITIONS_METHOD.equals(callName)
+                                                && MeshHitTestTarget.GET_POSITIONS_DESCRIPTOR.equals(callDesc)) {
+                                            sawGetPositions[0] = true;
+                                            return;
+                                        }
+                                        if (opcode == Opcodes.INVOKESPECIAL
+                                                && MeshHitTestTarget.BOUNDS_OWNER.equals(callOwner)
+                                                && MeshHitTestTarget.INIT_METHOD.equals(callName)
+                                                && MeshHitTestTarget.BOUNDS_ARRAY_INIT_DESCRIPTOR.equals(callDesc)) {
+                                            sawBoundsInit[0] = true;
+                                            capturedStride[0] = lastIntConst;
+                                            return;
+                                        }
+                                        extraCalls[0]++;
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        if (!sawGetPositions[0] || !sawBoundsInit[0] || capturedStride[0] != expectedStride || extraCalls[0] != 0) {
             throw new IllegalArgumentException(ERROR_SUBCLASS_SHAPE + owner);
         }
     }
@@ -311,66 +316,78 @@ public final class MeshHitTestTransformer implements ClassFileTransformer {
     private static float verifyBoundsMarginConstant(final byte[] helperBytes, final String helperOwner) {
         final String[] fieldName = new String[1];
         final Float[] clinitValue = new Float[1];
-        new ClassReader(helperBytes).accept(new ClassVisitor(Opcodes.ASM9) {
-            @Override
-            public MethodVisitor visitMethod(
-                    final int access,
-                    final String name,
-                    final String descriptor,
-                    final String signature,
-                    final String[] exceptions) {
-                if (MeshHitTestTarget.TOLERANCE_GETTER_METHOD.equals(name)
-                        && MeshHitTestTarget.FLOAT_GETTER_DESCRIPTOR.equals(descriptor)) {
-                    return new MethodVisitor(Opcodes.ASM9) {
-                        @Override
-                        public void visitFieldInsn(
-                                final int opcode, final String owner, final String field, final String fieldDesc) {
-                            if (opcode == Opcodes.GETSTATIC && helperOwner.equals(owner)) {
-                                fieldName[0] = field;
+        new ClassReader(helperBytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                if (MeshHitTestTarget.TOLERANCE_GETTER_METHOD.equals(name)
+                                        && MeshHitTestTarget.FLOAT_GETTER_DESCRIPTOR.equals(descriptor)) {
+                                    return new MethodVisitor(Opcodes.ASM9) {
+                                        @Override
+                                        public void visitFieldInsn(
+                                                final int opcode,
+                                                final String owner,
+                                                final String field,
+                                                final String fieldDesc) {
+                                            if (opcode == Opcodes.GETSTATIC && helperOwner.equals(owner)) {
+                                                fieldName[0] = field;
+                                            }
+                                        }
+                                    };
+                                }
+                                return null;
                             }
-                        }
-                    };
-                }
-                return null;
-            }
-        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         if (fieldName[0] == null) {
             throw new IllegalArgumentException(ERROR_BOUNDS_MARGIN);
         }
-        new ClassReader(helperBytes).accept(new ClassVisitor(Opcodes.ASM9) {
-            @Override
-            public MethodVisitor visitMethod(
-                    final int access,
-                    final String name,
-                    final String descriptor,
-                    final String signature,
-                    final String[] exceptions) {
-                if (!MeshHitTestTarget.CLINIT_METHOD.equals(name)
-                        || !MeshHitTestTarget.VOID_DESCRIPTOR.equals(descriptor)) {
-                    return null;
-                }
-                return new MethodVisitor(Opcodes.ASM9) {
-                    private Float lastFloatLdc;
+        new ClassReader(helperBytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                if (!MeshHitTestTarget.CLINIT_METHOD.equals(name)
+                                        || !MeshHitTestTarget.VOID_DESCRIPTOR.equals(descriptor)) {
+                                    return null;
+                                }
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    private Float lastFloatLdc;
 
-                    @Override
-                    public void visitLdcInsn(final Object value) {
-                        lastFloatLdc = value instanceof Float f ? f : null;
-                    }
+                                    @Override
+                                    public void visitLdcInsn(final Object value) {
+                                        lastFloatLdc = value instanceof Float f ? f : null;
+                                    }
 
-                    @Override
-                    public void visitFieldInsn(
-                            final int opcode, final String owner, final String field, final String fieldDesc) {
-                        if (opcode == Opcodes.PUTSTATIC
-                                && helperOwner.equals(owner)
-                                && fieldName[0].equals(field)
-                                && lastFloatLdc != null) {
-                            clinitValue[0] = lastFloatLdc;
-                        }
-                        lastFloatLdc = null;
-                    }
-                };
-            }
-        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                                    @Override
+                                    public void visitFieldInsn(
+                                            final int opcode,
+                                            final String owner,
+                                            final String field,
+                                            final String fieldDesc) {
+                                        if (opcode == Opcodes.PUTSTATIC
+                                                && helperOwner.equals(owner)
+                                                && fieldName[0].equals(field)
+                                                && lastFloatLdc != null) {
+                                            clinitValue[0] = lastFloatLdc;
+                                        }
+                                        lastFloatLdc = null;
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         if (clinitValue[0] == null
                 || Float.floatToRawIntBits(clinitValue[0])
                         != Float.floatToRawIntBits(MeshHitTestTarget.REVIEWED_BOUNDS_MARGIN)) {

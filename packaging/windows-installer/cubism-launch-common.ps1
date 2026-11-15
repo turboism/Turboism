@@ -2094,7 +2094,7 @@ function Remove-TurboismJdkOptions {
         if ($value.StartsWith('"') -and $value.EndsWith('"') -and $value.Length -ge 2) { $value = $value.Substring(1, $value.Length - 2) }
         $probe = $value.Replace('"', '')
         if ($probe -match '(?i)^-Dturboism\.home=' -or
-            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|incrementalUpdateAffecters|uniformLocationCache|uploadElision|meshSetupElision|inputPathElision|mesaGlThread|asyncReadback|meshInterpolation|shaderUniform|matrixScratch|imageArchiveReuse|floatArrayParseCache|textureUploadPreparation|warpPositionProjection|reinitPairElision|clipMaskDeduplication|clipMaskScissorClear|extendedInterpolationIncrementalSetup|modelInstanceCoalesce|inspectorPropertyBypass)=' -or
+            $probe -match '(?i)^-Dturboism\.optimization\.(?:modelUpdateSkip|incrementalUpdate|incrementalUpdateAffecters|uniformLocationCache|uploadElision|meshSetupElision|inputPathElision|mesaGlThread|asyncReadback|meshInterpolation|shaderUniform|matrixScratch|imageArchiveReuse|floatArrayParseCache|textureUploadPreparation|warpPositionProjection|reinitPairElision|clipMaskDeduplication|clipMaskScissorClear|extendedInterpolationIncrementalSetup|modelInstanceCoalesce|inspectorPropertyBypass|extendedInterpolationSiblingElision|warpGridInterpolation|warpNormalPointElision|cameraMatrixCache|renderPassTraversal|meshHitTest|sceneHandlerCache|cursorValidationElision|parameterRowRepaint)=' -or
             $probe -match '(?i)^-Dturboism\.graal\.(?:enabled|java|classpath|mainClass|startupTimeoutMillis)=' -or
             $probe -match '(?i)^-javaagent:.*turboism-agent\.jar(?:[=].*)?$' -or
             $probe -match '(?i)^--add-exports=java\.base[./]jdk\.internal\.org\.objectweb\.asm(?:[.]commons)?=ALL-UNNAMED$') { continue }
@@ -2111,7 +2111,7 @@ function Remove-TurboismJdkOptions {
 # optimization-emit-false: modelUpdateSkip, uniformLocationCache, uploadElision, meshSetupElision, reinitPairElision, clipMaskDeduplication, clipMaskScissorClear, extendedInterpolationIncrementalSetup, modelInstanceCoalesce, inspectorPropertyBypass
 # optimization-emit-true: incrementalUpdate, incrementalUpdateAffecters
 # optimization-explicit-false: inputPathElision, mesaGlThread
-# optimization-not-emitted: asyncReadback, meshInterpolation, shaderUniform, matrixScratch, imageArchiveReuse, floatArrayParseCache, textureUploadPreparation, warpPositionProjection
+# optimization-not-emitted: asyncReadback, meshInterpolation, shaderUniform, matrixScratch, imageArchiveReuse, floatArrayParseCache, textureUploadPreparation, warpPositionProjection, extendedInterpolationSiblingElision, warpGridInterpolation, warpNormalPointElision, cameraMatrixCache, renderPassTraversal, meshHitTest, sceneHandlerCache, cursorValidationElision, parameterRowRepaint
 
 function Get-CubismManagedJdkOptionTokens {
     param([string]$TurboismHome = "")

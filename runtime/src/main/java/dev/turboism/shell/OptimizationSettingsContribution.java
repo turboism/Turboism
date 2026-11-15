@@ -6,13 +6,16 @@ import dev.turboism.config.optimization.OptimizationPreset;
 import dev.turboism.internal.core.OptimizationSettingsService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsBinding;
+import dev.turboism.sdk.ui.settings.SettingsChangeValidator;
 import dev.turboism.sdk.ui.settings.SettingsContribution;
 import dev.turboism.sdk.ui.settings.SettingsControl;
+import dev.turboism.sdk.ui.settings.SettingsLink;
 import dev.turboism.sdk.ui.settings.SettingsTab;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 /**
@@ -30,13 +33,15 @@ final class OptimizationSettingsContribution {
     static final String PRESET_CONTRIBUTION_ID = "performance-preset";
     static final String PRESET_TOOLTIP_KEY = "settings.performance.preset.tooltip";
     private static final String PRESET_LABEL_KEY = "settings.performance.preset";
-    private static final int PRESET_INDEX = 59;
+    private static final int PRESET_INDEX = 48;
     private static final String PERFORMANCE_TAB_ID = "performance";
     private static final String PERFORMANCE_TAB_LABEL_KEY = "settings.tab.performance";
     private static final int PERFORMANCE_TAB_INDEX = 200;
+    private static final String REFERENCE_OPEN_FAILED_KEY = "settings.optimization.reference-open-failed";
 
     /** Section header rows in render order, each pinned to the index its note renders at. */
     private static final List<Section> SECTIONS = List.of(
+            new Section("hotpath", 50),
             new Section("heavy-model", 60),
             new Section("model", 71),
             new Section("rendering", 80),
@@ -47,7 +52,7 @@ final class OptimizationSettingsContribution {
     private OptimizationSettingsContribution() {}
 
     /**
-     * Creates the preset selector at the top of the Performance tab from the 26 persisted flags.
+     * Creates the preset selector at the top of the Performance tab from the 35 persisted flags.
      *
      * @param i18n the shell localization the preset label and option texts resolve through
      * @param settings the service that reads the persisted flags to derive the initial preset
@@ -73,7 +78,7 @@ final class OptimizationSettingsContribution {
     }
 
     /**
-     * Every Performance-tab row that renders a native optimization: the six section notes and the
+     * Every Performance-tab row that renders a native optimization: the seven section notes and the
      * toggles of {@link OptimizationCatalog#placed()}.
      *
      * @param i18n the shell localization the labels and tooltips resolve through
@@ -116,6 +121,10 @@ final class OptimizationSettingsContribution {
                         () -> new IllegalArgumentException(optimization.contributionId() + " renders no settings row"));
         final String id = optimization.contributionId();
         final String key = optimization.key();
+        final Optional<SettingsLink> referenceLink = optimization
+                .referenceLink()
+                .map(ref -> new SettingsLink(
+                        i18n.text(ref.labelKey()), ref.uri(), i18n.format(REFERENCE_OPEN_FAILED_KEY, ref.uri())));
         return new SettingsContribution(
                 id,
                 settingsTab(i18n),
@@ -123,7 +132,9 @@ final class OptimizationSettingsContribution {
                 new SettingsControl.Toggle(
                         id,
                         i18n.text(optimization.labelKey()),
-                        SettingsBinding.of(() -> settings.enabled(key), value -> settings.setEnabled(key, value))));
+                        SettingsBinding.of(() -> settings.enabled(key), value -> settings.setEnabled(key, value)),
+                        SettingsChangeValidator.acceptAll(),
+                        referenceLink));
     }
 
     /**

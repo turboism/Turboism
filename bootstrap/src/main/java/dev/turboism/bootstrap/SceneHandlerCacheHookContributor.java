@@ -21,7 +21,10 @@ final class SceneHandlerCacheHookContributor extends NativeOptimizationHookContr
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedSceneHandlerCacheInstaller.admitted(
-                host.artifact(), environment.plan().policy(), true, Runtime.version().feature())) {
+                host.artifact(),
+                environment.plan().policy(),
+                true,
+                Runtime.version().feature())) {
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused(VerifiedInstall.ADMISSION_REFUSED);
         }

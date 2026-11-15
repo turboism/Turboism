@@ -71,7 +71,8 @@ public final class ParameterRowRepaintTransformer implements ClassFileTransforme
             final byte[] reference,
             final ParameterRowRepaintTarget target) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         Objects.requireNonNull(reference, "reference");
         this.target = Objects.requireNonNull(target, "target");
         updateShape = ReviewedMethodShape.read(
@@ -80,8 +81,7 @@ public final class ParameterRowRepaintTransformer implements ClassFileTransforme
                 ParameterRowRepaintTarget.UPDATE_METHOD,
                 ParameterRowRepaintTarget.UPDATE_DESCRIPTOR);
         if (updateShape == null) {
-            throw new IllegalArgumentException(
-                    target.controllerOwner() + ".a(Z)V absent from reference");
+            throw new IllegalArgumentException(target.controllerOwner() + ".a(Z)V absent from reference");
         }
     }
 
@@ -193,13 +193,11 @@ public final class ParameterRowRepaintTransformer implements ClassFileTransforme
                         && pendingMarker != null) {
                     final String marker = pendingMarker;
                     pendingMarker = null;
-                    if (ParameterRowRepaintTarget.SELECTION_LOG_MARKER.equals(marker)
-                            && !selectionStartSeen) {
+                    if (ParameterRowRepaintTarget.SELECTION_LOG_MARKER.equals(marker) && !selectionStartSeen) {
                         emitSelectionGate(mv, selectionEnd);
                         selectionStartSeen = true;
                         localSites[0]++;
-                    } else if (ParameterRowRepaintTarget.STRUCTURE_LOG_MARKER.equals(marker)
-                            && !invalidateSeen) {
+                    } else if (ParameterRowRepaintTarget.STRUCTURE_LOG_MARKER.equals(marker) && !invalidateSeen) {
                         emitInvalidateCall(mv);
                         invalidateSeen = true;
                         localSites[0]++;
@@ -265,12 +263,8 @@ public final class ParameterRowRepaintTransformer implements ClassFileTransforme
     }
 
     private static void emitPropertyLookup(
-            final MethodVisitor mv,
-            final String propertyKey,
-            final String targetInterface,
-            final Label skipLabel) {
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, SYSTEM_OWNER, GET_PROPERTIES_METHOD, GET_PROPERTIES_DESCRIPTOR, false);
+            final MethodVisitor mv, final String propertyKey, final String targetInterface, final Label skipLabel) {
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, SYSTEM_OWNER, GET_PROPERTIES_METHOD, GET_PROPERTIES_DESCRIPTOR, false);
         mv.visitLdcInsn(propertyKey);
         mv.visitMethodInsn(
                 Opcodes.INVOKEVIRTUAL, PROPERTIES_OWNER, GET_PROPERTY_METHOD, GET_PROPERTY_DESCRIPTOR, false);
@@ -311,8 +305,7 @@ public final class ParameterRowRepaintTransformer implements ClassFileTransforme
         final Label invalidateDone = new Label();
         emitPropertyLookup(mv, ParameterRowRepaintBridge.INVALIDATE_PROPERTY, CONSUMER_OWNER, skipInvalidate);
         mv.visitVarInsn(Opcodes.ALOAD, CONTROLLER_LOCAL_SLOT);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEINTERFACE, CONSUMER_OWNER, ACCEPT_METHOD, ACCEPT_DESCRIPTOR, true);
+        mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, CONSUMER_OWNER, ACCEPT_METHOD, ACCEPT_DESCRIPTOR, true);
         mv.visitJumpInsn(Opcodes.GOTO, invalidateDone);
         mv.visitLabel(skipInvalidate);
         mv.visitInsn(Opcodes.POP);
@@ -320,7 +313,9 @@ public final class ParameterRowRepaintTransformer implements ClassFileTransforme
     }
 
     private boolean matchesArtifactSource(final ProtectionDomain domain) {
-        if (domain == null || domain.getCodeSource() == null || domain.getCodeSource().getLocation() == null) {
+        if (domain == null
+                || domain.getCodeSource() == null
+                || domain.getCodeSource().getLocation() == null) {
             return false;
         }
         try {

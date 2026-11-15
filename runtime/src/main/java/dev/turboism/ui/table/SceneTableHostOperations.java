@@ -175,12 +175,14 @@ public final class SceneTableHostOperations
         removeDiscoveryListener();
         final AWTEventListener listener = event -> {
             if (token != connectionToken.get() || state != State.CONNECTING || pendingDiscoveryCheck) return;
-            final Component candidate = switch (event.getID()) {
-                case ContainerEvent.COMPONENT_ADDED -> event instanceof ContainerEvent ce ? ce.getChild() : null;
-                case ComponentEvent.COMPONENT_SHOWN, WindowEvent.WINDOW_OPENED ->
-                    event.getSource() instanceof Component c ? c : null;
-                default -> null;
-            };
+            final Component candidate =
+                    switch (event.getID()) {
+                        case ContainerEvent.COMPONENT_ADDED ->
+                            event instanceof ContainerEvent ce ? ce.getChild() : null;
+                        case ComponentEvent.COMPONENT_SHOWN, WindowEvent.WINDOW_OPENED ->
+                            event.getSource() instanceof Component c ? c : null;
+                        default -> null;
+                    };
             if (candidate == null || (!candidate.isShowing() && !(candidate instanceof JTable))) return;
             pendingDiscoveryCheck = true;
             onEdt(() -> {

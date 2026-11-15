@@ -11,7 +11,6 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -50,8 +49,7 @@ class ExtendedInterpolationSiblingArtifactTest {
             ExtendedInterpolationSiblingTarget.EXTENSION_OWNER.replace('/', '.');
     private static final String WARP_DEFORMER_SOURCE_DOT_NAME =
             "com.live2d.cubism.doc.model.deformer.warp.CWarpDeformerSource";
-    private static final String WARP_DEFORMER_DOT_NAME =
-            "com.live2d.cubism.doc.model.deformer.warp.CWarpDeformer";
+    private static final String WARP_DEFORMER_DOT_NAME = "com.live2d.cubism.doc.model.deformer.warp.CWarpDeformer";
     private static final String WARP_DEFORMER_FORM_DOT_NAME =
             "com.live2d.cubism.doc.model.deformer.warp.CWarpDeformerForm";
     private static final String COORD_TYPE_DOT_NAME = "com.live2d.doc.CoordType";
@@ -81,8 +79,7 @@ class ExtendedInterpolationSiblingArtifactTest {
     private static final int DEFORMER_GRID_SEGMENTS = 2;
     private static final int CONTROL_POINTS_PER_AXIS = 7;
     private static final int FLOAT_COMPONENTS = 2;
-    private static final int WARP_ARRAY_LENGTH =
-            CONTROL_POINTS_PER_AXIS * CONTROL_POINTS_PER_AXIS * FLOAT_COMPONENTS;
+    private static final int WARP_ARRAY_LENGTH = CONTROL_POINTS_PER_AXIS * CONTROL_POINTS_PER_AXIS * FLOAT_COMPONENTS;
     private static final int INSERT_POINT_COUNT = 1;
     private static final float[] KEY_VALUES = {-30.0f, -10.0f, 10.0f, 30.0f};
     private static final float EDITED_OFFSET = 12.5f;
@@ -118,7 +115,10 @@ class ExtendedInterpolationSiblingArtifactTest {
                 assertNull(transformer.failure(), version);
 
                 // Rewritten class must refuse double-weaving and fail closed on guard violations.
-                assertFalse(ExtendedInterpolationSiblingTransformer.verify(rewrittenBytes).isEmpty(), version);
+                assertFalse(
+                        ExtendedInterpolationSiblingTransformer.verify(rewrittenBytes)
+                                .isEmpty(),
+                        version);
                 assertNull(transformer.transform(
                         null,
                         loader,
@@ -241,13 +241,15 @@ class ExtendedInterpolationSiblingArtifactTest {
     }
 
     private static HostClassLoader hostLoader(final Path directory) throws Exception {
-        return new HostClassLoader(urlsUnder(directory), ExtendedInterpolationSiblingArtifactTest.class.getClassLoader());
+        return new HostClassLoader(
+                urlsUnder(directory), ExtendedInterpolationSiblingArtifactTest.class.getClassLoader());
     }
 
     private static URL[] urlsUnder(final Path directory) throws Exception {
         final List<URL> urls = new ArrayList<>();
         try (var files = Files.walk(directory, MAX_WALK_DEPTH)) {
-            for (final Path path : files.filter(p -> p.toString().endsWith(JAR_EXTENSION)).toList()) {
+            for (final Path path :
+                    files.filter(p -> p.toString().endsWith(JAR_EXTENSION)).toList()) {
                 urls.add(path.toUri().toURL());
             }
         }
@@ -289,8 +291,7 @@ class ExtendedInterpolationSiblingArtifactTest {
                             final String descriptor,
                             final String signature,
                             final String[] exceptions) {
-                        final MethodVisitor mv =
-                                super.visitMethod(access, name, descriptor, signature, exceptions);
+                        final MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
                         if (!ExtendedInterpolationSiblingTarget.TARGET_METHOD.equals(name)
                                 || !ExtendedInterpolationSiblingTarget.TARGET_DESCRIPTOR.equals(descriptor)) {
                             return mv;
@@ -308,8 +309,7 @@ class ExtendedInterpolationSiblingArtifactTest {
         return writer.toByteArray();
     }
 
-    private record Scenario(
-            Object modelSource, Object targetDeformer, Object untouchedSibling, Object dirtySibling) {}
+    private record Scenario(Object modelSource, Object targetDeformer, Object untouchedSibling, Object dirtySibling) {}
 
     private static final class HostHarness {
         private final Class<?> modelSourceClass;
@@ -338,7 +338,8 @@ class ExtendedInterpolationSiblingArtifactTest {
             this.extensionClass = Class.forName(EXTENSION_DOT_NAME, true, loader);
 
             final Class<?> coordTypeClass = Class.forName(COORD_TYPE_DOT_NAME, true, loader);
-            final Object coordCompanion = coordTypeClass.getField(COMPANION_FIELD).get(null);
+            final Object coordCompanion =
+                    coordTypeClass.getField(COMPANION_FIELD).get(null);
             this.localCoordType = coordCompanion.getClass().getMethod("b").invoke(coordCompanion);
 
             @SuppressWarnings({"rawtypes", "unchecked"})
@@ -348,14 +349,17 @@ class ExtendedInterpolationSiblingArtifactTest {
         }
 
         private Scenario buildSharedPartScenario() throws Exception {
-            final Object modelCompanion = modelSourceClass.getField(COMPANION_FIELD).get(null);
+            final Object modelCompanion =
+                    modelSourceClass.getField(COMPANION_FIELD).get(null);
             final Object modelSource = modelCompanion
                     .getClass()
                     .getMethod("a", String.class, int.class, int.class)
                     .invoke(modelCompanion, MODEL_NAME, CANVAS_SIZE, CANVAS_SIZE);
             final Object rootPart = modelSourceClass.getMethod("getRootPart").invoke(modelSource);
-            final Object paramSet = modelSourceClass.getMethod("getParameterSourceSet").invoke(modelSource);
-            final List<?> params = (List<?>) paramSet.getClass().getMethod("getSources").invoke(paramSet);
+            final Object paramSet =
+                    modelSourceClass.getMethod("getParameterSourceSet").invoke(modelSource);
+            final List<?> params =
+                    (List<?>) paramSet.getClass().getMethod("getSources").invoke(paramSet);
             final Object param = params.get(0);
             final Object paramGuid = param.getClass().getMethod("getGuid").invoke(param);
 
@@ -375,8 +379,7 @@ class ExtendedInterpolationSiblingArtifactTest {
 
             final Class<?> warpDeformerClass =
                     Class.forName(WARP_DEFORMER_DOT_NAME, true, modelSourceClass.getClassLoader());
-            final Class<?> coordTypeClass =
-                    Class.forName(COORD_TYPE_DOT_NAME, true, modelSourceClass.getClassLoader());
+            final Class<?> coordTypeClass = Class.forName(COORD_TYPE_DOT_NAME, true, modelSourceClass.getClassLoader());
             final Object initialForm = warpDeformerFormClass
                     .getConstructor(warpDeformerSourceClass, warpDeformerClass, coordTypeClass)
                     .newInstance(deformer, null, localCoordType);
@@ -397,10 +400,12 @@ class ExtendedInterpolationSiblingArtifactTest {
                     .getMethod("addChild", controllableSourceClass, int.class)
                     .invoke(rootPart, deformer, -1);
 
-            final Object grid = controllableSourceClass.getMethod("getKeyformGridSource").invoke(deformer);
+            final Object grid =
+                    controllableSourceClass.getMethod("getKeyformGridSource").invoke(deformer);
             final Class<?> formGuidClass =
                     Class.forName("com.live2d.type.CFormGuid", true, modelSourceClass.getClassLoader());
-            final Object initialGuid = initialForm.getClass().getMethod("getGuid").invoke(initialForm);
+            final Object initialGuid =
+                    initialForm.getClass().getMethod("getGuid").invoke(initialForm);
             grid.getClass().getMethod("setInitialKeyform", formGuidClass).invoke(grid, initialGuid);
             final Class<?> paramGuidClass =
                     Class.forName(PARAMETER_GUID_DOT_NAME, true, modelSourceClass.getClassLoader());
@@ -408,26 +413,33 @@ class ExtendedInterpolationSiblingArtifactTest {
             for (int k = 0; k < KEY_VALUES.length; k++) {
                 addKey.invoke(grid, KEY_VALUES[k], paramGuid);
                 final Object kf = keyforms.get(keyforms.size() - 1);
-                final float[] pos = (float[]) warpDeformerFormClass.getMethod("getPositions").invoke(kf);
+                final float[] pos = (float[])
+                        warpDeformerFormClass.getMethod("getPositions").invoke(kf);
                 for (int p = 0; p < pos.length; p += 2) {
                     pos[p] += k * 5.0f;
                     pos[p + 1] += k * k * 2.0f;
                 }
             }
 
-            final Object binding = grid.getClass().getMethod("findKeyformBinding", paramGuidClass).invoke(grid, paramGuid);
+            final Object binding = grid.getClass()
+                    .getMethod("findKeyformBinding", paramGuidClass)
+                    .invoke(grid, paramGuid);
             final Class<?> extTypeClass =
                     Class.forName(EXT_INTERP_TYPE_DOT_NAME, true, modelSourceClass.getClassLoader());
-            binding.getClass().getMethod("setExtendedInterpolationType", extTypeClass).invoke(binding, ellipseType);
+            binding.getClass()
+                    .getMethod("setExtendedInterpolationType", extTypeClass)
+                    .invoke(binding, ellipseType);
             binding.getClass().getMethod("setInsertPointCount", int.class).invoke(binding, INSERT_POINT_COUNT);
 
-            final Object ext = extensionClass.getConstructor(controllableSourceClass).newInstance(deformer);
-            final Class<?> acExtClass =
-                    Class.forName(AC_EXTENSION_DOT_NAME, true, modelSourceClass.getClassLoader());
+            final Object ext =
+                    extensionClass.getConstructor(controllableSourceClass).newInstance(deformer);
+            final Class<?> acExtClass = Class.forName(AC_EXTENSION_DOT_NAME, true, modelSourceClass.getClassLoader());
             controllableSourceClass
                     .getMethod("addExtension", acExtClass, int.class)
                     .invoke(deformer, ext, 0);
-            extensionClass.getMethod("setupFormStructure", boolean.class, boolean.class).invoke(ext, false, true);
+            extensionClass
+                    .getMethod("setupFormStructure", boolean.class, boolean.class)
+                    .invoke(ext, false, true);
             return deformer;
         }
 
@@ -439,7 +451,8 @@ class ExtendedInterpolationSiblingArtifactTest {
             final List<?> keyforms =
                     (List<?>) controllableSourceClass.getMethod("getKeyforms").invoke(deformer);
             final Object form = keyforms.get(keyformIndex);
-            final float[] positions = (float[]) warpDeformerFormClass.getMethod("getPositions").invoke(form);
+            final float[] positions =
+                    (float[]) warpDeformerFormClass.getMethod("getPositions").invoke(form);
             for (int i = 0; i < positions.length; i++) {
                 positions[i] += delta;
             }
@@ -448,8 +461,8 @@ class ExtendedInterpolationSiblingArtifactTest {
 
         private void plantInterpolatedCanary(final Object deformer, final float canary) throws Exception {
             final Object ext = findExtension(deformer);
-            final List<?> extForms =
-                    (List<?>) extensionClass.getMethod("getNormalExtendedKeyforms").invoke(ext);
+            final List<?> extForms = (List<?>)
+                    extensionClass.getMethod("getNormalExtendedKeyforms").invoke(ext);
             assertFalse(extForms.isEmpty(), "expected generated extended keyforms");
             final float[] positions =
                     (float[]) warpDeformerFormClass.getMethod("getPositions").invoke(extForms.get(0));
@@ -458,8 +471,8 @@ class ExtendedInterpolationSiblingArtifactTest {
 
         private float[] interpolatedPositions(final Object deformer) throws Exception {
             final Object ext = findExtension(deformer);
-            final List<?> extForms =
-                    (List<?>) extensionClass.getMethod("getNormalExtendedKeyforms").invoke(ext);
+            final List<?> extForms = (List<?>)
+                    extensionClass.getMethod("getNormalExtendedKeyforms").invoke(ext);
             final float[] positions =
                     (float[]) warpDeformerFormClass.getMethod("getPositions").invoke(extForms.get(0));
             return positions.clone();
@@ -534,9 +547,20 @@ class ExtendedInterpolationSiblingArtifactTest {
 
         private Class<?> defineLog4jLevelStub() {
             final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-            cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, LOG4J_LEVEL_INTERNAL, null, "java/lang/Object", null);
+            cw.visit(
+                    Opcodes.V17,
+                    Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL,
+                    LOG4J_LEVEL_INTERNAL,
+                    null,
+                    "java/lang/Object",
+                    null);
             for (final String field : LOG4J_LEVEL_FIELDS) {
-                cw.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, field, LOG4J_LEVEL_DESC, null, null)
+                cw.visitField(
+                                Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
+                                field,
+                                LOG4J_LEVEL_DESC,
+                                null,
+                                null)
                         .visitEnd();
             }
             final MethodVisitor init = cw.visitMethod(Opcodes.ACC_PRIVATE, "<init>", "()V", null, null);
@@ -565,13 +589,7 @@ class ExtendedInterpolationSiblingArtifactTest {
 
         private Class<?> defineStubClass(final String binaryName) {
             final ClassWriter cw = new ClassWriter(0);
-            cw.visit(
-                    Opcodes.V17,
-                    Opcodes.ACC_PUBLIC,
-                    binaryName.replace('.', '/'),
-                    null,
-                    "java/lang/Object",
-                    null);
+            cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, binaryName.replace('.', '/'), null, "java/lang/Object", null);
             cw.visitEnd();
             final byte[] raw = cw.toByteArray();
             return defineClass(binaryName, raw, 0, raw.length);

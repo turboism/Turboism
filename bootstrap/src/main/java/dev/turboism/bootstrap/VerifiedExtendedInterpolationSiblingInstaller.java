@@ -49,7 +49,8 @@ final class VerifiedExtendedInterpolationSiblingInstaller implements AutoCloseab
 
     static boolean admitted(final Path artifact, final RuntimeStartupConfig config, final boolean requested)
             throws IOException {
-        return VerifiedInstall.admits(ADMISSION, config, requested, Runtime.version().feature())
+        return VerifiedInstall.admits(
+                        ADMISSION, config, requested, Runtime.version().feature())
                 && ExtendedInterpolationSiblingTarget.of(HostArtifactDigest.cached(artifact))
                         .isPresent();
     }
@@ -58,8 +59,8 @@ final class VerifiedExtendedInterpolationSiblingInstaller implements AutoCloseab
         return ExtendedInterpolationSiblingTarget.of(HostArtifactDigest.cached(artifact));
     }
 
-    private static List<WeaveTarget> targets(
-            final ExtendedInterpolationSiblingTarget target, final WeaveSource source) throws Exception {
+    private static List<WeaveTarget> targets(final ExtendedInterpolationSiblingTarget target, final WeaveSource source)
+            throws Exception {
         final Class<?> owner = source.load(ExtendedInterpolationSiblingTarget.OWNER);
         source.load(ExtendedInterpolationSiblingTarget.GUID_OWNER);
         for (final ExtendedInterpolationSiblingTarget.MethodDep dep : target.methodDependencies()) {
