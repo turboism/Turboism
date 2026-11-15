@@ -24,6 +24,13 @@ public final class MatrixScratchBridge implements AutoCloseable {
     /** Property key exposing cache telemetry counters. */
     public static final String STATS_PROPERTY = "turboism.matrix-scratch.stats";
 
+    private static final String STAT_ACTIVE = "active";
+    private static final String STAT_CALLS = "calls";
+    private static final String STAT_CACHE_HITS = "cacheHits";
+    private static final String STAT_CACHE_MISSES = "cacheMisses";
+    private static final String STAT_STATIC_HITS = "staticHits";
+    private static final String STAT_FAILURES = "failures";
+
     private static final String ENTITY_OWNER = "com/live2d/graphics3d/entity/GEntity";
     private static final String VECTOR3_OWNER = "com/live2d/graphics3d/type/GVector3";
     private static final String GET_ENTITY_METHOD = "getEntity";
@@ -157,12 +164,12 @@ public final class MatrixScratchBridge implements AutoCloseable {
     /** Returns an immutable snapshot of bridge telemetry counters. */
     public Map<String, Long> snapshot() {
         return Map.of(
-                "active", active.get() ? 1L : 0L,
-                "calls", calls.sum(),
-                "cacheHits", cacheHits.sum(),
-                "cacheMisses", cacheMisses.sum(),
-                "staticHits", staticHits.sum(),
-                "failures", failures.sum());
+                STAT_ACTIVE, active.get() ? 1L : 0L,
+                STAT_CALLS, calls.sum(),
+                STAT_CACHE_HITS, cacheHits.sum(),
+                STAT_CACHE_MISSES, cacheMisses.sum(),
+                STAT_STATIC_HITS, staticHits.sum(),
+                STAT_FAILURES, failures.sum());
     }
 
     @Override

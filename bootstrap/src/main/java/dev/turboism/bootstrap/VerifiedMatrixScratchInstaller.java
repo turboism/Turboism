@@ -45,6 +45,7 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 1;
 
+    private static final String FEATURE_NAME = "matrix scratch";
     private static final String PRODUCT_CLASS = "com.live2d.graphics3d.type.a";
     private static final String PRODUCT_METHOD = "a";
     private static final String GET_LOCAL_TO_PARENT = "getLocalToParentMatrix";
@@ -85,7 +86,7 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
         final Path source = context.artifact().toAbsolutePath().normalize();
         final ClassLoader loader = context.hostLoader();
         final var contract =
-                ReviewedHostContract.requireBound(ReviewedHostContract.resolve(source, CANDIDATES), "matrix scratch");
+                ReviewedHostContract.requireBound(ReviewedHostContract.resolve(source, CANDIDATES), FEATURE_NAME);
         if (context.jvmFeature() < 17 || !instrumentation.isRetransformClassesSupported()) {
             throw new IllegalStateException("matrix scratch requires JVM17+ retransformation");
         }
@@ -175,7 +176,7 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     private WeaveSpec<ReviewedHostContract.Bound<String>> spec() {
         return new WeaveSpec<>(
                 ADMISSION,
-                "matrix scratch",
+                FEATURE_NAME,
                 VerifiedMatrixScratchInstaller::resolve,
                 new WeavePlan<>((contract, source) -> List.copyOf(targets), this::unchanged),
                 (contract, launch) -> BridgeLayer.of(this::publish, this::withdraw),

@@ -348,7 +348,6 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             visitInsn(Opcodes.FCMPG);
             visitJumpInsn(Opcodes.IFGE, triUpper);
 
-            // Lower triangle branch: w0 = (1.0f - xRate) - yRate.
             visitInsn(Opcodes.FCONST_1);
             visitVarInsn(Opcodes.FLOAD, LOCAL_X_RATE);
             visitInsn(Opcodes.FSUB);
@@ -361,7 +360,6 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             visitJumpInsn(Opcodes.GOTO, triAdvance);
 
             visitLabel(triUpper);
-            // Upper triangle branch: w11 = (xRate - 1.0f) + yRate.
             visitVarInsn(Opcodes.FLOAD, LOCAL_X_RATE);
             visitInsn(Opcodes.FCONST_1);
             visitInsn(Opcodes.FSUB);

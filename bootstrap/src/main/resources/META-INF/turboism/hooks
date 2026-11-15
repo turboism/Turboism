@@ -127,3 +127,5 @@ dev.turboism.bootstrap.CameraMatrixCacheHookContributor
 dev.turboism.bootstrap.WarpNormalPointElisionHookContributor
 # Warp grid bilinear and triangle point-interpolation fast path.
 dev.turboism.bootstrap.WarpGridInterpolationHookContributor
+# Incremental Parameter Palette row synchronization and repaint elision.
+dev.turboism.bootstrap.ParameterRowRepaintHookContributor

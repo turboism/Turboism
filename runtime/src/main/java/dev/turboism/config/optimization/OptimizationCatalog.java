@@ -552,6 +552,22 @@ public final class OptimizationCatalog {
             "",
             List.of(new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, WARP_POSITION_PROJECTION, "")));
 
+    /**
+     * Diagnostic-only: synchronizes Parameter Palette rows incrementally across unchanged
+     * parameters; derives its default from {@link #INPUT_PATH_ELISION}.
+     */
+    public static final Optimization PARAMETER_ROW_REPAINT = new Optimization(
+            "",
+            "",
+            Optimization.Access.DIAGNOSTIC_ONLY,
+            List.of("turboism.optimization.parameterRowRepaint"),
+            List.of("TURBOISM_PARAMETER_ROW_REPAINT"),
+            Set.of("cubism.ui.parameter-row-repaint"),
+            Optional.empty(),
+            "",
+            "",
+            List.of(new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, INPUT_PATH_ELISION, "")));
+
     /** Every row, in declaration order. */
     private static final List<Optimization> ALL = List.of(
             MODEL_UPDATE_SKIP,
@@ -589,7 +605,8 @@ public final class OptimizationCatalog {
             SCENE_HANDLER_CACHE,
             CAMERA_MATRIX_CACHE,
             WARP_NORMAL_POINT_ELISION,
-            WARP_GRID_INTERPOLATION);
+            WARP_GRID_INTERPOLATION,
+            PARAMETER_ROW_REPAINT);
 
     static {
         validate(ALL);

@@ -333,6 +333,18 @@ class AdmissionParityTest {
                             } catch (final java.io.IOException impossible) {
                                 throw new AssertionError(impossible);
                             }
+                        }),
+                new Row(
+                        "parameter-row-repaint",
+                        VerifiedParameterRowRepaintInstaller.ADMISSION,
+                        new Frozen(true, "AT_LEAST_17"),
+                        (policy, requested, jvm) -> {
+                            try {
+                                return VerifiedParameterRowRepaintInstaller.admitted(
+                                        artifact(), policy, requested, jvm);
+                            } catch (final java.io.IOException impossible) {
+                                throw new AssertionError(impossible);
+                            }
                         }));
     }
 
