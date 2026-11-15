@@ -8,67 +8,41 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ## [Unreleased]
 
-### 추가
-
-- 최근 프로젝트 보드의 헤더를 스크롤 영역 밖으로 옮겨 카드 목록이 넘쳐도 레이아웃 전환 버튼의 위치가 바뀌지 않습니다. 버튼은 헤더 안에서 세로로도 가운데 정렬됩니다. 고정 크기 중앙 셀은 짧은 자식을 늘리지 않고 세로로 가운데 정렬하므로, 보드의 '미리보기 없음' 자리 표시자와 빈 상태가 영역 중앙으로 돌아왔습니다. 각 카드에는 Lucide 휴지통 버튼이 있어 제공자를 통해 해당 프로젝트의 캐시된 썸네일을 삭제합니다. 카드는 자리 표시자 상태로 돌아가고 마우스 오버 팝업도 오래된 이미지를 표시하지 않습니다. SDK에는 `RecentPreviewCacheService`(제공자가 삭제 핸들러를 등록하는 런타임 중개 브로커), `RecentPreviewDeletedEvent`와 공개 이벤트 `thumbnail.deleted`, `PluginService.RECENT_PREVIEW_CACHE`, 권한 `turboism.ui.recent-preview.manage`를 추가했습니다.
-- 미리보기 썸네일이 편집기의 네이티브 오프스크린 모델 렌더를 우선 사용합니다. MCP 렌더 도구와 같은 읽기 경로이므로 썸네일에는 모델만 담기고, 툴바에 가려지거나 완전히 빈 GL 읽기가 되지 않습니다. 컴포넌트 캡처 경로는 승인된 렌더러가 없는 호스트와 모델이 열려 있지 않을 때의 캡처를 위한 대체 경로로 남습니다.
-- 한 번만 표시되는 제품 가이드를 추가했습니다. 셸이 시작된 뒤 열리며 사용자가 닫으면 다시 열리지 않습니다. 프레임워크와 업데이트 방법, 플러그인 설치와 관리 및 플러그인 마켓, 공식 피드백 경로를 소개합니다. Turboism 메뉴에서 언제든지 다시 열 수 있습니다. `config.json`은 `guide.showOnStartup`으로 선택을 기록하며 설치 프로그램은 기록된 값을 유지하므로, 업그레이드로 닫은 가이드가 다시 표시되지 않습니다.
-- ACP 입력창의 플레이스홀더가 창을 열 때마다 현지화된 예시 요청을 무작위로 하나 표시합니다. 예시 문구는 플러그인 언어 카탈로그가 보관하므로 번역자가 코드를 변경하지 않고 수정할 수 있습니다.
-- ACP 입력창에 Paseo 스타일의 작업 진행률(Todo) 및 생성 속도(TPS) 알약 버튼과 상세 팝오버, 세션 단위 도구 권한 기억, 자동 권한 허용 모드, 대화 메시지의 로컬 시간 표시를 추가했습니다.
-
-### 수정
-
-- ACP 입력창이 연결 끊김·연결 중·응답 생성 중에도 항상 클릭·포커스·입력 가능 상태를 유지하도록 하고, 입력 카드나 뷰포트 여백 클릭 시 입력창으로 포커스를 전달하며, 저장된 Agent가 있으면 전체 Agent 탐색을 기다리지 않고 즉시 연결을 시작하도록 수정했습니다. 또한 기록 세션 로드 및 재개 시 `user_message_chunk` 처리(내부 시스템 경계 접두사 제거)와 리플레이 이벤트 상한을 확장하고, 네이티브 Codex·Claude Code·Pi 세션의 이전 대화와 도구 기록을 재생하도록 수정했습니다.
-- 3D 모델 및 프리셋 가져오기에서 텍스처 아틀라스 반영 후 보간 전 스냅샷을 다시 읽어 도넛 등 복잡한 프리셋의 롤백 오류를 해결하고, 생성되는 파츠·디포머·아트메시 이름을 모든 지원 언어로 현지화했습니다.
-- 최근 프로젝트 보드에서 휴지통 아이콘을 클릭하면 해당 프로젝트의 캐시된 썸네일만 삭제하고 항목 순서를 유지한 채 제자리에서 기본 '미리보기 없음' 자리 표시자로 새로 고치도록 수정했으며, 플러그인 관리 창에서 불필요한 '대기 중인 변경' 버튼을 제거하고 하단의 두 버튼 행을 모두 오른쪽 정렬로 통일하며, 자동 배치 알고리즘 표시명을 `Bitmask Nesting`으로 통일하고, `AcpChatWindow`가 전역 `JComboBox` 테마를 `BasicComboBoxUI`로 덮어쓰던 문제를 수정했습니다.
-- ACP 입력창의 Agent 버튼은 Agent 이름만 표시합니다. 감지된 설치를 나타내는 확인 표시는 메뉴에 남습니다.
-- 네이티브 팔레트 아이콘이 표시 배율을 따릅니다. 아이콘 소유자는 화면 변환을 샘플링해 고정된 100% 대신 검토된 100/125/150/175/200% 변형을 선택하므로 확대 표시에서도 잠금 아이콘이 선명하게 유지됩니다.
-- ACP 창의 모든 컨트롤, 스크롤바, 높이 제한·검색 지원 옵션 메뉴, 권한 대화상자가 현재 테마를 따르며, 사용자 메시지 카드 수직 중앙 정렬, 접이식 도구 활동 그룹 내부의 하위 생각 접기, 스트리밍 증분 렌더링을 지원합니다.
-
-## [0.70.0] - 2026-11-10
+## [0.70.0] - 2026-11-15
 
 ### 추가
 
-- 플러그인 마켓은 백그라운드 자동 업데이트와 동일한 허용 규칙을 사용합니다. `PluginReleaseCompatibility`가 단일 판정 지점이 되어 마켓이 제공하는 릴리스는 업데이터도 받아들이는 릴리스입니다. `stable` 설치는 `preview` 릴리스를 설치하지 않으며 `beta`와 `nightly`는 둘 다 허용합니다. `windows-x64` 플랫폼이 없거나 `required` 플러그인 의존성을 충족할 수 없는 릴리스도 거부됩니다. 호환 카탈로그 릴리스가 없는 설치된 플러그인은 설치됨으로 표시되고 다운로드를 제공하지 않으므로, 채널 제한이 고장 난 플러그인으로 보이지 않습니다.
-- `packaging/market-plugins.json`은 플러그인별 `publication` 결정을 기록합니다. 새로 명단에 추가된 플러그인은 기본값이 `withheld`이므로 `packaging/market-plugins.txt`에 추가하는 것만으로는 공개되지 않으며, 검토자가 별도 커밋에서 `approved`로 설정합니다. 승인되었더라도 필수 의존성이 보류된 플러그인은 서명된 카탈로그가 호환 릴리스를 제공하지 않는 한 스테이징에 실패합니다.
-- 스테이징은 빌드된 바이트가 그대로이고 카탈로그가 `preview` 채널에만 제공할 때 플러그인을 `preview`에서 `stable`로 승격합니다. Beta 기간에 처음 배포된 플러그인은 무관한 소스 변경 없이 Stable 설치에 도달합니다. 승격은 패치 버전을 올립니다. 카탈로그 버전은 고유하고 엄격히 증가해야 하며 암묵적 강등은 없습니다.
-- 공식 `project-work-time` 플러그인과 공유 런타임 추적기를 추가했습니다. 상태 표시줄에 현재 편집기 세션의 전경 시간과 현재 프로젝트의 세션 간 누적 작업 시간을 표시합니다. 런타임은 Cubism이 데스크톱 전경에 있을 때만 측정하고 누적 시간을 세션 간 저장합니다. SDK에는 `CubismFacade.isEditorForeground()`, `CubismFacade.activity()`, `CubismActivityChangedEvent`, `ProjectWorkTimeService` 디렉터리 서비스를 추가해 다른 플러그인이 동일한 집계를 재사용할 수 있습니다.
-
-- SDK에 인큐베이팅 `PreviewFrameService` 기능(`PreviewFrameSource`, `PreviewFrame`, `PreviewFrameSourceClosedException`, `PluginService.PREVIEW_FRAMES` 디렉터리 멤버)과 `cubism.preview.capture` admission 행을 추가했습니다. 플러그인은 포커스된 미리보기의 프레임을 읽고 자체 `PanelView` 컨트롤 스트립을 배치할 수 있으며, 미리보기 표면 해석, 전용 스레드에서의 OpenGL 읽기, 플러그인 세대 종료 후 갱신 폐기는 런타임이 담당합니다.
-
-- SDK에 인큐베이팅 `HostViewPanel` 기능(`HostViewPanelHandle`, `HostViewAnchors` 앵커 상수, `PluginService.HOST_VIEW_PANEL` 디렉터리 멤버)을 추가했습니다. 플러그인은 `PanelView` 내용을 이름이 지정된 호스트 뷰(우선 네이티브 텍스처 아틀라스 편집기)에 붙이고, 렌더링과 편집기 스레드에서의 갱신 적용, 플러그인 세대 종료 후 갱신의 조용한 폐기는 런타임이 담당합니다.
-
-- SDK에 인큐베이팅 `MeshCanvasSession` 기능과 `MeshToolContext.canvasSession()`을 추가했습니다. 플러그인이 자체 상태로 점·선 배치를 계산하고, 런타임이 미리 보기 렌더링, 캔버스 앵커 추적, 한 번의 Undo 로 배치 확정을 담당합니다. `geometric-mesh-layout` 플러그인은 이제 도형 계산, 매개변수 상태, 설정 대화상자를 직접 소유합니다.
-
-- 물리 시뮬레이션 미리보기에 GIF 녹화를 추가했습니다. 녹화/일시 정지/계속, 정지/버리기 및 단축키 등록, 녹화 후 크기 설정, Gifsicle 목표 크기 최적화 (기본 20 MB), GIF 내보내기 폴더 저장을 지원합니다. 녹화 상태 기계, 인코더, 내보내기 대화상자, 배율/Gifsicle 정책, 컨트롤 스트립은 `:plugins:physics-editor`가 소유하며 `:runtime`은 이들이 구동하는 범용 미리보기 캡처 기능만 제공합니다.
-
-- SDK에 인큐베이팅 `MeshMirrorControl` 및 `MeshEditContributionSurface` 기능과 `PluginService.MESH_MIRROR_CONTROL`, `PluginService.MESH_EDIT_CONTRIBUTION` 디렉터리 멤버를 추가했습니다. 전자는 미러 축, 미러 대응점 규칙, 이동 참여, 사용 가능 도구 집합을, 후자는 호스트 편집 참여와 네이티브 도구 영역 기여를 플러그인이 항상 함께 필요로 하는 공개된 단일 목적 서비스로 통합합니다. 메시 편집에 더 이상 여섯 번의 서비스 조회가 필요하지 않습니다. 권한과 작업 ID는 그대로입니다.
-- SDK에 `SelectionTableFooter`와 `openSelectionTableDialog(request, footer, listener)` 오버로드를 추가했습니다. 미리보기 표는 하나의 바닥글 컨트롤을 가질 수 있고 그 값이 바뀌면 행을 다시 만듭니다. 일괄 이름 변경의 기준 이름은 영향을 주는 미리보기 안에 있습니다.
-- `project-work-time`은 열려 있는 프로젝트만 측정합니다. 빈 작업 공간에서는 상태 표시줄의 세션 값이 0으로 멈추고, 프로젝트를 닫으면 0으로 돌아갑니다.
-- GIF 내보내기는 GIF와 함께 애니메이션 PNG를 제공합니다. 외부 도구 없이 프로세스 안에서 기록하고 완료 결과는 호스트 상태 표시줄에 표시합니다.
-- 3D 프리셋 가져오기는 선택과 미리보기를 한 창에 모으고 선택에 따라 미리보기를 다시 만듭니다. 내장 프리셋 텍스처는 논리 면마다 색과 번호를 가집니다.
-
-### 폐기 예정
-
-- `PhysicsEditorService.gifCommand`와 `PhysicsEditorService.GifCommand`를 제거 예정으로 폐기했습니다. 런타임은 더 이상 플러그인을 대신해 GIF를 녹화하지 않으며 명령은 수락되지만 아무 동작도 하지 않습니다. `PreviewFrameService`(`PluginService.PREVIEW_FRAMES`)를 사용해 플러그인에서 녹화를 구동하세요. 다음 마이너 릴리스에서 제거됩니다.
-
-- `TextureAtlasEditorUi`와 `TextureAtlasEditorPanel`을 제거 예정으로 폐기했습니다. 두 인터페이스는 `HostViewPanel` 위의 얇은 어댑터로 계속 동작합니다. 대신 `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)`와 `HostViewPanelHandle.setContent(PanelView)`를 사용하세요.
-
-- `MeshMirrorAxisService`, `MeshMirrorCounterparts`, `MeshMirrorMoveParticipation`, `MeshMirrorToolEligibility`, `MeshEditParticipation`, `MeshEditUiService`(해당 `PluginService` 멤버와 `MeshEditUiService.MirrorAxisAngleControl` 포함)를 제거 예정으로 폐기했습니다. 여섯 가지 모두 동작은 그대로입니다. 대신 `MeshMirrorControl`과 `MeshEditContributionSurface`를 사용하세요.
+- 플러그인 마켓 허용 규칙을 백그라운드 자동 업데이트와 동일한 `PluginReleaseCompatibility`로 통합(`stable`은 `stable`만, `beta`/`nightly`는 `preview`도 허용하며 `windows-x64`와 `required` 의존성을 검사)하고 `packaging/market-plugins.json`으로 플러그인별 `publication`(신규 기본 `withheld`)을 관리하며 바이트가 같은 `preview` 플러그인은 스테이징 시 패치 버전을 올려 `stable`로 승격합니다.
+- 공식 미리보기 플러그인 `recent-project-board`와 `RecentFileService.open`, `PanelView.Card`/`Grid`/`Centered`/`Link`, `RecentPreviewCacheService`(`RecentPreviewDeletedEvent`, `thumbnail.deleted`, `turboism.ui.recent-preview.manage`)를 추가했습니다. 스크롤 밖 고정 헤더 레이아웃 전환(6열/3열/세부), 빈 상태 새 프로젝트/애니메이션 링크, 카드별 휴지통 썸네일 삭제, 에디터 오프스크린 모델 렌더 우선 캡처(폴백 포함)를 지원합니다.
+- 공식 `project-work-time` 플러그인과 공유 런타임 전경 타이머(`CubismFacade.isEditorForeground()`, `activity()`, `CubismActivityChangedEvent`, `ProjectWorkTimeService`)를 추가해 프로젝트가 열려 있고 Cubism이 전경에 있을 때만 세션·누적 작업 시간을 측정합니다.
+- 셸 시작 후 한 번만 열리는 제품 가이드 창(`config.json` `guide.showOnStartup` 저장 및 업그레이드 유지, Turboism 메뉴에서 다시 열기 가능)을 추가했습니다.
+- SDK 기능을 공개·승격했습니다: `PreviewFrameService`(`cubism.preview.capture`), `HostViewPanel`(`HostViewAnchors.TEXTURE_ATLAS_EDITOR`), `MeshCanvasSession`(`MeshToolContext.canvasSession()`), `MeshMirrorControl`, `MeshEditContributionSurface`, `SelectionTableFooter`(`openSelectionTableDialog(request, footer, listener)`), 단일 소스 `permission-ids.txt`를 추가하고 공식 플러그인 39종의 `turboismApi`를 상한 없는 `[lower,)` 범위로 전환했습니다.
+- 물리 시뮬레이션 미리보기에서 `:plugins:physics-editor` 내 GIF·애니메이션 PNG 내보내기, 일시 정지/재개/폐기, 단축키, 크기 및 Gifsicle 최적화(기본 20 MB), 내보내기 폴더 저장, 상태 표시줄 알림을 지원합니다.
+- `deformer-batch-rename`에 읽기 진행 대화상자와 단일 패스 이름 색인을 추가했고, 3D 프리셋 가져오기는 선택과 실시간 미리보기를 한 창에 통합하고 내장 텍스처 논리 면을 색상과 번호로 구분했습니다.
+- ACP 입력창에 언어 카탈로그 기반 무작위 현지화 예시 플레이스홀더, Paseo 스타일 작업 진행(Todo)·생성 속도(TPS) 알약과 상세 팝오버, 세션 도구 승인 기억, 자동 허용 모드, 로컬 시간 표시를 추가했습니다.
 
 ### 변경
 
-- 플러그인 관리자 바닥글을 '가져오기 동작'과 '선택 동작' 두 줄로 나누어 영어 라벨이 잘리지 않게 했습니다. 플러그인 관리자와 마켓의 중복된 '닫기' 버튼은 제거했습니다.
-- `PanelView.Centered`는 한쪽 차원에 0을 허용하며, 그 방향은 자식의 자연 크기를 유지합니다.
+- 플러그인 관리자 바닥글을 오른쪽 정렬된 가져오기/선택 두 행으로 나누고 불필요한 '대기 중인 변경'과 중복 '닫기' 버튼을 제거했습니다. `PanelView.Centered`는 한 차원이 0일 때 자식의 자연 크기를 유지합니다.
+- 플러그인 템플릿을 독립 저장소 `turboism/turboism-plugin-template`로 분리했습니다.
+
+### 폐기 예정
+
+- `PhysicsEditorService.gifCommand`와 `PhysicsEditorService.GifCommand`를 제거 예정으로 폐기했습니다(현재 무동작; `PreviewFrameService` 사용).
+
+### 제거
+
+- 중복 내부 자가 해시(스크립트 `sourceSha256`, `.tplugin` `packageHash`/`pluginDescriptorSha256`, 이벤트 `abiSha256`, `PublicEventAbi`)를 제거하되 아카이브/카탈로그 경계 검증과 구버전 읽기 호환성은 유지했습니다.
+- 미사용 권한 ID(`turboism.ui.menu`, `turboism.ui.palette`, `turboism.ui.toolbar`)를 제거하고 5개 동의어 기능 ID를 정규 ID(`cubism.parameter.read`/`write`, `cubism.editor-history.read`/`move`)로 통합했습니다.
+- 1.0 전환 전 미사용 SDK 공개 항목(`TextureAtlasEditorUi`/`Panel`, `MeshMirrorAxisService`/`Counterparts`/`MoveParticipation`/`ToolEligibility`, `MeshEditParticipation`/`UiService`, `UiHostCapabilityService.refreshOffCanvasAppearance()`, `EditorCommand.MOVE_END*`, `Motion3Validator`/`Issue`/`Report`, `dev.turboism.sdk.failure`)을 제거하고 `HostViewPanel`, `MeshMirrorControl`, `MeshEditContributionSurface`, `PreviewFrameService`로 대체했습니다.
 
 ### 수정
 
-- 플러그인 완료 처리가 해제해야 할 워커 뒤에서 교착되지 않습니다. 완료는 전용 레인에서 실행되므로 테마 관리자가 세션 내내 시간 초과 없이 열립니다.
-- 주기 새로 고침은 한 번의 예산 초과로 일정을 끝내지 않으므로, 상태 표시줄 타이머는 느린 첫 갱신 이후에도 계속 게시합니다.
-- 보드 카드는 자식을 통해 호버와 누름 피드백을 보여 주고, 목록 행은 텍스트 뒤에 배경 블록을 그리지 않으며, 보드는 캔버스 옆 네이티브 레일을 덮습니다.
-- 일괄 이름 변경 미리보기는 컨트롤 내부의 record 문자열 대신 기준 이름 라벨을 표시합니다.
-- 테마가 캔버스 스크롤바 키를 관리하므로 빈 작업 공간 보드 옆 띠도 테마를 따릅니다.
-- 3D 가져오기 읽기 검증은 제출한 키폼 편집만 비교하고 실패 문구의 앞에 필드 이름을 둡니다. 올바른 프리셋 가져오기는 롤백되지 않습니다.
+- 런타임 셸 시작 마감 시간 분리와 전용 완료 레인으로 테마 관리자 교착 및 주기 갱신 중단을 해결했고, ArtMesh 미러 드래그 틱을 포함한 핫패스 리플렉션·할당을 제거하며 시작 자막 폴백 글꼴 해석을 추가했습니다.
+- 보드 카드 호버/누름 피드백, 목록 행 스타일, 네이티브 레일 덮기, `Bitmask Nesting` 표기 일관성, 항목 유실 없는 제자리 썸네일 삭제를 수정했습니다.
+- 캔버스 스크롤바 테마 키, 화면 배율(100%–200%)별 네이티브 팔레트 아이콘, `AcpChatWindow`의 `MultiUIDefaults` Look-and-Feel 해석(전역 `JComboBox` 테마 보존), JVM 설정 행 가시성, 자체 업데이트의 비리디렉션 Wine 마운트 경계 검사를 수정했습니다.
+- 연결 상태와 무관하게 ACP 입력창 포커스/편집을 유지하고, 저장된 Agent 직접 연결, `user_message_chunk` 및 Codex/Claude Code/Pi 세션 이력 재생, Agent 버튼 체크 표시 정리, 전체 UI 테마 적용, 스트리밍 증분 갱신, UI 사전 캐시, 이미지 컨텍스트 메뉴를 구현·수정했습니다.
+- 3D/프리셋 가져오기에서 아틀라스 반영 후 스냅샷 재조회(도넛 롤백 수정)와 생성 객체명 다국어화, 일괄 이름 변경 기준 라벨, 클립 마스크 GL scissor, ArtMesh 미러 드래그 지연·T 배지·선택 버튼 표시 문제를 수정했습니다.
 
 ## [0.68.1] - 2026-10-30
 

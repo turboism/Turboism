@@ -42,7 +42,7 @@ permissions:
   contents: read
 
 env:
-  PLUGIN_DIRECTORY_REVISION: 9383820303b9e474b59a2b6826e34747119c3eef
+  PLUGIN_DIRECTORY_REVISION: 5d17e6b004c8e916943e17e59cba25d4fe9d13ce
 
 concurrency:
   group: turboism-production-release
