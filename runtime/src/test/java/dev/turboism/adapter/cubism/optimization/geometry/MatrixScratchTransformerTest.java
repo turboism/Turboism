@@ -21,6 +21,10 @@ class MatrixScratchTransformerTest {
 
     private static final String ADMISSION = MatrixScratchTransformer.ADMISSION_PROPERTY;
     private static final String CALLBACK = MatrixScratchTransformer.CALLBACK_PROPERTY;
+    private static final String KEY_CALLS = "calls";
+    private static final String KEY_CACHE_HITS = "cacheHits";
+    private static final String KEY_CACHE_MISSES = "cacheMisses";
+    private static final String KEY_FAILURES = "failures";
     private final String previous = System.getProperty(MatrixScratchTransformer.ENABLE_PROPERTY);
     private final Object previousAdmission = System.getProperties().get(ADMISSION);
     private final Object previousCallback = System.getProperties().get(CALLBACK);
@@ -219,6 +223,69 @@ class MatrixScratchTransformerTest {
                 f.reset();
                 rawEquals(restoredNative, f.values(f.result(leaf)));
                 assertEquals(depth, f.localCalls());
+            }
+        }
+    }
+
+    @Test
+    void bridgeAggregatesThreadStateCountersAndEvictsSlotsSafely() throws Exception {
+        final int chainCount = 2200;
+        final int chainDepth = 2;
+        final int workerChainDepth = 3;
+        final int workerRepeat = 2;
+        try (BridgeFixture f = bridgeFixture()) {
+            Object[] leaves = new Object[chainCount];
+            for (int i = 0; i < chainCount; i++) {
+                Object[] chain = f.chain(chainDepth);
+                leaves[i] = chain[chainDepth - 1];
+            }
+            AtomicBoolean admission = new AtomicBoolean(true);
+            System.setProperty(MatrixScratchTransformer.ENABLE_PROPERTY, Boolean.TRUE.toString());
+            System.getProperties().put(ADMISSION, admission);
+
+            try (MatrixScratchBridge bridge = new MatrixScratchBridge(f.loader, admission)) {
+                bridge.activate();
+                System.getProperties().put(CALLBACK, bridge.callback());
+
+                admission.set(false);
+                float[] expectedLast = f.values(f.result(leaves[chainCount - 1])).clone();
+                admission.set(true);
+                for (int i = 0; i < chainCount; i++) {
+                    assertNotNull(f.result(leaves[i]));
+                }
+                rawEquals(expectedLast, f.values(f.result(leaves[chainCount - 1])));
+
+                long mainMisses = bridge.snapshot().get(KEY_CACHE_MISSES);
+                assertEquals((long) chainCount * chainDepth, mainMisses);
+
+                Object[] shortChain = f.chain(workerChainDepth);
+                Object shortLeaf = shortChain[workerChainDepth - 1];
+                admission.set(false);
+                float[] expectedShort = f.values(f.result(shortLeaf)).clone();
+                admission.set(true);
+
+                java.util.concurrent.atomic.AtomicReference<Throwable> workerError =
+                        new java.util.concurrent.atomic.AtomicReference<>();
+                Thread worker = new Thread(() -> {
+                    try {
+                        for (int i = 0; i < workerRepeat; i++) {
+                            rawEquals(expectedShort, f.values(f.result(shortLeaf)));
+                        }
+                    } catch (Throwable failure) {
+                        workerError.set(failure);
+                    }
+                });
+                worker.start();
+                worker.join();
+                assertNull(workerError.get());
+
+                java.util.Map<String, Long> afterWorker = bridge.snapshot();
+                assertEquals((long) chainCount + 1L + workerRepeat, afterWorker.get(KEY_CALLS));
+                assertEquals(mainMisses + workerChainDepth, afterWorker.get(KEY_CACHE_MISSES));
+                assertEquals((long) chainDepth + workerChainDepth, afterWorker.get(KEY_CACHE_HITS));
+                assertEquals(0L, afterWorker.get(KEY_FAILURES));
+                // Re-query after worker thread exit to verify retired totals remain intact.
+                assertEquals(afterWorker, bridge.snapshot());
             }
         }
     }
