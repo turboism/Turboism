@@ -365,8 +365,29 @@ final class NativeCodexProvider extends NativeAgentProvider {
             });
         } else if (method.equals("mcpServer/elicitation/request")) {
             send(Map.of("id", id, "result", Map.of("action", "cancel")));
-        } else if (method.equals("item/tool/requestUserInput")) {
-            send(Map.of("id", id, "result", Map.of("answers", Map.of())));
+        } else if (method.equals("item/tool/requestUserInput") || method.equals("tool/requestUserInput")) {
+            final List<AcpQuestion.Item> questions = AcpQuestion.parseRawQuestions(params.get("questions"), false);
+            if (questions.isEmpty()) {
+                send(Map.of("id", id, "result", Map.of("answers", Map.of())));
+                return;
+            }
+            host.question(turn.future, "Question", questions, response -> {
+                synchronized (this) {
+                    final var answers = new LinkedHashMap<String, Object>();
+                    if (!response.cancelled() && activeTurn == turn && !turn.future.isDone() && !turn.cancelRequested) {
+                        for (int i = 0; i < questions.size(); i++) {
+                            final AcpQuestion.Item item = questions.get(i);
+                            final AcpQuestion.Answer ans = response.answerFor(item, i);
+                            if (ans == null) continue;
+                            final List<String> values = ans.values();
+                            if (!values.isEmpty()) {
+                                answers.put(item.id(), Map.of("answers", values));
+                            }
+                        }
+                    }
+                    send(Map.of("id", id, "result", Map.of("answers", answers)));
+                }
+            });
         } else send(Map.of("id", id, "error", Map.of("code", -32601L, "message", "Unsupported native agent request")));
     }
 
@@ -381,7 +402,7 @@ final class NativeCodexProvider extends NativeAgentProvider {
             send(Map.of("id", id, "result", Map.of("permissions", Map.of(), "scope", "turn")));
         else if (method.equals("mcpServer/elicitation/request"))
             send(Map.of("id", id, "result", Map.of("action", "cancel")));
-        else if (method.equals("item/tool/requestUserInput"))
+        else if (method.equals("item/tool/requestUserInput") || method.equals("tool/requestUserInput"))
             send(Map.of("id", id, "result", Map.of("answers", Map.of())));
         else
             send(Map.of(

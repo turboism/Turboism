@@ -40,8 +40,8 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     static final int MAX_PROMPT_CHARS = 1024 * 1024;
     private static final String USER_REQUEST_MARKER = "\n\nUser request:\n";
     static final String SYSTEM_BOUNDARY =
-            "Use only the Turboism MCP tools for Cubism automation. Do not use native filesystem, "
-                    + "terminal, search, or fetch tools.";
+            "Use the Turboism MCP tools for Cubism automation. Also fetch documents from turboism.dev and live2d "
+                    + "cubism official website if you need";
 
     private final PluginContext context;
     private final AcpPluginSettings settings;
@@ -838,8 +838,6 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
     static String promptPrefix(final String initial) {
         return SYSTEM_BOUNDARY
-                + "\n\n"
-                + AcpPromptContext.REFERENCE
                 + (initial.isEmpty() ? "" : "\n\nUser-configured initial instructions:\n" + initial)
                 + USER_REQUEST_MARKER;
     }
@@ -1084,6 +1082,29 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             sessionApprovedTools.add(approvalKey);
         }
         return decision;
+    }
+
+    @Override
+    public AcpQuestion.Response question(
+            final AcpClient source, final String sessionId, final AcpQuestion.Request request) {
+        final long generation;
+        synchronized (stateLock) {
+            if (loadTransaction != null || !activeSession(source, sessionId)) {
+                return AcpQuestion.Response.CANCELLED;
+            }
+            generation = sessionGeneration;
+        }
+        ui(() -> view.onPermissionWaitChanged(true));
+        final AcpQuestion.Response response;
+        try {
+            response = view.requestQuestion(request);
+        } finally {
+            ui(() -> view.onPermissionWaitChanged(false));
+        }
+        if (!activeGeneration(source, sessionId, generation) || response == null) {
+            return AcpQuestion.Response.CANCELLED;
+        }
+        return response;
     }
 
     private void sourceEvent(final AcpClient source, final String sessionId, final ReplayEvent event) {
@@ -1774,5 +1795,9 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         default void showPermissionMode(final PermissionMode mode) {}
 
         PermissionDecision requestPermission(PermissionRequest request);
+
+        default AcpQuestion.Response requestQuestion(final AcpQuestion.Request request) {
+            return AcpQuestion.Response.CANCELLED;
+        }
     }
 }

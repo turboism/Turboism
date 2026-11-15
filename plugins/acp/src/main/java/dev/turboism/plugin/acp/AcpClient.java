@@ -60,7 +60,7 @@ final class AcpClient implements AutoCloseable {
     private final Object writeLock = new Object();
     private final ConcurrentHashMap<Long, CompletableFuture<Object>> pending = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, AcpPermissionCancellation> permissionScopes = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Object, PendingPermission> permissionRequests = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Object, Object> permissionRequests = new ConcurrentHashMap<>();
 
     private final AtomicLong requestIds = new AtomicLong();
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -622,6 +622,10 @@ final class AcpClient implements AutoCloseable {
     }
 
     private void incomingRequest(final Object id, final String method, final Map<String, Object> params) {
+        if (AcpQuestion.REQUEST_METHOD.equals(method)) {
+            incomingQuestionRequest(id, params);
+            return;
+        }
         if (!"session/request_permission".equals(method)) {
             sendError(id, -32601L, "Method not found");
             return;
@@ -714,6 +718,91 @@ final class AcpClient implements AutoCloseable {
                     ? Map.of("outcome", "cancelled")
                     : Map.of("outcome", "selected", "optionId", optionId);
             sendResult(id, Map.of("outcome", outcome));
+        }
+    }
+
+    private void incomingQuestionRequest(final Object id, final Map<String, Object> params) {
+        final String sessionId = safeSessionId(params.get("sessionId"));
+        if (sessionId == null) {
+            sendError(id, -32602L, "Invalid session id");
+            return;
+        }
+        final AcpQuestion.Request parsed = AcpQuestion.fromRequestParams(params);
+        if (parsed.items().isEmpty()) {
+            sendError(id, -32602L, "Question request contains no items");
+            return;
+        }
+        if (permissionRequests.size() >= 9) {
+            sendResult(id, AcpQuestion.toResponseResult(AcpQuestion.Response.CANCELLED));
+            return;
+        }
+        final var scope = permissionScope(sessionId, false);
+        if (scope == null) {
+            sendResult(id, AcpQuestion.toResponseResult(AcpQuestion.Response.CANCELLED));
+            return;
+        }
+        final var pendingQuestion = new PendingQuestion(id, sessionId, parsed, scope);
+        if (permissionRequests.putIfAbsent(id, pendingQuestion) != null) {
+            fail(new AcpException("duplicate question request id"));
+            return;
+        }
+        pendingQuestion.register();
+        if (pendingQuestion.answered.get()) return;
+        try {
+            permissionExecutor.execute(pendingQuestion.work);
+            if (pendingQuestion.answered.get()) permissionExecutor.remove(pendingQuestion.work);
+        } catch (java.util.concurrent.RejectedExecutionException failure) {
+            pendingQuestion.answer(AcpQuestion.Response.CANCELLED);
+        }
+    }
+
+    private final class PendingQuestion {
+        final Object id;
+        final String sessionId;
+        final AcpQuestion.Request request;
+        final AcpPermissionCancellation scope;
+        final AtomicBoolean answered = new AtomicBoolean();
+        final Runnable work;
+        volatile AcpPermissionCancellation.Registration scopeRegistration;
+
+        PendingQuestion(Object id, String sessionId, AcpQuestion.Request request, AcpPermissionCancellation scope) {
+            this.id = id;
+            this.sessionId = sessionId;
+            this.request = request;
+            this.scope = scope;
+            work = () -> answerQuestion(this);
+        }
+
+        void register() {
+            request.cancellation().onCancel(() -> answer(AcpQuestion.Response.CANCELLED));
+            scopeRegistration = scope.onCancel(request.cancellation()::cancel);
+            if (answered.get()) scopeRegistration.close();
+        }
+
+        void answer(AcpQuestion.Response response) {
+            if (!answered.compareAndSet(false, true)) return;
+            permissionRequests.remove(id, this);
+            permissionExecutor.remove(work);
+            if (scopeRegistration != null) scopeRegistration.close();
+            if (scope.isCancelled() || request.cancellation().isCancelled() || response == null) {
+                response = AcpQuestion.Response.CANCELLED;
+            }
+            request.cancellation().cancel();
+            if (closed.get()) return;
+            sendResult(id, AcpQuestion.toResponseResult(response));
+        }
+    }
+
+    private void answerQuestion(final PendingQuestion pendingQuestion) {
+        if (pendingQuestion.answered.get()) return;
+        try {
+            pendingQuestion.answer(Objects.requireNonNullElse(
+                    listener.question(this, pendingQuestion.sessionId, pendingQuestion.request),
+                    AcpQuestion.Response.CANCELLED));
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
+        } catch (Throwable failure) {
+            pendingQuestion.answer(AcpQuestion.Response.CANCELLED);
         }
     }
 

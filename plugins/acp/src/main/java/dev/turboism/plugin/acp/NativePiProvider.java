@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /** Pi's native RPC mode; the bundled extension supplies Turboism MCP without npm dependencies. */
@@ -15,7 +16,22 @@ final class NativePiProvider extends NativeAgentProvider {
     private boolean textStreamed;
     private boolean thoughtStreamed;
     private String lastError;
+    private ActiveAskUser activeAskUser;
     private final Map<String, Map<String, Object>> models = new LinkedHashMap<>();
+
+    private static final class ActiveAskUser {
+        final String callId;
+        final List<AcpQuestion.Item> items;
+        AcpQuestion.Response response;
+        Map<String, Object> deferredDialog;
+        int index;
+        boolean expectingCustomInput;
+
+        ActiveAskUser(final String callId, final List<AcpQuestion.Item> items) {
+            this.callId = callId;
+            this.items = items;
+        }
+    }
 
     NativePiProvider(final NativeAgentTransport host) {
         super(host);
@@ -111,6 +127,7 @@ final class NativePiProvider extends NativeAgentProvider {
         textStreamed = false;
         thoughtStreamed = false;
         lastError = null;
+        activeAskUser = null;
         command("prompt", params).whenComplete((result, failure) -> {
             synchronized (this) {
                 if (!ownsPrompt(future)) return;
@@ -136,6 +153,7 @@ final class NativePiProvider extends NativeAgentProvider {
         final var future = runningPrompt();
         if (future == null || cancelled) return;
         cancelled = true;
+        activeAskUser = null;
         host.cancelPermissions(future);
         command("abort", Map.of()).whenComplete((result, failure) -> {
             if (failure != null) uncertainPrompt(future, "Pi abort", failure);
@@ -143,6 +161,7 @@ final class NativePiProvider extends NativeAgentProvider {
     }
 
     private void settled() {
+        activeAskUser = null;
         if (cancelled) complete("cancelled");
         else if (lastError != null) failed(new IOException(lastError));
         else complete("end_turn");
@@ -188,20 +207,43 @@ final class NativePiProvider extends NativeAgentProvider {
                 }
                 if ("error".equals(value.get("stopReason"))) lastError = text(value.get("errorMessage"));
             }
-            case "tool_execution_start" ->
+            case "tool_execution_start" -> {
+                final String callId = text(message.get("toolCallId"));
+                final String toolName = text(message.get("toolName"));
+                tool(callId, toolName, "in_progress", message.get("args"), null);
+                if ("ask_user_question".equals(toolName) && !cancelled) {
+                    final var args = object(message.get("args"));
+                    final List<AcpQuestion.Item> items = AcpQuestion.parseRawQuestions(args.get("questions"), true);
+                    if (!items.isEmpty()) {
+                        final ActiveAskUser tracker = new ActiveAskUser(callId, items);
+                        activeAskUser = tracker;
+                        host.question(future, "AskUserQuestion", items, response -> {
+                            synchronized (this) {
+                                if (activeAskUser != tracker) return;
+                                tracker.response =
+                                        ownsPrompt(future) && !cancelled ? response : AcpQuestion.Response.CANCELLED;
+                                final var deferred = tracker.deferredDialog;
+                                tracker.deferredDialog = null;
+                                if (deferred != null) {
+                                    answerAskUserDialog(tracker, deferred);
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+            case "tool_execution_end" -> {
+                final String callId = text(message.get("toolCallId"));
+                if (activeAskUser != null && activeAskUser.callId.equals(callId)) {
+                    activeAskUser = null;
+                }
                 tool(
-                        text(message.get("toolCallId")),
-                        text(message.get("toolName")),
-                        "in_progress",
-                        message.get("args"),
-                        null);
-            case "tool_execution_end" ->
-                tool(
-                        text(message.get("toolCallId")),
+                        callId,
                         text(message.get("toolName")),
                         Boolean.TRUE.equals(message.get("isError")) ? "failed" : "completed",
                         null,
                         message.get("result"));
+            }
             case "agent_end" -> {
                 if (!message.containsKey("willRetry")) settled();
             }
@@ -210,7 +252,18 @@ final class NativePiProvider extends NativeAgentProvider {
                 if (Boolean.TRUE.equals(message.get("success"))) lastError = null;
             }
             case "extension_ui_request" -> {
-                if ("confirm".equals(message.get("method")) && !cancelled)
+                final String method = text(message.get("method"));
+                if (activeAskUser != null && ("select".equals(method) || "input".equals(method))) {
+                    if (cancelled) {
+                        uiResponse(message, false);
+                    } else if (activeAskUser.response == null) {
+                        activeAskUser.deferredDialog = message;
+                    } else {
+                        answerAskUserDialog(activeAskUser, message);
+                    }
+                    break;
+                }
+                if ("confirm".equals(method) && !cancelled) {
                     host.permission(
                             future,
                             text(message.get("title")),
@@ -222,8 +275,49 @@ final class NativePiProvider extends NativeAgentProvider {
                                     uiResponse(message, allow && ownsPrompt(future) && !cancelled);
                                 }
                             });
-                else if (List.of("confirm", "select", "input", "editor").contains(text(message.get("method"))))
+                } else if ("select".equals(method) && !cancelled) {
+                    final List<AcpQuestion.Option> options = new ArrayList<>();
+                    for (Object rawOpt : list(message.get("options"))) {
+                        final String label = text(rawOpt);
+                        if (!label.isBlank()) options.add(new AcpQuestion.Option(label, "", ""));
+                    }
+                    final String title = text(message.get("title"));
+                    final String questionText = title.isBlank() ? "Select an option" : title;
+                    final var item = new AcpQuestion.Item(
+                            "pi-select", "", questionText, options, false, options.isEmpty(), false, false, "");
+                    host.question(future, questionText, List.of(item), response -> {
+                        synchronized (this) {
+                            if (response.cancelled() || !ownsPrompt(future) || cancelled) {
+                                uiResponse(message, false);
+                                return;
+                            }
+                            final AcpQuestion.Answer ans = response.answerFor(item, 0);
+                            final String chosen = ans == null ? "" : ans.formattedText();
+                            if (chosen.isEmpty()) uiResponse(message, false);
+                            else uiValueResponse(message, chosen);
+                        }
+                    });
+                } else if (("input".equals(method) || "editor".equals(method)) && !cancelled) {
+                    final String title = text(message.get("title"));
+                    final String placeholder = text(message.get("placeholder"));
+                    final String questionText =
+                            !title.isBlank() ? title : ("editor".equals(method) ? "Edit text" : "Enter a value");
+                    final var item = new AcpQuestion.Item(
+                            "pi-input", "", questionText, List.of(), false, true, false, false, placeholder);
+                    host.question(future, questionText, List.of(item), response -> {
+                        synchronized (this) {
+                            if (response.cancelled() || !ownsPrompt(future) || cancelled) {
+                                uiResponse(message, false);
+                                return;
+                            }
+                            final AcpQuestion.Answer ans = response.answerFor(item, 0);
+                            if (ans == null || !ans.hasContent()) uiResponse(message, false);
+                            else uiValueResponse(message, ans.customText());
+                        }
+                    });
+                } else if (List.of("confirm", "select", "input", "editor").contains(method)) {
                     uiResponse(message, false);
+                }
             }
             default -> {}
         }
@@ -240,6 +334,86 @@ final class NativePiProvider extends NativeAgentProvider {
             }
         }
         return Map.of("message", rawMessage == null ? "" : rawMessage);
+    }
+
+    private void answerAskUserDialog(final ActiveAskUser tracker, final Map<String, Object> dialog) {
+        final AcpQuestion.Response response = tracker.response;
+        if (response == null || response.cancelled() || tracker.index >= tracker.items.size()) {
+            uiResponse(dialog, false);
+            return;
+        }
+        final AcpQuestion.Item item = tracker.items.get(tracker.index);
+        final AcpQuestion.Answer ans = response.answerFor(item, tracker.index);
+        if (ans == null || !ans.hasContent()) {
+            uiResponse(dialog, false);
+            return;
+        }
+        final String method = text(dialog.get("method"));
+        if (tracker.expectingCustomInput && "input".equals(method)) {
+            tracker.expectingCustomInput = false;
+            tracker.index++;
+            uiValueResponse(dialog, ans.customText());
+            return;
+        }
+        if (item.multiSelect()) {
+            final List<String> indices = new ArrayList<>();
+            for (String selected : ans.selectedOptions()) {
+                final int idx = optionIndex(item, selected);
+                if (idx >= 0) indices.add(String.valueOf(idx + 1));
+            }
+            final String value;
+            if (!indices.isEmpty()) {
+                final String joined = String.join(",", indices);
+                value = ans.customText().isEmpty() ? joined : joined + "; " + ans.customText();
+            } else {
+                value = ans.formattedText();
+            }
+            tracker.index++;
+            uiValueResponse(dialog, value);
+            return;
+        }
+        final List<Object> dialogOptions = list(dialog.get("options"));
+        if (!ans.selectedOptions().isEmpty()) {
+            final String selected = ans.selectedOptions().get(0);
+            final int optIdx = optionIndex(item, selected);
+            if (optIdx >= 0) {
+                tracker.index++;
+                final String reply = optIdx < dialogOptions.size() ? text(dialogOptions.get(optIdx)) : selected;
+                uiValueResponse(dialog, reply);
+                return;
+            }
+        }
+        if (!ans.customText().isEmpty()) {
+            tracker.expectingCustomInput = true;
+            final int otherIdx = item.options().size();
+            final String otherReply = otherIdx < dialogOptions.size()
+                    ? text(dialogOptions.get(otherIdx))
+                    : (otherIdx + 1) + ". Type something.";
+            uiValueResponse(dialog, otherReply);
+            return;
+        }
+        uiResponse(dialog, false);
+    }
+
+    private static int optionIndex(final AcpQuestion.Item item, final String label) {
+        for (int i = 0; i < item.options().size(); i++) {
+            if (item.options().get(i).label().equals(label)) return i;
+        }
+        return -1;
+    }
+
+    private void uiValueResponse(final Map<String, Object> request, final String value) {
+        try {
+            connection.send(Map.of(
+                    "type",
+                    "extension_ui_response",
+                    "id",
+                    request.get("id"),
+                    "value",
+                    Objects.requireNonNullElse(value, "")));
+        } catch (IOException failure) {
+            failed(failure);
+        }
     }
 
     private void uiResponse(final Map<String, Object> request, final boolean allow) {

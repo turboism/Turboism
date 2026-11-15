@@ -250,6 +250,15 @@ final class AgentLocator {
             add(directories, home, ".pi", "agent", "bin");
             add(directories, env.get("PI_CODING_AGENT_DIR"), "bin");
             add(directories, env.get("LOCALAPPDATA"), "pi-node", "current");
+            add(
+                    directories,
+                    env.get("LOCALAPPDATA"),
+                    "Programs",
+                    "DeepSeek Harness",
+                    "resources",
+                    "runtime",
+                    "cli",
+                    "bin");
             addWindowsPackages(directories, env.get("LOCALAPPDATA"));
             return;
         }

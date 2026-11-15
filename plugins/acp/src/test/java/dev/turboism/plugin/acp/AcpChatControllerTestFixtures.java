@@ -51,9 +51,12 @@ final class AcpChatControllerTestFixtures {
         final List<String> timeline = new java.util.concurrent.CopyOnWriteArrayList<>();
         final java.util.concurrent.atomic.AtomicInteger permissionRequests =
                 new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger questionRequests =
+                new java.util.concurrent.atomic.AtomicInteger();
         volatile java.util.concurrent.CountDownLatch permissionEntered;
         volatile java.util.concurrent.CountDownLatch releasePermission;
         volatile AcpListener.PermissionDecision permissionDecision = AcpListener.PermissionDecision.CANCELLED;
+        volatile AcpQuestion.Response questionResponse = AcpQuestion.Response.CANCELLED;
         volatile AcpClient.McpAttachment lastMcpAttachment;
         final java.util.concurrent.atomic.AtomicReference<List<AcpSessionSummary>> listedSessions =
                 new java.util.concurrent.atomic.AtomicReference<>(List.of());
@@ -180,6 +183,12 @@ final class AcpChatControllerTestFixtures {
                 }
             }
             return permissionDecision;
+        }
+
+        @Override
+        public AcpQuestion.Response requestQuestion(final AcpQuestion.Request request) {
+            questionRequests.incrementAndGet();
+            return questionResponse;
         }
 
         void awaitFailure(final String expected) throws InterruptedException {
