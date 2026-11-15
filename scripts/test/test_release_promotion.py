@@ -425,6 +425,16 @@ class TransportAndWorkflowTest(unittest.TestCase):
                         with self.assertRaises(p.ReleaseError):
                             p.GitHub().api('git/ref/tags/v1.2.3', optional=True)
 
+    def test_error_detail_includes_github_message(self):
+        from unittest.mock import patch
+        stdout = 'HTTP/2.0 403 Forbidden\r\nContent-Type: application/json\r\n\r\n{"message":"Resource not accessible by integration"}'
+        result = subprocess.CompletedProcess([], 1, stdout, 'gh: Resource not accessible by integration (HTTP 403)')
+        with patch.object(p.subprocess, 'run', return_value=result):
+            with self.assertRaises(p.ReleaseError) as ctx:
+                p.GitHub().api('git/refs', method='POST', data={'ref': 'refs/tags/v1.2.3', 'sha': 'a' * 40})
+        self.assertIn('HTTP 403', str(ctx.exception))
+        self.assertIn('Resource not accessible by integration', str(ctx.exception))
+
     def test_transport_parses_success_and_never_force_uploads(self):
         from unittest.mock import patch
         response = subprocess.CompletedProcess([], 0, 'HTTP/2.0 200 OK\nContent-Type: application/json\n\n{"id":123}', '')

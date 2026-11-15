@@ -368,7 +368,14 @@ class GitHub:
                               file=sys.stderr, flush=True)
                         time.sleep(attempt)
                         continue
-                    require(False, f"GitHub {method} {path} failed (HTTP {code or 'unknown'})")
+                    detail = ""
+                    try:
+                        parsed_error = json.loads(body) if body else None
+                    except ValueError:
+                        parsed_error = None
+                    if isinstance(parsed_error, dict) and isinstance(parsed_error.get("message"), str):
+                        detail = f": {parsed_error['message'][:300]}"
+                    require(False, f"GitHub {method} {path} failed (HTTP {code or 'unknown'}){detail}")
                 try:
                     return json.loads(body)
                 except ValueError as failure:
