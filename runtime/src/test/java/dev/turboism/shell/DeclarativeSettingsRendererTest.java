@@ -906,6 +906,107 @@ class DeclarativeSettingsRendererTest {
         }
     }
 
+    @Test
+    void separateExportDirectoryLivesInRuntimeAndStartupContributionsDoNotHideBuiltinCheckboxes() throws Exception {
+        final RuntimeSettings[] stored = {new RuntimeSettings(false, "INFO", false, false, false)};
+        final RuntimeSettingsService runtimeSettings = new RuntimeSettingsService() {
+            @Override
+            public RuntimeSettings read() {
+                return stored[0];
+            }
+
+            @Override
+            public RuntimeSettings save(final RuntimeSettings value) {
+                return stored[0] = value;
+            }
+
+            @Override
+            public DockCleanupResult cleanEmptyDocks() {
+                return new DockCleanupResult("done");
+            }
+        };
+        final SettingsTab startupTab = new SettingsTab("startup", "settings.tab.startup", OptionalInt.of(300));
+        final SettingsSnapshot.Tab contributedStartup = new SettingsSnapshot.Tab(
+                "startup",
+                "settings.tab.startup",
+                OptionalInt.of(300),
+                List.of(
+                        new SettingsSnapshot.Entry(
+                                "turboism.core",
+                                new SettingsContribution(
+                                        CoreUpdateSettingsContribution.CONTRIBUTION_ID,
+                                        startupTab,
+                                        OptionalInt.of(40),
+                                        new SettingsControl.Toggle(
+                                                CoreUpdateSettingsContribution.CONTRIBUTION_ID,
+                                                "settings.updates.automatic",
+                                                SettingsBinding.of(() -> true, ignored -> {})))),
+                        new SettingsSnapshot.Entry(
+                                "turboism.core",
+                                new SettingsContribution(
+                                        CoreUpdateSettingsContribution.PLUGIN_UPDATES_CONTRIBUTION_ID,
+                                        startupTab,
+                                        OptionalInt.of(45),
+                                        new SettingsControl.Toggle(
+                                                CoreUpdateSettingsContribution.PLUGIN_UPDATES_CONTRIBUTION_ID,
+                                                "settings.plugins.automatic-updates",
+                                                SettingsBinding.of(() -> true, ignored -> {}))))));
+        SwingUtilities.invokeAndWait(() -> {
+            try (CoreWindows windows = new CoreWindows(
+                    localization(),
+                    runtimeSettings,
+                    () -> List.of(contributedStartup),
+                    plugins(),
+                    RuntimeLogReader.unavailable(),
+                    dev.turboism.internal.core.KeybindingService.unavailable())) {
+                final CoreWindows.RenderedSettings rendered = windows.createSettingsContent(null);
+                final JTabbedPane tabs = rendered.tabs();
+                tabs.setSize(780, 560);
+                layoutTree(tabs);
+
+                final int runtimeIndex = tabs.indexOfTab("settings.tab.runtime");
+                final int startupIndex = tabs.indexOfTab("settings.tab.startup");
+                assertTrue(runtimeIndex >= 0);
+                assertTrue(startupIndex >= 0);
+
+                final JPanel runtimeForm = formInTab(tabs, runtimeIndex);
+                final JPanel startupForm = formInTab(tabs, startupIndex);
+
+                final JCheckBox separateExportBox =
+                        findCheckBox(runtimeForm, "settings.separate-export-save-directory");
+                assertTrue(separateExportBox != null, "separate export directory belongs in Runtime");
+                assertTrue(separateExportBox.getWidth() > 0 && separateExportBox.getHeight() > 0);
+                assertNull(findCheckBox(startupForm, "settings.separate-export-save-directory"));
+
+                final List<String> expectedStartupLabels = List.of(
+                        "settings.skip-update",
+                        "settings.skip-splash",
+                        "settings.skip-information",
+                        "settings.updates.automatic",
+                        "settings.plugins.automatic-updates");
+                int previousBottom = -1;
+                for (final String label : expectedStartupLabels) {
+                    final JCheckBox box = findCheckBox(startupForm, label);
+                    assertTrue(box != null, "missing startup checkbox: " + label);
+                    assertTrue(
+                            box.getWidth() > 0 && box.getHeight() > 0,
+                            "startup checkbox collapsed: " + label + " bounds=" + box.getBounds());
+                    assertTrue(
+                            box.getY() >= previousBottom,
+                            "startup checkbox overlapped: " + label + " y=" + box.getY() + " prevBottom="
+                                    + previousBottom);
+                    previousBottom = box.getY() + box.getHeight();
+                }
+
+                separateExportBox.doClick();
+                findCheckBox(startupForm, "settings.skip-update").doClick();
+                assertTrue(rendered.save().getAsBoolean());
+                assertTrue(stored[0].separateExportSaveDirectory());
+                assertTrue(stored[0].skipStartupUpdateCheck());
+            }
+        });
+    }
+
     private static JPanel formInTab(JTabbedPane tabs, int index) {
         JScrollPane scroll = assertInstanceOf(JScrollPane.class, tabs.getComponentAt(index));
         Container view = (Container) scroll.getViewport().getView();
