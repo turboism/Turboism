@@ -1,7 +1,18 @@
 # Turboism settings layout: <tab> <index> <kind> <id>
 # Sorted by tab, then render index. Update this file deliberately when a row is
 # added, removed, reordered or retyped - it is the single place layout is pinned.
-performance 60 note performance-recommendation
+performance 48 choice performance-preset
+performance 49 note performance-recommendation
+performance 50 note performance.section.hotpath
+performance 51 toggle extended-interpolation-sibling-elision
+performance 52 toggle warp-grid-interpolation
+performance 53 toggle warp-normal-point-elision
+performance 54 toggle camera-matrix-cache
+performance 55 toggle render-pass-traversal
+performance 56 toggle mesh-hit-test
+performance 57 toggle scene-handler-cache
+performance 58 toggle cursor-validation-elision
+performance 59 toggle parameter-row-repaint
 performance 60 note performance.section.heavy-model
 performance 61 toggle mesa-gl-thread
 performance 62 toggle model-update-skip

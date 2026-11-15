@@ -1,5 +1,6 @@
 package dev.turboism.config.optimization;
 
+import java.net.URI;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -35,8 +36,13 @@ public final class OptimizationCatalog {
     /** Protocol the incremental-update bridge reports its glue-affecter sub-mode under. */
     public static final String PROTOCOL_INCREMENTAL_UPDATE_AFFECTERS = "TURBOISM_INCREMENTAL_UPDATE_AFFECTERS";
 
+    /** Canonical Live2D Community discussion reference for shared-Part sibling rebuild stalls. */
+    public static final URI EXTENDED_INTERPOLATION_SIBLING_REFERENCE_URI =
+            URI.create("https://community.live2d.com/discussion/comment/4556#Comment_4556");
+
     /** Performance-page sections in render order; a {@link Optimization.Placement} names one. */
-    public static final List<String> SECTIONS = List.of("heavy-model", "model", "rendering", "upload", "mesh", "jvm");
+    public static final List<String> SECTIONS =
+            List.of("hotpath", "heavy-model", "model", "rendering", "upload", "mesh", "jvm");
 
     // ---------------------------------------------------------------- launcher-hosted preferences
 
@@ -338,6 +344,149 @@ public final class OptimizationCatalog {
             "settings.optimization.inspector-property-bypass.tooltip",
             List.of());
 
+    /**
+     * Replaces quadratic sibling scanning and forced extended-interpolation rebuilds with
+     * constant-time lookups and dirty-checked sibling updates (Live2D Community #4556).
+     */
+    public static final Optimization EXTENDED_INTERPOLATION_SIBLING_ELISION = new Optimization(
+            "extendedInterpolationSiblingElision",
+            "extended-interpolation-sibling-elision",
+            Optimization.Access.PERSISTED_LAUNCHER,
+            List.of("turboism.optimization.extendedInterpolationSiblingElision"),
+            List.of("TURBOISM_EXTENDED_INTERPOLATION_SIBLING_ELISION"),
+            Set.of("cubism.editor-model.extended-interpolation-sibling-elision"),
+            Optional.of(new Optimization.Placement("hotpath", 51)),
+            "settings.optimization.extended-interpolation-sibling-elision",
+            "settings.optimization.extended-interpolation-sibling-elision.tooltip",
+            List.of(),
+            Optional.of(new Optimization.ReferenceLink(
+                    "settings.optimization.sibling-elision.reference", EXTENDED_INTERPOLATION_SIBLING_REFERENCE_URI)));
+
+    /**
+     * Accelerates in-bounds warp grid bilinear and triangle interpolation while delegating
+     * out-of-bounds extrapolation.
+     */
+    public static final Optimization WARP_GRID_INTERPOLATION = new Optimization(
+            "warpGridInterpolation",
+            "warp-grid-interpolation",
+            Optimization.Access.PERSISTED_LAUNCHER,
+            List.of("turboism.optimization.warpGridInterpolation"),
+            List.of("TURBOISM_WARP_GRID_INTERPOLATION"),
+            Set.of("cubism.deformer.warp-grid-interpolation"),
+            Optional.of(new Optimization.Placement("hotpath", 52)),
+            "settings.optimization.warp-grid-interpolation",
+            "settings.optimization.warp-grid-interpolation.tooltip",
+            List.of());
+
+    /**
+     * Elides disabled outside-of-parent warp control-point boxing and buffer uploads.
+     */
+    public static final Optimization WARP_NORMAL_POINT_ELISION = new Optimization(
+            "warpNormalPointElision",
+            "warp-normal-point-elision",
+            Optimization.Access.PERSISTED_LAUNCHER,
+            List.of("turboism.optimization.warpNormalPointElision"),
+            List.of("TURBOISM_WARP_NORMAL_POINT_ELISION"),
+            Set.of("cubism.deformer.warp-normal-point-elision"),
+            Optional.of(new Optimization.Placement("hotpath", 53)),
+            "settings.optimization.warp-normal-point-elision",
+            "settings.optimization.warp-normal-point-elision.tooltip",
+            List.of());
+
+    /**
+     * Caches {@code GCamera.getWorldToCameraMatrix()} across unchanged root camera transforms.
+     */
+    public static final Optimization CAMERA_MATRIX_CACHE = new Optimization(
+            "cameraMatrixCache",
+            "camera-matrix-cache",
+            Optimization.Access.PERSISTED_LAUNCHER,
+            List.of("turboism.optimization.cameraMatrixCache"),
+            List.of("TURBOISM_CAMERA_MATRIX_CACHE"),
+            Set.of("cubism.render.camera-matrix-cache"),
+            Optional.of(new Optimization.Placement("hotpath", 54)),
+            "settings.optimization.camera-matrix-cache",
+            "settings.optimization.camera-matrix-cache.tooltip",
+            List.of());
+
+    /**
+     * Replaces render-pass iterator traversal with indexed list loops, caches
+     * {@code GEntity.getRenderer()} per entity, and eliminates per-draw debug label concatenations.
+     */
+    public static final Optimization RENDER_PASS_TRAVERSAL = new Optimization(
+            "renderPassTraversal",
+            "render-pass-traversal",
+            Optimization.Access.PERSISTED_LAUNCHER,
+            List.of("turboism.optimization.renderPassTraversal"),
+            List.of("TURBOISM_RENDER_PASS_TRAVERSAL"),
+            Set.of("cubism.render.render-pass-traversal"),
+            Optional.of(new Optimization.Placement("hotpath", 55)),
+            "settings.optimization.render-pass-traversal",
+            "settings.optimization.render-pass-traversal.tooltip",
+            List.of());
+
+    /**
+     * Evaluates mesh hit-test bounding boxes directly on vertex arrays without allocating
+     * {@code GBounds}.
+     */
+    public static final Optimization MESH_HIT_TEST = new Optimization(
+            "meshHitTest",
+            "mesh-hit-test",
+            Optimization.Access.PERSISTED_LAUNCHER,
+            List.of("turboism.optimization.meshHitTest"),
+            List.of("TURBOISM_MESH_HIT_TEST"),
+            Set.of("cubism.mesh.hit-test"),
+            Optional.of(new Optimization.Placement("hotpath", 56)),
+            "settings.optimization.mesh-hit-test",
+            "settings.optimization.mesh-hit-test.tooltip",
+            List.of());
+
+    /**
+     * Caches depth-first scene mouse-handler lists and selectively invalidates on mouse-handler
+     * topology mutations.
+     */
+    public static final Optimization SCENE_HANDLER_CACHE = new Optimization(
+            "sceneHandlerCache",
+            "scene-handler-cache",
+            Optimization.Access.PERSISTED_LAUNCHER,
+            List.of("turboism.optimization.sceneHandlerCache"),
+            List.of("TURBOISM_SCENE_HANDLER_CACHE"),
+            Set.of("cubism.input.scene-handler-cache"),
+            Optional.of(new Optimization.Placement("hotpath", 57)),
+            "settings.optimization.scene-handler-cache",
+            "settings.optimization.scene-handler-cache.tooltip",
+            List.of());
+
+    /**
+     * Elides redundant AWT cursor refreshes during layout validation and out-of-bounds container
+     * pointer queries.
+     */
+    public static final Optimization CURSOR_VALIDATION_ELISION = new Optimization(
+            "cursorValidationElision",
+            "cursor-validation-elision",
+            Optimization.Access.PERSISTED_LAUNCHER,
+            List.of("turboism.optimization.cursorValidationElision"),
+            List.of("TURBOISM_CURSOR_VALIDATION_ELISION"),
+            Set.of("cubism.input.cursor-validation-elision"),
+            Optional.of(new Optimization.Placement("hotpath", 58)),
+            "settings.optimization.cursor-validation-elision",
+            "settings.optimization.cursor-validation-elision.tooltip",
+            List.of());
+
+    /**
+     * Synchronizes Parameter Palette rows incrementally across unchanged parameters.
+     */
+    public static final Optimization PARAMETER_ROW_REPAINT = new Optimization(
+            "parameterRowRepaint",
+            "parameter-row-repaint",
+            Optimization.Access.PERSISTED_LAUNCHER,
+            List.of("turboism.optimization.parameterRowRepaint"),
+            List.of("TURBOISM_PARAMETER_ROW_REPAINT"),
+            Set.of("cubism.ui.parameter-row-repaint"),
+            Optional.of(new Optimization.Placement("hotpath", 59)),
+            "settings.optimization.parameter-row-repaint",
+            "settings.optimization.parameter-row-repaint.tooltip",
+            List.of());
+
     // ------------------------------------------------------------ root-level asset-load preferences
 
     public static final Optimization MESH_TRIANGULATION_HASH = new Optimization(
@@ -496,6 +645,15 @@ public final class OptimizationCatalog {
             EXTENDED_INTERPOLATION_INCREMENTAL_SETUP,
             MODEL_INSTANCE_COALESCE,
             INSPECTOR_PROPERTY_BYPASS,
+            EXTENDED_INTERPOLATION_SIBLING_ELISION,
+            WARP_GRID_INTERPOLATION,
+            WARP_NORMAL_POINT_ELISION,
+            CAMERA_MATRIX_CACHE,
+            RENDER_PASS_TRAVERSAL,
+            MESH_HIT_TEST,
+            SCENE_HANDLER_CACHE,
+            CURSOR_VALIDATION_ELISION,
+            PARAMETER_ROW_REPAINT,
             MESH_TRIANGULATION_HASH,
             TRIANGULATION_EDGE_INDEX,
             ATLAS_TILE_BBOX,
@@ -702,7 +860,8 @@ public final class OptimizationCatalog {
                     || !entry.contributionId().isEmpty()
                     || entry.placement().isPresent()
                     || !entry.labelKey().isEmpty()
-                    || !entry.tooltipKey().isEmpty()) {
+                    || !entry.tooltipKey().isEmpty()
+                    || entry.referenceLink().isPresent()) {
                 throw new IllegalArgumentException(name + " is diagnostic-only but declares a persisted identity");
             }
             return;

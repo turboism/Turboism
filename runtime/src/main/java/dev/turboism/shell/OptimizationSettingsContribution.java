@@ -2,15 +2,19 @@ package dev.turboism.shell;
 
 import dev.turboism.config.optimization.Optimization;
 import dev.turboism.config.optimization.OptimizationCatalog;
+import dev.turboism.config.optimization.OptimizationPreset;
 import dev.turboism.internal.core.OptimizationSettingsService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsBinding;
 import dev.turboism.sdk.ui.settings.SettingsContribution;
 import dev.turboism.sdk.ui.settings.SettingsControl;
+import dev.turboism.sdk.ui.settings.SettingsLink;
 import dev.turboism.sdk.ui.settings.SettingsTab;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 /**
@@ -25,8 +29,18 @@ import java.util.OptionalInt;
  */
 final class OptimizationSettingsContribution {
 
+    static final String PRESET_CONTRIBUTION_ID = "performance-preset";
+    static final String PRESET_TOOLTIP_KEY = "settings.performance.preset.tooltip";
+    private static final String PRESET_LABEL_KEY = "settings.performance.preset";
+    private static final int PRESET_INDEX = 48;
+    private static final String PERFORMANCE_TAB_ID = "performance";
+    private static final String PERFORMANCE_TAB_LABEL_KEY = "settings.tab.performance";
+    private static final int PERFORMANCE_TAB_INDEX = 200;
+    private static final String REFERENCE_OPEN_FAILED_KEY = "settings.optimization.reference-open-failed";
+
     /** Section header rows in render order, each pinned to the index its note renders at. */
     private static final List<Section> SECTIONS = List.of(
+            new Section("hotpath", 50),
             new Section("heavy-model", 60),
             new Section("model", 71),
             new Section("rendering", 80),
@@ -37,7 +51,33 @@ final class OptimizationSettingsContribution {
     private OptimizationSettingsContribution() {}
 
     /**
-     * Every Performance-tab row that renders a native optimization: the six section notes and the
+     * Creates the preset selector at the top of the Performance tab from the 35 persisted flags.
+     *
+     * @param i18n the shell localization the preset label and option texts resolve through
+     * @param settings the service that reads the persisted flags to derive the initial preset
+     * @return the preset choice contribution
+     */
+    static SettingsContribution createPreset(
+            final PluginLocalization i18n, final OptimizationSettingsService settings) {
+        Objects.requireNonNull(i18n, "i18n");
+        Objects.requireNonNull(settings, "settings");
+        final List<SettingsControl.Option> options = Arrays.stream(OptimizationPreset.values())
+                .map(preset -> new SettingsControl.Option(preset.configValue(), i18n.text(preset.labelKey())))
+                .toList();
+        return new SettingsContribution(
+                PRESET_CONTRIBUTION_ID,
+                settingsTab(i18n),
+                OptionalInt.of(PRESET_INDEX),
+                new SettingsControl.Choice(
+                        PRESET_CONTRIBUTION_ID,
+                        i18n.text(PRESET_LABEL_KEY),
+                        options,
+                        SettingsBinding.of(
+                                () -> OptimizationPreset.detect(settings).configValue(), ignored -> {})));
+    }
+
+    /**
+     * Every Performance-tab row that renders a native optimization: the seven section notes and the
      * toggles of {@link OptimizationCatalog#placed()}.
      *
      * @param i18n the shell localization the labels and tooltips resolve through
@@ -91,6 +131,22 @@ final class OptimizationSettingsContribution {
     }
 
     /**
+     * Resolves the optional external HTTPS reference link declared for {@code contributionId}.
+     *
+     * @param i18n the shell localization the link label and failure message resolve through
+     * @param contributionId the settings contribution id of the toggle row
+     * @return localized {@link SettingsLink} when the optimization declares a reference link
+     */
+    static Optional<SettingsLink> referenceLink(final PluginLocalization i18n, final String contributionId) {
+        Objects.requireNonNull(i18n, "i18n");
+        Objects.requireNonNull(contributionId, "contributionId");
+        return OptimizationCatalog.byContributionId(contributionId)
+                .flatMap(Optimization::referenceLink)
+                .map(ref -> new SettingsLink(
+                        i18n.text(ref.labelKey()), ref.uri(), i18n.format(REFERENCE_OPEN_FAILED_KEY, ref.uri())));
+    }
+
+    /**
      * Section header transported as a note; the settings renderer turns it into a collapsible box.
      *
      * @param i18n the shell localization the section title resolves through
@@ -107,7 +163,8 @@ final class OptimizationSettingsContribution {
     }
 
     private static SettingsTab settingsTab(final PluginLocalization i18n) {
-        return new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200));
+        return new SettingsTab(
+                PERFORMANCE_TAB_ID, i18n.text(PERFORMANCE_TAB_LABEL_KEY), OptionalInt.of(PERFORMANCE_TAB_INDEX));
     }
 
     /** One section header: the catalogue section it opens and the index its note renders at. */

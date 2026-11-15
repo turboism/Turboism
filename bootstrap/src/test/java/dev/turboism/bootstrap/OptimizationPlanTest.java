@@ -269,6 +269,40 @@ class OptimizationPlanTest {
                 "every declared entry has exactly one decision");
     }
 
+    @Test
+    void promotedHotpathOptimizationsPersistThroughConfigAndAdmitOnRestart() throws Exception {
+        final List<Optimization> hotpath = List.of(
+                OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_ELISION,
+                OptimizationCatalog.WARP_GRID_INTERPOLATION,
+                OptimizationCatalog.WARP_NORMAL_POINT_ELISION,
+                OptimizationCatalog.CAMERA_MATRIX_CACHE,
+                OptimizationCatalog.RENDER_PASS_TRAVERSAL,
+                OptimizationCatalog.MESH_HIT_TEST,
+                OptimizationCatalog.SCENE_HANDLER_CACHE,
+                OptimizationCatalog.CURSOR_VALIDATION_ELISION,
+                OptimizationCatalog.PARAMETER_ROW_REPAINT);
+
+        writeConfig(Map.of(), Map.of());
+        final OptimizationPlan disabledPlan = plan();
+        for (final Optimization optimization : hotpath) {
+            assertFalse(disabledPlan.admitted(optimization), optimization.key() + " stays off by default");
+            assertEquals(
+                    OptimizationPlan.Decision.PREFERENCE_DISABLED,
+                    refusal(disabledPlan, optimization).reasonCode());
+        }
+
+        final Map<String, Boolean> enabledLauncher = new LinkedHashMap<>();
+        for (final Optimization optimization : hotpath) {
+            enabledLauncher.put(optimization.key(), true);
+        }
+        writeConfig(enabledLauncher, Map.of());
+        final OptimizationPlan enabledPlan = plan();
+        for (final Optimization optimization : hotpath) {
+            assertTrue(enabledPlan.admitted(optimization), optimization.key() + " admits from config.json on restart");
+            assertEquals("global-config", enabledPlan.choice(optimization).source());
+        }
+    }
+
     /** The catalogue's relation list is what the plan reads; a hand-built row is not in it. */
     private static Optimization undeclaredEntry() {
         return new Optimization(

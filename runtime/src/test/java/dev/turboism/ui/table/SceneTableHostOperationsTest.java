@@ -87,6 +87,31 @@ final class SceneTableHostOperationsTest {
         assertEquals(1, retries.size(), "stale retry must not schedule another poll");
     }
 
+    @Test
+    void stopsPollingAfterStartupAttempts() throws Exception {
+        final List<Runnable> retries = new ArrayList<>();
+        final SceneTableHostProfile profile = new SceneTableHostProfile(
+                "test",
+                new HostArtifactDigest(0L, "0".repeat(64)),
+                List.of(StaticSelector.classSelector(
+                        "fixture", getClass().getName().replace('.', '/'))));
+        final SceneTableHostOperations connecting = new SceneTableHostOperations(
+                (artifact, loader) -> Optional.of(profile.bind(loader)),
+                ignored -> null,
+                (delay, operation) -> retries.add(operation));
+        assertEquals(
+                SceneTableHostOperations.State.CONNECTING,
+                connecting.connect(
+                        temporaryDirectory.resolve("host.jar"), getClass().getClassLoader()));
+        flushEdt();
+        for (int i = 0; i < retries.size(); i++) {
+            retries.get(i).run();
+            flushEdt();
+        }
+        assertEquals(7, retries.size(), "polling must stop after the bounded startup window");
+        connecting.disconnect();
+    }
+
     private static void flushEdt() throws Exception {
         SwingUtilities.invokeAndWait(() -> {});
     }

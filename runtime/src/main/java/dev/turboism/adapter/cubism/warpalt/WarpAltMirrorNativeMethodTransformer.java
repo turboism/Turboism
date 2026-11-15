@@ -413,6 +413,26 @@ public final class WarpAltMirrorNativeMethodTransformer implements ClassFileTran
     }
 
     /**
+     * Computes the {@code onInputEvent_exe} method shape produced when this transformer rewrites
+     * {@code CEViewContext} prior to downstream host-resolved hooks.
+     */
+    public static java.util.List<String> composedInputIngressShape(
+            final WarpAltMirrorHostProfile profile, final byte[] reference, final ClassLoader loader) {
+        Objects.requireNonNull(profile, "profile");
+        Objects.requireNonNull(reference, "reference");
+        final byte[] transformed = new WarpAltMirrorNativeMethodTransformer(profile, loader)
+                .transform(null, loader, profile.inputIngressOwner(), null, null, reference);
+        if (transformed == null) {
+            return null;
+        }
+        return dev.turboism.adapter.cubism.optimization.ReviewedMethodShape.read(
+                transformed,
+                profile.inputIngressOwner(),
+                profile.inputIngressMethod(),
+                profile.inputIngressDescriptor());
+    }
+
+    /**
      * Each expectation is enforced on its own: gating one behind another would let a target
      * pass a check its owner declared, which this fail-closed boundary must never allow.
      */

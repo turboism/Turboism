@@ -111,20 +111,34 @@ class CoreShellTest {
                 context.mainToolbar().buttonContributions());
         // Exact placement of every settings row lives in one reviewable snapshot; see
         // settingsLayoutMatchesTheReviewedSnapshot. This test only keeps the structural invariants.
+        int minToggleIndex = context.uiHost().settingsContributions().stream()
+                .filter(c -> c.control() instanceof dev.turboism.sdk.ui.settings.SettingsControl.Toggle)
+                .mapToInt(c -> c.index().orElseThrow())
+                .min()
+                .orElseThrow();
         int maxToggleIndex = context.uiHost().settingsContributions().stream()
                 .filter(c -> c.control() instanceof dev.turboism.sdk.ui.settings.SettingsControl.Toggle)
                 .mapToInt(c -> c.index().orElseThrow())
                 .max()
                 .orElseThrow();
-        int minInputOrChoiceIndex = context.uiHost().settingsContributions().stream()
+        int presetIndex = context.uiHost().settingsContributions().stream()
+                .filter(c -> OptimizationSettingsContribution.PRESET_CONTRIBUTION_ID.equals(c.id()))
+                .mapToInt(c -> c.index().orElseThrow())
+                .findFirst()
+                .orElseThrow();
+        int minJvmInputOrChoiceIndex = context.uiHost().settingsContributions().stream()
+                .filter(c -> !OptimizationSettingsContribution.PRESET_CONTRIBUTION_ID.equals(c.id()))
                 .filter(c -> c.control() instanceof dev.turboism.sdk.ui.settings.SettingsControl.Text
                         || c.control() instanceof dev.turboism.sdk.ui.settings.SettingsControl.Choice)
                 .mapToInt(c -> c.index().orElseThrow())
                 .min()
                 .orElseThrow();
         assertTrue(
-                maxToggleIndex < minInputOrChoiceIndex,
-                "All checkboxes must appear above input fields and dropdowns on the Performance tab");
+                presetIndex < minToggleIndex,
+                "The optimization preset selector must appear above all checkboxes on the Performance tab");
+        assertTrue(
+                maxToggleIndex < minJvmInputOrChoiceIndex,
+                "All checkboxes must appear above JVM input fields and dropdowns on the Performance tab");
         assertTrue(context.uiHost().settingsContributions().stream()
                 .allMatch(contribution -> contribution.tab().id().equals("performance")));
         assertEquals(1, context.uiHost().panelContributions().size());

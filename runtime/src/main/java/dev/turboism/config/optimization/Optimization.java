@@ -1,6 +1,8 @@
 package dev.turboism.config.optimization;
 
+import java.net.URI;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -42,7 +44,35 @@ public record Optimization(
         /** Tooltip key; empty when the row has none. */
         String tooltipKey,
         /** Cross-entry dependencies, evaluated in declaration order. */
-        List<Relation> relations) {
+        List<Relation> relations,
+        /** Optional external HTTPS reference shown beside the settings row. */
+        Optional<ReferenceLink> referenceLink) {
+
+    /** Constructs an optimization declaration without an external reference link. */
+    public Optimization(
+            final String key,
+            final String contributionId,
+            final Access access,
+            final List<String> overrideProperties,
+            final List<String> protocols,
+            final Set<String> hookIds,
+            final Optional<Placement> placement,
+            final String labelKey,
+            final String tooltipKey,
+            final List<Relation> relations) {
+        this(
+                key,
+                contributionId,
+                access,
+                overrideProperties,
+                protocols,
+                hookIds,
+                placement,
+                labelKey,
+                tooltipKey,
+                relations,
+                Optional.empty());
+    }
 
     public Optimization {
         Objects.requireNonNull(key, "key");
@@ -55,6 +85,7 @@ public record Optimization(
         Objects.requireNonNull(labelKey, "labelKey");
         Objects.requireNonNull(tooltipKey, "tooltipKey");
         relations = List.copyOf(Objects.requireNonNull(relations, "relations"));
+        referenceLink = Objects.requireNonNull(referenceLink, "referenceLink");
         for (final Relation relation : relations) {
             if (!key.isEmpty() && relation.target().key().equals(key)) {
                 throw new IllegalArgumentException("Native optimization " + key + " relates to itself");
@@ -133,6 +164,25 @@ public record Optimization(
     public record Placement(String section, int index) {
         public Placement {
             Objects.requireNonNull(section, "section");
+        }
+    }
+
+    /** Represents an external HTTPS reference link displayed beside a settings row. */
+    public record ReferenceLink(String labelKey, URI uri) {
+        private static final String HTTPS_SCHEME = "https";
+
+        public ReferenceLink {
+            Objects.requireNonNull(labelKey, "labelKey");
+            if (labelKey.isBlank()) {
+                throw new IllegalArgumentException("referenceLink labelKey must not be blank");
+            }
+            Objects.requireNonNull(uri, "uri");
+            final String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+            if (!HTTPS_SCHEME.equals(scheme)
+                    || uri.getHost() == null
+                    || uri.getHost().isBlank()) {
+                throw new IllegalArgumentException("referenceLink uri must use an absolute HTTPS URI");
+            }
         }
     }
 

@@ -136,6 +136,11 @@ public final class CoreShell implements ShellHandle {
                 "Ctrl+Alt+G",
                 ignored -> windows.showGuide(this::markGuideSeen));
         registerSettingsActions();
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
+                        .contributeSettings(OptimizationSettingsContribution.createPreset(
+                                localization(context), services.optimizationSettings())));
         for (final SettingsContribution contribution :
                 OptimizationSettingsContribution.create(localization(context), services.optimizationSettings())) {
             context.disposableScope()

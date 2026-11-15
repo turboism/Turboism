@@ -17,6 +17,9 @@ import javax.swing.text.View;
 /** Width-aware settings rows; narrow pages place inputs below their captions. */
 final class SettingsFormLayout extends GridBagLayout {
     private static final int GAP = 12;
+    private static final int SIDE_BY_SIDE_MIN_WIDTH = 480;
+    private static final int CAPTION_WIDTH_NUMERATOR = 2;
+    private static final int CAPTION_WIDTH_DENOMINATOR = 5;
 
     /** Row width assumed before the page viewport has been laid out once. */
     private static final int FALLBACK_WIDTH = 600;
@@ -97,10 +100,21 @@ final class SettingsFormLayout extends GridBagLayout {
             final boolean hasInput = input != null
                     && !(input instanceof JLabel label
                             && (label.getText() == null || label.getText().isEmpty()));
-            final boolean sideBySide = hasInput && available >= 480;
-            final int captionWidth = sideBySide ? available * 2 / 5 : available;
+            final boolean sideBySide = hasInput && available >= SIDE_BY_SIDE_MIN_WIDTH;
+            final int captionWidth;
+            final int inputWidth;
+            if (!sideBySide) {
+                captionWidth = available;
+                inputWidth = available;
+            } else if (caption instanceof JCheckBox) {
+                final int maxAccessoryWidth = available * CAPTION_WIDTH_NUMERATOR / CAPTION_WIDTH_DENOMINATOR;
+                inputWidth = Math.min(Math.max(1, input.getPreferredSize().width), maxAccessoryWidth);
+                captionWidth = Math.max(1, available - inputWidth - GAP);
+            } else {
+                captionWidth = available * CAPTION_WIDTH_NUMERATOR / CAPTION_WIDTH_DENOMINATOR;
+                inputWidth = available - captionWidth - GAP;
+            }
             final int captionHeight = heightAtWidth(caption, captionWidth);
-            final int inputWidth = sideBySide ? available - captionWidth - GAP : available;
             final int inputHeight = hasInput ? heightAtWidth(input, inputWidth) : 0;
             final int rowHeight = sideBySide
                     ? Math.max(captionHeight, inputHeight)

@@ -1,5 +1,8 @@
 package dev.turboism.shell;
 
+import dev.turboism.config.optimization.Optimization;
+import dev.turboism.config.optimization.OptimizationCatalog;
+import dev.turboism.config.optimization.OptimizationPreset;
 import dev.turboism.core.net.HttpLinks;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.internal.core.CoreUpdateService;
@@ -77,11 +80,19 @@ final class CoreWindows implements AutoCloseable {
     static final String PLUGIN_MARKET_PAGE = "https://turboism.dev/plugins";
 
     private static volatile Consumer<String> testUpdateUrlObserver;
+    private static volatile Consumer<URI> testSettingsLinkObserver;
     static final String ABOUT_HOMEPAGE = "https://www.turboism.dev";
     static final String ABOUT_THANKS = "https://thanks.turboism.dev";
     static final String ABOUT_LICENSE = "https://github.com/turboism/Turboism/blob/main/LICENSE";
     static final String ABOUT_EULA = "https://github.com/turboism/Turboism/blob/main/EULA.md";
     private static final int ABOUT_BODY_WIDTH = 360;
+    private static final String LINK_COLOR_KEY = "Component.linkColor";
+    private static final Color FALLBACK_LINK_COLOR = new Color(0x155dfc);
+    private static final String REFERENCE_LINK_SUFFIX = ".reference";
+    private static final int REFERENCE_LINK_VERTICAL_PADDING = 2;
+    private static final int REFERENCE_LINK_HORIZONTAL_PADDING = 4;
+    private static final String HTML_UNDERLINE_PREFIX = "<html><u>";
+    private static final String HTML_UNDERLINE_SUFFIX = "</u></html>";
     private PluginTableModel pluginTableModel;
     private JTable pluginTable;
     private TableRowSorter<PluginTableModel> pluginSorter;
@@ -410,6 +421,7 @@ final class CoreWindows implements AutoCloseable {
                         renderedTabs.add(created);
                         return created;
                     });
+            final OptimizationPresetCoordinator presetSync = new OptimizationPresetCoordinator();
             final JPanel outer = rendered.panel();
             JPanel content = outer;
             int row = nextRow(outer);
@@ -423,7 +435,7 @@ final class CoreWindows implements AutoCloseable {
                     content = sectionContent;
                     row = 0;
                 } else {
-                    saves.add(renderControl(owner, content, row++, control));
+                    saves.add(renderControl(owner, content, row++, control, presetSync));
                 }
             }
         }
@@ -476,6 +488,15 @@ final class CoreWindows implements AutoCloseable {
 
     java.util.function.BooleanSupplier renderControl(
             final JDialog owner, final JPanel panel, final int row, final SettingsControl control) {
+        return renderControl(owner, panel, row, control, null);
+    }
+
+    private java.util.function.BooleanSupplier renderControl(
+            final JDialog owner,
+            final JPanel panel,
+            final int row,
+            final SettingsControl control,
+            final OptimizationPresetCoordinator presetSync) {
         if (control instanceof SettingsControl.Choice choice) {
             final JComboBox<SettingsControl.Option> combo =
                     new JComboBox<>(choice.options().toArray(SettingsControl.Option[]::new));
@@ -483,6 +504,11 @@ final class CoreWindows implements AutoCloseable {
             select(combo, initial);
             final String[] accepted = {initial};
             final boolean[] changing = {false};
+            final boolean isPresetChoice =
+                    presetSync != null && OptimizationSettingsContribution.PRESET_CONTRIBUTION_ID.equals(choice.id());
+            if (isPresetChoice) {
+                presetSync.registerPreset(combo, accepted, changing);
+            }
             combo.addActionListener(ignored -> {
                 if (changing[0]) return;
                 final SettingsControl.Option selected = (SettingsControl.Option) combo.getSelectedItem();
@@ -494,6 +520,9 @@ final class CoreWindows implements AutoCloseable {
                 final SettingsChangeDecision decision = choice.validator().validate(accepted[0], selected.value());
                 if (decision.accepted()) {
                     accepted[0] = selected.value();
+                    if (isPresetChoice) {
+                        presetSync.onPresetSelected(selected.value());
+                    }
                     return;
                 }
                 changing[0] = true;
@@ -526,12 +555,20 @@ final class CoreWindows implements AutoCloseable {
             applyControlTooltip(toggle.id(), checkbox);
             final boolean[] accepted = {initial};
             final boolean[] changing = {false};
+            final Optional<Optimization> optimization =
+                    presetSync != null ? OptimizationCatalog.byContributionId(toggle.id()) : Optional.empty();
+            if (optimization.isPresent()) {
+                presetSync.registerToggle(optimization.get().key(), checkbox, accepted, changing);
+            }
             checkbox.addActionListener(ignored -> {
                 if (changing[0]) return;
                 final boolean proposed = checkbox.isSelected();
                 final SettingsChangeDecision decision = toggle.validator().validate(accepted[0], proposed);
                 if (decision.accepted()) {
                     accepted[0] = proposed;
+                    if (optimization.isPresent()) {
+                        presetSync.onToggleChanged();
+                    }
                     return;
                 }
                 changing[0] = true;
@@ -542,7 +579,10 @@ final class CoreWindows implements AutoCloseable {
                 }
                 showRejectedChange(owner, decision);
             });
-            add(panel, row, checkbox, new JLabel());
+            final java.awt.Component right = OptimizationSettingsContribution.referenceLink(i18n, toggle.id())
+                    .<java.awt.Component>map(link -> createReferenceLinkButton(toggle.id(), link))
+                    .orElseGet(JLabel::new);
+            add(panel, row, checkbox, right);
             return () -> {
                 toggle.binding().write(accepted[0]);
                 return true;
@@ -773,7 +813,50 @@ final class CoreWindows implements AutoCloseable {
         }
     }
 
+    private JButton createReferenceLinkButton(
+            final String toggleId, final dev.turboism.sdk.ui.settings.SettingsLink link) {
+        final String escapedLabel = ShellHtml.escape(link.label());
+        final JButton button = new JButton(HTML_UNDERLINE_PREFIX + escapedLabel + HTML_UNDERLINE_SUFFIX);
+        button.setName(toggleId + REFERENCE_LINK_SUFFIX);
+        button.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        button.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        button.setContentAreaFilled(false);
+        button.setBorderPainted(false);
+        button.setFocusPainted(true);
+        button.setOpaque(false);
+        button.setBorder(BorderFactory.createEmptyBorder(
+                REFERENCE_LINK_VERTICAL_PADDING,
+                REFERENCE_LINK_HORIZONTAL_PADDING,
+                REFERENCE_LINK_VERTICAL_PADDING,
+                REFERENCE_LINK_HORIZONTAL_PADDING));
+        final Color linkColor = javax.swing.UIManager.getColor(LINK_COLOR_KEY);
+        button.setForeground(linkColor != null ? linkColor : FALLBACK_LINK_COLOR);
+        button.setToolTipText(link.uri().toString());
+        button.getAccessibleContext().setAccessibleName(link.label());
+        button.addActionListener(ignored -> openSettingsLink(link));
+        return button;
+    }
+
+    /** Registers a package-private observer to intercept settings link activations during tests. */
+    static void setTestSettingsLinkObserver(final Consumer<URI> observer) {
+        testSettingsLinkObserver = Objects.requireNonNull(observer, "observer");
+    }
+
+    /** Clears the package-private test-only settings link observer. */
+    static void clearTestSettingsLinkObserver() {
+        testSettingsLinkObserver = null;
+    }
+
     private void openSettingsLink(final dev.turboism.sdk.ui.settings.SettingsLink link) {
+        final Consumer<URI> observer = testSettingsLinkObserver;
+        if (observer != null) {
+            try {
+                observer.accept(link.uri());
+            } catch (RuntimeException failure) {
+                CoreDialogs.message(settingsDialog, text("common.turboism"), link.openFailureMessage());
+            }
+            return;
+        }
         try {
             if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                 throw new IOException("desktop browsing is unavailable");
@@ -1561,6 +1644,77 @@ final class CoreWindows implements AutoCloseable {
                 case 7 -> i18n.text("plugin.category." + plugin.category());
                 default -> String.join(", ", plugin.tags());
             };
+        }
+    }
+
+    /** Synchronizes the optimization preset dropdown with the 35 native optimization checkboxes. */
+    private static final class OptimizationPresetCoordinator {
+        private JComboBox<SettingsControl.Option> presetCombo;
+        private String[] presetAccepted;
+        private boolean[] presetChanging;
+        private final Map<String, OptimizationToggleBinding> toggles = new LinkedHashMap<>();
+        private boolean applyingPreset;
+
+        void registerPreset(
+                final JComboBox<SettingsControl.Option> combo, final String[] accepted, final boolean[] changing) {
+            this.presetCombo = combo;
+            this.presetAccepted = accepted;
+            this.presetChanging = changing;
+        }
+
+        void registerToggle(
+                final String optimizationKey,
+                final JCheckBox checkbox,
+                final boolean[] accepted,
+                final boolean[] changing) {
+            toggles.put(optimizationKey, new OptimizationToggleBinding(checkbox, accepted, changing));
+        }
+
+        void onPresetSelected(final String configValue) {
+            if (presetChanging != null && presetChanging[0]) return;
+            final OptimizationPreset preset = OptimizationPreset.fromConfigValue(configValue);
+            if (!preset.appliesFlags()) {
+                return;
+            }
+            applyingPreset = true;
+            try {
+                for (final Map.Entry<String, OptimizationToggleBinding> entry : toggles.entrySet()) {
+                    final Optimization optimization = OptimizationCatalog.requireByKey(entry.getKey());
+                    final boolean target = preset.targetFlag(optimization).orElseThrow();
+                    entry.getValue().setSelected(target);
+                }
+            } finally {
+                applyingPreset = false;
+            }
+        }
+
+        void onToggleChanged() {
+            if (applyingPreset || presetCombo == null) return;
+            final OptimizationPreset detected = OptimizationPreset.detect(key -> {
+                final OptimizationToggleBinding binding = toggles.get(key);
+                return binding != null && binding.accepted[0];
+            });
+            final String nextValue = detected.configValue();
+            presetAccepted[0] = nextValue;
+            presetChanging[0] = true;
+            try {
+                select(presetCombo, nextValue);
+            } finally {
+                presetChanging[0] = false;
+            }
+        }
+    }
+
+    private record OptimizationToggleBinding(JCheckBox checkbox, boolean[] accepted, boolean[] changing) {
+        void setSelected(final boolean selected) {
+            accepted[0] = selected;
+            if (checkbox.isSelected() == selected) return;
+            changing[0] = true;
+            try {
+                checkbox.setSelected(selected);
+            } finally {
+                changing[0] = false;
+            }
         }
     }
 }

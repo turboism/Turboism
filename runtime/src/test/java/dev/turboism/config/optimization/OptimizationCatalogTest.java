@@ -46,17 +46,17 @@ final class OptimizationCatalogTest {
 
     @Test
     void everyDeclaredOptimizationIsTheOneTheProductShips() {
-        assertEquals(31, OptimizationCatalog.all().size());
-        assertEquals(26, OptimizationCatalog.persisted().size());
+        assertEquals(40, OptimizationCatalog.all().size());
+        assertEquals(35, OptimizationCatalog.persisted().size());
         assertEquals(
                 5,
                 OptimizationCatalog.all().size()
                         - OptimizationCatalog.persisted().size());
-        assertEquals(26, OptimizationCatalog.placed().size());
-        assertEquals(22, OptimizationCatalog.launcherFieldNames().size());
-        assertEquals(22, OptimizationCatalog.booleanLauncherFieldNames().size());
+        assertEquals(35, OptimizationCatalog.placed().size());
+        assertEquals(31, OptimizationCatalog.launcherFieldNames().size());
+        assertEquals(31, OptimizationCatalog.booleanLauncherFieldNames().size());
         assertEquals(4, OptimizationCatalog.rootFieldNames().size());
-        assertEquals(32, OptimizationCatalog.protocols().size(), "27 reported protocols plus 5 probe protocols");
+        assertEquals(41, OptimizationCatalog.protocols().size(), "36 reported protocols plus 5 probe protocols");
     }
 
     /**
@@ -94,6 +94,7 @@ final class OptimizationCatalogTest {
             assertEquals("", optimization.labelKey());
             assertEquals("", optimization.tooltipKey());
             assertTrue(optimization.placement().isEmpty());
+            assertTrue(optimization.referenceLink().isEmpty());
             assertFalse(optimization.protocols().isEmpty());
         }
     }
@@ -112,11 +113,11 @@ final class OptimizationCatalogTest {
                 .map(optimization -> optimization.contributionId() + " "
                         + optimization.placement().orElseThrow().index())
                 .toList();
-        assertEquals(26, layout.size(), "settings-layout.txt renders every persisted optimization");
+        assertEquals(35, layout.size(), "settings-layout.txt renders every persisted optimization");
         assertEquals(layout, actual, "settings-layout.txt order changed");
     }
 
-    /** I4: every label and tooltip key resolves in all six bundles, so no row renders a raw key. */
+    /** I4: every label, tooltip and reference link key resolves in all six bundles, so no row renders a raw key. */
     @Test
     void everyKeyExistsInEveryBundle() throws IOException {
         for (final String bundle : BUNDLES) {
@@ -124,7 +125,14 @@ final class OptimizationCatalogTest {
             for (final Optimization optimization : OptimizationCatalog.persisted()) {
                 assertResolves(messages, bundle, optimization.labelKey(), optimization.contributionId());
                 assertResolves(messages, bundle, optimization.tooltipKey(), optimization.contributionId());
+                optimization
+                        .referenceLink()
+                        .ifPresent(
+                                ref -> assertResolves(messages, bundle, ref.labelKey(), optimization.contributionId()));
             }
+            assertResolves(messages, bundle, "settings.performance.section.hotpath", "hotpath-section");
+            assertResolves(messages, bundle, "settings.performance.section.hotpath.tooltip", "hotpath-section");
+            assertResolves(messages, bundle, "settings.optimization.reference-open-failed", "reference-open-failed");
         }
     }
 
@@ -235,6 +243,14 @@ final class OptimizationCatalogTest {
         assertRefused(
                 "is diagnostic-only but declares a persisted identity",
                 withAccess(base, Optimization.Access.DIAGNOSTIC_ONLY));
+
+        assertRefused(
+                "is diagnostic-only but declares a persisted identity",
+                withReferenceLink(
+                        OptimizationCatalog.GL_GET_ERROR_ELISION,
+                        Optional.of(new Optimization.ReferenceLink(
+                                "settings.optimization.sibling-elision.reference",
+                                OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_REFERENCE_URI))));
 
         assertRefused("is persisted but declares no config key", withKey(base, ""));
 
@@ -382,6 +398,22 @@ final class OptimizationCatalogTest {
                 base.overrideProperties(),
                 base.protocols(),
                 placement);
+    }
+
+    private static Optimization withReferenceLink(
+            final Optimization base, final Optional<Optimization.ReferenceLink> referenceLink) {
+        return new Optimization(
+                base.key(),
+                base.contributionId(),
+                base.access(),
+                base.overrideProperties(),
+                base.protocols(),
+                base.hookIds(),
+                base.placement(),
+                base.labelKey(),
+                base.tooltipKey(),
+                base.relations(),
+                referenceLink);
     }
 
     private static Optimization rebuild(

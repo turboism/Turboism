@@ -315,6 +315,12 @@ Cubism Editor 自体に機能が存在しない確認済みホスト境界。公
 | class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`warp-position-projection.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | `plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpHistoryCommandDomain.java` | `HISTORY_SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/extinterpsibling/ExtendedInterpolationSiblingTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/hittest/MeshHitTestTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/paramrow/ParameterRowRepaintTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/renderpass/RenderPassTraversalTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpdraw/WarpNormalPointElisionTarget.java` | `SUPPORTED_VERSIONS` | 5.0.06–5.3.04 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpgrid/WarpGridInterpolationTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
 
 ## バージョン単調性の原則
 
