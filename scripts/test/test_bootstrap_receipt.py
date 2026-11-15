@@ -214,6 +214,13 @@ class BootstrapReceiptStaticContractTest(unittest.TestCase):
         # 4. assemble-release.sh core payload
         assemble = (ROOT / "packaging/windows-installer/assemble-release.sh").read_text(encoding="utf-8")
         self.assertIn('("bootstrap-receipt.ps1", stage / "bootstrap-receipt.ps1")', assemble)
+        core_block = assemble.split("core_payload = [", 1)[1].split("plugin_payload = [", 1)[0]
+        core_roots = set(re.findall(r'\("([^"]+)",\s*stage\s*/\s*"[^"]+"\)', core_block))
+        self.assertEqual(
+            json_roots,
+            core_roots,
+            "assemble-release.sh core_payload root files must match frameworkRootFiles exactly",
+        )
 
     def test_assemble_release_embeds_bootstrap_receipt_and_restricts_dist_assets(self):
         """Point 1 & 2: assemble-release handles shared bootstrap stage and does not leak sidecars to dist."""

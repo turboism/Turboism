@@ -492,7 +492,7 @@ core_payload.extend([
     ("README.zh.txt", stage / "README.zh.txt"),
     ("README.ja.txt", stage / "README.ja.txt"),
     ("README.ko.txt", stage / "README.ko.txt"),
-    ("LICENSE", stage / "LICENSE.txt"),
+    ("LICENSE.txt", stage / "LICENSE.txt"),
     ("EULA.en.txt", stage / "EULA.en.txt"),
     ("EULA.zh-Hans.txt", stage / "EULA.zh-Hans.txt"),
     ("EULA.ja.txt", stage / "EULA.ja.txt"),

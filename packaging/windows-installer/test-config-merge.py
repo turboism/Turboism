@@ -1053,7 +1053,7 @@ def check_jar_payload_contract():
         "launch-cubism-turboism.bat", "launch-cubism-turboism.ps1",
         "configure_turboism.ps1", "cubism-launch-common.ps1",
         "install-managed-graal.ps1", "turboism.ico", "turboism.png",
-        "README.txt", "README.zh.txt", "README.ja.txt", "LICENSE",
+        "README.txt", "README.zh.txt", "README.ja.txt", "LICENSE.txt",
         "EULA.en.txt", "EULA.zh-Hans.txt", "EULA.ja.txt", "EULA.ko.txt",
     )
     core_payload_source = generator[generator.index("core_payload = ["):
@@ -1071,7 +1071,7 @@ def check_jar_payload_contract():
           and '-SourceRoot "$PLUGINSDIR\\Turboism-core-payload"' in core_section)
     check("PAY6 permanent core files are not directly extracted to INSTDIR",
           all(('File "${STAGING_DIR}/%s"' % name) not in core_section
-              for name in permanent_core if name != "LICENSE")
+              for name in permanent_core)
           and 'File "${LICENSE_FILE}"' not in core_section)
     check("PAY7 plugin payload uses destination-relative manifest paths",
           "payload-plugins.sha256" in generated_plugins
@@ -1592,10 +1592,10 @@ def check_uninstall_postcondition():
     payload = find_stmt(texts, lambda t: t.startswith('Delete "$INSTDIR\\'))
     check("U3 状态守卫先于 DeleteRegKey", regkey is not None and state < regkey)
     check("U3 状态守卫先于载荷删除", payload is not None and state < payload)
-    lic = find_stmt(texts, lambda t: 'Delete "$INSTDIR\\LICENSE' in t)
-    check("U4 删除精确安装基线名 LICENSE",
-          lic is not None and texts[lic] == 'Delete "$INSTDIR\\LICENSE"')
-    check("U4 无 LICENSE.txt 删除残留", not any("LICENSE.txt" in t for t in texts))
+    lic_txt = find_stmt(texts, lambda t: t == 'Delete "$INSTDIR\\LICENSE.txt"')
+    lic_legacy = find_stmt(texts, lambda t: t == 'Delete "$INSTDIR\\LICENSE"')
+    check("U4 删除精确安装基线名 LICENSE.txt 与旧版 LICENSE 残留",
+          lic_txt is not None and lic_legacy is not None and lic_txt < lic_legacy)
 
     # U5: plugins 目录白名单删除 —— 与 IzPack 卸载器同语义：仅删安装器部署的
     # JAR（生成的 un.DeleteInstallerPluginJars），未知文件与第三方 JAR 保留，
