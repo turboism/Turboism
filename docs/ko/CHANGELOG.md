@@ -19,7 +19,7 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 - SDK 기능을 공개·승격했습니다: `PreviewFrameService`(`cubism.preview.capture`), `HostViewPanel`(`HostViewAnchors.TEXTURE_ATLAS_EDITOR`), `MeshCanvasSession`(`MeshToolContext.canvasSession()`), `MeshMirrorControl`, `MeshEditContributionSurface`, `SelectionTableFooter`(`openSelectionTableDialog(request, footer, listener)`), 단일 소스 `permission-ids.txt`를 추가하고 공식 플러그인 39종의 `turboismApi`를 상한 없는 `[lower,)` 범위로 전환했습니다.
 - 물리 시뮬레이션 미리보기에서 `:plugins:physics-editor` 내 GIF·애니메이션 PNG 내보내기, 일시 정지/재개/폐기, 단축키, 크기 및 Gifsicle 최적화(기본 20 MB), 내보내기 폴더 저장, 상태 표시줄 알림을 지원합니다.
 - `deformer-batch-rename`에 읽기 진행 대화상자와 단일 패스 이름 색인을 추가했고, 3D 프리셋 가져오기는 선택과 실시간 미리보기를 한 창에 통합하고 내장 텍스처 논리 면을 색상과 번호로 구분했습니다.
-- ACP 입력창에 언어 카탈로그 기반 무작위 현지화 예시 플레이스홀더, Paseo 스타일 작업 진행(Todo)·생성 속도(TPS) 알약과 상세 팝오버, 세션 도구 승인 기억, 자동 허용 모드, 로컬 시간 표시를 추가했습니다.
+- ACP 입력창에 언어 카탈로그 기반 무작위 현지화 예시 플레이스홀더, Paseo 스타일 작업 진행(Todo)·생성 속도(TPS) 알약과 상세 팝오버, 접이식 도구 상세 정보, 대화형 Q&A 대화상자, DeepSeek Harness 지원, 세션 도구 승인 기억, 자동 허용 모드, 로컬 시간 표시를 추가했습니다.
 
 ### 변경
 
@@ -39,9 +39,9 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 ### 수정
 
 - 런타임 셸 시작 마감 시간 분리와 전용 완료 레인으로 테마 관리자 교착 및 주기 갱신 중단을 해결했고, ArtMesh 미러 드래그 틱을 포함한 핫패스 리플렉션·할당을 제거하며 시작 자막 폴백 글꼴 해석을 추가했습니다.
-- 보드 카드 호버/누름 피드백, 목록 행 스타일, 네이티브 레일 덮기, `Bitmask Nesting` 표기 일관성, 항목 유실 없는 제자리 썸네일 삭제를 수정했습니다.
-- 캔버스 스크롤바 테마 키, 화면 배율(100%–200%)별 네이티브 팔레트 아이콘, `AcpChatWindow`의 `MultiUIDefaults` Look-and-Feel 해석(전역 `JComboBox` 테마 보존), JVM 설정 행 가시성, 자체 업데이트의 비리디렉션 Wine 마운트 경계 검사를 수정했습니다.
-- 연결 상태와 무관하게 ACP 입력창 포커스/편집을 유지하고, 저장된 Agent 직접 연결, `user_message_chunk` 및 Codex/Claude Code/Pi 세션 이력 재생, Agent 버튼 체크 표시 정리, 전체 UI 테마 적용, 스트리밍 증분 갱신, UI 사전 캐시, 이미지 컨텍스트 메뉴를 구현·수정했습니다.
+- 보드 카드 호버/누름 피드백, 목록 행 스타일, 네이티브 레일 덮기, `Bitmask Nesting` 표기 일관성, 내용 크기에 맞춘 최근 미리보기 팝업 높이 조정, 항목 유실 없는 제자리 썸네일 삭제를 수정했습니다.
+- 캔버스 스크롤바 테마 키, 화면 배율(100%–200%)별 네이티브 팔레트 아이콘, `AcpChatWindow`의 `MultiUIDefaults` Look-and-Feel 해석(전역 `JComboBox` 테마 보존), 설정에서 숨겨진 시작 체크박스 복구 및 내보내기 폴더 토글의 Runtime 탭 이동, 서명된 부트스트랩 영수증 매니페스트와 일치하도록 설치 프로그램의 `LICENSE.txt` 설치, 자체 업데이트의 비리디렉션 Wine 마운트 경계 검사를 수정했습니다.
+- 연결 상태와 무관하게 ACP 입력창 포커스/편집을 유지하고, 저장된 Agent 직접 연결, `user_message_chunk` 및 Codex/Claude Code/Pi 세션 이력 재생, Agent 버튼 체크 표시 정리, Todo 팝오버를 포함한 전체 UI 테마 적용, 스트리밍 증분 갱신, UI 사전 캐시, 이미지 컨텍스트 메뉴를 구현·수정했습니다.
 - 3D/프리셋 가져오기에서 아틀라스 반영 후 스냅샷 재조회(도넛 롤백 수정)와 생성 객체명 다국어화, 일괄 이름 변경 기준 라벨, 클립 마스크 GL scissor, ArtMesh 미러 드래그 지연·T 배지·선택 버튼 표시 문제를 수정했습니다.
 
 ## [0.68.1] - 2026-10-30

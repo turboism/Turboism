@@ -19,7 +19,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Added and promoted reviewed SDK capabilities: `PreviewFrameService` (`cubism.preview.capture`), `HostViewPanel` (`HostViewAnchors.TEXTURE_ATLAS_EDITOR`), `MeshCanvasSession` (`MeshToolContext.canvasSession()`), `MeshMirrorControl`, `MeshEditContributionSurface`, `SelectionTableFooter` (`openSelectionTableDialog(request, footer, listener)`), single-source `permission-ids.txt`, and unbounded half-open `turboismApi` ranges (`[lower,)`) across all 39 official plugins.
 - Physics Settings preview recording supports GIF and in-process animated PNG export in `:plugins:physics-editor` with pause/resume/discard controls, shortcuts, size/Gifsicle optimization, persistent export folder, and host status bar feedback.
 - `deformer-batch-rename` adds a read progress dialog and single-pass naming index; 3D preset import combines chooser and live preview in one window with color/number-coded logical faces.
-- ACP composer adds random localized example placeholders from the plugin catalog, Paseo-style task progress (Todo) and turn-speed (TPS) pills with popovers, session-scoped tool approvals, auto-approve mode, and local message timestamps.
+- ACP composer adds random localized example placeholders from the plugin catalog, Paseo-style task progress (Todo) and turn-speed (TPS) pills with popovers, collapsible tool details, an interactive Q&A dialog, DeepSeek Harness support, session-scoped tool approvals, auto-approve mode, and local message timestamps.
 
 ### Changed
 
@@ -39,9 +39,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 
 - Runtime shell startup uses a dedicated deadline and off-worker settlement lane so theme manager and periodic refresh timers no longer time out or cancel; eliminated hot-path reflection and allocation churn including ArtMesh mirror drag ticks, and added fallback font resolution for startup subtitles.
-- Fixed recent-project board hover/press feedback, list row styling, native rail coverage, `Bitmask Nesting` label consistency, and in-place thumbnail deletion without dropping recent-file entries.
-- Fixed canvas scrollbar theming, DPI-scaled native palette icons (100–200%), `AcpChatWindow` `MultiUIDefaults` L&F resolution (preserving global `JComboBox` theming), JVM settings row visibility, and non-redirecting Wine mount checks in self-update.
-- Kept ACP prompt interactive across all connection states, added direct persisted-agent connection, `user_message_chunk` & native Codex/Claude Code/Pi session replay, agent button display cleanup, full theme styling, incremental streaming updates, pre-cached Swing UIs, and image context menu.
+- Fixed recent-project board hover/press feedback, list row styling, native rail coverage, `Bitmask Nesting` label consistency, content-fitted recent-preview popup sizing, and in-place thumbnail deletion without dropping recent-file entries.
+- Fixed canvas scrollbar theming, DPI-scaled native palette icons (100–200%), `AcpChatWindow` `MultiUIDefaults` L&F resolution (preserving global `JComboBox` theming), hidden startup checkboxes and Runtime export-directory toggle placement in Settings, installer `LICENSE.txt` receipt alignment, and non-redirecting Wine mount checks in self-update.
+- Kept ACP prompt interactive across all connection states, added direct persisted-agent connection, `user_message_chunk` & native Codex/Claude Code/Pi session replay, agent button display cleanup, full theme styling (including Todo popovers), incremental streaming updates, pre-cached Swing UIs, and image context menu.
 - Fixed 3D/preset import post-atlas pre-interpolation snapshots (preventing donut rollback), localized generated Part/Deformer/ArtMesh names, field-first readback errors, batch-rename base-name labels, and clipmask GL scissor / ArtMesh mirror drag lag / selection button visibility issues.
 
 ## [0.68.1] - 2026-10-30

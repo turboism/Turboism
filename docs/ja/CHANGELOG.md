@@ -19,7 +19,7 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 - SDK 機能を公開・昇格：`PreviewFrameService`（`cubism.preview.capture`）、`HostViewPanel`（`HostViewAnchors.TEXTURE_ATLAS_EDITOR`）、`MeshCanvasSession`（`MeshToolContext.canvasSession()`）、`MeshMirrorControl`、`MeshEditContributionSurface`、`SelectionTableFooter`（`openSelectionTableDialog(request, footer, listener)`）、単一ソース `permission-ids.txt` を追加し、全 39 公式プラグインの `turboismApi` を上限なし `[lower,)` に移行しました。
 - 物理演算プレビューで `:plugins:physics-editor` 内での GIF およびアニメーション PNG 書き出し、一時停止／再開／破棄、ショートカット、サイズ・Gifsicle 最適化（既定 20 MB）、出力フォルダー記憶、ステータスバー通知に対応しました。
 - `deformer-batch-rename` に読み込み進捗ダイアログと単一パス索引を追加。3D プリセット読み込みは選択とプレビューを 1 ウィンドウに統合し、同梱テクスチャの論理面を色・番号分けしました。
-- ACP 入力欄に言語カタログ由来のランダムなローカル例文プレースホルダー、Paseo 風 Todo・TPS ピルと詳細ポップオーバー、セッション内ツール許可記憶、自動許可モード、ローカル時刻表示を追加しました。
+- ACP 入力欄に言語カタログ由来のランダムなローカル例文プレースホルダー、Paseo 風 Todo・TPS ピルと詳細ポップオーバー、折りたたみ可能なツール詳細、対話型 Q&A ダイアログ、DeepSeek Harness 対応、セッション内ツール許可記憶、自動許可モード、ローカル時刻表示を追加しました。
 
 ### 変更
 
@@ -39,9 +39,9 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 ### 修正
 
 - ランタイムシェルの起動期限分離と専用完了レーンによりテーママネージャーのデッドロックや周期更新停止を解消。ArtMesh ミラードラッグを含むホットパス反射・割り当てを削減し、起動字幕のフォールバックフォント解決を追加しました。
-- ボードカードのホバー／押下表示、リスト行描画、ネイティブレール被覆、`Bitmask Nesting` 表記統一、項目を失わないインプレースのサムネイル削除を修正しました。
-- キャンバススクロールバーのテーマ追従、表示倍率（100%–200%）対応パレットアイコン、`AcpChatWindow` の `MultiUIDefaults` Look-and-Feel 解決（グローバル `JComboBox` テーマ維持）、JVM 設定行表示、自己更新時の非リダイレクト Wine マウント判定を修正しました。
-- ACP 入力欄の接続状態横断での編集・フォーカス維持、保存済み Agent 直結、`user_message_chunk` と Codex/Claude Code/Pi 履歴再生、Agent ボタンのチェック記号整理、全 UI テーマ適用、差分ストリーミング更新、UI 事前キャッシュ、画像コンテキストメニューを修正・実装しました。
+- ボードカードのホバー／押下表示、リスト行描画、ネイティブレール被覆、`Bitmask Nesting` 表記統一、内容に合わせた最近プレビューポップアップ高さ調整、項目を失わないインプレースのサムネイル削除を修正しました。
+- キャンバススクロールバーのテーマ追従、表示倍率（100%–200%）対応パレットアイコン、`AcpChatWindow` の `MultiUIDefaults` Look-and-Feel 解決（グローバル `JComboBox` テーマ維持）、設定で非表示だった起動チェックボックスの復元と出力先切替の Runtime 移動、署名済みブートストラップレシートと一致させるインストーラーの `LICENSE.txt` 配置、自己更新時の非リダイレクト Wine マウント判定を修正しました。
+- ACP 入力欄の接続状態横断での編集・フォーカス維持、保存済み Agent 直結、`user_message_chunk` と Codex/Claude Code/Pi 履歴再生、Agent ボタンのチェック記号整理、Todo ポップオーバーを含む全 UI テーマ適用、差分ストリーミング更新、UI 事前キャッシュ、画像コンテキストメニューを修正・実装しました。
 - 3D・プリセット読み込みのアトラス後スナップショット再取得（ドーナツのロールバック修正）と生成オブジェクト名の多言語化、読み戻しエラー表記、一括リネーム基準ラベル、クリップマスク GL scissor、ArtMesh ミラーのドラッグ遅延・T バッジ・選択ボタン表示を修正しました。
 
 ## [0.68.1] - 2026-10-30

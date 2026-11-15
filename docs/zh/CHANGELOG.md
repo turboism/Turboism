@@ -19,7 +19,7 @@ Turboism 的所有重要变更都记录在本文件中。
 - 正式公开并推广已审核 SDK 能力：`PreviewFrameService`（`cubism.preview.capture`）、`HostViewPanel`（`HostViewAnchors.TEXTURE_ATLAS_EDITOR`）、`MeshCanvasSession`（`MeshToolContext.canvasSession()`）、`MeshMirrorControl`、`MeshEditContributionSurface`、`SelectionTableFooter`（`openSelectionTableDialog(request, footer, listener)`）、单一来源权限表 `permission-ids.txt`，并将全部 39 个官方插件的 `turboismApi` 迁至无上限半开区间 `[lower,)`。
 - 物理模拟预览支持在 `:plugins:physics-editor` 内录制 GIF 与进程内动画 PNG，提供暂停/继续/放弃、快捷键、缩放与 Gifsicle 目标体积优化（默认 20 MB）、持久化导出目录及状态栏完成提示。
 - `deformer-batch-rename` 新增读取进度框与单遍命名索引；3D 预设导入将选择与实时预览合并至同一窗口，内置纹理按逻辑面着色并编号。
-- ACP 输入区支持按语言目录随机展示本地化示例占位符、Paseo 风格任务进度（Todo）与生成速度（TPS）胶囊及详情浮层、会话内工具授权记忆、自动允许模式以及本地消息时间戳。
+- ACP 输入区支持按语言目录随机展示本地化示例占位符、Paseo 风格任务进度（Todo）与生成速度（TPS）胶囊及详情浮层、可折叠工具详情、交互式问答对话框、DeepSeek Harness 支持、会话内工具授权记忆、自动允许模式以及本地消息时间戳。
 
 ### 变更
 
@@ -39,9 +39,9 @@ Turboism 的所有重要变更都记录在本文件中。
 ### 修复
 
 - 为运行时外壳启动增加独立超时并将完成结算移至专用通道，防止主题管理器阻塞与周期刷新在首次超预算后停止；消除 ArtMesh 镜像拖拽等热路径反射与分配抖动，并补全启动字幕回退字体解析。
-- 修复最近工程看板悬停/按下反馈、列表行样式、原生侧轨遮挡、`Bitmask Nesting` 名称一致性，以及点击垃圾桶后原地清空缩略图而不丢失最近工程条目。
-- 修复画布滚动条主题键值、按屏幕显示比例（100%–200%）选取原生面板图标、`AcpChatWindow` 的 `MultiUIDefaults` 外观解析（保留全局 `JComboBox` 主题）、JVM 设置行可见性及自更新中非重定向 Wine 挂载边界检查。
-- 保持 ACP 输入框跨连接状态可编辑聚焦，支持持久化 Agent 直连、`user_message_chunk` 与原生 Codex/Claude Code/Pi 历史会话重放、Agent 按钮去重对勾、全控件主题适配、流式增量更新、界面预缓存与图片右键菜单。
+- 修复最近工程看板悬停/按下反馈、列表行样式、原生侧轨遮挡、`Bitmask Nesting` 名称一致性、最近工程预览弹窗高度贴合内容，以及点击垃圾桶后原地清空缩略图而不丢失最近工程条目。
+- 修复画布滚动条主题键值、按屏幕显示比例（100%–200%）选取原生面板图标、`AcpChatWindow` 的 `MultiUIDefaults` 外观解析（保留全局 `JComboBox` 主题）、恢复设置中隐藏的启动复选框并将导出目录开关移至运行时页、修复安装器部署 `LICENSE.txt` 以匹配签名引导收据清单，以及自更新中非重定向 Wine 挂载边界检查。
+- 保持 ACP 输入框跨连接状态可编辑聚焦，支持持久化 Agent 直连、`user_message_chunk` 与原生 Codex/Claude Code/Pi 历史会话重放、Agent 按钮去重对勾、全控件与 Todo 浮层主题适配、流式增量更新、界面预缓存与图片右键菜单。
 - 修复 3D 与预设导入在图集重映射后重读快照（解决甜甜圈回滚）及多语言对象命名，修正批量重命名基准标签，修复剪贴蒙版 GL scissor、ArtMesh 镜像拖拽延迟、T 徽章与镜像按钮显隐问题。
 
 ## [0.68.1] - 2026-10-30
