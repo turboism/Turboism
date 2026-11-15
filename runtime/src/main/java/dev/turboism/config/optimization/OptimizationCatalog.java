@@ -568,6 +568,22 @@ public final class OptimizationCatalog {
             "",
             List.of(new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, INPUT_PATH_ELISION, "")));
 
+    /**
+     * Diagnostic-only: evaluates mesh hit-test bounding boxes directly on vertex arrays without
+     * allocating {@code GBounds}; derives its default from {@link #INPUT_PATH_ELISION}.
+     */
+    public static final Optimization MESH_HIT_TEST = new Optimization(
+            "",
+            "",
+            Optimization.Access.DIAGNOSTIC_ONLY,
+            List.of("turboism.optimization.meshHitTest"),
+            List.of("TURBOISM_MESH_HIT_TEST"),
+            Set.of("cubism.mesh.hit-test"),
+            Optional.empty(),
+            "",
+            "",
+            List.of(new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, INPUT_PATH_ELISION, "")));
+
     /** Every row, in declaration order. */
     private static final List<Optimization> ALL = List.of(
             MODEL_UPDATE_SKIP,
@@ -606,7 +622,8 @@ public final class OptimizationCatalog {
             CAMERA_MATRIX_CACHE,
             WARP_NORMAL_POINT_ELISION,
             WARP_GRID_INTERPOLATION,
-            PARAMETER_ROW_REPAINT);
+            PARAMETER_ROW_REPAINT,
+            MESH_HIT_TEST);
 
     static {
         validate(ALL);

@@ -95,7 +95,8 @@ final class HookManifestTest {
                         CameraMatrixCacheHookContributor.class,
                         WarpNormalPointElisionHookContributor.class,
                         WarpGridInterpolationHookContributor.class,
-                        ParameterRowRepaintHookContributor.class),
+                        ParameterRowRepaintHookContributor.class,
+                        MeshHitTestHookContributor.class),
                 contributors.stream().map(HookContributor::getClass).toList());
     }
 

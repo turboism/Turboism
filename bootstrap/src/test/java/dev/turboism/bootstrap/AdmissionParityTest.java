@@ -345,6 +345,17 @@ class AdmissionParityTest {
                             } catch (final java.io.IOException impossible) {
                                 throw new AssertionError(impossible);
                             }
+                        }),
+                new Row(
+                        "mesh-hit-test",
+                        VerifiedMeshHitTestInstaller.ADMISSION,
+                        new Frozen(true, "ANY"),
+                        (policy, requested, jvm) -> {
+                            try {
+                                return VerifiedMeshHitTestInstaller.admitted(artifact(), policy, requested);
+                            } catch (final java.io.IOException impossible) {
+                                throw new AssertionError(impossible);
+                            }
                         }));
     }
 

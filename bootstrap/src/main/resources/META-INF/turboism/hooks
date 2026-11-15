@@ -129,3 +129,5 @@ dev.turboism.bootstrap.WarpNormalPointElisionHookContributor
 dev.turboism.bootstrap.WarpGridInterpolationHookContributor
 # Incremental Parameter Palette row synchronization and repaint elision.
 dev.turboism.bootstrap.ParameterRowRepaintHookContributor
+# Allocation-free 2D bounding-box pre-check in mesh hit testing.
+dev.turboism.bootstrap.MeshHitTestHookContributor
