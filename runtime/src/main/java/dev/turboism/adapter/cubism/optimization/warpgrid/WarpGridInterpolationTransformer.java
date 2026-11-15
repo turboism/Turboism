@@ -31,18 +31,15 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
     private static final String PROPERTIES_INTERNAL = "java/util/Properties";
     private static final String PROPERTIES_GET_METHOD = "get";
     private static final String PROPERTIES_GET_DESC = "(Ljava/lang/Object;)Ljava/lang/Object;";
-    private static final String ATOMIC_BOOLEAN_INTERNAL = "java/util/concurrent/atomic/AtomicBoolean";
-    private static final String ATOMIC_GET_METHOD = "get";
-    private static final String ATOMIC_GET_DESC = "()Z";
-    private static final String CONSUMER_INTERNAL = "java/util/function/Consumer";
-    private static final String CONSUMER_ACCEPT_METHOD = "accept";
-    private static final String CONSUMER_ACCEPT_DESC = "(Ljava/lang/Object;)V";
-    private static final String OBJECT_INTERNAL = "java/lang/Object";
-    private static final String INTEGER_INTERNAL = "java/lang/Integer";
-    private static final String INTEGER_VALUE_OF_DESC = "(I)Ljava/lang/Integer;";
-    private static final String BOOLEAN_INTERNAL = "java/lang/Boolean";
-    private static final String BOOLEAN_VALUE_OF_DESC = "(Z)Ljava/lang/Boolean;";
-    private static final String VALUE_OF_METHOD = "valueOf";
+    private static final String METHOD_HANDLE_INTERNAL = "java/lang/invoke/MethodHandle";
+    private static final String INVOKE_EXACT_METHOD = "invokeExact";
+
+    private static final String FAILURE_SOURCE_MISMATCH = "warp grid source is not the reviewed artifact";
+    private static final String FAILURE_SHAPE_MISMATCH = "warp grid interpolation method shape mismatch";
+    private static final String FAILURE_NOT_APPLIED = "warp grid fast path was not applied";
+    private static final String FAILURE_METHOD_ABSENT = "reviewed warp grid interpolation method absent";
+    private static final String NO_FRAMES_MARKER = "<no frames>";
+    private static final String FAILURE_LOCATOR_SEPARATOR = " at ";
 
     private static final int LOCAL_SRC = 1;
     private static final int LOCAL_DST = 2;
@@ -109,7 +106,7 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
                 WarpGridInterpolationTarget.METHOD,
                 WarpGridInterpolationTarget.DESCRIPTOR);
         if (shape == null) {
-            throw new IllegalArgumentException("reviewed warp grid interpolation method absent");
+            throw new IllegalArgumentException(FAILURE_METHOD_ABSENT);
         }
     }
 
@@ -136,7 +133,7 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
         }
         try {
             if (!matchesArtifactSource(domain)) {
-                failure = "warp grid source is not the reviewed artifact";
+                failure = FAILURE_SOURCE_MISMATCH;
                 return null;
             }
             if (!shape.equals(ReviewedMethodShape.read(
@@ -144,7 +141,7 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
                     WarpGridInterpolationTarget.OWNER,
                     WarpGridInterpolationTarget.METHOD,
                     WarpGridInterpolationTarget.DESCRIPTOR))) {
-                failure = "warp grid interpolation method shape mismatch";
+                failure = FAILURE_SHAPE_MISMATCH;
                 return null;
             }
             final ClassReader reader = new ClassReader(bytes);
@@ -152,14 +149,16 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             final boolean[] applied = {false};
             reader.accept(new WarpGridClassVisitor(writer, applied), ClassReader.EXPAND_FRAMES);
             if (!applied[0]) {
-                failure = "warp grid fast path was not applied";
+                failure = FAILURE_NOT_APPLIED;
                 return null;
             }
             matches++;
             return writer.toByteArray();
         } catch (final Exception | LinkageError rejected) {
             final StackTraceElement[] trace = rejected.getStackTrace();
-            failure = rejected + " at " + (trace.length == 0 ? "<no frames>" : trace[0].toString());
+            failure = rejected
+                    + FAILURE_LOCATOR_SEPARATOR
+                    + (trace.length == 0 ? NO_FRAMES_MARKER : trace[0].toString());
             return null;
         }
     }
@@ -288,20 +287,10 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             visitVarInsn(Opcodes.ALOAD, LOCAL_PT);
             visitJumpInsn(Opcodes.IFNULL, fallback);
 
-            emitPropertyLookup(WarpGridInterpolationBridge.ACTIVE_PROPERTY);
-            visitVarInsn(Opcodes.ASTORE, LOCAL_BRIDGE_SLOT);
-            visitVarInsn(Opcodes.ALOAD, LOCAL_BRIDGE_SLOT);
-            visitTypeInsn(Opcodes.INSTANCEOF, ATOMIC_BOOLEAN_INTERNAL);
-            visitJumpInsn(Opcodes.IFEQ, fallback);
-            visitVarInsn(Opcodes.ALOAD, LOCAL_BRIDGE_SLOT);
-            visitTypeInsn(Opcodes.CHECKCAST, ATOMIC_BOOLEAN_INTERNAL);
-            visitMethodInsn(Opcodes.INVOKEVIRTUAL, ATOMIC_BOOLEAN_INTERNAL, ATOMIC_GET_METHOD, ATOMIC_GET_DESC, false);
-            visitJumpInsn(Opcodes.IFEQ, fallback);
-
             emitPropertyLookup(WarpGridInterpolationBridge.OOB_PROPERTY);
             visitVarInsn(Opcodes.ASTORE, LOCAL_BRIDGE_SLOT);
             visitVarInsn(Opcodes.ALOAD, LOCAL_BRIDGE_SLOT);
-            visitTypeInsn(Opcodes.INSTANCEOF, CONSUMER_INTERNAL);
+            visitTypeInsn(Opcodes.INSTANCEOF, METHOD_HANDLE_INTERNAL);
             visitJumpInsn(Opcodes.IFEQ, fallback);
         }
 
@@ -570,50 +559,23 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
         private void emitOobDelegation(final Label oobExit) {
             visitLabel(oobExit);
             visitVarInsn(Opcodes.ALOAD, LOCAL_BRIDGE_SLOT);
-            visitTypeInsn(Opcodes.CHECKCAST, CONSUMER_INTERNAL);
-            visitIntInsn(Opcodes.BIPUSH, WarpGridInterpolationBridge.ARG_LENGTH);
-            visitTypeInsn(Opcodes.ANEWARRAY, OBJECT_INTERNAL);
-
-            emitPayloadRef(WarpGridInterpolationBridge.ARG_SRC, LOCAL_SRC);
-            emitPayloadRef(WarpGridInterpolationBridge.ARG_DST, LOCAL_DST);
-            emitPayloadInt(WarpGridInterpolationBridge.ARG_START_INDEX, LOCAL_INDEX_I);
-            emitPayloadInt(WarpGridInterpolationBridge.ARG_LIMIT, LOCAL_LIMIT);
-            emitPayloadInt(WarpGridInterpolationBridge.ARG_SRC_STEP, LOCAL_SRC_STEP);
-            emitPayloadRef(WarpGridInterpolationBridge.ARG_GRID_POINTS, LOCAL_PT);
-            emitPayloadInt(WarpGridInterpolationBridge.ARG_COL, LOCAL_COL);
-            emitPayloadInt(WarpGridInterpolationBridge.ARG_ROW, LOCAL_ROW);
-            emitPayloadBoolean(WarpGridInterpolationBridge.ARG_QUAD, LOCAL_IS_QUAD);
-
+            visitTypeInsn(Opcodes.CHECKCAST, METHOD_HANDLE_INTERNAL);
+            visitVarInsn(Opcodes.ALOAD, LOCAL_SRC);
+            visitVarInsn(Opcodes.ALOAD, LOCAL_DST);
+            visitVarInsn(Opcodes.ILOAD, LOCAL_INDEX_I);
+            visitVarInsn(Opcodes.ILOAD, LOCAL_LIMIT);
+            visitVarInsn(Opcodes.ILOAD, LOCAL_SRC_STEP);
+            visitVarInsn(Opcodes.ALOAD, LOCAL_PT);
+            visitVarInsn(Opcodes.ILOAD, LOCAL_COL);
+            visitVarInsn(Opcodes.ILOAD, LOCAL_ROW);
+            visitVarInsn(Opcodes.ILOAD, LOCAL_IS_QUAD);
             visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE,
-                    CONSUMER_INTERNAL,
-                    CONSUMER_ACCEPT_METHOD,
-                    CONSUMER_ACCEPT_DESC,
-                    true);
+                    Opcodes.INVOKEVIRTUAL,
+                    METHOD_HANDLE_INTERNAL,
+                    INVOKE_EXACT_METHOD,
+                    WarpGridInterpolationTarget.DESCRIPTOR,
+                    false);
             visitInsn(Opcodes.RETURN);
-        }
-
-        private void emitPayloadRef(final int index, final int localSlot) {
-            visitInsn(Opcodes.DUP);
-            visitIntInsn(Opcodes.BIPUSH, index);
-            visitVarInsn(Opcodes.ALOAD, localSlot);
-            visitInsn(Opcodes.AASTORE);
-        }
-
-        private void emitPayloadInt(final int index, final int localSlot) {
-            visitInsn(Opcodes.DUP);
-            visitIntInsn(Opcodes.BIPUSH, index);
-            visitVarInsn(Opcodes.ILOAD, localSlot);
-            visitMethodInsn(Opcodes.INVOKESTATIC, INTEGER_INTERNAL, VALUE_OF_METHOD, INTEGER_VALUE_OF_DESC, false);
-            visitInsn(Opcodes.AASTORE);
-        }
-
-        private void emitPayloadBoolean(final int index, final int localSlot) {
-            visitInsn(Opcodes.DUP);
-            visitIntInsn(Opcodes.BIPUSH, index);
-            visitVarInsn(Opcodes.ILOAD, localSlot);
-            visitMethodInsn(Opcodes.INVOKESTATIC, BOOLEAN_INTERNAL, VALUE_OF_METHOD, BOOLEAN_VALUE_OF_DESC, false);
-            visitInsn(Opcodes.AASTORE);
         }
     }
 
