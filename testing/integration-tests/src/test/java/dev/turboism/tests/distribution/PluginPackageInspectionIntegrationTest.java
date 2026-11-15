@@ -119,7 +119,20 @@ class PluginPackageInspectionIntegrationTest {
 
     @Test
     void acceptsOnlyStrictV1ApiForms() throws Exception {
-        for (String invalid : new String[] {"*", "1.x", "^0.1.0", "[0.1.0,)", "(0.1.0,0.2.0]", "01.0.0"}) {
+        byte[] unboundedJar = PluginPackageFixtures.jar(
+                PluginPackageFixtures.descriptor(PluginPackageFixtures.ID, PluginPackageFixtures.VERSION, "[0.1.0,)"),
+                PluginPackageFixtures.ENTRYPOINT.replace('.', '/') + ".class",
+                "class");
+        Path validInput = tempDir.resolve("unbounded.tplugin");
+        Files.write(
+                validInput,
+                PluginPackageFixtures.packageWith(
+                        unboundedJar, PluginPackageFixtures.ID, PluginPackageFixtures.VERSION));
+        var accepted = assertInstanceOf(
+                PluginPackageInspector.Accepted.class, new LocalPluginPackageInspector().inspect(validInput));
+        assertEquals("[0.1.0,)", accepted.plan().descriptor().turboismApi());
+
+        for (String invalid : new String[] {"*", "1.x", "^0.1.0", "[0.1.0,0.2.0]", "(0.1.0,0.2.0]", "01.0.0"}) {
             byte[] jar = PluginPackageFixtures.jar(
                     PluginPackageFixtures.descriptor(PluginPackageFixtures.ID, PluginPackageFixtures.VERSION, invalid),
                     PluginPackageFixtures.ENTRYPOINT.replace('.', '/') + ".class",

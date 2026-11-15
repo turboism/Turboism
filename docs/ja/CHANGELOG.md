@@ -8,67 +8,41 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 ## [Unreleased]
 
-### 追加
-
-- 最近のプロジェクトボードのヘッダーをスクロール領域の外へ移動したため、カード一覧がオーバーフローしてもレイアウト切り替えボタンの位置が変わりません。ボタンはヘッダー内で垂直方向にも中央揃えになりました。固定サイズの中央セルは短い子要素を引き伸ばさず垂直方向に中央揃えするようになり、ボードの「プレビューなし」プレースホルダーと空状態が領域の中央に戻りました。各カードには Lucide のゴミ箱ボタンが付き、提供元経由でそのプロジェクトのキャッシュ済みサムネイルを削除します。カードはプレースホルダー状態に戻り、ホバーポップアップも古い画像を表示しません。SDK には `RecentPreviewCacheService`（提供元が削除ハンドラーを登録するランタイム仲介ブローカー）、`RecentPreviewDeletedEvent` と公開イベント `thumbnail.deleted`、`PluginService.RECENT_PREVIEW_CACHE`、権限 `turboism.ui.recent-preview.manage` を追加しました。
-- プレビューサムネイルはエディターのネイティブオフスクリーンモデルレンダーを優先するようになりました。MCP レンダーツールと同じ読み取り経路のため、サムネイルにはモデルだけが写り、ツールバーに覆われた、または真っ白な GL 読み戻しにはなりません。コンポーネントキャプチャ経路は、許可されたレンダラーがないホストと、モデルが開かれていない状態でのキャプチャに対するフォールバックとして残ります。
-- 1 回だけ表示される製品ガイドを追加しました。シェルの起動後に開き、ユーザーが閉じると以降は表示されません。フレームワークと更新方法、プラグインのインストールと管理およびプラグインマーケット、公式のフィードバック窓口を紹介します。Turboism メニューからいつでも再度開けます。`config.json` は `guide.showOnStartup` として選択を記録し、インストーラーは記録済みの値を保持するため、アップグレードで閉じたガイドが再表示されることはありません。
-- ACP 入力欄のプレースホルダーは、ウィンドウを開くたびにローカライズ済みのサンプル依頼を 1 件ランダムに表示するようになりました。サンプル文言はプラグインの言語カタログが保持するため、翻訳者はコードを変更せずに修正できます。
-- ACP 入力欄に Paseo 風のタスク進捗（Todo）と生成速度（TPS）ピルおよび詳細ポップオーバー、セッション単位のツール許可記憶、権限の自動許可モード、および会話メッセージのローカル時刻表示を追加しました。
-
-### 修正
-
-- ACP 入力欄を切断中・接続中・応答生成中を含めて常に入力・フォーカス可能に保ち、入力カードや余白のクリックでフォーカスを移すようにし、保存済み Agent がある場合は全 Agent 探索を待たずに即座に接続を開始するようにしました。また、履歴セッションの読み込み・再開で `user_message_chunk`（内部システム境界プレフィックスを除去）と大容量リプレイを処理し、ネイティブの Codex・Claude Code・Pi セッションの過去会話とツール履歴を復元表示するようにしました。
-- 3D モデルおよびプリセット読み込みでテクスチャアトラス反映後に補間前スナップショットを再取得してドーナツなどのロールバックを解消し、生成されるパーツ・デフォーマ・アートメッシュ名を全対応言語でローカライズしました。
-- 最近のプロジェクトボードでゴミ箱アイコンをクリックした際、対象プロジェクトのキャッシュ済みサムネイルのみを削除し、項目順を変えずにその場で既定の「プレビューなし」表示へ更新するようにしました。また、プラグイン管理ウィンドウから不要な「保留中の変更」ボタンを削除して下部の 2 列のボタンをともに右揃えに統一し、自動配置アルゴリズム名を `Bitmask Nesting` に統一、さらに `AcpChatWindow` がグローバルな `JComboBox` の Look-and-Feel を `BasicComboBoxUI` で上書きしていた問題を修正しました。
-- ACP 入力欄の Agent ボタンは Agent 名のみを表示します。検出済みのインストールを示すチェックマークはメニューに残ります。
-- ネイティブパレットアイコンが表示倍率に追従します。アイコン所有者は画面変換をサンプリングし、固定の 100% ではなくレビュー済みの 100/125/150/175/200% バリアントを選択するため、拡大表示でもロックアイコンが鮮明なままです。
-- ACP ウィンドウの全コントロール、スクロールバー、高さ制限・検索付きオプションメニュー、権限ダイアログが現在のテーマに追従するようになり、ユーザーメッセージカードの垂直中央揃え、折りたたみ可能なツール活動グループ内への思考セクションの階層化、およびストリーミング更新の差分描画に対応しました。
-
-## [0.70.0] - 2026-11-10
+## [0.70.0] - 2026-11-15
 
 ### 追加
 
-- プラグインマーケットはバックグラウンド自動更新と同じ許可規則を使用します。`PluginReleaseCompatibility` が唯一の判定点となり、マーケットが提示するリリースは更新プログラムも受け入れるリリースになります。`stable` インストールは `preview` リリースをインストールせず、`beta` と `nightly` は両方を受け入れます。`windows-x64` プラットフォームを欠くリリースや、`required` のプラグイン依存関係を満たせないリリースも拒否されます。互換カタログリリースがないインストール済みプラグインは、インストール済みとして表示されダウンロードを提示しません。チャネル制限が壊れたプラグインとして表示されることはありません。
-- `packaging/market-plugins.json` はプラグインごとの `publication` 判定を記録します。新しく名簿に加わったプラグインは既定で `withheld` となるため、`packaging/market-plugins.txt` に追加しただけでは公開されません。レビュアーが別のコミットで `approved` に設定します。承認済みでも必須依存関係が保留中のプラグインは、署名済みカタログが互換リリースを提供しない限りステージングに失敗します。
-- ステージングは、ビルド済みバイトが変わらずカタログが `preview` チャネルのみで提供している場合、プラグインを `preview` から `stable` へ昇格します。Beta 期間中に初出荷されたプラグインは、無関係なソース変更なしで Stable インストールに届きます。昇格はパッチバージョンを上げます。カタログのバージョンは一意で厳密に増加する必要があり、暗黙の降格は行いません。
-- 公式 `project-work-time` プラグインと共有ランタイムトラッカーを追加しました。ステータスバーに現在のエディターセッションの前面時間と、現在のプロジェクトのセッションをまたぐ累計作業時間を表示します。ランタイムは Cubism がデスクトップの前面にある間だけ計測し、累計をセッションをまたいで保存します。SDK には `CubismFacade.isEditorForeground()`、`CubismFacade.activity()`、`CubismActivityChangedEvent`、`ProjectWorkTimeService` ディレクトリサービスを追加し、他のプラグインが同じ集計を再利用できます。
-
-- SDK にインキュベーティングな `PreviewFrameService` 機能（`PreviewFrameSource`、`PreviewFrame`、`PreviewFrameSourceClosedException`、`PluginService.PREVIEW_FRAMES` ディレクトリメンバー）と `cubism.preview.capture` の admission 行を追加しました。プラグインはフォーカス中のプレビューのフレームを読み取り、独自の `PanelView` コントロールストリップを配置できます。プレビュー面の解決、専用スレッドでの OpenGL 読み戻し、プラグイン世代終了後の更新の破棄はランタイムが行います。
-
-- SDK にインキュベーティングな `HostViewPanel` 機能（`HostViewPanelHandle`、`HostViewAnchors` のアンカー定数、`PluginService.HOST_VIEW_PANEL` ディレクトリメンバー）を追加しました。プラグインは `PanelView` の内容を名前付きホストビュー（まずはネイティブのテクスチャアトラスエディター）に取り付け、描画・エディタースレッドでの更新適用・プラグイン世代の終了後の更新の黙った破棄はランタイムが行います。
-
-- SDK にインキュベーティングな `MeshCanvasSession` 機能と `MeshToolContext.canvasSession()` を追加しました。プラグインが自身の状態から点・辺の配置を計算し、ランタイムがプレビューの描画、キャンバス上のアンカー追従、レイアウトの 1 回の Undo での確定を行います。`geometric-mesh-layout` プラグインは形状計算・パラメーター状態・設定ダイアログを自前で持つようになりました。
-
-- 物理演算プレビューに GIF 録画を追加。録画／一時停止／再開、停止／破棄とショートカット登録、録画後のサイズ変更、Gifsicle による目標サイズ最適化（既定 20 MB）、GIF 専用出力フォルダーの記憶に対応。録画の状態機械・エンコーダー・書き出しダイアログ・拡大率／Gifsicle のポリシー・コントロールストリップは `:plugins:physics-editor` が所有し、`:runtime` はそれらが駆動する汎用プレビュー取り込み機能のみを提供します。
-
-- SDK にインキュベーティングな `MeshMirrorControl` と `MeshEditContributionSurface` 機能、および `PluginService.MESH_MIRROR_CONTROL` と `PluginService.MESH_EDIT_CONTRIBUTION` ディレクトリメンバーを追加しました。前者はミラー軸・ミラー対応点の規則・移動参加・対象ツール集合を、後者はホスト編集への参加とネイティブツール領域へのコントリビューションを、それぞれプラグインが常に同時に必要とする公開済みの単一目的サービスとして統合します。メッシュ編集で 6 回のサービス参照が不要になります。権限と操作 ID は変わりません。
-- SDK に `SelectionTableFooter` と `openSelectionTableDialog(request, footer, listener)` のオーバーロードを追加しました。プレビュー表は 1 つのフッターコントロールを持ち、その値が変わると行を再構築します。一括リネームの命名基準は、影響するプレビューの中に置かれます。
-- `project-work-time` は開いているプロジェクトだけを計測します。空のワークスペースではステータスバーのセッション表示がゼロで停止し、プロジェクトを閉じるとゼロに戻ります。
-- GIF 書き出しは GIF に加えてアニメーション PNG を提供します。外部ツールを使わずプロセス内で書き出し、完了結果はホストのステータスバーに表示します。
-- 3D プリセット読み込みは選択とプレビューを 1 つのウィンドウにまとめ、選択に追従してプレビューを再構築します。同梱プリセットのテクスチャは論理面ごとに色と番号を持ちます。
-
-### 非推奨
-
-- `PhysicsEditorService.gifCommand` と `PhysicsEditorService.GifCommand` を削除予定として非推奨にしました。ランタイムはプラグインに代わって GIF を録画せず、コマンドは受理されますが何も行いません。`PreviewFrameService`（`PluginService.PREVIEW_FRAMES`）を使ってプラグイン側で録画を駆動してください。次のマイナーリリースで削除します。
-
-- `TextureAtlasEditorUi` と `TextureAtlasEditorPanel` を削除予定として非推奨にしました。どちらも `HostViewPanel` 上の薄いアダプターとして引き続き動作します。代わりに `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)` と `HostViewPanelHandle.setContent(PanelView)` を使用してください。
-
-- `MeshMirrorAxisService`、`MeshMirrorCounterparts`、`MeshMirrorMoveParticipation`、`MeshMirrorToolEligibility`、`MeshEditParticipation`、`MeshEditUiService`（および対応する `PluginService` メンバーと `MeshEditUiService.MirrorAxisAngleControl`）を削除予定として非推奨にしました。6 つとも動作は変わりません。代わりに `MeshMirrorControl` と `MeshEditContributionSurface` を使用してください。
+- プラグインマーケットの許可判定をバックグラウンド自動更新と同じ `PluginReleaseCompatibility` に統一（`stable` は `stable` のみ、`beta`/`nightly` は `preview` も許可し、`windows-x64` と `required` 依存関係を検証）。`packaging/market-plugins.json` でプラグインごとの `publication`（新規は既定 `withheld`）を管理し、内容不変の `preview` プラグインはステージング時にパッチ版を上げて `stable` へ昇格します。
+- 公式プレビュープラグイン `recent-project-board` と `RecentFileService.open`、`PanelView.Card`/`Grid`/`Centered`/`Link`、`RecentPreviewCacheService`（`RecentPreviewDeletedEvent`、`thumbnail.deleted`、`turboism.ui.recent-preview.manage`）を追加。スクロール外固定ヘッダーのレイアウト切替（6列/3列/詳細）、空状態の新規作成リンク、カードごとのゴミ箱によるサムネイル削除、エディターのオフスクリーンモデル描画優先キャプチャ（フォールバック付き）に対応しました。
+- 公式 `project-work-time` プラグインと共有ランタイム前面タイマー（`CubismFacade.isEditorForeground()`、`activity()`、`CubismActivityChangedEvent`、`ProjectWorkTimeService`）を追加し、プロジェクトを開いて Cubism が前面にある間だけ累計作業時間を計測します。
+- シェル起動後に 1 回だけ表示される製品ガイド（`config.json` の `guide.showOnStartup` に保存しアップグレード時も維持、Turboism メニューから再表示可能）を追加しました。
+- SDK 機能を公開・昇格：`PreviewFrameService`（`cubism.preview.capture`）、`HostViewPanel`（`HostViewAnchors.TEXTURE_ATLAS_EDITOR`）、`MeshCanvasSession`（`MeshToolContext.canvasSession()`）、`MeshMirrorControl`、`MeshEditContributionSurface`、`SelectionTableFooter`（`openSelectionTableDialog(request, footer, listener)`）、単一ソース `permission-ids.txt` を追加し、全 39 公式プラグインの `turboismApi` を上限なし `[lower,)` に移行しました。
+- 物理演算プレビューで `:plugins:physics-editor` 内での GIF およびアニメーション PNG 書き出し、一時停止／再開／破棄、ショートカット、サイズ・Gifsicle 最適化（既定 20 MB）、出力フォルダー記憶、ステータスバー通知に対応しました。
+- `deformer-batch-rename` に読み込み進捗ダイアログと単一パス索引を追加。3D プリセット読み込みは選択とプレビューを 1 ウィンドウに統合し、同梱テクスチャの論理面を色・番号分けしました。
+- ACP 入力欄に言語カタログ由来のランダムなローカル例文プレースホルダー、Paseo 風 Todo・TPS ピルと詳細ポップオーバー、セッション内ツール許可記憶、自動許可モード、ローカル時刻表示を追加しました。
 
 ### 変更
 
-- プラグインマネージャーのフッターを「取得操作」と「選択操作」の 2 行に分け、英語ラベルが見切れないようにしました。プラグインマネージャーとマーケットの重複した「閉じる」ボタンは削除しました。
-- `PanelView.Centered` は片方の次元に 0 を許容し、その方向は子の自然なサイズを保ちます。
+- プラグイン管理のフッターを右揃えの取得・選択の 2 行へ整理し、不要な「保留中の変更」と重複の「閉じる」ボタンを削除。`PanelView.Centered` は片軸 0 で子の自然サイズを保持します。
+- プラグインテンプレートを独立リポジトリ `turboism/turboism-plugin-template` へ分離しました。
+
+### 非推奨
+
+- `PhysicsEditorService.gifCommand` と `PhysicsEditorService.GifCommand` を削除予定として非推奨にしました（現在は無操作、代わりに `PreviewFrameService` を使用してください）。
+
+### 削除
+
+- 重複する内部自己ハッシュ（スクリプト `sourceSha256`、`.tplugin` `packageHash`/`pluginDescriptorSha256`、イベント `abiSha256`、`PublicEventAbi`）を廃止しつつ、アーカイブ／カタログ検証と旧形式読み込み互換を維持しました。
+- 未使用の権限 ID（`turboism.ui.menu`、`turboism.ui.palette`、`turboism.ui.toolbar`）を削除し、5 つの同義能力 ID を正規 ID（`cubism.parameter.read`/`write`、`cubism.editor-history.read`/`move`）へ統合しました。
+- 1.0 前に未参照だった旧 SDK 公開面（`TextureAtlasEditorUi`/`Panel`、`MeshMirrorAxisService`/`Counterparts`/`MoveParticipation`/`ToolEligibility`、`MeshEditParticipation`/`UiService`、`UiHostCapabilityService.refreshOffCanvasAppearance()`、`EditorCommand.MOVE_END*`、`Motion3Validator`/`Issue`/`Report`、`dev.turboism.sdk.failure`）を削除し、`HostViewPanel`、`MeshMirrorControl`、`MeshEditContributionSurface`、`PreviewFrameService` に置き換えました。
 
 ### 修正
 
-- プラグインの完了処理が、解放すべきワーカーの後ろでデッドロックしなくなりました。完了は専用レーンで実行されるため、テーママネージャーはセッション中ずっとタイムアウトせず開きます。
-- 定期更新は 1 回の予算超過でスケジュールを終了せず、ステータスバーのタイマーは遅い初回更新の後も公開を続けます。
-- ボードのカードは子要素を通じてホバーと押下のフィードバックを示し、リスト行はテキストの背後に背景ブロックを描かず、ボードはキャンバス脇のネイティブレールを覆います。
-- 一括リネームのプレビューは、コントロール内部の record 文字列ではなく命名基準のラベルを表示します。
-- テーマがキャンバスのスクロールバーのキーを管理し、空のワークスペースのボード脇の帯もテーマに従います。
-- 3D 読み込みの読み戻し検証は、送信したキーフォーム編集のみを比較し、失敗メッセージの先頭にフィールド名を出します。正しいプリセット読み込みはロールバックしません。
+- ランタイムシェルの起動期限分離と専用完了レーンによりテーママネージャーのデッドロックや周期更新停止を解消。ArtMesh ミラードラッグを含むホットパス反射・割り当てを削減し、起動字幕のフォールバックフォント解決を追加しました。
+- ボードカードのホバー／押下表示、リスト行描画、ネイティブレール被覆、`Bitmask Nesting` 表記統一、項目を失わないインプレースのサムネイル削除を修正しました。
+- キャンバススクロールバーのテーマ追従、表示倍率（100%–200%）対応パレットアイコン、`AcpChatWindow` の `MultiUIDefaults` Look-and-Feel 解決（グローバル `JComboBox` テーマ維持）、JVM 設定行表示、自己更新時の非リダイレクト Wine マウント判定を修正しました。
+- ACP 入力欄の接続状態横断での編集・フォーカス維持、保存済み Agent 直結、`user_message_chunk` と Codex/Claude Code/Pi 履歴再生、Agent ボタンのチェック記号整理、全 UI テーマ適用、差分ストリーミング更新、UI 事前キャッシュ、画像コンテキストメニューを修正・実装しました。
+- 3D・プリセット読み込みのアトラス後スナップショット再取得（ドーナツのロールバック修正）と生成オブジェクト名の多言語化、読み戻しエラー表記、一括リネーム基準ラベル、クリップマスク GL scissor、ArtMesh ミラーのドラッグ遅延・T バッジ・選択ボタン表示を修正しました。
 
 ## [0.68.1] - 2026-10-30
 

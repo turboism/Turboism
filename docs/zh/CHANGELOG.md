@@ -8,67 +8,41 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ## [Unreleased]
 
-### 新增
-
-- 最近工程看板的标题栏移到滚动区之外，因此无论卡片列表是否溢出，布局切换按钮的位置都不再变化；该按钮同时改为在标题栏内垂直居中。固定尺寸的居中单元格现在会把较短的子内容垂直居中，而不是拉伸它，看板的“暂无预览”占位与空状态因此回到各自区域的正中。每张卡片新增 Lucide 垃圾桶按钮，通过提供方删除该工程的缓存缩略图，卡片回到占位状态，悬停弹窗也不再显示旧图。SDK 新增 `RecentPreviewCacheService`（运行时中介的删除代理，由提供方注册删除处理器）、`RecentPreviewDeletedEvent` 与公共事件 `thumbnail.deleted`、`PluginService.RECENT_PREVIEW_CACHE`，以及 `turboism.ui.recent-preview.manage` 权限。
-- 预览缩略图改为优先使用编辑器原生离屏模型渲染，与 MCP 渲染工具读取同一路径，因此缩略图只包含模型本身，不再是被工具栏遮挡或全空的 GL 回读。组件截图管线保留为兜底：既覆盖没有获准渲染器的宿主，也覆盖未打开模型时的捕获请求。
-- 新增一次性产品引导窗口：外壳启动后展示，用户关闭后不再出现。内容介绍框架与更新方式、插件安装与插件管理及插件市场、官方反馈渠道。可从 Turboism 菜单随时重新打开。`config.json` 用 `guide.showOnStartup` 记录该选择，安装器保留已记录的值，因此升级不会重复弹出用户已关闭的引导。
-- ACP 输入框的占位符改为每次打开窗口时随机显示一条本地化示例请求。示例文案由插件语言目录提供，翻译者无需改动代码即可调整。
-- ACP 输入区新增 Paseo 风格的任务进度（Todo）与生成速度（TPS）状态胶囊及详情浮层，支持本会话内记住工具授权与权限自动允许模式，并在对话消息中展示电脑本地时间。
-
-### 修复
-
-- ACP 输入框在断开、连接中与生成中始终保持可点击、可聚焦与可编辑状态，点击输入卡片或视口空白区域即可聚焦输入，并在已有持久化 Agent 时直接发起连接而不被全量探测阻塞；历史会话加载与恢复现支持处理 `user_message_chunk`（自动剥离内部系统边界前缀）、提升重放事件容量上限，并为原生 Codex、Claude Code 与 Pi 会话在恢复时重放历史消息与工具记录。
-- 3D 模型与预设导入在纹理图集重映射完成后重新读取参数插值前快照，修复甜甜圈等预设导入回滚失败的问题，并为生成的部件、变形器与图形网格名称补全多语言本地化。
-- 最近工程看板点击垃圾桶按钮时仅删除对应缓存缩略图并在原位刷新为默认“暂无预览”占位，不改变或丢失最近工程条目；插件管理窗口移除顶部的“待办变更”按钮并将底部两排操作按钮统一靠右对齐；自动排版算法列表中的名称统一为 `Bitmask Nesting`；修复 `AcpChatWindow` 在 `MultiUIDefaults` 上覆盖全局 `BasicComboBoxUI` 导致所有下拉选择框样式异常的问题。
-- ACP 输入框的 Agent 按钮只显示 Agent 名称。下拉菜单继续用对勾标出已检测到的安装。
-- 原生面板图标跟随显示缩放。图标所有者现在采样屏幕变换并选择已审核的 100/125/150/175/200 百分比变体，不再把每个会话固定在 100%，锁定图标在缩放显示下保持清晰。
-- ACP 窗口的所有控件、对话滚动条、限高可搜索模型菜单与权限弹窗现均跟随当前主题；用户消息卡片垂直居中，连续的思考作为二级折叠项收纳在工具活动组内，流式消息与工具状态改为增量原地更新，消除长对话重绘卡顿。
-
-## [0.70.0] - 2026-11-10
+## [0.70.0] - 2026-11-15
 
 ### 新增
 
-- 插件市场改用与后台自动更新相同的准入规则：`PluginReleaseCompatibility` 成为唯一判定点，市场提供的发布即为更新器会接受的发布。`stable` 安装不再安装 `preview` 发布，`beta` 与 `nightly` 接受两者。缺少 `windows-x64` 平台或 `required` 插件依赖无法满足的发布也会被拒绝。已安装插件若没有兼容的目录发布，仍显示为已安装且不提供下载，渠道限制不会被描述成损坏的插件。
-- `packaging/market-plugins.json` 记录每个插件的 `publication` 决定。新加入名册的插件默认 `withheld`，因此把插件写入 `packaging/market-plugins.txt` 不会自行发布，需要审阅者在单独提交中设为 `approved`。已批准但必需依赖仍被保留的插件在暂存阶段失败，除非签名目录已经提供兼容发布。
-- 暂存阶段在构建字节未变且目录只在 `preview` 渠道提供该字节时，把插件从 `preview` 提升为 `stable`，因此 Beta 期间首次发布的插件无需无关的源码改动即可到达 Stable 安装。提升会递增修订版本号，因为目录版本必须唯一且严格递增；不会隐式降级。
-- 新增官方 `project-work-time` 插件及共享运行时计时器：底部状态栏显示当前编辑器会话的前台用时与当前工程跨会话累计工作时间。只有 Cubism 位于前台时运行时才会计时，并按工程持久化累计数据。SDK 新增 `CubismFacade.isEditorForeground()`、`CubismFacade.activity()`、`CubismActivityChangedEvent` 与 `ProjectWorkTimeService` 目录服务，其他插件可直接复用同一份统计，避免重复实现计时逻辑。
-
-- SDK 新增孵化中的 `PreviewFrameService` 能力（含 `PreviewFrameSource`、`PreviewFrame`、`PreviewFrameSourceClosedException` 与 `PluginService.PREVIEW_FRAMES` 目录成员），并新增 `cubism.preview.capture` 准入规则：插件可读取聚焦预览的帧并在其上放置自己的 `PanelView` 控制条，由运行时负责解析预览表面、在独立线程上完成 OpenGL 回读，并在插件代际关闭后丢弃更新。
-
-- SDK 新增孵化中的 `HostViewPanel` 能力（含 `HostViewPanelHandle`、`HostViewAnchors` 锚点常量与 `PluginService.HOST_VIEW_PANEL` 目录成员）：插件可把 `PanelView` 内容挂到指定的宿主视图（首期为原生纹理图集编辑器），由运行时负责渲染、在编辑器线程上应用更新，并在插件代际关闭后静默丢弃更新。
-
-- SDK 新增孵化中的 `MeshCanvasSession` 能力与 `MeshToolContext.canvasSession()`：插件按自身状态计算点线布局，由运行时绘制预览、跟随操作者在画布上放置的锚点，并以单次撤销提交整份布局。`geometric-mesh-layout` 插件现在自行持有形状算法、参数状态与配置对话框。
-
-- 物理模拟预览新增 GIF 录制：支持录制／暂停／继续、停止／放弃及注册快捷键、录制后调整导出尺寸、可选 Gifsicle 目标大小优化（默认 20 MB），并持久化 GIF 专用导出目录。录制状态机、编码器、导出对话框、缩放／Gifsicle 策略与控制条均由 `:plugins:physics-editor` 持有，`:runtime` 只提供它们所驱动的通用预览截帧能力。
-
-- SDK 新增孵化中的 `MeshMirrorControl` 与 `MeshEditContributionSurface` 能力，并新增 `PluginService.MESH_MIRROR_CONTROL` 与 `PluginService.MESH_EDIT_CONTRIBUTION` 目录成员。两者分别把插件总是同时需要的已发布单一职责服务合并在一起：一侧是镜像轴、镜像对应点规则、移动参与和可用工具集，另一侧是宿主编辑参与与原生工具区贡献，网格编辑不再需要六次服务查找。权限与操作标识保持不变。
-- SDK 新增 `SelectionTableFooter` 与 `openSelectionTableDialog(request, footer, listener)` 重载：预览表格可以携带一个页脚控件，并在该控件变化时重建行，因此批量重命名的命名基准直接置于它所影响的预览中。
-- `project-work-time` 只统计打开中的工程：空白工作区中状态栏的会话读数为零且暂停，工程关闭后立即回到零。
-- GIF 导出在 GIF 之外提供动画 PNG，进程内写出且不需要外部工具，结束后的结果报到宿主状态栏。
-- 3D 预设导入把选择与预览放在同一个窗口，预览随选择实时重建；内置预设纹理按逻辑面着色并编号。
-
-### 已弃用
-
-- `PhysicsEditorService.gifCommand` 与 `PhysicsEditorService.GifCommand` 已标记为待移除：运行时不再代插件录制 GIF，命令被接受但不产生任何效果。请改用 `PreviewFrameService`（配合 `PluginService.PREVIEW_FRAMES`）在插件内驱动录制；下一小版本移除。
-
-- `TextureAtlasEditorUi` 与 `TextureAtlasEditorPanel` 已标记为待移除；两者仍作为 `HostViewPanel` 之上的薄适配器继续可用。请改用 `HostViewPanel.attach(HostViewAnchors.TEXTURE_ATLAS_EDITOR, ...)` 与 `HostViewPanelHandle.setContent(PanelView)`。
-
-- `MeshMirrorAxisService`、`MeshMirrorCounterparts`、`MeshMirrorMoveParticipation`、`MeshMirrorToolEligibility`、`MeshEditParticipation` 与 `MeshEditUiService`（连同其 `PluginService` 成员与 `MeshEditUiService.MirrorAxisAngleControl`）已标记为待移除；六者行为保持不变。请改用 `MeshMirrorControl` 与 `MeshEditContributionSurface`。
+- 插件市场改用与后台自动更新相同的 `PluginReleaseCompatibility` 准入规则（`stable` 仅允许 `stable`，`beta`/`nightly` 同时接受 `preview`，校验 `windows-x64` 与 `required` 依赖）。`packaging/market-plugins.json` 记录每插件 `publication` 决定（新增默认 `withheld`），暂存时自动递增版本号并将字节未变的 `preview` 插件提升至 `stable`。
+- 新增官方预览插件 `recent-project-board` 以及 `RecentFileService.open`、`PanelView.Card`/`Grid`/`Centered`/`Link` 与 `RecentPreviewCacheService`（含 `RecentPreviewDeletedEvent`、`thumbnail.deleted` 事件与 `turboism.ui.recent-preview.manage` 权限），支持滚动区外固定垂直居中标题栏布局切换（6 列/3 列/详情）、空状态新建项目与新建动画链接、卡片垃圾桶图标按项删除缓存缩略图，以及优先使用编辑器原生离屏模型渲染缩略图（失败或无模型时回退组件截图）。
+- 新增官方 `project-work-time` 插件及共享运行时前台计时器（`CubismFacade.isEditorForeground()`、`activity()`、`CubismActivityChangedEvent` 与 `ProjectWorkTimeService`），仅在工程打开且 Cubism 位于前台时统计当前会话与跨会话累计工时。
+- 启动外壳后首次弹出产品引导窗口介绍框架更新、插件市场与反馈渠道，关闭后不再弹出，可从 Turboism 菜单重新打开（`config.json` 记录 `guide.showOnStartup` 并在升级时保留）。
+- 正式公开并推广已审核 SDK 能力：`PreviewFrameService`（`cubism.preview.capture`）、`HostViewPanel`（`HostViewAnchors.TEXTURE_ATLAS_EDITOR`）、`MeshCanvasSession`（`MeshToolContext.canvasSession()`）、`MeshMirrorControl`、`MeshEditContributionSurface`、`SelectionTableFooter`（`openSelectionTableDialog(request, footer, listener)`）、单一来源权限表 `permission-ids.txt`，并将全部 39 个官方插件的 `turboismApi` 迁至无上限半开区间 `[lower,)`。
+- 物理模拟预览支持在 `:plugins:physics-editor` 内录制 GIF 与进程内动画 PNG，提供暂停/继续/放弃、快捷键、缩放与 Gifsicle 目标体积优化（默认 20 MB）、持久化导出目录及状态栏完成提示。
+- `deformer-batch-rename` 新增读取进度框与单遍命名索引；3D 预设导入将选择与实时预览合并至同一窗口，内置纹理按逻辑面着色并编号。
+- ACP 输入区支持按语言目录随机展示本地化示例占位符、Paseo 风格任务进度（Todo）与生成速度（TPS）胶囊及详情浮层、会话内工具授权记忆、自动允许模式以及本地消息时间戳。
 
 ### 变更
 
-- 插件管理窗口的底部拆成「获取动作」与「选择动作」两行，英文标签不再被挤出可视区；插件管理与插件市场去掉多余页脚「关闭」按钮。
-- `PanelView.Centered` 允许单个维度为 0，此时该方向保持子节点的自然尺寸。
+- 插件管理底部拆分为靠右对齐的获取与选择两行，移除过时的“待办变更”及多余“关闭”按钮；`PanelView.Centered` 允许单维为 0 以保持子节点自然尺寸。
+- 将插件模板拆分为独立仓库 `turboism/turboism-plugin-template`。
+
+### 已弃用
+
+- `PhysicsEditorService.gifCommand` 与 `PhysicsEditorService.GifCommand` 已标记为待移除（当前为空操作；请改用 `PreviewFrameService`）。
+
+### 移除
+
+- 移除冗余内部自校验哈希（脚本清单 `sourceSha256`、`.tplugin` `packageHash`/`pluginDescriptorSha256`、事件 `abiSha256` 与 `PublicEventAbi`），保留归档与目录边界校验并向后兼容旧版读取。
+- 移除未使用的权限 ID（`turboism.ui.menu`、`turboism.ui.palette`、`turboism.ui.toolbar`），并将五项同义能力收拢至规范 ID（`cubism.parameter.read`/`write`、`cubism.editor-history.read`/`move`）。
+- 移除未被引用的 1.0 前废弃 SDK 接口（`TextureAtlasEditorUi`/`Panel`、`MeshMirrorAxisService`/`Counterparts`/`MoveParticipation`/`ToolEligibility`、`MeshEditParticipation`/`UiService`、`UiHostCapabilityService.refreshOffCanvasAppearance()`、`EditorCommand.MOVE_END*`、`Motion3Validator`/`Issue`/`Report` 与 `dev.turboism.sdk.failure`），由 `HostViewPanel`、`MeshMirrorControl`、`MeshEditContributionSurface` 与 `PreviewFrameService` 替代。
 
 ### 修复
 
-- 插件完成回调不再被它必须释放的 worker 阻塞：结算走独立通道，主题管理器可以正常打开，而不是整个会话持续超时。
-- 周期刷新在一次超预算后不再终止排期，因此状态栏计时器在首次缓慢刷新后仍会继续发布。
-- 看板卡片通过子树获得悬停与按下反馈，列表行不再在文字后绘制背景块，看板覆盖画布旁的原生轨道条。
-- 批量重命名预览显示命名基准的文字标签，而不是控件内部的 record 文本。
-- 主题接管画布滚动条颜色键，空白工作区看板旁的长条随主题变化。
-- 3D 导入的读回校验只比对本次提交的关键帧编辑，并让失败文案以字段名开头，正确的预设导入不再回滚。
+- 为运行时外壳启动增加独立超时并将完成结算移至专用通道，防止主题管理器阻塞与周期刷新在首次超预算后停止；消除 ArtMesh 镜像拖拽等热路径反射与分配抖动，并补全启动字幕回退字体解析。
+- 修复最近工程看板悬停/按下反馈、列表行样式、原生侧轨遮挡、`Bitmask Nesting` 名称一致性，以及点击垃圾桶后原地清空缩略图而不丢失最近工程条目。
+- 修复画布滚动条主题键值、按屏幕显示比例（100%–200%）选取原生面板图标、`AcpChatWindow` 的 `MultiUIDefaults` 外观解析（保留全局 `JComboBox` 主题）、JVM 设置行可见性及自更新中非重定向 Wine 挂载边界检查。
+- 保持 ACP 输入框跨连接状态可编辑聚焦，支持持久化 Agent 直连、`user_message_chunk` 与原生 Codex/Claude Code/Pi 历史会话重放、Agent 按钮去重对勾、全控件主题适配、流式增量更新、界面预缓存与图片右键菜单。
+- 修复 3D 与预设导入在图集重映射后重读快照（解决甜甜圈回滚）及多语言对象命名，修正批量重命名基准标签，修复剪贴蒙版 GL scissor、ArtMesh 镜像拖拽延迟、T 徽章与镜像按钮显隐问题。
 
 ## [0.68.1] - 2026-10-30
 
