@@ -146,7 +146,17 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
                 return null;
             }
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = HostClassWriters.computeFrames(reader, loader);
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader == null ? super.getClassLoader() : loader;
+                }
+
+                @Override
+                protected String getCommonSuperClass(final String left, final String right) {
+                    return HostClassWriters.commonSuperClass(loader, left, right);
+                }
+            };
             final boolean[] applied = {false};
             reader.accept(new WarpGridClassVisitor(writer, applied), ClassReader.EXPAND_FRAMES);
             if (!applied[0]) {

@@ -89,13 +89,14 @@ class OptimizationSettingsContributionTest {
 
         toggle.binding().write(false);
         assertFalse(settings.enabled(optimization.key()), "an explicit opt-out is persisted too");
+        final var resolvedLink = OptimizationSettingsContribution.referenceLink(localization(), toggle.id());
         if (optimization.equals(OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_ELISION)) {
-            assertTrue(toggle.referenceLink().isPresent());
+            assertTrue(resolvedLink.isPresent());
             assertEquals(
                     OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_REFERENCE_URI,
-                    toggle.referenceLink().orElseThrow().uri());
+                    resolvedLink.orElseThrow().uri());
         } else {
-            assertTrue(toggle.referenceLink().isEmpty());
+            assertTrue(resolvedLink.isEmpty());
         }
     }
 

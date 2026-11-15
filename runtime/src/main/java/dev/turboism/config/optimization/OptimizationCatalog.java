@@ -360,8 +360,7 @@ public final class OptimizationCatalog {
             "settings.optimization.extended-interpolation-sibling-elision.tooltip",
             List.of(),
             Optional.of(new Optimization.ReferenceLink(
-                    "settings.optimization.extended-interpolation-sibling-elision.reference",
-                    EXTENDED_INTERPOLATION_SIBLING_REFERENCE_URI)));
+                    "settings.optimization.sibling-elision.reference", EXTENDED_INTERPOLATION_SIBLING_REFERENCE_URI)));
 
     /**
      * Accelerates in-bounds warp grid bilinear and triangle interpolation while delegating

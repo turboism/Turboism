@@ -4,22 +4,16 @@ import java.net.URI;
 import java.util.Locale;
 import java.util.Objects;
 
-/** Represents a user-initiated HTTPS link attached to a settings control or validation refusal. */
+/** One user-initiated HTTPS link offered after a settings change is rejected. */
 public record SettingsLink(String label, URI uri, String openFailureMessage) {
-    private static final String HTTPS_SCHEME = "https";
-    private static final int MAX_LABEL_LENGTH = 256;
-    private static final int MAX_OPEN_FAILURE_MESSAGE_LENGTH = 512;
-
     public SettingsLink {
-        label = requireText(label, "label", MAX_LABEL_LENGTH);
+        label = requireText(label, "label", 64);
         uri = Objects.requireNonNull(uri, "uri");
         final String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
-        if (!HTTPS_SCHEME.equals(scheme)
-                || uri.getHost() == null
-                || uri.getHost().isBlank()) {
+        if (!"https".equals(scheme) || uri.getHost() == null || uri.getHost().isBlank()) {
             throw new IllegalArgumentException("settings links must use an absolute HTTPS URI");
         }
-        openFailureMessage = requireText(openFailureMessage, "openFailureMessage", MAX_OPEN_FAILURE_MESSAGE_LENGTH);
+        openFailureMessage = requireText(openFailureMessage, "openFailureMessage", 512);
     }
 
     private static String requireText(final String value, final String name, final int max) {

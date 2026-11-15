@@ -216,6 +216,7 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
         try {
             return singletonField.get(null) != null;
         } catch (final Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return false;
         }
     }

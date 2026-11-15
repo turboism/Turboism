@@ -249,7 +249,7 @@ final class OptimizationCatalogTest {
                 withReferenceLink(
                         OptimizationCatalog.GL_GET_ERROR_ELISION,
                         Optional.of(new Optimization.ReferenceLink(
-                                "settings.optimization.extended-interpolation-sibling-elision.reference",
+                                "settings.optimization.sibling-elision.reference",
                                 OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_REFERENCE_URI))));
 
         assertRefused("is persisted but declares no config key", withKey(base, ""));

@@ -6,7 +6,6 @@ import dev.turboism.config.optimization.OptimizationPreset;
 import dev.turboism.internal.core.OptimizationSettingsService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsBinding;
-import dev.turboism.sdk.ui.settings.SettingsChangeValidator;
 import dev.turboism.sdk.ui.settings.SettingsContribution;
 import dev.turboism.sdk.ui.settings.SettingsControl;
 import dev.turboism.sdk.ui.settings.SettingsLink;
@@ -121,10 +120,6 @@ final class OptimizationSettingsContribution {
                         () -> new IllegalArgumentException(optimization.contributionId() + " renders no settings row"));
         final String id = optimization.contributionId();
         final String key = optimization.key();
-        final Optional<SettingsLink> referenceLink = optimization
-                .referenceLink()
-                .map(ref -> new SettingsLink(
-                        i18n.text(ref.labelKey()), ref.uri(), i18n.format(REFERENCE_OPEN_FAILED_KEY, ref.uri())));
         return new SettingsContribution(
                 id,
                 settingsTab(i18n),
@@ -132,9 +127,23 @@ final class OptimizationSettingsContribution {
                 new SettingsControl.Toggle(
                         id,
                         i18n.text(optimization.labelKey()),
-                        SettingsBinding.of(() -> settings.enabled(key), value -> settings.setEnabled(key, value)),
-                        SettingsChangeValidator.acceptAll(),
-                        referenceLink));
+                        SettingsBinding.of(() -> settings.enabled(key), value -> settings.setEnabled(key, value))));
+    }
+
+    /**
+     * Resolves the optional external HTTPS reference link declared for {@code contributionId}.
+     *
+     * @param i18n the shell localization the link label and failure message resolve through
+     * @param contributionId the settings contribution id of the toggle row
+     * @return localized {@link SettingsLink} when the optimization declares a reference link
+     */
+    static Optional<SettingsLink> referenceLink(final PluginLocalization i18n, final String contributionId) {
+        Objects.requireNonNull(i18n, "i18n");
+        Objects.requireNonNull(contributionId, "contributionId");
+        return OptimizationCatalog.byContributionId(contributionId)
+                .flatMap(Optimization::referenceLink)
+                .map(ref -> new SettingsLink(
+                        i18n.text(ref.labelKey()), ref.uri(), i18n.format(REFERENCE_OPEN_FAILED_KEY, ref.uri())));
     }
 
     /**

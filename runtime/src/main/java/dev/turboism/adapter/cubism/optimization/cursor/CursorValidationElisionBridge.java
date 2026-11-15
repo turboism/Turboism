@@ -110,7 +110,7 @@ public final class CursorValidationElisionBridge implements AutoCloseable {
             try {
                 Toolkit.getDefaultToolkit().removeAWTEventListener(eventListener);
             } catch (final Throwable ignored) {
-                // Toolkit shutdown or headless teardown needs no further cleanup.
+                FatalErrors.rethrowIfFatal(ignored);
             }
         }
         final Properties properties = installedProperties;
@@ -154,7 +154,7 @@ public final class CursorValidationElisionBridge implements AutoCloseable {
                 pointerDirty = false;
                 return;
             } catch (final Throwable ignored) {
-                // Fall back to lazy PointerInfo refresh on next query.
+                FatalErrors.rethrowIfFatal(ignored);
             }
         }
         pointerDirty = true;

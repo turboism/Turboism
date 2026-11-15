@@ -579,7 +579,7 @@ final class CoreWindows implements AutoCloseable {
                 }
                 showRejectedChange(owner, decision);
             });
-            final java.awt.Component right = toggle.referenceLink()
+            final java.awt.Component right = OptimizationSettingsContribution.referenceLink(i18n, toggle.id())
                     .<java.awt.Component>map(link -> createReferenceLinkButton(toggle.id(), link))
                     .orElseGet(JLabel::new);
             add(panel, row, checkbox, right);

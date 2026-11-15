@@ -475,7 +475,17 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
     }
 
     private ClassWriter hostWriter(final ClassReader reader) {
-        return HostClassWriters.computeFrames(reader, loader);
+        return new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected ClassLoader getClassLoader() {
+                return loader == null ? super.getClassLoader() : loader;
+            }
+
+            @Override
+            protected String getCommonSuperClass(final String left, final String right) {
+                return HostClassWriters.commonSuperClass(loader, left, right);
+            }
+        };
     }
 
     private static MethodVisitor wrapInvalidator(final MethodVisitor downstream, final int argumentSlot) {

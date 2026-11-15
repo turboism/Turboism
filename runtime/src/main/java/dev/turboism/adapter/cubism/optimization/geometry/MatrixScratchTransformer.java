@@ -145,7 +145,17 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
                 return null;
             }
             ClassReader reader = new ClassReader(bytes);
-            ClassWriter writer = HostClassWriters.computeFrames(reader, loader);
+            ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader == null ? super.getClassLoader() : loader;
+                }
+
+                @Override
+                protected String getCommonSuperClass(final String left, final String right) {
+                    return HostClassWriters.commonSuperClass(loader, left, right);
+                }
+            };
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override
