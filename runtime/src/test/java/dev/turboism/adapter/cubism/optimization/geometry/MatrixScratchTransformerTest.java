@@ -229,7 +229,7 @@ class MatrixScratchTransformerTest {
 
     @Test
     void bridgeAggregatesThreadStateCountersAndEvictsSlotsSafely() throws Exception {
-        final int chainCount = 2200;
+        final int chainCount = 8500;
         final int chainDepth = 2;
         final int workerChainDepth = 3;
         final int workerRepeat = 2;

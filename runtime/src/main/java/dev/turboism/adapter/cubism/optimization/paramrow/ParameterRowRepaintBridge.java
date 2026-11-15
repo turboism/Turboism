@@ -362,8 +362,13 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         rowPacket[ROW_PACKET_GROUP_COLOR_INDEX] = groupColorScratch;
         visualPacket[VISUAL_PACKET_HASH_INDEX] = hashScratch;
 
+        final boolean controllableIsInterface =
+                HostHandles.load(loader, ParameterRowRepaintTarget.CONTROLLABLE_INTERFACE)
+                        .isInterface();
         final Map<String, byte[]> generated = new HashMap<>();
-        generated.put(binaryName(KEYFORM_HASHER_INTERNAL), buildKeyformHasherClass(loader));
+        generated.put(
+                binaryName(KEYFORM_HASHER_INTERNAL),
+                buildKeyformHasherClass(loader, controllableIsInterface));
         generated.put(binaryName(ROW_CLASSIFIER_INTERNAL), buildRowClassifierClass(loader));
         generated.put(binaryName(ROW_SYNC_1_INTERNAL), buildRowSyncerClass(loader, ROW_SYNC_1_INTERNAL, false));
         generated.put(binaryName(ROW_SYNC_2_INTERNAL), buildRowSyncerClass(loader, ROW_SYNC_2_INTERNAL, true));
@@ -1210,7 +1215,8 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         return Class.forName(binaryName(internalName), true, loader).getConstructor().newInstance();
     }
 
-    private static byte[] buildKeyformHasherClass(final ClassLoader hostLoader) {
+    private static byte[] buildKeyformHasherClass(
+            final ClassLoader hostLoader, final boolean controllableIsInterface) {
         final ClassWriter cw = frameWriter(hostLoader);
         cw.visit(
                 Opcodes.V17,
@@ -1275,11 +1281,11 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         mv.visitLabel(isControllable);
         mv.visitTypeInsn(Opcodes.CHECKCAST, ParameterRowRepaintTarget.CONTROLLABLE_INTERFACE);
         mv.visitMethodInsn(
-                Opcodes.INVOKEINTERFACE,
+                controllableIsInterface ? Opcodes.INVOKEINTERFACE : Opcodes.INVOKEVIRTUAL,
                 ParameterRowRepaintTarget.CONTROLLABLE_INTERFACE,
                 ParameterRowRepaintTarget.GET_SOURCE_METHOD,
                 ParameterRowRepaintTarget.CONTROLLABLE_SOURCE_GETTER_DESCRIPTOR,
-                true);
+                controllableIsInterface);
         mv.visitVarInsn(Opcodes.ASTORE, sourceLocal);
         mv.visitVarInsn(Opcodes.ALOAD, sourceLocal);
         mv.visitJumpInsn(Opcodes.IFNULL, loopNext);

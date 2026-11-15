@@ -147,7 +147,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
     private static final int LOCAL_BITS = 8;
     private static final int LOCAL_ALLOC_MATRIX = 2;
 
-    private static final int CACHE_SET_COUNT = 2048;
+    private static final int CACHE_SET_COUNT = 8192;
     private static final int CACHE_WAY_SHIFT = 1;
     private static final int CACHE_WAY_COUNT = 2;
     private static final int CACHE_TOTAL_SLOTS = CACHE_SET_COUNT * CACHE_WAY_COUNT;

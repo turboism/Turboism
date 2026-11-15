@@ -604,19 +604,14 @@ class ParameterRowRepaintArtifactTest {
             addGetter(cw, "getExtendedKeyformMorphTargetSetIfAvailable", "()Lcom/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet;", "com/live2d/cubism/doc/model/ACParameterControllableSource", "extMorphSet", "Lcom/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet;", Opcodes.ARETURN);
         });
 
-        defineInterface(out, "com/live2d/cubism/doc/model/ACParameterControllable", cw ->
-                cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "getSource", "()Lcom/live2d/cubism/doc/model/ACParameterControllableSource;", null, null).visitEnd());
+        defineSimpleClass(out, "com/live2d/cubism/doc/model/ACParameterControllable", "java/lang/Object", cw -> {
+            cw.visitField(Opcodes.ACC_PUBLIC, "source", "Lcom/live2d/cubism/doc/model/ACParameterControllableSource;", null, null).visitEnd();
+            addDefaultInit(cw, "java/lang/Object");
+            addGetter(cw, "getSource", "()Lcom/live2d/cubism/doc/model/ACParameterControllableSource;", "com/live2d/cubism/doc/model/ACParameterControllable", "source", "Lcom/live2d/cubism/doc/model/ACParameterControllableSource;", Opcodes.ARETURN);
+        });
 
-        defineClassWithInterfaces(
-                out,
-                "com/live2d/cubism/doc/model/StubControllable",
-                "java/lang/Object",
-                new String[] {"com/live2d/cubism/doc/model/ACParameterControllable"},
-                cw -> {
-                    cw.visitField(Opcodes.ACC_PUBLIC, "source", "Lcom/live2d/cubism/doc/model/ACParameterControllableSource;", null, null).visitEnd();
-                    addDefaultInit(cw, "java/lang/Object");
-                    addGetter(cw, "getSource", "()Lcom/live2d/cubism/doc/model/ACParameterControllableSource;", "com/live2d/cubism/doc/model/StubControllable", "source", "Lcom/live2d/cubism/doc/model/ACParameterControllableSource;", Opcodes.ARETURN);
-                });
+        defineSimpleClass(out, "com/live2d/cubism/doc/model/StubControllable", "com/live2d/cubism/doc/model/ACParameterControllable", cw ->
+                addDefaultInit(cw, "com/live2d/cubism/doc/model/ACParameterControllable"));
 
         defineSimpleClass(out, "com/live2d/cubism/doc/model/CModel", "java/lang/Object", cw -> {
             cw.visitField(Opcodes.ACC_PUBLIC, "parameterSet", "Lcom/live2d/cubism/doc/model/param/CParameterSet;", null, null).visitEnd();
