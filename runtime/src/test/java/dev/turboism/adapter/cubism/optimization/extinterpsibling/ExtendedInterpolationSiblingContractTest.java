@@ -36,33 +36,28 @@ final class ExtendedInterpolationSiblingContractTest {
     }
 
     @Test
-    void catalogEntryDerivesFromExtendedInterpolationIncrementalSetupAcrossPresets() {
+    void catalogEntryPersistsInHotpathSectionWithReferenceLinkAcrossPresets() {
         final Optimization entry = OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_ELISION;
-        assertFalse(entry.persisted());
+        assertTrue(entry.persisted());
+        assertEquals(Optimization.Access.PERSISTED_LAUNCHER, entry.access());
+        assertEquals("extendedInterpolationSiblingElision", entry.key());
+        assertEquals("extended-interpolation-sibling-elision", entry.contributionId());
         assertEquals(ExtendedInterpolationSiblingTarget.ENABLE_PROPERTY, entry.property());
         assertEquals(List.of("TURBOISM_EXTENDED_INTERPOLATION_SIBLING_ELISION"), entry.protocols());
-        assertEquals(1, entry.relations().size());
+        assertTrue(entry.relations().isEmpty());
+        assertTrue(entry.referenceLink().isPresent());
         assertEquals(
-                Optimization.Relation.Kind.DERIVED_FROM,
-                entry.relations().get(0).kind());
-        assertEquals(
-                OptimizationCatalog.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP,
-                entry.relations().get(0).target());
+                OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_REFERENCE_URI,
+                entry.referenceLink().orElseThrow().uri());
 
         assertTrue(
-                OptimizationPreset.BALANCED
-                        .targetFlag(OptimizationCatalog.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP)
-                        .orElseThrow(),
-                "Balanced preset must activate extended-interpolation incremental setup");
+                OptimizationPreset.BALANCED.targetFlag(entry).orElseThrow(),
+                "Balanced preset must activate sibling extended-interpolation elision");
         assertTrue(
-                OptimizationPreset.HEAVY_EDITING
-                        .targetFlag(OptimizationCatalog.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP)
-                        .orElseThrow(),
-                "Heavy Editing preset must activate extended-interpolation incremental setup");
+                OptimizationPreset.HEAVY_EDITING.targetFlag(entry).orElseThrow(),
+                "Heavy Editing preset must activate sibling extended-interpolation elision");
         assertFalse(
-                OptimizationPreset.OFF
-                        .targetFlag(OptimizationCatalog.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP)
-                        .orElseThrow(),
-                "Off preset must keep extended-interpolation incremental setup disabled");
+                OptimizationPreset.OFF.targetFlag(entry).orElseThrow(),
+                "Off preset must keep sibling extended-interpolation elision disabled");
     }
 }

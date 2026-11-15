@@ -88,16 +88,14 @@ final class RenderPassTraversalContractTest {
     }
 
     @Test
-    void catalogEntryIsDiagnosticOnlyAndDerivesFromMatrixScratch() {
+    void catalogEntryPersistsAsHotpathLauncherOptimization() {
         final Optimization entry = OptimizationCatalog.RENDER_PASS_TRAVERSAL;
-        assertFalse(entry.persisted());
+        assertTrue(entry.persisted());
+        assertEquals(Optimization.Access.PERSISTED_LAUNCHER, entry.access());
+        assertEquals("renderPassTraversal", entry.key());
+        assertEquals("render-pass-traversal", entry.contributionId());
         assertEquals("turboism.optimization.renderPassTraversal", entry.property());
         assertEquals(List.of("TURBOISM_RENDER_PASS_TRAVERSAL"), entry.protocols());
-        assertEquals(1, entry.relations().size());
-        assertEquals(
-                Optimization.Relation.Kind.DERIVED_FROM,
-                entry.relations().get(0).kind());
-        assertEquals(
-                OptimizationCatalog.MATRIX_SCRATCH, entry.relations().get(0).target());
+        assertTrue(entry.relations().isEmpty());
     }
 }
