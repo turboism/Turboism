@@ -103,6 +103,10 @@ class WeaveSpecTest {
                 1,
                 VerifiedRenderPassTraversalInstaller.EXPECTED_MATCHES,
                 VerifiedRenderPassTraversalInstaller.HOOK_ID);
+        assertEquals(
+                1,
+                VerifiedExtendedInterpolationSiblingInstaller.EXPECTED_MATCHES,
+                VerifiedExtendedInterpolationSiblingInstaller.HOOK_ID);
     }
 
     @Test
@@ -188,6 +192,10 @@ class WeaveSpecTest {
                 1,
                 VerifiedRenderPassTraversalInstaller.EXPECTED_OWNERS,
                 VerifiedRenderPassTraversalInstaller.HOOK_ID);
+        assertEquals(
+                1,
+                VerifiedExtendedInterpolationSiblingInstaller.EXPECTED_OWNERS,
+                VerifiedExtendedInterpolationSiblingInstaller.HOOK_ID);
     }
 
     @Test
@@ -223,6 +231,7 @@ class WeaveSpecTest {
         assertRow(VerifiedParameterRowRepaintInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
         assertRow(VerifiedMeshHitTestInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.ANY);
         assertRow(VerifiedRenderPassTraversalInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+        assertRow(VerifiedExtendedInterpolationSiblingInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.ANY);
     }
 
     private static void assertRow(final Admission admission, final PolicyCheck policyCheck, final JvmCheck jvmCheck) {

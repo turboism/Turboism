@@ -601,6 +601,24 @@ public final class OptimizationCatalog {
             "",
             List.of(new Optimization.Relation(Optimization.Relation.Kind.DERIVED_FROM, MATRIX_SCRATCH, "")));
 
+    /**
+     * Diagnostic-only: replaces quadratic sibling scanning and forced extended-interpolation
+     * rebuilds with constant-time lookups and dirty-checked sibling updates; derives its default
+     * from {@link #EXTENDED_INTERPOLATION_INCREMENTAL_SETUP}.
+     */
+    public static final Optimization EXTENDED_INTERPOLATION_SIBLING_ELISION = new Optimization(
+            "",
+            "",
+            Optimization.Access.DIAGNOSTIC_ONLY,
+            List.of("turboism.optimization.extendedInterpolationSiblingElision"),
+            List.of("TURBOISM_EXTENDED_INTERPOLATION_SIBLING_ELISION"),
+            Set.of("cubism.editor-model.extended-interpolation-sibling-elision"),
+            Optional.empty(),
+            "",
+            "",
+            List.of(new Optimization.Relation(
+                    Optimization.Relation.Kind.DERIVED_FROM, EXTENDED_INTERPOLATION_INCREMENTAL_SETUP, "")));
+
     /** Every row, in declaration order. */
     private static final List<Optimization> ALL = List.of(
             MODEL_UPDATE_SKIP,
@@ -641,7 +659,8 @@ public final class OptimizationCatalog {
             WARP_GRID_INTERPOLATION,
             PARAMETER_ROW_REPAINT,
             MESH_HIT_TEST,
-            RENDER_PASS_TRAVERSAL);
+            RENDER_PASS_TRAVERSAL,
+            EXTENDED_INTERPOLATION_SIBLING_ELISION);
 
     static {
         validate(ALL);

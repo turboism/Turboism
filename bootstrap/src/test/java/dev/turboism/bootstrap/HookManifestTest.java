@@ -97,7 +97,8 @@ final class HookManifestTest {
                         WarpGridInterpolationHookContributor.class,
                         ParameterRowRepaintHookContributor.class,
                         MeshHitTestHookContributor.class,
-                        RenderPassTraversalHookContributor.class),
+                        RenderPassTraversalHookContributor.class,
+                        ExtendedInterpolationSiblingHookContributor.class),
                 contributors.stream().map(HookContributor::getClass).toList());
     }
 

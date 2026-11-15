@@ -367,6 +367,18 @@ class AdmissionParityTest {
                             } catch (final java.io.IOException impossible) {
                                 throw new AssertionError(impossible);
                             }
+                        }),
+                new Row(
+                        "extended-interpolation-sibling-elision",
+                        VerifiedExtendedInterpolationSiblingInstaller.ADMISSION,
+                        new Frozen(true, "ANY"),
+                        (policy, requested, jvm) -> {
+                            try {
+                                return VerifiedExtendedInterpolationSiblingInstaller.admitted(
+                                        artifact(), policy, requested);
+                            } catch (final java.io.IOException impossible) {
+                                throw new AssertionError(impossible);
+                            }
                         }));
     }
 

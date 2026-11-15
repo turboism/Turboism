@@ -133,3 +133,5 @@ dev.turboism.bootstrap.ParameterRowRepaintHookContributor
 dev.turboism.bootstrap.MeshHitTestHookContributor
 # Indexed render-pass traversal, single getRenderer cache, and cached draw debug labels.
 dev.turboism.bootstrap.RenderPassTraversalHookContributor
+# Constant-time sibling lookup and dirty-checked extended-interpolation updates.
+dev.turboism.bootstrap.ExtendedInterpolationSiblingHookContributor

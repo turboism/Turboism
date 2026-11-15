@@ -48,6 +48,7 @@ dev.turboism.adapter.cubism.optimization.lineupload.LineRendererUploadSplitArtif
 dev.turboism.adapter.cubism.optimization.paramrow.ParameterRowRepaintArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.hittest.MeshHitTestArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.renderpass.RenderPassTraversalArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
+dev.turboism.adapter.cubism.optimization.extinterpsibling.ExtendedInterpolationSiblingArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.deferred.DeferredGlErrorCheckArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.readback.AsyncReadbackArtifactTest.* # requires TURBOISM_UNIFORM_HOST_JAR (bundled JOGL) exact-host evidence.
 dev.turboism.adapter.cubism.warpalt.WarpAltMirrorReviewedArtifactsTest.* # requires TURBOISM_CUBISM_REF_ROOT; the opt-in :runtime:warpAltMirrorArtifactTest lane owns this evidence.

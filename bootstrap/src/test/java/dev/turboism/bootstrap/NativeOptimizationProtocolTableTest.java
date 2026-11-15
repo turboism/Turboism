@@ -102,6 +102,7 @@ final class NativeOptimizationProtocolTableTest {
                         "TURBOISM_CANVAS_COMPOSITE",
                         "TURBOISM_CLIP_MASK_PROBE",
                         "TURBOISM_CURSOR_VALIDATION_ELISION",
+                        "TURBOISM_EXTENDED_INTERPOLATION_SIBLING_ELISION",
                         "TURBOISM_GL_ERROR_ELISION",
                         "TURBOISM_MESH_HIT_TEST",
                         "TURBOISM_PARAMETER_ROW_REPAINT",
