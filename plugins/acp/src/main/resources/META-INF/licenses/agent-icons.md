@@ -10,6 +10,7 @@ Bundled provider marks were sourced from the following upstream files:
 | `claude`, `gemini`, `opencode`, `antigravity` | [Paseo acp-provider-icons.ts](https://github.com/getpaseo/paseo/tree/9521ee99552d1ecd6c9f103566874778cdf37ec5/packages/app/src/assets/acp-provider-icons.ts), keys `claude-acp`, `gemini`, `opencode`, `agy` |
 | `pi` | [Paseo pi-acp.svg](https://github.com/getpaseo/paseo/tree/9521ee99552d1ecd6c9f103566874778cdf37ec5/packages/app/src/assets/acp-provider-icons/pi-acp.svg) |
 | `devin` | [Lobe Icons devin.svg](https://github.com/lobehub/lobe-icons/blob/8a1b2821bb768c484fe8da20c5e1838b6bf551a9/packages/static-svg/icons/devin.svg) |
+| `deepseek` | [DeepSeek Harness mark](https://www.deepseek.com/harness/) (MIT, [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)) |
 
 Paseo: Copyright (c) 2025-present Mohamed Boudra. Its Apache-2.0 license and third-party component notice are reproduced in [Paseo-LICENSE.txt](Paseo-LICENSE.txt).
 

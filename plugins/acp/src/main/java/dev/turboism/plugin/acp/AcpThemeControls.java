@@ -65,6 +65,7 @@ final class AcpThemeControls {
     static final int FILTER_ITEM_THRESHOLD = 10;
     static final int MAX_POPUP_SCROLL_HEIGHT = 256;
     static final String POPUP_PROPERTY = "acp.popup-menu";
+    static final String PRESERVE_FOREGROUND_PROPERTY = "acp.preserve-foreground";
     private static final int MIN_POPUP_WIDTH = 196;
     private static final int MAX_POPUP_WIDTH = 380;
     private static final int POPUP_GAP = 4;
@@ -190,8 +191,9 @@ final class AcpThemeControls {
                 titled.setTitleColor(AcpChatTheme.foreground());
             }
         }
-        if (component instanceof JLabel) {
-            component.setForeground(AcpChatTheme.foreground());
+        if (component instanceof JLabel label
+                && !Boolean.TRUE.equals(label.getClientProperty(PRESERVE_FOREGROUND_PROPERTY))) {
+            label.setForeground(AcpChatTheme.foreground());
         }
         if (component instanceof AbstractButton button) {
             button.setForeground(AcpChatTheme.foreground());
@@ -205,6 +207,9 @@ final class AcpThemeControls {
         }
         if (component instanceof JTextComponent text) {
             applyTextPalette(text);
+            if (Boolean.TRUE.equals(text.getClientProperty(PRESERVE_FOREGROUND_PROPERTY))) {
+                text.setForeground(AcpChatTheme.muted());
+            }
         }
         if (component instanceof JList<?> list) {
             list.setBackground(AcpChatTheme.background());
@@ -403,8 +408,7 @@ final class AcpThemeControls {
             setLayout(new BorderLayout(0, POPUP_INSET));
             listContainer = new JPanel();
             listContainer.setLayout(new BoxLayout(listContainer, BoxLayout.Y_AXIS));
-            listContainer.setOpaque(true);
-            listContainer.setBackground(AcpChatTheme.surface());
+            listContainer.setOpaque(false);
             int preferredWidth = MIN_POPUP_WIDTH;
             for (ThemedMenuItem item : choices) {
                 item.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -416,9 +420,8 @@ final class AcpThemeControls {
             scrollPane = new JScrollPane(
                     listContainer, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
             scrollPane.setBorder(BorderFactory.createEmptyBorder());
-            scrollPane.setOpaque(true);
-            scrollPane.setBackground(AcpChatTheme.surface());
-            scrollPane.getViewport().setBackground(AcpChatTheme.surface());
+            scrollPane.setOpaque(false);
+            scrollPane.getViewport().setOpaque(false);
             configureScrollPane(scrollPane, true);
             final int scrollHeight = Math.min(MAX_POPUP_SCROLL_HEIGHT, choices.size() * MENU_ITEM_HEIGHT);
             scrollPane.setPreferredSize(new Dimension(preferredWidth, scrollHeight));

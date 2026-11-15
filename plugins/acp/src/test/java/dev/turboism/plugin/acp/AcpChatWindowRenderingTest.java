@@ -406,7 +406,14 @@ final class AcpChatWindowRenderingTest {
                 } catch (javax.swing.text.BadLocationException failure) {
                     throw new AssertionError(failure);
                 }
+                assertTrue(transcript.getText().contains("▸  检查文件 · in_progress"));
+                assertTrue(transcript.getText().contains("▸  读取参数 · completed"));
+                assertFalse(transcript.getText().contains("ls -la"));
+                assertFalse(transcript.getText().contains("ParamAngleX = 0"));
+                toggleDisclosureWithKeyboard(transcript, "检查文件");
                 assertTrue(transcript.getText().contains("printf 'first\\n'\nls -la"));
+                assertFalse(transcript.getText().contains("ParamAngleX = 0"));
+                toggleDisclosureWithKeyboard(transcript, "读取参数");
                 assertTrue(transcript.getText().contains("ParamAngleX = 0"));
                 window.updateTool("command-1", "failed", "permission denied");
                 window.updateTool("command-1", "failed", "");
@@ -784,6 +791,8 @@ final class AcpChatWindowRenderingTest {
                 assertTrue(text.indexOf("▸  Thinking") < text.indexOf("检查参数"));
 
                 window.updateTool("one", "completed", "读取完成");
+                assertFalse(transcript.getText().contains("读取完成"));
+                toggleDisclosureWithKeyboard(transcript, "读取模型");
                 assertTrue(transcript.getText().contains("读取完成"));
                 toggleDisclosureWithKeyboard(transcript, "Tools: 2");
                 text = transcript.getText();
@@ -1122,6 +1131,123 @@ final class AcpChatWindowRenderingTest {
         } finally {
             SwingUtilities.invokeAndWait(windowRef.get()::dispose);
         }
+    }
+
+    @Test
+    void composerHasNoPlaceholderAndTodoPopoverPreservesSurfaceAndSemanticColors() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        SwingUtilities.invokeAndWait(() -> {
+            final String[] keys = {
+                "CubismCommon.background",
+                "CubismCommon.surface",
+                "CubismCommon.foreground",
+                "CubismCommon.mutedForeground",
+                "CubismCommon.blue",
+                "CubismCommon.green"
+            };
+            final java.util.Map<String, Object> previous = new java.util.HashMap<>();
+            for (String key : keys) previous.put(key, javax.swing.UIManager.get(key));
+            final Color bg = new Color(0xFCE8EC);
+            final Color surface = new Color(0xFFFFFF);
+            final Color fg = new Color(0x2B1D22);
+            final Color muted = new Color(0x7D6770);
+            final Color accent = new Color(0xC23D6E);
+            final Color green = new Color(0x2E8B57);
+            javax.swing.UIManager.put("CubismCommon.background", bg);
+            javax.swing.UIManager.put("CubismCommon.surface", surface);
+            javax.swing.UIManager.put("CubismCommon.foreground", fg);
+            javax.swing.UIManager.put("CubismCommon.mutedForeground", muted);
+            javax.swing.UIManager.put("CubismCommon.blue", accent);
+            javax.swing.UIManager.put("CubismCommon.green", green);
+            final AcpChatWindow window = new AcpChatWindow(localization(), "codex", "", "");
+            try {
+                final JTextArea prompt = component(window, "prompt", JTextArea.class);
+                assertEquals(null, prompt.getClientProperty(AcpComposerPanel.PLACEHOLDER_PROPERTY));
+
+                window.showPlan(List.of(
+                        new AcpPlanTracker.Item("Step 1", "", AcpPlanTracker.Status.COMPLETED),
+                        new AcpPlanTracker.Item("Step 2", "Running step 2", AcpPlanTracker.Status.IN_PROGRESS),
+                        new AcpPlanTracker.Item("Step 3", "", AcpPlanTracker.Status.PENDING)));
+                final javax.swing.JPopupMenu popup = window.buildTodoPopover();
+                AcpThemeControls.applyThemeTree(popup);
+                assertTrue(popup.isOpaque());
+                assertEquals(surface, popup.getBackground());
+                final JPanel root = (JPanel) popup.getComponent(0);
+                final javax.swing.JScrollPane scroll = (javax.swing.JScrollPane) root.getComponent(1);
+                assertFalse(scroll.isOpaque());
+                assertFalse(scroll.getViewport().isOpaque());
+                final JPanel listPanel = (JPanel) scroll.getViewport().getView();
+                assertFalse(listPanel.isOpaque());
+                final JPanel row0 = (JPanel) listPanel.getComponent(0);
+                final JPanel row1 = (JPanel) listPanel.getComponent(1);
+                final JPanel row2 = (JPanel) listPanel.getComponent(2);
+                assertEquals(green, ((javax.swing.JLabel) row0.getComponent(0)).getForeground());
+                assertEquals(muted, ((javax.swing.JLabel) row0.getComponent(1)).getForeground());
+                assertEquals(accent, ((javax.swing.JLabel) row1.getComponent(0)).getForeground());
+                assertEquals(fg, ((javax.swing.JLabel) row1.getComponent(1)).getForeground());
+                assertEquals(muted, ((javax.swing.JLabel) row2.getComponent(0)).getForeground());
+            } finally {
+                window.dispose();
+                for (String key : keys) {
+                    if (previous.get(key) == null)
+                        javax.swing.UIManager.getDefaults().remove(key);
+                    else javax.swing.UIManager.put(key, previous.get(key));
+                }
+            }
+        });
+    }
+
+    @Test
+    void questionDialogSupportsSingleMultiAndCustomAnswers() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        SwingUtilities.invokeAndWait(() -> {
+            final AcpQuestion.Request request = new AcpQuestion.Request(
+                    "AskUserQuestion",
+                    List.of(
+                            new AcpQuestion.Item(
+                                    "q1",
+                                    "Axis",
+                                    "Which axis?",
+                                    List.of(
+                                            new AcpQuestion.Option("AngleX", "Head yaw", ""),
+                                            new AcpQuestion.Option("AngleY", "Head pitch", "")),
+                                    false,
+                                    true,
+                                    false,
+                                    false,
+                                    ""),
+                            new AcpQuestion.Item(
+                                    "q2",
+                                    "Parts",
+                                    "Which parts?",
+                                    List.of(
+                                            new AcpQuestion.Option("Eyes", "Eye meshes", ""),
+                                            new AcpQuestion.Option("Hair", "Hair strands", "")),
+                                    true,
+                                    true,
+                                    false,
+                                    false,
+                                    "")));
+            final AcpQuestionDialog.Session session = AcpQuestionDialog.createSessionForTest(localization(), request);
+            final var card1 = session.cards.get(0);
+            card1.otherRadio.setSelected(true);
+            card1.customField.setText("AngleZ");
+            assertTrue(session.next.isEnabled());
+            session.next.doClick();
+            assertTrue(session.back.isEnabled());
+            final var card2 = session.cards.get(1);
+            card2.checkBoxes.get(0).setSelected(true);
+            card2.checkBoxes.get(1).setSelected(true);
+            card2.customField.setText("Brows");
+            assertTrue(session.submit.isEnabled());
+
+            final AcpQuestion.Response response = session.collectResponse();
+            assertFalse(response.cancelled());
+            assertEquals(2, response.answers().size());
+            assertEquals("AngleZ", response.answers().get(0).formattedText());
+            assertEquals(List.of("Eyes", "Hair"), response.answers().get(1).selectedOptions());
+            assertEquals("Brows", response.answers().get(1).customText());
+        });
     }
 
     private static void toggleSummaryWithKeyboard(final JTextPane transcript) {

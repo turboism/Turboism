@@ -82,6 +82,14 @@ permission.show-details
 permission.title
 plugin.description
 plugin.name
+question.back
+question.cancel
+question.next
+question.other-option
+question.other-placeholder
+question.step-of
+question.submit
+question.title
 section.agent
 section.instructions
 section.session-options

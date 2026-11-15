@@ -63,6 +63,9 @@ final class AcpAgentDetectionRegressionTest {
                 assertEquals(List.of("acp"), profile.arguments());
             } else if ("devin".equals(profile.id())) {
                 assertEquals(List.of("acp"), profile.arguments());
+            } else if ("deepseek".equals(profile.id())) {
+                assertEquals(List.of("dsh"), profile.executableCandidates());
+                assertEquals(List.of("--profile", "acp"), profile.arguments());
             }
         }
     }

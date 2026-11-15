@@ -294,6 +294,32 @@ final class NativeAgentTransport implements AcpTransport {
                                 Map.of("optionId", "reject", "name", "Reject", "kind", "reject_once")))));
     }
 
+    void question(
+            final CompletableFuture<?> scope,
+            final String title,
+            final List<AcpQuestion.Item> items,
+            final java.util.function.Consumer<AcpQuestion.Response> callback) {
+        if (scope.isDone() || items == null || items.isEmpty() || permissions.size() >= 8) {
+            callback.accept(AcpQuestion.Response.CANCELLED);
+            return;
+        }
+        final String id = "native-question-" + nextId();
+        final var pending =
+                new PendingPermission(scope, result -> callback.accept(AcpQuestion.fromResponseResult(result)));
+        permissions.put(id, pending);
+        scope.whenComplete((result, failure) -> retirePermission(id, pending));
+        if (!permissions.containsKey(id)) return;
+        emit(Map.of(
+                "jsonrpc",
+                "2.0",
+                "id",
+                id,
+                "method",
+                AcpQuestion.REQUEST_METHOD,
+                "params",
+                AcpQuestion.toRequestParams(sessionId, title, items)));
+    }
+
     void cancelPermissions(final CompletableFuture<?> scope) {
         permissions.forEach((id, permission) -> {
             if (permission.scope() == scope) retirePermission(id, permission);

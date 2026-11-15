@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -81,6 +80,7 @@ final class AcpChatWindow implements AcpChatController.View {
     private static final int MAX_TRANSCRIPT_CHARS = 1024 * 1024;
     private static final int MAX_TRANSCRIPT_ENTRIES = 4096;
     private static final int MAX_TOOL_METADATA_CHARS = 4096;
+    private static final int MAX_RENDERED_TOOL_DETAIL_CHARS = 8192;
     private static final int MAX_INLINE_MARKDOWN_IMAGES = 8;
     private static final int TASK_TIMER_MILLIS = 250;
     private static final int STICKY_SCROLL_THRESHOLD_PX = 36;
@@ -762,6 +762,40 @@ final class AcpChatWindow implements AcpChatController.View {
         return request.cancellation().isCancelled() ? AcpListener.PermissionDecision.CANCELLED : decision.get();
     }
 
+    @Override
+    public AcpQuestion.Response requestQuestion(final AcpQuestion.Request request) {
+        if (!acceptingEvents.get() || request == null || request.cancellation().isCancelled()) {
+            return AcpQuestion.Response.CANCELLED;
+        }
+        if (SwingUtilities.isEventDispatchThread()) {
+            showAgentAndFront();
+            return AcpQuestionDialog.show(agentFrame, localization, request);
+        }
+        final AtomicReference<AcpQuestion.Response> response = new AtomicReference<>(AcpQuestion.Response.CANCELLED);
+        final CountDownLatch settled = new CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
+            try {
+                if (acceptingEvents.get() && !request.cancellation().isCancelled()) {
+                    showAgentAndFront();
+                    response.set(AcpQuestionDialog.show(agentFrame, localization, request));
+                }
+            } finally {
+                settled.countDown();
+            }
+        });
+        try {
+            if (!settled.await(5, TimeUnit.MINUTES)) {
+                request.cancellation().cancel();
+                return AcpQuestion.Response.CANCELLED;
+            }
+        } catch (InterruptedException interrupted) {
+            request.cancellation().cancel();
+            Thread.currentThread().interrupt();
+            return AcpQuestion.Response.CANCELLED;
+        }
+        return request.cancellation().isCancelled() ? AcpQuestion.Response.CANCELLED : response.get();
+    }
+
     private void configureComponents(
             final String selectedAgentId, final String savedCustomCommand, final String savedInitialPrompt) {
         agentSelector.setName("turboism-acp.agent-selector");
@@ -914,9 +948,6 @@ final class AcpChatWindow implements AcpChatController.View {
         agentStatus.setForeground(secondaryForeground());
         prompt.setLineWrap(true);
         prompt.setWrapStyleWord(true);
-        prompt.putClientProperty(
-                AcpComposerPanel.PLACEHOLDER_PROPERTY,
-                AcpComposerPlaceholder.choose(localization, ThreadLocalRandom.current()));
         initialPrompt.setLineWrap(true);
         initialPrompt.setWrapStyleWord(true);
         updateAgentDetail();
@@ -1475,6 +1506,7 @@ final class AcpChatWindow implements AcpChatController.View {
             case "claude" -> "anthropic";
             case "codex" -> "openai";
             case "gemini" -> "google";
+            case "deepseek" -> "deepseek";
             default -> "";
         };
     }
@@ -1538,9 +1570,10 @@ final class AcpChatWindow implements AcpChatController.View {
         composerTrack.repaint();
     }
 
-    private JPopupMenu buildTodoPopover() {
+    JPopupMenu buildTodoPopover() {
         final JPopupMenu popup = new JPopupMenu();
         popup.setUI(new javax.swing.plaf.basic.BasicPopupMenuUI());
+        popup.setOpaque(true);
         popup.setBackground(AcpChatTheme.surface());
         popup.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(AcpChatTheme.border()),
@@ -1558,8 +1591,7 @@ final class AcpChatWindow implements AcpChatController.View {
 
         final JPanel listPanel = new JPanel();
         listPanel.setLayout(new javax.swing.BoxLayout(listPanel, javax.swing.BoxLayout.Y_AXIS));
-        listPanel.setOpaque(true);
-        listPanel.setBackground(AcpChatTheme.surface());
+        listPanel.setOpaque(false);
         for (AcpPlanTracker.Item item : items) {
             final JPanel row = new JPanel(new BorderLayout(8, 0));
             row.setOpaque(false);
@@ -1571,6 +1603,7 @@ final class AcpChatWindow implements AcpChatController.View {
                         case PENDING -> "○";
                     };
             final JLabel bullet = new JLabel(mark);
+            bullet.putClientProperty(AcpThemeControls.PRESERVE_FOREGROUND_PROPERTY, Boolean.TRUE);
             bullet.setForeground(
                     switch (item.status()) {
                         case COMPLETED -> AcpChatTheme.success();
@@ -1579,6 +1612,7 @@ final class AcpChatWindow implements AcpChatController.View {
                     });
             final JLabel content = new JLabel(item.displayText());
             content.putClientProperty("html.disable", true);
+            content.putClientProperty(AcpThemeControls.PRESERVE_FOREGROUND_PROPERTY, Boolean.TRUE);
             content.setForeground(
                     item.status() == AcpPlanTracker.Status.COMPLETED
                             ? AcpChatTheme.muted()
@@ -1591,9 +1625,8 @@ final class AcpChatWindow implements AcpChatController.View {
         final JScrollPane scroll = new JScrollPane(
                 listPanel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scroll.setBorder(BorderFactory.createEmptyBorder());
-        scroll.setOpaque(true);
-        scroll.setBackground(AcpChatTheme.surface());
-        scroll.getViewport().setBackground(AcpChatTheme.surface());
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
         AcpThemeControls.configureScrollPane(scroll, true);
         final Dimension listPref = listPanel.getPreferredSize();
         scroll.setPreferredSize(new Dimension(
@@ -1608,6 +1641,7 @@ final class AcpChatWindow implements AcpChatController.View {
         final AcpTurnMeter.Snapshot snap = turnMeter.snapshot();
         final JPopupMenu popup = new JPopupMenu();
         popup.setUI(new javax.swing.plaf.basic.BasicPopupMenuUI());
+        popup.setOpaque(true);
         popup.setBackground(AcpChatTheme.surface());
         popup.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(AcpChatTheme.border()),
@@ -1664,6 +1698,7 @@ final class AcpChatWindow implements AcpChatController.View {
         left.anchor = GridBagConstraints.WEST;
         left.insets = new Insets(2, 0, 2, 20);
         final JLabel label = new JLabel(labelText);
+        label.putClientProperty(AcpThemeControls.PRESERVE_FOREGROUND_PROPERTY, Boolean.TRUE);
         label.setForeground(AcpChatTheme.muted());
         panel.add(label, left);
 
@@ -2628,6 +2663,12 @@ final class AcpChatWindow implements AcpChatController.View {
         final List<TranscriptEntry> group = transcriptEntries.subList(groupStart, groupEnd);
         final TranscriptEntry first = group.get(0);
         final StyledDocument document = transcript.getStyledDocument();
+        final javax.swing.text.DefaultCaret defaultCaret =
+                transcript.getCaret() instanceof javax.swing.text.DefaultCaret dc ? dc : null;
+        final int previousCaretPolicy = defaultCaret == null ? -1 : defaultCaret.getUpdatePolicy();
+        if (defaultCaret != null) {
+            defaultCaret.setUpdatePolicy(javax.swing.text.DefaultCaret.NEVER_UPDATE);
+        }
         try {
             if (first.renderedStart < 0) {
                 if (groupEnd == transcriptEntries.size()) {
@@ -2654,6 +2695,10 @@ final class AcpChatWindow implements AcpChatController.View {
             shiftRenderedEntriesFromIndex(groupEnd, first.renderedLength - oldLength);
         } catch (javax.swing.text.BadLocationException failure) {
             renderTranscript();
+        } finally {
+            if (defaultCaret != null) {
+                defaultCaret.setUpdatePolicy(previousCaretPolicy);
+            }
         }
     }
 
@@ -2956,6 +3001,7 @@ final class AcpChatWindow implements AcpChatController.View {
                         continue;
                     }
                     final int headerStart = cursor;
+                    entry.detailHeaderOffset = headerStart;
                     final String thinkingHeader =
                             (entry.detailExpanded ? "▾  " : "▸  ") + localization.text("sender.thinking") + "\n";
                     final SimpleAttributeSet thinkingLink = new SimpleAttributeSet(style);
@@ -2983,34 +3029,49 @@ final class AcpChatWindow implements AcpChatController.View {
                         }
                     }
                 } else {
-                    final int detailStart = cursor;
-                    final int lenBeforeItem = document.getLength();
+                    final int headerStart = cursor;
+                    entry.detailHeaderOffset = headerStart;
                     final String title = entry.title.isBlank() ? boundedToolMetadata(entry.id) : entry.title;
+                    final boolean hasDetails = !entry.input.isBlank() || !entry.content.isEmpty();
+                    final String statusSuffix = entry.toolStatus.isBlank() ? "" : " · " + entry.toolStatus;
+                    final String marker = hasDetails ? (entry.detailExpanded ? "▾  " : "▸  ") : "·  ";
+                    final String headerLine = marker + title + statusSuffix + "\n";
                     final SimpleAttributeSet heading = new SimpleAttributeSet(style);
-                    StyleConstants.setBold(heading, true);
-                    if ("failed".equals(entry.toolStatus)) {
-                        StyleConstants.setForeground(heading, statusColor(StatusTone.ERROR));
+                    if (hasDetails) {
+                        heading.addAttribute(DISCLOSURE, entry);
                     }
-                    final String headerLine = title + " · " + entry.toolStatus + "\n";
+                    StyleConstants.setBold(heading, entry.detailExpanded);
+                    StyleConstants.setForeground(
+                            heading,
+                            "failed".equals(entry.toolStatus) ? statusColor(StatusTone.ERROR) : secondaryForeground());
                     document.insertString(cursor, headerLine, heading);
-                    int toolCursor = cursor + headerLine.length();
-                    if (!entry.input.isBlank()) {
-                        final String inputLine = entry.input + "\n";
-                        document.insertString(toolCursor, inputLine, code);
-                        toolCursor += inputLine.length();
-                    }
-                    if (!entry.content.isEmpty()) {
-                        final String outLine = entry.content + "\n";
-                        document.insertString(toolCursor, outLine, code);
-                    }
-                    final int insertedForItem = document.getLength() - lenBeforeItem;
-                    if (insertedForItem > 0) {
-                        final SimpleAttributeSet detail = new SimpleAttributeSet(paragraph);
-                        StyleConstants.setLeftIndent(detail, 18F);
-                        StyleConstants.setSpaceAbove(detail, 2F);
-                        StyleConstants.setSpaceBelow(detail, 4F);
-                        document.setParagraphAttributes(detailStart, insertedForItem, detail, true);
-                        cursor += insertedForItem;
+                    final SimpleAttributeSet headerParagraph = new SimpleAttributeSet(paragraph);
+                    StyleConstants.setLeftIndent(headerParagraph, 18F);
+                    StyleConstants.setSpaceAbove(headerParagraph, 3F);
+                    StyleConstants.setSpaceBelow(headerParagraph, entry.detailExpanded && hasDetails ? 2F : 4F);
+                    document.setParagraphAttributes(headerStart, headerLine.length(), headerParagraph, true);
+                    cursor += headerLine.length();
+                    if (entry.detailExpanded && hasDetails) {
+                        final StringBuilder detailBody = new StringBuilder();
+                        if (!entry.input.isBlank()) {
+                            detailBody.append(boundedDetailPreview(entry.input)).append('\n');
+                        }
+                        if (!entry.content.isEmpty()) {
+                            detailBody
+                                    .append(boundedDetailPreview(entry.content))
+                                    .append('\n');
+                        }
+                        if (detailBody.length() > 0) {
+                            final int bodyStart = cursor;
+                            final String bodyText = detailBody.toString();
+                            document.insertString(cursor, bodyText, code);
+                            final SimpleAttributeSet bodyParagraph = new SimpleAttributeSet(paragraph);
+                            StyleConstants.setLeftIndent(bodyParagraph, 30F);
+                            StyleConstants.setSpaceAbove(bodyParagraph, 2F);
+                            StyleConstants.setSpaceBelow(bodyParagraph, 4F);
+                            document.setParagraphAttributes(bodyStart, bodyText.length(), bodyParagraph, true);
+                            cursor += bodyText.length();
+                        }
                     }
                 }
             }
@@ -3031,7 +3092,7 @@ final class AcpChatWindow implements AcpChatController.View {
             @Override
             public void mouseClicked(final MouseEvent event) {
                 if (SwingUtilities.isLeftMouseButton(event)) {
-                    toggleDisclosure(transcript.viewToModel2D(event.getPoint()));
+                    toggleDisclosure(transcript.viewToModel2D(event.getPoint()), true);
                 }
             }
 
@@ -3067,7 +3128,7 @@ final class AcpChatWindow implements AcpChatController.View {
         transcript.getActionMap().put(action, new AbstractAction() {
             @Override
             public void actionPerformed(final ActionEvent event) {
-                toggleDisclosure(transcript.getCaretPosition());
+                toggleDisclosure(transcript.getCaretPosition(), false);
             }
         });
     }
@@ -3222,15 +3283,16 @@ final class AcpChatWindow implements AcpChatController.View {
         return value instanceof TranscriptEntry entry ? entry : null;
     }
 
-    private void toggleDisclosure(final int offset) {
+    private void toggleDisclosure(final int offset, final boolean fromMouse) {
         final TranscriptEntry target = disclosureAt(offset);
         if (target == null) return;
         final int index = transcriptEntries.indexOf(target);
-        final java.awt.Rectangle visible = transcript.getVisibleRect();
+        final javax.swing.JScrollBar vBar = transcriptScroll.getVerticalScrollBar();
+        final int scrollValue = vBar != null ? vBar.getValue() : 0;
         if (index < 0) {
             target.expanded = !target.expanded;
             renderTranscript();
-            transcript.scrollRectToVisible(visible);
+            if (vBar != null) vBar.setValue(Math.min(scrollValue, vBar.getMaximum()));
             return;
         }
         int groupStart = index;
@@ -3239,15 +3301,30 @@ final class AcpChatWindow implements AcpChatController.View {
         }
         final TranscriptEntry groupFirst = transcriptEntries.get(groupStart);
         final int anchorOffset = groupFirst.renderedStart >= 0 ? groupFirst.renderedStart : offset;
-        if (target == groupFirst && offset < anchorOffset + groupFirst.cachedSummary.length()) {
+        final boolean togglingGroupHeader =
+                target == groupFirst && offset < anchorOffset + groupFirst.cachedSummary.length();
+        if (togglingGroupHeader) {
             groupFirst.expanded = !groupFirst.expanded;
         } else {
             target.detailExpanded = !target.detailExpanded;
         }
         updateActivityGroupAt(index);
-        transcript.setCaretPosition(
-                Math.min(Math.max(0, anchorOffset), transcript.getDocument().getLength()));
-        transcript.scrollRectToVisible(visible);
+        if (!fromMouse) {
+            final int caretTarget =
+                    togglingGroupHeader || target.detailHeaderOffset < 0 ? anchorOffset : target.detailHeaderOffset;
+            transcript.setCaretPosition(
+                    Math.min(Math.max(0, caretTarget), transcript.getDocument().getLength()));
+        }
+        if (vBar != null) {
+            vBar.setValue(Math.min(scrollValue, vBar.getMaximum()));
+        }
+    }
+
+    private static String boundedDetailPreview(final CharSequence raw) {
+        if (raw == null) return "";
+        if (raw.length() <= MAX_RENDERED_TOOL_DETAIL_CHARS) return raw.toString();
+        final int limit = safePrefixLength(raw, MAX_RENDERED_TOOL_DETAIL_CHARS);
+        return raw.subSequence(0, limit) + "\n…";
     }
 
     private SimpleAttributeSet contentAttributes(final Sender sender) {
@@ -3291,6 +3368,7 @@ final class AcpChatWindow implements AcpChatController.View {
                 Map.entry("PanelUI", "javax.swing.plaf.basic.BasicPanelUI"),
                 Map.entry("PasswordFieldUI", "javax.swing.plaf.basic.BasicPasswordFieldUI"),
                 Map.entry("PopupMenuUI", "javax.swing.plaf.basic.BasicPopupMenuUI"),
+                Map.entry("RadioButtonUI", "javax.swing.plaf.basic.BasicRadioButtonUI"),
                 Map.entry("RootPaneUI", "javax.swing.plaf.basic.BasicRootPaneUI"),
                 Map.entry("ScrollPaneUI", "javax.swing.plaf.basic.BasicScrollPaneUI"),
                 Map.entry("SeparatorUI", "javax.swing.plaf.basic.BasicSeparatorUI"),
@@ -3473,6 +3551,7 @@ final class AcpChatWindow implements AcpChatController.View {
         private int renderedStart = -1;
         private int renderedLength;
         private int renderedFooterLength;
+        private int detailHeaderOffset = -1;
         private int imageScanOffset;
         private String cachedSummary = "";
         private boolean cachedFailed;

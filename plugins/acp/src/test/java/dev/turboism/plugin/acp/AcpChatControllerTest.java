@@ -326,11 +326,42 @@ final class AcpChatControllerTest {
             final String text = (String) prompt.get("text");
             assertTrue(text.startsWith(AcpChatController.SYSTEM_BOUNDARY));
             assertTrue(text.indexOf("Prefer concise Cubism edits.") > text.indexOf(AcpChatController.SYSTEM_BOUNDARY));
-            assertTrue(text.contains("https://docs.live2d.com/en/cubism-editor-tutorials/top/"));
-            assertTrue(text.contains("https://docs.live2d.com/en/cubism-editor-manual/top/"));
-            assertTrue(text.contains("https://docs.turboism.dev"));
-            assertTrue(text.indexOf("https://docs.turboism.dev") < text.indexOf("Prefer concise Cubism edits."));
+            assertFalse(text.contains("docs.live2d.com"));
+            assertFalse(text.contains("docs.turboism.dev"));
             assertTrue(text.endsWith("rename the object"));
+        }
+    }
+
+    @Test
+    void questionsStillPromptUserWhenPermissionModeIsAuto() throws Exception {
+        final Fixture fixture = new Fixture();
+        final CapturingTransport transport = new CapturingTransport();
+        try (AcpChatController controller = fixture.controller();
+                AcpClient source = new AcpClient(transport, controller)) {
+            set(controller, "client", source);
+            set(controller, "session", configuredSession("sess-1"));
+            controller.setPermissionMode(AcpChatController.PermissionMode.AUTO);
+            fixture.view.questionResponse = new AcpQuestion.Response(
+                    false, List.of(new AcpQuestion.Answer("q1", "Mode", "Which mode?", List.of("Fast"), "")));
+
+            final AcpQuestion.Response response = controller.question(
+                    source,
+                    "sess-1",
+                    new AcpQuestion.Request(
+                            "AskUserQuestion",
+                            List.of(new AcpQuestion.Item(
+                                    "q1",
+                                    "Mode",
+                                    "Which mode?",
+                                    List.of(new AcpQuestion.Option("Fast", "", "")),
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    ""))));
+            assertEquals(1, fixture.view.questionRequests.get());
+            assertFalse(response.cancelled());
+            assertEquals("Fast", response.answers().get(0).formattedText());
         }
     }
 

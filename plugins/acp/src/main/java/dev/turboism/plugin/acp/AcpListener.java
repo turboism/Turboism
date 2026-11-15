@@ -60,6 +60,16 @@ interface AcpListener {
         return PermissionDecision.CANCELLED;
     }
 
+    /**
+     * Collects answers to a structured Q&A request from the user. Implementations may block the
+     * permission worker while presenting UI; closing or cancellation returns {@link
+     * AcpQuestion.Response#cancelled()}.
+     */
+    default AcpQuestion.Response question(
+            final AcpClient source, final String sessionId, final AcpQuestion.Request request) {
+        return AcpQuestion.Response.CANCELLED;
+    }
+
     enum PermissionDecision {
         ALLOW_ONCE,
         ALLOW_ALWAYS,

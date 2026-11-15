@@ -58,7 +58,15 @@ final class AgentCatalog {
                     List.of(),
                     List.of(),
                     "npm install -g agy-acp",
-                    "https://www.npmjs.com/package/agy-acp"));
+                    "https://www.npmjs.com/package/agy-acp"),
+            new AgentProfile(
+                    "deepseek",
+                    "DeepSeek Harness",
+                    List.of("dsh"),
+                    List.of("--profile", "acp"),
+                    List.of(),
+                    "npm install -g @deepseek-ai/dsh",
+                    "https://www.deepseek.com/harness/"));
 
     private AgentCatalog() {}
 

@@ -897,6 +897,180 @@ final class NativeAgentTransportTest {
         }
     }
 
+    @Test
+    void questionToolsWorkAcrossClaudeCodexAndPi() throws Exception {
+        // Claude: AskUserQuestion routes via question handler and returns answers keyed by question text.
+        try (Fixture fixture = new Fixture(AgentProtocol.CLAUDE)) {
+            fixture.connect();
+            fixture.questionResponder = req -> new AcpQuestion.Response(
+                    false,
+                    List.of(new AcpQuestion.Answer(
+                            req.items().get(0).id(), "Axis", "Which axis?", List.of("AngleX"), "")));
+            fixture.client.prompt(fixture.session.sessionId(), "ask");
+            assertTrue(fixture.raw.accepted.await(2, TimeUnit.SECONDS));
+            fixture.raw.emit(Map.of(
+                    "type",
+                    "control_request",
+                    "request_id",
+                    "ask-1",
+                    "request",
+                    Map.of(
+                            "subtype",
+                            "can_use_tool",
+                            "tool_name",
+                            "AskUserQuestion",
+                            "tool_use_id",
+                            "tu-1",
+                            "input",
+                            Map.of(
+                                    "questions",
+                                    List.of(Map.of(
+                                            "header",
+                                            "Axis",
+                                            "question",
+                                            "Which axis?",
+                                            "options",
+                                            List.of(
+                                                    Map.of("label", "AngleX", "description", "Yaw"),
+                                                    Map.of("label", "AngleY", "description", "Pitch"))))))));
+            var qReq = fixture.questionRequests.poll(2, TimeUnit.SECONDS);
+            assertNotNull(qReq);
+            assertFalse(fixture.permissionRequest.isDone());
+            var reply = fixture.raw.responses.poll(2, TimeUnit.SECONDS);
+            assertNotNull(reply);
+            var body = object(object(reply.get("response")).get("response"));
+            assertEquals("allow", body.get("behavior"));
+            assertEquals(
+                    "AngleX",
+                    object(object(body.get("updatedInput")).get("answers")).get("Which axis?"));
+            fixture.raw.finish(false);
+        }
+
+        // Codex: item/tool/requestUserInput collects answers keyed by question id.
+        try (Fixture fixture = new Fixture(AgentProtocol.CODEX)) {
+            fixture.connect();
+            fixture.questionResponder = req -> new AcpQuestion.Response(
+                    false,
+                    List.of(new AcpQuestion.Answer("q_axis", "Axis", "Which axis?", List.of("AngleX"), "custom")));
+            fixture.client.prompt(fixture.session.sessionId(), "ask");
+            assertNotNull(fixture.raw.turnStarts.poll(2, TimeUnit.SECONDS));
+            fixture.raw.emit(Map.of(
+                    "id",
+                    "codex-ask-1",
+                    "method",
+                    "item/tool/requestUserInput",
+                    "params",
+                    Map.of(
+                            "threadId",
+                            "thread-1",
+                            "turnId",
+                            fixture.raw.codexTurnId,
+                            "itemId",
+                            "item-ask-1",
+                            "questions",
+                            List.of(Map.of(
+                                    "id",
+                                    "q_axis",
+                                    "header",
+                                    "Axis",
+                                    "question",
+                                    "Which axis?",
+                                    "isOther",
+                                    true,
+                                    "options",
+                                    List.of(Map.of("label", "AngleX", "description", "Yaw")))))));
+            assertNotNull(fixture.questionRequests.poll(2, TimeUnit.SECONDS));
+            var reply = fixture.raw.responses.poll(2, TimeUnit.SECONDS);
+            assertNotNull(reply);
+            var answers = object(object(reply.get("result")).get("answers"));
+            assertEquals(
+                    List.of("AngleX", "custom"),
+                    list(object(answers.get("q_axis")).get("answers")));
+            fixture.raw.finish(false);
+        }
+
+        // Pi: ask_user_question intercepts sequential select/input dialogs and supports standalone input.
+        try (Fixture fixture = new Fixture(AgentProtocol.PI)) {
+            fixture.connect();
+            fixture.questionResponder = req -> {
+                if (req.items().size() == 2) {
+                    return new AcpQuestion.Response(
+                            false,
+                            List.of(
+                                    new AcpQuestion.Answer("q1", "Axis", "Which axis?", List.of(), "AngleZ"),
+                                    new AcpQuestion.Answer(
+                                            "q2", "Parts", "Which parts?", List.of("Eyes", "Hair"), "")));
+                }
+                return new AcpQuestion.Response(
+                        false, List.of(new AcpQuestion.Answer("pi-input", "", "Enter note", List.of(), "hello")));
+            };
+            fixture.client.prompt(fixture.session.sessionId(), "ask");
+            assertTrue(fixture.raw.accepted.await(2, TimeUnit.SECONDS));
+            fixture.raw.emit(Map.of(
+                    "type",
+                    "tool_execution_start",
+                    "toolCallId",
+                    "pi-ask-1",
+                    "toolName",
+                    "ask_user_question",
+                    "args",
+                    Map.of(
+                            "questions",
+                            List.of(
+                                    Map.of(
+                                            "header",
+                                            "Axis",
+                                            "question",
+                                            "Which axis?",
+                                            "options",
+                                            List.of(
+                                                    Map.of("label", "AngleX", "description", "Yaw"),
+                                                    Map.of("label", "AngleY", "description", "Pitch"))),
+                                    Map.of(
+                                            "header",
+                                            "Parts",
+                                            "question",
+                                            "Which parts?",
+                                            "multiSelect",
+                                            true,
+                                            "options",
+                                            List.of(
+                                                    Map.of("label", "Eyes", "description", "E"),
+                                                    Map.of("label", "Hair", "description", "H")))))));
+            assertNotNull(fixture.questionRequests.poll(2, TimeUnit.SECONDS));
+            fixture.raw.emit(Map.of(
+                    "type",
+                    "extension_ui_request",
+                    "id",
+                    "dlg-1",
+                    "method",
+                    "select",
+                    "title",
+                    "Which axis?",
+                    "options",
+                    List.of("1. AngleX — Yaw", "2. AngleY — Pitch", "3. Type something.")));
+            assertEquals(
+                    "3. Type something.",
+                    fixture.raw.responses.poll(2, TimeUnit.SECONDS).get("value"));
+            fixture.raw.emit(Map.of("type", "extension_ui_request", "id", "dlg-2", "method", "input", "title", "Type"));
+            assertEquals(
+                    "AngleZ", fixture.raw.responses.poll(2, TimeUnit.SECONDS).get("value"));
+            fixture.raw.emit(
+                    Map.of("type", "extension_ui_request", "id", "dlg-3", "method", "input", "title", "Multi"));
+            assertEquals("1,2", fixture.raw.responses.poll(2, TimeUnit.SECONDS).get("value"));
+            fixture.raw.emit(
+                    Map.of("type", "tool_execution_end", "toolCallId", "pi-ask-1", "toolName", "ask_user_question"));
+
+            // Standalone extension_ui_request input also routes through question UI.
+            fixture.raw.emit(
+                    Map.of("type", "extension_ui_request", "id", "dlg-4", "method", "input", "title", "Enter note"));
+            assertNotNull(fixture.questionRequests.poll(2, TimeUnit.SECONDS));
+            assertEquals(
+                    "hello", fixture.raw.responses.poll(2, TimeUnit.SECONDS).get("value"));
+            fixture.raw.finish(false);
+        }
+    }
+
     private static McpHttpConnection mcpConnection() {
         return new McpHttpConnection(URI.create("http://127.0.0.1:43123/mcp"), "2025-11-25");
     }
@@ -908,6 +1082,9 @@ final class NativeAgentTransportTest {
         final StringBuffer toolOutput = new StringBuffer();
         final CompletableFuture<AcpAttachment> images = new CompletableFuture<>();
         final CompletableFuture<AcpListener.PermissionRequest> permissionRequest = new CompletableFuture<>();
+        final BlockingQueue<AcpQuestion.Request> questionRequests = new LinkedBlockingQueue<>();
+        volatile java.util.function.Function<AcpQuestion.Request, AcpQuestion.Response> questionResponder =
+                ignored -> AcpQuestion.Response.CANCELLED;
         volatile CompletableFuture<AcpListener.PermissionDecision> permissionAnswer =
                 CompletableFuture.completedFuture(AcpListener.PermissionDecision.CANCELLED);
         final FakeCli raw;
@@ -947,6 +1124,12 @@ final class NativeAgentTransportTest {
                         return PermissionDecision.CANCELLED;
                     }
                 }
+
+                @Override
+                public AcpQuestion.Response question(AcpClient source, String id, AcpQuestion.Request request) {
+                    questionRequests.add(request);
+                    return questionResponder.apply(request);
+                }
             });
         }
 
@@ -971,6 +1154,7 @@ final class NativeAgentTransportTest {
         final PipedOutputStream input = new PipedOutputStream(commands);
         final CountDownLatch accepted = new CountDownLatch(1), aborted = new CountDownLatch(1);
         final CompletableFuture<Map<String, Object>> permission = new CompletableFuture<>();
+        final BlockingQueue<Map<String, Object>> responses = new LinkedBlockingQueue<>();
         final BlockingQueue<Map<String, Object>> turnStarts = new LinkedBlockingQueue<>();
         final BlockingQueue<Map<String, Object>> interrupts = new LinkedBlockingQueue<>();
         final BlockingQueue<Map<String, Object>> interruptRequests = new LinkedBlockingQueue<>();
@@ -1010,6 +1194,7 @@ final class NativeAgentTransportTest {
             if (request.containsKey("result")
                     || "control_response".equals(request.get("type"))
                     || "extension_ui_response".equals(request.get("type"))) {
+                responses.add(request);
                 permission.complete(request);
                 return;
             }

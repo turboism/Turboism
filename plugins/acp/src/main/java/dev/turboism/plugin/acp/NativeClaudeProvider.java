@@ -141,9 +141,47 @@ final class NativeClaudeProvider extends NativeAgentProvider {
                         sendControl(id, Map.of("behavior", "deny", "message", "No active authorized turn"));
                         break;
                     }
+                    final String toolName = text(request.get("tool_name"));
+                    final var toolInput = object(request.get("input"));
+                    if ("AskUserQuestion".equals(toolName) && toolInput.get("questions") instanceof List<?>) {
+                        final List<AcpQuestion.Item> questions =
+                                AcpQuestion.parseRawQuestions(toolInput.get("questions"), true);
+                        if (!questions.isEmpty()) {
+                            host.question(future, toolName, questions, response -> {
+                                synchronized (this) {
+                                    if (response.cancelled() || !ownsPrompt(future) || cancelled) {
+                                        sendControl(
+                                                id,
+                                                Map.of(
+                                                        "behavior",
+                                                        "deny",
+                                                        "message",
+                                                        "Question dismissed or inactive turn"));
+                                        return;
+                                    }
+                                    final var answers = new java.util.LinkedHashMap<String, String>();
+                                    for (int i = 0; i < questions.size(); i++) {
+                                        final AcpQuestion.Item item = questions.get(i);
+                                        final AcpQuestion.Answer ans = response.answerFor(item, i);
+                                        if (ans != null && ans.hasContent()) {
+                                            answers.put(item.question(), ans.formattedText());
+                                        }
+                                    }
+                                    if (answers.isEmpty()) {
+                                        sendControl(id, Map.of("behavior", "deny", "message", "No answers provided"));
+                                        return;
+                                    }
+                                    final var updatedInput = new java.util.LinkedHashMap<String, Object>(toolInput);
+                                    updatedInput.put("answers", answers);
+                                    sendControl(id, Map.of("behavior", "allow", "updatedInput", updatedInput));
+                                }
+                            });
+                            break;
+                        }
+                    }
                     host.permission(
                             future,
-                            text(request.get("tool_name")),
+                            toolName,
                             "other",
                             text(request.get("tool_use_id")),
                             request.getOrDefault("input", Map.of()),
