@@ -30,7 +30,7 @@ permissions:
   contents: read
 
 env:
-  PLUGIN_DIRECTORY_REVISION: 5d17e6b004c8e916943e17e59cba25d4fe9d13ce
+  PLUGIN_DIRECTORY_REVISION: 4b727cd73211592a453c51b763aa3c29f7d48618
 
 concurrency:
   group: product-release-candidate-${{ github.ref }}
