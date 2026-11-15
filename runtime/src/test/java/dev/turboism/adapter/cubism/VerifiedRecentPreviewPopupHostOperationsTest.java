@@ -256,6 +256,44 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
     }
 
     @Test
+    void recycledPopupMatchesPanelPreferredHeight() throws Exception {
+        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless(), "showing a real popup requires a display");
+
+        final JFrame frame = new JFrame();
+        final JMenuItem item = new JMenuItem("model.cmo3");
+        frame.getContentPane().add(item);
+        SwingUtilities.invokeAndWait(() -> {
+            frame.setSize(320, 240);
+            frame.setLocation(40, 40);
+            frame.setVisible(true);
+        });
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                final JPanel warmup = VerifiedRecentPreviewPopupHostOperations.themedPanel(
+                        PanelView.column(PanelView.text("warmup.cmo3"), PanelView.text("Loading preview...")));
+                final Popup first = PopupFactory.getSharedInstance().getPopup(item, warmup, 500, 500);
+                first.show();
+                first.hide();
+
+                final JPanel preview = VerifiedRecentPreviewPopupHostOperations.themedPanel(PanelView.column(
+                        PanelView.scaledImage(PNG, "model.cmo3", 150, 150),
+                        PanelView.text("long-model-preview-file-name.cmo3"),
+                        PanelView.text("2026-10-22 13:38:58")));
+                final java.awt.Dimension expected = preview.getPreferredSize();
+                final Popup second = PopupFactory.getSharedInstance().getPopup(item, preview, 500, 500);
+                second.show();
+                try {
+                    assertEquals(expected, preview.getSize());
+                } finally {
+                    second.hide();
+                }
+            });
+        } finally {
+            SwingUtilities.invokeAndWait(frame::dispose);
+        }
+    }
+
+    @Test
     void popupShowsOnHoverAndHidesOnLeaveAndClick() throws Exception {
         Assumptions.assumeFalse(
                 GraphicsEnvironment.isHeadless(),
