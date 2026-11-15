@@ -1716,6 +1716,8 @@ Section "-核心文件" SecCore
   RMDir /r "$PLUGINSDIR\Turboism-core-plan"
   RMDir /r "$PLUGINSDIR\Turboism-payload-bootstrap"
   Delete "$PLUGINSDIR\Turboism-payload-manifests\payload-core.sha256"
+  ; Remove the legacy extensionless LICENSE file left by older installers.
+  Delete "$INSTDIR\LICENSE"
 
   FileOpen $0 "$INSTDIR\installed-build.json" w
   FileWrite $0 '{"schemaVersion":1,"variant":"full","version":"${VER}"}$\r$\n'
@@ -1811,6 +1813,7 @@ Section "Uninstall"
   Delete "$INSTDIR\turboism.png"
   ; The configurator removes managed state only after validated shortcut cleanup.
   Delete "$INSTDIR\README*.txt"
+  Delete "$INSTDIR\LICENSE.txt"
   Delete "$INSTDIR\LICENSE"
   Delete "$INSTDIR\EULA.en.txt"
   Delete "$INSTDIR\EULA.zh-Hans.txt"

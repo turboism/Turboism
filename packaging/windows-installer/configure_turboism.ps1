@@ -1189,6 +1189,7 @@ if ($InitializeSelection) {
         if (Test-Path -LiteralPath $bootstrapScript -PathType Leaf) {
             $bArgs = @{
                 HomePath = $turboismHome
+                PassThru = $true
             }
             if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshot)) {
                 $bArgs["DiscoverySnapshot"] = $InstallerDiscoverySnapshot
@@ -1196,10 +1197,16 @@ if ($InitializeSelection) {
             if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshotSha256)) {
                 $bArgs["DiscoverySnapshotSha256"] = $InstallerDiscoverySnapshotSha256
             }
-            & $bootstrapScript @bArgs
-            if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 10) {
-                Write-Error "Bootstrap receipt initialization failed with exit code $LASTEXITCODE"
-                exit $LASTEXITCODE
+            $receiptOutput = @(& $bootstrapScript @bArgs)
+            $receiptResult = if ($receiptOutput.Count -eq 0) { $null } else { $receiptOutput[$receiptOutput.Count - 1] }
+            $receiptSuccess = $null -ne $receiptResult -and [bool]$receiptResult.Success
+            if (-not $receiptSuccess) {
+                $receiptExitCode = if ($null -ne $receiptResult -and $null -ne $receiptResult.ExitCode) { [int]$receiptResult.ExitCode } elseif ($LASTEXITCODE -ne 0) { [int]$LASTEXITCODE } else { 1 }
+                $receiptDetail = if ($null -ne $receiptResult -and -not [string]::IsNullOrWhiteSpace($receiptResult.Output)) { ($receiptResult.Output -replace '[\r\n]+', ' ').Trim() } else { "" }
+                Write-InstallerLog "BOOTSTRAP_RECEIPT_FAILED" ("exitCode={0} detail={1}" -f $receiptExitCode, $receiptDetail)
+                $errorDetail = if ([string]::IsNullOrWhiteSpace($receiptDetail)) { "" } else { ": $receiptDetail" }
+                Write-Error "Bootstrap receipt initialization failed with exit code $receiptExitCode$errorDetail"
+                exit $receiptExitCode
             }
         }
         exit 0
