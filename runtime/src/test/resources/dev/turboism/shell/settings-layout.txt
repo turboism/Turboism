@@ -1,6 +1,7 @@
 # Turboism settings layout: <tab> <index> <kind> <id>
 # Sorted by tab, then render index. Update this file deliberately when a row is
 # added, removed, reordered or retyped - it is the single place layout is pinned.
+performance 59 choice performance-preset
 performance 60 note performance-recommendation
 performance 60 note performance.section.heavy-model
 performance 61 toggle mesa-gl-thread

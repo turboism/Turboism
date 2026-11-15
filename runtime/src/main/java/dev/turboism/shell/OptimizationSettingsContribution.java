@@ -2,6 +2,7 @@ package dev.turboism.shell;
 
 import dev.turboism.config.optimization.Optimization;
 import dev.turboism.config.optimization.OptimizationCatalog;
+import dev.turboism.config.optimization.OptimizationPreset;
 import dev.turboism.internal.core.OptimizationSettingsService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsBinding;
@@ -9,6 +10,7 @@ import dev.turboism.sdk.ui.settings.SettingsContribution;
 import dev.turboism.sdk.ui.settings.SettingsControl;
 import dev.turboism.sdk.ui.settings.SettingsTab;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalInt;
@@ -25,6 +27,14 @@ import java.util.OptionalInt;
  */
 final class OptimizationSettingsContribution {
 
+    static final String PRESET_CONTRIBUTION_ID = "performance-preset";
+    static final String PRESET_TOOLTIP_KEY = "settings.performance.preset.tooltip";
+    private static final String PRESET_LABEL_KEY = "settings.performance.preset";
+    private static final int PRESET_INDEX = 59;
+    private static final String PERFORMANCE_TAB_ID = "performance";
+    private static final String PERFORMANCE_TAB_LABEL_KEY = "settings.tab.performance";
+    private static final int PERFORMANCE_TAB_INDEX = 200;
+
     /** Section header rows in render order, each pinned to the index its note renders at. */
     private static final List<Section> SECTIONS = List.of(
             new Section("heavy-model", 60),
@@ -35,6 +45,32 @@ final class OptimizationSettingsContribution {
             new Section("jvm", 110));
 
     private OptimizationSettingsContribution() {}
+
+    /**
+     * Creates the preset selector at the top of the Performance tab from the 26 persisted flags.
+     *
+     * @param i18n the shell localization the preset label and option texts resolve through
+     * @param settings the service that reads the persisted flags to derive the initial preset
+     * @return the preset choice contribution
+     */
+    static SettingsContribution createPreset(
+            final PluginLocalization i18n, final OptimizationSettingsService settings) {
+        Objects.requireNonNull(i18n, "i18n");
+        Objects.requireNonNull(settings, "settings");
+        final List<SettingsControl.Option> options = Arrays.stream(OptimizationPreset.values())
+                .map(preset -> new SettingsControl.Option(preset.configValue(), i18n.text(preset.labelKey())))
+                .toList();
+        return new SettingsContribution(
+                PRESET_CONTRIBUTION_ID,
+                settingsTab(i18n),
+                OptionalInt.of(PRESET_INDEX),
+                new SettingsControl.Choice(
+                        PRESET_CONTRIBUTION_ID,
+                        i18n.text(PRESET_LABEL_KEY),
+                        options,
+                        SettingsBinding.of(
+                                () -> OptimizationPreset.detect(settings).configValue(), ignored -> {})));
+    }
 
     /**
      * Every Performance-tab row that renders a native optimization: the six section notes and the
@@ -107,7 +143,8 @@ final class OptimizationSettingsContribution {
     }
 
     private static SettingsTab settingsTab(final PluginLocalization i18n) {
-        return new SettingsTab("performance", i18n.text("settings.tab.performance"), OptionalInt.of(200));
+        return new SettingsTab(
+                PERFORMANCE_TAB_ID, i18n.text(PERFORMANCE_TAB_LABEL_KEY), OptionalInt.of(PERFORMANCE_TAB_INDEX));
     }
 
     /** One section header: the catalogue section it opens and the index its note renders at. */

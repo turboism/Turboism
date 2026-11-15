@@ -47,6 +47,8 @@ final class CubismJvmSettingsContribution {
                     case "cubism-zgc" -> "settings.cubism-jvm.zgc.tooltip";
                     case CONTRIBUTION_ID -> "settings.cubism-jvm.tooltip";
                     case "cubism-memory-profile" -> "settings.cubism-jvm.memory-profile.tooltip";
+                    case OptimizationSettingsContribution.PRESET_CONTRIBUTION_ID ->
+                        OptimizationSettingsContribution.PRESET_TOOLTIP_KEY;
                     case "performance-recommendation" -> "settings.performance.recommendation.tooltip";
                     case "performance.section.model" -> "settings.performance.section.model.tooltip";
                     case "performance.section.rendering" -> "settings.performance.section.rendering.tooltip";

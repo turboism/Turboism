@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.config.PerformanceSettingsConfig.Field;
 import dev.turboism.config.optimization.Optimization;
 import dev.turboism.config.optimization.OptimizationCatalog;
+import dev.turboism.config.optimization.OptimizationPreset;
 import dev.turboism.internal.core.OptimizationSettingsService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.settings.SettingsContribution;
@@ -217,6 +218,34 @@ class OptimizationSettingsContributionTest {
                     Field.forKey(optimization.key()).key(),
                     optimization.contributionId() + " keeps the config key its toggle persists");
         }
+    }
+
+    @Test
+    void presetChoiceDerivesActivePresetAndWiresTooltip() {
+        final RecordingSettings settings = new RecordingSettings(false);
+        final SettingsContribution contribution =
+                OptimizationSettingsContribution.createPreset(localization(), settings);
+        assertEquals(OptimizationSettingsContribution.PRESET_CONTRIBUTION_ID, contribution.id());
+        assertEquals("performance", contribution.tab().id());
+        assertEquals(OptionalInt.of(59), contribution.index());
+        assertEquals(
+                Optional.of(OptimizationSettingsContribution.PRESET_TOOLTIP_KEY),
+                CubismJvmSettingsContribution.tooltipKey(contribution.id()));
+
+        final SettingsControl.Choice choice = assertInstanceOf(SettingsControl.Choice.class, contribution.control());
+        assertEquals(
+                List.of("off", "balanced", "heavy-editing", "custom"),
+                choice.options().stream().map(SettingsControl.Option::value).toList());
+        assertEquals("off", choice.binding().read());
+
+        OptimizationPreset.BALANCED.apply(settings);
+        assertEquals("balanced", choice.binding().read());
+
+        settings.setEnabled(OptimizationCatalog.INCREMENTAL_UPDATE.key(), true);
+        assertEquals("custom", choice.binding().read());
+
+        OptimizationPreset.HEAVY_EDITING.apply(settings);
+        assertEquals("heavy-editing", choice.binding().read());
     }
 
     private static PluginLocalization localization() {
