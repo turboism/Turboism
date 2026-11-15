@@ -249,10 +249,44 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private JDialog createSettingsDialog() {
-        final RuntimeSettings value = settings.read();
         final JDialog dialog = CoreDialogs.create(text("window.settings.title"), 780, 560);
         dialog.setLayout(new BorderLayout());
 
+        final RenderedSettings rendered = createSettingsContent(dialog);
+        final JTabbedPane tabs = rendered.tabs();
+
+        final JButton ok = new JButton(text("common.ok"));
+        final JButton cancel = new JButton(text("common.cancel"));
+        final JButton apply = new JButton(text("common.apply"));
+        final java.util.function.BooleanSupplier save = () -> {
+            try {
+                if (!rendered.save().getAsBoolean()) {
+                    return false;
+                }
+                CoreDialogs.message(dialog, text("common.turboism"), text("settings.saved"));
+                return true;
+            } catch (RuntimeException failure) {
+                CoreDialogs.message(
+                        dialog,
+                        text("common.turboism"),
+                        Objects.toString(failure.getMessage(), "Settings could not be saved."));
+                return false;
+            }
+        };
+        ok.addActionListener(ignored -> saveAndClose(save, () -> dialog.setVisible(false)));
+        cancel.addActionListener(ignored -> dialog.setVisible(false));
+        apply.addActionListener(ignored -> save.getAsBoolean());
+        final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttons.add(ok);
+        buttons.add(cancel);
+        buttons.add(apply);
+        dialog.add(tabs, BorderLayout.CENTER);
+        dialog.add(buttons, BorderLayout.SOUTH);
+        return dialog;
+    }
+
+    RenderedSettings createSettingsContent(final JDialog owner) {
+        final RuntimeSettings value = settings.read();
         final JCheckBox safeMode = new JCheckBox(text("settings.safe-mode"), value.safeMode());
         final JComboBox<String> logLevel =
                 new JComboBox<>(new String[] {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"});
@@ -283,6 +317,7 @@ final class CoreWindows implements AutoCloseable {
                 locale);
         add(runtime, 3, safeMode, new JLabel());
         add(runtime, 4, useTextIcon, new JLabel());
+        add(runtime, 5, separateExportSaveDirectory, new JLabel());
         builtins.put("runtime", new BuiltinTab(text("settings.tab.runtime"), 100, runtime));
 
         builtins.put("performance", new BuiltinTab(text("settings.tab.performance"), 200, form()));
@@ -291,57 +326,32 @@ final class CoreWindows implements AutoCloseable {
         add(startup, 0, skipUpdate, new JLabel());
         add(startup, 1, skipSplash, new JLabel());
         add(startup, 2, skipInformation, new JLabel());
-        add(startup, 3, separateExportSaveDirectory, new JLabel());
         builtins.put("startup", new BuiltinTab(text("settings.tab.startup"), 300, startup));
 
         final JPanel maintenance = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 12));
         final JButton clean = new JButton(text("settings.clean-empty-docks"));
         clean.addActionListener(ignored -> CoreDialogs.message(
-                dialog, text("common.turboism"), settings.cleanEmptyDocks().message()));
+                owner, text("common.turboism"), settings.cleanEmptyDocks().message()));
         maintenance.add(clean);
         builtins.put("maintenance", new BuiltinTab(text("settings.tab.maintenance"), 400, maintenance));
 
-        final RenderedSettings rendered = renderSettings(dialog, builtins);
-        final JTabbedPane tabs = rendered.tabs();
-
-        final JButton ok = new JButton(text("common.ok"));
-        final JButton cancel = new JButton(text("common.cancel"));
-        final JButton apply = new JButton(text("common.apply"));
-        final java.util.function.BooleanSupplier save = () -> {
-            try {
-                if (!rendered.save().getAsBoolean()) {
-                    return false;
-                }
-                settings.save(settingsFromControls(
-                        safeMode.isSelected(),
-                        (String) logLevel.getSelectedItem(),
-                        ((Number) maxLogStorage.getValue()).intValue(),
-                        skipUpdate.isSelected(),
-                        skipSplash.isSelected(),
-                        skipInformation.isSelected(),
-                        separateExportSaveDirectory.isSelected(),
-                        (String) locale.getSelectedItem(),
-                        useTextIcon.isSelected()));
-                CoreDialogs.message(dialog, text("common.turboism"), text("settings.saved"));
-                return true;
-            } catch (RuntimeException failure) {
-                CoreDialogs.message(
-                        dialog,
-                        text("common.turboism"),
-                        Objects.toString(failure.getMessage(), "Settings could not be saved."));
+        final RenderedSettings rendered = renderSettings(owner, builtins);
+        return new RenderedSettings(rendered.tabs(), () -> {
+            if (!rendered.save().getAsBoolean()) {
                 return false;
             }
-        };
-        ok.addActionListener(ignored -> saveAndClose(save, () -> dialog.setVisible(false)));
-        cancel.addActionListener(ignored -> dialog.setVisible(false));
-        apply.addActionListener(ignored -> save.getAsBoolean());
-        final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        buttons.add(ok);
-        buttons.add(cancel);
-        buttons.add(apply);
-        dialog.add(tabs, BorderLayout.CENTER);
-        dialog.add(buttons, BorderLayout.SOUTH);
-        return dialog;
+            settings.save(settingsFromControls(
+                    safeMode.isSelected(),
+                    (String) logLevel.getSelectedItem(),
+                    ((Number) maxLogStorage.getValue()).intValue(),
+                    skipUpdate.isSelected(),
+                    skipSplash.isSelected(),
+                    skipInformation.isSelected(),
+                    separateExportSaveDirectory.isSelected(),
+                    (String) locale.getSelectedItem(),
+                    useTextIcon.isSelected()));
+            return true;
+        });
     }
 
     JCheckBox createUseTextIconCheckBox(final RuntimeSettings value) {
@@ -402,7 +412,7 @@ final class CoreWindows implements AutoCloseable {
                     });
             final JPanel outer = rendered.panel();
             JPanel content = outer;
-            int row = 0;
+            int row = nextRow(outer);
             for (SettingsSnapshot.Entry entry : tab.contributions()) {
                 final SettingsControl control = entry.contribution().control();
                 if (control instanceof SettingsControl.Note note && note.id().startsWith("performance.section.")) {
@@ -427,7 +437,7 @@ final class CoreWindows implements AutoCloseable {
                         .filter(candidate -> "startup".equals(candidate.id()))
                         .findFirst()
                         .ifPresent(startupTab -> {
-                            final int row = startupTab.panel().getComponentCount() / 2;
+                            final int row = nextRow(startupTab.panel());
                             saves.add(renderControl(
                                     owner,
                                     startupTab.panel(),
