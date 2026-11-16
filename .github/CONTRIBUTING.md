@@ -8,7 +8,7 @@ and the [standalone template](https://github.com/turboism/turboism-plugin-templa
 New or changed UI must follow the [UI appearance and dark mode requirements](../sdk/plugin-author-guide.md#ui-appearance-and-dark-mode).
 Review the containing surface, glyph contrast, interaction states, actual display
 size/DPI, and live theme switching in both light and dark modes. For first-party
-icon sources and regeneration, see the [artwork guide](../scripts/artwork/README.md#深浅色模式适配).
+icon sources and regeneration, see the [artwork guide](../scripts/artwork/README.md#light-and-dark-mode-adaptation).
 
 ### Plugin control icons
 
@@ -66,7 +66,7 @@ python3 scripts/check_remote_hygiene.py --install-hooks
 The hooks fail closed: if the checker is missing or errors, the commit or
 push is refused.
 
-## Test corpus (测试语料)
+## Test corpus
 
 Large binary test assets (`*.cmo3`, `*.can3`, `*.psd`, `*.moc3`) are never committed to Git. They are tracked via `testing/assets/corpus.json` and distributed through versioned GitHub Release assets.
 
