@@ -34,7 +34,12 @@ public final class LazyEdgeProductionIntegrationSelfCheck implements Opcodes {
     private static final String P = "com/live2d/graphics3d/editableMesh/triangulation/";
     private static final String B = P.replace('/', '.');
     private static final String H = P + "h", J = P + "j";
-    /** Binary names the lazy-edge weave links against, plus both reviewed angle singletons. */
+    /**
+     * Fixed dependency names the weave links against, in production admission order.
+     *
+     * <p>This mirrors {@code LazyTriangulationEdgePreparation.DEPENDENCIES}; the angle
+     * singleton joins the set per admitted version and is tracked separately below.</p>
+     */
     private static final List<String> DEPENDENCIES = List.of(
             B + "h",
             B + "j",
@@ -44,11 +49,9 @@ public final class LazyEdgeProductionIntegrationSelfCheck implements Opcodes {
             "com.live2d.graphics3d.type.GVector2",
             B + "k",
             B + "TriangleList",
-            "com.live2d.util.K",
-            "com.live2d.util.L",
             "kotlin._Assertions",
             "kotlin.jvm.internal.Intrinsics");
-    /** The angle singleton moved from {@code K} to {@code L}; one family is defined per host. */
+    /** The angle singleton moved from {@code K} to {@code L}; exactly one is defined per host. */
     private static final List<String> ANGLE_SINGLETONS = List.of("com.live2d.util.K", "com.live2d.util.L");
     /** Independent cold callers that must share exactly one published capture. */
     private static final int COLD_WORKERS = 8;
@@ -57,7 +60,8 @@ public final class LazyEdgeProductionIntegrationSelfCheck implements Opcodes {
             "TRIANGULATION_FRESH_EDGE_PATCHED",
             "TRIANGULATION_MEMBERSHIP_PATCHED",
             "TRIANGULATION_LAZY_EDGE_PATCHED",
-            "TRIANGULATION_ANGLE_GUARD_PATCHED");
+            "TRIANGULATION_ANGLE_GUARD_PATCHED",
+            "TRIANGULATION_LOCAL_BUILDER_PATCHED");
     private static final String ADMISSION_RECEIPT = "TRIANGULATION_LAZY_EDGE_ADMISSION reason=";
     private static final String CONTRACT_MATCH = "OWNED_DEFINITION_CONTRACT_MATCH";
     private static final String SHAPE_REFUSAL = "LIVE_DEPENDENCY_REJECTED";
@@ -149,7 +153,9 @@ public final class LazyEdgeProductionIntegrationSelfCheck implements Opcodes {
         require(
                 TriangulationDefinitionLifecycle.class.getClassLoader() == null,
                 "canonical lifecycle is not bootstrap loaded");
-        Set<String> expected = Set.copyOf(DEPENDENCIES);
+        // The observer records the fixed set plus both singleton alternatives; only one is defined.
+        Set<String> expected = new java.util.HashSet<>(DEPENDENCIES);
+        expected.addAll(ANGLE_SINGLETONS);
         List<Path> libraries;
         try (var stream = Files.list(official.getParent())) {
             libraries = stream
@@ -198,6 +204,9 @@ public final class LazyEdgeProductionIntegrationSelfCheck implements Opcodes {
                 require(
                         weave.lazyEdgeOutcome() == TriangulationEdgeIndexTransformer.Outcome.PATCHED,
                         "production lazy weave declined: " + weave.lazyEdgeDiagnostic());
+                require(
+                        weave.builderOutcome() == TriangulationEdgeIndexTransformer.Outcome.PATCHED,
+                        "production local-builder weave declined: " + weave.builderDiagnostic());
                 require(host.getClassLoader() == loader, "official host loader changed");
                 if (tampered) {
                     require(LazyTriangulationEdgeBridge.enter(host) == null, "changed live shape admitted");
@@ -216,7 +225,7 @@ public final class LazyEdgeProductionIntegrationSelfCheck implements Opcodes {
                             receipts.stream().anyMatch(s -> s.startsWith(ADMISSION_RECEIPT + CONTRACT_MATCH)),
                             "missing contract-match admission receipt: " + receipts);
                     for (String name : DEPENDENCIES) {
-                        if (name.equals(host.getName()) || ANGLE_SINGLETONS.contains(name)) continue;
+                        if (name.equals(host.getName())) continue;
                         require(observed.containsKey(name), "uncaptured dependency " + name);
                     }
                     require(

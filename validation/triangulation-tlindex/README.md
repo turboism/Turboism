@@ -298,15 +298,17 @@ after every method exit. The remapped owned fresh guard still uses native fallba
 these checks do not execute official geometry.
 
 `diagnostic/LazyEdgeProductionIntegrationSelfCheck` receives the official JAR,
-prior reviewed runtime-fingerprints.tsv, a new output directory and reviewed or
-tampered mode. Its only Agent provides Instrumentation and exposes the new
-packaged candidate on Boot-Class-Path. The real production transformer runs in
-initial definition callbacks. All three versions admit eight concurrent cold
-callers with exactly one capture; modified live edge definitions refuse admission.
-Later mutation permanently retires the old holder's gate. Six packaged cases
-pass189 checks and the packaged lifecycle check passes46. Official classes are
-defined and metadata resolved; initializers, constructors and geometry are not
-invoked. This does not execute the complete Turboism premain.
+a new output directory and reviewed or tampered mode. Its only Agent provides
+Instrumentation and exposes the new packaged candidate on Boot-Class-Path. The
+real production transformer runs in initial definition callbacks. Admission is
+structural: the live dependency shapes are checked, so no stored byte preimage
+exists and the prior runtime-fingerprints.tsv argument is gone. Every reviewed
+version admits eight concurrent cold callers with exactly one capture; a host
+whose live edge definition lost its reviewed finality refuses admission with
+`LIVE_DEPENDENCY_REJECTED`. Later mutation permanently retires the old holder's
+gate. Official classes are defined and metadata resolved; initializers,
+constructors and geometry are not invoked. This does not execute the complete
+Turboism premain.
 
 Forty affected JUnit tests, devCheck and bootstrap JAR packaging pass. New isolated
 candidate SHA is0e5bb77f401a25a8d28399de0fb893200abe6320d8beaa2d6a04ad302c9aff44.
