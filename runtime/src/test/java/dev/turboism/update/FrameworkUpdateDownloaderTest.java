@@ -1351,6 +1351,19 @@ final class FrameworkUpdateDownloaderTest {
         }
     }
 
+    @Test
+    void frameworkUiAdmissionFailurePreservesDiagnosticMessage() throws Exception {
+        try (Fixture f = new Fixture();
+                var c = coordinator(f, command -> null);
+                var ui = new RuntimeFrameworkUpdates(c, f.io, () -> {
+                    throw new IOException("Installation receipt is missing (installed-receipt.json)");
+                })) {
+            final var result = ui.download().get(5, TimeUnit.SECONDS);
+            assertEquals(dev.turboism.internal.core.CoreFrameworkUpdates.Phase.FAILED, result.phase());
+            assertTrue(result.detail().contains("Installation receipt is missing"), result.detail());
+        }
+    }
+
     private final class Fixture implements AutoCloseable {
         final Path cache;
         final Path install;

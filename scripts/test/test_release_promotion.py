@@ -443,6 +443,16 @@ class TransportAndWorkflowTest(unittest.TestCase):
             p.GitHub().upload('v1.2.3', Path('fixture.zip'))
             self.assertNotIn('--clobber', run.call_args.args[0])
 
+    def test_upload_many_uploads_all_assets(self):
+        from unittest.mock import patch
+        ok = subprocess.CompletedProcess([], 0, '', '')
+        paths = [Path('a.zip'), Path('a.zip.sha256'), Path('b.exe'), Path('b.exe.sha256')]
+        with patch.object(p.subprocess, 'run', return_value=ok) as run:
+            p.GitHub().upload_many('v1.2.3', paths)
+            self.assertEqual(run.call_count, 4)
+            uploaded = {Path(call.args[0][4]).name for call in run.call_args_list}
+            self.assertEqual(uploaded, {path.name for path in paths})
+
     def test_get_retries_transient_failures_and_succeeds(self):
         from unittest.mock import patch
         fail_res = subprocess.CompletedProcess([], 1, 'HTTP/2.0 502 Bad Gateway\r\n\r\n{}', 'bad gateway')

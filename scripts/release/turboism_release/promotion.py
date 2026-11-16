@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .build_identity import verify_receipt
@@ -330,8 +331,7 @@ def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confi
         release = github.api("releases", method="POST", data={
             "tag_name": tag, "target_commitish": source_sha, "name": f"Turboism {tag[1:]}",
             "body": notes, "draft": True, "prerelease": False})
-    for name in missing_assets(release, expected, tag):
-        github.upload(tag, dist / name)
+    upload_assets(github, tag, [dist / name for name in missing_assets(release, expected, tag)])
     release = release_by_id(github, release)
     require(not missing_assets(release, expected, tag), "release uploads incomplete")
     require(tag_binding(github, tag, source_sha, binding), "release tag disappeared")
@@ -341,6 +341,18 @@ def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confi
     require(not missing_assets(final, expected, tag) and final["draft"] is False,
             "release did not become published")
     return tag
+
+
+def upload_assets(github, tag, paths):
+    """Upload assets via batch-capable transport while keeping single-upload test fakes working."""
+    targets = list(paths)
+    if not targets:
+        return
+    if hasattr(github, "upload_many"):
+        github.upload_many(tag, targets)
+        return
+    for path in targets:
+        github.upload(tag, path)
 
 
 class GitHub:
@@ -388,7 +400,20 @@ class GitHub:
                     continue
                 raise
 
+    MAX_UPLOAD_WORKERS = 4
+
     def upload(self, tag, path):
         result = subprocess.run(["gh", "release", "upload", tag, str(path.resolve()),
                                  "--repo", REPOSITORY], capture_output=True, text=True, timeout=600)
         require(result.returncode == 0, f"GitHub asset upload failed: {path.name}")
+
+    def upload_many(self, tag, paths):
+        targets = list(paths)
+        if not targets:
+            return
+        if type(self) is GitHub and len(targets) > 1:
+            with ThreadPoolExecutor(max_workers=min(self.MAX_UPLOAD_WORKERS, len(targets))) as pool:
+                list(pool.map(lambda path: self.upload(tag, path), targets))
+            return
+        for path in targets:
+            self.upload(tag, path)

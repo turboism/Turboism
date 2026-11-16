@@ -106,7 +106,7 @@ class GoldenUpdateStateSnapshotsTest {
         final String numeric = UpdateVersion.parseInstalled(installed).toString();
         final String channel = channelOf(installed);
         final FrameworkUpdateHelper.Invocation invocation = new FrameworkUpdateHelper.Invocation(
-                home, null, null, Optional.empty(), 0L, true, false, Optional.empty(), false, null, false);
+                home, null, null, Optional.empty(), 0L, true, false, Optional.empty(), false, null, false, false);
 
         assertNotNull(
                 FrameworkUpdateHelper.policyProblem(invocation, probeManifest(numeric, channel)),

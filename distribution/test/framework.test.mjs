@@ -122,7 +122,7 @@ test('publisher endpoints stay closed without the dedicated workflow and a valid
  const served=await worker.fetch(new Request('https://api.turboism.dev/v1/framework/documents/'+x.candidate.manifest.sha256),x.env);assert.equal(served.status,404);
  assert.equal((await worker.fetch(new Request('https://api.turboism.dev/v1/framework/documents/xyz'),x.env)).status,404);
 });
-import {verifyPublic,publishCandidate,withdrawCandidate} from '../publish-framework.mjs';
+import {verifyPublic,publishCandidate,withdrawCandidate,stageObjects} from '../publish-framework.mjs';
 test('public preflight proves exact bytes through the Worker and rejects redirects or altered content',async()=>{
  const x=setup();await x.admit();const expected=new Map(x.source);
  const viaWorker=(url,init)=>worker.fetch(new Request(url,init),x.env);
@@ -302,4 +302,42 @@ test('publishCandidate rejects non-JSON or mismatched admission receipt without 
   /Invalid admission receipt/
  );
  assert.equal(preflightCalled,false);
+});
+test('stageObjects uploads concurrently via Cloudflare R2 REST with retries and preserves literal slashes',async()=>{
+ const x=setup(),seen=new Map();
+ let failOnce=true;
+ const fetcher=async(url,init)=>{
+  assert.equal(init.method,'PUT');
+  assert.equal(init.headers.Authorization,'Bearer tok-123');
+  assert.doesNotMatch(url,/%2F/i,'object key slashes must remain literal');
+  if(failOnce&&url.includes('/objects/')){
+   failOnce=false;
+   return new Response('temporary',{status:503});
+  }
+  seen.set(new URL(url).pathname,new Uint8Array(init.body));
+  return new Response(JSON.stringify({success:true}),{status:200});
+ };
+ await stageObjects('/unused','turboism-0.68.0',x.candidate,x.source,{
+  fetcher,
+  env:{CLOUDFLARE_ACCOUNT_ID:'acc-1',CLOUDFLARE_API_TOKEN:'tok-123'}
+ });
+ assert.equal(seen.size,x.source.size);
+ for(const [key,bytes] of x.source){
+  assert.deepEqual(seen.get(`/client/v4/accounts/acc-1/r2/buckets/turboism-downloads/objects/framework-incoming/${key}`),bytes);
+ }
+ await assert.rejects(
+  ()=>stageObjects('/unused','turboism-0.68.0',x.candidate,new Map([['documents/'+x.candidate.manifest.sha256,new Uint8Array([1])]]),{
+   fetcher:async()=>new Response(JSON.stringify({success:false}),{status:200}),
+   env:{CLOUDFLARE_ACCOUNT_ID:'acc-1',CLOUDFLARE_API_TOKEN:'tok-123'}
+  }),
+  /R2 upload failed/
+ );
+});
+test('admission reuses verified immutable FINAL objects even when INCOMING omits unchanged blobs',async()=>{
+ const x=setup();
+ await x.admit();
+ const key=firstObject(x);
+ x.r2.objects.delete('framework-incoming/'+key);
+ const retry=await x.admit({initialize:false});
+ assert.equal(retry.status,200);
 });

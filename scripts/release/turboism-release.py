@@ -64,6 +64,7 @@ def _candidate_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument("--market-dir", type=Path)
     command.add_argument("--candidate", type=Path, default=DEFAULT_BUILD / "candidate.json")
     command.add_argument("--require-tag", action="store_true")
+    command.add_argument("--skip-installer", action="store_true")
 
 
 def _plan_arguments(command: argparse.ArgumentParser) -> None:
@@ -155,6 +156,7 @@ def _build(args, repo_root: Path):
         dist=args.dist,
         market_dir=args.market_dir,
         require_tag=args.require_tag,
+        include_installer=not args.skip_installer,
     )
     write_document(args.candidate, candidate, "candidate")
     return candidate

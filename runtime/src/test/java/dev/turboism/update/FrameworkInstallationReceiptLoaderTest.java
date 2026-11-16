@@ -932,6 +932,57 @@ final class FrameworkInstallationReceiptLoaderTest {
     }
 
     @Test
+    void helperReceiptRefreshReplacesPriorReceiptOnlyWhenNewDiskPayloadMatches() throws Exception {
+        final Fixture f = new Fixture();
+        final var target = upgrade(f, "1.1.0", 50, 'c');
+        final Path stage = Files.createTempDirectory(temporary, "refresh-documents-");
+        Files.write(stage.resolve("manifest.json"), target.receipt().document());
+        Files.write(stage.resolve("manifest.json.sig"), target.receipt().envelope());
+        final String[] args = {
+            "--refresh-receipt",
+            "--root",
+            f.root.toString(),
+            "--stage",
+            stage.toString(),
+            "--work",
+            FrameworkUpdateHealth.workDirectory(f.root).toString()
+        };
+
+        // Refuses refresh while disk payload still belongs to 1.0.0; leaves 1.0.0 receipt intact.
+        assertEquals(
+                FrameworkUpdateHelper.EXIT_FAILED,
+                FrameworkUpdateHelper.runInstalled(
+                        args,
+                        System.out,
+                        System.err,
+                        Map.of("fixture", f.keys.getPublic()),
+                        ProcessHandle::of,
+                        java.time.Instant::now));
+        assertEquals("1.0.0", f.loader().load().loaded().version());
+
+        // After the full installer lays 1.1.0 files on disk, --refresh-receipt updates the receipt.
+        for (final UpdateManifestEntry entry : target.receipt().manifest().entries()) {
+            final Path source = target.staged().resolve(entry.relativePath());
+            if (Files.exists(source)) {
+                final Path path = f.root.resolve(entry.relativePath());
+                Files.createDirectories(path.getParent());
+                Files.copy(source, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
+        assertEquals(
+                FrameworkUpdateHelper.EXIT_NOTHING,
+                FrameworkUpdateHelper.runInstalled(
+                        args,
+                        System.out,
+                        System.err,
+                        Map.of("fixture", f.keys.getPublic()),
+                        ProcessHandle::of,
+                        java.time.Instant::now));
+        f.info = target.identity();
+        assertEquals("1.1.0", f.loader().load().loaded().version());
+    }
+
+    @Test
     void productionHelperRefusesAnotherLiveProcessReferencingTheSameAgent() throws Exception {
         final Fixture f = new Fixture();
         final var target = upgrade(f, "1.1.0", 50, 'c');

@@ -11,11 +11,16 @@ HELPER="$ROOT/scripts/test/asm_admission_gate.py"
 
 fail() { printf 'ASM supply-chain admission selftest: %s\n' "$*" >&2; exit 1; }
 
+BASE_SOURCE_TREE="$(mktemp -d)"
+trap 'rm -rf "$BASE_SOURCE_TREE"' EXIT
+
+git -C "$ROOT" ls-files -z | tar -C "$ROOT" --null -T - -cf - | tar -C "$BASE_SOURCE_TREE" -xf -
+
 copy_source_tree() {
   local destination="$1"
-  # Copy working-tree source contents without traversing directories that
-  # parallel Gradle tasks may modify while the mutation fixtures are created.
-  git -C "$ROOT" ls-files -z | tar -C "$ROOT" --null -T - -cf - | tar -C "$destination" -xf -
+  # Copy from the pre-materialized clean source snapshot without traversing
+  # directories that parallel Gradle tasks may modify.
+  cp -a "$BASE_SOURCE_TREE/." "$destination/"
 }
 
 python3 "$HELPER" static --root "$ROOT"
@@ -36,10 +41,16 @@ else
 fi
 python3 "$HELPER" api "${class_roots[@]}"
 
+copy_build_scripts() {
+  local destination="$1"
+  git -C "$ROOT" ls-files -z -- '*.gradle' '*.gradle.kts' '**/libs.versions.toml' | \
+    tar -C "$ROOT" --null -T - -cf - | tar -C "$destination" -xf -
+}
+
 mutation() {
   local name="$1" expected="$2" setup="$3" sandbox log
   sandbox="$(mktemp -d)"; log="$(mktemp)"
-  copy_source_tree "$sandbox"
+  copy_build_scripts "$sandbox"
   eval "$setup"
   if TURBOISM_ADMISSION_ROOT="$sandbox" python3 "$HELPER" static --root "$sandbox" >"$log" 2>&1; then
     rm -rf "$sandbox" "$log"; fail "mutation unexpectedly passed: $name"
@@ -151,47 +162,63 @@ mkdir -p "$api_tmp/empty"
 if python3 "$HELPER" api "$api_tmp/empty" >/dev/null 2>&1; then rm -rf "$api_tmp"; fail 'zero classes mutation unexpectedly passed'; fi
 rm -rf "$api_tmp"
 
-source_api_mutation() {
-  local module="$1" sandbox log wt classes
-  sandbox="$(mktemp -d)"; log="$(mktemp)"; wt="bt4-${module}-api-leak"
+source_api_mutations() {
+  local sandbox log wt sdk_classes runtime_classes
+  sandbox="$(mktemp -d)"; log="$(mktemp)"; wt="bt4-api-leak"
   copy_source_tree "$sandbox"
-  mkdir -p "$sandbox/$module/src/main/java/org/objectweb/asm" "$sandbox/$module/src/main/java/dev/turboism/bt4mutation"
-  printf 'package org.objectweb.asm; public @interface Leak {}\n' > "$sandbox/$module/src/main/java/org/objectweb/asm/Leak.java"
-  printf 'package dev.turboism.bt4mutation; @org.objectweb.asm.Leak public class ProductionLeak {}\n' > "$sandbox/$module/src/main/java/dev/turboism/bt4mutation/ProductionLeak.java"
-  if ! TURBOISM_WORKTREE_ID="$wt" "$sandbox/gradlew" -q ":$module:classes" --offline -p "$sandbox" >"$log" 2>&1; then
-    cat "$log" >&2; rm -rf "$sandbox" "$log"; fail "$module clean sandbox source mutation did not compile"
+  for module in sdk runtime; do
+    mkdir -p "$sandbox/$module/src/main/java/org/objectweb/asm" "$sandbox/$module/src/main/java/dev/turboism/bt4mutation/$module"
+    printf 'package org.objectweb.asm; public @interface Leak {}\n' > "$sandbox/$module/src/main/java/org/objectweb/asm/Leak.java"
+    printf 'package dev.turboism.bt4mutation.%s; @org.objectweb.asm.Leak public class ProductionLeak {}\n' "$module" \
+      > "$sandbox/$module/src/main/java/dev/turboism/bt4mutation/$module/ProductionLeak.java"
+  done
+  if ! TURBOISM_WORKTREE_ID="$wt" "$sandbox/gradlew" -q :sdk:classes :runtime:classes --offline -p "$sandbox" >"$log" 2>&1; then
+    cat "$log" >&2; rm -rf "$sandbox" "$log"; fail "clean sandbox source mutation did not compile"
   fi
-  classes="$sandbox/build/worktree/$wt/$module/classes/java/main"
-  if python3 "$HELPER" api "$classes" >"$log" 2>&1; then
-    rm -rf "$sandbox" "$log"; fail "$module real production source API leak mutation unexpectedly passed"
-  fi
-  grep -q 'exposes ASM' "$log" || { cat "$log" >&2; rm -rf "$sandbox" "$log"; fail "$module source mutation failed for wrong reason"; }
+  for module in sdk runtime; do
+    classes="$sandbox/build/worktree/$wt/$module/classes/java/main"
+    if python3 "$HELPER" api "$classes" >"$log" 2>&1; then
+      rm -rf "$sandbox" "$log"; fail "$module real production source API leak mutation unexpectedly passed"
+    fi
+    grep -q 'exposes ASM' "$log" || { cat "$log" >&2; rm -rf "$sandbox" "$log"; fail "$module source mutation failed for wrong reason"; }
+  done
   rm -rf "$sandbox" "$log"
 }
-source_api_mutation runtime
-source_api_mutation sdk
+source_api_mutations
 
-resolved_graph_mutation() {
-  local name="$1" group="$2" module="$3" version="$4" expected="$5" sandbox log wt repo_dir source_jar
+resolved_graph_mutations() {
+  local sandbox log wt repo_dir source_jar
   sandbox="$(mktemp -d)"; log="$(mktemp)"; wt="bt4-resolved-graph"; repo_dir="$sandbox/mutation-repo"
   copy_source_tree "$sandbox"
-  mkdir -p "$repo_dir/${group//.//}/$module/$version"
   source_jar="$(find "$GRADLE_HOME/caches/modules-2/files-2.1/org.ow2.asm/asm/9.7.1" -name 'asm-9.7.1.jar' -print -quit)"
-  cp "$source_jar" "$repo_dir/${group//.//}/$module/$version/$module-$version.jar"
-  printf '<project><modelVersion>4.0.0</modelVersion><groupId>%s</groupId><artifactId>%s</artifactId><version>%s</version></project>\n' \
-    "$group" "$module" "$version" > "$repo_dir/${group//.//}/$module/$version/$module-$version.pom"
-  printf '\nallprojects { repositories { maven { url = uri("%s") } } }\ndependencies { implementation("%s:%s:%s") }\n' \
-    "$repo_dir" "$group" "$module" "$version" >> "$sandbox/runtime/build.gradle.kts"
+  for spec in \
+    'org.ow2.asm:asm-tree:9.7.1:core-contract' \
+    'org.ow2.asm:asm:9.7:sdk' \
+    'net.bytebuddy:byte-buddy:1.15.0:runtime'; do
+    IFS=: read -r group module version target_dir <<< "$spec"
+    mkdir -p "$repo_dir/${group//.//}/$module/$version"
+    cp "$source_jar" "$repo_dir/${group//.//}/$module/$version/$module-$version.jar"
+    printf '<project><modelVersion>4.0.0</modelVersion><groupId>%s</groupId><artifactId>%s</artifactId><version>%s</version></project>\n' \
+      "$group" "$module" "$version" > "$repo_dir/${group//.//}/$module/$version/$module-$version.pom"
+    target_build="$sandbox/${target_dir/core-contract/core\/contract}/build.gradle.kts"
+    printf '\nrepositories { maven { url = uri("%s") } }\ndependencies { implementation("%s:%s:%s") }\n' \
+      "$repo_dir" "$group" "$module" "$version" >> "$target_build"
+  done
   if TURBOISM_WORKTREE_ID="$wt" "$sandbox/gradlew" -q checkResolvedBytecodeDependencyGraph --offline \
       --dependency-verification lenient -p "$sandbox" >"$log" 2>&1; then
-    rm -rf "$sandbox" "$log"; fail "resolved graph mutation unexpectedly passed: $name"
+    rm -rf "$sandbox" "$log"; fail "resolved graph mutations unexpectedly passed"
   fi
-  grep -qiE "$expected" "$log" || { cat "$log" >&2; rm -rf "$sandbox" "$log"; fail "wrong resolved graph failure: $name"; }
+  for spec in \
+    'ASM tree module|:core-contract:.*unadmitted org\.ow2\.asm:asm-tree:9\.7\.1' \
+    'ASM wrong version|:sdk:.*unadmitted org\.ow2\.asm:asm:9\.7' \
+    'Byte Buddy|:runtime:.*forbidden net\.bytebuddy:byte-buddy:1\.15\.0'; do
+    name="${spec%%|*}"
+    expected="${spec#*|}"
+    grep -qiE "$expected" "$log" || { cat "$log" >&2; rm -rf "$sandbox" "$log"; fail "wrong resolved graph failure: $name"; }
+  done
   rm -rf "$sandbox" "$log"
 }
-resolved_graph_mutation 'ASM tree module' 'org.ow2.asm' 'asm-tree' '9.7.1' 'unadmitted.*asm-tree'
-resolved_graph_mutation 'ASM wrong version' 'org.ow2.asm' 'asm' '9.7' 'unadmitted|must contain exactly'
-resolved_graph_mutation 'Byte Buddy' 'net.bytebuddy' 'byte-buddy' '1.15.0' 'Byte Buddy|forbidden'
+resolved_graph_mutations
 
 fake_cache_mutation() {
   local name="$1" setup="$2" sandbox fake log source_cache

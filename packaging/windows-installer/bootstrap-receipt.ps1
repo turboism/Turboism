@@ -12,6 +12,7 @@ param(
     [string]$HelperClass = "dev.turboism.update.FrameworkUpdateHelper",
     [string[]]$HelperPrefixArgs = @(),
     [switch]$Strict,
+    [switch]$RefreshExisting,
     [switch]$PassThru
 )
 
@@ -274,7 +275,7 @@ if (-not [System.IO.Directory]::Exists($turboismHome)) {
 # 2. In non-strict (auto/first-launch) mode, check if a receipt already exists.
 # An upgraded installation must not re-run stale bootstrap documents from a previous release.
 $receiptFile = Join-Path $turboismHome "state\runtime\update\installed-receipt.json"
-if (-not $Strict -and (Test-Path -LiteralPath $receiptFile -PathType Leaf)) {
+if (-not $Strict -and -not $RefreshExisting -and (Test-Path -LiteralPath $receiptFile -PathType Leaf)) {
     try {
         $receiptItem = Get-Item -LiteralPath $receiptFile -Force -ErrorAction Stop
         if ($receiptItem.Length -gt 0) {
@@ -363,11 +364,12 @@ try {
 
     # 8. Invoke FrameworkUpdateHelper --initialize-receipt
     Write-Host "[bootstrap-receipt] Initializing framework receipt using $java ..."
+    $receiptFlag = if ($RefreshExisting) { "--refresh-receipt" } else { "--initialize-receipt" }
     $helperArgs = @(
         "-cp", $cp,
         $HelperClass
     ) + $HelperPrefixArgs + @(
-        "--initialize-receipt",
+        $receiptFlag,
         "--root", $turboismHome,
         "--stage", $effectiveStage,
         "--work", $workDir
