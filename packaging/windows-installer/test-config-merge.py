@@ -30,7 +30,7 @@ EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 ICON_DIR = Path(__file__).resolve().parent / "assets"
 
 # The frozen 33-item approval list, which is the regression oracle: an added, removed, reordered, or newly public excluded module fails.
-# 第 2 项由 "backup" 改名为 "webdav-backup"（插件改名），增加 frame-animation-import。
+# Item 2 was renamed from "backup" to "webdav-backup" with the plugin rename, and frame-animation-import was added.
 EXPECTED_PATHS = [
     ":plugins:acp",
     ":plugins:artmesh-mirror",

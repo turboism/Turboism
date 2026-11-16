@@ -64,10 +64,12 @@ LOCALIZED_FILES = frozenset({
     "validation/texture-atlas-current-page/real-heavy/layout-dialog.txt",
 })
 # A line whose CJK share dominates its Latin letters is translated prose. A quoted
-# native caption inside an English sentence stays far below the threshold.
+# native caption inside an English sentence is data and is removed before the ratio
+# is measured.
 _PROSE_RATIO = 0.3
 _MIN_PROSE_CHARS_DOC = 8
 _MIN_PROSE_CHARS_COMMENT = 4
+_QUOTED_CAPTION = re.compile(r'"[^"\n]*"|“[^”\n]*”|「[^」\n]*」|『[^』\n]*』')
 
 _JAVA_LINE_COMMENT = re.compile(r"//[^\n]*")
 _JAVA_BLOCK_COMMENT = re.compile(r"/\*[\s\S]*?\*/")
@@ -94,11 +96,16 @@ def is_localized(relative: Path) -> bool:
 
 
 def is_prose(text: str, minimum: int = _MIN_PROSE_CHARS_DOC) -> bool:
-    """Report whether text reads as translated prose rather than an identifier or caption."""
-    cjk = len(_CJK.findall(text))
+    """Report whether text reads as translated prose rather than an identifier or caption.
+
+    A quoted caption is data a probe must match, so it is removed before the ratio
+    is measured; the surrounding prose then decides the verdict.
+    """
+    prose = _QUOTED_CAPTION.sub(" ", text)
+    cjk = len(_CJK.findall(prose))
     if cjk < minimum:
         return False
-    latin = len(re.findall(r"[A-Za-z]", text))
+    latin = len(re.findall(r"[A-Za-z]", prose))
     return cjk / (cjk + latin) >= _PROSE_RATIO
 
 

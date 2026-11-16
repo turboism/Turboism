@@ -216,7 +216,7 @@ class GraphPanelTest {
 
     @Test
     void filterKeepsMatchingNodesAndDirectNeighbors() {
-        // Alpha 使用 Beta、Gamma；Delta 使用 Alpha（mask→user 边：Beta→Alpha、Gamma→Alpha、Alpha→Delta）。
+        // Alpha uses Beta and Gamma, and Delta uses Alpha, so the mask-to-user edges are Beta to Alpha, Gamma to Alpha, and Alpha to Delta.
         final GraphPanel panel = new GraphPanel(filterState(), localization(), clicked -> {});
 
         panel.setFilter("Alpha");
@@ -241,7 +241,7 @@ class GraphPanelTest {
         panel.setShowUnrelated(true);
         panel.rebuild();
 
-        panel.setFilter("HAIR"); // 忽略大小写命中 displayName（也命中 id）。
+        panel.setFilter("HAIR"); // Matches displayName case-insensitively, and id too.
         assertEquals(List.of("guid-secret-xyz"), panel.nodeGuids());
 
         panel.setFilter("mesh-01"); // 命中 id。
@@ -270,7 +270,7 @@ class GraphPanelTest {
 
     @Test
     void categoryToggleHidesCategoryNodesAndTheirDirectNeighbors() {
-        // Alpha 使用 Beta、Gamma；Delta 使用 Alpha；Epsilon 无关（showUnrelated 下入池）。
+        // Alpha uses Beta and Gamma, Delta uses Alpha, and Epsilon is unrelated and joins the pool under showUnrelated.
         // Roles: the pure masks Beta and Gamma become mask, Alpha as both mask and user becomes both, the user Delta becomes user, and Epsilon becomes unrelated.
         final ClipMaskViewerState state = new ClipMaskViewerState();
         state.refreshData(service(
