@@ -94,14 +94,19 @@ def main():
     if not (mesh_source / 'TriangulationVectorCopyPatcher.java').is_file():
         raise ValueError('T063 integration withdrawn; supply archived --runtime-source and --runtime-classes')
     jars = {profile: getattr(args, 'jar_' + profile).resolve() for profile in ('5203', '5302', '5303')}
-    kotlin_pin = re.search(r'KOTLIN_SHA = "([a-f0-9]{64})"', preparation.read_text())[1]
+    # Production admits the Kotlin JAR by presence inside the reviewed host directory;
+    # the internal SHA-256 pin was removed. Record the observed digest instead.
+    kotlin_sha = None
     for profile, jar in jars.items():
         name = {'5203': 'CUBISM_5_2_03', '5302': 'CUBISM_5_3_02', '5303': 'CUBISM_5_3_03'}[profile]
         match = re.search(r'\b' + name + r'\s*=\s*new HostArtifactDigest\(([\d_]+)L,\s*"([a-f0-9]{64})"\)', authority.read_text())
         if not match or jar.stat().st_size != int(match[1].replace('_', '')) or sha(jar) != match[2]:
             raise ValueError('official artifact mismatch ' + profile)
-        if sha(jar.parent / 'kotlin-stdlib-1.7.21.jar') != kotlin_pin:
-            raise ValueError('Kotlin mismatch ' + profile)
+        observed = sha(jar.parent / 'kotlin-stdlib-1.7.21.jar')
+        if kotlin_sha is None:
+            kotlin_sha = observed
+        elif observed != kotlin_sha:
+            raise ValueError('Kotlin artifact mismatch ' + profile)
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     sources = output / 'sources'
@@ -148,7 +153,7 @@ def main():
         pins[str(path)] = sha(path)
     for path in runtime.glob('dev/turboism/adapter/cubism/mesh/TriangulationVectorCopyPatcher*.class'):
         pins[str(path)] = sha(path)
-    for name in ('TriangulationVectorCopyPatcher.java', 'TriangulationAngleGuardPatcher.java', 'TriangulationDefinitionFingerprint.java'):
+    for name in ('TriangulationVectorCopyPatcher.java', 'TriangulationAngleGuardPatcher.java'):
         path = mesh_source / name
         pins[str(path)] = sha(path)
     report = {'scope': 'COMPILED_PRODUCTION_COMPOSED_D_OWNED_LEASE_NO_ADMISSION_OR_HOST_CLAIM',

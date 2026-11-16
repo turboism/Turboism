@@ -3,20 +3,16 @@
   "comment": "Evidence-backed exact value tables, generated manifest pins and validation lanes. Java entries do not restate reviewed versions. Bare version sets require a separate exact collection exception; none are currently needed. Stale entries fail R3.",
   "sites": [
     {
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.java",
-      "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.java: Literal version table derived from verification records; the set names the reviewed versions this surface admits."
-    },
-    {
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorModelInstanceReadSelectorContract.java",
       "evidence": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorModelInstanceReadSelectorContract.java: RenderType.ONION_SKIN_FOR_MODELING enum member is absent on these exact jars (verified via javap on every 5.0.x/5.1.x/5.2.x reference); the member first appears on 5.3.00."
     },
     {
-      "path": "bootstrap/src/main/java/dev/turboism/bootstrap/ObjectContextMenuHostProfile.java",
-      "evidence": "bootstrap/src/main/java/dev/turboism/bootstrap/ObjectContextMenuHostProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/profile/ObjectContextMenuHostProfile.java",
+      "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/profile/ObjectContextMenuHostProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
     },
     {
-      "path": "bootstrap/src/main/java/dev/turboism/bootstrap/ParameterPointContextMenuHostProfile.java",
-      "evidence": "bootstrap/src/main/java/dev/turboism/bootstrap/ParameterPointContextMenuHostProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/profile/ParameterPointContextMenuHostProfile.java",
+      "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/profile/ParameterPointContextMenuHostProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
     },
     {
       "path": "bootstrap/src/main/java/dev/turboism/bootstrap/PerformanceFpsHookInstaller.java",
@@ -76,7 +72,7 @@
     },
     {
       "path": "scripts/preview/run-atlas-image-shadow-host-validation.sh",
-      "evidence": "scripts/preview/run-atlas-image-shadow-host-validation.sh: Blocked T040/T029 shadow scene wrapper pins exact obfuscated class/shape/patched bytecode SHA-256 digests for 5.2.03, 5.3.02, and 5.3.03 (verified by test_atlas_image_shadow_host_validation.sh).",
+      "evidence": "scripts/preview/run-atlas-image-shadow-host-validation.sh: Version-specific whole-artifact identities and fixed installation paths select reviewed validation profiles for 5.2.03, 5.3.02, and 5.3.03. External probes retain frozen input contracts; internal configurations use explicit Boolean preferences.",
       "versions": [
         "5.2.03",
         "5.3.02",

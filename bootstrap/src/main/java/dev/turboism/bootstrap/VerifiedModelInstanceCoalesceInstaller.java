@@ -3,6 +3,7 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.modelinstances.ModelInstanceCoalesceBridge;
+import dev.turboism.adapter.cubism.optimization.modelinstances.ModelInstanceCoalesceDependencies;
 import dev.turboism.adapter.cubism.optimization.modelinstances.ModelInstanceCoalesceTarget;
 import dev.turboism.adapter.cubism.optimization.modelinstances.ModelInstanceCoalesceTransformer;
 import java.lang.instrument.Instrumentation;
@@ -30,12 +31,12 @@ final class VerifiedModelInstanceCoalesceInstaller implements AutoCloseable {
     /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
     static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.SKIP, JvmCheck.AT_LEAST_17);
 
-    private static final String DOCUMENT = "com/live2d/cubism/doc/modeling/CModelingDocument";
-    private static final String UNDO_GROUP = "com/live2d/undo/GroupUndo";
+    private static final String DOCUMENT = ModelInstanceCoalesceDependencies.DOCUMENT_OWNER;
+    private static final String UNDO_GROUP = ModelInstanceCoalesceDependencies.UNDO_GROUP_OWNER;
 
     private static final List<ReviewedHostContract.Candidate<ModelInstanceCoalesceTarget>> CANDIDATES =
             ReviewedHostContract.candidates(
-                    ModelInstanceCoalesceTarget.reviewedClassSha256(), ModelInstanceCoalesceTarget::new);
+                    ModelInstanceCoalesceTarget.targetClasses(), ModelInstanceCoalesceTarget::new);
 
     private final Instrumentation instrumentation;
     private final ModelInstanceCoalesceTarget target;
@@ -126,24 +127,10 @@ final class VerifiedModelInstanceCoalesceInstaller implements AutoCloseable {
     }
 
     private static List<Dependency> dependenciesFor(final Class<?> type) {
-        final String name = type.getName();
-        if (ModelInstanceCoalesceTarget.SOURCE_OWNER.replace('/', '.').equals(name)) {
-            return List.of(new Dependency("getDocument", "()Lcom/live2d/cubism/doc/modeling/CModelingDocument;"));
-        }
-        if (DOCUMENT.equals(name)) {
-            return List.of(
-                    new Dependency("getCurrentEditMode", "()Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Base;"));
-        }
-        if (ModelInstanceCoalesceTarget.EDIT_MODE_OWNER.replace('/', '.').equals(name)) {
-            return List.of(
-                    new Dependency("isEditing", "()Z"),
-                    new Dependency("getCurrentUndo", "()Lcom/live2d/undo/GroupUndo;"),
-                    new Dependency("getDoc", "()Lcom/live2d/cubism/doc/IDocument;"));
-        }
-        if (UNDO_GROUP.equals(name)) {
-            return List.of(new Dependency("getEditCount", "()I"));
-        }
-        return List.of();
+        final String internalName = type.getName().replace('.', '/');
+        return ModelInstanceCoalesceDependencies.forOwner(internalName).stream()
+                .map(member -> new Dependency(member.name(), member.descriptor()))
+                .toList();
     }
 
     private record Dependency(String name, String descriptor) {}

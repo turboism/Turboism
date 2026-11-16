@@ -1338,8 +1338,9 @@ env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fi
   --prepare-dir "$prepare_tlp_off" > "$test_root/prepare-tlprod-off.log" 2>&1 \
   || fail 'tlprod off-leg prepare failed'
 grep -q 'tlindexPreference=off' "$test_root/prepare-tlprod-off.log"
-grep -q 'tlindexOffConfigSha256=47bb572625150b9f6a78a75be1e1b62cf1df0b179b58a2beffd7b568c4ae8c43' \
-  "$test_root/prepare-tlprod-off.log"
+# Admission is the explicit field check, not a stored digest; the receipt still records the
+# observed hash for the run inventory.
+grep -Eq 'tlindexOffConfigSha256=[0-9a-f]{64}' "$test_root/prepare-tlprod-off.log"
 python3 - "$prepare_tlp_off/runner-request.json" <<'PYTP2'
 import json
 import sys

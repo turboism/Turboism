@@ -1,7 +1,10 @@
 package dev.turboism.adapter.cubism.optimization.image;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -55,14 +58,14 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
     }
 
     /**
-     * The factory owner pinned for one reviewed generation. Each block names exactly
+     * The factory owner named for one reviewed generation. Each block names exactly
      * one class — {@link #TARGET} on 5.3.x, {@link #TARGET_52} on 5.2.x — so the owner is
      * recovered from the table rather than restated here.
      */
     public static String ownerForVersion(String version) {
-        List<String> block = reviewedClassSha256().get(version);
+        List<String> block = targetClasses().get(version);
         if (block == null || block.size() != 1) {
-            throw new IllegalArgumentException("no single texture factory pin for version " + version);
+            throw new IllegalArgumentException("no single texture factory target class for version " + version);
         }
         return block.get(0);
     }
@@ -72,11 +75,7 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
             Module module, ClassLoader loader, String name, Class<?> redefined, ProtectionDomain domain, byte[] bytes) {
         if (loader != expectedLoader || !owner.equals(name) || bytes == null) return null;
         try {
-            if (artifact != null
-                    && !artifact.equals(
-                            Path.of(domain.getCodeSource().getLocation().toURI())
-                                    .toAbsolutePath()
-                                    .normalize())) return null;
+            if (artifact != null && !HostCodeSource.matchesArtifact(domain, artifact)) return null;
             if (!reviewedShape.equals(ReviewedMethodShape.read(bytes, owner, "a", METHOD_DESCRIPTOR))) {
                 failure = "native texture factory body differs from reviewed artifact";
                 return null;
@@ -108,12 +107,7 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
                 failure = "native texture factory call-site count differs";
                 return null;
             }
-            ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return expectedLoader == null ? super.getClassLoader() : expectedLoader;
-                }
-            };
+            ClassWriter writer = HostClassWriters.newFrameWriter(reader, expectedLoader);
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override
@@ -183,15 +177,7 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
                     invoke = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            this.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            this.visitLdcInsn(TextureUploadPreparationBridge.CALLBACK_PROPERTY);
-            this.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
+            SlotBridgeEmitter.emitGetSlot(this, TextureUploadPreparationBridge.CALLBACK_PROPERTY);
             this.visitInsn(Opcodes.DUP);
             this.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BiFunction");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
@@ -247,9 +233,10 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
      * repackaged or differently-declared artifact binds this hook only when
      * one distinct contract's targets exist; identical contracts merge.
      */
-    public static Map<String, List<String>> reviewedClassSha256() {
+    public static Map<String, List<String>> targetClasses() {
         return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("texture-upload-preparation");
+    private static final Map<String, List<String>> REVIEWED_CLASSES =
+            TargetClassTable.load("texture-upload-preparation");
 }

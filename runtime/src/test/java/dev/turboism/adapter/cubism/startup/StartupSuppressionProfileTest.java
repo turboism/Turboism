@@ -59,10 +59,9 @@ class StartupSuppressionProfileTest {
     }
 
     @Test
-    void keepsEveryReviewedVersionAliasSetConsistentWithItsPinBlock() {
+    void keepsEveryReviewedVersionAliasSetConsistentWithItsTargetClassTable() {
         assertEquals(
-                StartupSuppressionProfile.reviewedClassSha256().keySet(),
-                StartupSuppressionProfile.reviewedCubismVersions());
+                StartupSuppressionProfile.targetClasses().keySet(), StartupSuppressionProfile.reviewedCubismVersions());
     }
 
     @Test

@@ -9,7 +9,7 @@ out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 javac --release 17 -encoding UTF-8 -d "$out" \
   "$src/AllocationProfile.java" "$tests/AllocationProfileTest.java" \
-  "$src/CanvasWheelWorkload.java" "$src/GpuCompletionProbe.java" "$tests/CanvasWheelParityTest.java" \
+  "$src/CanvasWheelWorkload.java" "$src/HumanTrace.java" "$src/GpuCompletionProbe.java" "$tests/CanvasWheelParityTest.java" \
   "$src/NativeDragSequence.java" "$tests/NativeDragSequenceTest.java" \
   "$src/NativeParitySequence.java" "$tests/NativeParitySequenceTest.java" \
   "$src/NativeInteractionHost.java" "$tests/NativeInteractionHostTest.java" "$tests/ExactCameraRestoreTest.java" \
@@ -21,7 +21,7 @@ javac --release 17 -encoding UTF-8 -d "$out" \
   "$src/UniformLocationCache.java" "$src/UniformValueCache.java" "$src/UniformLocationTrial.java" "$src/FrameReadback.java" \
   "$tests/GlSubmissionProbeTest.java" "$tests/GlCallCategoryTest.java" "$tests/UploadPayloadObserverTest.java" \
   "$tests/UniformLocationCacheTest.java" "$tests/UniformLocationTrialTest.java" "$tests/FrameReadbackTest.java" \
-  "$tests/UniformValueCacheTest.java" "$tests/UniformValueAllocationTest.java" "$tests/BenchmarkResourcesTest.java" "$tests/NarrowUniformTrialTest.java" "$tests/MatrixScratchTrialTest.java"
-for name in ExactCameraRestoreTest NativeInteractionFocusTest CanvasWheelParityTest NativeParitySequenceTest PreparationWatchdogTest AllocationProfileTest GlSubmissionProbeTest GlCallCategoryTest UploadPayloadObserverTest UniformLocationCacheTest UniformLocationTrialTest FrameReadbackTest UniformValueCacheTest UniformValueAllocationTest BenchmarkResourcesTest NarrowUniformTrialTest MatrixScratchTrialTest NativeDragSequenceTest NativeInteractionHostTest NativeInteractionWorkloadFactorTest; do
+  "$tests/UniformValueCacheTest.java" "$tests/UniformValueAllocationTest.java" "$tests/BenchmarkResourcesTest.java" "$tests/NarrowUniformTrialTest.java" "$tests/MatrixScratchTrialTest.java" "$tests/MatrixScratchEvidenceTest.java"
+for name in ExactCameraRestoreTest NativeInteractionFocusTest CanvasWheelParityTest NativeParitySequenceTest PreparationWatchdogTest AllocationProfileTest GlSubmissionProbeTest GlCallCategoryTest UploadPayloadObserverTest UniformLocationCacheTest UniformLocationTrialTest FrameReadbackTest UniformValueCacheTest UniformValueAllocationTest BenchmarkResourcesTest NarrowUniformTrialTest MatrixScratchTrialTest MatrixScratchEvidenceTest NativeDragSequenceTest NativeInteractionHostTest NativeInteractionWorkloadFactorTest; do
   java -cp "$out" "dev.turboism.validation.modelupdate.$name"
 done

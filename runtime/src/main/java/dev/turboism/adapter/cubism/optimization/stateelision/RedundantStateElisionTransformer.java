@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.stateelision;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -140,12 +143,7 @@ public final class RedundantStateElisionTransformer implements ClassFileTransfor
             return null;
         }
         try {
-            if (domain == null
-                    || domain.getCodeSource() == null
-                    || !artifact.equals(
-                            Path.of(domain.getCodeSource().getLocation().toURI())
-                                    .toAbsolutePath()
-                                    .normalize())) {
+            if (!HostCodeSource.matchesArtifact(domain, artifact)) {
                 throw new IllegalArgumentException("state-elision artifact mismatch");
             }
             for (final var entry : shapes.entrySet()) {
@@ -159,12 +157,7 @@ public final class RedundantStateElisionTransformer implements ClassFileTransfor
                 }
             }
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-            };
+            final ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             invalidatorNames.clear();
             final int[] sites = {0};
             reader.accept(
@@ -209,26 +202,6 @@ public final class RedundantStateElisionTransformer implements ClassFileTransfor
 
     private record Handler(Label start, Label end, Label target, String type) {}
 
-    /**
-     * Emits the {@code getProperties → instanceof MethodHandle → checkcast}
-     * prefix shared by every guarded slot lookup; leaves the handle on the
-     * stack. Control lands on {@code discard} (with the raw object still on
-     * the stack) when the slot is absent or of the wrong type.
-     */
-    private static void slotLookup(
-            final MethodVisitor mv, final String property, final Label start, final Label discard) {
-        mv.visitLabel(start);
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-        mv.visitLdcInsn(property);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
-        mv.visitInsn(Opcodes.DUP);
-        mv.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/invoke/MethodHandle");
-        mv.visitJumpInsn(Opcodes.IFEQ, discard);
-        mv.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/invoke/MethodHandle");
-    }
-
     /** Tracked-setter observer: entry consult with early return, body wrapped catch-all. */
     private static final class Consult extends MethodVisitor {
         private final int site;
@@ -255,7 +228,8 @@ public final class RedundantStateElisionTransformer implements ClassFileTransfor
             final Label start = new Label(), end = new Label(), failure = new Label();
             final Label discard = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
-            slotLookup(this, RedundantStateElisionBridge.CONSULT_PROPERTY, start, discard);
+            super.visitLabel(start);
+            SlotBridgeEmitter.emitMethodHandleConsult(this, RedundantStateElisionBridge.CONSULT_PROPERTY, discard);
             super.visitVarInsn(Opcodes.ALOAD, 0);
             pushInt(site);
             for (int i = 0; i < 4; i++) {
@@ -303,7 +277,8 @@ public final class RedundantStateElisionTransformer implements ClassFileTransfor
             final Label start = new Label(), end = new Label(), failure = new Label();
             final Label discard = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
-            slotLookup(this, RedundantStateElisionBridge.EXCEPTION_PROPERTY, start, discard);
+            super.visitLabel(start);
+            SlotBridgeEmitter.emitMethodHandleConsult(this, RedundantStateElisionBridge.EXCEPTION_PROPERTY, discard);
             super.visitVarInsn(Opcodes.ALOAD, 0);
             super.visitMethodInsn(
                     Opcodes.INVOKEVIRTUAL,
@@ -349,7 +324,8 @@ public final class RedundantStateElisionTransformer implements ClassFileTransfor
             final Label start = new Label(), end = new Label(), failure = new Label();
             final Label discard = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
-            slotLookup(this, RedundantStateElisionBridge.INVALIDATE_PROPERTY, start, discard);
+            super.visitLabel(start);
+            SlotBridgeEmitter.emitMethodHandleConsult(this, RedundantStateElisionBridge.INVALIDATE_PROPERTY, discard);
             super.visitVarInsn(Opcodes.ALOAD, 0);
             pushInt(site);
             super.visitMethodInsn(
@@ -374,7 +350,8 @@ public final class RedundantStateElisionTransformer implements ClassFileTransfor
             final Label start = new Label(), end = new Label(), failure = new Label();
             final Label discard = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
-            slotLookup(this, RedundantStateElisionBridge.EXCEPTION_PROPERTY, start, discard);
+            super.visitLabel(start);
+            SlotBridgeEmitter.emitMethodHandleConsult(this, RedundantStateElisionBridge.EXCEPTION_PROPERTY, discard);
             super.visitVarInsn(Opcodes.ALOAD, 0);
             super.visitMethodInsn(
                     Opcodes.INVOKEVIRTUAL,

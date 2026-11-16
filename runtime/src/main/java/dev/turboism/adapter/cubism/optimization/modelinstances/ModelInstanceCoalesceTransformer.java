@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.modelinstances;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -150,11 +153,7 @@ public final class ModelInstanceCoalesceTransformer implements ClassFileTransfor
         final ClassSpec spec = specs.get(name);
         if (spec == null) return null;
         try {
-            if (domain == null
-                    || !artifact.equals(
-                            Path.of(domain.getCodeSource().getLocation().toURI())
-                                    .toAbsolutePath()
-                                    .normalize())) {
+            if (!HostCodeSource.matchesArtifact(domain, artifact)) {
                 failure = "coalescer seam source is not the reviewed artifact: " + name;
                 return null;
             }
@@ -168,12 +167,7 @@ public final class ModelInstanceCoalesceTransformer implements ClassFileTransfor
                 }
             }
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-            };
+            final ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             final int[] transformed = {0};
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
@@ -255,7 +249,7 @@ public final class ModelInstanceCoalesceTransformer implements ClassFileTransfor
             final Label discard = new Label(), nativePath = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            emitSlotLookup(injection.entryKey());
+            SlotBridgeEmitter.emitGetSlot(this, injection.entryKey());
             super.visitInsn(Opcodes.DUP);
             super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Predicate");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
@@ -280,7 +274,7 @@ public final class ModelInstanceCoalesceTransformer implements ClassFileTransfor
             final Label discard = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            emitSlotLookup(injection.entryKey());
+            SlotBridgeEmitter.emitGetSlot(this, injection.entryKey());
             super.visitInsn(Opcodes.DUP);
             super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Consumer");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
@@ -304,7 +298,7 @@ public final class ModelInstanceCoalesceTransformer implements ClassFileTransfor
             final Label discard = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            emitSlotLookup(injection.afterKey());
+            SlotBridgeEmitter.emitGetSlot(this, injection.afterKey());
             super.visitInsn(Opcodes.DUP);
             super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Consumer");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
@@ -320,18 +314,6 @@ public final class ModelInstanceCoalesceTransformer implements ClassFileTransfor
             super.visitLabel(handler);
             super.visitInsn(Opcodes.POP);
             super.visitLabel(done);
-        }
-
-        private void emitSlotLookup(final String key) {
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(key);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
         }
     }
 

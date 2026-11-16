@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.extendedinterpolation;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -89,12 +92,7 @@ public final class ExtendedInterpolationSetupTransformer implements ClassFileTra
         if (bytes == null || actualLoader != loader || name == null) return null;
         if (!ExtendedInterpolationSetupTarget.MODEL_SOURCE.equals(name)) return null;
         try {
-            if (domain == null
-                    || domain.getCodeSource() == null
-                    || !artifact.equals(
-                            Path.of(domain.getCodeSource().getLocation().toURI())
-                                    .toAbsolutePath()
-                                    .normalize())) {
+            if (!HostCodeSource.matchesArtifact(domain, artifact)) {
                 failure = "setup owner source mismatch";
                 return null;
             }
@@ -114,12 +112,7 @@ public final class ExtendedInterpolationSetupTransformer implements ClassFileTra
             }
 
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-            };
+            final ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             final int[] woven = {0};
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
@@ -188,22 +181,9 @@ public final class ExtendedInterpolationSetupTransformer implements ClassFileTra
         out.visitVarInsn(Opcodes.ASTORE, slot);
         out.visitTryCatchBlock(tryStart, tryEnd, handler, "java/lang/Throwable");
         out.visitLabel(tryStart);
-        out.visitMethodInsn(
-                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-        out.visitLdcInsn(ExtendedInterpolationSetupBridge.CONSULT_PROPERTY);
-        out.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
-        out.visitInsn(Opcodes.DUP);
-        out.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Function");
-        out.visitJumpInsn(Opcodes.IFEQ, notFunction);
-        out.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Function");
+        SlotBridgeEmitter.emitFunctionConsult(out, ExtendedInterpolationSetupBridge.CONSULT_PROPERTY, notFunction);
         out.visitVarInsn(Opcodes.ALOAD, slot);
-        out.visitMethodInsn(
-                Opcodes.INVOKEINTERFACE,
-                "java/util/function/Function",
-                "apply",
-                "(Ljava/lang/Object;)Ljava/lang/Object;",
-                true);
+        SlotBridgeEmitter.emitApply(out);
         out.visitFieldInsn(Opcodes.GETSTATIC, "java/lang/Boolean", "TRUE", "Ljava/lang/Boolean;");
         out.visitJumpInsn(Opcodes.IF_ACMPNE, nativeCall);
         out.visitJumpInsn(Opcodes.GOTO, done);

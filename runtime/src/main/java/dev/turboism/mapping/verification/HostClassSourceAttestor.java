@@ -3,9 +3,8 @@ package dev.turboism.mapping.verification;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
-import java.security.MessageDigest;
+import java.util.Arrays;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -72,20 +71,10 @@ final class HostClassSourceAttestor {
             if (actual == null) {
                 throw new IllegalArgumentException("runtime selector owner bytes are unavailable for attestation");
             }
-            if (!digest(expected).equals(digest(actual))) {
+            if (!Arrays.equals(expected.readAllBytes(), actual.readAllBytes())) {
                 throw new IllegalArgumentException(
                         "runtime selector owner bytes do not match the verified artifact: " + ownerInternalName);
             }
         }
-    }
-
-    private static String digest(final InputStream input) throws IOException {
-        final MessageDigest digest = HostArtifactDigest.sha256Digest();
-        final byte[] buffer = new byte[8192];
-        int read;
-        while ((read = input.read(buffer)) >= 0) {
-            digest.update(buffer, 0, read);
-        }
-        return HexFormat.of().formatHex(digest.digest());
     }
 }

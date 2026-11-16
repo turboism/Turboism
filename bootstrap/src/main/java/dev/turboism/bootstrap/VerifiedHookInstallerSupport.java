@@ -1,6 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.core.io.Sha256;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
@@ -127,19 +126,6 @@ final class VerifiedHookInstallerSupport {
             throw new IllegalStateException(absentMessage);
         }
         return result.get();
-    }
-
-    /** Returns the lowercase SHA-256 digest of {@code bytes} as hexadecimal text. */
-    static String sha256Hex(final byte[] bytes) {
-        return Sha256.hex(bytes);
-    }
-
-    /**
-     * Computes the lowercase SHA-256 hex digest of {@code bytes} inside a {@link ClassFileTransformer}
-     * callback where checked exceptions cannot be thrown.
-     */
-    static String sha256HexUnchecked(final byte[] bytes) {
-        return Sha256.hex(bytes);
     }
 
     /**

@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.sorting;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -87,13 +89,7 @@ public final class MeshContainerLookupTransformer implements ClassFileTransforme
             return null;
         }
         try {
-            if (domain == null
-                    || domain.getCodeSource() == null
-                    || domain.getCodeSource().getLocation() == null
-                    || !artifact.equals(
-                            Path.of(domain.getCodeSource().getLocation().toURI())
-                                    .toAbsolutePath()
-                                    .normalize())) {
+            if (!HostCodeSource.matchesArtifact(domain, artifact)) {
                 failure = "mesh-container source is not the reviewed artifact";
                 return null;
             }
@@ -106,12 +102,7 @@ public final class MeshContainerLookupTransformer implements ClassFileTransforme
                 return null;
             }
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-            };
+            final ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             final boolean[] applied = {false};
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {

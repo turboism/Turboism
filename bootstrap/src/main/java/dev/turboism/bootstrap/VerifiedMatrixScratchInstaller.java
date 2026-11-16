@@ -3,6 +3,7 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchBridge;
+import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchTarget;
 import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import java.lang.instrument.ClassFileTransformer;
@@ -29,8 +30,8 @@ import java.util.jar.JarFile;
  * absent) and is only armed after the weave and every dependency re-verification have been proven.</p>
  *
  * <p>The protocol itself lives in {@link VerifiedInstall}: the guard is a registration without a class
- * of its own, the rewritten traversal is re-captured on close and must hash back to the bytes the
- * transformer observed, and a failed removal keeps the handle open for a retry instead of reporting a
+ * of its own, the rewritten traversal is restored on close by removing every registration and
+ * retransforming the owner, and a failed removal keeps the handle open for a retry instead of reporting a
  * settled installation.</p>
  */
 final class VerifiedMatrixScratchInstaller implements AutoCloseable {
@@ -46,8 +47,8 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     static final int EXPECTED_OWNERS = 1;
 
     private static final String FEATURE_NAME = "matrix scratch";
-    private static final String PRODUCT_CLASS = "com.live2d.graphics3d.type.a";
-    private static final String PRODUCT_METHOD = "a";
+    private static final String PRODUCT_CLASS = MatrixScratchTarget.PRODUCT_OWNER.replace('/', '.');
+    private static final String PRODUCT_METHOD = MatrixScratchTarget.PRODUCT_METHOD;
     private static final String GET_LOCAL_TO_PARENT = "getLocalToParentMatrix";
     private static final String GET_ENTITY = "getEntity";
     private static final String GET_PARENT_ENTITY = "getParentEntity";
@@ -69,7 +70,6 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     private final AtomicReference<Throwable> dependencyRejection = new AtomicReference<>();
     private final Map<Class<?>, List<Body>> dependencies = new LinkedHashMap<>();
     private final List<WeaveTarget> targets = new ArrayList<>();
-    private final String originalTargetSha;
     private final ClassFileTransformer dependencyGuard;
     private Properties properties;
     private boolean closed;
@@ -78,7 +78,7 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     private record Body(String name, String descriptor, List<String> shape) {}
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
-            ReviewedHostContract.candidates(MatrixScratchTransformer.reviewedClassSha256(), version -> HOOK_ID);
+            ReviewedHostContract.candidates(MatrixScratchTransformer.targetClasses(), version -> HOOK_ID);
 
     VerifiedMatrixScratchInstaller(final InstallContext context) throws Exception {
         this.context = context;
@@ -124,7 +124,6 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
             transformer = new MatrixScratchTransformer(
                     loader, source, VerifiedHookInstallerSupport.readReferenceBytes(jar, target));
             bridge = new MatrixScratchBridge(loader, admission);
-            originalTargetSha = VerifiedHookInstallerSupport.sha256Hex(captured.get(target));
         }
         dependencyGuard = new ClassFileTransformer() {
             @Override

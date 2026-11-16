@@ -54,7 +54,7 @@ def write_tree(root: Path) -> None:
             verification_record(version, ["cubism.demo.alpha", "cubism.demo.beta"]),
         )
     put(
-        (gate.r2_CLASS_PINS_DIR / "demo.json").as_posix(),
+        (gate.r2_TARGET_CLASSES_DIR / "demo.json").as_posix(),
         json.dumps({version: {} for version in VERSIONS}),
     )
     put(gate.r2_HOST_VALIDATION_TASKS.as_posix(), json.dumps(JAVA_HOST_TASKS))
@@ -284,7 +284,7 @@ class VersionMonotonicityTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            path = root / gate.r2_CLASS_PINS_DIR / "demo.json"
+            path = root / gate.r2_TARGET_CLASSES_DIR / "demo.json"
             document = json.loads(path.read_text())
             del document["5.3.03"]
             path.write_text(json.dumps(document))
@@ -294,11 +294,30 @@ class VersionMonotonicityTest(unittest.TestCase):
                 [f.message() for f in findings],
             )
 
+    def test_legacy_class_pins_exception_suppresses_target_classes_finding(self):
+        """A persisted exception keeps kind 'class-pins' while its path follows the rename."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_tree(root)
+            path = root / gate.r2_TARGET_CLASSES_DIR / "demo.json"
+            document = json.loads(path.read_text())
+            del document["5.3.03"]
+            path.write_text(json.dumps(document))
+            write_exceptions(root, [exception(
+                kind="class-pins",
+                path=f"{gate.r2_TARGET_CLASSES_DIR.as_posix()}/demo.json",
+                site="demo.json",
+                missing=["5.3.03"],
+            )])
+            suppressed, findings = gate.r2_check(root)
+            self.assertEqual([], findings)
+            self.assertEqual(1, len(suppressed))
+
     def test_class_pin_dropped_lower_patch_passes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            path = root / gate.r2_CLASS_PINS_DIR / "demo.json"
+            path = root / gate.r2_TARGET_CLASSES_DIR / "demo.json"
             document = json.loads(path.read_text())
             del document["5.2.03"], document["5.3.02"], document["5.3.03"]
             path.write_text(json.dumps(document))
@@ -308,7 +327,7 @@ class VersionMonotonicityTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            path = root / gate.r2_CLASS_PINS_DIR / "demo.json"
+            path = root / gate.r2_TARGET_CLASSES_DIR / "demo.json"
             path.write_text(json.dumps({"default": ["com/example/A"]}))
             self.assertEqual([], live(root))
 
@@ -316,12 +335,12 @@ class VersionMonotonicityTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            path = root / gate.r2_CLASS_PINS_DIR / "demo.json"
+            path = root / gate.r2_TARGET_CLASSES_DIR / "demo.json"
             path.write_text(json.dumps(
                 {"default": ["com/example/A"],
                  "overrides": {"5.4.01": ["com/example/B"]}}))
             problems = live(root)
-            self.assertTrue(any("class-pins" in f.message() for f in problems),
+            self.assertTrue(any("target-classes" in f.message() for f in problems),
                             [f.message() for f in problems])
 
     def test_host_validation_task_hole_fails(self):

@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.serialization;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -46,22 +49,13 @@ public final class FloatArrayParseTransformer implements ClassFileTransformer {
             byte[] bytes) {
         if (loader != expectedLoader || !TARGET.equals(name) || bytes == null) return null;
         try {
-            if (artifact != null
-                    && !artifact.equals(
-                            Path.of(domain.getCodeSource().getLocation().toURI())
-                                    .toAbsolutePath()
-                                    .normalize())) return null;
+            if (artifact != null && !HostCodeSource.matchesArtifact(domain, artifact)) return null;
             if (!reviewedShape.equals(shape(bytes))) {
                 failure = "native float-array method body differs from reviewed artifact";
                 return null;
             }
             ClassReader reader = new ClassReader(bytes);
-            ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return expectedLoader == null ? super.getClassLoader() : expectedLoader;
-                }
-            };
+            ClassWriter writer = HostClassWriters.newFrameWriter(reader, expectedLoader);
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override
@@ -77,19 +71,7 @@ public final class FloatArrayParseTransformer implements ClassFileTransformer {
                                     Label discard = new Label(), nativePath = new Label();
                                     super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
                                     super.visitLabel(start);
-                                    this.visitMethodInsn(
-                                            Opcodes.INVOKESTATIC,
-                                            "java/lang/System",
-                                            "getProperties",
-                                            "()Ljava/util/Properties;",
-                                            false);
-                                    this.visitLdcInsn(FloatArrayParseBridge.CALLBACK_PROPERTY);
-                                    this.visitMethodInsn(
-                                            Opcodes.INVOKEVIRTUAL,
-                                            "java/util/Properties",
-                                            "get",
-                                            "(Ljava/lang/Object;)Ljava/lang/Object;",
-                                            false);
+                                    SlotBridgeEmitter.emitGetSlot(this, FloatArrayParseBridge.CALLBACK_PROPERTY);
                                     this.visitInsn(Opcodes.DUP);
                                     this.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BiFunction");
                                     super.visitJumpInsn(Opcodes.IFEQ, discard);
@@ -270,13 +252,14 @@ public final class FloatArrayParseTransformer implements ClassFileTransformer {
     private record Jump(int index, int opcode, Label target) {}
 
     /**
-     * SHA-256 of the serializer class this hook rewrites, keyed by internal name, per reviewed generation. A
-     * repackaged or differently-declared artifact binds this hook only when
-     * one distinct contract's pins match every class entry; identical contracts merge.
+     * Target class the serializer rewrite touches, keyed by internal name, per
+     * reviewed generation. A repackaged or differently-declared artifact binds this
+     * hook only when one distinct contract's class list matches every entry;
+     * identical contracts merge.
      */
-    public static Map<String, List<String>> reviewedClassSha256() {
+    public static Map<String, List<String>> targetClasses() {
         return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("float-array-parse");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = TargetClassTable.load("float-array-parse");
 }

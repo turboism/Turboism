@@ -2,6 +2,7 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseBridge;
+import dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseTarget;
 import dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import java.nio.file.Path;
@@ -27,11 +28,8 @@ final class VerifiedImageArchiveReuseInstaller implements VerifiedHookInstaller 
     /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 1;
 
-    private static final String RESOURCE_OWNER = "com/live2d/graphics/CImageResource";
-    private static final String IMAGE_OWNER = "com/live2d/graphics/CWritableImage";
-
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
-            ReviewedHostContract.candidates(ImageArchiveReuseTransformer.reviewedClassSha256(), version -> HOOK_ID);
+            ReviewedHostContract.candidates(ImageArchiveReuseTransformer.targetClasses(), version -> HOOK_ID);
 
     static final WeaveSpec<ReviewedHostContract.Bound<String>> SPEC = new WeaveSpec<ReviewedHostContract.Bound<String>>(
             ADMISSION,
@@ -39,8 +37,9 @@ final class VerifiedImageArchiveReuseInstaller implements VerifiedHookInstaller 
             VerifiedImageArchiveReuseInstaller::resolve,
             new WeavePlan<>(VerifiedImageArchiveReuseInstaller::targets, WeavePlan.PostCheck.NONE),
             (contract, context) -> {
-                final ImageArchiveReuseBridge bridge =
-                        new ImageArchiveReuseBridge(load(context, RESOURCE_OWNER), load(context, IMAGE_OWNER));
+                final ImageArchiveReuseBridge bridge = new ImageArchiveReuseBridge(
+                        load(context, ImageArchiveReuseTarget.RESOURCE_OWNER),
+                        load(context, ImageArchiveReuseTarget.IMAGE_OWNER));
                 return BridgeLayer.of(bridge::install, bridge);
             },
             WeaveEffects.none());
@@ -73,10 +72,11 @@ final class VerifiedImageArchiveReuseInstaller implements VerifiedHookInstaller 
 
     private static List<WeaveTarget> targets(
             final ReviewedHostContract.Bound<String> contract, final WeaveSource source) throws Exception {
-        final Class<?> target = source.load(RESOURCE_OWNER);
+        final Class<?> target = source.load(ImageArchiveReuseTarget.RESOURCE_OWNER);
         // The callback writes the image class's own fields, so it must come from the same loader. The
         // hand-rolled protocol pinned the loader only, and the bridge re-checks both names.
-        final Class<?> image = Class.forName(IMAGE_OWNER.replace('/', '.'), false, source.loader());
+        final Class<?> image =
+                Class.forName(ImageArchiveReuseTarget.IMAGE_OWNER.replace('/', '.'), false, source.loader());
         if (image.getClassLoader() != source.loader()) {
             throw new IllegalArgumentException("image archive host loader or source mismatch");
         }

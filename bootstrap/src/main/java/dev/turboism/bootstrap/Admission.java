@@ -8,7 +8,7 @@ import java.util.Objects;
  *
  * <p>The ordering of the row (request, JVM feature, policy, reviewed target) lives in
  * {@link VerifiedInstall#admits}; the reviewed-target expression stays at the hook so each admission
- * source — pin table, digest table, version string plus JAR entries — remains visible where it is
+ * * source — target class table, digest table, version string plus JAR entries — remains visible where it is
  * declared instead of hiding behind a shared abstraction.</p>
  *
  * @param hookId the hook identity the kill switch matches: {@code cubism.*} for the product

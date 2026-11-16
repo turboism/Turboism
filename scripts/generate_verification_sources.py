@@ -384,7 +384,7 @@ def target_files(families: list[dict]) -> dict[str, dict]:
 
 
 MODEL_UPDATE_SOURCE = AUTHORING_ROOT / "model-update-targets.json"
-MODEL_UPDATE_PINS = Path("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins")
+MODEL_UPDATE_PINS = Path("runtime/src/main/resources/dev/turboism/adapter/cubism/target-classes")
 MODEL_UPDATE_TARGET = VERIFICATION_PACKAGE + "/ModelUpdateTargetTable.java"
 MODEL_UPDATE_ADAPTERS = (
     "optimization/modelupdate/ModelUpdateSkipTarget.java",

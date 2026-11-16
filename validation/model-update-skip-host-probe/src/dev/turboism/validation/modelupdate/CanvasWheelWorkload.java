@@ -49,6 +49,12 @@ final class CanvasWheelWorkload {
     private static final String CLIPMASK_DEDUPE_STATS = "turboism.clip-mask-dedupe.stats";
     private static final String CLIPMASK_SCISSOR_STATS = "turboism.clip-mask-scissor.stats";
     private static final String MESH_SETUP_STATS = "turboism.mesh-setup-elision.stats";
+    // Final-acceptance evidence for the matrix-scratch candidate. The slot is published only
+    // while the reviewed bridge is armed, so its counters prove the woven call sites ran.
+    private static final String MATRIX_SCRATCH_STATS = "turboism.matrix-scratch.stats";
+    private static final String MATRIX_STAT_ACTIVE = "active";
+    private static final String MATRIX_STAT_CALLS = "calls";
+    private static final String MATRIX_STAT_FAILURES = "failures";
     private static final int WARMUP_PAIRS = 12;
     private static final int MEASURED_PAIRS = 100;
     // Calibration is diagnostic only. Its smaller sample count never satisfies acceptance.
@@ -404,6 +410,7 @@ final class CanvasWheelWorkload {
                 final Map<String, Long> clipMaskDedupeBefore = statsSlot(CLIPMASK_DEDUPE_STATS);
                 final Map<String, Long> clipMaskScissorBefore = statsSlot(CLIPMASK_SCISSOR_STATS);
                 final Map<String, Long> meshSetupBefore = statsSlot(MESH_SETUP_STATS);
+                final Map<String, Long> matrixScratchBefore = statsSlot(MATRIX_SCRATCH_STATS);
                 final Map<String, Long> inputPathBefore = inputPathStats();
                 final Map<String, Long> compositeBefore = compositeStats();
                 final long[] nanos = new long[measuredPairs * 2];
@@ -637,6 +644,22 @@ final class CanvasWheelWorkload {
                             .append(p).append("clipMaskScissor.savedPixelsPerRenderedFrame=")
                             .append((double) (scissorBaseline - scissorCleared) / clipMaskFrames).append('\n');
                     }
+                }
+                // Final-acceptance evidence for matrix scratch, collected after the timed window so
+                // the assertion cannot perturb the measurement. The counters come from the reviewed
+                // bridge's own statistics slot, so a non-zero delta proves the woven call sites ran
+                // in this leg instead of only proving that installation succeeded.
+                final Map<String, Long> matrixScratchAfter = statsSlot(MATRIX_SCRATCH_STATS);
+                for (String key : matrixScratchAfter.keySet().stream().sorted().toList()) {
+                    final boolean gauge = key.equals(MATRIX_STAT_ACTIVE);
+                    report.append(p).append("matrixScratch.").append(key).append('=')
+                        .append(gauge
+                            ? matrixScratchAfter.get(key)
+                            : matrixScratchAfter.get(key) - matrixScratchBefore.getOrDefault(key, 0L))
+                        .append('\n');
+                }
+                if (matrix && enabled) {
+                    requireMatrixScratchExecution(matrixScratchBefore, matrixScratchAfter, p, report);
                 }
                 if (uniformTrial != null) {
                     long completed = uniformTrial.snapshot().get("completedDisplayFrames")
@@ -1811,6 +1834,48 @@ final class CanvasWheelWorkload {
         final Map<String, Long> result = new java.util.HashMap<>();
         raw.forEach((k, v) -> { if (k instanceof String key && v instanceof Number value) result.put(key, value.longValue()); });
         return result;
+    }
+
+    /**
+     * Requires the armed matrix-scratch bridge to have executed the woven call sites in this leg.
+     *
+     * <p>Installation alone is not acceptance: a bridge can be armed and never reached. The
+     * counters are read from the production statistics slot after the timed window, so this check
+     * proves real host rendering reached the rewritten matrix sites. Failure is reported as a leg
+     * failure, never as a silent skip.</p>
+     *
+     * @param before the counters sampled before the leg
+     * @param after the counters sampled after the leg
+     * @param prefix the report key prefix of this leg
+     * @param report the accumulating report
+     */
+    private static void requireMatrixScratchExecution(
+            final Map<String, Long> before,
+            final Map<String, Long> after,
+            final String prefix,
+            final StringBuilder report) {
+        if (after.isEmpty()) {
+            throw new IllegalStateException(
+                "matrix scratch statistics absent; the reviewed bridge was not armed for this leg");
+        }
+        final long calls = after.getOrDefault(MATRIX_STAT_CALLS, 0L)
+            - before.getOrDefault(MATRIX_STAT_CALLS, 0L);
+        final long failures = after.getOrDefault(MATRIX_STAT_FAILURES, 0L);
+        final long active = after.getOrDefault(MATRIX_STAT_ACTIVE, 0L);
+        report.append(prefix).append("matrixScratch.callsDelta=").append(calls).append('\n')
+            .append(prefix).append("matrixScratch.failuresTotal=").append(failures).append('\n')
+            .append(prefix).append("matrixScratch.activeGauge=").append(active).append('\n');
+        if (calls <= 0L) {
+            throw new IllegalStateException(
+                "matrix scratch executed no woven call site in this leg: callsDelta=" + calls);
+        }
+        if (failures != 0L) {
+            throw new IllegalStateException("matrix scratch reported failures: " + failures);
+        }
+        if (active != 1L) {
+            throw new IllegalStateException("matrix scratch bridge was not active: active=" + active);
+        }
+        report.append(prefix).append("matrixScratch.executionVerified=true\n");
     }
 
     /** Arms/disarms the input-path elision bridge for the current leg. */

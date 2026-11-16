@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.modelupdate;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ModelUpdateTargetTable;
 import java.util.ArrayList;
@@ -97,7 +97,7 @@ public record ModelUpdateSkipTarget(
     /**
      * The reviewed target for a declared reviewed version, independent of the
      * whole-artifact digest. Callers must still verify the pinned class digests in
-     * {@link #reviewedClassSha256()} against the actual artifact.
+     * {@link #targetClasses()} against the actual artifact.
      */
     public static Optional<ModelUpdateSkipTarget> forReviewedVersion(final String version) {
         Objects.requireNonNull(version, "version");
@@ -108,16 +108,16 @@ public record ModelUpdateSkipTarget(
     }
 
     /**
-     * SHA-256 of every host class the entry rewrite or the dependency verification
-     * touches, keyed by internal name, per reviewed generation. A repackaged or
-     * differently-declared artifact binds only when exactly one generation's pin set
-     * matches every class entry.
+     * Target classes the entry rewrite or the dependency verification touches,
+     * keyed by internal name, per reviewed generation. A repackaged or
+     * differently-declared artifact binds only when exactly one generation's class
+     * list matches every entry.
      */
-    public static Map<String, List<String>> reviewedClassSha256() {
+    public static Map<String, List<String>> targetClasses() {
         return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("model-update-skip");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = TargetClassTable.load("model-update-skip");
 
     /**
      * The dependency methods the bridge resolves and the installer verifies against the

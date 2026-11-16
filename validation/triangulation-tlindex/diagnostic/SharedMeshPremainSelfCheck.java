@@ -20,7 +20,6 @@ public final class SharedMeshPremainSelfCheck {
     private static final String H = "com.live2d.graphics3d.editableMesh.triangulation.h";
     private static final String TL = "com.live2d.graphics3d.editableMesh.triangulation.TriangleList";
     private static final String MESH = "com.live2d.graphics3d.editableMesh.GEditableMesh2";
-    private static Method fingerprint;
     private static Constructor<?> admission;
     private static int checks;
     private SharedMeshPremainSelfCheck() { }
@@ -65,9 +64,24 @@ public final class SharedMeshPremainSelfCheck {
             }
         }
     }
-    private static String fingerprint(byte[] raw) {
-        try { return (String) fingerprint.invoke(null, (Object) raw); }
-        catch (ReflectiveOperationException failure) { throw new IllegalArgumentException(failure); }
+    /**
+     * Structural contract for one synthetic dependency set.
+     *
+     * <p>Synthetic definitions carry no members, so admission only requires each declared
+     * dependency to be a live class. The extended leg additionally requires the mesh class,
+     * which is how the fallback control forces a refusal before the legacy recapture.</p>
+     *
+     * @param dependencies the captured classes in caller order
+     * @param requireMesh whether this leg must include the mesh dependency
+     * @return {@code null} when every dependency matches, otherwise a stable reason
+     */
+    private static String syntheticContract(Class<?>[] dependencies, boolean requireMesh) {
+        boolean mesh = false;
+        for (Class<?> type : dependencies) {
+            if (type == null || type.isInterface() || type.isPrimitive()) return "SYNTHETIC_DEPENDENCY_REJECTED";
+            if (type.getName().equals(MESH)) mesh = true;
+        }
+        return requireMesh && !mesh ? "SYNTHETIC_MESH_DEPENDENCY_MISSING" : null;
     }
     // No application Class/loader is captured by registry factory values.
     private record Factory(TriangulationDefinitionLifecycle owner, Map<String, String> expected,
@@ -79,17 +93,23 @@ public final class SharedMeshPremainSelfCheck {
                 Map<String, String> wanted = new LinkedHashMap<>(expected);
                 boolean mesh = !mode.equals("legacy");
                 if (!mesh || mode.equals("missing-mesh")) wanted.remove(MESH);
-                if (mode.equals("fallback")) wanted.put(MESH, "deliberately-wrong-owned-definition");
                 Class<?>[] types = new Class<?>[wanted.size()]; int at = 0;
                 for (String name : wanted.keySet()) types[at++] = Class.forName(name, false, host.getClassLoader());
                 captures.incrementAndGet();
-                TriangulationDefinitionLifecycle.Gate gate = owner.capture(types, wanted, SharedMeshPremainSelfCheck::fingerprint);
+                // The fallback control refuses the extended leg so the legacy recapture runs.
+                boolean extendedRefused = mode.equals("fallback");
+                boolean requireMesh = mesh && !extendedRefused;
+                TriangulationDefinitionLifecycle.Gate gate = owner.capture(
+                        types,
+                        dependencies -> extendedRefused
+                                ? "SYNTHETIC_EXTENDED_REFUSED"
+                                : syntheticContract(dependencies, requireMesh));
                 if (mode.equals("fallback")) {
-                    require(!gate.reason().equals("OWNED_FINAL_DEFINITION_MATCH"), "extended mismatch actually refused");
+                    require(!gate.reason().equals("OWNED_DEFINITION_CONTRACT_MATCH"), "extended mismatch actually refused");
                     wanted.remove(MESH);
                     captures.incrementAndGet();
                     gate = owner.capture(new Class<?>[] {host, Class.forName(TL, false, host.getClassLoader())},
-                            wanted, SharedMeshPremainSelfCheck::fingerprint);
+                            dependencies -> syntheticContract(dependencies, false));
                     mesh = false;
                 }
                 return admission.newInstance(gate, mesh);
@@ -111,15 +131,13 @@ public final class SharedMeshPremainSelfCheck {
         String mode = args[0];
         TriangulationDefinitionLifecycle owner = lifecycle();
         require(owner.startupReason().equals("SUPPORTED_OWNED_PREMAIN"), "actual ownership supported");
-        fingerprint = Class.forName("dev.turboism.adapter.cubism.mesh.TriangulationDefinitionFingerprint")
-                .getDeclaredMethod("runtimeOf", byte[].class); fingerprint.setAccessible(true);
         Class<?> result = Class.forName(LazyTriangulationEdgeBridge.class.getName() + "$Admission");
         admission = result.getDeclaredConstructor(TriangulationDefinitionLifecycle.Gate.class, boolean.class);
         admission.setAccessible(true);
         Map<String, byte[]> definitions = new LinkedHashMap<>();
         Map<String, String> expected = new LinkedHashMap<>();
         for (String name : new String[] {H, TL, MESH}) {
-            byte[] raw = definition(name); definitions.put(name, raw); expected.put(name, fingerprint(raw));
+            definitions.put(name, definition(name)); expected.put(name, name);
         }
         Loader loader = new Loader(SharedMeshPremainSelfCheck.class.getClassLoader(), definitions);
         AtomicInteger calls = new AtomicInteger(), captures = new AtomicInteger();

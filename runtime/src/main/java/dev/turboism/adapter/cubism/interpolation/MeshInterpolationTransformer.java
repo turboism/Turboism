@@ -12,7 +12,7 @@ import org.objectweb.asm.*;
 public final class MeshInterpolationTransformer implements ClassFileTransformer {
     public static final String OWNER = NativeMeshInterpolationBridge.EXTENSION.replace('.', '/');
     private static final java.util.Map<String, java.util.List<String>> REVIEWED_CLASSES =
-            dev.turboism.adapter.cubism.optimization.ClassPinTable.load("mesh-interpolation");
+            dev.turboism.adapter.cubism.optimization.TargetClassTable.load("mesh-interpolation");
 
     static final String METHOD = "updateInterpolatedForms_common";
     static final String DESC =

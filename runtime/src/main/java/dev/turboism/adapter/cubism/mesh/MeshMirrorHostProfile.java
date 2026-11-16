@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
@@ -151,7 +151,7 @@ public record MeshMirrorHostProfile(
     /**
      * Returns the reviewed selector profile for a declared reviewed version,
      * independently of the whole-artifact digest. Callers must still verify the
-     * pinned class digests in {@link #reviewedClassSha256()} against the actual
+     * pinned class digests in {@link #targetClasses()} against the actual
      * artifact — the version alone is never proof.
      */
     public static Optional<MeshMirrorHostProfile> forReviewedVersion(final String version) {
@@ -171,16 +171,15 @@ public record MeshMirrorHostProfile(
     }
 
     /**
-     * SHA-256 of every host class this hook transforms or calls into, keyed by
-     * internal name, for every reviewed generation. The 5.2.x generations
-     * additionally pin the linked-deletion action and edit-mode classes their
-     * backport weaves.
+     * Target classes this hook transforms or calls into, keyed by internal name,
+     * for every reviewed generation. The 5.2.x generations additionally name the
+     * linked-deletion action and edit-mode classes their backport weaves.
      */
-    public static Map<String, List<String>> reviewedClassSha256() {
+    public static Map<String, List<String>> targetClasses() {
         return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("mesh-mirror");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = TargetClassTable.load("mesh-mirror");
 
     /**
      * 5.0/5.1 uses the 5.2 mirror selectors with the linked-deletion backport, but the

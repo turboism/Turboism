@@ -1,12 +1,11 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.HostMemberVerifier;
 import dev.turboism.adapter.cubism.optimization.hittest.MeshHitTestTarget;
 import dev.turboism.adapter.cubism.optimization.hittest.MeshHitTestTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.io.IOException;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.file.Path;
 import java.util.List;
@@ -15,7 +14,7 @@ import java.util.Optional;
 /**
  * Installs and restores the verified allocation-free mesh bounding-box hit-test weave.
  */
-final class VerifiedMeshHitTestInstaller implements AutoCloseable {
+final class VerifiedMeshHitTestInstaller implements VerifiedHookInstaller {
 
     static final String HOOK_ID = "cubism.mesh.hit-test";
 
@@ -29,7 +28,6 @@ final class VerifiedMeshHitTestInstaller implements AutoCloseable {
     private static final String SITES_PREFIX = "sites=";
     private static final String REFUSED_MESSAGE = "mesh hit test refused: host-not-supported-or-hook-disabled";
     private static final String SUBCLASS_ERROR_PREFIX = "unexpected mesh subclass contract: ";
-    private static final String METHOD_SEPARATOR = ".";
 
     static final WeaveSpec<MeshHitTestTarget> SPEC = new WeaveSpec<>(
             ADMISSION,
@@ -66,7 +64,7 @@ final class VerifiedMeshHitTestInstaller implements AutoCloseable {
         verifyFinalSubclass(gmesh2, owner);
         verifyFinalSubclass(gmesh3, owner);
         for (final MeshHitTestTarget.MethodDep dep : target.methodDependencies()) {
-            verifyMethodPresent(source.load(dep.owner()), dep.name(), dep.descriptor());
+            HostMemberVerifier.requireMethod(source.load(dep.owner()), dep.name(), dep.descriptor());
         }
         final byte[] ownerBytes = source.referenceBytes(owner);
         final byte[] gmesh2Bytes = source.referenceBytes(gmesh2);
@@ -100,30 +98,17 @@ final class VerifiedMeshHitTestInstaller implements AutoCloseable {
         return sites == MeshHitTestTransformer.EXPECTED_SITES ? null : SITES_PREFIX + sites;
     }
 
-    private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)
-            throws NoSuchMethodException {
-        if (matchesAnyMethod(owner.getMethods(), name, descriptor)
-                || matchesAnyMethod(owner.getDeclaredMethods(), name, descriptor)) {
-            return;
+    @Override
+    public boolean admits(final InstallContext context) {
+        try {
+            return admitted(context.artifact(), context.policy(), true);
+        } catch (final java.io.IOException unreadable) {
+            return false;
         }
-        throw new NoSuchMethodException(owner.getName() + METHOD_SEPARATOR + name + descriptor);
     }
 
-    private static boolean matchesAnyMethod(final Method[] methods, final String name, final String descriptor) {
-        for (final Method method : methods) {
-            if (!method.getName().equals(name)) {
-                continue;
-            }
-            final String actual = MethodType.methodType(method.getReturnType(), method.getParameterTypes())
-                    .descriptorString();
-            if (actual.equals(descriptor)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    synchronized void install() throws Exception {
+    @Override
+    public synchronized void install() throws Exception {
         if (hook != null) {
             return;
         }

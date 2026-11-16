@@ -13,7 +13,6 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.HexFormat;
-import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -127,14 +126,24 @@ public final class T039OwnerColdRemovalSelfCheck {
     }
 
     private static TriangulationDefinitionLifecycle.Gate capture(Class<?> target) {
-        // Actual owned class fingerprint, without invoking its initializer or methods.
-        String fingerprint;
-        try (InputStream input = target.getResourceAsStream("/" + target.getName().replace('.', '/') + ".class")) {
-            if (input == null) throw new IllegalStateException("missing capture resource");
-            fingerprint = DefinitionFingerprint.runtimeOf(input.readAllBytes());
-        } catch (Exception failure) { throw new IllegalStateException(failure); }
-        return lifecycle.capture(new Class<?>[] {target}, Map.of(target.getName(), fingerprint),
-                DefinitionFingerprint::runtimeOf);
+        // Admission reads the live definition, so the contract names the shape this probe links against.
+        return lifecycle.capture(new Class<?>[] {target}, T039OwnerColdRemovalSelfCheck::ownedShape);
+    }
+
+    /**
+     * Structural contract for one owned capture target.
+     *
+     * <p>The probe only requires a live concrete class, so admission never depends on
+     * serialized bytes.</p>
+     *
+     * @param dependencies the captured classes in caller order
+     * @return {@code null} when every target matches, otherwise a stable reason
+     */
+    private static String ownedShape(Class<?>[] dependencies) {
+        for (Class<?> type : dependencies) {
+            if (type == null || type.isInterface() || type.isPrimitive()) return "OWNED_TARGET_SHAPE_REJECTED";
+        }
+        return null;
     }
 
     public static void main(String[] arguments) throws Exception {

@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -18,13 +20,44 @@ final class TriangleListEdgeBuilderPatcher implements Opcodes {
     private static final String QUERY = "(L" + EDGE + ";Z)Z";
     private static final String HELPER = "dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges";
     private static final String LEASE = "dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge";
+    /** The reviewed builder body queries the fresh local collection once per triangle edge. */
+    private static final int BUILDER_QUERY_SITES = 3;
+    /** Tokens the weave reads back from the builder body; each names one reviewed instruction. */
+    private static final String QUERY_CALL = COLLECTION + ".a" + QUERY;
+
+    private static final String APPEND_CALL = COLLECTION + ".a(L" + EDGE + ";)Z";
+    private static final String NEW_COLLECTION = "type " + NEW + ' ' + COLLECTION;
+    private static final String FALSE_CONSTANT = "insn " + ICONST_0;
+    private static final String LOAD_PREFIX = "var " + ALOAD + ' ', STORE_PREFIX = "var " + ASTORE + ' ';
 
     private TriangleListEdgeBuilderPatcher() {}
 
-    static String fingerprint(final byte[] bytes) {
-        final ClassWriter writer = new ClassWriter(0);
-        writer.visit(V17, ACC_PUBLIC, OWNER, null, "java/lang/Object", null);
-        final int[] found = {0};
+    /**
+     * Verifies the builder body the weave depends on.
+     *
+     * <p>Every membership query must read the fresh method-local collection with the reviewed
+     * constant argument, so the woven shortcut and its native fallback stay equivalent. Any
+     * other receiver, argument or site count is outside the reviewed contract.</p>
+     */
+    private static void requireReviewedBuilderShape(final byte[] bytes) {
+        final List<String> body = builderBody(bytes);
+        final String collection = LOAD_PREFIX + freshCollectionLocal(body);
+        int sites = 0;
+        for (int index = 3; index < body.size(); index++) {
+            if (!body.get(index).equals(QUERY_CALL)) continue;
+            sites++;
+            if (!body.get(index - 1).equals(FALSE_CONSTANT)
+                    || !body.get(index - 2).startsWith(LOAD_PREFIX)
+                    || !body.get(index - 3).equals(collection))
+                throw new IllegalArgumentException("local builder query site outside the reviewed shape");
+        }
+        if (sites != BUILDER_QUERY_SITES) throw new IllegalArgumentException("local builder query sites=" + sites);
+        if (!body.contains(APPEND_CALL)) throw new IllegalArgumentException("local builder append site missing");
+    }
+
+    /** Token stream of the builder method; a missing or duplicated method is rejected here. */
+    private static List<String> builderBody(final byte[] bytes) {
+        final List<List<String>> bodies = new ArrayList<>();
         new ClassReader(bytes)
                 .accept(
                         new ClassVisitor(ASM9) {
@@ -36,44 +69,58 @@ final class TriangleListEdgeBuilderPatcher implements Opcodes {
                                     final String signature,
                                     final String[] exceptions) {
                                 if (!name.equals("b") || !descriptor.equals(DESC)) return null;
-                                found[0]++;
-                                return writer.visitMethod(access, name, descriptor, signature, exceptions);
+                                final List<String> tokens = new ArrayList<>();
+                                bodies.add(tokens);
+                                return new MethodVisitor(ASM9) {
+                                    @Override
+                                    public void visitInsn(final int opcode) {
+                                        tokens.add("insn " + opcode);
+                                    }
+
+                                    @Override
+                                    public void visitVarInsn(final int opcode, final int local) {
+                                        tokens.add("var " + opcode + ' ' + local);
+                                    }
+
+                                    @Override
+                                    public void visitTypeInsn(final int opcode, final String type) {
+                                        tokens.add("type " + opcode + ' ' + type);
+                                    }
+
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int opcode,
+                                            final String owner,
+                                            final String method,
+                                            final String descriptor,
+                                            final boolean itf) {
+                                        tokens.add(owner + '.' + method + descriptor);
+                                    }
+                                };
                             }
                         },
                         ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-        writer.visitEnd();
-        if (found[0] != 1) throw new IllegalArgumentException("local builder method missing or duplicated");
-        return TriangulationDefinitionFingerprint.runtimeOf(writer.toByteArray());
+        if (bodies.size() != 1) throw new IllegalArgumentException("local builder method missing or duplicated");
+        return bodies.get(0);
     }
 
-    /** Runtime contract includes the class/field shape and only the relevant builder method. */
-    static String dependencyFingerprint(final byte[] bytes) {
-        final ClassWriter writer = new ClassWriter(0);
-        new ClassReader(bytes)
-                .accept(
-                        new ClassVisitor(ASM9, writer) {
-                            @Override
-                            public MethodVisitor visitMethod(
-                                    final int access,
-                                    final String name,
-                                    final String descriptor,
-                                    final String signature,
-                                    final String[] exceptions) {
-                                return name.equals("b") && descriptor.equals(DESC)
-                                        ? super.visitMethod(access, name, descriptor, signature, exceptions)
-                                        : null;
-                            }
-                        },
-                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-        return TriangulationDefinitionFingerprint.runtimeOf(writer.toByteArray());
+    /** Local slot that holds the collection allocated at builder entry. */
+    private static int freshCollectionLocal(final List<String> body) {
+        for (int index = 0; index < body.size(); index++) {
+            if (!body.get(index).equals(NEW_COLLECTION)) continue;
+            for (int next = index + 1; next < body.size(); next++) {
+                if (body.get(next).startsWith(STORE_PREFIX))
+                    return Integer.parseInt(body.get(next).substring(STORE_PREFIX.length()));
+            }
+        }
+        throw new IllegalArgumentException("local builder collection allocation missing");
     }
 
     static byte[] patch(final byte[] bytes) {
         if (!new ClassReader(bytes).getClassName().equals(OWNER)) {
             throw new IllegalArgumentException("unreviewed local builder owner");
         }
-        // The fingerprint derivation itself rejects an absent or duplicated builder method.
-        fingerprint(bytes);
+        requireReviewedBuilderShape(bytes);
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
             @Override
             protected String getCommonSuperClass(final String a, final String b) {
@@ -144,7 +191,7 @@ final class TriangleListEdgeBuilderPatcher implements Opcodes {
                 super.visitMethodInsn(opcode, owner, name, descriptor, itf);
                 return;
             }
-            // The whole-body fingerprint proves the boolean is false and this
+            // The reviewed builder shape proves the boolean is false and this
             // receiver is the fresh method-local collection, never an escaped list.
             super.visitInsn(POP);
             super.visitVarInsn(ASTORE, EDGE_LOCAL);

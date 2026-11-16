@@ -7,6 +7,7 @@ import dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTransfo
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationCallSiteTransformer;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationLifecycleTransformer;
+import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationTarget;
 import dev.turboism.adapter.cubism.shader.ShaderUniformTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -49,8 +50,8 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
     static final int EXPECTED_OWNERS = 5;
 
     private static final List<ReviewedHostContract.Candidate<Map<UniformLocationLifecycleTransformer.Role, String>>>
-            CANDIDATES = ReviewedHostContract.candidates(
-                    UniformLocationLifecycleTransformer.reviewedClassSha256(), version -> {
+            CANDIDATES =
+                    ReviewedHostContract.candidates(UniformLocationLifecycleTransformer.targetClasses(), version -> {
                         final Map<UniformLocationLifecycleTransformer.Role, String> owners = new HashMap<>();
                         for (final var role : UniformLocationLifecycleTransformer.Role.values()) {
                             owners.put(role, role.ownerForVersion(version));
@@ -150,25 +151,45 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
                         type, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
             }
             verifyDependency(
-                    cubism, artifact, loader, "com.live2d.graphics3d.a", "a", "()Lcom/jogamp/opengl/GL3;", observed);
-            verifyDependency(
-                    jogl,
-                    joglArtifact,
+                    cubism,
+                    artifact,
                     loader,
-                    "jogamp.opengl.gl4.GL4bcImpl",
-                    "getContext",
-                    "()Lcom/jogamp/opengl/GLContext;",
+                    UniformLocationTarget.GL_OWNER,
+                    UniformLocationTarget.GL_ACCESSOR,
+                    UniformLocationTarget.GL_ACCESSOR_DESCRIPTOR,
                     observed);
             verifyDependency(
                     jogl,
                     joglArtifact,
                     loader,
-                    "com.jogamp.opengl.GLContext",
-                    "getCurrent",
-                    "()Lcom/jogamp/opengl/GLContext;",
+                    UniformLocationTarget.GL_IMPL_OWNER,
+                    UniformLocationTarget.CONTEXT_ACCESSOR,
+                    UniformLocationTarget.CONTEXT_ACCESSOR_DESCRIPTOR,
                     observed);
-            verifyDependency(jogl, joglArtifact, loader, "com.jogamp.opengl.GLContext", "isShared", "()Z", observed);
-            verifyDependency(jogl, joglArtifact, loader, "com.jogamp.opengl.GLContext", "isCreated", "()Z", observed);
+            verifyDependency(
+                    jogl,
+                    joglArtifact,
+                    loader,
+                    UniformLocationTarget.CONTEXT_OWNER,
+                    UniformLocationTarget.CURRENT_ACCESSOR,
+                    UniformLocationTarget.CURRENT_ACCESSOR_DESCRIPTOR,
+                    observed);
+            verifyDependency(
+                    jogl,
+                    joglArtifact,
+                    loader,
+                    UniformLocationTarget.CONTEXT_OWNER,
+                    UniformLocationTarget.SHARED_ACCESSOR,
+                    UniformLocationTarget.BOOLEAN_ACCESSOR_DESCRIPTOR,
+                    observed);
+            verifyDependency(
+                    jogl,
+                    joglArtifact,
+                    loader,
+                    UniformLocationTarget.CONTEXT_OWNER,
+                    UniformLocationTarget.CREATED_ACCESSOR,
+                    UniformLocationTarget.BOOLEAN_ACCESSOR_DESCRIPTOR,
+                    observed);
         }
         contract.requireUnchanged(artifact);
     }

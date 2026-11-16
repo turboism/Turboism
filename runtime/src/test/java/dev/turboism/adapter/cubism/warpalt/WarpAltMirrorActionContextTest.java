@@ -39,7 +39,7 @@ final class WarpAltMirrorActionContextTest {
             try (var input = jar.getInputStream(entry)) {
                 bytes = input.readAllBytes();
             }
-            final var targets = WarpAltMirrorHostProfile.reviewedClassSha256().get(version);
+            final var targets = WarpAltMirrorHostProfile.targetClasses().get(version);
             assertTrue(targets.contains(profile.actionDispatchOwner()));
             assertTrue(WarpAltMirrorActionContext.hasReadOnlyGetter(new ClassReader(bytes), profile));
             final var transformer = new WarpAltMirrorNativeMethodTransformer(

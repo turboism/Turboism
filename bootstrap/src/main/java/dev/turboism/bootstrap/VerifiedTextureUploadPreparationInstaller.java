@@ -2,10 +2,9 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationBridge;
+import dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationTarget;
 import dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
-import dev.turboism.core.io.Sha256;
-import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -23,18 +22,14 @@ final class VerifiedTextureUploadPreparationInstaller implements VerifiedHookIns
     /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
     static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.EXACTLY_17);
 
-    static final String JOGL_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_03_JOGL.sha256();
-
     /** The one factory method this hook rewrites; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = 1;
 
     /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 1;
 
-    private static final String PROFILE_OWNER = "com/jogamp/opengl/GLProfile";
-
-    private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES = ReviewedHostContract.candidates(
-            TextureUploadPreparationTransformer.reviewedClassSha256(), version -> HOOK_ID);
+    private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
+            ReviewedHostContract.candidates(TextureUploadPreparationTransformer.targetClasses(), version -> HOOK_ID);
 
     static final WeaveSpec<ReviewedHostContract.Bound<String>> SPEC = new WeaveSpec<ReviewedHostContract.Bound<String>>(
             ADMISSION,
@@ -42,8 +37,8 @@ final class VerifiedTextureUploadPreparationInstaller implements VerifiedHookIns
             VerifiedTextureUploadPreparationInstaller::resolve,
             new WeavePlan<>(VerifiedTextureUploadPreparationInstaller::targets, WeavePlan.PostCheck.NONE),
             (contract, launch) -> {
-                final TextureUploadPreparationBridge bridge = new TextureUploadPreparationBridge(
-                        Class.forName(PROFILE_OWNER.replace('/', '.'), false, launch.hostLoader()));
+                final TextureUploadPreparationBridge bridge = new TextureUploadPreparationBridge(Class.forName(
+                        TextureUploadPreparationTarget.PROFILE_OWNER.replace('/', '.'), false, launch.hostLoader()));
                 return BridgeLayer.of(bridge::install, bridge);
             },
             WeaveEffects.none());
@@ -68,13 +63,11 @@ final class VerifiedTextureUploadPreparationInstaller implements VerifiedHookIns
 
     private static List<WeaveTarget> targets(
             final ReviewedHostContract.Bound<String> contract, final WeaveSource source) throws Exception {
-        final Path jogl = joglArtifact(source.artifact());
-        if (!JOGL_SHA256.equals(Sha256.hexOf(jogl))) {
-            throw new IllegalArgumentException("texture preparation requires reviewed JOGL artifact");
-        }
+        final Path jogl = TextureUploadPreparationTarget.requireReviewedJogl(source.artifact());
         final String factoryOwner = TextureUploadPreparationTransformer.ownerForVersion(contract.sourceVersion());
         final Class<?> target = source.load(factoryOwner);
-        final Class<?> profile = Class.forName(PROFILE_OWNER.replace('/', '.'), false, source.loader());
+        final Class<?> profile =
+                Class.forName(TextureUploadPreparationTarget.PROFILE_OWNER.replace('/', '.'), false, source.loader());
         VerifiedHookInstallerSupport.attestClassSource(
                 profile, source.loader(), jogl, "texture factory/profile loader or code source mismatch");
         final TextureUploadPreparationTransformer transformer = new TextureUploadPreparationTransformer(
@@ -82,10 +75,6 @@ final class VerifiedTextureUploadPreparationInstaller implements VerifiedHookIns
         contract.requireUnchanged(source.artifact());
         return List.of(
                 WeaveTarget.single(target, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
-    }
-
-    private static Path joglArtifact(final Path artifact) {
-        return artifact.toAbsolutePath().normalize().getParent().resolve("jogl/jogl-all.jar");
     }
 
     @Override

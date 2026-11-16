@@ -63,7 +63,7 @@ class NativePreparationTest(unittest.TestCase):
                     out.writestr(owner + ".class", ("fixture-" + suffix).encode())
                     pins[dotted] = [owner]
             with zipfile.ZipFile(agent, "w") as out:
-                out.writestr("dev/turboism/adapter/cubism/class-pins/texture-upload-preparation.json", json.dumps(pins))
+                out.writestr("dev/turboism/adapter/cubism/target-classes/texture-upload-preparation.json", json.dumps(pins))
             for code, _, suffix in versions:
                 result = runner.factory_contract(code, host, agent)
                 self.assertEqual("com.live2d.graphics3d.shader." + suffix, result["owner"])
@@ -91,7 +91,7 @@ class NativePreparationTest(unittest.TestCase):
                     out.writestr("com/live2d/graphics3d/shader/" + suffix + ".class",
                                  ("fixture-" + suffix).encode())
             with zipfile.ZipFile(agent, "w") as out:
-                out.writestr("dev/turboism/adapter/cubism/class-pins/texture-upload-preparation.json",
+                out.writestr("dev/turboism/adapter/cubism/target-classes/texture-upload-preparation.json",
                              json.dumps(compact))
             for code, suffix in (("5000", "w"), ("5203", "y"), ("5304", "A")):
                 self.assertEqual("com.live2d.graphics3d.shader." + suffix,

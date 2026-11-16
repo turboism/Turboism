@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.inspector;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -91,12 +94,7 @@ public final class InspectorPropertyBypassTransformer implements ClassFileTransf
         final ClassSpec spec = specs.get(name);
         if (spec == null) return null;
         try {
-            if (domain == null
-                    || domain.getCodeSource() == null
-                    || !artifact.equals(
-                            Path.of(domain.getCodeSource().getLocation().toURI())
-                                    .toAbsolutePath()
-                                    .normalize())) {
+            if (!HostCodeSource.matchesArtifact(domain, artifact)) {
                 failure = "inspector seam source is not the reviewed artifact: " + name;
                 return null;
             }
@@ -111,12 +109,7 @@ public final class InspectorPropertyBypassTransformer implements ClassFileTransf
             }
 
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-            };
+            final ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             final int[] rewritten = {0};
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
@@ -200,18 +193,10 @@ public final class InspectorPropertyBypassTransformer implements ClassFileTransf
         out.visitTryCatchBlock(tryStart, tryEnd, handler, "java/lang/Throwable");
         out.visitVarInsn(Opcodes.ASTORE, slot);
         out.visitLabel(tryStart);
-        out.visitMethodInsn(
-                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-        out.visitLdcInsn(InspectorPropertyBypassBridge.BYPASS_CALLBACK_PROPERTY);
-        out.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
-        out.visitInsn(Opcodes.DUP);
-        out.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Predicate");
-        out.visitJumpInsn(Opcodes.IFEQ, notPredicate);
-        out.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Predicate");
+        SlotBridgeEmitter.emitPredicateConsult(
+                out, InspectorPropertyBypassBridge.BYPASS_CALLBACK_PROPERTY, notPredicate);
         out.visitVarInsn(Opcodes.ALOAD, 0);
-        out.visitMethodInsn(
-                Opcodes.INVOKEINTERFACE, "java/util/function/Predicate", "test", "(Ljava/lang/Object;)Z", true);
+        SlotBridgeEmitter.emitTest(out);
         out.visitJumpInsn(Opcodes.IFEQ, nativeCall);
         out.visitJumpInsn(Opcodes.GOTO, done);
         out.visitLabel(notPredicate);

@@ -366,7 +366,7 @@ def render_capabilities_doc(matrix: dict, locale: str) -> str:
     ]
     for pin in matrix["classPins"]:
         lines.append(
-            f"| class-pins/`{pin['name']}.json` | `ClassPinTable` | "
+            f"| target-classes/`{pin['name']}.json` | `TargetClassTable` | "
             f"{compact_ranges(pin['versions'], reviewed)} |"
         )
     for gate in matrix["runtimeGates"]:

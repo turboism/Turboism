@@ -23,7 +23,7 @@ from .extract import (
     index_official_timeline,
     load_campaign,
     load_capabilities,
-    load_class_pins,
+    load_target_classes,
     load_commands,
     load_contract_gates,
     load_monotonicity_exceptions,
@@ -261,7 +261,7 @@ def build_matrix(root: Path) -> dict:
         e["api"]: set(e["versions"]) for e in sdk_entries if e["kind"] == "type"
     }
     commands = load_commands(root, reviewed)
-    class_pins = load_class_pins(root)
+    target_classes = load_target_classes(root)
     runtime_gates = load_runtime_gates(root)
     campaign = load_campaign(root, reviewed)
     exceptions = load_monotonicity_exceptions(root)
@@ -321,7 +321,7 @@ def build_matrix(root: Path) -> dict:
             resolved = resolve_declared_capability(declared, caps)
             cap_sets = [admitted.get(c, set()) for c in resolved["capabilities"]]
             pin_sets = [
-                set(class_pins.get(pin, {}).get("versions", []))
+                set(target_classes.get(pin, {}).get("versions", []))
                 for pin in resolved["pins"]
             ]
             selector_sets = [
@@ -622,7 +622,7 @@ def build_matrix(root: Path) -> dict:
         "runtimeGates": sorted(runtime_gates, key=lambda g: (g["file"], g["symbol"])),
         "classPins": [
             {"name": name, "versions": pin["versions"], "loadedBy": pin["loadedBy"]}
-            for name, pin in sorted(class_pins.items())
+            for name, pin in sorted(target_classes.items())
         ],
         "plugins": plugins,
         "hostValidation": {task: v for task, v in sorted(campaign.items())},

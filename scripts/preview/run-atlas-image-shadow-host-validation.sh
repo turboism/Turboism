@@ -30,6 +30,35 @@ fail() {
   exit 1
 }
 
+# Admit a staged home config by the explicit preference fields the production premain gate
+# reads. A stored digest restated host build identity that the whole-JAR pin already decides,
+# and it broke on every reviewed regeneration of these files.
+require_config_booleans() {
+  local path="$1" label="$2"; shift 2
+  python3 - "$path" "$label" "$@" <<'PYCONFIG' || fail "$label does not carry the reviewed preference fields"
+import json, sys
+from pathlib import Path
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError('duplicate config key')
+        result[key] = value
+    return result
+
+path, label = sys.argv[1], sys.argv[2]
+config = json.loads(Path(path).read_text(encoding='utf-8'), object_pairs_hook=unique_object)
+if not isinstance(config, dict):
+    raise SystemExit(label + ' is not a JSON object')
+for spec in sys.argv[3:]:
+    key, _, expected = spec.partition('=')
+    value = config.get(key)
+    if type(value) is not bool or str(value).lower() != expected:
+        raise SystemExit(label + ' field ' + key + ' must be ' + expected)
+PYCONFIG
+}
+
 usage() {
   cat >&2 <<'EOF'
 Usage:
@@ -47,13 +76,13 @@ Usage:
 
 T029-TLPROD labels (t029-tlprod-<off|on><N>-<heavy|std>-nolayout[-jfr]) run the
 production edge-index transformer under the pinned tl-dump-only capture agent:
--off stages a hash-pinned home config carrying meshTriangulationEdgeIndex=false,
+-off stages a reviewed home config carrying meshTriangulationEdgeIndex=false,
 -on runs the explicit opt-in preference. -off expects pristine class bytes; -on
 expects the production-patched bytes the transformer emits. The family admits
 5303, 5302, and 5203; every other label family keeps its existing version gates.
 The 5302 profile is admitted only for t029-tlprod-* labels.
 A captured settings UI config may be staged with --tri-tlindex-home-config;
-its explicit edge-index Boolean must match the leg and its SHA is frozen by prepare.
+its explicit edge-index Boolean must match the leg and its SHA is recorded by prepare.
 --tri-fresh-edge-guard-metadata emits cold guard decisions only for a production
 on leg with tl-dump-only; it is a diagnostic, not a performance measurement.
 --tri-single-agent-startup-probe admits only 5203/5302 production capture legs.
@@ -146,21 +175,15 @@ fi
 case "$version" in
   5303)
     official_jar_sha256=bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166
-    t039_class_sha256=ff1d1ce9b4291212d255c6e84c8b57242234c1fa174af09e440c1162a4a1f8d6
-    t039_shape_sha256=a75d64a1203e3e80be09bc616b7878d52d31e6a1327a62cbbbf1b5a334432c2f
     # Fixed path inside Runner's isolated 5303 Proton prefix, not a build-host path.
     runtime_trusted_source_path='C:\Program Files\Live2D Cubism 5.3.03\app\lib\Live2D_Cubism.jar'
     ;;
   5302)
     official_jar_sha256=988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21
-    t039_class_sha256=''
-    t039_shape_sha256=''
     runtime_trusted_source_path='C:\Program Files\Live2D Cubism 5.3\app\lib\Live2D_Cubism.jar'
     ;;
   5203)
     official_jar_sha256=bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd
-    t039_class_sha256=''
-    t039_shape_sha256=''
     runtime_trusted_source_path='C:\Program Files\Live2D Cubism 5.2\app\lib\Live2D_Cubism.jar'
     ;;
   *) fail 'T040 admits only exact host versions 5303, 5302, and 5203' ;;
@@ -293,8 +316,8 @@ case "$run_label" in
 esac
 mesh_hash_agent=''
 mesh_hash_agent_sha256=''
-# The official class bytes are pinned by the JAR hash, so this per-class digest is stable.
-mesh_hash_triple_sha256=6f06427c59d3907fe0d4ec80c72a318410d2e5169e18a8263ddfaa526813bd90
+# The mesh-hash agent admits the corner-triple class by its reviewed shape, so no stored
+# preimage is kept here.
 if [[ -n "$mesh_hash_mode" ]]; then
   mesh_hash_agent="${TURBOISM_MESH_HASH_AGENT:-}"
   [[ -n "$mesh_hash_agent" ]] \
@@ -317,7 +340,7 @@ case "$run_label" in
   *-meshoff*) mesh_pref_off=1 ;;
 esac
 mesh_off_config=''
-mesh_off_config_sha256=4f5ce6bd90565daa5d4c7bf0077f30ad46e65367e499d16200403494b68a3c11
+mesh_off_config_sha256=''
 if [[ "$mesh_pref_off" == 1 ]]; then
   [[ "$mesh_hash_mode" == probe ]] \
     || fail '-meshoff requires -meshprobe observation and forbids -meshfix'
@@ -325,8 +348,9 @@ if [[ "$mesh_pref_off" == 1 ]]; then
   [[ -f "$mesh_off_config" && ! -L "$mesh_off_config" ]] \
     || fail 'mesh-off home config is not a regular non-symlink file'
   mesh_off_config="$(realpath -e -- "$mesh_off_config")"
-  [[ "$(sha256sum "$mesh_off_config" | cut -d' ' -f1)" == "$mesh_off_config_sha256" ]] \
-    || fail 'mesh-off home config hash mismatch'
+  require_config_booleans "$mesh_off_config" 'mesh-off home config' meshTriangulationHashFix=false
+  # Recorded for the run receipt only; admission is the field check above.
+  mesh_off_config_sha256="$(sha256sum "$mesh_off_config" | cut -d' ' -f1)"
 fi
 # The mesh-hash agent targets a 5303-reviewed class; its labels stay 5303-only.
 if [[ -n "$mesh_hash_mode" || "$mesh_pref_off" == 1 ]]; then
@@ -350,8 +374,8 @@ atlas_reuse_pref_off=0
 if [[ "$run_label" == *-atlasoff* ]]; then atlas_pref_off=1; fi
 if [[ "$run_label" == *-reuseoff* ]]; then atlas_reuse_pref_off=1; fi
 atlas_off_config=''
-atlas_off_config_sha256=50bb2216f556c1ef6c5ae6408638aed6e1d90007fcd430c2fe9d0b8411b4c978
-atlas_reuse_off_config_sha256=27879fd5a48fb5ace98ad0b5b85a92a217b3bf340a7178f947e1ce515012c6ed
+atlas_off_config_sha256=''
+atlas_reuse_off_config_sha256=''
 if [[ "$atlas_pref_off" == 1 ]]; then
   [[ "$mesh_pref_off" == 0 ]] \
     || fail '-atlasoff cannot combine with -meshoff: a single home config is staged'
@@ -359,8 +383,9 @@ if [[ "$atlas_pref_off" == 1 ]]; then
   [[ -f "$atlas_off_config" && ! -L "$atlas_off_config" ]] \
     || fail 'atlas-off home config is not a regular non-symlink file'
   atlas_off_config="$(realpath -e -- "$atlas_off_config")"
-  [[ "$(sha256sum "$atlas_off_config" | cut -d' ' -f1)" == "$atlas_off_config_sha256" ]] \
-    || fail 'atlas-off home config hash mismatch'
+  require_config_booleans "$atlas_off_config" 'atlas-off home config' \
+    atlasTileBbox=false atlasCacheReuse=false
+  atlas_off_config_sha256="$(sha256sum "$atlas_off_config" | cut -d' ' -f1)"
 fi
 reuse_off_config=''
 if [[ "$atlas_reuse_pref_off" == 1 ]]; then
@@ -370,8 +395,9 @@ if [[ "$atlas_reuse_pref_off" == 1 ]]; then
   [[ -f "$reuse_off_config" && ! -L "$reuse_off_config" ]] \
     || fail 'reuse-off home config is not a regular non-symlink file'
   reuse_off_config="$(realpath -e -- "$reuse_off_config")"
-  [[ "$(sha256sum "$reuse_off_config" | cut -d' ' -f1)" == "$atlas_reuse_off_config_sha256" ]] \
-    || fail 'reuse-off home config hash mismatch'
+  require_config_booleans "$reuse_off_config" 'reuse-off home config' \
+    atlasTileBbox=true atlasCacheReuse=false
+  atlas_reuse_off_config_sha256="$(sha256sum "$reuse_off_config" | cut -d' ' -f1)"
 fi
 
 # A t029-tlprod-off* leg stages a reviewed home config carrying
@@ -382,7 +408,7 @@ fi
 tlindex_pref_off=0
 [[ "$tri_tlprod_leg" == off* ]] && tlindex_pref_off=1
 tlindex_off_config=''
-tlindex_off_config_sha256=47bb572625150b9f6a78a75be1e1b62cf1df0b179b58a2beffd7b568c4ae8c43
+tlindex_off_config_sha256=''
 if [[ "$tlindex_pref_off" == 1 ]]; then
   [[ "$mesh_pref_off" == 0 && "$atlas_pref_off" == 0 && "$atlas_reuse_pref_off" == 0 ]] \
     || fail 'tlprod-off cannot combine with -meshoff/-atlasoff/-reuseoff: one home config is staged'
@@ -390,8 +416,9 @@ if [[ "$tlindex_pref_off" == 1 ]]; then
   [[ -f "$tlindex_off_config" && ! -L "$tlindex_off_config" ]] \
     || fail 'tlindex-off home config is not a regular non-symlink file'
   tlindex_off_config="$(realpath -e -- "$tlindex_off_config")"
-  [[ "$(sha256sum "$tlindex_off_config" | cut -d' ' -f1)" == "$tlindex_off_config_sha256" ]] \
-    || fail 'tlindex-off home config hash mismatch'
+  require_config_booleans "$tlindex_off_config" 'tlindex-off home config' \
+    meshTriangulationEdgeIndex=false
+  tlindex_off_config_sha256="$(sha256sum "$tlindex_off_config" | cut -d' ' -f1)"
 fi
 
 # `-atlastiming` installs the validation-only per-call timing agent: stack-neutral enter/exit
@@ -545,6 +572,7 @@ if [[ -n "$tri_identity_probe" ]]; then
   [[ -f "$tri_identity_probe" && ! -L "$tri_identity_probe" ]] \
     || fail 'tri-identity probe is not a regular non-symlink file'
   tri_identity_probe="$(realpath -e -- "$tri_identity_probe")"
+  # Whole-artifact identity for an external frozen probe; its source is not in this repository.
   [[ "$(sha256sum "$tri_identity_probe" | cut -d' ' -f1)" == \
       9c4a4ccc37c630c8134428334cd4131faccf8f6250e6f45035c659b3bb10ab71 ]] \
     || fail 'tri-identity probe SHA-256 mismatch'
@@ -699,14 +727,16 @@ done
 if [[ "$version" == 5303 ]]; then
   [[ "${values[t039Profile]}" == 5303 ]] || fail 'T039 profile mismatch'
   [[ "${values[t039JarSha256]}" == "$official_jar_sha256" ]] || fail 'T039 official JAR hash mismatch'
-  [[ "${values[t039ClassSha256]}" == "$t039_class_sha256" ]] || fail 'T039 class hash mismatch'
-  [[ "${values[t039ShapeSha256]}" == "$t039_shape_sha256" ]] || fail 'T039 shape hash mismatch'
   [[ "${values[t039SourceBinding]}" == "$runtime_source_binding" ]] || fail 'T039 source binding mismatch'
   [[ "${values[t039TrustedSourcePath]}" == "$runtime_trusted_source_path" ]] \
     || fail 'T039 trusted source path is not the fixed task-prefix candidate'
   [[ "${values[t039ShadowMode]}" == shadow-ready ]] || fail 'T039 shadow mode is not shadow-ready'
   [[ "${values[t039ShadowOptIn]}" == T039_SHADOW_EXPLICIT_OPT_IN ]] || fail 'T039 opt-in mismatch'
-  for key in t039AgentSha256 t039HelperSha256 t039T038HelperSha256; do
+  # The T039 agent owns the target-byte contract: it compares these two values against its
+  # own reviewed constants and blocks the session on any mismatch. The wrapper therefore
+  # forwards the manifest values and only enforces their shape, so a reviewed rebuild of
+  # that target class does not require a wrapper edit.
+  for key in t039AgentSha256 t039HelperSha256 t039T038HelperSha256 t039ClassSha256 t039ShapeSha256; do
     [[ "${values[$key]}" =~ ^[0-9a-f]{64}$ ]] || fail "$key is not a lowercase SHA-256"
   done
   [[ "${values[t039LoaderClass]}" =~ ^[A-Za-z0-9_$.]{1,160}$ ]] || fail 'T039 loader class is unsafe'
@@ -968,6 +998,12 @@ fi
 # therefore tracks what the aux observes at transform time — pristine bytes on
 # -off legs, the deterministic production-patched bytes on -on legs — and the
 # expectCodeSource value follows the per-version install dir.
+#
+# These digests stay because they are the frozen input contract of the external
+# tri-weave-agent.jar: its source is deleted from this repository (see
+# validation/triangulation-tlindex/DESIGN.md), so the wrapper cannot replace its
+# admission gate with a structural check. The whole-JAR pin on that agent remains
+# the outer trust boundary for every leg below.
 tl_expect_class_sha=''
 tl_expect_codesource='file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar'
 tl_run_id=''
@@ -1035,7 +1071,8 @@ if [[ -n "$mesh_hash_mode" ]]; then
   runner_args+=(--aux-agent "$mesh_hash_agent:mesh-hash-agent.jar")
   runner_args+=(--jvm-option "-Dturboism.validation.meshHash.mode=$mesh_hash_mode")
   runner_args+=(--jvm-option '-Dturboism.validation.meshHash.optIn=MESH_HASH_EXPLICIT_OPT_IN')
-  runner_args+=(--jvm-option "-Dturboism.validation.meshHash.tripleSha256=$mesh_hash_triple_sha256")
+  # No expected class digest is passed: the agent admits the corner-triple class by its
+  # reviewed shape, and the whole-JAR pin already decides the artifact identity.
   runner_args+=(--jvm-option '-Dturboism.validation.meshHash.output={HOME}\mesh-hash-evidence.properties')
 fi
 
@@ -1081,8 +1118,8 @@ elif [[ "$dry_run" == 1 ]]; then
 fi
 
 if [[ -n "$mesh_hash_mode" ]]; then
-  printf 'meshHashMode=%s\nmeshHashAgentSha256=%s\nmeshHashTripleSha256=%s\n' \
-    "$mesh_hash_mode" "$mesh_hash_agent_sha256" "$mesh_hash_triple_sha256" >&2
+  printf 'meshHashMode=%s\nmeshHashAgentSha256=%s\n' \
+    "$mesh_hash_mode" "$mesh_hash_agent_sha256" >&2
 fi
 if [[ "$mesh_pref_off" == 1 ]]; then
   printf 'meshPreference=off\nmeshOffConfigSha256=%s\n' "$mesh_off_config_sha256" >&2
@@ -1132,6 +1169,7 @@ elif [[ -n "$tri_tlprod_leg" ]]; then
 fi
 
 # No hook, client, or collector option is permitted here; readiness is limited to the single
-# fixed deferred-check marker above. The only staged home inputs are the hash-pinned
+# fixed deferred-check marker above. The only staged home inputs are the reviewed
 # -meshoff/-atlasoff/-reuseoff/tlprod-off configs or the leg-matching explicit UI config above.
+# Each reviewed config is admitted by its explicit preference fields, not by a stored digest.
 exec bash "$runner" "${runner_args[@]}"

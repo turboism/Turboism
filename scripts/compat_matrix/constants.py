@@ -37,7 +37,7 @@ INTERCEPTOR = Path(
     "runtime/src/main/java/dev/turboism/core/plugin/context/"
     "CubismEditorApiAvailabilityInterceptor.java"
 )
-CLASS_PINS_DIR = Path("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins")
+TARGET_CLASSES_DIR = Path("runtime/src/main/resources/dev/turboism/adapter/cubism/target-classes")
 CAMPAIGN_JOBS = Path("validation/cubism-version-matrix/campaign-jobs.json")
 MONOTONICITY_EXCEPTIONS = Path("scripts/version-monotonicity-exceptions.json")
 VERSION_BOUNDARIES = Path("compatibility/cubism/version-boundaries.json")
@@ -83,7 +83,7 @@ CAPABILITY_CONSTANT_RE = re.compile(
 SUPPORTED_SET_RE = re.compile(
     r"\b(\w*SUPPORTED\w*_VERSIONS)\s*=\s*([^;]+);", re.DOTALL
 )
-CLASS_PIN_LOAD_RE = re.compile(r'ClassPinTable\.load\("([\w.-]+)"\)')
+TARGET_CLASS_LOAD_RE = re.compile(r'TargetClassTable\.load\("([\w.-]+)"\)')
 ENUM_ENTRY_RE = re.compile(
     r"^ {4}([A-Z][A-Z0-9_]*)\s*\((.*?)\)\s*[,;]", re.MULTILINE | re.DOTALL
 )

@@ -1,12 +1,11 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.HostMemberVerifier;
 import dev.turboism.adapter.cubism.optimization.sorting.MeshContainerLookupTransformer;
 import dev.turboism.adapter.cubism.optimization.sorting.SortingInfoCacheTarget;
 import dev.turboism.adapter.cubism.optimization.sorting.SortingInfoCacheTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -67,7 +66,7 @@ final class VerifiedSortingInfoCacheInstaller implements AutoCloseable {
         final Class<?> sortingOwner = source.load(SortingInfoCacheTarget.SORTING_OWNER);
         final Class<?> meshRendererOwner = source.load(SortingInfoCacheTarget.MESH_RENDERER_OWNER);
         for (final SortingInfoCacheTarget.Dep dep : target.dependencies()) {
-            verifyMethodPresent(source.load(dep.owner()), dep.name(), dep.descriptor());
+            HostMemberVerifier.requireMethod(source.load(dep.owner()), dep.name(), dep.descriptor());
         }
         final SortingInfoCacheTransformer sortingTransformer = new SortingInfoCacheTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(sortingOwner), target);
@@ -86,17 +85,6 @@ final class VerifiedSortingInfoCacheInstaller implements AutoCloseable {
                         EXPECTED_MATCHES,
                         containerTransformer::matches,
                         containerTransformer::failure));
-    }
-
-    private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)
-            throws NoSuchMethodException {
-        for (final Method method : owner.getMethods()) {
-            if (!method.getName().equals(name)) continue;
-            final String desc = MethodType.methodType(method.getReturnType(), method.getParameterTypes())
-                    .descriptorString();
-            if (desc.equals(descriptor)) return;
-        }
-        throw new NoSuchMethodException(owner.getName() + "." + name + descriptor);
     }
 
     /**

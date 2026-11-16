@@ -134,7 +134,7 @@ val checkReviewedReleases by tasks.registering(Exec::class) {
                 "graal-host/src/main/**/*.java", "buildSrc/src/main/**/*.java",
                 "packaging/java-installer/listener-src/**/*.java",
                 "plugins/*/src/main/**/*.java", "plugins/mcp/src/main/resources/META-INF/turboism/mcp-sdk-coverage.json",
-                "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/*.json",
+                "runtime/src/main/resources/dev/turboism/adapter/cubism/target-classes/*.json",
                 "testing/integration-tests/src/test/java/dev/turboism/tests/plugin/Windows*.java",
                 ".env.example")
         exclude("**/build/**", "**/.gradle/**", "**/__pycache__/**")
@@ -191,13 +191,13 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
         fileTree("scripts/verification-sources/families") { include("*.json") },
         // SUPPORTED_*_VERSIONS sets (contract and feature-level gates).
         javaSourcesContaining("scripts/verification-sources/templates", "SUPPORTED"),
-        javaSourcesContaining("runtime/src/main/java", "SUPPORTED", "ClassPinTable.load("),
+        javaSourcesContaining("runtime/src/main/java", "SUPPORTED", "TargetClassTable.load("),
         // @CubismEditor annotations; the three command enums are parsed by path.
         javaSourcesContaining("sdk/src/main/java", "CubismEditor"),
         "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommand.java",
         "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorParameterizedCommand.java",
         "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorFileCommand.java",
-        fileTree("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins") {
+        fileTree("runtime/src/main/resources/dev/turboism/adapter/cubism/target-classes") {
             include("*.json")
         },
         fileTree("compatibility/cubism") { include("*.md") },
@@ -286,8 +286,8 @@ val checkVerificationSources by tasks.registering(Exec::class) {
         "scripts/turboism_dev/alias_vocabulary.py",
         "scripts/turboism_dev/json_io.py",
         "scripts/verification-sources/model-update-targets.json",
-        "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/model-update-skip.json",
-        "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/incremental-update.json",
+        "runtime/src/main/resources/dev/turboism/adapter/cubism/target-classes/model-update-skip.json",
+        "runtime/src/main/resources/dev/turboism/adapter/cubism/target-classes/incremental-update.json",
         fileTree("scripts/verification-sources") { include("**/*") },
         fileTree("build/generated/verification") { include("*.json") },
         fileTree("build/generated/draft/mapping-packs") { include("*.json") },

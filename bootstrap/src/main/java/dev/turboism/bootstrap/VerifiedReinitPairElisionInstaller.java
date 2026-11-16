@@ -21,7 +21,7 @@ final class VerifiedReinitPairElisionInstaller implements VerifiedHookInstaller 
     static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.ANY);
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
-            ReviewedHostContract.candidates(ReinitPairElisionTransformer.reviewedClassSha256(), version -> HOOK_ID);
+            ReviewedHostContract.candidates(ReinitPairElisionTransformer.targetClasses(), version -> HOOK_ID);
 
     static final WeaveSpec<ReviewedHostContract.Bound<String>> SPEC = new WeaveSpec<>(
             ADMISSION,

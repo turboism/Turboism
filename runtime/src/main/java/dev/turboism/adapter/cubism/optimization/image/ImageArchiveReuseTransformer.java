@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.image;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -44,16 +47,7 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
             final ProtectionDomain domain,
             final byte[] bytes) {
         if (loader != expectedLoader || !RESOURCE.equals(name) || bytes == null) return null;
-        if (artifact != null) {
-            try {
-                if (!artifact.equals(
-                        Path.of(domain.getCodeSource().getLocation().toURI())
-                                .toAbsolutePath()
-                                .normalize())) return null;
-            } catch (Exception rejected) {
-                return null;
-            }
-        }
+        if (artifact != null && !HostCodeSource.matchesArtifact(domain, artifact)) return null;
         try {
             final ClassReader reader = new ClassReader(bytes);
             final int[] counts = new int[4];
@@ -77,12 +71,7 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
                     failure = "unexpected decode/archive call-site shape";
                     return null;
                 }
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return expectedLoader == null ? super.getClassLoader() : expectedLoader;
-                }
-            };
+            final ClassWriter writer = HostClassWriters.newFrameWriter(reader, expectedLoader);
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override
@@ -220,15 +209,7 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
                     done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            this.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            this.visitLdcInsn(KEY);
-            this.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
+            SlotBridgeEmitter.emitGetSlot(this, KEY);
             this.visitInsn(Opcodes.DUP);
             this.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BiFunction");
             super.visitJumpInsn(Opcodes.IFEQ, notCallback);
@@ -272,13 +253,14 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
     private record Handler(Label start, Label end, Label handler, String type) {}
 
     /**
-     * SHA-256 of the image classes this hook rewrites and bridges, keyed by internal name, per reviewed generation. A
-     * repackaged or differently-declared artifact binds this hook only when
-     * one distinct contract's pins match every class entry; identical contracts merge.
+     * Target classes the image rewrites and bridges touch, keyed by internal name,
+     * per reviewed generation. A repackaged or differently-declared artifact binds
+     * this hook only when one distinct contract's class list matches every entry;
+     * identical contracts merge.
      */
-    public static Map<String, List<String>> reviewedClassSha256() {
+    public static Map<String, List<String>> targetClasses() {
         return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("image-archive-reuse");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = TargetClassTable.load("image-archive-reuse");
 }

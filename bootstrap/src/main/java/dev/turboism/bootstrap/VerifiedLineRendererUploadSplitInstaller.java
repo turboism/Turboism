@@ -1,12 +1,11 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.HostMemberVerifier;
 import dev.turboism.adapter.cubism.optimization.lineupload.LineRendererUploadSplitBridge;
 import dev.turboism.adapter.cubism.optimization.lineupload.LineRendererUploadSplitTarget;
 import dev.turboism.adapter.cubism.optimization.lineupload.LineRendererUploadSplitTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -69,23 +68,12 @@ final class VerifiedLineRendererUploadSplitInstaller implements AutoCloseable {
             throws Exception {
         final Class<?> target = source.load(LineRendererUploadSplitTarget.OWNER);
         for (final LineRendererUploadSplitTarget.Dep dep : LineRendererUploadSplitTarget.DEPENDENCIES) {
-            verifyMethodPresent(source.load(dep.owner()), dep.name(), dep.descriptor());
+            HostMemberVerifier.requireMethod(source.load(dep.owner()), dep.name(), dep.descriptor());
         }
         final LineRendererUploadSplitTransformer transformer = new LineRendererUploadSplitTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(target));
         return List.of(
                 WeaveTarget.single(target, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
-    }
-
-    private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)
-            throws NoSuchMethodException {
-        for (final Method method : owner.getMethods()) {
-            if (!method.getName().equals(name)) continue;
-            final String desc = MethodType.methodType(method.getReturnType(), method.getParameterTypes())
-                    .descriptorString();
-            if (desc.equals(descriptor)) return;
-        }
-        throw new NoSuchMethodException(owner.getName() + "." + name + descriptor);
     }
 
     /**

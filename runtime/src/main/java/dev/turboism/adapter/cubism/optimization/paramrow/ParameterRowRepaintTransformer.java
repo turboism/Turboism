@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.paramrow;
 
 import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -111,7 +112,7 @@ public final class ParameterRowRepaintTransformer implements ClassFileTransforme
         if (bytes == null || !target.controllerOwner().equals(name)) {
             return null;
         }
-        if (actualLoader != loader || !matchesArtifactSource(domain)) {
+        if (actualLoader != loader || !HostCodeSource.matchesArtifact(domain, artifact)) {
             failure = "unexpected loader or code source for " + name;
             return null;
         }
@@ -125,17 +126,7 @@ public final class ParameterRowRepaintTransformer implements ClassFileTransforme
         }
         try {
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-
-                @Override
-                protected String getCommonSuperClass(final String left, final String right) {
-                    return HostClassWriters.commonSuperClass(loader, left, right);
-                }
-            };
+            final ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             final int[] localSites = {0};
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
@@ -320,21 +311,5 @@ public final class ParameterRowRepaintTransformer implements ClassFileTransforme
         mv.visitLabel(skipInvalidate);
         mv.visitInsn(Opcodes.POP);
         mv.visitLabel(invalidateDone);
-    }
-
-    private boolean matchesArtifactSource(final ProtectionDomain domain) {
-        if (domain == null
-                || domain.getCodeSource() == null
-                || domain.getCodeSource().getLocation() == null) {
-            return false;
-        }
-        try {
-            return Path.of(domain.getCodeSource().getLocation().toURI())
-                    .toAbsolutePath()
-                    .normalize()
-                    .equals(artifact);
-        } catch (final Exception invalidUri) {
-            return false;
-        }
     }
 }

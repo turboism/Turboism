@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import com.sun.management.HotSpotDiagnosticMXBean;
-import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.management.ManagementFactory;
@@ -9,15 +8,13 @@ import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
-import java.security.ProtectionDomain;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Function;
 import java.util.jar.JarFile;
 
 /**
@@ -28,14 +25,38 @@ import java.util.jar.JarFile;
  * subsequent installers and retain no usable raw handle. This is not a security
  * boundary against hostile in-process code, JNI, or an escaped raw handle.</p>
  *
- * <p>Capture and instrumentation mutations take an exclusive lock before entering
- * the JVM. An optimized operation must hold a {@link Lease} for its entire duration.
- * Definition changes wait outside JVM callbacks, then permanently revoke existing
- * gates before proceeding. A Boolean admission observation is not an execution lease.</p>
+ * <p>Capture and instrumentation mutations take an exclusive lock. An optimized
+ * operation must hold a {@link Lease} for its entire duration. Definition changes
+ * wait outside JVM callbacks, then permanently revoke existing gates before
+ * proceeding. A Boolean admission observation is not an execution lease.</p>
  */
 public final class TriangulationDefinitionLifecycle implements AutoCloseable {
+    /** Stable reason for a definition set that matches its reviewed live contract. */
+    static final String CONTRACT_MATCH = "OWNED_DEFINITION_CONTRACT_MATCH";
+
+    /** Stable reason for the only startup protocol that may own definitions. */
+    static final String SUPPORTED_PREMAIN = "SUPPORTED_OWNED_PREMAIN";
+
     interface Ownership {
         TriangulationDefinitionLifecycle lifecycle();
+    }
+
+    /**
+     * Structural contract for one live dependency set.
+     *
+     * <p>The check inspects the definitions the JVM will execute. A definition is admitted
+     * because its live shape matches the reviewed contract, never because serialized bytes
+     * match a stored preimage.</p>
+     */
+    @FunctionalInterface
+    public interface DefinitionCheck {
+        /**
+         * Verifies one live dependency set.
+         *
+         * @param dependencies the captured classes in caller order
+         * @return {@code null} when every definition matches, otherwise a stable reason
+         */
+        String reject(Class<?>[] dependencies);
     }
 
     private static final StackWalker STACK = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
@@ -45,7 +66,6 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
     private final List<WeakReference<Gate>> gates = new ArrayList<>();
     private boolean closed;
-    private boolean captureBroken;
 
     private TriangulationDefinitionLifecycle(Instrumentation supplied, String reason) {
         raw = Objects.requireNonNull(supplied, "instrumentation");
@@ -99,7 +119,7 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
                             .getVMOption("DisableAttachMechanism")
                             .getValue());
             reason = startupOptionsReason(arguments, attachDisabled);
-            if (reason.equals("SUPPORTED_OWNED_PREMAIN")) {
+            if (reason.equals(SUPPORTED_PREMAIN)) {
                 String option = arguments.stream()
                         .filter(a -> a.startsWith("-javaagent:"))
                         .findFirst()
@@ -134,7 +154,7 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
                         || a.startsWith("--patch-module")
                         || a.startsWith("--upgrade-module-path")
                         || a.startsWith("-Djava.system.class.loader="))) return "EXTERNAL_DEFINITION_SOURCE";
-        return "SUPPORTED_OWNED_PREMAIN";
+        return SUPPORTED_PREMAIN;
     }
 
     /** Verified startup admission or the stable reason this protocol is unavailable. */
@@ -149,7 +169,7 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
 
     /** Unverified startup retains ordinary instrumentation behavior and can never admit a gate. */
     public Instrumentation instrumentation() {
-        return startupReason.equals("SUPPORTED_OWNED_PREMAIN") ? owned : raw;
+        return startupReason.equals(SUPPORTED_PREMAIN) ? owned : raw;
     }
 
     /** A captured definition set; acquiring a lease is required before optimized execution. */
@@ -177,7 +197,7 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
         public Lease acquire() {
             if (!admitted || inTransformerCallback()) return null;
             owner.lock.readLock().lock();
-            if (!admitted || owner.closed || owner.captureBroken) {
+            if (!admitted || owner.closed) {
                 owner.lock.readLock().unlock();
                 return null;
             }
@@ -217,17 +237,23 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
     }
 
     /**
-     * Capture at the last owned capable transformer under exclusive registration/definition
-     * ownership. The fingerprinter is trusted code and receives a defensive copy. No resources
-     * are used as substitutes for live definitions. Gates hold no application Class or loader.
+     * Admits a live dependency set under exclusive registration and definition ownership.
+     *
+     * <p>The check inspects the definitions the JVM executes now, so a reviewed shape stays
+     * admissible across host builds without a stored byte preimage. Gates hold no application
+     * Class or loader.</p>
+     *
+     * @param dependencies the live classes the caller resolved and origin-checked
+     * @param check structural contract for that exact set
+     * @return the gate; {@link Gate#reason()} names why admission was refused
      */
-    public Gate capture(Class<?>[] dependencies, Map<String, String> expected, Function<byte[], String> fingerprinter) {
+    public Gate capture(Class<?>[] dependencies, DefinitionCheck check) {
         Gate gate = new Gate(this);
-        if (!startupReason.equals("SUPPORTED_OWNED_PREMAIN")) {
+        if (!startupReason.equals(SUPPORTED_PREMAIN)) {
             gate.revoke(startupReason);
             return gate;
         }
-        if (dependencies == null || dependencies.length == 0 || expected == null || fingerprinter == null) {
+        if (dependencies == null || dependencies.length == 0 || check == null) {
             gate.revoke("DEPENDENCIES_MISSING");
             return gate;
         }
@@ -238,121 +264,40 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
             return gate;
         }
         lock.writeLock().lock();
-        Capture collector = new Capture(fingerprinter);
-        boolean registered = false;
         try {
-            if (closed || captureBroken) {
+            if (closed) {
                 gate.revoke("CAPTURE_UNAVAILABLE");
                 return gate;
             }
-            Map<String, String> reviewed = Map.copyOf(expected);
             Class<?>[] actual = dependencies.clone();
-            if (actual.length != reviewed.size()) {
-                gate.revoke("DEPENDENCY_SET_INCOMPLETE");
-                return gate;
-            }
             HashSet<String> names = new HashSet<>();
             for (Class<?> type : actual) {
-                if (type == null
-                        || !names.add(type.getName())
-                        || reviewed.get(type.getName()) == null
-                        || !raw.isModifiableClass(type)) {
+                if (type == null || !names.add(type.getName())) {
                     gate.revoke("DEPENDENCY_REJECTED");
                     return gate;
                 }
-                collector.wanted.put(type, reviewed.get(type.getName()));
             }
-            // A retransform can change earlier dependencies even when this capture fails.
-            // Retire old gates before entering the JVM, while no operation holds a lease.
-            revokeAll("OWNED_CAPTURE_RETRANSFORM");
-            raw.addTransformer(collector, true);
-            registered = true;
-            raw.retransformClasses(actual);
-            if (collector.fatal != null) {
-                FatalErrors.rethrowIfFatal(collector.fatal);
-            }
-            if (!collector.failed
-                    && collector.captured.size() == collector.wanted.size()
-                    && collector.wanted.entrySet().stream()
-                            .allMatch(e -> e.getValue().equals(collector.captured.get(e.getKey())))) {
-                Map<String, WeakReference<Class<?>>> covered = new java.util.HashMap<>();
-                for (Class<?> type : actual) covered.put(type.getName(), new WeakReference<>(type));
-                gate.covered = Map.copyOf(covered);
-                gate.reason = "OWNED_FINAL_DEFINITION_MATCH";
-                gate.admitted = true;
-            } else gate.revoke("DEFINITION_MISMATCH_OR_INCOMPLETE");
-        } catch (Exception failure) {
-            gate.revoke("CAPTURE_FAILED");
-        } finally {
+            String refused;
             try {
-                if (registered && !raw.removeTransformer(collector)) {
-                    captureBroken = true;
-                    gate.revoke("CAPTURE_REMOVAL_FAILED");
-                    revokeAll("CAPTURE_REMOVAL_FAILED");
-                }
-            } catch (RuntimeException failure) {
-                captureBroken = true;
-                gate.revoke("CAPTURE_REMOVAL_FAILED");
-                revokeAll("CAPTURE_REMOVAL_FAILED");
-            } catch (Error failure) {
-                captureBroken = true;
-                gate.revoke("CAPTURE_REMOVAL_FAILED");
-                revokeAll("CAPTURE_REMOVAL_FAILED");
-                throw failure;
-            } finally {
-                collector.clear();
-                gates.removeIf(reference -> reference.get() == null);
-                if (gate.admitted) gates.add(new WeakReference<>(gate));
-                lock.writeLock().unlock();
+                refused = check.reject(actual.clone());
+            } catch (RuntimeException | LinkageError invalid) {
+                refused = "DEPENDENCY_CONTRACT_UNVERIFIED";
             }
+            if (refused != null) {
+                gate.revoke(refused);
+                return gate;
+            }
+            Map<String, WeakReference<Class<?>>> covered = new HashMap<>();
+            for (Class<?> type : actual) covered.put(type.getName(), new WeakReference<>(type));
+            gate.covered = Map.copyOf(covered);
+            gate.reason = CONTRACT_MATCH;
+            gate.admitted = true;
+            gates.removeIf(reference -> reference.get() == null);
+            gates.add(new WeakReference<>(gate));
+        } finally {
+            lock.writeLock().unlock();
         }
         return gate;
-    }
-
-    private static final class Capture implements ClassFileTransformer {
-        private Thread thread = Thread.currentThread();
-        private Function<byte[], String> fingerprinter;
-        private final IdentityHashMap<Class<?>, String> wanted = new IdentityHashMap<>();
-        private final IdentityHashMap<Class<?>, String> captured = new IdentityHashMap<>();
-        private boolean failed;
-        private Error fatal;
-
-        Capture(Function<byte[], String> fingerprinter) {
-            this.fingerprinter = fingerprinter;
-        }
-
-        @Override
-        public byte[] transform(ClassLoader loader, String name, Class<?> type, ProtectionDomain domain, byte[] bytes) {
-            if (thread != Thread.currentThread() || !wanted.containsKey(type)) return null;
-            try {
-                if (name == null
-                        || !name.replace('/', '.').equals(type.getName())
-                        || bytes == null
-                        || captured.containsKey(type)) {
-                    failed = true;
-                    return null;
-                }
-                captured.put(type, fingerprinter.apply(bytes.clone()));
-            } catch (RuntimeException | LinkageError invalid) {
-                failed = true;
-            } catch (Error failure) {
-                // @containment-exempt: records fatal state before unconditional rethrow
-                if (FatalErrors.isFatal(failure)) {
-                    failed = true;
-                    fatal = failure;
-                }
-                throw failure;
-            }
-            return null;
-        }
-
-        void clear() {
-            thread = null;
-            fingerprinter = null;
-            fatal = null;
-            wanted.clear();
-            captured.clear();
-        }
     }
 
     private void rejectCallbackOrUpgrade() {

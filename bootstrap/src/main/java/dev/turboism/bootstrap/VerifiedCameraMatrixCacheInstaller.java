@@ -1,13 +1,12 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.HostMemberVerifier;
 import dev.turboism.adapter.cubism.optimization.camera.CameraMatrixCacheBridge;
 import dev.turboism.adapter.cubism.optimization.camera.CameraMatrixCacheTarget;
 import dev.turboism.adapter.cubism.optimization.camera.CameraMatrixCacheTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.io.IOException;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -15,7 +14,7 @@ import java.util.Optional;
 /**
  * Installs and restores the verified root-camera world-to-camera matrix cache.
  */
-final class VerifiedCameraMatrixCacheInstaller implements AutoCloseable {
+final class VerifiedCameraMatrixCacheInstaller implements VerifiedHookInstaller {
 
     static final String HOOK_ID = "cubism.render.camera-matrix-cache";
 
@@ -65,7 +64,7 @@ final class VerifiedCameraMatrixCacheInstaller implements AutoCloseable {
         final Class<?> cameraOwner = source.load(CameraMatrixCacheTarget.CAMERA_OWNER);
         source.load(CameraMatrixCacheTarget.MATRIX_OWNER);
         for (final CameraMatrixCacheTarget.Dep dep : target.dependencies()) {
-            verifyMethodPresent(source.load(dep.owner()), dep.name(), dep.descriptor());
+            HostMemberVerifier.requireMethod(source.load(dep.owner()), dep.name(), dep.descriptor());
         }
         final CameraMatrixCacheTransformer transformer = new CameraMatrixCacheTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(cameraOwner));
@@ -79,18 +78,17 @@ final class VerifiedCameraMatrixCacheInstaller implements AutoCloseable {
         return sites == EXPECTED_SITES ? null : "sites=" + sites;
     }
 
-    private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)
-            throws NoSuchMethodException {
-        for (final Method method : owner.getMethods()) {
-            if (!method.getName().equals(name)) continue;
-            final String actual = MethodType.methodType(method.getReturnType(), method.getParameterTypes())
-                    .descriptorString();
-            if (actual.equals(descriptor)) return;
+    @Override
+    public boolean admits(final InstallContext context) {
+        try {
+            return admitted(context.artifact(), context.policy(), true, context.jvmFeature());
+        } catch (final java.io.IOException unreadable) {
+            return false;
         }
-        throw new NoSuchMethodException(owner.getName() + "." + name + descriptor);
     }
 
-    synchronized void install() throws Exception {
+    @Override
+    public synchronized void install() throws Exception {
         if (hook != null) return;
         if (!(VerifiedInstall.install(spec(), context)
                 instanceof VerifiedInstall.Attempt.Installed<CameraMatrixCacheTarget> installed)) {

@@ -134,8 +134,7 @@ final class AngleGuardBytecodePrototype {
     paths = [authority, Path(__file__).resolve(), base / 'AngleRejectionSelfCheck.java', asm, tree] + sources
     paths += list(jars.values()) + [jar.parent / 'kotlin-stdlib-1.7.21.jar' for jar in jars.values()]
     paths += list(destination.rglob('*.class')) + [output / (name + '.txt') for name in commands]
-    for name in ('TriangulationAngleGuard', 'TriangulationAngleGuardPatcher', 'TriangulationAngleGuardPatcher$Guard',
-                 'TriangulationDefinitionFingerprint'):
+    for name in ('TriangulationAngleGuard', 'TriangulationAngleGuardPatcher', 'TriangulationAngleGuardPatcher$Guard'):
         paths.append(classes / ('dev/turboism/adapter/cubism/mesh/' + name + '.class'))
     production = root / 'runtime/src/main/java/dev/turboism/adapter/cubism/mesh'
     paths += [production / name for name in ('TriangulationAngleGuard.java', 'TriangulationAngleGuardPatcher.java')]

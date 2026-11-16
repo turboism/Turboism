@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generate or check reviewed target-class tables from a host JAR.
 
-The hook target tables consumed by ``ClassPinTable`` live as JSON resources under
-``runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/``. Each
+The hook target tables consumed by ``TargetClassTable`` live as JSON resources under
+``runtime/src/main/resources/dev/turboism/adapter/cubism/target-classes/``. Each
 file names, per reviewed Cubism Editor version, the internal names of the host
 classes the hook rewrites or reads. The whole-artifact identity in
 ``ReviewedHostArtifacts`` plus each hook's method-shape gate admit the bytes, so
@@ -55,7 +55,7 @@ from turboism_dev.json_io import dump_json
 from turboism_dev.paths import repo_root
 
 ROOT = repo_root()
-PIN_DIR = ROOT / "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins"
+PIN_DIR = ROOT / "runtime/src/main/resources/dev/turboism/adapter/cubism/target-classes"
 
 
 def admitted_versions(root: Path = ROOT) -> list[str]:

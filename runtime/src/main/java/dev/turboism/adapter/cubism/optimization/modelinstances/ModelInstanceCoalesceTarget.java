@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.modelinstances;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,7 +13,7 @@ import java.util.Set;
  *
  * <p>The hook rewrites three long-stable public host seams: {@code
  * CModelSource.updateModelInstances()}, {@code ACEditMode.updateLastModifiedTime()}
- * and {@code CUndoManager.undo()/redo()}. The pins cover the source, document and
+ * and {@code CUndoManager.undo()/redo()}. The target class list covers the source, document and
  * edit-mode classes whose bodies decide whether two update calls describe the same
  * committed edit. The undo-group class is not rewritten; its dependency method is
  * still shape-verified against the official artifact by the installer, as is the
@@ -58,14 +58,15 @@ public record ModelInstanceCoalesceTarget(String version) {
      *
      * @return version to declared internal names
      */
-    public static Map<String, List<String>> reviewedClassSha256() {
-        final Map<String, List<String>> all = ClassPinTable.load("model-update-skip");
+    public static Map<String, List<String>> targetClasses() {
+        final Map<String, List<String>> all = TargetClassTable.load("model-update-skip");
         final Map<String, List<String>> filtered = new LinkedHashMap<>();
         for (final Map.Entry<String, List<String>> entry : all.entrySet()) {
             final List<String> classes = new ArrayList<>();
             for (final String name : PINNED_CLASSES) {
                 if (!entry.getValue().contains(name)) {
-                    throw new IllegalStateException("model-update pin table lacks " + name + " for " + entry.getKey());
+                    throw new IllegalStateException(
+                            "model-update target table lacks " + name + " for " + entry.getKey());
                 }
                 classes.add(name);
             }

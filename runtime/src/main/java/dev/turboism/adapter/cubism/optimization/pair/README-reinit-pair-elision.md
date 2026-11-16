@@ -29,8 +29,8 @@ state or new runtime class is involved, and the rewritten method allocates no Pa
 
 ## Admission
 
-- The class must match a reviewed `CModel` SHA-256 pin for its declared Cubism release
-  (`class-pins/reinit-pair-elision.json`).
+- The class must appear in the reviewed `CModel` target list for its declared Cubism release
+  (`target-classes/reinit-pair-elision.json`).
 - The reviewed method shape must equal the attested reference.
 - Every `kotlin.Pair` use in that method must be a recognized creation, getter or local
   copy; an escaping Pair, an unknown constructor or any other use fails closed.

@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.composite.CanvasCompositeElisionTarget;
 import dev.turboism.adapter.cubism.optimization.composite.CanvasCompositeElisionTransformer;
 
 /**
@@ -32,9 +33,12 @@ final class CanvasCompositeElisionHookContributor extends NativeOptimizationHook
         log(
                 environment,
                 id() + " elision=ACTIVE sites=" + installer.sites()
-                        + " targets=javax/swing/RepaintManager$PaintManager.paint(IIII)Z"
-                        + "+com/formdev/flatlaf/ui/FlatPanelUI.update(Ljava/awt/Graphics;"
-                        + "Ljavax/swing/JComponent;)V");
+                        + " targets=" + CanvasCompositeElisionTarget.PAINT_OWNER + '.'
+                        + CanvasCompositeElisionTarget.PAINT_METHOD
+                        + CanvasCompositeElisionTarget.PAINT_DESCRIPTOR
+                        + '+' + CanvasCompositeElisionTarget.FILL_OWNER + '.'
+                        + CanvasCompositeElisionTarget.FILL_METHOD
+                        + CanvasCompositeElisionTarget.FILL_DESCRIPTOR);
         return installer;
     }
 }
