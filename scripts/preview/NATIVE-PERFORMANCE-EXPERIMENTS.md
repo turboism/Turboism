@@ -1,128 +1,128 @@
-# 原生性能实验台账
+# Native Performance Experiment Ledger
 
-最后更新：2026-09-24（M-A1..M-A6 协议 A -Xmx4g 六轮实机 A/B 完结）。当前主指标由用户确定为 **内存占用、CPU 占用、GPU 占用**。累计分配、调用次数和缓存命中率仅用于解释，不替代主指标。
+Last update: 2026-09-24, when the six-round host A/B of protocol A with `-Xmx4g` completed (M-A1..M-A6). The user fixed the primary metrics as **memory occupancy, CPU occupancy, and GPU occupancy**. Cumulative allocation, call counts, and cache hit rate explain a result only; they never replace a primary metric.
 
-本台账是本任务的统一检索入口，不是构建/运行时依赖，也不替代结构化 exact-host 证据。历史数据、失败和后续相反结果必须同时保留。所有实现位于独立分支；未授权合并或推送 main。
+This ledger is the single search entry of the task. It is neither a build nor a runtime dependency, and it never replaces structured exact-host evidence. Historical data, failures, and later opposite results must stay together. Every implementation lives on a separate branch; no merge or push to main is authorized.
 
-## 使用规则：防止无依据地重复试验
+## Usage Rules: Prevent Unfounded Repeated Experiments
 
-1. 实验前查编号、调用点、算法和参数范围；没有实质变化时，不重跑已经否定的方案来寻找有利样本。
-2. 每次试验结束立即记录：**实现、验证方法、结果、原因/假设、证据、重试条件**。未成功完成的试验也要记录。
-3. 明确区分 `PRIMARY_BENEFIT`（当前主指标获益）、`ALLOCATION_ONLY`、`NO_BENEFIT`、`INCONCLUSIVE`、`VALIDATION_PASS`、`VALIDATION_FAIL`、`PLANNED`。验证通过不等于优化成功。
-4. 重试必须引用旧编号，并写明改变了什么：实现、输入、精确宿主、观测协议或可证伪假设。新观测器可能扰动 GC/时序，不跨批次拼接百分比。
-5. 原因分为**已证实**和**可能/未定**；不能把一次成功重跑当成前一次失败的根因证明。
-6. 终态判定包含 runner、身份、原文件 hash、正常退出和清理；辅助结果 `status=PASS` 不足以覆盖整轮 FAIL。只提交摘要/代码，不提交模型、官方 JAR 或含 licensing 信息的原始日志。
-7. 性能证据必须先落盘到持久位置再登记：私有证据**禁止只存放在 `/tmp`**（临时目录会被清理，导致已登记 SHA256 无法复算，I24 已发生一次）。持久位置为性能 worktree 的 `build/` 与操作者本地状态目录下的性能证据归档；台账只写相对路径、用途和 SHA256，不写机器绝对路径。
+1. Check the number, the call site, the algorithm, and the parameter range before an experiment. When nothing changes materially, do not re-run a rejected approach to hunt for a favorable sample.
+2. Record immediately after every experiment: **implementation, verification method, result, cause or hypothesis, evidence, retry condition**. A trial that did not complete successfully is recorded too.
+3. Separate `PRIMARY_BENEFIT`, which means a gain on a current primary metric, from `ALLOCATION_ONLY`, `NO_BENEFIT`, `INCONCLUSIVE`, `VALIDATION_PASS`, `VALIDATION_FAIL`, and `PLANNED`. A passed verification is no successful optimization.
+4. A retry must cite the old number and state what changed: implementation, input, exact host, observation protocol, or a falsifiable hypothesis. A new observer may disturb GC or timing, so never splice percentages across batches.
+5. Separate a **proven** cause from a **possible or undecided** one. One successful re-run never proves the root cause of an earlier failure.
+6. A terminal verdict covers the runner, the identity, the original file hash, the normal exit, and the cleanup. An auxiliary `status=PASS` never covers a whole-round FAIL. Commit only the summary and the code; never commit a model, an official JAR, or a raw log that holds licensing information.
+7. Performance evidence must reach a persistent location before it is registered. Private evidence **must never live only in `/tmp`**, because a temporary directory is cleaned and a registered SHA256 then cannot be recomputed; this already happened once in I24. The persistent locations are the `build/` directory of the performance worktree and the performance evidence archive under the operator local state directory. The ledger records a relative path, a purpose, and a SHA256 only, never a machine absolute path.
 
-## 快速索引
+## Quick Index
 
-| 编号 | 方案 | 当前结论 | 无变化时的行动 |
+| Number | Approach | Current conclusion | Action while nothing changes |
 |---|---|---|---|
-| E01 | 图像/渲染方法计时诊断 | VALIDATION_PASS；不是优化收益 | 复用，不重建另一套探针 |
-| E02 | PNG 原压缩表示复用 | 受控循环有效；自然工作流 NO_BENEFIT | 默认关闭，不重复强制循环宣传日常收益 |
-| E03 | 提前安装 PNG hook | 初始观察补齐；自然复用仍为零 | 保留启动修复，不再以安装时机解释所有未命中 |
-| E04 | 浮点解析 LRU | NO_BENEFIT，加载/分配回退 | 不恢复同一 LRU |
-| E05 | 浮点固定槽 | 数值验证通过，ALLOCATION_ONLY | 默认关闭；不把命中率当 CPU 收益 |
-| E06 | 纹理准备：初始范围 | ALLOCATION_ONLY，约8.6% | 已被扩展范围取代，保留比较工件 |
-| E07 | 纹理准备：小图扩展 | ALLOCATION_ONLY，额外约164MB | 已验证范围，不重复相同阈值比较 |
-| E08 | 纹理准备：大图扩展 | ALLOCATION_ONLY，总分配约-13.9% | 432/432 输入已覆盖；不能因此推荐为省 RAM |
-| E09 | 真实 RSS/PSS 占用比较 | 原测量批次峰值增加约32%；稳态不确定 | 保留负面批次；不将分配下降说成占用下降 |
-| E10 | 三指标同步 + 加载堆/GC 轨迹 | INCONCLUSIVE；未见稳定三指标净收益 | 后续实验使用该口径，继续按峰值阶段定位 |
-| P01 | 变形器坐标只读投影 | 数值VALIDATION_PASS；NO_PRIMARY_BENEFIT | 三指标不支持启用；默认关闭，不重跑同一实现求好样本 |
-| P02 | 局部上传/图集、更新合并等 | 未实施，契约证据不足 | 补精确失效/消费边界后才进入实现 |
-| P08 | Turboism 编辑器绑定陈旧强引用 | 已修复（弱引用，共两处）；离线回归先失败后通过；实机字节收益未测 | 不重复修同一槽；实机 A/B 需另设 editor binding 场景并单独授权 |
-| P09 | 版本化读取的重复宿主读 | 已量化并修复：一次 `runtimeWithVersion()` 的宿主读 2+3 → 1+1；离线回归先失败后通过；端到端收益未测 | 不重复优化同一处；单次 `activeProject()` 自身成本仍未动，属另一切片 |
-| M-A1..6 | -Xmx4g 堆上限六轮实机 A/B（协议 A） | 稳态 INCONCLUSIVE（中位达阈但区间重叠、机制平坦）；加载峰 −34.4% 为唯一干净分离；软引用机制未证实 | 不改默认；加载峰另设独立协议；不用中位差宣称稳态收益 |
+| E01 | Image and render method timing diagnostics | VALIDATION_PASS; not an optimization gain | Reuse it; do not build a second probe |
+| E02 | Reuse of the original PNG compressed representation | Effective in a controlled loop; NO_BENEFIT in a natural workflow | Keep it off; do not repeat the forced loop to advertise a daily gain |
+| E03 | Earlier installation of the PNG hook | Initial observation completed; natural reuse still zero | Keep the startup fix; stop explaining every miss with the installation timing |
+| E04 | Float parse LRU | NO_BENEFIT; load and allocation regressed | Do not restore the same LRU |
+| E05 | Float fixed slots | Numeric verification passed; ALLOCATION_ONLY | Keep it off; never read a hit rate as a CPU gain |
+| E06 | Texture preparation: initial range | ALLOCATION_ONLY, about 8.6% | Superseded by the extended range; keep the comparison artifact |
+| E07 | Texture preparation: small-image extension | ALLOCATION_ONLY, an extra 164MB | Range verified; do not repeat the same threshold comparison |
+| E08 | Texture preparation: large-image extension | ALLOCATION_ONLY, total allocation about -13.9% | 432/432 inputs covered; still no reason to recommend it as a RAM saving |
+| E09 | Real RSS and PSS occupancy comparison | The original batch raised the peak about 32%; the steady state is undecided | Keep the negative batch; never call a lower allocation a lower occupancy |
+| E10 | Synchronized three metrics plus the loading heap and GC trace | INCONCLUSIVE; no stable net gain on the three metrics | Use this protocol for later experiments and keep locating the peak phase |
+| P01 | Read-only projection of deformer coordinates | Numeric VALIDATION_PASS; NO_PRIMARY_BENEFIT | The three metrics do not support enabling it; keep it off and do not re-run the same implementation for a favorable sample |
+| P02 | Local upload and atlas, update merge, and similar | Not implemented; contract evidence insufficient | Enter implementation only after the exact invalidation and consumption boundary exists |
+| P08 | Stale strong references of the Turboism editor binding | Fixed with weak references in two places; the offline regression failed first and passed after; the host byte gain is unmeasured | Do not fix the same slot twice; a host A/B needs its own editor-binding scenario and a separate authorization |
+| P09 | Repeated host reads of a versioned read | Quantified and fixed: one `runtimeWithVersion()` dropped from 2+3 host reads to 1+1; the offline regression failed first and passed after; the end-to-end gain is unmeasured | Do not optimize the same place twice; the cost of one `activeProject()` itself is untouched and belongs to another slice |
+| M-A1..6 | Six-round host A/B of the `-Xmx4g` heap limit under protocol A | Steady state INCONCLUSIVE, because the median reaches the threshold while the ranges overlap and the mechanism stays flat; the loading peak at −34.4% is the only clean separation; the soft-reference mechanism is unproven | Change no default; give the loading peak its own protocol; never claim a steady-state gain from a median difference |
 
-## 公共实验条件与工件
+## Common Experiment Conditions and Artifacts
 
-- 精确 Cubism5.3.02 / bundled Java17 / Proton / Intel UHD630。JAR SHA：`988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`；JOGL SHA：`7dbedb4ba89d9744aa8f8e3710436ef349547058c78e5b3beb813b27b382b0b9`。
-- 大模型：`heavy.cmo3`，447,432,485字节，SHA：`029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`。仅操作 runner 任务副本。
-- 所有实际启动经 `run-cubism-host-validation.sh` 和官方 BAT；独立 CoW prefix/home/fixture；相同条件交替开/关；影子对照不计入性能样本。
-- 当前纹理产品 Agent SHA：`469f322c1a8e9a56dfe9b43415b94bc99820b8c70ca4110f7e62247c008b5a13`。
-- 初始范围 Agent：`9941bd68b8f52ff6f15a716d26430852c8d69818cfa3587415f3d2922a99ca31`；小图扩展 Agent：`e9cc756f5d4335fbab3865fe7cc8fca33ef13638515312e329a960af2d2463a7`。三份产品 ZIP 仅 `CanonicalRgbaImage.class` 内容不同。
-- 当前占用口径：RSS/PSS 峰值和末段中位数；CPU 占用同时注明单核100%和整机12逻辑核归一化；GPU 使用实际 i915 DRM 客户端 engine busy，不拿 FPS/上传量代替；驱动缓冲驻留另列。
+- Exact Cubism 5.3.02, bundled Java 17, Proton, Intel UHD630. JAR SHA: `988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`; JOGL SHA: `7dbedb4ba89d9744aa8f8e3710436ef349547058c78e5b3beb813b27b382b0b9`.
+- Large model: `heavy.cmo3`, 447,432,485 bytes, SHA: `029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`. Only the runner task copy is touched.
+- Every real launch goes through `run-cubism-host-validation.sh` and the official BAT, with an independent CoW prefix, home, and fixture, the same conditions alternating off and on, and a shadow comparison excluded from the performance samples.
+- Current texture product Agent SHA: `469f322c1a8e9a56dfe9b43415b94bc99820b8c70ca4110f7e62247c008b5a13`.
+- Initial-range Agent: `9941bd68b8f52ff6f15a716d26430852c8d69818cfa3587415f3d2922a99ca31`; small-image extension Agent: `e9cc756f5d4335fbab3865fe7cc8fca33ef13638515312e329a960af2d2463a7`. The three product ZIPs differ only in the content of `CanonicalRgbaImage.class`.
+- Current occupancy protocol: the RSS and PSS peak plus the median of the tail segment; CPU occupancy states both the single-core 100% and the normalized whole-machine 12 logical cores; GPU uses the real i915 DRM client engine busy time and never substitutes FPS or upload volume; driver buffer residency is listed separately.
 
-## E01 — 图像/渲染方法计时诊断
+## E01 — Image and Render Method Timing Diagnostics
 
-- **实现**：现有 `PerformanceProbe*`、有界64桶计时直方图、`performanceProbeScenario=images`；提交 `daecaf326`。计数 encode/decode/archive/atlas/redraw，保留非void返回值及异常出口。
-- **验证**：focused Runtime32/Bootstrap23、Python7及旧 verifier；精确 JAR 的12目标转换。后续构建/预览包门禁补齐。说明：[README-native-image-performance.md](README-native-image-performance.md)。
-- **结论**：诊断可复用，不是 CPU/GPU/RAM 优化成功；inclusive 时间不可相加，桶分位数不是精确总体分位数。
-- **原因/限制**：这些方法计数并不等于磁盘 IO、GPU完成或资源驻留。**重试条件**：新增真实消费者/目标、精确版本变化或探针缺陷；不是重新建设平行探针。
+- **Implementation**: the existing `PerformanceProbe*`, a bounded 64-bucket timing histogram, and `performanceProbeScenario=images`; commit `daecaf326`. It counts encode, decode, archive, atlas, and redraw, and it keeps a non-void return value and the exception exit.
+- **Verification**: focused Runtime 32 and Bootstrap 23, Python 7 and the older verifier, and the 12-target transformation of the exact JAR. The later build and preview bundle gates were added. Note: [README-native-image-performance.md](README-native-image-performance.md).
+- **Conclusion**: the diagnostics are reusable and are no successful CPU, GPU, or RAM optimization. Inclusive time cannot be summed, and a bucket quantile is no exact population quantile.
+- **Cause and limits**: these method counts are not disk IO, GPU completion, or resource residency. **Retry condition**: a new real consumer or target, an exact version change, or a probe defect; never a parallel probe built again.
 
-## E02 — PNG 归档复用
+## E02 — PNG Archive Reuse
 
-- **实现**：`PngArchiveReuseCache`、`ImageArchiveReuseBridge/Transformer`、`VerifiedImageArchiveReuseInstaller`。弱身份和内容摘要校验后，仅替换 archive 中的 PNG encoder 调用，原流/计数/释放保持原生。开关 `turboism.optimization.imageArchiveReuse`，默认关闭。
-- **验证**：真实PNG round-trip、原地像素修改和setUpdated回退、停用/字节码恢复；真实图像强制 decode+archive 循环；另做660秒不主动访问图像的自然窗口。后来另测原生图集创建、Undo/Redo、任务副本保存、跨会话重开及像素摘要。
-- **结果**：强制循环约85.214→57.761ms、20.721→12.219MB线程累计分配；自然窗口2次archive检查、0次复用。原生工作流正确性通过不等于自然性能收益。
-- **原因**：已观察到自然归档时无可复用旧PNG表示；摘要工作本身有成本。不能通过强持有全部图像或缩短原生归档计时器制造命中。
-- **证据**：`image-archive-reuse-5302-pi-local-r2-20260905T062004Z-1758975`、`pi-local-natural-r4-20260905T062725Z-1771260`；后两种短后缀同此前缀。图集 `pi-atlas-workflow-r9-20260905T080744Z-1949783`、`pi-atlas-reopen-r12-20260905T082202Z-1971669`。完整表/命令：[README-image-archive-reuse.md](README-image-archive-reuse.md)。
-- **重试条件**：先证明真实工作流有重复有效压缩表示，并计入摘要总成本；不再重复同一强制循环来证明日常可用。
+- **Implementation**: `PngArchiveReuseCache`, `ImageArchiveReuseBridge/Transformer`, and `VerifiedImageArchiveReuseInstaller`. After the weak identity and content digest check, only the PNG encoder call inside the archive is replaced, and the original stream, count, and release stay native. The switch is `turboism.optimization.imageArchiveReuse` and is off by default.
+- **Verification**: a real PNG round trip, an in-place pixel change with a `setUpdated` fallback, a disable and a bytecode restore; a forced decode plus archive loop on a real image; and a 660-second natural window that never touches an image on purpose. Later rounds also tested native atlas creation, undo and redo, the task-copy save, a cross-session reopen, and the pixel digest.
+- **Result**: the forced loop went about 85.214 → 57.761ms and the thread cumulative allocation 20.721 → 12.219MB; the natural window made 2 archive checks and 0 reuses. A passed native workflow correctness is no natural performance gain.
+- **Cause**: a natural archive was observed without a reusable old PNG representation, and the digest work itself costs time. A hit cannot be manufactured by strongly holding every image or by shortening the native archive timer.
+- **Evidence**: `image-archive-reuse-5302-pi-local-r2-20260905T062004Z-1758975` and `pi-local-natural-r4-20260905T062725Z-1771260`, whose two short suffixes share that prefix. Atlas runs: `pi-atlas-workflow-r9-20260905T080744Z-1949783` and `pi-atlas-reopen-r12-20260905T082202Z-1971669`. Complete table and commands: [README-image-archive-reuse.md](README-image-archive-reuse.md).
+- **Retry condition**: first prove that a real workflow holds a duplicate valid compressed representation and count the whole digest cost; never repeat the same forced loop to prove a daily benefit.
 
-## E03 — PNG hook 提前安装
+## E03 — Earlier Installation of the PNG Hook
 
-- **实现**：`TurboismAgent` 在完整Runtime准入后、`PreviewRuntime.start` 前安装原生优化；`NativeOptimizationPolicy` 对无效配置 fail closed；javap 启动顺序测试，不给 Bootstrap 加ASM。
-- **验证**：启动/失败恢复单测、初始计数快照、图集操作后660秒自然观察。
-- **结果**：修复初始观察时机，但 `pi-atlas-natural-r13-20260905T082405Z-1975790` 仍2次回退、0复用；4个初始proof仅40,000像素。大模型后续加载/受控测试通过，仍无自然复用收益。
-- **原因/重试条件**：此前把空闲窗口decode增量0误解为初始解码0是不正确的；现在已有初始快照。只有新证据证明有丢失的真实decode窗口才重查安装顺序。
+- **Implementation**: `TurboismAgent` installs the native optimization after the complete Runtime admission and before `PreviewRuntime.start`; `NativeOptimizationPolicy` fails closed on an invalid configuration; a javap startup-order test runs, and Bootstrap gains no ASM.
+- **Verification**: startup and failure-recovery unit tests, an initial count snapshot, and a 660-second natural observation after an atlas operation.
+- **Result**: the initial observation timing was fixed, but `pi-atlas-natural-r13-20260905T082405Z-1975790` still shows 2 fallbacks and 0 reuses, and the 4 initial proofs cover only 40,000 pixels. The later large-model load and the controlled tests pass, and no natural reuse gain exists.
+- **Cause and retry condition**: reading the zero decode delta of an idle window as zero initial decodes was wrong, and an initial snapshot now exists. Only new evidence of a lost real decode window justifies rechecking the installation order.
 
-## E04 — 浮点解析 LRU
+## E04 — Float Parse LRU
 
-- **实现**：精确 `serialize.impl.G.a(int,List)` 的纯解析替换；以字符串为键缓存 `Float.parseFloat` 结果，返回新数组。初版LRU已被固定槽替换，不能把当前固定槽代码说成旧LRU实现。
-- **验证**：同大模型 off/on；独立shadow比较18,860数组/17,002,711值、零位差异；原生错误和数组所有权/恢复检查。
-- **结果**：3,571,906命中，但加载102.953→115.754秒，累计分配14.8415→15.0435GB，负收益。
-- **可能原因**：LRU节点/装箱、查找和淘汰抵消解析节省；后续固定槽去掉节点/Float装箱后分配变好，CPU仍未获得稳定改善。这不是所有开销的完整归因证明。
-- **证据**：float前缀 `float-array-parse-cache-5302-`：`heavy-off-r1-20260905T104353Z-2165358`、`heavy-on-r1-20260905T104557Z-2170694`、`heavy-shadow-r2-20260905T103720Z-2155603`。`heavy-shadow-r1-20260905T103014Z-2145739` 是FAIL（见基础设施记录）。
-- **重试条件**：新分布或不同算法必须先证明净成本，不恢复同一LRU、也不只展示命中数。
+- **Implementation**: a pure parse replacement of the exact `serialize.impl.G.a(int,List)`; it caches the `Float.parseFloat` result under a string key and returns a new array. The fixed slots already replaced the first LRU, so the current fixed-slot code must never be described as the old LRU implementation.
+- **Verification**: the same large model off and on; an independent shadow comparing 18,860 arrays and 17,002,711 values with zero bit difference; a native error and an array ownership and restore check.
+- **Result**: 3,571,906 hits, but the load went 102.953 → 115.754 seconds and the cumulative allocation 14.8415 → 15.0435GB, a negative gain.
+- **Possible cause**: the LRU node and boxing, the lookup, and the eviction cancel the parse saving; the later fixed slots removed the node and `Float` boxing and improved the allocation, while the CPU still showed no stable improvement. This is no complete attribution of every cost.
+- **Evidence**: the float prefix `float-array-parse-cache-5302-` with `heavy-off-r1-20260905T104353Z-2165358`, `heavy-on-r1-20260905T104557Z-2170694`, and `heavy-shadow-r2-20260905T103720Z-2155603`. `heavy-shadow-r1-20260905T103014Z-2145739` is a FAIL, as the infrastructure record shows.
+- **Retry condition**: a new distribution or a different algorithm must first prove a net cost; never restore the same LRU and never show the hit count alone.
 
-## E05 — 浮点固定槽
+## E05 — Float Fixed Slots
 
-- **实现**：`FloatArrayParseCache/Bridge/Transformer`；8192直接槽、raw float bits、262144字符预算；miss仍调用原生parseFloat，每次新数组，不保留输入List/数组。关闭回调与parse同步，避免close后重新填充。
-- **验证**：碰撞/位一致/边界/并发单测；同模型off/on；最终固定槽shadow覆盖全部18,860数组/17,002,711值，零位差异和正常恢复。
-- **结果**：108.130→109.036秒、CPU180.950→185.590秒；分配14.8477→14.3321GB。只有分配改善，无可靠加载/CPU收益；默认关闭。
-- **可能原因**：仍需对所有token做查找，多数miss要解析；不能从约321万命中直接推算CPU/RAM获益。
-- **证据**：`heavy-off-slots-r2-20260905T110135Z-2196008` / `heavy-on-slots-r2-20260905T110345Z-2201316`；最终 `cfix-r5-20260907T012436Z-826925`，同float前缀。详见 [README-float-array-parse-cache.md](README-float-array-parse-cache.md)。
-- **重试条件**：token分布/算法/有效净CPU假设发生变化，仍需真实主指标对照；不重复相同固定槽参数寻找单次快样本。
+- **Implementation**: `FloatArrayParseCache/Bridge/Transformer` with 8192 direct slots, raw float bits, and a 262144-character budget; a miss still calls the native parseFloat and returns a new array each time, keeping no input List or array. The close callback synchronises with the parse, so a fill after close cannot happen.
+- **Verification**: collision, bit-agreement, boundary, and concurrency unit tests; the same model off and on; and a final fixed-slot shadow covering all 18,860 arrays and 17,002,711 values with zero bit difference and a normal restore.
+- **Result**: 108.130 → 109.036 seconds and CPU 180.950 → 185.590 seconds; allocation 14.8477 → 14.3321GB. Only the allocation improved, with no reliable load or CPU gain, so the switch stays off.
+- **Possible cause**: every token still needs a lookup and most misses must parse; about 3.21 million hits never translate directly into a CPU or RAM gain.
+- **Evidence**: `heavy-off-slots-r2-20260905T110135Z-2196008` and `heavy-on-slots-r2-20260905T110345Z-2201316`, then the final `cfix-r5-20260907T012436Z-826925`, all under the same float prefix. Details: [README-float-array-parse-cache.md](README-float-array-parse-cache.md).
+- **Retry condition**: a changed token distribution, algorithm, or valid net-CPU hypothesis still needs a real primary-metric comparison; never repeat the same fixed-slot parameters to hunt for one fast sample.
 
-## E06 — 纹理准备初始范围
+## E06 — Initial Range of Texture Preparation
 
-- **实现**：`CanonicalRgbaImage`、`TextureUploadPreparationBridge/Transformer`、`VerifiedTextureUploadPreparationInstaller`。在精确shader工厂只替换输入图像，原JOGL调用/GL状态/尺寸/mipmap/所有权不变；JDK颜色表生成等价预乘RGBA。初始下限65536像素、每维4096、面积<=16777216。
-- **验证**：穷举channel/alpha、translated raster、exact-artifact和恢复；三轮off/on及独立真实JOGL字节/元数据/行跨度shadow。
-- **结果**：163次准备/170,950,656字节零差异；累计分配中位数约-1.28GB/-8.6%。时间/CPU波动，没证明占用下降。
-- **原因**：减少JOGL自定义转换中的逐像素临时对象。**重试条件**：真实遗漏输入/新格式证据；不要把旧范围分配数据当作RSS收益。
-- **证据**：texture前缀 `texture-upload-preparation-5302-` 的 `heavy-shadow-r1-20260905T134143Z-2369670` 和三轮heavy-off/on；完整run表与命令：[README-texture-upload-preparation.md](README-texture-upload-preparation.md)。复核shadow `resume-texture-shadow-r1-20260906T160721Z-450525`。
+- **Implementation**: `CanonicalRgbaImage`, `TextureUploadPreparationBridge/Transformer`, and `VerifiedTextureUploadPreparationInstaller`. The exact shader factory replaces only the input image, and the original JOGL call, GL state, size, mipmap, and ownership stay unchanged; a JDK color table generates an equivalent premultiplied RGBA. The initial lower bound is 65536 pixels, 4096 per dimension, and an area up to 16777216.
+- **Verification**: an exhaustive channel and alpha check, a translated raster, the exact artifact, and a restore; three off and on rounds plus an independent shadow of the real JOGL bytes, metadata, and row stride.
+- **Result**: 163 preparations and 170,950,656 bytes with zero difference; the cumulative allocation median fell about 1.28GB, or 8.6%. Time and CPU fluctuated, and no occupancy drop was proven.
+- **Cause**: it removes the per-pixel temporary object of the JOGL custom conversion. **Retry condition**: a real missed input or new-format evidence; never read the old range allocation data as an RSS gain.
+- **Evidence**: the texture prefix `texture-upload-preparation-5302-` with `heavy-shadow-r1-20260905T134143Z-2369670` and three heavy-off and on rounds; the complete run table and commands are in [README-texture-upload-preparation.md](README-texture-upload-preparation.md). A shadow recheck is `resume-texture-shadow-r1-20260906T160721Z-450525`.
 
-## E07 — 小图范围扩展
+## E07 — Small-Image Range Extension
 
-- **实现变化**：下限65536→4096，其他边界不变。两个产品Agent仅CanonicalRgbaImage.class不同；新增小/细长/偏移图像差分测试。
-- **验证**：`small-s1-20260907T014102Z-847410`、`small-s2-20260907T021302Z-897115` 影子；cb/cc三轮交替范围比较，另no/all三轮off/on。全部完整PASS；不是影子计时。
-- **结果**：431次/191,545,344字节零差异；相对旧范围额外少163.687MB观测分配(1.21%)；另批off/on分配-9.81%。实际占用尚未由此证明。
-- **原因/后续依据**：268个小输入被覆盖。shadow显示剩余输入是3840×5056的大图，不是小图；因此有依据进入E08。
-- **重试条件**：真实输入分布或转换实现改变；当前小图范围已覆盖，不重做相同阈值矩阵。全部中间run IDs见纹理README，未删除不利计时。
+- **Implementation change**: the lower bound moved from 65536 to 4096 and every other boundary stayed. The two product Agents differ only in `CanonicalRgbaImage.class`, and new difference tests cover a small, a thin, and an offset image.
+- **Verification**: the `small-s1-20260907T014102Z-847410` and `small-s2-20260907T021302Z-897115` shadows; three alternating cb and cc range comparisons; and three more no and all off and on rounds. All complete runs PASS, and these are no shadow timings.
+- **Result**: 431 preparations and 191,545,344 bytes with zero difference; against the old range it saved an extra 163.687MB of observed allocation, or 1.21%; another batch showed an off and on allocation of -9.81%. The real occupancy is still unproven.
+- **Cause and next basis**: 268 small inputs became covered. The shadow showed that the remaining input is a 3840×5056 large image rather than a small one, which justified E08.
+- **Retry condition**: a changed real input distribution or conversion implementation; the current small-image range is covered, so the same threshold matrix is not repeated. Every intermediate run ID is in the texture README, and no unfavorable timing was deleted.
 
-## E08 — 大图范围扩展
+## E08 — Large-Image Range Extension
 
-- **实现变化**：每维<=8192、总面积<=33554432，RGBA临时栅格上限128MiB，仍不缓存源图。新增边界测试。
-- **验证**：`large-s1-20260907T021859Z-904183` 比较全部432次/269,205,504字节零差异；ln/ls/lw三轮off/小图/扩展范围交替；完整门禁和交互use-r1正常退出。
-- **结果**：分配14.840170→12.775706GB，-2.064464GB/-13.91%；大图部分相对小图方案额外少606.603MB。**这只是ALLOCATION_ONLY，不是当前三指标成功。**
-- **原因/限制**：消除最后一个大输入的逐像素临时对象。没有新的GL调用或像素质量变化；之后E09实际占用出现负面结果。
-- **证据**：提交`becbaf1c7`；ln1/ls1/lw1、lw2/ls2/ln2、ls3/ln3/lw3完整run IDs及产品SHA表在纹理README。
-- **重试条件**：该工厂已432/432覆盖，无新输入时不继续扩大尺寸上限。新的主指标假设必须转向实际占用/CPU/GPU，而不是再优化覆盖率。
+- **Implementation change**: up to 8192 per dimension and up to 33554432 in area, with a 128MiB RGBA temporary raster limit, and the source image is still not cached. New boundary tests were added.
+- **Verification**: `large-s1-20260907T021859Z-904183` compared all 432 preparations and 269,205,504 bytes with zero difference; three alternating ln, ls, and lw rounds covered off, small, and extended; and the complete gate plus the interactive use-r1 run exited normally.
+- **Result**: allocation 14.840170 → 12.775706GB, which is -2.064464GB or -13.91%; the large-image part saved an extra 606.603MB against the small-image approach. **This is ALLOCATION_ONLY and no success on the current three metrics.**
+- **Cause and limits**: it removed the per-pixel temporary object of the last large input. No new GL call and no pixel quality change appeared, and the E09 occupancy round afterwards produced a negative result.
+- **Evidence**: commit `becbaf1c7`; the complete ln1, ls1, lw1, lw2, ls2, ln2, ls3, ln3, and lw3 run IDs and the product SHA table are in the texture README.
+- **Retry condition**: this factory already covers 432 of 432 inputs, so the size limit is not raised without a new input. A new primary-metric hypothesis must turn to real occupancy, CPU, or GPU instead of more coverage.
 
-## E09 — 实际内存占用
+## E09 — Real Memory Occupancy
 
-- **实现/验证**：提交`5672db97d`，测试专用 `NativeMemoryObservation` + `measure-task-memory.py`，主产品不变。每秒smaps_rollup RSS/PSS/Swap及status HWM，加载后自然空闲120秒，末30秒中位数；不强制GC、不改heap cap。六轮同Agent/同观察器off/on/on/off/off/on。
-- **结果**：该批RSS加载采样峰值中位数4.283→5.661GiB(+32.16%)，HWM同趋势。尾段2.561→2.419GiB但范围重叠，不证明稳定节省。off第3轮曾有约173MiB Swap，其他五轮为零；未剔除。
-- **原因状态**：当时只记录ready后的heap/GC，不能归因峰值。GC/堆扩张、临时payload和驱动/压力都是假设，不能写成已证实根因。
-- **证据**：mem-n1/y1/y2/n2/n3/y3（20260907T030729Z至032841Z）；辅助Agent SHA `5c1300e57207a8be54e7612e4dd742719c2eb1e7685871e61a987875a975f198`。所有行、命令、证据：[README-native-memory-occupancy.md](README-native-memory-occupancy.md)。
-- **允许E10重试的变化**：用户改定三指标，增加CPU/DRM和加载期heap/GC轨迹来验证峰值假设；不是不加变化重复找好样本。E09数据永久保留，E10也不能倒写E09为PASS收益。
+- **Implementation and verification**: commit `5672db97d` adds the test-only `NativeMemoryObservation` plus `measure-task-memory.py`, and the main product is unchanged. It samples the per-second `smaps_rollup` RSS, PSS, and swap plus the status HWM, lets the model idle naturally for 120 seconds after loading, and takes the median of the last 30 seconds; it forces no GC and changes no heap cap. Six rounds use the same Agent and the same observer in the order off, on, on, off, off, on.
+- **Result**: the RSS loading-sample peak median went 4.283 → 5.661GiB, which is +32.16%, and the HWM follows the same trend. The tail went 2.561 → 2.419GiB but the ranges overlap, so no stable saving is proven. The third off round once held about 173MiB of swap while the other five held zero; it was not excluded.
+- **Cause status**: that batch recorded only the heap and GC after ready, so it cannot attribute the peak. GC, heap expansion, a temporary payload, and driver pressure are all hypotheses and must never be written as a proven root cause.
+- **Evidence**: mem-n1, y1, y2, n2, n3, and y3 from 20260907T030729Z to 032841Z; auxiliary Agent SHA `5c1300e57207a8be54e7612e4dd742719c2eb1e7685871e61a987875a975f198`. Every row, command, and piece of evidence: [README-native-memory-occupancy.md](README-native-memory-occupancy.md).
+- **Change that allows the E10 retry**: the user redefined the three metrics and added CPU, DRM, and a loading-period heap and GC trace to test the peak hypothesis; this is no unchanged repetition in search of a good sample. The E09 data stays permanently, and E10 must never rewrite E09 into a PASS gain.
 
-## E10 — 同步三指标与峰值阶段
+## E10 — Synchronized Three Metrics and the Peak Phase
 
-- **实现**：测试侧`host_resource_counters.py`扩展proc sampler；CPU utime+stime明确单位；DRM按driver/device/client-id去重，临时倒退计数保留高水位，容量归一化，缺失/客户端变化区间不报零。`NativeMemoryObservation.startLoading`记录250ms heap/GC和texture prepared计数，另120秒空闲。未改产品Agent。
-- **验证**：14项focused测试（包括JDK30秒烟测）、bundle及产品SHA；六次官方run完整PASS。实际device为i915 `0000:00:02.0`；加载GPU覆盖区间有缺口，idle-tail覆盖完整。
+- **Implementation**: the test-side `host_resource_counters.py` extends the proc sampler; CPU utime plus stime carry an explicit unit; DRM deduplicates by driver, device, and client id, keeps a high-water mark for a temporary backwards count, normalizes capacity, and reports no zero for a missing interval or a client change. `NativeMemoryObservation.startLoading` records a 250ms heap and GC trace plus the texture prepared count, and another 120 seconds idle follows. The product Agent is unchanged.
+- **Verification**: 14 focused tests including a 30-second JDK smoke test, the bundle, and the product SHA; six official runs PASS completely. The real device is i915 `0000:00:02.0`; the loading GPU coverage has gaps, and the idle tail is fully covered.
 
-| Run后缀（仍为texture前缀） | off/on | RSS峰值GiB | 尾段RSS GiB | 加载CPU整机均值 | 加载render忙碌率（可计量区间） | 尾段GPU |
+| Run suffix, still under the texture prefix | off/on | RSS peak GiB | Tail RSS GiB | Loading CPU whole-machine mean | Loading render busy rate over measurable intervals | Tail GPU |
 |---|---|---:|---:|---:|---:|---:|
 | tri-n1-20260907T042033Z-1045450 | off | 4.377 | 2.570 | 14.74% | 0.148% | 0% |
 | tri-y1-20260907T042435Z-1052870 | on | 3.231 | 3.176 | 14.78% | 0.172% | 0% |
@@ -131,50 +131,51 @@
 | tri-n3-20260907T044215Z-1082717 | off | 4.095 | 3.552 | 14.75% | 0.204% | 0% |
 | tri-y3-20260907T044620Z-1090845 | on | 3.732 | 3.021 | 14.53% | 0.156% | 0% |
 
-- **结论**：没有可推荐的稳定三指标净收益。RSS范围重叠，未重复E09的统一峰值方向；CPU/GPU差异小。空闲CPU整机约0.068–0.263%，GPU render为零，不能把此场景当重GPU负载。
-- **已观察到的原因线索**：三次on在RSS最高样本附近`preparedCount=0`；峰值位于前置加载，heap used/committed和GC时序变化很大。这削弱“转换输出直接造成峰值”的简单归因，但不是所有启动hook副作用或唯一GC原因的证明。
-- **重要限制**：新增加载期观察器本身可能改变GC/时序，不能跨E09/E10平均来宣称RAM改善。GPU只归因该进程的DRM客户端，不是整个桌面/NVIDIA设备或显存。
-- **复现变化**：在内存README命令上另stage `host_resource_counters.py:validation/host_resource_counters.py` 并传 `-Dturboism.validation.textureUpload.loadingTrace=true`。辅助Agent SHA `dea3ec4fe36334fa25ef199e58326263b4e64dc1ccf430bb963ace62131fbda0`；产品仍为公共条件中的同一SHA。每个run的JSONL+tar中jvm-loading.csv保留完整轨迹。
-- **重试条件**：新的峰值归因假设或明确实现差异；下一步CPU候选P01与新的受控重绘场景，不能仅反复开关现有纹理flag。
+- **Conclusion**: no stable net gain on the three metrics is recommendable. The RSS ranges overlap and do not repeat the single peak direction of E09, and the CPU and GPU differences are small. The idle whole-machine CPU is about 0.068–0.263% and the GPU render stays zero, so this scenario is no heavy GPU load.
+- **Observed cause clue**: all three on rounds show `preparedCount=0` near the highest RSS sample, and the peak sits in the earlier loading, where heap used, heap committed, and the GC timing vary widely. This weakens the simple attribution that the conversion output causes the peak, and it proves neither every startup-hook side effect nor a single GC cause.
+- **Important limits**: the new loading-period observer may itself change GC and timing, so the RSS must never be averaged across E09 and E10 to claim a RAM gain. The GPU attribution covers only the DRM client of that process, not the whole desktop, the NVIDIA device, or video memory.
+- **Reproduction change**: on top of the memory README command, stage `host_resource_counters.py:validation/host_resource_counters.py` and pass `-Dturboism.validation.textureUpload.loadingTrace=true`. Auxiliary Agent SHA `dea3ec4fe36334fa25ef199e58326263b4e64dc1ccf430bb963ace62131fbda0`; the product keeps the same SHA as the common conditions. The `jvm-loading.csv` inside the JSONL and tar of each run keeps the complete trace.
+- **Retry condition**: a new peak-attribution hypothesis or an explicit implementation difference; the next CPU candidate is P01 with a new controlled repaint scenario, and toggling the existing texture flag again is not enough.
 
-## 已验证的基础设施方案与失败
 
-这些项不计为Cubism性能收益，但避免后续重踩验证问题。
+## Verified Infrastructure Work and Failures
 
-| 编号 | 实现/验证 | 成功与失败记录 | 原因状态及禁止重复的做法 |
+These items count as no Cubism performance gain, but they spare a later round the same verification problem.
+
+| Number | Implementation and verification | Success and failure record | Cause status and the practice to avoid |
 |---|---|---|---|
-| I01 | 通用runner显式local transport、CRLF终态解析；shell/解析回归；提交0dd80b73c | PNG pi-local-r1辅助PASS但runner FAIL；r2完整PASS | 已证实Windows行尾不匹配。当前就在宿主，不再寻找旧SSH密钥，也不回写r1 |
-| I02 | 交互模式省略辅助agent，保留prefix/home/副本；前缀/PID/焦点验证后Alt+F4烟测 | interactive-smoke-r3-20260906T031754Z-3186734、use-r1-20260907T024041Z-940202正常结束 | windowclose/旧关闭尝试失败保留；SESSION_ENDED不是验证PASS。真实使用不传烟测关闭client |
-| I03 | 清理器精确prefix/祖先排除/pidfd/历史记录；11项回归 | float resume-slots-close-fixed-r2清理身份BLOCKED，重试CLEANED但整轮FAIL | 本机自有nondumpable zombie可复现environ EACCES；原PID459846历史状态未知。只排除证实死亡/消失，活进程权限或身份不明继续BLOCKED，禁止raw-PID降级 |
-| I04 | runner不再见shutdown日志就kill；等待实际wrapper退出；7项交互/退出测试 | cfix-r4数值PASS但过早kill导致143，整轮FAIL；cfix-r5完整PASS | 已由实际退出循环回归复现。强制清理、缺失/非零exit永不当PASS，不再用日志替代进程退出 |
-| I05 | 使用短标签，保留路径失败 | resume-slots-cleanup-fixed-r3模型路径261字符，console报File name is too long，600秒后FAIL | 路径长度已核对，缩短标签后模型成功打开；不是解析算法失败。不延长timeout掩盖未打开模型 |
-| I06 | FloatArrayParseBridge同步callback与close；确定性暂停回调回归 | 旧实现在close后重填keys，回归红；修复后绿及cfix-r5 shadow PASS | 已复现并修复生命周期竞态，不把旧LRU shadow冒充当前实现证明 |
-| I07 | 仅修复三个既有测试和授权DRAFT schema；提交014c5a3bf | 截图Xvfb专项、生命周期awaitState、字体按平台参照；mapping导入及完整gate PASS | 不改对应生产行为、不降断言阈值；schema保留选择器/DRAFT，静态记录不是5.3.03实机准入 |
-| I08 | 全量headless、截图单独Xvfb | 旧Xvfb全量等待真实modal/超时记录保留；正确环境完整gate PASS | RuntimeUiHostTransientStateTest验证headless拒绝，不能把全套放进Xvfb；不是性能优化失败 |
+| I01 | The general runner uses an explicit local transport and a CRLF terminal parse; shell and parse regressions; commit 0dd80b73c | The PNG pi-local-r1 auxiliary PASSed but the runner FAILed; r2 PASSed completely | A Windows line-ending mismatch is proven. The work is already on the host, so no old SSH key is hunted and r1 is never rewritten |
+| I02 | Interactive mode omits the auxiliary agent and keeps the prefix, home, and copy; a prefix, PID, and focus check precedes the Alt+F4 smoke test | interactive-smoke-r3-20260906T031754Z-3186734 and use-r1-20260907T024041Z-940202 ended normally | The windowclose and old close attempts stay as failures; SESSION_ENDED is no verification PASS. Real use passes no smoke-test close client |
+| I03 | The cleaner uses an exact prefix, ancestor exclusion, pidfd, and history; 11 regressions | The float resume-slots-close-fixed-r2 cleanup identity was BLOCKED, the retry was CLEANED, and the whole round FAILed | A local nondumpable zombie reproduces an environ EACCES, and the original PID 459846 has an unknown historical state. Only a proven dead or vanished process is excluded; a live process with unclear permission or identity stays BLOCKED, and no raw-PID downgrade is allowed |
+| I04 | The runner no longer kills on a shutdown log; it waits for the real wrapper exit; 7 interactive and exit tests | cfix-r4 PASSed numerically but an early kill produced 143 and the round FAILed; cfix-r5 PASSed completely | The real exit loop reproduced it. A forced cleanup and a missing or non-zero exit are never a PASS, and a log never replaces a process exit |
+| I05 | Short labels are used and a path failure is kept | resume-slots-cleanup-fixed-r3 hit a 261-character model path, the console reported "File name is too long", and it FAILed after 600 seconds | The path length was checked and the model opened after the label was shortened; this is no parse-algorithm failure. The timeout is never extended to hide an unopened model |
+| I06 | FloatArrayParseBridge synchronises the callback with close; a deterministic paused-callback regression | The old implementation refilled keys after close and the regression went red; the fix went green and the cfix-r5 shadow PASSed | A lifecycle race was reproduced and fixed, and the old LRU shadow is never passed off as proof of the current implementation |
+| I07 | Only three existing tests and the authorized DRAFT schema were fixed; commit 014c5a3bf | The screenshot Xvfb case, the lifecycle awaitState, and the per-platform font reference were handled; the mapping import and the complete gate PASSed | No corresponding production behavior changed and no assertion threshold was lowered; the schema keeps the selector and DRAFT, and a static record is no 5.3.03 host admission |
+| I08 | Full headless run with a separate Xvfb screenshot run | The old full Xvfb run waited on a real modal or timeout and that record stays; the correct environment PASSed the complete gate | RuntimeUiHostTransientStateTest verifies the headless refusal, so the full suite never enters Xvfb; this is no performance optimization failure |
 
-### 其他旧失败：保留现象，不编造根因
+### Other Old Failures: Keep the Symptom, Invent No Cause
 
-- PNG `pi-local-natural-r3-20260905T062530Z-1767117`：ready前退出、无terminal；同配置r4成功。根因未定；golden继承的8月3日crash文件不是该轮崩溃证据。
-- PNG `pi-atlas-inspect-r7-20260905T073156Z-1872787`：`native atlas editor did not cancel`；属于工作流驱动失败，不能认证PNG性能。后续完整workflow r9通过，不代表已独立证明r7唯一根因。
-- PNG `pi-atlas-reopen-r10-20260905T081342Z-1958682`、r11-20260905T081731Z-1964932：`native atlas image did not become ready`。后续r12经原生cached-image consumer物化lazy atlas后通过；不能直接把尚未物化的缓存当像素不一致。
-- PNG `pi-heavy-r14-20260905T085833Z-2028265`：`active fixture is not a modeling document`。后续增加可靠document等待后大模型通过；原断言触发时机需与真实active-document区分，不删模型/放宽断言。
-- Float `heavy-shadow-r1-20260905T103014Z-2145739`：NPE（对null调用getClass）；r2 shadow通过。原始详细根因本轮未独立复核，不将r1称作数值不一致，也不覆盖其FAIL。
-- 初始handoff中的checkCompletedCommit曾因既有mapping草稿失败；后续最小schema修复后完整门禁通过。旧失败日志不是最新gate结果；不同批次的optional skip必须分别说明。
+- PNG `pi-local-natural-r3-20260905T062530Z-1767117` exited before ready with no terminal state, and r4 with the same configuration succeeded. The root cause is undecided, and the August 3 crash file inherited from golden is no crash evidence for that round.
+- PNG `pi-atlas-inspect-r7-20260905T073156Z-1872787` reported `native atlas editor did not cancel`, which is a workflow-driver failure and cannot certify PNG performance. The later complete workflow r9 passed, which does not independently prove the single root cause of r7.
+- PNG `pi-atlas-reopen-r10-20260905T081342Z-1958682` and r11-20260905T081731Z-1964932 reported `native atlas image did not become ready`. The later r12 passed after a native cached-image consumer materialized the lazy atlas, and a not-yet-materialized cache must never be read as a pixel mismatch.
+- PNG `pi-heavy-r14-20260905T085833Z-2028265` reported `active fixture is not a modeling document`. The large model passed after a reliable document wait was added; the original assertion timing must be separated from the real active document, and neither the model is deleted nor the assertion relaxed.
+- Float `heavy-shadow-r1-20260905T103014Z-2145739` threw an NPE from `getClass` on null, and the r2 shadow passed. This round did not independently recheck the original detailed cause, so r1 is never called a numeric mismatch and its FAIL is never covered.
+- The checkCompletedCommit of the initial handoff once failed on the existing mapping draft, and the complete gate passed after the minimal schema fix. The old failure log is no current gate result, and an optional skip of a different batch must be explained separately.
 
-## P01 — 变形器坐标只读投影（已验证，未获主指标净收益）
+## P01 — Read-Only Projection of Deformer Coordinates (Verified, No Net Primary Gain)
 
-- 用户已批准实施并验证：只替换精确 `CExtendedInterpolationExtension.updateInterpolatedForms_common` 第一段只读 `getAllPointRef().map(getPos)`，直接创建同样的新native GVector2列表。
-- 不缓存WarpPointRef、不保留form/positions、不改第二段保留引用的写路径、插值数学、dirty、Undo或GL。默认关闭、精确版本/完整方法形状、异常回退和恢复必须保留。
-- 依据是已有JFR中的实际临时点引用成本及只读字节码调查；约846MB是采样权重，不是RAM节省预测。
-- **离线批次P01-a**：实现 `WarpPositionProjectionBridge/Transformer`、`VerifiedWarpPositionProjectionInstaller` 和早期安装/失败恢复。只替换第一投影子循环；对纯getter/vector构造和实际加载依赖做原始方法形状比对。命令：`:runtime:test --tests '*WarpPositionProjection*Test' :bootstrap:test --tests '*VerifiedWarpPositionProjectionInstallerTest' devCheck`，提供精确5302 test JAR。Runtime8/Bootstrap2，零失败/错误/跳过，BUILD SUCCESSFUL；日志 `build/native-warp-offline.log`。覆盖原生第二写循环继续执行、回退/异常、位保持、新对象、边界、close及其他方法不变。**仅离线验证通过，尚无实机或三指标收益结论。**
-- **P01-b辅助件门禁**：新增JDK-only `NativeWarpPositionHostAgent`（不跨回调保留form/向量）、薄wrapper `run-warp-position-host-validation.sh`；复用既有内存/CPU/GPU采集和通用runner。`checkWarpPositionValidationBundle checkPreviewBundleLayout`通过，Bash语法及wp-s1 wrapper dry-run通过（`build/native-warp-bundle.log`、`build/native-warp-dry-run.log`）。没有以此宣称实机或性能成功；下一步独立untimed shadow。
-- **P01-s1实机shadow**：`warp-position-projection-5302-wp-s1-20260907T054216Z-1152727`完整runner PASS、wrapper_exit=0，原模型/官方工件hash不变。真实调用6930，符合窄范围并完成投影5166，比较3,784,560点（x/y raw float bits）零差异；0次初始漏观察、0生产失败；849 images/6 atlases，启停/回调清理/类字节恢复通过。**功能差分成功，不是性能成功**。可能获益机制为省掉只读中间引用/list；三指标尚未测量。接下来off/on性能模式不安装不必要的shadow包装回调，产品实现不变；两组使用相同采样辅助件。
+- The user approved the implementation and its verification: replace only the first read-only segment `getAllPointRef().map(getPos)` of the exact `CExtendedInterpolationExtension.updateInterpolatedForms_common` and build the same new native GVector2 list directly.
+- It caches no WarpPointRef, keeps no form or positions, and touches neither the second write path that keeps a reference, nor the interpolation math, the dirty flag, undo, or GL. It stays off by default, and the exact version, the complete method shape, the exception fallback, and the restore are all mandatory.
+- The basis is the real temporary point-reference cost in an existing JFR plus a read-only bytecode survey; about 846MB is a sampling weight, not a RAM saving prediction.
+- **Offline batch P01-a**: implements `WarpPositionProjectionBridge/Transformer`, `VerifiedWarpPositionProjectionInstaller`, and early installation with failure recovery. It replaces only the first projection sub-loop and compares the original method shape against the pure getter and vector construction and the real load dependency. Command: `:runtime:test --tests '*WarpPositionProjection*Test' :bootstrap:test --tests '*VerifiedWarpPositionProjectionInstallerTest' devCheck` with the exact 5302 test JAR. Runtime 8 and Bootstrap 2, zero failures, errors, or skips, BUILD SUCCESSFUL; log `build/native-warp-offline.log`. Coverage: the native second write loop still runs, the fallback and exception path, bit preservation, new objects, boundaries, close, and the unchanged other methods. **This is offline verification only, with no host or three-metric conclusion yet.**
+- **P01-b auxiliary gate**: adds the JDK-only `NativeWarpPositionHostAgent`, which keeps no form or vector across a callback, and the thin wrapper `run-warp-position-host-validation.sh`, and it reuses the existing memory, CPU, and GPU collection plus the general runner. `checkWarpPositionValidationBundle checkPreviewBundleLayout` passes, and the Bash syntax plus the wp-s1 wrapper dry run pass (`build/native-warp-bundle.log`, `build/native-warp-dry-run.log`). No host or performance success is claimed; the next step is an independent untimed shadow.
+- **P01-s1 host shadow**: `warp-position-projection-5302-wp-s1-20260907T054216Z-1152727` PASSes the complete runner with wrapper_exit=0, and the original model and official artifact hashes stay unchanged. It saw 6930 real calls, which fits the narrow scope, and completed 5166 projections comparing 3,784,560 points on raw x and y float bits with zero difference; it also recorded 0 initial missed observations and 0 production failures, 849 images and 6 atlases, and passing start-stop, callback cleanup, and class byte restore. **The functional difference succeeded; this is no performance success.** The possible gain mechanism is dropping the read-only intermediate reference and list, and the three metrics are still unmeasured. The later off and on performance mode installs no unnecessary shadow wrapper callback, the product implementation is unchanged, and both groups use the same sampling auxiliary.
 
-### P01-c — 三指标结果：不推荐启用
+### P01-c — Three-Metric Result: Enabling Is Not Recommended
 
-产品Agent SHA `ac3e7602ac1e70031fcdf7f77b0ea7201882939ce586366fda966e29afcd03e3`，辅助Agent SHA `bd677b66a24ce3386886e55bc4a7793d3c9b68360829b83673e2267d10d3012c`。关闭纹理/浮点/PNG其他优化；同大模型、同三指标采集、250ms加载heap/GC轨迹、120秒自然空闲；off/on/on/off/off/on。性能模式没有shadow包装回调。六轮runner和采样均PASS、正常退出、无原模型或官方工件修改。
+Product Agent SHA `ac3e7602ac1e70031fcdf7f77b0ea7201882939ce586366fda966e29afcd03e3`, auxiliary Agent SHA `bd677b66a24ce3386886e55bc4a7793d3c9b68360829b83673e2267d10d3012c`. Every other texture, float, and PNG optimization is off; the same large model, the same three-metric collection, the 250ms loading heap and GC trace, and 120 seconds of natural idle; the order is off, on, on, off, off, on. The performance mode runs no shadow wrapper callback. All six rounds PASS the runner and the sampling, exit normally, and modify neither the original model nor an official artifact.
 
-| 完整run后缀（前缀warp-position-projection-5302-） | 模式 | RSS加载峰值GiB | 尾段RSS GiB | 加载CPU秒 | CPU整机均值 | GPU render有效区间均值 |
+| Complete run suffix under the prefix warp-position-projection-5302- | Mode | RSS loading peak GiB | Tail RSS GiB | Loading CPU seconds | CPU whole-machine mean | GPU render mean over valid intervals |
 |---|---|---:|---:|---:|---:|---:|
 | wp-n1-20260907T054951Z-1163472 | off | 3.772 | 3.280 | 229.15 | 13.22% | 0.100% |
 | wp-y1-20260907T055439Z-1173127 | on | 4.488 | 4.487 | 210.87 | 13.74% | 0.131% |
@@ -183,505 +184,510 @@
 | wp-n3-20260907T060915Z-1206823 | off | 4.340 | 3.046 | 225.32 | 13.72% | 0.140% |
 | wp-y3-20260907T061400Z-1217612 | on | 4.463 | 2.503 | 232.00 | 13.86% | 0.111% |
 
-- **判定**：没有稳定主指标净收益，不推荐启用。RSS峰值中位数3.772→4.463GiB（+18.3%），尾段3.046→3.629GiB（+19.1%）；两者都有明显波动。CPU总时间中位数229.15→223.27秒（约-2.6%），但范围重叠且CPU整机占用均值中位数反升约4%；GPU约0.14→0.13%的低负载差异不构成有用GPU优化，尾段均为0。
-- **次要计数**：观测分配14.8536→14.7620GB，仅少约91.6MB/0.62%；不能拿它抵销主指标失败。load ready中位数143.20→138.89秒也不足以作为稳定加速承诺。
-- **可能原因/限制**：只消除第一只读循环的符合条件引用，第二原生写路径及向量输出保留；调用路由/MethodHandle/准入开销、GC/堆时序可能抵销节省，未证明唯一根因。旧JFR约846MB是采样权重和更广调用归因，不能当本切片实际节省预测。此批系统MemAvailable最低1.25–2.42GiB，较此前批次更有压力；不能跨批次直接比较。六轮该进程Swap均为0。
-- **重试条件**：仅在真实热点/输入分布、具体算法、准入开销或堆/GC归因出现实质变化时重试，并先说明差异。不要重跑相同helper/模型/实现来筛选好样本。不扩大到第二写循环，不缓存可变点引用，不通过强制GC或降画质制造收益。
-- **保留策略**：实现仅作为隔离分支中的默认关闭实验和可复现证据；不是可推荐的产品优化，也未宣称完整交互/Undo/保存矩阵通过。后续完整自动门禁与本地提交单独记录。
-- **P01-d收口门禁**：`checkCompletedCommit checkWarpPositionValidationBundle checkTextureUploadValidationBundle checkCubismHostValidationArguments checkPreviewBundleLayout` BUILD SUCCESSFUL；日志`build/native-warp-completed-commit.log`。Runtime2537/0失败/39环境或optional跳过，Bootstrap92/0失败/0跳过，Integration367/0失败/1跳过；精确P01 artifact测试已在P01-a单独配置且零跳过。最终产品SHA仍等于P01-c实测Agent，最后无Cubism/Wine残留。门禁成功不改变NO_PRIMARY_BENEFIT结论。实现/复现细节：[README-warp-position-projection.md](README-warp-position-projection.md)。
-- 设计细节在当前任务本地冻结文档 `docs/agents/native-warp-position-projection-proposal-20260907.md`；该本地文档不构成构建依赖。实验完成立即追加本台账结果和重试条件。
+- **Verdict**: no stable net primary gain, so enabling is not recommended. The RSS peak median went 3.772 → 4.463GiB, which is +18.3%, and the tail 3.046 → 3.629GiB, which is +19.1%; both fluctuate clearly. The CPU total-time median went 229.15 → 223.27 seconds, about -2.6%, but the ranges overlap and the whole-machine CPU mean median rose about 4%. The GPU difference of about 0.14 → 0.13% under a light load is no useful GPU optimization, and the tail is zero for both.
+- **Secondary counts**: the observed allocation went 14.8536 → 14.7620GB, only about 91.6MB or 0.62% less, which cannot offset a primary-metric failure. The load-ready median of 143.20 → 138.89 seconds is also no stable speed promise.
+- **Possible cause and limits**: only the qualifying references of the first read-only loop disappear, and the second native write path and the vector output stay; the call routing, the MethodHandle, and the admission cost plus the GC and heap timing may cancel the saving, and no single root cause is proven. The old JFR figure of about 846MB is a sampling weight and a broader call attribution, never a saving prediction for this slice. This batch saw a system MemAvailable low of 1.25–2.42GiB, which is more pressure than earlier batches, so a direct cross-batch comparison is invalid. All six rounds kept this process at zero swap.
+- **Retry condition**: retry only after a real hotspot, input distribution, algorithm, admission cost, or heap and GC attribution changes materially, and state the difference first. Never re-run the same helper, model, and implementation to filter a good sample. Never extend into the second write loop, cache a mutable point reference, or manufacture a gain by forcing GC or lowering image quality.
+- **Retention policy**: the implementation stays as a default-off experiment with reproducible evidence on an isolated branch. It is no recommendable product optimization, and no complete interaction, undo, or save matrix passed. The later complete automatic gate and the local commit are recorded separately.
+- **P01-d closing gate**: `checkCompletedCommit checkWarpPositionValidationBundle checkTextureUploadValidationBundle checkCubismHostValidationArguments checkPreviewBundleLayout` BUILD SUCCESSFUL; log `build/native-warp-completed-commit.log`. Runtime 2537 with 0 failures and 39 environment or optional skips, Bootstrap 92 with 0 failures and 0 skips, Integration 367 with 0 failures and 1 skip; the exact P01 artifact test was configured separately in P01-a with zero skips. The final product SHA still equals the P01-c measured Agent, and no Cubism or Wine process remains. A passing gate never changes the NO_PRIMARY_BENEFIT conclusion. Implementation and reproduction details: [README-warp-position-projection.md](README-warp-position-projection.md).
+- The design detail is frozen in the local task document `docs/agents/native-warp-position-projection-proposal-20260907.md`, which is no build dependency. A finished experiment appends its result and retry condition to this ledger immediately.
 
-## P02 — 尚不能宣称验证过的方向
+## P02 — Directions That Cannot Yet Claim Verification
 
-Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并、全局WarpPointRef缓存、XML校验绕过都未通过本任务的完整实施/实机验收。缺少完整像素写范围、边缘失效、消费前flush或可变引用生命周期证明时不启用。不能将“考虑过”写成“算法已失败”，也不能每次从同一无证据假设重新开始。
+Dirty rectangles, local atlas composition, attribute-level VBO updates, native update merging, a global WarpPointRef cache, and XML validation bypass have all failed the complete implementation and host acceptance of this task. None is enabled without a complete pixel write range, an edge invalidation, a flush before consumption, or a mutable-reference lifetime proof. "Considered" must never be written as "the algorithm failed", and no round may restart from the same unevidenced assumption.
 
-旧 `run-cubism-camera-scenario.sh` 实际驱动窗口resize，不是真正camera/拖参场景；源码历史注释不能当成本轮GPU证据。新的交互GPU负载必须说明真实动作、任务窗口身份、恢复和采样窗口后再验证。
+The old `run-cubism-camera-scenario.sh` actually drives a window resize and is no real camera or parameter-drag scenario; a source history comment is no GPU evidence for this round. A new interactive GPU load must state the real action, the task window identity, the restore, and the sampling window before it is verified.
 
-## P03–P07 — 用户批准的后续调查队列
+## P03–P07 — The Follow-Up Investigation Queue the User Approved
 
-2026-09-07 用户要求逐项验证并即时记录；下列均为调查方向，不是已实施或失败的优化。
+On 2026-09-07 the user required item-by-item verification with immediate recording. The entries below are investigation directions, not implemented or failed optimizations.
 
-| 编号 | 方向 | 首项验证目标 | 当前状态 |
+| Number | Direction | First verification target | Current state |
 |---|---|---|---|
-| P03 | 交互重复更新/重绘 | 真实缩放+三指标/JFR | 3轮完整PASS；确认CPU模型更新热点，未实施跳过/合并 |
-| P04 | 图片/纹理长期驻留 | 正常关闭+自然GC+weak/RSS/heap | Full GC后doc仍被保留，根持有者未定；无优化收益结论 |
-| P05 | 局部替代全量处理 | 真实VBO采样点+精确dirty/消费审计 | STATIC_FEASIBILITY；缺少完整写区间证据，未实施 |
-| P06 | 加载瞬时峰值 | RSS峰对齐heap/GC/JFR | INCONCLUSIVE；不原样重试旧分配缓存 |
-| P07 | 热路径纯计算 | 新内部点Warp快路径原型差分/微基准 | 数值通过，但离线慢9.8–29.3%；不接产品Hook |
+| P03 | Repeated interactive update and repaint | A real zoom plus the three metrics and JFR | Three complete PASS rounds; the CPU model-update hotspot is confirmed, and no skip or merge is implemented |
+| P04 | Long-term image and texture residency | A normal close, natural GC, and weak, RSS, and heap observation | The document survives a full GC and the root holder is undecided; no optimization gain conclusion |
+| P05 | Local replacement of full processing | Real VBO sampling points plus an exact dirty and consumption audit | STATIC_FEASIBILITY; the complete write-interval evidence is missing, so nothing is implemented |
+| P06 | The loading transient peak | Align the RSS peak with heap, GC, and JFR | INCONCLUSIVE; the old allocation cache is not retried unchanged |
+| P07 | Pure computation on the hot path | A new internal-point Warp fast-path prototype, differential and microbenchmark | The numbers pass, but the offline path is 9.8–29.3% slower; no product hook |
 
-### I09 — 续接预检：其他任务占用宿主（BLOCKED，不是算法失败）
+### I09 — Continuation Precheck: Another Task Occupies the Host (BLOCKED, No Algorithm Failure)
 
-- **时间/工作区**：2026-09-07T08:40:54Z；`feat/cubism-native-performance-20260905`，HEAD `18f90f5aa`，续接时工作树干净。
-- **实现/验证方式**：仅只读检查 `/proc/<pid>/{comm,stat,cmdline,environ}` 中进程状态、UID、启动ticks、Cubism主类及隔离prefix；不连接Editor、不发信号、不写进程状态。已读取通用实机runbook及runner `--help`。
-- **观测结果**：四个存活Cubism JVM，UID均1000；PID/startTicks分别为 `1463014/9035826`、`1474315/9054406`、`1493893/9090441`、`1504607/9116250`。均属于另一任务族 `core-acquisition` 的5302工具栏验证，任务ID分别为 `core-acquisition-5302-toolbar-on-20260907T082646Z-toolbar5302on`、`core-acquisition-5302-toolbar-on-20260907T082951Z-toolbar5302on2`、`core-acquisition-5302-toolbar-on-20260907T083551Z-toolbar5302on3`、`core-acquisition-5302-toolbar-off-20260907T084008Z-toolbar5302off`；各有存活wineserver。
-- **判定/原因**：BLOCKED。已证实存在非本次任务的Cubism会话，按runbook暂停实机操作；并发资源争用也不适合作三指标对照。不推断这些会话是泄漏或可清理残留。
-- **本轮未做**：未启动新宿主、未实施优化、未运行新性能试验、未清理其他任务、未合并或推送。P03–P07保持未验证，不报为失败或完成。
-- **恢复条件**：相关任务负责人正常关闭其会话，重新核对宿主空闲和精确身份后，先冻结P03/P04观测切片再运行。上述PID仅为历史证据，不能据此在未来清理进程。
+- **Time and workspace**: 2026-09-07T08:40:54Z on `feat/cubism-native-performance-20260905`, HEAD `18f90f5aa`, with a clean working tree at the continuation.
+- **Implementation and verification method**: a read-only check of the process state, UID, start ticks, Cubism main class, and isolated prefix in `/proc/<pid>/{comm,stat,cmdline,environ}`. It connects to no Editor, sends no signal, and writes no process state. The general host runbook and the runner `--help` were read.
+- **Observation**: four live Cubism JVMs, all UID 1000, with PID and startTicks `1463014/9035826`, `1474315/9054406`, `1493893/9090441`, and `1504607/9116250`. All belong to another task family, `core-acquisition`, for 5302 toolbar validation, with task IDs `core-acquisition-5302-toolbar-on-20260907T082646Z-toolbar5302on`, `core-acquisition-5302-toolbar-on-20260907T082951Z-toolbar5302on2`, `core-acquisition-5302-toolbar-on-20260907T083551Z-toolbar5302on3`, and `core-acquisition-5302-toolbar-off-20260907T084008Z-toolbar5302off`, each with a live wineserver.
+- **Verdict and cause**: BLOCKED. A Cubism session outside this task exists, so the runbook pauses host work, and concurrent resource contention also disqualifies a three-metric comparison. These sessions are never inferred to be a leak or a cleanable remnant.
+- **Not done this round**: no new host launch, no optimization, no new performance trial, no cleanup of another task, and no merge or push. P03–P07 stay unverified and are reported as neither failed nor complete.
+- **Recovery condition**: the owner of the related task closes its session normally, the host idleness and exact identity are rechecked, and the P03 and P04 observation slices are frozen before the run. Those PIDs are historical evidence only and must never justify a future process cleanup.
 
-- **I09恢复**：用户报告已清理，2026-09-07T12:08:26Z只读重新检查无Cubism/Wine会话；官方5302 JAR/BAT/heavy源文件SHA均未变化。没有代为清理其他任务。
+- **I09 recovery**: the user reported the cleanup, and a read-only recheck at 2026-09-07T12:08:26Z found no Cubism or Wine session; the official 5302 JAR, BAT, and heavy source-file SHAs were unchanged. No other task was cleaned on its behalf.
 
-### P03-a — 真实缩放/关闭后资源观测辅助件（离线通过）
+### P03-a — Auxiliary for Resource Observation After a Real Zoom and Close (Offline Pass)
 
-- **实现**：JDK-only `NativeResourceHostAgent`，独立auxiliary JAR及薄wrapper，复用E10采样器。120次原生放大/缩小，每次检查实际camera scale变化、任务doc/view身份；通过原生scale同步恢复；验证dirty/Undo不变；正常关闭唯一干净任务模型，观察至少120秒。只保留弱document引用，不强制GC。记录阶段epoch以区分idle/zoom/restored/closed。可选JFR，plain/profile不当成优化off/on。
-- **依据/边界**：精确JAR javap跟随CEAppCtrl.zoom→ar.m/l→canvas.f/e→原生scale-step及CEUpdateManager.setValueCameraScale；SDK当前无modeling zoom-in/out、close命令。测试侧没有新产品hook、SDK/API或像素写入；不足以宣称交互画面完整正确。具体协议：[README-native-resource-workload.md](README-native-resource-workload.md)。
-- **验证**：`devCheck checkResourceValidationBundle checkCubismHostValidationArguments` BUILD SUCCESSFUL（`build/native-followup/offline.log`）；14项CPU/DRM/proc观察器测试通过，Bash语法、rs-n1 wrapper dry-run通过（`build/native-followup/dry-run.log`）。helper语法diagnostics零错误；这里只是编译/打包/静态及基础设施检查，不假冒实机结果。
-- **工件**：产品Agent仍为P01的`ac3e7602ac1e70031fcdf7f77b0ea7201882939ce586366fda966e29afcd03e3`；新auxiliary SHA `a19251855348340c340eb177195a1bccc66054684f9cc1aaa85233bd140c0aaf`。产品所有实验优化关闭。
-- **判定/下一步**：离线VALIDATION_PASS，尚无性能收益。先运行一轮plain验证驱动，成功后另加profile定位实际栈；若驱动失败记录为驱动问题，修复须明确变化。
+- **Implementation**: the JDK-only `NativeResourceHostAgent`, an independent auxiliary JAR, a thin wrapper, and the E10 sampler. It performs 120 native zoom-in and zoom-out steps, checks the real camera scale change and the task document and view identity each time, restores through the native scale synchronisation, verifies that dirty and undo stay unchanged, closes the only clean task model normally, and observes for at least 120 seconds. It keeps only a weak document reference and forces no GC. It records a phase epoch to separate idle, zoom, restored, and closed. JFR is optional, and a plain run and a profile run are never treated as an optimization off and on.
+- **Basis and boundary**: the exact JAR javap follows `CEAppCtrl.zoom` to `ar.m/l`, to `canvas.f/e`, to the native scale step, and to `CEUpdateManager.setValueCameraScale`; the SDK currently has no modeling zoom-in or zoom-out and no close command. The test side adds no product hook, SDK or API, or pixel write, so it cannot claim a fully correct interactive image. Protocol: [README-native-resource-workload.md](README-native-resource-workload.md).
+- **Verification**: `devCheck checkResourceValidationBundle checkCubismHostValidationArguments` BUILD SUCCESSFUL (`build/native-followup/offline.log`); 14 CPU, DRM, and proc observer tests pass, and the Bash syntax and rs-n1 wrapper dry run pass (`build/native-followup/dry-run.log`). The helper syntax diagnostics report zero errors; these are compile, packaging, static, and infrastructure checks only and never pose as a host result.
+- **Artifacts**: the product Agent is still the P01 `ac3e7602ac1e70031fcdf7f77b0ea7201882939ce586366fda966e29afcd03e3`; the new auxiliary SHA is `a19251855348340c340eb177195a1bccc66054684f9cc1aaa85233bd140c0aaf`. Every product experiment optimization is off.
+- **Verdict and next step**: offline VALIDATION_PASS with no performance gain yet. Run one plain verification driver first, then add a profile run to locate the real stack; a driver failure is recorded as a driver problem, and a fix must state its change.
 
-### P03-b — 首轮驱动失败，保留结果
+### P03-b — The First Driver Round Failed, and the Result Stays
 
-- **实机run**：`native-resource-5302-rs-n1-20260907T122423Z-2131764`，plain；120/120次原生缩放都实际改变camera scale，耗时129.21秒。恢复断言FAIL：7.5337915→7.533791（差1 ULP）；未进入模型关闭观察，不能据此判断P04。runner整体FAIL、wrapper exit143（失败后的task-owned清理），survivors0。没有把采样完整当作验证成功。
-- **原因调查**：已检查`GCameraManager.getCameraScale()`实际返回派生`scaleComponentToDocument`，不是wrapper原始`cameraScale`；原生UI同步路径包含倒数浮点转换。因此不能从原生UI值恢复就声称派生量逐位恢复。唯一原因仍需修复对照，不改容差掩盖失败。
-- **下一轮实质变化**：保存wrapper原始cameraScale，通过原生wrapper.setCameraScale（会通知原生scale监听器）+manager.updateCamera+repaint恢复，并继续要求原始/派生scale逐位相等。缩放次数改60次：本机120次实际耗时129秒，不足以在既有300秒观察窗内留下完整120秒关闭观察；保留500ms最小节奏和实际次数/耗时，不扩大采样器全局时间界限。辅助件重建/新SHA后再运行，不复用本轮作为收益证据。
+- **Host run**: `native-resource-5302-rs-n1-20260907T122423Z-2131764`, plain; all 120 of 120 native zooms really changed the camera scale in 129.21 seconds. The restore assertion FAILed on 7.5337915 → 7.533791, a difference of 1 ULP; the model-close observation never started, so nothing can be concluded for P04. The whole runner FAILed, the wrapper exited 143 from the task-owned cleanup after the failure, and survivors were 0. Complete sampling is never read as a verification success.
+- **Cause investigation**: `GCameraManager.getCameraScale()` really returns the derived `scaleComponentToDocument` rather than the raw wrapper `cameraScale`, and the native UI synchronisation path includes a reciprocal float conversion. A restore from the native UI value therefore cannot claim a bit-exact restore of the derived quantity. The single cause still needs a fix comparison, and no tolerance is changed to hide the failure.
+- **Substantive change of the next round**: save the raw wrapper cameraScale and restore through the native `wrapper.setCameraScale`, which notifies the native scale listener, plus `manager.updateCamera` and a repaint, while still requiring the raw and derived scales to be bit-equal. The zoom count drops to 60, because 120 real zooms took 129 seconds locally and left no complete 120-second close observation inside the existing 300-second window; the 500ms minimum cadence and the real count and duration stay, and the global sampler time bound is not widened. The auxiliary is rebuilt with a new SHA before the run, and this round is never reused as gain evidence.
 
-### P03-c — 原始setter恢复仍失败；改用明确的原生档位负载前置条件
+### P03-c — The Raw Setter Restore Still Failed; an Explicit Native Scale Load Precondition Replaced It
 
-- **run**：`native-resource-5302-rs-n2-20260907T123538Z-2160595`，aux SHA `2f2d559a13c63fb680c28e228bc04b67e7e3dbbd5217ab078ba85f97a1653b4d`。60/60实际缩放、66.36秒；`raw camera scale not restored exactly`，整体FAIL、task-owned清理survivors0，未测试关闭后驻留。辅助件重建及dry-run通过，不能盖过实机FAIL。
-- **已知/未定**：原生wrapper setter会发送`1.0f/scale`给监听器，并非纯无副作用字段赋值；调用后原始值仍有变化，尚未证明所有回写来源。禁止移除监听器或直接写私有字段制造逐位恢复。
-- **新协议**：在采样ready前执行一次原生放大/缩小，将任务副本视图规范到原生缩放档位，记录规范前后scale；后续60次动作必须逐位恢复到这个明确的测试起点。原始任意fit比例不再被宣称逐位恢复；它所属任务副本视图最终正常关闭，不保存模型或用户视图设置。保留旧两轮FAIL，不放宽新起点恢复容差，也不把规范化前的两次动作混进idle/性能窗口。此变化是负载定义修正，不是产品优化。
+- **Run**: `native-resource-5302-rs-n2-20260907T123538Z-2160595`, auxiliary SHA `2f2d559a13c63fb680c28e228bc04b67e7e3dbbd5217ab078ba85f97a1653b4d`. 60 of 60 real zooms in 66.36 seconds; `raw camera scale not restored exactly`, the whole round FAILed, the task-owned cleanup left 0 survivors, and the post-close residency was never tested. The auxiliary rebuild and dry run pass, which never covers a host FAIL.
+- **Known and undecided**: the native wrapper setter sends `1.0f/scale` to the listener and is no pure side-effect-free field assignment; the raw value still changed after the call, and not every write-back source is proven. Removing the listener or writing a private field directly to manufacture a bit-exact restore is forbidden.
+- **New protocol**: perform one native zoom-in and zoom-out before the sampling ready state to normalize the task-copy view to a native scale step, and record the scale before and after the normalization; the following 60 actions must restore bit-exactly to that explicit test start point. An arbitrary original fit ratio is no longer claimed to restore bit-exactly, and its task-copy view is closed normally at the end without saving the model or the user view settings. The two old FAIL rounds stay, the new start-point restore tolerance is not relaxed, and the two normalization actions never enter the idle or performance window. This change corrects the load definition; it is no product optimization.
 
-### P03-d / P04-a — 首轮完整缩放与关闭观察 PASS（尚非优化）
+### P03-d and P04-a — The First Complete Zoom and Close Observation PASSed (Still No Optimization)
 
-- **run/工件**：`native-resource-5302-rs-n3-20260907T124833Z-2195008`，plain；aux SHA `50d5e99910c95d86a6981915db3488cf6ccb5c06671acc42dd93f4e130afb472`，产品未变。辅助件重建及新dry-run通过；完整runner PASS、exit0、原文件hash不变。初始fit7.5337915，规范化测试起点10.000001，60/60真实缩放，恢复后10.000001逐位一致，dirty/Undo不变，唯一模型正常关闭。
-- **三指标（不是off/on）**：加载RSS采样峰值3.2075GiB；idle30秒RSS中位3.0615GiB，CPU整机12核0.162%，GPU render0%。zoom65.688秒、CPU75.66秒（单核等价117.65%，整机9.8045%）、GPU render1.9048%，RSS中位3.0630GiB。缩放GPU有效区间完整；加载约85.8%覆盖，其余不当零。
-- **关闭后120秒**：RSS中位3.0743GiB，末30秒3.0744GiB；CPU整机0.1022%，GPU0%。heap used约1.545→1.066GB，committed保持2.642GB；GC计数41→43后关闭窗口不再变化。i915该客户端system0 resident从约579.6MB降到518.9MB，但不是完整显存/共享物理内存总账。进程Swap0。弱document未清除，不能据此认定泄漏（不知自然GC是否扫描到它所在代际）。
-- **已知/假设**：真实缩放相较静置有明显CPU工作，GPU仍低，不支持盲目以GPU上传为主靶点。关闭后部分heap/driver资源下降但RSS未退，可能有堆保留、缓存或未回收引用；尚无唯一持有链证据。数据在`build/native-followup/rs-n3-summary.json`，从JSONL+tar内jvm.csv按phase epoch计算，CPU按进程ticks/真实区间，GPU按client busy差值，未累计inclusive方法时间。
-- **下一步变化**：同一产品/负载另开profile模式记录JFR，按已知phase筛选真实CPU栈和GC事件；这是新增归因证据，不和plain拼成优化百分比。P05/P07只在实际热栈支持后选择切片；P06对加载样本单独归因。
+- **Run and artifacts**: `native-resource-5302-rs-n3-20260907T124833Z-2195008`, plain; auxiliary SHA `50d5e99910c95d86a6981915db3488cf6ccb5c06671acc42dd93f4e130afb472`, product unchanged. The auxiliary rebuild and the new dry run pass; the complete runner PASSes with exit 0 and an unchanged original file hash. The initial fit is 7.5337915, the normalized test start is 10.000001, 60 of 60 zooms are real, the restore returns bit-exactly to 10.000001, dirty and undo stay unchanged, and the only model closes normally.
+- **Three metrics, not an off and on comparison**: the loading RSS sample peak is 3.2075GiB; the idle 30-second RSS median is 3.0615GiB with a whole-machine 12-core CPU of 0.162% and a GPU render of 0%. The zoom takes 65.688 seconds with 75.66 CPU seconds, which is 117.65% of one core or 9.8045% of the machine, a GPU render of 1.9048%, and an RSS median of 3.0630GiB. The zoom GPU coverage is complete, the loading coverage is about 85.8%, and the rest is never read as zero.
+- **120 seconds after the close**: the RSS median is 3.0743GiB and the last 30 seconds 3.0744GiB; the whole-machine CPU is 0.1022% and the GPU 0%. Heap used went about 1.545 → 1.066GB and committed stayed 2.642GB; the GC count went 41 → 43 and then stopped changing in the close window. The i915 system0 resident of that client fell from about 579.6MB to 518.9MB, which is no complete video-memory or shared-physical-memory account. Process swap is 0. The weak document was not cleared, which cannot establish a leak because whether a natural GC scans its generation is unknown.
+- **Known and assumed**: a real zoom does clearly more CPU work than idle while the GPU stays low, which does not support a blind GPU-upload target. Some heap and driver resources fall after the close while the RSS does not, which may be heap retention, a cache, or an unreclaimed reference; no single holding chain is proven. The data is in `build/native-followup/rs-n3-summary.json`, computed from `jvm.csv` inside the JSONL and tar by phase epoch, with CPU from process ticks over the real interval and GPU from the client busy delta, and no inclusive method time is summed.
+- **Next change**: run the same product and load in profile mode to record JFR, then select the real CPU stacks and GC events by the known phase; this is new attribution evidence and is never spliced with a plain run into an optimization percentage. P05 and P07 are chosen only after a real hot stack supports them, and P06 attributes the loading samples separately.
 
-### P03-e / P04-b — JFR归因轮 PASS，明确内存观测局限
+### P03-e and P04-b — The JFR Attribution Round PASSed and States the Memory-Observation Limits
 
-- **run**：`native-resource-5302-rs-p1-20260907T125843Z-2222712`，同产品/aux SHA，profile=true；完整PASS、exit0、原文件hash不变。60次/65.496秒，CPU75.85秒（整机9.6843%），GPU1.9559%，缩放RSS中位2.9647GiB；闭合末段约2.974GiB。不能以plain与profile的RSS差异宣称优化。
-- **P03发现**：缩放阶段118个Java execution samples中89个调用链包含`CEViewContext_ModelingView.updateScene`，经`view.ay.a`遍历模型、`CWarpDeformer.transformDeformer_testImpl`和`warp.o.a`执行变形；43个leaf样本落在warp.o.a。另25个execution样本在渲染路径，8个leaf为GTransform.getLocalToWorldMatrix。JFR线程CPU表显示EDT是主要CPU工作线程。NativeMethodSample里大量WToolkit.eventLoop是阻塞事件循环，不能把样本占比当CPU热点；原生GL buffer/readpixels也被采到，但不等于调用次数或GPU时间。
-- **P04发现/局限**：原生模型关闭自己执行两次System.gc（JFR栈到CModelingDocument.closeFile及其文件组件），并不是辅助件主动GC。那时调用者/原生close仍可能持有doc/view，故120秒弱引用未清除不能证明泄漏。原生CImageResource线程约关闭120秒后又触发GC，发生在weak观测之后、300秒sampler结束之前；最后heap used仍约1.064GB、committed2.525GB、RSS2.974GiB。JFR OldObjectSample主要为byte/int/float数组，未记录referrer路径，不能据此确定它们的持有者或可释放性。
-- **实现/验证方法**：使用JDK `jfr print --json --stack-depth 128`筛选phase时间窗；默认print仅显示5帧，不代表录制缺少更深栈，不为此无变化重跑。记录有界128MiB、没有新增产品hook；本地分析`build/native-followup/rs-p1-summary.json`、`rs-p1.jfr`及相关JSON，不提交私有原始记录。
-- **后续条件**：P03重复model update是真实执行路径，但尚未证明可跳过（camera改变可能影响GUI/网格/选择）。P04需要在原生后续GC后检查weak，或完整持有链诊断，不能立即清缓存/降heap cap。P05继续审计实际VBO消费契约；P06/P07使用本轮已有事件，不以旧缓存方案重新碰运气。
+- **Run**: `native-resource-5302-rs-p1-20260907T125843Z-2222712`, the same product and auxiliary SHA, profile=true; complete PASS, exit 0, unchanged original file hash. 60 zooms in 65.496 seconds, 75.85 CPU seconds at 9.6843% of the machine, a GPU of 1.9559%, a zoom RSS median of 2.9647GiB, and a closed tail of about 2.974GiB. The RSS difference between plain and profile is never read as an optimization.
+- **P03 finding**: of 118 Java execution samples in the zoom phase, 89 call chains include `CEViewContext_ModelingView.updateScene`, which walks the model through `view.ay.a`, runs `CWarpDeformer.transformDeformer_testImpl`, and deforms through `warp.o.a`; 43 leaf samples land in `warp.o.a`. Another 25 execution samples sit in the render path with 8 leaves in `GTransform.getLocalToWorldMatrix`. The JFR thread CPU table shows the EDT as the main CPU worker. Many `WToolkit.eventLoop` entries in NativeMethodSample are a blocked event loop, so a sample share is no CPU hotspot; a native GL buffer or readpixels sample is also no call count or GPU time.
+- **P04 finding and limits**: the native model close runs two `System.gc` calls itself, with JFR stacks into `CModelingDocument.closeFile` and its file component, and the auxiliary forces no GC. The caller and the native close may still hold the document and view at that moment, so an uncleared weak reference after 120 seconds proves no leak. The native CImageResource thread triggers another GC about 120 seconds after the close, after the weak observation and before the 300-second sampler end; the final heap used is still about 1.064GB, committed 2.525GB, and RSS 2.974GiB. JFR OldObjectSample is mostly byte, int, and float arrays with no referrer path, so their holder and releasability stay undecided.
+- **Implementation and verification method**: filter the phase window with the JDK `jfr print --json --stack-depth 128`; the default print shows only 5 frames, which never means the recording lacks a deeper stack, and the run is not repeated unchanged for that. The recording is bounded at 128MiB, no product hook was added, and the local analysis is `build/native-followup/rs-p1-summary.json`, `rs-p1.jfr`, and the related JSON; the private raw recording is not committed.
+- **Next condition**: the repeated model update of P03 is a real execution path, but skipping it is unproven because a camera change may affect the GUI, the mesh, and the selection. P04 needs a weak check after the native follow-up GC or a complete holding-chain diagnosis, and clearing a cache or lowering the heap cap immediately is forbidden. P05 continues auditing the real VBO consumption contract, and P06 and P07 use the events of this round instead of retrying an old cache approach for luck.
 
-- **P04-c预注册变化**：辅助件新增sampler300秒结束时的weak-reference检查（仍不强持有doc），保留120秒旧字段；在新的profile轮关联原生后续GC与最终弱引用。目的是区分仅观察过早和后续仍被引用，不改采样时长、不触发额外GC、不重复原有优化flag。另加Linux JDK17辅助件拒绝非法窗口/启用产品优化的离线烟测；不是启动Cubism。
+- **P04-c pre-registered change**: the auxiliary adds a weak-reference check at the 300-second sampler end, still without strongly holding the document, and keeps the old 120-second field; a new profile round correlates the native follow-up GC with the final weak reference. The purpose is to separate an early observation from a reference that is still held, without changing the sampling duration, forcing an extra GC, or repeating an old optimization flag. An offline smoke test also verifies that the Linux JDK 17 auxiliary refuses an illegal window and refuses to enable a product optimization; it starts no Cubism.
 
-### P04-c — 原生后续Full GC后仍有document引用，但未定位持有者
+### P04-c — A Document Reference Survives the Native Follow-Up Full GC and Its Holder Is Not Located
 
-- **run/验证**：`native-resource-5302-rs-p2-20260907T131548Z-2264186`，aux SHA `a0e089f2aadb50240563266bff3564f681994a95121acea234ac2ffda244523c`；产品不变。bundle重建、3项准入烟测（6种拒绝输入）、新dry-run通过；实机完整PASS、exit0、原文件hash不变，60次缩放/67.489秒、CPU75.70秒、GPU2.0075%。
-- **结果**：关闭后120秒和sampler结束（约关闭170秒）weak都未清除。JFR在关闭约113秒后记录原生CImageResource线程触发G1Full，GC52后heap used1,057,674,472B、committed3,565,158,400B，之后最终weak仍false。由此不能再仅解释为没有Full GC；确有可达/被保留引用的线索，但持有者可能为原生缓存、Runtime、宿主UI或观察器，未确定。不能直接称为产品泄漏或清除未知缓存。
-- **内存变异**：该轮加载RSS峰4.4554GiB，zoom中位3.5795GiB，closed末30秒3.3987GiB；同协议plain/profile前轮差异仍大。没有任何RAM优化实施/收益；CPU工作量约75.7秒在三次成功轮一致得多。
-- **重试条件**：下一步须取得具体GC-root/持有链，或明确的重复开关模型生命周期对照；不要重复同样120秒idle。辅助件已把最终weak检查保留下来，默认所有产品优化关闭。原始JFR/JSONL留在任务证据，摘要`build/native-followup/rs-p2-summary.json`。
+- **Run and verification**: `native-resource-5302-rs-p2-20260907T131548Z-2264186`, auxiliary SHA `a0e089f2aadb50240563266bff3564f681994a95121acea234ac2ffda244523c`, product unchanged. The bundle rebuild, the 3 admission smoke tests with 6 rejected inputs, and the new dry run pass; the host round PASSes completely with exit 0 and an unchanged original file hash, 60 zooms in 67.489 seconds, 75.70 CPU seconds, and a GPU of 2.0075%.
+- **Result**: the weak reference stays uncleared 120 seconds after the close and at the sampler end, about 170 seconds after the close. JFR records the native CImageResource thread triggering a G1Full about 113 seconds after the close; after GC 52 the heap used is 1,057,674,472B and committed 3,565,158,400B, and the final weak reference is still false. A missing full GC no longer explains it; a reachable or retained reference is a real clue, but the holder may be a native cache, the Runtime, the host UI, or the observer, and it is undecided. It is never called a product leak, and no unknown cache is cleared.
+- **Memory variation**: this round has a loading RSS peak of 4.4554GiB, a zoom median of 3.5795GiB, and a closed last-30-second value of 3.3987GiB; the plain and profile difference stays large, as before. No RAM optimization was implemented or gained; the CPU work of about 75.7 seconds is far more consistent across the three successful rounds.
+- **Retry condition**: the next step must obtain a concrete GC root or holding chain, or an explicit repeated model on and off lifecycle comparison; the same 120-second idle is not repeated. The auxiliary keeps the final weak check and leaves every product optimization off. The raw JFR and JSONL stay in the task evidence, and the summary is `build/native-followup/rs-p2-summary.json`.
 
-### P05-a — 局部上传/图集/缓冲更新：静态消费边界调查
+### P05-a — Local Upload, Atlas, and Buffer Update: A Static Consumption-Boundary Survey
 
-- **验证方法**：从P03-e真实native samples追到`graphics3d.mesh.a.b/c`，对精确JAR javap读取float/int buffer准备、容量分配、glBufferData/SubData及末尾dirty清除；本地`build/native-followup/buffers.javap`、`buffer-base.javap`。这不是新算法实机验收。
-- **发现**：当前上传按整buffer的dirty/重新分配标志选择全量Data/SubData，未见写区间账本；修改时必须同时保留buffer创建、容量/位置、dirty消费和GL生命周期。真实缩放采到SubData，不证明所有内容重复，也不证明可省略。图集/纹理局部合成不是当前camera负载的主要已证实热点。
-- **判定**：仅STATIC_FEASIBILITY，未实施，非算法失败。直接把全量上传改局部、跳过dirty，或按数组身份去重缺少写者/范围证据，拒绝实施。可继续的具体前提：先只读统计既有buffer与新数据逐位相同的比例；若比例高，再设计不额外持有大型buffer的相等性/更新策略并单独审阅。新缓存必须计入RAM成本，不能只比较GPU命中率。
+- **Verification method**: follow the real native samples of P03-e into `graphics3d.mesh.a.b/c` and read the float and int buffer preparation, the capacity allocation, `glBufferData` and `glBufferSubData`, and the trailing dirty clear with javap on the exact JAR; the local dumps are `build/native-followup/buffers.javap` and `buffer-base.javap`. This is no host acceptance of a new algorithm.
+- **Finding**: the current upload chooses a full Data or SubData call from a whole-buffer dirty or reallocation flag, and no write-interval ledger exists. A change must preserve the buffer creation, the capacity and position, the dirty consumption, and the GL lifecycle together. A real zoom records SubData, which proves neither that every content repeats nor that it can be omitted. Local atlas or texture composition is no proven main hotspot of the current camera load.
+- **Verdict**: STATIC_FEASIBILITY only, not implemented, and no algorithm failure. Replacing a full upload with a local one, skipping the dirty flag, or deduplicating by array identity without writer or range evidence is refused. A concrete precondition may continue: first count read-only how often an existing buffer equals the new data bit for bit; when the share is high, design an equality and update strategy that holds no extra large buffer and review it separately. A new cache must count its RAM cost and never compare a GPU hit rate alone.
 
-### P06-a — 加载峰值：对齐现有RSS/heap/GC/采样栈
+### P06-a — The Loading Peak: Align the Existing RSS, Heap, GC, and Sampling Stacks
 
-- **验证方法**：rs-p1按RSS最高加载sample的epoch匹配250ms jvm-loading.csv及JFR前后2秒栈/分配事件，不新增宿主轮。峰值2026-09-07T13:00:28.678Z，RSS3.7579GiB；附近heap used571,085,952B、committed2,071,986,176B，刚经过原生System.gc。
-- **发现**：附近活跃栈集中于扩展插值、WarpPointRef/变形与deformer palette，采样分配含点引用/向量/列表。堆used已经下降而RSS仍高，说明不能把瞬时占用直接等同于活跃堆或把分配样本当驻留。已有E05/P01正覆盖部分相关分配但未获主指标收益，不因此原样重试。
-- **判定/原因**：INCONCLUSIVE，峰值归因仍缺少具体存活/驻留来源及并发在途量；未找到可安全缩短的已证实中间结果生命周期。未调整加载并发、heap上限或强制GC。允许继续的变化是存活对象/驱动驻留归因或明确的加载队列时序证据，不是单纯降低分配数字。
+- **Verification method**: match the epoch of the highest-RSS loading sample of rs-p1 with `jvm-loading.csv` at 250ms and with the JFR stacks and allocation events 2 seconds before and after, without a new host round. The peak is at 2026-09-07T13:00:28.678Z with an RSS of 3.7579GiB; nearby, the heap used is 571,085,952B and committed 2,071,986,176B right after a native `System.gc`.
+- **Finding**: the nearby active stacks concentrate on extended interpolation, WarpPointRef and deformation, and the deformer palette, and the sampled allocation holds point references, vectors, and lists. The heap used already fell while the RSS stayed high, which shows that a transient occupancy is neither the live heap nor a residency, and that an allocation sample is no residency. E05 and P01 already cover part of the related allocation with no primary gain, so they are not retried unchanged.
+- **Verdict and cause**: INCONCLUSIVE. The peak attribution still lacks a concrete live or resident source and the concurrent in-flight volume, and no proven intermediate-result lifetime can be shortened safely. The loading concurrency, the heap cap, and a forced GC were not adjusted. The allowed next change is a live-object or driver-residency attribution or explicit loading-queue timing evidence, never a plain reduction of the allocation number.
 
-### P07-a — 内部点Warp纯计算快路径：离线数值通过，但更慢，拒绝产品Hook
+### P07-a — A Pure-Compute Fast Path for Internal-Point Warp: The Numbers Pass Offline but It Is Slower, So No Product Hook
 
-- **新假设/区别**：P03-e实际缩放CPU leaf为`warp.o.a`。其原生方法约3395字节，外部点外推占大部分字节码；尝试将内部点的双线性/三角插值提取为较小纯Java循环。这不是P01点引用投影缓存，也不跳过模型更新或数学步骤。
-- **实现**：`testing/host-validation/experiments/WarpInteriorPrototype.java`（已在二轮评审死代码清理中删除；本条为历史记录），仅离线，不进入产品或辅助Agent。至多131072点/stride2..16，检查数组边界、维度/整数溢出、输出不与grid别名，完整预检所有缩放坐标后才写入；外部/边界/非有限输入回退。保留原生浮点操作顺序、in-place src/out语义，不缓存。未新增Runtime/Bootstrap seam。
-- **验证**：Linux JDK17加载精确已审阅JAR的纯warp singleton（不是Cubism启动），4000个固定种子case、1,538,058个raw float值逐位相同，双线性/三角、offset/stride、原地输出及拒绝不写入测试PASS。JAR hash运行时验证。Java语法diagnostics0错误。随后相同MethodHandle调用，64/1024/16384点，预热5000轮，7轮交替测量，计入全量预检成本。
-- **结果**：native/candidate中位ns每点分别20.0845/22.0542、21.0004/25.5399、13.8448/17.9026；候选分别慢9.8%、21.6%、29.3%。`NO_OFFLINE_BENEFIT`，不增加产品hook，不进行无意义实机A/B。不是用户端CPU占用回退测量，也不是RAM/GPU结论。
-- **可能原因**：完整准入扫描额外遍历输入，成本超过缩短冷分支代码的收益；原始JIT已能有效处理内部点分支。没有通过移除安全预检、忽略alias或部分写入后不安全回退来制造快样本。原因是与机制一致的解释，不是完整汇编归因。
-- **复现**：`javac --release 17 -d build/native-followup/prototype testing/host-validation/experiments/WarpInteriorPrototype.java`；Linux JDK17 `java -Djava.awt.headless=true -cp "build/native-followup/prototype:<reviewed5302-install>/app/lib/*" WarpInteriorPrototype "<reviewed5302-install>/app/lib/Live2D_Cubism.jar"`。（源文件已删，复现需从历史检出）全部7轮数值保留`build/native-followup/warp-interior-offline.log`。
-- **重试条件**：需要新的算法/可证明不需重复扫描的调用契约或真实输入分布；不原样重复该guard+双遍历实现。另一个排序矩阵候选仅完成字节码阅读：getSortingZOrder取首顶点经父链矩阵再camera矩阵的Z，直接用位置Z或跨帧缓存会破坏父变换/相机语义；未实施，不称为失败。
+- **New hypothesis and difference**: the real zoom CPU leaf of P03-e is `warp.o.a`. Its native method is about 3395 bytes and the outside-point extrapolation takes most of the bytecode, so the bilinear and triangular interpolation of an internal point was extracted into a smaller pure Java loop. This is neither the P01 point-reference projection cache nor a skip of the model update or a math step.
+- **Implementation**: `testing/host-validation/experiments/WarpInteriorPrototype.java`, already deleted in the second-round dead-code cleanup and recorded here as history, stays offline and enters neither the product nor an auxiliary Agent. It handles up to 131072 points with a stride of 2 to 16, checks the array bounds, the dimensions, and the integer overflow, keeps the output unaliased from the grid, and writes only after a complete precheck of every scaled coordinate; an outside, boundary, or non-finite input falls back. It keeps the native float operation order and the in-place src and out semantics, and it caches nothing. No Runtime or Bootstrap seam was added.
+- **Verification**: a Linux JDK 17 run loads the pure warp singleton of the exact reviewed JAR, which starts no Cubism, and 4000 fixed-seed cases with 1,538,058 raw float values agree bit for bit; the bilinear and triangular paths, the offset and stride, the in-place output, and the refusal without a write all PASS. The JAR hash is verified at run time and the Java syntax diagnostics report zero errors. The same MethodHandle call then runs 64, 1024, and 16384 points with 5000 warm-up rounds and 7 alternating measurement rounds, counting the full precheck cost.
+- **Result**: the native and candidate median nanoseconds per point are 20.0845 and 22.0542, 21.0004 and 25.5399, and 13.8448 and 17.9026, so the candidate is 9.8%, 21.6%, and 29.3% slower. `NO_OFFLINE_BENEFIT`, so no product hook is added and no meaningless host A/B runs. This is no user-side CPU regression measurement and no RAM or GPU conclusion.
+- **Possible cause**: the complete admission scan walks the input again and costs more than shortening the cold branch, and the original JIT already handles the internal-point branch well. No fast sample was manufactured by removing the safety precheck, ignoring the alias, or falling back unsafely after a partial write. The cause fits the mechanism; it is no complete assembly attribution.
+- **Reproduction**: `javac --release 17 -d build/native-followup/prototype testing/host-validation/experiments/WarpInteriorPrototype.java`, then on Linux JDK 17 `java -Djava.awt.headless=true -cp "build/native-followup/prototype:<reviewed5302-install>/app/lib/*" WarpInteriorPrototype "<reviewed5302-install>/app/lib/Live2D_Cubism.jar"`. The source file is deleted now, so a reproduction needs a historical checkout. All 7 rounds of values are in `build/native-followup/warp-interior-offline.log`.
+- **Retry condition**: a new algorithm, a call contract that provably needs no repeated scan, or a real input distribution; the same guard plus double-traversal implementation is never repeated. Another sorting-matrix candidate reached bytecode reading only: `getSortingZOrder` takes the first vertex through the parent-chain matrix and then the camera matrix Z, and using the position Z directly or caching across frames would break the parent transform or the camera semantics, so it was not implemented and is never called a failure.
 
-### 本轮阶段性收口与下一准入点
+### The Closing Point of This Round and the Next Admission Point
 
-- `checkCompletedCommit checkResourceValidationBundle checkCubismHostValidationArguments checkPreviewBundleLayout` BUILD SUCCESSFUL，2m24s、213 tasks（29 executed/184 up-to-date），日志`build/native-followup/completed-commit.log`；不会把缓存任务说成全部重新执行。另14项采样器测试、3项准入烟测及P07差分/微基准按各段记录。新增Java/Python diagnostics均0错误。
-- 五方向首轮调查已逐项记录，但**没有新增可推荐的三指标优化**：P03找到真实CPU更新热点，P04确认Full GC后仍有引用但未定位所有者，P05仅静态契约调查，P06仍归因未定，P07新原型更慢所以不接Hook。不能宣称所有可能优化已穷尽。
-- 下一步最有价值的内存证据是GC-root/持有链。完整堆快照可能含模型和宿主敏感字符串，且占用GB级本地空间；在获得用户对这种敏感诊断范围的明确确认前不采集、不上传、不清未知缓存。继续遵守task-owned官方启动/原件不变/不合并main。
+- `checkCompletedCommit checkResourceValidationBundle checkCubismHostValidationArguments checkPreviewBundleLayout` BUILD SUCCESSFUL in 2m24s over 213 tasks with 29 executed and 184 up to date; log `build/native-followup/completed-commit.log`. A cached task is never described as fully re-executed. Another 14 sampler tests, 3 admission smoke tests, and the P07 differential and microbenchmark are recorded in their own sections. The new Java and Python diagnostics report zero errors.
+- The first-round investigation of the five directions is recorded item by item, and **no new recommendable three-metric optimization exists**: P03 found a real CPU update hotspot, P04 confirmed a surviving reference after a full GC without locating the owner, P05 is a static contract survey only, P06 attribution is still undecided, and the P07 prototype is slower so it takes no hook. No claim that every possible optimization is exhausted.
+- The most valuable memory evidence next is a GC root or holding chain. A complete heap snapshot may hold sensitive model and host strings and occupies GB of local space, so it is neither captured nor uploaded and no unknown cache is cleared before the user explicitly confirms that sensitive diagnostic scope. The task-owned official launch, the unchanged original, and the no-push boundary stay.
 
-### I10 — 收口时出现新的其他任务会话，暂停下一实机轮
+### I10 — Another Task Session Appeared at the Close, So the Next Host Round Paused
 
-2026-09-07T13:51:31Z只读发现新的非本次任务JVM `2299028/startTicks10933256` 和wineserver2298877，prefix属于另一工作区的`heavy-dinosaur/build/texture-host-szx2a9uu/prefix/pfx`，不是本任务native-resource族。没有连接或清理该会话。按/proc启动ticks估算其启动为13:43:09Z，在本轮全部native-resource会话及P07离线微基准之后（后者日志birth13:38:11Z、mtime13:38:17Z），没有据此倒写早先性能轮为并发失败。下一实机轮需重新等待宿主空闲；堆持有链诊断另需上文敏感采集确认。
+At 2026-09-07T13:51:31Z a read-only check found a new JVM outside this task, `2299028/startTicks10933256`, and wineserver 2298877, whose prefix belongs to another workspace at `heavy-dinosaur/build/texture-host-szx2a9uu/prefix/pfx` rather than this task's native-resource family. The session was neither connected nor cleaned. Its start is estimated from /proc start ticks as 13:43:09Z, after every native-resource session of this round and after the P07 offline microbenchmark, whose log has birth 13:38:11Z and mtime 13:38:17Z; no earlier performance round is therefore rewritten as a concurrency failure. The next host round must wait for the host to be idle again, and the heap holding-chain diagnosis needs the sensitive-capture confirmation above.
 
-- **敏感诊断授权已获得**：用户通过结构化确认选择“允许本地堆快照”。范围仅本任务隔离进程，可能含模型/宿主敏感字符串、GB级空间，仅本地分析、不上传、诊断结束删除。授权不包含其他任务进程、不允许清理未知缓存，也不改变实机安全规则。2026-09-07T13:58:24Z重新检查，I10的两个其他任务进程仍存活；尚未实现或采集堆快照，等待宿主空闲。
+- **Sensitive diagnostic authorization granted**: the user chose "allow a local heap snapshot" through a structured confirmation. The scope is this task's isolated processes only, may hold sensitive model and host strings and GB of space, is analyzed locally only, is never uploaded, and is deleted when the diagnosis ends. The authorization covers no other task process, allows no cleanup of an unknown cache, and changes no host safety rule. A recheck at 2026-09-07T13:58:24Z found both other-task processes of I10 still alive; no heap snapshot is implemented or captured yet, and the host must be idle first.
 
+### I11 — Adopting the Unified main Queue (2026-09-08; the Offline Integration Still Needs the Complete Gate)
 
-### I11 — 接入 main 统一队列（2026-09-08，离线整合尚待完整门禁）
-
-- 用户选择将完整 main `951b6b97f855830684a39f8365064da05e6e5ffd` 合入当前性能分支，而不是只摘取管理器；起点为干净的`98b28395b`。仅在原worktree执行`git merge --no-commit --no-ff`，不反向合并main、不push、不启动宿主。六处文本冲突已解决。
-- Runner、队列、transport及其参数测试采用main版本，不恢复旧SSH/lease/PID清理路径。插件隔离测试采用main的Future完成态等待；图表测试保留本分支实际字体ink-width断言；mapping采用main的DRAFT记录，不由此宣称readiness。保留子shell默认值回归，移除main已删除的SSH_KEY变量断言。全部性能候选代码及历史证据保留，默认关闭策略不变。
-- 验证：`bash scripts/test/check_host_validation_scheduler.sh` PASS（11 scheduler、43 queue、12 evidence tests及配套shell checks）；local transport和arguments脚本PASS。日志`build/main-integration/scheduler.log`。headless `./gradlew --no-daemon --max-workers=1 devCheck checkCompletedCommit checkResourceValidationBundle --console=plain`已通过devCheck，但600秒工具超时中断在FX插件测试处；没有完整BUILD SUCCESSFUL，不能把提交门禁或resource bundle记为通过。日志`build/main-integration/gradle.log`，无遗留Gradle进程。
-- 构建前共享队列idle且无非终态job；超时后只读复查发现另一任务`65687483-9d9e-47a3-9a75-fdd1e45ccf8b`（`atlas-final-geometry-2500-native-4bb38d8073cf339b`）正在运行，立即暂停后续构建。该任务在本次构建期间入场，可能存在测量干扰；不能假设其拥有全程安静环境。未连接、取消或清理它。
-- 接入状态：代码冲突解决但合并尚未提交；等待测量结束后利用Gradle缓存继续剩余离线门禁，失败才针对修复。性能memory sampler自定义hook尚未完成队列dependency inventory准入，保持blocked；本次不开发Runner、不旁路、不新增实机授权。旧实机数据仅适用于原artifact hash，新整合产物需要独立获授权的验证。
-
-
-### P08/P09 — 旧调查对照与Paseo只读复核（2026-09-08）
-
-- **范围/验证方法**：两名Paseo pi/Luna max只读探索；父代理复核身份、报告摘要/hash及关键源文件。目标为待整合worktree（HEAD98b28395b + MERGE_HEAD951b6b97），不是main启动cwd。无代码实现、构建、实机或新性能测量；静态结论不能当作收益。父复核记录`/tmp/turboism-explore-review-20260908.md`。
-- **P08 内存候选：Turboism自身的模型引用生命周期**。`EditorBackedCubismModelAccess.java:82-85,310-320,372-387`保存强document/source/model；无活动文档时binding先抛不可用，未清这些槽。该逻辑在合并前已存在。连接保留modelAccess；`VerifiedHostAdapterConnector.java:944-958`关闭UI/layout/Core而未清editor access。调用方保留的stale SessionModel也可能保留delegate：安全拒绝调用不等于释放引用。Core backend完整close已有清除借用引用的路径，不应误报整个Core缺少清理。**结果：发现可核实的强引用候选，不是已经定位实机GC root或证明整套图像仍占内存。**
-- **P08 下一验证**：先用离线fixture复现bind A→无文档、owner仍存活，检查Turboism槽、stale wrapper和连接清理；随后才冻结失效/释放机制，覆盖在途调用、lease、Undo事务、同ID替换和失败重试。禁止dispose官方对象、删除host字段或靠失效包装器可调用制造通过。实机仍需队列准入和场景授权。
-- **P09 CPU候选：重复快照读取**。父复核`CubismFacadeImpl.java:745-764`和`HostSessionSnapshotSource.java:42-91`：先生成runtime快照再读token；activeModel再读document，token再次读project/document。`HostSessionIdentityRegistry.java:18-45`弱引用registry每次清理和查找均线性扫描。**结果：重复工作结构存在，实际调用频率、CPU占比和RSS收益未测。**下一步用带计数fixture测稳定版本重复查询、扫描数和临时分配，任何缓存须保持一致的snapshot/version、权限、失效和常驻内存上界。
-- **排除/降级**：旧tool/agent选择事件类不在当前runtime；当前live snapshot source返回EMPTY_SELECTION，不能照搬旧同步selection lag结论。GPU已有dirty/reallocation分支，不是无条件全量上传；JFR native sample不是调用次数或GPU耗时。继续沿graphics3d而不是影片轨jp.live2d管线归因；不重试既有负收益缓存/投影/内部Warp原型。
-- **报告状态**：内存agent8283d169报告53行/11662字节/SHA256100a391ca8aea28958beb97bac908793725e44e4589377019fb04b3dde028f6c，父裁决ACCEPTED仅限静态范围；CPU/GPU agenta727d4a9原报告48行/11223字节/SHA256a4a1ccd94d94bd896c7826ba42e6655d1b4aba20a195172d5c68cd2ead46c824终态标记格式不符，CORRECTION_REQUIRED，已要求新task/artifact修正而非覆盖原报告。上述P09关键调用链由父独立复核，不依赖未验收报告作收益结论。
-- **协议修正已回收**：CPU/GPU新task`turboism-explore-cpugpu-20260908T0610-r1`报告52行/12353字节/SHA25689fe384726cf0fb280282d30a72f20257255d9f51d13edf4f75ba78a62f98bd3，首末标记及RESULT摘要匹配，diff仅修正身份/协议并强调未测CPU占比，原报告保留。父裁决ACCEPTED限静态候选；不据此批准实现或实机，不认可任何尚未测量的收益。
+- The user chose to merge the complete main `951b6b97f855830684a39f8365064da05e6e5ffd` into the current performance branch instead of taking only the manager; the start is the clean `98b28395b`. Only `git merge --no-commit --no-ff` runs in the original worktree, with no reverse merge into main, no push, and no host launch. Six text conflicts were resolved.
+- The Runner, the queue, the transport, and their parameter tests take the main version and restore no old SSH, lease, or PID cleanup path. The plugin isolation test takes the main Future completion wait; the chart test keeps this branch's real font ink-width assertion; and the mapping takes the main DRAFT record without claiming readiness from it. The sub-shell default regression stays, and the SSH_KEY variable assertion that main deleted is removed. Every performance candidate and all historical evidence stay, and the default-off policy is unchanged.
+- Verification: `bash scripts/test/check_host_validation_scheduler.sh` PASSes with 11 scheduler, 43 queue, and 12 evidence tests plus the matching shell checks; the local transport and arguments scripts PASS. Log `build/main-integration/scheduler.log`. A headless `./gradlew --no-daemon --max-workers=1 devCheck checkCompletedCommit checkResourceValidationBundle --console=plain` passed devCheck but the 600-second tool timeout interrupted it in the FX plugin test; there is no complete BUILD SUCCESSFUL, so neither the commit gate nor the resource bundle is recorded as passing. Log `build/main-integration/gradle.log`, with no leftover Gradle process.
+- The shared queue was idle with no non-terminal job before the build; a read-only recheck after the timeout found another task `65687483-9d9e-47a3-9a75-fdd1e45ccf8b`, `atlas-final-geometry-2500-native-4bb38d8073cf339b`, running, so the later builds paused immediately. That task entered during this build and may disturb a measurement; it is never assumed to have had a quiet environment throughout. It was neither connected, cancelled, nor cleaned.
+- Integration state: the conflicts are resolved but the merge is uncommitted; the remaining offline gates continue from the Gradle cache once the measurement ends, and only a failure triggers a targeted fix. The performance memory-sampler custom hook has not passed the queue dependency-inventory admission and stays blocked; this round develops no Runner, takes no bypass, and adds no host authorization. Old host data applies to the original artifact hash only, and a newly integrated product needs its own authorized verification.
 
 
-### P08-a — 离线复现代码准备，尚未执行
+### P08 and P09 — Old Investigation Cross-Check and the Paseo Read-Only Review (2026-09-08)
 
-- Paseo agent8283d169按冻结契约准备两项test-only characterization：bind A→无文档后检查三个owner槽是否仍保留；bind B后检查owner替换而旧wrapper仍失效且保留A。反射仅观察Turboism私有字段，fixture static状态finally恢复，无GC/睡眠/内存数字推断，无生产修改。
-- Artifact `/tmp/turboism-p08-repro-20260908T0620/diagnostic.patch`（SHA256fe439c13672c26cdfe2e5cbb9317657f236dabbc29e43a8c9f347dbda8d3c157），仅对现有EditorBackedCubismModelAccessTest增加76行。报告35行/7128字节/SHA25683ebd800f2b264bc3cecd3a2799bff2c5b2cacfe2cabf489737a41e58cbbce25。父已核验身份/摘要/稳定hash、阅读全部patch并独立`git apply --check`通过。ACCEPTED仅指准备产物可应用，未应用checkout，**编译/测试NOT_RUN**。
-- **重要归因限制**：原NativeResourceHostAgent自身走native反射，并未直接调用Turboism SDK binding；没有证明原实机轮触发过这些slots，故此候选不能直接解释之前的weak-reference未释放。下一实机归因必须同时记录实际绑定路径和持有链。
-- 两个测试是当前行为诊断，不将保留引用永久固化成产品契约。未来修复后的回归应检查正确生命周期释放，并继续拒绝stale引用。未加入复杂连接fixture或生产失效seam。
-- 复查共享队列job65687483-9d9e-47a3-9a75-fdd1e45ccf8b仍running，继续禁止构建/测试干扰。待空闲先完成整合，再应用/执行最小headless batch；使用`env -u DISPLAY -u WAYLAND_DISPLAY JAVA_TOOL_OPTIONS=-Djava.awt.headless=true ./gradlew --no-daemon --max-workers=1 :runtime:test --tests dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccessTest`，不把Gradle客户端单独-D开关当测试JVM已headless。没有新性能收益或实机PASS。
+- **Scope and verification method**: two Paseo pi/Luna max read-only explorations, with the parent agent rechecking the identity, the report summary and hash, and the key source files. The target is the worktree awaiting integration, HEAD 98b28395b plus MERGE_HEAD 951b6b97, not the main launch cwd. No code was implemented, built, or measured on a host, so a static conclusion is no gain. The parent review record is `/tmp/turboism-explore-review-20260908.md`.
+- **P08 memory candidate: the model reference lifecycle of Turboism itself**. `EditorBackedCubismModelAccess.java:82-85,310-320,372-387` keeps a strong document, source, and model; without an active document the binding throws unavailable first and never clears those slots. That logic predates the merge. The connection keeps modelAccess, and `VerifiedHostAdapterConnector.java:944-958` closes the UI, layout, and Core without clearing the editor access. A stale SessionModel kept by a caller may also keep the delegate, because safely refusing a call is no reference release. A complete Core backend close already clears the borrowed reference, so the whole Core must never be reported as missing a cleanup. **Result: a verifiable strong-reference candidate, not a located host GC root and no proof that a whole image set still occupies memory.**
+- **P08 next verification**: reproduce bind A to no document with the owner still alive on an offline fixture and check the Turboism slots, the stale wrapper, and the connection cleanup; only then freeze the invalidation and release mechanism, covering an in-flight call, a lease, an undo transaction, a same-ID replacement, and a failed retry. Disposing an official object, deleting a host field, or manufacturing a pass through a callable invalidated wrapper is forbidden. A host round still needs the queue admission and a scenario authorization.
+- **P09 CPU candidate: repeated snapshot reads**. The parent rechecked `CubismFacadeImpl.java:745-764` and `HostSessionSnapshotSource.java:42-91`: the runtime snapshot is built before the token is read, activeModel reads the document again, and the token reads the project and document again. `HostSessionIdentityRegistry.java:18-45` scans the weak registry linearly on every cleanup and lookup. **Result: the duplicated work structure exists, and the real call frequency, CPU share, and RSS gain are unmeasured.** The next step uses a counting fixture to measure a repeated query of a stable version, the scan count, and the temporary allocation; any cache must keep a consistent snapshot and version, the permissions, the invalidation, and a bounded resident memory.
+- **Excluded or downgraded**: the old tool and agent selection event classes are absent from the current runtime, and the current live snapshot source returns EMPTY_SELECTION, so the old synchronous selection-lag conclusion does not carry over. The GPU already has a dirty and reallocation branch and never uploads everything unconditionally, and a JFR native sample is no call count or GPU time. Attribution follows graphics3d rather than the movie-track jp.live2d pipeline, and the existing negative-gain cache, projection, and internal Warp prototypes are not retried.
+- **Report status**: the memory agent 8283d169 report has 53 lines, 11662 bytes, and SHA256 100a391ca8aea28958beb97bac908793725e44e4589377019fb04b3dde028f6c, and the parent verdict is ACCEPTED for the static scope only. The original CPU and GPU report of agent a727d4a9 has 48 lines, 11223 bytes, and SHA256 a4a1ccd94d94bd896c7826ba42e6655d1b4aba20a195172d5c68cd2ead46c824 with a malformed terminal marker, so it is CORRECTION_REQUIRED and a new task and artifact were requested instead of overwriting the original report. The parent independently rechecked the key P09 call chain, so no gain conclusion depends on an unaccepted report.
+- **Protocol correction recovered**: the new CPU and GPU task `turboism-explore-cpugpu-20260908T0610-r1` reports 52 lines, 12353 bytes, and SHA256 89fe384726cf0fb280282d30a72f20257255d9f51d13edf4f75ba78a62f98bd3, with matching first and last markers and RESULT summary; the diff corrects identity and protocol only and stresses the unmeasured CPU share, and the original report stays. The parent verdict is ACCEPTED for the static candidate; it approves no implementation or host round and recognizes no unmeasured gain.
 
+### P08-a — Offline Reproduction Code Prepared, Not Executed
 
-## 原生内存优化候选登记（2026-09-08，用户新调查）
+- Paseo agent 8283d169 prepared two test-only characterizations under the frozen contract: bind A to no document and check whether the three owner slots still hold, and bind B and check that the owner is replaced while the old wrapper stays invalid and keeps A. Reflection observes Turboism private fields only, the fixture static state is restored in a finally block, and there is no GC, sleep, or memory-number inference and no production change.
+- The artifact `/tmp/turboism-p08-repro-20260908T0620/diagnostic.patch`, SHA256 fe439c13672c26cdfe2e5cbb9317657f236dabbc29e43a8c9f347dbda8d3c157, adds 76 lines to the existing EditorBackedCubismModelAccessTest. The report has 35 lines, 7128 bytes, and SHA256 83ebd800f2b264bc3cecd3a2799bff2c5b2cacfe2cabf489737a41e58cbbce25. The parent verified the identity, the summary, and the stable hash, read the complete patch, and independently passed `git apply --check`. ACCEPTED means the prepared artifact applies; the checkout was not applied and **compile and test are NOT_RUN**.
+- **Important attribution limit**: the original NativeResourceHostAgent goes through native reflection itself and never calls the Turboism SDK binding directly, so it is unproven that the original host round ever triggered these slots, and this candidate cannot directly explain the earlier uncleared weak reference. The next host attribution must record the real binding path and the holding chain together.
+- Both tests diagnose current behavior and never freeze a retained reference into a product contract. A regression after a future fix should check a correct lifecycle release and keep refusing a stale reference. No complex connection fixture and no production invalidation seam were added.
+- A recheck found shared queue job 65687483-9d9e-47a3-9a75-fdd1e45ccf8b still running, so build and test interference stays forbidden. Once idle, finish the integration first, then apply and run the minimal headless batch with `env -u DISPLAY -u WAYLAND_DISPLAY JAVA_TOOL_OPTIONS=-Djava.awt.headless=true ./gradlew --no-daemon --max-workers=1 :runtime:test --tests dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccessTest`, never treating a Gradle client `-D` switch alone as a headless test JVM. There is no new performance gain and no host PASS.
 
-目标是改善Cubism原生内存/CPU/GPU，不仅消除Turboism自身开销。P08/P09降为辅助排查。本批尚无新增运行时收益；用户提供的是方法级字节码机制，下面明确区分待复核、离线验证和实机收益。父已重新读取精确5302安装JAR计算SHA256：988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21。当前实际源目标为性能任务worktree（本机绝对路径保留在私有报告的身份记录中），不将旧路径或5.3.03材料当成本机身份。
+## Native Memory Optimization Candidate Register (2026-09-08, a New User Investigation)
 
-### N01 — 已释放使用者的诊断强引用（优先1）
-- 机制（用户字节码证据，待独立复核）：CImageResource.releaseResource先把retain记录追加到releasedRetainUserData_forDebug再从retainCounter删除；CImageResource$c持有真实ICImageResourceUser。CModelImage.reinit共享_filteredImage，已dispose使用者可经活资源反向保留模型关联。
-- 拟议实现：只让已释放诊断历史不再强持有真实user，保留有界值摘要；有效retainCounter、释放/销毁条件和当前图像均不得变化。不预定具体变换策略，先核验全部诊断消费者、同步和失败路径。不能修改已加载类字段结构，不能修改官方工件。
-- 验证：精确class/method/exception-table/所有读写点；离线共享资源A/B、释放A而B继续使用、重复/错误释放及诊断调用兼容；检查优化引入的外部状态不反向强持有资源/user。之后单项开关对照及GC-root/存活量/私有内存证据。
-- 有效程度：候选机制尚待本轮独立复核；未实施、未运行、无节省字节/比例；不能称为每次操作泄漏整模型。失败/停止条件：诊断记录参与正常所有权或无法保持所有消费者兼容。重试需新的完整契约/调用证据。
+The goal is to improve Cubism native memory, CPU, and GPU, not only to remove Turboism overhead. P08 and P09 drop to auxiliary investigation. This batch has no new runtime gain; the user supplied method-level bytecode mechanisms, and the entries below separate a pending recheck, an offline verification, and a host gain. The parent recomputed the SHA256 of the exact installed 5302 JAR: 988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21. The real source target is the performance task worktree, whose machine absolute path stays in the private report identity record; no old path or 5.3.03 material is treated as this machine's identity.
 
-### N02 — UtCache获取阶段异常漏还（优先2）
-- 机制（用户证据，待复核）：空闲条目SoftReference但usingMap强键持有借出图像；HQ合成四次获取在try保护区之前。第2/3/4次获取失败可能遗留此前成功取得资源，延迟检查只警告。
-- 拟议实现：以调用为单位记录成功获取资源，异常路径仅归还本次资源，原异常仍传播；正常finally不可双归还，嵌套/并发调用隔离。禁止usingMap.clear；不以全局OOME注入替代有界离线故障测试。
-- 验证：核验描述符和异常表、获取/归还契约、同对象重复获取可能性；离线在第1/2/3/4次获取分别注入失败，检查净借出量、无双归还、正常结果、嵌套/并发和清理再抛异常。实机故障场景另需明确授权及队列准入。
-- 有效程度：条件性安全/内存候选，未实施/未复现；正常路径的节省可能为零，不能据此解释日常高RSS。失败/停止条件：无法证明借用所有权或原生已有上层补偿；据反证降级而非强做Hook。
+### N01 — Diagnostic Strong References of a Released User (priority 1)
 
-### N03 — HQ整页临时图工作集与并发字节预算（后续）
-- 机制：8192² ARGB目标256MiB + 同尺寸彩色临时256MiB + 灰度临时64MiB = 576MiB仅理论像素工作集，不是RSS或实际同时存活值，未包含源图/旧atlas/GPU。
-- 拟议实现：先按真实图像格式/尺寸统计活动任务字节，限制重任务并发和可回收空闲大图缓存；不清正在借出的对象。再评估局部区域合成，覆盖旋转/双三次边界/透明边缘/源图原地修改。
-- 验证：真实租借时序/高水位，串行与预算调度的峰值、总时长、CPU/GPU；像素差分与保存重开。ROI必须完整语义证明，不能裁矩形即认定等价。
-- 有效程度：理论工作集和候选，未实施、未测；预算可能降低峰值却增加耗时；ROI风险高。已有Atlas其他任务由其owner管理，本任务不抢写或启动其场景。
+- Mechanism, from the user bytecode evidence and pending an independent recheck: `CImageResource.releaseResource` first appends the retain record to `releasedRetainUserData_forDebug` and then removes it from `retainCounter`; `CImageResource$c` holds the real `ICImageResourceUser`. `CModelImage.reinit` shares `_filteredImage`, so a disposed user can keep the model association alive through a live resource in reverse.
+- Proposed implementation: make the released diagnostic history stop strongly holding the real user while keeping a bounded value summary; the valid `retainCounter`, the release and destroy conditions, and the current image must not change. No concrete transform strategy is fixed yet, and every diagnostic consumer, synchronisation, and failure path is verified first. The field structure of a loaded class and any official artifact must not change.
+- Verification: the exact class, method, exception table, and every read and write point; an offline shared-resource A and B case, releasing A while B keeps using it, a repeated or wrong release, and diagnostic call compatibility; and a check that the external state introduced by the optimization never strongly holds the resource or user in reverse. Then a single-switch comparison plus GC root, live-volume, and private-memory evidence.
+- Effectiveness: the candidate mechanism still needs this round's independent recheck; nothing is implemented or run, and no byte or percentage saving exists. It is never described as a whole-model leak per operation. Failure and stop conditions: the diagnostic record takes part in normal ownership, or the compatibility of every consumer cannot be kept. A retry needs new complete contract or call evidence.
 
-### N04 — PSD/Undo/历史对象保留归因（调查，不默认清理）
-- 检查psdDoc/psdBytes/layer tree/icon和合法Undo/重导依赖；dispose方法不置空不足以证明泄漏。当前EditorHistoryMetadataRegistry弱键，不套用旧createUndo_forAllEdit结论。
-- 拟议验证：对象持有链与可重建性、保存/重开/PSD重导/Undo/Redo。禁止删除历史、盲目置空PSD或仅凭isReplaced释放。
-- 有效程度：尚未确定违规保留者，无实现收益；若属于合法业务保留则不修复。
+### N02 — A Missed Return When a UtCache Acquisition Throws (priority 2)
 
-### N05 — PNG归档复用/编码临时分配（已有方向，不重复计数）
-- 对应本账本既有PNG reuse实验：受控重用可减少编码/分配，但此前自然工作负载未证明足够命中；不从零重复。archive已有解码缓存，不能宣称每次get都解码。
-- 后续仅在新的实际归档工作负载和完整像素失效契约成立时重试；imageFileBuf非空不充分，HQ源图可能原地修改。优化toByteArray副本需确认编码API所有权。
-- 有效程度：沿用既有受控有效/自然收益不足证据，默认关闭；不是新增省内存结果。
+- Mechanism, from the user evidence and pending a recheck: an idle entry is a SoftReference while `usingMap` holds the lent image under a strong key; the four HQ composition acquisitions sit before the try block. A failure of the second, third, or fourth acquisition may leave the earlier successful resources behind, and the delayed check only warns.
+- Proposed implementation: record the successfully acquired resources per call and return only this call's resources on the exception path while the original exception still propagates; the normal finally must not return twice, and a nested or concurrent call stays isolated. `usingMap.clear` is forbidden, and a global OOME injection never replaces a bounded offline fault test.
+- Verification: check the descriptors and the exception table, the acquire and return contract, and whether the same object can be acquired twice; inject a failure before each of the first, second, third, and fourth acquisitions offline and check the net lent volume, the absence of a double return, the normal result, nesting and concurrency, and a cleanup that throws again. A host fault scenario needs its own authorization and queue admission.
+- Effectiveness: a conditional safety and memory candidate, not implemented or reproduced; the normal-path saving may be zero, so it never explains a daily high RSS. Failure and stop conditions: the borrow ownership cannot be proven, or the native layer already compensates above it; a counterexample downgrades it rather than forcing a hook.
 
-### N06 — 内存归因探针（测量基础，不是省内存优化）
-- 拟观察JVM used/committed/GC后存活、诊断历史数与保留链、池借出/归还/空闲字节、图像工作集、进程RSS/PSS/私有内存、direct/GPU资源。指标重叠不能相加；JVM Non-Heap不是全部堆外，NMT不覆盖全部第三方分配。
-- 探针约束：有界、值类型摘要/弱身份、不自行强持有模型，量化采样开销；已有进程CPU/DRM/RSS observer尽量复用，先完成dependency inventory准入，不开发第二套Runner。离屏渲染深度/区域仅待验证线索。
-- 对照：原生Cubism、当前Turboism全优化关闭、单项开启；同fixture/操作/测量条件重复，诊断instrumentation单独校准。Windows与Proton分开，不以单次RSS或累计分配宣称占用下降。
-- 有效程度：尚未新增该探针；有助归因但自身可能增加开销，不能列为优化收益。本批不包含新增宿主/故障注入授权。
+### N03 — The HQ Full-Page Temporary Image Working Set and a Concurrent Byte Budget (later)
 
-### N01/N02 本轮独立核验与方案收窄（2026-09-08）
+- Mechanism: an 8192² ARGB target of 256MiB plus a same-size color temporary of 256MiB plus a grayscale temporary of 64MiB is 576MiB of theoretical pixel working set only. It is neither the RSS nor the real simultaneous live value, and it excludes the source image, the old atlas, and the GPU.
+- Proposed implementation: first count the active task bytes by real image format and size, limit the concurrency of a heavy task and the reclaimable idle large-image cache, and never clear an object currently lent out. Then evaluate local region composition, covering rotation, the bicubic boundary, the transparent edge, and an in-place source-image change.
+- Verification: the real borrow timing and high-water mark, the peak, total duration, and CPU and GPU of a serial run against a budget schedule, and a pixel difference plus a save and reopen. A region of interest needs a complete semantic proof, because cropping a rectangle is no equivalence.
+- Effectiveness: a theoretical working set and a candidate, not implemented or measured; a budget may lower the peak while raising the duration, and the ROI risk is high. The existing Atlas task is owned elsewhere, so this task neither writes into it nor starts its scenario.
 
-状态分层：下述是静态机制确认，不是已实施修复，更不是实测收益。内存占用、CPU占用、GPU占用均为 NOT_MEASURED；不填估算百分比冒充测量值。
+### N04 — PSD, Undo, and History Object Retention Attribution (investigation, no default cleanup)
 
-- **N01 核心机制 VERIFIED_STATIC**：父复读 `build/native-image-resource-javap.txt` 的 releaseResource（1081–1180行）、finalize（640–689行）及 `getDebutInfoAboutRetainAndRelease`（1838–1937行），并复核当前安装JAR及class ZIP项SHA256。成功释放分支确实在BCI126/131读取/追加released历史，随后才删除active记录；不是DEBUG-only。`CImageResource$c.a`是final强user字段，构造器拒绝null，`hashCode()`直接调用user.hashCode()。因此“直接将user置null”不是可接受方案。
-- **N01 诊断兼容性边界**：原生finalize与getDebutInfoAboutRetainAndRelease都读取released历史；保留active/released区分、标签及其顺序需要单独验收。原生记录还有equals/hashCode/toString，不能把released列表元素直接换成String。仅限制历史条数或去掉stack不能彻底切断其余记录对user的强引用，属于有界缓解而非完整修复。
-- **N01 候选实现比较**：①跳过历史追加最窄，但丢失原生诊断，暂不采用；②只对已释放记录使用脱离宿主的摘要，优先研究，但必须保留原生诊断入口并确定容量/截断标识；③弱引用历史可允许回收，但仍须处理已回收后的诊断语义；④外部状态不是天然安全，键必须不强持有resource，值不得间接引用resource/user/model。②③④都尚未实现，不预设需要改变已加载类字段结构。有效retainCounter、相等比较、销毁条件和顺序不得改变。
-- **N01 有界验证设计（NOT_RUN）**：资源R由A/B共享，释放A后B仍可用且active只含B；重复/错误release维持原生行为，最终释放B只产生原生应有的销毁；开/关调试条件下比较诊断标签、次序和缺省stack；单独验证探针/摘要无反向强引用。retain/release未见方法级同步，不能声称已有线程安全，需刻画并发或限定经过证实的线程边界。动态反射消费者和实际GC-root仍未验证。
-- **N02 核心窗口 VERIFIED_STATIC（父独立复核）**：新dump `com.live2d.util.f.g.javap.txt` 1251–1300、1515–1547行，目标描述符 `(Ljava/awt/image/BufferedImage;Ljava/awt/Graphics2D;Ljava/awt/image/BufferedImage;II)V`；四次获取22/39/56/71，存入locals7/8/9/10，catch-all覆盖[76,537)，不覆盖获取。清理四个资源后重新抛异常；不能说完全没有finally。
-- **N02 新边界：获取函数内部也非事务式**。父完整读取 `jp.noids.util.UtCache.javap.txt`：新建路径先在BCI196 usingMap.put，随后BCI202 cache列表add，并可能创建延迟检查任务，到228才return。因此若插入后/返回前失败，调用方尚未取得引用；仅补调用方finally不能保证回收该次未返回对象。这是另一个条件性窗口，不宣称已复现或日常主因，也不将全局map差分清理作为修复。
-- **N02 方案分层**：N02-a先保证先前“已成功返回”的局部资源在后续获取失败时归还；N02-b另行研究池内部取得/登记/返回的事务边界及锁内精确回滚，不假装N02-a涵盖它。原release先移除usingMap键再标空闲；正常finally和新增异常处理不得双归还。归还函数自身抛错时需继续尝试其余本次资源并保留原异常，具体策略需独立设计，尤其不得为构造suppressed异常在OOME路径无界分配。
-- **N02 验证矩阵（NOT_RUN）**：第1/2/3/4次获取前注入失败，先前成功数分别0/1/2/3且最终净借出回到基线；全部成功/绘制失败、归还失败、嵌套/并发分别验证，无双归还、不触碰其他调用；另设池内部“登记后返回前失败”作为N02-b，未实现时必须明确失败/不覆盖。使用离线可控故障，不进行全局内存耗尽或未授权宿主异常注入。
-- **可复核身份**：本轮父使用Python `ZipFile.read('<class>.class')` + SHA256（仅解析，不加载类）；官方JAR仍为 `988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`。CImageResource=`0b7e56b4b3a1baa314daa6266b2f36f29fb7cab679f51afbe19490ce77a69c14`；$c=`048f08db85203901d8eb4958a18cfa63e3268c601e2f383c3db6b1d897e1628b`；HQ g=`ff1d1ce9b4291212d255c6e84c8b57242234c1fa174af09e440c1162a4a1f8d6`；UtCache=`64193febe864958bf0ae6b701a75a38cfd09588f1e549d910eb968159e6c2db1`。
-- **证据位置**：N01原报告 `/tmp/turboism-native-retain-20260908T0700/report.md`（43行8550B，SHA256 `d73f12447af344f052510a6b735bbbcbf9c8c984f5d69feacb846d9e74e62d86`）判定CORRECTION_REQUIRED：终态标记未带任务ID、摘要方案必需改字段结构表述过强，已要求新ID不可变修订，核心静态事实不因此升级为生产PASS。N02父复核dump位于 `/tmp/turboism-native-pool-20260908T0700/`，HQ dump SHA256 `21012485429e5dc620abb422a4c31d455f7d1f6e9fd5339312fa298f96faf4d8`，UtCache dump SHA256 `bf8c6bf6ed4b4a764da2b780c2d547819d23b788267c765486fb4b6eff066165`；子代理最终报告尚未回收，不冒充验收完成。
-- **执行限制/失败记录**：对子代理a727d4a9的收口消息发送返回SEND_FAILED（active run cancellation未获确认），其状态仍running；未强行替换或停止进程，180秒等待超时不是分析失败结论。主工作区不写实现、未启动宿主/构建，未改变已运行worker。当前阶段只修改实验账本，main整合门禁与提交仍未完成。
-- **N01 修订验收**：新报告 `/tmp/turboism-native-retain-20260908T0720-r1/report.md`（41行7272B，SHA256 `56b9451c8877b44b9d32edfab7abd36228accab7e23e1a66868960a2482a2141`）。父完整读取，核对Paseo身份、首尾同任务ID、稳定hash/字节数及RESULT一致；此前过强方案表述已修正。ACCEPTED仅限有界静态机制及风险报告；生产修复/诊断兼容性/三指标效果仍BLOCKED或NOT_MEASURED。
-- **N02 代理异常后续**：其后wait返回 `stopReason=error`，inspect确认error且无报告；不把子代理任务记为完成。创建进度项#28，使用同一代理/模型派发新ID `turboism-native-pool-20260908T0730-r1`，只从已有dump及账本回收<=80行报告，禁止扩展检索/构建/实机操作。原始0700证据保持不变。
-- **N02 回收与父裁决**：已完整读取r1报告 `/tmp/turboism-native-pool-20260908T0730-r1/report.md`（35行4578B，SHA256 `dc4f3d3677d06bef56305a901e06209134c1ce0e539792eb8dcb914c18caf0a5`），前后Paseo身份/首尾task_id/RESULT/hash一致。ACCEPTED仅限父已独立复核的获取窗口、强键及顺序归还事实；其他生产问题仍BLOCKED/UNKNOWN。报告N02-b标题泛指所有权/清理，本账本继续严格以N02-a=调用方已返回资源、N02-b=池内部登记事务窗口区分；“第1次失败无lease”只适用于调用方此前成功资源为0，不排除池内部已登记未返回资源。
-- **N03 算术扩展（非新增实测）**：仅在source与target各8192²、彩色各4B/px、灰度各1B/px且像素存储独立时，四张scratch理论640MiB；加existing target为896MiB，再加existing source为1152MiB。后两个小计已分别包含目标/源像素，不能重复加；未包含对象/raster开销、旧atlas、其他池图、原生/显存，也不是并发峰值证据。较小source、池复用/超尺寸、别名都会改变实际账单。禁止以此推算“能省1GB”。
-- **回收过程限制**：N02-r1报告称无scan，但父wait摘要显示做过/tmp文件名find/grep定位；故不接受其“只读指定文件、无scan”的绝对执行声明。未观察到新宿主/构建/JAR操作；已有dump事实由父复核，不依赖该自述。保留原报告与这一偏差，不覆盖痕迹或再开广泛探索。
-- **共享门禁状态更新**：2026-09-08本轮末通过main本机 `python3 scripts/preview/host_validation.py status --json` 读取到workerOnline=true、host.state=idle、job_id=null、activeJobs=[]。原65687483已终态cancelled；本任务未调用cancel或清理。解除旧quiet-host等待，但这不是新增宿主场景授权；整合门禁尚未重跑。文档 `git diff --check` PASS，不等于实现或实机验收。
+- Check psdDoc, psdBytes, the layer tree, the icon, and the dependency of a legal undo and a re-import; a dispose method that does not null a field is no leak proof. The current EditorHistoryMetadataRegistry uses a weak key, so the old createUndo_forAllEdit conclusion does not apply.
+- Proposed verification: the object holding chain and its reconstructability, plus save, reopen, PSD re-import, undo, and redo. Deleting history, blindly nulling a PSD, or releasing on `isReplaced` alone is forbidden.
+- Effectiveness: no violating retainer is identified yet and no implementation gain exists; a legal business retention is not fixed.
 
-### N02-a 离线控制流原型（2026-09-08续推）
+### N05 — PNG Archive Reuse and the Encoding Temporary Allocation (existing direction, not counted again)
 
-- **实现/边界**：一次性原型及其 README 已删除；复现需从提交 `24c6dc21a` 检出该实验源码和冻结范围。这是JDK-only假池实验，不接触Cubism类、图像或原生安装。不计为新生产优化，不接入Gradle默认构建。控制组保留“4次获取在finally之前”的拓扑；候选以4个局部变量记录成功返回资源，异常路径逐一尝试归还。已存在primary时保持同一异常对象，否则尝试全部清理后抛首个cleanup异常。不创建lease集合或suppressed数组；生产中的次级错误诊断仍待设计。
-- **历史验证（先从上述提交恢复源码）**：共享队列确认idle且无activeJobs后，使用JDK17.0.20，`javac -d <task-classes> NativeImageLeaseCleanupPrototype.java`，`java -ea -Xmx64m -cp <task-classes> NativeImageLeaseCleanupPrototype`。源SHA256 `1a18c6222cf943f0a630a68b641986b67f1b3f098f685265f90d76622655cc64`；输出SHA256 `2aaff0c25ecfc2163e45038eafc07fd98c9ad3afa73d45a20127ea6495fc82ea`。本机原始source/result.log/toolchain.log在 `/tmp/turboism-native-lease-prototype-20260908/`；当时仓库源码与已执行源码逐字节相同。
-- **结果**：PASS，500次断言检查（非500个独立用例）。第1/2/3/4次获取前失败，控制组遗留此前成功资源0/1/2/3个，候选为0；覆盖RuntimeException与人工Error、绘制体失败、每个清理位置失败、正常/外部借用/嵌套调用。确认不跳过后续清理、不误还其他调用、原异常identity保留。
-- **明确未解决/失败方向**：登记后返回前失败，候选仍遗留1个，反例测试专门断言它不会被调用方修复；归还在移除登记之前失败，候选同样仍遗留1个，不能把“attempted”当“returned”。不做不知提交状态的盲重试。原控制组首个清理异常会替换body异常并跳过后3项清理，这也在原型中复现。并发、VM致命错误、原生字节码变换/验证器、诊断兼容、图像/Undo/保存重开均NOT_TESTED。后续需分别实现和验证N02-b事务边界，不用全局clear兜底。
-- **有效程度**：只确认候选控制流在假池模型下处理已返回资源的能力；RAM/CPU/GPU均NOT_MEASURED，未证明实际高占用主因，正常路径的省内存可能为0。只有原生变换测试、获授权队列实机对照和对象保留/进程指标完成后，才讨论产品收益。
+- This corresponds to the existing PNG reuse experiment in this ledger: controlled reuse can reduce encoding and allocation, but the earlier natural workload did not prove enough hits, so it is not repeated from scratch. The archive already has a decode cache, so no claim that every get decodes.
+- A later retry needs a new real archive workload and a complete pixel invalidation contract; a non-empty imageFileBuf is insufficient because an HQ source image may change in place. Optimizing the toByteArray copy needs the encoding API ownership confirmed.
+- Effectiveness: it reuses the existing controlled-effective and natural-insufficient evidence and stays off by default; it is no new memory-saving result.
 
-### I12 整合门禁续跑与暂停（2026-09-08）
+### N06 — A Memory Attribution Probe (a measurement base, not a memory optimization)
 
-- 本轮先重新读取全局协作规则/架构/新版调度README，确认主Agent可直接实现，不再把旧委派-only约束误当当前规则；Paseo MCP无工具，CLI实际daemon/provider检查可用，本轮未新派代理。CodeGraph仍无本worktree索引，未在他人测量期间进行全仓索引，定点文件检查不冒充图分析。
-- main在951b6b97之后到83a49168的增量已只读审阅：4个文件，仅服务示例环境路径、说明和独立stub回归测试；未切换main worker、未安装服务。性能worktree仍是HEAD98b28395b+MERGE_HEAD951b6b97，尚未提交这次整合。
-- 门禁命令：headless环境、`./gradlew --no-daemon --max-workers=1 devCheck checkCompletedCommit checkResourceValidationBundle`。首次本轮续跑约61秒，`checkRepositoryHygiene`因本账本330行机器绝对home路径失败；已改为可移植的“性能任务worktree”引用，原始精确身份仍保留私有报告，没有放宽hygiene规则或删除失败证据。结果位于 `build/main-integration/continuation-20260908/{gradle.log,result.json}`。
-- 修正后重试在约10秒时观察到新任务c44666b4进入queued，任务级构建守卫停止了本次Gradle进程组（exit143，guard75）；当时host仍idle。它只监测队列并停止自己创建的构建，不启动/取消/清理任何Cubism任务，不是第二套宿主Runner。原始失败和重试日志使用不同目录，重试结果在 `build/main-integration/continuation-20260908-retry1/`，未覆写首轮失败。随后只读检查本worktree无Gradle进程残留。
-- **当前结论**：整合门禁仍未完成；不能commit整合或宣称接入验收PASS。原型PASS、文档卫生修正和main集成是三种不同状态。需取得足够空闲窗口继续必要门禁，而不是在持续到来的实机测量间反复启动完整构建。
-- **局部收口检查**：直接复用现有 `scan_repository_content` 对本账本及新增原型Java/README三个文件检查PASS；未修改扫描规则。仓库原型与已编译执行源逐字节一致，ReadSeek Java诊断0错误，`git diff --check` PASS。这只确认局部修正，不替代尚未完成的整合门禁。
+- Planned observation: JVM used, committed, and post-GC live values, the diagnostic history count and holding chain, the pool lent, returned, and idle bytes, the image working set, the process RSS, PSS, and private memory, and direct and GPU resources. Overlapping metrics are never summed; JVM non-heap is not all off-heap and NMT does not cover every third-party allocation.
+- Probe constraints: bounded, value-type summaries and weak identity, no self-held strong model reference, and a quantified sampling cost; reuse the existing process CPU, DRM, and RSS observer where possible, complete the dependency-inventory admission first, and build no second Runner. An offscreen render depth or region is a clue only.
+- Comparison: native Cubism, the current Turboism with every optimization off, and one optimization on; repeat with the same fixture, operation, and measurement conditions, and calibrate the diagnostic instrumentation separately. Windows and Proton stay separate, and a single RSS or cumulative allocation never claims a lower occupancy.
+- Effectiveness: this probe does not exist yet; it helps attribution while possibly adding cost, so it is never listed as an optimization gain. This batch includes no new host or fault-injection authorization.
 
-### N06/I13 实机授权后的实际准入检查（2026-09-08）
+### N01 and N02 Independent Recheck and Narrowed Plans (2026-09-08)
 
-- **授权**：用户明确“允许实机，继续推进”。可开展本任务隔离验证，但不授权绕过管理器inventory、清理外部会话、全局OOME或覆盖官方工件；本轮尚未submit/启动任何宿主。
-- **最新门禁**：续跑retry2已通过仓库卫生并到达 `:devCheck` 完成；约75.6秒管理器报告external-busy（外部Cubism PID1024491），构建守卫只停止本次Gradle，exit143/guard75。`checkCompletedCommit`、`checkResourceValidationBundle`仍未完成，不宣称整合PASS；日志保留 `build/main-integration/continuation-20260908-retry2/`。守卫此前错误地把历史timed_out当active，本轮按管理器实际TERMINAL集合纠正；host非idle仍始终阻止构建，不以终态过滤放行external/quarantine。
-- **工具整合身份**：性能worktree的host_validation.py、host_validation_queue.py、host_validation_containment.py、通用Runner和transport五文件与当前main逐字节一致；使用的是已接入的新队列工具，不是旧SSH/lease路径。main worker和主工作区工具均未修改。
-- **实际prepare结果**：完整读取resource能力README/wrapper，按其fixture hash执行dry-run。首次缺失本机env配置失败，使用已有私有env后dry-run成功。默认目录无native-resource项，使用CLI支持的task-scoped `--manifest`明确指向现有resource wrapper，声明host-slot/performance-host；未改变共享catalog。随后真实执行 `host_validation.py --manifest <task-manifest> prepare native-resource:5302 --run-label nm-authorized-admission`，明确失败exit2：`custom hook requires reviewed dependency inventory`。未返回prepared ID，未submit。manifest/prepare.log/完整评审在 `/tmp/turboism-native-memory-admission-20260908/`；此为准入拒绝证据，不是实机运行失败或产品收益。
-- **inventory 已逐文件读完**：start-task-memory-observer.sh=`00024a1cc6a72c39df10dff446e840289930443d642a595b5018f305a8759b29`；measure-task-memory.py=`da54d8b35d99c2b1d6eeea00759ef4f7d84f6ed80042d49e0a4aec659738a3ac`；host_resource_counters.py=`d0eaf3bcdbf7a01e8cf95716430566f70bf233d734c96f63b19699c9ede22c67`；host-task-processes.py=`e49b52003a763861f3bb3eaf3e19a3498299b8ee5ee63a220072f2b61e4bd603`。运行依赖bash、PATH解析python3及stdlib，后两项动态导入模块的staged路径/fallback需明确固定；不是仅把顶层shell加白名单。
-- **发现的接入风险**：采样器只调用read_process/tagged/verify_task/properties，但导入的host-task-processes.py同时包含旧PID/process-tree清理CLI与signal函数。正常采样不调用它们，不能误报本轮已杀进程；同样不能未经评审把完整旧清理模块带进新hook闭包。当前观测身份是PID/startTicks/UID+prefix/environment筛选，不是队列绑定cgroup身份；不得当作清理授权。shell自行fork观察器、写pid文件，退出/超时/输出路径与snapshot篡改还需覆盖。
-- **拟议最小接入方案（未实施）**：抽出不含任何signals/cleanup入口的只读身份依赖，固定解释器与完整helper闭包，绑定管理器认可的任务/进程身份，保留歧义/重用/不可读的fail-closed；在既有管理器中申请窄范围memory-observer inventory准入，验证后台生命周期和失败路径。不开发另一套Runner，不把脚本伪装成FPS hook，也不移除采样器冒称三指标协议不变。此涉及此前暂停的管理器相关工作范围，需要明确由本任务补齐还是由管理器维护者接入。
-- **有效程度/后续**：新RAM/CPU/GPU实测均NONE，N01/N02尚未接入生产。180秒查找+900秒采样、约1Hz及DRM客户端数据不是硬字节上限；readDurationNs不含全部身份发现开销，不能当作探针总成本。只有inventory通过、构建产物门禁完成且外部会话正常结束后，才可提交获授权的基线；授权本身并未解除这些技术阻塞。
+Status layering: the following is a static mechanism confirmation, not an implemented fix and certainly not a measured gain. Memory occupancy, CPU occupancy, and GPU occupancy are all NOT_MEASURED; no estimated percentage is filled in to pose as a measurement.
 
-### N06/I14 只读身份提取实施与局部验证（2026-09-08）
+- **N01 core mechanism VERIFIED_STATIC**: the parent reread `releaseResource` (lines 1081–1180), `finalize` (lines 640–689), and `getDebutInfoAboutRetainAndRelease` (lines 1838–1937) in `build/native-image-resource-javap.txt` and rechecked the current installed JAR and the class ZIP entry SHA256. The successful release branch really reads and appends the released history at BCI 126 and 131 before deleting the active record, and it is not DEBUG-only. `CImageResource$c.a` is a final strong user field, the constructor refuses null, and `hashCode()` calls `user.hashCode()` directly, so setting the user to null is no acceptable approach.
+- **N01 diagnostic compatibility boundary**: the native finalize and `getDebutInfoAboutRetainAndRelease` both read the released history, so keeping the active and released distinction, the labels, and their order needs its own acceptance. The native record also has equals, hashCode, and toString, so a released list element cannot simply become a String. Limiting the history count or dropping the stack cannot fully cut the strong reference of the remaining records to the user, so it is a bounded mitigation rather than a complete fix.
+- **N01 candidate comparison**: option 1, skipping the history append, is the narrowest but loses the native diagnostics and is not adopted yet; option 2, using a host-detached summary for a released record only, is studied first but must keep the native diagnostic entry and define a capacity and truncation marker; option 3, a weak-reference history, allows collection but must handle the diagnostic semantics after collection; option 4, external state, is not safe by nature because the key must not strongly hold the resource and the value must not indirectly reference the resource, user, or model. Options 2, 3, and 4 are unimplemented, and no change to the field structure of a loaded class is presupposed. The valid `retainCounter`, the equality comparison, the destroy conditions, and the order must not change.
+- **N01 bounded verification design, NOT_RUN**: resource R is shared by A and B; after A is released B still works and active holds only B; a repeated or wrong release keeps the native behavior; the final release of B produces only the native destroy; the diagnostic labels, order, and missing stack are compared with the debug condition off and on; and the probe or summary is verified to hold no reverse strong reference. Method-level synchronisation is not visible in retain and release, so no thread safety is claimed and the concurrency is characterised or limited to a proven thread boundary. The dynamic reflection consumer and the real GC root stay unverified.
+- **N02 core window VERIFIED_STATIC by the parent**: the new dump `com.live2d.util.f.g.javap.txt` lines 1251–1300 and 1515–1547 has the target descriptor `(Ljava/awt/image/BufferedImage;Ljava/awt/Graphics2D;Ljava/awt/image/BufferedImage;II)V`; the four acquisitions sit at 22, 39, 56, and 71 and store into locals 7, 8, 9, and 10, and the catch-all covers [76,537) without covering the acquisitions. It cleans the four resources and rethrows, so a complete absence of a finally cannot be claimed.
+- **N02 new boundary: the acquisition function itself is not transactional**. The parent read `jp.noids.util.UtCache.javap.txt` completely: the new path first puts into `usingMap` at BCI 196, then adds to the cache list at BCI 202, may create a delayed check task, and returns only at 228. A failure after the insert and before the return therefore happens before the caller holds a reference, and a caller-side finally alone cannot reclaim that unreturned object. This is another conditional window, never claimed reproduced or a daily main cause, and a global map difference cleanup is no fix.
+- **N02 plan layers**: N02-a first guarantees that a previously returned local resource is returned when a later acquisition fails; N02-b separately studies the transactional boundary of the pool acquire, register, and return with an exact in-lock rollback, and N02-a is never pretended to cover it. The original release removes the usingMap key before marking idle; the normal finally and the new exception handler must not return twice. When the return function itself throws, the remaining resources of this call must still be attempted and the original exception kept, and the strategy needs its own design, especially because a suppressed exception must not allocate unboundedly on an OOME path.
+- **N02 verification matrix, NOT_RUN**: inject a failure before the first, second, third, and fourth acquisition, so the earlier successful count is 0, 1, 2, and 3 and the final net lent volume returns to the baseline; verify all-success and draw-failure, return-failure, and nesting and concurrency separately, with no double return and no touching of another call; and add the pool-internal "fail after register before return" case as N02-b, which must be stated as uncovered while unimplemented. Use an offline controllable fault, never a global memory exhaustion or an unauthorized host exception injection.
+- **Reviewable identity**: this round the parent used Python `ZipFile.read('<class>.class')` plus SHA256, which parses without loading the class; the official JAR is still `988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`. CImageResource is `0b7e56b4b3a1baa314daa6266b2f36f29fb7cab679f51afbe19490ce77a69c14`; `$c` is `048f08db85203901d8eb4958a18cfa63e3268c601e2f383c3db6b1d897e1628b`; the HQ `g` is `ff1d1ce9b4291212d255c6e84c8b57242234c1fa174af09e440c1162a4a1f8d6`; UtCache is `64193febe864958bf0ae6b701a75a38cfd09588f1e549d910eb968159e6c2db1`.
+- **Evidence location**: the original N01 report `/tmp/turboism-native-retain-20260908T0700/report.md`, 43 lines and 8550B with SHA256 `d73f12447af344f052510a6b735bbbcbf9c8c984f5d69feacb846d9e74e62d86`, is judged CORRECTION_REQUIRED because the terminal marker lacks the task ID and the summary plan too strongly requires a field-structure change; a new immutable revision under a new ID was requested, and the core static facts never rise to a production PASS. The N02 parent dumps are in `/tmp/turboism-native-pool-20260908T0700/`, the HQ dump with SHA256 `21012485429e5dc620abb422a4c31d455f7d1f6e9fd5339312fa298f96faf4d8` and the UtCache dump with SHA256 `bf8c6bf6ed4b4a764da2b780c2d547819d23b788267c765486fb4b6eff066165`; the final sub-agent report is not yet recovered and is never passed off as a finished acceptance.
+- **Execution limit and failure record**: the closing message to sub-agent a727d4a9 returned SEND_FAILED because the active run cancellation was not confirmed, and its state stays running; no process was forcibly replaced or stopped, and the 180-second wait timeout is no analysis failure. The main workspace writes no implementation, launches no host or build, and changes no running worker. This stage changes the experiment ledger only, and the main integration gate and commit are still unfinished.
+- **N01 revised acceptance**: the new report `/tmp/turboism-native-retain-20260908T0720-r1/report.md`, 41 lines and 7272B with SHA256 `56b9451c8877b44b9d32edfab7abd36228accab7e23e1a66868960a2482a2141`. The parent read it completely and checked the Paseo identity, the same task ID at both ends, the stable hash and byte count, and the RESULT agreement; the earlier over-strong plan wording is corrected. ACCEPTED covers the bounded static mechanism and the risk report only; the production fix, the diagnostic compatibility, and the three-metric effect stay BLOCKED or NOT_MEASURED.
+- **N02 agent exception follow-up**: the later wait returned `stopReason=error`, and inspect confirmed the error with no report, so the sub-agent task is never recorded as complete. Progress item 28 was created, and a new ID `turboism-native-pool-20260908T0730-r1` was dispatched to the same agent and model to recover a report of at most 80 lines from the existing dump and ledger, with no extended search, build, or host operation. The original 0700 evidence stays unchanged.
+- **N02 recovery and parent verdict**: the r1 report `/tmp/turboism-native-pool-20260908T0730-r1/report.md`, 35 lines and 4578B with SHA256 `dc4f3d3677d06bef56305a901e06209134c1ce0e539792eb8dcb914c18caf0a5`, was read completely, and the Paseo identity at both ends, the first and last task_id, the RESULT, and the hash agree. ACCEPTED covers only the acquisition window, the strong key, and the ordered return that the parent independently rechecked; other production problems stay BLOCKED or UNKNOWN. The report N02-b title broadly names ownership and cleanup, so this ledger keeps the strict split of N02-a as the caller's already-returned resources and N02-b as the pool-internal registration transaction window; "the first failure has no lease" applies only when the caller had zero earlier successful resources and never excludes a registered but unreturned pool resource.
+- **N03 arithmetic extension, not a new measurement**: only when the source and the target are both 8192², the color planes are 4B per pixel and the grayscale 1B per pixel, and the pixel stores are independent, the four scratch surfaces are a theoretical 640MiB; adding the existing target gives 896MiB, and adding the existing source gives 1152MiB. Those two subtotals already include the target or source pixels and must not be added twice; the object and raster overhead, the old atlas, other pool images, and native or video memory are excluded, and this is no concurrent peak evidence. A smaller source, pool reuse, or an oversized or aliased image changes the real bill. No "1GB can be saved" inference is allowed.
+- **Recovery-process limit**: the N02-r1 report claims no scan, but the parent wait summary shows a `/tmp` file-name find and grep, so its absolute claim of reading only the named files with no scan is not accepted. No new host, build, or JAR operation was observed; the parent rechecked the existing dump facts, and the report plus this deviation stay, with no trace overwritten and no broad exploration reopened.
+- **Shared gate status update**: at the end of this 2026-09-08 round the main-local `python3 scripts/preview/host_validation.py status --json` reported workerOnline=true, host.state=idle, job_id=null, and activeJobs=[]. The old 65687483 is already terminal as cancelled, and this task called no cancel and no cleanup. The old quiet-host wait is released, which is no new host scenario authorization; the integration gate has not been re-run. The document `git diff --check` PASS is no implementation or host acceptance.
 
-- **范围裁决**：用户选择“本任务补齐准入”；限性能worktree提取纯只读依赖、既有队列窄准入和生命周期测试，未授权新Runner或main合并。Spec Kit 023的spec/plan/tasks已冻结，main上Atlas的feature指针保持不变。
-- **门禁中断保留**：此前retry3只续跑`checkCompletedCommit checkResourceValidationBundle`，约26.6秒发现外部Cubism PID1113591，守卫只停止本次Gradle（143/75），日志`build/main-integration/continuation-20260908-retry3/`。两门禁仍未完成。此后只读status曾恢复idle，不代表预留宿主空闲窗口。
-- **实现方案**：新增`scripts/test/host_memory_identity.py`，不含launch/signal/cleanup或环境匹配。只绑定观察器已继承的管理器scope，持有目录FD并检查device/inode、boot ID、观察器PID/start/UID；只枚举该scope的cgroup.procs，读前后检查Editor身份，多个Editor、移出scope、PID重用、不可读身份均拒绝。FD在失败和退出时释放，但绝不清理scope。
-- **采样接入**：measure-task-memory.py改为仅加载同目录纯helper，不再fallback到旧清理模块；在每次采样前后检查绑定身份，样本附scope元数据。RSS/PSS/private、CPU与GPU字段/不可用语义及原300秒协议保持。readDurationNs现在含本次sample的身份检查，仍不等于完整探针成本（不含启动hash/发现/JSON写出）。
-- **验证方式/结果**：先写`test_host_memory_identity.py`，未实现时真实失败FileNotFoundError；实现后12个隔离文件系统回归PASS（0.077秒），覆盖单Editor、外部同名不读取、歧义、scope移出/替换、PID/UID/读取中重用、观察器变化、缺失身份、退出及FD关闭。另8个sampler focused tests PASS（0.012秒），包括只读取测试自身进程的真实RSS/PSS、读中身份变化、scope失败写FAIL、不采样和异常关闭FD、单位/完整窗口/证据不覆盖。JDK30秒握手测试本小批尚未重跑；队列准入/完整门禁/实机仍待验证。
-- **有效程度**：已验证纯只读身份机制的局部行为，不是Cubism优化；新增内存/CPU/GPU收益仍NONE。未知hook拒绝尚未改动，未prepare成功、未submit/启动宿主。下一步完成固定解释器/三文件闭包准入与负例，随后完整门禁、授权基线，再推进N01/N02原生优化。
+### N02-a Offline Control-Flow Prototype (continued 2026-09-08)
 
-### N06/I15 窄准入与受管exec实施（2026-09-08，实机仍待门禁）
+- **Implementation and boundary**: the one-off prototype and its README are deleted; a reproduction needs the experimental source and the frozen scope from commit `24c6dc21a`. This is a JDK-only fake-pool experiment that touches no Cubism class, image, or native installation. It counts as no new production optimization and joins no default Gradle build. The control group keeps the topology where the four acquisitions sit before the finally; the candidate records the successfully returned resources in four locals and tries to return each on the exception path. When a primary exception already exists it keeps the same object, otherwise it tries every cleanup and throws the first cleanup exception. It creates no lease set and no suppressed array; the production secondary-error diagnostic still needs a design.
+- **Historical verification, after restoring the source from that commit**: once the shared queue is idle with no activeJobs, run with JDK 17.0.20 `javac -d <task-classes> NativeImageLeaseCleanupPrototype.java` and then `java -ea -Xmx64m -cp <task-classes> NativeImageLeaseCleanupPrototype`. Source SHA256 `1a18c6222cf943f0a630a68b641986b67f1b3f098f685265f90d76622655cc64`; output SHA256 `2aaff0c25ecfc2163e45038eafc07fd98c9ad3afa73d45a20127ea6495fc82ea`. The original source, `result.log`, and `toolchain.log` are in `/tmp/turboism-native-lease-prototype-20260908/`, and the repository source then matched the executed source byte for byte.
+- **Result**: PASS with 500 assertion checks, which are no 500 independent cases. A failure before the first, second, third, and fourth acquisition leaves 0, 1, 2, and 3 earlier successful resources in the control group and 0 in the candidate; the run covers a RuntimeException and a manual Error, a draw-body failure, a failure at each cleanup position, and a normal, external-borrow, and nested call. It confirms that the later cleanup is not skipped, that another call is not wrongly returned, and that the original exception identity is kept.
+- **Explicitly unresolved or failed directions**: a failure after registration and before return still leaves 1 resource in the candidate, and a counterexample test asserts that the caller cannot fix it; a return that fails before removing the registration also leaves 1 resource, so "attempted" is never "returned". No blind retry is made without knowing the commit state. The first cleanup exception of the control group replaces the body exception and skips the remaining three cleanups, which the prototype reproduces too. Concurrency, a fatal VM error, the native bytecode transform and verifier, the diagnostic compatibility, and the image, undo, and save-reopen paths are all NOT_TESTED. N02-b needs its own implementation and verification of the transaction boundary, with no global clear as a fallback.
+- **Effectiveness**: it confirms only that the candidate control flow handles an already-returned resource in a fake pool model; RAM, CPU, and GPU are all NOT_MEASURED, no main cause of a real high occupancy is proven, and the normal-path saving may be zero. A product gain is discussed only after a native transform test, an authorized queue host comparison, and the object retention and process metrics complete.
 
-- **实现**：现有PreparedStore仅为精确native-resource:5302的memory prelaunch添加闭包校验：限定background、标准上下文、单一解释器参数，恰好三个指定源/目标home-file；拒绝home-dir覆盖、重复/缺失/替代helper、额外hook/client、错误版本/任务/模式。解释器必须是prepare所用Python的解析后绝对路径，按既有hostDependencies保存hash并在command阶段重验；没有新增Runner/通用任意hook注册，也未修改main worker。FPS原准入保持。
-- **生命周期**：shell不再自行fork或写独立PID清理文件，而是exec固定Python，`-I -S -B`隔离PYTHONPATH/site并禁止写pyc；由管理器既有background模式追踪退出。hook检查12参数、任务环境和home/evidence一致性。resource wrapper改为固定三文件和解释器。README去掉旧直接执行建议，明确队列prepare/submit与授权/验收区别。
-- **验证**：两个新正例在实施前真实失败`custom hook requires reviewed dependency inventory`；实施后PreparedStore整组16 tests PASS（2.127秒），含既有真实Runner的无宿主prepare/replay隔离测试。三项新增synthetic hook测试PASS（0.257秒）：exec PID保持和exit7传播，环境注入的json/sitecustomize未加载，缺纯helper报错且无旧fallback，错误上下文在执行前拒绝。解释器变更负例只改临时伪解释器，未改系统Python。
-- **当前阻塞/重试条件**：准备最终门禁时status显示job78d2e1e4 running、40d44ba9 queued；没有启动新的重构建或实机争抢。待队列/外部宿主安静后完成受影响Python/JDK/Gradle批次及真实prepare。局部PASS不等于准入exact-host验收，尚无本轮prepared成功/submit/宿主结果。
-- **效果**：这是测量路径安全接入，不能称为Cubism RAM/CPU/GPU下降；三指标新增实测仍NONE。N01诊断强引用与N02异常漏还尚未生产启用，继续保持原记录中的静态/原型证据等级。
+### I12 — The Integration Gate Continued and Paused (2026-09-08)
 
-### I16 最终批次的整合回归与修复（2026-09-08）
+- This round first reread the global collaboration rules, the architecture, and the new scheduler README, and confirmed that the main agent may implement directly instead of treating the old delegate-only constraint as the current rule; Paseo MCP has no tools, the CLI daemon and provider check works, and no agent was dispatched this round. CodeGraph still has no index for this worktree, so no whole-repository index was built during another measurement, and a targeted file check never poses as a graph analysis.
+- The main increment from 951b6b97 to 83a49168 was reviewed read-only: 4 files covering only a service example environment path, a description, and an independent stub regression test; the main worker was not switched and no service was installed. The performance worktree is still HEAD 98b28395b plus MERGE_HEAD 951b6b97, and this integration is uncommitted.
+- Gate command: a headless environment with `./gradlew --no-daemon --max-workers=1 devCheck checkCompletedCommit checkResourceValidationBundle`. The first continuation of this round ran about 61 seconds and `checkRepositoryHygiene` failed because this ledger held a machine absolute home path on line 330; it was changed to a portable "performance task worktree" reference, the exact original identity stays in the private report, and no hygiene rule was relaxed and no failure evidence deleted. The result is in `build/main-integration/continuation-20260908/{gradle.log,result.json}`.
+- The retry after the fix saw a new task c44666b4 enter the queue at about 10 seconds, and the task-level build guard stopped this Gradle process group with exit 143 and guard 75 while the host was still idle. It only watches the queue and stops the build it created, launching, cancelling, and cleaning no Cubism task, so it is no second host Runner. The original failure and the retry use different directories, and the retry result is in `build/main-integration/continuation-20260908-retry1/` without overwriting the first failure. A read-only check afterwards found no leftover Gradle process in this worktree.
+- **Current conclusion**: the integration gate is still incomplete, so the integration is neither committed nor declared a PASS. The prototype PASS, the documentation hygiene fix, and the main integration are three different states. A sufficiently idle window is needed to continue the necessary gate instead of repeatedly starting a full build between arriving host measurements.
+- **Local close check**: the existing `scan_repository_content` was reused directly on this ledger and the three new prototype Java and README files and PASSed; no scan rule changed. The repository prototype matches the compiled and executed source byte for byte, the ReadSeek Java diagnostics report 0 errors, and `git diff --check` PASSes. This confirms a local fix only and never replaces the unfinished integration gate.
 
-- 等待已有队列任务终态后，status确认idle且无active/queued，执行受管最终批次；未启动Cubism。77个Python tests PASS：身份12、exec3、采样器含JDK30秒握手9、资源计数器7、完整队列46。`devCheck`及此前卫生/宿主参数相关门禁通过；总269.8秒后`checkCompletedCommit`在integration-tests失败（369tests/1fail/1skip），resource bundle和最后policy smoke尚未执行。完整首轮证据`build/main-integration/observer-admission-final-20260908/{gradle.log,result.json}`，不覆盖。
-- 唯一失败`MappingPackDraftImportTest.boundingBoxDraftRemainsAnUnverifiedProjectionOfItsStaticEvidence:275`：草稿metadata.artifactSha256缺失，而静态证据为5303固定hash。先比较整合遗漏、生成材料漂移和旧格式测试三个假设；HEAD/main951/main83/当前worktree JSON逐项比较证实，pending main整合覆盖了分支既有014c5a3bf修正：丢失artifactSha256/confidenceBasis并把12项medium变为high，选择器没有变化。
-- **修复**：只恢复该草稿原分支的metadata和medium置信度，保留全部测试不动，DRAFT/none/null和静态证据等级不变。解析JSON与整合前HEAD语义完全相等检查PASS。不是新增5303适配/宿主验证；Spec023 T008/T011注明这是保留已有分支修正。后续只续跑失败与未完成门禁，不重跑已通过的整组Python。
+### N06 and I13 — The Real Admission Check After the Host Authorization (2026-09-08)
 
-### N06/I17 新队列实机基线PASS与三指标结果（2026-09-08）
+- **Authorization**: the user explicitly allowed host work and continued progress. Isolated verification of this task may proceed, but no manager inventory bypass, external session cleanup, global OOME, or official artifact overwrite is authorized; this round submitted and launched no host.
+- **Latest gate**: continuation retry2 passed the repository hygiene and reached the end of `:devCheck`; at about 75.6 seconds the manager reported external-busy from external Cubism PID 1024491, and the build guard stopped only this Gradle run with exit 143 and guard 75. `checkCompletedCommit` and `checkResourceValidationBundle` are still incomplete, so no integration PASS is claimed; the log stays in `build/main-integration/continuation-20260908-retry2/`. The guard previously misread a historical timed_out as active, and this round corrected it to the manager's real TERMINAL set; a non-idle host always blocks a build, and the terminal filter never releases an external or quarantined host.
+- **Tool integration identity**: the five files `host_validation.py`, `host_validation_queue.py`, `host_validation_containment.py`, the general Runner, and the transport in the performance worktree match the current main byte for byte, so the new queue tool is in use rather than an old SSH or lease path. The main worker and the main workspace tools are unchanged.
+- **Real prepare result**: the resource capability README and wrapper were read completely and a dry run used its fixture hash. The first attempt failed on a missing local env configuration, and the dry run succeeded with the existing private env. The default directory holds no native-resource entry, so the CLI-supported task-scoped `--manifest` pointed at the existing resource wrapper and declared host-slot and performance-host without changing the shared catalog. The real `host_validation.py --manifest <task-manifest> prepare native-resource:5302 --run-label nm-authorized-admission` then failed explicitly with exit 2 and `custom hook requires reviewed dependency inventory`. No prepared ID was returned and nothing was submitted. The manifest, `prepare.log`, and the complete review are in `/tmp/turboism-native-memory-admission-20260908/`; this is admission-refusal evidence, not a host-run failure or a product gain.
+- **The inventory was read file by file**: start-task-memory-observer.sh is `00024a1cc6a72c39df10dff446e840289930443d642a595b5018f305a8759b29`; measure-task-memory.py is `da54d8b35d99c2b1d6eeea00759ef4f7d84f6ed80042d49e0a4aec659738a3ac`; host_resource_counters.py is `d0eaf3bcdbf7a01e8cf95716430566f70bf233d734c96f63b19699c9ede22c67`; host-task-processes.py is `e49b52003a763861f3bb3eaf3e19a3498299b8ee5ee63a220072f2b61e4bd603`. The runtime depends on bash, a PATH-resolved python3, and the standard library, and the staged path and fallback of the dynamically imported module of the last two need an explicit pin; top-level shell allowlisting alone is insufficient.
+- **Admission risk found**: the sampler calls only read_process, tagged, verify_task, and properties, but the imported host-task-processes.py also holds the old PID and process-tree cleanup CLI and the signal functions. A normal sample never calls them, so this round must not be reported as having killed a process; equally, the complete old cleanup module must not enter the new hook closure without review. The current observation identity is PID, startTicks, UID, prefix, and environment filtering, not a queue-bound cgroup identity, and it is no cleanup authorization. The shell forks the observer itself and writes a pid file, so the exit, timeout, output path, and snapshot tampering still need coverage.
+- **Proposed minimal admission, unimplemented**: extract the read-only identity dependency that holds no signals or cleanup entry, pin the interpreter and the complete helper closure, bind the manager-recognized task and process identity, and keep the ambiguous, reused, or unreadable case fail-closed; request a narrow memory-observer inventory admission in the existing manager and verify the background lifecycle and the failure paths. No second Runner is developed, no script poses as an FPS hook, and the sampler is not removed while claiming an unchanged three-metric protocol. This touches the previously paused manager scope and needs an explicit decision whether this task completes it or the manager maintainer integrates it.
+- **Effectiveness and next step**: the new RAM, CPU, and GPU measurements are all NONE, and N01 and N02 are not in production. The 180-second search, the 900-second sampling, about 1Hz, and the DRM client data are no hard byte bound; readDurationNs excludes the whole identity discovery cost and is no total probe cost. An authorized baseline may be submitted only after the inventory passes, the build artifact gate completes, and the external session ends normally; the authorization itself releases none of these technical blocks.
 
-- **门禁收口**：修复后只续跑`checkCompletedCommit checkResourceValidationBundle checkCubismHostValidationArguments`和3项native resource policy smoke，239.6秒全部PASS；`build/main-integration/observer-admission-final-20260908-repair1/`保留完整日志。既有失败记录不删除，测试断言不变。
-- **prepare/submit**：新wrapper dry-run成功，真实prepared ID=`e405a2c4e55d6cbf00de650292097c4f0bf8cb25604cbee4b29492ebbe0011e8`；显式核对三home-file、managed background、解释器dependency、四优化false和exact5302 fixture。由main CLI提交request=`native-memory-scope-baseline-20260908-b1`，job=`4acfbf9d-7dce-41f0-95c8-b8f897598115`，attempt=`79a34502-c568-416e-bcec-98eb55d019ac`，run=`queue-c55e1dfc7da34329a280f1ee1f0b5ddc`。快照记录dirtyFingerprint，不把未提交分支误报clean commit。
-- **worker中断/恢复**：submit持久成功但workerOnline=false；通知中的旧Paseo terminal已不存在，main工作区terminal列表为空。用户随后明确选择恢复既有worker。只读核查无同UID exact serve argv后，从main83a49168的独立Paseo terminal `a75facf6-2c61-4ceb-b05a-1dad4e002d1b`启动原`host_validation.py serve`；未修改main代码、安装服务或新建Runner。同一排队job自行进入running，没有重复submit。结束后workerOnline=true、host idle。
-- **结构化终态**：manager succeeded/PASS，identityVerified/fixtureUnchanged/normalExit=true；源码模型与任务副本hash=`029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`，官方JAR=`988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`，BAT=`2c767eb3e3640c007f0bead1e54ddfba629fc15493c7ccd8f7aab1a4fc91c334`前后相同，goldenUnchanged=true。wrapper.exit实际内容0；final details.wrapperExit为null的汇总字段不冒充原始退出码。cleanup=safe，kernel原scope绑定证明完整，cgroupKillWritten=false，cgroup自然destroyed，errors=[]，prefixRetained=false。旧observed-not-atomic PID辅助记录不是所有权证明，采用最终bound-cgroup证据。
-- **采样和操作**：428个样本，所有PID/start/UID及scope path/device33/inode49080/boot与本次manager绑定一致；sampler complete PASS。60次原生zoom完成，原camera raw scale精确恢复，dirty/Undo未变，300秒JVM观测完整。任务主Java PID1428993；未做产品变换、强制GC、保存模型或真实OOME注入。
+### N06 and I14 — Read-Only Identity Extraction Implemented and Locally Verified (2026-09-08)
 
-| 阶段 | RSS中位/采样峰值 MiB | PSS中位 MiB | CPU整机占比（12逻辑核） | i915 render时间加权占比 |
+- **Scope verdict**: the user chose that this task completes the admission, limited to extracting the pure read-only dependency in the performance worktree, the narrow existing queue admission, and the lifecycle tests; no new Runner and no main merge are authorized. The spec, plan, and tasks of Spec Kit 023 are frozen, and the Atlas feature pointer on main stays unchanged.
+- **Gate interruption kept**: retry3 continued only `checkCompletedCommit checkResourceValidationBundle`, found external Cubism PID 1113591 at about 26.6 seconds, and the guard stopped only this Gradle run at 143/75 with the log in `build/main-integration/continuation-20260908-retry3/`. Both gates are still incomplete. A later read-only status returned to idle, which is no reserved idle host window.
+- **Implementation plan**: a new `scripts/test/host_memory_identity.py` holds no launch, signal, cleanup, or environment matching. It binds only the manager scope the observer already inherited, holds the directory FD and checks the device and inode, the boot ID, and the observer PID, start, and UID; it enumerates only the cgroup.procs of that scope, checks the Editor identity before and after the read, and refuses several Editors, a scope move-out, a PID reuse, and an unreadable identity. The FD is released on failure and exit, and the scope is never cleaned.
+- **Sampler integration**: measure-task-memory.py now loads only the pure helper in the same directory and no longer falls back to the old cleanup module; it checks the bound identity before and after each sample and attaches the scope metadata to the sample. The RSS, PSS, and private fields, the CPU and GPU fields and their unavailable semantics, and the original 300-second protocol stay. readDurationNs now includes the identity check of this sample and still is no complete probe cost, because it excludes the startup hash, the discovery, and the JSON write.
+- **Verification method and result**: `test_host_memory_identity.py` was written first and really failed with FileNotFoundError before the implementation; after it, 12 isolated filesystem regressions PASS in 0.077 seconds, covering a single Editor, an external same-name Editor never read, ambiguity, a scope move-out and replacement, a PID or UID reuse during the read, an observer change, a missing identity, the exit, and the FD close. Another 8 focused sampler tests PASS in 0.012 seconds, including reading the real RSS and PSS of the test process itself, an identity change during the read, a scope failure writing FAIL, no sampling and an exception closing the FD, and the unit, complete-window, and evidence no-overwrite checks. The 30-second JDK handshake test was not re-run in this small batch; the queue admission, the complete gate, and the host round are still unverified.
+- **Effectiveness**: the local behavior of the pure read-only identity mechanism is verified, which is no Cubism optimization; the new memory, CPU, and GPU gain is still NONE. The unknown-hook refusal is unchanged, no prepare succeeded, and no host was submitted or launched. The next step completes the pinned interpreter and the three-file closure admission with negative cases, then the complete gate and the authorized baseline, and only then N01 and N02.
+
+### N06 and I15 — Narrow Admission and Managed exec Implemented (2026-09-08; the Host Round Still Awaits the Gate)
+
+- **Implementation**: the existing PreparedStore now adds a closure check only for the memory prelaunch of the exact native-resource:5302 task: it limits the background mode, the standard context, a single interpreter argument, and exactly three named source and target home files; it refuses a home-dir override, a duplicated, missing, or substituted helper, an extra hook or client, and a wrong version, task, or mode. The interpreter must be the resolved absolute path of the Python used by prepare, saved by hash under the existing hostDependencies and re-verified in the command phase; no new Runner and no general arbitrary hook registration were added, and the main worker is unchanged. The original FPS admission stays.
+- **Lifecycle**: the shell no longer forks itself or writes its own PID cleanup file; it execs the pinned Python with `-I -S -B` to isolate PYTHONPATH and site and forbid pyc writes, and the existing manager background mode tracks the exit. The hook checks the 12 arguments, the task environment, and the home and evidence consistency. The resource wrapper now pins the three files and the interpreter. The README drops the old direct-execution advice and states the difference between queue prepare and submit and the authorization and acceptance.
+- **Verification**: the two new positive cases really failed with `custom hook requires reviewed dependency inventory` before the implementation; afterwards the whole PreparedStore group of 16 tests PASSes in 2.127 seconds, including the existing host-free prepare and replay isolation test of the real Runner. Three new synthetic hook tests PASS in 0.257 seconds: the exec PID is preserved and exit 7 propagates, an injected json or sitecustomize is not loaded, and a missing pure helper reports an error with no old fallback while a wrong context is refused before execution. The interpreter-change negative case changed only a temporary fake interpreter, not the system Python.
+- **Current block and retry condition**: while preparing the final gate, status showed job 78d2e1e4 running and 40d44ba9 queued, so no new rebuild and no host contention started. The affected Python, JDK, and Gradle batch and a real prepare run once the queue and the external host are quiet. A local PASS is no exact-host admission acceptance, and no prepared success, submit, or host result exists for this round.
+- **Effect**: this is a safe measurement-path admission and can never be called a Cubism RAM, CPU, or GPU drop; the new three-metric measurement is still NONE. The N01 diagnostic strong reference and the N02 exception leak are not in production, and they keep the static or prototype evidence level of their original records.
+
+### I16 — The Final Integration Regression and Its Fix (2026-09-08)
+
+- After the existing queue task reached a terminal state, status confirmed idle with no active or queued job, and the managed final batch ran without starting Cubism. 77 Python tests PASS: 12 identity, 3 exec, 9 sampler including the 30-second JDK handshake, 7 resource counters, and 46 complete queue. `devCheck` and the earlier hygiene and host-argument gates pass; after 269.8 seconds `checkCompletedCommit` failed in integration-tests with 369 tests, 1 failure, and 1 skip, and the resource bundle and the final policy smoke never ran. The complete first-round evidence is `build/main-integration/observer-admission-final-20260908/{gradle.log,result.json}` and is not overwritten.
+- The single failure `MappingPackDraftImportTest.boundingBoxDraftRemainsAnUnverifiedProjectionOfItsStaticEvidence:275` reports a missing draft metadata.artifactSha256 while the static evidence holds the fixed 5303 hash. Three hypotheses were compared first: an integration omission, a generated material drift, and an old-format test. A field-by-field comparison of HEAD, main 951, main 83, and the current worktree JSON proved that the pending main integration overwrote the branch fix from 014c5a3bf: artifactSha256 and confidenceBasis were lost and 12 medium entries became high, while the selector was unchanged.
+- **Fix**: restore only that draft's metadata and medium confidence from the original branch and change no test, keeping DRAFT, none, and null and the static evidence level. The parsed JSON equals the pre-integration HEAD semantics exactly. This is no new 5303 adaptation and no host verification; Spec 023 T008 and T011 note that it preserves an existing branch fix. Only the failed and unfinished gates continue afterwards, and the already passing Python group is not re-run.
+
+### N06 and I17 — The New Queue Host Baseline PASSed With the Three-Metric Result (2026-09-08)
+
+- **Gate close**: after the fix only `checkCompletedCommit checkResourceValidationBundle checkCubismHostValidationArguments` and the 3 native resource policy smoke tests ran, and all PASSed in 239.6 seconds; `build/main-integration/observer-admission-final-20260908-repair1/` keeps the complete log. The existing failure record is not deleted and no test assertion changed.
+- **prepare and submit**: the new wrapper dry run succeeded and the real prepared ID is `e405a2c4e55d6cbf00de650292097c4f0bf8cb25604cbee4b29492ebbe0011e8`; the three home files, the managed background mode, the interpreter dependency, the four false optimizations, and the exact 5302 fixture were checked explicitly. The main CLI submitted request `native-memory-scope-baseline-20260908-b1`, job `4acfbf9d-7dce-41f0-95c8-b8f897598115`, attempt `79a34502-c568-416e-bcec-98eb55d019ac`, and run `queue-c55e1dfc7da34329a280f1ee1f0b5ddc`. The snapshot records the dirtyFingerprint and never reports an uncommitted branch as a clean commit.
+- **Worker interruption and recovery**: the submit persisted successfully but workerOnline=false; the old Paseo terminal named in the notification no longer existed, and the main workspace terminal list was empty. The user then explicitly chose to recover the existing worker. After a read-only check found no exact serve argv under the same UID, the original `host_validation.py serve` was started from the independent Paseo terminal `a75facf6-2c61-4ceb-b05a-1dad4e002d1b` of main 83a49168; no main code was changed, no service was installed, and no new Runner was created. The same queued job entered running by itself, and nothing was submitted twice. Afterwards workerOnline=true and the host was idle.
+- **Structured terminal state**: the manager reports succeeded and PASS with identityVerified, fixtureUnchanged, and normalExit true; the source model and the task copy hash are `029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`, the official JAR is `988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`, and the BAT `2c767eb3e3640c007f0bead1e54ddfba629fc15493c7ccd8f7aab1a4fc91c334` is identical before and after, with goldenUnchanged=true. The real wrapper.exit content is 0; the final details.wrapperExit null summary field never poses as the raw exit code. cleanup=safe, the original scope binding proves completeness, cgroupKillWritten=false, the cgroup was destroyed naturally, errors=[], and prefixRetained=false. The old observed-not-atomic PID auxiliary record is no ownership proof; the final bound-cgroup evidence is used.
+- **Sampling and operations**: 428 samples, and every PID, start, UID, and scope path, device 33, inode 49080, and boot agree with this manager binding; the sampler completes with PASS. 60 native zooms complete, the original raw camera scale restores exactly, dirty and undo stay unchanged, and the 300-second JVM observation is complete. The task main Java PID is 1428993; no product transform, forced GC, model save, or real OOME injection was performed.
+
+| Phase | RSS median and sample peak MiB | PSS median MiB | CPU whole-machine share over 12 logical cores | i915 render time-weighted share |
 | --- | --- | --- | --- | --- |
-| 加载181.33s | 1109.42 / 4294.68 | 1045.24 | 11.850% | 0.131%（146/160有效区间） |
-| 原生idle30.01s | 3080.20 / 3080.31 | 3015.65 | 0.116% | 0.000% |
-| zoom82.10s | 3203.66 / 3204.50 | 3139.13 | 9.028% | 2.045% |
-| 恢复后idle30.89s | 3204.59 / 3208.19 | 3140.05 | 0.668% | 0.000% |
-| 关文档idle120.01s | 3206.60 / 3206.63 | 3142.07 | 0.224% | 0.000% |
-| 关文档后续35.76s | 3071.73 / 3202.08 | 3021.43 | 0.094% | 0.000% |
+| Loading 181.33s | 1109.42 / 4294.68 | 1045.24 | 11.850% | 0.131% over 146 of 160 valid intervals |
+| Native idle 30.01s | 3080.20 / 3080.31 | 3015.65 | 0.116% | 0.000% |
+| Zoom 82.10s | 3203.66 / 3204.50 | 3139.13 | 9.028% | 2.045% |
+| Idle after restore 30.89s | 3204.59 / 3208.19 | 3140.05 | 0.668% | 0.000% |
+| Idle after document close 120.01s | 3206.60 / 3206.63 | 3142.07 | 0.224% | 0.000% |
+| 35.76s after the document close | 3071.73 / 3202.08 | 3021.43 | 0.094% | 0.000% |
 
-- **如何计算**：按resource-workload/result.properties的epoch阶段边界选择点样本；CPU仅纳入首尾均落在阶段内的相邻tick差/monotonic时间区间，除12给整机口径；GPU复用该次冻结的host_resource_counters.GpuIntervals高水位/客户端去重，只对有效区间按wallNs加权，不把加载缺失的14区间填0。表内idle GPU零来自有效engine计数不增，不是不可用替代值。RSS/PSS/private互有包含，不能相加；GPU为进程DRM engine占比，不是所有进程GPU总量或独立显存占用。
-- **重要反例：RSS下降不等于释放**：关文档后末段近36秒，RSS从3202.08降到2807.08MiB，而VmSwap从106.51升至464.79MiB（约+358.29）；主要是换出，并非回收395MiB。全局MemAvailable最低815.36MiB，SwapFree最低0.125MiB，本轮存在明显内存压力。采样RSS峰值4294.68MiB，内核VmHWM4384.20MiB（采样可能漏短峰）。不能拿这一轮与旧机器状态下的结果算优化百分比。
-- **堆与保留**：300秒内heap.used1934.83→1022.66MiB，heap.committed始终2688MiB，GC计数48→52；关文档约156秒后的documentWeak仍未clear。used下降/committed不降/RSS换出是不同事实，尚无retained-size或GC根路径，不据此断言N01已留住整个模型或N02日常漏还。探针sample调用耗时中位118.83ms/峰673.58ms、最大采样间隔1.674s；这是读延迟而非CPU耗时，探针扰动仍需留意。
-- **复现产物**：`/tmp/turboism-native-memory-admission-20260908/`保留dry-run、prepare、submit、wait、events、offline分析脚本和summary；分析脚本SHA256=`cce1ada6968b9f861dba5ce0fc9ef1806f9cd0f39e7cda11632d0e473fcf120e`，summary=`34cca727c227e6de4349224e107642d6c3709e90a7c251ba26548d603236c1a6`。样本SHA256=`140e52ac17aacd0f246bb401146b442a0e1a69ea1d78bc9c173aebe91af047b1`，阶段结果=`4746ea6e04b05136092ec5c7d4071fd02bb5392441f6fa48182d8a0d862555ce`。原始证据按上述job/run定位，不猜最新目录。
-- **有效程度/下一步**：完成新的只读观测准入实机验证，拿到Cubism自身三指标基线；没有新优化收益宣称。N01错误强引用/N02异常资源归还仍是待实现验证候选。先针对原生图像保留链做窄只读归因，再决定优化；后续A/B必须匹配内存压力/交换状态，不能把RSS换出或累计分配下降冒充省RAM。
+- **How these are computed**: the point samples are selected by the epoch phase boundaries of resource-workload/result.properties; CPU counts only an adjacent tick difference whose two ends both fall inside the phase, divided by the monotonic interval and then by 12 for the whole-machine share; GPU reuses the frozen host_resource_counters.GpuIntervals high-water mark and client deduplication, weights only valid intervals by wallNs, and never fills the 14 missing loading intervals with zero. The zero idle GPU in the table comes from a valid engine count that does not increase, not from an unavailable substitute value. RSS, PSS, and private memory overlap and are never summed; the GPU is the process DRM engine share, not the total GPU work of every process and not an independent video-memory occupancy.
+- **Important counterexample: a falling RSS is no release**: in the last 35.76 seconds after the document close the RSS fell from 3202.08 to 2807.08MiB while VmSwap rose from 106.51 to 464.79MiB, about +358.29, so the change is mostly swap-out rather than a 395MiB reclaim. The system MemAvailable low is 815.36MiB and the SwapFree low is 0.125MiB, so this round faced clear memory pressure. The sampled RSS peak is 4294.68MiB and the kernel VmHWM 4384.20MiB, which a sample may miss a short peak of. This round is never compared with an old machine state to compute an optimization percentage.
+- **Heap and retention**: over 300 seconds heap.used went 1934.83 → 1022.66MiB, heap.committed stayed 2688MiB, and the GC count went 48 → 52; the documentWeak about 156 seconds after the close is still uncleared. A falling used, an unchanged committed, and an RSS swap-out are different facts, and no retained-size or GC-root path exists, so N01 is never claimed to have kept a whole model and N02 never to leak daily. The probe sample call takes a median of 118.83ms and a peak of 673.58ms with a maximum interval of 1.674 seconds; that is read latency rather than CPU time, and the probe disturbance still needs attention.
+- **Reproduction artifacts**: `/tmp/turboism-native-memory-admission-20260908/` keeps the dry run, prepare, submit, wait, events, the offline analysis script, and the summary; the analysis script SHA256 is `cce1ada6968b9f861dba5ce0fc9ef1806f9cd0f39e7cda11632d0e473fcf120e` and the summary `34cca727c227e6de4349224e107642d6c3709e90a7c251ba26548d603236c1a6`. The sample SHA256 is `140e52ac17aacd0f246bb401146b442a0e1a69ea1d78bc9c173aebe91af047b1` and the phase result `4746ea6e04b05136092ec5c7d4071fd02bb5392441f6fa48182d8a0d862555ce`. The raw evidence is located by the job and run above, and the newest directory is never guessed.
+- **Effectiveness and next step**: a new read-only observation admission passed a host verification and produced a Cubism three-metric baseline; no new optimization gain is claimed. The N01 wrong strong reference and the N02 exception resource return stay candidates awaiting implementation and verification. A narrow read-only attribution of the native image holding chain comes first, then the optimization decision; a later A/B must match the memory pressure and swap state, and an RSS swap-out or a lower cumulative allocation is never passed off as a RAM saving.
 
-### I18 分支提交与main增量接入（2026-09-08）
+### I18 — The Branch Commit and the main Increment Adoption (2026-09-08)
 
-- 已在`feat/cubism-native-performance-20260905`提交`24c6dc21a5e81e6a6c7ffa878c837670d9fe0e2a`，父提交为原分支98b28395与main951b6b97。内容是已验证的main整合、只读观测切片、此前N02纯原型与完整实验记录；不是合并到main。最后15个变更/新文件直接复用现有卫生扫描PASS，git diff检查及提交hook卫生PASS。
-- 随后只在性能worktree接入main83a49168余下4文件增量（env示例、service示例、调度README、service示例测试），自动合并保留memory observer窄准入说明，没有执行代码/实际worker配置变更。逐项审阅diff，并运行`python3 -B scripts/test/test_host_validation_service_example.py`：1 test PASS（0.623秒），只在临时目录执行stub，验证带空格/元字符路径及空/缺失/不存在路径失败，不安装服务、不启动队列或Cubism。没有重跑未受影响的整组实机/产品门禁；main工作区及正在运行的worker不变。
+- Commit `24c6dc21a5e81e6a6c7ffa878c837670d9fe0e2a` on `feat/cubism-native-performance-20260905`, whose parent commit is the original branch 98b28395 with main 951b6b97. It holds the verified main integration, the read-only observation slice, the earlier N02 pure prototype, and the complete experiment record; it is no merge into main. The last 15 changed or new files were rechecked with the existing hygiene scan and PASSed, and the git diff check and the commit hook hygiene PASSed.
+- Only the remaining 4-file increment of main 83a49168 was then adopted in the performance worktree: the env example, the service example, the scheduler README, and the service example test. The automatic merge keeps the memory observer narrow admission description, and no code or real worker configuration changed. The diff was reviewed item by item, and `python3 -B scripts/test/test_host_validation_service_example.py` PASSed 1 test in 0.623 seconds, running the stub in a temporary directory only and verifying a path with a space or a metacharacter and an empty, missing, or nonexistent path failure, with no service install, no queue start, and no Cubism. No unaffected host or product gate was re-run; the main workspace and the running worker are unchanged.
 
-### N01/I19 原生保留链的被动观测入口核查（2026-09-08）
 
-- **目的**：为N01归因选择不制造图像、不延长模型寿命的观察路径；尚未清除任何原生记录，也未新增宿主运行。复用既有精确5302 JAR，Linux `javap -p -c -s`只读取字节码，不加载Cubism类。
-- **新发现/放弃方案**：`CModelImage.getFilteredImage()`不是纯getter：在字段为空时调用`ModelImageFilterSet.requestOutputValue`，再设置_filteredImage（BCI0–65）。因此放弃借用现有Atlas像素capture helper；它还会getImage/PNG编码，改变被测工作集。被动探针应读取原始_filteredImage，null作为未物化状态而不是触发计算。
-- **可用路径**：CModelingDocument.getModelSource、CModelSource.getTextureManager、CTextureManager.getModelImageGroups、CModelImageGroup.getModelImages均经逐方法字节码确认是字段读取。getAllModelImages虽不生成像素，却会新建ArrayList并展平所有分组；弃用这种无界辅助分配，改为有上限的分组遍历候选。
-- **释放事实补全**：完整复核CImageResource.dispose/dispose_exe；dispose_exe末尾BCI121–128将两个压缩byte[]字段置空，然后return；该方法没有清空active/released记录列表。dispose会移出soft cache并处理像素资源，但不能据此声称诊断引用消失。相关资源整体不可达时仍可回收，这不是整模型泄漏或实际retained bytes的证明。
-- **证据**：私有`/tmp/turboism-native-retain-observer-20260908/`保存四个新javap文件。CModelSource.class SHA256=`55692c69382655a14142a6fc3dab1da78862d67180c6e7cbbe0c22e8253085d1`，CTextureManager.class=`e8cbde3360fc781b0e2fe3806b120dc73c74102fd7f173fde104f057b8548a5a`，CModelingDocument.class=`7ca4f69d9304e38d15adf0cce4750873b3d9325cac296a02e617d5c491d72188`。原CImageResource javap全文SHA256=`e8b2ad56aa5b4fd4a5b8742511658332759ad601cb56be10cfc37439613b03a1`。
-- **后续实施约束**：仅测试aux、精确版本校验、EDT有界瞬时遍历、identity去重、标量报告；跨阶段只留弱引用。并发变化或截断必须显式标记，不能误报零。released记录中不在当前active集合的user只是候选，不自动等同无合法引用。不得调用用户toString/equals、解码图、清Undo、强制GC或以计数估算省下的GB。
-- **有效程度**：静态入口核查成功，排除两个会污染观测的实现选择；内存/CPU/GPU优化收益仍未验证。下一切片先获取该工作负载中的真实链计数，再决定是否值得做生产释放诊断记录修复。
-- **补充验证**：原生CArrayList为final ArrayList子类；get(int)直接调用ArrayList.get，size→getSize→ArrayList.size，无惰性像素行为。该class SHA256=`c1ce8ee957d4131db8ea6ee965b027acbf4e13d9b912602c58b955ef22ab3051`，新增只读CArrayList.javap.txt留在同一私有目录。现有aux构建自动包含全部Java源且排除产品JAR中的validation包，不需要新增模块或Runner。
-- **下一切片冻结**：SpecKit024的spec/plan/tasks/research/data-model/quickstart和质量检查完成，8任务中T001–T002完成，未开始源实现/新实机。范围仅现有load/zoom/close，观察当前模型分组的filtered resources（不冒充所有图像/GPU资源）；每次上限4096组、4096图像/资源、16384 active+released记录，250ms协作式截止并报告实际耗时，非硬实时保证。两个在计时阶段之外的快照，关文档后只用refersTo(null)。最终批次含focused、devCheck/受影响bundle与参数门禁及一次队列exact5302；纯观测本身不算优化有效。
+### N01 and I19 — Passive Observation Entry Check of the Native Retention Chain (2026-09-08)
 
-### N01/I20 有界只读归因探针实施（2026-09-09；沿用09-08私有任务目录）
+- **Purpose**: choose an observation path for the N01 attribution that creates no image and extends no model lifetime; no native record was cleared and no host run was added. The existing exact 5302 JAR is reused, and Linux `javap -p -c -s` reads the bytecode only without loading a Cubism class.
+- **New finding and abandoned option**: `CModelImage.getFilteredImage()` is no pure getter, because it calls `ModelImageFilterSet.requestOutputValue` when the field is empty and then sets `_filteredImage` at BCI 0–65. Borrowing the existing Atlas pixel capture helper is therefore abandoned, because it also calls getImage and encodes a PNG and would change the measured working set. A passive probe should read the raw `_filteredImage` and treat null as a not-yet-materialized state rather than trigger a computation.
+- **Usable path**: `CModelingDocument.getModelSource`, `CModelSource.getTextureManager`, `CTextureManager.getModelImageGroups`, and `CModelImageGroup.getModelImages` are confirmed method by method to be field reads. `getAllModelImages` creates no pixel but does build a new ArrayList and flatten every group, so that unbounded auxiliary allocation is dropped in favor of a bounded group traversal.
+- **Release facts completed**: a complete recheck of `CImageResource.dispose` and `dispose_exe`; `dispose_exe` nulls the two compressed byte arrays at BCI 121–128 and then returns, and the method clears no active or released record list. `dispose` removes the entry from the soft cache and handles the pixel resources, which is no proof that a diagnostic reference disappears. A wholly unreachable resource is still collectable, and this is no proof of a whole-model leak or of real retained bytes.
+- **Evidence**: the private `/tmp/turboism-native-retain-observer-20260908/` holds four new javap files. CModelSource.class SHA256 is `55692c69382655a14142a6fc3dab1da78862d67180c6e7cbbe0c22e8253085d1`, CTextureManager.class `e8cbde3360fc781b0e2fe3806b120dc73c74102fd7f173fde104f057b8548a5a`, and CModelingDocument.class `7ca4f69d9304e38d15adf0cce4750873b3d9325cac296a02e617d5c491d72188`. The complete original CImageResource javap has SHA256 `e8b2ad56aa5b4fd4a5b8742511658332759ad601cb56be10cfc37439613b03a1`.
+- **Implementation constraints for later**: a test-only auxiliary, exact version validation, a bounded transient EDT traversal, identity deduplication, and a scalar report; only a weak reference crosses a phase. A concurrent change or a truncation must be marked explicitly and never reported as zero. A released record whose user is absent from the current active set is a candidate only and is never equated with having no legal reference. Calling the user toString or equals, decoding an image, clearing undo, forcing a GC, or estimating a saved GB from a count is forbidden.
+- **Effectiveness**: the static entry check succeeded and excluded two implementation choices that would pollute the observation; the memory, CPU, and GPU gain is still unverified. The next slice first obtains the real chain count in this workload and only then decides whether a production fix of the release diagnostic record is worth it.
+- **Additional verification**: the native CArrayList is a final ArrayList subclass; `get(int)` calls ArrayList.get directly, and size goes through getSize to ArrayList.size, so there is no lazy pixel behavior. That class SHA256 is `c1ce8ee957d4131db8ea6ee965b027acbf4e13d9b912602c58b955ef22ab3051`, and the new read-only CArrayList.javap.txt stays in the same private directory. The existing auxiliary build already includes every Java source and excludes the validation package from the product JAR, so no new module or Runner is needed.
+- **Next slice frozen**: the spec, plan, tasks, research, data-model, quickstart, and quality check of SpecKit 024 are complete, T001 and T002 of 8 are done, and no source implementation or new host round started. The scope is the existing load, zoom, and close, observing the filtered resources of the current model group without claiming every image or GPU resource; each capture is bounded to 4096 groups, 4096 images or resources, and 16384 active plus released records with a 250ms cooperative deadline and a reported real duration, which is no hard real-time guarantee. Two snapshots sit outside the timed phases, and after the document close only `refersTo(null)` runs. The final batch holds the focused tests, devCheck, the affected bundle and argument gate, and one queued exact 5302 run; pure observation alone is no effective optimization.
 
-- **实现**：新增测试专用NativeImageRetainObservation，不进入产品。精确字段类型/类来源与已验证宿主对齐；EDT读取原始model/group/image/resource字段，identity去重，active/released列表及record user读前后比较。有限列表副本与强identity表只在capture栈内存在；跨阶段仅Properties标量和WeakReference。当前资源统计先暂存并通过有界一致性检查，再整体提交，超时/缺失/观察到变化不伪装完整零。
-- **场景接入**：沿用现有load/60次zoom/close；新增idle.end/restored.end，两个retain.begin/end明确排除在计时idle/zoom阶段之外。只保留beforeClose弱cohort，120秒后及sampler结束用refersTo(null)计数。已有身份/camera/dirty/Undo检查保留，观察前后再次检查作者状态。整体workload PASS与retain.attributionStatus分开，INCOMPLETE不能当归因完成。
-- **验证与失败保留**：先写测试时真实失败（helper缺失，1failure/1error）；首次实现后synthetic图验证通过137断言，但文本禁止规则误把Long.toString(number)当宿主toString，导致1test FAIL。修正为禁止无参toString调用，保留会抛错的宿主equals/hashCode/toString/materialization对象，不改变行为验收。随后加入跨组重复、全局record预算、不同截止点不提交半资源、EDT/未知宿主负例；2测试入口PASS，565断言、71个可检测同大小替换时机（这些不是565个独立测试或全部并发窗口）。
-- **限制/有效程度**：250ms是协作式截止，调度暂停和末尾标量/弱引用合并不受硬实时保证；一致性检查不排除ABA或所有后台线程写。当前model分组缺失的atlas-only资源未扫描，released user仍可能有其他合法所有者。没有GC根/retained size证明，也没有新内存/CPU/GPU收益。最终构建门禁与新实机尚待执行；后续只报告这次真实证据，不从静态机制外推GB。
+### N01 and I20 — A Bounded Read-Only Attribution Probe Implemented (2026-09-09, reusing the 09-08 private task directory)
 
-### N01/I21 exact5302归因PASS：当前打开/缩放场景未发现released链（2026-09-09）
+- **Implementation**: a new test-only NativeImageRetainObservation that never enters the product. The exact field types and class origins align with the verified host; the EDT reads the raw model, group, image, and resource fields, deduplicates by identity, and compares the active and released lists and the record user before and after. A bounded list copy and a strong identity table exist only inside the capture stack, and only Properties scalars and WeakReferences cross a phase. The current resource statistics are staged first and committed as a whole after a bounded consistency check, so a timeout, a missing value, or an observed change never poses as a complete zero.
+- **Scenario integration**: the existing load, 60 zooms, and close stay, with new idle.end and restored.end points, and the two retain.begin and retain.end pairs sit explicitly outside the timed idle and zoom phases. Only the beforeClose weak cohort stays, counted with `refersTo(null)` after 120 seconds and at the sampler end. The existing identity, camera, dirty, and undo checks stay, and the authoring state is checked again before and after the observation. The overall workload PASS is separate from retain.attributionStatus, and INCOMPLETE is never a finished attribution.
+- **Verification and kept failures**: the test really failed first with a missing helper, 1 failure and 1 error; after the first implementation the synthetic graph passed 137 assertions, but the text prohibition rule mistook `Long.toString(number)` for a host toString and 1 test FAILed. The rule was corrected to forbid a no-argument toString call while keeping the host equals, hashCode, toString, and materialization objects that may throw, without changing the behavior acceptance. Cross-group duplicates, a global record budget, a different deadline that commits no partial resource, and EDT and unknown-host negative cases were added; 2 test entries PASS with 565 assertions and 71 detectable same-size replacement opportunities, which are no 565 independent tests and no complete set of concurrency windows.
+- **Limits and effectiveness**: the 250ms is a cooperative deadline, so a scheduling pause and the final scalar and weak-reference merge are not hard real-time; the consistency check excludes neither ABA nor every background thread write. An atlas-only resource missing from the current model group is not scanned, and a released user may still have another legal owner. There is no GC-root or retained-size proof and no new memory, CPU, or GPU gain. The final build gate and the new host round are still pending; later rounds report only this real evidence and never extrapolate GB from a static mechanism.
 
-- **最终门禁**：`build/native-retain-attribution/final-20260908/{gates.log,result.json}`，74.18秒exit0、无宿主抢占；2 focused入口566断言/71检测替换时机PASS（新增已验证宿主来源不匹配负例），devCheck、checkResourceValidationBundle、checkCubismHostValidationArguments全部PASS，3项resource policy smoke PASS。新aux class存在于测试JAR，product包无validation类；README、diagnostics和后续diff检查单独收口。
-- **固定与运行**：dry-run核对exact5302、heavy副本、四优化false/profilefalse、三固定helper和managed background；prepare=`0dd019193383928e70aa47042a0a462c5f820baf11c52ddcba43d5b514b81c6f`，source HEAD97866ae5c+dirtyDigest8f2742d3b0aec302896d6ab757c8a3db2e48a201493c9057a33f6a8314ddf47c，aux SHA256=`6e93803219a7314a56dce5d15a2135a8bce5e80e5d81a97a6651358206508f2d`。main现有worker未重启，提交request=`native-retain-attribution-20260909-b1`，job=`0e305cf3-3c79-4c95-bfd6-93652f0c7bc2`，attempt=`cd60f76d-cc59-48f8-806a-74a977283733`，run=`queue-67cde2143a5a428d87c04c2c845ae0e8`，label=`nr-chain-b1`。未在测量期间构建。
-- **终态**：manager succeeded/PASS，retain.attributionStatus=COMPLETE；410样本均绑定Java PID1613339/start24093860与原cgroup（device33/inode55371、boot39a1d627-6b70-427b-828f-4eafaa615ae8）。normalExit/identityVerified/fixtureUnchanged/goldenUnchanged=true；wrapper.exit实值0，汇总wrapperExit仍null不替代原始证据。scope自然destroyed，originalCgroupBound=true、cgroupKillWritten=false、errors=[]、prefixRetained=false。官方JAR/BAT、原始heavy及副本、Agent/aux、解释器与Proton依赖前后hash一致；main host恢复idle、worker在线。
-- **核心观测**：beforeZoom和beforeClose均COMPLETE/reason none：12组、849个modelImage、848个唯一resource、missingImage0、activeRecords3131、releasedRecords0、releasedRecordsAbsentActive0、releasedUsers0。两个snapshot自身耗时39.7839ms/16.5054ms；整个EDT/phase调用包络更大，不能把这两个数称完整探针CPU成本。关闭120秒后及约156秒时，848个资源弱引用仍全未clear，documentWeak亦未clear；released-user弱cohort为空是因为关闭前没有该类记录，不是“用户对象全被回收”。
-- **负结果及重试条件**：当前打开/缩放/关闭前这两个时点，没有N01诊断记录可清，故不实施“清诊断列表”作为本场景省RAM手段。静态release机制仍成立；未扫描关闭动作之后的记录、atlas-only资源，也未执行导出/重导，所以不能全面排除N01或声称解释了关文档后全部保留。只有获得相关操作的独立授权/冻结范围及明确链证据后，才重试生产N01修复；不因零计数偷偷改场景。
+### N01 and I21 — The exact5302 Attribution PASSed: The Current Open and Zoom Scenario Shows No Released Chain (2026-09-09)
 
-| 阶段 | RSS中位/采样峰值 MiB | PSS中位 MiB | CPU整机%（12核） | 进程i915 render% |
+- **Final gate**: `build/native-retain-attribution/final-20260908/{gates.log,result.json}` with exit 0 in 74.18 seconds and no host preemption; the 2 focused entries PASS with 566 assertions and 71 detectable replacement opportunities, including a new negative case for a verified host origin mismatch, and devCheck, checkResourceValidationBundle, and checkCubismHostValidationArguments all PASS, as do the 3 resource policy smoke tests. The new auxiliary class exists in the test JAR and the product package holds no validation class; the README, the diagnostics, and the later diff check close separately.
+- **Pins and run**: the dry run checked exact5302, the heavy copy, the four false optimizations and profile false, the three fixed helpers, and the managed background mode; prepare is `0dd019193383928e70aa47042a0a462c5f820baf11c52ddcba43d5b514b81c6f`, the source HEAD is 97866ae5c with dirtyDigest 8f2742d3b0aec302896d6ab757c8a3db2e48a201493c9057a33f6a8314ddf47c, and the auxiliary SHA256 is `6e93803219a7314a56dce5d15a2135a8bce5e80e5d81a97a6651358206508f2d`. The existing main worker was not restarted; the submit is request `native-retain-attribution-20260909-b1`, job `0e305cf3-3c79-4c95-bfd6-93652f0c7bc2`, attempt `cd60f76d-cc59-48f8-806a-74a977283733`, run `queue-67cde2143a5a428d87c04c2c845ae0e8`, label `nr-chain-b1`. No build ran during the measurement.
+- **Terminal state**: the manager reports succeeded and PASS with retain.attributionStatus=COMPLETE; all 410 samples bind Java PID 1613339 and start 24093860 to the original cgroup, device 33, inode 55371, boot 39a1d627-6b70-427b-828f-4eafaa615ae8. normalExit, identityVerified, fixtureUnchanged, and goldenUnchanged are true; the real wrapper.exit is 0, and the summary wrapperExit null never replaces the raw evidence. The scope was destroyed naturally with originalCgroupBound=true, cgroupKillWritten=false, errors=[], and prefixRetained=false. The official JAR and BAT, the original heavy file and its copy, the Agent and auxiliary, the interpreter, and the Proton dependency hashes agree before and after; the main host returned to idle with the worker online.
+- **Core observation**: beforeZoom and beforeClose are both COMPLETE with reason none: 12 groups, 849 model images, 848 unique resources, missingImage 0, activeRecords 3131, releasedRecords 0, releasedRecordsAbsentActive 0, and releasedUsers 0. The two snapshots themselves take 39.7839ms and 16.5054ms; the whole EDT and phase envelope is larger, so these two numbers are no complete probe CPU cost. At 120 seconds and about 156 seconds after the close, all 848 resource weak references are still uncleared and the documentWeak is uncleared too; the released-user weak cohort is empty because no such record existed before the close, which is no proof that every user object was collected.
+- **Negative result and retry condition**: at these two points before the close there is no N01 diagnostic record to clear, so clearing a diagnostic list is not implemented as a RAM saving in this scenario. The static release mechanism still holds; the records after the close, the atlas-only resources, and the export and re-import were not scanned, so N01 is neither fully excluded nor claimed to explain every retention after the close. A production N01 fix is retried only with an independent authorization and frozen scope for the related operation plus explicit chain evidence; a zero count never silently changes the scenario.
+
+| Phase | RSS median and sample peak MiB | PSS median MiB | CPU whole-machine % over 12 cores | Process i915 render % |
 | --- | --- | --- | --- | --- |
-| 加载 | 668.87 / 4355.57 | 607.88 | 12.390 | 0.152（118/143有效区间） |
-| native idle | 4350.97 / 4354.80 | 4287.26 | 0.353 | 0.000 |
-| zoom | 4350.28 / 4355.55 | 4286.93 | 9.055 | 1.994 |
-| restored idle | 4350.31 / 4350.33 | 4286.99 | 0.147 | 0.000 |
-| closed idle | 4014.44 / 4014.68 | 3951.10 | 0.184 | 0.000 |
-| closed tail | 4014.61 / 4014.64 | 3951.27 | 0.089 | 0.000 |
+| Loading | 668.87 / 4355.57 | 607.88 | 12.390 | 0.152 over 118 of 143 valid intervals |
+| Native idle | 4350.97 / 4354.80 | 4287.26 | 0.353 | 0.000 |
+| Zoom | 4350.28 / 4355.55 | 4286.93 | 9.055 | 1.994 |
+| Restored idle | 4350.31 / 4350.33 | 4286.99 | 0.147 | 0.000 |
+| Closed idle | 4014.44 / 4014.68 | 3951.10 | 0.184 | 0.000 |
+| Closed tail | 4014.61 / 4014.64 | 3951.27 | 0.089 | 0.000 |
 
-- **内存解释**：全程RSS/内核HWM峰4396.46MiB（约4.29GiB）；表内阶段之外有过渡峰值，不能只取表中最大。300秒heap.used约1567.29→1023.70MiB，heap.committed3840→3472MiB，GC计数39→42；GC计数不代表每次都全堆回收。关闭后RSS约减少336MiB，swap也从约53降至46MiB，与上一轮主要换出的模式不同，但这是原生基线行为，仍非新优化收益。全局MemAvailable最低1874MiB、SwapFree0；不同轮堆容量/内存压力明显不同，不能直接算探针或优化因果效应。sampler读延迟中位128.14ms、峰310.04ms，仍非CPU占用。
-- **如何验证/复现**：离线分析采用新增idle.end/restored.end排除探针包络；CPU只纳入完整阶段相邻区间、除12，GPU复用冻结helper按有效wallNs加权、不补零。RSS/PSS/private不相加，GPU不是全机GPU或VRAM。私有`/tmp/turboism-native-retain-observer-20260908/`保留prepare/submit/wait/events、分析脚本及summary。分析SHA256=`1dd251342120b5a4bcdb085bd96e239582205bbcb691bacddf998c446a600cf3`，summary=`8020507334eac58cb985d7c9c692dd36bfa125492d9cded62b9e38edb059b965`；原始samples=`3d70753438b733b08ec5ef5565ed3f0e33487f2b130dd4b4b0d24ebc2f274a3e`，phase result=`448536de2fea732fa353e48489e39977220556053246545d927615a87602afc0`，jvm.csv=`7f88b6eba4e101f7797ce0bc40e508fd1b3d744668806b32efa0c505a64cc26d`。
-- **有效程度**：只读归因实现及此场景exact-host验证成功，排除了一个未经实测支持的立即清理方向；新增内存/CPU/GPU优化收益NONE。下一步要分清真实强根保留、合法图像生命周期和JVM已提交容量未及时归还，不能仅凭848个weak未clear就清资源。
+- **Memory reading**: the whole-run RSS and kernel HWM peak is 4396.46MiB, about 4.29GiB; a transient peak exists outside the tabulated phases, so the table maximum alone is insufficient. Over 300 seconds heap.used goes about 1567.29 → 1023.70MiB, heap.committed 3840 → 3472MiB, and the GC count 39 → 42; a GC count never means a full-heap collection each time. The RSS falls about 336MiB after the close and swap from about 53 to 46MiB, which differs from the mostly-swapped-out pattern of the previous round, but this is native baseline behavior and still no new optimization gain. The system MemAvailable low is 1874MiB and SwapFree 0; the heap capacity and memory pressure differ clearly between rounds, so no probe or optimization causal effect is computed directly. The sampler read latency median is 128.14ms with a peak of 310.04ms, which is still no CPU occupancy.
+- **How to verify and reproduce**: the offline analysis uses the new idle.end and restored.end to exclude the probe envelope; CPU counts only adjacent intervals fully inside a phase, divided by 12; GPU reuses the frozen helper weighted by valid wallNs and fills no zero. RSS, PSS, and private memory are never summed, and the GPU is neither the whole-machine GPU nor VRAM. The private `/tmp/turboism-native-retain-observer-20260908/` keeps prepare, submit, wait, events, the analysis script, and the summary. The analysis SHA256 is `1dd251342120b5a4bcdb085bd96e239582205bbcb691bacddf998c446a600cf3` and the summary `8020507334eac58cb985d7c9c692dd36bfa125492d9cded62b9e38edb059b965`; the raw samples are `3d70753438b733b08ec5ef5565ed3f0e33487f2b130dd4b4b0d24ebc2f274a3e`, the phase result `448536de2fea732fa353e48489e39977220556053246545d927615a87602afc0`, and jvm.csv `7f88b6eba4e101f7797ce0bc40e508fd1b3d744668806b32efa0c505a64cc26d`.
+- **Effectiveness**: the read-only attribution implementation and its exact-host verification in this scenario succeeded, which excluded an immediate cleanup direction without measured support; the new memory, CPU, and GPU gain is NONE. The next step separates a real strong-root retention, a legal image lifecycle, and a JVM committed capacity that is not returned promptly, and 848 uncleared weak references alone never justify clearing a resource.
 
-### N07/I22 关闭后的原生模型登记表与释放条件（2026-09-09，静态后续研究）
+### N07 and I22 — The Native Model Registry and Its Release Condition After a Close (2026-09-09, static follow-up research)
 
-- **触发**：N01实机关闭前released=0，而关闭后resource weak848仍未clear。先回读本机旧文档`editor/cubism-document-lifecycle.md`作命令导航；旧HookBridge/PSD释放描述不当作当前实现契约。然后仅用精确5302 JAR的javap核查，不再启动宿主、不改源代码。
-- **新机制**：CModelingDocument.closeFile在BCI123–205按file查询全局`com.live2d.cubism.doc.a.e`中的模型资源条目。无条目才直接dispose modelSource；有条目则先调用条目e()清owner字段，再调用a(true)。`com.live2d.cubism.doc.a.e.b`是static ArrayList强持有条目；模型条目`com.live2d.cubism.doc.a.b.b.a`强持有CModelSource，存在候选原生静态根路径：登记表→条目→modelSource→textureManager→images。
-- **不能直接清理的原因**：模型条目a(boolean)先调用g()；owner非null或引用者集合非空时return false，不释放。允许释放时才dispose source、将字段置null并从登记表移除。传入true并不绕过g()。因此登记表存在不是泄漏证据；可能是合法共享/关联使用，也可能是不应存活的引用者未注销，必须测本任务条目是否仍在、owner/引用者实际身份，再谈修复，不能清空全局集合或强行dispose。
-- **GC时机假设核查**：本轮jvm.csv在关闭附近GCcount39→40→41，关闭约87.5秒后又41→42（epoch1788920587347）。所以不能笼统称“关文档后完全没发生GC”；但聚合计数没有GC类型/代覆盖，也不足以称已验证全堆存活。关文档原生方法自身BCI241有System.gc，模型条目释放路径也有System.gc；未新增、抑制或迁移这些调用。
-- **证据**：私有`/tmp/turboism-native-close-lifecycle-20260909/`三份javap。登记表class SHA256=`885ecffd1196d2f6b29d183f7f87534e7667141245422d2c3726a1f7679eece9`；模型条目=`0f20228aa254318207203b82142594cb0e454020ca1ee0b2eb7900e538c12d35`；条目基类=`2b742063795fb435a30cd356f2ea7e302748cd1b7bfbed8ef8523aaf0d7732c8`。g()检查BCI36–126；a(boolean)释放与移除BCI0–39。现有宿主console没有命中可据此确认本模型条目释放/拒绝的专门日志，不能从无日志反推分支。
-- **有效程度/下一步**：仅确认更贴近关闭生命周期的待验证原生保留机制，RAM/CPU/GPU收益未验证；未冻结/实现新登记表探针，也未把N07混入已完成024。后续另冻窄只读归因切片，观察本任务条目及引用者，不扫描无关模型、不输出文件内容、不清Undo/PSD。另将JVM committed归还与对象强根作为不同问题，不能用改堆上限掩盖保留链。
-- **交付/环境记录**：024实现与实机证据已提交性能分支`4062fb58995e38580a2da78ad0224461d6c9cf72`，没有合并到main。只读检查发现main由其他工作推进到836c0ad9e（Atlas当前页相关104文件）；本任务未修改main。对照原83a49168，队列CLI唯一变更是manifest允许5303；queue/containment/evidence/通用Runner未变。本次仍为已固定5302，不据此新增Atlas/5303运行授权；下一轮整合前需审阅新SDK/Atlas增量，不能覆盖本分支成果。
+- **Trigger**: the N01 host round showed released=0 before the close while the 848 resource weak references stayed uncleared after it. The local old document `editor/cubism-document-lifecycle.md` was reread for command navigation only; its old HookBridge and PSD release description is no current implementation contract. Only javap on the exact 5302 JAR was used, with no host launch and no source change.
+- **New mechanism**: `CModelingDocument.closeFile` looks up the model resource entry for the file in the global `com.live2d.cubism.doc.a.e` at BCI 123–205. Without an entry it disposes the modelSource directly; with an entry it first calls `e()` to clear the owner field and then `a(true)`. `com.live2d.cubism.doc.a.e.b` is a static ArrayList that strongly holds the entries, and the model entry `com.live2d.cubism.doc.a.b.b.a` strongly holds the CModelSource, so a candidate native static root path exists: registry, then entry, then modelSource, then textureManager, then images.
+- **Why a direct cleanup is invalid**: the model entry `a(boolean)` calls `g()` first and returns false without releasing when the owner is non-null or the referrer set is non-empty. Only an allowed release disposes the source, nulls the field, and removes the entry from the registry. Passing true never bypasses `g()`. A registry entry is therefore no leak evidence; it may be a legal shared or associated use, or a referrer that should not survive and was not deregistered. The task must measure whether its entry still exists and who the owner and referrers really are before any fix, and it must never clear the global collection or force a dispose.
+- **GC timing hypothesis check**: this round's jvm.csv shows GCcount 39 → 40 → 41 near the close and 41 → 42 about 87.5 seconds after it, at epoch 1788920587347. So "no GC happened after the document close" is wrong, but the aggregate count carries no GC type or generation coverage and cannot prove a full-heap liveness check. The native close method itself has a `System.gc` at BCI 241, and the model entry release path has one too; none of these calls was added, suppressed, or moved.
+- **Evidence**: three javap files in the private `/tmp/turboism-native-close-lifecycle-20260909/`. The registry class SHA256 is `885ecffd1196d2f6b29d183f7f87534e7667141245422d2c3726a1f7679eece9`; the model entry `0f20228aa254318207203b82142594cb0e454020ca1ee0b2eb7900e538c12d35`; the entry base class `2b742063795fb435a30cd356f2ea7e302748cd1b7bfbed8ef8523aaf0d7732c8`. The `g()` check spans BCI 36–126 and the release and removal of `a(boolean)` spans BCI 0–39. The current host console holds no matching log that could confirm a release or refusal of this model entry, so the branch is never inferred from a missing log.
+- **Effectiveness and next step**: this confirms only a native retention mechanism closer to the close lifecycle, and the RAM, CPU, and GPU gain is unverified; no registry probe is frozen or implemented and N07 is not mixed into the completed 024. A separate narrow read-only attribution slice observes this task's entry and referrers without scanning an unrelated model, printing file content, or clearing undo or PSD. A JVM committed return and an object strong root are separate problems, and a heap cap change never hides a holding chain.
+- **Delivery and environment record**: the 024 implementation and its host evidence were committed to the performance branch as `4062fb58995e38580a2da78ad0224461d6c9cf72` and were not merged into main. A read-only check found main advanced by other work to 836c0ad9e, which holds 104 files related to the Atlas current page; this task did not modify main. Against the original 83a49168, the only queue CLI change is that the manifest accepts 5303; the queue, containment, evidence, and general Runner are unchanged. This round stays on the fixed 5302 and adds no Atlas or 5303 run authorization; the next integration must review the new SDK and Atlas increments and never overwrite this branch's results.
 
+### N07 and I23 — Reusing a Historical JFR Obtained a Counterexample to the Release Branch (2026-09-09)
 
-### N07/I23 复用历史JFR取得释放分支反证（2026-09-09）
+- **Purpose and method change**: no registry hook and no repeated host round yet. On top of the I22 static branch, `jdk.SystemGC` events were exported again from the existing rs-p1 and rs-p2 raw JFRs with `jfr print --json --stack-depth 128 --events jdk.SystemGC <recording>` and matched one by one against the method descriptor, the BCI, and the close call stack. Only old authorized sessions are analyzed, so no new host PASS and no performance A/B results; the 024 implementation and acceptance scope are unchanged.
+- **Measured counterexample**: each of the two recordings holds 7 SystemGC events, and each holds one `com.live2d.cubism.doc.a.b.b.a(Z)Z` at BCI 39 with `CModelingDocument.closeFile(ZZ)Z` at BCI 195 above it and an untruncated stack. rs-p1 occurs at 2026-09-07T13:03:06.920379611Z and rs-p2 at 13:20:21.357043391Z. The exact JAR bytecode checks `g()` first at BCI 0–8, already nulls the entry source at BCI 26, calls the registry remove at BCI 36, and only then runs `System.gc` at BCI 39. Those two calls were therefore **not refused by the owner or user check** and already passed the source clear and the deregistration, so the uncleared document weak reference after those two closes cannot be attributed to that entry refusing to release.
+- **Conclusion boundary**: a JFR method stack holds no receiver identity and no complete GC root, and the registry remove return value is dropped, so this never claims the global registry is empty, that no duplicate entry exists, or that another thread cannot register again; the old profile branch is also not equated with the plain nr-chain-b1 round. What is excluded is that those two recorded calls exited early at `g()` and that they still strongly held the model through that entry source field at BCI 39. I22 stays as a historical candidate whose priority is lowered by this counterexample, and the old judgement is not erased.
+- **Close path recheck**: `CModelingDocument.closeFile` nulls the reverse association at BCI 20–39 when `source.document` equals the current doc; it closes each view and clears the doc viewContexts at BCI 42–111; and it calls `project.remove` at BCI 221. `CEViewContext.doc` is still a final strong reference, so a view still held by another host root may keep the doc, but the closed loop itself is no GC root. CEAppCtrl has a strong viewContextHistory and an explicit removeViewContextFromHistory, so a missing removal is never asserted from the list existence alone. An empty dispose in a view-area base class also never means a real subclass does not override it. The next read-only attribution should characterize the current view, the view history and host UI owner, and the document and source identity after the close together, and never clear a field blindly because it is not null.
+- **Side observation, not an optimization**: the two SystemGC events of the close call on the EDT take 235.14 plus 181.19ms and 637.43 plus 382.07ms; those are event durations, not the whole operation CPU cost or a saving ceiling. No native GC was suppressed, merged, or moved, because trading higher residency for a faster-looking close is wrong; a future study of that direction needs its own memory and responsiveness contract.
+- **Evidence and reproduction**: the private `/tmp/turboism-native-close-jfr-20260909/` holds the two small SystemGC exports, the close-path and view-close bytecode, summarize.py, and summary.json; the script asserts exactly one BCI 39 close event per round, two close SystemGC events, and an untruncated stack, and it passes. The summary records the original JFR and export SHAs. The analysis script SHA256 is `6a3984122cf11c83508e7f2860fba9c0b590f5eff8acbb90c2241e9e9260ed8a`, the summary `04a76196f4d27015e381079e87a82e670d3a19156cc012d386f30d25bb90cbb0`, and the close-path dump `1791ab6210eaca416d5bc2e64efd68bbe0b11836fb75770515e2eb0c2dcccd37`. The official JAR recomputes to 988ef6a8…f8c84f21; the model entry class is still `0f20228aa254318207203b82142594cb0e454020ca1ee0b2eb7900e538c12d35` and CModelingDocument `7ca4f69d9304e38d15adf0cce4750873b3d9325cac296a02e617d5c491d72188`.
+- **Effectiveness and the ban on unchanged repetition**: the new gain is NONE and no production fix was implemented; the value of this round is rejecting a prioritized hypothesis with existing host evidence, which avoids an extra hook and an unchanged re-run. The next step is not to force a dispose of the registry entry but to locate the real owner after the close and to separate object liveness from committed and RSS. A registry fix is raised again only with new entry identity or holder evidence.
+- **Environment and implementation boundary**: the performance worktree starts at c72145efc and is clean; main advanced by other work to 2cef29231, which against 836c0ad9e changes only toolbar icons and their tests. The core queue difference from main 83 to the current state is still only the manifest accepting 5303, and no worker changed, no new main was integrated, and no dirty change was overwritten. Paseo MCP has no tools, and the CLI confirms the daemon is reachable and the pi provider is available; this sequential analysis delegated nothing. CodeGraph keeps the known limitation that this worktree has no index, so the real basis is the exact bytecode and the JFR, and no graph query is claimed. The manager read-only status shows workerOnline with the host idle; no host was launched, no heap snapshot was taken, no official artifact was changed, and no process was killed.
 
-- **目的/方法变化**：不立即新增登记表Hook或重复实机。在I22静态分支基础上，重新从既有rs-p1、rs-p2原始JFR导出 `jdk.SystemGC`（`jfr print --json --stack-depth 128 --events jdk.SystemGC <recording>`），逐一匹配方法描述符、BCI和关闭调用栈。这里只分析旧授权会话，不产生新的实机PASS或性能A/B；024实现/验收范围不变。
-- **实测反证**：两份录制各7个SystemGC事件，均有一次 `com.live2d.cubism.doc.a.b.b.a(Z)Z` BCI39，上层 `CModelingDocument.closeFile(ZZ)Z` BCI195，且栈未截断。rs-p1发生于2026-09-07T13:03:06.920379611Z，rs-p2于13:20:21.357043391Z。精确JAR字节码在BCI0–8先判断g()，BCI26已经把该条目source置null，BCI36调用登记表remove，BCI39才System.gc。因此这两次调用**没有被owner/users检查拒绝**，已经走过source清空与注销调用，不能将这两轮关闭后document弱引用未清除归因于“该条目拒绝释放”。
-- **结论边界**：JFR方法栈不包含receiver对象身份或完整GC-root，登记表remove返回值又被丢弃，故不宣称全局登记表已空、无重复条目或其他线程不可能重新登记；也不能把旧profile轮分支等同最新nr-chain-b1的plain轮。可排除的是这两次被记录调用在g()处提前退出，以及它们在BCI39时仍通过该条目source字段强持有模型的假设。I22保留为历史候选，当前优先级据反证下调，不抹去旧判断。
-- **关闭路径补核**：`CModelingDocument.closeFile` BCI20–39在source.document等于当前doc时将反向关联置null；BCI42–111逐一closeView并清doc的viewContexts；BCI221调用project.remove。`CEViewContext.doc`仍是final强引用，因此仍被宿主其他根持有的view可能保留doc，但闭环本身不是GC根。CEAppCtrl有强viewContextHistory且有显式removeViewContextFromHistory；不能仅凭存在列表断言漏删。view-area基类dispose是空方法也不代表实际子类没有覆盖。下一只读归因应同时刻画关闭后的current view、view history/宿主UI拥有者和document/source身份，不据未置null盲清字段。
-- **顺带观测（不是优化）**：两轮EDT上关闭调用的两次SystemGC事件持续时间分别235.14+181.19ms、637.43+382.07ms；它们是事件耗时而非整个操作CPU成本/可节省上限。没有抑制、合并或迁移原生GC，避免用更高驻留换出表面更快的关闭；若未来研究该方向需独立的内存与响应性契约。
-- **证据/复现**：私有 `/tmp/turboism-native-close-jfr-20260909/` 保存两份小型SystemGC导出、close-path/view-close字节码、summarize.py及summary.json；脚本断言每轮恰有一个BCI39关闭事件、两个关闭SystemGC且栈不截断，通过。summary记录原JFR与导出SHA。分析脚本SHA256=`6a3984122cf11c83508e7f2860fba9c0b590f5eff8acbb90c2241e9e9260ed8a`，summary=`04a76196f4d27015e381079e87a82e670d3a19156cc012d386f30d25bb90cbb0`，close-path dump=`1791ab6210eaca416d5bc2e64efd68bbe0b11836fb75770515e2eb0c2dcccd37`。官方JAR重新计算仍988ef6a8…f8c84f21；模型条目class仍`0f20228aa254318207203b82142594cb0e454020ca1ee0b2eb7900e538c12d35`，CModelingDocument=`7ca4f69d9304e38d15adf0cce4750873b3d9325cac296a02e617d5c491d72188`。
-- **有效程度/禁止原样重试**：新增收益NONE，未实施生产修复；本轮价值为用既有实机证据否定一个优先假设，避免额外Hook与无变化重跑。下一步不是强制dispose注册条目，而是定位关闭后的真实拥有者，并区分对象存活和committed/RSS。只有新的条目身份/持有者证据才重提登记表修复。
-- **环境与实施边界**：性能worktree起点c72145efc且干净；main由其他工作推进至2cef29231，相比836c0ad9e只有工具栏图标及对应测试变化。main83→当前队列核心差异仍仅manifest接受5303，未改变worker、未整合新main或覆盖脏改动。Paseo MCP无工具，CLI确认daemon可达且pi provider available；本次顺序分析未委派。CodeGraph延用此前该worktree不可用的已知限制，实际依据为精确字节码和JFR，未伪称图查询。管理器只读status显示workerOnline、host idle；没有启动宿主、采堆快照、改官方工件或杀任何进程。
+### I24 — The Handover Round: Read-Only Check, Evidence Archiving, and the Next Plan (2026-09-09)
 
+- **Handover and verification method**: the newly assigned agent checked read-only the performance branch state, every SpecKit 024 document, this ledger, the 4 sub-agent reports and review receipts, and whether the `build/` acceptance artifacts exist. No host was launched, no gate ran, no performance measurement happened, and no source or official artifact changed; every number in this round is a citation of existing evidence, not a new measurement.
+- **Branch state**: `feat/cubism-native-performance-20260905` at `a700980af` with a clean performance worktree; 18 own commits beyond the integration base `83a49168`, and 12 commits behind the current main, `caba7a5f5`, which is the 0.43.10 release preparation; not merged and not pushed to main. T001–T008 of SpecKit 024 are all complete with Status=Implemented.
+- **Evidence loss, important**: the private temporary evidence directories cited by I19–I23 have **all disappeared from `/tmp`**, namely close-jfr, close-lifecycle, retain-observer, pool 0700 and 0730-r1, retain 0700 and 0720-r1, lease-prototype, memory-admission, and retain-attribution. The SHA256 values in this ledger stay, and a conclusion is traceable in the text, but it can no longer be recomputed locally; the I23 JFR counterexample can be re-exported from the archived `rs-p1.jfr` and `rs-p2.jfr`.
+- **Archive action**: the existing evidence under the performance worktree `build/` was copied to `turboism/performance-evidence/20260909-handover/` under the operator local state directory, namely the complete `native-followup` except two oversized derived JSON files, `native-retain-attribution`, `main-integration`, and the javap, log, txt, and json files at the `build/` root, 169 files and 40.3MiB, with a generated `MANIFEST.sha256` that also holds the SHA256 of the 4 unarchived oversized derived files, plus an explanatory README. Not archived: `rs-p1-events.json`, `rs-p1-stacks.json`, `heavy-load-deep-jfr.json`, and `heavy-load-jfr.json`, which the archived raw JFR can regenerate. Usage rule 7 was added to this ledger.
+- **Outstanding debts, unresolved this round**: 1) the P08-a offline reproduction patch passed the parent `git apply --check` but is **NOT_RUN**, previously blocked by queue occupancy; 2) the parent chain of the image-pool and cpu-gpu reports among the 4 sub-agent reports became null, so the parent judges the identity provenance unclear and cannot count them as identity-verified deliveries, and the cpu-gpu report holds one BCI wording error already corrected by the review receipt; 3) the performance branch is 12 commits behind main and its gate was not fully rechecked after the last main increment; 4) the header date of this ledger was stale and is corrected this round.
+- **Verdict and execution order**: the user approved three items, namely starting the narrow N07 slice for a read-only attribution of the native view and history holding chain after a close using one host window, persisting the evidence with a new rule, and allowing a read-only review of the current 12 main commits with the affected gates and no main merge. Order: evidence archiving, done this round, then the read-only main increment review, then freezing and implementing the N07 read-only slice with its offline gate, then one exact 5302 read-only host observation with an independent review. Priority 2 is the P08-a offline reproduction; priority 3 is the static recheck of the N02-b pool-internal registration transaction window. Still forbidden: an unchanged E or P retry, the N03 ROI work, the N04 cleanup, CPU repaint coalescing, clearing the registry or a dispose or a forced GC or a heap snapshot, and any merge or push to main.
+- **Effectiveness**: the new memory, CPU, and GPU gain of this round is **NONE**; the output is a state check, evidence persistence, and the next slice authorization, which is no optimization acceptance.
 
-### I24 — 接手轮只读核查、证据归档与后续计划（2026-09-09）
+### I25 — Read-Only Review of the main Increment and the Integration Surface (2026-09-09)
 
-- **接手/核实方式**：新接手代理只读核查性能分支状态、SpecKit024全量文档、本台账、4份子代理报告与review-receipt、`build/` 验收产物是否存在。未启动宿主、未跑门禁、未做性能测量、未改源码或官方工件；本轮所有数字均为既有证据引用，不是新测量。
-- **分支状态**：`feat/cubism-native-performance-20260905` @ `a700980af`，性能worktree工作树干净；比集成基线 `83a49168` 多18个自有提交，落后当前main（`caba7a5f5`，0.43.10发布准备）12个提交；未合并、未推送main。SpecKit024的T001–T008全部完成，Status=Implemented。
-- **证据丢失（重要）**：I19–I23引用的私有临时证据目录已**全部从 `/tmp` 消失**（close-jfr、close-lifecycle、retain-observer、pool 0700/0730-r1、retain 0700/0720-r1、lease-prototype、memory-admission、retain-attribution）。台账内SHA256仍保留，结论可在文字层追溯，但已无法再本地复算校验；`I23` 的JFR反证可由归档中的 `rs-p1.jfr`/`rs-p2.jfr` 重新导出。
-- **归档动作**：已把性能worktree `build/` 下现存证据（`native-followup` 全量除两个超大派生JSON、`native-retain-attribution`、`main-integration`、`build/` 根目录 javap/log/txt/json）复制到操作者本地状态目录下的 `turboism/performance-evidence/20260909-handover/`，共169个文件/40.3MiB，并生成 `MANIFEST.sha256`（含未归档的4个超大派生文件SHA256）与说明README。未归档：`rs-p1-events.json`、`rs-p1-stacks.json`、`heavy-load-deep-jfr.json`、`heavy-load-jfr.json`（可由已归档的原始JFR再生）。本台账新增使用规则7。
-- **遗留欠账（本轮未解决）**：①P08-a离线复现补丁已父核验 `git apply --check` 通过但**NOT_RUN**（曾受阻于队列占用）；②4份子代理报告中 image-pool、cpu-gpu 的父链变为null，父方判定身份溯源待澄清，不能算身份已核验交付，且cpu-gpu报告有1处BCI表述错误（已由review-receipt纠正）；③性能分支落后main 12个提交，最后一次main增量接入后未再完整复核门禁；④本台账头部日期此前过期（本轮修正）。
-- **裁决与执行顺序**：用户批准三项——启动N07窄切片（关闭后原生视图/历史持有链只读归因，占一次实机窗口）、证据持久化并立规则、允许对当前main 12个提交做只读审阅与受影响门禁（不合并main）。顺序：证据归档（本轮完成）→ main增量只读审阅 → 冻结并实现N07只读切片与离线门禁 → 一次exact5302只读实机观测与独立复核。优先级2为P08-a离线复现；优先级3为N02-b池内部登记事务窗口静态复核。继续禁止：E/P系列原样重试、N03 ROI、N04清理、CPU repaint coalesce、清登记表/dispose/强制GC/采堆快照、合并或推送main。
-- **有效程度**：本轮新增内存/CPU/GPU收益**NONE**；产出为状态核实、证据持久化与后续切片授权，不构成任何优化验收。
+- **Scope and method**: a read-only review of the 12 main commits after the merge base `83a49168`, namely 8 ordinary commits and 4 merge commits with the latest `caba7a5f5` as the 0.43.10 release preparation. No merge, no push, no build, and no change to main or the worker; only `git diff`, `git log`, and `git merge-tree --write-tree` computed.
+- **Change surface**: 132 files with +8764 and −128; the body is the Atlas current-page packaging chain with the validation/texture-atlas-current-page evidence and scripts, the textureatlas contract in sdk, runtime, and plugins, and the api-contracts baseline, plus the release channel scripts in scripts/release, distribution, and .github/workflows and the compatibility lists of the 5.2.03, 5.3.02, and 5.3.03 editor-model records under compatibility/cubism/verification.
+- **Relation to this task's tool surface**: main touched only two related files, one line of `host_validation.py` that extends the unsupported exact host version set from {5203,5302} to {5203,5302,5303}, and `host-validation-tasks.json` with +37 lines adding Atlas queue task entries; it also adds the Atlas-specific scripts, README, and tests package-atlas-queue-probe, run-atlas-host-validation, test_atlas_host_validation, test_sdk_v8_linkage, and test_texture_atlas_sdk_linkage, plus `test_host_validation_scheduler.py` with +24 lines. The timing and memory observer, containment, evidence, transport, and the three memory observation files are unchanged in main; this task stays on 5302, and a wider admission set changes no identity constraint of this slice.
+- **Integration surface**: the only file both sides changed since the base is `gradle/verification.gradle.kts`, and the changes land in different sections, because this branch adds checkPerformanceProbeReports to the checkCompletedCommit dependency while main adds four SDK and Atlas checks to the checkRelease dependency. `git merge-tree --write-tree HEAD main` reports a **conflict-free automatic merge**, computed only and not executed.
+- **This branch is first on the same-named tool files**: against main, this branch also holds its own `host_validation_queue.py` with +55 and −6 and `host-validation-local-transport.sh` with +27, which are the admission and transport work recorded and verified in I15 and I17, not a main drift.
+- **Affected offline gates run this round without a host**: `scripts/check_remote_hygiene.py --worktree` is clean, and `scripts/test/check_host_validation_scheduler.sh` PASSes with 11 scheduler, 46 queue, and 12 evidence tests plus the matching shell checks at exit 0. This covers the ledger change and the queue tool surface of this round.
+- **Verdict and next step**: the integration risk is low and an automatic merge is possible when needed, but **this round still does not integrate**; after a merge the affected gates must be re-run and an identity-fixed host admission prepared again before old evidence can be reused, and the wider 5303 admission never applies to the 5302 conclusions of this task.
 
+### I26 — N07 Read-Only Attribution of the Native Holding Chain During a Close: Slice Frozen, Probe Implemented, Offline Verified (2026-09-10)
 
-### I25 — main 增量只读审阅与整合面评估（2026-09-09）
+- **Scope and method**: to answer whether the registry or the view chain still strongly holds the document and the model source after a close, SpecKit `028-native-close-ownership` was frozen in the performance worktree with spec, plan, research, data-model, quickstart, tasks, and checklists, and the read-only probe `NativeCloseOwnershipObservation` plus its host integration points were implemented. **No host was run**: every conclusion of this round comes from a bytecode cross-check, a synthetic regression, and the offline gate, and it is no performance gain or holding-chain conclusion.
+- **Bytecode recheck, a new finding that corrected the slice assumption**: the class hashes recomputed from the installed 5302 JAR, SHA `988ef6a8...`, agree with the ledger for registry `a.e`, entry base `a.b.a`, model entry `a.b.b`, `CModelingDocument`, `CEViewContext`, `CEAppCtrl`, and `CModelSource`. The key point: the base `b()` returns the loader wrapper `doc.a.f` and `c()` is only equivalent to `b() != null`; `doc.a.b.b` **does not override** `b()`, and its own CModelSource is exposed only through `f()`. Using `b()` and `c()` alone therefore cannot prove the native source is still held, so the probe resolves `f()` on the concrete class it hits, whose return type name must strictly equal `com.live2d.cubism.doc.model.CModelSource` without loading the host class, and it reports `fixtureCarriedSourceIsRecordedSource` separately using `refersTo` for the identity comparison only. This finding is written into `research.md` and is a necessary correction of the N07 assumption.
+- **Probe invariants**: read-only; no remove, dispose, clear, or forced GC; no host equals, hashCode, or toString comparison; no `getFilteredImage()` or image acquisition call; the registry list and the view history must keep the same instance, length, and element identity before and after the traversal to be COMPLETE, otherwise PARTIAL or `unstable`; an out-of-bounds case reports PARTIAL or UNSUPPORTED and **publishes no count**, because the count partitions are staged and only a COMPLETE commits, which keeps "not observed" apart from "0"; a snapshot object holds Properties fields only, asserted by a reflection walk in the regression.
+- **Host integration**: four capture points, `ownership.idle` as the enabled-state control, `ownership.beforeClose`, `ownership.closed120`, and `ownership.closedFinal`, plus the aggregate `ownership.attributionStatus=COMPLETE|INCOMPLETE`. Every identity, dirty-document, undo, camera, and close assertion of 024 stays; the begin and end phases of a capture point never enter the idle or zoom timing, which is a protocol revision rather than a historical baseline.
 
-- **范围/方式**：只读审阅 main 自合并基点 `83a49168` 后的 12 个提交（8 个普通提交 + 4 个合并提交，最新 `caba7a5f5` 为 0.43.10 发布准备）。未合并、未推送、未构建、未改 main 或 worker；仅用 `git diff`、`git log`、`git merge-tree --write-tree` 计算。
-- **变更面**：132 个文件、+8764/−128；主体是 Atlas 当前页打包链（validation/texture-atlas-current-page 证据与脚本、sdk/runtime/plugins 的 textureatlas 契约、api-contracts 基线）、发布渠道脚本（scripts/release、distribution、.github/workflows）与兼容性清单（compatibility/cubism/verification 的 5.2.03/5.3.02/5.3.03 editor-model 记录）。
-- **与本任务工具面的关系**：main 只动了两处相关文件——`host_validation.py` 一行（unsupported exact host version 集合由 {5203,5302} 扩为 {5203,5302,5303}）与 `host-validation-tasks.json`（+37 行，新增 Atlas 队列任务项）；另加 Atlas 专用脚本/README/测试（package-atlas-queue-probe、run-atlas-host-validation、test_atlas_host_validation、test_sdk_v8_linkage、test_texture_atlas_sdk_linkage）及 `test_host_validation_scheduler.py`（+24 行）。计时/内存 observer、containment、evidence、transport 与内存观测三文件在 main 无变化；本任务固定 5302，准入集合扩大不改变本切片身份约束。
-- **整合面**：双方自基点起同时修改的文件仅 `gradle/verification.gradle.kts`，且落在不同区段（本分支在 checkCompletedCommit 依赖加入 checkPerformanceProbeReports；main 在 checkRelease 依赖加入四个 SDK/Atlas 检查）。`git merge-tree --write-tree HEAD main` 结果为**无冲突自动合并**（仅计算，未执行）。
-- **本分支在同名工具文件上在先**：相对 main，本分支另有 `host_validation_queue.py`(+55/−6) 与 `host-validation-local-transport.sh`(+27) 的自有改动，属 I15/I17 已记录并验证过的准入/传输工作，不是 main 漂移。
-- **受影响离线门禁（本轮实跑，无宿主）**：`scripts/check_remote_hygiene.py --worktree` = clean；`scripts/test/check_host_validation_scheduler.sh` PASS（11 scheduler + 46 queue + 12 evidence tests 及配套 shell 检查，exit0）。覆盖本轮台账改动与队列工具面。
-- **判定/后续**：整合风险低，可在需要时自动合并；但**本轮仍未整合**，合并后必须重跑受影响门禁并重新准备身份固定的实机准入才能沿用旧证据；5303 准入扩大不得用于本任务的 5302 结论。
+- **Offline verification run this round**: `python3 -B scripts/test/test_native_close_ownership_observation.py` PASSes 3 items, namely a synthetic graph with 435 assertions, 5 mutable-window classes, and a scan of the integration-point order and the forbidden-call sites; `./gradlew --no-daemon --max-workers=1 devCheck checkResourceValidationBundle checkCubismHostValidationArguments` returns 0; `scripts/test/test_native_resource_policy.py` PASSes; the 024 regression `scripts/test/test_native_image_retain_observation.py` PASSes with 566 items. The synthetic graph covers a hit and a miss path, a null and a throwing entry, a duplicate entry, an empty, single, and multiple history view, a cleared and an uncleared weak reference, every cap and the deadline scan, a wrong accessor shape where a mismatched `f()` return type becomes `absent`, and a layout or origin mismatch that becomes `layout-or-origin`.
+- **Unfinished and limits**: the exact5302 host observation is not executed and T007 stays incomplete; whether `trySetAccessible` on the private `viewContextHistory` field succeeds on the host must be confirmed by that run, and a failure is recorded as `UNSUPPORTED` or `access` rather than 0. This slice clears no registry entry and takes no heap snapshot, so even an observed live entry **only authorizes a separate fix slice** and is no optimization acceptance for this round.
+- **Evidence archiving under usage rule 7**: the probe and test source revisions, the javap dumps, the synthetic regression log, and the 028 slice documents are archived in `~/.local/state/turboism/performance-evidence/20260910-native-close-ownership/` with 21 files and 1.1MiB including `MANIFEST.sha256`.
+- **Effectiveness**: the new memory, CPU, and GPU gain of this round is **NONE**, because no host ran and no new measurement exists.
 
-### I26 — N07 关闭期原生持有链只读归因：切片冻结、探针实现与离线验证（2026-09-10）
+### I27 — N07 exact5302 Read-Only Host Observation: The Registry and View-History Directions Are Excluded and the Whole Round Failed on the Existing Sampling Protocol (2026-09-10)
 
-- **范围/方式**：为回答“关闭后登记表/视图链是否仍强持有文档与模型源”，在性能worktree冻结 SpecKit `028-native-close-ownership`（spec/plan/research/data-model/quickstart/tasks/checklists），并实现只读探针 `NativeCloseOwnershipObservation` 与宿主接入点。**未运行宿主**：本轮所有结论都来自字节码交叉复核、合成回归与离线门禁，不构成任何性能收益或持有链结论。
-- **字节码复核（新发现，纠正了切片假设）**：从已装 5302 JAR（SHA `988ef6a8...`）重算类哈希与台账一致（registry `a.e`、entry base `a.b.a`、model entry `a.b.b`、`CModelingDocument`、`CEViewContext`、`CEAppCtrl`、`CModelSource`）。关键点：base 的 `b()` 返回的是加载器包装器 `doc.a.f`，`c()` 只等价于 `b() != null`；`doc.a.b.b` **不覆写** `b()`，其自有 `CModelSource` 只经 `f()` 暴露。因此只用 `b()`/`c()` 无法证明原生源仍被持有，探针改为在命中的具体类上解析 `f()`（返回类型名字必须严格等于 `com.live2d.cubism.doc.model.CModelSource`，不加载宿主类），并单独报告 `fixtureCarriedSourceIsRecordedSource`（仅用 `refersTo` 做身份比较）。此发现已写入 `research.md`，属对 N07 假设的必要修正。
-- **探针不变量**：只读；不 remove/dispose/clear/强制GC；不比较宿主 equals/hashCode/toString；不调用 `getFilteredImage()`/图像获取接口；registry 列表与视图历史的实例、长度和元素身份在遍历前后一致才判 COMPLETE，否则 PARTIAL/`unstable`；越界报 PARTIAL/UNSUPPORTED 且**不发布任何计数**（计数分区暂存，仅 COMPLETE 提交），避免“未观测”与“0”混淆；快照对象只含 Properties 字段（回归用反射遍历断言）。
-- **宿主接入**：四个采集点 `ownership.idle`（开启态对照组）、`ownership.beforeClose`、`ownership.closed120`、`ownership.closedFinal`，并输出聚合 `ownership.attributionStatus=COMPLETE|INCOMPLETE`。024 已有的身份/脏文档/Undo/相机/关闭断言全部保留；采集点自身的 begin/end 阶段不计入 idle/zoom 计时，属同口径修订而非历史基线。
-- **离线验证（本轮实跑）**：`python3 -B scripts/test/test_native_close_ownership_observation.py` PASS（3 项：合成图 435 项断言、可变窗口 5 类、接入点顺序与禁用法调用点扫描）；`./gradlew --no-daemon --max-workers=1 devCheck checkResourceValidationBundle checkCubismHostValidationArguments` = 0；`scripts/test/test_native_resource_policy.py` PASS；024 回归 `scripts/test/test_native_image_retain_observation.py` PASS（566 项）。合成图覆盖：命中/未命中路径、null 与抛异常条目、重复条目、空/单/多历史视图、已清除与未清除弱引用、各类上限与截止时间扫描、错误访问器形状（`f()` 返回类型不符 → `absent`）、布局/来源不匹配 → `layout-or-origin`。
-- **未完成与限制**：exact5302 实机观测尚未执行（T007 保持未完成）；私有字段 `viewContextHistory` 的 `trySetAccessible` 在实机下是否成功需由该次运行确认，失败会记为 `UNSUPPORTED`/`access`，不会记为 0。本切片不清理任何登记项、不做 GC/堆快照，因此即使观测到存活条目也**只授权后续另立修复切片**，不代表本轮有任何优化验收。
-- **证据归档（使用规则 7）**：探针与测试源码修订、javap 转储、合成回归日志与 028 切片文档已归档到
-  `~/.local/state/turboism/performance-evidence/20260910-native-close-ownership/`（21 文件 / 1.1MiB，含 `MANIFEST.sha256`）。
-- **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**（未运行宿主，无新测量）。
+- **Run identity**: prepared `c63e7782c7beba3990600ccbd885835eff8f34abeaacd0ebfc1a1e8eadf74e93`, source HEAD `caa3f1678` with an empty dirtyDigest and a clean working tree, auxiliary jar SHA256 `b249da40ec962f728e8745892a6c81547b40d96a21719fe1ee7bc02ece8c2e62` including the probe class `6270a536…`, fixture SHA256 `029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`, and the host JAR still `988ef6a8…f8c84f21`. The task-scoped manifest declares host-slot and performance-host, the four optimization flags and profile are all false, and the three fixed helpers and the pinned interpreter `/usr/bin/python3.14` are present. The submit goes through the main CLI: request `native-close-ownership-20260910-b1`, job `eec9bcdb-80ff-4178-8768-ccca95b0ca0a`, attempt `2f273820-7906-4c4e-942f-1ba01c3ea0cd`, run `queue-4b2460f6c0d8426cb75071112a6fe167`, label `nr-own-b1`.
+- **Overall result FAIL, not from the probe**: `failure=java.lang.IllegalStateException: process memory sampling failed`, whose cause is the existing sampler self-check `measure-task-memory.py::validate_window` throwing `memory sample timing gap outside 0..5 seconds` over 381 samples with a maximum adjacent gap of 6.93 seconds at the end of the restored window from 12:22:40 to 12:22:47, when MemAvailable was about 1.98GB and SwapFree about 2.2MB under swap pressure. The workload therefore stopped at the sampling check, and `ownership.closedFinal` plus the aggregate `ownership.attributionStatus` were never written. This failure mode belongs to the existing protocol and environment, not to this slice's probe.
+- **N07 host observation, all three groups COMPLETE**:
+  - `ownership.idle` as the enabled-state control: `registryEntries=1`, `fixtureEntryPresent=true`, `fixtureLoadedFlag=true`, `fixtureWrapperPresent=true`, `fixtureSourceAccessor=f`, `fixtureCarriedSourcePresent=true`, `fixtureCarriedSourceIsRecordedSource=true`, `historySize=1`, `historyViewsWithDocument=1`, `historyViewsReferringToDocument=1`, `documentWeakBefore/After=false`, duration about 14.7ms.
+  - `ownership.beforeClose`: the same values, with the entry present, the source identity matching, and the history referring count 1, duration about 0.22ms.
+  - `ownership.closed120` at 120 seconds after the close: `registryEntries=0`, `fixtureEntryPresent=false`, `historySize=0`, `historyViewsWithDocument=0`, `currentDocNull=true`, `currentViewNull=true`, `documentWeakBefore/After=false`, `sourceWeakBefore/After=false`, `referrersExamined=0`, duration about 0.11ms.
+  - The 024 observation still holds: `retain.closed.resources.notCleared=848` with a zero uncleared user count and `documentWeakCleared=false`.
+- **Reading, negative and self-consistent**: after the close the static registry instance `doc.a.e` exists but its **list is empty**, the controller view history is empty, and the current document and view are null, while the 848 resource weak references stay uncleared. The enabled-state control reads exactly one entry and matches the `f()` identity to the recorded `CModelSource`, which shows the probe and its wiring work. So **after the close the document and the native model source are not strongly held by a registry entry or by the controller view history**; those two N07 chains are excluded and later attribution must turn to another holder such as the resource registry or the texture management side, in a separate slice.
+- **Limits and retry condition**: the overall status is FAIL and this is no complete SC-002 PASS acceptance; `closedFinal` and the aggregate state are missing; the probe never observed a post-GC state, which conforms to the constraint because no forced GC ran. A retry needs a new job and a new label and must first confirm that the host memory pressure eased, because the sampling protocol may fail at the same point again while SwapFree stays in the MB range. The evidence, namely job evidence, result.properties, outcome and containment, the run logs, and the samples, is archived in `~/.local/state/turboism/performance-evidence/20260910-native-close-ownership/run/nr-own-b1/`.
+- **Effectiveness**: the new memory, CPU, and GPU gain is **NONE**; the output is **negative host evidence** against the N07 registry and view-history directions plus a reproducible failure point of the existing sampling protocol under memory pressure.
 
-### I27 — N07 exact5302 只读实机观测：登记表与视图历史方向被排除，整体因既有采样协议失败（2026-09-10）
+### I28 — A Repeated N07 Host Observation: The Registry and View-History Directions Are Excluded Twice and the Whole Round Still Failed on the Existing Sampling-Interval Protocol (2026-09-10)
 
-- **运行身份**：prepared=`c63e7782c7beba3990600ccbd885835eff8f34abeaacd0ebfc1a1e8eadf74e93`，source HEAD=`caa3f1678`（dirtyDigest=空，工作树干净），aux jar SHA256=`b249da40ec962f728e8745892a6c81547b40d96a21719fe1ee7bc02ece8c2e62`（含探针类 `6270a536…`），fixture SHA256=`029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`，主机 JAR 仍 `988ef6a8…f8c84f21`。任务作用域 manifest 声明 host-slot+performance-host，四优化 flag 与 profile 均 false，三个固定 helper 与 pin 解释器 `/usr/bin/python3.14` 齐备。提交经 main CLI，request=`native-close-ownership-20260910-b1`，job=`eec9bcdb-80ff-4178-8768-ccca95b0ca0a`，attempt=`2f273820-7906-4c4e-942f-1ba01c3ea0cd`，run=`queue-4b2460f6c0d8426cb75071112a6fe167`，label=`nr-own-b1`。
-- **整体结果：FAIL（非探针原因）**：`failure=java.lang.IllegalStateException: process memory sampling failed`，根因是既有采样器自校验 `measure-task-memory.py::validate_window` 抛 `memory sample timing gap outside 0..5 seconds`（381 个样本，最大相邻间隔 6.93s，位于 restored 窗口末 12:22:40→12:22:47；该时刻 `MemAvailable≈1.98GB`、`SwapFree≈2.2MB`，机器处于换出压力下）。因此 workload 在采样校验处中止，`ownership.closedFinal` 与聚合 `ownership.attributionStatus` 未写入。此失败模式属既有协议/环境问题，与本切片探针无关。
-- **N07 实机观测（三组均 COMPLETE）**：
-  - `ownership.idle`（开启态对照）：`registryEntries=1`、`fixtureEntryPresent=true`、`fixtureLoadedFlag=true`、`fixtureWrapperPresent=true`、`fixtureSourceAccessor=f`、`fixtureCarriedSourcePresent=true`、`fixtureCarriedSourceIsRecordedSource=true`、`historySize=1`、`historyViewsWithDocument=1`、`historyViewsReferringToDocument=1`、`documentWeakBefore/After=false`、duration≈14.7ms。
-  - `ownership.beforeClose`：同上（entry present、source 身份匹配、hist視 referring=1）、duration≈0.22ms。
-  - `ownership.closed120`（关闭后 120s）：`registryEntries=0`、`fixtureEntryPresent=false`、`historySize=0`、`historyViewsWithDocument=0`、`currentDocNull=true`、`currentViewNull=true`、`documentWeakBefore/After=false`、`sourceWeakBefore/After=false`、`referrersExamined=0`、duration≈0.11ms。
-  - 同期 024 观测仍成立：`retain.closed.resources.notCleared=848`、用户未清除计数为 0、`documentWeakCleared=false`。
-- **解释（阴性且自洽）**：关闭后静态登记表 `doc.a.e` 的实例在但**列表为空**，控制器视图历史为空、当前文档/视图为 null，而 848 个资源弱引用仍未清除。开启态对照组能读到恰好 1 条条目并把 `f()` 身份匹配到记录的 `CModelSource`，说明探针与接线有效。因此**关闭后文档/原生模型源并非由登记表条目或控制器视图历史强持有**——N07 假设的这两条链被排除，后续归因必须转向其它持有者（例如资源注册表/纹理管理侧），且需要另立切片。
-- **限制与重试条件**：整体 status=FAIL，不是 SC-002 的完整 PASS 验收；`closedFinal` 与聚合状态缺失；探针未观察到 GC 后状态（未做强制 GC，符合约束）。重试需新 job/新 label，并先确认宿主内存压力已缓解（SwapFree 不再是 MB 级），否则采样协议可能在同一点再次失败。证据（job evidence、result.properties、outcome/containment、运行日志、samples）已归档到 `~/.local/state/turboism/performance-evidence/20260910-native-close-ownership/run/nr-own-b1/`。
-- **有效程度**：新增内存/CPU/GPU 收益 **NONE**；产出为对 N07 登记表/视图历史方向的**否定性实机证据**，并暴露既有采样协议在内存压力下的失败点。
+- **Run identity**: new prepared `7902af9d0b51e2766551bf0b7404d1197e2f87e40db0a4ad4712b0b18cc2c037`, source HEAD `8738b7424` with an empty dirtyDigest, the auxiliary jar and the fixture with the same hashes as I27, the four optimization flags and profile all false, and the three fixed helpers and the pinned interpreter unchanged. The submit goes through the main CLI: request `native-close-ownership-20260910-b2`, job `f16d992e-7351-4561-a70b-7bc89bc3b765`, attempt `queue-713168bd68cd499882c4a912112e22b8` for the run, label `nr-own-b2`.
+- **Overall result FAIL with the same cause and the same location type**: `memory sample timing gap outside 0..5 seconds`, with a maximum adjacent sample gap of **15.21 seconds** from 13:13:05 to 13:13:20 inside the zoom window 13:12:42–13:14:00 over 365 samples, when MemAvailable was about 2.87GB and SwapFree about 3.8MB. Both runs, I27 at 6.93 seconds and this one at 15.21 seconds, **failed at the existing sampler 0..5-second interval self-check**, and both failure points fall inside the timed workload under host swap pressure with SwapFree in the MB range; `ownership.closedFinal` and the aggregate `attributionStatus` are missing in both.
+- **Repeated N07 observation, all three groups COMPLETE and field-for-field identical to I27**: `ownership.idle` and `ownership.beforeClose` both report `registryEntries=1`, `fixtureEntryPresent=true`, `fixtureLoadedFlag=true`, `fixtureWrapperPresent=true`, `fixtureSourceAccessor=f`, `fixtureCarriedSourcePresent=true`, `fixtureCarriedSourceIsRecordedSource=true`, `historySize=1`, `historyViewsWithDocument=1`, and `historyViewsReferringToDocument=1`; `ownership.closed120` reports `registryEntries=0`, `fixtureEntryPresent=false`, `historySize=0`, `historyViewsWithDocument=0`, `currentDocNull=true`, `currentViewNull=true`, `documentWeakBefore/After=false`, and `sourceWeakBefore/After=false`. The 024 observation reappears as `retain.closed.resources.total=848`, `notCleared=848`, `cleared=0`, and `documentWeakCleared=false`. The official JAR, BAT, and fixture hashes are unchanged after the run.
+- **Verdict**: the two strong holding chains of N07, the registry entry and the controller view history, are **excluded by two independent host observations**, because the enabled-state control reads exactly one entry and matches the identity of the recorded `CModelSource`, which shows the probe works; what survives the close is the 848 resource weak references and the document weak reference. This conclusion does not depend on the overall PASS, because each of the three snapshots has `status=COMPLETE`, the failure point comes after them, and the sequence is self-consistent. But **the workload PASS and the `closedFinal` and aggregate state are still not obtained**, so T007 does not complete through this entry.
+- **Block and recommendation**: the block is that the existing read-only sampler 0..5-second interval self-check cannot be satisfied under swap pressure, which belongs to the 023 admission protocol and the host capacity condition rather than this slice; this round takes **no third retry**, because two failures with the same cause are already reproducible. The recommendation is to release the host swap pressure first, with SwapFree back in the GB range or a restart, or to rule separately on the interval rule under pressure; the rule must never be relaxed to pass an acceptance. No forced GC, no heap snapshot, no registry cleanup, and no main merge happened.
+- **Evidence archiving**: the job evidence, `result.properties`, outcome and containment, the runner and sampling logs, and the samples of both runs are archived in `~/.local/state/turboism/performance-evidence/20260910-native-close-ownership/run/nr-own-b{1,2}/` with 112 items, rechecked against `MANIFEST.sha256`.
+- **Effectiveness**: the new memory, CPU, and GPU gain is **NONE**; the output is **two reproducible negative N07 host observations** and one reproducible sampler failure point under host swap pressure.
 
-### I28 — N07 实机重复观测：登记表/视图历史方向被两次独立排除，整体仍因既有采样间隔协议失败（2026-09-10）
+### I29 — Read-Only Audit of Java Static Roots of the Native Graph After a Close: Direction Slice, Offline Implementation, and Static-Side Evidence (2026-09-10)
 
-- **运行身份**：新 prepared=`7902af9d0b51e2766551bf0b7404d1197e2f87e40db0a4ad4712b0b18cc2c037`，source HEAD=`8738b7424`（dirtyDigest=空），aux jar 与 fixture 与 I27 同哈希，四优化 flag/profile 全 false，三个固定 helper 与 pin 解释器不变。提交经 main CLI，request=`native-close-ownership-20260910-b2`，job=`f16d992e-7351-4561-a70b-7bc89bc3b765`，attempt=`queue-713168bd68cd499882c4a912112e22b8` 对应 run，label=`nr-own-b2`。
-- **整体结果：FAIL（同因、同一位置类型）**：`memory sample timing gap outside 0..5 seconds`，本次最大相邻样本间隔 **15.21s**（13:13:05→13:13:20，处于 zoom 窗口 13:12:42–13:14:00 内），样本数 365；该时刻 `MemAvailable≈2.87GB`、`SwapFree≈3.8MB`。两次运行（I27 6.93s / 本次 15.21s）**都在既有采样器的 0..5s 间隔自校验处失败**，且失败点都落在计时工作负载内、宿主换出压力（SwapFree 为 MB 级）之下；`ownership.closedFinal` 与聚合 `attributionStatus` 两次均缺失。
-- **N07 重复观测（三组均 COMPLETE，与 I27 逐字段一致）**：`ownership.idle` 与 `ownership.beforeClose` 均为 `registryEntries=1`、`fixtureEntryPresent=true`、`fixtureLoadedFlag=true`、`fixtureWrapperPresent=true`、`fixtureSourceAccessor=f`、`fixtureCarriedSourcePresent=true`、`fixtureCarriedSourceIsRecordedSource=true`、`historySize=1`、`historyViewsWithDocument=1`、`historyViewsReferringToDocument=1`；`ownership.closed120` 为 `registryEntries=0`、`fixtureEntryPresent=false`、`historySize=0`、`historyViewsWithDocument=0`、`currentDocNull=true`、`currentViewNull=true`、`documentWeakBefore/After=false`、`sourceWeakBefore/After=false`。同期 024 观测再现：`retain.closed.resources.total=848`、`notCleared=848`、`cleared=0`、`documentWeakCleared=false`。官方 JAR/BAT 与 fixture 运行后哈希不变。
-- **判定**：N07 的登记表条目与控制器视图历史两条强持有链被两次独立实机观测**排除**（开启态对照能读到恰好 1 条条目并身份匹配记录的 `CModelSource`，说明探针有效）；关闭后仍存活的是 848 个资源弱引用与文档弱引用。该结论不依赖运行整体 PASS，因为三组快照各自 `status=COMPLETE`、失败点在其后、且序列自洽。但**工作负载 PASS 与 `closedFinal`/聚合状态仍未取得**，T007 不因本条目完成。
-- **阻塞与建议**：阻塞点是既有只读采样器的 0..5s 间隔自校验在换出压力下无法满足，属 023 准入协议与宿主容量条件，不属本切片；本轮**不**再第三次重试（两次同因失败已构成可复现）。建议先释放宿主换出压力（SwapFree 回升到 GB 级或重启）再跑，或就"压力下间隔规则"另立裁决；不得为通过验收而放宽该规则。未做强制 GC、未采堆快照、未清理登记项、未合并 main。
-- **证据归档**：两次运行的 job evidence、`result.properties`、outcome/containment、runner/采样日志与 samples 均归档在 `~/.local/state/turboism/performance-evidence/20260910-native-close-ownership/run/nr-own-b{1,2}/`（112 项，`MANIFEST.sha256` 复核）。
-- **有效程度**：新增内存/CPU/GPU 收益 **NONE**；产出为**两次可复现的 N07 否定性实机证据**与一个可复现的宿主换出压力下采样器失败点。
+- **Motivation, following the negative results of I27 and I28**: 028 already excluded the static registry entry and the controller view history twice on the host; the document weak reference, the native model source weak reference, and the 848 resource weak references that survive 120 seconds after the close must have another root. The next layer observable read-only is a **Java static field**, as opposed to a live thread or a JNI native global state.
+- **Offline static analysis, parsing class files and `javap` only without loading a host class or starting a host**: for the exact 5.3.02 `Live2D_Cubism.jar` with SHA256 `988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`, 16,947 classes and 14,895 static fields, the constant pool and the field table were parsed for reverse reachability:
+  - **0** static fields have the type `CModelingDocument`, **0** have `com.live2d.cubism.doc.IDocument`, and **0** have `CTextureManager`, `CModelImage`, `CCachedImage`, or `ICImageResourceUser`; the 25 static `CImageResource` fields are all final icon constants rather than caches.
+  - Exactly **4** static fields hold a `CModelSource`, all package-private or private and **non-final**, in the parameter and part panels and UI helper classes: `appCtrlImpl.ui.a.a#d`, `view.palette.parameter.dialog.G#d`, `view.palette.parameter.dialog.af#i`, and `view.palette.parts.a.a#d`. A per-site `javap -p -c` recheck shows exactly **one** `putstatic` each, from a UI update method that takes a panel or a `CEAppCtrl`, and **no write-back of null anywhere**, which makes them candidate stale static caches and a new root suspicion.
+  - `CModelSource` holds a **non-final `document` reverse pointer**, and `CModelSource.textureManager` reaches the model image groups and the `CImageResource`, so **as long as the source is rooted, the document and the whole image set survive with it**, which agrees with the I27 and I28 observation of no release record and uncleared weak references.
+  - Beyond the `CEAppCtrl` singleton fan-out, another **44** static fields can reach a `CModelSource`, so those 44 plus the 4 above form the **review boundary** of 029, which is no completeness proof.
+- **Slice frozen**: a new Spec Kit **029-static-root-audit** with the canonical path `/opt/dev/projects/turboism/specs/029-static-root-audit/` and a frozen copy in the performance worktree at `specs/029-static-root-audit/`, identical under `diff -rq`; T001 records the static analysis above. Non-goals: no heap dump, no GC root walk, no retained-size measurement, and no cleanup or product change; **a positive hit only authorizes a separate fix slice**.
+- **Probe implementation, read-only, bounded, and EDT-required**: `NativeStaticRootAudit.java` freezes `DIRECT`, the 4 source static fields, and `HOLDERS`, 30 reviewed singleton or state statics named `owner#field`. For each item it resolves the owner class without initializing it, validates the class loader and the code source origin, takes the declared static field, calls `trySetAccessible`, and reads once; a non-null holder then gets a **one-hop** scan of the instance fields declared in its own class and up to 4 superclasses whose type name is **exactly** the source or document type, where an inaccessible field counts as `unreadable`. Identity uses **only** `WeakPair.sourceIs` or `documentIs`, which is `refersTo`; it never calls `get()` and never calls a host `equals`, `hashCode`, or `toString`; it **never writes** a host static field; and it outputs scalars and bounded `owner#field` labels only. The caps are 64 holders, 128 scanned fields, and a 250ms cooperative deadline checked before every read; the count partitions are staged and only a `COMPLETE` commits, so `PARTIAL` and `UNSUPPORTED` **publish no count**, which keeps "not observed" apart from "0". Reading a static field may initialize its declaring class, and a class initializer cannot obtain the live source of an already open document, so **an identity hit must come from an application write**; the audit therefore runs **after** the same-phase `ownership` capture, and the initialization cannot affect that capture.
+- **Host integration**: `NativeResourceHostAgent.java` calls `auditStaticRoots(...)` after the matching `ownership` capture at the four points `idle`, `beforeClose`, `closed120`, and `closedFinal` and outputs `staticRoots.<phase>.*`; every identity, dirty-document, undo, camera, and close assertion and safety gate of 024 and 028 stays unchanged.
+- **Offline verification run this round**: `python3 -B scripts/test/test_native_static_root_audit.py` **PASSes** 3 items and 112 assertions, covering a synthetic graph that directly hits the source and the document, a null, foreign-source, and foreign-loader negative case, a missing field and a primitive-typed field counted as `unreadable`, an empty singleton, an inherited field hit at one hop, all three caps of holder, field, and time reporting `PARTIAL` without publishing a count, unchanged static fields before and after the audit, an empty weak pair, scalars only, and the EDT requirement with a foreign origin refusal; it also scans the read-only and forbidden call sites and asserts the integration-point order. `./gradlew --no-daemon --max-workers=1 devCheck checkResourceValidationBundle checkCubismHostValidationArguments` returns **0** including `remote-hygiene: clean` and `PASS: Cubism host-validation argument and ownership hardening`; `test_native_resource_policy.py` PASSes; the 024 regression `test_native_image_retain_observation.py` PASSes with 566 assertions; and the 028 regression `test_native_close_ownership_observation.py` PASSes with 435 assertions.
+- **Unfinished and limits**: the exact5302 host observation is **not executed**; T002 to T005 are complete and T006 and T007 stay incomplete, and the current block equals I27 and I28 in that the shared host swap pressure makes the existing sampler 0..5-second interval self-check unsatisfiable, while `/home` at 96% leaves two retained prefixes unreleased and the shared long-lived worker undrained. **An offline static analysis is no host root proof**: it does not prove that those 4 fields hold a live source at this moment and it excludes neither a live thread nor a JNI native global state; a container-typed static field outside the 44-item boundary, such as a collection or cache, may still reach that graph.
+- **Evidence archiving under usage rule 7**: the static analysis scripts and dumps `roots.py`, `roots2.py`, `reach.py`, `static-fields.txt`, `interfaces-and-containers.txt`, `reachability.txt`, `direct-source-statics-bytecode.txt`, `CModelSource-fields.txt`, and `host-jar.sha256` are archived in `~/.local/state/turboism/performance-evidence/20260910-native-close-ownership/static-root-analysis/`.
+- **Effectiveness**: the new memory, CPU, and GPU gain of this round is **NONE**, because no host ran and no new measurement exists; the output is **reproducible Java static root boundary evidence**, namely 0 document, texture, or image static fields, only 4 source caches that never null, and a source-to-document reverse pointer, plus a read-only audit probe that passed its offline gate.
 
-### I29 — 关闭后原生图 Java 静态根只读审计：方向切片、离线实现与 static 侧证据（2026-09-10）
+### I30 — The 029 Static Root Audit on exact5302: The Workload PASSed and the Java Static Roots Inside the Review Boundary Are Excluded, Making Static Containers the New Direction (2026-09-10)
 
-- **动机（承接 I27/I28 的否定结果）**：028 已两次实机排除“静态登记表条目”与“控制器视图历史”两条链；关闭后 120s 仍存活的文档弱引用、原生模型源弱引用与 848 个资源弱引用必须另有根。可只读观测的下一层候选是 **Java 静态字段**（相对 live thread / JNI native 全局态）。
-- **离线静态分析（仅解析 class 文件与 `javap`，不加载宿主类、不启动宿主）**：对精确 5.3.02 的 `Live2D_Cubism.jar`（SHA256 `988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`，16 947 类 / 14 895 个静态字段）解析常量池与字段表并做反向可达性：
-  - **0** 个静态字段的类型是 `CModelingDocument`，**0** 个是 `com.live2d.cubism.doc.IDocument`，**0** 个是 `CTextureManager`/`CModelImage`/`CCachedImage`/`ICImageResourceUser`；25 个静态 `CImageResource` 全是 final 图标常量而非缓存。
-  - 恰好 **4** 个静态字段持有 `CModelSource`，全部为包私有/私有且**非 final**，位于参数/部件面板与 UI 辅助类：`appCtrlImpl.ui.a.a#d`、`view.palette.parameter.dialog.G#d`、`view.palette.parameter.dialog.af#i`、`view.palette.parts.a.a#d`。逐个 `javap -p -c` 复核：每处均只有**一次** `putstatic`（来自一个接收面板/`CEAppCtrl` 的 UI 更新方法），且**全程没有写回 null** → 候选陈旧静态缓存，属新的根嫌疑。
-  - `CModelSource` 有**非 final 的 `document` 反向指针**，且 `CModelSource.textureManager` 可达模型图像组与 `CImageResource`：因此**只要源被根持有，文档与整图即随之存活**，与 I27/I28“无释放记录、弱引用不清”的观测一致。
-  - 除 `CEAppCtrl` 单例扇出外，仍有 **44** 个静态字段可到达 `CModelSource` → 该 44 项与上述 4 项共同构成 029 的**审查边界**（非完整性证明）。
-- **切片冻结**：新增 Spec Kit **029-static-root-audit**（canonical `/opt/dev/projects/turboism/specs/029-static-root-audit/`，冻结副本于性能 worktree `specs/029-static-root-audit/`，`diff -rq` 一致）；T001 记录上述静态分析。非目标：不做堆转储/GC 根遍历/保留大小测量、不做任何清理或产品修改；**正向命中只授权另立修复切片**。
-- **探针实现（只读、有界、需 EDT）**：`NativeStaticRootAudit.java`，冻结 `DIRECT`（4 个源静态字段）与 `HOLDERS`（30 个已复核单例/状态静态 `owner#field`）。每项：不初始化地解析 owner 类 → 校验类加载器与 code source 来源 → 取声明静态字段 → `trySetAccessible` → 读一次；非空持有者再**一跳**扫描（自身类及至多 4 层父类）声明类型名**恰为**源或文档类型的实例字段（不可访问计 `unreadable`）。身份**只用** `WeakPair.sourceIs/documentIs`（即 `refersTo`），绝不 `get()`、绝不调宿主 `equals/hashCode/toString`；**绝不写**任何宿主静态字段；只输出标量与有界 `owner#field` 标签。上限 64 持有者 / 128 扫描字段 / 250ms 协作式截止（每次读取前检查）；计数分区暂存、仅 `COMPLETE` 提交 → `PARTIAL`/`UNSUPPORTED` **不发布任何计数**（避免“未观测”与“0”混淆）。读取静态字段可能触发其类初始化：类初始化器无法取得已打开文档的活源，故**身份命中必然来自应用写入**；因此审计排在同阶段 `ownership` 采集**之后**，初始化不可能影响该次采集。
-- **宿主接入**：`NativeResourceHostAgent.java` 在四个采集点（`idle`、`beforeClose`、`closed120`、`closedFinal`）于对应 `ownership` 采集后调用 `auditStaticRoots(...)`，输出 `staticRoots.<phase>.*`；024/028 已有的身份/脏文档/Undo/相机/关闭断言与安全门控全部保留不变。
-- **离线验证（本轮实跑）**：`python3 -B scripts/test/test_native_static_root_audit.py` **PASS**（3 项 / 112 断言：合成图直接命中源与文档、null/异源/异加载器负例、缺失与原始类型字段计 `unreadable`、空单例、继承字段一跳命中、holder/field/time 三类上限均 `PARTIAL` 且不发布计数、审计前后静态字段未变、空弱对、仅标量、EDT 要求与外来来源拒绝；另有只读/禁用法调用点扫描与接入点顺序断言）。`./gradlew --no-daemon --max-workers=1 devCheck checkResourceValidationBundle checkCubismHostValidationArguments` = **0**（含 `remote-hygiene: clean`、`PASS: Cubism host-validation argument and ownership hardening`）；`test_native_resource_policy.py` PASS；024 回归 `test_native_image_retain_observation.py` PASS（566 断言）；028 回归 `test_native_close_ownership_observation.py` PASS（435 断言）。
-- **未完成与限制**：exact5302 实机观测**尚未执行**（T002–T005 完成，T006/T007 保持未完成）——当前阻塞与 I27/I28 相同：共享宿主的换出压力使既有采样器 0..5s 间隔自校验无法满足，且 `/home` 磁盘 96% 下两个保留 prefix 未释放、共享长驻 worker 未 drain。**离线静态分析不等于实机根证明**：它不证明这 4 个字段此刻确实持有活源，也不排除 live thread 与 JNI/native 全局态；44 项边界之外的容器型静态字段（如集合/缓存）仍可能到达该图。
-- **证据归档（使用规则 7）**：静态分析脚本与转储（`roots.py`、`roots2.py`、`reach.py`、`static-fields.txt`、`interfaces-and-containers.txt`、`reachability.txt`、`direct-source-statics-bytecode.txt`、`CModelSource-fields.txt`、`host-jar.sha256`）归档到 `~/.local/state/turboism/performance-evidence/20260910-native-close-ownership/static-root-analysis/`。
-- **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**（未运行宿主，无新测量）；产出为**可复现的 Java 静态根边界证据**（0 文档/纹理/图像静态字段；仅 4 个从不置 null 的源缓存；源→文档反向指针）与一个已通过离线门禁的只读审计探针。
+- **Run identity**: prepared `611f283ae45df7f1ff17faa0beebff0382b417c6283dd7cc1192eae68a7659a9`, source HEAD `a17367f06c2644e9a85d7d451cf668a2ce19f727` with `dirtyDigest=e3b0c442…b855` empty and a clean tree, auxiliary jar SHA256 `390e8f32e4b1c1a7139ae5bb399d4584cc80f52240057b97b01d8955365dc9e4` including the new `NativeStaticRootAudit` and therefore differing from the `b249da40…` of I27 and I28 as this slice's probe increment, fixture `029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`, the host JAR still `988ef6a8…f8c84f21`, and the four optimization flags and profile all false. The task-scoped manifest matches I27 and I28. The submit goes through the main CLI: request `native-static-root-20260910-b1`, job `7326cecf-398c-4f66-8ceb-e71f34c87167`, attempt `233e58eb-435f-4386-acee-bf8198732b7f`, run `queue-d6f6b98e4b474ca5b311d372bbac0a8a`, label `nr-static-b1`.
+- **Overall result PASS, the first complete PASS of this slice**: `validationStatus=PASS`, `validationComplete=true`, `normalExit=true`, `runnerExitCode=0`, `identityVerified=true`, `goldenUnchanged=true`, `fixtureUnchanged=true`, `prefixRetained=false`, `cleanup=safe`, and `taskOwnedCleanup=true`; the kernel proves `cgroup-destroyed` with `processReturncode=0`, and no host process remains. **The T007 gap of 028 closes this round**: `ownership.attributionStatus=COMPLETE` with all four `ownership.*` capture points including the previously missing `closedFinal`. `status=PASS` and `documentWeakClearedAtSamplerEnd=false`.
+- **The sampling-protocol block is now located as an environment cause**: this round has 381 samples with a **maximum adjacent gap of 1.11 seconds** and a median of 1.05 seconds, well inside the existing 0..5-second rule, while MemAvailable is about 6.3–9.9GiB and SwapFree about 12.8–13.4GiB. Against I27 at 6.93 seconds and I28 at 15.21 seconds, both of which failed while SwapFree was in the MB range, **the direct cause of the existing sampler failure is host swap pressure, not a sampling rule that needs relaxing**.
+- **The 029 static root audit, all four groups COMPLETE with `reason=none`**:
 
-### I30 — 029 静态根审计 exact5302 实机：工作负载 PASS，审查范围内的 Java 静态根被排除；静态容器成为新方向（2026-09-10）
-
-- **运行身份**：prepared=`611f283ae45df7f1ff17faa0beebff0382b417c6283dd7cc1192eae68a7659a9`，source HEAD=`a17367f06c2644e9a85d7d451cf668a2ce19f727`（`dirtyDigest=e3b0c442…b855` = 空 → 工作树干净），aux jar SHA256=`390e8f32e4b1c1a7139ae5bb399d4584cc80f52240057b97b01d8955365dc9e4`（新增 `NativeStaticRootAudit`，与 I27/I28 的 `b249da40…` 不同，属本切片探针增量），fixture=`029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`，主机 JAR 仍 `988ef6a8…f8c84f21`，四优化 flag 与 profile 全 false。任务作用域 manifest 同 I27/I28。提交经 main CLI，request=`native-static-root-20260910-b1`，job=`7326cecf-398c-4f66-8ceb-e71f34c87167`，attempt=`233e58eb-435f-4386-acee-bf8198732b7f`，run=`queue-d6f6b98e4b474ca5b311d372bbac0a8a`，label=`nr-static-b1`。
-- **整体结果：PASS（本切片首个完整 PASS）**：`validationStatus=PASS`、`validationComplete=true`、`normalExit=true`、`runnerExitCode=0`、`identityVerified=true`、`goldenUnchanged=true`、`fixtureUnchanged=true`、`prefixRetained=false`、`cleanup=safe`、`taskOwnedCleanup=true`；内核证明 `cgroup-destroyed`（`processReturncode=0`），无残留宿主进程。**028 的 T007 缺口在本轮补齐**：`ownership.attributionStatus=COMPLETE`，四个 `ownership.*` 采集点（含此前两次缺失的 `closedFinal`）齐备。`status=PASS`，`documentWeakClearedAtSamplerEnd=false`。
-- **采样协议阻塞已定位为环境原因**：本轮 381 个样本，**最大相邻间隔 1.11s**（中位 1.05s），远在既有 0..5s 规则内；运行期 `MemAvailable≈6.3–9.9 GiB`、`SwapFree≈12.8–13.4 GiB`。对照 I27（6.93s）与 I28（15.21s）均在 `SwapFree` 仅 MB 级时失败 → **既有采样器失败的直接原因是宿主换出压力，不是采样规则本身需要放宽**。
-- **029 静态根审计（四组全部 COMPLETE，`reason=none`）**：
-  | 采集点 | status | examined | read | unreadable | nonNull | scannedFields | holdersWithRecordedSource | holdersWithRecordedDocument | durationNs |
+  | Capture point | status | examined | read | unreadable | nonNull | scannedFields | holdersWithRecordedSource | holdersWithRecordedDocument | durationNs |
   |---|---|---|---|---|---|---|---|---|---|
-  | `staticRoots.idle` | COMPLETE | 34 | 34 | 0 | 15 | 4 | **0** | **0** | 42 360 400 |
-  | `staticRoots.beforeClose` | COMPLETE | 34 | 34 | 0 | 15 | 4 | **0** | **0** | 685 600 |
-  | `staticRoots.closed120` | COMPLETE | 34 | 34 | 0 | 15 | 4 | **0** | **0** | 812 500 |
-  | `staticRoots.closedFinal` | COMPLETE | 34 | 34 | 0 | 15 | 4 | **0** | **0** | 359 100 |
-  四组的 `recordedSourceHolders`/`recordedDocumentHolders` 均为空串。同期 024/028 再现：`retain.closed.resources.total=848`、`notCleared=848`、`cleared=0`；`ownership.closed120`/`closedFinal` 均为 `registryEntries=0`、`historySize=0`、`currentDocNull=true`、`documentWeakAfter=false`、`sourceWeakAfter=false`。
-- **判定（对审查范围内的 Java 静态根为否定）**：4 个直接 `CModelSource` 静态缓存与 30 个已复核单例/状态静态在**任何阶段**都不持有记录的源或文档——**包括文档合法打开且被强持有时的 `idle`/`beforeClose` 对照组**。该对照组使阴性结论有意义：探针确实能读到 15 个非空持有者与 4 个一跳源/文档类型字段，若根在其中则会在开启态命中。因此 **N07 之后的第三条方向（Java 静态根本身）在本工作负载内被排除**，与 I27/I28 的登记表/视图历史排除相独立。附带事实：本工作负载从未写入那 4 个源缓存（`nonNull=15/34`），故“陈旧静态缓存”假设在本工作负载内连素材都不存在。
-- **未排除（必须显式记录的方向）**：`PARTIAL`/`UNSUPPORTED` 未出现，但审计的**只读边界**决定了以下仍开放：(a) **静态容器字段**——声明类型为 `java/util/*`、数组或自定义容器（如 `com.live2d.type.CArrayList`）的静态字段，其**元素**可持有模型对象，而按字段描述符的可达性分析与 DIRECT/HOLDERS 列表都看不见它们；(b) **live thread** 根（含静态 `java.util.Timer` 及其 `TimerThread`、EDT）；(c) **JNI/native 全局态**，Java 侧不可读。029 的审计只否定 (a) 之外的类字段型静态根，不能推广为“无静态根”。
-- **新方向（离线已取证，待另立切片）**：对同一精确 JAR 重做**静态容器字段**扫描（`scripts`/`/tmp/nco-roots` 类文件解析，不加载宿主类）：16 947 类中静态容器/数组/引用类型字段 **1 594** 个、去重 **869** 个；其中泛型签名给出的**元素类型能到达目标图**的 **117** 个，元素类型距目标 **≤1 跳**的仅 **9** 个：`com.live2d.graphics.CImageResource#DEBUG_IMAGES`（`ArrayList<CImageResource>`，`d=0`，但 `<clinit>` 只建空表、唯一写入点是 `debugStart()` 且 `DEBUG=false` 时立即返回）、`com.live2d.graphics.CImageResource#cacheList`（`CArrayList<CImageResource$b>`，而 `CImageResource$b` 只持有 **`SoftReference<CImageResource>`**）、静态 `java.util.Timer timer`（`<clinit>` 构造并在 `CHECK_TIMER_SEC=300`/`ARCHIVE_IMAGE_TIME_SEC=360` 下 `schedule` 一个清理型 `TimerTask`）、`com.live2d.cubism.doc.modeling.util.S#o/#p/#q`、`com.live2d.cubism.doc.gameData.a.b#b/#c/#d`、`com.live2d.view.palette.parameter.dialog.af#b/#l`。**这些都不是强持有结论**：`cacheList` 是软引用缓存（软引用可跨显式 GC 存活，但在内存压力下会被清除），`DEBUG_IMAGES` 在生产配置下为空，`Timer` 只根住计时线程与任务队列。需在下一片用有界只读审计逐项读取这些静态容器的**元素身份**（仍只用 `refersTo`）才能判定。
-- **限制**：029 的审计读静态字段可能初始化其声明类（类初始化器无法取得已打开文档的活源，故命中必为应用写入），且审计被安排在**同阶段 ownership 采集之后**，初始化不可能影响该采集。审计划分为 64 持有者 / 128 扫描字段 / 250ms，本轮 34 项远未触界，`unreadable=0` 说明 `trySetAccessible` 在实机全部成功。审计不做 GC 根遍历与保留大小测量。
-- **证据归档（使用规则 7）**：`~/.local/state/turboism/performance-evidence/20260910-native-close-ownership/run/nr-static-b1/`（27 文件 / 1.1MiB：`job/` 为 job evidence/outcome/containment/heartbeat，`task/result/result.properties`、`task/evidence/`（含 381 样本 `memory-samples.jsonl`、`memory-sampler.log`、宿主与哈希证据）、`task/logs/`）；静态容器扫描产物归档在 `static-root-analysis/static-containers.txt`。归档 `MANIFEST.sha256` 已刷新。
-- **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**（无优化改动）；产出为 **029 首个完整 PASS**、**审查范围内 Java 静态根的实机否定**（含开启态对照），以及将剩余方向收敛为“静态容器 / live thread / native 全局态”的可复现边界与静态容器清单。
+  | `staticRoots.idle` | COMPLETE | 34 | 34 | 0 | 15 | 4 | **0** | **0** | 42,360,400 |
+  | `staticRoots.beforeClose` | COMPLETE | 34 | 34 | 0 | 15 | 4 | **0** | **0** | 685,600 |
+  | `staticRoots.closed120` | COMPLETE | 34 | 34 | 0 | 15 | 4 | **0** | **0** | 812,500 |
+  | `staticRoots.closedFinal` | COMPLETE | 34 | 34 | 0 | 15 | 4 | **0** | **0** | 359,100 |
 
-### I31 — 关闭后存活图的机制候选：`CImageResource` 静态软引用缓存（bytecode 证据，待实机只读确认）（2026-09-10）
+  All four groups report an empty `recordedSourceHolders` and `recordedDocumentHolders`. The 024 and 028 observations reappear as `retain.closed.resources.total=848`, `notCleared=848`, and `cleared=0`, and `ownership.closed120` and `closedFinal` both report `registryEntries=0`, `historySize=0`, `currentDocNull=true`, `documentWeakAfter=false`, and `sourceWeakAfter=false`.
+- **Verdict, negative for the Java static roots inside the review boundary**: the 4 direct `CModelSource` static caches and the 30 reviewed singleton or state statics hold neither the recorded source nor the recorded document at **any phase**, **including the `idle` and `beforeClose` control groups while the document is legally open and strongly held**. That control makes the negative conclusion meaningful, because the probe really reads 15 non-null holders and 4 one-hop source or document typed fields, so a root among them would hit in the enabled state. **The third direction after N07, the Java static root itself, is therefore excluded in this workload**, independently of the registry and view-history exclusion of I27 and I28. A side fact: this workload never writes those 4 source caches, with `nonNull=15/34`, so the stale-static-cache hypothesis has not even the material in this workload.
+- **Not excluded, and these directions must be recorded explicitly**: no `PARTIAL` or `UNSUPPORTED` appeared, but the **read-only boundary** of the audit leaves the following open. (a) **Static container fields**, whose declared type is `java/util/*`, an array, or a custom container such as `com.live2d.type.CArrayList`, can hold model objects in their **elements**, which a field-descriptor reachability analysis and the DIRECT and HOLDERS lists cannot see. (b) **Live thread** roots, including the static `java.util.Timer` and its `TimerThread` and the EDT. (c) **JNI or native global state**, unreadable from Java. The 029 audit rejects only the class-field static roots outside (a) and must never be generalized into "no static root exists".
 
-- **背景**：I27–I30 依序排除了登记表条目、控制器视图历史与审查范围内的 Java 静态根；I30 同时把剩余边界收敛为「静态容器 / live thread / native 全局态」。对静态容器做类文件扫描时发现了一条**能同时解释全部既有观测**的机制，不需要任何强根假设。
-- **bytecode 证据链（精确 JAR `988ef6a8…f8c84f21`，仅 `javap -p -c`，未加载宿主类、未启动宿主）**：
-  1. `com.live2d.graphics.CImageResource` 在 `<clinit>` 建 `private static CArrayList<CImageResource$b> cacheList` 与 `private static java.util.Timer timer`。
-  2. **构造函数**执行 `cacheList.add(new CImageResource$b(this))`，而 `CImageResource$b` 只持有 `private final SoftReference<CImageResource> a` → **每个构造过的图像资源都通过静态缓存变成“软可达”**。
-  3. 资源自身有 `private final ArrayList<CImageResource$c> retainCounter`，`CImageResource$c` 持有 `private final ICImageResourceUser a` → **资源强引用其使用者**（模型图里即持有它的 `CModelImage`）。
-  4. `<clinit>` 以 `CHECK_TIMER_SEC = 300` 为周期 `timer.schedule(new com.live2d.graphics.b(), …)`；`b.run()` 调 `CImageResource$a.f()`。
-  5. `CImageResource$a.f()` 遍历 `cacheList`：`SoftReference.get()` 为 null 的条目 `Iterator.remove()`；其余调 `archiveIfIdle()`。**循环在第一次成功 archive 后即 break**，且只要 archive 过就**自行调用 `System.gc()`**。
-  6. `archiveIfIdle()` 仅在 `image != null` 且 `lastUse < now - ARCHIVE_IMAGE_TIME_SEC*1000`（=360s）时 archive；`archive()` 只是把图重编码进 `imageFileBuf`，**不**把条目移出 `cacheList`；只有 `dispose()` 才调 `removeFromCacheList()`。
-- **为何这条机制解释全部观测**：软可达是**传递的**——`cacheList` 软引用资源 → 资源强引用 `ICImageResourceUser` → 使用者可达 `_modelSource` → `CModelSource` 的非 final `document` 反向指针。于是资源**与文档**都是**软可达**而非强可达；软可达对象**不会**被弱引用清除，显式 `System.gc()` 也只在内存压力下才清软引用。这与 848/848 资源弱引用未清、文档弱引用未清（+120s、+156s 与 sampler end）完全一致，同时登记表、视图历史与 34 项审查静态根全部为空；也解释了时间窗口：清理 tick 首次在 300s 后才触发、且只归档闲置超过 360s 的图像、每 tick 最多一个，而观测窗口（约 120–160s）落在驱逐窗口之内，且当轮 `MemAvailable` 为 6.3–9.9 GiB、软引用不会被清。
-- **尚不能宣称的**：bytecode 只证明该机制**存在且足以**保留该图，**不证明**本轮那 848 个资源在关闭时确实在 `cacheList` 中；这需要下一片做**有界只读运行期观测**（`cacheList` 大小 + 用 `refersTo` 与已记录队列比对身份）。它也不排除 live thread 与 native 根。`releasedRetainUserData_forDebug` 是另一条独立列表（此前记为 N01），本轮无需它即可解释观测。
-- **判定与后续**：把 N07/029 之后的第四方向定义为「**静态软引用缓存 + 资源→使用者强反向引用**」。若实机确认，则“848 个资源在关闭后仍存活”很可能是**设计内的软缓存保留**（驱逐取决于 JVM 软引用策略与 300s/360s 清理节拍），而非无界泄漏；相应的修复讨论应聚焦“关闭文档时是否应显式释放/驱逐”，而不是寻找新的 GC 根。修复须另立切片并单独授权，本切片不做任何清理。
-- **证据归档（使用规则 7）**：`static-root-analysis/container-and-cache/`（`containers.py`、`sweep.py`、`sweep2.py`、`containers2.py`、`static-containers.txt`（869 个去重静态容器字段）、`sweep-output.txt`（117 个元素类型可达目标的容器）、`CImageResource.javap.txt`、`CImageResource_a.javap.txt`、`cleanup-timer-task.javap.txt`、`FINDING.md`）；归档 `MANIFEST.sha256` 已刷新（170 项）。
-- **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**；产出为一条**由精确 bytecode 支撑、能同时解释既有全部观测、且可被只读实机观测证伪或确认**的机制候选。
+- **New direction, already evidenced offline and awaiting its own slice**: redo a **static container field** scan on the same exact JAR by parsing class files in `scripts` and `/tmp/nco-roots` without loading a host class. Among 16,947 classes, 1,594 static container, array, and reference-typed fields deduplicate to **869**; the generic signature gives an **element type that can reach the target graph** for **117** of them, and only **9** have an element type within **one hop** of the target: `com.live2d.graphics.CImageResource#DEBUG_IMAGES` as an `ArrayList<CImageResource>` with `d=0`, whose `<clinit>` only builds an empty list and whose only write point is `debugStart()` returning at once while `DEBUG=false`; `com.live2d.graphics.CImageResource#cacheList` as a `CArrayList<CImageResource$b>` where `CImageResource$b` holds only a **`SoftReference<CImageResource>`**; the static `java.util.Timer timer`, whose `<clinit>` constructs it and with `CHECK_TIMER_SEC=300` and `ARCHIVE_IMAGE_TIME_SEC=360` schedules a cleanup `TimerTask`; `com.live2d.cubism.doc.modeling.util.S#o/#p/#q`; `com.live2d.cubism.doc.gameData.a.b#b/#c/#d`; and `com.live2d.view.palette.parameter.dialog.af#b/#l`. **None of these is a strong-holding conclusion**: `cacheList` is a soft-reference cache, and a soft reference survives an explicit GC but is cleared under memory pressure; `DEBUG_IMAGES` is empty in a production configuration; and `Timer` roots only the timer thread and the task queue. The next slice must read the **element identity** of these static containers one by one with a bounded read-only audit, still using `refersTo` only, before any verdict.
+- **Limits**: reading a static field in the 029 audit may initialize its declaring class, and since a class initializer cannot obtain the live source of an open document a hit must come from an application write; the audit is also scheduled **after** the same-phase ownership capture, so the initialization cannot affect that capture. The audit caps are 64 holders, 128 scanned fields, and 250ms; this round's 34 items stay far inside them, and `unreadable=0` shows that `trySetAccessible` succeeded everywhere on the host. The audit takes no GC root walk and no retained-size measurement.
+- **Evidence archiving under usage rule 7**: `~/.local/state/turboism/performance-evidence/20260910-native-close-ownership/run/nr-static-b1/` with 27 files and 1.1MiB, where `job/` holds job evidence, outcome, containment, and heartbeat, `task/result/result.properties` and `task/evidence/` hold the 381-sample `memory-samples.jsonl`, `memory-sampler.log`, and the host and hash evidence, and `task/logs/` holds the logs; the static container scan output is archived in `static-root-analysis/static-containers.txt`. The archive `MANIFEST.sha256` is refreshed.
+- **Effectiveness**: the new memory, CPU, and GPU gain of this round is **NONE** because no optimization changed; the output is the **first complete PASS of 029**, a **host rejection of the Java static roots inside the review boundary** with an enabled-state control, and a reproducible boundary plus a static container list that narrows the remaining directions to static containers, live threads, and native global state.
 
-### I32 — 030 静态软引用缓存只读观测：切片冻结、探针实现与离线验证（2026-09-10）
+### I31 — A Mechanism Candidate for the Graph That Survives a Close: The `CImageResource` Static Soft-Reference Cache (bytecode evidence awaiting read-only host confirmation, 2026-09-10)
 
-- **动机（承接 I31 的机制候选）**：I31 由精确 bytecode 证明 `CImageResource` 的构造函数把每个资源以 `SoftReference` 形式放进静态 `cacheList`，资源又强引用其 `ICImageResourceUser`，从而资源、模型源与文档一起**软可达**——这能同时解释 848 资源与文档弱引用在关闭后与显式 GC 后仍不清除，且不需要任何强根。030 的目标是把该机制从"足以解释"提升为"**实测确认或证伪**"。
-- **切片冻结**：新增 Spec Kit **030-soft-cache-observation**（canonical `specs/030-soft-cache-observation/`，冻结副本于性能 worktree，`diff -rq` 一致）；T001–T005 完成，T006/T007 待实机。
-- **探针实现（只读、有界、需 EDT）**：`NativeSoftCacheObservation.java`。每采集点：校验类加载器与 code source 来源 → `trySetAccessible` 读私有静态 `cacheList` → 解析 `CImageResource$b` 的 0 参访问器并要求其返回类型名**恰为** `java.lang.ref.SoftReference`（形状不符记 `UNSUPPORTED`/`access`，绝不计 0）。逐条取出持有者的软引用，与 024 beforeClose 保留队列做**身份比对**：缓存侧的 `SoftReference` **从不 dereference**（只用 `refersTo` 做指针比较），比对身份取自审计**自有**的队列 `WeakReference`（普通读取、无保活语义，且只在该次循环迭代内持有）。扫描前后记录 `cacheList` 大小，不一致记 `PARTIAL`/`unstable`。上限 8192 条目 / 4 000 000 次比较 / 250ms 协作式截止；计数分区暂存、仅 `COMPLETE` 提交（`PARTIAL`/`UNSUPPORTED` **不发布任何计数**）。绝不写静态字段、绝不 remove/dispose/clear/GC/堆快照、不调宿主 equals/hashCode/toString。
-- **宿主接入**：`NativeResourceHostAgent.java` 在既有 `ownership`/`staticRoots` 采集**之后**对四个采集点（`idle`、`beforeClose`、`closed120`、`closedFinal`）追加 `softCache.<phase>.*`，并输出聚合 `softCache.attributionStatus=COMPLETE|INCOMPLETE`（四项全 COMPLETE 才 COMPLETE）。`idle` 用 `beforeZoom` 快照队列作对照，`beforeClose` 起用 024 的保留队列；024/028/029 的全部既有断言与门控不变。**不改 workload 时序**（沿用现有 phase 划分，因此看不到 300s tick / 360s 闲置驱逐本身——这是本片的已知覆盖限制）。
-- **离线验证（本轮实跑）**：新增 `scripts/test/test_native_soft_cache_observation.py` **PASS**（3 项：合成缓存扫描（命中/未命中/空缓存/空队列/null 缓存/错误访问器形状/原始类型缓存字段/条目与比较与时间三类上限均 `PARTIAL` 且不发布计数/扫描后 `cacheList` 与队列均未被改动/仅发布标量）、注释剥离后的只读与禁用法调用点扫描、宿主接入点与顺序断言）。全套门禁：`devCheck`+`checkResourceValidationBundle`+`checkCubismHostValidationArguments` = **0**；`test_native_static_root_audit.py` PASS（112）、`test_native_close_ownership_observation.py` PASS（435）、`test_native_image_retain_observation.py` PASS（566）、`test_native_resource_policy.py` OK。
-- **判定口径（写入 spec/plan 与 README）**：命中只说明"该资源在该时刻仍**经此缓存**软可达"，**不等于**缺陷，也不排除 live thread / native 根；`PARTIAL`/`UNSUPPORTED` 不能排除任何方向。修复需另立切片并单独授权，本片不做任何驱逐或清理。
-- **未完成**：T006（实机运行与台账记录）与 T007（README 定稿）保持未完成。
-- **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**（无优化改动）；产出为把 I31 机制候选转为可执行的只读实测方案与已通过门禁的探针。
+- **Background**: I27 to I30 excluded in order the registry entry, the controller view history, and the Java static roots inside the review boundary, and I30 narrowed the remaining boundary to static containers, live threads, and native global state. A class-file scan of the static containers found a mechanism that **explains every existing observation at once** and needs no strong-root assumption.
+- **Bytecode evidence chain on the exact JAR `988ef6a8…f8c84f21`, using `javap -p -c` only without loading a host class or starting a host**:
+  1. `com.live2d.graphics.CImageResource` builds `private static CArrayList<CImageResource$b> cacheList` and `private static java.util.Timer timer` in `<clinit>`.
+  2. The **constructor** runs `cacheList.add(new CImageResource$b(this))`, and `CImageResource$b` holds only `private final SoftReference<CImageResource> a`, so **every constructed image resource becomes soft-reachable through the static cache**.
+  3. The resource itself holds `private final ArrayList<CImageResource$c> retainCounter`, and `CImageResource$c` holds `private final ICImageResourceUser a`, so **the resource strongly references its user**, which in a model graph is the `CModelImage` that holds it.
+  4. `<clinit>` schedules `new com.live2d.graphics.b()` on the timer with `CHECK_TIMER_SEC = 300`, and `b.run()` calls `CImageResource$a.f()`.
+  5. `CImageResource$a.f()` walks `cacheList`: an entry whose `SoftReference.get()` is null is removed through `Iterator.remove`, and the rest call `archiveIfIdle()`. **The loop breaks after the first successful archive**, and it **calls `System.gc()` itself** whenever it archived anything.
+  6. `archiveIfIdle()` archives only when `image != null` and `lastUse < now - ARCHIVE_IMAGE_TIME_SEC*1000`, which is 360 seconds; `archive()` only re-encodes the image into `imageFileBuf` and does **not** remove the entry from `cacheList`, and only `dispose()` calls `removeFromCacheList()`.
+- **Why this mechanism explains every observation**: soft reachability is **transitive**. `cacheList` soft-references the resource, the resource strongly references its `ICImageResourceUser`, the user reaches `_modelSource`, and `CModelSource` holds the non-final `document` reverse pointer. The resource **and the document** are therefore **soft-reachable** rather than strongly reachable. A soft-reachable object is **not** cleared by a weak reference, and an explicit `System.gc()` clears a soft reference only under memory pressure. That agrees exactly with the 848 of 848 uncleared resource weak references and the uncleared document weak reference at +120 seconds, +156 seconds, and the sampler end, while the registry, the view history, and the 34 reviewed static roots are all empty. It also explains the time window: the cleanup tick first fires only after 300 seconds, it archives only an image idle for more than 360 seconds, and it handles at most one per tick, while the observation window of about 120–160 seconds falls inside the eviction window and that round had MemAvailable of 6.3–9.9GiB, so no soft reference is cleared.
+- **What cannot be claimed yet**: the bytecode proves only that the mechanism **exists and suffices** to retain the graph; it does **not prove** that this round's 848 resources were really in `cacheList` at the close. That needs the next slice with a **bounded read-only runtime observation** of the `cacheList` size plus an identity comparison against the recorded cohort using `refersTo`. It also excludes neither a live thread nor a native root. `releasedRetainUserData_forDebug` is a separate list, recorded earlier as N01, and this round needs no such list to explain the observation.
+- **Verdict and next step**: the fourth direction after N07 and 029 is defined as a **static soft-reference cache plus a resource-to-user strong reverse reference**. If the host confirms it, "848 resources survive the close" is very likely a **soft-cache retention by design**, whose eviction depends on the JVM soft-reference policy and the 300-second and 360-second cleanup cadence, rather than an unbounded leak; the fix discussion should then focus on whether a document close should explicitly release or evict, not on finding a new GC root. A fix needs its own slice and a separate authorization, and this slice clears nothing.
+- **Evidence archiving under usage rule 7**: `static-root-analysis/container-and-cache/` holds `containers.py`, `sweep.py`, `sweep2.py`, `containers2.py`, `static-containers.txt` with the 869 deduplicated static container fields, `sweep-output.txt` with the 117 containers whose element type reaches the target, `CImageResource.javap.txt`, `CImageResource_a.javap.txt`, `cleanup-timer-task.javap.txt`, and `FINDING.md`; the archive `MANIFEST.sha256` is refreshed to 170 items.
+- **Effectiveness**: the new memory, CPU, and GPU gain of this round is **NONE**; the output is one mechanism candidate **supported by exact bytecode, able to explain every existing observation at once, and falsifiable or confirmable by a read-only host observation**.
 
-### I33 — 030 静态软引用缓存实机确认：848 个保留资源在关闭后仍经 `cacheList` 软可达（2026-09-10）
+### I32 — The 030 Read-Only Observation of the Static Soft-Reference Cache: Slice Frozen, Probe Implemented, Offline Verified (2026-09-10)
 
-- **三次运行（同一身份口径，新 prepare/新 label/新 request-id）**：
-  - `nr-soft-b1`（prepared `90231c7c…`，HEAD `313804e04`，job `a30e3bf8-…`，run `queue-315f8610…`）：workload **PASS**，但 `softCache.*` 四点全部 `UNSUPPORTED`/`access` → 探针缺陷（见下），**不作为结论**。
-  - `nr-soft-b2`（prepared `6b101bcf…`，HEAD `834ea89f7`，job `3d1f1f74-…`，run `queue-1b1bbd1b…`）：workload **PASS**；`idle` **COMPLETE**（`entries=4477`、`cohortSize=848`、`matchedCohort=848`）、`closed120`/`closedFinal` **COMPLETE**（`entries=2207`、`matchedCohort=585`）；`beforeClose` **PARTIAL**/`time-limit`（250ms 内做了冗余的 entries×cohort 比较），故聚合 `INCOMPLETE`。
-  - `nr-soft-b3`（prepared `0d06d6b7…`，HEAD `e034444b1`，job `8fb0d886-…`，run `queue-c744352b…`）：**决定性运行，四项全 COMPLETE**。
-- **nr-soft-b3 实机读数（`status=PASS`、`ownership.attributionStatus=COMPLETE`、`softCache.attributionStatus=COMPLETE`）**：
+- **Motivation, following the I31 mechanism candidate**: I31 proved from exact bytecode that the `CImageResource` constructor puts every resource into the static `cacheList` as a `SoftReference`, and that the resource strongly references its `ICImageResourceUser`, so the resource, the model source, and the document are **soft-reachable** together. That explains both the 848 resource weak references and the document weak reference staying uncleared after the close and after an explicit GC without any strong root. The goal of 030 is to raise that mechanism from "sufficient to explain" to **measured confirmation or refutation**.
+- **Slice frozen**: a new Spec Kit **030-soft-cache-observation** with the canonical path `specs/030-soft-cache-observation/` and a frozen copy in the performance worktree, identical under `diff -rq`; T001 to T005 are complete and T006 and T007 await the host.
+- **Probe implementation, read-only, bounded, and EDT-required**: `NativeSoftCacheObservation.java`. At each capture point it validates the class loader and the code source origin, calls `trySetAccessible` on the private static `cacheList`, and resolves the no-argument accessor of `CImageResource$b`, requiring its return type name to be **exactly** `java.lang.ref.SoftReference`, where a wrong shape is recorded as `UNSUPPORTED` or `access` and never as 0. It takes each holder soft reference and compares it **by identity** against the 024 beforeClose retention cohort: the cache-side `SoftReference` is **never dereferenced**, only compared by pointer through `refersTo`, and the comparison identity comes from the audit's **own** cohort `WeakReference`, which is read normally with no keep-alive semantics and held only inside that loop iteration. The `cacheList` size is recorded before and after the scan, and a difference is recorded as `PARTIAL` or `unstable`. The caps are 8192 entries, 4,000,000 comparisons, and a 250ms cooperative deadline; the count partitions are staged and only a `COMPLETE` commits, so `PARTIAL` and `UNSUPPORTED` **publish no count**. It never writes a static field, never removes, disposes, clears, runs a GC, or takes a heap snapshot, and never calls a host equals, hashCode, or toString.
+- **Host integration**: `NativeResourceHostAgent.java` appends `softCache.<phase>.*` at the four capture points `idle`, `beforeClose`, `closed120`, and `closedFinal` **after** the existing `ownership` and `staticRoots` captures and outputs the aggregate `softCache.attributionStatus=COMPLETE|INCOMPLETE`, which is COMPLETE only when all four are COMPLETE. `idle` uses the beforeZoom snapshot cohort as its control and `beforeClose` onwards uses the 024 retention cohort; every existing assertion and gate of 024, 028, and 029 stays unchanged. **The workload timing is unchanged**, which keeps the existing phase split and therefore cannot see the 300-second tick or the 360-second idle eviction itself, a known coverage limit of this slice.
+- **Offline verification run this round**: the new `scripts/test/test_native_soft_cache_observation.py` **PASSes** 3 items, namely a synthetic cache scan covering a hit, a miss, an empty cache, an empty cohort, a null cache, a wrong accessor shape, a primitive-typed cache field, all three caps of entry, comparison, and time reporting `PARTIAL` without publishing a count, an unchanged `cacheList` and cohort after the scan, and scalars only; a scan of the read-only and forbidden call sites after comment stripping; and an assertion of the host integration points and their order. The complete gate returns **0** for `devCheck`, `checkResourceValidationBundle`, and `checkCubismHostValidationArguments`; `test_native_static_root_audit.py` PASSes 112, `test_native_close_ownership_observation.py` 435, `test_native_image_retain_observation.py` 566, and `test_native_resource_policy.py` OK.
+- **Verdict protocol, written into the spec, plan, and README**: a hit means only that the resource is still **soft-reachable through this cache** at that moment. It is **no defect**, and it excludes neither a live thread nor a native root; `PARTIAL` and `UNSUPPORTED` exclude no direction. A fix needs its own slice and a separate authorization, and this slice evicts and clears nothing.
+- **Unfinished**: T006, the host run and ledger record, and T007, the README finalization, stay incomplete.
+- **Effectiveness**: the new memory, CPU, and GPU gain of this round is **NONE** because no optimization changed; the output turns the I31 mechanism candidate into an executable read-only measurement plan and a probe that passed its gate.
 
-  | 采集点 | status | entries | visited | cohortSize | matchedCohort | matchedDistinct | durationNs |
+### I33 — The 030 Static Soft-Reference Cache Confirmed on the Host: The 848 Retained Resources Stay Soft-Reachable Through `cacheList` After the Close (2026-09-10)
+
+- **Three runs under the same identity protocol with a new prepare, label, and request id**:
+  - `nr-soft-b1`, prepared `90231c7c…`, HEAD `313804e04`, job `a30e3bf8-…`, run `queue-315f8610…`: the workload **PASSed**, but all four `softCache.*` points were `UNSUPPORTED` or `access` from a probe defect described below, so the run is **not used as a conclusion**.
+  - `nr-soft-b2`, prepared `6b101bcf…`, HEAD `834ea89f7`, job `3d1f1f74-…`, run `queue-1b1bbd1b…`: the workload **PASSed**; `idle` was **COMPLETE** with `entries=4477`, `cohortSize=848`, and `matchedCohort=848`, `closed120` and `closedFinal` were **COMPLETE** with `entries=2207` and `matchedCohort=585`, and `beforeClose` was **PARTIAL** with `time-limit` because a redundant entries-by-cohort comparison ran inside 250ms, so the aggregate was `INCOMPLETE`.
+  - `nr-soft-b3`, prepared `0d06d6b7…`, HEAD `e034444b1`, job `8fb0d886-…`, run `queue-c744352b…`: the **decisive run with all four points COMPLETE**.
+- **The nr-soft-b3 host readings, with `status=PASS`, `ownership.attributionStatus=COMPLETE`, and `softCache.attributionStatus=COMPLETE`**:
+
+
+  | Capture point | status | entries | visited | cohortSize | matchedCohort | matchedDistinct | durationNs |
   |---|---|---|---|---|---|---|---|
   | `softCache.idle` | COMPLETE | **4477** | 4477 | 848 | **848** | 848 | 55.52 ms |
   | `softCache.beforeClose` | COMPLETE | **4477** | 4477 | 848 | **848** | 848 | 145.22 ms |
   | `softCache.closed120` | COMPLETE | **2207** | 2207 | 848 | **585** | 585 | 4.82 ms |
   | `softCache.closedFinal` | COMPLETE | **2207** | 2207 | 848 | **585** | 585 | 4.70 ms |
 
-  同期 024：`retain.beforeZoom.resources=848`、`retain.beforeClose.resources=848`、`retain.closed.resources.total=848`、`notCleared=848`、`cleared=0`；`documentWeakCleared=false`、`documentWeakClearedAtSamplerEnd=false`。029 回归：三组 `staticRoots.*` 仍 `COMPLETE` 且 `holdersWithRecordedSource/Document=0`。
-- **结论（机制由实机确认，不再只是“足以解释”）**：静态 `CImageResource.cacheList` 在文档合法打开时缓存了**全部 848** 个被观测资源；关闭后缓存规模从 4477 降到 2207，**仍有 585 个** 队列资源经软引用被缓存，且在 +120s 与 sampler end 保持稳定。由于软可达是传递的（资源强引用其 `ICImageResourceUser` → `_modelSource` → `CModelSource` 的非 final `document` 反向指针），这 585 个足以让整个模型图（含其余 263 个未直接命中缓存的资源）保持**软可达**；软可达对象不会被弱引用清除，显式 `System.gc()` 在内存宽裕时也不会清软引用。**这完整解释了 024/028/029 的全部观测，且不需要任何强根**——与 I29/I30“34 项审查静态根、登记表、视图历史全部为空”完全一致，两者不再互相矛盾。
-- **关于“848 未清 vs 585 命中”不矛盾**：文档图本身仍可达时，`CModelSource.textureManager → CModelImageGroup → CModelImage → _filteredImage` 会把全部 848 个资源一并保持存活；585 是**直接**经缓存软可达的下界（`matchedDistinct` 为下界，已清引用者被跳过），不是资源存活数的上界。
-- **两个探针缺陷（已修并各自留下回归）**：
-  1. b1 的 `UNSUPPORTED`/`access`：持有者类 `CImageResource$b` 是**包私有**，跨包反射调用其 public 访问器抛 `IllegalAccessException`。修复：显式 `accessor.trySetAccessible()`；新增**跨包包私有持有者**的合成回归，并已验证该回归在还原修复后确实失败。同时新增 `failureKind` 标量便于单次运行定位。
-  2. b2 的 `beforeClose` `PARTIAL`/`time-limit`：每个缓存条目都重走整条队列，`entries×cohort` 比较超出 250ms 预算。修复：每个队列成员只解析一次（`resolved[]`），使 `matchedCohort==matchedDistinct` 成为构造性事实，且扫描在全部解析后短路；**未放宽任何时间/上限规则**，只是去掉冗余工作。
-- **已知覆盖限制（不得过度声称）**：本片沿用现有 phase 时序，因此**未观测** 300s 清理 tick 与 360s 闲置归档规则本身；只观测到缓存在两次关闭后采样之间缩小（4477→2207）。未做堆转储、GC 根遍历、保留大小测量、强制 GC 或任何驱逐/清理。命中**不等于缺陷**：软缓存加有界驱逐是合法设计；是否应在关闭文档时显式释放需另立修复切片并单独授权。也不排除 live thread / native 根（本片未覆盖）。
-- **证据归档（使用规则 7）**：`run/nr-soft-b1|b2|b3/`（各含 `job/`、`task/result/result.properties`、`task/evidence/`（含 samples 与 sampler 日志）、`task/logs/`），归档 `MANIFEST.sha256` 已刷新（249 项 / 11MiB）。
-- **有效程度**：新增内存/CPU/GPU 收益 **NONE**（无优化改动，未做任何释放）；产出为**由实机观测确认的关闭后保留机制**——静态软引用缓存 + 资源→使用者强反向引用，并把此前四条独立阴性结论（登记表、视图历史、34 项静态根、类字段型静态根）统一到一个自洽解释中。
+  The 024 counts at the same time: `retain.beforeZoom.resources=848`, `retain.beforeClose.resources=848`, `retain.closed.resources.total=848`, `notCleared=848`, `cleared=0`, `documentWeakCleared=false`, and `documentWeakClearedAtSamplerEnd=false`. The 029 regression: all three `staticRoots.*` groups are still `COMPLETE` with `holdersWithRecordedSource` and `holdersWithRecordedDocument` at 0.
+- **Conclusion, with the mechanism now confirmed on the host rather than merely sufficient to explain**: the static `CImageResource.cacheList` cached **all 848** observed resources while the document was legally open; after the close the cache shrank from 4477 to 2207 and **still 585** cohort resources stayed cached through a soft reference, stable at +120 seconds and at the sampler end. Because soft reachability is transitive, since the resource strongly references its `ICImageResourceUser`, which reaches `_modelSource`, which holds the non-final `document` reverse pointer of `CModelSource`, those 585 suffice to keep the whole model graph, including the other 263 resources not directly matched by the cache, **soft-reachable**; a soft-reachable object is not cleared by a weak reference, and an explicit `System.gc()` clears no soft reference while memory is plentiful. **This fully explains every observation of 024, 028, and 029 and needs no strong root**, and it agrees completely with the I29 and I30 finding that the 34 reviewed static roots, the registry, and the view history are all empty, so the two no longer contradict each other.
+- **Why "848 uncleared" and "585 matched" do not contradict**: while the document graph itself is still reachable, `CModelSource.textureManager` to `CModelImageGroup` to `CModelImage` to `_filteredImage` keeps all 848 resources alive together; 585 is a **lower bound** of the resources **directly** soft-reachable through the cache, because `matchedDistinct` is a lower bound and an already-cleared referent is skipped, and it is no upper bound of the live resource count.
+- **Two probe defects, both fixed with their own regression**:
+  1. The b1 `UNSUPPORTED` and `access`: the holder class `CImageResource$b` is **package-private**, so a cross-package reflective call to its public accessor throws `IllegalAccessException`. The fix calls `accessor.trySetAccessible()` explicitly and adds a synthetic regression with a **cross-package package-private holder**, and that regression was verified to fail once the fix is reverted. A `failureKind` scalar was also added to locate the cause in a single run.
+  2. The b2 `beforeClose` `PARTIAL` with `time-limit`: every cache entry walked the whole cohort, so the entries-by-cohort comparison exceeded the 250ms budget. The fix resolves each cohort member once in a `resolved[]` array, which makes `matchedCohort==matchedDistinct` a constructive fact and short-circuits the scan after every resolution; **no time or cap rule was relaxed**, only redundant work was removed.
+- **Known coverage limits that must not be overstated**: this slice keeps the existing phase timing, so it **does not observe** the 300-second cleanup tick or the 360-second idle archive rule themselves; it observed only that the cache shrank between the two post-close samples, from 4477 to 2207. No heap dump, GC root walk, retained-size measurement, forced GC, or eviction or cleanup happened. A hit **is no defect**, because a soft cache with bounded eviction is a legal design, and whether a document close should release explicitly needs its own fix slice and a separate authorization. A live thread or native root is also not excluded, since this slice does not cover it.
+- **Evidence archiving under usage rule 7**: `run/nr-soft-b1|b2|b3/` each hold `job/`, `task/result/result.properties`, `task/evidence/` with the samples and the sampler log, and `task/logs/`; the archive `MANIFEST.sha256` is refreshed to 249 items and 11MiB.
+- **Effectiveness**: the new memory, CPU, and GPU gain is **NONE**, because no optimization changed and nothing was released; the output is a **host-confirmed retention mechanism after a close**, namely a static soft-reference cache plus a resource-to-user strong reverse reference, which unifies the four earlier independent negative conclusions about the registry, the view history, the 34 static roots, and the class-field static roots into one self-consistent explanation.
 
-### I34 — 030 扩展窗口（780s）实机：软缓存零自愈，关闭后 228MiB 解码像素与整图锁定 ≥10 分钟（2026-09-11）
+### I34 — The 030 Extended Window of 780 Seconds on the Host: The Soft Cache Self-Heals Not at All and 228MiB of Decoded Pixels Plus the Whole Graph Stay Locked for at Least 10 Minutes (2026-09-11)
 
-- **协议变更（本次唯一一次，已获操作者授权）**：新增第二个**具名准入队列**（`extended-eviction-window`，780s），与既有 300s 基线条目并存。准入断言从「必须等于 300」改为「必须等于 300 或 780」，其余全部不变；**未放宽**任何采样间隔（0..5s）、采样密度（0.8）或验收规则。声明窗口上限由 300 提到 900（`NativeMemoryObservation`、`measure-task-memory.py` 的 `validate_window`），采样器自身看门狗 900→1500s。扩展点 `closed360`/`closed600` 在任何 sleep 之前先断言窗口为 780s，误配置**快速失败**而不是白等 13 分钟。300s 基线条目行为完全不变（policy 回归覆盖 0/301/600 拒绝与 300 接受）。
-- **三次运行**：`nr-evict-b1`（prepared `0b264923…`，job `e75aa56a-…`）与 `nr-evict-b2`（`9306ee16…`，`aa2bc9db-…`）均在**既有采样器 0..5s 间隔自校验**处失败（最大间隔 5.97s / 6.38s，分别位于 t=141s 关闭时刻与窗口内；`MemAvailable` 3.4–4.6GB、`SwapFree` 8–10GB，**不是** I27/I28 那种换出耗尽）。两次仍产出全部扩展点数据。`nr-evict-b3`（`8b262b04…`，job `9659cee5-…`，run `queue-6c023ec0…`，HEAD `de2074ab1`）**整体 PASS**：`validationComplete=true`、`exitCode=0`、`prefixRetained=false`、`ownership.attributionStatus=COMPLETE`、`softCache.attributionStatus=COMPLETE`，六组采集点**全部 COMPLETE**、`reason=none`。
-- **决定性数据（nr-evict-b3，单位 MiB 为 2^20）**：
+- **Protocol change, the only one this round and authorized by the operator**: a second **named admission queue** `extended-eviction-window` of 780 seconds joins the existing 300-second baseline entry. The admission assertion changes from "must equal 300" to "must equal 300 or 780" and everything else stays; **no** sampling interval of 0..5 seconds, sampling density of 0.8, or acceptance rule is relaxed. The declared window cap rises from 300 to 900 in `NativeMemoryObservation` and in `validate_window` of `measure-task-memory.py`, and the sampler watchdog rises from 900 to 1500 seconds. The extension points `closed360` and `closed600` assert the 780-second window before any sleep, so a misconfiguration **fails fast** instead of waiting 13 minutes. The 300-second baseline entry behaves exactly as before, and the policy regression covers the 0, 301, and 600 rejections and the 300 acceptance.
+- **Three runs**: `nr-evict-b1`, prepared `0b264923…`, job `e75aa56a-…`, and `nr-evict-b2`, `9306ee16…` with `aa2bc9db-…`, both failed at the **existing sampler 0..5-second interval self-check** with maximum gaps of 5.97 and 6.38 seconds at the close at t=141 seconds and inside the window, while MemAvailable was 3.4–4.6GB and SwapFree 8–10GB, which is **not** the swap exhaustion of I27 and I28. Both still produced every extension point. `nr-evict-b3`, `8b262b04…`, job `9659cee5-…`, run `queue-6c023ec0…`, HEAD `de2074ab1`, **PASSed completely**: `validationComplete=true`, `exitCode=0`, `prefixRetained=false`, `ownership.attributionStatus=COMPLETE`, `softCache.attributionStatus=COMPLETE`, and all six capture points `COMPLETE` with `reason=none`.
+- **The decisive data from nr-evict-b3, where MiB means 2^20**:
 
-  | 采集点 | 时刻 | status | entries | matched | decoded | archived | archBytes | decodedPixels | decodedBytes |
+  | Capture point | Time | status | entries | matched | decoded | archived | archBytes | decodedPixels | decodedBytes |
   |---|---|---|---|---|---|---|---|---|---|
   | `idle` | +30s | COMPLETE | 4477 | 848 | 432 | 416 | 35M | 59,752,362 | **228M** |
   | `beforeClose` | +128s | COMPLETE | 4477 | 848 | 432 | 416 | 35M | 59,752,362 | **228M** |
@@ -690,1021 +696,672 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
   | `closed600` | +730s | COMPLETE | 2207 | 585 | 432 | 153 | 24M | 59,752,362 | **228M** |
   | `closedFinal` | +780s | COMPLETE | 2207 | 585 | 432 | 153 | 24M | 59,752,362 | **228M** |
 
-  同期：`retain.closed*.resources.notCleared=848` 在 +120/+360/+600 全部不变；`documentWeakCleared=false`（含 `At360`/`At600`/`AtSamplerEnd`）。
-- **结论 1：软缓存关闭后零自愈。** 缓存条目从 +120s 到 +780s **恒为 2207**，命中队列恒为 585，解码资源恒为 432，解码字节恒为 228MiB —— **10 分钟零进展**。这与 bytecode 完全一致：`CImageResource$a.f()` 每 300s 一次 tick，且**每 tick 最多归档一个**条目（循环首次成功即 break），而 `archive()` 只把解码图转成 PNG 字节、**不移除条目**。因此在任何现实时间尺度上，保留实际上是永久的。
-- **结论 2：关闭后真正被占住的是解码像素，而不是压缩数据。** 432 个资源在 +730s 仍持有**已解码** ARGB 表面，合计 **59,752,362 像素 / 228MiB**，且该数字从文档打开到关闭后 10 分钟**一位未变**。
-- **结论 3：宿主自身的释放路径在本负载中从未触发。** `hostCreated=4477`、`hostDisposed=0` —— 整轮运行**没有任何一次 `dispose()`**。因此 +120s 时从 4477 降到 2207 的 2270 个条目**不是被 dispose 掉的**，而是软引用在内存压力下被 JVM 清除后由 tick 摘除（比较：+120s 后解码数不变 432，被摘掉的 263 个队列成员**全部是已归档的廉价条目**）。即：**宿主在关闭时释放的是便宜的压缩条目，昂贵的解码表面一个都没释放。**
-- **结论 4：调试假设在本负载中无素材。** `hostDebugEnabled=false`、`hostDebugImages=0`（`CImageResource.DEBUG_IMAGES` 恒为空），与 N01 的 `releasedRecords=0` 一致 —— 调试型强引用列表不是本负载的成因。
-- **结论 5（量化）**：进程级 `hostArchivedBytes=352,308,846`（≈336MiB）从 idle 到 +730s 基本不变（仅 +559B），因为 `disposed=0` 意味着该累计量永不回落。加上队列内 228MiB 解码像素，**关闭文档后仍被软缓存占住的至少是「228MiB 解码像素 + 最高约 336MiB 归档字节」**（后者是累计上界，含仍在用的共享资源）。这是后续任何修复的**可量化基线**。
-- **「关闭时显式释放」修复的可行性判定：不成立（记录为失败/阻塞）。** 精确 JAR 中 `CImageResource` 的释放面只有：私有 `dispose()`、`removeFromCacheList()`（私有）、以及 companion 的 `f()`（每 tick 至多归档一个、只摘已清除的软引用）。唯一的批量入口是 **synthetic 访问器** `access$getCacheList$cp()`（`public static final`）—— 通过它 `clear()` 宿主内部缓存属于**非受支持的内部改写**，会随宿主任何更新失效，且违反本项目「不改官方工件/不引入反向强持有外部状态」的边界。**因此不存在既能释放该内存、又不改动应用表面行为、也不依赖不受支持 hack 的官方 API 路径。** 这一点必须显式记录，不能为了让指标好看而用 synthetic 访问器硬做。
-- **仍可行动的方向（另立切片）**：①**P08 —— Turboism 自身的陈旧强引用**：`EditorBackedCubismModelAccess` 的 `activeDocument/activeSource/activeModel` 是非 final 强引用，仅在 `bindingIdentity()` 遇到**不同**绑定时才被覆盖；文档关闭且无后续绑定时，被关闭的文档/源/模型仍被 Turboism 强持有。这是**我方代码**，清理它不改变任何 Cubism 表面行为，是当前唯一干净且可测的内存收益点（但本负载不走 Turboism binding 路径，故不能解释上述原生保留，需独立 A/B）。②软引用缓存本身属宿主设计，只能由宿主修复或提供配置。
-- **限制**：队列（848 资源）是缓存 2207 条目中的一个**子集样本**，`matchedDecodedPixels` 是队列口径的**下界**，不是全缓存像素总量；未做堆转储、GC 根遍历、保留大小测量或强制 GC；`matchedArchivedBytes` 是队列内 PNG 字节，`hostArchivedBytes` 是进程级累计量，两者不可相加。780s 队列连续两次触发既有采样器 0..5s 规则，属宿主自身关闭/压力行为与既定协议之间的真实张力，**不通过放宽规则解决**。
-- **证据归档（使用规则 7）**：`run/nr-evict-b{1,2,3}/`（各 8 项：job evidence/outcome/containment、`result.properties`、`memory-samples.jsonl`、`memory-sampler.log`、`turboism.log`）；归档 `MANIFEST.sha256` 已刷新（274 项 / 13MiB）。
-- **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**（未实施任何优化）；产出为**关闭后保留的量化基线**（228MiB 解码像素 + 336MiB 归档字节，10 分钟零自愈）、**宿主释放路径失效的实证**（dispose=0）、以及**修复面不可用的判定与理由**。
+  At the same time `retain.closed*.resources.notCleared=848` is unchanged at +120, +360, and +600, and `documentWeakCleared=false` holds at 360, 600, and the sampler end.
+- **Conclusion 1: the soft cache self-heals not at all after the close.** From +120 to +780 seconds the cache entries stay at **2207**, the matched cohort stays at 585, the decoded resources stay at 432, and the decoded bytes stay at 228MiB, which is **10 minutes of zero progress**. This agrees exactly with the bytecode: `CImageResource$a.f()` ticks once every 300 seconds and **archives at most one** entry per tick because the loop breaks on the first success, and `archive()` only converts the decoded image into PNG bytes and **does not remove the entry**. The retention is therefore effectively permanent on any realistic timescale.
+- **Conclusion 2: what is really held after the close is decoded pixels, not compressed data.** The 432 resources still hold a **decoded** ARGB surface at +730 seconds, 59,752,362 pixels or 228MiB in total, and that number is **unchanged by a single digit** from the document open to 10 minutes after the close.
+- **Conclusion 3: the host release path never fires in this workload.** `hostCreated=4477` and `hostDisposed=0`, so the whole run performs **no `dispose()` at all**. The 2270 entries that disappear between 4477 and 2207 at +120 seconds were therefore **not disposed** but removed by the tick after the JVM cleared their soft references under memory pressure; compare that the decoded count stays at 432 after +120 seconds, so the 263 removed cohort members are **all cheap already-archived entries**. In other words, **the host releases cheap compressed entries at the close and not a single expensive decoded surface.**
+- **Conclusion 4: the debug hypothesis has no material in this workload.** `hostDebugEnabled=false` and `hostDebugImages=0`, with `CImageResource.DEBUG_IMAGES` permanently empty, agreeing with `releasedRecords=0` of N01, so a debug-style strong-reference list is no cause here.
+- **Conclusion 5, quantified**: the process-level `hostArchivedBytes=352,308,846`, about 336MiB, is essentially unchanged from idle to +730 seconds with only +559B, because `disposed=0` means the cumulative figure never falls. Together with the 228MiB of decoded pixels inside the cohort, **what the soft cache still holds after the document close is at least 228MiB of decoded pixels plus up to about 336MiB of archived bytes**, where the latter is a cumulative upper bound including shared resources still in use. This is the **quantifiable baseline** for any later fix.
+- **Feasibility verdict of an "explicit release at close" fix: it does not hold, recorded as a failure and a block.** In the exact JAR the release surface of `CImageResource` is only the private `dispose()`, the private `removeFromCacheList()`, and the companion `f()`, which archives at most one entry per tick and removes only a cleared soft reference. The only batch entry is the **synthetic accessor** `access$getCacheList$cp()`, which is `public static final`; calling `clear()` on the host internal cache through it is an **unsupported internal rewrite** that breaks with any host update and violates this project's boundary of not changing an official artifact and not introducing external state that strongly holds in reverse. **No official API path therefore releases that memory without changing observable application behavior and without an unsupported hack.** This must be recorded explicitly, and the synthetic accessor is never used to make the metric look good.
+- **Directions that remain actionable, each needing its own slice**: (1) **P08, the stale strong references of Turboism itself**. The `activeDocument`, `activeSource`, and `activeModel` fields of `EditorBackedCubismModelAccess` are non-final strong references overwritten only when `bindingIdentity()` meets a **different** binding, so after a document close with no later binding the closed document, source, and model stay strongly held by Turboism. This is **our own code**, and clearing it changes no Cubism surface behavior, which makes it the only clean and measurable memory gain available now; this workload never enters the Turboism binding path, so it cannot explain the native retention above and needs an independent A/B. (2) The soft-reference cache itself is a host design that only the host can fix or expose as a configuration.
+- **Limits**: the cohort of 848 resources is a **subset sample** of the 2207 cached entries, and `matchedDecodedPixels` is a **lower bound** in cohort terms rather than the total cached pixel count; no heap dump, GC root walk, retained-size measurement, or forced GC happened; `matchedArchivedBytes` counts PNG bytes inside the cohort while `hostArchivedBytes` is a process-level cumulative figure, so the two must not be added. The 780-second queue triggered the existing sampler 0..5-second rule twice in a row, which is a real tension between the host's own close and pressure behavior and the established protocol, and it is **not solved by relaxing the rule**.
+- **Evidence archiving under usage rule 7**: `run/nr-evict-b{1,2,3}/` with 8 items each, namely job evidence, outcome, containment, `result.properties`, `memory-samples.jsonl`, `memory-sampler.log`, and `turboism.log`; the archive `MANIFEST.sha256` is refreshed to 274 items and 13MiB.
+- **Effectiveness**: the new memory, CPU, and GPU gain of this round is **NONE** because no optimization was implemented; the output is a **quantified retention baseline after a close** of 228MiB of decoded pixels plus 336MiB of archived bytes with zero self-healing in 10 minutes, **proof that the host release path does not fire** with dispose at 0, and **a verdict with its reasons that no fix surface is available**.
 
-### I35 — P08 Turboism 编辑器绑定陈旧强引用：改为弱引用完成修复与离线回归（2026-09-11）
+### I35 — P08 Stale Strong References of the Turboism Editor Binding: Fixed With Weak References and an Offline Regression (2026-09-11)
 
-- **范围/验证方法**：用户批准的 P08 修复切片（Spec Kit `031-editor-binding-retention`，canonical `/opt/dev/projects/turboism/specs/031-editor-binding-retention/`），继续在性能 worktree 实施。仅 offline：不申报宿主、不占队列、不改官方工件、不合并/推送 main。用户已定：**先交离线，实机 A/B 等宿主空闲**（当时宿主被 `atlas-image-shadow`/5303 任务占用）。
-- **交付与可见性**：本切片提交即性能分支 HEAD（未推送、未合并 main），仅三份文件；对应当前 HEAD 上的 Spec Kit 切片 `specs/031-editor-binding-retention/`（canonical `/opt/dev/projects/turboism/specs/031-editor-binding-retention/`，`diff -rq` 一致）。注意：仓库 `.gitignore` 忽略 `/specs/`，因此 028–031 的切片在 git 中**均为本地工件**，不进提交；本文即是它们的检索入口。
-- **与 I34 及前序 P08 判断的差异（必读）**：先前表述为「`activeDocument/activeSource/activeModel` 只是 generation 变化检测的缓存，真实绑定每次从 resolver 重解析」——**这只对了三分之二**。实读 `EditorBackedCubismModelAccess` 发现 `activeSource` **还被当作数据读**：内部类 `EditorParameters`（行 1258 起）在 `create`/`copy`/`remove`/`createMany`/`removeMany` 五处直接传外层字段给 `parameterStructureAccess`。因此只把三个字段改弱引用会改变这五条写路径的取值来源，**必须先消除该数据依赖**。
-- **修复（两处，共 +30−14）**：
-  1. 三个字段改为 `WeakReference<Object>`，新增 `cachedIdentity(WeakReference<Object>)` 辅助（未绑定或已被回收一律读作 `null`）；`bindingIdentity` 的引用比较改为比 referent，三处赋值改为新建 `WeakReference`。`generation` 自增、`generationLock` 与身份串 `sessionIdentity:modelId:generation` 全部不变。
-  2. `EditorParameters` 增加自有 `source`，由外层 `EditorModel`（其本身已持 `identity`/`source`/`model`）在构造处传入（行 1193），五处写路径改用该字段。
-- **为什么弱引用不改变可观察行为**：宿主还能交出的对象必然被宿主强持有，不可能已被回收；因此对宿主能产生的任何绑定，referent 比较与强字段比较结果一致。只有「不同对象」这一分支会自增 generation，与修复前相同。`source` 允许为 `null`，`new WeakReference<>(null)` 合法，`null != null` 为 false，比较不变。
-- **被否定的替代方案**：①在 `binding()` 抛不可用处清缓存——同一文档实例被重新交给宿主时会额外自增 generation，可能把原本有效的绑定变成 stale 失败，属可观察行为变化；②接 `HostSession` 项目文件关闭事件清缓存——同样的语义变化且面积更大；③用 `SoftReference`——内存压力前不会释放，正是本次要消除的保留。
-- **回归（先失败后通过）**：新增 `closedDocumentGraphIsNotRetainedByTheBindingCache`（宿主夹具关文档后丢弃测试自身强引用，用有界弱可达断言 `WeakReference` + `refersTo(null)` + `Reference.reachabilityFence`，与既有 `CubismEditorApiAvailabilityInterceptorTest.assertCollected` 同一写法）与 `repeatedIdenticalBindingKeepsTheHandedOutReferenceValid`（同对象重复绑定不得额外自增 generation）。**未改生产代码前该测试实测 FAILED**（`EditorBackedCubismModelAccessTest.java:626`），改后 PASS。
-- **验证结果**：`./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.editor.*'` = **331 测试 / 0 失败 / 0 错误**（35 个类，含 `EditorBackedCubismCombinedWriteTest`、`EditorBackedCubismParameterDefinitionWriteTest`、`EditorBackedCubismModelWriteTest` 覆盖被改写的参数写路径，以及同 ID 替换失效用例）；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。
-- **限制（不得掩盖）**：①**未做任何实机 A/B** —— 原生资源负载走宿主反射，不经过 Turboism editor binding，无法用于本项测量；需要另设覆盖 editor binding 的场景并单独授权（本轮已设计但未执行，设计见 Spec Kit 031 的 `measurement.md`）。因此**留存减少是离线可证、实机字节收益未测**。②弱可达断言证明的是「引用边被移除」，不是保留大小测量、GC 根遍历或堆快照。③若 `access` 实例本身被调用方长期持有，本修复只解除这三个槽的持有；调用方持有的 stale wrapper/delegate 是否另有保留，前序 P09 记录过但未验证。
-- **未动但已登记的同类强点**：`BorrowedCoreModelSource.activeModel`（`runtime/.../cubism/core/BorrowedCoreModelSource.java:16`）同形且 `RuntimeCoreModelBackend.clearBorrowedModel()` **无生产调用方**（仅测试）。但清空它会作废所有已发出的 SDK lease（`CoreModelAcquisition` 的 generation 记账），属独立的行为决策，本切片按 FR-004 明确不动，作为后续候选项登记。
-- **前序 P08-a 补丁的去向**：I11 节记录的 test-only 反射诊断补丁（`/tmp/turboism-p08-repro-20260908T0620/diagnostic.patch`，现已随 `/tmp` 丢失）**未应用、未使用**；本切片用弱可达回归取代它，符合 P08-a 记录的「未来修复后的回归应检查正确生命周期释放」要求。
-- **有效程度**：本轮新增内存/CPU/GPU **实机收益 NONE**（未做测量）；产出为**两处可验证的引用边移除**（缓存三槽 + 参数写路径的数据依赖）、一条先失败后通过的离线回归、一条行为不变性回归，以及 Spec Kit 031 与 I34 判断偏差的更正。
+- **Scope and verification method**: the user-approved P08 fix slice, Spec Kit `031-editor-binding-retention` with the canonical path `/opt/dev/projects/turboism/specs/031-editor-binding-retention/`, implemented in the performance worktree. Offline only: no host was claimed, no queue slot was taken, no official artifact changed, and nothing was merged or pushed to main. The user fixed the order: **deliver offline first and wait for an idle host for the A/B**, because the host was then occupied by an `atlas-image-shadow` 5303 task.
+- **Delivery and visibility**: this slice's commit is the performance branch HEAD, unpushed and unmerged into main, with three files only; the matching Spec Kit slice `specs/031-editor-binding-retention/` sits on the same HEAD with the canonical copy identical under `diff -rq`. Note that the repository `.gitignore` ignores `/specs/`, so the 028 to 031 slices are **local artifacts** that never enter a commit; this document is their search entry.
+- **Difference from I34 and the earlier P08 judgement, which must be read**: the earlier statement was that `activeDocument`, `activeSource`, and `activeModel` are only a cache for generation-change detection and that the real binding is re-resolved from the resolver on every call. **That was two thirds right.** Reading `EditorBackedCubismModelAccess` showed that `activeSource` **is also read as data**: the inner class `EditorParameters`, from line 1258, passes the outer field directly to `parameterStructureAccess` in five places, `create`, `copy`, `remove`, `createMany`, and `removeMany`. Turning only those three fields into weak references would therefore change the value source of those five write paths, so **that data dependency must be removed first**.
+- **Fix, two places with +30 and −14**:
+  1. The three fields become `WeakReference<Object>` with a new `cachedIdentity(WeakReference<Object>)` helper that reads null when unbound or already collected; the reference comparison in `bindingIdentity` compares the referent, and the three assignments create a new `WeakReference`. The `generation` increment, the `generationLock`, and the identity string `sessionIdentity:modelId:generation` are all unchanged.
+  2. `EditorParameters` gains its own `source`, passed by the outer `EditorModel`, which already holds `identity`, `source`, and `model`, at the construction site on line 1193, and the five write paths use that field.
 
-### I36 — P08 同形滞留点系统排查（只读审计）：绝大多数已清洁，两个候选保留但不动（2026-09-11）
+- **Why a weak reference changes no observable behavior**: an object the host can still hand out must be strongly held by the host and cannot already be collected, so for any binding the host can produce the referent comparison equals the strong-field comparison. Only the "different object" branch increments the generation, as before. `source` may be null, `new WeakReference<>(null)` is legal, `null != null` is false, and the comparison is unchanged.
+- **Rejected alternatives**: (1) clearing the cache where `binding()` throws unavailable, which would increment the generation when the same document instance is handed back and could turn a valid binding into a stale failure, an observable behavior change; (2) clearing the cache on a `HostSession` project file close event, the same semantic change over a larger area; (3) using a `SoftReference`, which does not release before memory pressure and is exactly the retention this fix removes.
+- **Regression, failing first and passing after**: a new `closedDocumentGraphIsNotRetainedByTheBindingCache`, which drops the test's own strong reference after the host fixture closes the document and asserts bounded weak reachability with `WeakReference`, `refersTo(null)`, and `Reference.reachabilityFence` in the same style as the existing `CubismEditorApiAvailabilityInterceptorTest.assertCollected`, plus `repeatedIdenticalBindingKeepsTheHandedOutReferenceValid`, which requires that a repeated binding of the same object not increment the generation. **The test really FAILED before the production change** at `EditorBackedCubismModelAccessTest.java:626` and PASSed after it.
+- **Verification result**: `./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.editor.*'` reports **331 tests with 0 failures and 0 errors** across 35 classes, including `EditorBackedCubismCombinedWriteTest`, `EditorBackedCubismParameterDefinitionWriteTest`, and `EditorBackedCubismModelWriteTest` covering the rewritten parameter write paths and the same-ID replacement invalidation case; `./gradlew devCheck` is BUILD SUCCESSFUL over 80 tasks; `check_remote_hygiene.py --worktree` is clean.
+- **Limits that must not be hidden**: (1) **no host A/B was performed**, because the native resource workload goes through host reflection and never enters the Turboism editor binding, so it cannot measure this item; a scenario covering the editor binding needs its own authorization, and this round designed but did not run it, with the design in `measurement.md` of Spec Kit 031. The retention reduction is therefore provable offline while the host byte gain is unmeasured. (2) A weak-reachability assertion proves that a reference edge was removed, which is no retained-size measurement, GC root walk, or heap snapshot. (3) If a caller holds the `access` instance itself for a long time, this fix releases only those three slots; whether a stale wrapper or delegate held by the caller retains anything else was recorded under P09 and is unverified.
+- **A similar strong point left registered but untouched**: `BorrowedCoreModelSource.activeModel` at `runtime/.../cubism/core/BorrowedCoreModelSource.java:16` has the same shape, and `RuntimeCoreModelBackend.clearBorrowedModel()` has **no production caller** and is used by tests only. Clearing it would invalidate every issued SDK lease through the `CoreModelAcquisition` generation accounting, which is a separate behavior decision, so this slice explicitly leaves it alone under FR-004 and registers it as a later candidate.
+- **Fate of the earlier P08-a patch**: the test-only reflection diagnostic patch recorded in I11, `/tmp/turboism-p08-repro-20260908T0620/diagnostic.patch`, now lost with `/tmp`, is **neither applied nor used**; this slice replaces it with the weak-reachability regression, which matches the P08-a requirement that a regression after a future fix should check a correct lifecycle release.
+- **Effectiveness**: the new memory, CPU, and GPU **host gain of this round is NONE** because nothing was measured; the output is **two verifiable reference-edge removals**, the three cache slots plus the data dependency of the parameter write path, one offline regression that failed first and passed after, one behavior-invariance regression, and a correction of the deviation between Spec Kit 031 and the I34 judgement.
 
-- **范围/验证方法**：用户批准继续推进后，对「我方自己强持有宿主对象、且无清除路径」这一缺陷类做系统性只读排查（不是重新访谈 P08）。方法：枚举 `runtime/src/main/java` 的**可变实例字段**（非 final，共 282 个），先按「能否持有宿主对象」收敛到 `Object` 型（共 5 个），再向上追溯持有它的对象是否长命；另抽查以对象为键/值的**长命集合**、以及 SDK wrapper 类型的字段持有者。全部结论来自源码与 CodeGraph，**未运行宿主、未改任何代码**。
-- **确认清洁（已逐个读到清除路径）**：
-  - `CoreModelLease.borrowedModel`：`close()` 内 `borrowedModel = null`。
-  - `DynamicCubismModelAccess.current`：`deactivate()` 重置为 `UnavailableCubismModelAccess.INSTANCE` 并自增 generation；`connect()` 替换旧值。
-  - `DynamicRuntimeHostAdapters.current`：同上模式，失败/拆除回 `safeMode`。
-  - `SceneTableHostOperations`：`originalHeaders` / `nativeMouseListeners` / `nativeMotionListeners` 在 detach 路径（行 756-758）全部 `clear()`。
-  - `RuntimeModelObjectService`、`RuntimeScriptHostBridge`：只持 `CubismModelAccess`/`PluginContext`，不缓存模型（`activeModel()` 每次现取）。
-  - `PaletteAppearanceCoordinator`：`removeContent(contentId)` 删除该 content 的全部 overrides，且已由 `HostSession.registerProjectContentCleanup()` 接到文档 **CLOSE** 事件；`parameterControls` 只存 folder/id/`WeakReference<Component>`，并在 126/200/339 处 `clear()`。
-  - `RuntimePaletteFilterRegistry`、`HostSession`：仅持 sink/authority/connection，连接键相同即复用、变化即整包清理，无按文档累积。
-  - `RuntimeTextureAtlasEditorUi.currentView`：本就是 `WeakReference`（即 I34 引用的先例）。
-- **候选 1（保留，不动）：`BorrowedCoreModelSource.activeModel`。** 写入来自 `publishBorrowedModel`（连接时一次 + `lazyPublishOnce` 每个新 binding identity 一次），清除路径只有 `clearBorrowedModel()`（**无生产调用方**，仅测试）与 `close()`。文档关闭后若不再有绑定，旧借用模型仍被强持有。**未修的原因**：清空会按 `CoreModelAcquisition` 的 generation 记账作废**所有已发出的 SDK lease**，属可观察行为变化，需自己的冻结范围与裁决（I35 已按 FR-004 排除）。
-- **候选 2（保留，不动）：`VerifiedBoundingBoxOverlayButtonHostOperations.buttonsByOverlay`。** 这是 `IdentityHashMap<Object, CachedButtons>`，**以宿主 overlay 对象为键**，每键持有该 overlay 的宿主按钮实体、身份复用表和最后观测到的 scene graph。它只有 `put`（行 146），键的移除仅发生在 `cleanupCustomEntities()` 的整表 `clear()`（行 355），而后者**只在 descriptors 变为空时被调用**（行 129-137）——因此同一会话里每个新的 overlay 实例都会永久新增一项，旧项不被回收。严重程度取决于宿主 overlay 的创建频率（离线无法确定）。**不能随手修的硬理由**：`cleanupCustomEntities()` 需要用 `cached.scene` 把按钮从对应场景**摘除**；若提前驱逐条目，被驱逐 overlay 的按钮就再也无法从宿主场景里摘掉。所以任何驱逐都必须同时保证摘除，属独立设计，不能为了让指标好看而拍脑袋改。
-- **为何不再扩大搜索面**（避免为形式而审计）：本轮覆盖面是「可变字段 + 长命集合 + SDK wrapper 持有者」三层；剩余未逐条读到清除路径的多为 UI host-operations（如 `CubismLogServiceHost` 的事件队列、`VerifiedRecentPreviewPopupHostOperations`），均为**有界**结构（定长队列/单值槽）而非按文档累积，继续扩面的边际收益递减。
-- **与目标的关系（不得抬高）**：本排查**没有新增任何实机收益证据**；两个候选都**未实施**。已知最大的滞留量（关闭后 228MiB 解码像素 + 最高约336MiB 归档字节）在**宿主软缓存**里，I34 已判定无支撑的清除路径——本排查只说明「我方侧除已修的 P08 外，剩下的两个候选都不便宜、也不确定」。
-- **顺带确定了实机 A/B 该不该跑（重要）**：宿主已于本轮空闲（`atlas-image-shadow`/5303 结束，`host.state=idle`），但**不应在 native-resource 负载上跑 P08 的 A/B**。理由是从已证机制可**演绎**得出：`CImageResource` 经静态 `cacheList` 软可达 → 强持 `retainCounter` 的用户（`ICImageResourceUser`）→ 属模型图 → `CModelSource` 有非 final 的 `document` 反向指针，因此**文档本身是软可达的**，而软引用只在内存压力下清除。于是修复臂与未修复臂**都**会报 `documentWeakCleared=false`，该对比**在构造上就没有区分力**，不是「尚未验证」。用制造内存压力的办法去拉开差异会让清除变得不确定、且改变的正是被测量的条件。故 031 声明**无实机测量**，Design A 不在该负载上执行；要拿到有意义的数字必须有 Design B（驱动宿主替换，或先用归档/驱逐使软缓存不再传递持有文档），而它需要独立范围与授权。见 `specs/031-editor-binding-retention/measurement.md`。
-- **未执行的实机操作**：本轮未 prepare、未 submit、未占用宿主、未改任何官方工件与共享队列状态；磁盘此时为 **99%（仅剩 8.3GB）**，判据是「即使跑了也拿不到可解释结果」，而非「跑不了」。
+### I36 — Systematic Sweep of Same-Shape Retention Points Under P08, a Read-Only Audit: Most Are Clean and Two Candidates Stay Untouched (2026-09-11)
 
-### I37 — P09 重复快照读取：离线量化后修复，一次带版本读取从 2+3 次宿主读降到 1+1 次（2026-09-11）
+- **Scope and verification method**: after the user approved continuing, a systematic read-only sweep of the defect class where **our own code strongly holds a host object with no clear path**, which is no re-interview of P08. The method enumerates the **mutable instance fields** of `runtime/src/main/java`, 282 non-final fields, narrows first to the `Object` type by whether the field can hold a host object, 5 fields, and then traces upward whether the holder is long-lived; it also samples the **long-lived collections** keyed or valued by an object and the field holders of an SDK wrapper type. Every conclusion comes from the source and CodeGraph, and **no host ran and no code changed**.
+- **Confirmed clean, each traced to its clear path**:
+  - `CoreModelLease.borrowedModel` sets `borrowedModel = null` inside `close()`.
+  - `DynamicCubismModelAccess.current` resets to `UnavailableCubismModelAccess.INSTANCE` and increments the generation in `deactivate()`, and `connect()` replaces the old value.
+  - `DynamicRuntimeHostAdapters.current` follows the same pattern and returns to `safeMode` on failure or teardown.
+  - `SceneTableHostOperations` calls `clear()` on `originalHeaders`, `nativeMouseListeners`, and `nativeMotionListeners` on the detach path at lines 756 to 758.
+  - `RuntimeModelObjectService` and `RuntimeScriptHostBridge` hold only a `CubismModelAccess` or a `PluginContext` and cache no model, because `activeModel()` reads it fresh each time.
+  - `PaletteAppearanceCoordinator` has `removeContent(contentId)` delete every override of that content, and `HostSession.registerProjectContentCleanup()` already wires it to the document **CLOSE** event; `parameterControls` holds only a folder, an id, and a `WeakReference<Component>` and is cleared at 126, 200, and 339.
+  - `RuntimePaletteFilterRegistry` and `HostSession` hold only a sink, an authority, and a connection, reuse them while the connection key is equal, clear the whole set when it changes, and accumulate nothing per document.
+  - `RuntimeTextureAtlasEditorUi.currentView` is already a `WeakReference`, the precedent I34 cites.
+- **Candidate 1, kept and untouched: `BorrowedCoreModelSource.activeModel`.** The write comes from `publishBorrowedModel`, once at connect and once per new binding identity through `lazyPublishOnce`, and the only clear paths are `clearBorrowedModel()`, which has **no production caller** and is used by tests only, and `close()`. After a document close with no later binding the old borrowed model stays strongly held. **Why it is not fixed**: clearing it invalidates **every issued SDK lease** through the `CoreModelAcquisition` generation accounting, which is an observable behavior change and needs its own frozen scope and ruling, and I35 already excluded it under FR-004.
+- **Candidate 2, kept and untouched: `VerifiedBoundingBoxOverlayButtonHostOperations.buttonsByOverlay`.** This is an `IdentityHashMap<Object, CachedButtons>` **keyed by the host overlay object**, and each key holds that overlay's host button entities, identity reuse table, and last observed scene graph. It only `put`s at line 146, and a key is removed only by the whole-table `clear()` of `cleanupCustomEntities()` at line 355, which **runs only when the descriptors become empty** at lines 129 to 137, so every new overlay instance in one session adds a permanent entry and an old entry is never reclaimed. The severity depends on the host overlay creation rate, which offline work cannot determine. **The hard reason it cannot be fixed casually**: `cleanupCustomEntities()` needs `cached.scene` to **detach** the buttons from the matching scene, so evicting an entry early leaves the buttons of that overlay permanently undetachable from the host scene. Any eviction must guarantee the detach at the same time, which is a separate design, and it is never changed on impulse to make a metric look good.
+- **Why the search surface is not widened further, to avoid auditing for form**: this round covers three layers, the mutable fields, the long-lived collections, and the SDK wrapper holders; the remaining UI host-operations whose clear path was not read one by one, such as the event queue of `CubismLogServiceHost` and `VerifiedRecentPreviewPopupHostOperations`, are **bounded** structures of a fixed-length queue or a single-value slot rather than a per-document accumulation, so the marginal value of widening the surface keeps falling.
+- **Relation to the goal, which must not be overstated**: this sweep **adds no host gain evidence**, and both candidates are **unimplemented**. The largest known retention, 228MiB of decoded pixels plus up to about 336MiB of archived bytes after the close, sits in the **host soft cache**, and I34 already judged that no supported clear path exists; this sweep shows only that on our own side, beyond the fixed P08, the two remaining candidates are neither cheap nor certain.
+- **A side decision on whether the host A/B should run, which matters**: the host became idle this round because the `atlas-image-shadow` 5303 task ended and `host.state=idle`, but the P08 A/B **must not run on the native-resource workload**. The reason is **deducible** from the proven mechanism: `CImageResource` is soft-reachable through the static `cacheList`, it strongly holds the user of its `retainCounter`, which is an `ICImageResourceUser` belonging to the model graph, and `CModelSource` holds the non-final `document` reverse pointer, so **the document itself is soft-reachable**, and a soft reference is cleared only under memory pressure. Both the fixed arm and the unfixed arm would therefore report `documentWeakCleared=false`, and that comparison **has no discriminating power by construction** rather than being not yet verified. Creating memory pressure to separate them would make the clearing uncertain and would change exactly the measured condition. So 031 declares **no host measurement** and Design A does not run on this workload; a meaningful number needs Design B, which drives a host replacement or first makes the soft cache stop holding the document transitively through archive or eviction, and that needs its own scope and authorization. See `specs/031-editor-binding-retention/measurement.md`.
+- **Host operations not performed**: this round prepared nothing, submitted nothing, occupied no host, and changed no official artifact or shared queue state; the disk was at **99% with 8.3GB left**, and the criterion was that even a run would produce no interpretable result, not that a run was impossible.
 
-- **范围/验证方法**：用户继续授权后的第 2 项。P09 此前登记为「重复工作结构存在，频率/CPU 占比/收益未测」，本轮**先量化再决定**：写临时计数夹具（实现 `ProjectWorkspaceAdapter`，用 `HostSessionSnapshotSource.forSession` 包住真实的 `CubismFacadeImpl`），跑完即删。全程 offline，不占宿主。
-- **量化结果（实测，非推测）**：一次 `CubismFacadeImpl.runtimeWithVersion()` = **2 次 `activeProject()` + 3 次 `activeDocument()`**（另加 1 次 `activeModel()`，而后者本身就是又一次 document 读）。两处重复：①`runtimeSnapshot()` 先 `activeDocument()` 再 `activeModel()`，而 `HostSessionSnapshotSource.activeModel()` 就是 `activeDocument()` 过滤，文档读了两遍；②`HostSessionSnapshotSource.invalidationToken()` 为了跟上次观察比较，**又重读一次** project + document。
-- **为何值得修（不是微优化）**：①`runtimeWithVersion()` 的**唯一用途**就是「便宜地判断要不要重算」——`ParameterQueryServiceImpl.index()`、`ModelHierarchyQueryServiceImpl`、`SelectionQueryServiceImpl` 都在**每次查询**上调用它，然后拿 version 对比缓存索引；②单次 `activeProject()` 在生产适配器 `VerifiedProjectWorkspaceHostOperations.activeProject()` 里是 4 次已验宿主反射 + 完整 document 列表 + project 子节点遍历 + 每 content 资源构建 + 新建 `ProjectSnapshot`；`activeDocument()` 是 2 次反射 + 构建。即**校验成本是它保护的成果的好几倍**。
-- **修复（Spec Kit 032，`specs/032-single-host-observation/`）**：
-  1. `HostSnapshotSource` 新增「观察句柄」：`observe()`（默认由各访问器拼装）+ `versionOf(Observation)`（默认退回 `invalidationToken()`），`Observation` 携带四个投影值和一个 **opaque evidence**。
-  2. `HostSessionSnapshotSource` 覆写：**一次**适配器遍历同时产出 project/document/model/selection，把**未投影**的原始 `ProjectSnapshot`/`DocumentSnapshot` 对作为 evidence 带上；`versionOf` 用该对与基线比较，**不再重读宿主**。
-  3. `CubismFacadeImpl`：`runtimeWithVersion()`/`runtimeSnapshot()` 共用 `observeRuntime()`，模型从**已读到的** document 推导，version 取自同一次观察。
-- **为何用 opaque evidence 而不是直接比较投影值**：投影是**有损**的——`ModelSnapshot` 有 `objects` 而 `HostModel` 不带。拿投影值做基线比较会让 token **漏检**只影响 `objects` 的变化，属行为回退。opaque evidence 保住了原来的**原始记录深度相等**语义。
-- **被否定的替代方案**：①在 source 里记忆「上次读过的对」再让 `invalidationToken()` 用它——会让**只轮询 token 不读值**的调用方（如今日的 `RuntimeModelAppearanceAccess`）再也检测不到变化；②缓存 project/document 快照跨调用——那是另一套 staleness 设计。
-- **回归（先失败后通过）**：`SnapshotVersioningTest.oneVersionedReadObservesTheHostProjectAndDocumentExactlyOnce` 用计数适配器断言一次 `runtimeWithVersion()` 恰好 1 次 project + 1 次 document；**未改生产代码前实测 FAILED**（得到 2），改后 PASS。既有的 `runtimeWithVersionKeepsSnapshotPermissionGate`（权限拒绝时**不得**观察 token）继续通过——`observe()` 不算 token，token 在权限门之后才取，顺序未变。
-- **验证结果**：`./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*' --tests 'dev.turboism.adapter.host.*'` = **178 类 / 1074 测试 / 0 失败 / 0 错误**（含三个 query-service 测试类）；`./gradlew devCheck` = BUILD SUCCESSFUL（首次因 `HostSnapshotSource` 新增公开访问器缺 javadoc 被 `checkCodeQuality` 拦住，补齐后通过）；`check_remote_hygiene.py --worktree` = clean。
-- **重构中差点丢掉的既有行为（记录）**：原 `runtimeProjectSnapshot()` 内含「project 读权限被拒时**只脱敏 project 部分**、model 部分仍可读」的逻辑。第一版重构漏了它，已恢复为 `runtimeProjectSnapshot(observed.project())` 并保留原注释；这是本轮第二次因「顺手重构」碰到权限语义，后续改动此文件应优先核对权限分支。
-- **限制（不得抬高）**：证据是**宿主读次数**这一结构量，不是秒数；本轮**未做任何墙钟/CPU 占比测量**，因此端到端收益记 **NONE**。单次 `activeProject()` 本身的成本（仍占每次查询的主要开销）**未动**，要优化它得另立切片、另找证据。
-- **有效程度**：新增内存/CPU/GPU **实测收益 NONE**；产出为**一次带失败回退的行为等价优化**（一次 `runtimeWithVersion()` 的宿主读 2+3 → 1+1）、一条先失败后通过的离线回归，以及一份可复用的离线量化方法（计数适配器包真实 facade）。
-- **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**。产出为**一次有成型的、可复核的负面/边界结论**（7 处确认清洁 + 2 个带理由的保留候选），作用是**防止后续重复排查同一批位置**。
+### I37 — P09 Repeated Snapshot Reads: Quantified Offline Then Fixed, One Versioned Read Drops From 2+3 Host Reads to 1+1 (2026-09-11)
 
-### I38 — P10 外观作用域捕获重复读：captureScope 单次观测，4→1 读/次 + 组合对读（2026-09-11）
+- **Scope and verification method**: the second item after the user continued the authorization. P09 was registered as "the duplicated work structure exists and the frequency, CPU share, and gain are unmeasured", so this round **quantifies first and decides after**: a temporary counting fixture implements `ProjectWorkspaceAdapter` and wraps the real `CubismFacadeImpl` with `HostSessionSnapshotSource.forSession`, and it is deleted right after the run. Everything is offline and no host is taken.
+- **Quantified result, measured rather than guessed**: one `CubismFacadeImpl.runtimeWithVersion()` performs **2 `activeProject()` calls and 3 `activeDocument()` calls**, plus 1 `activeModel()` call which is itself another document read. Two duplications: (1) `runtimeSnapshot()` calls `activeDocument()` and then `activeModel()`, while `HostSessionSnapshotSource.activeModel()` is a filter over `activeDocument()`, so the document is read twice; (2) `HostSessionSnapshotSource.invalidationToken()` **reads the project and document once more** to compare against the last observation.
+- **Why it is worth fixing and is no micro-optimization**: (1) the **only purpose** of `runtimeWithVersion()` is to decide cheaply whether to recompute, and `ParameterQueryServiceImpl.index()`, `ModelHierarchyQueryServiceImpl`, and `SelectionQueryServiceImpl` all call it on **every query** before comparing the version against a cached index; (2) one `activeProject()` in the production adapter `VerifiedProjectWorkspaceHostOperations.activeProject()` costs 4 verified host reflections, a complete document list, a project child traversal, a per-content resource build, and a new `ProjectSnapshot`, while `activeDocument()` costs 2 reflections and a build. **The validation cost is several times the result it protects.**
+- **Fix, Spec Kit 032 in `specs/032-single-host-observation/`**:
+  1. `HostSnapshotSource` gains an observation handle: `observe()`, which the accessors assemble by default, and `versionOf(Observation)`, which falls back to `invalidationToken()` by default, where `Observation` carries four projected values and one **opaque evidence**.
+  2. `HostSessionSnapshotSource` overrides both: **one** adapter traversal produces project, document, model, and selection together and carries the **unprojected** raw `ProjectSnapshot` and `DocumentSnapshot` pair as the evidence; `versionOf` compares that pair against the baseline and **never re-reads the host**.
+  3. `CubismFacadeImpl` makes `runtimeWithVersion()` and `runtimeSnapshot()` share `observeRuntime()`, derives the model from the **already read** document, and takes the version from the same observation.
+- **Why opaque evidence instead of comparing the projected values**: a projection is **lossy**, because `ModelSnapshot` holds `objects` while `HostModel` does not. Comparing projected values against the baseline would make the token **miss** a change that affects only `objects`, which is a behavior regression. Opaque evidence keeps the original **deep equality of the raw records**.
+- **Rejected alternatives**: (1) remembering the last read pair inside the source and letting `invalidationToken()` use it, which would make a caller that **polls the token without reading the values**, such as today's `RuntimeModelAppearanceAccess`, unable to detect a change at all; (2) caching the project and document snapshots across calls, which is a different staleness design.
+- **Regression, failing first and passing after**: `SnapshotVersioningTest.oneVersionedReadObservesTheHostProjectAndDocumentExactlyOnce` uses a counting adapter to assert that one `runtimeWithVersion()` performs exactly 1 project and 1 document read; **it really FAILED before the production change**, returning 2, and PASSed after it. The existing `runtimeWithVersionKeepsSnapshotPermissionGate`, which requires that a refused permission **not** observe the token, still passes, because `observe()` is not a token and the token is taken only after the permission gate, so the order is unchanged.
+- **Verification result**: `./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*' --tests 'dev.turboism.adapter.host.*'` reports **178 classes and 1074 tests with 0 failures and 0 errors**, including the three query-service test classes; `./gradlew devCheck` is BUILD SUCCESSFUL, after `checkCodeQuality` first rejected the new public accessor of `HostSnapshotSource` for a missing javadoc, which was then added; `check_remote_hygiene.py --worktree` is clean.
+- **An existing behavior nearly lost in the refactor, recorded**: the original `runtimeProjectSnapshot()` contained the logic that a refused project read permission **redacts only the project part** while the model part stays readable. The first refactor dropped it, and it was restored as `runtimeProjectSnapshot(observed.project())` with its original comment; this is the second time this round that a casual refactor touched permission semantics, so a later change to this file should check the permission branches first.
+- **Limits that must not be overstated**: the evidence is a structural quantity, the number of host reads, not seconds, and this round **measured no wall-clock or CPU share**, so the end-to-end gain is **NONE**. The cost of one `activeProject()` itself, which still dominates each query, is **untouched**, and optimizing it needs its own slice and its own evidence.
+- **Effectiveness**: the new memory, CPU, and GPU **measured gain is NONE**; the output is **one behavior-equivalent optimization with a failing-first regression**, dropping one `runtimeWithVersion()` from 2+3 host reads to 1+1, one offline regression that failed first and passed after, and a reusable offline quantification method that wraps the real facade in a counting adapter.
+- **Effectiveness restated for the sweep**: the new memory, CPU, and GPU gain of this round is **NONE**. The output is **one well-formed, reviewable negative or boundary conclusion**, namely 7 sites confirmed clean and 2 retained candidates with their reasons, whose purpose is to **prevent a later round from sweeping the same locations again**.
 
-- **范围/验证方法**：Spec Kit `034-appearance-scope-observation`（canonical `/opt/dev/projects/turboism/specs/034-appearance-scope-observation/`）。P09（I37）修了 `runtimeWithVersion()` 的重复读，但**遗留的最热调用方** `RuntimeModelAppearanceAccess.captureScope` 未动——它是每次 palette 绑定（part/parameter/deformer/group/drawable）和每次 `Entry` 变更都要经过的门。全程 offline，不占宿主、不改官方工件、不合并/推送 main。
-- **量化基线（实测+静态）**：旧 `captureScope` 串行调 `isHostPresent()`→`activeDocument()`→`activeModel()`→`invalidationToken()`。在生产外观源 `AppearanceSource` 上，这四者**各跑一次 `current()`**（1 次 `activeDocument()` 适配器读 + 1 次 `modelAccess.active()` 解析）→ **每次捕获 = 4 次适配器读 + 最多 4 次模型解析**。在 `HostSessionSnapshotSource` 上同一捕获 = 最多 5 次完整适配器遍历（2 project + 3 document）。另外 `observe()` 本身仍是 2 次适配器调用（各重复解析 appController + currentDocument），且 `VerifiedProjectWorkspaceHostOperations.activeProject()` 把当前文档**构建两次**（列表一遍、`document(currentDocument)` 又一遍、`projectDisplayName` 的 `documentFile` 第三遍）。
-- **修复（三处）**：
-  1. `captureScope` → `source.observe()` + `versionOf(observation)`，存在性判断改为「project 与 document 均空」（与 `isHostPresent()` 析取语义等价），其余检查原样。
-  2. `AppearanceSource` 覆写 `observe()`/`versionOf()`：一次 `current()`，evidence 记观测时刻的 `activationToken`，`versionOf` 不再重读。
-  3. 新增 `ProjectWorkspaceAdapter.activeProjectAndDocument()`/`HostOperations.activeProjectAndDocument()`（均带 default，存量实现零改动）；`Impl` 一次版本/能力准入包一对读；`VerifiedProjectWorkspaceHostOperations` 覆写为**一次** `invokeStatic` + 一次 `currentDocument` 解析，当前文档快照只构建一次（`DocumentBuild` 携带 file 复用于 `projectDisplayName`），每半失败独立为空（对齐旧 `available()` 摊平语义）。`HostSessionSnapshotSource` 的 `observe()`/`invalidationToken()`/`isHostPresent()` 全部改用组合读。
-- **回归（先失败后通过）**：`AppearanceSourceObservationTest`（旧代码实测 `observe()`=2 文档读、`versionOf` 再读 1 次，改后 1+0）；`SnapshotVersioningTest` 扩展为对读计数（一次 `runtimeWithVersion()` = 1 次对读，单独访问器 0 次）；`VerifiedProjectWorkspaceHostOperationsTest` 新增「配对读只解析 controller/currentDocument 各 1 次、列内当前文档不重建（fileContent 调用=1）、project 半失败仍报 document」；`RuntimeModelAppearanceAccessTest` 新增「每次捕获 = 1 次 observe + 0 次 presence 检查 + 文档读==observe 次数」。合成夹具加 `instanceCalls`/`currentDocumentCalls`/`fileContentCalls` 计数器。
-- **验证结果**：四个测试类全绿；`./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*' --tests 'dev.turboism.adapter.host.*' --tests 'dev.turboism.ui.appearance.*' --tests 'dev.turboism.hostread.*'` = BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL。
-- **限制（不得抬高）**：证据是**读次数与调用次数**这一结构量，不是秒数/CPU 占比；端到端收益记 **NONE**。`current()` 内部的 `modelAccess.active()` 解析成本、以及单次 `activeProject()` 遍历本身（`idFor` O(n) 线性扫描、contents×documents O(c×d) join）**未动**——后者属下一候选切片。
-- **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**两次行为等价的读去重**（外观捕获 4→1 读/次；session 观察 2 适配器调用→1）、当前文档三次构建→一次，及一组先失败后通过的离线回归。
+### I38 — P10 Repeated Reads in the Appearance Scope Capture: One Observation in captureScope, From 4 Reads per Call to 1 Plus a Paired Read (2026-09-11)
 
-### I39 — P11 单次快照遍历内部成本：idFor 线性扫描→O(1)，contents×documents join→O(C+D)（2026-09-11）
+- **Scope and verification method**: Spec Kit `034-appearance-scope-observation` with the canonical path `/opt/dev/projects/turboism/specs/034-appearance-scope-observation/`. P09 in I37 fixed the repeated read of `runtimeWithVersion()`, but the **hottest remaining caller**, `RuntimeModelAppearanceAccess.captureScope`, was untouched, and it is the gate every palette binding of a part, parameter, deformer, group, or drawable and every `Entry` change passes through. Everything is offline and no host is taken, no official artifact changes, and nothing is merged or pushed to main.
+- **Quantified baseline, measured and static**: the old `captureScope` called `isHostPresent()`, then `activeDocument()`, then `activeModel()`, then `invalidationToken()` in series. On the production appearance source `AppearanceSource` each of those **runs `current()` once**, which is one `activeDocument()` adapter read plus one `modelAccess.active()` resolution, so **one capture costs 4 adapter reads and up to 4 model resolutions**. On `HostSessionSnapshotSource` the same capture costs up to 5 complete adapter traversals, 2 for the project and 3 for the document. In addition `observe()` itself still makes 2 adapter calls, each re-resolving appController and currentDocument, and `VerifiedProjectWorkspaceHostOperations.activeProject()` **builds the current document twice**, once in the list, once in `document(currentDocument)`, and a third time in `documentFile` for `projectDisplayName`.
+- **Fix in three places**:
+  1. `captureScope` uses `source.observe()` plus `versionOf(observation)`, and the presence test becomes "project and document are both empty", which is equivalent to the disjunction of `isHostPresent()`; every other check stays.
+  2. `AppearanceSource` overrides `observe()` and `versionOf()` to run `current()` once, record the observation-time `activationToken` as the evidence, and never re-read in `versionOf`.
+  3. A new `ProjectWorkspaceAdapter.activeProjectAndDocument()` and `HostOperations.activeProjectAndDocument()`, both with a default implementation so no existing implementation changes; `Impl` wraps one version and capability admission around one paired read; `VerifiedProjectWorkspaceHostOperations` overrides it to **one** `invokeStatic` plus one `currentDocument` resolution, builds the current document snapshot once with a `DocumentBuild` that carries the file for reuse by `projectDisplayName`, and yields an empty half independently on each failure, matching the flattening semantics of the old `available()`. The `observe()`, `invalidationToken()`, and `isHostPresent()` of `HostSessionSnapshotSource` all switch to the paired read.
+- **Regression, failing first and passing after**: `AppearanceSourceObservationTest` measured the old code at 2 document reads in `observe()` plus 1 more in `versionOf` and now 1 plus 0; `SnapshotVersioningTest` extends to paired-read counting, where one `runtimeWithVersion()` is 1 paired read and a standalone accessor is 0; `VerifiedProjectWorkspaceHostOperationsTest` adds a case where the paired read resolves controller and currentDocument once each, does not rebuild the current document inside the list with `fileContent` called once, and still reports the document when the project half fails; `RuntimeModelAppearanceAccessTest` adds a case where each capture is 1 observe, 0 presence checks, and a document read count equal to the observe count. The synthetic fixture gains `instanceCalls`, `currentDocumentCalls`, and `fileContentCalls` counters.
+- **Verification result**: all four test classes pass; `./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*' --tests 'dev.turboism.adapter.host.*' --tests 'dev.turboism.ui.appearance.*' --tests 'dev.turboism.hostread.*'` is BUILD SUCCESSFUL; `./gradlew devCheck` is BUILD SUCCESSFUL.
+- **Limits that must not be overstated**: the evidence is a structural quantity, the number of reads and calls, not seconds or a CPU share, so the end-to-end gain is **NONE**. The `modelAccess.active()` resolution inside `current()` and the traversal of one `activeProject()` itself, with the linear `idFor` scan and the contents-by-documents join, are **untouched**, and the latter is the next candidate slice.
+- **Effectiveness**: the new memory, CPU, and GPU **measured gain is NONE**; the output is **two behavior-equivalent read deduplications**, from 4 reads per appearance capture to 1 and from 2 adapter calls per session observation to 1, a current document built three times reduced to once, and a set of offline regressions that failed first and passed after.
 
-- **范围/验证方法**：Spec Kit `035-snapshot-read-cost`。I37/I38 把「每次逻辑读几次宿主」压到一次；本切片处理「这一次遍历内部」的两个纯内存平方项。全程 offline。
-- **量化基线（静态+计数证据）**：①`HostSessionIdentityRegistry.idFor` 每次调用 = 一次全量 `removeCollectedEntries` 清扫 + O(entries) 线性扫描；一次 `activeProject()` 产生 ~3D+2C 次 `idFor`（每 document/content/model/animation/scene 各一次）→ 会话存活对象数 E 上 **O(E×(3D+2C))**。②`contents()` 里每个 content 对全部 documents 做 `filter` → **O(C×D)**。③（已在 034 顺带修复）`activeProject()` 把 currentDocument 快照**构建 3 次**（documents 列表一遍、`document(currentDocument)` 一遍、`documentFile` 一遍）→ 现为一次。
-- **修复（两处）**：①`idFor` 改 `HashMap<identity-hashed WeakReference key, id>`：lookup O(1) 摊销，equals 按 referent 身份、referent 死后永不相等（死键不会与活对象冲突），`removeCollectedEntries` 只摘已入队的条目。id 语义不变：identity 键、prefix 只标记新 id、序列单调不复用。②`contents()` join 改先建 `contentId→documentIds`（按 documents 顺序）再逐 content 查表，append 顺序与去重语义不变（`joinDocumentIds` 抽为 package-private 静态方法便于直测）。
-- **回归**：新增 `HostSessionIdentityRegistryTest`（同对象稳定 id、不同对象不同 id、prefix 只标记不 partition——与旧实现逐字一致的语义、32 个已回收对象的有界收集断言 + id 永不复用）；新增 `contentDocumentJoinAppendsDocumentIdsInDocumentOrderWithoutDuplicates`（documentIds 追加顺序与去重逐字对齐旧逐 filter 结果）。既有 `documentIdentityDoesNotChangeWhenDocumentOrderChanges`、`projectAndDocumentIdsRemainStableAcrossRenameAddRemoveAndSaveAsWithinSession` 全绿。
-- **验证结果**：`./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*'` = BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）。
-- **限制（不得抬高）**：证据是复杂度量级与功能等价断言，不是秒数/CPU 占比；E/C/D 的实际规模未在线上量化（真实项目通常几十到几百项，收益随项目规模线性放大）。端到端收益记 **NONE**。
-- **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**两个结构复杂度的确定性降低**（每 traversal 的 O(E·(3D+2C))+O(C·D) → O(E? 无) + O(C+D)；严格说 idFor 变为 O(1) 摊销 + 队列摘取）及配套回归。
+### I39 — P11 Internal Cost of One Snapshot Traversal: The Linear idFor Scan Becomes O(1) and the contents-by-documents Join Becomes O(C+D) (2026-09-11)
 
-### I40 — P12 借用 Core 模型关闭后滞留：CLOSE 事件驱动的非阻塞空闲释放（2026-09-11）
+- **Scope and verification method**: Spec Kit `035-snapshot-read-cost`. I37 and I38 reduced "how many host reads one logical read costs" to one, and this slice handles the two purely in-memory quadratic terms **inside that one traversal**. Everything is offline.
+- **Quantified baseline, static and counting evidence**: (1) `HostSessionIdentityRegistry.idFor` costs one full `removeCollectedEntries` sweep plus an O(entries) linear scan per call, and one `activeProject()` produces about 3D+2C `idFor` calls, one each for a document, content, model, animation, and scene, which is **O(E×(3D+2C))** over the E live objects of the session. (2) `contents()` filters every content against all documents, which is **O(C×D)**. (3) Already fixed incidentally in 034, `activeProject()` **built the current document snapshot 3 times**, once in the documents list, once in `document(currentDocument)`, and once in `documentFile`, and now builds it once.
+- **Fix in two places**: (1) `idFor` becomes a `HashMap` from an identity-hashed `WeakReference` key to the id, with amortized O(1) lookup; `equals` compares the referent identity, a dead referent is never equal to anything, so a dead key cannot collide with a live object, and `removeCollectedEntries` removes only entries already enqueued. The id semantics are unchanged: an identity key, a prefix that only marks a new id, and a monotonic sequence that is never reused. (2) The `contents()` join first builds a `contentId` to `documentIds` map in document order and then looks up each content, keeping the append order and the deduplication semantics, with `joinDocumentIds` extracted as a package-private static method for direct testing.
+- **Regression**: a new `HostSessionIdentityRegistryTest` covers a stable id for the same object, different ids for different objects, a prefix that marks without partitioning exactly as the old implementation did, a bounded collection assertion over 32 collected objects, and an id that is never reused; a new `contentDocumentJoinAppendsDocumentIdsInDocumentOrderWithoutDuplicates` aligns the append order and deduplication exactly with the old per-content filter result. The existing `documentIdentityDoesNotChangeWhenDocumentOrderChanges` and `projectAndDocumentIdsRemainStableAcrossRenameAddRemoveAndSaveAsWithinSession` stay green.
+- **Verification result**: `./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*'` is BUILD SUCCESSFUL; `./gradlew devCheck` is BUILD SUCCESSFUL over 80 tasks.
+- **Limits that must not be overstated**: the evidence is a complexity order and a functional equivalence assertion, not seconds or a CPU share, and the real scale of E, C, and D is not quantified online, where a real project usually holds tens to hundreds of items, so the gain grows linearly with project size. The end-to-end gain is **NONE**.
+- **Effectiveness**: the new memory, CPU, and GPU **measured gain is NONE**; the output is **two deterministic reductions in structural complexity**, from O(E·(3D+2C)) plus O(C·D) per traversal to O(C+D) with `idFor` reduced to an amortized O(1) lookup plus a queue drain, and the matching regressions.
 
-- **范围/验证方法**：Spec Kit `036-borrowed-model-idle-release`。处理 I36 保留候选 1：文档关闭且不再绑定时，`BorrowedCoreModelSource.activeModel` 仍强持借用 Core 模型至会话结束。全程 offline。
-- **为何不能直接 clear（记录的安全分析）**：`transitionTo` 会 bump generation——①会让所有未释放 lease 立即 STALE_GENERATION；②`CoreEvaluatedJoin` 按 identity 固定 (snapshot,generation)，同 identity 重发布后 pinned generation≠current → 永久 fail-stale，且该失败文本不是 "No verified active Core model"，不触发 lazyPublish 重试 → **evaluated 读路径对该 identity 永久锁死**。所以本切片必须同时做：延迟到 lease 归零 + 清除时丢 join pin + 重置 lazyPublish 去重标记。
-- **实现**：
-  1. `ActiveCoreModelSource` 新增三个 default（`releaseWhenIdle`/`publishedModel`/`onModelCleared`），其它 source 实现零改动。
-  2. `BorrowedCoreModelSource.releaseWhenIdle()`：非阻塞；`activeLeases==0` 时立即遗忘模型（generation++），否则挂起到 `releaseLease` 归零时生效；`transitionTo`/`close` 复位挂起标记（新发布会取消未决释放）。任何 `activeModel→null` 路径（idle 释放/`clearBorrowedModel`/`close`）都在 monitor 外回调 `onModelCleared`。
-  3. `CoreEvaluatedJoin`：构造时注册 `source.onModelCleared(this::dropPinnedSnapshot)`——清除即丢 pin，同 identity 重发布重追踪而非永久 stale；新增 `releaseBorrowedModelWhenIdle()`/`publishedModel()`。
-  4. `EditorBackedCubismModelAccess.releaseUnboundBorrowedModel()`（新能力接口 `BorrowedModelRelease`）：`binding()` 可解且 `binding().model()==publishedModel()` 时不动；否则重置 `lazyPublishAttemptedIdentity` 并请求空闲释放；全方法 best-effort 不抛。
-  5. `DynamicCubismModelAccess` 按能力接口转发；`HostSession.registerProjectContentCleanup` 在 CLOSE 成功且 `kind==MODEL` 时调用（palette 清理同一监听器内）。
-- **回归（先失败路径已验证机制）**：`BorrowedCoreModelSourceTest` 新增 4 项（无 lease 立即清且幂等、挂起至 lease 归零、新发布取消挂起、三种清除路径都触发监听器）；`EditorEvaluatedJoinAccessTest` 新增 3 项（idle-release+同 identity 重发布后 evaluated 重追踪出 0x08 而非 stale；仍绑定时不释放；解绑后释放且 lazyPublish 重新武装——同文档对象回绑同 identity 可再发布）；`HostSessionTest` 新增接线断言（MODEL 成功关闭 → 1 次 release；ANIMATION/失败关闭 → 0 次）。`CountingSource` 补齐三个新接口方法的转发。
-- **修复中发现的既有缺口（记录，未修）**：文档切换 A→B 时无主动 republish——若 A 已发布而 B 绑定，`evaluated(I_B)` 会 trace A 的模型并以 I_B pin 住（drawable 命中失败或错数据）。这是**先于本切片存在**的行为，本切片的释放路径**缓解**了它（A 关闭即清 → B 走 lazyPublish），但「A 未关而切到 B」的窗口仍在，属独立切片。
-- **验证结果**：`./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*' --tests 'dev.turboism.adapter.host.*'` = BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。期间修复一处测试自身问题：`acquire` 的 lease 未关导致 `close()` 挂起（测试缺陷，非生产缺陷）。
-- **限制（不得抬高）**：离线回归证明的是**生命周期状态机正确性**（滞留路径被切断、lease 不作废、重绑定不锁死）；释放的实际内存量级未测（Core 模型对象大小随 .cmo3 而定）；**无实机测量**，端到端收益记 **NONE/pending**。
-- **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**一条有成型的内存滞留消除路径**（文档关闭→绑定核查→lease 归零→遗忘+丢 pin+重武装），及覆盖其全部时序的离线回归。
+### I40 — P12 The Borrowed Core Model Staying After a Close: A CLOSE-Event-Driven Non-Blocking Idle Release (2026-09-11)
 
-### I41 — P13 overlay 按钮侧表无界增长：有界 FIFO 驱逐 + 摘除（2026-09-11）
+- **Scope and verification method**: Spec Kit `036-borrowed-model-idle-release`, which handles retained candidate 1 of I36, where `BorrowedCoreModelSource.activeModel` keeps the borrowed Core model strongly held until the session ends after a document close with no further binding. Everything is offline.
+- **Why a direct clear is invalid, with the safety analysis recorded**: `transitionTo` bumps the generation, which (1) makes every unreleased lease immediately STALE_GENERATION, and (2) leaves `CoreEvaluatedJoin` pinned to a `(snapshot, generation)` pair per identity, so after a republish under the same identity the pinned generation differs from the current one and the result is a permanent fail-stale whose text is not "No verified active Core model" and therefore does not trigger the lazyPublish retry, which **locks the evaluated read path permanently for that identity**. This slice must therefore also wait for the leases to reach zero, drop the join pin on clear, and reset the lazyPublish deduplication marker.
+- **Implementation**:
+  1. `ActiveCoreModelSource` gains three defaults, `releaseWhenIdle`, `publishedModel`, and `onModelCleared`, with zero change to the other source implementations.
+  2. `BorrowedCoreModelSource.releaseWhenIdle()` is non-blocking: it forgets the model at once and increments the generation when `activeLeases==0`, otherwise it stays pending until `releaseLease` reaches zero; `transitionTo` and `close` reset the pending marker, so a new publish cancels an undecided release. Every `activeModel` to null path, whether an idle release, `clearBorrowedModel`, or `close`, calls `onModelCleared` outside the monitor.
+  3. `CoreEvaluatedJoin` registers `source.onModelCleared(this::dropPinnedSnapshot)` at construction, so a clear drops the pin and a republish under the same identity re-traces instead of staying permanently stale; it gains `releaseBorrowedModelWhenIdle()` and `publishedModel()`.
+  4. `EditorBackedCubismModelAccess.releaseUnboundBorrowedModel()` under the new capability interface `BorrowedModelRelease` does nothing when `binding()` resolves and `binding().model()==publishedModel()`, and otherwise resets `lazyPublishAttemptedIdentity` and requests an idle release; the whole method is best-effort and throws nothing.
+  5. `DynamicCubismModelAccess` forwards through the capability interface, and `HostSession.registerProjectContentCleanup` calls it when a CLOSE succeeds with `kind==MODEL`, inside the same listener that cleans the palette.
+- **Regression, with the failing path already proving the mechanism**: `BorrowedCoreModelSourceTest` gains 4 cases, an immediate idempotent clear without a lease, a pending release until the lease reaches zero, a new publish cancelling the pending release, and all three clear paths firing the listener; `EditorEvaluatedJoinAccessTest` gains 3 cases, where an idle release plus a republish under the same identity makes evaluated re-trace and return 0x08 instead of a stale result, a still-bound model is not released, and an unbound model is released with lazyPublish re-armed so the same document object rebound under the same identity publishes again; `HostSessionTest` gains wiring assertions, where a successful MODEL close triggers 1 release and an ANIMATION close or a failed close triggers 0. `CountingSource` forwards the three new interface methods.
+- **An existing gap found during the fix, recorded and not fixed**: switching from document A to B performs no active republish, so when A was published and B is bound, `evaluated(I_B)` traces the model of A and pins it under I_B, which yields a drawable miss or wrong data. This behavior **predates this slice**, and the release path here **mitigates** it because closing A clears the model and B then goes through lazyPublish, but the window where A is not closed and the user switches to B remains and belongs to a separate slice.
+- **Verification result**: `./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*' --tests 'dev.turboism.adapter.host.*'` is BUILD SUCCESSFUL; `./gradlew devCheck` is BUILD SUCCESSFUL over 80 tasks; `check_remote_hygiene.py --worktree` is clean. One test defect was fixed on the way, where an unclosed `acquire` lease made `close()` hang, which is a test defect and not a production defect.
+- **Limits that must not be overstated**: the offline regression proves the **correctness of the lifecycle state machine**, namely that the retention path is cut, the leases are not invalidated, and a rebind does not lock up; the real memory magnitude of the release is unmeasured because a Core model object size depends on the .cmo3, and there is **no host measurement**, so the end-to-end gain is **NONE or pending**.
+- **Effectiveness**: the new memory, CPU, and GPU **measured gain is NONE**; the output is **one well-formed removal path for a memory retention**, from the document close through the binding check and the lease drain to forget, drop the pin, and re-arm, plus offline regressions covering its whole timing.
 
-- **范围/验证方法**：Spec Kit `037-overlay-button-cache-bound`。处理 I36 保留候选 2：`VerifiedBoundingBoxOverlayButtonHostOperations.buttonsByOverlay`（`IdentityHashMap`，以宿主 overlay 对象为键）——每个新 overlay 实例永久新增一项，仅 `cleanupCustomEntities()` 在贡献关闭/空快照时整表清除。全程 offline。
-- **为何选 FIFO+摘除而不是弱键（记录的安全分析）**：弱键会在宿主 GC 掉 overlay 时丢条目，但若其 scene 仍存活，按钮实体将滞留为幽灵按钮且永不可摘除——不可证安全。FIFO 驱逐+按该条目最后观测的 scene `detachButton` 与既有 shutdown 清理语义一致：场景活→物理摘除（正确）；场景死→宿主已回收，摘除失败走既有 fail-open 聚合通道。被逐但仍活的 overlay 下次 update 时 `existing==null` → `rebuild` 重建按钮，自愈。
-- **实现**：`MAX_CACHED_OVERLAYS=16` + `overlayOrder`（`ArrayDeque`，FIFO，仅记新键，与 map 同锁）；`customButtonEntities` 在 put 后超出上限即摘 eldest 条目、锁外逐按钮 `detachButton`（失败聚合后经回调的 fail-open 诊断通道抛出，与既有清理语义一致）；`cleanupCustomEntities` 同时清 deque。
-- **回归**：`overlayChurnBoundsTheSideTableAndDetachesEvictedButtons`——20 个不同 overlay 仅最旧 4 个被逐且其按钮出现在 `REMOVED_VOLATILE`/`Entities.REMOVED`、其余 16 个保持缓存；`anEvictedOverlayRebuildsFreshButtonsOnItsNextUpdate`——被逐 overlay 下次 update 重建新按钮（`assertNotSame`）。既有 overlay 测试全绿。
-- **验证结果**：`:runtime:test` 受影响套件 BUILD SUCCESSFUL；`devCheck` BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。
-- **限制（不得抬高）**：宿主 overlay 对象的实际创建频率未量化（预期每视图 ~1 个）；上限值 16 是保守界而非实测最优；无实机测量，端到端收益记 **NONE**。
-- **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**一条无界增长路径的有界化**（会话期每 overlay 一项 → 恒 ≤16 项，且被逐条目的宿主按钮被正确摘除）+ 两条离线回归。
+### I41 — P13 Unbounded Growth of the Overlay Button Side Table: Bounded FIFO Eviction With Detach (2026-09-11)
 
-### I42 — P14 发布不跟随绑定：文档切换 A→B 时 evaluated 读错模型（2026-09-12）
+- **Scope and verification method**: Spec Kit `037-overlay-button-cache-bound`, which handles retained candidate 2 of I36, `VerifiedBoundingBoxOverlayButtonHostOperations.buttonsByOverlay`, an `IdentityHashMap` keyed by the host overlay object where every new overlay instance adds a permanent entry and only `cleanupCustomEntities()` clears the whole table when a contribution closes or the snapshot is empty. Everything is offline.
+- **Why FIFO eviction with detach instead of a weak key, with the safety analysis recorded**: a weak key would drop an entry when the host collects the overlay, but if its scene is still alive the button entities stay behind as ghost buttons that can never be detached, which cannot be proven safe. FIFO eviction plus `detachButton` against the last observed scene of that entry matches the existing shutdown cleanup semantics: a live scene is physically detached, which is correct, and a dead scene has already been reclaimed by the host, so a failed detach goes through the existing fail-open aggregation channel. An evicted but still live overlay rebuilds its buttons on its next update because `existing==null`, which self-heals.
+- **Implementation**: `MAX_CACHED_OVERLAYS=16` plus an `overlayOrder` `ArrayDeque` that is FIFO, records only a new key, and shares the map lock; after a `put` that exceeds the cap, `customButtonEntities` removes the eldest entry and calls `detachButton` per button outside the lock, where a failure is aggregated and thrown through the callback fail-open diagnostic channel exactly as the existing cleanup does; `cleanupCustomEntities` also clears the deque.
+- **Regression**: `overlayChurnBoundsTheSideTableAndDetachesEvictedButtons` churns 20 different overlays, evicts only the 4 oldest, finds their buttons in `REMOVED_VOLATILE` and `Entities.REMOVED`, and keeps the other 16 cached; `anEvictedOverlayRebuildsFreshButtonsOnItsNextUpdate` shows an evicted overlay rebuilding new buttons with `assertNotSame` on its next update. The existing overlay tests stay green.
+- **Verification result**: the affected `:runtime:test` suites are BUILD SUCCESSFUL; `devCheck` is BUILD SUCCESSFUL over 80 tasks; `check_remote_hygiene.py --worktree` is clean.
+- **Limits that must not be overstated**: the real creation rate of host overlay objects is not quantified, with about one per view expected; the cap of 16 is a conservative bound rather than a measured optimum; and there is no host measurement, so the end-to-end gain is **NONE**.
+- **Effectiveness**: the new memory, CPU, and GPU **measured gain is NONE**; the output is **one unbounded growth path made bounded**, from one entry per overlay per session to at most 16 entries with the host buttons of an evicted entry correctly detached, plus two offline regressions.
 
-- **范围/验证方法**：Spec Kit `038-publish-follows-binding`。I40 分析时记录并挂起的既有缺口：借用的 Core 模型只在**连接时**和 `lazyPublishOnce`（仅在 MODEL_UNAVAILABLE 文本时重试）内发布。宿主上同时打开 A、B 两个文档并在其间切换（无 close）时，`binding()` 解析出 B 的模型但 source 里仍发布着 A；`evaluated(I_B)` 于是 **trace A 的模型并以 I_B pin 住**——`drawable(B-id)` 未命中时报 fail-closed `NoSuchElementException`，id 撞名时更糟：**静默返回 A 的数据**（B 的 editability/动画状态全是错的）。全程 offline。
-- **实现（publish follows the binding）**：`EditorBackedCubismModelAccess.binding()` 在解出当前 document→source→model 并建好 identity 后，若 `evaluatedJoin` 已装且 `join.publishedModel() != model`（对象身份比较），即调用 `join.tryPublish(model, sessionIdentity + ":" + modelId)`。每次 `binding()` 新增的成本 = 一次 `publishedModel()` monitor 读（FR-003：已发布同模型时零额外工作）。`tryPublish` 失败 best-effort 吞掉——evaluated 路径保留 MODEL_UNAVAILABLE→lazyPublish 兜底，`lazyPublishOnce` 原样保留为 binding() 与 evaluated() 之间清除窗口的竞态兜底；036 的 dedup 重置语义不变。
-- **为什么是正确性+性能双修复**：正确性——evaluated 快照永远与**当前绑定模型**对应（SC-001）；性能——消除每次文档切换后潜在的错误 trace+pin+miss 连锁（fail-closed miss 的 NoSuchElementException 构造、错 trace 的 canvas/drawable 全量遍历均作废），也消除了「A 未关但已不绑定」模型继续强持引用的窗口（与 I40 互补：发布替换即刻丢 A，无需等 A 的 CLOSE 事件）。
-- **测试迁移（夹具语义变化）**：旧测试手动 `source.transitionTo(model,...)` 预发布；新语义下 `binding()` 自己发布，故全部迁移为 `new Fixture(model, counter)`（Fixture 现在把当前模型传入 Document→ModelSource）+ `CountingHarness`。期间修正一处夹具计数接线：`coreModel(canvasReads,...)` 会把计数器挂在 base 模型上，Fixture 构建组合模型时读一次 base → 计数 +1；改用 `lazyCoreModel(...)`（base 挂哑计数器，组合模型挂真计数器）恢复断言语义。
-- **回归**：新增 `bindingNeverPublishesWithoutACurrentDocument`（无当前文档时 binding 失败且**零发布**；文档恢复后下一次 binding 发布成功）与 `documentSwitchRepublishesAndServesTheNewModel`（SC-001：切换后 evaluated 返回 0x08 新值、发布计数=2）；更新 `evaluatedReadsRebindAfterAnIdleReleaseRepublishesUnderTheSameIdentity`（SC-003：036 的释放→同 identity 重绑定→重 trace 场景在新语义下仍不可能卡死）；`lazyPublishIsRetriedAfterTheDocumentSwitchChangesTheIdentity` 等既有 lazyPublish 测试在新语义下全绿。旧 `Harness`/`harness()` 死代码移除。
-- **验证结果**：`./gradlew :runtime:test`（全部 runtime 套件）= BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。
-- **限制（不得抬高）**：离线回归证明的是**绑定-发布-追踪的一致性**与错误 trace 路径的消除；未量化省下的秒数/CPU；**无实机测量**，端到端收益记 **NONE/pending**。
-- **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**一处既有正确性缺口的修复**（切换文档即错模型）+ **一条滞留路径的即时化**（绑定移走即替换发布，不必等 CLOSE）+ 配套回归。
+### I42 — P14 A Publish That Does Not Follow the Binding: evaluated Reads the Wrong Model When the Document Switches From A to B (2026-09-12)
 
-### I43 — P15 重复路径反射成员解析：每调用 `getMethod`/`getDeclaredField` → MethodHandleCache（2026-09-12）
+- **Scope and verification method**: Spec Kit `038-publish-follows-binding`, which handles the existing gap recorded and parked during the I40 analysis: a borrowed Core model is published only **at connect** and inside `lazyPublishOnce`, which retries only on the MODEL_UNAVAILABLE text. When the host holds two documents A and B open and the user switches between them without a close, `binding()` resolves the model of B while the source still publishes A, so `evaluated(I_B)` **traces the model of A and pins it under I_B**; a `drawable(B-id)` miss then throws a fail-closed `NoSuchElementException`, and a colliding id is worse because it **silently returns the data of A**, with the editability and animation state of B entirely wrong. Everything is offline.
+- **Implementation, publish follows the binding**: after `EditorBackedCubismModelAccess.binding()` resolves the current document, source, and model and builds the identity, it calls `join.tryPublish(model, sessionIdentity + ":" + modelId)` when `evaluatedJoin` is installed and `join.publishedModel() != model` by object identity. The added cost per `binding()` is one monitor read of `publishedModel()`, and FR-003 requires zero extra work when the same model is already published. A `tryPublish` failure is swallowed as best-effort, the evaluated path keeps the MODEL_UNAVAILABLE to lazyPublish fallback, `lazyPublishOnce` stays exactly as it was as the race fallback for the clear window between `binding()` and `evaluated()`, and the deduplication reset semantics of 036 are unchanged.
+- **Why this is both a correctness and a performance fix**: for correctness, an evaluated snapshot always matches the **currently bound model**, which is SC-001; for performance, it removes the potential wrong trace, pin, and miss chain after every document switch, since the fail-closed miss `NoSuchElementException` construction and the full canvas and drawable traversal of a wrong trace are all wasted, and it also removes the window where a model that is no longer bound but whose document is still open keeps a strong reference, which complements I40 because a publish replacement drops A at once without waiting for the CLOSE event of A.
+- **Test migration because the fixture semantics changed**: the old tests pre-published with a manual `source.transitionTo(model,...)`, and under the new semantics `binding()` publishes by itself, so every test migrates to `new Fixture(model, counter)`, where the fixture now passes the current model into the Document-to-ModelSource chain, plus `CountingHarness`. One fixture counting wire was corrected on the way: `coreModel(canvasReads,...)` attaches the counter to the base model, and building the composite model in the fixture reads the base once, which adds 1 to the count, so `lazyCoreModel(...)` restores the assertion semantics with a dummy counter on the base and the real counter on the composite model.
+- **Regression**: a new `bindingNeverPublishesWithoutACurrentDocument` requires that binding fail with **zero publishes** when no current document exists and that the next binding publish successfully after the document returns; a new `documentSwitchRepublishesAndServesTheNewModel` covers SC-001, where evaluated returns the new 0x08 value after the switch with a publish count of 2; `evaluatedReadsRebindAfterAnIdleReleaseRepublishesUnderTheSameIdentity` is updated for SC-003, where the 036 release, same-identity rebind, and re-trace scenario still cannot lock up under the new semantics; and the existing lazyPublish tests such as `lazyPublishIsRetriedAfterTheDocumentSwitchChangesTheIdentity` stay green. The dead `Harness` and `harness()` code is removed.
+- **Verification result**: `./gradlew :runtime:test` over all runtime suites is BUILD SUCCESSFUL; `./gradlew devCheck` is BUILD SUCCESSFUL over 80 tasks; `check_remote_hygiene.py --worktree` is clean.
+- **Limits that must not be overstated**: the offline regression proves the **consistency of binding, publish, and trace** and the removal of the wrong-trace path; it quantifies no saved seconds or CPU, and there is **no host measurement**, so the end-to-end gain is **NONE or pending**.
+- **Effectiveness**: the new memory, CPU, and GPU **measured gain is NONE**; the output is **a fix of one existing correctness gap**, where a document switch served the wrong model, plus **one retention path made immediate**, where a moved binding replaces the publish without waiting for CLOSE, and the matching regressions.
 
-- **范围/验证方法**：Spec Kit `039-reflective-lookup-cache`。审计发现既有 `MethodHandleCache`（I? 早前为截图/profile 路径建）之外仍有五处重复路径在**每次调用**做 `Class#getMethod`/`getDeclaredField`——每次 = 全成员表扫描 + 新 Method/Field 拷贝分配。全程 offline。
-- **量化基线（静态证据）**：①`VerifiedProjectWorkspaceHostOperations.invokePublic`：每次 `activeProject()` 遍历内每 document/content/树条目 3-8 次（`getChildren`/`getModelSource`/`getModelName`/`getAnimation`/`getSceneDocs`/`getFileContentDocs`/`getOpenedImageDocument`/`a`/`getPsdFile`/`getName`）→ **每快照 ~3-8×(D+C+entries) 次未缓存解析**。②`CubismLogServiceHost.toEntry`：**每条宿主日志 4 次** `getMethod`（getLevel/getMessage/getTimeMillis + level.name）——模型加载/编辑期日志密集。③`NativeProjectLifecycleBridge.invoke`：每次文件生命周期事件。④`NativeDeformerControlRowAppearanceBridge.deformerId`：每行 ~5 次（含 `outerType.getMethod` + `field`）。⑤`NativeParameterAppearanceBridge.invoke/field`：每参数行。
-- **实现**：`MethodHandleCache` 新增 `declaredField(Class,name)`（exact-class、resolve 时不施加访问策略——caller 的 `canAccess`/`trySetAccessible` 原样保留且效果在共享 Field 上持久、miss 不缓存，与方法缓存同策略）；五个调用点全部改走 `MethodHandleCache.method`/`declaredField`，各自访问检查与异常语义逐字保留。冷路径有意不动：hook registry 的 per-registration 契约探测、log 装配块、FileChooser（超类遍历字段+每用户动作）、一次性 bridge 构造。
-- **回归**：`MethodHandleCacheTest` 新增 `declaredFieldHitsAndReturnsSameHandle`（同实例返回、caller 侧 trySetAccessible 生效、exact-class 契约——子类键查不到超类字段、miss 不缓存双重断言）。五处迁移类的既有测试**零修改全绿**（SC-003：迁移对行为不可见）。
-- **验证结果**：`./gradlew :runtime:test` 受影响包（core.reflect + adapter.cubism + runtime.log + ui.appearance + adapter.host）= BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。
-- **限制（不得抬高）**：证据为结构性（成员表扫描+拷贝 → O(1) map 命中）与行为等价断言；单次 `getMethod` ~百纳秒级、收益随项目规模/日志量线性放大但未测秒数；`Method.invoke` 本身的固有开销不变；端到端收益记 **NONE**。
-- **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**五条重复路径的反射解析成本确定性消除**（每次调用 → 每 (Class,成员) 一次）+ 一个 field 级缓存能力与配套回归。
+### I43 — P15 Reflective Member Resolution on Repeated Paths: A `getMethod` or `getDeclaredField` per Call Becomes a MethodHandleCache Hit (2026-09-12)
 
-### I44 — P16 VerifiedMemberResolver 字段/构造/类解析逐调用重解析 → 每 resolver 成员缓存（2026-09-12）
+- **Scope and verification method**: Spec Kit `039-reflective-lookup-cache`. The audit found that beyond the existing `MethodHandleCache`, built earlier for the screenshot and profile paths, five repeated paths still run `Class#getMethod` or `getDeclaredField` **on every call**, and each call costs a full member-table scan plus a new Method or Field copy allocation. Everything is offline.
+- **Quantified baseline, static evidence**: (1) `VerifiedProjectWorkspaceHostOperations.invokePublic` runs 3 to 8 times per document, content, and tree entry inside each `activeProject()` traversal, through `getChildren`, `getModelSource`, `getModelName`, `getAnimation`, `getSceneDocs`, `getFileContentDocs`, `getOpenedImageDocument`, `a`, `getPsdFile`, and `getName`, which is **about 3 to 8 times (D+C+entries) uncached resolutions per snapshot**. (2) `CubismLogServiceHost.toEntry` runs **4 `getMethod` calls per host log line**, for getLevel, getMessage, getTimeMillis, and level.name, and logging is dense during model load and editing. (3) `NativeProjectLifecycleBridge.invoke` runs per file lifecycle event. (4) `NativeDeformerControlRowAppearanceBridge.deformerId` runs about 5 times per row, including `outerType.getMethod` and `field`. (5) `NativeParameterAppearanceBridge.invoke` and `field` run per parameter row.
+- **Implementation**: `MethodHandleCache` gains `declaredField(Class,name)` with an exact-class contract, where resolution applies no access policy, the caller `canAccess` or `trySetAccessible` stays as it was with its effect persisting on the shared Field, and a miss is not cached, matching the method cache policy; all five call sites move to `MethodHandleCache.method` or `declaredField` with their access checks and exception semantics preserved word for word. Cold paths are deliberately untouched, namely the per-registration contract probe of the hook registry, the log assembly block, the FileChooser with its superclass field walk and per-user action, and the one-shot bridge construction.
+- **Regression**: `MethodHandleCacheTest` gains `declaredFieldHitsAndReturnsSameHandle`, asserting that the same instance is returned, that a caller-side `trySetAccessible` takes effect, that the exact-class contract holds because a subclass key cannot find a superclass field, and that a miss is not cached. The existing tests of the five migrated classes stay **green with zero modification**, which is SC-003, a migration invisible to behavior.
+- **Verification result**: `./gradlew :runtime:test` over the affected packages core.reflect, adapter.cubism, runtime.log, ui.appearance, and adapter.host is BUILD SUCCESSFUL; `./gradlew devCheck` is BUILD SUCCESSFUL over 80 tasks; `check_remote_hygiene.py --worktree` is clean.
+- **Limits that must not be overstated**: the evidence is structural, a member-table scan and copy becoming an O(1) map hit, plus behavior-equivalence assertions; one `getMethod` costs about a hundred nanoseconds and the gain grows linearly with project size and log volume but is unmeasured in seconds; the inherent cost of `Method.invoke` itself is unchanged; the end-to-end gain is **NONE**.
+- **Effectiveness**: the new memory, CPU, and GPU **measured gain is NONE**; the output is **a deterministic elimination of the reflective resolution cost on five repeated paths**, from every call to once per (Class, member), plus a field-level cache capability and its regressions.
 
-- **范围/验证方法**：Spec Kit `040-resolver-member-cache`。resolver 早已为 `invoke`/`invokeStatic` 建 `invocationMethods` 缓存（注释明确缓存属 resolver 生命周期、随 provider 替换释放），但 `readField`/`readStaticField`/`construct`/`isInstance`/`isExactInstance`/`createFunctionalProxy` 仍**每次调用** `Class.forName` + `MethodType.fromMethodDescriptorString` + `getDeclaredField`/`getDeclaredConstructor` + 全量再校验。全程 offline。
-- **量化基线（静态证据）**：单次 readField/readStaticField = 1×forName（内部名→点名字符串分配+loader 查找）+ 1×MethodType 描述符解析（含字段类型类加载）+ 1×getDeclaredField（字段数组扫描+Field 拷贝）+ 校验。热点调用点：`EditorPartOpacityAccess.alphaComposition` 每 part 行最多 5 次 readStaticField；`EditorParameterStructureAccess`/`EditorNativeControlAppearanceAccess` 的枚举比较每评估多次；`EditorObjectReadAccess` companion/texture-atlas/typed-command 共 52 个调用点。
-- **实现**：三个 per-resolver ConcurrentMap——`invocationFields`/`invocationConstructors`/`ownerClasses`，私有 `resolve*Uncached` 镜像既有 `resolveInvocationMethod` 的校验（declaring-class、字段类型/描述符、访问标志、classloader 鉴证全部在 resolve 时做，与方法缓存语义逐字一致）；per-call 部分原样保留：`readField` 的 `canAccess(target)`/`trySetAccessible`（授权在共享 Field 上持久）、`construct` 的 package-private+trySetAccessible 块。miss 不缓存。异常类型/kind/消息逐字保留。
-- **回归**：`VerifiedMemberResolverTest` 既有 475 行套件**零修改全绿**（static field、private instance field、public/package-private/private 构造、SAM proxy、isInstance/isExactInstance、target 类型失配、不可访问构造等全部覆盖缓存后路径）；受影响 adapter 套件全绿。
-- **验证结果**：`:runtime:test`（mapping.verification + adapter.cubism + adapter 全包）= BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。
-- **限制（不得抬高）**：证据为结构性（每调用全量解析 → 每 alias 一次）与行为等价断言；收益随 readField/readStaticField 实际调用密度线性放大但未测秒数；类缓存强持宿主 Class——与既有 `invocationMethods`（同样持 Method→Class）同一生命周期契约，非新增驻留类别；端到端收益记 **NONE**。
-- **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**resolver 全部成员种类的解析成本收敛到每 alias 一次**（覆盖 52 个 readField/readStaticField 调用点、8 个 construct、全部 isInstance/isExactInstance 调用点）+ 零修改通过的既有语义回归。
+### I44 — P16 VerifiedMemberResolver Re-resolves Fields, Constructors, and Classes on Every Call: One Cache per Resolver Member (2026-09-12)
 
-### I45 — 合成宿主 A/B 微基准：遍历路径 CPU 收益量化（2026-09-12）
+- **Scope and verification method**: Spec Kit `040-resolver-member-cache`. The resolver already built an `invocationMethods` cache for `invoke` and `invokeStatic`, and its comment states that the cache belongs to the resolver lifecycle and is released when the provider is replaced, but `readField`, `readStaticField`, `construct`, `isInstance`, `isExactInstance`, and `createFunctionalProxy` still run `Class.forName`, `MethodType.fromMethodDescriptorString`, `getDeclaredField` or `getDeclaredConstructor`, and a full re-validation **on every call**. Everything is offline.
+- **Quantified baseline, static evidence**: one readField or readStaticField costs one `forName`, which allocates a dotted string from the internal name and performs a loader lookup, one MethodType descriptor parse including the field-type class load, one `getDeclaredField` with a field-array scan and a Field copy, and the validation. The hot call sites are `EditorPartOpacityAccess.alphaComposition` with up to 5 readStaticField calls per part row, the enum comparisons of `EditorParameterStructureAccess` and `EditorNativeControlAppearanceAccess` several times per evaluation, and the 52 call sites of `EditorObjectReadAccess` across companion, texture-atlas, and typed-command.
+- **Implementation**: three per-resolver ConcurrentMaps, `invocationFields`, `invocationConstructors`, and `ownerClasses`, with private `resolve*Uncached` methods that mirror the validation of the existing `resolveInvocationMethod`, where the declaring class, the field type or descriptor, the access flags, and the classloader attestation all happen at resolve time exactly as the method cache does; the per-call part stays, namely `canAccess(target)` and `trySetAccessible` in `readField`, whose authorization persists on the shared Field, and the package-private plus `trySetAccessible` block of `construct`. A miss is not cached. The exception type, kind, and message are preserved word for word.
+- **Regression**: the existing 475-line `VerifiedMemberResolverTest` suite stays **green with zero modification**, covering a static field, a private instance field, public, package-private, and private constructors, the SAM proxy, `isInstance` and `isExactInstance`, a target type mismatch, and an inaccessible constructor, all through the cached path; the affected adapter suites stay green.
+- **Verification result**: `:runtime:test` over mapping.verification, adapter.cubism, and the whole adapter package is BUILD SUCCESSFUL; `./gradlew devCheck` is BUILD SUCCESSFUL over 80 tasks; `check_remote_hygiene.py --worktree` is clean.
+- **Limits that must not be overstated**: the evidence is structural, a full parse per call becoming one per alias, plus behavior-equivalence assertions; the gain grows linearly with the real call density of readField and readStaticField but is unmeasured in seconds; the class cache strongly holds a host Class under the same lifecycle contract as the existing `invocationMethods`, which also holds a Method and therefore a Class, so it is no new residency category; the end-to-end gain is **NONE**.
+- **Effectiveness**: the new memory, CPU, and GPU **measured gain is NONE**; the output is **the resolution cost of every resolver member kind reduced to once per alias**, covering the 52 readField and readStaticField call sites, the 8 construct sites, and every `isInstance` and `isExactInstance` site, plus the existing semantic regressions passing unmodified.
 
-- **方法**：自含基准 `validation/archive/perfbench/src/`（不进 Gradle 构建）：携带受审 Cubism 类名的合成宿主图（`CModelingDocument`/`CSceneDocument`/`CAnimationFileContent`/`IFileContent` 等 stub + `bench.*` 公共基类承载 selector owner）+ `TestVerifiedResolvers` + `VerifiedProjectWorkspaceHostOperations` + `HostSessionSnapshotSource` 真实现。同一 `PerfBench` 源分别对 `d3ee4d2a8`（本轮工作接手基线，含前序 P09 observe 机制）与 HEAD 编译运行；`System.nanoTime` + `ThreadMXBean.getCurrentThreadAllocatedBytes`；warmup 500-800 轮后计时 2000-3000 轮取均值。全 offline、无实机。
-- **数字（30 model + 10 anim 文档、45 contents；三次运行一致）**：
-  | 度量 | d3ee4d2a8 | HEAD | Δ |
+### I45 — A Synthetic Host A/B Microbenchmark: Quantifying the CPU Gain of the Traversal Path (2026-09-12)
+
+- **Method**: a self-contained benchmark in `validation/archive/perfbench/src/` that does not join the Gradle build, carrying a synthetic host graph with the reviewed Cubism class names, stubs for `CModelingDocument`, `CSceneDocument`, `CAnimationFileContent`, and `IFileContent` plus a `bench.*` common base carrying the selector owner, together with `TestVerifiedResolvers`, `VerifiedProjectWorkspaceHostOperations`, and the real `HostSessionSnapshotSource`. The same `PerfBench` source is compiled and run against `d3ee4d2a8`, the baseline this round inherited including the earlier P09 observe mechanism, and against HEAD, timed with `System.nanoTime` and `ThreadMXBean.getCurrentThreadAllocatedBytes` after 500 to 800 warm-up rounds, averaging 2000 to 3000 timed rounds. Everything is offline with no host.
+- **Numbers for 30 model and 10 animation documents with 45 contents, consistent across three runs**:
+
+  | Metric | d3ee4d2a8 | HEAD | Δ |
   |---|---|---|---|
-  | `activeProject()` 单次遍历 | 282.7–294.8 µs | 192.6–199.4 µs | **−32%** |
-  | `observe()+versionOf` 逻辑读 | 338.4 µs | 215.3 µs | **−36%** |
-  | 旧四调用 scope 捕获序列 | 615.2 µs | 394.6 µs | **−36%** |
-  | **captureScope 真实对比**（旧序列@base → observe@HEAD） | 615.2 µs | 215.3 µs | **−65%** |
-- **数字（60 model + 30 anim 文档、130 contents）**：
-  | 度量 | d3ee4d2a8 | HEAD | Δ |
+  | One `activeProject()` traversal | 282.7–294.8 µs | 192.6–199.4 µs | **−32%** |
+  | `observe()+versionOf` logical read | 338.4 µs | 215.3 µs | **−36%** |
+  | The old four-call scope capture sequence | 615.2 µs | 394.6 µs | **−36%** |
+  | **The real captureScope comparison**, old sequence at base against observe at HEAD | 615.2 µs | 215.3 µs | **−65%** |
+
+- **Numbers for 60 model and 30 animation documents with 130 contents**:
+
+  | Metric | d3ee4d2a8 | HEAD | Δ |
   |---|---|---|---|
   | `activeProject()` | 917–927 µs | 446–447 µs | **−52%** |
   | `observe()+versionOf` | 999–1016 µs | 512–514 µs | **−49%** |
-  | 旧四调用序列 | 1931–2001 µs | 900–910 µs | **−54%** |
-  | **captureScope 真实对比** | 1931–2001 µs | 512.5 µs | **−73~74%** |
-  | 每遍历分配字节 | 587.4 KB/op | 574.6 KB/op | −2%（分配由快照构建主导，预期内不变） |
-- **归因**：在 `44fa4a4a0`（035 提交点）复测 90-doc 图：activeProject 451.8 µs ≈ HEAD 446.4 µs——**遍历收益几乎全部来自 035**（idFor O(1) + join O(C+D) + 去重构建）；039/040 在**该路径**上落入噪声（其收益在未实测的 toEntry/part-行/枚举比较路径）。基线随规模超线性增长（40doc −32% vs 90doc −52%）实证了被消除的二次项。
-- **限制（不得抬高）**：合成宿主的 `Method.invoke` 目标方法体是空的——真实宿主成员成本更高（遍历占比不同，百分比不可外推）；绝对值只对 Turboism 侧 CPU 有效；JMH 未用，数字为方向性证据而非精确基准；单线程合成 JIT 画像。
-- **有效程度**：本轮首次将 034/035 的结构改进落成**可复现的测量数**：遍历 −32%~−52%（随规模放大）、captureScope 路径 −65%~−74%、分配 −2~−3%。036/037/038/039/040 的端到端收益仍未测量（NONE/pending）。
+  | The old four-call sequence | 1931–2001 µs | 900–910 µs | **−54%** |
+  | **The real captureScope comparison** | 1931–2001 µs | 512.5 µs | **−73 to −74%** |
+  | Allocated bytes per traversal | 587.4 KB/op | 574.6 KB/op | −2%, because the snapshot build dominates the allocation and no change is expected |
 
-### I46 — P17 safeSegment 三次 replaceAll 逐次 Pattern.compile → 预编译常量（2026-09-12）
+- **Attribution**: a re-measurement of the 90-document graph at `44fa4a4a0`, the 035 commit, gives `activeProject()` at 451.8 µs against the HEAD 446.4 µs, so **nearly all of the traversal gain comes from 035**, namely the O(1) `idFor`, the O(C+D) join, and the deduplicated build; 039 and 040 fall into the noise **on that path** because their gain sits in the unmeasured toEntry, part-row, and enum-comparison paths. The baseline grows superlinearly with scale, from −32% at 40 documents to −52% at 90, which demonstrates the removed quadratic term.
+- **Limits that must not be overstated**: the `Method.invoke` target body of the synthetic host is empty, so a real host member costs more and the traversal share differs, which means the percentages do not extrapolate; the absolute values are valid only for Turboism-side CPU; JMH was not used, so the numbers are directional evidence rather than a precise benchmark; and the profile is a single-threaded synthetic JIT.
+- **Effectiveness**: this round turns the structural improvements of 034 and 035 into **reproducible measured numbers** for the first time, with the traversal at −32% to −52% growing with scale, the captureScope path at −65% to −74%, and the allocation at −2% to −3%. The end-to-end gains of 036, 037, 038, 039, and 040 remain unmeasured as **NONE or pending**.
 
-- **范围/验证方法**：Spec Kit `042-precompiled-segment-patterns`。审计遍历内逐文档字符串处理发现 `VerifiedProjectWorkspaceHostOperations.safeSegment` 每次调用执行 3 次 `String.replaceAll`——JDK 规范即 `Pattern.compile(regex).matcher(this).replaceAll(repl)`，每次调用都重新编译。`documentBuild` 对**项目内每个文档**调一次 safeSegment → 每遍历 3×D 次 `Pattern.compile`。全程 offline。
-- **量化基线**：独立微基准中该三连替换 ~10.3µs/次（含 3 次编译）；同路径审计确认其余 `replaceAll`/`split`/`matches` 全部位于冷路径（config 校验、版本解析、归档检查、菜单标签清理），不迁移。
-- **实现**：三个表达式提升为 `private static final Pattern`（`SEGMENT_DISALLOWED`/`SEGMENT_DASHES`/`SEGMENT_EDGES`），`safeSegment` 内按原顺序 `matcher().replaceAll()` 链式应用。等价性由构造保证：同表达式、同顺序、同 JDK replaceAll 语义，Pattern 编译结果不可变且线程安全。
-- **数字（perfbench 同场景复测，两次运行）**：
-  | 场景 | 度量 | pre-042 HEAD | 042 | Δ |
+### I46 — P17 Three `replaceAll` Calls in safeSegment Each Compiling a Pattern: Precompiled Constants (2026-09-12)
+
+- **Scope and verification method**: Spec Kit `042-precompiled-segment-patterns`. An audit of the per-document string handling inside the traversal found that `VerifiedProjectWorkspaceHostOperations.safeSegment` runs 3 `String.replaceAll` calls per invocation, and the JDK specifies that as `Pattern.compile(regex).matcher(this).replaceAll(repl)`, so every call recompiles. `documentBuild` calls safeSegment once **for every document in the project**, which is 3×D `Pattern.compile` calls per traversal. Everything is offline.
+- **Quantified baseline**: an independent microbenchmark measures that triple replacement at about 10.3µs per call including the 3 compilations; the same-path audit confirms that every other `replaceAll`, `split`, and `matches` sits on a cold path, namely config validation, version parsing, archive checks, and menu label cleanup, so they are not migrated.
+- **Implementation**: the three expressions become `private static final Pattern` constants `SEGMENT_DISALLOWED`, `SEGMENT_DASHES`, and `SEGMENT_EDGES`, and `safeSegment` applies `matcher().replaceAll()` in the original order. The equivalence holds by construction, with the same expression, the same order, and the same JDK replaceAll semantics, and a compiled Pattern is immutable and thread-safe.
+- **Numbers from the same perfbench scenario re-measured over two runs**:
+
+  | Scenario | Metric | pre-042 HEAD | 042 | Δ |
   |---|---|---|---|---|
-  | 90 doc/130 contents | `activeProject()` | 446–447 µs | 352.7–360.5 µs | **−19~21%** |
-  | 90 doc/130 contents | `observe()+versionOf` | 512–514 µs | 436.4–460.0 µs | **−10~15%** |
-  | 90 doc/130 contents | 旧四调用序列 | 900–910 µs | 744.7–752.8 µs | **−17%** |
-  | 40 doc/45 contents | `activeProject()` | 192.6–199.4 µs | 153.9 µs | **−20~23%** |
-  | 40 doc/45 contents | `observe()+versionOf` | 215.3 µs | 176.2 µs | **−18%** |
-  | 40 doc/45 contents | 旧四调用序列 | 394.6 µs | 308.0 µs | **−22%** |
-- **验证结果**：`:runtime:test` 受影响套件 BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL；perfbench 在改后 HEAD 复测确认收益（上表）。
-- **限制（不得抬高）**：同 I45——合成宿主空方法体，绝对值不可外推端到端；收益量级随文档数线性；分配字节基本不变（字符串产物照旧，仅省编译器内部临时对象）。
-- **有效程度**：**实测 CPU 收益 YES（合成宿主遍历路径 −10~23%）**；相对接手基线 d3ee4d2a8 的累计：activeProject 917→353 µs（−61%）、observe 999→436 µs（−56%）、旧四调用 1931→745 µs（−61%）。
+  | 90 documents and 130 contents | `activeProject()` | 446–447 µs | 352.7–360.5 µs | **−19 to −21%** |
+  | 90 documents and 130 contents | `observe()+versionOf` | 512–514 µs | 436.4–460.0 µs | **−10 to −15%** |
+  | 90 documents and 130 contents | The old four-call sequence | 900–910 µs | 744.7–752.8 µs | **−17%** |
+  | 40 documents and 45 contents | `activeProject()` | 192.6–199.4 µs | 153.9 µs | **−20 to −23%** |
+  | 40 documents and 45 contents | `observe()+versionOf` | 215.3 µs | 176.2 µs | **−18%** |
+  | 40 documents and 45 contents | The old four-call sequence | 394.6 µs | 308.0 µs | **−22%** |
 
-### I47 — P18 探索后否决：captureScope 的 HostProject 投影旁路（2026-09-12）
+- **Verification result**: the affected `:runtime:test` suites are BUILD SUCCESSFUL; `./gradlew devCheck` is BUILD SUCCESSFUL; the perfbench re-measurement on the changed HEAD confirms the gain in the table above.
+- **Limits that must not be overstated**: as in I45, the synthetic host has empty method bodies, so the absolute values do not extrapolate end to end; the gain grows linearly with the document count; and the allocated bytes stay essentially unchanged because the string products stay the same and only the compiler-internal temporaries disappear.
+- **Effectiveness**: **the measured CPU gain is YES, at −10% to −23% on the synthetic host traversal path**; against the inherited baseline d3ee4d2a8 the cumulative result is `activeProject()` from 917 to 353 µs at −61%, observe from 999 to 436 µs at −56%, and the old four-call sequence from 1931 to 745 µs at −61%.
 
-- **假设**：`captureScope` 每外观调用 `source.observe()`，而 `HostSessionSnapshotSource.observe()` 把整个项目快照投影为 `Host*` 记录（90 文档 + 130 内容），captureScope 却只用 document/model/version → 每次浪费 ~30µs + ~22% 分配。
-- **实现后否决**：实现 `HostSnapshotSource.ScopeObservation` + `observeScope()`/`versionOf(ScopeObservation)` default seam + `HostSessionSnapshotSource` 覆盖 + captureScope 迁移，编译+bench 确认（observeScope 400µs vs observe 429µs，alloc 424→330KB/op）。随后核实生产接线：`RuntimeModelAppearanceAccess` 的 source 实为 `PluginScopedCubismModelAccess.AppearanceSource`——其 `observe()` 本就 `project=empty`、只走 `activeDocument()` 轻读（appController+currentDocument+一次 documentBuild+`modelAccess.active()`），**全项目遍历根本不在外观路径上**；`observe()` 的项目投影只有真正消费它的 `runtimeWithVersion()`/`runtimeSnapshot()` 付费。新 seam 在生产中只会命中 default 委托，`HostSessionSnapshotSource` 上的覆盖成为死代码 → **整体回退**（未提交）。
-- **修正认知**：外观路径的 per-call 成本 = 一次 `activeDocument()` 轻读（~2 invokes+1 docBuild）+ `binding()` 解析 + token 读，而非全量遍历。`versionOf` 深比较仅存在于 `HostSessionSnapshotSource`（runtimeWithVersion 路径），AppearanceSource 用 `activationToken`（changeKey 比对 contentId+modelId 字符串，O(1)）。
-- **有效程度**：**实测收益 NONE（否决并回退）**；产出为准确的调用方-实现归属图与「外观路径已是轻读」的确认。
+### I47 — P18 Explored Then Rejected: A HostProject Projection Bypass for captureScope (2026-09-12)
 
-### I48 — P19 MeshMirror 桥反射扫描逐调用重扫 → MethodHandleCache + 专用小缓存（2026-09-12）
+- **Hypothesis**: `captureScope` calls `source.observe()` for every appearance, and `HostSessionSnapshotSource.observe()` projects the whole project snapshot into `Host*` records for 90 documents and 130 contents while captureScope uses only the document, the model, and the version, which wastes about 30µs and about 22% of the allocation per call.
+- **Implemented then rejected**: `HostSnapshotSource.ScopeObservation` with default `observeScope()` and `versionOf(ScopeObservation)` seams, an override in `HostSessionSnapshotSource`, and a captureScope migration were implemented, and the compile plus benchmark confirmed the effect at 400µs for observeScope against 429µs for observe with the allocation dropping from 424 to 330KB per operation. The production wiring was then checked: the source of `RuntimeModelAppearanceAccess` is really `PluginScopedCubismModelAccess.AppearanceSource`, whose `observe()` already has an empty project and goes only through the light `activeDocument()` read of appController, currentDocument, one documentBuild, and `modelAccess.active()`, so **the whole-project traversal never sits on the appearance path**; the project projection of `observe()` is paid only by `runtimeWithVersion()` and `runtimeSnapshot()`, which really consume it. The new seam would hit only the default delegation in production and the override in `HostSessionSnapshotSource` would be dead code, so the whole change was **reverted and never committed**.
+- **Corrected understanding**: the per-call cost of the appearance path is one light `activeDocument()` read of about 2 invokes and 1 documentBuild, plus the `binding()` resolution and the token read, and no full traversal. The deep `versionOf` comparison exists only in `HostSessionSnapshotSource` on the runtimeWithVersion path, while AppearanceSource uses `activationToken`, a changeKey comparison of the contentId and modelId strings at O(1).
+- **Effectiveness**: **the measured gain is NONE because the change was rejected and reverted**; the output is an accurate caller-to-implementation ownership map and the confirmation that the appearance path is already a light read.
 
-- **范围/验证方法**：Spec Kit `044-mesh-bridge-reflective-cache`。审计 `getMethods()`/`getDeclaredMethods()`/`getDeclaredField`/`getEnumConstants`/`Class.forName`+`getConstructor` 全量扫描发现 `NativeMeshMirrorBridge` 是剩余最大集中点：`call()`（`collectSnapshot` 每点 3 次：getPos/getX/getY，镜像/删除路径遍布）、`invoke()`（121+ 调用点）、`compatiblePoint`/`selectionWeight`/`addPointMethod`/`addEdgeMethod`/`hostMirrorEnabled`/`findMethod`×2、`movePointMethod`/`hasUndoAttachmentMethod` 层级扫描、`vectorConstructor`/`enumConstant`、`vector()`/`point()`/`staticField()` 的 per-call Class.forName（`vector` 在逐段绘制循环内每次 2 次）。每次 = 全成员表数组拷贝+线性扫描。全程 offline。
-- **实现**：`MethodHandleCache` 新增两种 kind——`declaredOverloads(Class,name,arity)`（层级收集全部 name+arity 声明，供"首个候选可能被参数形状谓词否决"的站点；resolve 时不施加访问策略，caller 侧 setAccessible 效果在共享 Method 上持久）与 `declaredFieldUp(Class,name)`（层级字段查找，同 declaredField 的无策略+miss 不缓存）。桥迁移：`invoke`→`overloads`+try-each（缓存保持首观测 getMethods 顺序）；`declaredMethod`→`declaredUp`+`overloads` assignable 兜底；各扫描助手→`overloads`+原谓词；`movePointMethod`/`hasUndoAttachmentMethod`→`declaredOverloads`；`vectorConstructor`/`enumConstant`/`hostConstructor`/`staticField`→桥内 CHM 缓存（Class/构造器/枚举集/字段在类加载后不可变，miss 缓存安全）；59 处 `new Class<?>[0]`→`NO_PARAMS` 常量。
-- **语义边界**：旧 `setAccessible` 的 SecurityException 直传 → 缓存路径 `trySetAccessible` 失败→NoSuchMethodException（与 039/040 及缓存既定策略一致；无 SM 环境下无差异）。`invoke` 的 try-next-overload、`declaredMethod` 的 declared→public-assignable 两段顺序、`declaredFieldUp` 的 miss 不缓存全部逐字保留。
-- **回归**：`MethodHandleCacheTest` 新增 `declaredOverloadsCollectsEveryHierarchyMatchAndCachesTheList`、`declaredFieldUpWalksTheHierarchyAndCachesTheHit`；`:runtime:test` mesh 全套件（NativeMeshMirrorBridgeTest、MeshMirrorLinkedDeletion(Injection)、MeshMirrorCounterpartCost、MeshMirrorSelectedMovement、MeshMirrorOracleBlockers、RuntimeMeshEditService/ToolEligibility 等）零修改全绿。
-- **验证结果**：`:runtime:test`（mesh+reflect 142 测试）= BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL；`check_remote_hygiene.py --worktree` = clean。
-- **限制（不得抬高）**：证据为结构性（每调用全表扫描+拷贝 → 每 (Class,签名) 一次解析）+ 行为等价回归；mesh 操作的真实调用频率（每笔刷/每点/每帧）未实机量化，端到端收益记 **NONE**。
-- **有效程度**：本轮新增**结构性 CPU 改进**（镜像桥全部逐调用反射扫描收敛为缓存命中 + per-call 数组/构造器/枚举常量分配消除）；无实测秒数。
+### I48 — P19 Repeated Reflective Scans in the MeshMirror Bridge: MethodHandleCache Plus a Dedicated Small Cache (2026-09-12)
 
-### I49 — P20 反射 miss 每调用重扫+重建异常 → 永久 miss 缓存（2026-09-12）
+- **Scope and verification method**: Spec Kit `044-mesh-bridge-reflective-cache`. An audit of full scans through `getMethods()`, `getDeclaredMethods()`, `getDeclaredField`, `getEnumConstants`, and `Class.forName` with `getConstructor` found `NativeMeshMirrorBridge` to be the largest remaining concentration: `call()`, where `collectSnapshot` runs 3 times per point for getPos, getX, and getY across the mirror and delete paths; `invoke()` with 121 or more call sites; `compatiblePoint`, `selectionWeight`, `addPointMethod`, `addEdgeMethod`, `hostMirrorEnabled`, and two `findMethod` sites; the hierarchy scans of `movePointMethod` and `hasUndoAttachmentMethod`; `vectorConstructor` and `enumConstant`; and the per-call `Class.forName` of `vector()`, `point()`, and `staticField()`, where `vector` runs twice per segment inside the drawing loop. Each call costs a full member-table array copy and a linear scan. Everything is offline.
+- **Implementation**: `MethodHandleCache` gains two kinds, `declaredOverloads(Class,name,arity)`, which collects every declaration of that name and arity across the hierarchy for the sites where the first candidate may be rejected by a parameter-shape predicate and applies no access policy at resolve so a caller-side setAccessible persists on the shared Method, and `declaredFieldUp(Class,name)`, a hierarchy field lookup with the same no-policy and no-miss-cache rules as `declaredField`. The bridge migrates `invoke` to `overloads` with try-each, where the cache keeps the first observed `getMethods` order; `declaredMethod` to `declaredUp` plus an `overloads` assignable fallback; each scan helper to `overloads` with its original predicate; `movePointMethod` and `hasUndoAttachmentMethod` to `declaredOverloads`; `vectorConstructor`, `enumConstant`, `hostConstructor`, and `staticField` to a bridge-local CHM cache, which is safe because a Class, constructor, enum set, and field are immutable after class load; and 59 occurrences of `new Class<?>[0]` to a `NO_PARAMS` constant.
+- **Semantic boundary**: the old `setAccessible` passed a SecurityException straight through, while the cached path turns a failed `trySetAccessible` into a NoSuchMethodException, consistent with 039, 040, and the established cache policy, and identical in an environment without a security manager. The try-next-overload of `invoke`, the two-stage declared-then-public-assignable order of `declaredMethod`, and the no-miss-cache rule of `declaredFieldUp` are preserved word for word.
+- **Regression**: `MethodHandleCacheTest` gains `declaredOverloadsCollectsEveryHierarchyMatchAndCachesTheList` and `declaredFieldUpWalksTheHierarchyAndCachesTheHit`; the whole mesh `:runtime:test` suite stays green with zero modification, including NativeMeshMirrorBridgeTest, MeshMirrorLinkedDeletion and its Injection variant, MeshMirrorCounterpartCost, MeshMirrorSelectedMovement, MeshMirrorOracleBlockers, and RuntimeMeshEditService and ToolEligibility.
+- **Verification result**: `:runtime:test` over mesh and reflect with 142 tests is BUILD SUCCESSFUL; `./gradlew devCheck` is BUILD SUCCESSFUL; `check_remote_hygiene.py --worktree` is clean.
+- **Limits that must not be overstated**: the evidence is structural, a full table scan and copy per call becoming one resolution per (Class, signature), plus behavior-equivalence regressions; the real call frequency of a mesh operation, per brush stroke, per point, and per frame, is not quantified on a host, so the end-to-end gain is **NONE**.
+- **Effectiveness**: this round adds a **structural CPU improvement**, where every per-call reflective scan in the mirror bridge becomes a cache hit and the per-call array, constructor, and enum-constant allocation disappears; no seconds are measured.
 
-- **范围/验证方法**：Spec Kit `045-miss-caching`。`MethodHandleCache` 此前只缓存命中——探测式调用点（`invokePublic` 的 `getAnimationContent`/`getOpenedImageDocument`/`getPsdFile`/`a`、`declaredMethod` 第一段 `declaredUp` 兜底、`tryInvoke`/`invokeEither` 链）对不存在成员的 miss **每调用**全表重扫+新建异常。实测最小类上单次 miss ~2.2µs vs hit ~0.4µs，且随方法数放大（真实宿主类更大）。全程 offline。
-- **安全性论证（为何可缓存 miss）**：已加载 Class 的成员集不可变——JVMS/`Instrumentation.redefineClasses` 明确禁止增删改成员；`trySetAccessible` 失败的 "inaccessible" 结果同样永久（访问标志/模块边界定形后不变）。因此对给定 (kind,Class,name,sig) 键的 NoSuchMethod/NoSuchField 结果是永久答案。只缓存这两种异常；`SecurityException` 及其它运行时失败不缓存。
-- **实现**：`MISSES` CHM 存**规范的异常实例**并重抛（类型+消息逐字保留，栈定格于首次解析——控制流异常的装饰性差异）；`method`/`declared`/`declaredUp`/`declaredByArity`/`declaredField`/`declaredFieldUp` 全部接入；`overloads`/`declaredOverloads` 原本就以空列表隐式缓存 miss。命中路径仍 1 次 map get，miss 路径 2 次。
-- **数字（perfbench 90doc/130contents，两次运行）**：activeProject 352.7–360.5 → **301.8–303.4 µs（−14~16%）**；observe+versionOf 436–460 → **354–362 µs（−17~21%）**；legacy 745–753 → **601–615 µs（−18%）**；遍历分配 325.5→287.1 KB/op（−12%）、observe 424.4→386.0 KB/op（−9%）。
-- **回归**：`MethodHandleCacheTest` 更新 miss 断言为"重抛同一缓存实例"（5 种 kind 全覆盖）；mesh+workspace 套件全绿。
-- **验证结果**：`:runtime:test`（reflect+mesh+workspace）= BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL；`check_remote_hygiene.py --worktree` = clean。
-- **限制（不得抬高）**：合成宿主类方法表远小于真实 Cubism 类——真实 miss 单次成本更高，收益预计**更大**但仍以实测为准；栈轨迹定格为已知取舍。
-- **有效程度**：**实测 CPU 收益 YES（合成遍历再 −14~21%，分配 −9~12%）**；累计对基线 d3ee4d2a8：activeProject 917→302 µs（**−67%**）、observe 999→354 µs（**−65%**）、legacy 1931→601 µs（**−69%**）。
+### I49 — P20 A Reflective Miss Rescanning and Rebuilding an Exception per Call: A Permanent Miss Cache (2026-09-12)
 
-### I50 — 实机验证尝试与验证工具链修复（2026-09-12）
+- **Scope and verification method**: Spec Kit `045-miss-caching`. `MethodHandleCache` previously cached hits only, so a probe-style call site **rescanned the whole table and built a new exception on every call** for a missing member, which affects `getAnimationContent`, `getOpenedImageDocument`, `getPsdFile`, and `a` in `invokePublic`, the `declaredUp` fallback in the first stage of `declaredMethod`, and the `tryInvoke` and `invokeEither` chains. A measurement on a minimal class gives about 2.2µs per miss against about 0.4µs per hit, and the difference grows with the method count, where a real host class is larger. Everything is offline.
+- **Safety argument for caching a miss**: the member set of a loaded Class is immutable, because the JVMS and `Instrumentation.redefineClasses` forbid adding, removing, or changing a member, and an "inaccessible" result from a failed `trySetAccessible` is equally permanent once the access flags and module boundary are fixed. A NoSuchMethod or NoSuchField result for a given (kind, Class, name, signature) key is therefore a permanent answer. Only those two exceptions are cached, and a SecurityException or another runtime failure is not.
+- **Implementation**: a `MISSES` CHM stores a **canonical exception instance** and rethrows it, with the type and message preserved word for word and the stack frozen at the first resolution, which is a cosmetic difference for a control-flow exception; `method`, `declared`, `declaredUp`, `declaredByArity`, `declaredField`, and `declaredFieldUp` all use it, while `overloads` and `declaredOverloads` already cached a miss implicitly as an empty list. A hit path stays one map get and a miss path takes two.
+- **Numbers from perfbench at 90 documents and 130 contents over two runs**: `activeProject()` from 352.7–360.5 to **301.8–303.4 µs, −14% to −16%**; observe plus versionOf from 436–460 to **354–362 µs, −17% to −21%**; the legacy sequence from 745–753 to **601–615 µs, −18%**; the traversal allocation from 325.5 to 287.1 KB/op, −12%, and observe from 424.4 to 386.0 KB/op, −9%.
+- **Regression**: `MethodHandleCacheTest` updates the miss assertion to "rethrows the same cached instance" across all 5 kinds; the mesh and workspace suites stay green.
+- **Verification result**: `:runtime:test` over reflect, mesh, and workspace is BUILD SUCCESSFUL; `./gradlew devCheck` is BUILD SUCCESSFUL; `check_remote_hygiene.py --worktree` is clean.
+- **Limits that must not be overstated**: the synthetic host class method table is far smaller than a real Cubism class, so a real miss costs more per call and the gain is expected to be **larger**, but a measurement still decides; the frozen stack trace is a known tradeoff.
+- **Effectiveness**: **the measured CPU gain is YES, with the synthetic traversal at a further −14% to −21% and the allocation at −9% to −12%**; cumulatively against the baseline d3ee4d2a8, `activeProject()` goes from 917 to 302 µs at **−67%**, observe from 999 to 354 µs at **−65%**, and the legacy sequence from 1931 to 601 µs at **−69%**.
 
-- **背景**：宿主队列空闲后提交 `workspace:5203`（job `a9a95529`→`ed8230fb`），作为遍历/读取路径的 exact-host 证据。
-- **发现的工具链缺陷（已修并提交）**：
-  - `package-windows-workspace-validation.sh` 用 `turboism-agent-*.jar` glob 找 agent——`:bootstrap:jar` 现在固定产出 `turboism-agent.jar`，glob 永不命中（且在有旧版残留时会静默打包过期 jar）。改为 canonical 名 + 拒绝版本化残留。
-  - 同一脚本的验证记录引用 `cubism-5.2-*.json`，实际已改名为点分精确版本 `cubism-5.2.03-*.json`——同步更新全部 6 处。
-  - 全部 5 个验证 probe 打包脚本（workspace/mesh-mirror-axis/recent-preview/history×2/parameter×2）产出缺 `META-INF/turboism/i18n/messages.properties`——`PluginJarContract` 无条件要求声明的 i18n 目录存在 → 全部 probe 会以 `PLUGIN_I18N_CATALOG_MISSING` 被拒。首次实机运行实证了这一点（plugin-load-report 记录该错误）。已逐脚本补空目录并提交。
-  - `package-windows-parameter-validation.sh` 硬编码 `parameter-0.1.0-SNAPSHOT-*.jar`，实际版本号跟随框架版本（当前 0.43.9）——改为 glob + 唯一性检查。
-- **第二次运行（`ed8230fb`，含修复后 bundle）**：agent/probe/插件全部加载成功（`plugins=2, failures=0`，probe ENABLED），host=ACTIVE，workspace provider CONNECTED；矩阵在真实 EDT 上成功执行 12 次 provider 调用（read=6 switch=5 update=1，onEdt=12 offEdt=0）——**遍历/快照/工作区路径在真实 5.2.03 宿主上功能正确，零异常**。但矩阵在第 6 次 switch 前停滞：probe 线程卡在 `WorkspaceCoordinator.dispatchOnEdt` 的 `SwingUtilities.invokeAndWait`（**无超时**），900s 结果超时 → FAIL。判断为宿主导线的 infra flake（EDT 停滞/模态），非被测路径功能错误；turboism.log 与 console 全程零 ERROR。
-- **附带发现（技术债，未改）**：`dispatchOnEdt`/`executeCommand` 的 `invokeAndWait`/`join()` 无超时，宿主导线停滞时验证矩阵无法自愈也无法写出 FAIL。
-- **验证结果**：exact-host 功能证据 YES（ACTIVE+CONNECTED+12 次 EDT 调用零异常）；终态 PASS NO（超时 FAIL）。队列中另有 workspace-r3 重试与 `parameter:5203@document-close` 待跑。
+### I50 — A Host Verification Attempt and the Validation Toolchain Fixes (2026-09-12)
 
-### I51 — workspace 矩阵停滞复现：确定为 updateDefault 模态对话框（非 flake）（2026-09-12）
+- **Background**: after the host queue became idle, `workspace:5203` was submitted as job `a9a95529`, then `ed8230fb`, to obtain exact-host evidence for the traversal and read paths.
+- **Toolchain defects found, fixed, and committed**:
+  - `package-windows-workspace-validation.sh` looked for the agent with a `turboism-agent-*.jar` glob, but `:bootstrap:jar` now always produces `turboism-agent.jar`, so the glob never matched and would silently package a stale jar when an older version was left behind. It now uses the canonical name and refuses a versioned leftover.
+  - The validation records of the same script referenced `cubism-5.2-*.json`, which had been renamed to the dotted exact version `cubism-5.2.03-*.json`, and all 6 occurrences are updated.
+  - All 5 validation probe packaging scripts, for workspace, mesh-mirror-axis, recent-preview, history twice, and parameter twice, produced a JAR without `META-INF/turboism/i18n/messages.properties`, while `PluginJarContract` unconditionally requires the declared i18n directory, so every probe was refused with `PLUGIN_I18N_CATALOG_MISSING`. The first host run proved this, with the error in the plugin-load-report, and an empty directory was added to each script and committed.
+  - `package-windows-parameter-validation.sh` hard-coded `parameter-0.1.0-SNAPSHOT-*.jar` while the real version follows the framework version, currently 0.43.9, so it now uses a glob with a uniqueness check.
+- **The second run, `ed8230fb`, with the fixed bundle**: the agent, the probe, and the plugins all loaded with `plugins=2, failures=0` and the probe ENABLED, host=ACTIVE, and the workspace provider CONNECTED; the matrix executed 12 provider calls on the real EDT with read=6, switch=5, update=1, onEdt=12, and offEdt=0, so **the traversal, snapshot, and workspace paths are functionally correct on the real 5.2.03 host with zero exceptions**. The matrix stopped before the sixth switch, however, because the probe thread blocked in `SwingUtilities.invokeAndWait` inside `WorkspaceCoordinator.dispatchOnEdt` with **no timeout** and the 900-second result timeout produced a FAIL. This was judged an infrastructure flake of the host mainline, from an EDT stall or a modal, rather than a functional error of the measured path, and turboism.log and the console reported zero ERROR throughout.
+- **A side finding, technical debt left unchanged**: `invokeAndWait` and `join()` in `dispatchOnEdt` and `executeCommand` have no timeout, so a stalled host mainline leaves the validation matrix unable to self-heal or even write a FAIL.
+- **Verification result**: the exact-host functional evidence is YES, with ACTIVE, CONNECTED, and 12 EDT calls and zero exceptions; the terminal PASS is NO because of the timeout FAIL. A workspace-r3 retry and `parameter:5203@document-close` remain queued.
 
-- **r3 重试（`73bddaa4`）**在同一位置停滞：agent 计数再次冻结于 `read=6 switch=5 update=1`——两次运行逐比特一致的停滞点证明非随机 flake。
-- **根因**：`updateDefault` 在 EDT 上触发宿主「保存工作区布局」类命令——5.2.03 实际会弹出需要输入布局名的**模态对话框**；modal grab 使后续 `invokeAndWait`（第 6 次 switch）永久排队，无人值守矩阵无法自愈。`WorkspaceCoordinator.dispatchOnEdt` 的 `invokeAndWait` 无超时是放大器（技术债，未改）。
-- **结论修正**：I50 的「infra flake」判断更新为「确定性 harness 限制」——workspace 矩阵的 update-default 段在当前无人值守模式下不可自动完成；已获得的 exact-host 证据（加载/连接/12 次 EDT 调用零异常）仍然有效。
-- **对后续验证的建议**：workspace 矩阵需拆分——update-default/reset-default 段要求对话框自动化或交互操作员；或在 probe 侧将该段标记为手动门。`parameter:5203@document-close` 不走该路径，不受影响。
+### I51 — The workspace Matrix Stall Reproduced: Determined to Be the updateDefault Modal Dialog, Not a Flake (2026-09-12)
 
-### I52 — parameter document-close 四轮实机：收集器两处缺陷修复，r4 终态 PASS（2026-09-12）
+- **The r3 retry, `73bddaa4`, stalled at the same point**, with the agent count frozen again at `read=6 switch=5 update=1`, and a bit-identical stall point across two runs proves it is no random flake.
+- **Root cause**: `updateDefault` triggers a host "save workspace layout" style command on the EDT, and 5.2.03 really opens a **modal dialog** that asks for a layout name; the modal grab makes the next `invokeAndWait`, the sixth switch, queue forever, and an unattended matrix cannot self-heal. The missing timeout in `invokeAndWait` of `WorkspaceCoordinator.dispatchOnEdt` is an amplifier and is technical debt left unchanged.
+- **Corrected conclusion**: the "infrastructure flake" judgement of I50 becomes a "deterministic harness limitation", because the update-default segment of the workspace matrix cannot complete automatically in the current unattended mode; the exact-host evidence already obtained, namely the load, the connect, and 12 EDT calls with zero exceptions, stays valid.
+- **Recommendation for later verification**: the workspace matrix needs splitting, because the update-default and reset-default segments require dialog automation or an interactive operator, or the probe should mark that segment as a manual gate. `parameter:5203@document-close` does not take that path and is unaffected.
 
-- **r1（`queue-59e12240`）**：三个阶段 artifact 全部 PASS（modelStale/meshStale/warpStale/rotationStale
-  全 true），但 `finishAutomatedValidation` 的文件名过滤器漏掉 `*-close.txt` → 误报
-  `artifactCount=0` → FAIL。修复：过滤器补 `-close`（`6bd49a655`）。
-- **r2（`queue-f6fa3b3b`）**：主 artifact 再次 PASS，但 `artifactCount=2`——peer probe 每个会话
-  都在 logs/ 写 `status=RUNNING phase=waiting-for-primary` 占位；document-close 模式从不触发
-  peer，占位永驻 RUNNING 并参与门禁 → FAIL。
-- **r3（`queue-bdf096a6`）**：第一版占位过滤漏了 `passed` 的基准赋值（`passed` 恒 false）→ FAIL。
-  根因：`summarizeArtifacts` 无单测，focused 测试绿灯是空转。
-- **修复（`12666c6a8`）**：判定逻辑抽为包私有静态 `summarizeArtifacts`——非终态（RUNNING）文件
-  只列报为证据、不计入门禁；`passed = 存在终态 artifact 且全部 PASS`。补 3 个单测覆盖
-  PASS+RUNNING 混合 / 全 RUNNING / FAIL 场景。plugin-scope-close 语义保持：peer 终态 artifact
-  仍被计数；peer 卡死时主 artifact 的 `secondPluginUsable=false` 已经 FAIL，不依赖占位门禁。
-- **r4（`queue-a32dec96`，job `f5fc9b4b`）：终态 PASS**——本分支首个干净的 exact-host 终态通过。
-  真实 Cubism 5.2.03（jar hash `bcc6e34f…` 校验 PASS）上 document-close 四个 stale 检查全 true：
-  036 借用模型关闭释放与 038 publish 跟随绑定获实机验证。
-- **限制**：doc-close PASS 证明的是「关闭后失效语义」，不是性能指标；遍历/反射收益的实机量化
-  仍未取得（workspace 矩阵被 I51 的模态对话框挡住）。
+### I52 — Four Host Rounds of parameter document-close: Two Collector Defects Fixed and r4 Reaching a Terminal PASS (2026-09-12)
 
-### I53 — MeshFrameIndex：mesh 分发内枚举去二次方 + 分配削减（2026-09-12）
+- **r1, `queue-59e12240`**: all three phase artifacts PASSed with modelStale, meshStale, warpStale, and rotationStale all true, but the file-name filter of `finishAutomatedValidation` missed `*-close.txt`, so it misreported `artifactCount=0` and FAILed. The filter gained `-close` in `6bd49a655`.
+- **r2, `queue-f6fa3b3b`**: the main artifact PASSed again, but `artifactCount=2`, because the peer probe writes a `status=RUNNING phase=waiting-for-primary` placeholder into logs/ in every session; document-close mode never triggers the peer, so the placeholder stays RUNNING forever and joins the gate, which FAILed.
+- **r3, `queue-bdf096a6`**: the first placeholder filter missed the baseline assignment of `passed`, which stayed false, so it FAILed. The root cause is that `summarizeArtifacts` had no unit test, so the green focused test was idling.
+- **Fix in `12666c6a8`**: the verdict logic is extracted into a package-private static `summarizeArtifacts`, where a non-terminal RUNNING file is reported as evidence only and never joins the gate, and `passed = a terminal artifact exists and all of them PASS`. Three unit tests cover a PASS plus RUNNING mix, all RUNNING, and a FAIL. The plugin-scope-close semantics stay, because a terminal peer artifact is still counted, and when the peer hangs the `secondPluginUsable=false` of the main artifact already FAILs without relying on the placeholder gate.
+- **r4, `queue-a32dec96`, job `f5fc9b4b`, reached a terminal PASS**, the first clean exact-host terminal pass of this branch. On the real Cubism 5.2.03, whose jar hash `bcc6e34f…` verified, all four stale checks of document-close are true, so the borrowed-model release at close of 036 and the publish-follows-binding of 038 gain host verification.
+- **Limits**: the doc-close PASS proves the invalidation semantics after a close, which is no performance metric, and a host quantification of the traversal and reflection gains is still not obtained because the workspace matrix is blocked by the modal dialog of I51.
 
-- **切片 046**。原实现把宿主的 `getAllPointRef`/`getEdges` 列表**按候选重枚举**：
-  `mirrorMoveSelected` 每个选中点调 2 次 `compatiblePoint`（每次回退路径全量枚举点表）；
-  `uniqueCustom{Point,Edge}Matches` 为 refs×contexts×points/edges 三重扫描；
-  `RuntimeMeshMirrorCounterparts`/`RuntimeMeshEditService` 的 `pointById`/`countLiveEdges`
-  逐 ref 线性扫描。拖拽逐帧路径上这是 O(S×P)+O(R×C×E) 反射枚举 + 每枚举一轮的
-  迭代器/临时列表分配。
-- **改动**：新增 `MeshFrameIndex`——dispatch 帧级、延迟物化的 per-context 索引
-  （points 列表 / identity set / id→first-point map / edges 列表 / identity set /
-  normalized-key→first-edge map / 重复键集 / 可选源边排除）。拖拽/删除/自定义贡献/
-  RuntimeMeshEditService 三处批量操作全部复用同一索引。
-- **语义保持**：`pointById` 的 first-match 由 `putIfAbsent` 保持；`edgeMatches`
-  （`ref.start==low && ref.end==high`）与 packed `high<<32|low` 键位等价；
-  上下文内重复键与跨上下文歧义仍 fail-closed；`MeshEdgeRef` 的规范化与
-  `edgeKey` 一致；`counterpartEdge` 的 equals 存在性检查未动。
-- **证据**：新增 `MeshFrameIndexTest`（6 例：首匹配/规范化/重复键/排除/身份语义/惰性）
-  与 `RuntimeMeshEditServiceTest` 计数回归——3-ref `movePoints`/`addEdges` 的
-  `getAllPointRef` 枚举从 3/6 次降为 **1 次**（断言 `allPointRefCalls==1`）。
-- **内存**：索引对象仅存于单次 EDT 分发内（无跨 dispatch 持有、无静态/长生命周期引用），
-  替代的是原先每次枚举的列表+迭代器临时分配；P 点 E 边索引 ≈ P+E 个引用+装箱键，
-  分发结束即回收——瞬时分配净减少，无滞留风险。
-- **验证**：mesh 包 102 测试 `--rerun-tasks` 全绿；`devCheck` BUILD SUCCESSFUL。
-- **限制**：索引收益按引用数/选中点数线性放大，未做实机量化（mesh 拖拽矩阵未跑）；
-  `counterpartPoint` 的最近邻 O(P) 搜索本身保留（语义要求）。
+### I53 — MeshFrameIndex: Removing the Quadratic Enumeration Inside the Mesh Dispatch and Cutting Allocation (2026-09-12)
 
-### I54 — recent-preview 内存映射随 recent 列表修剪（047）（2026-09-12）
+- **Slice 046**. The old implementation **re-enumerated the host `getAllPointRef` and `getEdges` lists per candidate**: `mirrorMoveSelected` called `compatiblePoint` twice per selected point, and each fallback path enumerated the whole point table; `uniqueCustom{Point,Edge}Matches` performed a triple scan over refs, contexts, and points or edges; and `pointById` and `countLiveEdges` in `RuntimeMeshMirrorCounterparts` and `RuntimeMeshEditService` scanned linearly per ref. On the per-frame drag path that is O(S×P) plus O(R×C×E) reflective enumeration with an iterator and temporary list allocation on every enumeration round.
+- **Change**: a new `MeshFrameIndex` provides a dispatch-frame-level, lazily materialized per-context index holding the points list, an identity set, an id-to-first-point map, the edges list, an identity set, a normalized-key-to-first-edge map, the duplicate key set, and an optional source-edge exclusion. The three batch operations of drag, delete, and custom contribution plus `RuntimeMeshEditService` all reuse the same index.
+- **Preserved semantics**: the first match of `pointById` is preserved by `putIfAbsent`; `edgeMatches`, which tests `ref.start==low && ref.end==high`, is equivalent to the packed `high<<32|low` key; a duplicate key inside a context and a cross-context ambiguity still fail closed; the normalization of `MeshEdgeRef` matches `edgeKey`; and the equality presence check of `counterpartEdge` is untouched.
+- **Evidence**: a new `MeshFrameIndexTest` with 6 cases covering first match, normalization, duplicate keys, exclusion, identity semantics, and laziness, plus a counting regression in `RuntimeMeshEditServiceTest` where the `getAllPointRef` enumeration of a 3-ref `movePoints` or `addEdges` drops from 3 or 6 calls to **1**, asserted as `allPointRefCalls==1`.
+- **Memory**: the index object lives only inside one EDT dispatch, with no cross-dispatch retention and no static or long-lived reference, and it replaces the list and iterator temporaries of each former enumeration; an index over P points and E edges is about P+E references plus boxed keys and is reclaimed when the dispatch ends, so the transient allocation falls net with no retention risk.
+- **Verification**: the 102 tests of the mesh package are all green under `--rerun-tasks`; `devCheck` is BUILD SUCCESSFUL.
+- **Limits**: the gain grows linearly with the reference and selection count and is not quantified on a host because the mesh drag matrix did not run; the nearest-neighbor O(P) search of `counterpartPoint` stays because the semantics require it.
 
-- **问题**：`RecentPreviewController.images`（PNG 字节 ~20–50KB/条）与
-  `lastCapturedModified` 按 `RecentFileId` 键控，仅在 `disable()`/`preload()` 清空；
-  宿主 recent 列表移除的条目在整个会话内滞留——长会话中随列表翻动无界增长。
-- **改动**：`refresh()` 与未知 id 的内联刷新统一走 `pruneToLive`——
-  `images`/`lastCapturedModified` `retainAll` 到当前 recent id 集；在表 id 的条目保留
-  （无 popup 回读回归）；磁盘缓存不动。
-- **证据**：`refreshPrunesImagesAndDedupeMarksForIdsThatLeftTheRecentList` 回归——
-  离表 id 的 `image()` 转空、新 id 正常 STORED。`:plugins:recent-preview:test` 全绿。
-- **内存**：每个离表 id 释放 ~20–50KB PNG + 表项；保留量上界 = 宿主 recent 列表大小。
-- **限制**：in-flight capture 的 id 若被 prune，完成后会重新 put（下一 refresh 再清）——
-  瞬态，可接受；无跨会话影响（磁盘缓存仍是权威）。
+### I54 — The recent-preview Memory Map Now Follows Pruning of the Recent List, Slice 047 (2026-09-12)
 
-### I55 — palette 工具栏轮询去空转布局（048）（2026-09-12）
+- **Problem**: `RecentPreviewController.images`, which holds 20 to 50KB of PNG bytes per entry, and `lastCapturedModified` are keyed by `RecentFileId` and cleared only in `disable()` and `preload()`, so an entry removed from the host recent list stays for the whole session and grows without bound as the list turns over in a long session.
+- **Change**: `refresh()` and the inline refresh for an unknown id both go through `pruneToLive`, which `retainAll`s `images` and `lastCapturedModified` to the current recent id set; an entry whose id stays in the list is kept, so the popup read-back regression stays, and the disk cache is untouched.
+- **Evidence**: the regression `refreshPrunesImagesAndDedupeMarksForIdsThatLeftTheRecentList` shows that `image()` of a departed id returns empty while a new id is STORED normally; `:plugins:recent-preview:test` is all green.
+- **Memory**: every departed id releases about 20 to 50KB of PNG plus its table entry, and the retention upper bound becomes the size of the host recent list.
+- **Limits**: an in-flight capture whose id is pruned is put back after it completes and cleared at the next refresh, which is transient and acceptable, and there is no cross-session effect because the disk cache stays authoritative.
 
-- **问题**：`VerifiedPaletteToolbarHostOperations` 的自愈轮询（250ms 快相→2s 慢相，
-  贡献存在期间常驻）每次 `reconcile()` 在绑定健康时也无条件 `syncButtons()`——
-  全量 `removeAll`+重加+`revalidate`/`repaint`，EDT 上的周期性布局/重绘抖动。
-- **探索中拒绝**：跳过 `logPaletteRoot.resolve()`（缓存 pane 直判）——resolve 是 pane
-  身份的唯一事实源：宿主可在旧结构仍附着时换掉 pane（close/reopen 回归测试正是
-  此场景），短路会破坏自愈。树 DFS 保留。
-- **改动**：`contributionsVersion`（仅 EDT 变更路径递增）+ `syncedVersion` 记录已渲染
-  版本；无变化时跳过 `syncButtons`。新增 `buttonsIntact`——逐贡献校验按钮仍在正确
-  锚点组（O(C) 指针比较），保住对「宿主单独摘除按钮」的自愈。
-- **证据**：`pollRestoresAButtonRemovedFromItsRowByAnOutsideActor`——摘除按钮后
-  reconcileNow 复挂**同一实例**；既有 5 例全绿。
-- **效果**：稳态 poll 成本从「树 DFS + 全量按钮重排 + 布局失效」降为「树 DFS +
-  O(C) 校验」；消除了每个 tick 的 revalidate/repaint。
-- **限制**：树 DFS（~百级组件）仍每 tick 执行——正确性所必需；UI 微基准未量化。
+### I55 — Removing the Idle Layout Work From the Palette Toolbar Poll, Slice 048 (2026-09-12)
 
-### I56 — perf-observe probe 模式 + 重模型 fixture 接入（049）（2026-09-12）
+- **Problem**: the self-healing poll of `VerifiedPaletteToolbarHostOperations`, which runs at 250ms in the fast phase and 2s in the slow phase and stays resident while a contribution exists, called `syncButtons()` unconditionally on every `reconcile()` even when the binding was healthy, which means a full `removeAll`, re-add, `revalidate`, and `repaint` and a periodic layout and repaint jitter on the EDT.
+- **Rejected during exploration**: skipping `logPaletteRoot.resolve()` and deciding from a cached pane, because resolve is the only source of truth for the pane identity and the host can replace the pane while the old structure is still attached, which is exactly the close and reopen regression scenario, so a short circuit would break self-healing. The tree DFS stays.
+- **Change**: a `contributionsVersion` that only the EDT change path increments plus a `syncedVersion` recording the rendered version, so `syncButtons` is skipped when nothing changed. A new `buttonsIntact` verifies per contribution that the button still sits in the correct anchor group with an O(C) pointer comparison, which keeps the self-healing against a host that removes a button on its own.
+- **Evidence**: `pollRestoresAButtonRemovedFromItsRowByAnOutsideActor` shows that `reconcileNow` re-attaches the **same instance** after a button is removed, and the existing 5 cases stay green.
+- **Effect**: the steady-state poll cost falls from a tree DFS plus a full button re-layout plus a layout invalidation to a tree DFS plus an O(C) check, and the `revalidate` and `repaint` of every tick disappear.
+- **Limits**: the tree DFS over roughly a hundred components still runs every tick because correctness needs it, and the UI microbenchmark is not quantified.
 
-- **动机**：分支全部收益仅有合成基准与结构性证据；拿到 427MB 真实 `heavy.cmo3` 后可做实机量化。
-- **实现**：`WindowsParameterValidationProbe` 新增 `perf-observe` 模式——等待模型就绪（360 次重试容忍大模型加载）→ 强制 GC 后记录堆/非堆 → 对 `runtime()`、`activeProject()`、`activeDocument()`、`model().active()` 各 30 次计时（median/p95）并用 `com.sun.management.ThreadMXBean` 记 EDT 分配字节 → GC 计数/耗时差 → Robot Ctrl+W 关文档 → stale 校验 + 关闭后堆。产物 `logs/perf-observe-validation.txt`（文件名含 `validation` 由既有收集器拾取）。
-- **接入**：wrapper 白名单 + `host-validation-tasks.json` 变体注册；fixture 经 prepare 时 env 覆盖进入快照（worker 执行期剥 TURBOISM_* env——覆盖必须在 prepare 时生效）。队列 job `4db466f7`。
-- **外部采样**：`/tmp/heavy-perf-sampler.sh` 按任务 prefix WINEPREFIX 匹配宿主 java 进程，每 2s 记 RSS/cpu_ticks/threads。
-- **附带基建事件**：host-slot 曾被他任务 quarantined（supervisor 崩溃于 "locking protocol"，containment.json 内核证据完整 FINISHED/safe）；用该 job 快照自带的 `finalize` 重跑真实校验生成 verdict，再经 `recover --confirm` 正式释放。`recover` 对「supervisor 崩在 verdict 前」这一形态无自愈能力——记录为工具链缺口。
+### I56 — The perf-observe Probe Mode and the Heavy-Model Fixture Integration, Slice 049 (2026-09-12)
 
-### I57 — 会话级 runtime 读去掉 Host* 双重投影（050）（2026-09-12）
+- **Motivation**: every gain of the branch rested on a synthetic benchmark and structural evidence, and a 427MB real `heavy.cmo3` made a host quantification possible.
+- **Implementation**: `WindowsParameterValidationProbe` gains a `perf-observe` mode that waits for the model to become ready with 360 retries to tolerate a large model load, forces a GC and records the heap and non-heap, times 30 calls each of `runtime()`, `activeProject()`, `activeDocument()`, and `model().active()` with median and p95 while recording the EDT allocated bytes through `com.sun.management.ThreadMXBean`, takes the GC count and duration delta, closes the document with a Robot Ctrl+W, and then runs the stale check and records the post-close heap. The product is `logs/perf-observe-validation.txt`, whose name contains `validation` so the existing collector picks it up.
+- **Integration**: a wrapper allowlist entry plus a variant registration in `host-validation-tasks.json`; the fixture enters the snapshot through an env override at prepare time, because the worker strips `TURBOISM_*` env during execution so an override must take effect at prepare. The queue job is `4db466f7`.
+- **External sampling**: `/tmp/heavy-perf-sampler.sh` matches the host java process by the task prefix WINEPREFIX and records RSS, cpu_ticks, and threads every 2 seconds.
+- **A side infrastructure event**: the host slot was once quarantined by another task when the supervisor crashed on a "locking protocol", with the kernel evidence in containment.json complete as FINISHED and safe; the `finalize` shipped in that job snapshot re-ran the real validation to produce a verdict, and `recover --confirm` then released the slot formally. `recover` cannot self-heal the shape where the supervisor crashes before the verdict, which is recorded as a toolchain gap.
 
-- **问题**：`HostSessionSnapshotSource.observe()` 把 adapter 已完成的 `ProjectSnapshot`/
-  `DocumentSnapshot` 反向投影成 `Host*` 记录，`CubismFacadeImpl` 再用
-  `ImmutableSnapshotFactory` 投影回 SDK——每次 `runtime()`/`runtimeWithVersion()`/
-  `captureScope` 在遍历之上付两次全量 O(snapshot) 记录/列表重建。
-- **改动**：`HostSnapshotSource` 新增 `observeSdkRuntime()`/`versionOfSdkRuntime()` 默认方法
-  （默认回传 host 形状）；session 源覆盖为直传 SDK 快照 + 以观察对为证据。
-  `CubismFacadeImpl` 用 `RuntimeRead` 归一化两形状——权限门、project 脱敏、证据配对
-  版本化在两形状下逐点等价。`captureScope` 抽 `hostScopeInput`/`sdkScopeInput` 双提取。
-- **语义等价要点**：workspace `ModelSnapshot` 本就是瘦的（id+name+空列表），直传即
-  `modelObjects/parameters/artMeshes/deformers` 与原路径一致为空；session 源无 selection；
-  `versionOf` 仍比较「实际观察到的那一对」而非重读宿主。
-- **证据**：`runtimeOverSessionSourceReturnsTheAdapterSnapshotsVerbatim`（verbatim 直传 +
-  单次 pair 读）、`runtimeOverSessionSourceRedactsProjectWithoutProjectRead`（脱敏不变）、
-  `sessionSourceVersionsTheObservedPairNotAFreshRead`（版本随证据对、不重读）、
-  `scopeCaptureUsesSdkShapedObservationsVerbatim`（SDK 形状下 scope 捕获正常、
-  `observe()` 零调用）。devCheck 全绿。
-- **效果**：每次 session 级 runtime 读省一次 Host* 全图构建 + 一次 SDK 重建（含逐字段
-  record、逐列表 copy）；selection 语义不变（本就为空）。
-- **实测**（PerfBench 新腿 `observe+factory+ver` vs `sdkRuntime+ver`，同参数两规模）：
-  90 文档/130 contents —— 597µs/497KB → 423µs/294KB（**时间 −29%，分配 −41%**）；
-  55 文档/80 contents —— 341µs/307KB → 318µs/175KB（时间 −7%，**分配 −43%**）。
-  分配削减一致且显著；时间收益随快照规模增长。
-- **提交**：`e9e20adab` + `f0ed80936`（accessor 同路径）；bench 腿同提交。
-- **限制**：插件作用域源（PluginScopedCubismModelAccess）仍走默认 host 路径——其
-  HostModel 是故意瘦的、证据语义不同，未动。
+### I57 — Removing the Double Host* Projection From the Session-Level runtime Read, Slice 050 (2026-09-12)
 
-### I58 — 重模型 perf-observe r1：360s await 不足 + peer 幻影 FAIL（2026-09-12）
+- **Problem**: `HostSessionSnapshotSource.observe()` projected the `ProjectSnapshot` and `DocumentSnapshot` the adapter had already built back into `Host*` records, and `CubismFacadeImpl` then projected them into the SDK again with `ImmutableSnapshotFactory`, so every `runtime()`, `runtimeWithVersion()`, and `captureScope` paid two full O(snapshot) record and list rebuilds on top of the traversal.
+- **Change**: `HostSnapshotSource` gains default `observeSdkRuntime()` and `versionOfSdkRuntime()` methods that return the host shape by default, and the session source overrides them to pass the SDK snapshot straight through with the observation pair as evidence. `CubismFacadeImpl` normalizes both shapes through a `RuntimeRead`, where the permission gate, the project redaction, and the evidence-paired versioning are point-for-point equivalent in both shapes. `captureScope` extracts a `hostScopeInput` and an `sdkScopeInput`.
+- **Semantic equivalence points**: the workspace `ModelSnapshot` is already thin with an id, a name, and empty lists, so passing it through leaves `modelObjects`, `parameters`, `artMeshes`, and `deformers` empty exactly as the old path did; the session source has no selection; and `versionOf` still compares the pair actually observed instead of re-reading the host.
+- **Evidence**: `runtimeOverSessionSourceReturnsTheAdapterSnapshotsVerbatim` covers the verbatim pass-through and the single paired read; `runtimeOverSessionSourceRedactsProjectWithoutProjectRead` shows the redaction unchanged; `sessionSourceVersionsTheObservedPairNotAFreshRead` shows the version following the evidence pair without a re-read; `scopeCaptureUsesSdkShapedObservationsVerbatim` shows the scope capture working in the SDK shape with zero `observe()` calls. devCheck is all green.
+- **Effect**: every session-level runtime read saves one full Host* graph build and one SDK rebuild, including the per-field record and per-list copy, and the selection semantics are unchanged because they were already empty.
+- **Measured with a new PerfBench leg comparing `observe+factory+ver` against `sdkRuntime+ver` at the same parameters in two sizes**: at 90 documents and 130 contents, 597µs and 497KB become 423µs and 294KB, which is **−29% in time and −41% in allocation**; at 55 documents and 80 contents, 341µs and 307KB become 318µs and 175KB, which is −7% in time and **−43% in allocation**. The allocation cut is consistent and significant, and the time gain grows with the snapshot size.
+- **Commits**: `e9e20adab` and `f0ed80936` for the accessor on the same path, with the benchmark leg in the same commit.
+- **Limits**: the plugin-scoped source `PluginScopedCubismModelAccess` still goes through the default host path, because its HostModel is deliberately thin and its evidence semantics differ, so it is untouched.
 
-- **现象**：job `4db466f7` 终态 FAIL，`activeDocumentClass=null`。console 有
-  `-- load document start --` 但到宿主关闭（~342s）无 `load document end`——
-  427MB 模型在 Proton 下异步加载超过 await 预算（360×~0.95s）。
-- **对照**：成功的小模型 run（i50 r4）console 有 `load document end (25.84)`；
-  `Verify after save : SUCCESS` 属正常关闭路径非异常。
-- **附带缺陷**：peer probe 无模式门——非 close 模式（如 perf-observe）永远等不到
-  primary 的 peer-request marker，240s 预算到期写 `status=FAIL` 终端 artifact，
-  `summarizeArtifacts` 据此把总判定翻成 FAIL。
-- **修复**（`9c8856d6c`）：peer probe 仅在 `plugin-scope-close`/`document-close`/
-  `native-control-background-document-close` 三个会写 marker 的模式启动线程；
-  perf-observe await 提到 1200 次（~20min，job timeout 2400s 内）。
-- **重试**：job `a0dc47f7`（r2），prepare 快照已含 427MB fixture（hash 校验一致）。
-- **r2 根因（实机）**：`activeDocumentClass=null` 持续是因为**版本不匹配模态框**——
-  窗口枚举发现 `警告` 对话框：「该文件由 Cubism 5.3.0 保存，正在启动的编辑器为
-  5.2.3，旧版打开新版可能损坏」+「加载/取消」。load document start 后阻塞在模态上，
-  CPU 仅 ~15% 单核（非真在加载）。外部激活+Enter 落在了「取消」——加载中止，
-  主窗口回到空工作区（截图取证）。job 终态 failed、cleanup=safe、fixture/golden
-  hash 均不变。
-- **修复**：`8edeac163`——队列调度器/任务表/wrapper 支持 5303（runner 本就支持，
-  5.3.03 已装）。改投 `parameter:5303@perf-observe`（job `f52f9b8e`）——宿主版本
-  与文件保存版本匹配，无模态。
-- **harness 缺口记录**：版本不匹配警告属可自动化的模态（Enter/加载按钮），probe
-  侧缺「await 期间检测并处置模态」能力——后续可在 await 轮询里加 Swing 对话框
-  探测+按预期文本放行。
+### I58 — The Heavy-Model perf-observe r1: A 360-Second Await Too Short and a Phantom peer FAIL (2026-09-12)
 
-## I59 - heavy-perf-observe-5303 r1/r2：取消与权限缺口
+- **Symptom**: job `4db466f7` reached a terminal FAIL with `activeDocumentClass=null`. The console held `-- load document start --` but no `load document end` until the host closed at about 342 seconds, because the 427MB model loads asynchronously under Proton and exceeded the await budget of 360 attempts at about 0.95 seconds each.
+- **Control**: the successful small-model run, i50 r4, shows `load document end (25.84)` in the console, and `Verify after save : SUCCESS` belongs to the normal close path and is no exception.
+- **A side defect**: the peer probe had no mode gate, so a non-close mode such as perf-observe never received the peer-request marker of the primary, and its 240-second budget expired and wrote a terminal `status=FAIL` artifact, which made `summarizeArtifacts` turn the whole verdict into a FAIL.
+- **Fix in `9c8856d6c`**: the peer probe starts its thread only in the three modes that write a marker, namely `plugin-scope-close`, `document-close`, and `native-control-background-document-close`, and the perf-observe await rises to 1200 attempts, about 20 minutes inside the 2400-second job timeout.
+- **Retry**: job `a0dc47f7`, r2, whose prepare snapshot already held the 427MB fixture with a verified hash.
+- **The r2 root cause on the host**: `activeDocumentClass=null` persisted because of a **version-mismatch modal**. A window enumeration found a `警告` dialog saying the file was saved by Cubism 5.3.0 while the starting editor is 5.2.3 and an older version may damage a newer file, with a load and a cancel button. The load blocked on the modal after `load document start` with the CPU at only about 15% of one core, so it was not really loading. An external activation plus Enter landed on cancel, the load aborted, and the main window returned to an empty workspace, captured as a screenshot. The job reached a terminal failed state with cleanup=safe and unchanged fixture and golden hashes.
+- **Fix in `8edeac163`**: the queue scheduler, the task table, and the wrapper support 5303, which the runner already supported because 5.3.03 is installed, and the run is resubmitted as `parameter:5303@perf-observe` in job `f52f9b8e`, where the host version matches the file save version and no modal appears.
+- **A recorded harness gap**: a version-mismatch warning is an automatable modal with an Enter or load button, and the probe lacks the ability to detect and handle a modal during the await; a later round can add Swing dialog detection with an expected-text acknowledgement to the await poll.
 
-- r1 (`f52f9b8e`)：快照早于模态感知 probe，启动即取消重打。
-- r2 (`b29b1c96`)：5.3.03 正常启动，91s 即 FAIL——`perf-observe` 调
-  `runtime()`/`activeProject()` 需要 `turboism.cubism.project.read`，而 probe manifest
-  只有 model.* 权限。修复 `e5f8...`（windows-parameter-validation-plugin.json
-  +project.read），r3 (`4de72c9f`) 重投。
-- 旁证：相邻 agent 的 atlas-image-shadow 5303 任务用同一 427MB fixture 跑通 PASS——
-  模型在 5.3.03 上可完整加载，排除了 fixture 自身可加载性风险。
+## I59 — heavy-perf-observe-5303 r1 and r2: A Cancel and a Permission Gap
 
-## I60 - heavy-perf-observe-5303 r3/r4：首个重模型实机计量达成（终态 PASS）
+- r1, `f52f9b8e`: the snapshot predated the modal-aware probe, so it was cancelled at startup and resubmitted.
+- r2, `b29b1c96`: 5.3.03 started normally and FAILed at 91 seconds, because `perf-observe` calls `runtime()` and `activeProject()`, which need `turboism.cubism.project.read`, while the probe manifest held only model permissions. The fix in `e5f8...` adds project.read to windows-parameter-validation-plugin.json, and r3, `4de72c9f`, resubmits.
+- Corroboration: the atlas-image-shadow 5303 task of a neighbouring agent PASSed with the same 427MB fixture, so the model loads completely on 5.3.03 and the loadability of the fixture itself is ruled out.
 
-r3 (`4de72c9f`)：probe PASS、job FAIL——hostCloseRoute 版本门拒 5303，
-宿主收不到退出请求（normalExit=false）。修复 39578d834（5303→ROBOT_ALT_F4）。
+## I60 — heavy-perf-observe-5303 r3 and r4: The First Heavy-Model Host Measurement Reached a Terminal PASS
 
-r4 (`0a5811f3`)：**终态 succeeded**（normalExit=true, cleanup=safe, identity PASS,
-fixture/golden hash 不变）。5.3.03 + 427MB heavy.cmo3（719 drawables / 128 params）：
+r3, `4de72c9f`: the probe PASSed and the job FAILed, because the hostCloseRoute version gate refused 5303 and the host never received the exit request, so normalExit was false. The fix is 39578d834, which maps 5303 to ROBOT_ALT_F4.
 
-| 指标 | r3 | r4 |
+r4, `0a5811f3`, reached a **terminal succeeded** state with normalExit=true, cleanup=safe, identity PASS, and unchanged fixture and golden hashes. It ran 5.3.03 with the 427MB heavy.cmo3 holding 719 drawables and 128 parameters:
+
+| Metric | r3 | r4 |
 |---|---|---|
-| runtime() median/p95 | 193µs / 957µs | 495µs / 1564µs |
-| runtime EDT alloc | 358,096B/30call | 358,104B/30call |
+| runtime() median and p95 | 193µs / 957µs | 495µs / 1564µs |
+| runtime EDT allocation | 358,096B per 30 calls | 358,104B per 30 calls |
 | activeProject median | 170µs | 332µs |
 | activeDocument median | 167µs | 314µs |
 | model().active() median | 82µs | 118µs |
-| 读取期间 GC | 0 次 | 0 次 |
-| heap after open / after close | 1.110GB / 1.105GB | 1.106GB / 1.103GB |
-| modelStale after close | true | true |
+| GC during the reads | 0 | 0 |
+| heap after open and after close | 1.110GB / 1.105GB | 1.106GB / 1.103GB |
+| modelStale after the close | true | true |
 
-结论：
-- 分配字节两次运行确定性一致（~11.9KB/call runtime、~8.6KB project、~3.2KB model）——
-  SDK seam 之后每调用分配正比于快照实际大小，无 Host* 往返翻倍。
-- 120 次连续读取零 GC、堆零增长——读路径分配压力在真实重模型上可忽略。
-- 时延在两次运行间差异大（外部负载敏感），median 0.1–0.5ms 级；p95 ~1ms 级。
-- 加载期 RSS 峰值 ~3.48GB、稳态 ~2.24GB（宿主侧：console 显示 667MB texture setup +
-  CImageResource 缓存）；close 后堆 1.10GB 滞留为宿主侧缓存，adapter 释放语义
-  （modelStale）验证通过。
+Conclusions:
 
-## I61 - 实机 A/B：基线 agent jar 对照（5303，终态双 PASS）
+- The allocated bytes agree deterministically across both runs at about 11.9KB per runtime call, 8.6KB per project call, and 3.2KB per model call, so after the SDK seam the allocation per call is proportional to the real snapshot size with no Host* round-trip doubling.
+- 120 consecutive reads produce zero GC and zero heap growth, so the allocation pressure of the read path is negligible on a real heavy model.
+- The latency differs widely between the two runs because it is sensitive to external load, with a median in the 0.1 to 0.5ms range and a p95 around 1ms.
+- The loading RSS peaks at about 3.48GB with a steady state near 2.24GB, where the host side shows 667MB of texture setup plus the CImageResource cache in the console; the 1.10GB of heap retained after the close is a host-side cache, and the adapter release semantics are verified by modelStale.
 
-方法：detached worktree @ d3ee4d2a8 构建 `turboism-agent.jar`，替换进当前 bundle
-后 prepare（快照冻结基线 agent + 当前 probe jars），restore 后提交。两侧均
-终态 succeeded（normalExit + identity PASS + fixture 不变）。
+## I61 — A Host A/B Against the Baseline Agent Jar on 5303, Both Reaching a Terminal PASS
 
-| 指标/调用 | 基线 d3ee4d2a8 | HEAD (r4) | Δ |
+Method: a detached worktree at d3ee4d2a8 builds `turboism-agent.jar`, which replaces the one in the current bundle before prepare, so the snapshot freezes the baseline agent with the current probe jars, and the run submits after a restore. Both sides reach a terminal succeeded with normalExit, identity PASS, and an unchanged fixture.
+
+| Metric and call | Baseline d3ee4d2a8 | HEAD r4 | Δ |
 |---|---|---|---|
-| runtime() EDT 分配 | 890,032B/30 = **29.7KB** | 358,104B/30 = **11.9KB** | **−60%** |
-| activeProject() 分配 | 18.9KB | 8.6KB | **−54%** |
-| activeDocument() 分配 | 8.0KB | 8.7KB | +8% |
-| model().active() 分配 | 3.6KB | 3.2KB | −11% |
-| runtime() median | 460µs | 495µs / r3: 193µs | 噪声域 |
-| 读取期 GC | 0 | 0 | — |
-| heap after open/close | 1.109/1.106GB | 1.106/1.103GB | ≈ |
-
-结论：真实重模型上 SDK seam + 035/042/反射缓存把 runtime() 的 EDT 分配降 60%、
-activeProject() 降 54%——分配差异确定性可复现；时延差异被机器负载噪声淹没
-（runtime median 三跑 193/460/495µs）。read 路径实机侧收益的主证据=分配，
-时延收益只敢引合成基准。
-
-## I62 - perf-observe 扩展：真实编辑突发 + CImageResource 枚举 + JFR（r5 失败分析）
-
-探针新增（`a5b7f716`/`e40b92be`/`923dd1ad`）：
-- 读取测量后选第一个参数做交替写突发（base+δ ↔ base），计量写路径
-  EDT 分配/时延/GC，然后恢复原值再计量堆。
-- 关闭文档后只读枚举宿主 `com.live2d.graphics.CImageResource` 全部静态字段：
-  map/collection 大小、Reference 存活/死亡计数、键值两侧 primitive 数组字节总量。
-- wrapper 在 perf-observe 下挂 profile JFR（stackdepth=256、512m 上限、dumponexit）。
-
-r5（`ead9002a`，5303）失败分析：
-- 模型 30.89s 加载完成；随后 EDT 被 `Update Parameter Structure` 风暴
-  （每条 100–270ms）持续占据，await-model 的 `invokeLater+await(5s)` 反复超时。
-- ~12:45 宿主自动备份触发（49.9s 写 1.25GB 备份）——同卷 Wine I/O 风暴
-  期间 probe 的 artifact 文件停留在 attempt=24（12:40）不再更新，
-  最可能是 writeString 在 wineserver 饱和下长时间停滞（或线程被未捕获
-  Error 杀死；原 catch 只接 Exception）。
-- runner `result-timeout 900s` 到点回收会话（returncode=1、非超时强杀），
-  cgroup 清理 safe、fixture hash 不变、0 字节 JFR（非正常退出不 dump）。
-
-对策（`923dd1ad`）：
-- perf-observe 外层 catch 扩到 Throwable——Error 也落 FAIL artifact 并让
-  exitOnComplete 正常退出，保住 JFR dump。
-- JFR 加 `delay=150s` 跳过启动/加载/首个备份窗口，仍覆盖测量/编辑/关闭阶段。
-
-r6 = `80987307`（probe jar 657f9477，agent a8348eb8，timeout 2700s）已提交。
-
-## I63 - r6 小夹具全链路验证 + r7/r8 修复迭代
-
-r6（`80987307`，小夹具 16 drawables/28 params，succeeded）：perf-observe 全链路
-跑通，拿到首个**真实编辑写路径**计量：
-- `parameterWrite` median 4.37ms / p95 8.5ms / **EDT 分配 196.4MB÷30 ≈ 6.5MB/写**
-- 写期间 GC=2 次/11ms；heap reads→writes→restore→close：102.8→119.8→124.5→135.1MB
-- 读路径复证：GC=0、分配量级与重模型一致
-- 两个缺陷暴露：`imageResource=present-but-not-resolvable`（plugin CL 父链看不到
-  com.live2d 类——兄弟加载器）；`-XX:StartFlightRecording` 正常退出仍 dump 出
-  0 字节（Wine 下 dumponexit 不可靠）
-
-r7（`e5fcc7c5`，重夹具）取消前分析：await 循环在 attempt=21 冻结 6.7min——
-和 r5 attempt=24 同一签名。定位出 await 的结构性缺陷：超时的 invokeLater
-runnable 不取消仍排队，EDT 饱和期每个等待者都在自己的 runnable 排到之前
-先过期；且 `Files.writeString` 在 Wine I/O 风暴下可能抛 IOError（Error 子类）
-逃出 catch(Exception) 直接杀死探针线程——silent freeze 的最可能机制。
-
-修复（`c88306d34`/`e69a9238d`/`0a4373613`）：
-- await 改为持久 latch——同一 in-flight runnable 跨 attempt 等待，不再重复排队
-- runPerfObservation 外层 catch 扩到 Throwable——Error 也落 FAIL artifact
-- CImageResource 经活动宿主 Frame 的 classloader 解析；关闭前后各枚举一次
-- JFR 改由探针反射驱动（jdk.jfr profile），只覆盖测量窗口、显式 dump
-- perf-observe result-timeout 900s→2100s，await 预算 30×45s
-
-## I64 - r11 重模型全量证据（编辑突发 + CImageResource 枚举 + 11.3MB JFR）
-
-r11（`e95c2051`）探针 PASS 全量落盘；job 级 failed 仅因宿主退出超时
-（normalExit=False，cleanup=safe，源 fixture hash 验证不变）。
-人工介入点：加载后一个 lone「确定」信息模态阻断文档激活（x11 枚举确认），
-点击后 await 立即放行——已加入 acknowledged-info 白名单。
-
-编辑突发（ParamAngleX, 重模型）：
-- parameterWrite median 3.91ms / p95 8.19ms / **EDT 分配 992MB÷30 ≈ 33MB/写**
-- 写期 GC=1/13ms；heap reads 1.112GB → writes 1.113GB → restore 1.114GB
-- 33MB/写几乎全是宿主侧 churn（写后强制 GC 即回收），非滞留
-- 对照：小夹具同路径 6.5MB/写——随模型规模放大 ~5×
-
-CImageResource 静态字段（26 个）：
-- `cacheList` collection：关前 4478 项 → 关后 2208 项——close 释放约一半，
-  残余 2208 项为共享/未到期条目（类内有 `timer`+`ARCHIVE_IMAGE_TIME_SEC`
-  周期归档机制）
-- `loadedBytes`/`byteDataBytes`/`createdCount`/`disposedCount` 计数器存在
-  （r12 起读值）
-- close 后 heap 1.109GB ≈ 开时 1.126GB——堆滞留主体仍在宿主侧
-
-JFR（探针驱动 profile，1032s 窗口，Wine 下首个成功 dump）：
-- 分配权重 99% 在宿主侧：ImageAnimator 线程 ~40GB sampled
-  （[B]/[I] 像素解码、GMatrix44 变换 churn）
-- `CEMainFrameCtrl.updateFileRecentFileList` 内 `IntRange` 采样权重 ~10.4GB
-  （宿主 recent-list 路径热点）
-- ArchiveWriter.getFreeFilePath ~3.7GB 采样（备份序列化）
-- Turboism 侧最大项：`SceneTableHostOperations.findScenePalette`
-  （29 exec samples / 28.6MB alloc）；写突发触发 appearance rebind
-  （ParameterControlAppearanceProvider bind λ 共 ~22 samples）
-- 我们 adapter 读路径在分配/CPU 表上均不可见——已到噪声地板
-
-后续修复（已提交）：持久 latch await、Throwable 捕获、异步心跳写、
-modal 白名单（discard-save + lone-confirm）、result-timeout 2100s。
-
-## I64 — r13 终态解剖与 r14 假设（脏关闭是不可避免的）
-
-r13（job `2008a907`）：探针全程 PASS、normalExit、identity PASS、cleanup safe——
-但 `fixtureUnchanged=false`（拷贝 029e9a4e→17b8cc84；原始 fixture 未动）。
-
-根因链（宿主日志 + 反编译交叉验证）：
-1. 14:40:26 探针进入测量；14:40:28 宿主 `restart auto backup`；
-   14:45:28–14:46:14 备份写盘 **46s / +2.28GB**，EDT 饥饿。
-2. 写突发 + 40×Ctrl+Z 的键击实际落了地（宿主日志 14:40:59–14:41:19
-   连续 `Update Parameter Structure`），但 **Ctrl+Z 无法清除脏标记**：
-   `IFileContent.isModifiedAfterSaving()` 是 `lastModifiedTimeMs >
-   lastSavedTime` 的时间戳语义——undo 不回退修改时间，任何真实编辑后
-   文档永远 dirty，关闭必弹保存确认。
-3. 保存确认对话框的按钮是 `com.live2d.ui.control.CButton`（自定义组件，
-   有 `doClick()`/`getText()`），JButton-only 扫描看到 `buttons=0` →
-   「确定」信息模态只能人工 Enter——而 Enter 落在保存确认默认按钮=
-   **保存**，14:55:28 `save document start`，fixture 拷贝被改写。
-
-r14 修复（`49765a5e9`，job `f3d12ef0`）：
-- `stopAutoBackup()`：反射调 `com.live2d.cubism.util.a` 单例 `.a` 的 `g()`
-  （`Timer.stop`，会写 "stop auto backup" 日志）——会话级、不落盘；
-  消除备份风暴与其 EDT 饥饿，测量窗口更干净。
-- `collectDialogSurface` 扩展：除 JButton 外收集带公开 `doClick()` 的
-  `com.live2d.ui.control.*` 组件——保存提示上的「不保存/保存しない/
-  Don't Save」按钮现在可被发现并点击。
-- close 轮询把每次模态观察记入 `closeModals=`（此前结果被丢弃）。
-- 失败安全：未识别多按钮模态不点击任何东西——超时 fail 但 fixture 安全。
-
-## I65 — r14/r16/r17 终态解剖补记（模态自动化的完整定案）
-
-- r14（小夹具）：`autoBackupStopped=true` 首验；探针 PASS；人工按 N 丢弃
-  保存提示后正常关闭。closeModals 未落盘（r14 探针尚无记录）。
-- r16（重模型）：**首个全绿终态**——succeeded / normalExit /
-  fixtureUnchanged / identity PASS / cleanup safe。
-  `closeModals` 显示扫描只见非模态「主页」JDialog（114 控件），
-  保存提示窗不在 `instanceof Dialog && isModal` 集合内——它不是 Dialog。
-- r17：提示窗显示期间 invokeAndWait 完全阻塞——EDT 上的扫描看不到
-  要关的对话框本身。修复：`inspectBlockingModal` 移出 EDT（直接读
-  `Window.getWindows()` + 组件树），点击用 `doClick()` 同步触发；
-  若 10s 无任何放行则盲发 `N` 助记（最多两次）兜底 native/异 AppContext 窗。
-- r16 JFR（停备份后的干净窗口）：Turboism 自有分配帧最大项
-  RollingSeries.snapshot 23MB / findScenePalette 11MB /
-  wrapInterface 10MB，其余宿主线程合计 ~30GB——adapter <0.2%，
-  已到底（wrapInterface 的按调用 IdentityWeakReference 查找键是唯一
-  可见残余，相对量级不值得重构有意设计的弱引用缓存）。
-
-待 r18 验证全自动关闭。
-
-## I66 — r18 终态解剖与 r19 加固（`3c54b864c`）
-
-r18（job `fb4a9773`，5303 + 重模型 + JFR）：
-- 探针跑到 JFR dump（5.6MB @17:01:41）但进程 17:01:39 自行退出——
-  PASS 写入与 result 文件均未落地；队列终态 failed
-  （`host-validation-result.properties` 缺失；fixture 拷贝实际**未变**，
-  `029e9a4e` 前后一致——「Verify after save」是退出时的会话态写入，
-  与 r16 退出签名相同）。
-- 关闭链断点：`inspectBlockingModal` 在**第一个**可见非 Frame 窗口后
-  就 return——非模态「主页」JDialog 永远排在前面，保存提示从未被
-  检查（`closeModals` 全部丢失）；盲发 N 也未命中（提示窗无键盘焦点
-  或无 N 助记）。文档从未关闭（console 无「选项卡关闭」）。
-- 备份复活的实锤：`stop auto backup`（我们的 g()）→ 宿主立刻
-  `restart auto backup`（f()）→ 17:00–17:01:26 备份 **31.5s / +3.28GB**，
-  I/O 风暴吃掉了关闭窗口的全部余量。
-
-r19 加固（同 commit）：
-1. `inspectBlockingModal` 遍历**所有**可见非 Frame 窗口，
-   逐窗动作（per-window 白名单不变），观察合并进 notes；
-   「主页」不再遮蔽保存提示。
-2. `stopAutoBackup` 改为确定性禁用：`a(30000)`（间隔 ~20 天，
-   取 int 溢出界 35791 以下）+ `a(false)`（d=false 使后续任何 f()
-   重启成 no-op）+ `g()`。设置写入任务前缀内 `.ser`，golden 不动。
-3. 裁决先行：undos 后立即写 `status=PASS phase=closing`，
-   关闭+收尾量测后写完整 PASS，JFR dump 移到**最后**——
-   宿主自发退出不再能抹掉量测结果。
-4. `perf-observe-close-log.txt` 增量追加每次模态观察与盲 N 事件，
-   进程死亡也可存活取证。
-5. dismissedAny 判定修正：多窗 notes 混合时按正向
-   `action=discarded|acknowledged|accepted` 标记，而非
-   `!contains("action=ignored")`。
-
-待 r19 验证（job `08bbe6d5`，queued seq 264）。
-
-## I67 — r19 终态解剖与 r20 修复（`94126f6be` + `bfc5ec83d`）
-
-r19（job `08bbe6d5`，5303 + **误用小 fixture**，~17:38 起）：
-- 探针 artifact 实为 **PASS**：`modelStale=true` 落地、JFR dump 成功、
-  关闭取证文件存活——新关闭链路的正向证据（但 fixture 错误，
-  对重模型计量无效）。
-- 终态仍 failed，双根因：
-  1. **AppContext 外保存提示**：保存对话框对探针不可见
-     （`Window.getWindows()` 是 AppContext 作用域）——扫描环永远
-     看不到它；「主页」遮蔽已修但提示窗根本不在枚举内。探针线程
-     对可见 CButton 的**同步** `doClick()` 死锁（宿主 handler 重入
-     EDT，EDT 正被模态堵）；盲 N 配置在 `attempt>40` 太迟，
-     `failsClosed` 每次 5s 超时×多轮后才轮到。
-  2. **取证文件被误算 artifact**：`perf-observe-close-log.txt` 命中
-     结果汇总器的 `*.txt` + `-close` 过滤，因无 `status=` 行被判
-     `MISSING` → 结果文件自报 `status=FAIL`；叠加 `fixtureAfterSha256
-     =null`（采集时机）与 `runnerExitCode=1`，终态 failed。
-- `94126f6be`：`clickComponent` 改 `SwingUtilities.invokeLater` 派发
-  （EDT 被堵时调用方不再死锁）；盲 N 提前至 `attempt>8` 且限 4 次，
-  注释记录 AppContext 局限。
-- `bfc5ec83d`：取证文件改名 `perf-observe-modal-forensics.log`
-  （`.log` 后缀跳出 artifact 扫描）。
-
-r19 探针量测（小 fixture，仅供流程证据）：30 次参数写 burst
-median 4.7ms/p95 7.3ms，EDT 分配 **174MB**、GC 2 次/11ms；
-写后堆 99→126MB；`CImageResource` 关闭前 cacheList=100/
-elementBytes=16KB → 关闭后 90/2.9KB（部分自然释放）。
-
-待 r20 v2 验证（job `dc2582bd`，seq 267，重模型 `029e9a4e` +
-probe jar `acbf8b55` 已核）。
-
-## I68 — r20 冻结解剖 + r21 首个全自动重模型全绿（`0c77a9db2`）
-
-r20（job `dc2582bd`，重模型）证据解剖：
-- 取证只到 `preClose`（9 字节），18:08:26 → 进程 18:11:09 退出
-  （rc=1）——**163 秒零循环条目**。
-- 冻结点：`pressShortcut` → `invokeMenuShortcut` →
-  `SwingUtilities.invokeAndWait` → menu `doClick` 打开保存对话框
-  （宿主 AppContext，对 `Window.getWindows()` 不可见）→ EDT 进入
-  嵌套泵 → invokeAndWait **无超时**永久阻塞 → 模态扫描/stale 检查/
-  盲 N 全部未运行。同时 `failsClosed(model::id)` 的代理调用自身
-  也走 EDT 派发，同样会停住。
-- 附带：stopAutoBackup 的 `a(int)` 在 command_open 嵌套期 NPE
-  （管理器半初始化），导致禁备份只部分生效（r21 仍观察到
-  restart 记录但 30000min 间隔使计时器实际不再触发）。
-
-`0c77a9db2` 修复（r21 验证）：
-1. `invokeMenuShortcut`/`pressShortcut` focus 路径改
-   invokeLater+10s latch；超时落 Robot 键击。
-2. `modelBecameStale`：代理调用放有界 daemon cached-pool
-   （5s Future.get）——超时=「EDT 忙，不确定」继续循环，
-   完成的 IllegalState/Unsupported 才算真关闭；杜绝
-   failsClosed 把模态阻塞误报为已关闭。
-3. 盲 N：attempt≥4 起每 6 次一发，上限 24。
-4. `stopAutoBackup` 3×/3s 重试 + 关闭前重放
-   （`autoBackupStoppedPreClose`）。
-
-r21（job `dedb77ca`→`queue-8b01ad54`，5303 + heavy `029e9a4e`）
-**终态 succeeded**：rc=0、wrapperExit=0、fixture 逐字节不变、
-identity PASS、结果文件 `status=PASS`。关闭取证首次记录到
-真实的保存提示自动处理：
-`modal="确定" JDialog modal=true → action=discarded-save-prompt
-text=你想保存…cmo3的文件吗?[Yes(Y)][No(N)][Cancel(C)]`
-→ 点 No → `modelStale=true` → JFR dump → 干净退出。
-
-r21 重模型计量（最终权威值）：
-- open 后堆 1.117GB（719 drawables/128 params）、非堆 163MB
-- 读：runtime median 309µs/p95 1.43ms、~12KB/call EDT 分配；
-  activeProject/Document ~285µs、~8.7KB/call；modelActive 80µs、
-  2.8KB/call；**120 读 GC=0、堆零增长**
-- 写 burst（30 次真实参数写+恢复）：median **4.16ms**、
-  p95 7.11ms、EDT 分配 **992MB**（~33MB/写）、GC 1×9ms
-  +恢复段 3 次
-- 关闭后堆 1.120GB（宿主驻留）；JFR 2.9MB/163s
-
-r21 JFR 归因：Turboism 总样本 **10/8753 ≈ 0.11%**
-（PaletteAppearanceCoordinator.bindParameterControl λ）。
-宿主侧主导：AWT eventLoop 7107（空闲泵）、GifImageDecoder
-380（Image Animator 线程）、deformer palette `t.a` ~205、
-Guid.equals+HashMap.getNode ~182、JOGL buffer/read ~90。
-**ArchiveWriter/备份栈完全消失**——确定性禁备份生效。
-GC 23 次/4.54s/max 605ms（含写 burst+恢复+关闭）。
-
-CImageResource 重模型实测（最终确认）：
-- 关前 cacheList=4478、elementFieldBytes=**352MB**、
-  loadedCount=517/loadedBytes=230MB、disposedCount=0
-- 关后 cacheList=2208、elementFieldBytes=**190MB 仍驻留**、
-  disposedCount=**0** —— 关闭释放 ~46%，另一半强引用滞留，
-  无受支持释放入口 → 维持「宿主侧机会、不可安全清除」结论。
-
-## I69 — 方向 A（原生宿主）修正与调优腿
-
-**n2 原生基线完整收割**（job `a3e1b8a5`，stub agent + 无插件，
-JFR flag 全程录制 repo 文件存活 491s）：
-- 加载 `load document end` = **25.66s**；稳态 250s 内 EDT 仅 6 样本、
-  GC 1 次/163ms —— 原生宿主空闲近零开销
-- 全程 GC **45 次 / 4812ms / max 1437ms**（加载期单次 1.4s 停顿）
-- RSS：加载峰 ~4.59GB → 稳态 ~4.08GB；线程 65
-- fixture `029e9a4e` 不变、wrapper.exit=0、cleanup=safe
-
-**CImageResource 结论修正（反编译核实）**：
-`archiveIfIdle()`/`archive()` 是内建归档——解码图闲置
-`ARCHIVE_IMAGE_TIME_SEC=360`s 后 PNG 压缩回 `imageFileBuf`，
-`CHECK_TIMER_SEC=300` 周期驱动。r21 观察窗 163s < 360s 阈值，
-`disposedCount=0` 是**未达阈值而非泄漏**。关后 190MB =
-编码源字节（重开所需）+ 未到期解码图（自愈）。
-两阈值字段均 `static final` → 不可反射调参；强制 `archive()`
-绕过 lastUse/retain 检查 → 否决。**更新判定：定时缓存非泄漏，
-CImageResource 子方向关闭。**
-
-**n3 调优腿**（job `65a1a7da`，variant `native-tuned`）：
-同 n2 栈 + `-XX:MaxGCPauseMillis=100` + `UseStringDeduplication`
-+ `MinHeapFreeRatio=10`/`MaxHeapFreeRatio=20` +
-`G1PeriodicGCInvokesConcurrent`/`G1PeriodicGCInterval=10000`。
-flag 已确认进 JVM 命令行（launch.bat + console 回显）。
-
-## I70 — n3 调优回退 + 原生热点修正
-
-**n3（native-tuned 激进组）= 净回退，否决**：
-- GC 193 次 / 总停顿 23797ms / max 1616ms —— vs n2 的
-  45 次 / 4812ms / 1437ms，全面更差
-- 加载 31.19s vs n2 25.66s（+21%）
-- 根因：`G1PeriodicGCInterval=10000` 每 10s 空转点火 +
-  激进 free-ratio 在加载突发期引发堆伸缩抖动；
-  MaxGCPauseMillis=100 管不住 843ms 的 G1Old evacuation
-
-**n2 停顿构成归因**（jfr GarbageCollection 事件）：
-- 最差单 GC = 843ms G1Old evacuation（加载期）
-- 4 次 170-262ms humongous-allocation 停顿（大纹理数组
-  直接进 old gen，G1 region 上限 32MB，无法规避）
-- 3 次 G1Full 均 `System.gc()` 显式触发（各 ~140ms）→
-  `DisableExplicitGC` 直接可杀
-
-**原生热点修正**：38 次 `Update Parameter Structure`
-（100-393ms）全发生在 `load document end` 之后——参数
-palette 的加载后增量构建 ≈ 7.6s EDT 停顿，不是写路径。
-用户可感 = 「加载完成但界面仍冻结数秒」。宿主固有。
-
-**n4（native-tuned2 保守组）已投**：`DisableExplicitGC` +
-`UseStringDeduplication` 两个机制对症 flag。
-
-## I71 — n4 中性 / n5 ZGC 正收益
-
-**n4（DisableExplicitGC + dedup）**：System.gc 归零但 46 次
-GC/4904ms 总量不变（自然 GC 补回）；post-GC 堆 1.2GB 反高于
-n2 1.0GB；RSS 3.17 vs 4.08GB 判定为 run 间波动 → **中性，否决**。
-
-**n5/n5b（ZGC）= 方向 A 首个正收益**：
-- Wine 下 `-XX:+UseZGC` 成功（oldCollector="Z"）
-- 33 次 GC 停顿**全部亚毫秒**，max 0.043ms vs G1 max 1376ms
-- 稳态 RSS ~2.76GB < G1 ~4.08GB；加载期 RSS 峰 ~12GB 为
-  多映射计数虚高（同物理页多视图）
-- 加载 27.48s ≈ 25.66s；并发 GC 线程 CPU 不可测（极低）
-- 首次 run JFR 被清理删除 → n5b 运行中收割 repo 文件成功
-- 限制：非官方支持矩阵，只能 opt-in 建议
-
-## I72 — n6 Graal 否决 / n7 ZGC+Turboism 全绿
-
-**n6（Graal JVMCI）**：`Cannot use JVMCI compiler: No JVMCI
-compiler found` —— bundled Liberica Standard 有 JVMCI 接口但无
-Graal 编译器本体（GraalVM/Full 版内容）。37s 快速否决。
-
-**n7（perf-observe-zgc，job `6b14d89b`）= succeeded**：
-Turboism+probe+ZGC 共存验证通过，全自动关闭链全绿。
-- 写 burst 全程 57 次 GC 停顿 **max 0.0198ms**
-  （MXBean 212ms 是并发周期时长非 STW）
-- 写 median 3.75ms vs r21 4.16ms（−10%）；runtime p95 −44%；
-  modelActive 33µs（−59%）
-- 写段 EDT 分配 1194MB vs 992MB（+20%，判定为 run 间方差，
-  分配计数与 GC 无关）
-- 测量期 RSS ~12.9GB = ZGC 多映射 /proc 计数虚高
-- **组合配置可用结论**：probe 全自动链在 ZGC 下零回归
-
-**方向 A 杠杆终表**：ZGC ✅（停顿归零+稳态 RSS −32%，
-限 opt-in 建议）｜激进 G1 组 ❌ 回退｜保守组 ❌ 中性｜
-Graal ❌ 不存在｜CImageResource 关闭（定时缓存）｜
-备份抑制已证待产品化决策。
-
-## I73 — 交互卡顿维度（j1b/j2c fps + s1/s2 selection-lag）
-
-新仪器：`turboism.validation.fps.sustained`+`settleSeconds`（250ms fpsSeries、
-min/p05/zeroFps 指标）；resize driver 加全程日志。
-selection-lag 加 5303+variants（Robot 真拖拽、EDT 10ms 心跳、
-事件间隔、超阈抓栈）。
-
-**fps@5303 重模型**：j1b G1 `ba118c7f` vs j2c ZGC `bdd30712`
-均 succeeded——renderScene 138 vs 134、非零中位 ~4fps 相同、
-zeroFps 274 vs 277/360。渲染上限由模型成本+Wine 决定；
-ZGC 采样窗内堆 −260MB（收缩）vs G1 +390MB。
-j2 首跑未 settle 仅 3 帧（污染）；j2b readiness 180s 边缘超时
-→ settle 相位与超时边界为已知测量约束。
-
-**selection-lag@5303**：s1 G1 `da30b777` vs s2 ZGC `d0a9f1be`
-均 PASS——INTERACTION 心跳 max 62 vs 61ms、p95 均 1ms、
-事件间隔 max ~200ms（AWT move 合并为主）。稳态轻拖拽
-两 GC 无差。
-
-**卡顿分层结论**：GC 停顿影响集中在加载/写突发期
-（G1 max 1376ms/605ms → ZGC 全亚毫秒）；稳态轻交互本就
-流畅。ZGC 的 UX 收益真实但场景限定。
-
-## I74 — 自动备份抑制产品化 + exact-host 验证（bk 腿）
-
-产品化（spec 051, commit `e0a700fae`/`c5885d18f`）：Performance
-设置页 `cubism-reduce-auto-backup` opt-in toggle → 根字段
-`reduceAutoBackup`（runtime validator + installer ConfigMerge
-白名单/校验/merge 保留全链）→ 经已验收 `updateSettings` 置
-`enabled=false` 并保留用户 interval/cap/dir；baseline 快照存
-`state/auto-backup-baseline.properties`，OFF 还原+删除，已存在
-不覆盖（崩溃后可还原，备份不会永久关闭）。env 覆盖
-`TURBOISM_REDUCE_AUTO_BACKUP`（1/true/yes/on）。
-
-**exact-host（backup:5303 新增 default/reduced 变体）**：
-- bk5 control `6a33b659` PASS：enabled=true；周期备份实弹
-  `26-28s/+149MB~2436MB` 写尖峰——用户可感冻结再证实
-- bk6 reduced `37a195c4` PASS：apply 日志 + baseline 落盘 +
-  探针独立回读 `enabled=false`；周期定时器全窗未点火，
-  仅剩的 26s 尖峰是探针 backupNow 手动路径（设计保留）
-
-**过程中修掉的两个缺陷**：
-- `Boolean.parseBoolean("1")`=false 使 env 覆盖失效 → 改收 1/true/yes/on
-- backup probe jar 缺 i18n base catalog 被 PluginJarContract 拒绝
-  （"No valid plugin JARs"）→ 补 messages.properties 恢复
-
-**已知瑕疵**：core enable 早于宿主备份管理器就绪时 apply 会在
-EDT 上命中宿主内部 NPE（re-arm 路径 null）；enabled 写入经独立
-回读确认落盘，影响为 console 噪音级。后续可挂 host-ready 信号
-延迟应用。
-
-**门禁**：`devCheck` 绿；runtime/installer regression/core 测试全过。
-
-## I75 — 真 GraalVM 整机替换（n8/n9，推翻 n6 的"不可行"）
-
-n6 否决的是「bundled Liberica 上开 JVMCI」——它没有编译器本体。
-n8 换思路：整个 JVM 换成产品已 pin 的 GraalVM CE 25.2.4
-（`--cubism-java Z:\tools\graalvm-25.2.4\bin\java.exe`，Graal 是默认顶层 JIT）。
-
-**n8 `94d0b75e`（GraalVM+G1）**：JDK 25 承载 5.3.03 正常启动；
-加载 24.04s（vs 基线 25.66s，−6%）；GC 37 次 max 245ms
-（vs n2 的 1376ms——G1 天花板被压低但未消除）；窗口内再现
-27.8s/+3.9GB 自动备份尖峰（独立旁证）。
-
-**n9 `eb1f07a4`（GraalVM+ZGC）**：ZGC Major×10 全停顿 ≤0.224ms；
-加载 44.18s（+72%，ZGC-on-GraalVM 预热成本更高）；稳态 RSS
-~6.4GB（多映射虚高口径）。
-
-**产品化现状**：「Graal 可用且启用才生效」已是现成机制——
-`launcher.cubismJvm` 设置 + `ManagedGraalRuntimeService` pin 下载
-（本次实机用的正是该 manifest，sha256 命中）+
-`Find-CubismGraalJava` 解析链 + 不可用回退 bundled 本地化提示。
-n8 是这套链路的首次实机有效性证据。
-
-判定：GraalVM 单换=可行+温和收益（JDK 25 兼容 OK，加载略快，
-停顿天花板降但 G1 仍在）；Graal+ZGC=停顿归零但加载更慢。
-两者都是 opt-in 材质，非默认推荐。
-
-## M-A1..M-A6 — 协议 A：-Xmx4g 堆上限对内存占用的实机 A/B（052/T04/C1，2026-09-24）
-
-- **实现/协议**：不改产品代码；经 host-validation manifest `--jvm-option` 注入。
-  C=无附加；T1=`-Xmx4g`。`native-resource:5302` + `memoryIdleSeconds=780` 扩展窗，
-  `measure-task-memory.py`/`NativeMemoryObservation`/jvm.csv。序列 C/T1/T1/C/C/T1，
-  另有校准轮 ma-cal-c（不计入）。主指标口径含 swap（rollup.Pss+rollup.SwapPss、
-  rollup.Rss+rollup.Swap，监督 450c6396 裁决：本机 zram+swapfile 常态换页，
-  裸 PSS 会偏袒承压更大的控制臂）。**口径边界**：所有内存数字为单一 main Java PID
-  的 smaps_rollup，不覆盖 Proton 全进程树或系统物理内存；PSS+SwapPss 不等于
-  本机 zram 实际占用。OOME/fatal 判定基于每轮 2 个文件（runtime log+
-  cubism-console.txt）的文本扫描。
-  作废阈=轮内 maxVmSwap>1GiB。fixture heavy.cmo3 sha256 `029e9a4e…c7f80c`。
-- **终态**：6/6 succeeded/PASS/normalExit/cleanup=safe；T1 三轮 jvm.csv 首行
-  heapMaxBytes=4294967296（断言激活）；六轮 maxVmSwap 0–974.2MiB 均<1GiB → 全 VALID。
-- **结果（中位/范围，MiB）**：
-  - closed 段 PSS：C 2933.5 [2547.0,2948.6] vs T1 2495.9 [2469.8,2922.8]，Δ=−437.6
-    中位达阈但区间近全重叠（c3=2547 入 T1 区、t1c=2922.8 入 C 区）。
-  - idle 末 RSS：Δ=−36.7 不达阈；MemAvail 中位 +727.9 达阈但重叠且受环境底噪支配。
-  - 加载峰 PSS：C 4448.4 [3283.5,4742.3] vs T1 2918.8 [2874.7,3044.5]，
-    Δ=−1529.6/−34.4%，**区间零重叠（T1 max < C min）——本战役唯一干净分离**。
-  - 护栏：OOME/fatal=0、normalExit 6/6、loadWall T1 58.1–59.7s vs C 58.1–62.0s、
-    zoom 60/60、dirty/Undo 不变、GC 累计时间无回退。
-- **机制**：softCache.matchedDecodedBytes 六轮逐字节相同（239009448；
-  cohort 848→585；archived 352308846）；closedHeapCommittedMed 区间亦重叠
-  （T1 1948–2382 vs C 2032–2400）。「堆上限→软引用逐出→缓存字节下降→PSS 下降」
-  链条**不被证据支持**；T1 加载峰收益归因于堆 bound 本身而非软缓存逐出。
-- **判定**：按 SC-1 v2（2026-09-24 监督裁决）6/6 轮有效；SC-1 整体未通过；
-  加载峰方向 SUPPORTED。稳态/关闭后收益 **INCONCLUSIVE**（中位偏向 T1 但重叠+
-  机制平坦+臂内方差同级，n=3 不可分离）；软引用机制 **NOT DEMONSTRATED**。
-  不作为默认设置变更依据；加载峰方向建议独立切片复测。
-- **T2 未跑**：decodedBytes 零变化使 SoftRefLRUPolicyMSPerMB 假设链断裂，
-  原假设下无 falsifiable 增量；是否另设目标跑 T2 由监督裁决。
-- **证据**：`~/.local/state/turboism/performance-evidence/20260923-perf052-protocol-a/run/{ma-c1,ma-t1a,ma-t1b,ma-c2,ma-c3,ma-t1c}`；
-  每轮束 sha256 与全档 MANIFEST.sha256=`51a1e802…bf1548` 见
-  `build/perf052-c1/{campaign-notes.md,sc1-summary.json,final-report.md}`。
-  job/run/prepared ID 逐轮登记于 campaign-notes.md。
-- **重试条件**：加载峰独立协议（固定环境底噪、更多轮次、heap committed 追踪）；
-  或先证明 decoded 缓存对堆压力敏感的机制证据再谈 T2；不得用本批中位差宣称稳态收益。
-
-## M-B — T08 GL 归因 + glGetError elision + 切片 A 同腿对照（052/T08，2026-09-24）
-
-- **协议**：5.3.03 + heavy.cmo3（sha256 029e9a4e…c7f80c），`model-update-skip:5303`
-  quiet wheel 负载，event→EDT-barrier + native repaint barrier（非物理 FPS）。
-  执行 worktree `perf/052-gl-attribution`（先 @2748affe1，后 @0e24fa2a1/0eb8f535c）。
-- **腿 A 归因（仪器化，仅解释构成非收益证据）**：`modelUpdateGlCalls`+
-  `modelUpdateGlCallCategories`，200 事件腿 mean 133.37ms。
-  类别 delegate 合计 53.17ms/ev（leg mean 39.9%；observer 自耗 30.18ms/ev），
-  state 14.91 / errorCheck 9.04 / upload 8.72 / query 6.75 / uniformWrite 5.24 /
-  readback 4.96 / draw 3.53 ms/ev。SC-5「≥80% quiet 帧耗时」在仪器化口径下**未达**
-  （其余 ~50ms 为探针不可见宿主侧）。top 方法：glGetError 8.96M/1.81s、
-  glBufferSubData 475k/1.74s、glGetUniformLocation 670k/1.33s。
-- **校准腿**：uniform OFF（`UNIFORM_LOCATION NOT_ADMITTED` 核实）全部类别计数与
-  prod 逐字节相同——本负载下 uniform 缓存对 GL 流无影响，prod 归因即有效画面。
-- **B 腿首轮作废**：ON 腿 elision 激活成功但 uniform 安装校验 `shader/A.a` 原始
-  方法体与 elision 改写冲突 → UNIFORM_LOCATION FAILED（混杂臂作废）。
-  **产品化阻塞项：elision 与 uniform 缓存在 shader/A.a 互斥，不可兼得。**
-- **u0 ABBA（uniform 两臂 OFF，modelSkip factor 内嵌 {0,1,1,0}）**：4/4 VALID，
-  ON 腿 `elision=ACTIVE sites=1` 核实。
-  **elision 实测 Δ≈−1.1ms/事件**（skip-ON 子腿池化 58.50→57.32ms；displays/s
-  17.02→17.37）——量级小，「调用数」假设被否定。
-- **切片 A（modelUpdateSkip）同腿内对照**：leg0/3(OFF) vs leg1/2(ON)，
-  四 run 中位 Δ≈**−20.0ms/事件**（77.3→57.4ms 量级），jobs
-  4902d6df/dc7634ca/90f0463e/81eae713。
-- **冗余归因（诊断）**：3.99M/10.63M calls 冗余（保守上限 7.08ms/ev），
-  invalidations=1,572,001（≈7,860/ev，窗口几乎即失效），uniformRedundant 仅
-  87/ev——去重路线**否决**。
-- **T08b 上传抑制（identity 模式，2 run × {off,on,on,off}）**：jobs
-  da81e362/48375f95 均 PASS，`UPLOAD_ELISION elision=ACTIVE sites=4` 核实；
-  ON 子腿 elided=102,200/475,400（**21.5% 签名命中**），四腿 canvasPixelDigest
-  全同（正确性门过）。均值 Δ：r1 −3.40ms、r2 −3.12ms（监督登记口径约
-  −1.5~−3ms）。本构建无 `restored=true` 关闭标记（属 4333086b1 后功能）。
-- **T08b JFR 诊断腿** 8ecda9e1：wheel-leg-0.jfr 归档（仅诊断）。
-- **T08c**：r1 两腿（f36d3e98/862936a9）预检失败——fixture 期望 SHA 回落
-  57c4854b（worktree .env 缺覆盖），cleanup=safe、不计入样本。修正 env 调用后
-  重提 r2（expected==actual=029e9a4e 核实）：upload-id-r2 2fb0591c /
-  upload-content-r2 a70e41a1（agent 10a89bb1@4333086b1、exerciser c29ba1a8）。
-  **r2 跑完即定性「缺陷暴露轮，不计收益」**：报告证实旧 tracker
-  （passNoBaseline/compares=0，无 failedInserts）——512 格表耗尽 +
-  content 比较恒假，7c57f805d 已修复。
-- **证据**：`~/.local/state/turboism/performance-evidence/20260924-perf052-t08/run/`
-  {t08-attr-prod-r1,t08-attr-cal-r1,t08-elision-{off,on}-r{1,2},
-  t08-elision-u0-{off,on}-r{1,2},t08-redundancy-u0-r1,
-  t08b-upload-r{1,2},t08b-jfr-prod-r1}；明细见
-  `build/perf052-t08/campaign-notes.md`。
-- **T08d（裁决 A 后提交）**：监督确认 T03「agent 未变」有误——runtime 类仅经
-  agent fat jar 内嵌送达，preview 无独立 runtime jar。按裁决重建
-  :bootstrap:jar → agent **3807fb65**（已验证内嵌 tracker 含
-  failedInserts、installer 与 7c57f805d 一致；复制入 preview 未跑
-  previewBundle）。四腿 FIFO：id-r1 3a85e0e2 / content-r1 3f39cdaf /
-  id-r2 afaf7e26 / content-r2 cb50d3d9（probe 2a56fed1、head 7c57f805d）。
-  **T08d 结果**：4/4 VALID（sites=4、elided=475,400=100%、failedInserts=0、
-  digest 全同）；腿均值 Δ −5.1~−17.1ms（监督口径约 −6.5ms/事件）。
-- **T08e（产品开关腿，已提交）**：aa8941c7f 接入
-  turboism.optimization.uploadElision（默认关、content、64MiB 预算）；
-  agent c0a7b8b8 复制入 preview。jobs 654dbd59/d035ad29。
-  **T08e 结果**：mode=production，ON 腿 elided=100%、failedInserts=0、
-  observerFailures=0、digest 全同；快照代价 peakEntries=2378/
-  snapshotBytesPeak=4.95MB/budgetSkips=0；Δ −8.16/−8.30ms。
-- **T08f 验收矩阵 + T12c 已提交**（7 腿 FIFO）：t08f-pan e86c24ff /
-  drag 8778b490 / wheel-5302 1e4c124c / failclosed-5203 10648074
-  （gl-attribution@18a45d955 agent f6044ff5）；t12c-shadow f9ac7436 /
-  abba-r1 51b671c9 / abba-r2 5de31e0d（render-prep@7bf78df6d，
-  **agent 偏差：bbae158b→40995669741c**，previewBundle 建目录时重建覆盖，
-  同 commit 已申报）。
-  **T08f/T12c 结果（7/7 PASS）**：pan −6.1 / drag −11.0 / wheel-5302 −7ms；
-  failclosed-5203 NOT_ADMITTED+PASS；T12c shadow=0 但腿慢 7–10ms → 否决。
-- **T18 已提交**（e29480026，agent 29de18a6/probe 489d15f2，叠加生产
-  uploadElision 测增量）：wheel-r1 22869304 / wheel-r2 bc423db3 /
-  pan 9cdfd063 / drag 520489e9。
-  **T18 结果**：4/4 PASS、sites=195、每事件省略 ~2 万调用、parity 全过，
-  但增量 −0.6ms（噪声内）→ **NO_BENEFIT 否决**。
-- **T17 已提交**（input-path@3f06f8789，agent 2116dbed/probe 0ece749e 与
-  声明一致，叠加生产 uploadElision）：wheel-r1 2d9da268 / wheel-r2
-  0be033d9 / pan c88b8400 / drag 66710607。
-  **T17 结果**：4/4 PASS、sites=2、handler 4.2–5.0→1.1–1.2ms、总
-  −1.3~−3.9ms、parity 全 true（监督登记）。
-- **T19 JFR 预算腿已提交**（同 worktree）：stack 3272baaa（叠加两 elision）
-  / base e3100aab（生产默认）；stackdepth=128 经 FlightRecorderOptions，
-  sample period 硬编码 5ms 不可调。诊断腿。
-- **T20+T21 已提交**（input-path@142a6b336，agent 28bd561e/probe
-  2411a920 一致）：t20-wheel fea5b0ac/5ccec5d2、t20-pan f38e40eb、
-  t20-drag d50f76b9（canvasComposite+两叠加）；t21-mscratch
-  1535062d/5b23f525（matrixScratch 首个完整 ABBA）。
-- **T20/T21 结果**：canvasComposite 与 matrixScratch 均 NO_BENEFIT
-  （fea5b0ac/5ccec5d2/f38e40eb/d50f76b9、1535062d/5b23f525）。
-  windowDigest 全运行=bade8f59，截图门无效。
-- **T22 glthread 跨运行 ABBA 已提交**（gl-attribution@d90b3fe76，
-  --linux-env 新能力）：fdb9d6e6/f815c2c4/93aca62a/e8564408/
-  c68652bb/24a54463（OFF/ON/ON/OFF/OFF/ON）。
-- **T22 结果**：mesa_glthread REGRESSION（+4~10ms），ATTENTION 已生效；
-  glThreadCount 采集 bug 已修为 schema v2。fdb9d6e6→24a54463。
-- **T23 已提交**（gl-attribution@e225d8092，agent dec25e67/probe
-  6c251a9d）：A/B/C×3 交错 a806fe0f 4cd4357a 6ff1766c d41821fd
-  0039629c 77f16ced 95452622 c6371809 8cdc00cb。
-- **T23 结果**：INCONCLUSIVE——glthread 实已启用（java.exe:gl0），
-  但 B/C uniform 命中=0（elision 切断确认路径，混杂）。
-- **T24 已提交**（gl-attribution@397da398e，agent 60c23c93/probe
-  99289c05）：A/C×4 交错 6d5a85ba 89a43556 4cf636a7 18af79af
-  5d829d4c f8b89996 ef111bfa a4075a88。
-- **T24 结果**：glthread 组合 SUPPORTED 中位 −6.5ms（4cf636a7 digest
-  差异=几何）。6d5a85ba→a4075a88。
-- **T25 最终验收已提交**（gl-attribution@da80de22a，agent f15b78a4）：
-  A/F 16 腿（wheel×8 pan×4 drag×4）b8c09000 eacb646f b67f6e32
-  9a8ac557 7c66afcd b94e77d7 16b19f1e ffea6d8b 9823ef79 bd1b9f18
-  58bb1c0c 531a4c31 0f9c90fc 01bad54e 7fcd956b b9161829。
-- **T25 结果**：全栈 vs 近生产 wheel −19% / pan −17% / drag −22%，
-  16/16 PASS（b9161829 leg3 455ms 离群、0f9c90fc 几何差异已注明）。
-  用户已批准默认值调整与合并 main。
-- **T26 默认冒烟已提交**（integration/perf-052@00924fc25，agent
-  c7a62d26 修正后值、probe 79150434）：b26f3227 76970314 5e5d7dab
-  8a8064c8（default-wheel/optout-wheel/default-pan/default-drag）。
-- **T26 结果**：default-wheel/optout/drag PASS、pan FAIL（焦点），
-  修复+同步 main@3ffaf5ea1 后分支至 f2fb6a4c8。
-- **T27 修复后冒烟已提交**（agent bc30133a/probe a90ae65d）：
-  ec469091 eab6251c b024662a 81253d1d；pan 须 PASS。
-- **T27 结果**：wheel/optout PASS；pan FAIL（焦点）+ drag FAIL
-  （冷帧 parity）——探针修复后分支至 9f28d2d00。
-- **T28 已提交**（agent 35c29392/probe e63527a4）：5af2bdfc 9d0f777c
-  00c754f9 6c221374。
+| runtime() EDT allocation | 890,032B per 30 calls, **29.7KB** | 358,104B per 30 calls, **11.9KB** | **−60%** |
+| activeProject() allocation | 18.9KB | 8.6KB | **−54%** |
+| activeDocument() allocation | 8.0KB | 8.7KB | +8% |
+| model().active() allocation | 3.6KB | 3.2KB | −11% |
+| runtime() median | 460µs | 495µs, with r3 at 193µs | Noise range |
+| GC during the reads | 0 | 0 | — |
+| heap after open and close | 1.109 and 1.106GB | 1.106 and 1.103GB | About equal |
 
+Conclusion: on a real heavy model the SDK seam with 035, 042, and the reflection caches cut the EDT allocation of runtime() by 60% and of activeProject() by 54%, and the allocation difference is deterministically reproducible, while the latency difference is drowned in machine load noise with runtime medians of 193, 460, and 495µs across three runs. The primary host-side evidence of the read path is therefore the allocation, and the latency gain may only cite the synthetic benchmark.
+
+## I62 — perf-observe Extended With a Real Edit Burst, a CImageResource Enumeration, and JFR, Plus the r5 Failure Analysis
+
+Probe additions in `a5b7f716`, `e40b92be`, and `923dd1ad`:
+
+- After the read measurement, the first parameter runs an alternating write burst between base plus delta and base, measuring the EDT allocation, the latency, and the GC of the write path, and then restores the original value before measuring the heap.
+- After the document close, it read-only enumerates every static field of the host `com.live2d.graphics.CImageResource`: the map and collection sizes, the live and dead reference counts, and the total primitive array bytes on both the key and value sides.
+- The wrapper attaches a profile JFR under perf-observe with stackdepth 256, a 512m limit, and dumponexit.
+
+
+The r5 failure analysis on 5303 in `ead9002a`:
+
+- The model finished loading in 30.89 seconds, and the EDT was then occupied continuously by an `Update Parameter Structure` storm with each update taking 100 to 270ms, so the `invokeLater` plus 5-second await of await-model timed out repeatedly.
+- At about 12:45 the host automatic backup fired and wrote 1.25GB in 49.9 seconds; during that same-volume Wine I/O storm the probe artifact file stayed at attempt 24 from 12:40 and never updated again, most likely because `writeString` stalled for a long time under wineserver saturation, or because the thread was killed by an uncaught Error since the original catch handled Exception only.
+- The runner `result-timeout 900s` reclaimed the session at expiry with returncode 1 and no forced kill, the cgroup cleanup was safe, the fixture hash was unchanged, and the JFR held 0 bytes because a non-normal exit does not dump.
+
+Countermeasures in `923dd1ad`:
+
+- The outer catch of perf-observe widens to Throwable, so an Error also writes a FAIL artifact and lets exitOnComplete exit normally, which preserves the JFR dump.
+- The JFR gains `delay=150s` to skip startup, loading, and the first backup window while still covering the measurement, edit, and close phases.
+
+r6 is submitted as `80987307` with probe jar 657f9477, agent a8348eb8, and a 2700-second timeout.
+
+## I63 — r6 Full-Chain Verification on a Small Fixture and the r7 and r8 Fix Iterations
+
+r6, `80987307`, on a small fixture with 16 drawables and 28 parameters, reached succeeded: the whole perf-observe chain ran and produced the first measurement of a **real edit write path**:
+
+- `parameterWrite` shows a median of 4.37ms, a p95 of 8.5ms, and an **EDT allocation of 196.4MB over 30 writes, about 6.5MB per write**.
+- The write phase runs 2 GCs in 11ms, and the heap goes from 102.8 to 119.8 to 124.5 to 135.1MB across reads, writes, restore, and close.
+- The read path reconfirms zero GC and an allocation magnitude consistent with the heavy model.
+- Two defects surfaced: `imageResource=present-but-not-resolvable`, because the plugin classloader parent chain cannot see the com.live2d classes from a sibling loader, and `-XX:StartFlightRecording` still dumping 0 bytes on a normal exit, because dumponexit is unreliable under Wine.
+
+The r7 analysis before cancellation, `e5fcc7c5`, on the heavy fixture: the await loop froze at attempt 21 for 6.7 minutes, the same signature as attempt 24 in r5. The structural defect of the await was located: a timed-out `invokeLater` runnable is not cancelled and stays queued, so during EDT saturation every waiter expires before its own runnable is scheduled, and `Files.writeString` may throw an IOError, an Error subclass, under a Wine I/O storm, which escapes `catch(Exception)` and kills the probe thread, the most likely mechanism of the silent freeze.
+
+Fixes in `c88306d34`, `e69a9238d`, and `0a4373613`:
+
+- The await becomes a persistent latch, so the same in-flight runnable is awaited across attempts instead of being re-queued.
+- The outer catch of runPerfObservation widens to Throwable, so an Error also writes a FAIL artifact.
+- CImageResource resolves through the classloader of the active host Frame and is enumerated once before and once after the close.
+- JFR is driven by probe reflection on the jdk.jfr profile, covers only the measurement window, and dumps explicitly.
+- The perf-observe result-timeout rises from 900 to 2100 seconds and the await budget becomes 30 attempts of 45 seconds.
+
+## I64 — Full Heavy-Model Evidence in r11: The Edit Burst, the CImageResource Enumeration, and an 11.3MB JFR
+
+r11, `e95c2051`, PASSed the probe and wrote every artifact; the job-level failed came only from a host exit timeout with normalExit=false, cleanup=safe, and a verified unchanged source fixture hash. One manual intervention point: a lone `确定` information modal after loading blocked the document activation, confirmed by an x11 enumeration, and the await released at once after the click, so the case joined the acknowledged-info allowlist.
+
+The edit burst on ParamAngleX with the heavy model:
+
+- `parameterWrite` shows a median of 3.91ms, a p95 of 8.19ms, and an **EDT allocation of 992MB over 30 writes, about 33MB per write**.
+- The write phase runs 1 GC in 13ms, and the heap goes from 1.112GB after the reads to 1.113GB after the writes and 1.114GB after the restore.
+- The 33MB per write is almost entirely host-side churn that a forced GC reclaims right after the write, so it is no retention.
+- Control: the same path on the small fixture costs 6.5MB per write, about 5 times less, so the cost scales with model size.
+
+The 26 static fields of CImageResource:
+
+- The `cacheList` collection holds 4478 entries before the close and 2208 after it, so the close releases about half and the remaining 2208 are shared or not-yet-due entries, since the class holds a `timer` with the `ARCHIVE_IMAGE_TIME_SEC` periodic archive mechanism.
+- The `loadedBytes`, `byteDataBytes`, `createdCount`, and `disposedCount` counters exist and are read from r12 onwards.
+- The heap after the close is 1.109GB against 1.126GB at open, so the bulk of the retained heap is still on the host side.
+
+The JFR, probe-driven profile over a 1032-second window, the first successful dump under Wine:
+
+- 99% of the allocation weight is host-side, with the ImageAnimator thread sampling about 40GB from `[B]` and `[I]` pixel decoding and GMatrix44 transform churn.
+- `IntRange` inside `CEMainFrameCtrl.updateFileRecentFileList` samples about 10.4GB, a hotspot on the host recent-list path.
+- `ArchiveWriter.getFreeFilePath` samples about 3.7GB from backup serialization.
+- The largest Turboism item is `SceneTableHostOperations.findScenePalette` with 29 execution samples and 28.6MB allocated, and the write burst triggers an appearance rebind with about 22 samples across the `ParameterControlAppearanceProvider` bind lambda.
+- Our adapter read path is invisible in both the allocation and the CPU tables, so it has reached the noise floor.
+
+Later fixes, all committed: the persistent latch await, the Throwable catch, the asynchronous heartbeat write, the modal allowlist for discard-save and lone-confirm, and the 2100-second result-timeout.
+
+## I64 — The r13 Terminal Anatomy and the r14 Hypothesis: A Dirty Close Is Unavoidable
+
+r13, job `2008a907`, PASSed the probe throughout with normalExit, identity PASS, and cleanup safe, but `fixtureUnchanged=false`, because the copy changed from 029e9a4e to 17b8cc84 while the original fixture was untouched.
+
+The root cause chain, cross-checked against the host log and a decompilation:
+
+1. At 14:40:26 the probe entered the measurement and at 14:40:28 the host started `restart auto backup`; from 14:45:28 to 14:46:14 the backup wrote **46 seconds and +2.28GB**, starving the EDT.
+2. The write burst and the 40 Ctrl+Z keystrokes really landed, as the host log shows `Update Parameter Structure` continuously from 14:40:59 to 14:41:19, but **Ctrl+Z cannot clear the dirty flag**, because `IFileContent.isModifiedAfterSaving()` is the timestamp semantics of `lastModifiedTimeMs > lastSavedTime` and an undo does not move the modification time back, so any real edit leaves the document permanently dirty and a close must show the save confirmation.
+3. The buttons of the save confirmation dialog are `com.live2d.ui.control.CButton`, a custom component with `doClick()` and `getText()`, so a JButton-only scan sees `buttons=0` and the `确定` information modal can only be acknowledged with a manual Enter, while an Enter lands on the default button of the save confirmation, which is **save**, so at 14:55:28 `save document start` runs and the fixture copy is rewritten.
+
+
+The r14 fix in `49765a5e9`, job `f3d12ef0`:
+
+- `stopAutoBackup()` reflectively calls `g()` on the singleton `.a` of `com.live2d.cubism.util.a`, which is `Timer.stop` and writes a "stop auto backup" log. It is session-level and writes nothing to disk, and it removes the backup storm and its EDT starvation so the measurement window is cleaner.
+- `collectDialogSurface` extends beyond JButton to collect any `com.live2d.ui.control.*` component with a public `doClick()`, so the "Don't Save" button on the save prompt can now be found and clicked.
+- The close poll records every modal observation into `closeModals=`, which was previously discarded.
+- Fail-safe rule: an unrecognized multi-button modal is never clicked, so the run times out as a fail while the fixture stays safe.
+
+## I65 — The r14, r16, and r17 Terminal Anatomy: The Complete Ruling on Modal Automation
+
+- r14 on the small fixture verified `autoBackupStopped=true` for the first time; the probe PASSed and the host closed normally after a manual N key discarded the save prompt. `closeModals` was not written because the r14 probe had no such record yet.
+- r16 on the heavy model reached the **first fully green terminal state**: succeeded, normalExit, fixtureUnchanged, identity PASS, and cleanup safe. `closeModals` showed that the scan saw only a non-modal `主页` JDialog with 114 controls, and the save prompt window is not in the `instanceof Dialog && isModal` set because it is no Dialog.
+- r17: `invokeAndWait` blocks completely while the prompt window is shown, so a scan on the EDT cannot see the dialog it has to close. The fix moves `inspectBlockingModal` off the EDT to read `Window.getWindows()` and the component tree directly, triggers the click synchronously with `doClick()`, and blindly sends the `N` mnemonic at most twice if nothing releases within 10 seconds, which covers a native window or a window in another AppContext.
+- The r16 JFR, taken in the clean window after the backup stopped, shows the largest Turboism-owned allocation frames at 23MB for `RollingSeries.snapshot`, 11MB for `findScenePalette`, and 10MB for `wrapInterface`, against about 30GB across the other host threads, so the adapter stays below 0.2% and has reached the floor; the per-call `IdentityWeakReference` lookup key inside `wrapInterface` is the only visible remainder, and its relative magnitude does not justify refactoring a deliberately designed weak-reference cache.
+
+r18 remains to verify the fully automatic close.
+
+## I66 — The r18 Terminal Anatomy and the r19 Hardening in `3c54b864c`
+
+r18, job `fb4a9773`, on 5303 with the heavy model and JFR:
+
+- The probe reached the JFR dump of 5.6MB at 17:01:41, but the process exited by itself at 17:01:39, so neither the PASS write nor the result file landed and the queue reached a terminal failed with `host-validation-result.properties` missing. The fixture copy was actually **unchanged**, identical to `029e9a4e` before and after, because "Verify after save" is a session-state write at exit, the same signature as the r16 exit.
+- The close-chain break: `inspectBlockingModal` returned after the **first** visible non-Frame window, so the non-modal `主页` JDialog always came first and the save prompt was never inspected, which lost every `closeModals` entry, and the blind N never hit either because the prompt window had no keyboard focus or no N mnemonic. The document never closed, as the console shows no tab close.
+- Hard proof that the backup revived: our `stop auto backup` through `g()` was followed at once by a host `restart auto backup` through `f()`, and the backup from 17:00 to 17:01:26 wrote **31.5 seconds and +3.28GB**, whose I/O storm consumed every remaining margin of the close window.
+
+The r19 hardening in the same commit:
+
+1. `inspectBlockingModal` walks **every** visible non-Frame window, acts per window with the unchanged per-window allowlist, and merges the observations into the notes, so `主页` no longer hides the save prompt.
+2. `stopAutoBackup` becomes a deterministic disable through `a(30000)`, an interval of about 20 days chosen below the int overflow bound of 35791, plus `a(false)`, where the false flag makes any later `f()` restart a no-op, plus `g()`. The setting is written to a `.ser` inside the task prefix and golden stays untouched.
+3. Verdict first: `status=PASS phase=closing` is written right after the undos, the complete PASS is written after the close and the final measurements, and the JFR dump moves to **last**, so a host-initiated exit can no longer erase the measurement result.
+4. `perf-observe-close-log.txt` appends every modal observation and blind-N event incrementally, so the evidence survives a process death.
+5. The dismissedAny rule is corrected: with mixed multi-window notes it now requires a positive `action=discarded`, `acknowledged`, or `accepted` marker instead of `!contains("action=ignored")`.
+
+r19 awaits verification in job `08bbe6d5` at queued sequence 264.
+
+## I67 — The r19 Terminal Anatomy and the r20 Fixes in `94126f6be` and `bfc5ec83d`
+
+r19, job `08bbe6d5`, on 5303 with the **wrong small fixture** from about 17:38:
+
+- The probe artifact was really a **PASS**, with `modelStale=true` written, the JFR dumped successfully, and the close forensics file surviving, which is positive evidence for the new close chain, though the wrong fixture makes it invalid for a heavy-model measurement.
+- The terminal state was still failed, from two root causes:
+  1. **A save prompt outside the AppContext**: the save dialog is invisible to the probe because `Window.getWindows()` is AppContext-scoped, so the scan loop never sees it. The `主页` occlusion was fixed but the prompt window is not in the enumeration at all. A synchronous `doClick()` on a visible CButton from the probe thread deadlocks, because the host handler re-enters the EDT while the EDT is blocked by the modal; the blind N was configured at `attempt>40`, far too late; and `failsClosed` burned 5 seconds per timeout across several rounds before the blind N had a turn.
+
+  2. **A forensics file miscounted as an artifact**: `perf-observe-close-log.txt` matched the `*.txt` plus `-close` filter of the result summarizer and, having no `status=` line, was judged `MISSING`, so the result file reported `status=FAIL` on its own; combined with a `fixtureAfterSha256=null` from the capture timing and `runnerExitCode=1`, the terminal state was failed.
+- `94126f6be` changes `clickComponent` to dispatch through `SwingUtilities.invokeLater`, so a caller no longer deadlocks while the EDT is blocked, and moves the blind N earlier to `attempt>8` with a limit of 4, with the AppContext limitation recorded in a comment.
+- `bfc5ec83d` renames the forensics file to `perf-observe-modal-forensics.log`, whose `.log` suffix escapes the artifact scan.
+
+The r19 probe measurement on the small fixture, which is process evidence only: a burst of 30 parameter writes shows a median of 4.7ms and a p95 of 7.3ms with an **EDT allocation of 174MB** and 2 GCs in 11ms; the heap goes from 99 to 126MB after the writes; and `CImageResource` shows `cacheList` at 100 entries with 16KB of element bytes before the close and 90 entries with 2.9KB after it, so some memory is released naturally.
+
+r20 v2 awaits verification in job `dc2582bd` at sequence 267 with the heavy fixture `029e9a4e` and the verified probe jar `acbf8b55`.
+
+## I68 — The r20 Frozen Anatomy and the First Fully Automatic Heavy-Model Green Run in r21, `0c77a9db2`
+
+The r20 evidence anatomy, job `dc2582bd` on the heavy model:
+
+- The forensics stopped at `preClose` with 9 bytes, and the process exited at 18:11:09 with rc 1 from 18:08:26, which is **163 seconds with zero loop entries**.
+- The freeze point: `pressShortcut` goes to `invokeMenuShortcut`, then `SwingUtilities.invokeAndWait`, then the menu `doClick` opens the save dialog in the host AppContext, which is invisible to `Window.getWindows()`, the EDT enters a nested pump, and `invokeAndWait` blocks forever with **no timeout**, so the modal scan, the stale check, and the blind N never run. The proxy call of `failsClosed(model::id)` also dispatches on the EDT and stalls the same way.
+- Side note: `a(int)` of stopAutoBackup throws an NPE during the nested command_open while the manager is half initialized, so the backup disable applies only partly; r21 still observes a restart record, but the 30000-minute interval means the timer never fires again.
+
+The `0c77a9db2` fixes, verified by r21:
+
+1. The focus path of `invokeMenuShortcut` and `pressShortcut` becomes `invokeLater` plus a 10-second latch, and a timeout falls back to a Robot keypress.
+2. `modelBecameStale` moves the proxy call onto a bounded daemon cached pool with a 5-second `Future.get`, where a timeout means "the EDT is busy and the state is unknown" and the loop continues, and only a completed IllegalState or Unsupported counts as a real close, which stops `failsClosed` from misreporting a modal block as a closed document.
+3. The blind N sends once every 6 attempts from attempt 4 with a cap of 24.
+4. `stopAutoBackup` retries 3 times over 3 seconds and replays before the close as `autoBackupStoppedPreClose`.
+
+r21, job `dedb77ca` then `queue-8b01ad54`, on 5303 with the heavy `029e9a4e`, reached a **terminal succeeded** state with rc 0, wrapperExit 0, a byte-identical fixture, identity PASS, and a result file reporting `status=PASS`. The close forensics recorded the real automatic handling of the save prompt for the first time: `modal="确定" JDialog modal=true` with `action=discarded-save-prompt` and the text asking whether to save the cmo3 file with Yes, No, and Cancel, then a click on No, then `modelStale=true`, then the JFR dump, and a clean exit.
+
+The r21 heavy-model measurement, the final authoritative values:
+
+- The heap after open is 1.117GB over 719 drawables and 128 parameters, and the non-heap is 163MB.
+- Reads: runtime median 309µs with a p95 of 1.43ms and about 12KB of EDT allocation per call; activeProject and activeDocument about 285µs with about 8.7KB per call; modelActive 80µs with 2.8KB per call; and **120 reads with zero GC and zero heap growth**.
+- The write burst of 30 real parameter writes plus restores shows a median of **4.16ms**, a p95 of 7.11ms, an **EDT allocation of 992MB** at about 33MB per write, 1 GC of 9ms, and 3 more in the restore segment.
+- The heap after the close is 1.120GB of host residency, and the JFR is 2.9MB over 163 seconds.
+
+The r21 JFR attribution: Turboism accounts for **10 of 8753 samples, about 0.11%**, in the `PaletteAppearanceCoordinator.bindParameterControl` lambda. The host side dominates with the AWT eventLoop at 7107 idle pump samples, GifImageDecoder at 380 on the Image Animator thread, the deformer palette `t.a` at about 205, `Guid.equals` with `HashMap.getNode` at about 182, and JOGL buffer and read at about 90. **ArchiveWriter and the backup stack have disappeared completely**, so the deterministic backup disable works. There are 23 GCs over 4.54 seconds with a maximum of 605ms across the write burst, the restore, and the close.
+
+The CImageResource heavy-model measurement, finally confirmed:
+
+- Before the close, `cacheList` holds 4478 entries with **352MB** of element field bytes, `loadedCount` 517 with 230MB of loaded bytes, and `disposedCount` 0.
+- After the close, `cacheList` holds 2208 entries with **190MB still resident** and `disposedCount` **0**, so the close releases about 46% and the other half stays strongly referenced with no supported release entry, which maintains the conclusion that this is a host-side opportunity that cannot be cleared safely.
+
+## I69 — Correcting Direction A, the Native Host, and the Tuning Legs
+
+**The n2 native baseline fully harvested**, job `a3e1b8a5` with a stub agent and no plugin, recording the JFR flag throughout and keeping the repo file alive for 491 seconds:
+
+- `load document end` takes **25.66 seconds**; over 250 seconds of steady state the EDT shows only 6 samples and 1 GC of 163ms, so an idle native host costs almost nothing.
+- The whole run makes **45 GCs totalling 4812ms with a maximum of 1437ms**, including a single 1.4-second pause during loading.
+- The RSS goes from a loading peak of about 4.59GB to a steady state of about 4.08GB across 65 threads.
+- The fixture `029e9a4e` is unchanged, wrapper.exit is 0, and cleanup is safe.
+
+**The CImageResource conclusion corrected after a decompilation check**: `archiveIfIdle()` and `archive()` are a built-in archive, where a decoded image idle for `ARCHIVE_IMAGE_TIME_SEC=360` seconds is compressed back into `imageFileBuf` under a `CHECK_TIMER_SEC=300` periodic drive. The r21 observation window of 163 seconds is below the 360-second threshold, so `disposedCount=0` means the threshold was not reached rather than a leak. The 190MB after the close is the encoded source bytes needed for a reopen plus not-yet-due decoded images that self-heal. Both threshold fields are `static final`, so they cannot be tuned reflectively, and forcing `archive()` would bypass the lastUse and retain checks and is rejected. **Updated verdict: the periodic cache is no leak and the CImageResource sub-direction is closed.**
+
+
+**The n3 tuning leg**, job `65a1a7da` with variant `native-tuned`: the same stack as n2 plus `-XX:MaxGCPauseMillis=100`, `UseStringDeduplication`, `MinHeapFreeRatio=10` with `MaxHeapFreeRatio=20`, and `G1PeriodicGCInvokesConcurrent` with `G1PeriodicGCInterval=10000`. The flags are confirmed on the JVM command line through launch.bat and the console echo.
+
+## I70 — The n3 Tuning Regression and the Native Hotspot Correction
+
+**n3, the aggressive native-tuned group, is a net regression and is rejected**:
+
+- 193 GCs totalling 23797ms with a maximum of 1616ms, against 45 GCs, 4812ms, and 1437ms for n2, so it is worse on every measure.
+- The load takes 31.19 seconds against 25.66 for n2, which is +21%.
+- The cause: `G1PeriodicGCInterval=10000` fires an idle collection every 10 seconds, and the aggressive free-ratio causes heap resizing jitter during the loading burst, while `MaxGCPauseMillis=100` cannot control an 843ms G1Old evacuation.
+
+**The n2 pause composition, from the JFR GarbageCollection events**:
+
+- The worst single GC is an 843ms G1Old evacuation during loading.
+- Four humongous-allocation pauses of 170 to 262ms occur because a large texture array goes straight into the old generation and the G1 region cap of 32MB cannot avoid it.
+- Three G1Full collections are all triggered explicitly by `System.gc` at about 140ms each, so `DisableExplicitGC` can remove them directly.
+
+**The native hotspot corrected**: all 38 `Update Parameter Structure` events of 100 to 393ms happen **after** `load document end`, so the post-load incremental build of the parameter palette costs about 7.6 seconds of EDT stall and is no write path. What the user feels is "the load finished but the interface still freezes for several seconds", which is inherent to the host.
+
+**n4, the conservative native-tuned2 group, is submitted** with the two mechanism-specific flags `DisableExplicitGC` and `UseStringDeduplication`.
+
+## I71 — n4 Neutral and n5 ZGC a Positive Gain
+
+**n4 with `DisableExplicitGC` and deduplication**: `System.gc` drops to zero but the 46 GCs and 4904ms stay the same because natural GCs take over; the post-GC heap of 1.2GB is higher than the 1.0GB of n2; and the RSS of 3.17 against 4.08GB is judged inter-run variation, so the result is **neutral and rejected**.
+
+**n5 and n5b with ZGC are the first positive gain of direction A**:
+
+- `-XX:+UseZGC` works under Wine with `oldCollector="Z"`.
+- All 33 GC pauses are **sub-millisecond**, with a maximum of 0.043ms against the 1376ms maximum of G1.
+- The steady-state RSS is about 2.76GB against about 4.08GB for G1, and the loading RSS peak of about 12GB is an inflated multi-mapping count where the same physical page appears in several views.
+- The load takes 27.48 seconds against 25.66, and the CPU of the concurrent GC threads is unmeasurable because it is very low.
+- The JFR of the first run was deleted by a cleanup, and the n5b run harvested the repo file successfully while running.
+- Limit: this is outside the officially supported matrix, so it can only be an opt-in recommendation.
+
+## I72 — n6 Graal Rejected and n7 ZGC With Turboism Fully Green
+
+**n6 with Graal JVMCI** fails with `Cannot use JVMCI compiler: No JVMCI compiler found`, because the bundled Liberica Standard exposes the JVMCI interface but not the Graal compiler itself, which only a GraalVM or Full build carries. It is rejected quickly in 37 seconds.
+
+**n7, perf-observe-zgc in job `6b14d89b`, reached succeeded**: the coexistence of Turboism, the probe, and ZGC is verified and the fully automatic close chain is fully green.
+
+- The write burst makes 57 GC pauses with a **maximum of 0.0198ms**, and the 212ms reported by the MXBean is the concurrent cycle duration rather than stop-the-world time.
+- The write median is 3.75ms against 4.16ms in r21, which is −10%; the runtime p95 improves by 44%; and modelActive is 33µs, −59%.
+- The EDT allocation of the write segment is 1194MB against 992MB, +20%, judged inter-run variance because the allocation count is independent of GC.
+- The RSS during the measurement is about 12.9GB, an inflated ZGC multi-mapping /proc count.
+- **The usable conclusion of the combination**: the fully automatic probe chain shows zero regression under ZGC.
+
+**The final lever table of direction A**: ZGC is a positive gain with pauses at zero and a steady-state RSS of −32%, limited to an opt-in recommendation; the aggressive G1 group regresses; the conservative group is neutral; Graal does not exist; the CImageResource direction is closed as a periodic cache; and the backup suppression is proven and awaits a productization decision.
+
+## I73 — The Interactive Stall Dimension: j1b and j2c fps Plus s1 and s2 selection-lag
+
+New instrumentation: `turboism.validation.fps.sustained` with `settleSeconds`, a 250ms fpsSeries, and min, p05, and zeroFps metrics; the resize driver gains full logging. selection-lag gains 5303 and its variants with a real Robot drag, a 10ms EDT heartbeat, the event interval, and a stack capture above the threshold.
+
+**fps on 5303 with the heavy model**: j1b on G1 in `ba118c7f` and j2c on ZGC in `bdd30712` both succeeded, with renderScene at 138 against 134, the same non-zero median of about 4fps, and zeroFps at 274 against 277 of 360. The render ceiling is set by the model cost and Wine; the heap inside the ZGC sampling window is −260MB, a contraction, against +390MB for G1. The first j2 run did not settle and produced only 3 frames, which pollutes it, and the j2b readiness timed out at the 180-second edge, so the settle phase and the timeout boundary are known measurement constraints.
+
+**selection-lag on 5303**: s1 on G1 in `da30b777` and s2 on ZGC in `d0a9f1be` both PASS, with the INTERACTION heartbeat at a maximum of 62 against 61ms, a p95 of 1ms in both, and an event interval maximum of about 200ms because AWT move coalescing dominates. A steady light drag shows no difference between the two collectors.
+
+**The stall layering conclusion**: the GC pause effect concentrates in loading and the write burst, where G1 reaches 1376ms and 605ms while ZGC stays sub-millisecond, and a steady light interaction is already smooth. The ZGC UX gain is real but scenario-limited.
+
+## I74 — Productizing the Automatic Backup Suppression and Its exact-host Verification, the bk Leg
+
+Productization in spec 051 with commits `e0a700fae` and `c5885d18f`: an opt-in `cubism-reduce-auto-backup` toggle on the Performance settings page writes the root field `reduceAutoBackup`, which the runtime validator and the installer ConfigMerge allowlist, validation, and merge retention carry through the whole chain, and which sets `enabled=false` through the already accepted `updateSettings` while keeping the user interval, cap, and directory; a baseline snapshot is stored in `state/auto-backup-baseline.properties`, restored and deleted on OFF, and never overwritten when it already exists, so a crash can restore the backup and the backup is never disabled permanently.
+
+The env override is `TURBOISM_REDUCE_AUTO_BACKUP` accepting 1, true, yes, or on.
+
+**exact-host verification with the new default and reduced variants of backup:5303**:
+
+- The bk5 control `6a33b659` PASSes with enabled=true, and the periodic backup really fires with a write spike of 26 to 28 seconds and +149MB to 2436MB, which reconfirms the freeze the user feels.
+- The bk6 reduced run `37a195c4` PASSes with an apply log, the baseline written to disk, and an independent probe read-back of `enabled=false`; the periodic timer never fires across the whole window, and the only remaining 26-second spike comes from the manual `backupNow` path of the probe, which the design keeps.
+
+**Two defects fixed on the way**:
+
+- `Boolean.parseBoolean("1")` returns false and disabled the env override, so the parser now accepts 1, true, yes, and on.
+- The backup probe jar lacked the i18n base catalog and was refused by `PluginJarContract` with "No valid plugin JARs", so `messages.properties` was restored.
+
+**A known blemish**: when the core enables earlier than the host backup manager is ready, the apply hits a host-internal NPE on the EDT from a null in the re-arm path; the enabled write is confirmed on disk by an independent read-back and the impact is console noise. A later round can delay the apply behind a host-ready signal.
+
+**Gates**: `devCheck` is green, and the runtime, installer regression, and core tests all pass.
+
+## I75 — A Real Whole-JVM GraalVM Replacement in n8 and n9, Which Overturns the "Not Feasible" of n6
+
+n6 rejected enabling JVMCI on the bundled Liberica, which carries no compiler body. n8 takes a different route and replaces the whole JVM with the GraalVM CE 25.2.4 the product already pins, through `--cubism-java Z:\tools\graalvm-25.2.4\bin\java.exe`, where Graal is the default top-tier JIT.
+
+**n8 in `94d0b75e` with GraalVM and G1**: JDK 25 carries 5.3.03 and starts normally; the load takes 24.04 seconds against the 25.66 baseline, −6%; there are 37 GCs with a maximum of 245ms against 1376ms for n2, so the G1 ceiling is lowered but not removed; and a 27.8-second +3.9GB automatic backup spike reappears inside the window as independent corroboration.
+
+**n9 in `eb1f07a4` with GraalVM and ZGC**: 10 ZGC Major pauses all stay at or below 0.224ms; the load takes 44.18 seconds, +72%, because ZGC on GraalVM pays a higher warm-up cost; and the steady-state RSS is about 6.4GB in the inflated multi-mapping protocol.
+
+**Productization state**: "Graal takes effect only when it is available and enabled" is already an existing mechanism, with the `launcher.cubismJvm` setting, the pinned download of `ManagedGraalRuntimeService` whose manifest and sha256 this host run really used, the `Find-CubismGraalJava` resolution chain, and a localized fallback to the bundled JVM when Graal is unavailable. n8 is the first host evidence that this chain works.
+
+Verdict: replacing only the JVM with GraalVM is feasible with a modest gain, since JDK 25 compatibility holds, the load is slightly faster, and the pause ceiling falls while G1 remains; GraalVM with ZGC brings pauses to zero but loads more slowly. Both are opt-in material and neither is a default recommendation.
+
+## M-A1 to M-A6 — Protocol A: A Host A/B of the `-Xmx4g` Heap Cap Against Memory Occupancy, 052/T04/C1 on 2026-09-24
+
+- **Implementation and protocol**: no product code changes, because the option is injected through the host-validation manifest `--jvm-option`. C means no additional option and T1 means `-Xmx4g`. The run uses `native-resource:5302` with `memoryIdleSeconds=780` in the extended window through `measure-task-memory.py`, `NativeMemoryObservation`, and jvm.csv. The sequence is C, T1, T1, C, C, T1, plus a calibration round ma-cal-c that is not counted. The primary metric includes swap, namely `rollup.Pss+rollup.SwapPss` and `rollup.Rss+rollup.Swap`, under supervisor ruling 450c6396, because this machine pages routinely through zram and a swapfile and a bare PSS would favour the control arm under more pressure. **Protocol boundary**: every memory figure is the `smaps_rollup` of the single main Java PID and covers neither the whole Proton process tree nor the physical memory of the system; PSS plus SwapPss is not the real zram occupancy of this machine. The OOME and fatal verdict comes from a text scan of 2 files per round, the runtime log and cubism-console.txt. The invalidation threshold is a within-round `maxVmSwap` above 1GiB. The fixture is heavy.cmo3 with sha256 `029e9a4e…c7f80c`.
+- **Terminal state**: 6 of 6 rounds reached succeeded, PASS, normalExit, and cleanup=safe; the first row of the jvm.csv of all three T1 rounds reports heapMaxBytes=4294967296, which proves the assertion was active; and the six rounds span a maxVmSwap of 0 to 974.2MiB, all below 1GiB, so every round is VALID.
+
+- **Results as median and range in MiB**:
+  - The closed-segment PSS is 2933.5 with a range of 2547.0 to 2948.6 for C against 2495.9 with 2469.8 to 2922.8 for T1, a delta of −437.6, so the median reaches the threshold while the ranges nearly fully overlap, since c3 at 2547 falls inside the T1 range and t1c at 2922.8 falls inside the C range.
+  - The idle-tail RSS delta of −36.7 does not reach the threshold; the MemAvail median of +727.9 does reach it but the ranges overlap and the value is dominated by environment noise.
+  - The loading-peak PSS is 4448.4 with a range of 3283.5 to 4742.3 for C against 2918.8 with 2874.7 to 3044.5 for T1, a delta of −1529.6 or −34.4%, and **the ranges do not overlap at all, because the T1 maximum stays below the C minimum, which is the only clean separation of this campaign**.
+  - Guards: OOME and fatal are 0, normalExit is 6 of 6, the load wall time is 58.1 to 59.7 seconds for T1 against 58.1 to 62.0 for C, the zoom completes 60 of 60, dirty and undo stay unchanged, and the cumulative GC time shows no regression.
+- **Mechanism**: `softCache.matchedDecodedBytes` is byte-identical across all six rounds at 239009448, with the cohort going from 848 to 585 and the archived bytes at 352308846; the closed `heapCommittedMed` ranges also overlap at 1948 to 2382 for T1 against 2032 to 2400 for C. The chain of "heap cap, then soft-reference eviction, then fewer cache bytes, then lower PSS" is **not supported by the evidence**, and the loading-peak gain of T1 is attributed to the heap bound itself rather than to soft-cache eviction.
+- **Verdict under SC-1 v2, the supervisor ruling of 2026-09-24**: 6 of 6 rounds are valid; SC-1 as a whole does not pass; the loading-peak direction is SUPPORTED. The steady-state and post-close gain is **INCONCLUSIVE**, because the median leans toward T1 while the ranges overlap, the mechanism stays flat, and the within-arm variance is of the same order, so n=3 cannot separate them; the soft-reference mechanism is **NOT DEMONSTRATED**. This is no basis for a default setting change, and the loading-peak direction should be re-measured in its own slice.
+- **T2 did not run**: the zero change in decodedBytes breaks the `SoftRefLRUPolicyMSPerMB` hypothesis chain, which leaves no falsifiable increment under the original hypothesis, and whether to set a new target and run T2 is a supervisor decision.
+- **Evidence**: `~/.local/state/turboism/performance-evidence/20260923-perf052-protocol-a/run/{ma-c1,ma-t1a,ma-t1b,ma-c2,ma-c3,ma-t1c}`; the per-round bundle sha256 and the full-archive `MANIFEST.sha256` of `51a1e802…bf1548` are in `build/perf052-c1/{campaign-notes.md,sc1-summary.json,final-report.md}`, and the job, run, and prepared IDs are registered per round in campaign-notes.md.
+- **Retry condition**: an independent protocol for the loading peak with a fixed environment noise floor, more rounds, and heap-committed tracking, or first prove a mechanism showing that the decoded cache is sensitive to heap pressure before discussing T2; no median difference of this batch may claim a steady-state gain.
+
+## M-B — T08 GL Attribution, glGetError Elision, and a Same-Leg Comparison of Slice A, 052/T08 on 2026-09-24
+
+- **Protocol**: 5.3.03 with heavy.cmo3 at sha256 `029e9a4e…c7f80c` under the `model-update-skip:5303` quiet wheel workload, measuring event-to-EDT-barrier plus the native repaint barrier rather than physical FPS. The worktree is `perf/052-gl-attribution`, first at `2748affe1` and later at `0e24fa2a1` and `0eb8f535c`.
+- **Leg A attribution, instrumented and explaining the composition rather than a gain**: `modelUpdateGlCalls` and `modelUpdateGlCallCategories` over a 200-event leg with a mean of 133.37ms. The category delegates total 53.17ms per event at 39.9% of the leg mean, with the observer costing 30.18ms per event itself, and the split is state 14.91, errorCheck 9.04, upload 8.72, query 6.75, uniformWrite 5.24, readback 4.96, and draw 3.53ms per event. SC-5, which asks for 80% or more of the quiet frame time, is **not reached** under the instrumented protocol, because the other ~50ms is host-side work the probe cannot see. The top methods are glGetError at 8.96M calls and 1.81s, glBufferSubData at 475k and 1.74s, and glGetUniformLocation at 670k and 1.33s.
+- **The calibration leg**: with uniform caching OFF, verified by `UNIFORM_LOCATION NOT_ADMITTED`, every category count is byte-identical to prod, so under this workload the uniform cache has no effect on the GL stream and the prod attribution is the valid picture.
+
+- **The first B leg is invalid**: the ON leg activated the elision successfully, but the uniform installation check of `shader/A.a` conflicted with the elision rewrite of the original method body, so UNIFORM_LOCATION FAILED and the mixed arm is invalid. **A productization blocker: the elision and the uniform cache are mutually exclusive inside `shader/A.a` and cannot be combined.**
+- **The u0 ABBA with both uniform arms OFF and the modelSkip factor embedded as {0,1,1,0}**: 4 of 4 rounds VALID, with the ON leg verified at `elision=ACTIVE sites=1`. **The measured elision delta is about −1.1ms per event**, from a pooled 58.50 to 57.32ms in the skip-ON sub-legs and from 17.02 to 17.37 displays per second, which is a small magnitude and refutes the "call count" hypothesis.
+- **Slice A, modelUpdateSkip, compared within the same legs**: leg0 and leg3 are OFF and leg1 and leg2 are ON, and the median delta across four runs is about **−20.0ms per event** in the 77.3 to 57.4ms range, in jobs 4902d6df, dc7634ca, 90f0463e, and 81eae713.
+- **Redundancy attribution as a diagnostic**: 3.99M of 10.63M calls are redundant with a conservative upper bound of 7.08ms per event, the invalidations are 1,572,001 at about 7,860 per event so the window is invalidated almost immediately, and uniformRedundant is only 87 per event, so the deduplication route is **rejected**.
+- **T08b upload suppression in identity mode over 2 runs of {off,on,on,off}**: jobs da81e362 and 48375f95 both PASS with `UPLOAD_ELISION elision=ACTIVE sites=4` verified; the ON sub-legs elide 102,200 of 475,400 calls, a **21.5% signature hit rate**, and all four legs share the same canvasPixelDigest, so the correctness gate passes. The mean delta is −3.40ms in r1 and −3.12ms in r2, about −1.5 to −3ms under the supervisor protocol. This build has no `restored=true` close marker, which belongs to a later feature at 4333086b1.
+- **The T08b JFR diagnostic leg** 8ecda9e1 archives wheel-leg-0.jfr for diagnosis only.
+- **T08c**: the two legs of r1, f36d3e98 and 862936a9, failed the precheck because the expected fixture SHA fell back to 57c4854b since the worktree .env lacked the override, so cleanup was safe and the round is not counted. After the env call was corrected, r2 was resubmitted with expected equal to actual at 029e9a4e, as upload-id-r2 2fb0591c and upload-content-r2 a70e41a1 with agent 10a89bb1 at 4333086b1 and exerciser c29ba1a8. **r2 is classified as a defect-exposing round with no gain counted**, because the report proves the old tracker had `passNoBaseline` and `compares=0` with no failedInserts, since the 512-slot table was exhausted and the content comparison was always false, which 7c57f805d fixes.
+- **Evidence**: `~/.local/state/turboism/performance-evidence/20260924-perf052-t08/run/` holding t08-attr-prod-r1, t08-attr-cal-r1, t08-elision-off-r1 and r2, t08-elision-on-r1 and r2, t08-elision-u0-off-r1 and r2, t08-elision-u0-on-r1 and r2, t08-redundancy-u0-r1, t08b-upload-r1 and r2, and t08b-jfr-prod-r1; the details are in `build/perf052-t08/campaign-notes.md`.
+- **T08d, submitted after ruling A**: the supervisor confirmed that T03's claim that the agent was unchanged was wrong, because the runtime classes arrive only inside the agent fat jar and preview has no separate runtime jar. The ruling rebuilt `:bootstrap:jar` into agent **3807fb65**, verified to embed a tracker containing failedInserts and an installer matching 7c57f805d, and copied it into preview without running previewBundle. The four legs in FIFO order are id-r1 3a85e0e2, content-r1 3f39cdaf, id-r2 afaf7e26, and content-r2 cb50d3d9 with probe 2a56fed1 and head 7c57f805d. **The T08d result**: 4 of 4 VALID with sites=4, elided at 475,400 or 100%, failedInserts 0, and identical digests; the leg mean delta is −5.1 to −17.1ms, about −6.5ms per event under the supervisor protocol.
+- **T08e, the product switch leg, already committed**: aa8941c7f wires `turboism.optimization.uploadElision` with a default of off, the content mode, and a 64MiB budget, and agent c0a7b8b8 is copied into preview in jobs 654dbd59 and d035ad29. **The T08e result**: mode=production with the ON leg at 100% elided, failedInserts 0, observerFailures 0, and identical digests; the snapshot cost is peakEntries 2378, snapshotBytesPeak 4.95MB, and budgetSkips 0; the delta is −8.16 and −8.30ms.
+- **T08f, the acceptance matrix, and T12c are committed across 7 FIFO legs**: t08f-pan e86c24ff, drag 8778b490, wheel-5302 1e4c124c, and failclosed-5203 10648074 on gl-attribution at 18a45d955 with agent f6044ff5; t12c-shadow f9ac7436, abba-r1 51b671c9, and abba-r2 5de31e0d on render-prep at 7bf78df6d with an **agent deviation from bbae158b to 40995669741c** because previewBundle rebuilt and overwrote it when creating the directory, which is declared under the same commit. **The T08f and T12c result is 7 of 7 PASS**: pan −6.1, drag −11.0, and wheel-5302 −7ms; failclosed-5203 is NOT_ADMITTED and PASS; and T12c shows shadow=0 while the leg is 7 to 10ms slower, so it is rejected.
+- **T18 is committed** at e29480026 with agent 29de18a6 and probe 489d15f2, stacking the production uploadElision to measure the increment: wheel-r1 22869304, wheel-r2 bc423db3, pan 9cdfd063, and drag 520489e9. **The T18 result**: 4 of 4 PASS with sites=195, about 20,000 calls elided per event, and every parity check passing, but the increment is −0.6ms inside the noise, so it is **NO_BENEFIT and rejected**.
+- **T17 is committed** on input-path at 3f06f8789 with agent 2116dbed and probe 0ece749e as declared, stacking the production uploadElision: wheel-r1 2d9da268 and wheel-r2
+
+0be033d9, pan c88b8400, and drag 66710607. **The T17 result**: 4 of 4 PASS with sites=2, the handler dropping from 4.2 to 5.0ms down to 1.1 to 1.2ms, a total of −1.3 to −3.9ms, and every parity check true under the supervisor registration.
+- **T19, the JFR budget leg, is committed in the same worktree**: stack 3272baaa with both elisions stacked and base e3100aab at the production default, with stackdepth=128 through FlightRecorderOptions and a sample period hard-coded at 5ms and not adjustable. It is a diagnostic leg.
+- **T20 and T21 are committed** on input-path at 142a6b336 with agent 28bd561e and probe 2411a920 as declared: t20-wheel fea5b0ac and 5ccec5d2, t20-pan f38e40eb, and t20-drag d50f76b9 with canvasComposite plus both stacks; t21-mscratch 1535062d and 5b23f525, the first complete matrixScratch ABBA.
+- **The T20 and T21 result**: canvasComposite and matrixScratch are both NO_BENEFIT in fea5b0ac, 5ccec5d2, f38e40eb, d50f76b9, 1535062d, and 5b23f525. The windowDigest is bade8f59 across every run, so the screenshot gate is invalid.
+- **T22, a cross-run glthread ABBA, is committed** on gl-attribution at d90b3fe76 with the new `--linux-env` capability: fdb9d6e6, f815c2c4, 93aca62a, e8564408, c68652bb, and 24a54463 in the order OFF, ON, ON, OFF, OFF, ON.
+- **The T22 result**: mesa_glthread is a REGRESSION of +4 to 10ms and the ATTENTION state took effect; the glThreadCount collection bug is fixed as schema v2, from fdb9d6e6 to 24a54463.
+- **T23 is committed** on gl-attribution at e225d8092 with agent dec25e67 and probe 6c251a9d, interleaving A, B, and C three times each across a806fe0f, 4cd4357a, 6ff1766c, d41821fd, 0039629c, 77f16ced, 95452622, c6371809, and 8cdc00cb.
+- **The T23 result is INCONCLUSIVE**: glthread really was enabled as java.exe:gl0, but the uniform hits of B and C are 0 because the elision cuts the confirmation path, which mixes the arms.
+- **T24 is committed** on gl-attribution at 397da398e with agent 60c23c93 and probe 99289c05, interleaving A and C four times each across 6d5a85ba, 89a43556, 4cf636a7, 18af79af, 5d829d4c, f8b89996, ef111bfa, and a4075a88.
+- **The T24 result**: the glthread combination is SUPPORTED with a median of −6.5ms, and the digest difference of 4cf636a7 is geometry, from 6d5a85ba to a4075a88.
+- **T25, the final acceptance, is committed** on gl-attribution at da80de22a with agent f15b78a4, running 16 A and F legs across 8 wheel, 4 pan, and 4 drag runs: b8c09000, eacb646f, b67f6e32, 9a8ac557, 7c66afcd, b94e77d7, 16b19f1e, ffea6d8b, 9823ef79, bd1b9f18, 58bb1c0c, 531a4c31, 0f9c90fc, 01bad54e, 7fcd956b, and b9161829.
+- **The T25 result**: the full stack against near-production is wheel −19%, pan −17%, and drag −22%, with 16 of 16 PASS, where b9161829 leg3 at 455ms is an outlier and the geometry difference of 0f9c90fc is noted. The user approved the default change and the main merge.
+- **T26, the default smoke test, is committed** on integration/perf-052 at 00924fc25 with agent c7a62d26 on the corrected values and probe 79150434: b26f3227, 76970314, 5e5d7dab, and 8a8064c8 for default-wheel, optout-wheel, default-pan, and default-drag.
+- **The T26 result**: default-wheel, optout, and drag PASS while pan FAILs on focus, and after the fix and a main sync at 3ffaf5ea1 the branch moves to f2fb6a4c8.
+- **T27, the smoke test after the fix, is committed** with agent bc30133a and probe a90ae65d: ec469091, eab6251c, b024662a, and 81253d1d, where pan must PASS.
+- **The T27 result**: wheel and optout PASS, pan FAILs on focus, and drag FAILs on cold-frame parity, so after the probe fix the branch moves to 9f28d2d00.
+- **T28 is committed** with agent 35c29392 and probe e63527a4: 5af2bdfc, 9d0f777c, 00c754f9, and 6c221374.
 
 ## PERF-052 T29c final fixed-build results (2026-09-26)
 
@@ -1762,10 +1419,9 @@ Offline validation: existing final devCheck PASS; bootstrap158/0fail/0skip, inte
 
 Merge preparation: main remains e5424ce5027d049f12be6613f7690550f9984500 and is an ancestor; both checkouts were clean before documentation updates. Existing main-merge authorization and no-push boundary remain valid. No merge has been performed because the new pan tail result conflicts with the broader US-2 non-regression target; the acceptance deviation needs explicit disposition under the project rule against silently lowering requirements.
 
+### User Disposition on 2026-09-26
 
-### User disposition (2026-09-26)
-
-After disclosure of the pan p99 increase (78.14→84.97ms, about8.7%) and clarification of the pan workload, the user explicitly instructed “合并到main”. The deviation is accepted for this integration; its measured values and all other limitations remain recorded. This authorizes the local main merge, not a push, and does not turn the tail non-regression target into PASS.
+After the disclosure of the pan p99 increase from 78.14 to 84.97ms, about 8.7%, and a clarification of the pan workload, the user explicitly instructed "merge into main". The deviation is accepted for this integration, and its measured values and every other limitation stay recorded. This authorizes the local main merge, not a push, and it does not turn the tail non-regression target into a PASS.
 
 ## Hierarchy-only incremental `CModelSource.setup()` (2026-11-03)
 
@@ -2120,61 +1776,47 @@ launch reported `TURBOISM_ASYNC_READBACK pipelined=ACTIVE` with zero self-check 
 build's perfbench plugin does not produce results, so the frame-rate numbers above remain the
 5.3.04 measurement).
 
-## Windows 5.3.04 + 763 MB 矢车菊：精选组合实机筛选（2026-11-05）
+## Windows 5.3.04 With the 763MB Cornflower Model: A Host Screening of Curated Combinations (2026-11-05)
 
-原生 Windows 5.3.04、bundled Java 17.0.3.1、Intel UHD 770。wheel 200 事件/腿，
-OFF/ON/ON/OFF，精确 camera 恢复，模型视口 `x>=500` 逐像素比较；最终组合经 `config.json`
-实际生效。模型 SHA-256 `83326ac5…b6da`。
+Native Windows 5.3.04 with bundled Java 17.0.3.1 and Intel UHD 770. Each wheel leg runs 200 events in the order OFF, ON, ON, OFF with exact camera restoration and a per-pixel comparison of the model viewport for `x>=500`; the final combination really takes effect through `config.json`. The model SHA-256 is `83326ac5…b6da`.
 
-- **Tier 1（推荐）**：modelUpdateSkip + uniformLocationCache + mesaGlThread + uploadElision +
-  meshSetupElision + clipMaskDeduplication + clipMaskScissorClear + extendedInterpolationIncrementalSetup。
-  完整轮 ON 腿均值 **231.2/229.0 → 73.0/71.6 ms**（约 3.2×）；相邻校准轮约 2.3×；
-  模型视口像素与基线 0 差异，Tier 1 校准轮整窗哈希也与基线一致。
-- **归因**：uniform+帧末延迟 GL 约 1.9×；再加 upload+meshSetup 约 2.3×；clipMask scissor
-  在本模型节省约 96.7% 蒙版清屏像素。Uniform 缓存与帧末延迟检查必须同开；单独 Uniform 无
-  稳定收益，单独 mesaGlThread 在本宿主为 INACTIVE。
-- **编辑组合**：Tier 1 + incrementalUpdate + incrementalUpdateAffecters。wheel 纯相机缩放上
-  约 103.5 ms（慢于 Tier 1），不进入默认；编辑/层级场景另评。
-- **否决/可选**：全开组合在模型视口出现 43,582 像素差异且不更快，`warpPositionProjection`
-  在本宿主安装失败；meshInterpolation/shaderUniform/matrixScratch 单独叠加视觉一致但更慢；
-  asyncReadback 有 `oneFrameLatency=true` 且本轮无稳定额外收益，不作为严格视觉一致默认；
-  旧的分配/纹理缓存无主指标收益。
-- **限制**：单模型单版本；wheel 非物理 FPS；完整轮与校准轮宿主负载有波动；artmesh 拖拽探针
-  本轮被 1 像素画布身份检查挡住，未产出新拖拽/Undo 结论。证据与配置见
-  [windows-cornflower-performance-20261105](../../validation/windows-cornflower-performance-20261105/README.md)。
-
-## Direct-raster texture preparation — native Windows controlled loading (2026-11-06 UTC)
-
-- **变更**：`CanonicalRgbaImage` 为标准 ARGB/ABGR 增加直接栅格读取，保留 getRGB 回退、尺寸上限与默认关闭策略。旧/新产品 agent ZIP 仅该 class 内容不同。
-- **环境**：原生 Windows 11、Ryzen 9 7940H、32 GB RAM、实测 OpenGL renderer NVIDIA RTX 4060 Laptop、Cubism 5.3.04 / bundled Java 17.0.3.1。763,166,356 B 模型，SHA-256 `83326ac519dd5e4cad9b39e4c7234410cc62bf0d1f5241364561d6906292b6da`，1029 张模型图 / 12 图集。
-- **等价与生命周期**：`shadow-s5` 比较全部 9 次准备 / 402,653,184 B，像素/元数据/有效行跨度零差异，停用/重启用/字节码恢复通过。2 张 8192² 超面积上限而回退；全部观察输入为 ARGB，无实机 ABGR 提速证据。
-- **实机矩阵**：三组各 3 轮，顺序 native/legacy/direct、direct/native/legacy、legacy/direct/native；不并发构建，逐轮全新 JVM/home/模型副本。9 轮均 PASS、正常退出 0、Job Object `cleanup=safe`、模型/工件哈希不变。
-- **结果**：旧→新准备回调中位数 **684.739→389.191 ms（−43.2%，约省296 ms）**；整体文档就绪 **43.112→43.122 s**，CPU **36.625→36.844 s**，无整体提速证据。原生关闭中位数 44.925 s；约4%的 native→direct 差值在旧实现中已经存在，不能归因于本次快路径。
-- **不利指标保留**：旧→新加载 working-set 峰值中位数 **5.615→5.990 GiB**，commit 峰值 **7.598→10.063 GiB**，空闲尾段 working set **4.898→6.190 GiB**；轮间波动明显，不归因为确定机制，也不宣称省 RAM。观察分配 **20.902→20.856 GB** 仅小幅下降。
-- **失败保留**：探针漏打包公共计时辅助类，已先红后绿修复并加入打包独立类加载检查；s1 引号、s2 日志递归、s3 旧字段、s4 双层 close 包装均按失败保留。s2 强制退出仍记 cleanup unknown，原 Job Object 内核 activeProcesses=0 后才继续，不改写为正常成功。
-- **结论/重试条件**：仍为 opt-in，不推荐默认开启。单模型/版本、非冷盘、500ms 就绪轮询、30s 无输入空闲，无交互 FPS/VRAM/显存或稳定内存收益。直接数组访问的 Java2D tracking 风险未被交互渲染测试排除。新负载已提供两个真实大图回退的证据，但扩大面积到8192²需另立256MiB目标缓冲内存实验，不能静默扩阈值。
-- **证据**：[完整报告及九轮 CSV/hash receipt](../../testing/host-validation/image-archive/benchmark/NATIVE-WINDOWS.md)；原始14个尝试、失败、JSONL/CSV、加载属性、日志和测量时源码留在本工作树忽略目录 `build/texture-host/`，不提交用户模型、license状态或本机路径。
+- **Tier 1, recommended**: modelUpdateSkip, uniformLocationCache, mesaGlThread, uploadElision, meshSetupElision, clipMaskDeduplication, clipMaskScissorClear, and extendedInterpolationIncrementalSetup. The ON legs of the complete round average **231.2 and 229.0 down to 73.0 and 71.6ms**, about 3.2 times faster, and the adjacent calibration round gives about 2.3 times. The model viewport shows zero pixel difference from the baseline, and the whole-window hash of the Tier 1 calibration round also matches the baseline.
+- **Attribution**: the uniform cache with the frame-end deferred GL check gives about 1.9 times, adding upload and meshSetup reaches about 2.3 times, and the clipMask scissor saves about 96.7% of the mask clear pixels on this model. The uniform cache and the frame-end deferred check must be enabled together; the uniform cache alone gives no stable gain, and mesaGlThread alone is INACTIVE on this host.
+- **The edit combination**: Tier 1 plus incrementalUpdate and incrementalUpdateAffecters takes about 103.5ms on a pure camera wheel zoom, which is slower than Tier 1, so it does not enter the default and an edit or hierarchy scenario is evaluated separately.
+- **Rejected or optional**: the all-enabled combination shows a 43,582-pixel difference in the model viewport and is not faster, and `warpPositionProjection` fails to install on this host; meshInterpolation, shaderUniform, and matrixScratch are visually consistent when stacked alone but slower; asyncReadback carries `oneFrameLatency=true` and gives no stable extra gain this round, so it is no strict visual-consistency default; and the old allocation and texture caches give no primary-metric gain.
+- **Limits**: one model and one version; wheel is not physical FPS; the host load fluctuates between the complete and calibration rounds; and the artmesh drag probe was blocked this round by a one-pixel canvas identity check, so it produced no new drag or undo conclusion. The evidence and configuration are in [windows-cornflower-performance-20261105](../../validation/windows-cornflower-performance-20261105/README.md).
 
 
-## Remaining loading hotspots — native Windows JFR diagnostics (2026-11-07 UTC)
+## Direct-Raster Texture Preparation: Controlled Loading on Native Windows (2026-11-06 UTC)
 
-- **范围**：另跑 `profile-direct` / `profile-native` 两次隔离 JFR（profile 配置、96 帧栈深），均正常退出0、cleanup safe、模型/工件哈希不变。只分析加载 trace 起点到 ready marker，排除30秒空闲；`--profile`写入envelope，性能汇总器拒绝这类样本，不混入上节九轮中位数。
-- **直接路径仍有热点**：880个Java执行样本中，JOGL `createFromCustom → Graphics2D.drawImage → ComponentColorModel.getDataElements` **194（22.0%）**；扩展插值初始化 **152（17.3%）**；模型反序列化 **130（14.8%）**；float解析 **63（7.2%）**。这些是Java采样占比，非总加载时间、CPU精确秒或可实现加速比例。
-- **分配归因（估计权重，不是驻留内存/可省RAM）**：JOGL custom约4.73GB、整个扩展插值约3.63GB、模型反序列化约4.58GB、float解析约1.38GB。`getAllPointRef`逐次新建点引用列表的字节码已核对，但P01旧窄投影方案无净收益，不能据此直接重开同一实验。
-- **新增具体线索**：193个custom纹理Java样本集中35–40s，与2张8192²图的既有回退一致；下一候选应是独立大图范围/256MiB目标缓冲实验，而非继续微调已覆盖的9次准备。未逐次添加尺寸事件，不将全部采样权重精确归到两张图。
-- **ImageIO/归档**：PNG有24个Java与50个native方法样本；栈确见ByteArrayInputStream来源仍经FileCacheImageInputStream的临时文件read/write/seek。另见archive closure整段readBytes与BAOS扩容复制。候选是精确调用点的有界内存image stream/减少中间复制，不全局改ImageIO缓存、不去除XML/归档验证、不缓存可变form引用。
-- **反误读**：1509个native事件/网络等待样本不是CPU热点；真实GCPhasePause约0.692s，不用含并发阶段的GarbageCollection.duration冒充STW时间。对许可、校验和GL生命周期不作绕过。
-- **证据**：[热点报告、分类表、源代码与JFR哈希](../../testing/host-validation/image-archive/benchmark/HOTSPOTS.md)。原始JFR、日志及本地javap在忽略目录 `build/texture-host/`；JFR可能含环境/系统属性，不提交、不上传。本轮没有新增生产优化或性能收益结论。
+- **Change**: `CanonicalRgbaImage` gains a direct raster read for standard ARGB and ABGR while keeping the getRGB fallback, the size caps, and the default-off policy. The old and new product agent ZIPs differ only in the content of that class.
+- **Environment**: native Windows 11, Ryzen 9 7940H, 32GB of RAM, a measured OpenGL renderer of NVIDIA RTX 4060 Laptop, and Cubism 5.3.04 with bundled Java 17.0.3.1. The model is 763,166,356 B with SHA-256 `83326ac519dd5e4cad9b39e4c7234410cc62bf0d1f5241364561d6906292b6da`, holding 1029 model images in 12 atlases.
+- **Equivalence and lifecycle**: `shadow-s5` compares all 9 preparations over 402,653,184 B with zero difference in pixels, metadata, and effective row stride, and the disable, re-enable, and bytecode restore pass. Two 8192² images exceed the area cap and fall back; every observed input is ARGB, so there is no host ABGR speedup evidence.
+- **The host matrix**: three groups of three rounds in the order native, legacy, direct, then direct, native, legacy, then legacy, direct, native, with no concurrent build and a fresh JVM, home, and model copy each round. All 9 rounds PASS with a normal exit of 0, Job Object `cleanup=safe`, and unchanged model and artifact hashes.
+- **Result**: the old-to-new preparation callback median goes **684.739 → 389.191ms, −43.2%, saving about 296ms**, while the whole document-ready time goes 43.112 → 43.122 seconds and the CPU 36.625 → 36.844 seconds, so there is no evidence of a whole-load speedup. The native close median is 44.925 seconds, and the about 4% native-to-direct difference already existed in the old implementation, so it cannot be attributed to this fast path.
+- **Unfavorable metrics kept**: the old-to-new loading working-set peak median goes **5.615 → 5.990GiB**, the commit peak **7.598 → 10.063GiB**, and the idle-tail working set **4.898 → 6.190GiB**; the inter-round fluctuation is clear, so this is attributed to no certain mechanism and no RAM saving is claimed. The observed allocation of **20.902 → 20.856GB** falls only slightly.
+- **Failures kept**: the probe failed to package a shared timing helper class, which was fixed red first and green after with an added independent class-load check in the packaging; the s1 quote, s2 log recursion, s3 old field, and s4 double close wrapper failures all stay as failures. The s2 forced exit still records cleanup unknown and continues only after the original Job Object kernel shows activeProcesses=0, and it is never rewritten as a normal success.
+- **Conclusion and retry condition**: the feature stays opt-in and is not recommended as a default. It covers one model and version, a non-cold disk, a 500ms readiness poll, and a 30-second input-free idle, with no interactive FPS, VRAM, video memory, or stable memory gain. The Java2D tracking risk of a direct array access is not excluded by an interactive render test. The new workload already provides evidence of two real large-image fallbacks, but widening the area to 8192² needs its own 256MiB target-buffer memory experiment, and the threshold is never widened silently.
+- **Evidence**: the [complete report with the nine-round CSV and hash receipts](../../testing/host-validation/image-archive/benchmark/NATIVE-WINDOWS.md); the 14 original attempts, the failures, the JSONL and CSV, the load properties, the logs, and the source at measurement time stay in the ignored directory `build/texture-host/` of this worktree, and no user model, license state, or machine path is committed.
 
+## Remaining Loading Hotspots: Native Windows JFR Diagnostics (2026-11-07 UTC)
 
-## Five independent hotspot experiments — native Windows screening (2026-11-07 UTC)
+- **Scope**: two further isolated JFR recordings, `profile-direct` and `profile-native`, use the profile configuration with a 96-frame stack depth and both exit normally with 0, cleanup safe, and unchanged model and artifact hashes. Only the loading trace from its start to the ready marker is analyzed, excluding the 30-second idle; `--profile` writes an envelope and the performance summarizer rejects that kind of sample, so it never mixes into the nine-round medians above.
+- **The direct path still holds hotspots**: of 880 Java execution samples, the JOGL `createFromCustom` to `Graphics2D.drawImage` to `ComponentColorModel.getDataElements` path takes **194, or 22.0%**; extended interpolation initialization takes **152, or 17.3%**; model deserialization takes **130, or 14.8%**; and float parsing takes **63, or 7.2%**. These are Java sample shares, not total load time, exact CPU seconds, or an achievable speedup ratio.
+- **Allocation attribution as estimated weight, not resident memory or a saveable RAM figure**: JOGL custom is about 4.73GB, the whole extended interpolation about 3.63GB, model deserialization about 4.58GB, and float parsing about 1.38GB. The bytecode that rebuilds the point reference list on every `getAllPointRef` call is verified, but the old narrow projection of P01 gives no net gain, so the same experiment is not reopened on that basis.
+- **A new concrete clue**: the 193 custom texture Java samples concentrate between 35 and 40 seconds, consistent with the existing fallback of the two 8192² images, so the next candidate should be an independent large-image range or 256MiB target-buffer experiment rather than more tuning of the nine preparations already covered. No per-call size event was added, so the whole sampling weight is not attributed exactly to those two images.
+- **ImageIO and archive**: PNG shows 24 Java and 50 native method samples, the stack really shows a ByteArrayInputStream source that still goes through the temporary file read, write, and seek of FileCacheImageInputStream, and the archive closure shows a whole `readBytes` with a BAOS growth copy. The candidate is a bounded in-memory image stream at the exact call site with fewer intermediate copies, never a global ImageIO cache change, never a removal of the XML or archive validation, and never a cache of a mutable form reference.
+- **Anti-misreading**: the 1509 native event and network wait samples are no CPU hotspot, and the real GCPhasePause is about 0.692 seconds, so a `GarbageCollection.duration` that includes concurrent phases is never passed off as stop-the-world time. Licensing, checksums, and the GL lifecycle are never bypassed.
+- **Evidence**: the [hotspot report with the classification table, the source, and the JFR hashes](../../testing/host-validation/image-archive/benchmark/HOTSPOTS.md). The raw JFR, the logs, and the local javap dumps are in the ignored directory `build/texture-host/`; a JFR may hold environment and system properties, so it is neither committed nor uploaded. This round adds no production optimization and no performance gain conclusion.
 
-- **设计**：只用私有实验agent，不改产品默认或生产面积上限。大图、PNG内存流、归档readAllBytes、直接类型只读warp投影、无缓存短float字面量逐项单测；不叠加。对照携带相同观测/摘要脚手架，float另用新probe和独立对照。全新JVM/home/模型副本，充足空间的新盘上同组对照，不与前节C盘数据直接混比。
-- **大图最值得推进**：11/11准备、939,524,096 B shadow零差异；两组夹持对照中，ready中位数 **40.774→39.005s（−4.3%）**、**42.877→41.264s（−3.8%）**；观测分配 **21.058→16.789GB**、**21.095→16.751GB**（均约−20%）。每臂只有2次，仍是筛查点估计，不宣称稳定/统计显著。峰值working set分别7.025→4.973、6.408→6.201GiB，幅度不稳定；尾段working set两组约−21%，不等同通用RAM/显存收益。
-- **PNG**：11张实际图片逐行像素/颜色模型/类型一致；局部ImageIO **4.376→2.526s（−42.3%）**，但整载 **40.236→42.030s（+4.5%）**，不推荐合入。仅逐读MemoryCache，不全局改ImageIO；公共InputStream mark/ownership合约仍需更窄边界。
-- **归档**：2次/124,757,880 B输出摘要相同，ZIP当前entry EOF与截断错误回归通过。局部 **0.595→0.551s**，整载 **41.641→41.178s**，仅边际变化，无稳定收益。
-- **warp**：避开旧逐vector MethodHandle/全局回调，未重开旧方案；5390次/3771822点raw bits一致，第二写循环/dirty/插值数学保留，未跳setup。整载 **43.048→43.759s**，分配不足−1%，峰值/commit有不利波动，不推荐。
-- **float**：只认d、-d、d.0、-d.0（0–9），负零保留，其余JDK。50000+离线位/异常比较，实际6414命中逐token shadow一致；**6860804次仅命中6414（0.0935%）**。整载42.378→41.380s但分配不降且覆盖极低，不据此认定加速，不扩特例/不重开旧token缓存。
-- **正确性与失败**：26个接受尝试（含shadow/预检，并非26个计时样本）全部正常exit0、cleanup safe、归档/256px模型缩略图摘要一致、输入/副本/工件hash不变，私有目标所有方法按CP无关指令/分支/handler证明恢复。3次失败预检control-s1/s2/f1保留：raw类字节比较/JVM非retransformable缓存/float Object返回描述符。后续真实JVM恢复和精确host离线weave回归通过，不重写失败为成功。
-- **限制/决策**：单模型/5.3.04/RTX4060、每组每臂2次、基线39–44s波动，非冷盘/无交互FPS/Undo/保存矩阵。只建议大图进入更广内存/兼容性验证；未合入任何本批候选，也未默认开启。不能相加PNG和大图局部收益预测未测组合。
-- **证据**：[五项完整报告、29次尝试CSV、独立cohort与hash receipts](../../testing/host-validation/image-archive/experiments/RESULTS.md)。私有原始证据指针 `build/texture-experiments/run-root.private.txt`；已按原始source SHA保存两个测量probe版本和runner换行编码，模型/license/本机路径不提交。
+## Five Independent Hotspot Experiments: Native Windows Screening (2026-11-07 UTC)
+
+- **Design**: a private experimental agent only, changing no product default and no production area cap. The large-image range, the PNG memory stream, the archive readAllBytes, the direct-typed read-only warp projection, and the uncached short float literal are each measured alone and never stacked. The control carries the same observation and summary scaffolding, and float uses a new probe and an independent control. Each round uses a fresh JVM, home, and model copy on a new disk with enough space, and the group is compared within itself, never mixed directly with the C-drive data of the previous section.
+- **The large-image range is the most worth advancing**: 11 of 11 preparations over 939,524,096 B compare with zero shadow difference; in two bracketed control groups the ready median goes **40.774 → 39.005s, −4.3%**, and **42.877 → 41.264s, −3.8%**, while the observed allocation goes **21.058 → 16.789GB** and **21.095 → 16.751GB**, both about −20%. Each arm holds only 2 runs, so these remain screening point estimates and no stable or statistically significant claim is made. The peak working set moves 7.025 → 4.973 and 6.408 → 6.201GiB with an unstable magnitude, and the tail working set falls about 21% in both groups, which is not the same as a general RAM or video-memory gain.
+- **PNG**: 11 real images agree row by row in pixels, color model, and type; the local ImageIO time goes **4.376 → 2.526s, −42.3%**, but the whole load goes **40.236 → 42.030s, +4.5%**, so merging is not recommended. Only the per-read MemoryCache is changed, never the global ImageIO, and the public InputStream mark and ownership contract still needs a narrower boundary.
+- **Archive**: 2 runs over 124,757,880 B produce the same output digest, and the ZIP current-entry EOF and truncation error regressions pass. The local time goes **0.595 → 0.551s** and the whole load **41.641 → 41.178s**, which is a marginal change with no stable gain.
+- **Warp**: the old per-vector MethodHandle and global callback approach is avoided and the old plan is not reopened; 5390 calls over 3,771,822 points agree on raw bits, the second write loop, the dirty flag, and the interpolation math stay, and setup is not skipped. The whole load goes **43.048 → 43.759s** with an allocation change below −1% and unfavorable peak and commit fluctuations, so it is not recommended.
+- **Float**: only `d`, `-d`, `d.0`, and `-d.0` with digits 0 to 9 are recognized, negative zero is preserved, and everything else goes to the JDK. More than 50000 offline bit and exception comparisons pass, and the real 6414 hits agree with the per-token shadow; **of 6,860,804 calls only 6414 hit, 0.0935%**. The whole load goes 42.378 → 41.380 seconds, but the allocation does not fall and the coverage is extremely low, so no speedup is concluded, no special case is widened, and the old token cache is not reopened.
+- **Correctness and failures**: all 26 accepted attempts, including shadow and precheck runs rather than 26 timed samples, exit normally with 0, cleanup safe, an identical archive and 256px model thumbnail digest, and unchanged input, copy, and artifact hashes, and every method of the private target is proven restored by CP-independent instructions, branches, and handlers. Three failed prechecks, control-s1, s2, and f1, stay as failures for a raw class byte comparison, a JVM non-retransformable cache, and a float Object return descriptor. The later real JVM restore and the exact-host offline weave regression pass, and no failure is rewritten as a success.
+- **Limits and decision**: one model, 5.3.04, and an RTX 4060, with 2 runs per arm per group and a baseline fluctuating between 39 and 44 seconds, on a non-cold disk, with no interactive FPS, undo, or save matrix. Only the large-image range is recommended for a wider memory and compatibility verification; no candidate of this batch is merged and none is enabled by default. The local PNG and large-image gains must not be added to predict an untested combination.
+- **Evidence**: the [five complete reports with the 29-attempt CSV and the independent cohort and hash receipts](../../testing/host-validation/image-archive/experiments/RESULTS.md). The private raw evidence pointer is `build/texture-experiments/run-root.private.txt`; two measurement probe versions and the runner line-ending encoding are saved by their original source SHA, and no model, license, or machine path is committed.
