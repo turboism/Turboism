@@ -35,19 +35,25 @@ def framework_artifacts(
     repo_root: Path,
     dist: Path,
     version: str,
+    *,
+    include_installer: bool = True,
 ) -> list[dict[str, Any]]:
     verifier = _load_script("verify_release_candidate", Path(__file__).parents[1] / "verify-release.py")
     try:
+        verify_kwargs = {} if include_installer else {"include_installer": False}
         verifier.verify(
             dist.resolve(),
             version,
             (repo_root / "packaging/release-plugins.txt").resolve(),
             (dist.resolve().parent / "staging").resolve(),
+            **verify_kwargs,
         )
     except (OSError, ValueError, zipfile.BadZipFile, KeyError) as failure:
         raise ReleaseError(f"release payload verification failed: {failure}") from failure
     names = []
     for pattern in product_primary(dist, version):
+        if not include_installer and pattern.startswith("TurboismInstaller-"):
+            continue
         name = pattern.format(version=version)
         names.extend((name, name + ".sha256"))
     artifacts = []
@@ -157,6 +163,7 @@ def build_candidate(
     dist: Path | None,
     market_dir: Path | None,
     require_tag: bool,
+    include_installer: bool = True,
 ) -> dict[str, Any]:
     repo_root = repo_root.resolve()
     version = framework_version(repo_root)
@@ -174,7 +181,10 @@ def build_candidate(
         "bundledPlugins": [],
     }
     if dist is not None:
-        framework["artifacts"] = framework_artifacts(repo_root, dist.resolve(), version)
+        artifact_kwargs = {} if include_installer else {"include_installer": False}
+        framework["artifacts"] = framework_artifacts(
+            repo_root, dist.resolve(), version, **artifact_kwargs
+        )
         framework["developerArtifacts"] = developer_artifacts(dist.resolve(), version)
         framework["bundledPlugins"] = bundled_plugins(dist.resolve(), version)
     return {

@@ -86,7 +86,13 @@ def verify_zip(path: Path, version: str, full: bool, plugins: set[str]) -> None:
         raise ValueError(f"agent Implementation-Version is not {version}: {path}")
 
 
-def release_artifacts(dist: Path, version: str, channel: str = "stable") -> list[Path]:
+def release_artifacts(
+    dist: Path,
+    version: str,
+    channel: str = "stable",
+    *,
+    include_installer: bool = True,
+) -> list[Path]:
     import sys
     module_root = str(Path(__file__).resolve().parent)
     if module_root not in sys.path:
@@ -94,8 +100,14 @@ def release_artifacts(dist: Path, version: str, channel: str = "stable") -> list
     from turboism_release.channels import require_version
     require_version(version, channel)
     from turboism_release.artifact_layout import product_primary, DEVELOPER_PRIMARY
+    product_patterns = product_primary(dist, version)
+    if not include_installer:
+        # Pre-signing candidate builds skip the NSIS installer until the signing job packages receipts.
+        product_patterns = tuple(
+            pattern for pattern in product_patterns if not pattern.startswith("TurboismInstaller-")
+        )
     primary = [dist / name.format(version=version)
-               for name in (*product_primary(dist, version), *DEVELOPER_PRIMARY)]
+               for name in (*product_patterns, *DEVELOPER_PRIMARY)]
     return sorted(primary + [path.with_name(path.name + ".sha256") for path in primary])
 
 
@@ -146,8 +158,10 @@ def verify(
     release_plugins: Path | None = None,
     windows_stage: Path | None = None,
     channel: str = "stable",
+    *,
+    include_installer: bool = True,
 ) -> None:
-    expected = release_artifacts(dist, version, channel)
+    expected = release_artifacts(dist, version, channel, include_installer=include_installer)
     expected_names = {path.name for path in expected}
     entries = list(dist.iterdir())
     unsafe = [path for path in entries if path.is_symlink() or not path.is_file()]
@@ -216,11 +230,13 @@ def artifact_manifest(
     release_plugins: Path | None = None,
     windows_stage: Path | None = None,
     channel: str = "stable",
+    *,
+    include_installer: bool = True,
 ) -> dict:
     """Return a deterministic manifest without writing into the release dist."""
-    verify(dist, version, release_plugins, windows_stage, channel)
+    verify(dist, version, release_plugins, windows_stage, channel, include_installer=include_installer)
     artifacts = []
-    for path in release_artifacts(dist, version, channel):
+    for path in release_artifacts(dist, version, channel, include_installer=include_installer):
         suffix = ".sha256" if path.name.endswith(".sha256") else path.suffix.lower()
         media_type = {
             ".zip": "application/zip",
@@ -272,6 +288,10 @@ def main() -> None:
         "--manifest-output", type=Path,
         help="optional output outside dist for a deterministic framework artifact manifest",
     )
+    parser.add_argument(
+        "--skip-installer", action="store_true",
+        help="verify only the pre-signing ZIP and developer JARs without the NSIS installer",
+    )
     args = parser.parse_args()
     try:
         resolved = args.dist.resolve(), args.version, args.release_plugins.resolve()
@@ -281,6 +301,7 @@ def main() -> None:
             resolved[2],
             args.windows_stage.resolve() if args.windows_stage is not None else None,
             args.channel,
+            include_installer=not args.skip_installer,
         )
         if args.manifest_output is not None:
             write_manifest(args.manifest_output, document)

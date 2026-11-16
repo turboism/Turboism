@@ -56,7 +56,10 @@ export function r2Adapters(bucket,pending){
  };
  const objects={
   async verifySource(sha,size){
-   const object=await bucket.get(INCOMING+objectKey(sha));
+   const key=objectKey(sha);
+   // Reuse already-admitted immutable objects in R2 without re-streaming staged bytes.
+   if(hasVerifiedBytes(await bucket.head(FINAL+key),{size,sha256:sha}))return;
+   const object=await bucket.get(INCOMING+key);
    demand(object&&object.size===size&&await streamSha256(object.body)===sha,'Staged object content mismatch');
   },
   async verifyStored(sha,size){demand(hasVerifiedBytes(await bucket.head(FINAL+objectKey(sha)),{size,sha256:sha}),'Stored object content mismatch');},
