@@ -1141,8 +1141,9 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     }
 
     /**
-     * 渲染 action 回调：注入分区（B）按钮 actionId 命中 {@code actionOwners} 时路由到
-     * 贡献者 pluginId；未命中（面板自身 A 按钮）回落 {@code defaultPluginId}（面板 owner）。
+     * Renders the action callback. An injected section (B) button actionId that hits
+     * {@code actionOwners} routes to the contributing pluginId; a miss, which is the panel's own A
+     * button, falls back to {@code defaultPluginId}, the panel owner.
      */
     static BiConsumer<String, Optional<UiActionEvent>> routedAction(
             final EditorUiActionRouter router, final Map<String, String> actionOwners, final String defaultPluginId) {

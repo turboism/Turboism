@@ -19,7 +19,7 @@ class CollapsibleSectionI18nTest {
         }
     }
 
-    /** 展开态断言 collapse 标签，点击热区收起后断言 expand 标签，再点击恢复。 */
+    /** Asserts the collapse label while expanded, the expand label after a hotspot click, then the restore. */
     private static void assertToggleLabels(Locale locale, String collapse, String expand) {
         withLocale(locale, () -> {
             JPanel content = SwingPanelTestSupport.newContent();

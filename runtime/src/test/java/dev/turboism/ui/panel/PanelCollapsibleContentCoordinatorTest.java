@@ -219,7 +219,7 @@ class PanelCollapsibleContentCoordinatorTest {
         assertFalse(coordinator.isRegistered(PANEL));
         assertEquals(1, coordinator.injectedSections(PANEL).size());
 
-        // 重建后再次注册：同一 sectionId 的注入仍恰好一份。
+        // A registration after a rebuild still leaves exactly one injection for the same sectionId.
         coordinator.onPanelRegistered(PANEL);
         assertEquals(1, coordinator.injectedSections(PANEL).size());
     }
@@ -233,7 +233,7 @@ class PanelCollapsibleContentCoordinatorTest {
 
         Registration second = coordinator.register("plugin-a", section(PANEL, "s1", 0, "two"));
         assertEquals(1, coordinator.injectedSections(PANEL).size());
-        // 旧句柄再次 close 不得移除新注册的条目。
+        // A second close of the old handle must not remove the newly registered entry.
         first.close();
         assertEquals(1, coordinator.injectedSections(PANEL).size());
         second.close();
@@ -340,14 +340,14 @@ class PanelCollapsibleContentCoordinatorTest {
 
         JComponent rendered = SwingPanelViewRenderer.render(coordinator.merge(PANEL, content), (id, event) -> {});
 
-        // A 分区（声明位置）在前，B 注入分区按 order 升序追加在后。
+        // The A section keeps its declared position first, and the B sections follow in ascending order.
         List<JPanel> sections = sectionPanels(rendered);
         assertEquals(3, sections.size());
         assertTrue(findLabel(sections.get(0).getComponent(0), "A-only") != null);
         assertTrue(findLabel(sections.get(1).getComponent(0), "B-one") != null);
         assertTrue(findLabel(sections.get(2).getComponent(0), "B-two") != null);
 
-        // 注入分区是真实可折叠分区：点击热区翻转，i18n 标签（Locale.CHINESE → 收起/展开）。
+        // An injected section is a real collapsible section: the hotspot click toggles it and the i18n labels apply (Locale.CHINESE).
         JPanel injected = sections.get(1);
         assertTrue(CollapsibleSection.isExpanded(injected));
         assertEquals("收起", SwingPanelTestSupport.borderOf(injected).actionText());

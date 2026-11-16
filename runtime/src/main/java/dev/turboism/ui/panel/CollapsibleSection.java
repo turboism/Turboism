@@ -23,21 +23,21 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 
 /**
- * 可折叠分区控件，忠实移植自 legacy
- * {@code tool/agent/ui/CubismEmbeddedPanel}（buildCollapsibleSection +
- * CollapsibleTitledBorder）。行为与外观与 legacy 完全一致：标题行右上角为
- * 可点击的 收起/展开 热区。
+ * Collapsible section control, ported faithfully from the legacy
+ * {@code tool/agent/ui/CubismEmbeddedPanel} (buildCollapsibleSection +
+ * CollapsibleTitledBorder). Behavior and appearance match the legacy control
+ * exactly: the title row holds a clickable collapse/expand hotspot at the top right.
  */
 public final class CollapsibleSection {
 
     private CollapsibleSection() {}
 
     /**
-     * 构造一个带标题、可点击收起/展开的分区面板。
+     * Builds a titled section panel with a clickable collapse/expand hotspot.
      *
-     * @param title             分区标题
-     * @param content           分区内容面板（会被设为透明并加顶部 2px 内边距）
-     * @param expandedByDefault 初始是否展开
+     * @param title             section title
+     * @param content           section content panel, made transparent with a 2px top inset
+     * @param expandedByDefault whether the section starts expanded
      */
     public static JPanel create(String title, JPanel content, boolean expandedByDefault) {
         return create(title, content, expandedByDefault, dev.turboism.i18n.CubismHostLocale.resolve());
@@ -89,10 +89,11 @@ public final class CollapsibleSection {
     }
 
     /**
-     * 包可见：展开/收起本组件 {@link #create} 产出的分区面板（复用内部切换逻辑）。
+     * Package-private: expands or collapses a section panel produced by {@link #create}, reusing the
+     * internal toggle.
      *
-     * @param section  必须是本组件 create 的产物
-     * @param expanded 目标展开状态
+     * @param section  a panel produced by this class
+     * @param expanded the target expanded state
      */
     static void setExpanded(JPanel section, boolean expanded) {
         JPanel content = (JPanel) section.getComponent(0);
@@ -101,16 +102,18 @@ public final class CollapsibleSection {
     }
 
     /**
-     * 包可见：分区面板当前是否展开（取 content 可见性）。
+     * Package-private: reports whether a section panel is currently expanded, read from the content
+     * visibility.
      *
-     * @param section 必须是本组件 create 的产物
+     * @param section a panel produced by this class
      */
     static boolean isExpanded(JPanel section) {
         return ((JPanel) section.getComponent(0)).isVisible();
     }
 
     /**
-     * 从 bundle 取 key 对应文案；key 缺失时回退 legacy 原值。
+     * Reads the text of one key from the bundle, falling back to the legacy value when the key is
+     * missing.
      */
     private static String tr(ResourceBundle bundle, String key, String fallback) {
         try {
@@ -138,8 +141,8 @@ public final class CollapsibleSection {
     }
 
     /**
-     * 包可见（同包测试可直接访问）。委托 TitledBorder 画标题，并在右上角
-     * 绘制 actionText 热区。
+     * Package-private, so a same-package test reads it directly. Delegates the title painting to
+     * TitledBorder and draws the actionText hotspot at the top right.
      */
     static final class CollapsibleTitledBorder extends AbstractBorder {
         private final TitledBorder delegate;

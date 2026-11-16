@@ -373,12 +373,12 @@ public class InputPathElisionBridgeTest {
 
         manager.activeWindow = window;
 
-        // 1) 窗口激活后首次调用相同 Cursor 返回 false（放行刷新原生光标）
+        // 1) The first call with the same Cursor after window activation returns false, so the native cursor refresh runs.
         assertFalse(
                 cursorSlot().test(widget, packCursor),
                 "first identical cursor call after window activation must pass to refresh native cursor");
 
-        // 2) 同一激活窗口下第二次及后续调用相同 Cursor 返回 true（成功省略）
+        // 2) The second and later calls with the same Cursor in one active window return true, so the call is elided.
         assertTrue(
                 cursorSlot().test(widget, packCursor),
                 "second identical cursor call under same active window must elide");
@@ -386,7 +386,7 @@ public class InputPathElisionBridgeTest {
                 cursorSlot().test(widget, packCursor),
                 "subsequent identical cursor call under same active window must elide");
 
-        // 3) 当 manager.activeWindow 切到其他窗口或 null 再切回 window 后，首次相同 Cursor 再次返回 false 放行，第二次恢复返回 true
+        // 3) After manager.activeWindow moves to another window or null and back, the first same Cursor returns false again and the second returns true.
         manager.activeWindow = other;
         assertFalse(cursorSlot().test(widget, packCursor), "cursor call while inactive must pass");
 
@@ -401,7 +401,7 @@ public class InputPathElisionBridgeTest {
         assertFalse(cursorSlot().test(widget, packCursor), "first call after reactivation from null must pass");
         assertTrue(cursorSlot().test(widget, packCursor), "second call after reactivation from null must elide");
 
-        // 4) 跨组件切换：同一激活窗口下切换到新组件，首次放行，后续省略
+        // 4) A component switch inside one active window passes the first call and elides the later ones.
         final FakeComponent otherComponent = new FakeComponent();
         otherComponent.parentWindow = window;
         otherComponent.showing = true;
