@@ -16,10 +16,10 @@ What the check reads:
 * string literals are not scanned at all, because a host probe must match the
   localized captions a real Cubism Editor renders.
 
-``POLICY_SCOPE`` names the directories that already satisfy the policy. Add a
-directory to it once its documents are converted, so the check stays a real gate
-instead of a permanent list of known failures. ``--all`` audits the whole
-repository for planning.
+``POLICY_SCOPE`` names the directories that hold the policy. The whole repository
+already satisfies it, so the scope is the repository root and ``--all`` stays as
+an alias for the same audit. ``--paths`` narrows a run to one directory while a
+batch is being converted.
 
 Usage: check_doc_language.py [--root PATH] [--paths PATH ...] [--all] [--report] [--quiet]
 """
@@ -32,8 +32,9 @@ import sys
 import tokenize
 from pathlib import Path
 
-# Directories that already satisfy the English-by-default policy.
-POLICY_SCOPE = ("testing", "validation")
+# Directories that hold the English-by-default policy. The whole repository is
+# converted, so one empty entry stands for its root.
+POLICY_SCOPE = ("",)
 
 _CJK = re.compile(r"[\u3000-\u303f\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff01-\uff60\uffe0-\uffe6]")
 _DOC_SUFFIXES = frozenset({".md", ".markdown", ".txt", ".rst", ".adoc"})
@@ -195,11 +196,9 @@ def scan(root: Path, seeds: list[Path]) -> list[tuple[Path, list[int]]]:
 
 
 def resolve_seeds(root: Path, arguments: argparse.Namespace) -> list[Path]:
-    """Resolve the directories to scan from the arguments, the policy scope, or the whole tree."""
+    """Resolve the directories to scan from the arguments or from the policy scope."""
     if arguments.paths:
         return [Path(path) if Path(path).is_absolute() else root / path for path in arguments.paths]
-    if arguments.all:
-        return [root]
     return [root / name for name in POLICY_SCOPE]
 
 
@@ -209,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--paths", nargs="*", default=None,
                         help="only scan these repository-relative files or directories")
     parser.add_argument("--all", action="store_true",
-                        help="audit the whole repository instead of the converted policy scope")
+                        help="audit the whole repository, which is now the default scope")
     parser.add_argument("--report", action="store_true", help="print every offending line number")
     parser.add_argument("--quiet", action="store_true", help="print nothing on success")
     arguments = parser.parse_args(argv)
@@ -240,8 +239,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"- {relative}: {detail}", file=sys.stderr)
         return 1
     if not arguments.quiet:
-        scope = ", ".join(str(seed.relative_to(root)) for seed in seeds)
-        print(f"PASS: default documentation is English under {scope}; localized products are exempt")
+        scope = ", ".join(str(seed.relative_to(root)) or "." for seed in seeds)
+        subject = "the whole repository" if seeds == [root] else scope
+        print(f"PASS: default documentation is English under {subject}; localized products are exempt")
     return 0
 
 

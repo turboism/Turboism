@@ -14,6 +14,8 @@ import sys
 import tempfile
 import unittest
 
+import argparse
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 SPEC = importlib.util.spec_from_file_location("doc_language_check", ROOT / "scripts/test/check_doc_language.py")
@@ -108,6 +110,13 @@ class RepositoryScopeTest(unittest.TestCase):
         root = CHECK.repo_root(ROOT)
         seeds = [root / name for name in CHECK.POLICY_SCOPE]
         self.assertEqual([], [relative.as_posix() for relative, _ in CHECK.scan(root, seeds)])
+
+    def test_default_run_and_all_flag_scan_the_same_root(self):
+        root = CHECK.repo_root(ROOT)
+        default = CHECK.resolve_seeds(root, argparse.Namespace(paths=None, all=False))
+        everything = CHECK.resolve_seeds(root, argparse.Namespace(paths=None, all=True))
+        self.assertEqual([root], default)
+        self.assertEqual(default, everything)
 
 
 if __name__ == "__main__":
