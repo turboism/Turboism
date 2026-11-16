@@ -31,7 +31,7 @@ import sys
 from pathlib import Path
 
 # Directories that already satisfy the English-by-default policy.
-POLICY_SCOPE = ("testing",)
+POLICY_SCOPE = ("testing", "validation")
 
 _CJK = re.compile(r"[\u3000-\u303f\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff01-\uff60\uffe0-\uffe6]")
 _DOC_SUFFIXES = frozenset({".md", ".markdown", ".txt", ".rst", ".adoc"})
