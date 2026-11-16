@@ -26,6 +26,12 @@ class HostCodeSourceTest {
 
     private static final Path ARTIFACT = Path.of("/opt/cubism/CubismSdkForJava.jar");
     private static final String SLOT_KEY = "turboism.test.slot";
+    private static final String PREDICATE_TYPE = "java/util/function/Predicate";
+    private static final String PREDICATE_TEST_METHOD = "test";
+    private static final String PREDICATE_TEST_DESCRIPTOR = "(Ljava/lang/Object;)Z";
+    private static final String FUNCTION_TYPE = "java/util/function/Function";
+    private static final String FUNCTION_APPLY_METHOD = "apply";
+    private static final String FUNCTION_APPLY_DESCRIPTOR = "(Ljava/lang/Object;)Ljava/lang/Object;";
     private static final String GET_SLOT_TRACE = "INVOKESTATIC java/lang/System getProperties ()Ljava/util/Properties;"
             + " false | LDC " + SLOT_KEY
             + " | INVOKEVIRTUAL java/util/Properties get (Ljava/lang/Object;)Ljava/lang/Object; false";
@@ -96,20 +102,37 @@ class HostCodeSourceTest {
         final RecordingVisitor visitor = new RecordingVisitor();
         SlotBridgeEmitter.emitPredicateConsult(visitor, SLOT_KEY, new Label());
         assertEquals(
-                GET_SLOT_TRACE + " | op:" + Opcodes.DUP + " | INSTANCEOF java/util/function/Predicate"
-                        + " | IFEQ | CHECKCAST java/util/function/Predicate",
+                GET_SLOT_TRACE + " | op:" + Opcodes.DUP + " | INSTANCEOF " + PREDICATE_TYPE + " | IFEQ | CHECKCAST "
+                        + PREDICATE_TYPE,
                 visitor.trace());
         assertEquals(1, visitor.jumps());
     }
 
     @Test
-    void atomicBooleanConsultReadsTheFlag() {
+    void predicateAndFunctionCallsUseTheSharedDescriptors() {
+        final RecordingVisitor test = new RecordingVisitor();
+        SlotBridgeEmitter.emitTest(test);
+        assertEquals(
+                "INVOKEINTERFACE " + PREDICATE_TYPE + " " + PREDICATE_TEST_METHOD + " " + PREDICATE_TEST_DESCRIPTOR
+                        + " true",
+                test.trace());
+
+        final RecordingVisitor apply = new RecordingVisitor();
+        SlotBridgeEmitter.emitApply(apply);
+        assertEquals(
+                "INVOKEINTERFACE " + FUNCTION_TYPE + " " + FUNCTION_APPLY_METHOD + " " + FUNCTION_APPLY_DESCRIPTOR
+                        + " true",
+                apply.trace());
+    }
+
+    @Test
+    void methodHandleConsultGuardsWithoutIssuingTheCall() {
         final RecordingVisitor visitor = new RecordingVisitor();
-        SlotBridgeEmitter.emitAtomicBooleanConsult(visitor, SLOT_KEY, new Label());
-        assertTrue(visitor.trace().startsWith(GET_SLOT_TRACE));
-        assertTrue(visitor.trace()
-                .endsWith("CHECKCAST java/util/concurrent/atomic/AtomicBoolean"
-                        + " | INVOKEVIRTUAL java/util/concurrent/atomic/AtomicBoolean get ()Z false"));
+        SlotBridgeEmitter.emitMethodHandleConsult(visitor, SLOT_KEY, new Label());
+        assertEquals(
+                GET_SLOT_TRACE + " | op:" + Opcodes.DUP
+                        + " | INSTANCEOF java/lang/invoke/MethodHandle | IFEQ | CHECKCAST java/lang/invoke/MethodHandle",
+                visitor.trace());
     }
 
     /** Minimal class with one branch so the frame writer must compute a merged frame. */
@@ -177,8 +200,16 @@ class HostCodeSourceTest {
                 final String name,
                 final String descriptor,
                 final boolean isInterface) {
-            add((opcode == Opcodes.INVOKESTATIC ? "INVOKESTATIC " : "INVOKEVIRTUAL ") + owner + " " + name + " "
-                    + descriptor + " " + isInterface);
+            add(opcodeName(opcode) + " " + owner + " " + name + " " + descriptor + " " + isInterface);
+        }
+
+        private static String opcodeName(final int opcode) {
+            return switch (opcode) {
+                case Opcodes.INVOKESTATIC -> "INVOKESTATIC";
+                case Opcodes.INVOKEINTERFACE -> "INVOKEINTERFACE";
+                case Opcodes.INVOKEVIRTUAL -> "INVOKEVIRTUAL";
+                default -> "invoke:" + opcode;
+            };
         }
     }
 }

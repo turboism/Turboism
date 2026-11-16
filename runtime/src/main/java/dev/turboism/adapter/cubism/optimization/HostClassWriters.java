@@ -23,6 +23,9 @@ public final class HostClassWriters {
     /**
      * Returns a writer that recomputes frames and maximums, resolving supertypes on {@code loader}.
      *
+     * <p>Supertype resolution degrades to {@code java/lang/Object} instead of throwing; see
+     * {@link #commonSuperClass(ClassLoader, String, String)} for why.</p>
+     *
      * @param reader reader whose constant pool the writer reuses
      * @param loader loader that supplies hierarchy metadata, or {@code null} for the runtime loader
      * @return a frame-computing writer bound to {@code loader}
@@ -45,6 +48,14 @@ public final class HostClassWriters {
      * Resolves the internal binary name of the lowest common supertype of {@code left} and
      * {@code right} on {@code loader}, falling back to {@code java/lang/Object} when optional host
      * types are absent.
+     *
+     * <p>This deliberately diverges from ASM's default {@code getCommonSuperClass}, which throws
+     * {@link TypeNotPresentException} for a type the loader cannot resolve. A weave hook runs
+     * against a partially admitted host: the class being transformed is reachable, but optional
+     * siblings it references may not be. Throwing there would abort the whole transform and leave
+     * the host unpatched, so an unresolvable pair degrades to {@code java/lang/Object} instead. The
+     * widened frame is always verifiable, and the hook's own method-shape gate has already refused
+     * any body it does not recognise before this runs.</p>
      *
      * @param loader class loader inspected for hierarchy metadata, or {@code null} for the runtime loader
      * @param left internal name of the first merged type
