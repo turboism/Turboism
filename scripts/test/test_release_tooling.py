@@ -984,6 +984,57 @@ class FrameworkUpdateToolTest(unittest.TestCase):
         self.assertFalse(any(b"PRIVATE KEY" in data for data in before.values()))
 
 
+class PreSigningVerifyTest(unittest.TestCase):
+    def test_verify_skip_installer_accepts_six_pre_signing_assets_and_rejects_installer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dist = root / "dist"
+            stage = root / "staging"
+            dist.mkdir()
+            (stage / "graal" / "lib").mkdir(parents=True)
+            roster = ROOT / "packaging/release-plugins.txt"
+            version = "0.70.0-beta.4"
+            engine_manifest = json.loads((ROOT / "packaging/windows-installer/script-engine.json").read_text(encoding="utf-8"))
+            (stage / "script-engine.json").write_text(json.dumps(engine_manifest), encoding="utf-8")
+            engine_files = []
+            for entry in engine_manifest["artifacts"]:
+                data = b"engine-" + entry["name"].encode("utf-8")
+                entry["bytes"] = len(data)
+                entry["sha256"] = hashlib.sha256(data).hexdigest()
+                engine_files.append((f"graal/lib/{entry['name']}", data))
+            (stage / "script-engine.json").write_text(json.dumps(engine_manifest), encoding="utf-8")
+            plugins = tuple(
+                line.strip().removeprefix(":plugins:")
+                for line in roster.read_text(encoding="utf-8").splitlines()
+                if line.strip() and line.strip() != ":plugins:core"
+            )
+            sdk_path = stage / "graal" / "lib" / f"sdk-{version}.jar"
+            sdk_archive(sdk_path)
+            extra = (
+                ("script-engine.json", (stage / "script-engine.json").read_bytes()),
+                ("install-script-engine.ps1", b"# ps1\n"),
+                (f"graal/lib/sdk-{version}.jar", sdk_path.read_bytes()),
+                (f"graal/lib/graal-host-{version}.jar", b"host"),
+                *engine_files,
+            )
+            archive(dist / f"turboism-{version}.zip", version, plugins=plugins, extra=extra)
+            (dist / f"turboism-sdk-{version}.jar").write_bytes(sdk_path.read_bytes())
+            event_processor_archive(dist / f"turboism-event-processor-{version}.jar")
+            for item in list(dist.iterdir()):
+                sidecar(item)
+
+            manifest = release.artifact_manifest(dist, version, roster, stage, "beta", include_installer=False)
+            self.assertEqual(len(manifest["artifacts"]), 6)
+            with self.assertRaises(ValueError):
+                release.verify(dist, version, roster, stage, "beta", include_installer=True)
+
+            exe = dist / f"TurboismInstaller-{version}.exe"
+            exe.write_bytes(b"unexpected-exe")
+            sidecar(exe)
+            with self.assertRaises(ValueError):
+                release.verify(dist, version, roster, stage, "beta", include_installer=False)
+
+
 def write_framework_java_fixture(target: Path):
     """Called by the existing Java verifier test: real Python/OpenSSL production-tool output."""
     fixture = FrameworkUpdateToolTest("test_complete_framework_payload_and_explicit_exclusions")

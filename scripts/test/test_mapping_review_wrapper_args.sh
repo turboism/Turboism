@@ -157,6 +157,24 @@ real_gradle_case() {
   local name="$1" expected="$2" kind="$3" args_path log status
   args_path="$(mktemp "${TMPDIR:-/tmp}/turboism-mapping-review-gradle.XXXXXX")"
   log="$(mktemp "${TMPDIR:-/tmp}/turboism-mapping-review-gradle-log.XXXXXX")"
+  create_args_fixture "$kind" "$args_path"
+  set +e
+  "$REPO_ROOT/gradlew" -q mappingReview --offline --no-daemon -p "$REPO_ROOT" \
+    "-Dorg.gradle.jvmargs=-Xmx1g" \
+    "-PturboismMappingReviewArgsFile=$args_path" >"$log" 2>&1
+  status=$?
+  set -e
+  [ "$status" -ne 0 ] || { cat "$log" >&2; fail "real Gradle args-file mutation unexpectedly passed: $name"; }
+  grep -qiF -- "$expected" "$log" || { cat "$log" >&2; fail "wrong real Gradle args-file failure: $name"; }
+  if grep -F -- "$args_path" "$log" >/dev/null; then
+    cat "$log" >&2; fail "real Gradle args-file failure leaked its absolute path: $name"
+  fi
+  verify_args_fixture_cleanup "$name" "$kind" "$args_path"
+  rm -f "$log"
+}
+
+create_args_fixture() {
+  local kind="$1" args_path="$2" target
   case "$kind" in
     symlink)
       target="${args_path}.target"; printf 'LS1oZWxwCg==\n' > "$target"; rm -f "$args_path"; ln -s "$target" "$args_path" ;;
@@ -192,16 +210,10 @@ PY
     crlf) printf 'YQ==\r\n' > "$args_path" ;;
     *) fail "unknown real Gradle args-file case: $kind" ;;
   esac
-  set +e
-  "$REPO_ROOT/gradlew" -q mappingReview --offline --no-daemon -p "$REPO_ROOT" \
-    "-PturboismMappingReviewArgsFile=$args_path" >"$log" 2>&1
-  status=$?
-  set -e
-  [ "$status" -ne 0 ] || { cat "$log" >&2; fail "real Gradle args-file mutation unexpectedly passed: $name"; }
-  grep -qiF -- "$expected" "$log" || { cat "$log" >&2; fail "wrong real Gradle args-file failure: $name"; }
-  if grep -F -- "$args_path" "$log" >/dev/null; then
-    cat "$log" >&2; fail "real Gradle args-file failure leaked its absolute path: $name"
-  fi
+}
+
+verify_args_fixture_cleanup() {
+  local name="$1" kind="$2" args_path="$3" target="${args_path}.target"
   case "$kind" in
     symlink)
       [ -L "$args_path" ] || fail "unowned symlink pathname was deleted"
@@ -213,20 +225,12 @@ PY
     oversize) [ -f "$args_path" ] || fail "pre-open oversized file was deleted without confirmed ownership"; rm -f "$args_path" ;;
     *) [ ! -e "$args_path" ] && [ ! -L "$args_path" ] || fail "owned regular args-file was not safely cleaned: $name" ;;
   esac
-  rm -f "$log"
 }
 
-real_gradle_case 'symlink' 'NOFOLLOW regular file' symlink
-real_gradle_case 'FIFO' 'NOFOLLOW regular file' fifo
-real_gradle_case 'empty directory' 'NOFOLLOW regular file' emptydir
-real_gradle_case 'non-empty directory' 'NOFOLLOW regular file' nonemptydir
-real_gradle_case 'file byte bound' 'byte limit' oversize
-real_gradle_case 'line count bound' 'line limit' lines
-real_gradle_case 'encoded line bound' 'encoded line limit' line
-real_gradle_case 'decoded argument bound' 'decoded byte limit' decoded
-real_gradle_case 'strict UTF-8' 'Invalid UTF-8' utf8
-real_gradle_case 'canonical Base64' 'Non-canonical Base64' canonical
-real_gradle_case 'LF-only lines' 'LF line endings' crlf
+# Exercise the real root build.gradle.kts mappingReview task wiring concurrently with the fixture run.
+root_val_log="${TEMP_ROOT}/root-mapping-review.log"
+real_gradle_case 'strict UTF-8' 'Invalid UTF-8' utf8 >"$root_val_log" 2>&1 &
+root_pid=$!
 
 RACE_FIXTURE="${TEMP_ROOT}/race-fixture"
 mkdir -p "$RACE_FIXTURE/buildSrc/src/main/java/dev/turboism/gradle/internal"
@@ -313,47 +317,123 @@ public final class MappingReviewArgsRaceBridge {
     private MappingReviewArgsRaceBridge() {
     }
 
+    public static List<String> readAndDelete(Path path) {
+        return MappingReviewArgsFile.readAndDelete(path);
+    }
+
     public static List<String> readAndDelete(Path path, Consumer<String> phaseObserver) {
         return MappingReviewArgsFile.readAndDelete(path, phaseObserver);
     }
 }
 JAVA
-printf '%s\n' 'rootProject.name = "mapping-review-args-race-fixture"' > "$RACE_FIXTURE/settings.gradle.kts"
-cat > "$RACE_FIXTURE/buildSrc/build.gradle.kts" <<'BUILDSRC_BUILD'
-plugins { `java-library` }
-dependencies { implementation(gradleApi()) }
+printf '%s\n' 'rootProject.name = "mapping-review-args-race-fixture"' > "$RACE_FIXTURE/settings.gradle"
+cat > "$RACE_FIXTURE/buildSrc/build.gradle" <<'BUILDSRC_BUILD'
+apply plugin: 'java-library'
+dependencies { implementation gradleApi() }
 BUILDSRC_BUILD
-cat > "$RACE_FIXTURE/build.gradle.kts" <<'RACE_BUILD'
+cat > "$RACE_FIXTURE/build.gradle" <<'RACE_BUILD'
 import dev.turboism.gradle.internal.MappingReviewArgsRaceBridge
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.StandardOpenOption
 
-val argsPath = providers.gradleProperty("argsPath")
-val hookDir = providers.gradleProperty("hookDir")
+def validationManifest = providers.gradleProperty('validationManifest')
+def raceManifest = providers.gradleProperty('raceManifest')
+def resultDir = providers.gradleProperty('resultDir')
 
-tasks.register("consumeArgsFileWithRaceControl") {
+tasks.register('consumeArgsCases') {
   doLast {
-    MappingReviewArgsRaceBridge.readAndDelete(file(argsPath.get()).toPath()) { phase ->
-      val directory = file(hookDir.get()).toPath()
-      Files.createDirectories(directory)
-      Files.writeString(directory.resolve(phase), "ready", StandardOpenOption.CREATE_NEW)
-      val release = directory.resolve("$phase.continue")
-      repeat(3000) {
-        if (Files.exists(release, LinkOption.NOFOLLOW_LINKS)) return@readAndDelete
-        Thread.sleep(10)
+    def outDir = file(resultDir.get()).toPath()
+    Files.createDirectories(outDir)
+    Files.readAllLines(file(validationManifest.get()).toPath()).findAll { !it.isBlank() }.each { line ->
+      def parts = line.split('\t', 2)
+      def id = parts[0]
+      def argsFile = file(parts[1]).toPath()
+      try {
+        MappingReviewArgsRaceBridge.readAndDelete(argsFile)
+        Files.writeString(outDir.resolve("val-${id}.status"), '0')
+        Files.writeString(outDir.resolve("val-${id}.log"), '')
+      } catch (Throwable failure) {
+        Files.writeString(outDir.resolve("val-${id}.status"), '1')
+        Files.writeString(outDir.resolve("val-${id}.log"), failure.message ?: failure.toString())
       }
-      throw GradleException("Mapping review argument fixture hook timed out.")
+    }
+    Files.readAllLines(file(raceManifest.get()).toPath()).findAll { !it.isBlank() }.each { line ->
+      def parts = line.split('\t', 3)
+      def id = parts[0]
+      def argsFile = file(parts[1]).toPath()
+      def hookDir = file(parts[2]).toPath()
+      try {
+        MappingReviewArgsRaceBridge.readAndDelete(argsFile) { phase ->
+          Files.createDirectories(hookDir)
+          Files.writeString(hookDir.resolve(phase), 'ready', StandardOpenOption.CREATE_NEW)
+          def release = hookDir.resolve("${phase}.continue")
+          for (int i = 0; i < 3000; i++) {
+            if (Files.exists(release, LinkOption.NOFOLLOW_LINKS)) return
+            Thread.sleep(10)
+          }
+          throw new GradleException('Mapping review argument fixture hook timed out.')
+        }
+        Files.writeString(outDir.resolve("race-${id}.status"), '0')
+        Files.writeString(outDir.resolve("race-${id}.log"), '')
+      } catch (Throwable failure) {
+        Files.writeString(outDir.resolve("race-${id}.status"), '1')
+        Files.writeString(outDir.resolve("race-${id}.log"), failure.message ?: failure.toString())
+      }
     }
   }
 }
 RACE_BUILD
 
-race_gradle_case() {
-  local name="$1" phase="$2" expected="$3" mutation="$4" expect_status="$5" args_path hook_dir log pid status
+FIXTURE_STATE="${TEMP_ROOT}/fixture-state"
+mkdir -p "$FIXTURE_STATE/results"
+validation_manifest="$FIXTURE_STATE/validation-manifest.tsv"
+race_manifest="$FIXTURE_STATE/race-manifest.tsv"
+: > "$validation_manifest"
+: > "$race_manifest"
+
+val_names=()
+val_kinds=()
+val_expecteds=()
+val_paths=()
+
+register_validation_case() {
+  local name="$1" expected="$2" kind="$3" idx args_path
+  idx="${#val_names[@]}"
+  args_path="$(mktemp "${TMPDIR:-/tmp}/turboism-mapping-review-val.XXXXXX")"
+  create_args_fixture "$kind" "$args_path"
+  val_names+=("$name")
+  val_kinds+=("$kind")
+  val_expecteds+=("$expected")
+  val_paths+=("$args_path")
+  printf '%s\t%s\n' "$idx" "$args_path" >> "$validation_manifest"
+}
+
+register_validation_case 'symlink' 'NOFOLLOW regular file' symlink
+register_validation_case 'FIFO' 'NOFOLLOW regular file' fifo
+register_validation_case 'empty directory' 'NOFOLLOW regular file' emptydir
+register_validation_case 'non-empty directory' 'NOFOLLOW regular file' nonemptydir
+register_validation_case 'file byte bound' 'byte limit' oversize
+register_validation_case 'line count bound' 'line limit' lines
+register_validation_case 'encoded line bound' 'encoded line limit' line
+register_validation_case 'decoded argument bound' 'decoded byte limit' decoded
+register_validation_case 'strict UTF-8' 'Invalid UTF-8' utf8
+register_validation_case 'canonical Base64' 'Non-canonical Base64' canonical
+register_validation_case 'LF-only lines' 'LF line endings' crlf
+
+race_names=()
+race_phases=()
+race_expecteds=()
+race_mutations=()
+race_expect_statuses=()
+race_paths=()
+race_hooks=()
+
+register_race_case() {
+  local name="$1" phase="$2" expected="$3" mutation="$4" expect_status="$5" idx args_path hook_dir
+  idx="${#race_names[@]}"
   args_path="$(mktemp "${TMPDIR:-/tmp}/turboism-mapping-review-race.XXXXXX")"
   hook_dir="$(mktemp -d "${TMPDIR:-/tmp}/turboism-mapping-review-hooks.XXXXXX")"
-  log="$(mktemp "${TMPDIR:-/tmp}/turboism-mapping-review-race-log.XXXXXX")"
   printf 'LS1oZWxw\n' > "$args_path"
   case "$phase" in
     checked-before-open) : ;;
@@ -363,15 +443,43 @@ race_gradle_case() {
       : > "$hook_dir/opened.continue"
       : > "$hook_dir/before-cleanup.continue" ;;
   esac
-  "$REPO_ROOT/gradlew" -q consumeArgsFileWithRaceControl --offline --no-daemon -p "$RACE_FIXTURE" \
-    "-PargsPath=$args_path" "-PhookDir=$hook_dir" >"$log" 2>&1 &
-  pid=$!
+  race_names+=("$name")
+  race_phases+=("$phase")
+  race_expecteds+=("$expected")
+  race_mutations+=("$mutation")
+  race_expect_statuses+=("$expect_status")
+  race_paths+=("$args_path")
+  race_hooks+=("$hook_dir")
+  printf '%s\t%s\t%s\n' "$idx" "$args_path" "$hook_dir" >> "$race_manifest"
+}
+
+register_race_case 'check/open symlink replacement' checked-before-open 'identity changed while opening' symlink fail
+register_race_case 'same-size pathname replacement' opened 'changed during bounded read' same-size fail
+register_race_case 'read-time growth' opened 'exceeds the byte limit while reading' grow fail
+register_race_case 'cleanup competitor replacement' cleanup-identity-confirmed '' same-size pass
+
+fixture_gradle_log="$FIXTURE_STATE/gradle.log"
+"$REPO_ROOT/gradlew" -q consumeArgsCases --offline --no-daemon -p "$RACE_FIXTURE" \
+  "-Dorg.gradle.jvmargs=-Xmx1g" \
+  "-PvalidationManifest=$validation_manifest" \
+  "-PraceManifest=$race_manifest" \
+  "-PresultDir=$FIXTURE_STATE/results" >"$fixture_gradle_log" 2>&1 &
+pid=$!
+
+race_replacements=()
+for idx in "${!race_names[@]}"; do
+  name="${race_names[$idx]}"
+  phase="${race_phases[$idx]}"
+  mutation="${race_mutations[$idx]}"
+  args_path="${race_paths[$idx]}"
+  hook_dir="${race_hooks[$idx]}"
   for _ in $(seq 1 3000); do
     [ -e "$hook_dir/$phase" ] && break
     kill -0 "$pid" 2>/dev/null || break
     sleep 0.01
   done
-  [ -e "$hook_dir/$phase" ] || { cat "$log" >&2; kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fail "race hook was not reached: $name"; }
+  [ -e "$hook_dir/$phase" ] || { cat "$fixture_gradle_log" >&2; kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fail "race hook was not reached: $name"; }
+  replacement=""
   case "$mutation" in
     symlink)
       replacement="${args_path}.replacement"; printf 'LS1oZWxw\n' > "$replacement"; rm -f "$args_path"; ln -s "$replacement" "$args_path" ;;
@@ -385,9 +493,39 @@ with Path(sys.argv[1]).open('ab') as f:
 PY
       ;;
   esac
+  race_replacements+=("$replacement")
   : > "$hook_dir/$phase.continue"
   if [ "$phase" = opened ]; then : > "$hook_dir/before-cleanup.continue"; fi
-  set +e; wait "$pid"; status=$?; set -e
+done
+
+wait "$pid" || { cat "$fixture_gradle_log" >&2; fail "combined fixture Gradle run failed unexpectedly"; }
+wait "$root_pid" || { cat "$root_val_log" >&2; fail "root mappingReview check failed"; }
+
+for idx in "${!val_names[@]}"; do
+  name="${val_names[$idx]}"
+  kind="${val_kinds[$idx]}"
+  expected="${val_expecteds[$idx]}"
+  args_path="${val_paths[$idx]}"
+  status="$(< "$FIXTURE_STATE/results/val-$idx.status")"
+  log="$FIXTURE_STATE/results/val-$idx.log"
+  [ "$status" -ne 0 ] || { cat "$log" >&2; fail "args-file mutation unexpectedly passed: $name"; }
+  grep -qiF -- "$expected" "$log" || { cat "$log" >&2; fail "wrong args-file failure: $name"; }
+  if grep -F -- "$args_path" "$log" >/dev/null; then
+    cat "$log" >&2; fail "args-file failure leaked its absolute path: $name"
+  fi
+  verify_args_fixture_cleanup "$name" "$kind" "$args_path"
+done
+
+for idx in "${!race_names[@]}"; do
+  name="${race_names[$idx]}"
+  expected="${race_expecteds[$idx]}"
+  mutation="${race_mutations[$idx]}"
+  expect_status="${race_expect_statuses[$idx]}"
+  args_path="${race_paths[$idx]}"
+  hook_dir="${race_hooks[$idx]}"
+  replacement="${race_replacements[$idx]}"
+  status="$(< "$FIXTURE_STATE/results/race-$idx.status")"
+  log="$FIXTURE_STATE/results/race-$idx.log"
   if [ "$expect_status" = fail ]; then
     [ "$status" -ne 0 ] || fail "race mutation unexpectedly passed: $name"
     grep -qiF -- "$expected" "$log" || { cat "$log" >&2; fail "wrong race failure: $name"; }
@@ -400,13 +538,8 @@ PY
     same-size) [ -f "$args_path" ] || fail "same-size race replacement was deleted"; rm -f "$args_path" ;;
     grow) rm -f "$args_path" ;;
   esac
-  rm -rf "$hook_dir" "$log"
-}
-
-race_gradle_case 'check/open symlink replacement' checked-before-open 'identity changed while opening' symlink fail
-race_gradle_case 'same-size pathname replacement' opened 'changed during bounded read' same-size fail
-race_gradle_case 'read-time growth' opened 'exceeds the byte limit while reading' grow fail
-race_gradle_case 'cleanup competitor replacement' cleanup-identity-confirmed '' same-size pass
+  rm -rf "$hook_dir"
+done
 
 if command -v base64 >/dev/null 2>&1; then
   PATH="/usr/bin:/bin"

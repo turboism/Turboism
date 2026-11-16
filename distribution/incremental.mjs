@@ -6,7 +6,21 @@
 import {compareVersions} from './protocol.mjs';
 import layout from '../packaging/framework-update-layout.json' with {type:'json'};
 const encoder=new TextEncoder(),decoder=new TextDecoder('utf-8',{fatal:true});
+const R2_OBJECT_CONCURRENCY=6;
 const hex=bytes=>Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');
+async function mapPool(items,limit,worker){
+ const list=[...items];if(!list.length)return [];
+ const results=new Array(list.length);let next=0,firstError=null;
+ await Promise.all(Array.from({length:Math.min(limit,list.length)},async()=>{
+  while(!firstError){
+   const index=next++;if(index>=list.length)return;
+   try{results[index]=await worker(list[index],index);}
+   catch(err){if(!firstError)firstError=err;}
+  }
+ }));
+ if(firstError)throw firstError;
+ return results;
+}
 export function canonical(value){
  if(Array.isArray(value))return '['+value.map(canonical).join(',')+']';
  if(value&&typeof value==='object')return '{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}';
@@ -84,10 +98,11 @@ async function verifySnapshot(candidate,expected,trustedKeys,read,signal,objectC
  demand(layout.frameworkRootFiles.every(n=>names.has(n.toLowerCase()))&&names.has(`graal/lib/sdk-${manifest.version}.jar`)&&[...names].filter(n=>new RegExp('^graal/lib/graal-host-'+manifest.version.replaceAll('.', '\\.')+'(?:-[A-Za-z0-9._-]+)?\\.jar$').test(n)).length===1,'Incomplete framework payload');
  const closure=[...objects].sort(([a],[b])=>a.localeCompare(b)).map(([sha256,bytes])=>({sha256,bytes}));
  demand(await digest(encoder.encode(canonical(closure)))===candidate.objectsSha256,'Closure mismatch');
- for(const object of closure){
-  if(objectCheck){active(signal);await objectCheck(object.sha256,object.bytes,signal);}
+ await mapPool(closure,R2_OBJECT_CONCURRENCY,async object=>{
+  active(signal);
+  if(objectCheck)await objectCheck(object.sha256,object.bytes,signal);
   else await checkedRead(read,`objects/${object.sha256}/payload`,object.bytes,object.sha256,signal);
- }
+ });
  active(signal);return {manifestBytes,envelopeBytes,closure};
 }
 /** Adapter callbacks receive only verified bytes. Channel CAS is the sole visibility step.
@@ -134,17 +149,18 @@ export async function admitIncremental(candidate,expected,trustedKeys,source,sto
  }
  // With `objects`, the adapter streams each payload from source into storage (digest-checked
  // by the storage layer) and independently re-verifies the stored copy.
- for(const o of verified.closure){
+ await mapPool(verified.closure,R2_OBJECT_CONCURRENCY,async o=>{
   active(signal);
-  if(objects){await objects.copy(o.sha256,o.bytes,signal);continue;}
+  if(objects){await objects.copy(o.sha256,o.bytes,signal);return;}
   const key=`objects/${o.sha256}/payload`;
   const bytes=await checkedRead(source,key,o.bytes,o.sha256,signal);await install(key,bytes);
- }
+ });
  // Independently read back every object before registering either signed document.
- for(const o of verified.closure){
-  if(objects){active(signal);await objects.verifyStored(o.sha256,o.bytes,signal);}
+ await mapPool(verified.closure,R2_OBJECT_CONCURRENCY,async o=>{
+  active(signal);
+  if(objects)await objects.verifyStored(o.sha256,o.bytes,signal);
   else await checkedRead((k,max)=>store.read(k,max),`objects/${o.sha256}/payload`,o.bytes,o.sha256,signal);
- }
+ });
  await install(`documents/${candidate.manifest.sha256}`,verified.manifestBytes);
  await install(`documents/${candidate.envelope.sha256}`,verified.envelopeBytes);
  // Globally allocated builds and product versions are immutable identities too.

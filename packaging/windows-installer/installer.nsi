@@ -61,7 +61,8 @@ Icon "${ICON_FILE}"
 UninstallIcon "${ICON_FILE}"
 InstallDir "$LOCALAPPDATA\Turboism"
 RequestExecutionLevel user
-SetCompressor /SOLID lzma
+; /SOLID zlib compresses already-DEFLATEd JAR payloads ~10x faster than /SOLID lzma.
+SetCompressor /SOLID zlib
 
 ; NSIS dialog units derive their pixel size from this font. Raising the stock
 ; 8-point wizard font to 12 points scales both the main window and every native
