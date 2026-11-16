@@ -20,6 +20,7 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 - 物理演算プレビューで `:plugins:physics-editor` 内での GIF およびアニメーション PNG 書き出し、一時停止／再開／破棄、ショートカット、サイズ・Gifsicle 最適化（既定 20 MB）、出力フォルダー記憶、ステータスバー通知に対応しました。
 - `deformer-batch-rename` に読み込み進捗ダイアログと単一パス索引を追加。3D プリセット読み込みは選択とプレビューを 1 ウィンドウに統合し、同梱テクスチャの論理面を色・番号分けしました。
 - ACP 入力欄に言語カタログ由来のランダムなローカル例文プレースホルダー、Paseo 風 Todo・TPS ピルと詳細ポップオーバー、折りたたみ可能なツール詳細、対話型 Q&A ダイアログ、DeepSeek Harness 対応、セッション内ツール許可記憶、自動許可モード、ローカル時刻表示を追加しました。
+- Cubism 5.0.00–5.3.04 全体で検証された 9 つの JFR ベースホットパス最適化（Live2D コミュニティ #4556 のフリーズを修正する `extendedInterpolationSiblingElision`、`warpGridInterpolation`、`warpNormalPointElision`、`cameraMatrixCache`、`renderPassTraversal`、`meshHitTest`、`sceneHandlerCache`、`cursorValidationElision`、`parameterRowRepaint`）を追加し、設定最上部の折りたたみ式ホットパスセクションと `#4556` 参照リンクへ永続化。さらに全 35 スイッチと双方向同期する最適化プリセット（`オフ`、`バランス`、`高負荷編集`、`カスタム`）を追加しました。
 
 ### 変更
 

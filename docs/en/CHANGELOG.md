@@ -20,6 +20,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Physics Settings preview recording supports GIF and in-process animated PNG export in `:plugins:physics-editor` with pause/resume/discard controls, shortcuts, size/Gifsicle optimization, persistent export folder, and host status bar feedback.
 - `deformer-batch-rename` adds a read progress dialog and single-pass naming index; 3D preset import combines chooser and live preview in one window with color/number-coded logical faces.
 - ACP composer adds random localized example placeholders from the plugin catalog, Paseo-style task progress (Todo) and turn-speed (TPS) pills with popovers, collapsible tool details, an interactive Q&A dialog, DeepSeek Harness support, session-scoped tool approvals, auto-approve mode, and local message timestamps.
+- Added 9 JFR-verified hot-path bytecode weaves across Cubism 5.0.00–5.3.04 (`extendedInterpolationSiblingElision` fixing the Live2D Community #4556 freeze, `warpGridInterpolation`, `warpNormalPointElision`, `cameraMatrixCache`, `renderPassTraversal`, `meshHitTest`, `sceneHandlerCache`, `cursorValidationElision`, and `parameterRowRepaint`), persisted under a top collapsible Hot-Path section with a clickable `#4556` reference link and derived `OptimizationPreset` profiles (`Off`, `Balanced`, `Heavy Editing`, `Custom`) synchronized with all 35 toggles.
 
 ### Changed
 

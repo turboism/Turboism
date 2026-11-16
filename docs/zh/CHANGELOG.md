@@ -20,6 +20,7 @@ Turboism 的所有重要变更都记录在本文件中。
 - 物理模拟预览支持在 `:plugins:physics-editor` 内录制 GIF 与进程内动画 PNG，提供暂停/继续/放弃、快捷键、缩放与 Gifsicle 目标体积优化（默认 20 MB）、持久化导出目录及状态栏完成提示。
 - `deformer-batch-rename` 新增读取进度框与单遍命名索引；3D 预设导入将选择与实时预览合并至同一窗口，内置纹理按逻辑面着色并编号。
 - ACP 输入区支持按语言目录随机展示本地化示例占位符、Paseo 风格任务进度（Todo）与生成速度（TPS）胶囊及详情浮层、可折叠工具详情、交互式问答对话框、DeepSeek Harness 支持、会话内工具授权记忆、自动允许模式以及本地消息时间戳。
+- 新增 9 项经 JFR 实测验证并覆盖 Cubism 5.0.00–5.3.04 的热点字节码优化（`extendedInterpolationSiblingElision` 修复 Live2D 社区 #4556 卡顿、`warpGridInterpolation`、`warpNormalPointElision`、`cameraMatrixCache`、`renderPassTraversal`、`meshHitTest`、`sceneHandlerCache`、`cursorValidationElision` 与 `parameterRowRepaint`），全部持久化至性能设置顶部可折叠“热点路径”分组并附可点击的 `#4556` 参考链接，同时新增与全部 35 项开关双向同步的性能优化预设（`关闭`、`均衡`、`重度编辑`、`自定义`）。
 
 ### 变更
 
