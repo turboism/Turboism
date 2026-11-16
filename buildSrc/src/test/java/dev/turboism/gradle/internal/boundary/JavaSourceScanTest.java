@@ -51,6 +51,41 @@ class JavaSourceScanTest {
                 root + "ui/Fixture.java", List.of(policy))).size());
     }
 
+    /**
+     * The composition layer reaches host classes only through an adapter type, so both host families
+     * are forbidden there while the runtime rules keep their Cubism-only scope.
+     */
+    @Test
+    void forbidsEveryHostLiteralInTheCompositionLayer() {
+        String bootstrap = "bootstrap/src/main/java/dev/turboism/bootstrap/Fixture.java";
+        assertEquals(
+                List.of("Forbidden bootstrap host-package literal in " + bootstrap + ":1"
+                        + ": name the class through a :runtime adapter type"),
+                JavaSourceScan.hostPackageLiterals(new JavaSourceScan.SourceFile(
+                        bootstrap, List.of("class Fixture { String owner = \"com.live2d.fixture.Host\"; }"))));
+        assertEquals(
+                1,
+                JavaSourceScan.hostPackageLiterals(new JavaSourceScan.SourceFile(
+                                bootstrap, List.of("class Fixture { String owner = \"com/live2d/fixture/Host\"; }")))
+                        .size());
+        assertEquals(
+                1,
+                JavaSourceScan.hostPackageLiterals(new JavaSourceScan.SourceFile(
+                                bootstrap, List.of("class Fixture { String owner = \"com.jogamp.opengl.GL3\"; }")))
+                        .size());
+        assertEquals(
+                1,
+                JavaSourceScan.hostPackageLiterals(new JavaSourceScan.SourceFile(
+                                bootstrap, List.of("class Fixture { String owner = \"com/jogamp/opengl/GL3\"; }")))
+                        .size());
+        assertTrue(JavaSourceScan.hostPackageLiterals(new JavaSourceScan.SourceFile(
+                        bootstrap, List.of("// com.live2d.fixture.Host", "/* \"com/jogamp/opengl/GL3\" */")))
+                .isEmpty());
+        assertTrue(JavaSourceScan.hostPackageLiterals(
+                        new JavaSourceScan.SourceFile(bootstrap, List.of("class Fixture { int size = 3; }")))
+                .isEmpty());
+    }
+
     @Test
     void reportsAForbiddenImport() {
         assertEquals(

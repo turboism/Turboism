@@ -1,7 +1,7 @@
 package dev.turboism.bootstrap;
 
 /**
- * A verified installer that a {@link DeclarativeHook} entry names directly, so a hook family needs
+ * A verified installer that a {@link DeclarativeHooks.DeclarativeHook} entry names directly, so a hook family needs
  * no hand-written {@link HookContributor} class per install.
  *
  * <p>The installer keeps everything it already owned: its reviewed contract table, its

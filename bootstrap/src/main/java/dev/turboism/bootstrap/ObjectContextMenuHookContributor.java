@@ -1,5 +1,7 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.profile.ObjectContextMenuHostProfile;
+import dev.turboism.adapter.cubism.profile.ParameterPointContextMenuHostProfile;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.ui.context.NativeObjectContextMenuBridge;
@@ -58,7 +60,12 @@ final class ObjectContextMenuHookContributor implements HookContributor {
             handles.add(NativeParameterPointContextMenuBridge.install(parameterPointHandler));
 
             final VerifiedObjectContextMenuHookInstaller installer = new VerifiedObjectContextMenuHookInstaller(
-                    environment.instrumentation(), profile.bindings(), host.classLoader(), environment.loadedClasses());
+                    environment.instrumentation(),
+                    profile.bindings().stream()
+                            .map(VerifiedObjectContextMenuHookInstaller.Binding::of)
+                            .toList(),
+                    host.classLoader(),
+                    environment.loadedClasses());
             installer.install();
             handles.add(installer);
 

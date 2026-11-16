@@ -1,7 +1,7 @@
 package dev.turboism.bootstrap;
 
 /**
- * The contributor the agent synthesizes for one {@link DeclarativeHook} entry, so a declarative hook
+ * The contributor the agent synthesizes for one {@link DeclarativeHooks.DeclarativeHook} entry, so a declarative hook
  * runs through the same install, bind, report and cleanup protocol as a hand-written contributor.
  *
  * <p>Only {@link #installAdmitted} differs from the hand-written family it replaces: the persisted
@@ -12,9 +12,9 @@ package dev.turboism.bootstrap;
  */
 final class DeclarativeHookContributor extends NativeOptimizationHookContributor {
 
-    private final DeclarativeHook entry;
+    private final DeclarativeHooks.DeclarativeHook entry;
 
-    private DeclarativeHookContributor(final DeclarativeHook entry) {
+    private DeclarativeHookContributor(final DeclarativeHooks.DeclarativeHook entry) {
         super(entry.reportId(), entry.hookId());
         this.entry = entry;
     }
@@ -23,7 +23,7 @@ final class DeclarativeHookContributor extends NativeOptimizationHookContributor
      * @param entry a declared entry
      * @return the contributor that installs it
      */
-    static DeclarativeHookContributor of(final DeclarativeHook entry) {
+    static DeclarativeHookContributor of(final DeclarativeHooks.DeclarativeHook entry) {
         return new DeclarativeHookContributor(entry);
     }
 

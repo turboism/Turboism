@@ -16,7 +16,7 @@ import java.util.Optional;
 /**
  * Installs and restores the verified AWT cursor-validation and pointer-bounds elision weave.
  */
-final class VerifiedCursorValidationElisionInstaller implements AutoCloseable {
+final class VerifiedCursorValidationElisionInstaller implements VerifiedHookInstaller {
 
     static final String HOOK_ID = "cubism.input.cursor-validation-elision";
 
@@ -96,7 +96,17 @@ final class VerifiedCursorValidationElisionInstaller implements AutoCloseable {
         return Files.readAllBytes(FileSystems.getFileSystem(JRT_ROOT_URI).getPath(path));
     }
 
-    synchronized void install() throws Exception {
+    @Override
+    public boolean admits(final InstallContext context) {
+        try {
+            return admitted(context.artifact(), context.policy(), true, context.jvmFeature());
+        } catch (final java.io.IOException unreadable) {
+            return false;
+        }
+    }
+
+    @Override
+    public synchronized void install() throws Exception {
         if (hook != null) return;
         if (!(VerifiedInstall.install(spec(), context)
                 instanceof VerifiedInstall.Attempt.Installed<CursorValidationElisionTarget> installed)) {

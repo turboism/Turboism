@@ -90,15 +90,16 @@ final class HookManifestTest {
                         InspectorPropertyBypassHookContributor.class,
                         // Skipped-frame sorting-info reuse and indexed GMeshContainer lookup.
                         SortingInfoCacheHookContributor.class,
-                        CursorValidationElisionHookContributor.class,
-                        SceneHandlerCacheHookContributor.class,
-                        CameraMatrixCacheHookContributor.class,
-                        WarpNormalPointElisionHookContributor.class,
-                        WarpGridInterpolationHookContributor.class,
-                        ParameterRowRepaintHookContributor.class,
-                        MeshHitTestHookContributor.class,
-                        RenderPassTraversalHookContributor.class,
-                        ExtendedInterpolationSiblingHookContributor.class),
+                        // Declarative hot-path family: one token per install.
+                        DeclarativeHookContributor.class,
+                        DeclarativeHookContributor.class,
+                        DeclarativeHookContributor.class,
+                        DeclarativeHookContributor.class,
+                        DeclarativeHookContributor.class,
+                        DeclarativeHookContributor.class,
+                        DeclarativeHookContributor.class,
+                        DeclarativeHookContributor.class,
+                        DeclarativeHookContributor.class),
                 contributors.stream().map(HookContributor::getClass).toList());
     }
 
@@ -110,10 +111,14 @@ final class HookManifestTest {
                         .map(DeclarativeHookContributor.class::cast)
                         .toList();
         assertEquals(
-                DeclarativeHooks.all().stream().map(DeclarativeHook::reportId).toList(),
+                DeclarativeHooks.all().stream()
+                        .map(DeclarativeHooks.DeclarativeHook::reportId)
+                        .toList(),
                 declarative.stream().map(DeclarativeHookContributor::id).toList());
         assertEquals(
-                DeclarativeHooks.all().stream().map(DeclarativeHook::hookId).toList(),
+                DeclarativeHooks.all().stream()
+                        .map(DeclarativeHooks.DeclarativeHook::hookId)
+                        .toList(),
                 declarative.stream().map(DeclarativeHookContributor::policyId).toList());
         for (final DeclarativeHookContributor contributor : declarative) {
             assertEquals(HookContributor.Phase.HOST_RESOLVED, contributor.phase(), contributor.id());
@@ -140,7 +145,9 @@ final class HookManifestTest {
                 .map(HookContributor::id)
                 .collect(Collectors.toSet());
         assertEquals(
-                DeclarativeHooks.all().stream().map(DeclarativeHook::reportId).collect(Collectors.toSet()),
+                DeclarativeHooks.all().stream()
+                        .map(DeclarativeHooks.DeclarativeHook::reportId)
+                        .collect(Collectors.toSet()),
                 manifestIdentities,
                 "the registry and the packaged manifest must declare the same entries");
     }
@@ -151,7 +158,7 @@ final class HookManifestTest {
      */
     @Test
     void everyDeclaredEntryServesADeclaredOptimization() {
-        for (final DeclarativeHook entry : DeclarativeHooks.all()) {
+        for (final DeclarativeHooks.DeclarativeHook entry : DeclarativeHooks.all()) {
             assertTrue(
                     dev.turboism.config.optimization.OptimizationCatalog.byProtocol(entry.reportId())
                             .isPresent(),
@@ -165,7 +172,7 @@ final class HookManifestTest {
      */
     @Test
     void everyDeclaredEntryExposesAHookIdItsCatalogueRowDeclares() {
-        for (final DeclarativeHook entry : DeclarativeHooks.all()) {
+        for (final DeclarativeHooks.DeclarativeHook entry : DeclarativeHooks.all()) {
             final var row = dev.turboism.config.optimization.OptimizationCatalog.byProtocol(entry.reportId())
                     .orElseThrow();
             assertTrue(
@@ -233,7 +240,7 @@ final class HookManifestTest {
      */
     @Test
     void twoContributorsWithOneHookIdentityAreRefused() {
-        final DeclarativeHook declared = DeclarativeHooks.all().get(0);
+        final DeclarativeHooks.DeclarativeHook declared = DeclarativeHooks.all().get(0);
         final HookManifest.HookManifestException failure = assertThrows(
                 HookManifest.HookManifestException.class,
                 () -> HookManifest.requireDistinctIdentities(List.of(

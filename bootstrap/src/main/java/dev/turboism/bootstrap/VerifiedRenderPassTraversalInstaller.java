@@ -1,13 +1,12 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.HostMemberVerifier;
 import dev.turboism.adapter.cubism.optimization.renderpass.RenderPassTraversalBridge;
 import dev.turboism.adapter.cubism.optimization.renderpass.RenderPassTraversalTarget;
 import dev.turboism.adapter.cubism.optimization.renderpass.RenderPassTraversalTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.io.IOException;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -15,7 +14,7 @@ import java.util.Optional;
 /**
  * Installs and restores the verified render-pass traversal and draw-label allocation weave.
  */
-final class VerifiedRenderPassTraversalInstaller implements AutoCloseable {
+final class VerifiedRenderPassTraversalInstaller implements VerifiedHookInstaller {
 
     static final String HOOK_ID = "cubism.render.render-pass-traversal";
 
@@ -28,11 +27,6 @@ final class VerifiedRenderPassTraversalInstaller implements AutoCloseable {
     private static final String FEATURE_NAME = "render pass traversal";
     private static final String SITES_PREFIX = "sites=";
     private static final String REFUSED_MESSAGE = "render pass traversal refused: host-not-supported-or-hook-disabled";
-    private static final String METHOD_SEPARATOR = ".";
-    private static final String SHADER_DEFAULT_METHOD = "a";
-    private static final String SHADER_DEFAULT_DESC_PREFIX = "(L";
-    private static final String SHADER_DEFAULT_DESC_SUFFIX =
-            ";Lcom/jogamp/opengl/GL;Ljava/lang/String;ZILjava/lang/Object;)I";
 
     static final WeaveSpec<RenderPassTraversalTarget> SPEC = new WeaveSpec<>(
             ADMISSION,
@@ -72,12 +66,10 @@ final class VerifiedRenderPassTraversalInstaller implements AutoCloseable {
         source.load(RenderPassTraversalTarget.CARRAY_LIST_OWNER);
         source.load(RenderPassTraversalTarget.SORTING_INFO_OWNER);
         final Class<?> shaderHelper = source.load(target.shaderHelperOwner());
-        verifyMethodPresent(
-                shaderHelper,
-                SHADER_DEFAULT_METHOD,
-                SHADER_DEFAULT_DESC_PREFIX + target.shaderHelperOwner() + SHADER_DEFAULT_DESC_SUFFIX);
+        HostMemberVerifier.requireMethod(
+                shaderHelper, RenderPassTraversalTarget.SHADER_DEFAULT_METHOD, target.shaderDefaultDescriptor());
         for (final RenderPassTraversalTarget.Dep dep : target.dependencies()) {
-            verifyMethodPresent(source.load(dep.owner()), dep.name(), dep.descriptor());
+            HostMemberVerifier.requireMethod(source.load(dep.owner()), dep.name(), dep.descriptor());
         }
         final RenderPassTraversalTransformer transformer = new RenderPassTraversalTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(renderSystem), target);
@@ -93,30 +85,17 @@ final class VerifiedRenderPassTraversalInstaller implements AutoCloseable {
         return actual == expected ? null : SITES_PREFIX + actual;
     }
 
-    private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)
-            throws NoSuchMethodException {
-        if (matchesAnyMethod(owner.getMethods(), name, descriptor)
-                || matchesAnyMethod(owner.getDeclaredMethods(), name, descriptor)) {
-            return;
+    @Override
+    public boolean admits(final InstallContext context) {
+        try {
+            return admitted(context.artifact(), context.policy(), true, context.jvmFeature());
+        } catch (final java.io.IOException unreadable) {
+            return false;
         }
-        throw new NoSuchMethodException(owner.getName() + METHOD_SEPARATOR + name + descriptor);
     }
 
-    private static boolean matchesAnyMethod(final Method[] methods, final String name, final String descriptor) {
-        for (final Method method : methods) {
-            if (!method.getName().equals(name)) {
-                continue;
-            }
-            final String actual = MethodType.methodType(method.getReturnType(), method.getParameterTypes())
-                    .descriptorString();
-            if (actual.equals(descriptor)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    synchronized void install() throws Exception {
+    @Override
+    public synchronized void install() throws Exception {
         if (hook != null) {
             return;
         }

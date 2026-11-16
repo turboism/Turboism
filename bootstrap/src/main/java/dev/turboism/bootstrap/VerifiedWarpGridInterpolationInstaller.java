@@ -1,13 +1,12 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.HostMemberVerifier;
 import dev.turboism.adapter.cubism.optimization.warpgrid.WarpGridInterpolationBridge;
 import dev.turboism.adapter.cubism.optimization.warpgrid.WarpGridInterpolationTarget;
 import dev.turboism.adapter.cubism.optimization.warpgrid.WarpGridInterpolationTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.io.IOException;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -15,7 +14,7 @@ import java.util.Optional;
 /**
  * Exact-host admission, bridge binding, and verified restoration for warp grid interpolation.
  */
-final class VerifiedWarpGridInterpolationInstaller implements AutoCloseable {
+final class VerifiedWarpGridInterpolationInstaller implements VerifiedHookInstaller {
 
     static final String HOOK_ID = "cubism.deformer.warp-grid-interpolation";
 
@@ -69,7 +68,7 @@ final class VerifiedWarpGridInterpolationInstaller implements AutoCloseable {
             final Class<?> depOwner = source.load(dep.owner());
             VerifiedHookInstallerSupport.attestClassSource(
                     depOwner, source.loader(), source.artifact(), DEP_SOURCE_MISMATCH);
-            verifyMethodPresent(depOwner, dep.name(), dep.descriptor());
+            HostMemberVerifier.requireMethod(depOwner, dep.name(), dep.descriptor());
         }
         final WarpGridInterpolationTransformer transformer = new WarpGridInterpolationTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(owner), target);
@@ -77,22 +76,17 @@ final class VerifiedWarpGridInterpolationInstaller implements AutoCloseable {
                 WeaveTarget.single(owner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
-    private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)
-            throws NoSuchMethodException {
-        for (final Method method : owner.getMethods()) {
-            if (!method.getName().equals(name)) {
-                continue;
-            }
-            final String desc = MethodType.methodType(method.getReturnType(), method.getParameterTypes())
-                    .descriptorString();
-            if (desc.equals(descriptor)) {
-                return;
-            }
+    @Override
+    public boolean admits(final InstallContext context) {
+        try {
+            return admitted(context.artifact(), context.policy(), true);
+        } catch (final java.io.IOException unreadable) {
+            return false;
         }
-        throw new NoSuchMethodException(owner.getName() + "." + name + descriptor);
     }
 
-    synchronized void install() throws Exception {
+    @Override
+    public synchronized void install() throws Exception {
         if (hook != null) {
             return;
         }

@@ -4,9 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.cubism.profile.ContextMenuBindingSpec;
+import dev.turboism.adapter.cubism.profile.ObjectContextMenuHostProfile;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import java.io.InputStream;
 import java.lang.instrument.ClassFileTransformer;
 import java.net.URL;
@@ -97,8 +98,8 @@ class ObjectContextMenuHostProfileTest {
                     final JarFile jarFile = new JarFile(jarPath.toFile())) {
                 final ObjectContextMenuHostProfile profile =
                         ObjectContextMenuHostProfile.forReviewedVersion(version).orElseThrow();
-                for (final VerifiedObjectContextMenuHookInstaller.Binding binding : profile.bindings()) {
-                    final String owner = binding.operation().ownerInternalName();
+                for (final ContextMenuBindingSpec binding : profile.bindings()) {
+                    final String owner = binding.operationOwner();
                     final JarEntry entry = jarFile.getJarEntry(owner + ".class");
                     assertNotNull(entry, "Missing class entry: " + owner + " in " + version);
                     final byte[] classBytes;
@@ -106,7 +107,8 @@ class ObjectContextMenuHostProfileTest {
                         classBytes = in.readAllBytes();
                     }
 
-                    final ClassFileTransformer transformer = binding.transformer(loader);
+                    final ClassFileTransformer transformer = VerifiedObjectContextMenuHookInstaller.Binding.of(binding)
+                            .transformer(loader);
                     final byte[] transformedBytes = transformer.transform(null, loader, owner, null, null, classBytes);
                     assertNotNull(
                             transformedBytes,
@@ -125,24 +127,24 @@ class ObjectContextMenuHostProfileTest {
             final int partsAppends,
             final int workspaceAppends,
             final List<Integer> injectionPoints) {
-        final List<VerifiedObjectContextMenuHookInstaller.Binding> bindings = profile.bindings();
+        final List<ContextMenuBindingSpec> bindings = profile.bindings();
         assertEquals(
-                List.of(Location.DEFORMER_TAB, Location.PARAMETER_TAB, Location.PART_TAB, Location.WORKSPACE_OBJECT),
-                bindings.stream()
-                        .map(VerifiedObjectContextMenuHookInstaller.Binding::location)
-                        .toList());
+                List.of(
+                        ContextMenuBindingSpec.Location.DEFORMER_TAB,
+                        ContextMenuBindingSpec.Location.PARAMETER_TAB,
+                        ContextMenuBindingSpec.Location.PART_TAB,
+                        ContextMenuBindingSpec.Location.WORKSPACE_OBJECT),
+                bindings.stream().map(ContextMenuBindingSpec::location).toList());
         assertEquals(11, bindings.get(0).expectedAppendPoints());
-        assertEquals(parameterOwner, bindings.get(1).operation().ownerInternalName());
+        assertEquals(parameterOwner, bindings.get(1).operationOwner());
         assertEquals(parameterAppends, bindings.get(1).expectedAppendPoints());
-        assertEquals("c", bindings.get(1).append().memberName());
-        assertEquals(partsOwner, bindings.get(2).operation().ownerInternalName());
+        assertEquals("c", bindings.get(1).appendMethod());
+        assertEquals(partsOwner, bindings.get(2).operationOwner());
         assertEquals(partsAppends, bindings.get(2).expectedAppendPoints());
         assertEquals(workspaceAppends, bindings.get(3).expectedAppendPoints());
         assertEquals(
                 injectionPoints,
-                bindings.stream()
-                        .map(VerifiedObjectContextMenuHookInstaller.Binding::injectionPoint)
-                        .toList());
+                bindings.stream().map(ContextMenuBindingSpec::injectionPoint).toList());
         assertEquals(
                 List.of(List.of(2, 3), List.of(2), List.of(5), List.of(1)),
                 bindings.stream()

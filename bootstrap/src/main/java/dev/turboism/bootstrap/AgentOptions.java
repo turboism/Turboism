@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.mapping.verification.CubismHostEntry;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -21,7 +22,7 @@ record AgentOptions(
         String performanceProbeRunId,
         Path performanceProbeRollbackOutput) {
 
-    private static final String DEFAULT_HOST_CLASS = "com.live2d.cubism.CEAppCtrl";
+    private static final String DEFAULT_HOST_CLASS = CubismHostEntry.CLASS_NAME;
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(90);
     private static final Pattern SHA256_PATTERN = Pattern.compile("[0-9a-f]{64}");
     private static final Pattern RUN_ID_PATTERN = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,127}");

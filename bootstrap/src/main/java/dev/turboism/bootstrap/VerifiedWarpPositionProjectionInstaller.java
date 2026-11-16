@@ -3,6 +3,7 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionBridge;
+import dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionTarget;
 import dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import java.lang.invoke.MethodType;
@@ -36,19 +37,15 @@ final class VerifiedWarpPositionProjectionInstaller implements VerifiedHookInsta
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES = ReviewedHostContract.candidates(
             WarpPositionProjectionTransformer.reviewedClassSha256(), version -> HOOK_ID);
 
-    private static final String FORM_OWNER = "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm";
-    private static final String VECTOR_OWNER = "com/live2d/graphics3d/type/GVector2";
-    private static final String REFS_OWNER = "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef";
-    private static final String HELPER_OWNER = "com/live2d/graphics3d/type/f";
-
     static final WeaveSpec<ReviewedHostContract.Bound<String>> SPEC = new WeaveSpec<ReviewedHostContract.Bound<String>>(
             ADMISSION,
             "warp position projection",
             VerifiedWarpPositionProjectionInstaller::resolve,
             new WeavePlan<>(VerifiedWarpPositionProjectionInstaller::targets, WeavePlan.PostCheck.NONE),
             (contract, context) -> {
-                final WarpPositionProjectionBridge bridge =
-                        new WarpPositionProjectionBridge(load(context, FORM_OWNER), load(context, VECTOR_OWNER));
+                final WarpPositionProjectionBridge bridge = new WarpPositionProjectionBridge(
+                        load(context, WarpPositionProjectionTarget.FORM_OWNER),
+                        load(context, WarpPositionProjectionTarget.VECTOR_OWNER));
                 return BridgeLayer.of(bridge::install, bridge);
             },
             WeaveEffects.none());
@@ -80,10 +77,14 @@ final class VerifiedWarpPositionProjectionInstaller implements VerifiedHookInsta
         final Class<?> target = source.load(WarpPositionProjectionTransformer.TARGET);
         final WarpPositionProjectionTransformer transformer = new WarpPositionProjectionTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(target));
-        final Class<?> form = Class.forName(FORM_OWNER.replace('/', '.'), false, source.loader());
-        final Class<?> vector = Class.forName(VECTOR_OWNER.replace('/', '.'), false, source.loader());
-        final Class<?> refs = Class.forName(REFS_OWNER.replace('/', '.'), false, source.loader());
-        final Class<?> helper = Class.forName(HELPER_OWNER.replace('/', '.'), false, source.loader());
+        final Class<?> form =
+                Class.forName(WarpPositionProjectionTarget.FORM_OWNER.replace('/', '.'), false, source.loader());
+        final Class<?> vector =
+                Class.forName(WarpPositionProjectionTarget.VECTOR_OWNER.replace('/', '.'), false, source.loader());
+        final Class<?> refs =
+                Class.forName(WarpPositionProjectionTarget.REFS_OWNER.replace('/', '.'), false, source.loader());
+        final Class<?> helper =
+                Class.forName(WarpPositionProjectionTarget.HELPER_OWNER.replace('/', '.'), false, source.loader());
         final Map<Class<?>, byte[]> observed = new HashMap<>();
         for (final Method method : new Method[] {
             form.getMethod("getPositions"),

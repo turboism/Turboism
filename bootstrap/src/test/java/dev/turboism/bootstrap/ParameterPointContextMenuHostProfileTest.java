@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.cubism.profile.ParameterPointContextMenuHostProfile;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.ui.context.ParameterPointContextMenuNativeMethodTransformer;

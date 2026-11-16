@@ -23,8 +23,11 @@ public final class JavaSourceScan {
 
     private static final String RUNTIME_MAIN = "runtime/src/main/";
     private static final String RUNTIME_JAVA = RUNTIME_MAIN + "java/dev/turboism/";
+    private static final String BOOTSTRAP_JAVA = "bootstrap/src/main/java/";
     private static final String HOST_DOTTED_PREFIX = "com.live2d";
     private static final String HOST_RESOURCE_PREFIX = "com/live2d";
+    private static final String JOGL_DOTTED_PREFIX = "com.jogamp";
+    private static final String JOGL_RESOURCE_PREFIX = "com/jogamp";
     private static final Pattern JAVA_LITERAL = Pattern.compile(
             "//[^\\r\\n]*|/\\*[\\s\\S]*?\\*/|'(?:\\\\.|[^'\\\\])*'|"
                     + "(\"\"\"[\\s\\S]*?\"\"\"|\"(?:\\\\.|[^\"\\\\])*\")");
@@ -33,9 +36,19 @@ public final class JavaSourceScan {
             "CUBISM_RESOURCE_PREFIX",
             "com/live2d/"));
 
-    /** Rejects host lookup knowledge outside adapter, mapping and selector-contract packages. */
+    /**
+     * Rejects host lookup knowledge outside adapter, mapping and selector-contract packages, and
+     * outside the runtime module entirely for the composition layer.
+     *
+     * <p>The composition layer may reach host classes only through an adapter type, so a host or JOGL
+     * class name in a bootstrap source means the layering broke. The runtime rules keep their existing
+     * Cubism-only scope: JOGL is an ordinary dependency of the render adapters.</p>
+     */
     public static List<String> hostPackageLiterals(SourceFile file) {
         String path = file.relativePath().replace('\\', '/');
+        if (path.startsWith(BOOTSTRAP_JAVA)) {
+            return bootstrapHostLiterals(file, path);
+        }
         if (!path.startsWith(RUNTIME_MAIN)
                 || path.startsWith(RUNTIME_JAVA + "adapter/")
                 || path.startsWith(RUNTIME_JAVA + "mapping/")
@@ -65,6 +78,30 @@ public final class JavaSourceScan {
             }
         }
         return violations;
+    }
+
+    /** Rejects every host and JOGL class name a bootstrap source states. */
+    private static List<String> bootstrapHostLiterals(final SourceFile file, final String path) {
+        String source = String.join("\n", file.lines());
+        Matcher tokens = JAVA_LITERAL.matcher(source);
+        List<String> violations = new ArrayList<>();
+        while (tokens.find()) {
+            String literal = tokens.group(1);
+            if (literal == null || !namesHostClass(literal)) {
+                continue;
+            }
+            long line = source.substring(0, tokens.start()).chars().filter(c -> c == '\n').count() + 1;
+            violations.add("Forbidden bootstrap host-package literal in " + path + ":" + line
+                    + ": name the class through a :runtime adapter type");
+        }
+        return violations;
+    }
+
+    private static boolean namesHostClass(final String literal) {
+        return literal.contains(HOST_DOTTED_PREFIX)
+                || literal.contains(HOST_RESOURCE_PREFIX)
+                || literal.contains(JOGL_DOTTED_PREFIX)
+                || literal.contains(JOGL_RESOURCE_PREFIX);
     }
 
     private record HostPolicyConstant(String path, String name, String value) {}

@@ -3,6 +3,7 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchBridge;
+import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchTarget;
 import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import java.lang.instrument.ClassFileTransformer;
@@ -46,8 +47,8 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     static final int EXPECTED_OWNERS = 1;
 
     private static final String FEATURE_NAME = "matrix scratch";
-    private static final String PRODUCT_CLASS = "com.live2d.graphics3d.type.a";
-    private static final String PRODUCT_METHOD = "a";
+    private static final String PRODUCT_CLASS = MatrixScratchTarget.PRODUCT_OWNER.replace('/', '.');
+    private static final String PRODUCT_METHOD = MatrixScratchTarget.PRODUCT_METHOD;
     private static final String GET_LOCAL_TO_PARENT = "getLocalToParentMatrix";
     private static final String GET_ENTITY = "getEntity";
     private static final String GET_PARENT_ENTITY = "getParentEntity";

@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.profile.ContextMenuBindingSpec;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
@@ -133,6 +134,48 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
 
         static Binding returnPoint(final StaticSelector operation, final Location location) {
             return new Binding(operation, null, location, Shape.RETURN_POINT, 0, 0, new int[0]);
+        }
+
+        /**
+         * Adapts one reviewed profile binding to the transformer-facing form.
+         *
+         * <p>The profile names host classes and cardinalities; this record adds the exact selectors
+         * the transformers consume, so the profile stays free of selector construction.</p>
+         *
+         * @param spec the reviewed binding
+         * @return the binding the transformers install
+         */
+        static Binding of(final ContextMenuBindingSpec spec) {
+            final StaticSelector operation = StaticSelector.method(
+                    "object-context-menu." + spec.location(),
+                    spec.operationOwner(),
+                    spec.operationMethod(),
+                    spec.operationDescriptor(),
+                    0);
+            if (spec.shape() == ContextMenuBindingSpec.Shape.RETURN_POINT) {
+                return returnPoint(operation, locationOf(spec.location()));
+            }
+            return appendPoint(
+                    operation,
+                    StaticSelector.method(
+                            "object-context-menu." + spec.location() + ".append",
+                            spec.appendOwner(),
+                            spec.appendMethod(),
+                            spec.appendDescriptor(),
+                            0),
+                    locationOf(spec.location()),
+                    spec.expectedAppendPoints(),
+                    spec.injectionPoint(),
+                    spec.sourceLocals());
+        }
+
+        private static Location locationOf(final ContextMenuBindingSpec.Location location) {
+            return switch (location) {
+                case DEFORMER_TAB -> Location.DEFORMER_TAB;
+                case PARAMETER_TAB -> Location.PARAMETER_TAB;
+                case PART_TAB -> Location.PART_TAB;
+                case WORKSPACE_OBJECT -> Location.WORKSPACE_OBJECT;
+            };
         }
 
         static Binding appendPoint(
