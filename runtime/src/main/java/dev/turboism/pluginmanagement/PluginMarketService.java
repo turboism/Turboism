@@ -121,7 +121,7 @@ public final class PluginMarketService implements AutoCloseable {
     private final RuntimePluginManagementService managementService;
     private final Supplier<Optional<String>> cubismVersionSupplier;
     private final PluginVersion turboismApiVersion;
-    private final FrameworkBuildInfo.Channel frameworkChannel;
+    private volatile Supplier<FrameworkBuildInfo.Channel> frameworkChannelSupplier;
     private final Consumer<String> logSink;
     private final ExecutorService marketExecutor;
     private final BlockingQueue<Runnable> taskQueue;
@@ -152,7 +152,8 @@ public final class PluginMarketService implements AutoCloseable {
                 managementService,
                 cubismVersionSupplier,
                 turboismApiVersion,
-                FrameworkBuildInfo.current().channel(),
+                () -> dev.turboism.update.UpdatePreferencesStore.effectiveFrameworkChannel(
+                        home, FrameworkBuildInfo.current().channel()),
                 logSink,
                 DEFAULT_QUEUE_CAPACITY);
     }
@@ -177,9 +178,10 @@ public final class PluginMarketService implements AutoCloseable {
                 managementService,
                 cubismVersionSupplier,
                 turboismApiVersion,
-                frameworkChannel,
+                () -> Objects.requireNonNull(frameworkChannel, "frameworkChannel"),
                 logSink,
                 DEFAULT_QUEUE_CAPACITY);
+        Objects.requireNonNull(frameworkChannel, "frameworkChannel");
     }
 
     PluginMarketService(
@@ -194,6 +196,33 @@ public final class PluginMarketService implements AutoCloseable {
             final FrameworkBuildInfo.Channel frameworkChannel,
             final Consumer<String> logSink,
             final int queueCapacity) {
+        this(
+                home,
+                client,
+                verifier,
+                stateStore,
+                pending,
+                managementService,
+                cubismVersionSupplier,
+                turboismApiVersion,
+                () -> Objects.requireNonNull(frameworkChannel, "frameworkChannel"),
+                logSink,
+                queueCapacity);
+        Objects.requireNonNull(frameworkChannel, "frameworkChannel");
+    }
+
+    PluginMarketService(
+            final Path home,
+            final PluginCatalogClient client,
+            final PluginCatalogVerifier verifier,
+            final PluginCatalogStateStore stateStore,
+            final PendingPluginOperations pending,
+            final RuntimePluginManagementService managementService,
+            final Supplier<Optional<String>> cubismVersionSupplier,
+            final PluginVersion turboismApiVersion,
+            final Supplier<FrameworkBuildInfo.Channel> frameworkChannelSupplier,
+            final Consumer<String> logSink,
+            final int queueCapacity) {
         this.home = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         this.pluginsDirectory = this.home.resolve("plugins");
         this.stagingPackages = this.home.resolve("state/runtime/plugin-management/packages");
@@ -204,7 +233,8 @@ public final class PluginMarketService implements AutoCloseable {
         this.managementService = Objects.requireNonNull(managementService, "managementService");
         this.cubismVersionSupplier = Objects.requireNonNull(cubismVersionSupplier, "cubismVersionSupplier");
         this.turboismApiVersion = Objects.requireNonNull(turboismApiVersion, "turboismApiVersion");
-        this.frameworkChannel = Objects.requireNonNull(frameworkChannel, "frameworkChannel");
+        this.frameworkChannelSupplier =
+                Objects.requireNonNull(frameworkChannelSupplier, "frameworkChannelSupplier");
         this.logSink = Objects.requireNonNull(logSink, "logSink");
         if (queueCapacity <= 0) {
             throw new IllegalArgumentException("queueCapacity must be positive: " + queueCapacity);
@@ -226,6 +256,15 @@ public final class PluginMarketService implements AutoCloseable {
      */
     public void bindHotReloadCoordinator(final PluginHotReloadCoordinator coordinator) {
         this.hotReloadCoordinator = coordinator;
+    }
+
+    /**
+     * Overrides the active framework channel supplier used for release filtering.
+     *
+     * @param supplier supplier returning the active framework channel
+     */
+    public void bindChannelSupplier(final Supplier<FrameworkBuildInfo.Channel> supplier) {
+        this.frameworkChannelSupplier = Objects.requireNonNull(supplier, "supplier");
     }
 
     /**
@@ -425,7 +464,9 @@ public final class PluginMarketService implements AutoCloseable {
             final List<PluginInfo> installed,
             final Map<String, PluginVersion> catalogTargets,
             final Optional<String> activeCubism) {
-        if (!PluginReleaseCompatibility.evaluate(release, turboismApiVersion, frameworkChannel, activeCubism)
+        final FrameworkBuildInfo.Channel activeChannel =
+                Objects.requireNonNull(frameworkChannelSupplier.get(), "frameworkChannel");
+        if (!PluginReleaseCompatibility.evaluate(release, turboismApiVersion, activeChannel, activeCubism)
                 .compatible()) {
             return false;
         }
@@ -440,8 +481,10 @@ public final class PluginMarketService implements AutoCloseable {
             final List<PluginInfo> installed,
             final Map<String, PluginVersion> catalogTargets,
             final Optional<String> activeCubism) {
+        final FrameworkBuildInfo.Channel activeChannel =
+                Objects.requireNonNull(frameworkChannelSupplier.get(), "frameworkChannel");
         final PluginReleaseCompatibility.Verdict environment =
-                PluginReleaseCompatibility.evaluate(release, turboismApiVersion, frameworkChannel, activeCubism);
+                PluginReleaseCompatibility.evaluate(release, turboismApiVersion, activeChannel, activeCubism);
         if (!environment.compatible()) {
             return environment.detail().orElse("Release is incompatible");
         }
@@ -459,12 +502,14 @@ public final class PluginMarketService implements AutoCloseable {
      */
     private Map<String, PluginVersion> catalogTargets(
             final PluginCatalog catalog, final Optional<String> activeCubism) {
+        final FrameworkBuildInfo.Channel activeChannel =
+                Objects.requireNonNull(frameworkChannelSupplier.get(), "frameworkChannel");
         final Map<String, PluginVersion> targets = new LinkedHashMap<>();
         for (CatalogPlugin plugin : catalog.plugins()) {
             plugin.releases().stream()
                     .filter(CatalogRelease::isActive)
                     .filter(release -> PluginReleaseCompatibility.evaluate(
-                                    release, turboismApiVersion, frameworkChannel, activeCubism)
+                                    release, turboismApiVersion, activeChannel, activeCubism)
                             .compatible())
                     .max(Comparator.comparing((CatalogRelease release) -> PluginVersion.parse(release.version())))
                     .ifPresent(release -> targets.put(plugin.id(), PluginVersion.parse(release.version())));

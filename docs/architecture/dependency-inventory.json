@@ -1049,6 +1049,10 @@
         "dev.turboism.ui"
       ],
       [
+        "dev.turboism.shell",
+        "dev.turboism.update"
+      ],
+      [
         "dev.turboism.storage",
         "dev.turboism.cleanup"
       ],

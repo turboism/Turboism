@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -195,7 +196,7 @@ public class CoordinatedPluginUpdateService {
     private final Path stagingPackages;
     private final PluginCatalogClient client;
     private final PendingPluginOperations pending;
-    private final FrameworkBuildInfo.Channel channel;
+    private final Supplier<FrameworkBuildInfo.Channel> channelSupplier;
     private final java.util.function.Supplier<Optional<String>> cubismVersion;
     private final PluginVersion currentApiVersion;
 
@@ -206,12 +207,33 @@ public class CoordinatedPluginUpdateService {
             final FrameworkBuildInfo.Channel channel,
             final java.util.function.Supplier<Optional<String>> cubismVersion,
             final PluginVersion currentApiVersion) {
+        this(home, client, pending, () -> Objects.requireNonNull(channel, "channel"), cubismVersion, currentApiVersion);
+        Objects.requireNonNull(channel, "channel");
+    }
+
+    /**
+     * Creates a coordinated plugin update service backed by a live framework channel supplier.
+     *
+     * @param home Turboism home directory
+     * @param client plugin catalog HTTP client
+     * @param pending pending plugin operations store
+     * @param channelSupplier active update channel supplier
+     * @param cubismVersion attached host Cubism version supplier
+     * @param currentApiVersion running framework API version
+     */
+    public CoordinatedPluginUpdateService(
+            final Path home,
+            final PluginCatalogClient client,
+            final PendingPluginOperations pending,
+            final Supplier<FrameworkBuildInfo.Channel> channelSupplier,
+            final java.util.function.Supplier<Optional<String>> cubismVersion,
+            final PluginVersion currentApiVersion) {
         this.home = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         this.pluginsDirectory = this.home.resolve("plugins");
         this.stagingPackages = this.home.resolve("state/runtime/plugin-management/packages");
         this.client = Objects.requireNonNull(client, "client");
         this.pending = Objects.requireNonNull(pending, "pending");
-        this.channel = Objects.requireNonNull(channel, "channel");
+        this.channelSupplier = Objects.requireNonNull(channelSupplier, "channelSupplier");
         this.cubismVersion = Objects.requireNonNull(cubismVersion, "cubismVersion");
         this.currentApiVersion = Objects.requireNonNull(currentApiVersion, "currentApiVersion");
     }
@@ -252,8 +274,9 @@ public class CoordinatedPluginUpdateService {
         }
 
         final Optional<String> activeCubism = cubismVersion.get();
+        final FrameworkBuildInfo.Channel activeChannel = Objects.requireNonNull(channelSupplier.get(), "channel");
         final PluginAutoUpdatePlanner planner =
-                new PluginAutoUpdatePlanner(channel, activeCubism, currentApiVersion, targetApiVersion);
+                new PluginAutoUpdatePlanner(activeChannel, activeCubism, currentApiVersion, targetApiVersion);
 
         final Set<String> pendingUninstalls = new HashSet<>();
         for (PendingPluginOperations.Operation op : pending.operations()) {

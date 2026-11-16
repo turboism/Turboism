@@ -1,6 +1,7 @@
 package dev.turboism.internal.core;
 
 import dev.turboism.sdk.plugin.Registration;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -22,6 +23,19 @@ public interface CoreUpdateService extends AutoCloseable {
 
     String MANUAL_CHECK_ACTION_ID = "turboism.core.update.check";
     String DOWNLOAD_ACTION_ID = "turboism.core.update.download";
+    String CHANNEL_STABLE = "stable";
+    String CHANNEL_BETA = "beta";
+    List<String> SELECTABLE_CHANNELS = List.of(CHANNEL_STABLE, CHANNEL_BETA);
+
+    /**
+     * Checks whether {@code channel} is selectable for framework updates.
+     *
+     * @param channel wire channel name
+     * @return {@code true} when the channel supports signed self-update selection
+     */
+    static boolean isSelectableChannel(final String channel) {
+        return SELECTABLE_CHANNELS.contains(channel);
+    }
 
     /** Lifecycle state of the update handoff surfaced to the shell. */
     enum Status {
@@ -147,8 +161,35 @@ public interface CoreUpdateService extends AutoCloseable {
         return CoreFrameworkUpdates.unavailable();
     }
 
-    /** The update preferences exposed to the shell: whether automatic checks may run. */
-    record Preferences(boolean automaticChecksEnabled) {}
+    /** Persisted update preferences exposed to the shell: automatic checks and target channel. */
+    record Preferences(boolean automaticChecksEnabled, Optional<String> selectedChannel) {
+        /** Validates the optional selectable update channel wire name. */
+        public Preferences {
+            selectedChannel = Objects.requireNonNull(selectedChannel, "selectedChannel");
+            if (selectedChannel.isPresent() && !isSelectableChannel(selectedChannel.get())) {
+                throw new IllegalArgumentException("unsupported update channel: " + selectedChannel.get());
+            }
+        }
+
+        /** Creates preferences without overriding any stored update channel. */
+        public Preferences(final boolean automaticChecksEnabled) {
+            this(automaticChecksEnabled, Optional.empty());
+        }
+
+        /** Creates preferences with an explicit selectable update channel. */
+        public Preferences(final boolean automaticChecksEnabled, final String updateChannel) {
+            this(automaticChecksEnabled, Optional.of(Objects.requireNonNull(updateChannel, "updateChannel")));
+        }
+
+        /**
+         * Returns the selected channel wire name, falling back to {@link #CHANNEL_STABLE}.
+         *
+         * @return {@link #CHANNEL_STABLE} or {@link #CHANNEL_BETA}
+         */
+        public String updateChannel() {
+            return selectedChannel.orElse(CHANNEL_STABLE);
+        }
+    }
 
     /** Result of a preference write; false never claims that the value was saved. */
     record PreferenceSaveResult(boolean saved, String message) {
@@ -176,7 +217,7 @@ public interface CoreUpdateService extends AutoCloseable {
     Snapshot snapshot();
 
     /**
-     * @return the persisted update preferences
+     * @return the persisted update preferences; {@code selectedChannel} is the stored override, if any
      */
     Preferences preferences();
 
@@ -205,9 +246,27 @@ public interface CoreUpdateService extends AutoCloseable {
         return preferences().automaticChecksEnabled();
     }
 
+    /**
+     * Returns the selected framework update channel wire name.
+     *
+     * @return {@link #CHANNEL_STABLE} or {@link #CHANNEL_BETA}
+     */
+    default String updateChannel() {
+        return preferences().updateChannel();
+    }
+    /**
+     * Saves the selected framework update channel while keeping automatic check preference unchanged.
+     *
+     * @param channel target channel wire name
+     * @return persistence outcome
+     */
+    default PreferenceSaveResult saveUpdateChannel(final String channel) {
+        return savePreferences(new Preferences(automaticChecksEnabled(), channel));
+    }
+
     /** Source-compatible convenience for toggling the independent preference. */
     default PreferenceSaveResult saveAutomaticChecksEnabled(final boolean enabled) {
-        return savePreferences(new Preferences(enabled));
+        return savePreferences(new Preferences(enabled, preferences().selectedChannel()));
     }
 
     /** Compatibility implementation for existing core-only tests and constructors. */
@@ -230,7 +289,7 @@ public interface CoreUpdateService extends AutoCloseable {
                 false,
                 Optional.empty(),
                 Optional.empty());
-        private static final Preferences PREFERENCES = new Preferences(true);
+        private static final Preferences PREFERENCES = new Preferences(true, CHANNEL_STABLE);
 
         private Unavailable() {}
 

@@ -381,6 +381,31 @@ final class UpdateDiscoveryParserTest {
         assertTrue(store.read().etag().isEmpty());
     }
 
+    @Test
+    void channelSwitchReadsAnotherChannelsCacheAsAnEmptyStateWithoutDiagnosingCorruption(@TempDir final Path home)
+            throws Exception {
+        final UpdateDiscovery discovery = parser.parseNode(incrementalDocument());
+        final UpdateStateStore stableStore = new UpdateStateStore(home);
+        assertTrue(stableStore
+                .save(new UpdateStateStore.State(
+                        Optional.of(Instant.parse("2026-10-01T00:00:00Z")),
+                        Optional.of(discovery),
+                        Optional.of("\"v50\"")))
+                .saved());
+        final java.util.List<String> diagnostics = new java.util.ArrayList<>();
+        final UpdateStateStore betaStore =
+                new UpdateStateStore(home, UpdateDiscovery.CHANNEL_BETA, diagnostics::add);
+        final UpdateStateStore.State betaState = betaStore.read();
+        assertEquals(Optional.of(Instant.parse("2026-10-01T00:00:00Z")), betaState.lastAutomaticAttempt());
+        assertTrue(betaState.cachedResult().isEmpty());
+        assertTrue(betaState.etag().isEmpty());
+        assertTrue(diagnostics.isEmpty(), "a channel switch is not a corrupt document: " + diagnostics);
+        assertEquals(
+                Optional.of(discovery),
+                stableStore.read().cachedResult(),
+                "reading another channel must not rewrite the stored document");
+    }
+
     private static byte[] bytes(final String value) {
         return value.getBytes(StandardCharsets.UTF_8);
     }

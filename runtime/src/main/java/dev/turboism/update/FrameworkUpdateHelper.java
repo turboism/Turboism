@@ -285,18 +285,8 @@ public final class FrameworkUpdateHelper {
                                 if (installedAuthority) {
                                     final var previous = FrameworkInstallationReceiptLoader.loadForHelper(
                                             invocation.root(), verifier);
-                                    final var context = new UpdateVerificationContext(
-                                            manifest.version(),
-                                            manifest.channel(),
-                                            manifest.buildNumber(),
-                                            manifest.sourceRevision(),
-                                            dev.turboism.core.FrameworkBuildInfo.current()
-                                                    .version(),
-                                            "windows-x64",
-                                            InstalledBuild.from(previous.loaded()),
-                                            previous.hashes(),
-                                            previous.binding(),
-                                            () -> {});
+                                    final var context = verificationContextForInstalled(
+                                            invocation.root(), manifest, previous);
                                     verifier.verify(manifestBytes, envelopeBytes, context, clock.get());
                                     final var receipt = FrameworkUpdateReceipt.prepare(
                                             invocation.root(), manifestBytes, envelopeBytes, verifier);
@@ -390,17 +380,8 @@ public final class FrameworkUpdateHelper {
                     if (installedAuthority) {
                         final var previous =
                                 FrameworkInstallationReceiptLoader.loadForHelper(invocation.root(), verifier);
-                        final var context = new UpdateVerificationContext(
-                                manifest.version(),
-                                manifest.channel(),
-                                manifest.buildNumber(),
-                                manifest.sourceRevision(),
-                                dev.turboism.core.FrameworkBuildInfo.current().version(),
-                                "windows-x64",
-                                InstalledBuild.from(previous.loaded()),
-                                previous.hashes(),
-                                previous.binding(),
-                                () -> {});
+                        final var context =
+                                verificationContextForInstalled(invocation.root(), manifest, previous);
                         verifier.verify(manifestBytes, envelopeBytes, context, clock.get());
                         final var receipt = FrameworkUpdateReceipt.prepare(
                                 invocation.root(), manifestBytes, envelopeBytes, verifier);
@@ -609,13 +590,36 @@ public final class FrameworkUpdateHelper {
             final String installed = tree.path("version").asText("");
             if (!installed.isEmpty()) {
                 final UpdateVersion current = UpdateVersion.parseInstalled(installed);
-                final UpdateVersion target = UpdateVersion.parse(manifest.version());
-                if (current != null && target.compareTo(current) <= 0) {
+                final UpdateVersion target = UpdateVersion.parseInstalled(manifest.version());
+                if (target.compareTo(current) <= 0) {
                     return "target " + manifest.version() + " is not newer than installed " + installed;
                 }
             }
         }
         return null;
+    }
+
+    /** Binds helper verification to the user's persisted update channel when explicitly configured. */
+    private static UpdateVerificationContext verificationContextForInstalled(
+            final Path root,
+            final UpdateManifest manifest,
+            final FrameworkInstallationReceiptLoader.Evidence previous) {
+        final Optional<String> preferredChannel =
+                new UpdatePreferencesStore(root).readAll().updateChannel();
+        final String expectedChannel =
+                preferredChannel.orElseGet(() -> InstalledBuild.channelFor(previous.loaded().channel()));
+        return new UpdateVerificationContext(
+                manifest.version(),
+                expectedChannel,
+                manifest.buildNumber(),
+                manifest.sourceRevision(),
+                dev.turboism.core.FrameworkBuildInfo.current().version(),
+                "windows-x64",
+                InstalledBuild.from(previous.loaded()),
+                previous.hashes(),
+                previous.binding(),
+                () -> {},
+                preferredChannel.isPresent());
     }
 
     /** Exact bytes of the new installed-build.json. Preserves the installed variant. */

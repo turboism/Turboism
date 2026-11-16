@@ -104,6 +104,8 @@ class CoreUpdateServiceTest {
     void convenienceDefaultsDelegateToCoreMethods() {
         final boolean[] saved = new boolean[1];
         final CoreUpdateService service = new CoreUpdateService() {
+            private Preferences stored = new Preferences(false);
+
             @Override
             public boolean available() {
                 return true;
@@ -116,7 +118,7 @@ class CoreUpdateServiceTest {
 
             @Override
             public Preferences preferences() {
-                return new Preferences(false);
+                return stored;
             }
 
             @Override
@@ -129,6 +131,7 @@ class CoreUpdateServiceTest {
 
             @Override
             public PreferenceSaveResult savePreferences(final Preferences preferences) {
+                stored = preferences;
                 saved[0] = preferences.automaticChecksEnabled();
                 return PreferenceSaveResult.success();
             }
@@ -143,9 +146,15 @@ class CoreUpdateServiceTest {
             public void close() {}
         };
         assertFalse(service.automaticChecksEnabled());
+        assertEquals(CoreUpdateService.CHANNEL_STABLE, service.updateChannel());
         assertTrue(service.saveAutomaticChecksEnabled(true).saved());
         assertTrue(saved[0]);
+        assertTrue(service.saveUpdateChannel(CoreUpdateService.CHANNEL_BETA).saved());
+        assertEquals(CoreUpdateService.CHANNEL_BETA, service.updateChannel());
+        assertTrue(service.automaticChecksEnabled());
         assertEquals(
                 Status.IDLE, service.manualCheck().toCompletableFuture().join().status());
+        assertThrows(IllegalArgumentException.class, () -> new Preferences(true, "nightly"));
+        assertThrows(NullPointerException.class, () -> new Preferences(true, (String) null));
     }
 }

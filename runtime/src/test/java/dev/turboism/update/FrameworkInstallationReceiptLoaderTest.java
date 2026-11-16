@@ -528,6 +528,12 @@ final class FrameworkInstallationReceiptLoaderTest {
 
     private Upgrade upgrade(final Fixture f, final String version, final long build, final char revision)
             throws Exception {
+        return upgrade(f, version, "stable", build, revision);
+    }
+
+    private Upgrade upgrade(
+            final Fixture f, final String version, final String channel, final long build, final char revision)
+            throws Exception {
         final Path stage = Files.createTempDirectory(temporary, "signed-upgrade-");
         final List<String> paths = new ArrayList<>(UpdateManifestEntry.FRAMEWORK_ROOT_FILES);
         paths.add("graal/lib/sdk-" + version + ".jar");
@@ -547,14 +553,15 @@ final class FrameworkInstallationReceiptLoaderTest {
         }
         final String source = String.valueOf(revision).repeat(40);
         final var manifest =
-                new UpdateManifest(1, "fixture", version, "stable", build, source, "0.1.0", "windows-x64", entries);
+                new UpdateManifest(1, "fixture", version, channel, build, source, "0.1.0", "windows-x64", entries);
         final byte[] bytes = manifest.toCanonicalBytes();
         final var receipt = FrameworkUpdateReceipt.prepare(f.root, bytes, f.sign(bytes), f.verifier);
+        final FrameworkBuildInfo.Channel buildChannel =
+                FrameworkBuildInfo.Channel.valueOf(channel.toUpperCase(java.util.Locale.ROOT));
         return new Upgrade(
                 receipt,
                 stage,
-                new FrameworkBuildInfo(
-                        version, FrameworkBuildInfo.Channel.STABLE, OptionalLong.of(build), source, "ci", false));
+                new FrameworkBuildInfo(version, buildChannel, OptionalLong.of(build), source, "ci", false));
     }
 
     @Test
@@ -1006,6 +1013,36 @@ final class FrameworkInstallationReceiptLoaderTest {
             live.destroyForcibly();
             assertTrue(live.waitFor(10, TimeUnit.SECONDS));
         }
+    }
+
+    @Test
+    void installedHelperRequiresChannelOptInAndAppliesForwardCrossChannelUpdate() throws Exception {
+        final Fixture f = new Fixture();
+        final var betaTarget = upgrade(f, "1.1.0-beta.1", "beta", 50, 'c');
+        final Path betaStage = helperStage(f, betaTarget);
+
+        // Without channel preference, stable installation rejects beta update.
+        assertEquals(FrameworkUpdateHelper.EXIT_REJECTED, runInstalledHelper(f, betaStage));
+        assertEquals("1.0.0", f.loader().load().loaded().version());
+
+        // Persisting beta update channel admits forward cross-channel apply and advances receipt.
+        assertTrue(new UpdatePreferencesStore(f.root)
+                .save(new dev.turboism.internal.core.CoreUpdateService.Preferences(true, "beta"))
+                .saved());
+        assertEquals(FrameworkUpdateHelper.EXIT_APPLIED, runInstalledHelper(f, betaStage));
+        f.info = betaTarget.identity();
+        assertEquals(FrameworkBuildInfo.Channel.BETA, f.loader().load().loaded().channel());
+        assertFalse(Files.exists(f.root.resolve("graal/lib/sdk-1.0.0.jar")));
+
+        // Switching back to stable admits graduation at higher build, while older builds remain rejected.
+        assertTrue(new UpdatePreferencesStore(f.root)
+                .save(new dev.turboism.internal.core.CoreUpdateService.Preferences(true, "stable"))
+                .saved());
+        final var stableTarget = upgrade(f, "1.1.0", "stable", 51, 'd');
+        final Path stableStage = helperStage(f, stableTarget);
+        assertEquals(FrameworkUpdateHelper.EXIT_APPLIED, runInstalledHelper(f, stableStage));
+        f.info = stableTarget.identity();
+        assertEquals(FrameworkBuildInfo.Channel.STABLE, f.loader().load().loaded().channel());
     }
 
     private static final class Settings implements RuntimeSettingsService {

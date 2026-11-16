@@ -723,6 +723,35 @@ class FrameworkUpdatesWindowTest {
         }
     }
 
+    @Test
+    void channelSelectorSwitchesChannelTriggersRecheckAndLocksDuringApplyPending() throws Exception {
+        try (Fixture f = new Fixture(target -> List.of(ROW))) {
+            f.planned();
+            assertEquals(2, edt(() -> f.window.channelSelector().getItemCount()));
+            assertEquals(
+                    CoreUpdateService.CHANNEL_STABLE,
+                    edt(() -> ((FrameworkUpdatesWindow.ChannelOption)
+                                    f.window.channelSelector().getSelectedItem())
+                            .id()));
+
+            edt(() -> {
+                f.window.channelSelector().setSelectedIndex(1);
+                return null;
+            });
+            await(() -> CoreUpdateService.CHANNEL_BETA.equals(f.discovery.updateChannel()));
+            assertEquals(1, f.discovery.manualChecks.get());
+            f.planned();
+
+            f.framework.state =
+                    new CoreFrameworkUpdates.Snapshot(CoreFrameworkUpdates.Phase.APPLY_PENDING, "0.44.0", 100, 100, "");
+            edt(() -> {
+                f.window.render();
+                return null;
+            });
+            assertFalse(edt(() -> f.window.channelSelector().isEnabled()));
+        }
+    }
+
     private final class StubPlugins extends CoordinatedPluginUpdateService {
         final AtomicInteger downloads = new AtomicInteger(), commits = new AtomicInteger();
         volatile boolean failDownload;
@@ -807,8 +836,10 @@ class FrameworkUpdatesWindowTest {
 
     private static final class FakeDiscovery implements CoreUpdateService {
         final CoreFrameworkUpdates framework;
+        final AtomicInteger manualChecks = new AtomicInteger();
         volatile String target = "0.44.0";
         volatile java.util.Map<String, String> notes = java.util.Map.of();
+        volatile Preferences stored = new Preferences(false, CoreUpdateService.CHANNEL_STABLE);
 
         FakeDiscovery(CoreFrameworkUpdates f) {
             framework = f;
@@ -836,14 +867,16 @@ class FrameworkUpdatesWindowTest {
         public void close() {}
 
         public Preferences preferences() {
-            return new Preferences(false);
+            return stored;
         }
 
         public CompletionStage<Snapshot> checkManual() {
+            manualChecks.incrementAndGet();
             return CompletableFuture.completedFuture(snapshot());
         }
 
         public PreferenceSaveResult savePreferences(Preferences p) {
+            stored = p;
             return PreferenceSaveResult.success();
         }
 

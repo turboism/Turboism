@@ -8,6 +8,7 @@ import dev.turboism.pluginmanagement.PluginAutoUpdateControl;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
@@ -475,10 +476,12 @@ public final class CoreShell implements ShellHandle {
             logger.warn("Update menu contribution unavailable; continuing without it");
         }
         try {
+            final UiHostCapabilityService uiHost = context.services().require(UiHostCapabilityService.class);
+            final PluginLocalization i18n = localization(context);
             context.disposableScope()
-                    .register(context.services()
-                            .require(UiHostCapabilityService.class)
-                            .contributeSettings(CoreUpdateSettingsContribution.create(localization(context), updates)));
+                    .register(uiHost.contributeSettings(CoreUpdateSettingsContribution.create(i18n, updates)));
+            context.disposableScope()
+                    .register(uiHost.contributeSettings(CoreUpdateSettingsContribution.createChannel(i18n, updates)));
         } catch (RuntimeException unavailable) {
             logger.warn("Update preference contribution unavailable; continuing without it");
         }
