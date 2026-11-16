@@ -884,6 +884,142 @@ final class RuntimeUpdateServiceTest {
         }
     }
 
+    @Test
+    void switchesChannelPersistentlyClearsOldStateAndAvoidsDowngrades(@TempDir final Path home) throws Exception {
+        final DeferredTransport stableTransport = new DeferredTransport();
+        final DeferredTransport betaTransport = new DeferredTransport();
+        final List<String> diagnostics = new ArrayList<>();
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
+        final InstalledBuild installedStable = InstalledBuild.of(
+                "0.67.4",
+                UpdateDiscovery.CHANNEL_STABLE,
+                java.util.OptionalLong.of(10L),
+                "0.67.4 (stable, Build 10)");
+        final RuntimeUpdateService service = RuntimeUpdateService.channelAware(
+                home,
+                scheduler,
+                new MutableSettings(false),
+                ch -> UpdateDiscovery.CHANNEL_BETA.equals(ch) ? betaTransport : stableTransport,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                installedStable,
+                Duration.ofDays(1),
+                Duration.ofDays(1),
+                diagnostics::add);
+        try {
+            assertEquals(CoreUpdateService.CHANNEL_STABLE, service.updateChannel());
+            final var stableCheck = service.checkManual();
+            assertTrue(stableTransport.requested.await(2, TimeUnit.SECONDS));
+            stableTransport.completeWithDocument(
+                    "{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"ready\","
+                            + "\"release\":{\"version\":\"0.67.4\",\"buildNumber\":10,\"publishedAt\":\"2026-10-01T00:00:00Z\"}}");
+            assertEquals(
+                    CoreUpdateService.Status.UP_TO_DATE,
+                    stableCheck.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+
+            // Switching to beta persists the channel, preserves plugin auto-update preference, and clears stale ETag.
+            assertTrue(new UpdatePreferencesStore(home)
+                    .saveAutomaticPluginUpdatesEnabled(false)
+                    .saved());
+            assertTrue(service.saveUpdateChannel(CoreUpdateService.CHANNEL_BETA).saved());
+            assertEquals(CoreUpdateService.CHANNEL_BETA, service.updateChannel());
+            assertFalse(new UpdatePreferencesStore(home).automaticPluginUpdatesEnabled());
+            assertTrue(new UpdateStateStore(home, UpdateDiscovery.CHANNEL_BETA, diagnostics::add)
+                    .read()
+                    .etag()
+                    .isEmpty());
+            assertFalse(diagnostics.contains("UPDATE_STATE_CORRUPT"));
+
+            final var betaCheck = service.checkManual();
+            assertTrue(betaTransport.requested.await(2, TimeUnit.SECONDS));
+            betaTransport.completeWithDocument(
+                    "{\"schemaVersion\":1,\"channel\":\"beta\",\"status\":\"ready\","
+                            + "\"release\":{\"version\":\"0.68.0-beta.1\",\"buildNumber\":12,\"publishedAt\":\"2026-10-02T00:00:00Z\"}}");
+            final CoreUpdateService.Snapshot betaSnap =
+                    betaCheck.toCompletableFuture().get(2, TimeUnit.SECONDS);
+            assertEquals(CoreUpdateService.Status.UPDATE_AVAILABLE, betaSnap.status());
+            assertEquals(Optional.of("0.68.0-beta.1"), betaSnap.availableVersion());
+
+            // Toggling automatic checks keeps the selected beta channel intact.
+            assertTrue(service.saveAutomaticChecksEnabled(false).saved());
+            assertEquals(CoreUpdateService.CHANNEL_BETA, service.updateChannel());
+        } finally {
+            service.close();
+            scheduler.shutdown();
+        }
+
+        // Restarting as the installed beta build preserves the channel preference, and switching back to an
+        // older stable build waits without advertising a downgrade until stable catches up.
+        final RuntimeScheduler scheduler2 = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
+        final InstalledBuild installedBeta = InstalledBuild.of(
+                "0.68.0-beta.1",
+                UpdateDiscovery.CHANNEL_BETA,
+                java.util.OptionalLong.of(12L),
+                "0.68.0-beta.1 (beta, Build 12)");
+        final RuntimeUpdateService restarted = RuntimeUpdateService.channelAware(
+                home,
+                scheduler2,
+                new MutableSettings(false),
+                ch -> UpdateDiscovery.CHANNEL_BETA.equals(ch) ? betaTransport : stableTransport,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                installedBeta,
+                Duration.ofDays(1),
+                Duration.ofDays(1),
+                diagnostics::add);
+        try {
+            assertEquals(CoreUpdateService.CHANNEL_BETA, restarted.updateChannel());
+            assertTrue(restarted.saveUpdateChannel(CoreUpdateService.CHANNEL_STABLE).saved());
+            final var olderStableCheck = restarted.checkManual();
+            assertTrue(stableTransport.requested.await(2, TimeUnit.SECONDS));
+            stableTransport.completeWithDocument(
+                    "{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"ready\","
+                            + "\"release\":{\"version\":\"0.67.5\",\"buildNumber\":11,\"publishedAt\":\"2026-10-03T00:00:00Z\"}}");
+            assertEquals(
+                    CoreUpdateService.Status.UP_TO_DATE,
+                    olderStableCheck.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+
+            final var caughtUpCheck = restarted.checkManual();
+            assertTrue(stableTransport.requested.await(2, TimeUnit.SECONDS));
+            stableTransport.completeWithDocument(
+                    "{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"ready\","
+                            + "\"release\":{\"version\":\"0.68.0\",\"buildNumber\":15,\"publishedAt\":\"2026-10-04T00:00:00Z\"}}");
+            final CoreUpdateService.Snapshot caughtUp =
+                    caughtUpCheck.toCompletableFuture().get(2, TimeUnit.SECONDS);
+            assertEquals(CoreUpdateService.Status.UPDATE_AVAILABLE, caughtUp.status());
+            assertEquals(Optional.of("0.68.0"), caughtUp.availableVersion());
+
+            restarted.bindFrameworkUpdates(new dev.turboism.internal.core.CoreFrameworkUpdates() {
+                @Override
+                public Snapshot snapshot() {
+                    return new Snapshot(Phase.APPLY_PENDING, "0.68.0", 10, 10, "");
+                }
+
+                @Override
+                public CompletionStage<Snapshot> download() {
+                    return CompletableFuture.completedFuture(snapshot());
+                }
+
+                @Override
+                public void cancel() {}
+
+                @Override
+                public CompletionStage<Snapshot> installOnExit() {
+                    return CompletableFuture.completedFuture(snapshot());
+                }
+
+                @Override
+                public dev.turboism.sdk.plugin.Registration subscribe(
+                        final java.util.function.Consumer<Snapshot> listener) {
+                    return () -> {};
+                }
+            });
+            assertFalse(restarted.saveUpdateChannel(CoreUpdateService.CHANNEL_BETA).saved());
+            assertEquals(CoreUpdateService.CHANNEL_STABLE, restarted.updateChannel());
+        } finally {
+            restarted.close();
+            scheduler2.shutdown();
+        }
+    }
+
     private static RuntimeUpdateService installedService(
             final Path home,
             final RuntimeScheduler scheduler,

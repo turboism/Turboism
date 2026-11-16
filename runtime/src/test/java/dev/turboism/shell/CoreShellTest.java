@@ -791,6 +791,8 @@ class CoreShellTest {
 
         assertTrue(context.uiHost().settingsContributions().stream()
                 .anyMatch(contribution -> "turboism-updates-automatic".equals(contribution.id())));
+        assertTrue(context.uiHost().settingsContributions().stream()
+                .anyMatch(contribution -> "turboism-updates-channel".equals(contribution.id())));
     }
 
     @Test

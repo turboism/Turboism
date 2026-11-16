@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /** Asynchronous product-to-UI adapter. Receipt loading and all admission IO stay off the caller's thread. */
@@ -46,7 +47,20 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
             return () -> request.downloadWith(coordinator, downloader);
         });
         capability = () -> discovery.incrementalCandidate().isPresent();
-        discoverySubscription = discovery.subscribe(s -> publish(state));
+        final AtomicReference<String> observedChannel = new AtomicReference<>(discovery.updateChannel());
+        discoverySubscription = discovery.subscribe(s -> {
+            final String activeChannel = discovery.updateChannel();
+            if (!activeChannel.equals(observedChannel.getAndSet(activeChannel))) {
+                final var current = coordinator.status().state();
+                if (current == FrameworkUpdateCoordinator.State.STAGED
+                        || current == FrameworkUpdateCoordinator.State.FAILED
+                        || current == FrameworkUpdateCoordinator.State.CANCELLED) {
+                    coordinator.reset();
+                    return;
+                }
+            }
+            publish(state);
+        });
     }
 
     RuntimeFrameworkUpdates(

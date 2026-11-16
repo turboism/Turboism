@@ -13,6 +13,7 @@ import dev.turboism.pluginmanagement.RuntimePluginManagementService;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.update.UpdatePreferencesStore;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Dimension;
@@ -30,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JEditorPane;
 import javax.swing.JLabel;
@@ -84,6 +86,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private final JEditorPane releaseNotes = new JEditorPane();
     private final JTextArea detail = new JTextArea();
     private final JProgressBar progress = new JProgressBar(0, 100);
+    private final JComboBox<ChannelOption> channelSelector;
     private final JButton cancel;
     private final JButton install;
     private final JButton check;
@@ -98,10 +101,12 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private JDialog dialog;
     private boolean subscribed;
     private boolean closed;
+    private boolean updatingChannelSelector;
     private PlanState planState = PlanState.IDLE;
     private BatchState batchState = BatchState.IDLE;
     private long planGeneration;
     private String plannedVersion = "";
+    private String plannedChannel = "";
     private String persistentDetailMessage = "";
     private DownloadJob activeJob;
     private final LongSupplier nanoTime;
@@ -116,6 +121,13 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private long notesGeneration;
     private long completedPluginBytes;
     private long completedPluginTotalBytes;
+
+    record ChannelOption(String id, String label) {
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
 
     /** Worker-owned resources, published to EDT only after preparation completes. Never reused by another batch. */
     private static final class DownloadJob {
@@ -202,7 +214,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                     runtime.homeDirectory(),
                     new PluginCatalogClient(),
                     runtime.pendingOperations(),
-                    FrameworkBuildInfo.current().channel(),
+                    () -> UpdatePreferencesStore.toFrameworkChannel(discovery.updateChannel()),
                     runtime.cubismVersionSupplier(),
                     FrameworkBuildInfo.current().apiVersion());
         } else {
@@ -222,6 +234,11 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                     if (coordinatedService != null) throw new IllegalStateException("Plugin catalog unavailable");
                     return List.of();
                 };
+        channelSelector = new JComboBox<>(new ChannelOption[] {
+            new ChannelOption(CoreUpdateService.CHANNEL_STABLE, text("updates.channel.stable")),
+            new ChannelOption(CoreUpdateService.CHANNEL_BETA, text("updates.channel.beta"))
+        });
+        channelSelector.addActionListener(e -> onChannelSelected());
         cancel = new JButton(text("updates.install.cancel"));
         install = new JButton(text("updates.install.start"));
         check = new JButton(text("updates.check"));
@@ -284,6 +301,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
             invalidateBatch();
             ++planGeneration;
             planState = PlanState.IDLE;
+            plannedChannel = discovery.updateChannel();
             notesCache.clear();
             persistentDetailMessage = "";
             discovery.checkManual().whenComplete((result, failure) -> CoreDialogs.onEdt(this::render));
@@ -292,6 +310,50 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         cancel.addActionListener(e -> cancelCoordinatedDownload());
         install.addActionListener(e -> startCoordinatedInstall());
         render();
+    }
+
+    private void onChannelSelected() {
+        if (updatingChannelSelector || closed) return;
+        final ChannelOption selected = (ChannelOption) channelSelector.getSelectedItem();
+        if (selected == null) return;
+        final String currentChannel = discovery.updateChannel();
+        if (selected.id().equals(currentChannel)) return;
+        if (batchState == BatchState.DOWNLOADING
+                || batchState == BatchState.COMMITTING
+                || pluginQueued
+                || updates.snapshot().phase() == CoreFrameworkUpdates.Phase.APPLY_PENDING) {
+            syncChannelSelector(currentChannel);
+            return;
+        }
+        invalidateBatch();
+        final CoreUpdateService.PreferenceSaveResult saved = discovery.saveUpdateChannel(selected.id());
+        if (!saved.saved()) {
+            syncChannelSelector(discovery.updateChannel());
+            persistentDetailMessage = saved.message();
+            render();
+            return;
+        }
+        ++planGeneration;
+        planState = PlanState.IDLE;
+        plannedChannel = selected.id();
+        notesCache.clear();
+        persistentDetailMessage = "";
+        discovery.checkManual().whenComplete((result, failure) -> CoreDialogs.onEdt(this::render));
+        render();
+    }
+
+    private void syncChannelSelector(final String channelId) {
+        updatingChannelSelector = true;
+        try {
+            for (int i = 0; i < channelSelector.getItemCount(); i++) {
+                if (channelSelector.getItemAt(i).id().equals(channelId)) {
+                    channelSelector.setSelectedIndex(i);
+                    return;
+                }
+            }
+        } finally {
+            updatingChannelSelector = false;
+        }
     }
 
     void show() {
@@ -306,6 +368,9 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
             if (dialog != null) {
                 final JPanel content = new JPanel(new BorderLayout(8, 8));
                 content.setBorder(javax.swing.BorderFactory.createEmptyBorder(12, 12, 12, 12));
+                final JPanel channelRow = new JPanel(new FlowLayout(FlowLayout.LEADING, 8, 0));
+                channelRow.add(new JLabel(text("updates.channel.label")));
+                channelRow.add(channelSelector);
                 final JPanel versions = new JPanel(new java.awt.GridLayout(1, 3, 8, 0));
                 versions.add(version);
                 versions.add(new JLabel("→", JLabel.CENTER));
@@ -316,7 +381,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                 headingRow.weightx = 1;
                 headingRow.fill = java.awt.GridBagConstraints.HORIZONTAL;
                 headingRow.insets = new java.awt.Insets(0, 0, 4, 0);
-                for (var component : List.of(versions, phase, progress)) heading.add(component, headingRow);
+                for (var component : List.of(channelRow, versions, phase, progress)) heading.add(component, headingRow);
                 content.add(heading, BorderLayout.NORTH);
                 final JPanel center = new JPanel(new BorderLayout(8, 8));
                 center.add(split, BorderLayout.CENTER);
@@ -340,6 +405,8 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         if (closed) return;
         final var offered = discovery.snapshot();
         final var state = updates.snapshot();
+        final String activeChannel = discovery.updateChannel();
+        syncChannelSelector(activeChannel);
         final boolean committing = batchState == BatchState.COMMITTING;
         final boolean queued = pluginQueued || state.phase() == CoreFrameworkUpdates.Phase.APPLY_PENDING;
         final boolean frameworkAvailable = offered.status() == CoreUpdateService.Status.UPDATE_AVAILABLE
@@ -353,13 +420,16 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                 && (frameworkAvailable || coordinatedService != null)) {
             if (!target.equals(plannedVersion)
                     || frameworkAvailable != plannedFrameworkAvailable
+                    || !activeChannel.equals(plannedChannel)
                     || planState == PlanState.IDLE) {
                 plannedFrameworkAvailable = frameworkAvailable;
+                plannedChannel = activeChannel;
                 startPlanning(target);
             }
         }
         final boolean busy = batchState == BatchState.DOWNLOADING;
         final boolean planned = planState == PlanState.PLANNED;
+        channelSelector.setEnabled(!busy && !committing && !queued && discovery.available());
         final String displayTarget = queued || state.phase() == CoreFrameworkUpdates.Phase.STAGED
                 ? state.version()
                 : offered.availableVersion().orElse("");
@@ -767,6 +837,10 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
 
     JButton checkButton() {
         return check;
+    }
+
+    JComboBox<ChannelOption> channelSelector() {
+        return channelSelector;
     }
 
     JTable pluginTable() {

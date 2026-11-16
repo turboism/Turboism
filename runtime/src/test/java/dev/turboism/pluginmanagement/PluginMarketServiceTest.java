@@ -1185,7 +1185,75 @@ class PluginMarketServiceTest {
                         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                         "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
                         1024L),
-                true // hotReload
-                );
+                        true // hotReload
+                        );
+    }
+
+    @Test
+    void channelSupplierSwitchSynchronizesPreviewPluginCompatibility() throws Exception {
+        final CatalogRelease previewRelease = new CatalogRelease(
+                "1.1.0",
+                PluginCatalog.CatalogRelease.CHANNEL_PREVIEW,
+                "active",
+                Instant.parse("2026-10-14T10:00:00Z"),
+                "workflow",
+                List.of("test"),
+                "[0.1.0,2.0.0)",
+                false,
+                List.of(),
+                List.of("windows-x64"),
+                List.of(),
+                List.of(),
+                "https://github.com/turboism/test/releases/tag/v1.1.0",
+                Optional.empty(),
+                new CatalogArtifact(
+                        "application/java-archive",
+                        "test-1.1.0.jar",
+                        "https://github.com/turboism/test/releases/download/v1.1.0/test-1.1.0.jar",
+                        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                        "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+                        1024L),
+                false);
+        final CatalogPlugin previewPlugin = new CatalogPlugin(
+                "dev.turboism.plugin.preview",
+                "preview",
+                "Preview Plugin",
+                "Preview",
+                "official",
+                "Author",
+                "MIT",
+                "https://github.com/turboism/test",
+                "https://github.com/turboism/test/issues",
+                Map.of(),
+                List.of(previewRelease));
+        final PluginCatalog catalog = new PluginCatalog(
+                PluginCatalog.FORMAT, 2, 1L, Instant.now(), "0".repeat(64), "test-key", List.of(previewPlugin));
+        final AtomicReference<dev.turboism.core.FrameworkBuildInfo.Channel> activeChannel =
+                new AtomicReference<>(dev.turboism.core.FrameworkBuildInfo.Channel.STABLE);
+        try (var mgmt = new RuntimePluginManagementService(home, Optional::empty, List::of);
+                var market = new PluginMarketService(
+                        home,
+                        new PluginCatalogClient(),
+                        new PluginCatalogVerifier(),
+                        new PluginCatalogStateStore(home),
+                        new PendingPluginOperations(home),
+                        mgmt,
+                        Optional::empty,
+                        dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
+                        ignored -> {})) {
+            market.bindChannelSupplier(activeChannel::get);
+            final var stableSnapshot =
+                    market.snapshot(catalog).toCompletableFuture().get(5, TimeUnit.SECONDS);
+            assertEquals(
+                    StatusType.INCOMPATIBLE,
+                    stableSnapshot.statuses().get("dev.turboism.plugin.preview").type());
+
+            activeChannel.set(dev.turboism.core.FrameworkBuildInfo.Channel.BETA);
+            final var betaSnapshot =
+                    market.snapshot(catalog).toCompletableFuture().get(5, TimeUnit.SECONDS);
+            assertEquals(
+                    StatusType.NOT_INSTALLED,
+                    betaSnapshot.statuses().get("dev.turboism.plugin.preview").type());
+        }
     }
 }

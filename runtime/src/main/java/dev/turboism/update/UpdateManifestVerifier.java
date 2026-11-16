@@ -3,6 +3,7 @@ package dev.turboism.update;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.security.InvalidKeyException;
@@ -260,13 +261,21 @@ public final class UpdateManifestVerifier {
             throw new UpdateManifestVerificationException("INSTALLED_IDENTITY_UNKNOWN", "Installed version is unknown");
         }
         if (!installed.channel().equals(manifest.channel())) {
-            throw new UpdateManifestVerificationException(
-                    "INSTALLED_CHANNEL_MISMATCH", "Cross-channel update not admitted");
+            if (!context.allowChannelSwitch() || !CoreUpdateService.isSelectableChannel(manifest.channel())) {
+                throw new UpdateManifestVerificationException(
+                        "INSTALLED_CHANNEL_MISMATCH", "Cross-channel update not admitted");
+            }
         }
         final int versionOrder = UpdateVersion.parseInstalled(manifest.version())
                 .compareTo(installed.version().orElseThrow());
         if (versionOrder < 0) {
             throw new UpdateManifestVerificationException("VERSION_DOWNGRADE", "Target numeric version is older");
+        }
+        if (versionOrder == 0
+                && UpdateDiscovery.CHANNEL_STABLE.equals(installed.channel())
+                && UpdateDiscovery.CHANNEL_BETA.equals(manifest.channel())) {
+            throw new UpdateManifestVerificationException(
+                    "VERSION_DOWNGRADE", "Pre-release of installed stable version is not an upgrade");
         }
         if (installed.buildNumber().isPresent()) {
             if (manifest.buildNumber() <= installed.buildNumber().getAsLong()) {

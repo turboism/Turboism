@@ -70,9 +70,19 @@ public final class UpdateStateStore {
         final Optional<Instant> attempt = optionalInstant(root.get("lastAutomaticAttempt"));
         final Optional<String> etag = optionalEtag(root.get("etag"));
         final JsonNode cached = root.get("cachedResult");
+        if (cached != null && !cached.isNull() && cachedChannelDiffers(cached)) {
+            // A channel switch invalidates the previous channel's cache; that is not corruption.
+            return new State(attempt, Optional.empty(), Optional.empty());
+        }
         final Optional<UpdateDiscovery> cachedResult =
                 cached == null || cached.isNull() ? Optional.empty() : Optional.of(parser.parseNode(cached));
         return new State(attempt, cachedResult, etag);
+    }
+
+    /** True when a persisted discovery document belongs to another release channel. */
+    private boolean cachedChannelDiffers(final JsonNode cached) {
+        final JsonNode channel = cached.get("channel");
+        return channel != null && channel.isTextual() && !parser.expectedChannel().equals(channel.textValue());
     }
 
     /**

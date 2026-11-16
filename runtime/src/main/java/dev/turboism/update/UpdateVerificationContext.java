@@ -14,7 +14,8 @@ record UpdateVerificationContext(
         InstalledBuild installedBuild,
         Map<String, String> installedFrameworkHashes,
         String receiptBinding,
-        Validation validation) {
+        Validation validation,
+        boolean allowChannelSwitch) {
 
     @FunctionalInterface
     interface Validation {
@@ -46,7 +47,34 @@ record UpdateVerificationContext(
                 installedBuild,
                 installedFrameworkHashes,
                 "",
-                () -> {});
+                () -> {},
+                false);
+    }
+
+    /** Package-only seam preserving same-channel-only default for existing callers. */
+    UpdateVerificationContext(
+            String expectedVersion,
+            String expectedChannel,
+            long expectedBuildNumber,
+            String expectedSourceRevision,
+            String currentUpdaterVersion,
+            String supportedPlatform,
+            InstalledBuild installedBuild,
+            Map<String, String> installedFrameworkHashes,
+            String receiptBinding,
+            Validation validation) {
+        this(
+                expectedVersion,
+                expectedChannel,
+                expectedBuildNumber,
+                expectedSourceRevision,
+                currentUpdaterVersion,
+                supportedPlatform,
+                installedBuild,
+                installedFrameworkHashes,
+                receiptBinding,
+                validation,
+                false);
     }
 
     static UpdateVerificationContext fromReceipt(
@@ -54,6 +82,15 @@ record UpdateVerificationContext(
             FrameworkInstallationReceiptLoader loader,
             FrameworkInstallationReceiptLoader.Evidence evidence,
             Validation freshDiscovery) {
+        return fromReceipt(candidate, loader, evidence, freshDiscovery, false);
+    }
+
+    static UpdateVerificationContext fromReceipt(
+            UpdateDiscovery.Candidate candidate,
+            FrameworkInstallationReceiptLoader loader,
+            FrameworkInstallationReceiptLoader.Evidence evidence,
+            Validation freshDiscovery,
+            boolean allowChannelSwitch) {
         final UpdateIncrementalDiscovery target = candidate.incremental().orElseThrow();
         return new UpdateVerificationContext(
                 target.version(),
@@ -88,7 +125,8 @@ record UpdateVerificationContext(
                     public void claimCommit(final Runnable claim) throws java.io.IOException, InterruptedException {
                         freshDiscovery.claimCommit(claim);
                     }
-                });
+                },
+                allowChannelSwitch);
     }
 
     void revalidate() throws java.io.IOException, InterruptedException {

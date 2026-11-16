@@ -201,24 +201,29 @@ record KernelPluginRuntimeResources(
                 new dev.turboism.config.CubismJvmSettingsFileService(home, message -> log.warn("config", message));
         final dev.turboism.config.OptimizationSettingsFileService optimizationSettings =
                 new dev.turboism.config.OptimizationSettingsFileService(home);
-        final dev.turboism.update.RuntimeUpdateService updateService = new dev.turboism.update.RuntimeUpdateService(
-                home,
-                scheduler,
-                runtimeSettings,
-                new dev.turboism.update.HttpUpdateTransport(),
-                java.time.Clock.systemUTC(),
-                dev.turboism.update.InstalledBuild.current(),
-                dev.turboism.update.RuntimeUpdateService.STARTUP_DELAY,
-                dev.turboism.update.RuntimeUpdateService.AUTOMATIC_INTERVAL,
-                // A failed check must leave a trace: the user-visible state is deliberately vague
-                // (unavailable), so the reason belongs in the log rather than nowhere at all.
-                message -> log.warn("updates", message));
+        final dev.turboism.update.RuntimeUpdateService updateService =
+                dev.turboism.update.RuntimeUpdateService.channelAware(
+                        home,
+                        scheduler,
+                        runtimeSettings,
+                        dev.turboism.update.HttpUpdateTransport::new,
+                        java.time.Clock.systemUTC(),
+                        dev.turboism.update.InstalledBuild.current(),
+                        dev.turboism.update.RuntimeUpdateService.STARTUP_DELAY,
+                        dev.turboism.update.RuntimeUpdateService.AUTOMATIC_INTERVAL,
+                        // A failed check must leave a trace: the user-visible state is deliberately vague
+                        // (unavailable), so the reason belongs in the log rather than nowhere at all.
+                        message -> log.warn("updates", message));
         updateService.bindFrameworkUpdates(dev.turboism.update.RuntimeFrameworkUpdates.createConfigured(
                 home, updateService, message -> log.warn("updates", message)));
+        final java.util.function.Supplier<dev.turboism.core.FrameworkBuildInfo.Channel> activeChannelSupplier =
+                () -> dev.turboism.update.UpdatePreferencesStore.toFrameworkChannel(updateService.updateChannel());
+        pluginManagement.bindChannelSupplier(activeChannelSupplier);
         pluginManagement.bindAutoUpdater(new dev.turboism.pluginmanagement.RuntimePluginAutoUpdater(
                 home,
                 scheduler,
                 runtimeSettings,
+                activeChannelSupplier,
                 hostAccess::cubismEditorVersion,
                 message -> log.warn("plugin-updates", message)));
         final PluginLifecycleLane lifecycleLane = new PluginLifecycleLane(lifecyclePolicy);

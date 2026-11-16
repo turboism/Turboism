@@ -911,4 +911,137 @@ final class UpdateManifestVerifierTest {
                 """, keyId, sha256Hex, Base64.getEncoder().encodeToString(signature));
         return envelopeJson.getBytes(StandardCharsets.UTF_8);
     }
+
+    @Test
+    void crossChannelAdmissionAllowsForwardStableBetaTransitionsAndBlocksDowngrades() throws Exception {
+        final byte[] betaBytes = validManifestJson()
+                .replace("\"version\": \"0.68.0\"", "\"version\": \"0.68.0-beta.1\"")
+                .replace("\"channel\": \"stable\"", "\"channel\": \"beta\"")
+                .getBytes(StandardCharsets.UTF_8);
+        final byte[] betaEnvelope = createEnvelope("test-key-v1", betaBytes, testKeyPair);
+
+        // Opted-in Stable -> Beta with strictly newer numeric core and build passes.
+        final var stableToBeta = new UpdateVerificationContext(
+                "0.68.0-beta.1",
+                "beta",
+                50L,
+                defaultContextSource(),
+                "0.67.4",
+                "windows-x64",
+                InstalledBuild.of("0.67.4", "stable", OptionalLong.of(49L), "0.67.4"),
+                Map.of(),
+                "",
+                () -> {},
+                true);
+        assertEquals(
+                "beta",
+                verifier.verify(betaBytes, betaEnvelope, stableToBeta, Instant.EPOCH)
+                        .channel());
+
+        // Opted-in Stable -> Beta of the same numeric core is rejected as a pre-release downgrade.
+        final var stableToSameCoreBeta = new UpdateVerificationContext(
+                "0.68.0-beta.1",
+                "beta",
+                50L,
+                defaultContextSource(),
+                "0.67.4",
+                "windows-x64",
+                InstalledBuild.of("0.68.0", "stable", OptionalLong.of(49L), "0.68.0"),
+                Map.of(),
+                "",
+                () -> {},
+                true);
+        assertEquals(
+                "VERSION_DOWNGRADE",
+                assertThrows(
+                                UpdateManifestVerifier.UpdateManifestVerificationException.class,
+                                () -> verifier.verify(betaBytes, betaEnvelope, stableToSameCoreBeta, Instant.EPOCH))
+                        .errorCode());
+
+        // Opted-in Beta -> Stable graduation at same numeric core with higher build passes.
+        final byte[] stableBytes = validManifestJson().getBytes(StandardCharsets.UTF_8);
+        final byte[] stableEnvelope = createEnvelope("test-key-v1", stableBytes, testKeyPair);
+        final var betaToStable = new UpdateVerificationContext(
+                "0.68.0",
+                "stable",
+                50L,
+                defaultContextSource(),
+                "0.68.0-beta.1",
+                "windows-x64",
+                InstalledBuild.of("0.68.0-beta.1", "beta", OptionalLong.of(49L), "0.68.0-beta.1"),
+                Map.of(),
+                "",
+                () -> {},
+                true);
+        assertEquals(
+                "stable",
+                verifier.verify(stableBytes, stableEnvelope, betaToStable, Instant.EPOCH)
+                        .channel());
+
+        // Opted-in Beta -> older Stable version or lower build is rejected (no downgrade).
+        final var betaDowngradeVersion = new UpdateVerificationContext(
+                "0.68.0",
+                "stable",
+                50L,
+                defaultContextSource(),
+                "0.69.0-beta.1",
+                "windows-x64",
+                InstalledBuild.of("0.69.0-beta.1", "beta", OptionalLong.of(49L), "0.69.0-beta.1"),
+                Map.of(),
+                "",
+                () -> {},
+                true);
+        assertEquals(
+                "VERSION_DOWNGRADE",
+                assertThrows(
+                                UpdateManifestVerifier.UpdateManifestVerificationException.class,
+                                () -> verifier.verify(
+                                        stableBytes, stableEnvelope, betaDowngradeVersion, Instant.EPOCH))
+                        .errorCode());
+
+        final var betaDowngradeBuild = new UpdateVerificationContext(
+                "0.68.0",
+                "stable",
+                50L,
+                defaultContextSource(),
+                "0.68.0-beta.1",
+                "windows-x64",
+                InstalledBuild.of("0.68.0-beta.1", "beta", OptionalLong.of(51L), "0.68.0-beta.1"),
+                Map.of(),
+                "",
+                () -> {},
+                true);
+        assertEquals(
+                "BUILD_NOT_NEWER",
+                assertThrows(
+                                UpdateManifestVerifier.UpdateManifestVerificationException.class,
+                                () -> verifier.verify(
+                                        stableBytes, stableEnvelope, betaDowngradeBuild, Instant.EPOCH))
+                        .errorCode());
+
+        // Nightly cross-channel remains inadmissible even when switch flag is set.
+        final byte[] nightlyBytes = validManifestJson()
+                .replace("\"version\": \"0.68.0\"", "\"version\": \"0.68.0-0.nightly.50\"")
+                .replace("\"channel\": \"stable\"", "\"channel\": \"nightly\"")
+                .getBytes(StandardCharsets.UTF_8);
+        final byte[] nightlyEnvelope = createEnvelope("test-key-v1", nightlyBytes, testKeyPair);
+        final var stableToNightly = new UpdateVerificationContext(
+                "0.68.0-0.nightly.50",
+                "nightly",
+                50L,
+                defaultContextSource(),
+                "0.67.4",
+                "windows-x64",
+                InstalledBuild.of("0.67.4", "stable", OptionalLong.of(49L), "0.67.4"),
+                Map.of(),
+                "",
+                () -> {},
+                true);
+        assertEquals(
+                "INSTALLED_CHANNEL_MISMATCH",
+                assertThrows(
+                                UpdateManifestVerifier.UpdateManifestVerificationException.class,
+                                () -> verifier.verify(nightlyBytes, nightlyEnvelope, stableToNightly, Instant.EPOCH))
+                        .errorCode());
+    }
 }

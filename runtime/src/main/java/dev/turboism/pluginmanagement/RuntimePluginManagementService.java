@@ -216,6 +216,15 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         this.cubismVersion = Objects.requireNonNull(versionSupplier, "versionSupplier");
     }
 
+    /**
+     * Binds the live framework update channel supplier for the embedded plugin market service.
+     *
+     * @param channelSupplier supplier returning the active framework channel
+     */
+    public void bindChannelSupplier(final Supplier<FrameworkBuildInfo.Channel> channelSupplier) {
+        marketService.bindChannelSupplier(Objects.requireNonNull(channelSupplier, "channelSupplier"));
+    }
+
     /** Returns the installation home directory path. */
     public Path homeDirectory() {
         return home;

@@ -83,7 +83,7 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
     private final PluginCatalogClient client;
     private final PluginCatalogVerifier verifier;
     private final Clock clock;
-    private final FrameworkBuildInfo.Channel channel;
+    private final Supplier<FrameworkBuildInfo.Channel> channelSupplier;
     private final Supplier<Optional<String>> cubismVersion;
     private final PluginVersion turboismApiVersion;
     private final Duration startupDelay;
@@ -119,10 +119,37 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
                 home,
                 scheduler,
                 runtimeSettings,
+                () -> UpdatePreferencesStore.effectiveFrameworkChannel(
+                        home, FrameworkBuildInfo.current().channel()),
+                cubismVersion,
+                diagnostic);
+    }
+
+    /**
+     * Creates a production plugin auto-updater driven by a live framework channel supplier.
+     *
+     * @param home Turboism home directory
+     * @param scheduler runtime scheduler
+     * @param runtimeSettings runtime settings service
+     * @param channelSupplier active update channel supplier
+     * @param cubismVersion attached host Cubism version supplier
+     * @param diagnostic diagnostic sink
+     */
+    public RuntimePluginAutoUpdater(
+            final Path home,
+            final RuntimeScheduler scheduler,
+            final RuntimeSettingsService runtimeSettings,
+            final Supplier<FrameworkBuildInfo.Channel> channelSupplier,
+            final Supplier<Optional<String>> cubismVersion,
+            final Consumer<String> diagnostic) {
+        this(
+                home,
+                scheduler,
+                runtimeSettings,
                 new PluginCatalogClient(),
                 new PluginCatalogVerifier(),
                 Clock.systemUTC(),
-                FrameworkBuildInfo.current().channel(),
+                channelSupplier,
                 cubismVersion,
                 PluginAutoUpdatePlanner.DEFAULT_TURBOISM_API_VERSION,
                 STARTUP_DELAY,
@@ -144,6 +171,36 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
             final Duration startupDelay,
             final Duration automaticInterval,
             final Consumer<String> diagnostic) {
+        this(
+                home,
+                scheduler,
+                runtimeSettings,
+                client,
+                verifier,
+                clock,
+                () -> Objects.requireNonNull(channel, "channel"),
+                cubismVersion,
+                turboismApiVersion,
+                startupDelay,
+                automaticInterval,
+                diagnostic);
+        Objects.requireNonNull(channel, "channel");
+    }
+
+    /** Full deterministic construction seam with a dynamic update channel supplier. */
+    public RuntimePluginAutoUpdater(
+            final Path home,
+            final RuntimeScheduler scheduler,
+            final RuntimeSettingsService runtimeSettings,
+            final PluginCatalogClient client,
+            final PluginCatalogVerifier verifier,
+            final Clock clock,
+            final Supplier<FrameworkBuildInfo.Channel> channelSupplier,
+            final Supplier<Optional<String>> cubismVersion,
+            final PluginVersion turboismApiVersion,
+            final Duration startupDelay,
+            final Duration automaticInterval,
+            final Consumer<String> diagnostic) {
         this.home = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         this.pluginsDirectory = this.home.resolve("plugins");
         this.confinedFiles = new ConfinedPluginFiles(this.home);
@@ -152,7 +209,7 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
         this.client = Objects.requireNonNull(client, "client");
         this.verifier = Objects.requireNonNull(verifier, "verifier");
         this.clock = Objects.requireNonNull(clock, "clock");
-        this.channel = Objects.requireNonNull(channel, "channel");
+        this.channelSupplier = Objects.requireNonNull(channelSupplier, "channelSupplier");
         this.cubismVersion = Objects.requireNonNull(cubismVersion, "cubismVersion");
         this.turboismApiVersion = Objects.requireNonNull(turboismApiVersion, "turboismApiVersion");
         this.startupDelay = requireNonNegative(startupDelay, "startupDelay");
@@ -439,7 +496,9 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
         }
 
         final Optional<String> activeCubism = normalizeCubismVersion(cubismVersion.get());
-        final PluginAutoUpdatePlanner planner = new PluginAutoUpdatePlanner(channel, activeCubism, turboismApiVersion);
+        final FrameworkBuildInfo.Channel activeChannel = Objects.requireNonNull(channelSupplier.get(), "channel");
+        final PluginAutoUpdatePlanner planner =
+                new PluginAutoUpdatePlanner(activeChannel, activeCubism, turboismApiVersion);
 
         final Map<String, PluginVersion> workingVersions = new HashMap<>(installedState.effectiveVersions());
         final Map<String, String> stagedUpdates = new LinkedHashMap<>(installedState.alreadyStagedUpdates());

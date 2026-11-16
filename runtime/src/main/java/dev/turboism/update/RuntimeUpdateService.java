@@ -3,6 +3,7 @@ package dev.turboism.update;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerHandle;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
+import dev.turboism.internal.core.CoreFrameworkUpdates;
 import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.plugin.Registration;
@@ -23,10 +24,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
- * Runtime-owned bounded checker for the stable-channel discovery document published at
- * {@code https://api.turboism.dev/v1/releases/stable.json}.
+ * Runtime-owned bounded checker for release-channel discovery documents published at
+ * {@code https://api.turboism.dev/v1/releases/<channel>.json}.
  *
  * <p>The runtime owns transport, validation, persistence, scheduling and
  * cancellation. Selection and presentation stay in the framework shell, which only
@@ -35,22 +37,26 @@ import java.util.function.Consumer;
 public final class RuntimeUpdateService implements CoreUpdateService {
     public static final Duration STARTUP_DELAY = Duration.ofSeconds(15);
     public static final Duration AUTOMATIC_INTERVAL = Duration.ofHours(24);
+    private static final String CHANNEL_SWITCH_BUSY_MESSAGE =
+            "Finish or cancel the active framework update before changing the update channel.";
 
+    private final Path home;
     private final RuntimeScheduler scheduler;
     private final RuntimeSettingsService runtimeSettings;
-    private final UpdateTransport transport;
+    private final Function<String, UpdateTransport> transportFactory;
     private final Clock clock;
     private final Duration startupDelay;
     private final Duration automaticInterval;
-    private final UpdateDiscoveryParser parser;
     private final UpdatePreferencesStore preferencesStore;
-    private final UpdateStateStore stateStore;
     private final Consumer<String> diagnostic;
     private final ExecutorService executor;
     private final InstalledBuild installed;
     private final Object lock = new Object();
     private final CopyOnWriteArrayList<Consumer<Snapshot>> listeners = new CopyOnWriteArrayList<>();
 
+    private UpdateTransport transport;
+    private UpdateDiscoveryParser parser;
+    private UpdateStateStore stateStore;
     private UpdatePreferencesStoreState preferences;
     private UpdateStateStore.State state;
     private Snapshot snapshot;
@@ -72,8 +78,12 @@ public final class RuntimeUpdateService implements CoreUpdateService {
                 home,
                 scheduler,
                 runtimeSettings,
-                new HttpUpdateTransport(InstalledBuild.current().channel()),
-                Clock.systemUTC());
+                (Function<String, UpdateTransport>) HttpUpdateTransport::new,
+                Clock.systemUTC(),
+                InstalledBuild.forHome(home),
+                STARTUP_DELAY,
+                AUTOMATIC_INTERVAL,
+                ignored -> {});
     }
 
     public RuntimeUpdateService(
@@ -94,7 +104,7 @@ public final class RuntimeUpdateService implements CoreUpdateService {
                 ignored -> {});
     }
 
-    /** Full deterministic construction seam used by focused runtime tests. */
+    /** Full deterministic construction seam used by focused runtime tests with a single transport. */
     public RuntimeUpdateService(
             final Path home,
             final RuntimeScheduler scheduler,
@@ -105,19 +115,82 @@ public final class RuntimeUpdateService implements CoreUpdateService {
             final Duration startupDelay,
             final Duration automaticInterval,
             final Consumer<String> diagnostic) {
+        this(
+                home,
+                scheduler,
+                runtimeSettings,
+                (Function<String, UpdateTransport>) ignoredChannel -> Objects.requireNonNull(transport, "transport"),
+                clock,
+                installed,
+                startupDelay,
+                automaticInterval,
+                diagnostic);
+    }
+
+    /**
+     * Creates a channel-aware update service resolving one transport per active release channel.
+     *
+     * @param home Turboism home directory
+     * @param scheduler runtime timer scheduler
+     * @param runtimeSettings runtime settings service
+     * @param transportFactory channel-to-transport factory
+     * @param clock time source
+     * @param installed installed build identity
+     * @param startupDelay initial check delay after startup
+     * @param automaticInterval recurring check interval
+     * @param diagnostic diagnostic consumer
+     * @return configured update service
+     */
+    public static RuntimeUpdateService channelAware(
+            final Path home,
+            final RuntimeScheduler scheduler,
+            final RuntimeSettingsService runtimeSettings,
+            final Function<String, UpdateTransport> transportFactory,
+            final Clock clock,
+            final InstalledBuild installed,
+            final Duration startupDelay,
+            final Duration automaticInterval,
+            final Consumer<String> diagnostic) {
+        return new RuntimeUpdateService(
+                home,
+                scheduler,
+                runtimeSettings,
+                transportFactory,
+                clock,
+                installed,
+                startupDelay,
+                automaticInterval,
+                diagnostic);
+    }
+
+    /** Sole construction path: every transport is resolved per active channel. */
+    public RuntimeUpdateService(
+            final Path home,
+            final RuntimeScheduler scheduler,
+            final RuntimeSettingsService runtimeSettings,
+            final Function<String, UpdateTransport> transportFactory,
+            final Clock clock,
+            final InstalledBuild installed,
+            final Duration startupDelay,
+            final Duration automaticInterval,
+            final Consumer<String> diagnostic) {
+        this.home = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.runtimeSettings = Objects.requireNonNull(runtimeSettings, "runtimeSettings");
-        this.transport = Objects.requireNonNull(transport, "transport");
+        this.transportFactory = Objects.requireNonNull(transportFactory, "transportFactory");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.installed = Objects.requireNonNull(installed, "installed");
         this.startupDelay = requireNonNegative(startupDelay, "startupDelay");
         this.automaticInterval = requirePositive(automaticInterval, "automaticInterval");
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
-        this.parser = new UpdateDiscoveryParser(installed.channel());
-        this.preferencesStore = new UpdatePreferencesStore(home, diagnostic);
-        this.stateStore = new UpdateStateStore(home, installed.channel(), diagnostic);
-        this.preferences =
-                new UpdatePreferencesStoreState(preferencesStore.read().automaticChecksEnabled());
+        this.preferencesStore = new UpdatePreferencesStore(this.home, diagnostic);
+        final String fallbackChannel = UpdatePreferencesStore.defaultSelectableChannel(installed.channel());
+        final Preferences loadedPreferences = preferencesStore.read(fallbackChannel);
+        this.preferences = new UpdatePreferencesStoreState(
+                loadedPreferences.automaticChecksEnabled(), loadedPreferences.selectedChannel());
+        this.transport = Objects.requireNonNull(transportFactory.apply(this.preferences.updateChannel()), "transport");
+        this.parser = new UpdateDiscoveryParser(this.preferences.updateChannel());
+        this.stateStore = new UpdateStateStore(this.home, this.preferences.updateChannel(), diagnostic);
         this.state = sanitizeState(stateStore.read());
         this.snapshot = Snapshot.idle(installed.versionText());
         this.executor = RuntimeThreads.serialLane(new UpdateThreadFactory());
@@ -176,11 +249,17 @@ public final class RuntimeUpdateService implements CoreUpdateService {
             throws java.io.IOException, InterruptedException,
                     UpdateManifestVerifier.UpdateManifestVerificationException {
         final Snapshot checked;
+        final String activeChannel;
         final UpdateDiscovery.Candidate candidate;
         synchronized (lock) {
             checked = snapshot;
+            activeChannel = preferences.updateChannel();
             candidate = incrementalCandidate()
                     .orElseThrow(() -> new java.io.IOException("No current successful incremental discovery"));
+        }
+        final UpdateIncrementalDiscovery incremental = candidate.incremental().orElseThrow();
+        if (!activeChannel.equals(incremental.channel())) {
+            throw new java.io.IOException("Discovery candidate channel differs from active update channel");
         }
         final FrameworkInstallationReceiptLoader.Evidence evidence = loader.load();
         if (!installed.version().equals(InstalledBuild.from(evidence.loaded()).version())
@@ -192,7 +271,9 @@ public final class RuntimeUpdateService implements CoreUpdateService {
             @Override
             public void validate() throws java.io.IOException {
                 synchronized (lock) {
-                    if (snapshot != checked || !incrementalCandidate().equals(Optional.of(candidate))) {
+                    if (snapshot != checked
+                            || !activeChannel.equals(preferences.updateChannel())
+                            || !incrementalCandidate().equals(Optional.of(candidate))) {
                         throw new java.io.IOException("Successful discovery changed or is no longer available");
                     }
                 }
@@ -207,8 +288,11 @@ public final class RuntimeUpdateService implements CoreUpdateService {
             }
         };
         fresh.validate();
+        final boolean optedIn = preferencesStore.readAll().updateChannel().isPresent();
         return new IncrementalRequest(
-                candidate, evidence.root(), UpdateVerificationContext.fromReceipt(candidate, loader, evidence, fresh));
+                candidate,
+                evidence.root(),
+                UpdateVerificationContext.fromReceipt(candidate, loader, evidence, fresh, optedIn));
     }
 
     /** A request bound to a live discovery snapshot; every operation reloads the old receipt. */
@@ -267,7 +351,16 @@ public final class RuntimeUpdateService implements CoreUpdateService {
     @Override
     public Preferences preferences() {
         synchronized (lock) {
-            return new Preferences(preferences.automaticChecksEnabled());
+            // The stored override stays optional: an installation that never switched keeps following
+            // its packaged channel, and that absence is what authorizes cross-channel admission.
+            return new Preferences(preferences.automaticChecksEnabled(), preferences.selectedChannel());
+        }
+    }
+
+    @Override
+    public String updateChannel() {
+        synchronized (lock) {
+            return preferences.updateChannel();
         }
     }
 
@@ -303,10 +396,47 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         long deliveryGeneration = -1;
         synchronized (lock) {
             if (closed) return PreferenceSaveResult.failed("Automatic update checks are closed.");
+            final String nextChannel = requested.selectedChannel().orElse(preferences.updateChannel());
+            final boolean channelChanged = !preferences.updateChannel().equals(nextChannel);
+            if (channelChanged) {
+                final CoreFrameworkUpdates.Phase phase = frameworkUpdates.snapshot().phase();
+                if (phase == CoreFrameworkUpdates.Phase.DOWNLOADING
+                        || phase == CoreFrameworkUpdates.Phase.APPLY_PENDING) {
+                    return PreferenceSaveResult.failed(CHANNEL_SWITCH_BUSY_MESSAGE);
+                }
+            }
             final PreferenceSaveResult saved = preferencesStore.save(requested);
             if (!saved.saved()) return saved;
-            preferences = new UpdatePreferencesStoreState(requested.automaticChecksEnabled());
-            if (!requested.automaticChecksEnabled()) {
+            preferences = new UpdatePreferencesStoreState(
+                    requested.automaticChecksEnabled(), Optional.of(nextChannel));
+            if (channelChanged) {
+                parser = new UpdateDiscoveryParser(nextChannel);
+                stateStore = new UpdateStateStore(home, nextChannel, diagnostic);
+                transport = Objects.requireNonNull(transportFactory.apply(nextChannel), "transport");
+                lastRemindedIdentity = null;
+                state = new UpdateStateStore.State(state.lastAutomaticAttempt(), Optional.empty(), Optional.empty());
+                if (!stateStore.save(state).saved()) {
+                    report("UPDATE_STATE_WRITE_FAILED");
+                }
+                generation++;
+                final Snapshot reset = resetSnapshotLocked(requested.automaticChecksEnabled());
+                if (inFlight != null) {
+                    final CompletableFuture<Snapshot> cancelled = inFlight;
+                    cancelTransportLocked();
+                    inFlight = null;
+                    inFlightAutomatic = false;
+                    inFlightUserInitiated = false;
+                    cancelled.complete(reset);
+                }
+                toDeliver = setSnapshotLocked(reset);
+                deliveryGeneration = generation;
+                if (!requested.automaticChecksEnabled()) {
+                    cancelAutomaticTimerLocked();
+                } else if (started && !safeModeLocked() && automaticTimer == null) {
+                    // A channel switch is an explicit user request for that channel's news, not a session start.
+                    scheduleAutomaticLocked(Duration.ZERO);
+                }
+            } else if (!requested.automaticChecksEnabled()) {
                 cancelAutomaticTimerLocked();
                 if (inFlight != null && inFlightAutomatic && !inFlightUserInitiated) {
                     generation++;
@@ -441,13 +571,15 @@ public final class RuntimeUpdateService implements CoreUpdateService {
     }
 
     private void performFetch(final long operationGeneration, final CompletableFuture<Snapshot> future) {
+        final UpdateTransport activeTransport;
         final Optional<String> etag;
         synchronized (lock) {
             if (closed || generation != operationGeneration || inFlight != future) return;
+            activeTransport = transport;
             etag = state.etag();
         }
         try {
-            final CompletionStage<UpdateTransport.Response> stage = transport.fetch(etag);
+            final CompletionStage<UpdateTransport.Response> stage = activeTransport.fetch(etag);
             if (stage == null) throw new IllegalStateException("update transport returned null");
             final boolean accepted;
             synchronized (lock) {
@@ -572,9 +704,9 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         }
         final UpdateDiscovery.Candidate candidate = discovery.candidate().orElseThrow();
         if (!isNewer(candidate)) {
-            final boolean installedCandidate =
-                    installed.version().filter(candidate.version()::equals).isPresent()
-                            && installed.buildNumber().equals(candidate.buildNumber());
+            final boolean installedCandidate = installed.channel().equals(discovery.channel())
+                    && installed.version().filter(candidate.version()::equals).isPresent()
+                    && installed.buildNumber().equals(candidate.buildNumber());
             return new Snapshot(
                     Status.UP_TO_DATE,
                     installed.versionText(),
@@ -614,6 +746,13 @@ public final class RuntimeUpdateService implements CoreUpdateService {
     private boolean isNewer(final UpdateDiscovery.Candidate candidate) {
         final UpdateVersion local = installed.version().orElse(null);
         if (local == null) return false;
+        final int versionOrder = candidate.version().compareTo(local);
+        if (versionOrder < 0) return false;
+        if (versionOrder == 0
+                && UpdateDiscovery.CHANNEL_STABLE.equals(installed.channel())
+                && UpdateDiscovery.CHANNEL_BETA.equals(preferences.updateChannel())) {
+            return false;
+        }
         if (candidate.buildNumber().isPresent() && installed.buildNumber().isPresent()) {
             final long advertised = candidate.buildNumber().getAsLong();
             final long current = installed.buildNumber().getAsLong();
@@ -625,7 +764,18 @@ public final class RuntimeUpdateService implements CoreUpdateService {
             }
             return advertised > current;
         }
-        return candidate.version().compareTo(local) > 0;
+        if (versionOrder == 0
+                && !UpdateDiscovery.CHANNEL_STABLE.equals(installed.channel())
+                && UpdateDiscovery.CHANNEL_STABLE.equals(preferences.updateChannel())) {
+            return true;
+        }
+        return versionOrder > 0;
+    }
+
+    private Snapshot resetSnapshotLocked(final boolean automaticChecksEnabled) {
+        if (safeModeLocked()) return unavailableSnapshot(false);
+        if (!automaticChecksEnabled) return disabledSnapshot(false);
+        return Snapshot.idle(installed.versionText());
     }
 
     private boolean persistAutomaticAttemptLocked() {
@@ -788,7 +938,11 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         return value;
     }
 
-    private record UpdatePreferencesStoreState(boolean automaticChecksEnabled) {}
+    private record UpdatePreferencesStoreState(boolean automaticChecksEnabled, Optional<String> selectedChannel) {
+        String updateChannel() {
+            return selectedChannel.orElse(CoreUpdateService.CHANNEL_STABLE);
+        }
+    }
 
     private static final class UpdateThreadFactory implements ThreadFactory {
         @Override

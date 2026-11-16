@@ -937,21 +937,89 @@ class DeclarativeSettingsRendererTest {
             }
         };
         final SettingsTab startupTab = new SettingsTab("startup", "settings.tab.startup", OptionalInt.of(300));
+        final dev.turboism.internal.core.CoreFrameworkUpdates.Phase[] activePhase = {
+            dev.turboism.internal.core.CoreFrameworkUpdates.Phase.IDLE
+        };
+        final dev.turboism.internal.core.CoreUpdateService updates = new dev.turboism.internal.core.CoreUpdateService() {
+            private Preferences storedPrefs =
+                    new Preferences(true, dev.turboism.internal.core.CoreUpdateService.CHANNEL_STABLE);
+
+            @Override
+            public boolean available() {
+                return true;
+            }
+
+            @Override
+            public Snapshot snapshot() {
+                return Snapshot.idle("0.70.0");
+            }
+
+            @Override
+            public Preferences preferences() {
+                return storedPrefs;
+            }
+
+            @Override
+            public void start() {}
+
+            @Override
+            public java.util.concurrent.CompletionStage<Snapshot> checkManual() {
+                return java.util.concurrent.CompletableFuture.completedFuture(snapshot());
+            }
+
+            @Override
+            public PreferenceSaveResult savePreferences(final Preferences preferences) {
+                storedPrefs = preferences;
+                return PreferenceSaveResult.success();
+            }
+
+            @Override
+            public dev.turboism.internal.core.CoreFrameworkUpdates frameworkUpdates() {
+                return new dev.turboism.internal.core.CoreFrameworkUpdates() {
+                    @Override
+                    public Snapshot snapshot() {
+                        return new Snapshot(activePhase[0], "", 0, 0, "");
+                    }
+
+                    @Override
+                    public java.util.concurrent.CompletionStage<Snapshot> download() {
+                        return java.util.concurrent.CompletableFuture.completedFuture(snapshot());
+                    }
+
+                    @Override
+                    public void cancel() {}
+
+                    @Override
+                    public java.util.concurrent.CompletionStage<Snapshot> installOnExit() {
+                        return java.util.concurrent.CompletableFuture.completedFuture(snapshot());
+                    }
+
+                    @Override
+                    public dev.turboism.sdk.plugin.Registration subscribe(
+                            final java.util.function.Consumer<Snapshot> listener) {
+                        return () -> {};
+                    }
+                };
+            }
+
+            @Override
+            public dev.turboism.sdk.plugin.Registration subscribe(
+                    final java.util.function.Consumer<Snapshot> listener) {
+                return () -> {};
+            }
+
+            @Override
+            public void close() {}
+        };
+        final SettingsContribution automatic = CoreUpdateSettingsContribution.create(localization(), updates);
+        final SettingsContribution channel = CoreUpdateSettingsContribution.createChannel(localization(), updates);
         final SettingsSnapshot.Tab contributedStartup = new SettingsSnapshot.Tab(
                 "startup",
                 "settings.tab.startup",
                 OptionalInt.of(300),
                 List.of(
-                        new SettingsSnapshot.Entry(
-                                "turboism.core",
-                                new SettingsContribution(
-                                        CoreUpdateSettingsContribution.CONTRIBUTION_ID,
-                                        startupTab,
-                                        OptionalInt.of(40),
-                                        new SettingsControl.Toggle(
-                                                CoreUpdateSettingsContribution.CONTRIBUTION_ID,
-                                                "settings.updates.automatic",
-                                                SettingsBinding.of(() -> true, ignored -> {})))),
+                        new SettingsSnapshot.Entry("turboism.core", automatic),
+                        new SettingsSnapshot.Entry("turboism.core", channel),
                         new SettingsSnapshot.Entry(
                                 "turboism.core",
                                 new SettingsContribution(
@@ -1009,11 +1077,26 @@ class DeclarativeSettingsRendererTest {
                     previousBottom = box.getY() + box.getHeight();
                 }
 
+                final JComboBox<?> channelCombo = findComboBox(startupForm);
+                assertTrue(channelCombo != null, "missing update channel dropdown on Startup tab");
+                assertTrue(channelCombo.getWidth() > 0 && channelCombo.getHeight() > 0);
+                selectOption(channelCombo, dev.turboism.internal.core.CoreUpdateService.CHANNEL_BETA);
+
                 separateExportBox.doClick();
                 findCheckBox(startupForm, "settings.skip-update").doClick();
                 assertTrue(rendered.save().getAsBoolean());
                 assertTrue(stored[0].separateExportSaveDirectory());
                 assertTrue(stored[0].skipStartupUpdateCheck());
+                assertEquals(dev.turboism.internal.core.CoreUpdateService.CHANNEL_BETA, updates.updateChannel());
+
+                activePhase[0] = dev.turboism.internal.core.CoreFrameworkUpdates.Phase.APPLY_PENDING;
+                final SettingsControl.Choice choice =
+                        assertInstanceOf(SettingsControl.Choice.class, channel.control());
+                assertFalse(choice.validator()
+                        .validate(
+                                dev.turboism.internal.core.CoreUpdateService.CHANNEL_BETA,
+                                dev.turboism.internal.core.CoreUpdateService.CHANNEL_STABLE)
+                        .accepted());
             }
         });
     }
