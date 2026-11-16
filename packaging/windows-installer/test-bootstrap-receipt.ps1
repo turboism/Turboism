@@ -212,11 +212,13 @@ public class TestReceiptHelper {
         Path stage = null;
         Path work = null;
         boolean initReceipt = false;
+        boolean refreshReceipt = false;
         for (int i = 0; i < args.length; i++) {
             if ("--root".equals(args[i])) root = Path.of(args[++i]);
             else if ("--stage".equals(args[i])) stage = Path.of(args[++i]);
             else if ("--work".equals(args[i])) work = Path.of(args[++i]);
             else if ("--initialize-receipt".equals(args[i])) initReceipt = true;
+            else if ("--refresh-receipt".equals(args[i])) { initReceipt = true; refreshReceipt = true; }
         }
         if (root == null || stage == null || work == null || !initReceipt) {
             System.err.println("usage error");
@@ -238,7 +240,7 @@ public class TestReceiptHelper {
             System.exit(70);
         }
         Path receiptIndex = root.resolve("state/runtime/update/installed-receipt.json");
-        if (Files.exists(receiptIndex)) {
+        if (!refreshReceipt && Files.exists(receiptIndex)) {
             String existing = Files.readString(receiptIndex, StandardCharsets.UTF_8);
             if (existing.contains("DIFFERENT_RECEIPT")) {
                 System.err.println("An existing different receipt must not be silently replaced");
@@ -304,6 +306,11 @@ public class TestReceiptHelper {
         Assert-ReceiptRegression ($diffStrictRes.HelperExitCode -eq 74) 'helper exit code is 74'
         $diffIndexBytesAfter = [System.IO.File]::ReadAllBytes($diffIndexFile)
         Assert-ReceiptRegression ([System.Linq.Enumerable]::SequenceEqual([byte[]]$diffIndexBytesBefore, [byte[]]$diffIndexBytesAfter)) 'existing receipt index not replaced on strict failure'
+
+        # 11b. Refresh mode replaces an existing different receipt cleanly
+        $refreshRes = & $bootstrapScript -HomePath $diffStrictHome -StagePath $stageDir -Classpath $fixture -HelperClass 'TestReceiptHelper' -RefreshExisting -PassThru
+        Assert-ReceiptRegression ($refreshRes.Success -eq $true) 'refresh mode replaces existing receipt'
+        Assert-ReceiptRegression ($refreshRes.Status -eq 'INITIALIZED') 'refresh mode reports INITIALIZED'
 
         # 12. Tampered payload fails closed (helper exit 74)
         $tamperStage = Join-Path $fixture 'tamper-stage'

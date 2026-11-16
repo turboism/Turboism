@@ -184,8 +184,10 @@ class BootstrapReceiptStaticContractTest(unittest.TestCase):
         self.assertIn("[string]$DiscoverySnapshotSha256", text)
         self.assertIn("[string[]]$HelperPrefixArgs", text)
         self.assertIn("[switch]$Strict", text)
+        self.assertIn("[switch]$RefreshExisting", text)
         self.assertIn("[switch]$PassThru", text)
         self.assertIn("--initialize-receipt", text)
+        self.assertIn("--refresh-receipt", text)
         self.assertIn("dev.turboism.update.FrameworkUpdateHelper", text)
 
     def test_cross_layer_layout_consistency_including_bootstrap_script(self):
@@ -837,6 +839,17 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         self.assertEqual(installed_receipt.read_bytes(), receipt_bytes_v1, "Strict mode must NOT replace existing receipt index")
         self.assertEqual(published_v1_manifest.read_bytes(), pub_manifest_v1_bytes, "Published v1 manifest must not be replaced on strict failure")
         self.assertEqual(published_v1_sig.read_bytes(), pub_sig_v1_bytes, "Published v1 sig must not be replaced on strict failure")
+
+        # 3. Refresh mode: installer refresh replaces an existing receipt with verified v2
+        res_refresh = self._run_ps([
+            "-HomePath", str(home), "-StagePath", str(stage_v2), "-Classpath", classpath,
+            "-HelperClass", "dev.turboism.update.TestKeyHelperMain", "-HelperPrefixArgs", str(pub_file),
+            "-RefreshExisting", "-PassThru"
+        ])
+        self.assertEqual(res_refresh.returncode, 0, res_refresh.stderr)
+        self.assertIn("INITIALIZED", res_refresh.stdout)
+        self.assertIn(b'"version":"2.0.0"', published_v1_manifest.read_bytes())
+        self.assertEqual(published_v1_sig.read_bytes(), sig_v2)
 
 
 if __name__ == "__main__":

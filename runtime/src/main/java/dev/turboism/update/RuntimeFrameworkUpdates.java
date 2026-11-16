@@ -169,11 +169,21 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
     private void finish(final long token, final CompletableFuture<Snapshot> result, final Throwable failure) {
         synchronized (gate) {
             if (!closed && token == generation && failure != null) {
-                publish(new Snapshot(
-                        Phase.FAILED, state.version(), 0, 0, failure.getClass().getSimpleName()));
+                publish(new Snapshot(Phase.FAILED, state.version(), 0, 0, describeFailure(failure)));
             }
             result.complete(state);
         }
+    }
+
+    private static String describeFailure(final Throwable failure) {
+        Throwable cause = failure;
+        while ((cause instanceof java.util.concurrent.CompletionException
+                        || cause instanceof java.util.concurrent.ExecutionException)
+                && cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+        final String message = cause.getMessage();
+        return message == null || message.isBlank() ? cause.getClass().getSimpleName() : message;
     }
 
     @Override

@@ -185,6 +185,24 @@ final class FrameworkUpdateReceipt {
                 .replace(receipt.index());
     }
 
+    /**
+     * Explicit full-installer refresh: replaces any prior receipt only after verifying the new signature,
+     * complete layout, and every installed file hash on disk. Caller holds the transaction lock.
+     */
+    static void replace(
+            final Path root, final byte[] document, final byte[] envelope, final UpdateManifestVerifier verifier)
+            throws IOException, InterruptedException, UpdateManifestVerifier.UpdateManifestVerificationException {
+        final Prepared receipt = prepare(root, document, envelope, verifier);
+        try (var files = FrameworkInstallationFiles.system(receipt.root())) {
+            for (final var entry : receipt.manifest().entries()) files.verify(entry);
+        }
+        receipt.publishDocuments();
+        DurableFile.at(receipt.indexPath())
+                .withOptions(PRIVATE_WRITE)
+                .guardedBy(PRIVATE_ACL)
+                .replace(receipt.index());
+    }
+
     /** POSIX keeps private state via owner-only mode bits; Windows needs an explicit restrictive DACL. */
     private static void applyPrivateAcl(final Path path) throws IOException {
         if (!Files.getFileStore(path).supportsFileAttributeView("posix")) {

@@ -10,6 +10,7 @@ param(
     [switch]$EnableShortcuts,
     [switch]$DisableShortcuts,
     [switch]$InitializeSelection,
+    [switch]$RefreshReceipt,
     [switch]$MigrateConfig,
     [switch]$ApplyInstallerSelection,
     [switch]$InitializeReceipt,
@@ -19,6 +20,7 @@ param(
     [string]$DisabledPluginIds = "",
     [string]$Variant = "full",
     [switch]$Elevated,
+    [long]$OwnerHwnd = 0,
     [string]$InstallerDiscoveryOutput = "",
     [string]$InstallerImportRequest = "",
     [int]$InstallerLanguage = 0,
@@ -1007,8 +1009,138 @@ function Test-CurrentProcessElevated {
 $script:ElevationCanceledExitCode = 3
 $script:ElevationTimeoutExitCode = 4
 
+function Test-ElevationCancelledException {
+    param([System.Exception]$Exception)
+    $localizedCancel = ""
+    try {
+        $localizedCancel = ([System.ComponentModel.Win32Exception]::new(1223).Message).TrimEnd('.', [char]0x3002, ' ')
+    }
+    catch {
+        $localizedCancel = ""
+    }
+    $cursor = $Exception
+    while ($null -ne $cursor) {
+        if ($cursor -is [System.ComponentModel.Win32Exception] -and $cursor.NativeErrorCode -eq 1223) {
+            return $true
+        }
+        # Windows PowerShell 5.1 Start-Process wraps ERROR_CANCELLED in InvalidOperationException
+        # without forwarding Win32Exception as InnerException; match the OS-localized message text.
+        if ($cursor -is [System.InvalidOperationException] `
+            -and -not [string]::IsNullOrWhiteSpace($localizedCancel) `
+            -and -not [string]::IsNullOrWhiteSpace($cursor.Message) `
+            -and $cursor.Message.Contains($localizedCancel)) {
+            return $true
+        }
+        $cursor = $cursor.InnerException
+    }
+    return $false
+}
+
+function Invoke-OwnedElevatedProcess {
+    param(
+        [string]$FilePath,
+        [string]$Arguments,
+        [long]$OwnerHandle,
+        [uint32]$TimeoutMs
+    )
+    if (-not ('Turboism.ElevatedShell' -as [type])) {
+        Add-Type -Language CSharp -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+
+namespace Turboism {
+    public static class ElevatedShell {
+        private const uint SEE_MASK_NOCLOSEPROCESS = 0x00000040;
+        private const uint WAIT_OBJECT_0 = 0x00000000;
+        private const uint WAIT_TIMEOUT = 0x00000102;
+        private const int SW_HIDE = 0;
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct SHELLEXECUTEINFOW {
+            public int cbSize;
+            public uint fMask;
+            public IntPtr hwnd;
+            [MarshalAs(UnmanagedType.LPWStr)] public string lpVerb;
+            [MarshalAs(UnmanagedType.LPWStr)] public string lpFile;
+            [MarshalAs(UnmanagedType.LPWStr)] public string lpParameters;
+            [MarshalAs(UnmanagedType.LPWStr)] public string lpDirectory;
+            public int nShow;
+            public IntPtr hInstApp;
+            public IntPtr lpIDList;
+            [MarshalAs(UnmanagedType.LPWStr)] public string lpClass;
+            public IntPtr hkeyClass;
+            public uint dwHotKey;
+            public IntPtr hIconOrMonitor;
+            public IntPtr hProcess;
+        }
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool ShellExecuteExW(ref SHELLEXECUTEINFOW lpExecInfo);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool GetExitCodeProcess(IntPtr hProcess, out uint lpExitCode);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("kernel32.dll")]
+        private static extern uint GetProcessId(IntPtr hProcess);
+
+        public sealed class Outcome {
+            public bool TimedOut { get; set; }
+            public int ExitCode { get; set; }
+            public uint ProcessId { get; set; }
+        }
+
+        public static Outcome Run(string file, string arguments, long ownerHwnd, uint timeoutMs) {
+            var sei = new SHELLEXECUTEINFOW();
+            sei.cbSize = Marshal.SizeOf(typeof(SHELLEXECUTEINFOW));
+            sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+            sei.hwnd = ownerHwnd != 0 ? new IntPtr(ownerHwnd) : IntPtr.Zero;
+            sei.lpVerb = "runas";
+            sei.lpFile = file;
+            sei.lpParameters = arguments;
+            sei.nShow = SW_HIDE;
+            if (!ShellExecuteExW(ref sei)) {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            if (sei.hProcess == IntPtr.Zero) {
+                throw new InvalidOperationException("ShellExecuteExW succeeded without returning a process handle");
+            }
+            try {
+                uint pid = GetProcessId(sei.hProcess);
+                uint wait = WaitForSingleObject(sei.hProcess, timeoutMs);
+                if (wait == WAIT_TIMEOUT) {
+                    return new Outcome { TimedOut = true, ProcessId = pid };
+                }
+                if (wait != WAIT_OBJECT_0) {
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                }
+                uint code;
+                if (!GetExitCodeProcess(sei.hProcess, out code)) {
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                }
+                return new Outcome { TimedOut = false, ExitCode = unchecked((int)code), ProcessId = pid };
+            } finally {
+                CloseHandle(sei.hProcess);
+            }
+        }
+    }
+}
+'@ -ErrorAction Stop
+    }
+    return [Turboism.ElevatedShell]::Run($FilePath, $Arguments, $OwnerHandle, $TimeoutMs)
+}
+
 function Invoke-ElevatedConfiguratorMode {
-    param([string]$Mode)
+    param(
+        [string]$Mode,
+        [long]$OwnerHandle = $OwnerHwnd
+    )
     if (@("IntegrateBat", "DisableBat", "Cleanup") -notcontains $Mode) { throw "invalid elevated mode" }
     $powershell = Join-Path $PSHOME "powershell.exe"
     if (-not (Test-Path -LiteralPath $powershell -PathType Leaf)) { $powershell = (Get-Process -Id $PID).Path }
@@ -1021,8 +1153,22 @@ function Invoke-ElevatedConfiguratorMode {
         }
         $arguments += ' -InstallerDiscoverySnapshot "{0}" -InstallerDiscoverySnapshotSha256 {1}' -f $InstallerDiscoverySnapshot, $InstallerDiscoverySnapshotSha256
     }
-    Write-InstallerLog "ELEVATION_REQUEST" ("mode={0} pid={1} snapshot={2}" -f $Mode, $PID, $InstallerDiscoverySnapshot)
+    Write-InstallerLog "ELEVATION_REQUEST" ("mode={0} pid={1} ownerHwnd={2} snapshot={3}" -f $Mode, $PID, $OwnerHandle, $InstallerDiscoverySnapshot)
     try {
+        if ($OwnerHandle -ne 0) {
+            # Attach UAC to the foreground installer/configurator HWND so Windows presents
+            # the prompt visibly instead of burying it behind a windowless console child.
+            $outcome = Invoke-OwnedElevatedProcess -FilePath $powershell -Arguments $arguments -OwnerHandle $OwnerHandle -TimeoutMs 180000
+            if ($outcome.TimedOut) {
+                Write-InstallerLog "ELEVATION_TIMEOUT" ("mode={0} childPid={1}" -f $Mode, $outcome.ProcessId)
+                return $script:ElevationTimeoutExitCode
+            }
+            Write-InstallerLog "ELEVATION_EXIT" ("mode={0} childPid={1} exitCode={2}" -f $Mode, $outcome.ProcessId, $outcome.ExitCode)
+            if ($outcome.ExitCode -ne 0) {
+                Write-Error ("Elevated configurator {0} failed with exit code {1}. Log: {2}" -f $Mode, $outcome.ExitCode, $installerLogPath) -ErrorAction Continue
+            }
+            return [int]$outcome.ExitCode
+        }
         # This is a headless worker; keep UAC visible without opening a console.
         $process = Start-Process -FilePath $powershell -ArgumentList $arguments -Verb RunAs -WindowStyle Hidden -PassThru
         try {
@@ -1042,10 +1188,7 @@ function Invoke-ElevatedConfiguratorMode {
         finally { $process.Dispose() }
     }
     catch {
-        # ERROR_CANCELLED (1223): the user declined the UAC prompt.
-        # Windows PowerShell 5.1 wraps it in an InvalidOperationException.
-        $nativeFailure = if ($_.Exception -is [System.ComponentModel.Win32Exception]) { $_.Exception } else { $_.Exception.InnerException }
-        if ($nativeFailure -is [System.ComponentModel.Win32Exception] -and $nativeFailure.NativeErrorCode -eq 1223) {
+        if (Test-ElevationCancelledException $_.Exception) {
             Write-InstallerLog "ELEVATION_CANCELED" ("mode={0}" -f $Mode)
             return $script:ElevationCanceledExitCode
         }
@@ -1082,6 +1225,10 @@ if (@(@(
     $DisableShortcuts, $InitializeSelection, $MigrateConfig, $ApplyInstallerSelection, $InitializeReceipt
 ) | Where-Object { $_ }).Count -gt 1) {
     Write-Error "Configurator operation switches are mutually exclusive"
+    exit 1
+}
+if ($RefreshReceipt -and -not $InitializeSelection) {
+    Write-Error "RefreshReceipt requires InitializeSelection"
     exit 1
 }
 if (-not $ApplyInstallerSelection -and (
@@ -1196,6 +1343,9 @@ if ($InitializeSelection) {
             }
             if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshotSha256)) {
                 $bArgs["DiscoverySnapshotSha256"] = $InstallerDiscoverySnapshotSha256
+            }
+            if ($RefreshReceipt) {
+                $bArgs["RefreshExisting"] = $true
             }
             $receiptOutput = @(& $bootstrapScript @bArgs)
             $receiptResult = if ($receiptOutput.Count -eq 0) { $null } else { $receiptOutput[$receiptOutput.Count - 1] }
@@ -1540,13 +1690,13 @@ $saveButton.Add_Click({
         $postLaunchState = Read-CubismInstallationState -StatePath $statePath
         if (-not $postLaunchState.Valid) { throw "Managed installation state is invalid after shortcut configuration: $($postLaunchState.Error)" }
         if ($batCheck.Checked) {
-            $batExit = Invoke-ElevatedConfiguratorMode -Mode "IntegrateBat"
+            $batExit = Invoke-ElevatedConfiguratorMode -Mode "IntegrateBat" -OwnerHandle ($form.Handle.ToInt64())
             if ($batExit -ne 0) { throw "Elevated Cubism BAT integration failed with exit code $batExit." }
             $postLaunchState = Read-CubismInstallationState -StatePath $statePath
             Write-InstallerLog "BAT_INTEGRATION_OK" ("records={0}" -f $postLaunchState.BatIntegrations.Count)
         }
         elseif ($postLaunchState.BatIntegrations.Count -gt 0) {
-            $batExit = Invoke-ElevatedConfiguratorMode -Mode "DisableBat"
+            $batExit = Invoke-ElevatedConfiguratorMode -Mode "DisableBat" -OwnerHandle ($form.Handle.ToInt64())
             if ($batExit -ne 0) { throw "Elevated Cubism BAT restoration failed with exit code $batExit." }
             $postLaunchState = Read-CubismInstallationState -StatePath $statePath
             Write-InstallerLog "BAT_INTEGRATION_RESTORED"
