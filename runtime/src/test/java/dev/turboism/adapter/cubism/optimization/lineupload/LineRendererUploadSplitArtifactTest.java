@@ -6,28 +6,33 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import dev.turboism.adapter.cubism.optimization.HostArtifactTestLoader;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.jar.JarFile;
 import org.junit.jupiter.api.Test;
 
 /**
  * Exact-artifact admission and content-split behavior for the line-renderer dirty-buffer
  * hook across every reviewed Cubism version.
+ *
+ * <p>The renderer's buffer accessors declare JOGL types, so the loader needs the reviewed JOGL
+ * jar. Without it the bridge cannot resolve a single member and the test could not report the
+ * behavior it exists to check.</p>
  */
 class LineRendererUploadSplitArtifactTest {
 
     @Test
     void everyConfiguredReviewedArtifactRewritesAndResolvesTheBridge() throws Exception {
         final Path root = referenceRoot();
+        final Path jogl = HostArtifactTestLoader.reviewedJogl(root)
+                .orElseThrow(() -> new AssertionError(
+                        "reviewed JOGL jar absent; set " + HostArtifactTestLoader.JOGL_ENVIRONMENT_VARIABLE
+                                + " or stage jogl-all.jar in the evidence root"));
         int rewritten = 0;
         for (final String version : ReviewedHostArtifacts.reviewedCubismVersions()) {
             final Path artifact = root.resolve(version).resolve("Live2D_Cubism.jar");
@@ -36,7 +41,7 @@ class LineRendererUploadSplitArtifactTest {
                     ReviewedHostArtifacts.cubismVersionOf(HostArtifactDigest.from(artifact))
                             .isPresent(),
                     version + " is not a reviewed artifact");
-            try (URLClassLoader loader = loader(artifact.getParent())) {
+            try (HostArtifactTestLoader loader = HostArtifactTestLoader.open(artifact.getParent(), jogl)) {
                 final byte[] reference = bytes(artifact, LineRendererUploadSplitTarget.OWNER);
                 final LineRendererUploadSplitTransformer transformer =
                         new LineRendererUploadSplitTransformer(loader, artifact, reference);
@@ -54,17 +59,6 @@ class LineRendererUploadSplitArtifactTest {
             System.out.println("LINE_RENDERER_UPLOAD artifact PASS version=" + version);
         }
         assertTrue(rewritten > 0, "no reviewed exact artifact found under " + root);
-    }
-
-    private static URLClassLoader loader(final Path directory) throws Exception {
-        final List<URL> urls = new ArrayList<>();
-        try (var files = Files.walk(directory, 2)) {
-            for (final Path path :
-                    files.filter(path -> path.toString().endsWith(".jar")).toList()) {
-                urls.add(path.toUri().toURL());
-            }
-        }
-        return new URLClassLoader(urls.toArray(URL[]::new), ClassLoader.getPlatformClassLoader());
     }
 
     private static byte[] bytes(final Path artifact, final String owner) throws Exception {
