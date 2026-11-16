@@ -4,9 +4,9 @@ All seven members exist. The original gap was an omission in the verification re
 
 This round reads the JAR only. Cubism was not started.
 
-- JAR：`/opt/dev/projects/turboism/cubism-ref/5.3.02/Live2D_Cubism.jar`。
-- 大小：`41922739` 字节。
-- SHA-256：`988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`。
+- JAR: `/opt/dev/projects/turboism/cubism-ref/5.3.02/Live2D_Cubism.jar`.
+- Size: `41922739` bytes.
+- SHA-256: `988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`.
 - The identity agrees with `ReviewedHostArtifacts.CUBISM_5_3_02`.
 - The identity agrees with the 5.3.02 row of `reviewed-releases.json`.
 
@@ -15,7 +15,7 @@ Check commands:
 ```bash
 stat -c %s /opt/dev/projects/turboism/cubism-ref/5.3.02/Live2D_Cubism.jar
 sha256sum /opt/dev/projects/turboism/cubism-ref/5.3.02/Live2D_Cubism.jar
-javap -p -s -classpath /opt/dev/projects/turboism/cubism-ref/5.3.02/Live2D_Cubism.jar <下表 owner>
+javap -p -s -classpath /opt/dev/projects/turboism/cubism-ref/5.3.02/Live2D_Cubism.jar <owner from the table below>
 ```
 
 Every alias starts with `cubism.editor-model.`.
