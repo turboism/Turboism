@@ -162,7 +162,7 @@ final class MeshInterpolationTransformerTest {
 
     @Test
     void realJarBytesDeclareTheTargetClassAndTransformOnEveryReviewedVersion() throws Exception {
-        final var targets = dev.turboism.adapter.cubism.optimization.ClassPinTable.load("mesh-interpolation");
+        final var targets = dev.turboism.adapter.cubism.optimization.TargetClassTable.load("mesh-interpolation");
         for (String version : dev.turboism.mapping.verification.ReviewedHostArtifacts.reviewedCubismVersions()) {
             java.nio.file.Path jar;
             try {

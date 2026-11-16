@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.uniform;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.adapter.cubism.optimization.HostClassWriters;
 import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
@@ -180,7 +180,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
      * name, per reviewed generation. The bundled JOGL artifact keeps its own
      * whole-artifact pin and is not part of this map.
      */
-    public static Map<String, List<String>> reviewedClassSha256() {
+    public static Map<String, List<String>> targetClasses() {
         return REVIEWED_CLASSES;
     }
 
@@ -688,5 +688,5 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         }
     }
 
-    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("uniform-location-lifecycle");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = TargetClassTable.load("uniform-location-lifecycle");
 }

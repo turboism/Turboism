@@ -44,7 +44,7 @@ final class VerifiedIncrementalUpdateInstaller implements VerifiedHookInstaller 
 
     private static final List<ReviewedHostContract.Candidate<IncrementalUpdateTarget>> CANDIDATES =
             ReviewedHostContract.candidates(
-                    IncrementalUpdateTarget.reviewedClassSha256(),
+                    IncrementalUpdateTarget.targetClasses(),
                     version ->
                             IncrementalUpdateTarget.forReviewedVersion(version).orElse(null));
 

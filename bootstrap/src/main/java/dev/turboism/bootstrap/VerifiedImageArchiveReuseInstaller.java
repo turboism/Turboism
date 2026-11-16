@@ -29,7 +29,7 @@ final class VerifiedImageArchiveReuseInstaller implements VerifiedHookInstaller 
     static final int EXPECTED_OWNERS = 1;
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
-            ReviewedHostContract.candidates(ImageArchiveReuseTransformer.reviewedClassSha256(), version -> HOOK_ID);
+            ReviewedHostContract.candidates(ImageArchiveReuseTransformer.targetClasses(), version -> HOOK_ID);
 
     static final WeaveSpec<ReviewedHostContract.Bound<String>> SPEC = new WeaveSpec<ReviewedHostContract.Bound<String>>(
             ADMISSION,

@@ -18,7 +18,7 @@ import java.util.function.Consumer;
 public final class StartupSuppressionInstaller {
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
-            ReviewedHostContract.candidates(StartupSuppressionProfile.reviewedClassSha256(), version -> version);
+            ReviewedHostContract.candidates(StartupSuppressionProfile.targetClasses(), version -> version);
 
     private StartupSuppressionInstaller() {}
 

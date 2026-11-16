@@ -131,7 +131,7 @@ final class ShaderUniformTransformerTest {
 
     @Test
     void everyAdmittedVersionDeclaresTheShaderOwner() {
-        var targets = ShaderUniformTransformer.reviewedClassSha256();
+        var targets = ShaderUniformTransformer.targetClasses();
         assertEquals(
                 dev.turboism.mapping.verification.ReviewedHostArtifacts.reviewedCubismVersions().stream()
                         .sorted()

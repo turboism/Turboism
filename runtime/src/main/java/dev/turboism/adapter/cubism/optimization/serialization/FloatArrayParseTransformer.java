@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.serialization;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.adapter.cubism.optimization.HostClassWriters;
 import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
@@ -252,13 +252,14 @@ public final class FloatArrayParseTransformer implements ClassFileTransformer {
     private record Jump(int index, int opcode, Label target) {}
 
     /**
-     * SHA-256 of the serializer class this hook rewrites, keyed by internal name, per reviewed generation. A
-     * repackaged or differently-declared artifact binds this hook only when
-     * one distinct contract's pins match every class entry; identical contracts merge.
+     * Target class the serializer rewrite touches, keyed by internal name, per
+     * reviewed generation. A repackaged or differently-declared artifact binds this
+     * hook only when one distinct contract's class list matches every entry;
+     * identical contracts merge.
      */
-    public static Map<String, List<String>> reviewedClassSha256() {
+    public static Map<String, List<String>> targetClasses() {
         return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("float-array-parse");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = TargetClassTable.load("float-array-parse");
 }

@@ -13,7 +13,7 @@ final class WarpAltMirrorHostProfileTest {
     @Test
     void latestStripMappingDoesNotChangeEarlierVersions() {
         for (final String version :
-                WarpAltMirrorHostProfile.reviewedClassSha256().keySet()) {
+                WarpAltMirrorHostProfile.targetClasses().keySet()) {
             final var profile =
                     WarpAltMirrorHostProfile.forReviewedVersion(version).orElseThrow();
             final String expected = version.equals("5.3.04")
@@ -21,7 +21,7 @@ final class WarpAltMirrorHostProfileTest {
                     : "com/live2d/cubism/view/context/a/b";
             assertEquals(expected, profile.stripOwner(), version);
             assertTrue(
-                    WarpAltMirrorHostProfile.reviewedClassSha256().get(version).contains(expected), version);
+                    WarpAltMirrorHostProfile.targetClasses().get(version).contains(expected), version);
             assertEquals(version.startsWith("5.3.") ? "R" : "L", profile.stripMountMethod(), version);
             assertEquals(version.startsWith("5.3.") ? "H" : "E", profile.stripGroupField(), version);
             assertEquals("com/live2d/cubism/view/context/guiEntity/q", profile.stripIconSetOwner(), version);

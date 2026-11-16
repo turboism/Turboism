@@ -43,9 +43,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * cached per table name: one resource read and one parse per table for the whole JVM
  * lifetime. The cache holds only immutable maps, so a shared entry cannot be mutated.</p>
  */
-public final class ClassPinTable {
+public final class TargetClassTable {
 
-    private static final String RESOURCE_PREFIX = "dev/turboism/adapter/cubism/class-pins/";
+    private static final String RESOURCE_PREFIX = "dev/turboism/adapter/cubism/target-classes/";
     private static final String RESOURCE_SUFFIX = ".json";
 
     /** Compact-shape key naming the class list every version inherits. */
@@ -57,7 +57,7 @@ public final class ClassPinTable {
     /** Parsed tables keyed by resource base name; values are deeply immutable. */
     private static final Map<String, Map<String, List<String>>> CACHE = new ConcurrentHashMap<>();
 
-    private ClassPinTable() {}
+    private TargetClassTable() {}
 
     /**
      * Loads a target-class table from a classpath JSON resource.
@@ -92,7 +92,7 @@ public final class ClassPinTable {
         Objects.requireNonNull(version, "version");
         final List<String> classes = load(name).get(version);
         if (classes == null) {
-            throw new IllegalStateException("class pin table '" + name + "' has no block for version " + version);
+            throw new IllegalStateException("target class table '" + name + "' has no block for version " + version);
         }
         return classes;
     }
@@ -101,17 +101,17 @@ public final class ClassPinTable {
         final String path = RESOURCE_PREFIX + name + RESOURCE_SUFFIX;
         // The distributed agent declares Boot-Class-Path, so its classes (including this
         // one) have no defining loader; the -javaagent jar is also on the system class
-        // path, which carries the same pin-table resources.
-        final ClassLoader loader = ClassPinTable.class.getClassLoader();
+        // path, which carries the same target-class table resources.
+        final ClassLoader loader = TargetClassTable.class.getClassLoader();
         try (InputStream input =
                 loader != null ? loader.getResourceAsStream(path) : ClassLoader.getSystemResourceAsStream(path)) {
             if (input == null) {
-                throw new IllegalStateException("class pin table resource not found: " + path);
+                throw new IllegalStateException("target class table resource not found: " + path);
             }
             final String json = readFully(input);
             return parseTable(json, path);
         } catch (IOException failure) {
-            throw new IllegalStateException("class pin table could not be loaded: " + path, failure);
+            throw new IllegalStateException("target class table could not be loaded: " + path, failure);
         }
     }
 
@@ -140,11 +140,11 @@ public final class ClassPinTable {
             return Collections.unmodifiableMap(new LinkedHashMap<>(document.versions()));
         }
         if (document.defaultClasses() == null) {
-            throw new IllegalStateException("compact class pin table lacks '" + DEFAULT_KEY + "' in " + source);
+            throw new IllegalStateException("compact target class table lacks '" + DEFAULT_KEY + "' in " + source);
         }
         if (!document.versions().isEmpty()) {
             throw new IllegalStateException(
-                    "compact class pin table mixes '" + DEFAULT_KEY + "' with version keys in " + source);
+                    "compact target class table mixes '" + DEFAULT_KEY + "' with version keys in " + source);
         }
         return resolveCompact(document, source);
     }
@@ -159,11 +159,11 @@ public final class ClassPinTable {
         for (final String version : overrides.keySet()) {
             if (!reviewed.contains(version)) {
                 throw new IllegalStateException(
-                        "class pin table override names unreviewed version '" + version + "' in " + source);
+                        "target class table override names unreviewed version '" + version + "' in " + source);
             }
             if (overrides.get(version).equals(defaults)) {
                 throw new IllegalStateException(
-                        "class pin table override '" + version + "' repeats '" + DEFAULT_KEY + "' in " + source);
+                        "target class table override '" + version + "' repeats '" + DEFAULT_KEY + "' in " + source);
             }
         }
         final Map<String, List<String>> resolved = new LinkedHashMap<>();

@@ -27,7 +27,7 @@ final class VerifiedFloatArrayParseCacheInstaller implements VerifiedHookInstall
     static final int EXPECTED_OWNERS = 1;
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
-            ReviewedHostContract.candidates(FloatArrayParseTransformer.reviewedClassSha256(), version -> HOOK_ID);
+            ReviewedHostContract.candidates(FloatArrayParseTransformer.targetClasses(), version -> HOOK_ID);
 
     static final WeaveSpec<ReviewedHostContract.Bound<String>> SPEC = new WeaveSpec<ReviewedHostContract.Bound<String>>(
             ADMISSION,

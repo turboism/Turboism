@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.image;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.adapter.cubism.optimization.HostClassWriters;
 import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
@@ -58,14 +58,14 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
     }
 
     /**
-     * The factory owner pinned for one reviewed generation. Each block names exactly
+     * The factory owner named for one reviewed generation. Each block names exactly
      * one class — {@link #TARGET} on 5.3.x, {@link #TARGET_52} on 5.2.x — so the owner is
      * recovered from the table rather than restated here.
      */
     public static String ownerForVersion(String version) {
-        List<String> block = reviewedClassSha256().get(version);
+        List<String> block = targetClasses().get(version);
         if (block == null || block.size() != 1) {
-            throw new IllegalArgumentException("no single texture factory pin for version " + version);
+            throw new IllegalArgumentException("no single texture factory target class for version " + version);
         }
         return block.get(0);
     }
@@ -233,9 +233,9 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
      * repackaged or differently-declared artifact binds this hook only when
      * one distinct contract's targets exist; identical contracts merge.
      */
-    public static Map<String, List<String>> reviewedClassSha256() {
+    public static Map<String, List<String>> targetClasses() {
         return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("texture-upload-preparation");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = TargetClassTable.load("texture-upload-preparation");
 }

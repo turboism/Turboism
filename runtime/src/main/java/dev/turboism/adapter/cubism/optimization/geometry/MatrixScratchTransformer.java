@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.geometry;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.adapter.cubism.optimization.HostClassWriters;
 import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
@@ -334,13 +334,14 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
     }
 
     /**
-     * SHA-256 of the transform, matrix, product and entity classes this hook rewrites and verifies, keyed by internal name, per reviewed generation. A
-     * repackaged or differently-declared artifact binds this hook only when
-     * one distinct contract's pins match every class entry; identical contracts merge.
+     * Target classes the transform, matrix, product and entity rewrites touch,
+     * keyed by internal name, per reviewed generation. A repackaged or
+     * differently-declared artifact binds this hook only when one distinct
+     * contract's class list matches every entry; identical contracts merge.
      */
-    public static Map<String, List<String>> reviewedClassSha256() {
+    public static Map<String, List<String>> targetClasses() {
         return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("matrix-scratch");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = TargetClassTable.load("matrix-scratch");
 }

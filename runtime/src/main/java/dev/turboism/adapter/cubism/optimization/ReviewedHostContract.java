@@ -33,7 +33,7 @@ import java.util.jar.JarFile;
  * whole-artifact digest in {@link ReviewedHostArtifacts}, and an unreviewed declaration is
  * admitted only through its own self-consistent Cubism identity. Class bytes are never
  * re-digested here — the weave gates verify the exact method shapes they rewrite, so a
- * changed body refuses that hook alone without a per-class pin table.</p>
+ * changed body refuses that hook alone without a per-class target table.</p>
  *
  * <p>A declaration is mandatory: target classes never substitute for product and version
  * identity. {@code UNREADABLE}, {@code NOT_CUBISM}, {@code DECLARATION_MISSING},

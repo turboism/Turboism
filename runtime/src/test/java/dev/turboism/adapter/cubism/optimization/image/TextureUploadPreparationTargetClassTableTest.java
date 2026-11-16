@@ -2,7 +2,7 @@ package dev.turboism.adapter.cubism.optimization.image;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.List;
 import java.util.Map;
@@ -11,11 +11,11 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 /** Offline coverage contract for the texture-upload factory owner table. */
-class TextureUploadPreparationPinTableTest {
-    private static final Map<String, List<String>> TABLE = ClassPinTable.load("texture-upload-preparation");
+class TextureUploadPreparationTargetClassTableTest {
+    private static final Map<String, List<String>> TABLE = TargetClassTable.load("texture-upload-preparation");
 
     @Test
-    void pinTableCoversExactlyTheReviewedStableVersions() {
+    void targetClassTableCoversExactlyTheReviewedStableVersions() {
         final Set<String> reviewed = ReviewedHostArtifacts.all().stream()
                 .map(ReviewedHostArtifacts::cubismVersionOf)
                 .map(version -> version.orElseThrow())
@@ -34,7 +34,7 @@ class TextureUploadPreparationPinTableTest {
             assertEquals(
                     owner,
                     TextureUploadPreparationTransformer.ownerForVersion(entry.getKey()),
-                    entry.getKey() + " owner must derive from its pin block");
+                    entry.getKey() + " owner must derive from its target class block");
         }
     }
 

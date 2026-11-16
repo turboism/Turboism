@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.warpalt;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
@@ -129,7 +129,7 @@ public record WarpAltMirrorHostProfile(
     /**
      * Returns the reviewed selector profile for a declared reviewed version,
      * independently of the whole-artifact digest. Callers must still verify the
-     * pinned class digests in {@link #reviewedClassSha256()} against the actual
+     * pinned class digests in {@link #targetClasses()} against the actual
      * artifact — the version alone is never proof.
      */
     public static Optional<WarpAltMirrorHostProfile> forReviewedVersion(final String version) {
@@ -146,12 +146,12 @@ public record WarpAltMirrorHostProfile(
     }
 
     /**
-     * SHA-256 of each host class this hook transforms, keyed by internal name, for
-     * every reviewed generation. A repackaged reviewed artifact — or any host whose
+     * Target classes this hook transforms, keyed by internal name, for every
+     * reviewed generation. A repackaged reviewed artifact — or any host whose
      * declared identity is not a reviewed release — is admissible only when every
-     * pinned class entry of exactly one distinct contract matches.
+     * class entry of exactly one distinct contract matches.
      */
-    public static Map<String, List<String>> reviewedClassSha256() {
+    public static Map<String, List<String>> targetClasses() {
         return REVIEWED_CLASSES;
     }
 
@@ -163,7 +163,7 @@ public record WarpAltMirrorHostProfile(
     private static final String ACTION_DISPATCH = "com/live2d/cubism/view/context/actionManager/CEActionManager";
     private static final String INPUT_INGRESS = "com/live2d/cubism/view/context/CEViewContext";
 
-    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("warp-alt-mirror");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = TargetClassTable.load("warp-alt-mirror");
 
     /**
      * 5.2.03 uses a different obfuscation generation for the strip mount pass
