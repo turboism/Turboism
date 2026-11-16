@@ -1038,6 +1038,15 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     /** Counter naming passes the bridge could not complete. */
     static final String PARAMETER_ROW_STAT_FAILURES = "failures";
 
+    /**
+     * Opt-in switch that turns the parameter-row execution evidence into an acceptance gate.
+     *
+     * <p>Default runs keep their previous behavior: the workload runs and reports as before, and no
+     * statistics slot is sampled. Final acceptance sets this switch so an installation-only run
+     * cannot pass.</p>
+     */
+    static final String PARAMETER_ROW_EVIDENCE_PROPERTY = "turboism.validation.parameterRowEvidence";
+
     static final long PEER_RESPONSE_POLL_MILLIS = 100L;
 
     /** RUNNING progress phase written before the bounded peer wait so a stuck run reports correctly. */
@@ -2394,10 +2403,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     onHostThread(() -> selectedModel.rotationDeformers().all().get(0));
             final java.awt.Robot robot = new java.awt.Robot();
             editorObjectLifecycleCounts.clear();
-            // Opt-in final-acceptance evidence. Sampled before any edit so the delta covers the
-            // real palette activity this workload drives, never a synthetic bridge callback.
-            final Map<String, Long> parameterRowBefore = parameterRowStats();
-            final boolean parameterRowEvidenceRequired = Boolean.getBoolean("turboism.validation.parameterRowEvidence");
+            // Opt-in final-acceptance evidence. A default run samples nothing, so its behavior and
+            // report are unchanged. When the switch is set, the sample is taken before any edit so
+            // the delta covers the real palette activity this workload drives, never a synthetic
+            // bridge callback.
+            final boolean parameterRowEvidenceRequired = Boolean.getBoolean(PARAMETER_ROW_EVIDENCE_PROPERTY);
+            final Map<String, Long> parameterRowBefore = parameterRowEvidenceRequired ? parameterRowStats() : Map.of();
             final StringBuilder report = new StringBuilder();
             report.append("status=RUNNING\n")
                     .append("meshId=")

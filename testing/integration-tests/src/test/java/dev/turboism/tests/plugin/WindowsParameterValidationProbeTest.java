@@ -920,6 +920,17 @@ class WindowsParameterValidationProbeTest {
     }
 
     @Test
+    void parameterRowEvidenceSwitchIsOptInAndNamedOnce() {
+        assertEquals(
+                "turboism.validation.parameterRowEvidence",
+                WindowsParameterValidationProbe.PARAMETER_ROW_EVIDENCE_PROPERTY);
+        assertEquals("turboism.param-row.stats", WindowsParameterValidationProbe.PARAMETER_ROW_STATS_PROPERTY);
+        assertEquals("invocations", WindowsParameterValidationProbe.PARAMETER_ROW_STAT_INVOCATIONS);
+        assertEquals("incrementalPasses", WindowsParameterValidationProbe.PARAMETER_ROW_STAT_INCREMENTAL_PASSES);
+        assertEquals("failures", WindowsParameterValidationProbe.PARAMETER_ROW_STAT_FAILURES);
+    }
+
+    @Test
     void parameterRowStatsReadsOnlyThePublishedSupplierSlot() {
         final Object previous =
                 System.getProperties().get(WindowsParameterValidationProbe.PARAMETER_ROW_STATS_PROPERTY);

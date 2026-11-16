@@ -81,9 +81,30 @@ The `matrixScratch` factor keeps the verified uniform-location cache ON in every
 control and changes only the opt-in invocation-local matrix candidate. It reuses
 the native wheel/pan/ArtMesh workloads; it does not install an all-GL proxy. The
 original installer-owned matrix admission gate must be present, armed and unchanged
-at capture and leg validation. No matrix execution counter is injected in timed
-windows; `matrixScratch.executionCounter=false` records that limit explicitly.
-Functional installation or pixel agreement alone is not a new speedup claim.
+at capture and leg validation. Functional installation or pixel agreement alone is
+not a new speedup claim.
+
+### Execution evidence versus installation evidence
+
+Two kinds of evidence exist and they are not interchangeable.
+
+**Built-in statistics, sampled outside the timed window.** The reviewed bridge
+already publishes `turboism.matrix-scratch.stats`. After each timed window the
+probe reads that slot and reports `matrixScratch.*` deltas. On every enabled matrix
+leg it also requires a positive `calls` delta, `failures` == 0 and `active` == 1,
+and writes `matrixScratch.executionVerified=true` only when all three hold. Because
+the sample is taken after the window, it cannot perturb the measurement. This
+proves the woven call sites actually ran.
+
+**Installation-only and older evidence.** Earlier reports established that the
+bridge installed, that the admission gate was armed and that pixels agreed. Those
+checks do not show the rewritten sites executed. `matrixScratch.executionCounter=false`
+records that older limit explicitly: no execution counter was injected into timed
+windows then, and none is injected now. Do not read installation evidence as
+execution evidence.
+
+The probe never injects an ASM counter for this purpose; it reads the production
+slot the bridge already owns.
 
 After building `previewBundle` and `buildModelUpdateSkipHostProbe`, use the existing
 shared queue wrapper (never a direct Editor launch):
