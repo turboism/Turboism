@@ -21,7 +21,7 @@ service account or stored secret.
 
 ## Notifications and recovery
 
-A confirmed incident opens an issue titled `[API monitor] api.turboism.dev 异常`,
+A confirmed incident opens an issue titled `[API monitor] api.turboism.dev 异常` (the API monitor error title),
 assigns and mentions the GitHub login from `TURBOISM_MONITOR_RECIPIENT` (the
 workflow feeds it from the `RELEASE_MONITOR_RECIPIENT` repository variable; when
 unset — or when the value is not a single valid GitHub login — the issue is
