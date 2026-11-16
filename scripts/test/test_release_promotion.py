@@ -1,13 +1,17 @@
 """Candidate promotion tests: real local Git/payload verification, fake remote mutations."""
 from __future__ import annotations
 
+import contextlib
 import copy
 import hashlib
+import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 from scripts.test.reviewed_releases_fixture import table
 
@@ -320,6 +324,23 @@ class PromotionTest(unittest.TestCase):
         with self.assertRaises(p.ReleaseError):
             self.promote()
         self.assertEqual(self.gh.writes, [])
+
+    def test_diverged_workflow_head_warns_without_blocking_promotion(self):
+        # GitHub refuses GITHUB_TOKEN ref writes for a commit whose workflow tree is not the
+        # default-branch tree, but the refusal is not deterministic, so a retry must stay possible.
+        with mock.patch.dict(os.environ, {'GITHUB_SHA': 'd' * 40}):
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                self.promote()
+        self.assertIn('differs from candidate source', stderr.getvalue())
+        self.assertIn('HTTP 403', stderr.getvalue())
+        self.assertEqual(self.gh.tag_object['object']['sha'], self.sha)
+        self.assertEqual(self.gh.release['tag_name'], 'v1.2.3')
+
+    def test_matching_workflow_head_emits_no_divergence_warning(self):
+        with mock.patch.dict(os.environ, {'GITHUB_SHA': self.sha}):
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                self.promote()
+        self.assertNotIn('differs from candidate source', stderr.getvalue())
 
     def test_main_advancing_cannot_retarget_candidate(self):
         # The remote branch is not consulted as the tag source; only the checked-out run SHA is used.

@@ -20,6 +20,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - A `recent-project-board` installed or re-enabled while `recent-preview` is already running now requests a cached-preview replay on enable, so its cards show existing thumbnails instead of placeholders until the next editor restart.
 
+- A refused GitHub promotion now withdraws the framework feed release it had just admitted, so the feed never advertises an update whose GitHub Release does not exist. The promotion also reports when its workflow head differs from the candidate source, which is the condition under which GitHub refuses tag and Release writes from `GITHUB_TOKEN`.
+
 ## [0.70.0] - 2026-11-15
 
 ### Added
