@@ -40,7 +40,8 @@ import java.util.function.Consumer;
  * <p>While sampling, rolling series values are published to
  * {@link ChartDataRegistry} under the canonical chart ids
  * ({@link #CHART_CPU}, {@link #CHART_FPS}, {@link #CHART_HEAP},
- * {@link #CHART_NONHEAP}, {@link #CHART_FRAMES}, {@link #CHART_GC}) so
+ * {@link #CHART_NONHEAP}, {@link #CHART_MEMORY}, {@link #CHART_FRAMES},
+ * {@link #CHART_GC}) so
  * embedded-panel {@code PanelView.Chart} components render the same data as
  * sampling consumers. GC totals come from the JVM garbage-collector MXBeans
  * as cumulative counters; the sampling tick diffs them against the previous
@@ -53,6 +54,7 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
     public static final String CHART_FPS = "fps";
     public static final String CHART_HEAP = "heap";
     public static final String CHART_NONHEAP = "nonheap";
+    public static final String CHART_MEMORY = "memory";
     public static final String CHART_FRAMES = "frames";
     public static final String CHART_GC = "gc";
 
@@ -471,12 +473,20 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
         ChartDataRegistry.publish(CHART_FPS, chartData(SERIES_FPS));
         ChartDataRegistry.publish(CHART_HEAP, chartData(SERIES_HEAP));
         ChartDataRegistry.publish(CHART_NONHEAP, chartData(SERIES_NONHEAP));
+        ChartDataRegistry.publish(
+                CHART_MEMORY,
+                new ChartDataRegistry.ChartData(List.of(
+                        new ChartDataRegistry.ChartSeriesData(
+                                SERIES_HEAP, buffers.get(SERIES_HEAP).snapshot()),
+                        new ChartDataRegistry.ChartSeriesData(
+                                SERIES_NONHEAP, buffers.get(SERIES_NONHEAP).snapshot()))));
         ChartDataRegistry.publish(CHART_FRAMES, chartData(SERIES_FRAMES));
         ChartDataRegistry.publish(CHART_GC, chartData(SERIES_GC_PAUSE));
     }
 
     private void unpublishCharts() {
-        for (String chartId : List.of(CHART_CPU, CHART_FPS, CHART_HEAP, CHART_NONHEAP, CHART_FRAMES, CHART_GC)) {
+        for (String chartId :
+                List.of(CHART_CPU, CHART_FPS, CHART_HEAP, CHART_NONHEAP, CHART_MEMORY, CHART_FRAMES, CHART_GC)) {
             ChartDataRegistry.unpublish(chartId);
         }
     }

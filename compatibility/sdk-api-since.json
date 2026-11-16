@@ -61,6 +61,7 @@
     "dev.turboism.sdk.cubism.preview.PreviewFrameSourceClosedException": "0.70.0",
     "dev.turboism.sdk.cubism.recentpreview.RecentPreviewCacheService": "0.70.0",
     "dev.turboism.sdk.cubism.recentpreview.RecentPreviewCacheService$DeletionHandler": "0.70.0",
+    "dev.turboism.sdk.cubism.recentpreview.RecentPreviewCacheService$ReplayHandler": "0.70.0",
     "dev.turboism.sdk.cubism.recentpreview.RecentPreviewCacheService$Unavailable": "0.70.0",
     "dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent": "0.70.0",
     "dev.turboism.sdk.cubism.recentpreview.RecentPreviewDeletedEvent": "0.70.0",

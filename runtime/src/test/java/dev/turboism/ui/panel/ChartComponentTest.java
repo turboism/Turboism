@@ -257,6 +257,44 @@ class ChartComponentTest {
         }
     }
 
+    @Test
+    void multiSeriesMemoryChartRendersBothCurvesOnSharedScale() {
+        final String chartId = "memory";
+        ChartDataRegistry.publish(
+                chartId,
+                new ChartDataRegistry.ChartData(List.of(
+                        new ChartDataRegistry.ChartSeriesData("JVM Heap", List.of(100.0, 100.0)),
+                        new ChartDataRegistry.ChartSeriesData("JVM Non-Heap", List.of(50.0, 50.0)))));
+        try {
+            final ChartComponent component = new ChartComponent(
+                    PanelView.chart(
+                            chartId,
+                            "Memory",
+                            PanelView.series("Heap", 120, "MiB", "0.0"),
+                            PanelView.series("Non-Heap", 120, "MiB", "0.0")),
+                    false);
+            final java.awt.image.BufferedImage image = paintToImage(component);
+            final int heapColor = ChartSeriesColors.colorFor(chartId, 0).getRGB();
+            final int nonHeapColor = ChartSeriesColors.colorFor(chartId, 1).getRGB();
+            final int midX = 170;
+            int heapY = -1;
+            int nonHeapY = -1;
+            for (int y = 20; y < 65; y++) {
+                final int rgb = image.getRGB(midX, y);
+                if (rgb == heapColor) heapY = y;
+                if (rgb == nonHeapColor) nonHeapY = y;
+            }
+            assertTrue(heapY >= 0, "Heap curve must be painted");
+            assertTrue(nonHeapY >= 0, "Non-Heap curve must be painted");
+            assertTrue(
+                    nonHeapY > heapY + 10,
+                    "Non-Heap (50 MiB) must sit visibly below Heap (100 MiB) on shared Y axis (heapY=" + heapY
+                            + ", nonHeapY=" + nonHeapY + ")");
+        } finally {
+            ChartDataRegistry.unpublish(chartId);
+        }
+    }
+
     private static String describe(final List<int[]> blocks) {
         final StringBuilder builder = new StringBuilder();
         for (int[] block : blocks) {

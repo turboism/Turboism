@@ -54,13 +54,10 @@ class PerfStatsPluginLifecycleTest {
         assertNotNull(fixture.samplingRegistration.get());
         assertTrue(fixture.panels.get() > 0, "embedded panel must be contributed at init");
 
-        fixture.sample(new PerformanceSnapshot(1L, 10.0, 1024L, 512L, 60.0, 120L, 0L, 0L, 3L, 250L));
+        fixture.sample(new PerformanceSnapshot(1L, 10.0, 1024L * 1024L, 512L * 1024L, 60.0, 120L, 0L, 0L, 3L, 250L));
         assertEquals(List.of(10.0), fixture.store().values(ChartStore.KEY_CPU));
-        fixture.sample(new PerformanceSnapshot(2L, 10.0, 1024L, 512L, 60.0, 120L, 0L, 0L, 4L, 300L));
-        assertEquals(
-                List.of(0.0, 50.0),
-                fixture.store().values(ChartStore.KEY_GC),
-                "GC Pause series must carry per-window deltas of the cumulative pause counter");
+        assertEquals(List.of(1.0), fixture.store().values(ChartStore.KEY_HEAP));
+        assertEquals(List.of(0.5), fixture.store().values(ChartStore.KEY_NONHEAP));
 
         fixture.plugin.disable();
         assertEquals(1, fixture.closed.get(), "disable must close the sampling registration");
@@ -93,51 +90,41 @@ class PerfStatsPluginLifecycleTest {
             store.append(new PerformanceSnapshot(i, i, 1L, 1L, i, i, 0L, 0L, i, i));
         }
         assertEquals(List.of(2.0, 3.0, 4.0), store.values(ChartStore.KEY_CPU));
-        assertEquals(List.of(2.0, 3.0, 4.0), store.values(ChartStore.KEY_FPS));
         assertEquals(3, store.values(ChartStore.KEY_HEAP).size());
-        assertEquals(3, store.values(ChartStore.KEY_FRAMES).size());
-        assertEquals(
-                List.of(1.0, 1.0, 1.0),
-                store.values(ChartStore.KEY_GC),
-                "GC Pause must roll with the same window as the other series");
+        assertEquals(3, store.values(ChartStore.KEY_NONHEAP).size());
     }
 
     @Test
-    void embeddedPanelDeclaresGcPauseChart() throws Exception {
+    void embeddedPanelDeclaresCpuAndMergedMemoryWithoutFpsOrGc() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.plugin.init(fixture.context());
         final EmbeddedPanelContribution contribution = fixture.panelContribution.get();
         assertNotNull(contribution, "init must contribute the embedded panel");
-        assertTrue(
-                containsChartId(contribution.content(), "gc"),
-                "embedded panel must declare the GC Pause chart with id 'gc'");
-    }
-
-    @Test
-    void embeddedPanelDeclaresFiveIndependentCollapsibleSections() throws Exception {
-        final Fixture fixture = new Fixture();
-        fixture.plugin.init(fixture.context());
-        final EmbeddedPanelContribution contribution = fixture.panelContribution.get();
-        assertNotNull(contribution);
         final PanelView.Column column = assertInstanceOf(
                 PanelView.Column.class, contribution.content(), "the embedded panel must stay a column");
-        assertEquals(5, column.children().size(), "one collapsible section per metric");
-        final List<String> ids = List.of("cpu", "fps", "heap", "nonheap", "gc");
-        for (int index = 0; index < column.children().size(); index++) {
-            final PanelView.CollapsibleSection section = assertInstanceOf(
-                    PanelView.CollapsibleSection.class,
-                    column.children().get(index),
-                    "each metric must be independently collapsible");
-            assertTrue(section.expandedByDefault(), "every metric must start expanded");
-            assertEquals(1, section.children().size(), "each section holds exactly one chart");
-            final PanelView.Chart chart =
-                    assertInstanceOf(PanelView.Chart.class, section.children().get(0));
-            assertEquals(ids.get(index), chart.id());
-            assertEquals(
-                    section.title(),
-                    chart.title(),
-                    "the section border title and the chart title share the same source");
-        }
+        assertEquals(2, column.children().size(), "only CPU and merged Memory sections may be shown");
+
+        final PanelView.CollapsibleSection cpuSection = assertInstanceOf(
+                PanelView.CollapsibleSection.class, column.children().get(0), "CPU must be collapsible");
+        assertTrue(cpuSection.expandedByDefault(), "CPU must start expanded");
+        assertEquals(1, cpuSection.children().size());
+        final PanelView.Chart cpuChart =
+                assertInstanceOf(PanelView.Chart.class, cpuSection.children().get(0));
+        assertEquals("cpu", cpuChart.id());
+        assertEquals(cpuSection.title(), cpuChart.title());
+        assertEquals(1, cpuChart.series().size());
+
+        final PanelView.CollapsibleSection memorySection = assertInstanceOf(
+                PanelView.CollapsibleSection.class, column.children().get(1), "Memory must be collapsible");
+        assertTrue(memorySection.expandedByDefault(), "Memory must start expanded");
+        assertEquals(1, memorySection.children().size());
+        final PanelView.Chart memoryChart =
+                assertInstanceOf(PanelView.Chart.class, memorySection.children().get(0));
+        assertEquals("memory", memoryChart.id());
+        assertEquals(memorySection.title(), memoryChart.title());
+        assertEquals(2, memoryChart.series().size(), "Memory chart must hold Heap and Non-Heap curves");
+        assertNull(findChart(contribution.content(), "fps"), "FPS chart must be removed");
+        assertNull(findChart(contribution.content(), "gc"), "GC chart must be removed");
     }
 
     @Test
@@ -149,28 +136,30 @@ class PerfStatsPluginLifecycleTest {
                 "TXT[panel.title]",
                 contribution.title(),
                 "panel.title must be resolved through the plugin localization");
-        final PanelView.Chart fps = findChart(contribution.content(), "fps");
-        assertNotNull(fps, "embedded panel must declare the fps chart");
+        final PanelView.Chart memory = findChart(contribution.content(), "memory");
+        assertNotNull(memory, "embedded panel must declare the merged memory chart");
         assertEquals(
-                "TXT[chart.fps.title]",
-                fps.title(),
-                "chart.fps.title must be resolved through the plugin localization");
+                "TXT[chart.memory.title]",
+                memory.title(),
+                "chart.memory.title must be resolved through the plugin localization");
         assertEquals(
-                "TXT[series.fps]",
-                fps.series().get(0).name(),
-                "series.fps must be resolved through the plugin localization");
+                "TXT[series.heap]",
+                memory.series().get(0).name(),
+                "series.heap must be resolved through the plugin localization");
+        assertEquals(
+                "TXT[series.nonheap]",
+                memory.series().get(1).name(),
+                "series.nonheap must be resolved through the plugin localization");
         assertEquals(
                 "TXT[chart.cpu.title]",
                 fixture.plugin.chartTitles().get(ChartStore.KEY_CPU),
                 "standalone window CPU row title must match the embedded chart.cpu.title");
         assertEquals(
-                "TXT[chart.fps.title]",
-                fixture.plugin.chartTitles().get(ChartStore.KEY_FPS),
-                "standalone window FPS row title must match the embedded chart.fps.title");
-        assertEquals(
-                "TXT[chart.gc.title]",
-                fixture.plugin.chartTitles().get(ChartStore.KEY_GC),
-                "standalone window GC row title must match the embedded chart.gc.title");
+                "TXT[chart.memory.title]",
+                fixture.plugin.chartTitles().get(ChartStore.KEY_MEMORY),
+                "standalone window Memory row title must match the embedded chart.memory.title");
+        assertEquals("TXT[series.heap]", fixture.plugin.seriesLabels().get(ChartStore.KEY_HEAP));
+        assertEquals("TXT[series.nonheap]", fixture.plugin.seriesLabels().get(ChartStore.KEY_NONHEAP));
     }
 
     @Test
@@ -199,10 +188,11 @@ class PerfStatsPluginLifecycleTest {
                 "Performance",
                 contribution.title(),
                 "panel title must fall back to English without a localization service");
-        final PanelView.Chart fps = findChart(contribution.content(), "fps");
-        assertNotNull(fps);
-        assertEquals("Viewport Render FPS", fps.title());
-        assertEquals("Viewport Render FPS", fps.series().get(0).name());
+        final PanelView.Chart memory = findChart(contribution.content(), "memory");
+        assertNotNull(memory);
+        assertEquals("Memory", memory.title());
+        assertEquals("Heap", memory.series().get(0).name());
+        assertEquals("Non-Heap", memory.series().get(1).name());
     }
 
     @Test
@@ -215,7 +205,7 @@ class PerfStatsPluginLifecycleTest {
                 "Performance",
                 contribution.title(),
                 "an unavailable localization service must fall back instead of throwing");
-        assertNotNull(findChart(contribution.content(), "fps"));
+        assertNotNull(findChart(contribution.content(), "memory"));
     }
 
     @Test
@@ -491,16 +481,47 @@ class PerfStatsPluginLifecycleTest {
     }
 
     @Test
+    void windowMemoryRowChartDrawsHeapAndNonHeapCurvesOnSharedScale() {
+        final ChartStore store = new ChartStore(120);
+        store.append(
+                new PerformanceSnapshot(1L, 0.0, 100L * 1024L * 1024L, 50L * 1024L * 1024L, 0.0, 0L, 0L, 0L, 0L, 0L));
+        store.append(
+                new PerformanceSnapshot(2L, 0.0, 100L * 1024L * 1024L, 50L * 1024L * 1024L, 0.0, 0L, 0L, 0L, 0L, 0L));
+        final javax.swing.JComponent chart = PerfStatsWindow.memoryRowChart(store, "Heap", "Non-Heap");
+        chart.setSize(460, 74);
+        final java.awt.image.BufferedImage image =
+                new java.awt.image.BufferedImage(460, 74, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        final java.awt.Graphics2D g = image.createGraphics();
+        try {
+            chart.paint(g);
+        } finally {
+            g.dispose();
+        }
+        final int heapRgb = new java.awt.Color(44, 160, 44).getRGB();
+        final int nonHeapRgb = new java.awt.Color(214, 39, 40).getRGB();
+        int heapY = -1;
+        int nonHeapY = -1;
+        for (int y = 18; y < 66; y++) {
+            final int rgb = image.getRGB(230, y);
+            if (rgb == heapRgb) heapY = y;
+            if (rgb == nonHeapRgb) nonHeapY = y;
+        }
+        assertTrue(heapY >= 0, "Heap curve must be painted");
+        assertTrue(nonHeapY >= 0, "Non-Heap curve must be painted");
+        assertTrue(
+                nonHeapY > heapY + 10,
+                "Non-Heap (50 MiB) must sit visibly below Heap (100 MiB) on shared Y axis (heapY=" + heapY
+                        + ", nonHeapY=" + nonHeapY + ")");
+    }
+
+    @Test
     void windowRefreshTimerFollowsWindowVisibility() throws Exception {
         Assumptions.assumeFalse(GraphicsEnvironment.isHeadless(), "requires a displayable window");
         final PerfStatsWindow window = new PerfStatsWindow(
                 "Performance",
                 java.util.Map.of(
                         ChartStore.KEY_CPU, "CPU",
-                        ChartStore.KEY_FPS, "FPS",
-                        ChartStore.KEY_HEAP, "Heap",
-                        ChartStore.KEY_NONHEAP, "Non-heap",
-                        ChartStore.KEY_GC, "GC"),
+                        ChartStore.KEY_MEMORY, "Memory"),
                 "Expand",
                 "Collapse",
                 new ChartStore(120));
@@ -673,34 +694,6 @@ class PerfStatsPluginLifecycleTest {
             }
         }
         return null;
-    }
-
-    private static boolean containsChartId(final PanelView view, final String id) {
-        if (view instanceof PanelView.Chart chart) {
-            return id.equals(chart.id());
-        }
-        if (view instanceof PanelView.Column column) {
-            for (PanelView child : column.children()) {
-                if (containsChartId(child, id)) {
-                    return true;
-                }
-            }
-        }
-        if (view instanceof PanelView.Row row) {
-            for (PanelView child : row.children()) {
-                if (containsChartId(child, id)) {
-                    return true;
-                }
-            }
-        }
-        if (view instanceof PanelView.CollapsibleSection section) {
-            for (PanelView child : section.children()) {
-                if (containsChartId(child, id)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     private static final class Fixture {

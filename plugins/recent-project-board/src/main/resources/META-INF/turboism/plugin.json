@@ -78,7 +78,7 @@
     {
       "id": "turboism.ui.recent-preview.manage",
       "scope": "application",
-      "reason": "Deletes one cached preview when the user presses a card's trash button."
+      "reason": "Requests cached preview replays on enable and deletes one cached preview when the user presses a card's trash button."
     },
     {
       "id": "turboism.action.register",

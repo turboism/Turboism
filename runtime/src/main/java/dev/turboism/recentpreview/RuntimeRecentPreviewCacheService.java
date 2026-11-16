@@ -38,6 +38,21 @@ public final class RuntimeRecentPreviewCacheService implements RecentPreviewCach
     }
 
     @Override
+    public Registration provide(final DeletionHandler deletionHandler, final ReplayHandler replayHandler) {
+        permissionChecker.check(PermissionIds.TURBOISM_UI_RECENT_PREVIEW_CONTRIBUTE, "ui.recent-preview.contribute");
+        return registry.provide(
+                pluginId,
+                Objects.requireNonNull(deletionHandler, "deletionHandler"),
+                Objects.requireNonNull(replayHandler, "replayHandler"));
+    }
+
+    @Override
+    public CompletionStage<Void> requestReplay() {
+        permissionChecker.check(PermissionIds.TURBOISM_UI_RECENT_PREVIEW_MANAGE, "ui.recent-preview.manage");
+        return registry.requestReplay();
+    }
+
+    @Override
     public boolean isAvailable() {
         return true;
     }

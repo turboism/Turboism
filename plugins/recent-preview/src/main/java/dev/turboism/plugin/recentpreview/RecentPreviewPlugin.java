@@ -31,6 +31,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import javax.imageio.ImageIO;
 import javax.swing.SwingUtilities;
 
@@ -58,6 +60,7 @@ public final class RecentPreviewPlugin implements CubismPlugin {
     private static final String POLL_TASK_ID = "recent-preview-poll";
     private static final String LOADING_TEXT_KEY = "preview.loading";
     private static final String DEFAULT_LOADING_TEXT = "Loading preview…";
+    private static final int MAX_REPLAY_ENTRIES = 12;
 
     private RecentPreviewPoller poller;
 
@@ -66,6 +69,7 @@ public final class RecentPreviewPlugin implements CubismPlugin {
 
     private TaskHandle pollTask;
     private volatile javax.swing.Timer cacheReplayTimer;
+    private volatile CompletionStage<Void> preloadStage = CompletableFuture.completedStage(null);
 
     @Override
     public void init(final PluginContext context) {
@@ -92,7 +96,7 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         if (enabled) return;
         enabled = true;
         controller.enable();
-        controller.preload().whenComplete((ignored, failure) -> {
+        preloadStage = controller.preload().whenComplete((ignored, failure) -> {
             if (!enabled) return;
             publishCachedPreviews();
             refreshPopup();
@@ -109,6 +113,7 @@ public final class RecentPreviewPlugin implements CubismPlugin {
             return;
         }
         enabled = false;
+        preloadStage = CompletableFuture.completedStage(null);
         stopPoller();
         stopCacheReplay();
         closeContribution();
@@ -352,24 +357,26 @@ public final class RecentPreviewPlugin implements CubismPlugin {
 
     /**
      * Publishes the current disk-cache snapshot for recent files so dependents that start
-     * alongside the plugin can render a recent-project board before the first new capture.
-     * The replay is bounded and runs after {@link RecentPreviewController#preload()}.
+     * alongside the plugin or load later can render a recent-project board immediately.
      */
     private void publishCachedPreviews() {
-        if (!enabled || controller == null) return;
+        final RecentPreviewController currentController = controller;
+        final PluginContext currentContext = context;
+        if (!enabled || currentController == null || currentContext == null) return;
         final List<RecentFileSummary> files;
         try {
-            files = controller.refresh().toCompletableFuture().join();
+            files = currentController.refresh().toCompletableFuture().join();
         } catch (RuntimeException failure) {
-            context.logger()
+            currentContext
+                    .logger()
                     .warn("Recent preview cache replay refresh failed: "
                             + failure.getClass().getSimpleName());
             return;
         }
         int published = 0;
         for (RecentFileSummary file : files) {
-            if (published >= 12) break;
-            final Optional<byte[]> png = controller.image(file.id());
+            if (published >= MAX_REPLAY_ENTRIES) break;
+            final Optional<byte[]> png = currentController.image(file.id());
             if (png.isEmpty()) continue;
             try {
                 final BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(png.get()));
@@ -380,14 +387,32 @@ public final class RecentPreviewPlugin implements CubismPlugin {
                         new ScreenshotImage(decoded.getWidth(), decoded.getHeight(), png.get())));
                 published++;
             } catch (java.io.IOException | RuntimeException failure) {
-                context.logger()
+                currentContext
+                        .logger()
                         .warn("Recent preview cache replay skipped one entry: "
                                 + failure.getClass().getSimpleName());
             }
         }
         if (published > 0) {
-            context.logger().info("Recent preview cache replayed entries=" + published);
+            currentContext.logger().info("Recent preview cache replayed entries=" + published);
         }
+    }
+
+    private CompletionStage<Void> replayCachedPreviews() {
+        if (!enabled) {
+            return CompletableFuture.completedStage(null);
+        }
+        final CompletionStage<Void> activePreload = preloadStage;
+        if (activePreload.toCompletableFuture().isDone()) {
+            publishCachedPreviews();
+            return CompletableFuture.completedStage(null);
+        }
+        // Run on the thread that completes preload: cache reads never touch the host UI thread.
+        return activePreload.handle((ignored, failure) -> null).thenRun(() -> {
+            if (enabled) {
+                publishCachedPreviews();
+            }
+        });
     }
 
     /** Publishes the committed capture to dependent plugins without affecting the cache path. */
@@ -450,11 +475,8 @@ public final class RecentPreviewPlugin implements CubismPlugin {
     }
 
     /**
-     * Registers this plugin as the preview cache provider. The runtime broker calls back here for
-     * every dependent deletion, so the cache stays owned by the plugin that writes it.
-     *
-     * <p>A host without the broker keeps capture and popup behavior unchanged; deletion is then
-     * simply unavailable, which is why this stays a quiet no-op instead of a warning.</p>
+     * Registers this plugin as the preview cache provider for on-demand deletion and replay.
+     * The runtime broker routes dependent requests here so the cache stays owned by this plugin.
      */
     private void provideCacheDeletion() {
         final RecentPreviewCacheService service = context.services()
@@ -467,12 +489,14 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         if (active == null) return;
         try {
             deletionRegistration = context.disposableScope()
-                    .register(service.provide(id -> active.delete(id).thenApply(removed -> {
-                        if (Boolean.TRUE.equals(removed)) {
-                            refreshPopup();
-                        }
-                        return removed;
-                    })));
+                    .register(service.provide(
+                            id -> active.delete(id).thenApply(removed -> {
+                                if (Boolean.TRUE.equals(removed)) {
+                                    refreshPopup();
+                                }
+                                return removed;
+                            }),
+                            this::replayCachedPreviews));
         } catch (RuntimeException unavailable) {
             context.logger()
                     .warn("Recent preview cache deletion registration failed: "

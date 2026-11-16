@@ -31,7 +31,7 @@ interface: swing
 ## 功能介绍
 
 - 在没有打开任何文档时，在原生 OpenGL 视口上展示最多 8 个最近工程。标题栏右侧的 Lucide 纯图标按钮可在 6 列网格、3 列网格和单行列表之间切换，并记住选择；悬停可查看当前布局。空间越宽文字越大。
-- 使用官方 `recent-preview` 插件的公开 `thumbnail.captured` 事件获取缩略图，并接收其启动后的有界磁盘缓存重放。
+- 使用官方 `recent-preview` 插件的公开 `thumbnail.captured` 事件获取缩略图，并在启用时通过 `RecentPreviewCacheService` 按需请求重放已有缓存缩略图，使插件市场实时安装或重新启用后无需重启编辑器即可显示现有预览图。
 - 在打开任何文档时立即隐藏看板，最后一个文档关闭后自动恢复。
 - 标题“最近的文件 / 双击工程即可打开”垂直居中并靠左，右侧为垂直居中的布局切换图标。标题栏位于滚动区之外，因此竖向滚动条出现时按钮位置不会左右偏移。
 - 按显示名称对重复的最近菜单项去重，并保持最近文件原有的顺序。
@@ -78,7 +78,7 @@ interface: swing
 | `turboism.action.register` | `application` | 注册卡片双击打开动作与每张卡片的删除动作。 |
 | `turboism.file.read` | `application` | 读取插件受限存储中的布局偏好。 |
 | `turboism.file.write` | `application` | 保存用户选择的布局偏好。 |
-| `turboism.ui.recent-preview.manage` | `application` | 用户点击卡片垃圾桶按钮时删除对应的缓存预览。 |
+| `turboism.ui.recent-preview.manage` | `application` | 在启用时请求重放缓存缩略图，并在用户点击卡片垃圾桶按钮时删除对应的缓存预览。 |
 
 ## 图标归属
 

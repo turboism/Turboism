@@ -39,6 +39,11 @@ final class ChartComponent extends JComponent {
     // starts below the band so a line at the axis maximum can never cross
     // the text.
     private static final int TEXT_BAND_GAP = 2;
+    private static final int VALUE_TEXT_LEFT_OFFSET = 4;
+    private static final int SERIES_LABEL_GAP = 12;
+    private static final double MIN_AXIS_MAX = 1.0;
+    private static final Color BASELINE_COLOR = new Color(220, 220, 220);
+    private static final float CURVE_STROKE_WIDTH = 1.8f;
 
     private final PanelView.Chart chart;
     private final boolean showTitle;
@@ -102,31 +107,56 @@ final class ChartComponent extends JComponent {
                 g.drawString("no data", plotLeft + 4, valueBaseline);
                 return;
             }
-            g.setColor(new Color(220, 220, 220));
+            g.setColor(BASELINE_COLOR);
             g.setStroke(new BasicStroke(1f));
             g.drawLine(plotLeft, plotBottom, plotRight, plotBottom);
-            boolean drewSeries = false;
+            final double sharedMax = computeSharedMax(data);
             for (int index = 0; index < chart.series().size(); index++) {
                 final PanelView.SeriesSpec spec = chart.series().get(index);
                 final Optional<List<Double>> values = seriesValues(data, spec, index);
                 if (values.isEmpty()) continue;
                 g.setColor(ChartSeriesColors.colorFor(chart.id(), index));
-                drawSeries(g, plotLeft, plotTop, plotRight, plotBottom, spec, values.get());
-                drewSeries = true;
+                drawSeries(g, plotLeft, plotTop, plotRight, plotBottom, spec, values.get(), sharedMax);
             }
-            if (drewSeries) {
-                g.setColor(ChartSeriesColors.colorFor(chart.id(), 0));
-                final List<Double> first =
-                        seriesValues(data, chart.series().get(0), 0).orElse(List.of());
-                if (!first.isEmpty()) {
-                    g.drawString(
-                            formatSeriesValue(chart.series().get(0), first.get(first.size() - 1)),
-                            plotLeft + 4,
-                            valueBaseline);
-                }
-            }
+            drawCurrentValues(g, metrics, data, plotLeft + VALUE_TEXT_LEFT_OFFSET, valueBaseline);
         } finally {
             g.dispose();
+        }
+    }
+
+    private double computeSharedMax(final ChartDataRegistry.ChartData data) {
+        double max = MIN_AXIS_MAX;
+        for (int index = 0; index < chart.series().size(); index++) {
+            final PanelView.SeriesSpec spec = chart.series().get(index);
+            final Optional<List<Double>> values = seriesValues(data, spec, index);
+            if (values.isEmpty()) continue;
+            final List<Double> series = values.get();
+            final int window = Math.min(spec.maxPoints(), series.size());
+            for (int i = series.size() - window; i < series.size(); i++) {
+                max = Math.max(max, series.get(i));
+            }
+        }
+        return max;
+    }
+
+    private void drawCurrentValues(
+            final Graphics2D g,
+            final java.awt.FontMetrics metrics,
+            final ChartDataRegistry.ChartData data,
+            final int startX,
+            final int baseline) {
+        final boolean multiSeries = chart.series().size() > 1;
+        int textX = startX;
+        for (int index = 0; index < chart.series().size(); index++) {
+            final PanelView.SeriesSpec spec = chart.series().get(index);
+            final List<Double> values = seriesValues(data, spec, index).orElse(List.of());
+            if (values.isEmpty()) continue;
+            final String formatted = formatSeriesValue(spec, values.get(values.size() - 1));
+            final String text = multiSeries ? spec.name() + ": " + formatted : formatted;
+            g.setColor(ChartSeriesColors.colorFor(chart.id(), index));
+            g.drawString(text, textX, baseline);
+            if (!multiSeries) return;
+            textX += metrics.stringWidth(text) + SERIES_LABEL_GAP;
         }
     }
 
@@ -165,19 +195,16 @@ final class ChartComponent extends JComponent {
             final int right,
             final int bottom,
             final PanelView.SeriesSpec spec,
-            final List<Double> values) {
-        double max = 1.0;
+            final List<Double> values,
+            final double max) {
         final int window = Math.min(spec.maxPoints(), values.size());
-        for (int i = values.size() - window; i < values.size(); i++) {
-            max = Math.max(max, values.get(i));
-        }
         // Fewer than two samples: no polyline yet; the current value is drawn
         // once by the caller, so nothing must be painted here (a placeholder
         // would overlap the value text).
         if (window < 2) {
             return;
         }
-        g.setStroke(new BasicStroke(1.8f));
+        g.setStroke(new BasicStroke(CURVE_STROKE_WIDTH));
         int previousX = -1;
         int previousY = -1;
         for (int index = 0; index < window; index++) {

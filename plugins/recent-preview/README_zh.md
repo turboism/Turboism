@@ -83,7 +83,7 @@ interface: swing
 }]
 ```
 
-两个事件都可通过 `@SubscribeEvent` 或 `context.eventBus().subscribe(...)` 订阅。`event.image().png()` 获取图片流，`event.thumbnail()` 获取 `PanelView` 部件。新捕获会实时发布；提供方还会在启动后延迟重放一次现有磁盘缓存的有界快照，方便依赖插件在本次会话首次新捕获前渲染最近工程看板。若订阅方启动得更晚，应保留自己的副本或请求新的捕获。
+两个事件都可通过 `@SubscribeEvent` 或 `context.eventBus().subscribe(...)` 订阅。`event.image().png()` 获取图片流，`event.thumbnail()` 获取 `PanelView` 部件。新捕获会实时发布；提供方不仅会在启动后延迟重放一次现有磁盘缓存的有界快照，还会在依赖插件通过 `RecentPreviewCacheService.requestReplay()` 按需请求时立即重放现有缓存缩略图，使编辑器内实时安装或重新启用的看板插件无需重启即可显示已有预览图。
 
 ## 功能能力
 
@@ -91,7 +91,7 @@ interface: swing
 
 ## 缓存提供方
 
-本插件通过运行时中介的 `RecentPreviewCacheService` 注册为预览缓存提供方：依赖插件按不透明最近文件 ID 请求删除，本插件执行删除并发布 `thumbnail.deleted`。缓存始终由写入它的插件持有。
+本插件通过运行时中介的 `RecentPreviewCacheService` 注册为预览缓存提供方：依赖插件可按不透明最近文件 ID 请求删除（由本插件执行删除并发布 `thumbnail.deleted`），也可按需请求重放现有缓存缩略图；缓存始终由写入它的插件持有。
 
 ## 权限
 

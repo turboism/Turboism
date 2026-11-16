@@ -81,7 +81,8 @@ public final class KernelReportSnapshotFactory {
             bindings(
                     "ui.recent-preview.contribute",
                     binding("recentPreview.contribute", PermissionIds.TURBOISM_UI_RECENT_PREVIEW_CONTRIBUTE),
-                    binding("recentPreviewCache.delete", PermissionIds.TURBOISM_UI_RECENT_PREVIEW_MANAGE)),
+                    binding("recentPreviewCache.delete", PermissionIds.TURBOISM_UI_RECENT_PREVIEW_MANAGE),
+                    binding("recentPreviewCache.replay", PermissionIds.TURBOISM_UI_RECENT_PREVIEW_MANAGE)),
             binding("ui.dialog.contribute", "ui.dialog.contribute", PermissionIds.TURBOISM_UI_DIALOG_CONTRIBUTE),
             binding("ui.embedded-panel.contribute", "ui.panel.contribute", PermissionIds.TURBOISM_UI_PANEL_CONTRIBUTE),
             binding(

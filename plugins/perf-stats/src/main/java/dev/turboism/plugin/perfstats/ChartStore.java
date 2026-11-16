@@ -15,22 +15,22 @@ import java.util.Objects;
 final class ChartStore {
 
     static final String KEY_CPU = "cpu";
-    static final String KEY_FPS = "fps";
+    static final String KEY_MEMORY = "memory";
     static final String KEY_HEAP = "heap";
     static final String KEY_NONHEAP = "nonheap";
-    static final String KEY_FRAMES = "frames";
-    static final String KEY_GC = "gc";
+
+    private static final double BYTES_PER_MEBIBYTE = 1024.0 * 1024.0;
+    private static final int MIN_CAPACITY = 2;
 
     private final int capacity;
     private final Map<String, ArrayDeque<Double>> series = new LinkedHashMap<>();
-    private long lastGcPauseMillis = -1L;
 
     ChartStore(final int capacity) {
-        if (capacity < 2) {
-            throw new IllegalArgumentException("capacity must be at least 2");
+        if (capacity < MIN_CAPACITY) {
+            throw new IllegalArgumentException("capacity must be at least " + MIN_CAPACITY);
         }
         this.capacity = capacity;
-        for (String key : List.of(KEY_CPU, KEY_FPS, KEY_HEAP, KEY_NONHEAP, KEY_FRAMES, KEY_GC)) {
+        for (String key : List.of(KEY_CPU, KEY_HEAP, KEY_NONHEAP)) {
             series.put(key, new ArrayDeque<>());
         }
     }
@@ -39,15 +39,8 @@ final class ChartStore {
         Objects.requireNonNull(snapshot, "snapshot");
         synchronized (series) {
             append(KEY_CPU, snapshot.cpuPercent());
-            append(KEY_FPS, snapshot.fps());
             append(KEY_HEAP, bytesToMebibytes(snapshot.jvmHeapBytes()));
             append(KEY_NONHEAP, bytesToMebibytes(snapshot.jvmNonHeapBytes()));
-            append(KEY_FRAMES, (double) snapshot.renderedFrames());
-            final long pauseMillis = snapshot.gcPauseMillis();
-            final double gcPauseWindowMillis =
-                    lastGcPauseMillis < 0L ? 0.0 : Math.max(0.0, (double) (pauseMillis - lastGcPauseMillis));
-            lastGcPauseMillis = pauseMillis;
-            append(KEY_GC, gcPauseWindowMillis);
         }
     }
 
@@ -67,6 +60,6 @@ final class ChartStore {
     }
 
     private static double bytesToMebibytes(final long bytes) {
-        return bytes / (1024.0 * 1024.0);
+        return bytes / BYTES_PER_MEBIBYTE;
     }
 }

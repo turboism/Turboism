@@ -22,16 +22,14 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
- * Performance Statistics plugin: live CPU / FPS / JVM memory charts in an
- * embedded panel (via {@code PanelView.Chart}, values injected by the runtime)
- * and a standalone Swing window opened on demand from the Turboism top-level
- * menu (Performance Monitor). Enable starts the sampling registration, which
- * mounts the FPS counting hook and the bytecode instrumentation, and registers
- * the window action and menu item; it never opens the window itself. Disable
- * closes the sampling registration (stopping sampling, restoring the
- * instrumented host bytecode, and verifying the restoration) and disposes the
- * window. The runtime closes the plugin DisposableScope after disable or
- * shutdown, which unregisters the action and the menu contribution.
+ * Performance Statistics plugin: live CPU and JVM memory (Heap and Non-Heap)
+ * charts in an embedded panel (via {@code PanelView.Chart}, values injected by
+ * the runtime) and a standalone Swing window opened on demand from the Turboism
+ * top-level menu (Performance Monitor). Enable starts the sampling registration
+ * and registers the window action and menu item; it never opens the window
+ * itself. Disable closes the sampling registration and disposes the window. The
+ * runtime closes the plugin DisposableScope after disable or shutdown, which
+ * unregisters the action and the menu contribution.
  */
 public final class PerfStatsPlugin implements TurboismPlugin {
 
@@ -41,14 +39,20 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     private static final String PANEL_ID = "perf-stats.chart";
     private static final String PANEL_TITLE = "Performance";
     private static final String WINDOW_TITLE = "Performance Statistics";
-    private static final String CHART_TITLE_FPS = "Viewport Render FPS";
-    private static final String SERIES_FPS = "Viewport Render FPS";
+    private static final String CHART_ID_CPU = ChartStore.KEY_CPU;
+    private static final String CHART_ID_MEMORY = ChartStore.KEY_MEMORY;
+    private static final String CHART_TITLE_CPU = "CPU";
+    private static final String CHART_TITLE_MEMORY = "Memory";
     private static final String SERIES_CPU = "CPU %";
-    private static final String SERIES_HEAP = "JVM Heap";
-    private static final String SERIES_NONHEAP = "JVM Non-Heap";
-    private static final String SERIES_GC = "GC Pause";
+    private static final String SERIES_HEAP = "Heap";
+    private static final String SERIES_NONHEAP = "Non-Heap";
+    private static final String UNIT_PERCENT = "%";
+    private static final String UNIT_MEBIBYTES = "MiB";
+    private static final String VALUE_FORMAT = "0.0";
     private static final String PANEL_PLACEMENT = "side";
     private static final int PANEL_PRIORITY = 50;
+    private static final int STORE_CAPACITY_MULTIPLIER = 2;
+    private static final Duration TEARDOWN_TIMEOUT = Duration.ofSeconds(2);
 
     private static final String WINDOW_ACTION_ID = "perf-stats.window.show";
     private static final String WINDOW_ACTION_LABEL = "Performance Monitor";
@@ -69,7 +73,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
 
     private final Object lifecycleLock = new Object();
     private final AtomicReference<PerfStatsWindow> window = new AtomicReference<>();
-    private final ChartStore store = new ChartStore(WINDOW_POINTS * 2);
+    private final ChartStore store = new ChartStore(WINDOW_POINTS * STORE_CAPACITY_MULTIPLIER);
     private PluginContext context;
     private UiScheduler uiScheduler;
     private Registration sampling;
@@ -98,6 +102,8 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     }
 
     private EmbeddedPanelContribution embeddedPanel() {
+        final String cpuTitle = context.localization().text("chart.cpu.title", CHART_TITLE_CPU);
+        final String memoryTitle = context.localization().text("chart.memory.title", CHART_TITLE_MEMORY);
         return new EmbeddedPanelContribution(
                 PANEL_ID,
                 context.localization().text("panel.title", PANEL_TITLE),
@@ -105,70 +111,46 @@ public final class PerfStatsPlugin implements TurboismPlugin {
                 PANEL_PRIORITY,
                 PanelView.column(
                         PanelView.collapsibleSection(
-                                context.localization().text("chart.cpu.title", "CPU"),
+                                cpuTitle,
                                 true,
                                 PanelView.chart(
-                                        "cpu",
-                                        context.localization().text("chart.cpu.title", "CPU"),
+                                        CHART_ID_CPU,
+                                        cpuTitle,
                                         PanelView.series(
                                                 context.localization().text("series.cpu", SERIES_CPU),
                                                 WINDOW_POINTS,
-                                                "%",
-                                                "0.0"))),
+                                                UNIT_PERCENT,
+                                                VALUE_FORMAT))),
                         PanelView.collapsibleSection(
-                                context.localization().text("chart.fps.title", CHART_TITLE_FPS),
+                                memoryTitle,
                                 true,
                                 PanelView.chart(
-                                        "fps",
-                                        context.localization().text("chart.fps.title", CHART_TITLE_FPS),
-                                        PanelView.series(
-                                                context.localization().text("series.fps", SERIES_FPS),
-                                                WINDOW_POINTS,
-                                                "fps",
-                                                "0.0"))),
-                        PanelView.collapsibleSection(
-                                context.localization().text("chart.heap.title", SERIES_HEAP),
-                                true,
-                                PanelView.chart(
-                                        "heap",
-                                        context.localization().text("chart.heap.title", SERIES_HEAP),
+                                        CHART_ID_MEMORY,
+                                        memoryTitle,
                                         PanelView.series(
                                                 context.localization().text("series.heap", SERIES_HEAP),
                                                 WINDOW_POINTS,
-                                                "MiB",
-                                                "0.0"))),
-                        PanelView.collapsibleSection(
-                                context.localization().text("chart.nonheap.title", SERIES_NONHEAP),
-                                true,
-                                PanelView.chart(
-                                        "nonheap",
-                                        context.localization().text("chart.nonheap.title", SERIES_NONHEAP),
+                                                UNIT_MEBIBYTES,
+                                                VALUE_FORMAT),
                                         PanelView.series(
                                                 context.localization().text("series.nonheap", SERIES_NONHEAP),
                                                 WINDOW_POINTS,
-                                                "MiB",
-                                                "0.0"))),
-                        PanelView.collapsibleSection(
-                                context.localization().text("chart.gc.title", SERIES_GC),
-                                true,
-                                PanelView.chart(
-                                        "gc",
-                                        context.localization().text("chart.gc.title", SERIES_GC),
-                                        PanelView.series(
-                                                context.localization().text("series.gc", SERIES_GC),
-                                                WINDOW_POINTS,
-                                                "ms",
-                                                "0.0")))));
+                                                UNIT_MEBIBYTES,
+                                                VALUE_FORMAT)))));
     }
 
     /** Row titles for the standalone window: the same chart.*.title copy as the embedded sections. */
     Map<String, String> chartTitles() {
         return Map.of(
-                ChartStore.KEY_CPU, context.localization().text("chart.cpu.title", "CPU"),
-                ChartStore.KEY_FPS, context.localization().text("chart.fps.title", CHART_TITLE_FPS),
-                ChartStore.KEY_HEAP, context.localization().text("chart.heap.title", SERIES_HEAP),
-                ChartStore.KEY_NONHEAP, context.localization().text("chart.nonheap.title", SERIES_NONHEAP),
-                ChartStore.KEY_GC, context.localization().text("chart.gc.title", SERIES_GC));
+                ChartStore.KEY_CPU, context.localization().text("chart.cpu.title", CHART_TITLE_CPU),
+                ChartStore.KEY_MEMORY, context.localization().text("chart.memory.title", CHART_TITLE_MEMORY));
+    }
+
+    /** Localized series labels for the merged memory chart in the standalone window. */
+    Map<String, String> seriesLabels() {
+        return Map.of(
+                ChartStore.KEY_HEAP, context.localization().text("series.heap", SERIES_HEAP),
+                ChartStore.KEY_NONHEAP, context.localization().text("series.nonheap", SERIES_NONHEAP));
     }
 
     @Override
@@ -276,7 +258,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     }
 
     private void disposeWindow(final PerfStatsWindow active) {
-        if (active != null && !uiScheduler.runUiTeardown(active::dispose, Duration.ofSeconds(2))) {
+        if (active != null && !uiScheduler.runUiTeardown(active::dispose, TEARDOWN_TIMEOUT)) {
             context.logger().warn("Performance Statistics window disposal deferred");
         }
     }
@@ -355,6 +337,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
             final PerfStatsWindow created = new PerfStatsWindow(
                     context.localization().text("window.title", WINDOW_TITLE),
                     chartTitles(),
+                    seriesLabels(),
                     context.localization().text(WINDOW_EXPAND_KEY, WINDOW_EXPAND_FALLBACK),
                     context.localization().text(WINDOW_COLLAPSE_KEY, WINDOW_COLLAPSE_FALLBACK),
                     store);

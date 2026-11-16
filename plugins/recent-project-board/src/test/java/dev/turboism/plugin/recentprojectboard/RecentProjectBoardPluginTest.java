@@ -91,6 +91,30 @@ final class RecentProjectBoardPluginTest {
     }
 
     @Test
+    void enableRequestsPreviewReplaySoExistingCachedThumbnailsAppearImmediately() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
+        final RecordingRecentFiles recentFiles = new RecordingRecentFiles(List.of(file));
+        final List<EmbeddedPanelContribution> contributions = new CopyOnWriteArrayList<>();
+        final RecentProjectBoardPlugin plugin = new RecentProjectBoardPlugin();
+        final RecordingPreviewCache cache =
+                new RecordingPreviewCache(() -> plugin.onPreview(new RecentPreviewCapturedEvent(
+                        file.id(), file.displayName(), new ScreenshotImage(1, 1, ONE_PIXEL_PNG))));
+
+        plugin.init(context(
+                recentFiles, uiHost(contributions), new ArrayList<>(), EditorCommandService.unavailable(), cache));
+        plugin.enable();
+
+        assertEquals(1, cache.replayRequests.get(), "enable must request existing cached previews from provider");
+        final PanelView cardContent = cards(
+                        contributions.get(contributions.size() - 1).content())
+                .get(0)
+                .content();
+        assertTrue(
+                containsScaledImage(cardContent),
+                "the board must render replayed thumbnails even when installed after provider startup");
+    }
+
+    @Test
     void openActionDispatchesTheRecentFileId() {
         final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
         final RecordingRecentFiles recentFiles = new RecordingRecentFiles(List.of(file));
@@ -802,6 +826,16 @@ final class RecentProjectBoardPluginTest {
 
     private static final class RecordingPreviewCache implements RecentPreviewCacheService {
         private final List<RecentFileId> deleted = new CopyOnWriteArrayList<>();
+        private final AtomicInteger replayRequests = new AtomicInteger();
+        private final Runnable onReplay;
+
+        private RecordingPreviewCache() {
+            this(() -> {});
+        }
+
+        private RecordingPreviewCache(final Runnable onReplay) {
+            this.onReplay = onReplay;
+        }
 
         @Override
         public CompletionStage<Boolean> delete(final RecentFileId id) {
@@ -812,6 +846,13 @@ final class RecentProjectBoardPluginTest {
         @Override
         public Registration provide(final DeletionHandler handler) {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletionStage<Void> requestReplay() {
+            replayRequests.incrementAndGet();
+            onReplay.run();
+            return java.util.concurrent.CompletableFuture.completedStage(null);
         }
     }
 

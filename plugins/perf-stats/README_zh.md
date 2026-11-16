@@ -6,7 +6,7 @@ kind: feature
 status: preview
 delivery: store-candidate
 category: performance
-tags: metrics, diagnostics, fps
+tags: metrics, diagnostics
 turboismApi: "[0.68.1,)"
 requiresCubism: true
 interface: swing
@@ -16,14 +16,14 @@ interface: swing
 
 > **Turboism 官方插件** · **状态：预览**
 
-显示实时 Cubism CPU、FPS、JVM 内存和垃圾回收统计信息。
+显示实时 Cubism CPU 和 JVM 内存（堆与非堆）统计信息。
 
 | 详情 | 值 |
 |---|---|
 | 版本 | `0.68.1` |
 | 插件 ID | `dev.turboism.plugin.perf-stats` |
 | 类别 | `performance` |
-| 标签 | metrics, diagnostics, fps |
+| 标签 | metrics, diagnostics |
 | 需要 Cubism | 是 |
 | 接口 | `swing` |
 | 许可证 | 项目许可证 |
@@ -55,7 +55,7 @@ interface: swing
 
 1. 打开嵌入式“性能”面板，以获得始终可用的紧凑图表。
 2. 使用 **Turboism → Performance Monitor** 打开独立窗口。
-3. 观察视口 FPS、CPU、堆/非堆内存和垃圾回收暂停趋势。
+3. 观察 CPU 与合并内存（堆与非堆双曲线）趋势。
 
 ## 功能能力
 
@@ -68,7 +68,7 @@ interface: swing
 
 | 权限 | 作用域 | 请求原因 |
 |---|---|---|
-| `turboism.performance.stats.read` | `application` | 读取 Cubism 进程 CPU、FPS 和 JVM 内存统计信息，以绘制实时图表。 |
+| `turboism.performance.stats.read` | `application` | 读取 Cubism 进程 CPU 和 JVM 内存统计信息，以绘制实时图表。 |
 | `turboism.ui.status.notify` | `application` | 在 Cubism 状态栏中显示常驻的紧凑 CPU 百分比标签。 |
 | `turboism.ui.panel.contribute` | `application` | 将嵌入式性能图表面板添加到 Cubism 调色板区域。 |
 | `turboism.action.register` | `application` | 注册性能监视器窗口操作。 |

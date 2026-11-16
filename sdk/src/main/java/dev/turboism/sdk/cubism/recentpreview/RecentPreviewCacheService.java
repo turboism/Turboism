@@ -4,6 +4,7 @@ import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -42,6 +43,33 @@ public interface RecentPreviewCacheService {
      */
     Registration provide(DeletionHandler handler);
 
+    /**
+     * Registers deletion and cache-replay handlers for the active provider generation.
+     *
+     * <p>The default implementation keeps a provider that only implements
+     * {@link #provide(DeletionHandler)} source compatible: replay requests then complete without
+     * publishing anything, so a dependent must treat a missing replay as "no cached previews".</p>
+     *
+     * @param deletionHandler performs one deletion and reports whether an entry was removed
+     * @param replayHandler replays cached preview events to dependent plugins
+     * @return registration whose close removes both handlers
+     * @throws IllegalStateException when another plugin already registered handlers
+     */
+    default Registration provide(final DeletionHandler deletionHandler, final ReplayHandler replayHandler) {
+        Objects.requireNonNull(replayHandler, "replayHandler");
+        return provide(deletionHandler);
+    }
+
+    /**
+     * Requests the active provider to replay its cached previews to subscribers.
+     *
+     * @return a stage completing once the replay finishes, or immediately when no provider
+     *     is registered
+     */
+    default CompletionStage<Void> requestReplay() {
+        return CompletableFuture.completedStage(null);
+    }
+
     /** Performs one deletion for the registered provider. */
     @FunctionalInterface
     interface DeletionHandler {
@@ -50,6 +78,17 @@ public interface RecentPreviewCacheService {
          * @return the deletion outcome
          */
         CompletionStage<Boolean> delete(RecentFileId id);
+    }
+
+    /** Replays cached previews for newly enabled or hot-loaded dependent plugins. */
+    @FunctionalInterface
+    interface ReplayHandler {
+        /**
+         * Publishes cached preview events for live recent files.
+         *
+         * @return a stage completing once replay publication finishes
+         */
+        CompletionStage<Void> replay();
     }
 
     /**
@@ -83,6 +122,16 @@ public interface RecentPreviewCacheService {
 
         @Override
         public Registration provide(final DeletionHandler handler) {
+            throw new UnsupportedOperationException("recent preview cache service is not available");
+        }
+
+        @Override
+        public Registration provide(final DeletionHandler deletionHandler, final ReplayHandler replayHandler) {
+            throw new UnsupportedOperationException("recent preview cache service is not available");
+        }
+
+        @Override
+        public CompletionStage<Void> requestReplay() {
             throw new UnsupportedOperationException("recent preview cache service is not available");
         }
     }

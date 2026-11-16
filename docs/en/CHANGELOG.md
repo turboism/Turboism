@@ -8,6 +8,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- `RecentPreviewCacheService.requestReplay()` and the `ReplayHandler` provider contract let a dependent plugin ask the recent-preview provider to republish its cached thumbnails on demand, so a board installed or re-enabled from the Plugin Market shows existing previews without restarting Cubism.
+
+### Changed
+
+- `perf-stats` merges the JVM Heap and JVM Non-Heap charts into one Memory chart with two curves on a shared axis, and removes the FPS and GC Pause charts from the embedded panel and the standalone Performance Monitor window.
+
+### Fixed
+
+- A `recent-project-board` installed or re-enabled while `recent-preview` is already running now requests a cached-preview replay on enable, so its cards show existing thumbnails instead of placeholders until the next editor restart.
+
 ## [0.70.0] - 2026-11-15
 
 ### Added
