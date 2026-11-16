@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.uniform;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -161,12 +164,7 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
             byte[] bytes) {
         if (actualLoader != loader || !OWNER.equals(name) || bytes == null) return null;
         try {
-            if (domain == null
-                    || domain.getCodeSource() == null
-                    || !artifact.equals(
-                            Path.of(domain.getCodeSource().getLocation().toURI())
-                                    .toAbsolutePath()
-                                    .normalize())) {
+            if (!HostCodeSource.matchesArtifact(domain, artifact)) {
                 failure = "shader query source mismatch";
                 return null;
             }
@@ -185,12 +183,7 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
             final int[] sites = {0};
             final int base = Math.max(localBase, locals(bytes));
             ClassReader reader = new ClassReader(bytes);
-            ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-            };
+            ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override
@@ -335,23 +328,11 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
             super.visitVarInsn(Opcodes.ALOAD, name);
         }
 
-        private void property(String key) {
-            super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            super.visitLdcInsn(key);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
-        }
-
         private void lookup(Label nativeQuery, Label done) {
             Label start = new Label(), end = new Label(), failure = new Label(), discard = new Label();
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
             super.visitLabel(start);
-            property(LOOKUP_PROPERTY);
+            SlotBridgeEmitter.emitGetSlot(this, LOOKUP_PROPERTY);
             super.visitInsn(Opcodes.DUP);
             super.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/invoke/MethodHandle");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
@@ -385,7 +366,7 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
                     done = new Label();
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
             super.visitLabel(start);
-            property(RECORD_PROPERTY);
+            SlotBridgeEmitter.emitGetSlot(this, RECORD_PROPERTY);
             super.visitInsn(Opcodes.DUP);
             super.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/invoke/MethodHandle");
             super.visitJumpInsn(Opcodes.IFEQ, discard);

@@ -1,7 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.scenehandler;
 
 import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHostProfile;
 import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorNativeMethodTransformer;
 import java.lang.instrument.ClassFileTransformer;
@@ -170,7 +172,7 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
                         && !SceneHandlerCacheTarget.COMPONENTS_OWNER.equals(name))) {
             return null;
         }
-        if (actualLoader != loader || !matchesArtifactSource(domain)) {
+        if (actualLoader != loader || !HostCodeSource.matchesArtifact(domain, artifact)) {
             failure = "unexpected loader or code source for " + name;
             return null;
         }
@@ -185,22 +187,6 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
         } catch (final Exception | LinkageError rejected) {
             failure = rejected.toString();
             return null;
-        }
-    }
-
-    private boolean matchesArtifactSource(final ProtectionDomain domain) {
-        if (domain == null
-                || domain.getCodeSource() == null
-                || domain.getCodeSource().getLocation() == null) {
-            return false;
-        }
-        try {
-            return Path.of(domain.getCodeSource().getLocation().toURI())
-                    .toAbsolutePath()
-                    .normalize()
-                    .equals(artifact);
-        } catch (final Exception ignored) {
-            return false;
         }
     }
 
@@ -270,7 +256,7 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
                     sawTraverse = true;
                     super.visitInsn(Opcodes.DUP);
                     super.visitVarInsn(Opcodes.ASTORE, scratchSceneSlot);
-                    emitPropertyLookup(mv, SceneHandlerCacheBridge.GET_PROPERTY);
+                    SlotBridgeEmitter.emitGetSlot(mv, SceneHandlerCacheBridge.GET_PROPERTY);
                     super.visitInsn(Opcodes.DUP);
                     super.visitTypeInsn(Opcodes.INSTANCEOF, FUNCTION);
                     final Label noFunction = new Label();
@@ -319,7 +305,7 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
                     completed = true;
                     localSites[0]++;
                     super.visitVarInsn(Opcodes.ASTORE, scratchListSlot);
-                    emitPropertyLookup(mv, SceneHandlerCacheBridge.PUT_PROPERTY);
+                    SlotBridgeEmitter.emitGetSlot(mv, SceneHandlerCacheBridge.PUT_PROPERTY);
                     super.visitInsn(Opcodes.DUP);
                     super.visitTypeInsn(Opcodes.INSTANCEOF, BIFUNCTION);
                     final Label skipPut = new Label();
@@ -475,17 +461,7 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
     }
 
     private ClassWriter hostWriter(final ClassReader reader) {
-        return new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-            @Override
-            protected ClassLoader getClassLoader() {
-                return loader == null ? super.getClassLoader() : loader;
-            }
-
-            @Override
-            protected String getCommonSuperClass(final String left, final String right) {
-                return HostClassWriters.commonSuperClass(loader, left, right);
-            }
-        };
+        return HostClassWriters.newFrameWriter(reader, loader);
     }
 
     private static MethodVisitor wrapInvalidator(final MethodVisitor downstream, final int argumentSlot) {
@@ -493,7 +469,7 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
             @Override
             public void visitCode() {
                 super.visitCode();
-                emitPropertyLookup(mv, SceneHandlerCacheBridge.INVALIDATE_PROPERTY);
+                SlotBridgeEmitter.emitGetSlot(mv, SceneHandlerCacheBridge.INVALIDATE_PROPERTY);
                 super.visitInsn(Opcodes.DUP);
                 super.visitTypeInsn(Opcodes.INSTANCEOF, CONSUMER);
                 final Label skip = new Label();
@@ -508,14 +484,6 @@ public final class SceneHandlerCacheTransformer implements ClassFileTransformer 
                 super.visitLabel(done);
             }
         };
-    }
-
-    private static void emitPropertyLookup(final MethodVisitor mv, final String key) {
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-        mv.visitLdcInsn(key);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
     }
 
     private static int[] inspectInputEventSlots(final byte[] viewReference) {

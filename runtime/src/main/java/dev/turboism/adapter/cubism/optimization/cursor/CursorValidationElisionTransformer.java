@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.cursor;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.List;
@@ -111,8 +114,7 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
                         && !CursorValidationElisionTarget.COMPONENT_OWNER.equals(name))) {
             return null;
         }
-        if ((actualLoader != null && actualLoader != ClassLoader.getPlatformClassLoader())
-                || (domain != null && domain.getCodeSource() != null)) {
+        if (!HostCodeSource.isJdkBootOrPlatform(actualLoader, domain)) {
             failure = "non-JDK loader or code source for " + name;
             return null;
         }
@@ -146,12 +148,7 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
             return null;
         }
         final ClassReader reader = new ClassReader(bytes);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-            @Override
-            protected ClassLoader getClassLoader() {
-                return ClassLoader.getPlatformClassLoader();
-            }
-        };
+        final ClassWriter writer = HostClassWriters.newFrameWriter(reader, ClassLoader.getPlatformClassLoader());
         final int[] localSites = {0};
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
@@ -211,12 +208,7 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
             return null;
         }
         final ClassReader reader = new ClassReader(bytes);
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-            @Override
-            protected ClassLoader getClassLoader() {
-                return ClassLoader.getPlatformClassLoader();
-            }
-        };
+        final ClassWriter writer = HostClassWriters.newFrameWriter(reader, ClassLoader.getPlatformClassLoader());
         final int[] localSites = {0};
         reader.accept(
                 new ClassVisitor(Opcodes.ASM9, writer) {
@@ -267,7 +259,7 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
                         && CursorValidationElisionTarget.UPDATE_CURSOR_METHOD.equals(name)
                         && CursorValidationElisionTarget.UPDATE_CURSOR_DESCRIPTOR.equals(descriptor)) {
                     localSites[0]++;
-                    emitPropertyLookup(mv, CursorValidationElisionBridge.VALIDATE_PROPERTY);
+                    SlotBridgeEmitter.emitGetSlot(mv, CursorValidationElisionBridge.VALIDATE_PROPERTY);
                     super.visitInsn(Opcodes.DUP);
                     super.visitTypeInsn(Opcodes.INSTANCEOF, BOOLEAN_SUPPLIER);
                     final Label fallback = new Label();
@@ -302,7 +294,7 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
                         && type.startsWith(CursorValidationElisionTarget.CONTAINER_POINTER_ACTION_PREFIX)) {
                     injected = true;
                     localSites[0]++;
-                    emitPropertyLookup(mv, CursorValidationElisionBridge.OUTSIDE_PROPERTY);
+                    SlotBridgeEmitter.emitGetSlot(mv, CursorValidationElisionBridge.OUTSIDE_PROPERTY);
                     super.visitInsn(Opcodes.DUP);
                     super.visitTypeInsn(Opcodes.INSTANCEOF, PREDICATE);
                     final Label fallback = new Label();
@@ -328,7 +320,7 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
             @Override
             public void visitCode() {
                 super.visitCode();
-                emitPropertyLookup(mv, CursorValidationElisionBridge.DIRTY_PROPERTY);
+                SlotBridgeEmitter.emitGetSlot(mv, CursorValidationElisionBridge.DIRTY_PROPERTY);
                 super.visitInsn(Opcodes.DUP);
                 super.visitTypeInsn(Opcodes.INSTANCEOF, RUNNABLE);
                 final Label skip = new Label();
@@ -368,13 +360,5 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
         } catch (final NumberFormatException invalid) {
             return -1;
         }
-    }
-
-    private static void emitPropertyLookup(final MethodVisitor mv, final String key) {
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-        mv.visitLdcInsn(key);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
     }
 }

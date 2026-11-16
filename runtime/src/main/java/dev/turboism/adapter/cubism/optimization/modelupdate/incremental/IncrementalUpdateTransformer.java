@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.modelupdate.incremental;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -149,24 +152,14 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
         final boolean isUpdater = target.updater().equals(name);
         if (!classNames().contains(name)) return null;
         try {
-            if (artifact == null
-                    || domain == null
-                    || !artifact.equals(
-                            Path.of(domain.getCodeSource().getLocation().toURI())
-                                    .toAbsolutePath()
-                                    .normalize())) {
+            if (artifact == null || !HostCodeSource.matchesArtifact(domain, artifact)) {
                 failure = "incremental-update class source is not the reviewed artifact";
                 return null;
             }
             final List<Site> sites = sites();
             int rewritten = 0;
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-            };
+            final ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             final int[] counter = {0};
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
@@ -266,11 +259,7 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
     /** {@code System.getProperties().get(key)} duplicated + instanceof-checked. */
     private static void emitGuardHead(
             final MethodVisitor mv, final String property, final String iface, final Label miss) {
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-        mv.visitLdcInsn(property);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+        SlotBridgeEmitter.emitGetSlot(mv, property);
         mv.visitInsn(Opcodes.DUP);
         mv.visitTypeInsn(Opcodes.INSTANCEOF, iface);
         mv.visitJumpInsn(Opcodes.IFEQ, miss);

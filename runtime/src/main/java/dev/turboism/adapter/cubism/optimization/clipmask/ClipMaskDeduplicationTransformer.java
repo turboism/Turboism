@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.clipmask;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -102,12 +105,7 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
         }
 
         try {
-            if (domain == null
-                    || domain.getCodeSource() == null
-                    || !artifact.equals(
-                            Path.of(domain.getCodeSource().getLocation().toURI())
-                                    .toAbsolutePath()
-                                    .normalize())) {
+            if (!HostCodeSource.matchesArtifact(domain, artifact)) {
                 failures.put(name, "source mismatch: " + name);
                 return null;
             }
@@ -135,12 +133,7 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
                 failures.put(name, "mask pass locals unavailable: " + maskPassMaxLocals);
                 return null;
             }
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-            };
+            final ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
 
             final int[] woven = {0};
             reader.accept(
@@ -225,11 +218,7 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
 
     /** Emits a slot read and the guard that skips the call when the slot holds another type. */
     private static void emitSlot(final MethodVisitor visitor, final String property, final String interfaceType) {
-        visitor.visitMethodInsn(
-                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-        visitor.visitLdcInsn(property);
-        visitor.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+        SlotBridgeEmitter.emitGetSlot(visitor, property);
         // Keep the resolved value on the stack: one Hashtable read serves both the
         // instanceof guard and the cast, instead of reading the slot twice per site.
         visitor.visitInsn(Opcodes.DUP);

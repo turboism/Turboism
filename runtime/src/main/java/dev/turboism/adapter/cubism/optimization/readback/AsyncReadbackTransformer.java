@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.readback;
 
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -68,12 +69,7 @@ public final class AsyncReadbackTransformer implements ClassFileTransformer {
             return null;
         }
         try {
-            if (definingLoader != loader || domain == null || domain.getCodeSource() == null) {
-                throw new IllegalArgumentException("readback artifact mismatch");
-            }
-            if (!artifact.equals(Path.of(domain.getCodeSource().getLocation().toURI())
-                    .toAbsolutePath()
-                    .normalize())) {
+            if (definingLoader != loader || !HostCodeSource.matchesArtifact(domain, artifact)) {
                 throw new IllegalArgumentException("readback artifact mismatch");
             }
             final List<String> shape = ReviewedMethodShape.read(
