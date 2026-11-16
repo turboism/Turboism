@@ -184,31 +184,17 @@ final class HookManifestTest {
     /**
      * A derived hook id is only unambiguous when the row declares exactly one. A row that declares
      * several describes several weaves, so deriving from it would pick by unordered set iteration;
-     * {@link DeclarativeHooks.DeclarativeHook#of} must refuse instead, and the explicit form must
-     * refuse an id the row does not declare.
+     * {@link DeclarativeHooks.DeclarativeHook#of} must refuse instead.
      */
     @Test
     void aMultiIdRowCannotDeriveItsHookId() {
         final var multiIdRow = dev.turboism.config.optimization.OptimizationCatalog.UPLOAD_ELISION;
         assertTrue(multiIdRow.hookIds().size() > 1, "this guard needs a row that declares several hook ids");
 
-        final IllegalArgumentException derived = assertThrows(
+        final IllegalArgumentException refused = assertThrows(
                 IllegalArgumentException.class,
                 () -> DeclarativeHooks.DeclarativeHook.of(multiIdRow, VerifiedModelUpdateSkipInstaller::new));
-        assertTrue(derived.getMessage().contains("must name its hook id"), derived.getMessage());
-
-        final IllegalArgumentException undeclared = assertThrows(
-                IllegalArgumentException.class,
-                () -> DeclarativeHooks.DeclarativeHook.of(
-                        multiIdRow, "cubism.render.not-declared", VerifiedModelUpdateSkipInstaller::new));
-        assertTrue(undeclared.getMessage().contains("must expose a hook id"), undeclared.getMessage());
-
-        // The explicit form accepts any id the row does declare.
-        final String declaredId = multiIdRow.hookIds().iterator().next();
-        assertEquals(
-                declaredId,
-                DeclarativeHooks.DeclarativeHook.of(multiIdRow, declaredId, VerifiedModelUpdateSkipInstaller::new)
-                        .hookId());
+        assertTrue(refused.getMessage().contains("must declare exactly one hook id"), refused.getMessage());
     }
 
     @Test

@@ -129,9 +129,7 @@ final class DeclarativeHooks {
          * protocols declares the one this entry reports under first.</p>
          *
          * <p>The kill-switch id is derivable only from a row that declares exactly one, because a row
-         * that declares several describes several weaves and a set has no order to pick by. Such a row
-         * must name the id explicitly through
-         * {@link #of(Optimization, String, Function)}.</p>
+         * that declares several describes several weaves and a set has no order to pick by.</p>
          *
          * @param optimization the catalogue row this entry serves
          * @param installer the installer factory
@@ -143,34 +141,11 @@ final class DeclarativeHooks {
             if (optimization.hookIds().size() != DERIVABLE_HOOK_IDS) {
                 throw new IllegalArgumentException(
                         "declarative hook " + optimization.protocols().get(0)
-                                + " must name its hook id: the row declares " + optimization.hookIds());
-            }
-            return of(optimization, optimization.hookIds().iterator().next(), installer);
-        }
-
-        /**
-         * Declares one entry from a catalogue row whose kill-switch id is named explicitly.
-         *
-         * <p>For a row that declares several hook ids, one per weave: the caller states which of them
-         * this entry exposes, so the kill switch keeps one documented owner per weave.</p>
-         *
-         * @param optimization the catalogue row this entry serves
-         * @param hookId the kill-switch id this entry exposes; must be one the row declares
-         * @param installer the installer factory
-         * @return the entry, whose preference gate is the row's own launch decision
-         * @throws IllegalArgumentException when the row does not declare {@code hookId}
-         */
-        static DeclarativeHook of(
-                final Optimization optimization,
-                final String hookId,
-                final Function<InstallContext, VerifiedHookInstaller> installer) {
-            if (!optimization.hookIds().contains(hookId)) {
-                throw new IllegalArgumentException("declarative hook "
-                        + optimization.protocols().get(0) + " must expose a hook id its row declares, not " + hookId);
+                                + " must declare exactly one hook id, not " + optimization.hookIds());
             }
             return new DeclarativeHook(
                     optimization.protocols().get(0),
-                    hookId,
+                    optimization.hookIds().iterator().next(),
                     environment -> environment.plan().admitted(optimization),
                     installer);
         }
