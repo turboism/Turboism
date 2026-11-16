@@ -19,31 +19,6 @@ final class TriangulationAngleGuardPatcher implements Opcodes {
 
     private TriangulationAngleGuardPatcher() {}
 
-    static String fingerprint(final byte[] bytes) {
-        final ClassWriter output = new ClassWriter(0);
-        output.visit(V17, ACC_PUBLIC, H, null, "java/lang/Object", null);
-        final int[] found = {0};
-        new ClassReader(bytes)
-                .accept(
-                        new ClassVisitor(ASM9) {
-                            @Override
-                            public MethodVisitor visitMethod(
-                                    final int access,
-                                    final String name,
-                                    final String descriptor,
-                                    final String signature,
-                                    final String[] exceptions) {
-                                if (!name.equals("d") || !descriptor.equals("()V")) return null;
-                                found[0]++;
-                                return output.visitMethod(access, name, descriptor, signature, exceptions);
-                            }
-                        },
-                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-        output.visitEnd();
-        require(found[0] == 1, "one native d method required");
-        return TriangulationDefinitionFingerprint.runtimeOf(output.toByteArray());
-    }
-
     static byte[] patch(final byte[] bytes) {
         final ClassReader reader = new ClassReader(bytes);
         require(reader.getClassName().equals(H), "unreviewed native d owner");

@@ -2,8 +2,6 @@ package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.ProtectionDomain;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -12,11 +10,11 @@ import java.util.function.Consumer;
 /**
  * Exact-selector transformer for indexed edge queries, membership fusion and fresh-edge searches.
  *
- * <p>Each of the two targets has independent reviewed class hashes and shape gates. Unknown
- * bytes remain untouched. Fusion calls the original add method and does not require an indexed
- * TriangleList, so either transformation can safely decline independently. Both outcomes are
- * exposed separately; success of one must not be reported as success of another. Fresh-edge
- * search elimination additionally checks the actual loaded equality semantics at runtime.</p>
+ * <p>Each of the two targets has an independent shape gate. Unknown bytes remain untouched.
+ * Fusion calls the original add method and does not require an indexed TriangleList, so either
+ * transformation can safely decline independently. Both outcomes are exposed separately;
+ * success of one must not be reported as success of another. Fresh-edge search elimination
+ * additionally checks the actual loaded equality semantics at runtime.</p>
  *
  * <p>Only initial definitions are eligible. The installer declines if either target was already
  * loaded, and redefinition callbacks are ignored. The query patch retains its native scan
@@ -151,7 +149,6 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
             final boolean unnamedModule) {
         if (classfileBuffer == null || classBeingRedefined != null) return null;
         if (MEMBERSHIP_INTERNAL_NAME.equals(className)) {
-            final String observed = sha256(classfileBuffer);
             byte[] patched = classfileBuffer;
             boolean freshPatched = false;
             boolean membershipPatched = false;
@@ -186,31 +183,21 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
                     reportMembership("TRIANGULATION_LAZY_EDGE_DECLINED reason=" + lazyEdgeDiagnostic.get());
                 }
             }
-            // Each receipt binds the final returned bytes; either independent stage may decline.
-            if (freshPatched)
-                reportMembership("TRIANGULATION_FRESH_EDGE_PATCHED inputSha256=" + observed + " outputSha256="
-                        + sha256(patched));
-            if (membershipPatched)
-                reportMembership("TRIANGULATION_MEMBERSHIP_PATCHED inputSha256=" + observed + " outputSha256="
-                        + sha256(patched));
-            if (lazyPatched)
-                reportMembership(
-                        "TRIANGULATION_LAZY_EDGE_PATCHED inputSha256=" + observed + " outputSha256=" + sha256(patched));
-            if (lazyPatched)
-                reportMembership("TRIANGULATION_ANGLE_GUARD_PATCHED inputSha256=" + observed + " outputSha256="
-                        + sha256(patched));
+            // Each receipt names one independent stage; the returned bytes are the single result.
+            if (freshPatched) reportMembership("TRIANGULATION_FRESH_EDGE_PATCHED");
+            if (membershipPatched) reportMembership("TRIANGULATION_MEMBERSHIP_PATCHED");
+            if (lazyPatched) reportMembership("TRIANGULATION_LAZY_EDGE_PATCHED");
+            if (lazyPatched) reportMembership("TRIANGULATION_ANGLE_GUARD_PATCHED");
             return freshPatched || membershipPatched ? patched : null;
         }
         if (!TARGET_INTERNAL_NAME.equals(className)) return null;
-        final String observed = sha256(classfileBuffer);
         try {
             byte[] patched = patcher.patch(classfileBuffer);
             if (lifecycle != null && unnamedModule && lifecycle.startupReason().equals("SUPPORTED_OWNED_PREMAIN")) {
                 try {
                     patched = TriangleListEdgeBuilderPatcher.patch(patched);
                     builderOutcome.set(Outcome.PATCHED);
-                    reportMembership("TRIANGULATION_LOCAL_BUILDER_PATCHED inputSha256=" + observed + " outputSha256="
-                            + sha256(patched));
+                    reportMembership("TRIANGULATION_LOCAL_BUILDER_PATCHED");
                 } catch (IllegalArgumentException rejected) {
                     builderOutcome.set(Outcome.SHAPE_REJECTED);
                     builderDiagnostic.set(rejected.getMessage());
@@ -232,20 +219,6 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             // Diagnostics must not discard an otherwise verified transformation.
-        }
-    }
-
-    static String sha256(final byte[] bytes) {
-        try {
-            final byte[] hash = MessageDigest.getInstance("SHA-256").digest(bytes);
-            final StringBuilder text = new StringBuilder(hash.length * 2);
-            for (final byte value : hash) {
-                text.append(Character.forDigit((value >> 4) & 0xF, 16));
-                text.append(Character.forDigit(value & 0xF, 16));
-            }
-            return text.toString();
-        } catch (NoSuchAlgorithmException unavailable) {
-            throw new IllegalStateException("SHA-256 is unavailable", unavailable);
         }
     }
 }

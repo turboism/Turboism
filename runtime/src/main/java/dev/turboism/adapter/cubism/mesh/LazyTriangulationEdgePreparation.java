@@ -6,15 +6,18 @@ import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.io.InputStream;
 import java.lang.reflect.Modifier;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipFile;
 
 /** Complete-JAR admission and immutable dependency plans for the lazy-edge weave. */
@@ -23,57 +26,22 @@ final class LazyTriangulationEdgePreparation {
     private static final String H = P + "h", J = P + "j", T = P + "TriPoint", L = P + "l", R = P + "r";
     private static final String K = P + "k", TL = P + "TriangleList";
     private static final String V = "com.live2d.graphics3d.type.GVector2";
-    private static final String MATH = "com.live2d.util.L";
+    private static final String MATH_52 = "com.live2d.util.L";
+    private static final String MATH_5051 = "com.live2d.util.K";
     private static final String ASSERTIONS = "kotlin._Assertions", INTRINSICS = "kotlin.jvm.internal.Intrinsics";
-    /**
-     * Reviewed jar SHA-256 → (patched-baseline SHA-256, family) table. The baseline is the
-     * membership class after the fresh-edge and membership rewrites: it differs across
-     * 5.0.00-02, 5.0.03-05, 5.0.06/5.1.x, 5.2.x and 5.3.x, while the family selects the
-     * structural fingerprint set (5.0/5.1 name the math singleton {@code com/live2d/util/K}
-     * where 5.2/5.3 name it {@code com/live2d/util/L}).
-     */
-    private record HostReview(String baselineSha256, int family) {}
-
-    private static final int FAMILY_5051 = 2, FAMILY_52 = 0, FAMILY_53 = 1;
     private static final String KOTLIN_JAR = "kotlin-stdlib-1.7.21.jar";
-    private static final String KOTLIN_SHA = "d46a9d773ffb9dee4ff1a748ac845dc8e50005c589302951760a2b5187bddd19";
-    // The pinned triangulation classes are byte-identical inside each family: every
-    // 5.0/5.1 artifact carries the 5.0/5.1 family bytes, every 5.2.x artifact the 5.2
-    // family bytes and every 5.3.x artifact the 5.3 family bytes. The baseline digest
-    // is the fresh-edge/membership-patched membership class, which differs by patch
-    // generation inside 5.0.x, so it is pinned per artifact rather than per family.
-    private static final String BASELINE_52 = "d0fac0cd2c2092db163db7b78bffd011713f2bef17279b08ab088af4e7d27d92";
-    private static final String BASELINE_53 = "40d0754026a7a2fb7c491e95144b9d8a1a605d7aee44579cb20bb2363962f8e6";
-    private static final String BASELINE_5051_A = "0ede1e5121d776309ace6be88aea28e25c6989ba307cabef551e9d102967328b";
-    private static final String BASELINE_5051_B = "1f2410b016b74a8924a7c029f112e78e2e084dd356e66d6ce7ccd360f2c34134";
-    private static final String BASELINE_5051_C = "3f2fda0ba9c8f6e0e854932cfe87d2bde9a4e22775c7991a39109b9fc01ec114";
-    private static final Map<HostArtifactDigest, HostReview> HOST_JARS = Map.ofEntries(
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_0_00, new HostReview(BASELINE_5051_A, FAMILY_5051)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_0_01, new HostReview(BASELINE_5051_A, FAMILY_5051)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_0_02, new HostReview(BASELINE_5051_A, FAMILY_5051)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_0_03, new HostReview(BASELINE_5051_B, FAMILY_5051)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_0_04, new HostReview(BASELINE_5051_B, FAMILY_5051)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_0_05, new HostReview(BASELINE_5051_B, FAMILY_5051)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_0_06, new HostReview(BASELINE_5051_C, FAMILY_5051)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_1_00, new HostReview(BASELINE_5051_C, FAMILY_5051)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_1_01, new HostReview(BASELINE_5051_C, FAMILY_5051)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_1_02, new HostReview(BASELINE_5051_C, FAMILY_5051)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_1_03, new HostReview(BASELINE_5051_C, FAMILY_5051)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_2_00, new HostReview(BASELINE_52, FAMILY_52)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_2_01, new HostReview(BASELINE_52, FAMILY_52)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_2_02, new HostReview(BASELINE_52, FAMILY_52)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_2_03, new HostReview(BASELINE_52, FAMILY_52)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_3_00, new HostReview(BASELINE_53, FAMILY_53)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_3_01, new HostReview(BASELINE_53, FAMILY_53)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_3_02, new HostReview(BASELINE_53, FAMILY_53)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_3_03, new HostReview(BASELINE_53, FAMILY_53)),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_3_04, new HostReview(BASELINE_53, FAMILY_53)));
-    private static final String FACE_53 = "91963e179b498e470b9d474a27b876dd4a5a7ee714941cb530a7cd5202924a88";
-    private static final String FACE_52 = "2c91d3fe923c5e013df09973356487db7f25297dcc109cf942a8c859d4359d51";
-    private static final String HASH_PATCHED_FACE_53 =
-            "24a55d75f73956454aa5df6d7b9f8e15b30643bc41480632527655d11936d26a";
-    private static final String HASH_PATCHED_FACE_52 =
-            "ec88bfa1fa61f41e2998d53588faa2d680c4b1cafd6d4e87ac7e06d61ef18f39";
+    /** Reviewed version labels are exactly {@code major.minor.patch}. */
+    private static final Pattern VERSION = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)");
+
+    private static final int VERSION_MAJOR_GROUP = 1, VERSION_MINOR_GROUP = 2;
+    /**
+     * The angle singleton is {@code com.live2d.util.K} before 5.2 and
+     * {@code com.live2d.util.L} from 5.2 onward.
+     */
+    private static final int MATH_SINGLETON_MOVED_MAJOR = 5, MATH_SINGLETON_MOVED_MINOR = 2;
+
+    /** Classes the lazy-edge weave links against on every host, in a stable admission order. */
+    private static final List<String> DEPENDENCIES = List.of(H, J, T, L, R, V, K, TL, ASSERTIONS, INTRINSICS);
 
     private LazyTriangulationEdgePreparation() {}
 
@@ -89,7 +57,8 @@ final class LazyTriangulationEdgePreparation {
             Consumer<String> receipt)
             throws Exception {
         require(
-                lifecycle != null && lifecycle.startupReason().equals("SUPPORTED_OWNED_PREMAIN"),
+                lifecycle != null
+                        && lifecycle.startupReason().equals(TriangulationDefinitionLifecycle.SUPPORTED_PREMAIN),
                 "owned lifecycle unavailable");
         require(loader != null, "bootstrap host rejected");
         require(
@@ -106,15 +75,13 @@ final class LazyTriangulationEdgePreparation {
         URI hostOrigin = origin(domain);
         require(hostOrigin != null && hostOrigin.getScheme().equalsIgnoreCase("file"), "host origin rejected");
         Path hostPath = Path.of(hostOrigin), kotlinPath = hostPath.getParent().resolve(KOTLIN_JAR);
-        HostArtifactDigest hostArtifact = HostArtifactDigest.from(hostPath);
-        HostReview review = HOST_JARS.get(hostArtifact);
-        require(review != null, "unreviewed complete host JAR");
-        require(sha(kotlinPath).equals(KOTLIN_SHA), "unreviewed complete Kotlin JAR");
-        require(
-                TriangulationEdgeIndexTransformer.sha256(baseline).equals(review.baselineSha256()),
-                "unreviewed composed baseline");
+        // Whole-JAR identity stays the outer trust boundary: an unreviewed build never reaches
+        // the structural contract below. Everything inside the JAR is admitted by live shape.
+        String cubismVersion = ReviewedHostArtifacts.cubismVersionOf(HostArtifactDigest.cached(hostPath))
+                .orElseThrow(() -> new IllegalArgumentException("unreviewed complete host JAR"));
+        require(Files.isRegularFile(kotlinPath), "unreviewed complete Kotlin JAR");
+        String mathName = mathSingleton(cubismVersion);
         byte[] output;
-        Map<String, String> expected = fingerprints(review.family());
         try (ZipFile host = new ZipFile(hostPath.toFile());
                 ZipFile kotlin = new ZipFile(kotlinPath.toFile())) {
             Map<String, byte[]> metadata = new HashMap<>();
@@ -124,78 +91,69 @@ final class LazyTriangulationEdgePreparation {
             byte[] list = definition(host, kotlin, TL.replace('.', '/'));
             byte[] collection = definition(host, kotlin, K.replace('.', '/'));
             require(list != null && collection != null, "builder dependencies missing");
-            byte[] builtList = TriangleListEdgeBuilderPatcher.patch(new TriangulationEdgeIndexPatcher().patch(list));
-            expected.put(TL, TriangleListEdgeBuilderPatcher.dependencyFingerprint(builtList));
-            expected.put(K, TriangulationDefinitionFingerprint.runtimeOf(collection));
-            byte[] math =
-                    definition(host, kotlin, mathSingleton(review.family()).replace('.', '/'));
-            require(math != null, "angle threshold dependency missing");
-            expected.put(mathSingleton(review.family()), TriangulationDefinitionFingerprint.runtimeOf(math));
+            TriangleListEdgeBuilderPatcher.patch(new TriangulationEdgeIndexPatcher().patch(list));
+            require(definition(host, kotlin, mathName.replace('.', '/')) != null, "angle threshold dependency missing");
         }
-        // Managed host inventories are immutable; also refuse a changed input during preparation.
-        require(
-                HostArtifactDigest.from(hostPath).equals(hostArtifact)
-                        && sha(kotlinPath).equals(KOTLIN_SHA),
-                "input changed during preparation");
-        expected.put(H, TriangulationDefinitionFingerprint.runtimeOf(output));
-        Plan plan = new Plan(
-                lifecycle,
-                Map.copyOf(expected),
-                mathSingleton(review.family()),
-                hostOrigin,
-                kotlinPath.toUri().normalize(),
-                receipt);
+        Plan plan = new Plan(lifecycle, mathName, hostOrigin, kotlinPath.toUri().normalize(), receipt);
         require(LazyTriangulationEdgeBridge.register(loader, plan::capture), "loader already has a lazy plan");
         return output;
     }
 
-    private static String mathSingleton(final int family) {
-        return family == FAMILY_5051 ? "com.live2d.util.K" : MATH;
+    /**
+     * Names the reviewed angle singleton for one admitted Editor version.
+     *
+     * <p>The 5.0/5.1 family declares the singleton as {@code com.live2d.util.K}; every later
+     * family declares it as {@code com.live2d.util.L}. The admitted version selects the name,
+     * and the live structural contract still rejects a host whose shape disagrees.</p>
+     *
+     * @param cubismVersion exact reviewed version label
+     * @return the binary name of the angle singleton for that version
+     * @throws IllegalArgumentException when the label is not a reviewed version
+     */
+    static String mathSingleton(final String cubismVersion) {
+        Matcher version = VERSION.matcher(cubismVersion == null ? "" : cubismVersion);
+        require(version.matches(), "unreviewed host version");
+        int major = Integer.parseInt(version.group(VERSION_MAJOR_GROUP));
+        int minor = Integer.parseInt(version.group(VERSION_MINOR_GROUP));
+        return major < MATH_SINGLETON_MOVED_MAJOR
+                        || (major == MATH_SINGLETON_MOVED_MAJOR && minor < MATH_SINGLETON_MOVED_MINOR)
+                ? MATH_5051
+                : MATH_52;
     }
 
-    private static Map<String, String> fingerprints(final int family) {
-        Map<String, String> values = new LinkedHashMap<>();
-        values.put(
-                J,
-                switch (family) {
-                    case FAMILY_5051, FAMILY_52 -> "db8f5480f42194291b900032ab570b585abef98f6c21080d913609d7b94abbaa";
-                    default -> "0df5034248eaf674cc1bce9e836c440d03c9a68fefdcf1330c8fc07f001136f9";
-                });
-        values.put(T, "57f673e5133cbbc57f068f4822ec3c0df9924054aacbda27c38c85eead057299");
-        values.put(L, family == FAMILY_53 ? FACE_53 : FACE_52);
-        values.put(
-                R,
-                switch (family) {
-                    case FAMILY_5051 -> "d0856549b326de564ca063489ce65c549806a2306a60e0e9753ef4a74e7c0dd0";
-                    case FAMILY_52 -> "10941aca78307d9b5725003bd59e7cea8550f755ce6902fcd7f3f27c36437419";
-                    default -> "707c8d36739e7447b1ad904e87bcc0c523b4ad61f6beaa255aa653141052a72f";
-                });
-        values.put(
-                V,
-                family == FAMILY_5051
-                        ? "9f69902d0e6f701d604150466682ee9e69129a75de0d5d18ba877cc012fd980f"
-                        : "69a3c0df346190b8b779ea6560dac5272a1ad8f42f0f38904247770400db223c");
-        values.put(ASSERTIONS, "8472aaeca98624a13015e2074285960efc0e9c78abffaf32403ae85f039d77b6");
-        values.put(INTRINSICS, "83fec7d361fa719a00bec37b424dad9a07e62e908d579347bac5b489fea6fdd4");
-        return values;
+    /**
+     * Dependency names for one admitted version: the fixed weave set plus its angle singleton.
+     *
+     * <p>The singleton name differs per version family, so it joins the captured set here
+     * instead of in a static list.</p>
+     *
+     * @param mathName binary name of the angle singleton
+     * @return immutable dependency names in admission order
+     */
+    static List<String> dependencyNames(final String mathName) {
+        List<String> names = new ArrayList<>(DEPENDENCIES);
+        if (!names.contains(mathName)) names.add(mathName);
+        return List.copyOf(names);
     }
 
-    static String dependencyFingerprint(byte[] definition) {
-        if (new org.objectweb.asm.ClassReader(definition).getClassName().equals(TL.replace('.', '/'))) {
-            // The builder reads only the reviewed class/field shape and b() body.
-            // Other methods are outside this contract; return observation inside b() is rejected.
-            return TriangleListEdgeBuilderPatcher.dependencyFingerprint(definition);
+    /**
+     * Verifies the live link contract for one resolved dependency set.
+     *
+     * @param types the resolved dependency classes
+     * @param mathName binary name of the angle singleton inside {@code types}
+     * @return {@code null} when every link matches, otherwise a stable rejection reason
+     */
+    static String verifyLinks(final Class<?>[] types, final String mathName) {
+        try {
+            links(index(types), mathName);
+            return null;
+        } catch (IllegalArgumentException | ReflectiveOperationException rejected) {
+            return "LIVE_DEPENDENCY_REJECTED reason=" + rejected.getMessage();
         }
-        String observed = TriangulationDefinitionFingerprint.runtimeOf(definition);
-        // Exact whole-definition alternatives produced by the existing reviewed hash patch.
-        // No member is omitted: further hash/getter/field changes still fail the comparison.
-        if (observed.equals(HASH_PATCHED_FACE_53)) return FACE_53;
-        return observed.equals(HASH_PATCHED_FACE_52) ? FACE_52 : observed;
     }
 
     private record Plan(
             TriangulationDefinitionLifecycle lifecycle,
-            Map<String, String> expected,
             String mathName,
             URI hostOrigin,
             URI kotlinOrigin,
@@ -203,25 +161,9 @@ final class LazyTriangulationEdgePreparation {
         TriangulationDefinitionLifecycle.Gate capture(Class<?> owner) {
             try {
                 require(owner.getName().equals(H) && !owner.getModule().isNamed(), "host identity/module rejected");
-                ClassLoader loader = owner.getClassLoader();
-                Map<String, Class<?>> actual = new LinkedHashMap<>();
-                for (String name : expected.keySet()) {
-                    Class<?> type = name.equals(H) ? owner : Class.forName(name, false, loader);
-                    URI wantedOrigin = name.startsWith("kotlin.") ? kotlinOrigin : hostOrigin;
-                    require(wantedOrigin.equals(origin(type.getProtectionDomain())), "live origin rejected: " + name);
-                    if (!name.startsWith("kotlin."))
-                        require(type.getClassLoader() == loader, "split host loader: " + name);
-                    // Resolve metadata and verifier links without initializing official classes.
-                    type.getDeclaredFields();
-                    type.getDeclaredMethods();
-                    type.getDeclaredConstructors();
-                    actual.put(name, type);
-                }
-                links(actual, mathName);
-                TriangulationDefinitionLifecycle.Gate gate = lifecycle.capture(
-                        actual.values().toArray(Class<?>[]::new),
-                        expected,
-                        LazyTriangulationEdgePreparation::dependencyFingerprint);
+                Class<?>[] actual = resolve(owner, mathName, hostOrigin, kotlinOrigin);
+                TriangulationDefinitionLifecycle.Gate gate =
+                        lifecycle.capture(actual, types -> verifyLinks(types, mathName));
                 report(receipt, "TRIANGULATION_LAZY_EDGE_ADMISSION reason=" + gate.reason());
                 return gate;
             } catch (Throwable failure) {
@@ -235,9 +177,61 @@ final class LazyTriangulationEdgePreparation {
         }
     }
 
-    private static void links(Map<String, Class<?>> types, String mathName) throws Exception {
+    /**
+     * Resolves and origin-checks every dependency of one admitted version.
+     *
+     * <p>The angle singleton belongs to the captured set, so its absence rejects admission
+     * instead of failing later inside the link contract.</p>
+     *
+     * @param owner the live weave owner class
+     * @param mathName binary name of the angle singleton for the admitted version
+     * @param hostOrigin expected origin of every host class
+     * @param kotlinOrigin expected origin of every Kotlin runtime class
+     * @return the resolved classes in admission order
+     */
+    static Class<?>[] resolve(
+            final Class<?> owner, final String mathName, final URI hostOrigin, final URI kotlinOrigin) {
+        ClassLoader loader = owner.getClassLoader();
+        Map<String, Class<?>> actual = new LinkedHashMap<>();
+        for (String name : dependencyNames(mathName)) {
+            Class<?> type;
+            try {
+                type = name.equals(H) ? owner : Class.forName(name, false, loader);
+            } catch (ClassNotFoundException absent) {
+                throw new IllegalArgumentException("missing dependency: " + name, absent);
+            }
+            URI wantedOrigin = name.startsWith("kotlin.") ? kotlinOrigin : hostOrigin;
+            require(wantedOrigin.equals(origin(type.getProtectionDomain())), "live origin rejected: " + name);
+            if (!name.startsWith("kotlin.")) require(type.getClassLoader() == loader, "split host loader: " + name);
+            // Resolve metadata and verifier links without initializing official classes.
+            type.getDeclaredFields();
+            type.getDeclaredMethods();
+            type.getDeclaredConstructors();
+            actual.put(name, type);
+        }
+        return actual.values().toArray(Class<?>[]::new);
+    }
+
+    private static Map<String, Class<?>> index(Class<?>[] types) {
+        Map<String, Class<?>> byName = new LinkedHashMap<>();
+        for (Class<?> type : types) byName.put(type.getName(), type);
+        return byName;
+    }
+
+    private static void links(Map<String, Class<?>> types, String mathName) throws ReflectiveOperationException {
         Class<?> host = types.get(H), edge = types.get(J), point = types.get(T), face = types.get(L);
         Class<?> geometry = types.get(R), vector = types.get(V);
+        Class<?> math = types.get(mathName);
+        // A captured set that omits a linked class must reject, never dereference null.
+        require(
+                host != null
+                        && edge != null
+                        && point != null
+                        && face != null
+                        && geometry != null
+                        && vector != null
+                        && math != null,
+                "missing dependency");
         require(Modifier.isFinal(edge.getModifiers()) && edge.getSuperclass() == Object.class, "edge hierarchy");
         require(Modifier.isFinal(point.getModifiers()) && point.getSuperclass() == vector, "point hierarchy");
         require(
@@ -262,7 +256,6 @@ final class LazyTriangulationEdgePreparation {
                     getter.getReturnType() == float.class && Modifier.isFinal(getter.getModifiers()),
                     "angle scalar getter link");
         }
-        Class<?> math = types.get(mathName);
         require(
                 Modifier.isFinal(math.getModifiers()) && math.getSuperclass() == Object.class,
                 "angle threshold hierarchy");
@@ -306,12 +299,16 @@ final class LazyTriangulationEdgePreparation {
                 "intrinsics link");
     }
 
-    private static URI origin(ProtectionDomain domain) throws Exception {
-        return domain == null
-                        || domain.getCodeSource() == null
-                        || domain.getCodeSource().getLocation() == null
-                ? null
-                : domain.getCodeSource().getLocation().toURI().normalize();
+    private static URI origin(ProtectionDomain domain) {
+        try {
+            return domain == null
+                            || domain.getCodeSource() == null
+                            || domain.getCodeSource().getLocation() == null
+                    ? null
+                    : domain.getCodeSource().getLocation().toURI().normalize();
+        } catch (URISyntaxException invalid) {
+            return null;
+        }
     }
 
     private static byte[] definition(ZipFile host, ZipFile kotlin, String name) {
@@ -335,16 +332,6 @@ final class LazyTriangulationEdgePreparation {
         } catch (Exception failure) {
             throw new IllegalArgumentException("hierarchy metadata rejected: " + name, failure);
         }
-    }
-
-    private static String sha(Path path) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        try (InputStream input = Files.newInputStream(path)) {
-            byte[] block = new byte[65536];
-            int read;
-            while ((read = input.read(block)) != -1) digest.update(block, 0, read);
-        }
-        return HexFormat.of().formatHex(digest.digest());
     }
 
     private static void report(Consumer<String> receipt, String value) {
