@@ -6,7 +6,7 @@ Generated view of which verified capabilities and SDK surfaces are admitted on e
 
 ## Capability groups × reviewed versions
 
-Legend: ✓ every capability in the group admitted · ◐ partially admitted · ✗ nothing admitted on that version. Admission = the static verification record admits the capability on that version AND every selector contract or class-pin gate that narrows it admits the version.
+Legend: ✓ every capability in the group admitted · ◐ partially admitted · ✗ nothing admitted on that version. Admission = the static verification record admits the capability on that version AND every selector contract or target-class gate that narrows it admits the version.
 
 | Capability group | 5.0.00 | 5.0.01 | 5.0.02 | 5.0.03 | 5.0.04 | 5.0.05 | 5.0.06 | 5.1.00 | 5.1.01 | 5.1.02 | 5.1.03 | 5.2.00 | 5.2.01 | 5.2.02 | 5.2.03 | 5.3.00 | 5.3.01 | 5.3.02 | 5.3.03 | 5.3.04 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -295,25 +295,25 @@ Proven host boundaries where Cubism Editor itself lacks the feature, verified ag
 
 ## Runtime admission pins
 
-Selector contracts and class-pin tables that narrow verified capabilities to specific versions (the feature exists but adaptation is pending or genuinely unavailable elsewhere).
+Selector contracts and target-class tables that narrow verified capabilities to specific versions (the feature exists but adaptation is pending or genuinely unavailable elsewhere).
 
 | Source | Symbol | Versions |
 |---|---|---|
-| class-pins/`float-array-parse.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`image-archive-reuse.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`incremental-update.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`matrix-scratch.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`mesh-interpolation.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`mesh-triangulation-hash.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`model-update-skip.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`reinit-pair-elision.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`shader-uniform.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`startup-suppression.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`texture-upload-preparation.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`uniform-location-lifecycle.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
-| class-pins/`warp-position-projection.json` | `ClassPinTable` | 5.0.00–5.3.04 |
+| target-classes/`float-array-parse.json` | `TargetClassTable` | 5.0.00–5.3.04 |
+| target-classes/`image-archive-reuse.json` | `TargetClassTable` | 5.0.00–5.3.04 |
+| target-classes/`incremental-update.json` | `TargetClassTable` | 5.0.00–5.3.04 |
+| target-classes/`matrix-scratch.json` | `TargetClassTable` | 5.0.00–5.3.04 |
+| target-classes/`mesh-interpolation.json` | `TargetClassTable` | 5.0.00–5.3.04 |
+| target-classes/`mesh-mirror.json` | `TargetClassTable` | 5.0.00–5.3.04 |
+| target-classes/`mesh-triangulation-hash.json` | `TargetClassTable` | 5.0.00–5.3.04 |
+| target-classes/`model-update-skip.json` | `TargetClassTable` | 5.0.00–5.3.04 |
+| target-classes/`reinit-pair-elision.json` | `TargetClassTable` | 5.0.00–5.3.04 |
+| target-classes/`shader-uniform.json` | `TargetClassTable` | 5.0.00–5.3.04 |
+| target-classes/`startup-suppression.json` | `TargetClassTable` | 5.0.00–5.3.04 |
+| target-classes/`texture-upload-preparation.json` | `TargetClassTable` | 5.0.00–5.3.04 |
+| target-classes/`uniform-location-lifecycle.json` | `TargetClassTable` | 5.0.00–5.3.04 |
+| target-classes/`warp-alt-mirror.json` | `TargetClassTable` | 5.0.00–5.3.04 |
+| target-classes/`warp-position-projection.json` | `TargetClassTable` | 5.0.00–5.3.04 |
 | `plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpHistoryCommandDomain.java` | `HISTORY_SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/extinterpsibling/ExtendedInterpolationSiblingTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/hittest/MeshHitTestTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |

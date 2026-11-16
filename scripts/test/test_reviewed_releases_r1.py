@@ -72,7 +72,7 @@ def write_tree(root: Path, versions: tuple[str, ...] = VERSIONS) -> None:
     }
     put(gate.r1_HOST_VALIDATION_TASKS.as_posix(), json.dumps(tasks))
     put(
-        (gate.r1_CLASS_PINS_DIR / "test-hook.json").as_posix(),
+        (gate.r1_TARGET_CLASSES_DIR / "test-hook.json").as_posix(),
         json.dumps({
             versions[0]: ["com/example/A", "com/example/B"],
             versions[2]: ["com/example/A"],
@@ -206,17 +206,17 @@ class VersionSetCompletenessTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            path = root / gate.r1_CLASS_PINS_DIR / "test-hook.json"
+            path = root / gate.r1_TARGET_CLASSES_DIR / "test-hook.json"
             document = json.loads(path.read_text())
             document["5.4.01"] = ["com/example/A"]
             path.write_text(json.dumps(document))
-            self.assertTrue(any("class-pins" in v for v in violations(root)))
+            self.assertTrue(any("target-classes" in v for v in violations(root)))
 
     def test_partial_class_pin_version_set_passes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            path = root / gate.r1_CLASS_PINS_DIR / "test-hook.json"
+            path = root / gate.r1_TARGET_CLASSES_DIR / "test-hook.json"
             document = json.loads(path.read_text())
             del document[VERSIONS[2]]
             path.write_text(json.dumps(document))
@@ -226,26 +226,26 @@ class VersionSetCompletenessTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            path = root / gate.r1_CLASS_PINS_DIR / "test-hook.json"
+            path = root / gate.r1_TARGET_CLASSES_DIR / "test-hook.json"
             document = json.loads(path.read_text())
             document[VERSIONS[0]][0] = ""
             path.write_text(json.dumps(document))
             self.assertTrue(any("blank target class" in v for v in violations(root)))
 
-    def test_missing_class_pins_dir_fails(self):
+    def test_missing_target_classes_dir_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            for pin in (root / gate.r1_CLASS_PINS_DIR).glob("*.json"):
+            for pin in (root / gate.r1_TARGET_CLASSES_DIR).glob("*.json"):
                 pin.unlink()
-            (root / gate.r1_CLASS_PINS_DIR).rmdir()
-            self.assertTrue(any("class-pins" in v for v in violations(root)))
+            (root / gate.r1_TARGET_CLASSES_DIR).rmdir()
+            self.assertTrue(any("target-classes" in v for v in violations(root)))
 
     def test_compact_class_pin_table_covers_every_admitted_version(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            path = root / gate.r1_CLASS_PINS_DIR / "test-hook.json"
+            path = root / gate.r1_TARGET_CLASSES_DIR / "test-hook.json"
             path.write_text(json.dumps({"default": ["com/example/A"]}))
             self.assertEqual([], violations(root))
 
@@ -253,35 +253,35 @@ class VersionSetCompletenessTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            path = root / gate.r1_CLASS_PINS_DIR / "test-hook.json"
+            path = root / gate.r1_TARGET_CLASSES_DIR / "test-hook.json"
             path.write_text(json.dumps(
                 {"default": ["com/example/A"],
                  "overrides": {"5.4.01": ["com/example/B"]}}))
-            self.assertTrue(any("class-pins" in v for v in violations(root)))
+            self.assertTrue(any("target-classes" in v for v in violations(root)))
 
     def test_compact_override_repeating_default_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            path = root / gate.r1_CLASS_PINS_DIR / "test-hook.json"
+            path = root / gate.r1_TARGET_CLASSES_DIR / "test-hook.json"
             path.write_text(json.dumps(
                 {"default": ["com/example/A"],
                  "overrides": {VERSIONS[0]: ["com/example/A"]}}))
-            self.assertTrue(any("class-pins" in v for v in violations(root)))
+            self.assertTrue(any("target-classes" in v for v in violations(root)))
 
     def test_compact_missing_default_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            path = root / gate.r1_CLASS_PINS_DIR / "test-hook.json"
+            path = root / gate.r1_TARGET_CLASSES_DIR / "test-hook.json"
             path.write_text(json.dumps({"overrides": {VERSIONS[0]: ["com/example/A"]}}))
-            self.assertTrue(any("class-pins" in v for v in violations(root)))
+            self.assertTrue(any("target-classes" in v for v in violations(root)))
 
     def test_compact_blank_override_target_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_tree(root)
-            path = root / gate.r1_CLASS_PINS_DIR / "test-hook.json"
+            path = root / gate.r1_TARGET_CLASSES_DIR / "test-hook.json"
             path.write_text(json.dumps(
                 {"default": ["com/example/A"],
                  "overrides": {VERSIONS[0]: ["  "]}}))

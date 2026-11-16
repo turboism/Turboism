@@ -1,6 +1,6 @@
-"""Shared reader and writer for ClassPinTable JSON documents.
+"""Shared reader and writer for TargetClassTable JSON documents.
 
-A class-pin table names, per reviewed Cubism Editor version, the host classes a
+A target-class table names, per reviewed Cubism Editor version, the host classes a
 hook rewrites or reads. Two on-disk shapes carry the same facts:
 
 - compact: ``{"default": [...], "overrides": {"5.3.04": [...]}}``
@@ -31,7 +31,7 @@ INDENT = 2
 
 
 class ClassPinError(ValueError):
-    """A class-pin document cannot be read, expanded, or folded."""
+    """A target-class document cannot be read, expanded, or folded."""
 
 
 def is_compact(document: Mapping[str, Any]) -> bool:
@@ -105,7 +105,7 @@ def fold(document: Any, versions: Sequence[str] | None = None) -> dict[str, Any]
     """
     flat = expand(document, versions)
     if not flat:
-        raise ClassPinError("a class-pin table must declare at least one version")
+        raise ClassPinError("a target-class table must declare at least one version")
     counts: dict[tuple[str, ...], int] = {}
     newest: dict[tuple[str, ...], int] = {}
     for index, block in enumerate(flat.values()):
@@ -127,7 +127,7 @@ def fold(document: Any, versions: Sequence[str] | None = None) -> dict[str, Any]
 
 
 def load(path: Path | str, versions: Sequence[str] | None = None) -> dict[str, list[str]]:
-    """Read a class-pin file and return its expanded version -> classes map."""
+    """Read a target-class file and return its expanded version -> classes map."""
     try:
         document = read_json(path)
     except (OSError, ValueError) as failure:
@@ -139,7 +139,7 @@ def load(path: Path | str, versions: Sequence[str] | None = None) -> dict[str, l
 
 
 def write(path: Path | str, document: Mapping[str, Any]) -> None:
-    """Write a class-pin document with canonical key order and indentation."""
+    """Write a target-class document with canonical key order and indentation."""
     write_json(path, canonical(document), indent=INDENT)
 
 

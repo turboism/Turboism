@@ -15,8 +15,8 @@ from .constants import (
     ANNOTATION_RE,
     CAMPAIGN_JOBS,
     CAPABILITY_CONSTANT_RE,
-    CLASS_PINS_DIR,
-    CLASS_PIN_LOAD_RE,
+    TARGET_CLASSES_DIR,
+    TARGET_CLASS_LOAD_RE,
     COMMAND_ENUMS,
     ENUM_ENTRY_RE,
     FAMILIES_DIR,
@@ -316,8 +316,8 @@ def load_commands(root: Path, reviewed: list[str]) -> list[dict]:
     return commands
 
 
-def load_class_pins(root: Path) -> dict[str, dict]:
-    """pin name -> {versions, loadedBy} derived from ClassPinTable.load sites.
+def load_target_classes(root: Path) -> dict[str, dict]:
+    """table name -> {versions, loadedBy} derived from TargetClassTable.load sites.
 
     A compact table's versions are the admitted ones it expands over; a legacy flat
     table keeps its own version keys.
@@ -326,10 +326,10 @@ def load_class_pins(root: Path) -> dict[str, dict]:
     runtime_dir = root / RUNTIME_MAIN
     if runtime_dir.is_dir():
         for path in sorted(runtime_dir.rglob("*.java")):
-            for pin in CLASS_PIN_LOAD_RE.findall(path.read_text(encoding="utf-8")):
+            for pin in TARGET_CLASS_LOAD_RE.findall(path.read_text(encoding="utf-8")):
                 loaded_by.setdefault(pin, path.relative_to(root).as_posix())
     pins: dict[str, dict] = {}
-    pins_dir = root / CLASS_PINS_DIR
+    pins_dir = root / TARGET_CLASSES_DIR
     if pins_dir.is_dir():
         admitted = sorted(load_reviewed_versions(root), key=version_key)
         for path in sorted(pins_dir.glob("*.json")):

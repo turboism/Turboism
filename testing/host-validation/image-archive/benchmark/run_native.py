@@ -67,7 +67,7 @@ def factory_contract(version: str, host_jar: Path, agent_jar: Path) -> dict[str,
     if len(version) != 4 or not version.isdigit():
         raise ValueError("expected a reviewed four-digit version code")
     dotted = version[0] + "." + version[1] + "." + version[2:]
-    resource = "dev/turboism/adapter/cubism/class-pins/texture-upload-preparation.json"
+    resource = "dev/turboism/adapter/cubism/target-classes/texture-upload-preparation.json"
     with zipfile.ZipFile(agent_jar) as agent:
         encoded = agent.read(resource)
     data = json.loads(encoded)
