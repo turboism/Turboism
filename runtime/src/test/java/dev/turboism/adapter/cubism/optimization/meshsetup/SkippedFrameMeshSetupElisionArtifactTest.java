@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.meshsetup;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -13,13 +14,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.jar.JarFile;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
@@ -27,6 +33,69 @@ import org.objectweb.asm.Opcodes;
  * Versions without a configured official jar are skipped, not failed.
  */
 class SkippedFrameMeshSetupElisionArtifactTest {
+
+    /** The reviewed frame accessor descriptor; the synthetic body never loads the frame class. */
+    private static final String FRAME_DESCRIPTOR = SkippedFrameMeshSetupElisionTarget.FRAME_DESCRIPTOR;
+
+    /** The upload method shared by both reviewed persistent buffer wrappers. */
+    private static final String REFRESH_METHOD = "a";
+
+    /** One unreviewed addition a drifting host body could carry. */
+    private enum UnreviewedExtra {
+        NONE,
+        SIDE_EFFECT_CALL,
+        FIELD_WRITE
+    }
+
+    @Test
+    void reviewedSetupShapePassesTheStructuralGate() {
+        final List<String> shape = syntheticShape(SkippedFrameMeshSetupElisionTarget.refreshes(), UnreviewedExtra.NONE);
+        assertTrue(
+                SkippedFrameMeshSetupElisionTarget.hasReviewedSetupShape(shape),
+                "the reviewed setup body must pass the structural gate");
+    }
+
+    @Test
+    void unreviewedSetupBodiesFailTheStructuralGate() {
+        final List<SkippedFrameMeshSetupElisionTarget.Refresh> refreshes =
+                SkippedFrameMeshSetupElisionTarget.refreshes();
+        final List<SkippedFrameMeshSetupElisionTarget.Refresh> mutatedGetters = new ArrayList<>(refreshes);
+        final SkippedFrameMeshSetupElisionTarget.Refresh first = mutatedGetters.get(0);
+        mutatedGetters.set(
+                0,
+                new SkippedFrameMeshSetupElisionTarget.Refresh(
+                        first.getter() + "X",
+                        first.getterDescriptor(),
+                        first.values(),
+                        first.valuesDescriptor(),
+                        first.bufferOwner(),
+                        first.refreshDescriptor()));
+        final List<SkippedFrameMeshSetupElisionTarget.Refresh> reorderedGetters = new ArrayList<>(refreshes);
+        Collections.swap(reorderedGetters, 0, 1);
+
+        assertFalse(
+                SkippedFrameMeshSetupElisionTarget.hasReviewedSetupShape(
+                        syntheticShape(refreshes, UnreviewedExtra.SIDE_EFFECT_CALL)),
+                "an extra side-effect call must fail admission");
+        assertFalse(
+                SkippedFrameMeshSetupElisionTarget.hasReviewedSetupShape(
+                        syntheticShape(refreshes, UnreviewedExtra.FIELD_WRITE)),
+                "an extra field write must fail admission");
+        assertFalse(
+                SkippedFrameMeshSetupElisionTarget.hasReviewedSetupShape(
+                        syntheticShape(mutatedGetters, UnreviewedExtra.NONE)),
+                "a renamed buffer getter must fail admission");
+        assertFalse(
+                SkippedFrameMeshSetupElisionTarget.hasReviewedSetupShape(
+                        syntheticShape(reorderedGetters, UnreviewedExtra.NONE)),
+                "a reordered refresh must fail admission");
+        assertFalse(
+                SkippedFrameMeshSetupElisionTarget.hasReviewedSetupShape(
+                        syntheticShape(refreshes.subList(0, refreshes.size() - 1), UnreviewedExtra.NONE)),
+                "a dropped refresh must fail admission");
+        assertFalse(SkippedFrameMeshSetupElisionTarget.hasReviewedSetupShape(null), "an absent body must fail");
+        assertFalse(SkippedFrameMeshSetupElisionTarget.hasReviewedSetupShape(List.of()), "an empty body must fail");
+    }
 
     @Test
     void cubism5302SetupTransformsFromOfficialBytes() throws Exception {
@@ -158,6 +227,88 @@ class SkippedFrameMeshSetupElisionArtifactTest {
                             }
                         },
                         ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+    }
+
+    /**
+     * Reads the shape of a synthetic {@code GMesh2.setup} carrying the reviewed calls.
+     *
+     * <p>The body is generated instead of loaded, so the structural gate is exercised offline on
+     * every build and a drifting real artifact still fails the exact-artifact tests below.</p>
+     */
+    private static List<String> syntheticShape(
+            final List<SkippedFrameMeshSetupElisionTarget.Refresh> refreshes, final UnreviewedExtra extra) {
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        writer.visit(
+                Opcodes.V17,
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL,
+                SkippedFrameMeshSetupElisionTarget.OWNER,
+                null,
+                "java/lang/Object",
+                null);
+        final MethodVisitor method = writer.visitMethod(
+                Opcodes.ACC_PUBLIC,
+                SkippedFrameMeshSetupElisionTarget.METHOD,
+                SkippedFrameMeshSetupElisionTarget.DESCRIPTOR,
+                null,
+                null);
+        method.visitCode();
+        method.visitVarInsn(Opcodes.ALOAD, 1);
+        method.visitLdcInsn("frame");
+        method.visitMethodInsn(
+                Opcodes.INVOKESTATIC,
+                "kotlin/jvm/internal/Intrinsics",
+                "checkNotNullParameter",
+                "(Ljava/lang/Object;Ljava/lang/String;)V",
+                false);
+        method.visitVarInsn(Opcodes.ALOAD, 1);
+        method.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                SkippedFrameMeshSetupElisionTarget.FRAME_OWNER,
+                SkippedFrameMeshSetupElisionTarget.FRAME_METHOD,
+                FRAME_DESCRIPTOR,
+                false);
+        method.visitVarInsn(Opcodes.ASTORE, 2);
+        for (final SkippedFrameMeshSetupElisionTarget.Refresh refresh : refreshes) {
+            writeRefresh(method, refresh);
+        }
+        if (extra == UnreviewedExtra.SIDE_EFFECT_CALL) {
+            method.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "nanoTime", "()J", false);
+            method.visitInsn(Opcodes.POP2);
+        } else if (extra == UnreviewedExtra.FIELD_WRITE) {
+            method.visitVarInsn(Opcodes.ALOAD, 0);
+            method.visitInsn(Opcodes.ICONST_1);
+            method.visitFieldInsn(Opcodes.PUTFIELD, SkippedFrameMeshSetupElisionTarget.OWNER, "dirty", "Z");
+        }
+        method.visitInsn(Opcodes.RETURN);
+        method.visitMaxs(0, 0);
+        method.visitEnd();
+        writer.visitEnd();
+        return ReviewedMethodShape.read(
+                writer.toByteArray(),
+                SkippedFrameMeshSetupElisionTarget.OWNER,
+                SkippedFrameMeshSetupElisionTarget.METHOD,
+                SkippedFrameMeshSetupElisionTarget.DESCRIPTOR);
+    }
+
+    /** Writes one reviewed refresh: read the buffer, read its array, upload the array. */
+    private static void writeRefresh(
+            final MethodVisitor method, final SkippedFrameMeshSetupElisionTarget.Refresh refresh) {
+        method.visitVarInsn(Opcodes.ALOAD, 0);
+        method.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                SkippedFrameMeshSetupElisionTarget.OWNER,
+                refresh.getter(),
+                refresh.getterDescriptor(),
+                false);
+        method.visitVarInsn(Opcodes.ALOAD, 0);
+        method.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                SkippedFrameMeshSetupElisionTarget.OWNER,
+                refresh.values(),
+                refresh.valuesDescriptor(),
+                false);
+        method.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, refresh.bufferOwner(), REFRESH_METHOD, refresh.refreshDescriptor(), false);
     }
 
     private static Path artifact(final String property, final String version) {

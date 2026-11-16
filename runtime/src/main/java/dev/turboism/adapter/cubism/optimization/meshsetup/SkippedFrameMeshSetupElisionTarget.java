@@ -3,12 +3,12 @@ package dev.turboism.adapter.cubism.optimization.meshsetup;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.objectweb.asm.Opcodes;
 
 /**
  * Reviewed host seam for the skipped-frame {@code GMesh2.setup} elision.
@@ -21,10 +21,10 @@ import java.util.Optional;
  * still current, so the nine refreshes are redundant.</p>
  *
  * <p>The transformer only rewrites the exact reviewed method shape read from
- * the running official artifact. The body was byte-identical across the
- * sampled 5.0.01, 5.0.05, 5.1.00, 5.2.03, 5.3.00, 5.3.02 and 5.3.04 artifacts; the
- * hook is admitted for every reviewed artifact and still fails closed if the
- * runtime shape differs from the official reference bytes.</p>
+ * the running official artifact. {@link #hasReviewedSetupShape(List)} admits a
+ * body by inspecting its instruction tokens, so an added side effect or a
+ * renamed accessor fails admission instead of running behind the elision. The
+ * body was identical across all twenty reviewed 5.0.00 to 5.3.04 artifacts.</p>
  */
 public record SkippedFrameMeshSetupElisionTarget(HostArtifactDigest digest, String version) {
 
@@ -61,25 +61,184 @@ public record SkippedFrameMeshSetupElisionTarget(HostArtifactDigest digest, Stri
     /** {@code k()Z}. */
     public static final String DIRTY_DESCRIPTOR = "()Z";
 
+    /** Kotlin null-check owner called once on entry; it reads no state and has no side effect. */
+    private static final String INTRINSICS_OWNER = "kotlin/jvm/internal/Intrinsics";
+
+    /** Kotlin null-check method name. */
+    private static final String INTRINSICS_METHOD = "checkNotNullParameter";
+
+    /** {@code checkNotNullParameter(Object,String)void}. */
+    private static final String INTRINSICS_DESCRIPTOR = "(Ljava/lang/Object;Ljava/lang/String;)V";
+
+    /** Persistent float-attribute wrapper declaring {@code a(float[])void}. */
+    private static final String FLOAT_BUFFER_OWNER = "com/live2d/graphics3d/mesh/a/b";
+
+    /** Persistent integer wrapper declaring {@code a(int[])void}. */
+    private static final String INDEX_BUFFER_OWNER = "com/live2d/graphics3d/mesh/a/c";
+
+    /** Reviewed upload method shared by both persistent buffer wrappers. */
+    private static final String REFRESH_METHOD = "a";
+
+    /** {@code a(float[])void}. */
+    private static final String FLOAT_REFRESH_DESCRIPTOR = "([F)V";
+
+    /** {@code a(int[])void}. */
+    private static final String INDEX_REFRESH_DESCRIPTOR = "([I)V";
+
+    /** {@code getPositionsBuffer()Lcom/live2d/graphics3d/mesh/a/b;}. */
+    private static final String FLOAT_GETTER_DESCRIPTOR = "()L" + FLOAT_BUFFER_OWNER + ";";
+
+    /** {@code getColors32Buffer()Lcom/live2d/graphics3d/mesh/a/c;}. */
+    private static final String INDEX_GETTER_DESCRIPTOR = "()L" + INDEX_BUFFER_OWNER + ";";
+
+    /** Reviewed access token: the setup method is {@code public} and carries no other flag. */
+    private static final String REVIEWED_ACCESS_TOKEN = "access:" + Opcodes.ACC_PUBLIC;
+
+    /** Reviewed terminal token: the body ends in its single {@code RETURN}. */
+    private static final String RETURN_TOKEN = "op:" + Opcodes.RETURN;
+
+    /** Call token prefix; the remainder is opcode, owner, name, descriptor and interface flag. */
+    private static final String CALL_PREFIX = "call:";
+
+    /** Operand prefixes the reviewed body may contain: a local load or a constant load. */
+    private static final List<String> OPERAND_PREFIXES = List.of("var:", "ldc:");
+
+    /** Field separator of a call token; the Base64 alphabet contains no colon. */
+    private static final String TOKEN_SEPARATOR = ":";
+
+    /** Field count of a call token: prefix, opcode, owner, name, descriptor and interface flag. */
+    private static final int CALL_TOKEN_FIELDS = 6;
+
+    /** Index of the opcode inside a split call token. */
+    private static final int CALL_OPCODE_INDEX = 1;
+
+    /** Index of the owner inside a split call token. */
+    private static final int CALL_OWNER_INDEX = 2;
+
+    /** Index of the method name inside a split call token. */
+    private static final int CALL_METHOD_INDEX = 3;
+
+    /** Index of the descriptor inside a split call token. */
+    private static final int CALL_DESCRIPTOR_INDEX = 4;
+
+    /** Index of the interface flag inside a split call token. */
+    private static final int CALL_INTERFACE_INDEX = 5;
+
+    /** Access token, at least one body token and the terminal return token. */
+    private static final int MINIMUM_SHAPE_TOKENS = 3;
+
     /**
-     * SHA-256 over the constant-pool-independent setup instruction shape,
-     * observed byte-identical on 5.0.01, 5.0.05, 5.1.00, 5.2.03, 5.3.00,
-     * 5.3.02 and 5.3.04. A reviewed generation with a different body fails admission
-     * closed instead of skipping unknown side effects.
+     * One reviewed refresh: read the buffer accessor, read the mesh array, then upload that array.
+     *
+     * @param getter the {@code GMesh2} buffer accessor
+     * @param getterDescriptor the return descriptor of {@code getter}
+     * @param values the {@code GMesh2} array accessor
+     * @param valuesDescriptor the return descriptor of {@code values}
+     * @param bufferOwner the persistent buffer owner declaring the upload
+     * @param refreshDescriptor the upload descriptor
      */
-    public static final String SETUP_SHAPE_SHA256 = "902b0b7d91631b73c7a293696bf46d21ecfa6283e92204eaca82933d56698be7";
+    public record Refresh(
+            String getter,
+            String getterDescriptor,
+            String values,
+            String valuesDescriptor,
+            String bufferOwner,
+            String refreshDescriptor) {
+
+        public Refresh {
+            Objects.requireNonNull(getter, "getter");
+            Objects.requireNonNull(getterDescriptor, "getterDescriptor");
+            Objects.requireNonNull(values, "values");
+            Objects.requireNonNull(valuesDescriptor, "valuesDescriptor");
+            Objects.requireNonNull(bufferOwner, "bufferOwner");
+            Objects.requireNonNull(refreshDescriptor, "refreshDescriptor");
+        }
+    }
+
+    /** Every reviewed refresh, in setup visit order. */
+    private static final List<Refresh> REFRESHES = List.of(
+            new Refresh(
+                    "getPositionsBuffer",
+                    FLOAT_GETTER_DESCRIPTOR,
+                    "getPositions",
+                    "()[F",
+                    FLOAT_BUFFER_OWNER,
+                    FLOAT_REFRESH_DESCRIPTOR),
+            new Refresh(
+                    "getNormalsBuffer",
+                    FLOAT_GETTER_DESCRIPTOR,
+                    "getNormals",
+                    "()[F",
+                    FLOAT_BUFFER_OWNER,
+                    FLOAT_REFRESH_DESCRIPTOR),
+            new Refresh(
+                    "getUvsBuffer",
+                    FLOAT_GETTER_DESCRIPTOR,
+                    "getUvs",
+                    "()[F",
+                    FLOAT_BUFFER_OWNER,
+                    FLOAT_REFRESH_DESCRIPTOR),
+            new Refresh(
+                    "getUvs2Buffer",
+                    FLOAT_GETTER_DESCRIPTOR,
+                    "getUvs2",
+                    "()[F",
+                    FLOAT_BUFFER_OWNER,
+                    FLOAT_REFRESH_DESCRIPTOR),
+            new Refresh(
+                    "getUvs3Buffer",
+                    FLOAT_GETTER_DESCRIPTOR,
+                    "getUvs3",
+                    "()[F",
+                    FLOAT_BUFFER_OWNER,
+                    FLOAT_REFRESH_DESCRIPTOR),
+            new Refresh(
+                    "getColors32Buffer",
+                    INDEX_GETTER_DESCRIPTOR,
+                    "getColors32",
+                    "()[I",
+                    INDEX_BUFFER_OWNER,
+                    INDEX_REFRESH_DESCRIPTOR),
+            new Refresh(
+                    "getColorsBuffer",
+                    FLOAT_GETTER_DESCRIPTOR,
+                    "getColors",
+                    "()[F",
+                    FLOAT_BUFFER_OWNER,
+                    FLOAT_REFRESH_DESCRIPTOR),
+            new Refresh(
+                    "getAlphaBuffer",
+                    FLOAT_GETTER_DESCRIPTOR,
+                    "getAlphas",
+                    "()[F",
+                    FLOAT_BUFFER_OWNER,
+                    FLOAT_REFRESH_DESCRIPTOR),
+            new Refresh(
+                    "getIndicesBuffer",
+                    INDEX_GETTER_DESCRIPTOR,
+                    "getIndices",
+                    "()[I",
+                    INDEX_BUFFER_OWNER,
+                    INDEX_REFRESH_DESCRIPTOR));
 
     /** Every buffer getter called by the reviewed setup body, in visit order. */
-    public static final List<String> BUFFER_GETTERS = List.of(
-            "getPositionsBuffer",
-            "getNormalsBuffer",
-            "getUvsBuffer",
-            "getUvs2Buffer",
-            "getUvs3Buffer",
-            "getColors32Buffer",
-            "getColorsBuffer",
-            "getAlphaBuffer",
-            "getIndicesBuffer");
+    public static final List<String> BUFFER_GETTERS =
+            REFRESHES.stream().map(Refresh::getter).toList();
+
+    /**
+     * Returns every reviewed refresh in setup visit order.
+     *
+     * <p>Callers that must reproduce the reviewed body, such as admission tests, read this table
+     * instead of restating the accessor names and descriptors.</p>
+     *
+     * @return the immutable reviewed refresh table
+     */
+    public static List<Refresh> refreshes() {
+        return REFRESHES;
+    }
+
+    /** The exact reviewed call sequence; the setup body must contain nothing else. */
+    private static final List<Call> REVIEWED_CALLS = reviewedCalls();
 
     /** Every reviewed target, oldest supported version first. */
     private static final List<SkippedFrameMeshSetupElisionTarget> TARGETS = ReviewedHostArtifacts.all().stream()
@@ -94,24 +253,38 @@ public record SkippedFrameMeshSetupElisionTarget(HostArtifactDigest digest, Stri
         Objects.requireNonNull(version, "version");
     }
 
-    /** Returns whether the observed setup shape is the reviewed version-compatible body. */
+    /**
+     * Returns whether the observed setup body is the reviewed, version-compatible shape.
+     *
+     * <p>The gate inspects the instruction tokens directly. The body must be public, end in its
+     * single {@code RETURN}, load only locals and constants, and call exactly the reviewed
+     * accessors: the null check, the frame accessor and nine persistent-buffer refreshes in visit
+     * order. Any other call, field access or branch fails admission, so an unreviewed side effect
+     * never runs behind the elision.</p>
+     *
+     * @param shape instruction tokens of the observed method, or {@code null} when it is absent
+     * @return whether the body is the reviewed shape
+     */
     public static boolean hasReviewedSetupShape(final List<String> shape) {
-        return shape != null && SETUP_SHAPE_SHA256.equals(setupShapeSha256(shape));
-    }
-
-    /** Hashes one {@link dev.turboism.adapter.cubism.optimization.ReviewedMethodShape} instruction list. */
-    public static String setupShapeSha256(final List<String> shape) {
-        Objects.requireNonNull(shape, "shape");
-        try {
-            final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            for (final String instruction : shape) {
-                digest.update(instruction.getBytes(StandardCharsets.UTF_8));
-                digest.update((byte) '\n');
-            }
-            return HexFormat.of().formatHex(digest.digest());
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 unavailable", impossible);
+        if (shape == null || shape.size() < MINIMUM_SHAPE_TOKENS) {
+            return false;
         }
+        if (!REVIEWED_ACCESS_TOKEN.equals(shape.get(0)) || !RETURN_TOKEN.equals(shape.get(shape.size() - 1))) {
+            return false;
+        }
+        final List<Call> calls = new ArrayList<>();
+        for (final String token : shape.subList(1, shape.size() - 1)) {
+            if (token.startsWith(CALL_PREFIX)) {
+                final Call call = Call.parse(token);
+                if (call == null) {
+                    return false;
+                }
+                calls.add(call);
+            } else if (!isOperand(token)) {
+                return false;
+            }
+        }
+        return calls.equals(REVIEWED_CALLS);
     }
 
     /** The reviewed target for a host artifact digest, or empty when unsupported. */
@@ -123,5 +296,61 @@ public record SkippedFrameMeshSetupElisionTarget(HostArtifactDigest digest, Stri
     /** Every reviewed target, oldest supported version first. */
     public static List<SkippedFrameMeshSetupElisionTarget> all() {
         return TARGETS;
+    }
+
+    /** Returns whether the token is a side-effect-free local or constant load. */
+    private static boolean isOperand(final String token) {
+        for (final String prefix : OPERAND_PREFIXES) {
+            if (token.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Builds the exact reviewed call sequence in visit order. */
+    private static List<Call> reviewedCalls() {
+        final List<Call> calls = new ArrayList<>();
+        calls.add(new Call(Opcodes.INVOKESTATIC, INTRINSICS_OWNER, INTRINSICS_METHOD, INTRINSICS_DESCRIPTOR));
+        calls.add(new Call(Opcodes.INVOKEVIRTUAL, FRAME_OWNER, FRAME_METHOD, FRAME_DESCRIPTOR));
+        for (final Refresh refresh : REFRESHES) {
+            calls.add(new Call(Opcodes.INVOKEVIRTUAL, OWNER, refresh.getter(), refresh.getterDescriptor()));
+            calls.add(new Call(Opcodes.INVOKEVIRTUAL, OWNER, refresh.values(), refresh.valuesDescriptor()));
+            calls.add(new Call(
+                    Opcodes.INVOKEVIRTUAL, refresh.bufferOwner(), REFRESH_METHOD, refresh.refreshDescriptor()));
+        }
+        return List.copyOf(calls);
+    }
+
+    /**
+     * One decoded invocation of the observed body.
+     *
+     * <p>{@code ReviewedMethodShape} renders a call as its opcode, Base64-encoded UTF-8 owner, name
+     * and descriptor, then the interface flag. This record restores those operands so the gate
+     * compares them as text instead of as opaque tokens.</p>
+     */
+    private record Call(int opcode, String owner, String name, String descriptor) {
+
+        /** Returns the decoded call, or {@code null} when the token is malformed or an interface call. */
+        static Call parse(final String token) {
+            final String[] fields = token.split(TOKEN_SEPARATOR, -1);
+            if (fields.length != CALL_TOKEN_FIELDS || !Boolean.FALSE.toString().equals(fields[CALL_INTERFACE_INDEX])) {
+                return null;
+            }
+            try {
+                return new Call(
+                        Integer.parseInt(fields[CALL_OPCODE_INDEX]),
+                        decodeText(fields[CALL_OWNER_INDEX]),
+                        decodeText(fields[CALL_METHOD_INDEX]),
+                        decodeText(fields[CALL_DESCRIPTOR_INDEX]));
+            } catch (IllegalArgumentException malformed) {
+                return null;
+            }
+        }
+
+        /** Restores one Base64 UTF-8 operand. */
+        private static String decodeText(final String encoded) {
+            return new String(Base64.getDecoder().decode(encoded), StandardCharsets.UTF_8);
+        }
     }
 }

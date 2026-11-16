@@ -3,13 +3,11 @@ package dev.turboism.adapter.cubism.optimization.modelupdate.incremental;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.ProtectionDomain;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -52,7 +50,6 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
     private final List<List<String>> shapes = new ArrayList<>();
     private volatile String failure;
     private volatile int matches;
-    private final java.util.Map<String, String> beforeHashes = new java.util.HashMap<>();
     private final java.util.Set<String> touched = new java.util.HashSet<>();
 
     private record Site(String owner, String method, String descriptor) {}
@@ -207,10 +204,6 @@ public final class IncrementalUpdateTransformer implements ClassFileTransformer 
                 failure = failure != null ? failure : "incremental-update sites absent: " + rewritten + "/" + expected;
                 return null;
             }
-            beforeHashes.putIfAbsent(
-                    name,
-                    HexFormat.of()
-                            .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
             touched.add(name);
             matches += rewritten;
             return writer.toByteArray();
