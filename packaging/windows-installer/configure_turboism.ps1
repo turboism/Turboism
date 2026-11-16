@@ -416,10 +416,11 @@ function Test-RuntimeConfigGraalVmPathValue {
         -and $Value.Length -le 4096 -and -not [regex]::IsMatch($Value, '[\x00-\x1f]')
 }
 
-# 兼容归一化：可解析的自有文档（任何旧版或新版 schema）提升到当前 v1。
-# 已知字段值合法才携带；陌生字段与非法值一律丢弃而非拒绝；结果仍须通过
-# 完整 v1 校验。仅当 format 显式声明为其他产品的字符串时失败关闭 ——
-# 那不是本产品的文档，绝不能被改写。
+# Compatible normalization: a parseable document of this product, under any older or newer
+# schema, is promoted to the current v1. A known field carries over only with a legal value, an
+# unknown field and an illegal value are dropped rather than refused, and the result must still
+# pass the complete v1 validation. The step fails closed only when format names another product,
+# because that document is not ours and must never be rewritten.
 function Convert-RuntimeConfigToV1 {
     param([object]$Document)
 
@@ -472,8 +473,8 @@ function Convert-RuntimeConfigToV1 {
     $disabledPlugins = $Document.PSObject.Properties["disabledPlugins"]
     if ($null -ne $disabledPlugins) {
         if (Test-RuntimeStringArrayValue $disabledPlugins.Value) {
-            # 空 id 对插件选择合并没有意义；丢弃它们，避免损坏项在后续
-            # merge 阶段再次中断安装。
+            # An empty id means nothing to the plugin selection merge, so it is dropped and a
+            # damaged entry cannot interrupt the installation again at the later merge stage.
             $normalized["disabledPlugins"] = @($disabledPlugins.Value | Where-Object { $_ -ne "" })
         }
         else { [void]$dropped.Add("disabledPlugins") }
@@ -655,7 +656,7 @@ function Convert-RuntimeConfigToV1 {
     }
     elseif ($null -ne $launcherProperty) { [void]$dropped.Add("launcher") }
 
-    # 旧版根级 JVM 字段提升进 launcher；launcher 已携带同名设置时以 launcher 为准。
+    # A legacy root-level JVM field is promoted into launcher, and an existing launcher setting of the same name wins.
     foreach ($name in @("cubismJvm", "graalVmPath")) {
         $legacy = $Document.PSObject.Properties[$name]
         if ($null -ne $legacy -and -not $launcher.Contains($name)) {
@@ -686,8 +687,8 @@ function Write-RuntimeConfigAtomic {
     param([object]$Document)
 
     $json = $Document | ConvertTo-Json -Depth 16
-    # PowerShell 将单元素数组序列化为标量，会破坏这些字符串数组字段的
-    # 下次读取；写回前把已知数组字段重新包成 JSON 数组。
+    # PowerShell serializes a single-element array as a scalar, which breaks the next read of a
+    # string-array field, so a known array field is wrapped back into a JSON array before the write.
     $json = $json -replace '"(pluginDirs|disabledPlugins|disabledIds|denylistedClasses)":\s*"([^"]+)"', '"$1": ["$2"]'
     $encoding = New-Object System.Text.UTF8Encoding($false)
     $bytes = $encoding.GetBytes($json + "`r`n")
@@ -719,13 +720,15 @@ function Write-RuntimeConfigAtomic {
     }
 }
 
-# N1：归一化会丢弃陌生字段与非法值，因此改写前保留单份归一化前镜像
-# config.json.corrupt.bak（临时文件 + 同目录原子替换，retention 恰为 1）。
-# 目标为符号链接/重解析点或目录时不跟随、不覆盖；备份失败只打印诊断，不阻断安装。
+# N1: normalization drops an unknown field and an illegal value, so one pre-normalization mirror
+# config.json.corrupt.bak is kept before the rewrite, through a temporary file and a same-directory
+# atomic replace with a retention of exactly 1. A target that is a symbolic link, a reparse point,
+# or a directory is neither followed nor overwritten, and a failed backup prints a diagnostic
+# without blocking the installation.
 function Save-RuntimeConfigPreNormalizeBackup {
     if (-not (Test-CubismNormalFile $configPath)) { return }
     $backup = Join-Path $turboismHome "config.json.corrupt.bak"
-    # GetAttributes 也覆盖悬空符号链接（Test-Path 对悬空链接返回 false）。
+    # GetAttributes also covers a dangling symbolic link, because Test-Path returns false for one.
     $backupExists = $false
     try {
         [void][System.IO.File]::GetAttributes($backup)
@@ -812,8 +815,9 @@ function Test-RuntimeStringSetEquals {
     return $left.SetEquals($right)
 }
 
-# 卸载后保留 config.json 重装时，launcher.graalVmPath 可能仍指向已被删除的旧安装；
-# 目标 java.exe 不存在则移除该字段，使运行时回落到默认探测。返回是否移除。
+# When config.json survives an uninstall and the user reinstalls, launcher.graalVmPath may still
+# point at the deleted installation. The field is removed when the target java.exe is absent, so the
+# runtime falls back to the default detection. The function returns whether it removed the field.
 function Remove-StaleGraalVmPath {
     param([object]$Document)
     $launcher = $Document.PSObject.Properties["launcher"]
@@ -929,8 +933,8 @@ function Invoke-InstallerPluginSelection {
             $wasValid = $true
         }
         catch {
-            # 兼容路径：旧版/新版 schema、陌生字段、非法值都归一化为 v1，
-            # 而不是在载荷写入前中止安装。
+            # Compatible path: an older or newer schema, an unknown field, and an illegal value all
+            # normalize to v1 instead of aborting the installation before the payload write.
             $document = Convert-RuntimeConfigToV1 $document
         }
     }
@@ -1711,8 +1715,9 @@ $saveButton.Add_Click({
         if ($unchecked.Count -gt 0) { $config.disabledPlugins = $unchecked } else { $config.Remove("disabledPlugins") }
         $json = $config | ConvertTo-Json -Depth 8
         $json = $json -replace '"disabledPlugins":\s*"([^"]+)"', '"disabledPlugins": ["$1"]'
-        # 无 BOM UTF-8 写入；读取路径仅为旧 PowerShell 5.1 文件兼容而容忍一个 BOM。
-        # UTF8Encoding(false) 保持后续 Java 与 PowerShell 读取的规范字节形式。
+        # Writes UTF-8 without a BOM, and the read path tolerates one BOM for an old PowerShell 5.1
+        # file only. UTF8Encoding(false) keeps the canonical byte form that the later Java and
+        # PowerShell reads expect.
         [System.IO.File]::WriteAllText($configPath, $json, [System.Text.UTF8Encoding]::new($false))
         $state = Read-CubismInstallationState -StatePath $statePath
         Write-InstallerLog "CONFIGURATION_SAVED" ("selected={0} shortcuts={1} mode={2} bat={3}" -f $selectedCount, [bool]$shortcutCheck.Checked, $mode, [bool]$batCheck.Checked)
