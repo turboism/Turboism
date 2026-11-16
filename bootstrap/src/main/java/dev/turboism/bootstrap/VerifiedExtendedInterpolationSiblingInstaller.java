@@ -1,12 +1,11 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.HostMemberVerifier;
 import dev.turboism.adapter.cubism.optimization.extinterpsibling.ExtendedInterpolationSiblingTarget;
 import dev.turboism.adapter.cubism.optimization.extinterpsibling.ExtendedInterpolationSiblingTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.io.IOException;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -14,7 +13,7 @@ import java.util.Optional;
 /**
  * Installs and restores the verified sibling extended-interpolation update elision weave.
  */
-final class VerifiedExtendedInterpolationSiblingInstaller implements AutoCloseable {
+final class VerifiedExtendedInterpolationSiblingInstaller implements VerifiedHookInstaller {
 
     static final String HOOK_ID = "cubism.editor-model.extended-interpolation-sibling-elision";
 
@@ -28,7 +27,6 @@ final class VerifiedExtendedInterpolationSiblingInstaller implements AutoCloseab
     private static final String SITES_PREFIX = "sites=";
     private static final String REFUSED_MESSAGE =
             "sibling extended-interpolation elision refused: host-not-supported-or-hook-disabled";
-    private static final String METHOD_SEPARATOR = ".";
 
     static final WeaveSpec<ExtendedInterpolationSiblingTarget> SPEC = new WeaveSpec<>(
             ADMISSION,
@@ -64,7 +62,7 @@ final class VerifiedExtendedInterpolationSiblingInstaller implements AutoCloseab
         final Class<?> owner = source.load(ExtendedInterpolationSiblingTarget.OWNER);
         source.load(ExtendedInterpolationSiblingTarget.GUID_OWNER);
         for (final ExtendedInterpolationSiblingTarget.MethodDep dep : target.methodDependencies()) {
-            verifyMethodPresent(source.load(dep.owner()), dep.name(), dep.descriptor());
+            HostMemberVerifier.requireMethod(source.load(dep.owner()), dep.name(), dep.descriptor());
         }
         final ExtendedInterpolationSiblingTransformer transformer = new ExtendedInterpolationSiblingTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(owner), target);
@@ -79,30 +77,17 @@ final class VerifiedExtendedInterpolationSiblingInstaller implements AutoCloseab
         return sites == ExtendedInterpolationSiblingTransformer.EXPECTED_SITES ? null : SITES_PREFIX + sites;
     }
 
-    private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)
-            throws NoSuchMethodException {
-        if (matchesAnyMethod(owner.getMethods(), name, descriptor)
-                || matchesAnyMethod(owner.getDeclaredMethods(), name, descriptor)) {
-            return;
+    @Override
+    public boolean admits(final InstallContext context) {
+        try {
+            return admitted(context.artifact(), context.policy(), true);
+        } catch (final java.io.IOException unreadable) {
+            return false;
         }
-        throw new NoSuchMethodException(owner.getName() + METHOD_SEPARATOR + name + descriptor);
     }
 
-    private static boolean matchesAnyMethod(final Method[] methods, final String name, final String descriptor) {
-        for (final Method method : methods) {
-            if (!method.getName().equals(name)) {
-                continue;
-            }
-            final String actual = MethodType.methodType(method.getReturnType(), method.getParameterTypes())
-                    .descriptorString();
-            if (actual.equals(descriptor)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    synchronized void install() throws Exception {
+    @Override
+    public synchronized void install() throws Exception {
         if (hook != null) {
             return;
         }

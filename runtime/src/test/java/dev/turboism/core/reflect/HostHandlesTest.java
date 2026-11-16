@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.turboism.adapter.cubism.optimization.HostMemberVerifier;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
@@ -70,6 +71,12 @@ class HostHandlesTest {
         public static String statically(final String value) {
             return "static:" + value;
         }
+    }
+
+    /** Owner whose reviewed member is declared by its superclass, not by itself. */
+    public static class Inheriting extends Sample {
+        /** A field the reviewed contract pins by name and type. */
+        public String note = "inherited";
     }
 
     /** A module that opens nothing, standing in for a closed host module. */
@@ -251,5 +258,59 @@ class HostHandlesTest {
         assertEquals(expected, refused.reason(), refused.declaration());
         assertFalse(refused.declaration().isBlank());
         return refused;
+    }
+
+    /*
+     * HostMemberVerifier is the presence proof every migrated installer runs before it arms a weave.
+     * These cases pin the three properties an installer depends on: the descriptor is the only
+     * acceptance rule, an inherited member resolves through the owner, and a field of another type is
+     * refused instead of accepted by name alone.
+     */
+
+    @Test
+    void requireMethodAcceptsOnlyTheExactDescriptorOfAnOverloadPair() throws ReflectiveOperationException {
+        HostMemberVerifier.requireMethod(Sample.class, "pick", "(Ljava/lang/String;)Ljava/lang/String;");
+        HostMemberVerifier.requireMethod(Sample.class, "pick", "(Ljava/lang/Object;)Ljava/lang/String;");
+
+        // The name exists, but no overload carries this descriptor, so the weave must not arm.
+        final NoSuchMethodException refused = assertThrows(
+                NoSuchMethodException.class,
+                () -> HostMemberVerifier.requireMethod(Sample.class, "pick", "(Ljava/lang/String;)Ljava/lang/Object;"));
+        assertEquals(
+                "dev.turboism.core.reflect.HostHandlesTest$Sample.pick(Ljava/lang/String;)Ljava/lang/Object;",
+                refused.getMessage());
+    }
+
+    @Test
+    void requireMethodResolvesAMemberItsOwnerInherits() throws ReflectiveOperationException {
+        // The reviewed owner declares nothing itself; the member lives on its superclass.
+        HostMemberVerifier.requireMethod(Inheriting.class, "label", "()Ljava/lang/String;");
+
+        assertThrows(
+                NoSuchMethodException.class, () -> HostMemberVerifier.requireMethod(Inheriting.class, "label", "()I"));
+    }
+
+    @Test
+    void requireFieldRefusesAFieldDeclaredWithAnotherType() throws ReflectiveOperationException {
+        HostMemberVerifier.requireField(Inheriting.class, "note", "Ljava/lang/String;");
+
+        // The field exists by name; a contract that pins another type must fail closed.
+        final NoSuchFieldException mismatch = assertThrows(
+                NoSuchFieldException.class, () -> HostMemberVerifier.requireField(Inheriting.class, "note", "I"));
+        assertEquals("dev.turboism.core.reflect.HostHandlesTest$Inheriting.note:I", mismatch.getMessage());
+
+        assertRefusal(
+                HostHandles.Refusal.MEMBER_ABSENT,
+                () -> HostMemberVerifier.requireField(Inheriting.class, "absent", "Ljava/lang/String;"));
+    }
+
+    @Test
+    void requireMethodKeepsPublicAccessOnANonOpenNamedModule() throws ReflectiveOperationException {
+        // java.base opens nothing to the unnamed module, so privateLookupIn is refused there. A public
+        // member must still verify, or every migrated dependency owner on a JDK class would regress.
+        assertFalse(
+                java.util.List.class.getModule().isOpen("java.util", getClass().getModule()));
+        HostMemberVerifier.requireMethod(java.util.List.class, "size", "()I");
+        HostMemberVerifier.requireMethod(java.util.Arrays.class, "asList", "([Ljava/lang/Object;)Ljava/util/List;");
     }
 }

@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionTarget;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionTransformer;
 import dev.turboism.config.optimization.OptimizationCatalog;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -67,7 +68,9 @@ final class SkippedFrameUploadElisionHookContributor extends NativeOptimizationH
                 environment,
                 id() + " elision=ACTIVE sites=" + installer.sites()
                         + " mode=" + (validation ? "validation" : "production")
-                        + " targets=com/live2d/graphics3d/mesh/a/{b,c}.b(Lcom/jogamp/opengl/GL2ES2;I)V");
+                        + " targets=" + SkippedFrameUploadElisionTarget.FLOAT_OWNER + "{,c}."
+                        + SkippedFrameUploadElisionTarget.METHOD
+                        + SkippedFrameUploadElisionTarget.DESCRIPTOR);
         return installer;
     }
 }

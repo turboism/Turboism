@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionTarget;
 import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 
@@ -52,8 +53,11 @@ final class InputPathElisionHookContributor extends NativeOptimizationHookContri
                 environment,
                 id() + " elision=ACTIVE sites=" + installer.sites()
                         + " mode=" + (validation ? "validation" : "production")
-                        + " targets=com/live2d/ui/CWidget.requestFocus()V"
-                        + "+setCursor(Lcom/live2d/type/CCursor;)V");
+                        + " targets=" + InputPathElisionTarget.OWNER + '.'
+                        + InputPathElisionTarget.FOCUS_METHOD
+                        + InputPathElisionTarget.FOCUS_DESCRIPTOR
+                        + '+' + InputPathElisionTarget.CURSOR_METHOD
+                        + InputPathElisionTarget.CURSOR_DESCRIPTOR);
         return installer;
     }
 }

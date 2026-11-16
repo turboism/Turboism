@@ -1,14 +1,12 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.HostMemberVerifier;
 import dev.turboism.adapter.cubism.optimization.paramrow.ParameterRowRepaintBridge;
 import dev.turboism.adapter.cubism.optimization.paramrow.ParameterRowRepaintTarget;
 import dev.turboism.adapter.cubism.optimization.paramrow.ParameterRowRepaintTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.io.IOException;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -16,7 +14,7 @@ import java.util.Optional;
 /**
  * Installs and restores the verified Parameter Palette incremental row sync and repaint elision weave.
  */
-final class VerifiedParameterRowRepaintInstaller implements AutoCloseable {
+final class VerifiedParameterRowRepaintInstaller implements VerifiedHookInstaller {
 
     static final String HOOK_ID = "cubism.ui.parameter-row-repaint";
 
@@ -29,8 +27,6 @@ final class VerifiedParameterRowRepaintInstaller implements AutoCloseable {
     private static final String FEATURE_NAME = "parameter row repaint";
     private static final String SITES_PREFIX = "sites=";
     private static final String REFUSED_MESSAGE = "parameter row repaint refused: host-not-supported-or-hook-disabled";
-    private static final String METHOD_SEPARATOR = ".";
-    private static final String FIELD_SEPARATOR = ":";
 
     static final WeaveSpec<ParameterRowRepaintTarget> SPEC = new WeaveSpec<>(
             ADMISSION,
@@ -67,10 +63,10 @@ final class VerifiedParameterRowRepaintInstaller implements AutoCloseable {
             throws Exception {
         final Class<?> controllerOwner = source.load(target.controllerOwner());
         for (final ParameterRowRepaintTarget.MethodDep dep : target.methodDependencies()) {
-            verifyMethodPresent(source.load(dep.owner()), dep.name(), dep.descriptor());
+            HostMemberVerifier.requireMethod(source.load(dep.owner()), dep.name(), dep.descriptor());
         }
         for (final ParameterRowRepaintTarget.FieldDep dep : target.fieldDependencies()) {
-            verifyFieldPresent(source.load(dep.owner()), dep.name(), dep.descriptor());
+            HostMemberVerifier.requireField(source.load(dep.owner()), dep.name(), dep.descriptor());
         }
         final ParameterRowRepaintTransformer transformer = new ParameterRowRepaintTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(controllerOwner), target);
@@ -84,43 +80,17 @@ final class VerifiedParameterRowRepaintInstaller implements AutoCloseable {
         return sites == ParameterRowRepaintTransformer.EXPECTED_SITES ? null : SITES_PREFIX + sites;
     }
 
-    private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)
-            throws NoSuchMethodException {
-        if (matchesAnyMethod(owner.getMethods(), name, descriptor)
-                || matchesAnyMethod(owner.getDeclaredMethods(), name, descriptor)) {
-            return;
+    @Override
+    public boolean admits(final InstallContext context) {
+        try {
+            return admitted(context.artifact(), context.policy(), true, context.jvmFeature());
+        } catch (final java.io.IOException unreadable) {
+            return false;
         }
-        throw new NoSuchMethodException(owner.getName() + METHOD_SEPARATOR + name + descriptor);
     }
 
-    private static boolean matchesAnyMethod(final Method[] methods, final String name, final String descriptor) {
-        for (final Method method : methods) {
-            if (!method.getName().equals(name)) {
-                continue;
-            }
-            final String actual = MethodType.methodType(method.getReturnType(), method.getParameterTypes())
-                    .descriptorString();
-            if (actual.equals(descriptor)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static void verifyFieldPresent(final Class<?> owner, final String name, final String descriptor)
-            throws NoSuchFieldException {
-        for (final Field field : owner.getDeclaredFields()) {
-            if (!field.getName().equals(name)) {
-                continue;
-            }
-            if (field.getType().descriptorString().equals(descriptor)) {
-                return;
-            }
-        }
-        throw new NoSuchFieldException(owner.getName() + METHOD_SEPARATOR + name + FIELD_SEPARATOR + descriptor);
-    }
-
-    synchronized void install() throws Exception {
+    @Override
+    public synchronized void install() throws Exception {
         if (hook != null) {
             return;
         }

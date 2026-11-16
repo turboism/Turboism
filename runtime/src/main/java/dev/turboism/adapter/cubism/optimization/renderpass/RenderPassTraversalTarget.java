@@ -82,6 +82,16 @@ public record RenderPassTraversalTarget(
     /** Sorting-info component owner. */
     public static final String SORTING_INFO_OWNER = "com/live2d/graphics3d/component/a/b";
 
+    /** Shader error helper method the rewritten traversal calls. */
+    public static final String SHADER_DEFAULT_METHOD = "a";
+
+    /**
+     * Tail of the shader error helper descriptor every reviewed generation declares; the leading
+     * parameter type is the generation's own shader helper owner.
+     */
+    private static final String SHADER_DEFAULT_DESCRIPTOR_TAIL =
+            ";Lcom/jogamp/opengl/GL;Ljava/lang/String;ZILjava/lang/Object;)I";
+
     /** Expected rewrite site count on Cubism 5.0.x–5.2.x. */
     public static final int EXPECTED_SITES_50 = 8;
 
@@ -137,6 +147,15 @@ public record RenderPassTraversalTarget(
         return ReviewedHostArtifacts.all().stream()
                 .flatMap(artifact -> of(artifact).stream())
                 .toList();
+    }
+
+    /**
+     * Returns the exact descriptor of the shader error helper this generation declares.
+     *
+     * @return the reviewed {@code a(Shader,String,boolean,int,Object) int} descriptor
+     */
+    public String shaderDefaultDescriptor() {
+        return "(L" + shaderHelperOwner + SHADER_DEFAULT_DESCRIPTOR_TAIL;
     }
 
     /**

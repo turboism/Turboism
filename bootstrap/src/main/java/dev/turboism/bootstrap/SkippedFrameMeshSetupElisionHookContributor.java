@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.meshsetup.SkippedFrameMeshSetupElisionTarget;
 import dev.turboism.config.optimization.OptimizationCatalog;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 
@@ -57,7 +58,9 @@ final class SkippedFrameMeshSetupElisionHookContributor extends NativeOptimizati
         log(
                 environment,
                 id() + " elision=ACTIVE sites=" + installer.sites()
-                        + " target=com/live2d/graphics3d/mesh/GMesh2.setup(Lcom/live2d/graphics3d/a;)V");
+                        + " target=" + SkippedFrameMeshSetupElisionTarget.OWNER + '.'
+                        + SkippedFrameMeshSetupElisionTarget.METHOD
+                        + SkippedFrameMeshSetupElisionTarget.DESCRIPTOR);
         return installer;
     }
 }

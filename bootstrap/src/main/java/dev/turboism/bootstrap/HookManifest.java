@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
  *
  * <p>The manifest is a plain-text seed list with one entry per line. An entry is either a
  * fully-qualified {@link HookContributor} class name or a {@code @} token that names a
- * {@link DeclarativeHook} entry in {@link DeclarativeHooks}. {@code #} comments and blank lines are
+ * {@link DeclarativeHooks.DeclarativeHook} entry. {@code #} comments and blank lines are
  * allowed. Coexistence is deliberate: an unmigrated family keeps its contributor class, and a
  * migrated family declares one token instead of a class per install.</p>
  *
@@ -172,7 +172,7 @@ final class HookManifest {
         record ClassEntry(String className) implements Entry {}
 
         /** @param hook the registry entry the line names */
-        record DeclarativeEntry(DeclarativeHook hook) implements Entry {}
+        record DeclarativeEntry(DeclarativeHooks.DeclarativeHook hook) implements Entry {}
     }
 
     static final class HookManifestException extends Exception {

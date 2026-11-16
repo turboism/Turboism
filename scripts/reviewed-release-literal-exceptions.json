@@ -7,12 +7,12 @@
       "evidence": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorModelInstanceReadSelectorContract.java: RenderType.ONION_SKIN_FOR_MODELING enum member is absent on these exact jars (verified via javap on every 5.0.x/5.1.x/5.2.x reference); the member first appears on 5.3.00."
     },
     {
-      "path": "bootstrap/src/main/java/dev/turboism/bootstrap/ObjectContextMenuHostProfile.java",
-      "evidence": "bootstrap/src/main/java/dev/turboism/bootstrap/ObjectContextMenuHostProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/profile/ObjectContextMenuHostProfile.java",
+      "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/profile/ObjectContextMenuHostProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
     },
     {
-      "path": "bootstrap/src/main/java/dev/turboism/bootstrap/ParameterPointContextMenuHostProfile.java",
-      "evidence": "bootstrap/src/main/java/dev/turboism/bootstrap/ParameterPointContextMenuHostProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/profile/ParameterPointContextMenuHostProfile.java",
+      "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/profile/ParameterPointContextMenuHostProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
     },
     {
       "path": "bootstrap/src/main/java/dev/turboism/bootstrap/PerformanceFpsHookInstaller.java",

@@ -1,13 +1,11 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.optimization.HostMemberVerifier;
 import dev.turboism.adapter.cubism.optimization.warpdraw.WarpNormalPointElisionTarget;
 import dev.turboism.adapter.cubism.optimization.warpdraw.WarpNormalPointElisionTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.io.IOException;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -15,7 +13,7 @@ import java.util.Optional;
 /**
  * Installs and restores the verified disabled outside-of-parent warp control-point elision weave.
  */
-final class VerifiedWarpNormalPointElisionInstaller implements AutoCloseable {
+final class VerifiedWarpNormalPointElisionInstaller implements VerifiedHookInstaller {
 
     static final String HOOK_ID = "cubism.deformer.warp-normal-point-elision";
 
@@ -60,10 +58,10 @@ final class VerifiedWarpNormalPointElisionInstaller implements AutoCloseable {
             throws Exception {
         final Class<?> owner = source.load(WarpNormalPointElisionTarget.OWNER);
         for (final WarpNormalPointElisionTarget.MethodDep dep : target.methodDependencies()) {
-            verifyMethodPresent(source.load(dep.owner()), dep.name(), dep.descriptor());
+            HostMemberVerifier.requireMethod(source.load(dep.owner()), dep.name(), dep.descriptor());
         }
         for (final WarpNormalPointElisionTarget.FieldDep dep : target.fieldDependencies()) {
-            verifyFieldPresent(source.load(dep.owner()), dep.name(), dep.descriptor());
+            HostMemberVerifier.requireField(source.load(dep.owner()), dep.name(), dep.descriptor());
         }
         final WarpNormalPointElisionTransformer transformer = new WarpNormalPointElisionTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(owner), target);
@@ -78,27 +76,17 @@ final class VerifiedWarpNormalPointElisionInstaller implements AutoCloseable {
         return sites == EXPECTED_SITES ? null : "sites=" + sites;
     }
 
-    private static void verifyMethodPresent(final Class<?> owner, final String name, final String descriptor)
-            throws NoSuchMethodException {
-        for (final Method method : owner.getMethods()) {
-            if (!method.getName().equals(name)) continue;
-            final String actual = MethodType.methodType(method.getReturnType(), method.getParameterTypes())
-                    .descriptorString();
-            if (actual.equals(descriptor)) return;
+    @Override
+    public boolean admits(final InstallContext context) {
+        try {
+            return admitted(context.artifact(), context.policy(), true);
+        } catch (final java.io.IOException unreadable) {
+            return false;
         }
-        throw new NoSuchMethodException(owner.getName() + "." + name + descriptor);
     }
 
-    private static void verifyFieldPresent(final Class<?> owner, final String name, final String descriptor)
-            throws NoSuchFieldException {
-        for (final Field field : owner.getDeclaredFields()) {
-            if (!field.getName().equals(name)) continue;
-            if (field.getType().descriptorString().equals(descriptor)) return;
-        }
-        throw new NoSuchFieldException(owner.getName() + "." + name + ":" + descriptor);
-    }
-
-    synchronized void install() throws Exception {
+    @Override
+    public synchronized void install() throws Exception {
         if (hook != null) return;
         if (!(VerifiedInstall.install(SPEC, context)
                 instanceof VerifiedInstall.Attempt.Installed<WarpNormalPointElisionTarget> installed)) {
