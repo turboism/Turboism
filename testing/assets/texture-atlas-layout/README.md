@@ -1,55 +1,55 @@
 # Texture Atlas Layout Test Assets
 
-## 用途
+## Purpose
 
-验证纹理图集当前页自动排版：原生/new/legacy 性能对照、固定及自动缩放、旋转、区域并行、overflow、撤销/重做和保存重开。
+Validate texture atlas current-page auto-layout: native/new/legacy performance comparison, fixed and automatic scaling, rotation, region parallelism, overflow, undo/redo, and save-then-reopen.
 
-## 许可与分发说明
+## License and Distribution
 
-- **使用许可**：**Creative Commons Zero v1.0 Universal (CC0 1.0)**（用户明确确认授权，覆盖历史文档中“仅当前测试，不再分发”的早期说明）。
-- **二进制分发**：本目录下的 17 份二进制模型与工程文件（9 份 CMO3、8 份 PSD，总计 123,517,686 字节）**不直接提交 Git**，由版本化 GitHub Release 资产统一分发，由仓库根目录 `testing/assets/corpus.json` 清单管理。
-- **获取方法**：
+- **License**: **Creative Commons Zero v1.0 Universal (CC0 1.0)**. The user confirmed this authorization explicitly, and it supersedes the earlier "current test only, no redistribution" note in historical documents.
+- **Binary distribution**: the 17 binary model and project files in this directory (9 CMO3 and 8 PSD, 123,517,686 bytes total) are **never committed to Git**. They publish as versioned GitHub Release assets and are managed by the `testing/assets/corpus.json` manifest at the repository root.
+- **How to obtain them**:
   ```sh
-  # 拉取并映射到本地 testing/assets/texture-atlas-layout/ 目录
+  # Fetch and map into the local testing/assets/texture-atlas-layout/ directory
   python3 scripts/test_corpus.py fetch texture-atlas-layout
 
-  # 校验本地文件完整性与哈希
+  # Verify local file integrity and hashes
   python3 scripts/test_corpus.py verify texture-atlas-layout
   ```
-- **模型复现与构建说明**：详见 [BUILDING.md](BUILDING.md)。
+- **Model reproduction and build instructions**: see [BUILDING.md](BUILDING.md).
 
-## 文件分类
+## File Categories
 
-- `psd/`：用于导入和构建测试模型的 PSD 副本（本地通过 `fetch` 拉取后软链或复制，Git 忽略）。
-- `cmo3/`：可直接在 Cubism Editor 中打开的 `.cmo3` 模型副本（本地通过 `fetch` 拉取后软链或复制，Git 忽略）。
+- `psd/`: PSD copies used to import and build the test models (fetched locally with `fetch`, then symlinked or copied; Git-ignored).
+- `cmo3/`: `.cmo3` model copies that open directly in Cubism Editor (fetched locally with `fetch`, then symlinked or copied; Git-ignored).
 
-## 测试约定
+## Test Conventions
 
-1. 此目录中的文件作为输入样本；执行排版、保存等写操作前，另外创建运行副本，不覆盖输入样本。
-2. 记录样本来源/使用许可、Cubism 版本、初始当前页、页面尺寸、比例、旋转及 margin 设置。
-3. 每轮算法对照从相同输入副本开始，不使用上一轮排版结果作为下一轮输入。
-4. 本目录的 `psd/`、`cmo3/` 内容被 Git 忽略规则完全排除，严禁将任何二进制模型文件提交入库。
+1. Files in this directory are input samples. Before any write operation such as layout or save, create a separate run copy and never overwrite the input sample.
+2. Record sample provenance and license, Cubism version, initial current page, page size, scale, rotation, and margin settings.
+3. Start every algorithm comparison round from the same input copy. Never feed the previous round's layout result into the next round.
+4. Git ignore rules exclude the whole `psd/` and `cmo3/` content of this directory. Never commit a binary model file.
 
-实机验收协议：[`HOST-CHECKLIST.md`](../../../validation/texture-atlas-current-page/HOST-CHECKLIST.md)。
+Host acceptance protocol: [`HOST-CHECKLIST.md`](../../../validation/texture-atlas-current-page/HOST-CHECKLIST.md).
 
-## 样本登记
+## Sample Registry
 
-全套测试集包含 Circle、Geometry 两套模型和 PSD，共 17 份文件、123,517,686 字节（9 份 CMO3、8 份 PSD）。来源与新增文件见 [atlas-manifest.md](atlas-manifest.md)。
+The full corpus holds the Circle and Geometry model and PSD sets: 17 files, 123,517,686 bytes (9 CMO3, 8 PSD). Provenance and newly added files are in [atlas-manifest.md](atlas-manifest.md).
 
-**两套分布不同（用户提供的说明）：Circle 的每个模型内是大小相同的圆形；Geometry 是大小、形状各不相同的几何图像。** Circle偏向同尺寸基线，Geometry用于检验异尺寸、异长宽比输入。分开报告，不能把Circle加速比直接外推到Geometry。
+**The two sets distribute differently (user-provided note): every Circle model contains same-size circles, while Geometry holds geometric images of differing size and shape.** Circle leans on a uniform-size baseline; Geometry exercises inputs with differing sizes and aspect ratios. Report the two separately and never extrapolate the Circle speedup to Geometry.
 
-| Case | PSD | CMO3 | 许可 | 测试重点 |
+| Case | PSD | CMO3 | License | Focus |
 |---|---|---|---|---|
-| circle-100 | `psd/circle/atlas_mapping_100.psd` | `cmo3/circle/atlas_mapping_100.cmo3` | CC0-1.0 | 小规模基线 |
-| circle-500 | `psd/circle/atlas_mapping_500.psd` | `cmo3/circle/atlas_mapping_500.cmo3` | CC0-1.0 | 中规模对照 |
-| circle-1000 | `psd/circle/atlas_mapping_1000.psd` | `cmo3/circle/atlas_mapping_1000.cmo3` | CC0-1.0 | 大规模性能 |
-| circle-2500 | `psd/circle/atlas_mapping_2500.psd` | `cmo3/circle/atlas_mapping_2500.cmo3` | CC0-1.0 | 高负载压力测试 |
-| geometry-100 | `psd/geometry/atlas_mapping_geometry_100.psd` | `cmo3/geometry/atlas_mapping_geometry_100.cmo3` | CC0-1.0 | 异形几何小规模基线 |
-| geometry-500 | `psd/geometry/atlas_mapping_geometry_500.psd` | `cmo3/geometry/atlas_mapping_geometry_500.cmo3` | CC0-1.0 | 异形几何中规模对照 |
-| geometry-1000 | `psd/geometry/atlas_mapping_geometry_1000.psd` | `cmo3/geometry/atlas_mapping_geometry_1000.cmo3` | CC0-1.0 | 异形几何大规模性能 |
-| geometry-2500 | `psd/geometry/atlas_mapping_geometry_2500.psd` | `cmo3/geometry/atlas_mapping_geometry_2500.cmo3` | CC0-1.0 | 异形几何高负载压力测试 |
-| geometry-500x2 | *(基于 geometry-500)* | `cmo3/geometry/atlas_mapping_geometry_500x2.cmo3` | CC0-1.0 | 双页多纹理排版工程 |
+| circle-100 | `psd/circle/atlas_mapping_100.psd` | `cmo3/circle/atlas_mapping_100.cmo3` | CC0-1.0 | Small-scale baseline |
+| circle-500 | `psd/circle/atlas_mapping_500.psd` | `cmo3/circle/atlas_mapping_500.cmo3` | CC0-1.0 | Medium-scale comparison |
+| circle-1000 | `psd/circle/atlas_mapping_1000.psd` | `cmo3/circle/atlas_mapping_1000.cmo3` | CC0-1.0 | Large-scale performance |
+| circle-2500 | `psd/circle/atlas_mapping_2500.psd` | `cmo3/circle/atlas_mapping_2500.cmo3` | CC0-1.0 | Heavy-load stress test |
+| geometry-100 | `psd/geometry/atlas_mapping_geometry_100.psd` | `cmo3/geometry/atlas_mapping_geometry_100.cmo3` | CC0-1.0 | Irregular geometry small-scale baseline |
+| geometry-500 | `psd/geometry/atlas_mapping_geometry_500.psd` | `cmo3/geometry/atlas_mapping_geometry_500.cmo3` | CC0-1.0 | Irregular geometry medium-scale comparison |
+| geometry-1000 | `psd/geometry/atlas_mapping_geometry_1000.psd` | `cmo3/geometry/atlas_mapping_geometry_1000.cmo3` | CC0-1.0 | Irregular geometry large-scale performance |
+| geometry-2500 | `psd/geometry/atlas_mapping_geometry_2500.psd` | `cmo3/geometry/atlas_mapping_geometry_2500.cmo3` | CC0-1.0 | Irregular geometry heavy-load stress test |
+| geometry-500x2 | *(based on geometry-500)* | `cmo3/geometry/atlas_mapping_geometry_500x2.cmo3` | CC0-1.0 | Two-page multi-texture layout project |
 
-四份 Circle PSD 均为 4096×4096、8-bit RGB（4通道），已直接读取 PSD 结构确认 layer records 分别为 100、500、1000、2500。**PSD 图层数不等同于原生某次当前页 invocation 的输入数**，后者必须实机记录。Circle 输入资产清单详见 [circle-manifest.md](circle-manifest.md)。
+All four Circle PSD files are 4096×4096, 8-bit RGB (4 channels). Reading the PSD structure directly confirmed layer records of 100, 500, 1000, and 2500. **The PSD layer count is not the input count of one native current-page invocation**; measure that on the host. The Circle input asset manifest is in [circle-manifest.md](circle-manifest.md).
 
-四份 Geometry PSD 均为 2048×2048、8-bit RGB（4通道），包含异形几何图形。详见 [geometry-manifest.md](geometry-manifest.md)。
+All four Geometry PSD files are 2048×2048, 8-bit RGB (4 channels) and hold irregular geometric shapes. See [geometry-manifest.md](geometry-manifest.md).
