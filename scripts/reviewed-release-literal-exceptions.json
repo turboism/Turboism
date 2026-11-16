@@ -3,10 +3,6 @@
   "comment": "Evidence-backed exact value tables, generated manifest pins and validation lanes. Java entries do not restate reviewed versions. Bare version sets require a separate exact collection exception; none are currently needed. Stale entries fail R3.",
   "sites": [
     {
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.java",
-      "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.java: Literal version table derived from verification records; the set names the reviewed versions this surface admits."
-    },
-    {
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorModelInstanceReadSelectorContract.java",
       "evidence": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorModelInstanceReadSelectorContract.java: RenderType.ONION_SKIN_FOR_MODELING enum member is absent on these exact jars (verified via javap on every 5.0.x/5.1.x/5.2.x reference); the member first appears on 5.3.00."
     },

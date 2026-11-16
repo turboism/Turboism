@@ -1,34 +1,54 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.jar.JarFile;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 /**
- * Exact-byte contract for the triangulation edge-index weave against the licensed reviewed host
+ * Exact-shape contract for the triangulation edge-index weave against the licensed reviewed host
  * artifacts. Runs only in the {@code legacyCubismEvidenceTest} lane, which supplies the licensed
  * Cubism reference directory through {@code TURBOISM_LEGACY_CUBISM_REF} or the repository-sibling
  * {@code turboism-legacy/cubism-ref} checkout.
  *
- * <p>For each reviewed version family the test verifies the pinned class digest is what the
- * transformer admits and that the patcher accepts the real class bytes, producing a patched class
- * that still parses.</p>
+ * <p>For each reviewed version family the test verifies the structural contract the weave
+ * requires, that the patcher accepts the real class bytes, and that the patched class keeps every
+ * other runtime member. Admission is decided by live shape, so no test pins a byte preimage.</p>
  */
 final class TriangulationEdgeIndexExactHostShapeTest {
 
     private static final String ENTRY = "com/live2d/graphics3d/editableMesh/triangulation/TriangleList.class";
+    private static final String MATH_52 = "com.live2d.util.L";
+    private static final String MATH_5051 = "com.live2d.util.K";
+    private static final String MATH_FIELD = "a";
+    private static final String THRESHOLD_FIELD = "i";
+    private static final String THRESHOLD_METHOD = "f";
+    /** Debug-gate probe the membership fusion keeps in front of every fused site. */
+    private static final String DEBUG_PROBE_CALL = "com/live2d/graphics3d/editableMesh/triangulation/c$a.b()Z";
 
     /** Reviewed artifact paths: label → jar under the legacy evidence root. */
     private static Map<String, Path> reviewedArtifacts(final Path evidence) {
@@ -62,18 +82,18 @@ final class TriangulationEdgeIndexExactHostShapeTest {
 
     /** Asserts the patched bytes carry all five bridge call sites. */
     private static void assertWovenCallSites(final byte[] patched) {
-        final org.objectweb.asm.ClassReader reader = new org.objectweb.asm.ClassReader(patched);
+        final ClassReader reader = new ClassReader(patched);
         final int[] calls = new int[5]; // add, remove, clear, tryQuery, contains
         reader.accept(
-                new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9) {
+                new ClassVisitor(Opcodes.ASM9) {
                     @Override
-                    public org.objectweb.asm.MethodVisitor visitMethod(
+                    public MethodVisitor visitMethod(
                             final int access,
                             final String name,
                             final String descriptor,
                             final String signature,
                             final String[] exceptions) {
-                        return new org.objectweb.asm.MethodVisitor(org.objectweb.asm.Opcodes.ASM9) {
+                        return new MethodVisitor(Opcodes.ASM9) {
                             @Override
                             public void visitMethodInsn(
                                     final int op,
@@ -116,22 +136,22 @@ final class TriangulationEdgeIndexExactHostShapeTest {
             final byte[] original = new TriangulationEdgeIndexPatcher().patch(readEntry(jar));
             final byte[] patched = TriangleListEdgeBuilderPatcher.patch(original);
             assertEquals(
-                    withoutBuilderFingerprint(original),
-                    withoutBuilderFingerprint(patched),
+                    structure(original, "b"),
+                    structure(patched, "b"),
                     "the local-builder weave must not change any other runtime member");
-            final List<String> calls = new java.util.ArrayList<>();
-            new org.objectweb.asm.ClassReader(patched)
+            final List<String> calls = new ArrayList<>();
+            new ClassReader(patched)
                     .accept(
-                            new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9) {
+                            new ClassVisitor(Opcodes.ASM9) {
                                 @Override
-                                public org.objectweb.asm.MethodVisitor visitMethod(
+                                public MethodVisitor visitMethod(
                                         final int access,
                                         final String name,
                                         final String desc,
                                         final String signature,
                                         final String[] exceptions) {
                                     if (!name.equals("b") || !desc.endsWith("/k;")) return null;
-                                    return new org.objectweb.asm.MethodVisitor(org.objectweb.asm.Opcodes.ASM9) {
+                                    return new MethodVisitor(Opcodes.ASM9) {
                                         @Override
                                         public void visitMethodInsn(
                                                 final int opcode,
@@ -181,11 +201,11 @@ final class TriangulationEdgeIndexExactHostShapeTest {
                             .count());
 
             final var writer = new org.objectweb.asm.ClassWriter(0);
-            new org.objectweb.asm.ClassReader(original)
+            new ClassReader(original)
                     .accept(
-                            new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, writer) {
+                            new ClassVisitor(Opcodes.ASM9, writer) {
                                 @Override
-                                public org.objectweb.asm.MethodVisitor visitMethod(
+                                public MethodVisitor visitMethod(
                                         final int access,
                                         final String name,
                                         final String desc,
@@ -193,14 +213,10 @@ final class TriangulationEdgeIndexExactHostShapeTest {
                                         final String[] exceptions) {
                                     final var visitor = super.visitMethod(access, name, desc, signature, exceptions);
                                     if (!name.equals("b") || !desc.endsWith("/k;")) return visitor;
-                                    return new org.objectweb.asm.MethodVisitor(
-                                            org.objectweb.asm.Opcodes.ASM9, visitor) {
+                                    return new MethodVisitor(Opcodes.ASM9, visitor) {
                                         @Override
                                         public void visitInsn(final int opcode) {
-                                            super.visitInsn(
-                                                    opcode == org.objectweb.asm.Opcodes.ICONST_0
-                                                            ? org.objectweb.asm.Opcodes.ICONST_1
-                                                            : opcode);
+                                            super.visitInsn(opcode == Opcodes.ICONST_0 ? Opcodes.ICONST_1 : opcode);
                                         }
                                     };
                                 }
@@ -215,27 +231,6 @@ final class TriangulationEdgeIndexExactHostShapeTest {
         }
     }
 
-    private static String withoutBuilderFingerprint(final byte[] bytes) {
-        final var writer = new org.objectweb.asm.ClassWriter(0);
-        new org.objectweb.asm.ClassReader(bytes)
-                .accept(
-                        new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, writer) {
-                            @Override
-                            public org.objectweb.asm.MethodVisitor visitMethod(
-                                    final int access,
-                                    final String name,
-                                    final String desc,
-                                    final String signature,
-                                    final String[] exceptions) {
-                                return name.equals("b") && desc.endsWith("/k;")
-                                        ? null
-                                        : super.visitMethod(access, name, desc, signature, exceptions);
-                            }
-                        },
-                        0);
-        return TriangulationDefinitionFingerprint.runtimeOf(writer.toByteArray());
-    }
-
     @Test
     void angleGuardPreservesOtherMembersAndRejectsChangedBoundaryOrRepeatedWeave() throws Exception {
         assumeTrue(
@@ -246,20 +241,20 @@ final class TriangulationEdgeIndexExactHostShapeTest {
             final byte[] original =
                     readEntry(jar, TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME + ".class");
             final byte[] patched = TriangulationAngleGuardPatcher.patch(original);
-            assertEquals(withoutAngleFingerprint(original), withoutAngleFingerprint(patched));
-            final List<String> calls = new java.util.ArrayList<>();
-            new org.objectweb.asm.ClassReader(patched)
+            assertEquals(structure(original, "d"), structure(patched, "d"));
+            final List<String> calls = new ArrayList<>();
+            new ClassReader(patched)
                     .accept(
-                            new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9) {
+                            new ClassVisitor(Opcodes.ASM9) {
                                 @Override
-                                public org.objectweb.asm.MethodVisitor visitMethod(
+                                public MethodVisitor visitMethod(
                                         final int access,
                                         final String name,
                                         final String descriptor,
                                         final String signature,
                                         final String[] exceptions) {
                                     if (!name.equals("d") || !descriptor.equals("()V")) return null;
-                                    return new org.objectweb.asm.MethodVisitor(org.objectweb.asm.Opcodes.ASM9) {
+                                    return new MethodVisitor(Opcodes.ASM9) {
                                         @Override
                                         public void visitMethodInsn(
                                                 final int opcode,
@@ -307,11 +302,11 @@ final class TriangulationEdgeIndexExactHostShapeTest {
                             .map(call -> call.contains("getX") ? "getX" : "getY")
                             .toList());
             final var writer = new org.objectweb.asm.ClassWriter(0);
-            new org.objectweb.asm.ClassReader(original)
+            new ClassReader(original)
                     .accept(
-                            new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, writer) {
+                            new ClassVisitor(Opcodes.ASM9, writer) {
                                 @Override
-                                public org.objectweb.asm.MethodVisitor visitMethod(
+                                public MethodVisitor visitMethod(
                                         final int access,
                                         final String name,
                                         final String descriptor,
@@ -320,15 +315,10 @@ final class TriangulationEdgeIndexExactHostShapeTest {
                                     final var output =
                                             super.visitMethod(access, name, descriptor, signature, exceptions);
                                     if (!name.equals("d") || !descriptor.equals("()V")) return output;
-                                    return new org.objectweb.asm.MethodVisitor(org.objectweb.asm.Opcodes.ASM9, output) {
+                                    return new MethodVisitor(Opcodes.ASM9, output) {
                                         @Override
-                                        public void visitJumpInsn(
-                                                final int opcode, final org.objectweb.asm.Label target) {
-                                            super.visitJumpInsn(
-                                                    opcode == org.objectweb.asm.Opcodes.IFGT
-                                                            ? org.objectweb.asm.Opcodes.IFGE
-                                                            : opcode,
-                                                    target);
+                                        public void visitJumpInsn(final int opcode, final Label target) {
+                                            super.visitJumpInsn(opcode == Opcodes.IFGT ? Opcodes.IFGE : opcode, target);
                                         }
                                     };
                                 }
@@ -340,206 +330,356 @@ final class TriangulationEdgeIndexExactHostShapeTest {
         }
     }
 
-    private static String withoutAngleFingerprint(final byte[] bytes) {
+    @Test
+    void reviewedMathSingletonNameFollowsTheAdmittedVersion() {
+        assertEquals(MATH_5051, LazyTriangulationEdgePreparation.mathSingleton("5.0.00"));
+        assertEquals(MATH_5051, LazyTriangulationEdgePreparation.mathSingleton("5.1.03"));
+        assertEquals(MATH_52, LazyTriangulationEdgePreparation.mathSingleton("5.2.00"));
+        assertEquals(MATH_52, LazyTriangulationEdgePreparation.mathSingleton("5.3.04"));
+        assertThrows(
+                IllegalArgumentException.class, () -> LazyTriangulationEdgePreparation.mathSingleton("unreviewed"));
+    }
+
+    @Test
+    void reviewedMathSingletonCarriesTheAngleThresholdContract() throws Exception {
+        assumeTrue(
+                legacyEvidence() != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
+
+        for (final Path jar : reviewedArtifacts(legacyEvidence()).values()) {
+            final Class<?> math = new JarLoader(jar).loadClass(MATH_52);
+            assertTrue(Modifier.isFinal(math.getModifiers()), "angle threshold class must be final");
+            assertEquals(Object.class, math.getSuperclass(), "angle threshold class must extend Object");
+            final Method threshold = math.getDeclaredMethod(THRESHOLD_METHOD);
+            assertTrue(
+                    threshold.getReturnType() == float.class && Modifier.isFinal(threshold.getModifiers()),
+                    "angle threshold method must be a final float getter");
+            final Field epsilon = math.getDeclaredField(THRESHOLD_FIELD);
+            assertTrue(
+                    epsilon.getType() == float.class
+                            && Modifier.isPrivate(epsilon.getModifiers())
+                            && Modifier.isStatic(epsilon.getModifiers())
+                            && Modifier.isFinal(epsilon.getModifiers()),
+                    "angle threshold field must be an immutable private static float");
+            final Field singleton = math.getDeclaredField(MATH_FIELD);
+            assertTrue(
+                    singleton.getType() == math
+                            && Modifier.isStatic(singleton.getModifiers())
+                            && Modifier.isFinal(singleton.getModifiers()),
+                    "angle threshold singleton must be a static final self reference");
+        }
+    }
+
+    @Test
+    void localBuilderContractRejectsChangedQuerySitesAndMissingAppend() throws Exception {
+        assumeTrue(
+                legacyEvidence() != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
+
+        final byte[] original = new TriangulationEdgeIndexPatcher()
+                .patch(readEntry(legacyEvidence().resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar")));
+        assertNotNull(TriangleListEdgeBuilderPatcher.patch(original), "the reviewed builder must weave");
+        for (final String change : List.of("receiver", "argument", "append")) {
+            final byte[] changed = tamperBuilder(original, change);
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> TriangleListEdgeBuilderPatcher.patch(changed),
+                    change + " must invalidate the local-builder contract");
+        }
+    }
+
+    /** Rewrites one reviewed builder detail; every variant leaves the weave contract. */
+    private static byte[] tamperBuilder(final byte[] bytes, final String change) {
         final var writer = new org.objectweb.asm.ClassWriter(0);
-        new org.objectweb.asm.ClassReader(bytes)
+        new ClassReader(bytes)
                 .accept(
-                        new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, writer) {
+                        new ClassVisitor(Opcodes.ASM9, writer) {
                             @Override
-                            public org.objectweb.asm.MethodVisitor visitMethod(
+                            public MethodVisitor visitMethod(
                                     final int access,
                                     final String name,
                                     final String descriptor,
                                     final String signature,
                                     final String[] exceptions) {
-                                return name.equals("d") && descriptor.equals("()V")
-                                        ? null
-                                        : super.visitMethod(access, name, descriptor, signature, exceptions);
+                                final var output = super.visitMethod(access, name, descriptor, signature, exceptions);
+                                if (!name.equals("b") || !descriptor.endsWith("/k;")) return output;
+                                return new MethodVisitor(Opcodes.ASM9, output) {
+                                    @Override
+                                    public void visitVarInsn(final int opcode, final int local) {
+                                        super.visitVarInsn(
+                                                opcode,
+                                                change.equals("receiver") && opcode == Opcodes.ALOAD && local == 1
+                                                        ? 2
+                                                        : local);
+                                    }
+
+                                    @Override
+                                    public void visitInsn(final int opcode) {
+                                        super.visitInsn(
+                                                change.equals("argument") && opcode == Opcodes.ICONST_0
+                                                        ? Opcodes.ICONST_1
+                                                        : opcode);
+                                    }
+
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int opcode,
+                                            final String owner,
+                                            final String method,
+                                            final String desc,
+                                            final boolean itf) {
+                                        super.visitMethodInsn(
+                                                opcode,
+                                                owner,
+                                                change.equals("append")
+                                                                && owner.endsWith("/k")
+                                                                && method.equals("a")
+                                                                && desc.endsWith(";)Z")
+                                                        ? "c"
+                                                        : method,
+                                                desc,
+                                                itf);
+                                    }
+                                };
                             }
                         },
                         0);
-        return TriangulationDefinitionFingerprint.runtimeOf(writer.toByteArray());
+        return writer.toByteArray();
     }
 
     @Test
-    void angleThresholdDependencyRetainsAllFieldsMethodsAndInitialization() throws Exception {
+    void bothCallerOptimizationsReportCleanStageReceipts() throws Exception {
         assumeTrue(
                 legacyEvidence() != null,
                 "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
 
-        final byte[] original =
-                readEntry(legacyEvidence().resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"), "com/live2d/util/L.class");
-        final String expected = LazyTriangulationEdgePreparation.dependencyFingerprint(original);
-        assertEquals(TriangulationDefinitionFingerprint.runtimeOf(original), expected);
-        for (final String change : List.of("field", "getter", "initializer")) {
-            final var writer = new org.objectweb.asm.ClassWriter(0);
-            new org.objectweb.asm.ClassReader(original)
-                    .accept(
-                            new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, writer) {
-                                @Override
-                                public org.objectweb.asm.FieldVisitor visitField(
-                                        final int access,
-                                        final String name,
-                                        final String descriptor,
-                                        final String signature,
-                                        final Object value) {
-                                    return super.visitField(
-                                            change.equals("field") && name.equals("i")
-                                                    ? access ^ org.objectweb.asm.Opcodes.ACC_FINAL
-                                                    : access,
-                                            name,
-                                            descriptor,
-                                            signature,
-                                            value);
-                                }
-
-                                @Override
-                                public org.objectweb.asm.MethodVisitor visitMethod(
-                                        final int access,
-                                        final String name,
-                                        final String descriptor,
-                                        final String signature,
-                                        final String[] exceptions) {
-                                    return new org.objectweb.asm.MethodVisitor(
-                                            org.objectweb.asm.Opcodes.ASM9,
-                                            super.visitMethod(access, name, descriptor, signature, exceptions)) {
-                                        @Override
-                                        public void visitCode() {
-                                            super.visitCode();
-                                            if (change.equals("getter") && name.equals("f"))
-                                                super.visitInsn(org.objectweb.asm.Opcodes.NOP);
-                                        }
-
-                                        @Override
-                                        public void visitLdcInsn(final Object value) {
-                                            super.visitLdcInsn(
-                                                    change.equals("initializer")
-                                                                    && name.equals("<clinit>")
-                                                                    && value instanceof Float scalar
-                                                                    && scalar == 1.0e-6f
-                                                            ? 1.0e-5f
-                                                            : value);
-                                        }
-                                    };
-                                }
-                            },
-                            0);
-            final String observed = LazyTriangulationEdgePreparation.dependencyFingerprint(writer.toByteArray());
-            assertNotEquals(expected, observed, change + " must invalidate the complete threshold dependency");
-        }
-    }
-
-    @Test
-    void builderDependencyContractRejectsFieldAndBuilderChangesButAllowsQueryRecording() throws Exception {
-        assumeTrue(
-                legacyEvidence() != null,
-                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
-
-        final byte[] original = TriangleListEdgeBuilderPatcher.patch(new TriangulationEdgeIndexPatcher()
-                .patch(readEntry(legacyEvidence().resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"))));
-        final String expected = TriangleListEdgeBuilderPatcher.dependencyFingerprint(original);
-        for (final String change : List.of("query", "builder", "field")) {
-            final var writer = new org.objectweb.asm.ClassWriter(0);
-            new org.objectweb.asm.ClassReader(original)
-                    .accept(
-                            new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, writer) {
-                                @Override
-                                public org.objectweb.asm.FieldVisitor visitField(
-                                        final int access,
-                                        final String name,
-                                        final String descriptor,
-                                        final String signature,
-                                        final Object value) {
-                                    return super.visitField(
-                                            change.equals("field") && name.equals("b")
-                                                    ? access ^ org.objectweb.asm.Opcodes.ACC_FINAL
-                                                    : access,
-                                            name,
-                                            descriptor,
-                                            signature,
-                                            value);
-                                }
-
-                                @Override
-                                public org.objectweb.asm.MethodVisitor visitMethod(
-                                        final int access,
-                                        final String name,
-                                        final String descriptor,
-                                        final String signature,
-                                        final String[] exceptions) {
-                                    final var visitor =
-                                            super.visitMethod(access, name, descriptor, signature, exceptions);
-                                    final boolean mutate =
-                                            change.equals("builder") && name.equals("b") && descriptor.endsWith("/k;")
-                                                    || change.equals("query")
-                                                            && name.equals("a")
-                                                            && descriptor.endsWith("Ljava/util/List;");
-                                    return new org.objectweb.asm.MethodVisitor(
-                                            org.objectweb.asm.Opcodes.ASM9, visitor) {
-                                        @Override
-                                        public void visitCode() {
-                                            super.visitCode();
-                                            if (mutate) super.visitInsn(org.objectweb.asm.Opcodes.NOP);
-                                        }
-                                    };
-                                }
-                            },
-                            0);
-            final byte[] changed = writer.toByteArray();
-            assertNotEquals(
-                    TriangulationDefinitionFingerprint.runtimeOf(original),
-                    TriangulationDefinitionFingerprint.runtimeOf(changed),
-                    "negative control really changed the class");
-            if (change.equals("query")) {
-                assertEquals(
-                        expected,
-                        LazyTriangulationEdgePreparation.dependencyFingerprint(changed),
-                        "query recording is outside the local-builder dependency contract");
-            } else {
-                assertNotEquals(
-                        expected,
-                        LazyTriangulationEdgePreparation.dependencyFingerprint(changed),
-                        "all relevant field/builder runtime instructions remain bound");
-            }
-        }
-    }
-
-    @Test
-    void bothCallerOptimizationsMatchReviewedCombinedBytes() throws Exception {
-        assumeTrue(
-                legacyEvidence() != null,
-                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
-
-        final Map<String, String> expected = Map.of(
-                "Cubism-5.2 (5.2.03 family)", "d0fac0cd2c2092db163db7b78bffd011713f2bef17279b08ab088af4e7d27d92",
-                "Cubism-5.3.02 (5.3.x family)", "40d0754026a7a2fb7c491e95144b9d8a1a605d7aee44579cb20bb2363962f8e6");
-        for (final var artifact : reviewedArtifacts(legacyEvidence()).entrySet()) {
-            final byte[] bytes = readEntry(
-                    artifact.getValue(), TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME + ".class");
-            final java.util.List<String> receipts = new java.util.ArrayList<>();
+        for (final Path jar : reviewedArtifacts(legacyEvidence()).values()) {
+            final byte[] bytes = readEntry(jar, TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME + ".class");
+            final List<String> receipts = new ArrayList<>();
             final var transformer = new TriangulationEdgeIndexTransformer(receipts::add);
             final byte[] patched = transformer.transform(
                     null, TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME, null, null, bytes);
             assertNotNull(patched);
             assertEquals(TriangulationEdgeIndexTransformer.Outcome.PATCHED, transformer.membershipOutcome());
             assertEquals(TriangulationEdgeIndexTransformer.Outcome.PATCHED, transformer.freshEdgeOutcome());
-            assertEquals(expected.get(artifact.getKey()), TriangulationEdgeIndexTransformer.sha256(patched));
             assertEquals(
-                    List.of(
-                            "TRIANGULATION_FRESH_EDGE_PATCHED inputSha256="
-                                    + TriangulationEdgeIndexTransformer.sha256(bytes) + " outputSha256="
-                                    + expected.get(artifact.getKey()),
-                            "TRIANGULATION_MEMBERSHIP_PATCHED inputSha256="
-                                    + TriangulationEdgeIndexTransformer.sha256(bytes) + " outputSha256="
-                                    + expected.get(artifact.getKey())),
-                    receipts);
+                    List.of("TRIANGULATION_FRESH_EDGE_PATCHED", "TRIANGULATION_MEMBERSHIP_PATCHED"),
+                    receipts,
+                    "each independent stage reports one clean receipt");
+            assertWovenMembershipCallSites(patched, bytes);
+
             final var brokenReceipt = new TriangulationEdgeIndexTransformer(code -> {
                 throw new IllegalStateException("sink unavailable");
             });
             assertEquals(
-                    expected.get(artifact.getKey()),
-                    TriangulationEdgeIndexTransformer.sha256(brokenReceipt.transform(
-                            null, TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME, null, null, bytes)));
+                    structure(patched, ""),
+                    structure(
+                            brokenReceipt.transform(
+                                    null,
+                                    TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME,
+                                    null,
+                                    null,
+                                    bytes),
+                            ""),
+                    "a failing receipt sink must not change the transformed definition");
+        }
+    }
+
+    /** Asserts the membership weave carries its fresh-edge call site and the fused debug probe. */
+    private static void assertWovenMembershipCallSites(final byte[] patched, final byte[] original) {
+        final List<String> calls = new ArrayList<>();
+        new ClassReader(patched)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int opcode,
+                                            final String owner,
+                                            final String method,
+                                            final String desc,
+                                            final boolean itf) {
+                                        calls.add(owner + "." + method + desc);
+                                    }
+                                };
+                            }
+                        },
+                        0);
+        assertTrue(
+                calls.stream()
+                        .anyMatch(call -> call.startsWith(
+                                "dev/turboism/adapter/cubism/mesh/FreshTriangulationEdgeSearch.containsFresh")),
+                "fresh-edge search elimination must be woven");
+        assertTrue(
+                calls.stream().anyMatch(call -> call.equals(DEBUG_PROBE_CALL)),
+                "membership fusion must keep its debug probe call");
+        assertFalse(Arrays.equals(original, patched), "the membership weave must change the definition");
+    }
+
+    @Test
+    void hashWeavePreservesEveryOtherRuntimeMember() throws Exception {
+        assumeTrue(
+                legacyEvidence() != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
+
+        final byte[] original = readEntry(
+                legacyEvidence().resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"),
+                MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME + ".class");
+        final byte[] patched = new MeshTriangulationHashTransformer()
+                .transform(null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, original);
+        assertNotNull(patched);
+        assertEquals(
+                structure(original, "hashCode"),
+                structure(patched, "hashCode"),
+                "the hash weave must preserve every other runtime member");
+        assertTrue(
+                structure(original, "").get("method hashCode()I") != null,
+                "the reviewed host must declare the woven hashCode");
+    }
+
+    /**
+     * Structural projection of one class: header, fields and per-method instruction tokens.
+     *
+     * <p>Two projections differ when any retained member changes shape, and the skipped method
+     * stays outside the comparison so a weave can be checked against its own input.</p>
+     */
+    private static Map<String, List<String>> structure(final byte[] bytes, final String skippedMethod) {
+        final Map<String, List<String>> structure = new TreeMap<>();
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public void visit(
+                                    final int version,
+                                    final int access,
+                                    final String name,
+                                    final String signature,
+                                    final String superName,
+                                    final String[] interfaces) {
+                                structure.put(
+                                        "class",
+                                        List.of(
+                                                Integer.toString(version),
+                                                Integer.toString(access),
+                                                name,
+                                                String.valueOf(superName),
+                                                Arrays.toString(interfaces)));
+                            }
+
+                            @Override
+                            public FieldVisitor visitField(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final Object value) {
+                                structure.put(
+                                        "field " + name + ':' + descriptor,
+                                        List.of(
+                                                Integer.toString(access),
+                                                String.valueOf(signature),
+                                                String.valueOf(value)));
+                                return null;
+                            }
+
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                if (name.equals(skippedMethod)) return null;
+                                final List<String> tokens = new ArrayList<>(List.of(
+                                        Integer.toString(access),
+                                        String.valueOf(signature),
+                                        Arrays.toString(exceptions)));
+                                structure.put("method " + name + descriptor, tokens);
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitInsn(final int opcode) {
+                                        tokens.add("insn " + opcode);
+                                    }
+
+                                    @Override
+                                    public void visitIntInsn(final int opcode, final int operand) {
+                                        tokens.add("int " + opcode + ' ' + operand);
+                                    }
+
+                                    @Override
+                                    public void visitVarInsn(final int opcode, final int local) {
+                                        tokens.add("var " + opcode + ' ' + local);
+                                    }
+
+                                    @Override
+                                    public void visitTypeInsn(final int opcode, final String type) {
+                                        tokens.add("type " + opcode + ' ' + type);
+                                    }
+
+                                    @Override
+                                    public void visitFieldInsn(
+                                            final int opcode,
+                                            final String owner,
+                                            final String fieldName,
+                                            final String fieldDescriptor) {
+                                        tokens.add("field " + opcode + ' ' + owner + '.' + fieldName + fieldDescriptor);
+                                    }
+
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int opcode,
+                                            final String owner,
+                                            final String methodName,
+                                            final String methodDescriptor,
+                                            final boolean itf) {
+                                        tokens.add(
+                                                "call " + opcode + ' ' + owner + '.' + methodName + methodDescriptor);
+                                    }
+
+                                    @Override
+                                    public void visitJumpInsn(final int opcode, final Label target) {
+                                        tokens.add("jump " + opcode);
+                                    }
+
+                                    @Override
+                                    public void visitLdcInsn(final Object value) {
+                                        tokens.add("constant " + value);
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        return structure;
+    }
+
+    /** Child loader over one reviewed jar; bootstrap parent keeps host classes unreachable. */
+    private static final class JarLoader extends ClassLoader {
+        private final Path jar;
+
+        JarLoader(final Path jar) {
+            super(null);
+            this.jar = jar;
+        }
+
+        @Override
+        protected Class<?> findClass(final String name) throws ClassNotFoundException {
+            try (JarFile file = new JarFile(jar.toFile())) {
+                final var entry = file.getEntry(name.replace('.', '/') + ".class");
+                if (entry == null) throw new ClassNotFoundException(name);
+                try (InputStream stream = file.getInputStream(entry)) {
+                    final byte[] bytes = stream.readAllBytes();
+                    return defineClass(name, bytes, 0, bytes.length);
+                }
+            } catch (IOException failure) {
+                throw new ClassNotFoundException(name, failure);
+            }
         }
     }
 
@@ -548,103 +688,6 @@ final class TriangulationEdgeIndexExactHostShapeTest {
                 InputStream stream = file.getInputStream(file.getEntry(entry))) {
             return stream.readAllBytes();
         }
-    }
-
-    @Test
-    void lazyAdmissionAcceptsOnlyTheReviewedHashComposition() throws Exception {
-        assumeTrue(
-                legacyEvidence() != null,
-                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
-
-        byte[] original = readEntry(
-                legacyEvidence().resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"),
-                MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME + ".class");
-        byte[] patched = new MeshTriangulationHashTransformer()
-                .transform(null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, original);
-        assertNotNull(patched);
-        String pristine = TriangulationDefinitionFingerprint.runtimeOf(original);
-        assertNotEquals(pristine, TriangulationDefinitionFingerprint.runtimeOf(patched));
-        assertEquals(pristine, LazyTriangulationEdgePreparation.dependencyFingerprint(original));
-        assertEquals(pristine, LazyTriangulationEdgePreparation.dependencyFingerprint(patched));
-        assertEquals(
-                withoutHashFingerprint(original),
-                withoutHashFingerprint(patched),
-                "the existing hash patch must preserve every other runtime member");
-        for (String change : List.of("getter", "hash", "field")) {
-            byte[] tampered = tamperHashComposition(patched, change);
-            String observed = TriangulationDefinitionFingerprint.runtimeOf(tampered);
-            assertNotEquals(TriangulationDefinitionFingerprint.runtimeOf(patched), observed, change);
-            assertEquals(
-                    observed,
-                    LazyTriangulationEdgePreparation.dependencyFingerprint(tampered),
-                    change + " must not be normalized to an admitted definition");
-            assertNotEquals(pristine, LazyTriangulationEdgePreparation.dependencyFingerprint(tampered), change);
-        }
-    }
-
-    private static String withoutHashFingerprint(byte[] bytes) {
-        var writer = new org.objectweb.asm.ClassWriter(0);
-        new org.objectweb.asm.ClassReader(bytes)
-                .accept(
-                        new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, writer) {
-                            @Override
-                            public org.objectweb.asm.MethodVisitor visitMethod(
-                                    int access, String name, String descriptor, String signature, String[] exceptions) {
-                                return name.equals("hashCode") && descriptor.equals("()I")
-                                        ? null
-                                        : super.visitMethod(access, name, descriptor, signature, exceptions);
-                            }
-                        },
-                        0);
-        return TriangulationDefinitionFingerprint.runtimeOf(writer.toByteArray());
-    }
-
-    private static byte[] tamperHashComposition(byte[] bytes, String change) {
-        var writer = new org.objectweb.asm.ClassWriter(0);
-        new org.objectweb.asm.ClassReader(bytes)
-                .accept(
-                        new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, writer) {
-                            @Override
-                            public org.objectweb.asm.FieldVisitor visitField(
-                                    int access, String name, String descriptor, String signature, Object value) {
-                                if (change.equals("field") && name.equals("a"))
-                                    access ^= org.objectweb.asm.Opcodes.ACC_FINAL;
-                                return super.visitField(access, name, descriptor, signature, value);
-                            }
-
-                            @Override
-                            public org.objectweb.asm.MethodVisitor visitMethod(
-                                    int access, String name, String descriptor, String signature, String[] exceptions) {
-                                return new org.objectweb.asm.MethodVisitor(
-                                        org.objectweb.asm.Opcodes.ASM9,
-                                        super.visitMethod(access, name, descriptor, signature, exceptions)) {
-                                    @Override
-                                    public void visitFieldInsn(int opcode, String owner, String field, String type) {
-                                        super.visitFieldInsn(
-                                                opcode,
-                                                owner,
-                                                change.equals("getter") && name.equals("a") && field.equals("a")
-                                                        ? "b"
-                                                        : field,
-                                                type);
-                                    }
-
-                                    @Override
-                                    public void visitIntInsn(int opcode, int operand) {
-                                        super.visitIntInsn(
-                                                opcode,
-                                                change.equals("hash")
-                                                                && name.equals("hashCode")
-                                                                && opcode == org.objectweb.asm.Opcodes.BIPUSH
-                                                                && operand == 31
-                                                        ? 30
-                                                        : operand);
-                                    }
-                                };
-                            }
-                        },
-                        0);
-        return writer.toByteArray();
     }
 
     private static Path legacyEvidence() {
