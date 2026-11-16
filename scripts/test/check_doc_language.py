@@ -26,8 +26,10 @@ Usage: check_doc_language.py [--root PATH] [--paths PATH ...] [--all] [--report]
 from __future__ import annotations
 
 import argparse
+import io
 import re
 import sys
+import tokenize
 from pathlib import Path
 
 # Directories that already satisfy the English-by-default policy.
@@ -99,9 +101,30 @@ def is_prose(text: str, minimum: int = _MIN_PROSE_CHARS_DOC) -> bool:
     return cjk / (cjk + latin) >= _PROSE_RATIO
 
 
+def python_comment_spans(text: str) -> list[tuple[int, int]]:
+    """Return the real comment spans of one Python file, so a hash inside a literal is data."""
+    offsets = [0]
+    for line in text.splitlines(keepends=True):
+        offsets.append(offsets[-1] + len(line))
+
+    def offset(row: int, column: int) -> int:
+        return offsets[row - 1] + column
+
+    spans: list[tuple[int, int]] = []
+    try:
+        for token in tokenize.generate_tokens(io.StringIO(text).readline):
+            if token.type == tokenize.COMMENT:
+                spans.append((offset(*token.start), offset(*token.end)))
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        return [match.span() for match in _PY_COMMENT.finditer(text)]
+    return spans
+
+
 def comment_spans(text: str, suffix: str) -> list[tuple[int, int]]:
     """Return the comment spans of one source file, the only code text the policy reads."""
-    if suffix in {".py", ".ps1"}:
+    if suffix == ".py":
+        return python_comment_spans(text)
+    if suffix == ".ps1":
         patterns = (_PY_COMMENT,)
     elif suffix == ".sh":
         patterns = (_SHELL_COMMENT,)

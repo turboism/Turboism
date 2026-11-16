@@ -94,6 +94,14 @@ class CodePolicyTest(unittest.TestCase):
         with TreeFixture(**{"runner.py": source}) as tree:
             self.assertEqual(["runner.py"], scanned(tree))
 
+    def test_python_hash_inside_a_literal_passes(self):
+        source = (
+            "HEADINGS = {\n    \"README_zh.md\": \"## \u8981\u6c42\u4e0e\u517c\u5bb9\u6027\",\n"
+            "    \"README_ja.md\": \"## \u8981\u4ef6\u3068\u4e92\u63db\u6027\",\n}\n"
+        )
+        with TreeFixture(**{"strings.py": source}) as tree:
+            self.assertEqual([], scanned(tree))
+
 
 class RepositoryScopeTest(unittest.TestCase):
     def test_policy_scope_is_converted(self):

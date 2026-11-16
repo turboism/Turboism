@@ -63,8 +63,10 @@ result file; per-step evidence maps back to `task:version@variant` rows
 through `scripts/preview/host_validation_triage.py` and
 `scripts/preview/sync_campaign_ledger.py`.
 
-保存路径步骤采用只读契约。Session Runner 在启动前预置
-`config/turboism.core/save-directory-history.properties`，数据来自探针的固定双槽文件。
-Windows 验证包携带同一份 `fixtures/save-directory-history.properties`，并将其计入 SHA256SUMS。
-手工准备任务 home 时，必须通过 Runner 的 `--home-file` 将此文件放到上述配置路径。
-此步骤验证读取、持久化一致性和写入拒绝，不再写入 shell 历史。结果采用 schemaVersion=2。
+The save-path step uses a read-only contract. The Session Runner seeds
+`config/turboism.core/save-directory-history.properties` before startup from the fixed
+two-slot file of the probe. The Windows validation bundle carries the same
+`fixtures/save-directory-history.properties` and counts it in SHA256SUMS. A hand-prepared
+task home must place that file at the configuration path above through the `--home-file`
+option of the Runner. This step verifies the read, the persistence agreement, and the
+write refusal, and it no longer writes shell history. The result uses schemaVersion=2.
