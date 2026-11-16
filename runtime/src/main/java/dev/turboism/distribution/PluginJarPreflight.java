@@ -7,10 +7,39 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
+import java.util.Objects;
+import java.util.Optional;
 
 /** Revalidates a staged JAR against the immutable strict inspection plan before publication. */
 public final class PluginJarPreflight {
+    private static final String INVALID_ARCHIVE_CODE = "ARTIFACT_JAR_INVALID";
+    private static final String INVALID_ARCHIVE_MESSAGE = "Invalid plugin JAR";
+
+    /** Structured inspection failure reported by {@link #inspectContent(Path, String)}. */
+    public record InspectionFailure(String code, String message, String path) {}
+
     private PluginJarPreflight() {}
+
+    /**
+     * Validates archive structure, descriptor contract, and content contamination rules for a JAR.
+     *
+     * @param jar path to the plugin JAR to inspect
+     * @param logicalPath logical archive path reported in diagnostics
+     * @return first inspection failure, or empty when the package passes strict inspection
+     */
+    public static Optional<InspectionFailure> inspectContent(final Path jar, final String logicalPath) {
+        Objects.requireNonNull(jar, "jar");
+        Objects.requireNonNull(logicalPath, "logicalPath");
+        try {
+            new PluginJarInspector().inspect(jar, logicalPath);
+            return Optional.empty();
+        } catch (DistributionValidationException rejected) {
+            return Optional.of(new InspectionFailure(rejected.code(), rejected.getMessage(), rejected.problemPath()));
+        } catch (Exception failure) {
+            final String message = failure.getMessage() == null ? INVALID_ARCHIVE_MESSAGE : failure.getMessage();
+            return Optional.of(new InspectionFailure(INVALID_ARCHIVE_CODE, message, logicalPath));
+        }
+    }
 
     /**
      * Re-reads a staged JAR from disk and checks it still matches what inspection recorded.

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.acp
-version: 0.68.1
+version: 0.68.4
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Agent 会話ウィンドウと Agent 設定ウィンドウを開き、ユーザ�
 
 | 項目 | 値 |
 |---|---|
-| バージョン | `0.68.1` |
+| バージョン | `0.68.4` |
 | プラグイン ID | `dev.turboism.plugin.acp` |
 | カテゴリ | `integration` |
 | タグ | automation, acp, agent |
@@ -131,6 +131,10 @@ OpenCode 1.15.13 はモデル API の認証エラーを `end_turn` とゼロト�
 - **セッションを読み込めない**：保存された永続セッションが古い可能性があります。プラグインは自動で新規セッションへフォールバックします。
 
 ## 変更履歴
+
+### 0.68.4
+
+- 同梱の Pi MCP 拡張リソースを `native/` から `extensions/` へ移動し、プラグインパッケージ内容検証に適合させました。
 
 ### 0.68.1
 

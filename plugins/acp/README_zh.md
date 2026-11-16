@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.acp
-version: 0.68.1
+version: 0.68.4
 kind: feature
 status: preview
 delivery: store-candidate
@@ -21,7 +21,7 @@ interface: swing
 
 | 项目 | 值 |
 |---|---|
-| 版本 | `0.68.1` |
+| 版本 | `0.68.4` |
 | 插件 ID | `dev.turboism.plugin.acp` |
 | 分类 | `integration` |
 | 标签 | automation, acp, agent |
@@ -135,6 +135,10 @@ OpenCode 1.15.13 在模型接口返回鉴权错误时，可能只返回 `end_tur
 - **无法加载会话**：保存的持久会话可能已失效；插件会自动回退到新会话。
 
 ## 更新日志
+
+### 0.68.4
+
+- 将内置 Pi MCP 扩展脚本从 `native/` 迁至 `extensions/`，满足插件包内容安全校验规则。
 
 ### 0.68.1
 

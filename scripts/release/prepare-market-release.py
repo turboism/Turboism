@@ -106,6 +106,46 @@ RETIRED_PLUGIN_IDS = frozenset({
     "dev.turboism.plugin.backup",
 })
 
+# Mirrors runtime/src/main/java/dev/turboism/distribution/PluginPathPolicy.java
+# contamination() rules so contaminated JAR entries fail staging before publication.
+CONTAMINATED_PREFIXES = (
+    "meta-inf/versions/",
+    "dev/turboism/core/",
+    "dev/turboism/hook/",
+    "dev/turboism/mapping/",
+    "dev/turboism/adapter/",
+    "dev/turboism/permissions/",
+    "dev/turboism/diagnostics/",
+    "dev/turboism/bootstrap/",
+    "dev/turboism/ui/",
+    "dev/turboism/internal/",
+    "dev/turboism/sdk/",
+    "dev/turboism/test/",
+    "dev/turboism/testframework/",
+    "testframework/",
+    "com/live2d/",
+    "native/",
+    "natives/",
+    "host/",
+    "cubism/",
+    "live2d/",
+)
+CONTAMINATED_SUFFIXES = (
+    ".jar",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".exe",
+    ".msi",
+    ".dmg",
+    ".pkg",
+    ".app",
+    ".deb",
+    ".rpm",
+)
+INSTALLER_NAMES = ("install", "installer", "setup")
+INSTALLER_SCRIPT_SUFFIXES = frozenset({".sh", ".bat", ".cmd", ".ps1"})
+
 
 class MarketError(Exception):
     """Fatal validation/staging failure with a diagnostic message."""
@@ -992,6 +1032,22 @@ def load_catalog(catalog_source: str, sig_source: str | None = None) -> tuple[di
     return catalog, load_artifact_bytes
 
 
+def is_contaminated_entry(name: str) -> bool:
+    """Reject JAR entry names prohibited by runtime PluginPathPolicy."""
+    lower = name.lower()
+    if lower.startswith(CONTAMINATED_PREFIXES) or lower.endswith(CONTAMINATED_SUFFIXES):
+        return True
+    if lower.startswith("dev/turboism/") and "/internal/" in lower:
+        return True
+    if (lower == "meta-inf/turboism/plugin.json" or lower.endswith("/meta-inf/turboism/plugin.json")) and lower != "meta-inf/turboism/plugin.json":
+        return True
+    base = lower.removeprefix("scripts/")
+    if base in INSTALLER_NAMES or any(base.startswith(prefix + ".") for prefix in INSTALLER_NAMES):
+        dot = base.find(".")
+        return dot < 0 or base[dot:] in INSTALLER_SCRIPT_SUFFIXES
+    return False
+
+
 def jar_artifact(build_root: Path, module: str, tracked_raw: bytes,
                  base_name: str, locales: list) -> tuple:
     """Verify one built JAR; return (jar path, descriptor sha256, localizations)."""
@@ -1000,6 +1056,9 @@ def jar_artifact(build_root: Path, module: str, tracked_raw: bytes,
     verify_jar_reproducibility(raw_bytes, str(jar))
     try:
         with zipfile.ZipFile(io.BytesIO(raw_bytes)) as archive:
+            for info in archive.infolist():
+                if not info.is_dir() and is_contaminated_entry(info.filename):
+                    raise MarketError(f"{jar}: contaminated plugin entry {info.filename!r}")
             try:
                 embedded = archive.read(DESCRIPTOR_ENTRY)
             except KeyError as failure:

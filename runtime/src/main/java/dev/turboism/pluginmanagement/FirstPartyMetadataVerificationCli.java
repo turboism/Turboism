@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.descriptor.DescriptorParseException;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.core.plugin.PluginJarContract;
+import dev.turboism.distribution.PluginJarPreflight;
 import dev.turboism.runtime.json.RuntimeJson;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.io.IOException;
@@ -14,6 +15,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Optional;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -118,6 +120,12 @@ public final class FirstPartyMetadataVerificationCli {
                     descriptorPath,
                     "FIRST_PARTY_JAR_UNREADABLE",
                     "built JAR cannot be inspected: " + failure.getMessage());
+        }
+        final Optional<PluginJarPreflight.InspectionFailure> contentFailure =
+                PluginJarPreflight.inspectContent(jarPath, jarPath.getFileName().toString());
+        if (contentFailure.isPresent()) {
+            final PluginJarPreflight.InspectionFailure failure = contentFailure.get();
+            throw new FirstPartyRejection(descriptorPath, failure.code(), failure.message() + " at " + failure.path());
         }
         if (!source.category().equals(embedded.category()) || !source.tags().equals(embedded.tags())) {
             throw new FirstPartyRejection(

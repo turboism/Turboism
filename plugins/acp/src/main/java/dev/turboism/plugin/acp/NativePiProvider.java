@@ -40,7 +40,7 @@ final class NativePiProvider extends NativeAgentProvider {
     @Override
     void start(final Map<String, Object> params) throws Exception {
         final var extension = host.directory().resolve("pi-mcp-extension.mjs");
-        try (var resource = NativePiProvider.class.getResourceAsStream("/native/pi-mcp-extension.mjs")) {
+        try (var resource = NativePiProvider.class.getResourceAsStream("/extensions/pi-mcp-extension.mjs")) {
             if (resource == null) throw new IOException("Bundled Pi MCP extension is missing");
             Files.copy(resource, extension);
         }

@@ -44,6 +44,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Fixed canvas scrollbar theming, DPI-scaled native palette icons (100–200%), `AcpChatWindow` `MultiUIDefaults` L&F resolution (preserving global `JComboBox` theming), hidden startup checkboxes and Runtime export-directory toggle placement in Settings, installer `LICENSE.txt` receipt alignment, and non-redirecting Wine mount checks in self-update.
 - Kept ACP prompt interactive across all connection states, added direct persisted-agent connection, `user_message_chunk` & native Codex/Claude Code/Pi session replay, agent button display cleanup, full theme styling (including Todo popovers), incremental streaming updates, pre-cached Swing UIs, and image context menu.
 - Fixed 3D/preset import post-atlas pre-interpolation snapshots (preventing donut rollback), localized generated Part/Deformer/ArtMesh names, field-first readback errors, batch-rename base-name labels, and clipmask GL scissor / ArtMesh mirror drag lag / selection button visibility issues.
+- Moved the bundled ACP Pi MCP extension resource from `native/` to `extensions/` (eliminating `PLUGIN_CONTENT_CONTAMINATION` rejections during plugin auto-updates and coordinated framework updates) and enforced package contamination checks in first-party metadata verification and market staging.
 
 ## [0.68.1] - 2026-10-30
 
