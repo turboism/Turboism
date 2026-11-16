@@ -98,6 +98,9 @@ def main():
         for name, value in {
             "profile": "5303", "runId": "offline-t050-producer", "sourceBinding": "target-pd",
             "trustedSourcePaths": str(official), "jarSha256": sha(official),
+            # The T039 agent compares these against its own reviewed constants and blocks
+            # the session on any mismatch. Its source is not in this repository, so the
+            # probe forwards the reviewed pair instead of re-deriving it.
             "classSha256": "ff1d1ce9b4291212d255c6e84c8b57242234c1fa174af09e440c1162a4a1f8d6",
             "shapeSha256": "a75d64a1203e3e80be09bc616b7878d52d31e6a1327a62cbbbf1b5a334432c2f",
             "loaderClass": "jdk.internal.loader.ClassLoaders$AppClassLoader", "helperSha256": helper_sha,

@@ -70,14 +70,16 @@ public final class SingleAgentPremainSelfCheck {
         }
         require(log.contains(wanted), "actual capture definition event not confirmed: " + log);
         try (AutoCloseable lease = LazyTriangulationEdgeBridge.enter(host)) {
-            var fingerprinter = Class.forName("dev.turboism.adapter.cubism.mesh.TriangulationDefinitionFingerprint")
-                    .getDeclaredMethod("runtimeOf", byte[].class); fingerprinter.setAccessible(true);
+            // Admission is structural since the weave dropped its byte preimages, so the
+            // probe reports the captured definitions instead of a retired fingerprint.
             var initial = TriangulationSingleAgentValidationHook.initialDefinitions();
             for (var entry : TriangulationSingleAgentValidationHook.capturedDefinitions().entrySet()) {
-                String observed = (String) fingerprinter.invoke(null, (Object) entry.getValue());
                 byte[] before = initial.get(entry.getKey());
-                String reviewed = before == null ? "not-observed" : (String) fingerprinter.invoke(null, (Object) before);
-                System.out.println("ACTUAL_RUNTIME_FINGERPRINT " + entry.getKey() + " initial=" + reviewed + " captured=" + observed);
+                byte[] captured = entry.getValue();
+                boolean unchanged = before != null && java.util.Arrays.equals(before, captured);
+                System.out.println("ACTUAL_RUNTIME_DEFINITION " + entry.getKey()
+                        + " initial=" + (before == null ? "not-observed" : "observed")
+                        + " captured=" + captured.length + "B identical=" + unchanged);
             }
             require((lease != null) == sameOrigin, "real premain/probe combination admitted the wrong origin");
         }

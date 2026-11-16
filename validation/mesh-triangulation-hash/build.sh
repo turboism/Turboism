@@ -191,6 +191,22 @@ grep -q 'tripleState=HASH_MISMATCH' "$work/agent-wronghash.log" \
   || { cat "$work/agent-wronghash.log" >&2; fail 'identity gate did not stop the patch'; }
 echo "MESH_HASH_AGENT_IDENTITY_GATE PASS tripleState=HASH_MISMATCH"
 
+# Without an expected digest the reviewed shape is the only admission gate. The same fixture
+# must still patch, and a shape that leaves the reviewed contract must still be refused.
+structural_evidence="$work/agent-evidence-structural.properties"
+rm -f "$structural_evidence"
+java -Xverify:all -javaagent:"$agent_jar" \
+  -Dturboism.validation.meshHash.mode=fix \
+  -Dturboism.validation.meshHash.optIn=MESH_HASH_EXPLICIT_OPT_IN \
+  "-Dturboism.validation.meshHash.output=$structural_evidence" \
+  -cp "$harness_cp" dev.turboism.validation.meshhash.MeshHashAgentJvmHarness \
+  fix "$structural_evidence" > "$work/agent-structural.log" 2>&1 \
+  || { cat "$work/agent-structural.log" >&2; fail 'structural admission leg failed'; }
+cat "$work/agent-structural.log"
+grep -q '^MESH_HASH_AGENT_HARNESS PASS mode=fix' "$work/agent-structural.log" \
+  || fail 'structural admission did not patch the reviewed fixture'
+echo "MESH_HASH_AGENT_STRUCTURAL_ADMISSION PASS expectedDigest=absent"
+
 printf 'asmDependency=org.ow2.asm:asm:9.7.1\n'
 printf 'asmSha256=%s\n' "$asm_sha256"
 printf 'MESH_TRIANGULATION_HASH_BUILD PASS evidence=%s hostExecuted=false officialClassLoaded=false\n' "$work"

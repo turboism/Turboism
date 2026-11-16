@@ -42,10 +42,6 @@ final class ShadowSceneContract {
         "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21";
     static final String OFFICIAL_JAR_SHA256_5203 =
         "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd";
-    static final String T039_CLASS_SHA256 =
-        "ff1d1ce9b4291212d255c6e84c8b57242234c1fa174af09e440c1162a4a1f8d6";
-    static final String T039_SHAPE_SHA256 =
-        "a75d64a1203e3e80be09bc616b7878d52d31e6a1327a62cbbbf1b5a334432c2f";
     static final String T039_CLASS =
         "dev.turboism.validation.atlasimage.t039.T039ShadowAgent";
     static final String T039_SHADOW_MODE = "shadow-ready";
@@ -448,12 +444,11 @@ final class ShadowSceneContract {
         if (!OFFICIAL_JAR_SHA256.equals(requireHash(jarSha256, "T039 jarSha256"))) {
             throw new IllegalArgumentException("T039 official JAR hash mismatch");
         }
-        if (!T039_CLASS_SHA256.equals(requireHash(classSha256, "T039 classSha256"))) {
-            throw new IllegalArgumentException("T039 class hash mismatch");
-        }
-        if (!T039_SHAPE_SHA256.equals(requireHash(shapeSha256, "T039 shapeSha256"))) {
-            throw new IllegalArgumentException("T039 shape hash mismatch");
-        }
+        // The T039 agent owns the target-byte contract: it compares these two digests against
+        // its own reviewed constants and blocks the session on any mismatch. The driver only
+        // enforces their shape, so a reviewed rebuild needs no scene-contract edit.
+        requireHash(classSha256, "T039 classSha256");
+        requireHash(shapeSha256, "T039 shapeSha256");
         requireClassName(loaderClass, "T039 loaderClass");
         requireHash(helperSha256, "T039 helperSha256");
         requireHash(t038HelperSha256, "T039 t038HelperSha256");

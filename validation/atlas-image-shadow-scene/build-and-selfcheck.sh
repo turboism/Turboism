@@ -21,8 +21,6 @@ fixture_name="$circle100_fixture_name"
 fixture_sha256="$circle100_fixture_sha256"
 fixture=""
 official_jar_sha256=bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166
-t039_class_sha256=ff1d1ce9b4291212d255c6e84c8b57242234c1fa174af09e440c1162a4a1f8d6
-t039_shape_sha256=a75d64a1203e3e80be09bc616b7878d52d31e6a1327a62cbbbf1b5a334432c2f
 t039_runtime_source_binding=target-pd
 # Runner 5303 launches the cloned prefix at this fixed Windows path; this is
 # a task-prefix candidate, not the build-machine reference JAR path.
@@ -37,6 +35,8 @@ t039_code_source="${TURBOISM_ATLAS_IMAGE_SHADOW_T039_CODE_SOURCE:-}"
 t039_loader_class="${TURBOISM_ATLAS_IMAGE_SHADOW_T039_LOADER_CLASS:-}"
 t039_helper_sha256="${TURBOISM_ATLAS_IMAGE_SHADOW_T039_HELPER_SHA256:-}"
 t039_t038_helper_sha256="${TURBOISM_ATLAS_IMAGE_SHADOW_T039_T038_HELPER_SHA256:-}"
+t039_class_sha256="${TURBOISM_ATLAS_IMAGE_SHADOW_T039_CLASS_SHA256:-}"
+t039_shape_sha256="${TURBOISM_ATLAS_IMAGE_SHADOW_T039_SHAPE_SHA256:-}"
 
 fail() {
   printf 't040 shadow build: %s\n' "$*" >&2
@@ -215,6 +215,13 @@ if [[ "$publish" == 1 ]]; then
       || fail '--publish requires lowercase T039 helper SHA-256'
     [[ "$t039_t038_helper_sha256" =~ ^[0-9a-f]{64}$ ]] \
       || fail '--publish requires lowercase T038 helper SHA-256'
+    # The T039 agent owns the target-byte contract and blocks the session on any mismatch.
+    # The builder forwards these two digests and only enforces their shape, so a reviewed
+    # rebuild of that target class needs no builder edit.
+    [[ "$t039_class_sha256" =~ ^[0-9a-f]{64}$ ]] \
+      || fail '--publish requires lowercase T039 target-class SHA-256'
+    [[ "$t039_shape_sha256" =~ ^[0-9a-f]{64}$ ]] \
+      || fail '--publish requires lowercase T039 target-shape SHA-256'
     [[ "$t039_code_source" == */Live2D_Cubism.jar ]] \
       || fail 'T039 code source must name Live2D_Cubism.jar'
     [[ -f "$t039_code_source" && ! -L "$t039_code_source" ]] \
@@ -225,7 +232,8 @@ if [[ "$publish" == 1 ]]; then
       || fail 'T039 code source official JAR hash mismatch'
   else
     [[ -z "$t039_agent" && -z "$t039_code_source" && -z "$t039_loader_class"
-      && -z "$t039_helper_sha256" && -z "$t039_t038_helper_sha256" ]] \
+      && -z "$t039_helper_sha256" && -z "$t039_t038_helper_sha256"
+      && -z "$t039_class_sha256" && -z "$t039_shape_sha256" ]] \
       || fail 'the non-5303 profile forbids every --t039-* input'
   fi
   for artifact in "$production_agent" ${t039_agent:+"$t039_agent"}; do
