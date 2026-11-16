@@ -4,8 +4,8 @@ import dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Modifier;
 import java.security.ProtectionDomain;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,9 +36,28 @@ public final class OwnedDefinitionLifecycleSelfCheck implements Opcodes {
         return new Loader().define();
     }
     private static int value(Class<?> type) throws Exception { return (int) type.getMethod("value").invoke(null); }
-    private static Map<String, String> reviewed() { return Map.of(NAME.replace('/', '.'), DefinitionFingerprint.runtimeOf(fixture())); }
+    /**
+     * Structural contract for the owned fixture.
+     *
+     * <p>Admission reads the live definition, so the contract names the shape the
+     * weave links against: the fixture identity plus its static {@code value()} accessor.</p>
+     *
+     * @param dependencies the captured classes in caller order
+     * @return {@code null} when the fixture shape matches, otherwise a stable reason
+     */
+    private static String reviewedContract(Class<?>[] dependencies) {
+        for (Class<?> type : dependencies) {
+            if (!type.getName().equals(NAME.replace('/', '.'))) return "FIXTURE_IDENTITY_REJECTED";
+            try {
+                var accessor = type.getDeclaredMethod("value");
+                if (accessor.getReturnType() != int.class || !Modifier.isStatic(accessor.getModifiers()))
+                    return "FIXTURE_SHAPE_REJECTED";
+            } catch (NoSuchMethodException absent) { return "FIXTURE_SHAPE_REJECTED"; }
+        }
+        return null;
+    }
     private static TriangulationDefinitionLifecycle.Gate capture(TriangulationDefinitionLifecycle owner, Class<?> type) {
-        return owner.capture(new Class<?>[] {type}, reviewed(), DefinitionFingerprint::runtimeOf);
+        return owner.capture(new Class<?>[] {type}, OwnedDefinitionLifecycleSelfCheck::reviewedContract);
     }
     private static boolean admitted(TriangulationDefinitionLifecycle.Gate gate) {
         try (var lease = gate.acquire()) { return lease != null; }
@@ -77,13 +96,13 @@ public final class OwnedDefinitionLifecycleSelfCheck implements Opcodes {
             attempting.countDown(); instrumentation.addTransformer(late, true); completed.countDown();
         }, failure);
         try {
-            var gate = owner.capture(new Class<?>[] {type}, reviewed(), bytes -> {
+            var gate = owner.capture(new Class<?>[] {type}, dependencies -> {
                 contender.start();
                 try {
                     require(attempting.await(5, TimeUnit.SECONDS), "registration contender started");
                     require(!completed.await(150, TimeUnit.MILLISECONDS), "registration passed exclusive capture");
                 } catch (InterruptedException interrupted) { throw new IllegalStateException(interrupted); }
-                return DefinitionFingerprint.runtimeOf(bytes);
+                return reviewedContract(dependencies);
             });
             joined(contender, failure);
             require(value(type) == 3, "captured JVM definition changed downstream");
@@ -113,7 +132,7 @@ public final class OwnedDefinitionLifecycleSelfCheck implements Opcodes {
                 boolean rejected = false;
                 try { instrumentation.retransformClasses(type); } catch (IllegalStateException expected) { rejected = true; }
                 require(rejected, "same-thread read/write upgrade did not refuse");
-                require(!admitted(owner.capture(new Class<?>[] {type}, reviewed(), DefinitionFingerprint::runtimeOf)), "capture within lease did not refuse");
+                require(!admitted(owner.capture(new Class<?>[] {type}, OwnedDefinitionLifecycleSelfCheck::reviewedContract)), "capture within lease did not refuse");
                 Thread wrongCloser = worker("owned-wrong-lease-owner", () -> {
                     try { lease.close(); throw new AssertionError("wrong-thread close accepted"); }
                     catch (IllegalStateException expected) { /* Original thread retains its lease. */ }
@@ -123,13 +142,18 @@ public final class OwnedDefinitionLifecycleSelfCheck implements Opcodes {
             }
             lease.close(); joined(mutator, failure);
             require(value(type) == 9 && !admitted(gate), "post-lease mutation did not retire gate");
-            require(!admitted(capture(owner, type)), "changed live definition admitted");
+            // A body-only change keeps the reviewed shape, so only the mutation receipt retires gates.
+            var afterMutation = capture(owner, type);
+            require(admitted(afterMutation) && value(type) == 9, "body-only change left the reviewed shape");
             active.set(false); instrumentation.retransformClasses(type);
-            require(value(type) == 3 && !admitted(gate), "old gate revived after definition restoration");
+            require(value(type) == 3 && !admitted(gate) && !admitted(afterMutation), "old gate revived after definition restoration");
             var restored = capture(owner, type); require(admitted(restored), "explicit restored capture failed");
-            // Capture itself retransforms: even a failed later capture must retire prior gates.
-            active.set(true); require(!admitted(capture(owner, type)), "capture missed modifier");
-            require(value(type) == 9 && !admitted(restored), "failed capture left earlier gate admitted");
+            // Admission reads live shape: an owned mutation retires the gate, and a
+            // body-only change stays admissible because the reviewed shape is unchanged.
+            active.set(true); instrumentation.retransformClasses(type);
+            require(value(type) == 9 && !admitted(restored), "owned mutation did not retire the restored gate");
+            var bodyChanged = capture(owner, type);
+            require(admitted(bodyChanged) && value(type) == 9, "body-only change left the reviewed shape");
         } finally { instrumentation.removeTransformer(modifier); }
     }
 
@@ -157,13 +181,15 @@ public final class OwnedDefinitionLifecycleSelfCheck implements Opcodes {
         instrumentation.addTransformer(callback, true);
         try {
             var gate = capture(owner, type); previous.set(gate);
-            require(admitted(gate) && value(type) == 3, "same-callback downstream mutation escaped");
-            require(registrationRejected.get() && recursiveRejected.get(), "callback mutation did not refuse before JVM entry");
-            define();
-            require(leaseRefused.get() && admitted(gate), "initial-definition callback acquired a live operation lease");
+            require(admitted(gate) && value(type) == 3, "reviewed capture did not admit");
+            // Admission reads live shape without retransforming, so the callback runs on an
+            // explicit owned mutation. That mutation retires the gate before the callback body.
             instrumentation.retransformClasses(type);
-            require(leaseRefused.get(), "callback waited for operation admission");
-            require(value(type) == 3 && !admitted(gate), "callback mutated approved definition");
+            require(registrationRejected.get() && recursiveRejected.get(), "callback mutation did not refuse before JVM entry");
+            require(leaseRefused.get() && !admitted(gate), "owned mutation did not retire the admitted gate");
+            define();
+            require(leaseRefused.get(), "initial-definition callback acquired a live operation lease");
+            require(value(type) == 3, "callback mutated approved definition");
         } finally { instrumentation.removeTransformer(callback); }
     }
 
@@ -198,8 +224,11 @@ public final class OwnedDefinitionLifecycleSelfCheck implements Opcodes {
         instrumentation.addTransformer(inherited, true);
         try {
             var gate = capture(owner, type);
+            require(admitted(gate), "reviewed capture did not admit");
+            // An explicit owned mutation is what drives the inherited callback.
+            instrumentation.retransformClasses(type);
             require(rejected.get(), "inherited module-aware callback bypassed mutation refusal");
-            require(admitted(gate) && value(type) == 3, "inherited callback altered live definition");
+            require(!admitted(gate) && value(type) == 3, "inherited callback altered live definition");
         } finally {
             instrumentation.removeTransformer(late); instrumentation.removeTransformer(inherited);
         }
@@ -291,14 +320,11 @@ public final class OwnedDefinitionLifecycleSelfCheck implements Opcodes {
                 require(TriangulationDefinitionLifecycle.ownedBy(instrumentation) == owner, "installer ownership handoff missing");
                 Class<?> first = define(); var good = capture(owner, first);
                 require(admitted(good) && value(first) == 3, "reviewed actual definition not admitted");
-                require(!admitted(owner.capture(new Class<?>[] {first, first}, reviewed(), DefinitionFingerprint::runtimeOf)), "duplicate/incomplete dependencies admitted");
-                require(!admitted(owner.capture(new Class<?>[] {first}, reviewed(), null)), "missing fingerprinter admitted");
-                var cloned = owner.capture(new Class<?>[] {first}, reviewed(), bytes -> {
-                    String hash = DefinitionFingerprint.runtimeOf(bytes); java.util.Arrays.fill(bytes, (byte) 0); return hash;
-                });
-                require(admitted(cloned) && value(first) == 3, "fingerprinter changed JVM bytes");
-                require(!admitted(owner.capture(new Class<?>[] {first}, reviewed(), bytes -> { throw new IllegalArgumentException("owned rejection"); })), "fingerprint failure admitted");
-                require(!admitted(cloned), "failed capture did not retire old gate");
+                require(!admitted(owner.capture(new Class<?>[] {first, first}, OwnedDefinitionLifecycleSelfCheck::reviewedContract)), "duplicate dependencies admitted");
+                require(!admitted(owner.capture(new Class<?>[] {first}, null)), "missing contract admitted");
+                require(!admitted(owner.capture(new Class<?>[] {first}, dependencies -> "OWNED_CONTRACT_REJECTED")), "refusing contract admitted");
+                require(!admitted(owner.capture(new Class<?>[] {first}, dependencies -> { throw new IllegalArgumentException("owned rejection"); })), "throwing contract admitted");
+                require(admitted(good) && value(first) == 3, "a refused capture revoked the reviewed gate");
                 registrationDuringCapture(owner); operationLease(owner); callbacksCannotWait(owner); inheritedCallbackCannotMutate(owner);
                 callbackRegistrationIdentity(owner); throwingCallbackRestoresContext(owner);
                 Released released = releaseFixture(owner);
