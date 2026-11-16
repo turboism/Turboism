@@ -53,6 +53,7 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
@@ -947,11 +948,95 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     /**
+     * Reads the parameter-row bridge statistics snapshot.
+     *
+     * @return the published counters, or an empty map when the bridge is not installed
+     */
+    static Map<String, Long> parameterRowStats() {
+        final Object callback = System.getProperties().get(PARAMETER_ROW_STATS_PROPERTY);
+        if (!(callback instanceof java.util.function.Supplier<?> supplier)
+                || !(supplier.get() instanceof Map<?, ?> raw)) {
+            return Map.of();
+        }
+        final Map<String, Long> result = new java.util.LinkedHashMap<>();
+        raw.forEach((key, value) -> {
+            if (key instanceof String name && value instanceof Number number) {
+                result.put(name, number.longValue());
+            }
+        });
+        return Map.copyOf(result);
+    }
+
+    /**
+     * Requires the installed parameter-row bridge to have processed real palette selection updates.
+     *
+     * <p>This is the final-acceptance evidence for the repaint elision: the counters come from the
+     * production statistics slot, so a non-zero delta proves the woven host sites ran under real
+     * palette activity. It never substitutes a direct bridge callback for that workload.</p>
+     *
+     * @param before the counters sampled before the workload
+     * @param after the counters sampled after the workload
+     * @param report the accumulating report
+     * @return {@code true} when every acceptance threshold held
+     */
+    static boolean requireParameterRowExecution(
+            final Map<String, Long> before, final Map<String, Long> after, final StringBuilder report) {
+        if (after.isEmpty()) {
+            report.append("parameterRow.statsPresent=false\n")
+                    .append("parameterRow.executionVerified=false\n")
+                    .append("parameterRow.reason=statistics slot absent; the reviewed bridge was not installed\n");
+            return false;
+        }
+        final long invocations = after.getOrDefault(PARAMETER_ROW_STAT_INVOCATIONS, 0L)
+                - before.getOrDefault(PARAMETER_ROW_STAT_INVOCATIONS, 0L);
+        final long incrementalPasses = after.getOrDefault(PARAMETER_ROW_STAT_INCREMENTAL_PASSES, 0L)
+                - before.getOrDefault(PARAMETER_ROW_STAT_INCREMENTAL_PASSES, 0L);
+        final long failures = after.getOrDefault(PARAMETER_ROW_STAT_FAILURES, 0L);
+        report.append("parameterRow.statsPresent=true\n")
+                .append("parameterRow.invocationsDelta=")
+                .append(invocations)
+                .append('\n')
+                .append("parameterRow.incrementalPassesDelta=")
+                .append(incrementalPasses)
+                .append('\n')
+                .append("parameterRow.failuresTotal=")
+                .append(failures)
+                .append('\n');
+        for (final String key : after.keySet().stream().sorted().toList()) {
+            report.append("parameterRow.counter.")
+                    .append(key)
+                    .append('=')
+                    .append(after.get(key))
+                    .append('\n');
+        }
+        final boolean passed = invocations > 0L && incrementalPasses > 0L && failures == 0L;
+        report.append("parameterRow.executionVerified=").append(passed).append('\n');
+        return passed;
+    }
+
+    /**
      * Response budget for the primary's post-scope-close peer terminal-evidence wait (60 s max).
      * Deliberately distinct from the peer plugin's pre-marker startup budget (240 s, which begins
      * before Cubism host/model readiness).
      */
     static final int PEER_RESPONSE_MAX_ATTEMPTS = 600;
+
+    /**
+     * Production statistics slot of the parameter-row repaint bridge.
+     *
+     * <p>The slot exists only while the reviewed bridge is installed, so its counters are the only
+     * proof that the woven palette selection sites ran. Installation alone is not acceptance.</p>
+     */
+    static final String PARAMETER_ROW_STATS_PROPERTY = "turboism.param-row.stats";
+
+    /** Counter naming the number of incremental selection updates the bridge processed. */
+    static final String PARAMETER_ROW_STAT_INVOCATIONS = "invocations";
+
+    /** Counter naming incremental passes that reused the previous row state. */
+    static final String PARAMETER_ROW_STAT_INCREMENTAL_PASSES = "incrementalPasses";
+
+    /** Counter naming passes the bridge could not complete. */
+    static final String PARAMETER_ROW_STAT_FAILURES = "failures";
 
     static final long PEER_RESPONSE_POLL_MILLIS = 100L;
 
@@ -2309,6 +2394,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     onHostThread(() -> selectedModel.rotationDeformers().all().get(0));
             final java.awt.Robot robot = new java.awt.Robot();
             editorObjectLifecycleCounts.clear();
+            // Opt-in final-acceptance evidence. Sampled before any edit so the delta covers the
+            // real palette activity this workload drives, never a synthetic bridge callback.
+            final Map<String, Long> parameterRowBefore = parameterRowStats();
+            final boolean parameterRowEvidenceRequired = Boolean.getBoolean("turboism.validation.parameterRowEvidence");
             final StringBuilder report = new StringBuilder();
             report.append("status=RUNNING\n")
                     .append("meshId=")
@@ -2355,6 +2444,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final boolean rotationForm = validateRotationForm(rotation, robot, report);
 
             final boolean lifecyclePassed = awaitEditorObjectLifecycle(report);
+            final boolean parameterRowPassed = !parameterRowEvidenceRequired
+                    || requireParameterRowExecution(parameterRowBefore, parameterRowStats(), report);
             final boolean passed = meshOpacity
                     && meshVisible
                     && meshLocked
@@ -2368,7 +2459,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     && rotationLocked
                     && rotationBaseAngle
                     && rotationForm
-                    && lifecyclePassed;
+                    && lifecyclePassed
+                    && parameterRowPassed;
             report.replace(0, "status=RUNNING".length(), "status=" + (passed ? "PASS" : "FAIL"));
             Files.writeString(
                     artifact, report.toString(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
