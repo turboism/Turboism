@@ -816,10 +816,10 @@ stack-sampled host run measured 5298 ms preparation and 8709 ms authoring. The
 sampler locates raster voting; it does not establish the cause of the batch outlier.
 All final queue IDs, tool identities and separate RGB/seam counts are in the report.
 
-### 2026-10-17：模型中心枢轴与导入名称国际化
+### 2026-10-17: Model-Centered Pivot and Import Name Internationalization
 
-- 插件完整测试 287 项：253 通过，34 项外部夹具测试显式跳过，0 failures/errors；Spotless 通过。默认英文资源以及 en、ja、ko、zh_Hans、zh_Hant 的旋转名称/参数名称与不可变请求标签均有回归。
-- Cubism 5.3.04 官方队列 `a8834c61-46d0-4b8e-9915-11e9d3c19b2c`，run `queue-99fd840104e5420997be25de7a58d2c2`，终态 succeeded。使用公开无控制 torus.glb（768 三角形），源 SHA-256 `7812122354e8132b52b6db2ff6afcfbb1c41e06a692c2363ddbeed33f9379e21`。
-- 实测在 1600×1200 画布导入后，唯一整体定位枢轴 `(800,600)`，scale=1.171875；5 个 Z 关键形的局部 origin 均为 `(0,0)`；整体定位名称 `torus Overall Positioning`，X/Y/Z 参数名称均为对应的 `torus … Rotation`。再通过原生画布命令改为 2048×1536，尺寸读回正确、枢轴更新为 `(1024,768)`，scale 不变。
-- 插件 JAR SHA-256 `ebf4586688ef279527abf0122ea6c216d4be6827e088cc23edac200c0d98e5c9`。结果与截图保存在 实机证据根目录下的 `native-character/5304-centered-placement-final-v2/queue-99fd840104e5420997be25de7a58d2c2/turboism-home/state/dev.turboism.validation.native-character/`；专项探针源与启动脚本位于 `/tmp/native-centered-placement/`。
-- 本轮实机范围为导入结构、枢轴/全部 Z 存储形、英文名称和原生画布尺寸变更；未重做保存重开或完整遮挡姿态验收。定位换算兼容宿主已转换/未转换坐标两种结果，并严格拒绝其他结果；默认形走正常 form 编辑路径，非默认形才进入 ordinary batch。
+- Plugin suite: 287 tests, 253 passed, 34 external fixture tests explicitly skipped, 0 failures or errors; Spotless passed. Regression covers the default English resources plus the rotation names, parameter names, and immutable request labels of en, ja, ko, zh_Hans, and zh_Hant.
+- Official Cubism 5.3.04 queue `a8834c61-46d0-4b8e-9915-11e9d3c19b2c`, run `queue-99fd840104e5420997be25de7a58d2c2`, terminal state succeeded. It used the public uncontrolled `torus.glb` (768 triangles) with source SHA-256 `7812122354e8132b52b6db2ff6afcfbb1c41e06a692c2363ddbeed33f9379e21`.
+- Measured after import into a 1600×1200 canvas: the single overall positioning pivot is `(800,600)` with scale=1.171875; the local origin of all 5 Z keyforms is `(0,0)`; the overall positioning name is `torus Overall Positioning` and the X, Y, and Z parameter names are the matching `torus … Rotation`. Changing the canvas to 2048×1536 through the native canvas command read back the correct size, updated the pivot to `(1024,768)`, and kept the scale.
+- Plugin JAR SHA-256 `ebf4586688ef279527abf0122ea6c216d4be6827e088cc23edac200c0d98e5c9`. The results and screenshots are in `native-character/5304-centered-placement-final-v2/queue-99fd840104e5420997be25de7a58d2c2/turboism-home/state/dev.turboism.validation.native-character/` under the host evidence root; the dedicated probe source and launch script are in `/tmp/native-centered-placement/`.
+- This host round covered the import structure, the pivot and every Z stored form, the English names, and the native canvas size change; it did not redo save and reopen or a complete occlusion pose acceptance. The positioning conversion accepts both the converted and the unconverted host coordinates and strictly rejects any other result; the default form takes the normal form editing path and only a non-default form enters the ordinary batch.

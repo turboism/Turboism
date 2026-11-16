@@ -1,41 +1,41 @@
-# Atlas image observe（020 T036，离线实现）
+# Atlas Image Observe (020 T036, Offline Implementation)
 
-这是 feature 020 的最小“可排队观察”场景，不是生产插件，也不声称完成并行化、图像正确性或性能验收。
+This is the minimal "queueable observation" scenario of feature 020. It is not a production plugin and claims no completed parallelization, image correctness, or performance acceptance.
 
-当前场景：`atlas-image-observe:5303`，固定 Circle100 fixture。实现只允许以下宿主动作：
+Current scenario: `atlas-image-observe:5303` with the fixed Circle100 fixture. The implementation allows only these host actions:
 
-1. 唯一完整 fixture 名称的主窗口出现后，在 EDT 上匹配 `建模 -> 纹理 -> 编辑纹理集...`。
-2. 只确认 exact editor window class `com.live2d.cubism.doc.modeling.ui.atlasEditor.f$b`，并要求唯一可见、启用的英文 `Cancel`；控制器 `atlasEditor.f` 与设置 Dialog `atlasEditor.a.f` 均拒绝。
-3. 点击 `Cancel`，不自动排版、不改排序、不保存模型、不接受保存对话框。
-4. 仅在 Cancel 完成、observer 已持久化且精确原生 `退出` 菜单的 `doClick` 有界返回无异常后，单次写入 task-home-relative `result.txt`；不把 shutdown hook 当作动作成功。
+1. After the main window with the unique complete fixture name appears, match `Modeling -> Texture -> Edit Texture Atlas...` on the EDT.
+2. Confirm only the exact editor window class `com.live2d.cubism.doc.modeling.ui.atlasEditor.f$b` and require a single visible, enabled English `Cancel`; the controller `atlasEditor.f` and the settings dialog `atlasEditor.a.f` are both rejected.
+3. Click `Cancel` and perform no automatic layout, change no sort order, save no model, and accept no save dialog.
+4. Write the task-home-relative `result.txt` once, and only after Cancel completes, the observer has persisted, and the `doClick` of the exact native quit menu has returned within its bound without an exception; a shutdown hook is never treated as action success.
 
-driver 与 observer 是两个独立 auxiliary agent；driver 不启动进程、不访问外部客户端、不使用 `Class.forName`、`System.exit` 或 kill。
+The driver and the observer are two separate auxiliary agents; the driver starts no process, contacts no external client, and uses no `Class.forName`, `System.exit`, or kill.
 
-## 离线构建与自检
+## Offline Build and Self-Check
 
-需要支持 `--release 17` 的 JDK、Python 3 和本地 shell 工具：
+A JDK supporting `--release 17`, Python 3, and local shell tools are required:
 
 ```bash
 bash validation/atlas-image-probe/build-and-selfcheck.sh
 bash scripts/test/test_atlas_image_host_validation.sh
 ```
 
-自检不启动 Cubism，不把官方源码或类加入普通测试 classpath。保留原有 29-check observer、39-check lifecycle 与 Python smoke validator，并额外覆盖：
+The self-check starts no Cubism and adds no official source or class to the ordinary test classpath. It keeps the existing 29-check observer, the 39-check lifecycle, and the Python smoke validator, and additionally covers:
 
-- 旧 `premain(properties-path)` 与无参数命名 JVM 属性入口；
-- 缺失/重复 `Live2D_Cubism.jar`、错误路径、错误 hash、非法路径和重复 run ID；
-- fake driver 的 `Cancel -> finish -> observer result -> native exit action complete -> result.txt` 状态顺序；Cancel action 异常不得发布 PASS；
-- 缺失 observer 结果、超时、非 `PASS` 不产生虚假 PASS；
-- wrapper dry-run 的精确参数、Runner 实际 task-prefixed fixture basename、两个 aux agent、七个命名 JVM 属性以及无 hook/client；真实 prepare 仍由管理器门禁控制。
-- `host-validation-020.json` 保持 `runnable=false`。
-- 固定 driver 的每次 EDT 查询/动作使用 `invokeLater` + 5 秒有界等待；原子状态区分 `QUEUED/STARTED/COMPLETED/TIMED_OUT`。5 秒是 dispatch/wait 预算：排队且未开始的 callback 在超时或中断时原子失效，迟到只记为 skipped；已 `STARTED` 的动作不可撤销、不可伪称回滚，不重试、不推进，迟返不得改写已记录失败；唯一例外是纯读 `MAIN_LOOKUP` 的 `TIMED_OUT + startedAtTimeout=false`，在明确 120 秒 startup safety budget 和原整体 deadline 内按未就绪继续只读查询；不重试已开始、异常、菜单、Cancel 或 Exit。这个 120 秒是失败留证余量的安全预算，不是性能阈值；JDK selfcheck 覆盖实际阻塞、迟到 callback 失效、下一次只读识别、预算到期失败和无 UI 副作用。
+- the old `premain(properties-path)` entry and the no-argument named JVM property entry;
+- a missing or duplicated `Live2D_Cubism.jar`, a wrong path, a wrong hash, an illegal path, and a duplicate run ID;
+- the `Cancel -> finish -> observer result -> native exit action complete -> result.txt` state order of a fake driver, where a Cancel action exception must not publish PASS;
+- a missing observer result, a timeout, and a non-`PASS` value never producing a false PASS;
+- the exact wrapper dry-run arguments, the real Runner task-prefixed fixture basename, the two auxiliary agents, the seven named JVM properties, and the absence of a hook or client; a real prepare still follows the manager gate;
+- `host-validation-020.json` staying `runnable=false`;
+- every EDT query and action of the fixed driver using `invokeLater` with a 5-second bounded wait, and an atomic state that distinguishes `QUEUED/STARTED/COMPLETED/TIMED_OUT`. The 5 seconds is the dispatch and wait budget: a queued callback that has not started becomes atomically invalid on timeout or interrupt and a late arrival is recorded as skipped only; an action that has `STARTED` cannot be undone, cannot be claimed rolled back, is not retried, does not advance, and a late return cannot rewrite a recorded failure. The one exception is the pure read `MAIN_LOOKUP` with `TIMED_OUT` and `startedAtTimeout=false`, which continues as a read-only query under the explicit 120-second startup safety budget and the original overall deadline; a started, failed, menu, Cancel, or Exit action is never retried. That 120 seconds is a safety budget for retaining failure evidence, not a performance threshold; the JDK self-check covers a real block, invalidation of a late callback, the next read-only identification, budget expiry failure, and the absence of a UI side effect.
 
-每次 build 使用独立 `build/atlas-image-probe/compile.<unique>/`，只接受带 `verified.properties` 和 `artifact.sha256` 的结果；没有共享 JAR 或 `latest` 指针。
-每个已 claim run 另原子替换一个有界 `driver-stage.properties`，只记录固定 stage、时间/耗时、计数、布尔和 EDT 状态，不写窗口标题、模型内容或无限事件日志；它覆盖 Cancel dispatch/return、关闭轮询、动作完成等待和 finish.request。selfcheck 对实际生成文件用 `Properties.load` 检查每个字段、固定值和真实换行；文件写入仍是诊断记录，不承诺同步文件 I/O 本身严格有界。
+Every build uses its own `build/atlas-image-probe/compile.<unique>/` and accepts only a result with `verified.properties` and `artifact.sha256`; there is no shared JAR and no `latest` pointer.
+Every claimed run also atomically replaces one bounded `driver-stage.properties` that records only fixed stages, times and durations, counters, booleans, and the EDT state, and never a window title, model content, or an unbounded event log; it covers Cancel dispatch and return, close polling, action-completion waiting, and finish.request. The self-check loads the real generated file with `Properties.load` and checks every field, the fixed values, and the real newline; the file write is still a diagnostic record and does not promise that the file I/O itself is strictly bounded.
 
-## 入口契约
+## Entry Contract
 
-历史入口继续可用：
+The historical entry still works:
 
 ```properties
 version=5303
@@ -44,7 +44,7 @@ outputRoot=/absolute/task-owned-output
 runId=properties-run-001
 ```
 
-新真实 host 入口由 Runner 传入无参数 auxiliary agent，并使用显式命名属性：
+The new real host entry is a no-argument auxiliary agent passed by the Runner with explicit named properties:
 
 ```text
 -Dturboism.validation.atlasImageObserve.home={HOME}
@@ -56,9 +56,9 @@ runId=properties-run-001
 -Dturboism.validation.atlasImageObserve.timeoutSeconds=900
 ```
 
-observer 同时要求 Runner 的 `turboism.home`、`turboism.validation.runId` 与 `hostVersion` 身份一致。无参数入口只在真实 JVM 的只读 `java.class.path` 中寻找唯一 exact basename `Live2D_Cubism.jar`，规范化后验证固定 5303 hash，再读取 target class entries；不搜索磁盘/进程，也不加载官方类。
+The observer also requires the Runner `turboism.home`, `turboism.validation.runId`, and `hostVersion` identities to agree. The no-argument entry looks only at the read-only `java.class.path` of the real JVM for the single exact basename `Live2D_Cubism.jar`, verifies the pinned 5303 hash after normalization, and then reads the target class entries; it searches no disk or process and loads no official class.
 
-任务输出只能从显式 `turboism.home` 和 bounded run ID 派生：
+Task output derives only from the explicit `turboism.home` and a bounded run ID:
 
 ```text
 $HOME/state/atlas-image-observe/<runId>/identity.properties
@@ -68,15 +68,15 @@ $HOME/state/atlas-image-observe/result.txt
 $HOME/state/atlas-image-observe/<runId>/driver-stage.properties
 ```
 
-run 目录用 `Files.createDirectory` 唯一 claim，重复 run 拒绝。observer transformer 同步注册、始终返回 `null`，不改官方字节。
+The run directory is claimed uniquely with `Files.createDirectory`, and a duplicate run is refused. The observer transformer registers synchronously, always returns `null`, and changes no official byte.
 
-## 固定输入
+## Fixed Inputs
 
-- fixture：由忽略的 `TURBOISM_HOST_VALIDATION_FIXTURE_5303`（`.env`/环境）提供；运行时 basename 必须为 `atlas_mapping_100.cmo3`。
-- fixture SHA-256：`2866a509322496680500090cb26432b1b59fe30404e1f5e2163536c01a8dce4e`
-- 5303 `Live2D_Cubism.jar` SHA-256：`bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166`
+- fixture: supplied by the ignored `TURBOISM_HOST_VALIDATION_FIXTURE_5303` (`.env` or environment); the runtime basename must be `atlas_mapping_100.cmo3`.
+- fixture SHA-256: `2866a509322496680500090cb26432b1b59fe30404e1f5e2163536c01a8dce4e`
+- 5303 `Live2D_Cubism.jar` SHA-256: `bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166`
 
-wrapper 为薄委托层：
+The wrapper is a thin delegation layer:
 
 ```bash
 scripts/preview/run-atlas-image-host-validation.sh 5303 r1 \
@@ -84,22 +84,22 @@ scripts/preview/run-atlas-image-host-validation.sh 5303 r1 \
   --dry-run
 ```
 
-它只校验明确 manifest、artifact/hash、固定 fixture/hash 和自身 worktree delivery root，然后委托现有 `run-cubism-host-validation.sh` 的 `--prepare-dir`/`--dry-run`/实际生命周期。当前离线回归只用 `--dry-run`，不自行 launch，不传 home-file、plugin、client 或 remote hook 参数。
+It only verifies the explicit manifest, the artifact and hash, the fixed fixture and hash, and its own worktree delivery root, and then delegates the `--prepare-dir`, `--dry-run`, and real lifecycle of the existing `run-cubism-host-validation.sh`. The current offline regression uses `--dry-run` only, launches nothing itself, and passes no home-file, plugin, client, or remote hook argument.
 
-发布 bundle（仅实现，不代表已获宿主授权）：
+Publishing a bundle (implementation only, no host authorization implied):
 
 ```bash
 bash validation/atlas-image-probe/build-and-selfcheck.sh \
   --publish --production-agent /absolute/reviewed/turboism-agent.jar
 ```
 
-发布按 worktree ID 使用固定 delivery 根和 hash 命名 bundle；manifest 已存在或目标产物冲突时失败，不覆盖并发产物。生产 agent、observer、driver、fixture 与官方 hash 都必须在显式 manifest 中。
+Publishing names the bundle by worktree ID under the fixed delivery root and its hash, and fails when the manifest already exists or a target artifact conflicts, so concurrent artifacts are never overwritten. The production agent, the observer, the driver, the fixture, and the official hash must all appear in the explicit manifest.
 
-## 结果协议与门禁
+## Result Protocol and Gates
 
-observer `result.properties` 必须是同 run、`completionReason=EXPLICIT_FINISH`；driver 只在 `status=PASS`、目标确实观察到、无 conflict/overflow、`guardInstalled=false` 且 `optimizationReadiness=NOT_EVALUATED` 时，在原生退出 action 有界完成且无异常后单次写 `status=PASS`。其他情况原子写 `status=FAIL`；不再依赖 PASS 后覆盖或 failure marker 收口。若原生菜单在 `doClick` 返回前同步终止，driver 不写 PASS，由最终门禁按缺少 canonical PASS 拒绝；动作返回后宿主仍未正常退出，则由最终 normal-exit/containment 证据拒绝。
+The observer `result.properties` must belong to the same run and carry `completionReason=EXPLICIT_FINISH`; the driver writes `status=PASS` once only when `status=PASS`, the target was really observed, there is no conflict or overflow, `guardInstalled=false`, and `optimizationReadiness=NOT_EVALUATED`, and only after the native exit action returned within its bound without an exception. Every other case atomically writes `status=FAIL`; the run no longer relies on overwriting PASS or on a failure marker. When the native menu terminates synchronously before `doClick` returns, the driver writes no PASS and the final gate rejects the missing canonical PASS; when the host still has not exited normally after the action returns, the final normal-exit and containment evidence rejects.
 
-Runner 未传 readiness/failure marker：现有 Runner 仅在 marker 列表非空时读取 `$HOME/logs/runtime/*.log`，因此本场景不把 stdout/stderr 当 readiness 证据；result 900 秒、graceful exit 120 秒，driver 默认 fixed-scene timeout 900 秒。超时、无 observer result、非 PASS、重复结果和不安全/歧义 UI 都 fail closed。主代理/管理器负责 prepare、submit、宿主启动、正常退出证据、超时与 bounded cleanup。
-EDT 超时或中断会先写阶段失败证据、使未开始 callback 失效并停止后续动作；只有未开始的纯读 `MAIN_LOOKUP` 超时可在 startup budget 内继续，不改变 secondary-window fail-closed 条件。正常结果仍只在 Cancel 动作完成、observer 结果持久化及原生退出动作无异常后单次发布，晚到 callback 不会补点控件或恢复流程。
+The Runner passes no readiness or failure marker: the existing Runner reads `$HOME/logs/runtime/*.log` only when the marker list is non-empty, so this scenario never treats stdout or stderr as readiness evidence; the result timeout is 900 seconds, the graceful exit 120 seconds, and the default fixed-scene timeout of the driver 900 seconds. A timeout, a missing observer result, a non-PASS value, a duplicate result, and an unsafe or ambiguous UI all fail closed. The main agent and the manager own prepare, submit, host startup, normal-exit evidence, timeouts, and bounded cleanup.
+An EDT timeout or interrupt first writes the stage failure evidence, invalidates the callbacks that have not started, and stops further actions; only a timeout of the not-yet-started pure read `MAIN_LOOKUP` may continue within the startup budget and does not change the fail-closed condition of a secondary window. A normal result still publishes once only after the Cancel action completes, the observer result persists, and the native exit action raises no exception, and a late callback never clicks a control or resumes the flow.
 
-第二轮真实证据只显示宿主启动日志至约 7.765 秒时 `MAIN_LOOKUP` 排队超时；未见 document load/main scale 完成信息，因此本切片不证明正常启动耗时、最终能否找到窗口或任何根因，也不声称解决首轮 Cancel 卡点。本次只完成离线实现和验证，manifest 仍 blocked。真实菜单动态匹配、精确 `f$b`/`Cancel`/原生 `退出`、生产 agent 依赖、class-path 唯一性、宿主正常退出和管理器 admission 仍是主代理审阅后的剩余门禁；性能测量另立任务。
+The second real evidence round showed only the host startup log up to about 7.765 seconds with a `MAIN_LOOKUP` queue timeout; no document load or main scale completion appeared, so this slice proves neither the normal startup duration nor whether the window would eventually be found, and it claims no root cause and no fix of the first-round Cancel stall. This round completed only the offline implementation and verification, and the manifest stays blocked. Dynamic matching of the real menu, the exact `f$b`, `Cancel`, and native quit path, the production agent dependency, the class-path uniqueness, the normal host exit, and the manager admission remain the gates after main-agent review; performance measurement is a separate task.

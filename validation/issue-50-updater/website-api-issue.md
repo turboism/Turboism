@@ -1,34 +1,34 @@
-# 网站/API：为框架自更新提供增量资源发布与下载接口（关联 #50）
+# Website and API: Incremental Resource Publishing and Download Endpoints for Framework Self-Update (related to #50)
 
-关联：#50（In-Cubism incremental updater）
+Related: #50 (in-Cubism incremental updater).
 
-> 本文保留早期任务草案。2026-11-01 核对：`distribution/worker.mjs` 已接入增量准入、撤回、资源读取和 `release.incremental`，并已获准部署生产，真实部署工作流 78 项测试及完整下载验收通过；Stable/Beta 的发布 CI、签名与初始安装收据接线已补齐。随后正式签名密钥及公钥已配置，服务器公钥已部署，签名与自更新开关仍关闭。下文未勾选项不代表代码仍未实现。当前剩余工作是确定首次发布版本和源码发布安排、配置发布权限及激活，并完成真实编号 CI 的连续升级验收。当前服务契约见 [INCREMENTAL.md](../../distribution/INCREMENTAL.md#production-service-apiturboismdev)，实测状态见 [生产部署验收](production-service-validation.md) 和 [签名配置验收](signing-provisioning-validation.md)。
+> This document keeps the early task draft. Checked on 2026-11-01: `distribution/worker.mjs` already serves incremental admission, withdrawal, resource reads, and `release.incremental`, and it was approved for production deployment, with the 78 tests of the real deployment workflow and the full download acceptance passing; the release CI, the signing, and the initial installation receipt wiring of Stable and Beta are complete. The production signing key and public key were then configured and the server public key deployed, while signing and the self-update switch stay off. An unchecked box below does not mean the code is still missing. The remaining work is to fix the first release version and the source release arrangement, configure release authority and activation, and complete the consecutive-upgrade acceptance of a real-numbered CI release. See [INCREMENTAL.md](../../distribution/INCREMENTAL.md#production-service-apiturboismdev) for the current service contract, and [production deployment acceptance](production-service-validation.md) and [signing configuration acceptance](signing-provisioning-validation.md) for the measured state.
 
-## 用户目标
+## User Goal
 
-用户在 Cubism 内点击“更新”，后台下载发生变化的框架文件，继续建模；下次启动使用新框架。如果勾选更新插件，同时下载所选插件的兼容版本。
+The user clicks "update" inside Cubism, the changed framework files download in the background, and modelling continues; the next launch uses the new framework. When plugin updates are checked, the compatible version of each selected plugin downloads as well.
 
-正常流程不打开浏览器、不运行安装向导、不强制关闭 Cubism。
+The normal flow opens no browser, runs no installation wizard, and never force-closes Cubism.
 
-这需要网站后端/分发服务提供资源，但不需要重做下载网页、建立用户登录系统，或提供远程“安装/重启 Cubism”接口。
+This needs the website backend and distribution service to serve the resources, but not a rebuilt download page, a user login system, or a remote "install or restart Cubism" endpoint.
 
-## 原始缺口（历史记录）
+## Original Gap (Historical Record)
 
-提出本草案时，发布链路仍以完整 EXE/ZIP 为公开下载契约，`distribution/worker.mjs` 尚未接入增量发布/资源接口。该接口现已实现；GitHub Release 仍保留八个资产，增量资源通过独立 R2 路径交付。
+When this draft was written, the release chain still published complete EXE and ZIP files as its public download contract, and `distribution/worker.mjs` did not serve the incremental publishing or resource endpoints. Those endpoints now exist; the GitHub Release still keeps eight assets, and incremental resources ship over a separate R2 path.
 
-不能仅在下载页面增加一个按钮：必须先发布签名清单及对应的不可变文件载荷，再在版本查询结果里声明该版本支持内部增量更新。
+Adding one button to the download page is not enough: the signed manifest and the matching immutable file payloads must publish first, and only then may the version query declare that the version supports an in-product incremental update.
 
-## 网站/API 需要完成的操作
+## What the Website and API Must Do
 
-### 1. 扩展现有版本查询接口，不另建一套检查更新协议
+### 1. Extend the Existing Version Query Instead of Inventing a Second Update Protocol
 
-- [ ] 保持现有 `GET https://api.turboism.dev/v1/releases/{stable|beta|nightly}.json`。
-- [ ] 对已经完成增量资源发布和验证的版本，增加可选的 `release.incremental`。
-- [ ] 旧版或不具备增量资源的版本不返回此字段，继续支持完整安装包下载。
-- [ ] 保留版本、通道、buildNumber、sourceRevision、发布时间及现有更新说明/多语言说明。
-- [ ] `release.incremental` 必须与外层 release 的版本、通道、buildNumber、sourceRevision 完全一致。
+- [ ] Keep the existing `GET https://api.turboism.dev/v1/releases/{stable|beta|nightly}.json`.
+- [ ] Add an optional `release.incremental` for a version whose incremental resources are published and verified.
+- [ ] Return no such field for an older version or one without incremental resources, and keep supporting the complete installation package download.
+- [ ] Keep the version, channel, buildNumber, sourceRevision, publish time, and the existing update notes and localized notes.
+- [ ] `release.incremental` must match the version, channel, buildNumber, and sourceRevision of the outer release exactly.
 
-采用当前客户端已有的结构，不再发明新格式：
+It reuses the structure the client already has instead of inventing a new format:
 
 ```text
 release.incremental = {
@@ -48,84 +48,84 @@ release.incremental = {
 }
 ```
 
-上面是结构说明，不是可直接发布的 JSON。`descriptor` 使用发布工具生成的原始值。签名公钥、任意下载域名、安装路径不从这个接口下发。
+The block above describes the structure and is not publishable JSON. `descriptor` carries the raw values the release tool generates. The signing public key, an arbitrary download domain, and installation paths never come from this endpoint.
 
-### 2. 提供签名清单与文件载荷的公开读取接口
+### 2. Serve the Signed Manifest and the File Payloads Publicly
 
-建议沿用同一官方域名，确定一个固定前缀。例如：
+Keep the same official domain and fix one prefix. For example:
 
 ```text
 GET /v1/framework/documents/{sha256}
 GET /v1/framework/objects/{sha256}/payload
 ```
 
-`/v1/framework/` 已作为生产路径部署，并与客户端资源生成器的固定前缀一致；资源发布仍关闭。相对路径的 `documents/...`、`objects/.../payload` 已由客户端实现约定。
+`/v1/framework/` is already deployed as a production path and matches the fixed prefix of the client resource generator; resource publishing stays off. The relative `documents/...` and `objects/.../payload` paths are already fixed by the client implementation.
 
-- [ ] `documents/{sha256}` 返回原始 manifest 或独立签名 envelope 的精确字节。
-- [ ] `objects/{sha256}/payload` 返回清单引用的单个文件内容。
-- [ ] 同一 SHA256 的资源不可覆盖为不同内容；可以直接使用现有 R2/CDN 基础设施存储和分发。
-- [ ] 对外从 `api.turboism.dev` 返回实际内容，不用 HTTP 重定向把客户端送到 GitHub、代理站或临时下载域名。
-- [ ] 返回正确 `Content-Length` 和稳定的强 ETag；资源字节不做动态压缩、转码或 HTML 错误页替换。
-- [ ] 支持 `Range`、`If-Range`；部分响应正确返回 `206` 和 `Content-Range`。版本不匹配时可返回完整 `200`，由客户端重新下载。
-- [ ] 缺失资源使用明确的 `404` 等错误状态，不把成功状态与错误正文混用。
-- [ ] 仅暴露已经发布登记的资源，不把对象存储内部上传区直接变成公共目录。
+- [ ] `documents/{sha256}` returns the exact bytes of the raw manifest or of the standalone signed envelope.
+- [ ] `objects/{sha256}/payload` returns the content of the single file the manifest references.
+- [ ] A resource with the same SHA256 must never be overwritten with different content; the existing R2 and CDN infrastructure may store and distribute it directly.
+- [ ] Serve the real content from `api.turboism.dev` and never send the client to GitHub, a proxy, or a temporary download domain through an HTTP redirect.
+- [ ] Return a correct `Content-Length` and a stable strong ETag; never compress, transcode, or replace the resource bytes with an HTML error page.
+- [ ] Support `Range` and `If-Range`, and answer a partial request with `206` and a correct `Content-Range`. On a version mismatch the server may answer a full `200` and the client downloads again.
+- [ ] Answer a missing resource with an explicit `404` or another error status and never mix a success status with an error body.
+- [ ] Expose only registered published resources and never turn the internal upload area of object storage into a public directory.
 
-客户端已经实现文件级比较和缓存：网站无需根据用户本地文件计算 diff，也不需要接收用户的配置、工程或插件目录。
+The client already compares and caches at file level, so the website never computes a diff from the user's local files and never receives the user's configuration, project, or plugin directory.
 
-### 3. 接入发布流水线：文件先就绪，再公布版本
+### 3. Wire the Release Pipeline So Files Are Ready Before the Version Is Announced
 
-这部分由发布 CI 与网站后端共同完成：
+The release CI and the website backend do this together:
 
-- [ ] 从同一次可追溯的正式构建生成完整框架文件清单，记录路径、长度、SHA256、版本、通道、构建号和源码 SHA。
-- [ ] 在受保护的发布 CI 中用专用 Ed25519 密钥签署清单；网站保存并分发原始清单和签名即可，不需要持有私钥。
-- [ ] 配置分发端校验使用的公钥；同步客户端内置的框架更新公钥。不要默认把插件目录密钥当成框架更新权限。
-- [ ] 上传所有载荷对象、清单、签名，并核对远端实际长度/哈希后，才在版本接口中公布 `release.incremental`。
-- [ ] 上传失败或发布冲突时，不切换到一个缺少文件的新版本；保留此前可用版本和已发布资源。
-- [ ] 复用现有 registry 实现受控发布及通道切换，不需要另建面向用户的授权服务。
-- [ ] 明确修改目前“GitHub Release 恰好八个资产”和 EXE/ZIP 白名单契约：确定新增文档如何交付、载荷是否只存 R2，并同步发布器、校验器、文档和测试。不能偷偷绕过旧校验，也不能无条件放开所有资产。
+- [ ] Generate the complete framework file manifest from one traceable official build, recording the path, length, SHA256, version, channel, build number, and source SHA.
+- [ ] Sign the manifest with a dedicated Ed25519 key inside the protected release CI; the website only stores and distributes the raw manifest and the signature and never holds the private key.
+- [ ] Configure the public key the distribution side verifies with and keep it in sync with the framework update public key embedded in the client. Never treat the plugin catalog key as framework update authority by default.
+- [ ] Announce `release.incremental` in the version endpoint only after every payload object, the manifest, and the signature are uploaded and their remote length and hash verified.
+- [ ] On an upload failure or a publish conflict, never switch to a new version with missing files; keep the previously usable version and its published resources.
+- [ ] Reuse the existing registry for controlled publication and channel switching; a separate user-facing authorization service is unnecessary.
+- [ ] Explicitly change the current "GitHub Release holds exactly eight assets" and EXE/ZIP allowlist contract: decide how the new documents are delivered and whether payloads live only in R2, and update the publisher, the verifier, the documentation, and the tests together. Never bypass the old validation quietly and never open every asset unconditionally.
 
-### 4. 插件沿用现有签名目录和下载资源
+### 4. Plugins Keep the Existing Signed Catalog and Download Resources
 
-- [ ] 确保现有插件签名目录、签名及插件 JAR 下载源可稳定访问。
-- [ ] 确保目录中的版本、兼容性要求、大小和哈希与实际插件文件一致。
-- [ ] 如果新版框架需要新的插件兼容版本，先发布插件资源与目录，再公布框架更新。
+- [ ] Keep the existing plugin signed catalog, its signature, and the plugin JAR download source reliably reachable.
+- [ ] Keep the version, compatibility requirement, size, and hash in the catalog consistent with the real plugin file.
+- [ ] When a new framework needs a new compatible plugin version, publish the plugin resources and catalog before announcing the framework update.
 
-不需要把所有插件塞进框架增量清单，不需要另建“更新全部插件”接口。用户勾选哪些插件、后台下载、暂存和下次启动应用，由客户端复用现有插件更新逻辑完成；未选插件和第三方文件不动。
+No plugin needs to enter the framework incremental manifest, and no separate "update all plugins" endpoint is needed. The client reuses its existing plugin update logic to decide which plugins the user selected, to download in the background, to stage, and to apply at the next launch; an unselected plugin and any third-party file stay untouched.
 
-### 5. 保留现有下载页面作为手动恢复入口
+### 5. Keep the Existing Download Page as the Manual Recovery Entry
 
-- [ ] 现有 `turboism.dev/download` 完整 EXE/ZIP 下载继续可用。
-- [ ] 网页不参与正常内部更新，不要求用户在浏览器中确认每次下载。
-- [ ] 不支持内部更新的旧客户端仍能通过完整安装包升级到具备自更新能力的版本。
+- [ ] The existing `turboism.dev/download` complete EXE and ZIP downloads stay available.
+- [ ] The page takes no part in the normal in-product update and never asks the user to confirm each download in a browser.
+- [ ] An old client without incremental update support can still upgrade through a complete installation package to a version with self-update.
 
-## 客户端/安装包负责的工作，不属于网站 API
+## Client and Installer Responsibilities Outside the Website API
 
-- 后台下载、进度、取消、续传及所选插件更新。
-- 签名/哈希验证和本地文件级计划。
-- 初次完整安装时建立可信安装收据；每次更新后推进收据。
-- 用户自行关闭 Cubism 后应用更新；启动失败时恢复旧版本。
-- 保留配置、工程、未选插件、第三方文件和受保护的 Cubism BAT 集成。
+- Background download, progress, cancel, resume, and the selected plugin updates.
+- Signature and hash verification plus the local file-level plan.
+- Establishing the trusted installation receipt on the first complete install and advancing it after every update.
+- Applying the update after the user closes Cubism themselves, and restoring the previous version when startup fails.
+- Keeping the configuration, the projects, the unselected plugins, the third-party files, and the protected Cubism BAT integration.
 
-网站不负责也不应直接操作用户电脑上的安装、退出或重启。
+The website neither owns nor directly operates an installation, an exit, or a restart on the user machine.
 
-## 验收清单
+## Acceptance Checklist
 
-- [ ] 旧客户端和完整安装包下载不受影响。
-- [ ] 可用的新版本返回正确的 `release.incremental`；不完整发布不返回。
-- [ ] 清单、签名、所有引用对象可从官方域名直接读取，实际字节与清单一致。
-- [ ] 已有相同文件无需重新传输；只修改一个文件的版本仅下载该文件及少量元数据。
-- [ ] 下载中断后能通过 Range/ETag 继续；异常响应不会被误判成功。
-- [ ] 勾选插件更新时，客户端可通过原有插件目录获取兼容的选中插件。
-- [ ] 发布中断不破坏当前可用版本；能停止向新检查请求推荐问题版本。
-- [ ] 与客户端联调一次完整流程：Cubism 内点击更新 → 后台下载 → 用户关闭 → 下次启动生效；再升级一次。
+- [ ] An old client and the complete installation package downloads are unaffected.
+- [ ] A usable new version returns a correct `release.incremental`, and an incomplete publication returns none.
+- [ ] The manifest, the signature, and every referenced object are readable directly from the official domain, and the real bytes match the manifest.
+- [ ] An existing identical file needs no retransfer; a version that changes one file downloads only that file plus a little metadata.
+- [ ] An interrupted download resumes through Range and ETag, and an abnormal response is never misread as success.
+- [ ] With plugin updates checked, the client fetches the compatible selected plugins through the existing plugin catalog.
+- [ ] An interrupted publication never breaks the currently usable version, and a problematic version can stop being recommended to new check requests.
+- [ ] One complete end-to-end flow runs against the client: click update inside Cubism, download in the background, the user closes Cubism, the next launch applies it; then upgrade once more.
 
-## 对接参考
+## Integration References
 
-- `distribution/INCREMENTAL.md`：已有离线准入协议和发现结构。
-- `distribution/incremental.mjs`：离线校验/发布准入逻辑，已接入生产 Worker，发布权限仍关闭。
-- `runtime/src/main/java/dev/turboism/update/UpdateIncrementalDiscovery.java`：客户端发现字段。
-- `runtime/src/main/java/dev/turboism/update/FrameworkUpdateSource.java`：固定源及相对资源路径。
-- `scripts/release/turboism_release/framework_update.py`：清单和签名生成工具。
-- `validation/issue-50-updater/ACTIVATION.md`：客户端公钥、启用配置和首次安装衔接说明。
+- `distribution/INCREMENTAL.md`: the existing offline admission protocol and discovery structure.
+- `distribution/incremental.mjs`: the offline validation and publish admission logic, already wired into the production Worker, with release authority still off.
+- `runtime/src/main/java/dev/turboism/update/UpdateIncrementalDiscovery.java`: the client discovery fields.
+- `runtime/src/main/java/dev/turboism/update/FrameworkUpdateSource.java`: the fixed source and the relative resource paths.
+- `scripts/release/turboism_release/framework_update.py`: the manifest and signature generator.
+- `validation/issue-50-updater/ACTIVATION.md`: the client public key, the enabling configuration, and the first-install handoff.
 
-建议先交付最小接口与一个可联调版本，不把二进制差分、下载统计、复杂管理后台或用户账户体系列为本 issue 的前置条件。
+Ship the minimal endpoints and one integration-ready version first, and do not make binary diffing, download statistics, a complex admin backend, or a user account system a prerequisite of this issue.
