@@ -316,6 +316,7 @@ jobs:
 
       - name: Stage immutable framework objects and request feed admission
         if: inputs.framework_publish != 'none'
+        id: feed
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -336,6 +337,7 @@ jobs:
           node distribution/publish-framework.mjs             "../build/github-release-fallback/candidate/release-orchestrator/framework-update"             "turboism-$VERSION" "$KEY_ID" "${FLAGS[@]}"
 
       - name: Verify payload then create or resume official tag and Release
+        id: promote
         env:
           GH_TOKEN: ${{ github.token }}
           GH_HOST: github.com
@@ -348,3 +350,23 @@ jobs:
             --run-id "$RUN_ID" --source-sha "$SOURCE_SHA" --attempt "$RUN_ATTEMPT" \
             --confirmation "$CONFIRMATION" --source-root release-source \
             --bundle-root build/github-release-fallback/candidate
+
+      # A refused GitHub write would otherwise leave an admitted feed release that no client can
+      # observe, because the release document never carries its incremental descriptor. Withdrawing
+      # keeps the feed honest and lets the same candidate be admitted again after a retry.
+      - name: Withdraw the feed release when GitHub promotion is refused
+        if: failure() && inputs.framework_publish != 'none' && steps.feed.outputs.admitted_id != ''
+        env:
+          ADMITTED_ID: ${{ steps.feed.outputs.admitted_id }}
+        run: |
+          set -euo pipefail
+          cd release-tools
+          node --input-type=module -e '
+            import {withdrawCandidate} from "./distribution/publish-framework.mjs";
+            const token = await (await fetch(
+              `${process.env.ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encodeURIComponent("https://api.turboism.dev")}`,
+              {headers: {Authorization: `Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}`}},
+            )).json();
+            const result = await withdrawCandidate({id: process.env.ADMITTED_ID, token: token.value});
+            console.log("feed withdrawal", JSON.stringify(result));
+          '

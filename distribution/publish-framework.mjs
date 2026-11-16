@@ -6,7 +6,7 @@
  */
 import {createHash} from 'node:crypto';
 import {execFile} from 'node:child_process';
-import {readFileSync,readdirSync} from 'node:fs';
+import {readFileSync,readdirSync,appendFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
 import {ORIGIN} from './protocol.mjs';
@@ -172,6 +172,9 @@ async function main(args){
   token:token.value,
  });
  console.log('admit 200 id:',published.id);
+ if(process.env.GITHUB_OUTPUT){
+  appendFileSync(process.env.GITHUB_OUTPUT,`admitted_id=${published.id}\n`);
+ }
  console.log('public preflight ok; descriptor to publish:',JSON.stringify(published.candidate));
 }
 if(import.meta.url===`file://${process.argv[1]}`)await main(process.argv.slice(2));

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -24,6 +25,24 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 def require(condition, message):
     if not condition:
         raise ReleaseError(message)
+
+
+def warn_on_diverged_head(source_sha, head_sha=None):
+    """Report a promotion run whose workflow head moved past the candidate source.
+
+    GitHub refuses ref and release writes from ``GITHUB_TOKEN`` when the workflow head
+    differs from the target commit, because that commit's workflow tree is no longer
+    the default-branch tree. The refusal is not deterministic, so this never blocks a
+    legitimate retry; it explains the likely failure before any remote mutation.
+    """
+    head = os.environ.get("GITHUB_SHA", "") if head_sha is None else head_sha
+    if not head or head == source_sha:
+        return
+    print(f"::warning::Promotion workflow head {head} differs from candidate source "
+          f"{source_sha}. GitHub may refuse tag and Release writes with HTTP 403 "
+          f"(workflow scope is not grantable to GITHUB_TOKEN). Re-dispatch from the "
+          f"candidate source commit if the promotion is refused.",
+          file=sys.stderr, flush=True)
 
 
 def validate_run(run, run_id, source_sha, attempt=None):
@@ -270,6 +289,7 @@ def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confi
     require(re.fullmatch(r"[1-9][0-9]{0,19}", str(run_id)), "invalid candidate run id")
     run = github.api(f"actions/runs/{run_id}")
     validate_run(run, run_id, source_sha, attempt)
+    warn_on_diverged_head(source_sha)
     if run.get("path") == PLUGIN_WORKFLOW:
         document = read_document(unique_file(Path(bundle_root), "candidate.json"), "candidate")
         require(document.get("source") == {"repository": REPOSITORY, "revision": source_sha, "tag": None},

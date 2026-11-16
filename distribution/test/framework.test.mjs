@@ -341,3 +341,21 @@ test('admission reuses verified immutable FINAL objects even when INCOMING omits
  const retry=await x.admit({initialize:false});
  assert.equal(retry.status,200);
 });
+test('withdrawCandidate unadvertises an admitted release so the release document stops projecting it',async()=>{
+ const x=setup();
+ const fetcher=async(url,init={})=>{
+  const parsed=new URL(url);
+  if(parsed.pathname==='/v1/framework/admit')return x.env.FRAMEWORK.get().fetch(new Request('https://framework.internal/admit',init));
+  if(parsed.pathname==='/v1/framework/withdraw')return x.env.FRAMEWORK.get().fetch(new Request('https://framework.internal/withdraw',init));
+  return worker.fetch(new Request(url,init),x.env);
+ };
+ const expected=new Map(x.source);
+ const published=await publishCandidate({candidate:x.candidate,expected,keyId:'offline-test',initialize:true,token:'test-token',fetcher});
+ assert.ok((await withIncremental(x.release,x.env)).release.incremental,'admitted release is projected');
+
+ // A refused GitHub promotion withdraws the release so no client observes a half-published state.
+ const withdrawn=await withdrawCandidate({id:published.id,token:'test-token',fetcher});
+ assert.equal(withdrawn.matched,true);
+ assert.equal((await withIncremental(x.release,x.env)).release.incremental,undefined,'withdrawn release is no longer projected');
+ assert.equal(x.release.status,'ready','full package path still serves the release');
+});
