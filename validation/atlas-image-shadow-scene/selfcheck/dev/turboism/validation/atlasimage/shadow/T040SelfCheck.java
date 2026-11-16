@@ -300,12 +300,27 @@ public final class T040SelfCheck {
         rejects(checks, () -> ShadowSceneContract.secondsProperty(
             ShadowSceneContract.STARTUP_SECONDS_PROPERTY, ShadowSceneContract.STARTUP_TIMEOUT_SECONDS));
         System.clearProperty(ShadowSceneContract.STARTUP_SECONDS_PROPERTY);
+        // The T039 agent owns the target-byte contract, so the scene contract accepts any
+        // well-formed digest pair and only the official JAR must equal its reviewed value.
         rejects(checks, () -> ShadowSceneContract.requireT039FixedValues(
             "5303", TASK_ID, TASK_ID, ShadowSceneContract.T039_SOURCE_BINDING,
             "/explicit/Live2D_Cubism.jar",
-            "0".repeat(64), ShadowSceneContract.T039_CLASS_SHA256,
-            ShadowSceneContract.T039_SHAPE_SHA256, "synthetic.Loader",
-            "1".repeat(64), "2".repeat(64), ShadowSceneContract.T039_SHADOW_MODE,
+            "0".repeat(64), "1".repeat(64),
+            "2".repeat(64), "synthetic.Loader",
+            "3".repeat(64), "4".repeat(64), ShadowSceneContract.T039_SHADOW_MODE,
+            ShadowSceneContract.T039_SHADOW_OPT_IN));
+        ShadowSceneContract.requireT039FixedValues(
+            "5303", TASK_ID, TASK_ID, ShadowSceneContract.T039_SOURCE_BINDING,
+            "/explicit/Live2D_Cubism.jar", ShadowSceneContract.OFFICIAL_JAR_SHA256,
+            "1".repeat(64), "2".repeat(64), "synthetic.Loader",
+            "3".repeat(64), "4".repeat(64), ShadowSceneContract.T039_SHADOW_MODE,
+            ShadowSceneContract.T039_SHADOW_OPT_IN);
+        checks.incrementAndGet();
+        rejects(checks, () -> ShadowSceneContract.requireT039FixedValues(
+            "5303", TASK_ID, TASK_ID, ShadowSceneContract.T039_SOURCE_BINDING,
+            "/explicit/Live2D_Cubism.jar", ShadowSceneContract.OFFICIAL_JAR_SHA256,
+            "not-a-digest", "2".repeat(64), "synthetic.Loader",
+            "3".repeat(64), "4".repeat(64), ShadowSceneContract.T039_SHADOW_MODE,
             ShadowSceneContract.T039_SHADOW_OPT_IN));
         checkT039SourceBinding(checks);
         checks.incrementAndGet();

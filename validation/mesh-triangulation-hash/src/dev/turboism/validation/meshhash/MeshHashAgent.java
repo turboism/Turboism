@@ -49,7 +49,14 @@ public final class MeshHashAgent {
         }
     }
 
-    /** Immutable, validated launch configuration; every field is mandatory and bounded. */
+    /**
+     * Immutable, validated launch configuration.
+     *
+     * <p>{@code expectedTripleSha256} is optional. When absent, the corner-triple class is
+     * admitted by the reviewed shape that {@link CornerTripleHashPatcher} already checks; the
+     * whole-JAR digest remains the outer artifact identity. When present, it adds an exact
+     * preimage check for callers that still want one.</p>
+     */
     record Config(String mode, String expectedTripleSha256, Path output) {
         static Config fromSystemProperties() {
             final String mode = require("turboism.validation.meshHash.mode");
@@ -60,8 +67,8 @@ public final class MeshHashAgent {
             if (!OPT_IN_TOKEN.equals(optIn)) {
                 throw new IllegalArgumentException("meshHash opt-in token is missing");
             }
-            final String hash = require("turboism.validation.meshHash.tripleSha256");
-            if (!hash.matches("[0-9a-f]{64}")) {
+            final String hash = System.getProperty("turboism.validation.meshHash.tripleSha256", "");
+            if (!hash.isEmpty() && !hash.matches("[0-9a-f]{64}")) {
                 throw new IllegalArgumentException("meshHash.tripleSha256 is not a lowercase SHA-256");
             }
             final Path output = Path.of(require("turboism.validation.meshHash.output"));
@@ -111,7 +118,9 @@ public final class MeshHashAgent {
                 MeshHashDigestProbe.setTriple("SEEN_UNPATCHED", observed);
                 return null;
             }
-            if (!config.expectedTripleSha256().equals(observed)) {
+            // An absent expected digest leaves the reviewed shape as the only admission gate.
+            if (!config.expectedTripleSha256().isEmpty()
+                    && !config.expectedTripleSha256().equals(observed)) {
                 MeshHashDigestProbe.setTriple("HASH_MISMATCH", observed);
                 return null;
             }
