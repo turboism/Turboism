@@ -1,4 +1,4 @@
-import extension from '../../main/resources/native/pi-mcp-extension.mjs';
+import extension from '../../main/resources/extensions/pi-mcp-extension.mjs';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

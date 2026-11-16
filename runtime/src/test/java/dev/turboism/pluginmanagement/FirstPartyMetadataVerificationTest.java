@@ -106,6 +106,23 @@ class FirstPartyMetadataVerificationTest {
         assertTrue(failure.code().startsWith("FIRST_PARTY_JAR_"), failure.code());
     }
 
+    @Test
+    void contaminatedResourcePrefixInJarIsRejectedEvenWhenDeclared() throws Exception {
+        final Path descriptor = tracked("modeling", "[]");
+        Files.writeString(
+                descriptor, Files.readString(descriptor).replace("\"resources\": []", "\"resources\": [\"native/\"]"));
+        final Path work = temp.resolve("contaminated-work");
+        final Path contaminated = work.resolve("native/pi-mcp-extension.mjs");
+        Files.createDirectories(contaminated.getParent());
+        Files.writeString(contaminated, "export default {};\n");
+        final Path jar = jarForFrom(descriptor, temp.resolve("contaminated-built"), work);
+
+        final FirstPartyMetadataVerificationCli.FirstPartyRejection failure = assertThrows(
+                FirstPartyMetadataVerificationCli.FirstPartyRejection.class,
+                () -> FirstPartyMetadataVerificationCli.verify(descriptor, jar));
+        assertEquals("PLUGIN_CONTENT_CONTAMINATION", failure.code());
+    }
+
     private Path tracked(final String category, final String tagsJson) throws Exception {
         final Path path = temp.resolve("plugin-" + category + "-" + Math.abs(category.hashCode()) + ".json");
         Files.writeString(path, """
@@ -138,9 +155,12 @@ class FirstPartyMetadataVerificationTest {
     }
 
     private Path jarForFrom(final Path descriptor, final Path base) throws Exception {
+        return jarForFrom(descriptor, base, base.resolve("work"));
+    }
+
+    private Path jarForFrom(final Path descriptor, final Path base, final Path work) throws Exception {
         final Path jarPath = base.resolve("firstparty-1.0.0.jar");
         Files.createDirectories(jarPath.getParent());
-        final Path work = base.resolve("work");
         final Path meta = work.resolve("META-INF/turboism");
         final Path i18n = meta.resolve("i18n");
         Files.createDirectories(meta);

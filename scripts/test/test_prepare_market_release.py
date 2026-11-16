@@ -1275,6 +1275,24 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
         self.assertEqual(pmr.resolve_next_plugin_version([{"version": "0.68.0"}], "0.69.0"), "0.69.0")
         self.assertEqual(pmr.resolve_next_plugin_version([{"version": "0.68.0"}], "0.68.0"), "0.68.1")
 
+    def test_contaminated_jar_entry_is_rejected_before_staging(self):
+        self.write_catalog([])
+        mcp_jar = self.build_root / "mcp/libs/mcp-0.42.0-SNAPSHOT-market-publish.jar"
+        with zipfile.ZipFile(mcp_jar, "a") as archive:
+            archive.writestr("native/pi-mcp-extension.mjs", "export default {};\n")
+        res = run_script(
+            self.tmp,
+            "--manifest", str(self.manifest),
+            "--build-root", str(self.build_root),
+            "--output", str(self.output),
+            "--source-revision", GIT_SHA,
+            "--catalog", str(self.catalog_path),
+            "--release-channel", "beta",
+        )
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("contaminated plugin entry 'native/pi-mcp-extension.mjs'", res.stderr)
+        self.assertFalse(self.output.exists())
+
 
 class WorkflowStaticTest(unittest.TestCase):
     def test_all_checkouts_drop_persisted_credentials(self):
