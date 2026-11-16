@@ -51,10 +51,11 @@ import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableRowSorter;
 
 /**
- * 剪贴蒙版检查器窗口（JDialog，MODELESS，只读）。
+ * Clip-mask viewer window, a MODELESS read-only JDialog.
  *
- * <p>三种模式：Graph / 表-蒙版 / 表-使用者；顶部统计；刷新重读 SDK 服务；
- * 只读选中桥接（编辑器选中 -> 高亮），点击图节点复制 GUID 并 notifyStatus。</p>
+ * <p>Three modes, Graph, mask table, and user table, with statistics on top and a refresh that
+ * re-reads the SDK service. A read-only selection bridge highlights the editor selection, and a
+ * graph node click copies the GUID and calls notifyStatus.</p>
  */
 public final class ClipMaskViewerWindow extends JDialog implements WindowView {
 
@@ -153,7 +154,7 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         root.add(center, BorderLayout.CENTER);
 
         final JPanel footer = new JPanel(new BorderLayout());
-        // 过滤栏在所有模式下保留；缩放控件仅在图结构模式显示。
+        // The filter bar stays in every mode, and the zoom controls appear in graph mode only.
         final JPanel zoomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         final JPanel filterBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         final JTextField filterField = new JTextField(14);
@@ -202,11 +203,11 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         footer.add(filterBar, BorderLayout.CENTER);
         root.add(footer, BorderLayout.SOUTH);
 
-        // 拖动时实时生效（getValueIsAdjusting 阶段同样触发 ChangeListener）。
+        // The value applies live during a drag, because the adjusting phase also fires the ChangeListener.
         zoomSlider.addChangeListener(event -> {
             final double target = zoomSlider.getValue() / 100.0;
             if (Math.abs(target - graphPanel.scale()) < 1e-9) {
-                return; // 递归 guard：listener 回写 slider 时值相同，直接短路。
+                return; // Recursion guard: a listener write-back with the same value short-circuits.
             }
             graphPanel.setViewScale(target);
         });
@@ -311,7 +312,7 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         orderConflictLabel.setText(conflicts > 0 ? localization.format("stats.order.conflicts", conflicts) : "");
     }
 
-    // ── 选中桥接（只读）──────────────────────────────────────────────
+    // ── Selection bridge, read-only ──────────────────────────────────
 
     private Set<String> readHighlightedGuids() {
         try {

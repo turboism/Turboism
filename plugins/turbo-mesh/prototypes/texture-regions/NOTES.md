@@ -1,8 +1,8 @@
-# 离线验证记录（2026-10-25）
+# Offline Verification Record (2026-10-25)
 
-两张用户 PNG 作为独立样本，另补圆与椭圆的方向线检查。未启动宿主，未修改生产算法。
+Two user PNGs serve as independent samples, and circle and ellipse direction-line checks are added. No host was started and no production algorithm was changed.
 
-| 样例 | 纹理区域 | 均值合并前 → 后 | 三角形 | Alpha IoU |
+| Sample | Texture regions | Before → after mean merge | Triangles | Alpha IoU |
 |---|---:|---:|---:|---:|
 | hair-sparse | 5 | 160 → 139 | 241 | 98.86% |
 | hair-detailed | 10 | 266 → 204 | 357 | 99.08% |
@@ -11,18 +11,18 @@
 | circle | 1 | 130 → 129 | 224 | 99.53% |
 | ellipse | 1 | 112 → 109 | 184 | 99.38% |
 
-## 已确认
+## Confirmed
 
-- 细分标签严格归属于粗分标签。相邻区域共用图边，统一图没有复制后分离的边界。
-- 均值合并发生在所有约束和区域内部采样完成后，按原始顶点质量加权，拒绝破坏区域面数或引入边交叉的合并。
-- 发片采用 3 条纵向连接弧；USB 因端部不满足纺锤收窄条件而采用 3 条平行引导线，裁切成 5 段，保留 2 个 Alpha 孔洞。圆、椭圆各保留 3 个同心环。
-- 所列结果：约束边或共线边链覆盖检查全部通过；没有跨矢量区域的三角形；没有面积重叠。USB 的浮点面积残差小于 0.001 平方像素，保留在 JSON 中。
+- A subdivision label belongs strictly to a coarse label. Adjacent regions share a graph edge, and the unified graph holds no boundary that was duplicated and then separated.
+- The mean merge runs after every constraint and interior sample exists, weighs by the original vertex mass, and refuses a merge that breaks the region face count or adds a crossing edge.
+- A hair strand uses 3 longitudinal connection arcs. The USB ends do not meet the spindle narrowing condition, so it uses 3 parallel guide lines cut into 5 segments and keeps the 2 alpha holes. The circle and the ellipse each keep 3 concentric rings.
+- For the listed results, every constraint edge or collinear edge-chain coverage check passes, no triangle crosses a vector region, and no area overlaps. The float area residual of the USB stays below 0.001 square pixels and is kept in the JSON.
 
-## 尚未确认
+## Not confirmed
 
-- 自动分区仍会忽略弱阴影或保留渐变伪分界。当前只有两张真实图片，不能当成普适结论。
-- USB 稀疏版相对原始 Alpha 的 IoU 只有 97.81%，较细版为 98.80%；轮廓和近点合并仍需按视觉反馈调节。少点不等于变形质量好。
-- 弧和环之间的连接仍由 CDT 决定。尚未实现整齐的四边形带、受控径向连边、形变测试或实机接入。
-- 当前只是可复现原型，等待用户检查图形结果，再决定吸收到 Java 生产代码或删除。
+- Automatic segmentation still ignores a weak shadow or keeps a gradient false boundary. Only two real images exist, so this is no general conclusion.
+- The sparse USB sample reaches only 97.81% alpha IoU against the original, and the finer sample reaches 98.80%; the silhouette and the near-point merge still need visual feedback. Fewer points do not mean better deformation quality.
+- The CDT still decides the connection between an arc and a ring. A tidy quad band, a controlled radial connection, a deformation test, and host wiring are not implemented.
+- This is a reproducible prototype awaiting the user's review of the graphic result, which then decides whether it joins the Java production code or is deleted.
 
-`metrics.json` 记录每次的输入哈希与全部参数。`constraints.txt` / `triangles.txt` 是 Java 桥接的输入输出，网格坐标以 crop_origin 为原图偏移。圆/椭圆为合成样例；发片与 USB 为用户原始 PNG，不是宿主截图。
+`metrics.json` records the input hash and every parameter of each run. `constraints.txt` and `triangles.txt` are the input and output of the Java bridge, and a mesh coordinate uses crop_origin as the original-image offset. The circle and the ellipse are synthetic samples; the hair strand and the USB are original user PNGs, not host screenshots.

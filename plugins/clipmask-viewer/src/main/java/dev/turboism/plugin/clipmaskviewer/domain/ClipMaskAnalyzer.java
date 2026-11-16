@@ -10,15 +10,16 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 剪贴蒙版查重/分组的纯逻辑层（无 Swing 依赖）。
+ * Pure logic layer for clip-mask duplicate detection and grouping, with no Swing dependency.
  *
- * <p>只消费 SDK 的 {@link ClipMaskRecord} 快照并计算统计/索引/重复桶；</p>
+ * <p>It consumes only the SDK {@link ClipMaskRecord} snapshot and computes the statistics, the
+ * indexes, and the duplicate buckets.</p>
  */
 public final class ClipMaskAnalyzer {
 
     private ClipMaskAnalyzer() {}
 
-    /** 以 GUID 为键的快速索引（保留首次出现顺序）。 */
+    /** Fast index keyed by GUID, which keeps the first-seen order. */
     public static Map<String, ClipMaskRecord> indexByGuid(final List<ClipMaskRecord> records) {
         final Map<String, ClipMaskRecord> map = new LinkedHashMap<>();
         if (records == null) {
@@ -32,7 +33,7 @@ public final class ClipMaskAnalyzer {
         return map;
     }
 
-    /** 统计不同的“蒙版 ArtMesh”数量（作为他人蒙版的唯一 GUID 数）。 */
+    /** Counts the distinct masking ArtMeshes, which is the number of unique GUIDs used as a mask. */
     public static int countUniqueMasks(final List<ClipMaskRecord> records) {
         if (records == null || records.isEmpty()) {
             return 0;
@@ -46,7 +47,7 @@ public final class ClipMaskAnalyzer {
         return set.size();
     }
 
-    /** 反向索引：mask guid -> 使用该蒙版的 ArtMesh 列表（按原 records 顺序）。 */
+    /** Reverse index from a mask GUID to the ArtMeshes that use it, in the original record order. */
     public static Map<String, List<ClipMaskRecord>> buildMaskUsers(final List<ClipMaskRecord> records) {
         final Map<String, List<ClipMaskRecord>> out = new LinkedHashMap<>();
         if (records == null) {
@@ -64,10 +65,11 @@ public final class ClipMaskAnalyzer {
     }
 
     /**
-     * 计算“无序蒙版组合”的重复桶：蒙版集合（忽略顺序）相同但原顺序不同的 ArtMesh 会被归到同一桶。
+     * Computes the duplicate buckets of unordered mask combinations, so ArtMeshes with the same
+     * mask set in a different original order land in one bucket.
      *
-     * @return key = 排序后的 guid 列表用 ";" 连接 + 倒置标记；value = 命中该 key 的用户列表
-     *         （size >= 2 才算“疑似重复”）
+     * @return key = the sorted GUID list joined with ";" plus the inverted flag; value = the users
+     *     that hit that key, where a size of 2 or more counts as a suspected duplicate
      */
     public static Map<String, List<ClipMaskRecord>> groupByUnorderedMaskSet(final List<ClipMaskRecord> records) {
         final Map<String, List<ClipMaskRecord>> groups = new LinkedHashMap<>();
@@ -92,7 +94,7 @@ public final class ClipMaskAnalyzer {
         return dupes;
     }
 
-    /** 统计“蒙版集合一致但顺序不一致”的用户数，用于窗口顶部提示。 */
+    /** Counts the users whose mask set agrees but whose order differs, for the window header hint. */
     public static int countOrderConflicts(final List<ClipMaskRecord> records) {
         final Map<String, List<ClipMaskRecord>> dupes = groupByUnorderedMaskSet(records);
         int count = 0;

@@ -33,11 +33,12 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * 剪贴蒙版检查器（clipmask-viewer）官方插件。
+ * Official clipmask-viewer plugin.
  *
- * <p>窗口先显示加载提示；宿主快照读取在随后一个 EDT 回合完成，纯 Java 索引、查重和统计
- * 则交给插件任务线程。最终不可变结果只在 EDT 应用，因此大型关系集不会把分析工作压在
- * Cubism 的事件处理回合里。</p>
+ * <p>The window shows a loading hint first, the host snapshot read completes in the next EDT
+ * turn, and the pure Java indexing, duplicate detection, and counting run on the plugin task
+ * thread. The final immutable result is applied on the EDT only, so a large relation set never
+ * pushes the analysis work into a Cubism event-handling turn.</p>
  */
 public final class ClipMaskViewerPlugin implements TurboismPlugin {
 
@@ -181,7 +182,7 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         });
     }
 
-    /** action 入口：打开或前置查看器窗口（EDT 调度；headless 下安全跳过）。 */
+    /** Action entry: opens or raises the viewer window. It schedules on the EDT and skips safely when headless. */
     private void openViewer() {
         final long openGeneration;
         synchronized (lifecycleLock) {
