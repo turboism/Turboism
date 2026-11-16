@@ -1,13 +1,13 @@
 # mcp-host-probe
 
-MCP 接口宿主侧探针。
+Host-side probe for the MCP interface.
 
-`./build.sh` 仅离线编译。实机必须使用 `scripts/preview/host_validation.py prepare/submit/status` 队列，由 Runner 创建独立素材副本和任务目录。
+`./build.sh` only compiles offline. A real run must use the `scripts/preview/host_validation.py prepare/submit/status` queue, and the Runner creates the isolated asset copy and task directory.
 
-验证包包含测试专用 `McpGeometryRollbackProbe`，生产 MCP 不包含它。客户端通过任务内的有界 JSON 请求提供实际发现的三类对象/source/form 身份；探针在 EDT 上调用 typed ordinary setter，分别在确认完成第 1、2、3 个写入后主动抛异常。每次必须收到 SDK `ROLLED_BACK`，完整 authoring record 精确恢复，两套历史观察器各自完整状态恢复，再发布脱敏哈希与收据。
+The validation bundle carries the test-only `McpGeometryRollbackProbe`; production MCP does not. The client supplies the three object/source/form identities it actually discovered through a bounded JSON request in the task, and the probe calls the typed ordinary setters on the EDT and throws on purpose after the first, second, and third confirmed write. Every attempt must receive the SDK `ROLLED_BACK` verdict, restore the complete authoring record exactly, and restore both history observers to their full state before the probe publishes the sanitized hashes and receipts.
 
-事务宿主使用原生模型绑定 generation，公开历史服务使用 Editor UI lifecycle generation；revision 和 binding ID 也分别属于各自观察器。不得跨域直接比较这些计数和 opaque ID。文档/模型身份独立校验，两个观察器各自前后完整快照相等，跨观察器核对位置与条目数。
+The transaction host uses the native model binding generation, while the public history service uses the Editor UI lifecycle generation. The revision and binding ID also belong to their own observer. Never compare these counters or opaque IDs across domains. Document and model identity are verified separately, each observer must show equal before and after snapshots, and position and entry counts are compared across observers.
 
-回滚探针不保存文件，不提供任意路径、代码或故障控制的生产 API。超时或恢复未证实时，客户端停止后续 MCP 写入与不确定清理；不重放请求。它证明 SDK 事务和三类真实 setter 的异常恢复，不等于 MCP 断线、宿主崩溃或取消已经通过。
+The rollback probe saves no file and exposes no production API for arbitrary paths, code, or fault control. On a timeout or an unproven restore, the client stops further MCP writes and uncertain cleanup, and never replays a request. It proves SDK transaction recovery from exceptions in the three real setters; it does not prove that an MCP disconnect, a host crash, or a cancellation has passed.
 
-几何持久化验证复用 `McpTexturePersistenceProbe` 已有的 exact-hash-gated 原生文件流程，另用 `geometry-persistence` 目录和独立 request/result。在真实 MCP 三类写入和 Undo/Redo 验证后，保存当前修改状态到新的任务内 CMO3，关闭并重新反序列化该副本，精确核对三类完整 SDK authoring records 与全部模型绑定，再重开原任务副本，由外部 MCP 核对原始 rows。不会复用重开前的历史收据，不新增生产路径或文件句柄入口。这不证明生产 `documents.save_as` 或尚未开放的 `documents.open` 已通过实机验收。
+Geometry persistence validation reuses the exact-hash-gated native file flow that `McpTexturePersistenceProbe` already provides, with a separate `geometry-persistence` directory and its own request and result. After the three real MCP writes and the Undo/Redo validation, the probe saves the current modified state to a new task-local CMO3, closes and deserializes that copy again, and verifies the three complete SDK authoring records and every model binding exactly. It then reopens the original task copy, and the external MCP verifies the original rows. It never reuses history receipts from before the reopen and adds no production path or file-handle entry point. This does not prove that production `documents.save_as` or the not-yet-released `documents.open` has passed host acceptance.

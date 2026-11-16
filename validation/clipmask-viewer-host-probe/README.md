@@ -1,5 +1,5 @@
 # clipmask-viewer-host-probe
 
-clip-mask 查看器/预览的宿主行为探针。
+Host-behaviour probe for the clip-mask viewer and preview.
 
-运行：`./build.sh` 编译。需要真实 Cubism Editor 宿主。
+Run `./build.sh` to compile. A real Cubism Editor host is required.

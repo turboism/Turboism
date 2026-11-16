@@ -57,6 +57,8 @@ LOCALIZED_FILES = frozenset({
     "compatibility/cubism/official-feature-timeline.json",
     # Paseo workspace configuration addresses a Chinese-speaking operator.
     "paseo.json",
+    # Verbatim capture of the localized plugin dialog the host rendered, kept as evidence.
+    "validation/texture-atlas-current-page/real-heavy/layout-dialog.txt",
 })
 # A line whose CJK share dominates its Latin letters is translated prose. A quoted
 # native caption inside an English sentence stays far below the threshold.
@@ -172,7 +174,7 @@ def scan(root: Path, seeds: list[Path]) -> list[tuple[Path, list[int]]]:
 def resolve_seeds(root: Path, arguments: argparse.Namespace) -> list[Path]:
     """Resolve the directories to scan from the arguments, the policy scope, or the whole tree."""
     if arguments.paths:
-        return [path if path.is_absolute() else root / path for path in arguments.paths]
+        return [Path(path) if Path(path).is_absolute() else root / path for path in arguments.paths]
     if arguments.all:
         return [root]
     return [root / name for name in POLICY_SCOPE]

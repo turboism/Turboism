@@ -1,5 +1,5 @@
 # core-acquisition-probe
 
-核心组件获取（core acquisition）路径探针。
+Probe for the core acquisition path.
 
-运行：`./build.sh` 编译。以本目录脚本为准。
+Run `./build.sh` to compile. The scripts in this directory are authoritative.
