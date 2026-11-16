@@ -885,6 +885,78 @@ class WindowsParameterValidationProbeTest {
         return rows.stream().map(row -> row.id().value()).toList();
     }
 
+    @Test
+    void parameterRowEvidenceRequiresRealInvocationsAndRejectsInstallationOnly() {
+        final StringBuilder accepted = new StringBuilder();
+        assertTrue(WindowsParameterValidationProbe.requireParameterRowExecution(
+                java.util.Map.of("invocations", 4L, "incrementalPasses", 2L, "failures", 0L),
+                java.util.Map.of("invocations", 12L, "incrementalPasses", 9L, "failures", 0L),
+                accepted));
+        assertTrue(accepted.toString().contains("parameterRow.invocationsDelta=8"));
+        assertTrue(accepted.toString().contains("parameterRow.executionVerified=true"));
+
+        final StringBuilder absent = new StringBuilder();
+        assertFalse(WindowsParameterValidationProbe.requireParameterRowExecution(
+                java.util.Map.of(), java.util.Map.of(), absent));
+        assertTrue(absent.toString().contains("parameterRow.statsPresent=false"));
+
+        final StringBuilder noInvocations = new StringBuilder();
+        assertFalse(WindowsParameterValidationProbe.requireParameterRowExecution(
+                java.util.Map.of("invocations", 5L, "incrementalPasses", 5L, "failures", 0L),
+                java.util.Map.of("invocations", 5L, "incrementalPasses", 5L, "failures", 0L),
+                noInvocations));
+
+        final StringBuilder noIncremental = new StringBuilder();
+        assertFalse(WindowsParameterValidationProbe.requireParameterRowExecution(
+                java.util.Map.of("invocations", 1L, "incrementalPasses", 0L, "failures", 0L),
+                java.util.Map.of("invocations", 9L, "incrementalPasses", 0L, "failures", 0L),
+                noIncremental));
+
+        final StringBuilder failures = new StringBuilder();
+        assertFalse(WindowsParameterValidationProbe.requireParameterRowExecution(
+                java.util.Map.of("invocations", 1L, "incrementalPasses", 0L, "failures", 0L),
+                java.util.Map.of("invocations", 9L, "incrementalPasses", 4L, "failures", 3L),
+                failures));
+    }
+
+    @Test
+    void parameterRowEvidenceSwitchIsOptInAndNamedOnce() {
+        assertEquals(
+                "turboism.validation.parameterRowEvidence",
+                WindowsParameterValidationProbe.PARAMETER_ROW_EVIDENCE_PROPERTY);
+        assertEquals("turboism.param-row.stats", WindowsParameterValidationProbe.PARAMETER_ROW_STATS_PROPERTY);
+        assertEquals("invocations", WindowsParameterValidationProbe.PARAMETER_ROW_STAT_INVOCATIONS);
+        assertEquals("incrementalPasses", WindowsParameterValidationProbe.PARAMETER_ROW_STAT_INCREMENTAL_PASSES);
+        assertEquals("failures", WindowsParameterValidationProbe.PARAMETER_ROW_STAT_FAILURES);
+    }
+
+    @Test
+    void parameterRowStatsReadsOnlyThePublishedSupplierSlot() {
+        final Object previous =
+                System.getProperties().get(WindowsParameterValidationProbe.PARAMETER_ROW_STATS_PROPERTY);
+        try {
+            System.getProperties().remove(WindowsParameterValidationProbe.PARAMETER_ROW_STATS_PROPERTY);
+            assertTrue(WindowsParameterValidationProbe.parameterRowStats().isEmpty());
+
+            System.getProperties()
+                    .put(WindowsParameterValidationProbe.PARAMETER_ROW_STATS_PROPERTY, (java.util.function.Supplier<
+                                    java.util.Map<String, Long>>)
+                            () -> java.util.Map.of("invocations", 7L, "failures", 0L));
+            assertEquals(
+                    java.util.Map.of("invocations", 7L, "failures", 0L),
+                    WindowsParameterValidationProbe.parameterRowStats());
+
+            System.getProperties().put(WindowsParameterValidationProbe.PARAMETER_ROW_STATS_PROPERTY, "not-a-supplier");
+            assertTrue(WindowsParameterValidationProbe.parameterRowStats().isEmpty());
+        } finally {
+            if (previous == null) {
+                System.getProperties().remove(WindowsParameterValidationProbe.PARAMETER_ROW_STATS_PROPERTY);
+            } else {
+                System.getProperties().put(WindowsParameterValidationProbe.PARAMETER_ROW_STATS_PROPERTY, previous);
+            }
+        }
+    }
+
     private static Parameters parameters(final Parameter... parameters) {
         return WindowsProbeHarness.mockParameters(parameters);
     }

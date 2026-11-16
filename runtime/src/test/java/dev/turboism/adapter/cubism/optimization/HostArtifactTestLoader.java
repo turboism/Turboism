@@ -27,8 +27,12 @@ import java.util.stream.Stream;
  *
  * <p>Loading an Editor class without them fails with {@link NoClassDefFoundError} while the JVM
  * resolves that class's field and method shapes, before any assertion runs. The loader therefore
- * appends the Kotlin runtime from the test JVM's own resolved classpath — it is the same runtime the
- * Editor was compiled against — and the JOGL jar the archive pins.</p>
+ * appends the Kotlin runtime from the test JVM's own resolved classpath, which supplies compatible
+ * linkage for these offline contract tests, and the JOGL jar the archive pins.</p>
+ *
+ * <p>The appended Kotlin runtime is the test suite's {@code testImplementation} dependency, not the
+ * runtime bundled with any shipped Editor. These tests check reviewed member shapes and bytecode
+ * weaves, not bundled-runtime fidelity, so a compatible runtime is sufficient.</p>
  *
  * <p>The loader keeps the platform loader as parent and binds host packages child-first. A reviewed
  * artifact must bind its own {@code com.live2d.*} and {@code jp.noids.*} classes, never the offline
@@ -97,6 +101,9 @@ public final class HostArtifactTestLoader extends URLClassLoader {
 
     /**
      * Returns the Kotlin runtime the test JVM resolved, so a reviewed artifact can link against it.
+     *
+     * <p>This is the suite's {@code testImplementation} runtime, not the runtime bundled with a
+     * shipped Editor. It supplies compatible linkage for offline contract tests.</p>
      *
      * @return the runtime jar, or empty when this JVM has no Kotlin runtime
      */
