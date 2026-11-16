@@ -42,7 +42,7 @@ final class WarpAltMirrorHookContributor implements HookContributor {
         return ReviewedHostContract.resolve(
                 artifact,
                 ReviewedHostContract.candidates(
-                        WarpAltMirrorHostProfile.reviewedClassSha256(),
+                        WarpAltMirrorHostProfile.targetClasses(),
                         version -> WarpAltMirrorHostProfile.forReviewedVersion(version)
                                 .orElse(null)));
     }
@@ -117,7 +117,7 @@ final class WarpAltMirrorHookContributor implements HookContributor {
                 hostArtifact.toAbsolutePath().normalize(),
                 profile,
                 java.util.Set.copyOf(
-                        WarpAltMirrorHostProfile.reviewedClassSha256().get(bound.sourceVersion())),
+                        WarpAltMirrorHostProfile.targetClasses().get(bound.sourceVersion())),
                 code -> RuntimeDiagnostics.info("warp-alt-mirror", code),
                 environment.loadedClasses());
         bound.requireUnchanged(hostArtifact);

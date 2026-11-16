@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.startup;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
@@ -54,7 +54,7 @@ record StartupSuppressionProfile(
      * Returns the reviewed suppression profile for a declared reviewed version,
      * carrying the artifact's own observed digest — never a reviewed digest — so
      * downstream evidence stays honest for repackaged hosts. Callers must still
-     * verify {@link #reviewedClassSha256()} pins against the actual artifact.
+     * verify {@link #targetClasses()} entries against the actual artifact.
      */
     static Optional<StartupSuppressionProfile> forReviewedVersion(
             final String version, final HostArtifactDigest observedArtifact) {
@@ -75,11 +75,11 @@ record StartupSuppressionProfile(
     }
 
     /**
-     * SHA-256 of the two host classes the transformer rewrites, keyed by internal
-     * name, per reviewed generation. A repackaged or differently-declared artifact
-     * is admissible only when exactly one generation's pins verify.
+     * Target classes of the two host classes the transformer rewrites, keyed by
+     * internal name, per reviewed generation. A repackaged or differently-declared
+     * artifact is admissible only when exactly one generation's class list matches.
      */
-    static Map<String, List<String>> reviewedClassSha256() {
+    static Map<String, List<String>> targetClasses() {
         return REVIEWED_CLASSES;
     }
 
@@ -88,7 +88,7 @@ record StartupSuppressionProfile(
         return SHAPES.keySet();
     }
 
-    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("startup-suppression");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = TargetClassTable.load("startup-suppression");
 
     /**
      * The reviewed suppression shape per admitted generation: the splash-factory

@@ -35,7 +35,7 @@ def write_jar(path: Path, classes: dict[str, bytes]) -> None:
 
 def write_pin_dir(root: Path, tables: dict[str, dict]) -> None:
     for name, table in tables.items():
-        path = root / "class-pins" / f"{name}.json"
+        path = root / "target-classes" / f"{name}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(table), encoding="utf-8")
 
@@ -61,7 +61,7 @@ class GenerateClassPinsTest(unittest.TestCase):
         write_pin_dir(self.root, self.tables)
         self._old_pin_dir = GEN.PIN_DIR
         self._old_versions = GEN.admitted_versions
-        GEN.PIN_DIR = self.root / "class-pins"
+        GEN.PIN_DIR = self.root / "target-classes"
         GEN.admitted_versions = lambda root=GEN.ROOT: list(VERSIONS)
 
     def tearDown(self) -> None:

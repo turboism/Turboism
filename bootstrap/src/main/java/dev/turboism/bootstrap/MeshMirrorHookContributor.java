@@ -42,7 +42,7 @@ final class MeshMirrorHookContributor implements HookContributor {
         return ReviewedHostContract.resolve(
                 artifact,
                 ReviewedHostContract.candidates(
-                        MeshMirrorHostProfile.reviewedClassSha256(),
+                        MeshMirrorHostProfile.targetClasses(),
                         version -> MeshMirrorHostProfile.forReviewedVersion(version)
                                 .orElse(null)));
     }
@@ -97,7 +97,7 @@ final class MeshMirrorHookContributor implements HookContributor {
                 null,
                 null,
                 profile,
-                java.util.Set.copyOf(MeshMirrorHostProfile.reviewedClassSha256().get(bound.sourceVersion())),
+                java.util.Set.copyOf(MeshMirrorHostProfile.targetClasses().get(bound.sourceVersion())),
                 ignored -> {},
                 environment.loadedClasses());
         bound.requireUnchanged(hostArtifact);

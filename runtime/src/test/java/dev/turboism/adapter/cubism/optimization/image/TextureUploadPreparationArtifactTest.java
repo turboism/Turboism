@@ -3,7 +3,7 @@ package dev.turboism.adapter.cubism.optimization.image;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
@@ -86,7 +86,7 @@ class TextureUploadPreparationArtifactTest {
                 bytes = input.readAllBytes();
             }
             assertTrue(
-                    ClassPinTable.classes("texture-upload-preparation", version).contains(owner),
+                    TargetClassTable.classes("texture-upload-preparation", version).contains(owner),
                     version + " must declare the texture factory class");
             Path jogl = artifact.getParent().resolve("jogl/jogl-all.jar");
             if (Files.isRegularFile(jogl))

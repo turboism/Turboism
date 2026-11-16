@@ -36,7 +36,7 @@ final class VerifiedModelInstanceCoalesceInstaller implements AutoCloseable {
 
     private static final List<ReviewedHostContract.Candidate<ModelInstanceCoalesceTarget>> CANDIDATES =
             ReviewedHostContract.candidates(
-                    ModelInstanceCoalesceTarget.reviewedClassSha256(), ModelInstanceCoalesceTarget::new);
+                    ModelInstanceCoalesceTarget.targetClasses(), ModelInstanceCoalesceTarget::new);
 
     private final Instrumentation instrumentation;
     private final ModelInstanceCoalesceTarget target;

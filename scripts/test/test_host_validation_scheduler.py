@@ -328,7 +328,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
 
         pins_path = (
             ROOT / "runtime/src/main/resources/dev/turboism/adapter/cubism"
-            "/class-pins/uniform-location-lifecycle.json"
+            "/target-classes/uniform-location-lifecycle.json"
         )
         pin_versions = {
             version.replace(".", "")

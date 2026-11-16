@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.pair;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.adapter.cubism.optimization.HostClassWriters;
 import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
@@ -91,12 +91,12 @@ public final class ReinitPairElisionTransformer implements ClassFileTransformer 
         this.localBase = plan.localBase();
     }
 
-    /** Reviewed CModel class SHA-256 pins, keyed by Cubism Editor version. */
-    public static Map<String, List<String>> reviewedClassSha256() {
+    /** Reviewed CModel target classes, keyed by Cubism Editor version. */
+    public static Map<String, List<String>> targetClasses() {
         return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("reinit-pair-elision");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = TargetClassTable.load("reinit-pair-elision");
 
     /** Most recent rejection, or null when none has occurred. */
     public String failure() {

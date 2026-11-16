@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.shader;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -51,7 +51,7 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
      * version: the whole-artifact digest resolves the version, and the rewrite gate
      * then verifies the exact {@code preDraw_exe} body it substitutes.
      */
-    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("shader-uniform");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = TargetClassTable.load("shader-uniform");
 
     /**
      * Records a definition this rewrite actually patched. A later transformer in
@@ -196,7 +196,7 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
      *
      * @return the immutable {@code version -> target class names} table
      */
-    public static Map<String, List<String>> reviewedClassSha256() {
+    public static Map<String, List<String>> targetClasses() {
         return REVIEWED_CLASSES;
     }
 

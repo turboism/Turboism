@@ -30,7 +30,7 @@ from host_validation_static_gates import TASK_REQUIRED_CAPABILITIES
 ROOT = repo_root()
 RELEASES = Path(SOURCE_RELATIVE)
 VERIFICATION_DIR = Path("build/generated/verification")
-CLASS_PINS_DIR = Path("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins")
+TARGET_CLASSES_DIR = Path("runtime/src/main/resources/dev/turboism/adapter/cubism/target-classes")
 HOST_TASKS = Path("scripts/preview/host-validation-tasks.json")
 COMPACT_TOKEN = re.compile(r"^5\d{3}$")
 COMPACT_LITERAL = re.compile(r'"(5\d{3})"')
@@ -86,7 +86,7 @@ r1_AVAILABILITY_POLICY = Path(
 r1_HOST_VALIDATION_TASKS = HOST_TASKS
 r1_HOST_VALIDATION_PY = Path("scripts/preview/host_validation.py")
 r1_INDEX_MD = Path("compatibility/cubism/index.md")
-r1_CLASS_PINS_DIR = CLASS_PINS_DIR
+r1_TARGET_CLASSES_DIR = TARGET_CLASSES_DIR
 r1_PROBE_CLOSE_ROUTES = (
     Path(
         "testing/integration-tests/src/test/java/dev/turboism/tests/plugin/"
@@ -185,18 +185,18 @@ def r1_index_md(root: Path) -> set[str]:
     return set(r1_INDEX_VERSION.findall(read_source(root, r1_INDEX_MD)))
 
 
-def r1_class_pin_tables(root: Path) -> tuple[set[str], list[str]]:
-    """Union of version keys across class-pins/*.json plus per-file problems.
+def r1_target_class_tables(root: Path) -> tuple[set[str], list[str]]:
+    """Union of version keys across target-classes/*.json plus per-file problems.
 
     A compact table covers every admitted version through ``default``; an override
     may only name an admitted version and must differ from ``default``. A legacy
     flat table keeps its own key set, which the caller compares as a subset.
     """
-    base = root / r1_CLASS_PINS_DIR
+    base = root / r1_TARGET_CLASSES_DIR
     versions: set[str] = set()
     problems: list[str] = []
     if not base.is_dir():
-        problems.append(f"{r1_CLASS_PINS_DIR}: directory missing")
+        problems.append(f"{r1_TARGET_CLASSES_DIR}: directory missing")
         return versions, problems
     admitted = admitted_versions(root)
     ordered_admitted = sorted(admitted, key=parse_dotted)
@@ -204,15 +204,15 @@ def r1_class_pin_tables(root: Path) -> tuple[set[str], list[str]]:
         try:
             document = read_json(pin)
         except json.JSONDecodeError as exc:
-            problems.append(f"{r1_CLASS_PINS_DIR}/{pin.name}: invalid JSON: {exc}")
+            problems.append(f"{r1_TARGET_CLASSES_DIR}/{pin.name}: invalid JSON: {exc}")
             continue
         if not isinstance(document, dict):
-            problems.append(f"{r1_CLASS_PINS_DIR}/{pin.name}: top-level object expected")
+            problems.append(f"{r1_TARGET_CLASSES_DIR}/{pin.name}: top-level object expected")
             continue
         try:
             flat = class_pins.expand(document, ordered_admitted)
         except class_pins.ClassPinError as exc:
-            problems.append(f"{r1_CLASS_PINS_DIR}/{pin.name}: {exc}")
+            problems.append(f"{r1_TARGET_CLASSES_DIR}/{pin.name}: {exc}")
             continue
         versions.update(admitted if class_pins.is_compact(document) else flat)
     return versions, problems
@@ -254,7 +254,7 @@ def r1_shared_close_route_versions(root: Path) -> set[str]:
 def r1_collect(root: Path) -> tuple[dict[str, set[str]], list[str]]:
     canonical, problems = r1_reviewed_host_artifacts(root)
     tasks, task_problems = r1_host_validation_tasks(root)
-    pins, pin_problems = r1_class_pin_tables(root)
+    pins, pin_problems = r1_target_class_tables(root)
     problems.extend(r1_derived_consumers(root))
     problems.extend(task_problems)
     problems.extend(pin_problems)
@@ -264,7 +264,7 @@ def r1_collect(root: Path) -> tuple[dict[str, set[str]], list[str]]:
         "materialized verification records": r1_materialized_record_versions(root),
         "host-validation-tasks.json task versions (subset)": tasks,
         "compatibility/cubism/index.md": r1_index_md(root),
-        "class-pins/*.json version keys (subset)": pins,
+        "target-classes/*.json version keys (subset)": pins,
         **r1_probe_close_routes(root),
     }
     return sites, problems
@@ -329,12 +329,17 @@ def r1_check(root: Path) -> list[str]:
 
 r2_REVIEWED_HOST_ARTIFACTS = RELEASES
 r2_VERIFICATION_DIR = VERIFICATION_DIR
-r2_CLASS_PINS_DIR = CLASS_PINS_DIR
+r2_TARGET_CLASSES_DIR = TARGET_CLASSES_DIR
 r2_HOST_VALIDATION_TASKS = HOST_TASKS
 r2_MCP_SDK_COVERAGE = Path(
     "plugins/mcp/src/main/resources/META-INF/turboism/mcp-sdk-coverage.json"
 )
 r2_EXCEPTIONS_FILE = Path("scripts/version-monotonicity-exceptions.json")
+
+# Frozen exception discriminator. r2_apply_exceptions matches an exception entry on
+# (kind, path, site), so this literal is a persisted contract with the tracked
+# exceptions file and must not follow the resource directory rename.
+r2_TARGET_CLASSES_KIND = "class-pins"
 
 r2_JAVA_ROOTS = (
     "sdk/src/main",
@@ -728,23 +733,23 @@ def r2_collect_verification_records(
     return findings, problems
 
 
-def r2_collect_class_pins(
+def r2_collect_target_classes(
     root: Path, admitted: set[str]
 ) -> tuple[list[r2_Finding], list[str]]:
     findings: list[r2_Finding] = []
     problems: list[str] = []
-    base = root / r2_CLASS_PINS_DIR
+    base = root / r2_TARGET_CLASSES_DIR
     if not base.is_dir():
-        problems.append(f"{r2_CLASS_PINS_DIR}: directory missing")
+        problems.append(f"{r2_TARGET_CLASSES_DIR}: directory missing")
         return findings, problems
     for pin in sorted(base.glob("*.json")):
         try:
             document = read_json(pin)
         except json.JSONDecodeError as exc:
-            problems.append(f"{r2_CLASS_PINS_DIR}/{pin.name}: invalid JSON: {exc}")
+            problems.append(f"{r2_TARGET_CLASSES_DIR}/{pin.name}: invalid JSON: {exc}")
             continue
         if not isinstance(document, dict):
-            problems.append(f"{r2_CLASS_PINS_DIR}/{pin.name}: top-level object expected")
+            problems.append(f"{r2_TARGET_CLASSES_DIR}/{pin.name}: top-level object expected")
             continue
         if class_pins.is_compact(document):
             # `default` restates every admitted version, so a compact table has no
@@ -752,15 +757,15 @@ def r2_collect_class_pins(
             try:
                 class_pins.expand(document, sorted(admitted, key=parse_dotted))
             except class_pins.ClassPinError as exc:
-                problems.append(f"{r2_CLASS_PINS_DIR}/{pin.name}: {exc}")
+                problems.append(f"{r2_TARGET_CLASSES_DIR}/{pin.name}: {exc}")
             continue
         declared = {str(v) for v in document}
         missing = missing_higher(declared, admitted)
         if missing:
             findings.append(
                 r2_Finding(
-                    "class-pins",
-                    f"{r2_CLASS_PINS_DIR.as_posix()}/{pin.name}",
+                    r2_TARGET_CLASSES_KIND,
+                    f"{r2_TARGET_CLASSES_DIR.as_posix()}/{pin.name}",
                     pin.name,
                     tuple(sorted(missing, key=parse_dotted)),
                     f"pins cover {sorted(declared)}",
@@ -950,7 +955,7 @@ def r2_collect(root: Path) -> tuple[list[r2_Finding], list[str]]:
     problems: list[str] = []
     for collector in (
         r2_collect_verification_records,
-        r2_collect_class_pins,
+        r2_collect_target_classes,
         r2_collect_host_validation_tasks,
         r2_collect_mcp_coverage,
         r2_collect_java,
@@ -1267,8 +1272,8 @@ r4_TASK_EXPLICIT_CAPABILITIES: dict[str, tuple[str, ...]] = {
     "warp-deformer-alt-symmetry": ("cubism.editor-model.warp-mirror",),
 }
 
-# Task -> optimization/hook class-pin table in compatibility-matrix.json.
-r4_TASK_CLASS_PINS: dict[str, tuple[str, ...]] = {
+# Task -> optimization/hook target-class table in compatibility-matrix.json.
+r4_TASK_TARGET_CLASSES: dict[str, tuple[str, ...]] = {
     "boundingbox-warp-mirror": ("warp-alt-mirror",),
     "float-array": ("float-array-parse",),
     "image-archive": ("image-archive-reuse",),
@@ -1320,7 +1325,7 @@ def r4_derive_all_task_versions(
         for row in matrix.get("plugins", [])
     }
     pin_versions: dict[str, set[str]] = {}
-    for path in (root / r2_CLASS_PINS_DIR).glob("*.json"):
+    for path in (root / r2_TARGET_CLASSES_DIR).glob("*.json"):
         document = read_json(path)
         pin_versions[path.stem] = (
             set(class_pins.expand(document, reviewed))
@@ -1378,7 +1383,7 @@ def r4_derive_all_task_versions(
                 admitted &= plugin_supported[plugin_dir]
                 matched_source = True
 
-        for pin_name in r4_TASK_CLASS_PINS.get(task_name, ()):
+        for pin_name in r4_TASK_TARGET_CLASSES.get(task_name, ()):
             if pin_name not in pin_versions:
                 problems.append(
                     f"task {task_name}: classPin {pin_name!r} missing from {r4_MATRIX_PATH}"

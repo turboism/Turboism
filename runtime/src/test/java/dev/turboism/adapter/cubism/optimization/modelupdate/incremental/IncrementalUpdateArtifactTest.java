@@ -69,7 +69,7 @@ class IncrementalUpdateArtifactTest {
         }
         try (var loader = new URLClassLoader(urls, IncrementalUpdateArtifactTest.class.getClassLoader());
                 var jar = new JarFile(artifact.toFile())) {
-            for (var declared : IncrementalUpdateTarget.reviewedClassSha256().get(target.version())) {
+            for (var declared : IncrementalUpdateTarget.targetClasses().get(target.version())) {
                 assertNotNull(
                         jar.getJarEntry(declared + ".class"),
                         "declared target class: " + target.version() + " " + declared);

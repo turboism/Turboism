@@ -215,7 +215,7 @@ DEV_STRINGS = {
             "Legend: ✓ every capability in the group admitted · ◐ partially "
             "admitted · ✗ nothing admitted on that version. Admission = the "
             "static verification record admits the capability on that version "
-            "AND every selector contract or class-pin gate that narrows it "
+            "AND every selector contract or target-class gate that narrows it "
             "admits the version."
         ),
         "fn_missing": "no verified record",
@@ -249,7 +249,7 @@ DEV_STRINGS = {
         "col_reason": "Reason",
         "pins_heading": "Runtime admission pins",
         "pins_note": (
-            "Selector contracts and class-pin tables that narrow verified "
+            "Selector contracts and target-class tables that narrow verified "
             "capabilities to specific versions (the feature exists but "
             "adaptation is pending or genuinely unavailable elsewhere)."
         ),

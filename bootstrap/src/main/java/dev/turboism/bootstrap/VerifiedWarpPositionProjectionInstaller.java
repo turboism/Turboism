@@ -35,7 +35,7 @@ final class VerifiedWarpPositionProjectionInstaller implements VerifiedHookInsta
     static final int EXPECTED_OWNERS = 1;
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES = ReviewedHostContract.candidates(
-            WarpPositionProjectionTransformer.reviewedClassSha256(), version -> HOOK_ID);
+            WarpPositionProjectionTransformer.targetClasses(), version -> HOOK_ID);
 
     static final WeaveSpec<ReviewedHostContract.Bound<String>> SPEC = new WeaveSpec<ReviewedHostContract.Bound<String>>(
             ADMISSION,

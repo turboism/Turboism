@@ -26,7 +26,7 @@ final class WarpAltMirrorReviewedArtifactsTest {
     Stream<DynamicTest> everyReviewedVersionHasAllHookTargetsAndButtonSurfaces() {
         final String root = System.getProperty("turboism.cubismRefRoot", "");
         assumeTrue(!root.isBlank(), "Run :runtime:warpAltMirrorArtifactTest with TURBOISM_CUBISM_REF_ROOT set");
-        return WarpAltMirrorHostProfile.reviewedClassSha256().entrySet().stream()
+        return WarpAltMirrorHostProfile.targetClasses().entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(version -> DynamicTest.dynamicTest(version.getKey(), () -> verifyVersion(root, version)));
     }

@@ -38,7 +38,7 @@ final class VerifiedModelUpdateSkipInstaller implements VerifiedHookInstaller {
 
     private static final List<ReviewedHostContract.Candidate<ModelUpdateSkipTarget>> CANDIDATES =
             ReviewedHostContract.candidates(
-                    ModelUpdateSkipTarget.reviewedClassSha256(),
+                    ModelUpdateSkipTarget.targetClasses(),
                     version -> ModelUpdateSkipTarget.forReviewedVersion(version).orElse(null));
 
     static final WeaveSpec<ReviewedHostContract.Bound<ModelUpdateSkipTarget>> SPEC =

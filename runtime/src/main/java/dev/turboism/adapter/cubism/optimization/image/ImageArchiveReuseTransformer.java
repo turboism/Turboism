@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.image;
 
-import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.adapter.cubism.optimization.HostClassWriters;
 import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
@@ -253,13 +253,14 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
     private record Handler(Label start, Label end, Label handler, String type) {}
 
     /**
-     * SHA-256 of the image classes this hook rewrites and bridges, keyed by internal name, per reviewed generation. A
-     * repackaged or differently-declared artifact binds this hook only when
-     * one distinct contract's pins match every class entry; identical contracts merge.
+     * Target classes the image rewrites and bridges touch, keyed by internal name,
+     * per reviewed generation. A repackaged or differently-declared artifact binds
+     * this hook only when one distinct contract's class list matches every entry;
+     * identical contracts merge.
      */
-    public static Map<String, List<String>> reviewedClassSha256() {
+    public static Map<String, List<String>> targetClasses() {
         return REVIEWED_CLASSES;
     }
 
-    private static final Map<String, List<String>> REVIEWED_CLASSES = ClassPinTable.load("image-archive-reuse");
+    private static final Map<String, List<String>> REVIEWED_CLASSES = TargetClassTable.load("image-archive-reuse");
 }

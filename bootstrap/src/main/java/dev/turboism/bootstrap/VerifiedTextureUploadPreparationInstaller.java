@@ -29,7 +29,7 @@ final class VerifiedTextureUploadPreparationInstaller implements VerifiedHookIns
     static final int EXPECTED_OWNERS = 1;
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES = ReviewedHostContract.candidates(
-            TextureUploadPreparationTransformer.reviewedClassSha256(), version -> HOOK_ID);
+            TextureUploadPreparationTransformer.targetClasses(), version -> HOOK_ID);
 
     static final WeaveSpec<ReviewedHostContract.Bound<String>> SPEC = new WeaveSpec<ReviewedHostContract.Bound<String>>(
             ADMISSION,
