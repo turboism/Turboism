@@ -10,11 +10,14 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipFile;
 
 /** Complete-JAR admission and immutable dependency plans for the lazy-edge weave. */
@@ -27,12 +30,17 @@ final class LazyTriangulationEdgePreparation {
     private static final String MATH_5051 = "com.live2d.util.K";
     private static final String ASSERTIONS = "kotlin._Assertions", INTRINSICS = "kotlin.jvm.internal.Intrinsics";
     private static final String KOTLIN_JAR = "kotlin-stdlib-1.7.21.jar";
-    /** First reviewed minor release whose angle singleton moved from {@code K} to {@code L}. */
-    private static final int MATH_SINGLETON_MOVED_MINOR = 2;
+    /** Reviewed version labels are exactly {@code major.minor.patch}. */
+    private static final Pattern VERSION = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)");
 
-    private static final int VERSION_MINOR_INDEX = 1;
-    private static final String VERSION_SEPARATOR = "\\.";
-    /** Every class the lazy-edge weave links against, in a stable admission order. */
+    private static final int VERSION_MAJOR_GROUP = 1, VERSION_MINOR_GROUP = 2;
+    /**
+     * The angle singleton is {@code com.live2d.util.K} before 5.2 and
+     * {@code com.live2d.util.L} from 5.2 onward.
+     */
+    private static final int MATH_SINGLETON_MOVED_MAJOR = 5, MATH_SINGLETON_MOVED_MINOR = 2;
+
+    /** Classes the lazy-edge weave links against on every host, in a stable admission order. */
     private static final List<String> DEPENDENCIES = List.of(H, J, T, L, R, V, K, TL, ASSERTIONS, INTRINSICS);
 
     private LazyTriangulationEdgePreparation() {}
@@ -97,12 +105,51 @@ final class LazyTriangulationEdgePreparation {
      * <p>The 5.0/5.1 family declares the singleton as {@code com.live2d.util.K}; every later
      * family declares it as {@code com.live2d.util.L}. The admitted version selects the name,
      * and the live structural contract still rejects a host whose shape disagrees.</p>
+     *
+     * @param cubismVersion exact reviewed version label
+     * @return the binary name of the angle singleton for that version
+     * @throws IllegalArgumentException when the label is not a reviewed version
      */
     static String mathSingleton(final String cubismVersion) {
-        String[] parts = cubismVersion.split(VERSION_SEPARATOR);
-        require(parts.length > VERSION_MINOR_INDEX, "unreviewed host version");
-        int minor = Integer.parseInt(parts[VERSION_MINOR_INDEX]);
-        return minor < MATH_SINGLETON_MOVED_MINOR ? MATH_5051 : MATH_52;
+        Matcher version = VERSION.matcher(cubismVersion == null ? "" : cubismVersion);
+        require(version.matches(), "unreviewed host version");
+        int major = Integer.parseInt(version.group(VERSION_MAJOR_GROUP));
+        int minor = Integer.parseInt(version.group(VERSION_MINOR_GROUP));
+        return major < MATH_SINGLETON_MOVED_MAJOR
+                        || (major == MATH_SINGLETON_MOVED_MAJOR && minor < MATH_SINGLETON_MOVED_MINOR)
+                ? MATH_5051
+                : MATH_52;
+    }
+
+    /**
+     * Dependency names for one admitted version: the fixed weave set plus its angle singleton.
+     *
+     * <p>The singleton name differs per version family, so it joins the captured set here
+     * instead of in a static list.</p>
+     *
+     * @param mathName binary name of the angle singleton
+     * @return immutable dependency names in admission order
+     */
+    static List<String> dependencyNames(final String mathName) {
+        List<String> names = new ArrayList<>(DEPENDENCIES);
+        if (!names.contains(mathName)) names.add(mathName);
+        return List.copyOf(names);
+    }
+
+    /**
+     * Verifies the live link contract for one resolved dependency set.
+     *
+     * @param types the resolved dependency classes
+     * @param mathName binary name of the angle singleton inside {@code types}
+     * @return {@code null} when every link matches, otherwise a stable rejection reason
+     */
+    static String verifyLinks(final Class<?>[] types, final String mathName) {
+        try {
+            links(index(types), mathName);
+            return null;
+        } catch (IllegalArgumentException | ReflectiveOperationException rejected) {
+            return "LIVE_DEPENDENCY_REJECTED reason=" + rejected.getMessage();
+        }
     }
 
     private record Plan(
@@ -114,29 +161,9 @@ final class LazyTriangulationEdgePreparation {
         TriangulationDefinitionLifecycle.Gate capture(Class<?> owner) {
             try {
                 require(owner.getName().equals(H) && !owner.getModule().isNamed(), "host identity/module rejected");
-                ClassLoader loader = owner.getClassLoader();
-                Map<String, Class<?>> actual = new LinkedHashMap<>();
-                for (String name : DEPENDENCIES) {
-                    Class<?> type = name.equals(H) ? owner : Class.forName(name, false, loader);
-                    URI wantedOrigin = name.startsWith("kotlin.") ? kotlinOrigin : hostOrigin;
-                    require(wantedOrigin.equals(origin(type.getProtectionDomain())), "live origin rejected: " + name);
-                    if (!name.startsWith("kotlin."))
-                        require(type.getClassLoader() == loader, "split host loader: " + name);
-                    // Resolve metadata and verifier links without initializing official classes.
-                    type.getDeclaredFields();
-                    type.getDeclaredMethods();
-                    type.getDeclaredConstructors();
-                    actual.put(name, type);
-                }
+                Class<?>[] actual = resolve(owner, mathName, hostOrigin, kotlinOrigin);
                 TriangulationDefinitionLifecycle.Gate gate =
-                        lifecycle.capture(actual.values().toArray(Class<?>[]::new), types -> {
-                            try {
-                                links(index(types), mathName);
-                                return null;
-                            } catch (IllegalArgumentException | ReflectiveOperationException rejected) {
-                                return "LIVE_DEPENDENCY_REJECTED reason=" + rejected.getMessage();
-                            }
-                        });
+                        lifecycle.capture(actual, types -> verifyLinks(types, mathName));
                 report(receipt, "TRIANGULATION_LAZY_EDGE_ADMISSION reason=" + gate.reason());
                 return gate;
             } catch (Throwable failure) {
@@ -150,6 +177,41 @@ final class LazyTriangulationEdgePreparation {
         }
     }
 
+    /**
+     * Resolves and origin-checks every dependency of one admitted version.
+     *
+     * <p>The angle singleton belongs to the captured set, so its absence rejects admission
+     * instead of failing later inside the link contract.</p>
+     *
+     * @param owner the live weave owner class
+     * @param mathName binary name of the angle singleton for the admitted version
+     * @param hostOrigin expected origin of every host class
+     * @param kotlinOrigin expected origin of every Kotlin runtime class
+     * @return the resolved classes in admission order
+     */
+    static Class<?>[] resolve(
+            final Class<?> owner, final String mathName, final URI hostOrigin, final URI kotlinOrigin) {
+        ClassLoader loader = owner.getClassLoader();
+        Map<String, Class<?>> actual = new LinkedHashMap<>();
+        for (String name : dependencyNames(mathName)) {
+            Class<?> type;
+            try {
+                type = name.equals(H) ? owner : Class.forName(name, false, loader);
+            } catch (ClassNotFoundException absent) {
+                throw new IllegalArgumentException("missing dependency: " + name, absent);
+            }
+            URI wantedOrigin = name.startsWith("kotlin.") ? kotlinOrigin : hostOrigin;
+            require(wantedOrigin.equals(origin(type.getProtectionDomain())), "live origin rejected: " + name);
+            if (!name.startsWith("kotlin.")) require(type.getClassLoader() == loader, "split host loader: " + name);
+            // Resolve metadata and verifier links without initializing official classes.
+            type.getDeclaredFields();
+            type.getDeclaredMethods();
+            type.getDeclaredConstructors();
+            actual.put(name, type);
+        }
+        return actual.values().toArray(Class<?>[]::new);
+    }
+
     private static Map<String, Class<?>> index(Class<?>[] types) {
         Map<String, Class<?>> byName = new LinkedHashMap<>();
         for (Class<?> type : types) byName.put(type.getName(), type);
@@ -159,6 +221,17 @@ final class LazyTriangulationEdgePreparation {
     private static void links(Map<String, Class<?>> types, String mathName) throws ReflectiveOperationException {
         Class<?> host = types.get(H), edge = types.get(J), point = types.get(T), face = types.get(L);
         Class<?> geometry = types.get(R), vector = types.get(V);
+        Class<?> math = types.get(mathName);
+        // A captured set that omits a linked class must reject, never dereference null.
+        require(
+                host != null
+                        && edge != null
+                        && point != null
+                        && face != null
+                        && geometry != null
+                        && vector != null
+                        && math != null,
+                "missing dependency");
         require(Modifier.isFinal(edge.getModifiers()) && edge.getSuperclass() == Object.class, "edge hierarchy");
         require(Modifier.isFinal(point.getModifiers()) && point.getSuperclass() == vector, "point hierarchy");
         require(
@@ -183,7 +256,6 @@ final class LazyTriangulationEdgePreparation {
                     getter.getReturnType() == float.class && Modifier.isFinal(getter.getModifiers()),
                     "angle scalar getter link");
         }
-        Class<?> math = types.get(mathName);
         require(
                 Modifier.isFinal(math.getModifiers()) && math.getSuperclass() == Object.class,
                 "angle threshold hierarchy");

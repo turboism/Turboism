@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.mesh;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -12,8 +13,11 @@ import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.CodeSource;
+import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -44,6 +48,9 @@ final class TriangulationEdgeIndexExactHostShapeTest {
     private static final String ENTRY = "com/live2d/graphics3d/editableMesh/triangulation/TriangleList.class";
     private static final String MATH_52 = "com.live2d.util.L";
     private static final String MATH_5051 = "com.live2d.util.K";
+    /** Sibling runtime that supplies the Kotlin assertions and intrinsics links. */
+    private static final String KOTLIN_JAR = "kotlin-stdlib-1.7.21.jar";
+
     private static final String MATH_FIELD = "a";
     private static final String THRESHOLD_FIELD = "i";
     private static final String THRESHOLD_METHOD = "f";
@@ -336,8 +343,61 @@ final class TriangulationEdgeIndexExactHostShapeTest {
         assertEquals(MATH_5051, LazyTriangulationEdgePreparation.mathSingleton("5.1.03"));
         assertEquals(MATH_52, LazyTriangulationEdgePreparation.mathSingleton("5.2.00"));
         assertEquals(MATH_52, LazyTriangulationEdgePreparation.mathSingleton("5.3.04"));
-        assertThrows(
-                IllegalArgumentException.class, () -> LazyTriangulationEdgePreparation.mathSingleton("unreviewed"));
+        // A later major keeps the moved singleton; only the 5.0/5.1 family names K.
+        assertEquals(MATH_52, LazyTriangulationEdgePreparation.mathSingleton("6.0.00"));
+        assertEquals(MATH_52, LazyTriangulationEdgePreparation.mathSingleton("10.0.00"));
+        assertEquals(MATH_5051, LazyTriangulationEdgePreparation.mathSingleton("4.9.99"));
+        for (final String malformed : List.of("unreviewed", "5.2", "5.2.00.1", "", "5.x.00", "-5.2.00")) {
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> LazyTriangulationEdgePreparation.mathSingleton(malformed),
+                    malformed + " must be rejected as an unreviewed version");
+        }
+        assertThrows(IllegalArgumentException.class, () -> LazyTriangulationEdgePreparation.mathSingleton(null));
+    }
+
+    @Test
+    void capturedDependencySetContainsTheAngleSingletonForEveryFamily() {
+        for (final String version : List.of("5.0.00", "5.1.03", "5.2.00", "5.3.04", "6.0.00")) {
+            final String mathName = LazyTriangulationEdgePreparation.mathSingleton(version);
+            final List<String> names = LazyTriangulationEdgePreparation.dependencyNames(mathName);
+            assertTrue(names.contains(mathName), version + " must capture its angle singleton " + mathName);
+            assertEquals(
+                    names.size(),
+                    new java.util.HashSet<>(names).size(),
+                    version + " dependency names must stay unique");
+        }
+    }
+
+    @Test
+    void liveLinkContractAdmitsTheReviewedMathSingletonAndRejectsItsAbsence() throws Exception {
+        assumeTrue(
+                legacyEvidence() != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
+
+        for (final Path jar : reviewedArtifacts(legacyEvidence()).values()) {
+            final JarLoader loader = new JarLoader(jar);
+            final Class<?> host = loader.loadClass(TriangulationEdgeIndexTransformer.MEMBERSHIP_CLASS_NAME);
+            final URI hostOrigin = origin(host);
+            final URI kotlinOrigin = jar.getParent().resolve(KOTLIN_JAR).toUri().normalize();
+            // Resolution must include the angle singleton; without it admission fails silently.
+            final Class<?>[] types = LazyTriangulationEdgePreparation.resolve(host, MATH_52, hostOrigin, kotlinOrigin);
+            assertTrue(
+                    Arrays.asList(types).contains(loader.loadClass(MATH_52)),
+                    "the captured set must contain the angle singleton");
+            assertNull(
+                    LazyTriangulationEdgePreparation.verifyLinks(types, MATH_52),
+                    "the captured set must satisfy the live link contract including the angle singleton");
+            // Dropping the singleton from the captured set must reject, never admit silently.
+            assertNotNull(
+                    LazyTriangulationEdgePreparation.verifyLinks(Arrays.copyOf(types, types.length - 1), MATH_52),
+                    "a captured set without its angle singleton must be rejected");
+        }
+    }
+
+    /** Origin of one loaded class, or null when the code source is unavailable. */
+    private static URI origin(final Class<?> type) throws Exception {
+        return type.getProtectionDomain().getCodeSource().getLocation().toURI().normalize();
     }
 
     @Test
@@ -659,26 +719,39 @@ final class TriangulationEdgeIndexExactHostShapeTest {
         return structure;
     }
 
-    /** Child loader over one reviewed jar; bootstrap parent keeps host classes unreachable. */
+    /** Child loader over one reviewed jar plus its sibling Kotlin runtime; bootstrap parent. */
     private static final class JarLoader extends ClassLoader {
-        private final Path jar;
+        private final List<Path> jars;
 
         JarLoader(final Path jar) {
             super(null);
-            this.jar = jar;
+            this.jars = List.of(jar, jar.getParent().resolve(KOTLIN_JAR));
         }
 
         @Override
         protected Class<?> findClass(final String name) throws ClassNotFoundException {
-            try (JarFile file = new JarFile(jar.toFile())) {
-                final var entry = file.getEntry(name.replace('.', '/') + ".class");
-                if (entry == null) throw new ClassNotFoundException(name);
-                try (InputStream stream = file.getInputStream(entry)) {
-                    final byte[] bytes = stream.readAllBytes();
-                    return defineClass(name, bytes, 0, bytes.length);
+            for (final Path jar : jars) {
+                try (JarFile file = new JarFile(jar.toFile())) {
+                    final var entry = file.getEntry(name.replace('.', '/') + ".class");
+                    if (entry == null) continue;
+                    try (InputStream stream = file.getInputStream(entry)) {
+                        final byte[] bytes = stream.readAllBytes();
+                        return defineClass(name, bytes, 0, bytes.length, domain(jar));
+                    }
+                } catch (IOException failure) {
+                    throw new ClassNotFoundException(name, failure);
                 }
-            } catch (IOException failure) {
-                throw new ClassNotFoundException(name, failure);
+            }
+            throw new ClassNotFoundException(name);
+        }
+
+        /** Real file code source, so origin checks see the same shape a live host presents. */
+        private static ProtectionDomain domain(final Path jar) {
+            try {
+                return new ProtectionDomain(
+                        new CodeSource(jar.toUri().toURL(), (java.security.cert.Certificate[]) null), null);
+            } catch (java.net.MalformedURLException invalid) {
+                throw new IllegalStateException("unreadable evidence jar " + jar, invalid);
             }
         }
     }
