@@ -4,7 +4,7 @@ import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationBridge;
 import dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
-import dev.turboism.core.io.Sha256;
+import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.nio.file.Path;
 import java.util.List;
@@ -22,8 +22,6 @@ final class VerifiedTextureUploadPreparationInstaller implements VerifiedHookIns
 
     /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
     static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.EXACTLY_17);
-
-    static final String JOGL_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_03_JOGL.sha256();
 
     /** The one factory method this hook rewrites; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = 1;
@@ -69,7 +67,7 @@ final class VerifiedTextureUploadPreparationInstaller implements VerifiedHookIns
     private static List<WeaveTarget> targets(
             final ReviewedHostContract.Bound<String> contract, final WeaveSource source) throws Exception {
         final Path jogl = joglArtifact(source.artifact());
-        if (!JOGL_SHA256.equals(Sha256.hexOf(jogl))) {
+        if (!ReviewedHostArtifacts.CUBISM_5_3_03_JOGL.equals(HostArtifactDigest.cached(jogl))) {
             throw new IllegalArgumentException("texture preparation requires reviewed JOGL artifact");
         }
         final String factoryOwner = TextureUploadPreparationTransformer.ownerForVersion(contract.sourceVersion());

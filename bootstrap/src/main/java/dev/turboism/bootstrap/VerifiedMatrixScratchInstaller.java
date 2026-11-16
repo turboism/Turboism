@@ -29,8 +29,8 @@ import java.util.jar.JarFile;
  * absent) and is only armed after the weave and every dependency re-verification have been proven.</p>
  *
  * <p>The protocol itself lives in {@link VerifiedInstall}: the guard is a registration without a class
- * of its own, the rewritten traversal is re-captured on close and must hash back to the bytes the
- * transformer observed, and a failed removal keeps the handle open for a retry instead of reporting a
+ * of its own, the rewritten traversal is restored on close by removing every registration and
+ * retransforming the owner, and a failed removal keeps the handle open for a retry instead of reporting a
  * settled installation.</p>
  */
 final class VerifiedMatrixScratchInstaller implements AutoCloseable {
@@ -69,7 +69,6 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     private final AtomicReference<Throwable> dependencyRejection = new AtomicReference<>();
     private final Map<Class<?>, List<Body>> dependencies = new LinkedHashMap<>();
     private final List<WeaveTarget> targets = new ArrayList<>();
-    private final String originalTargetSha;
     private final ClassFileTransformer dependencyGuard;
     private Properties properties;
     private boolean closed;
@@ -124,7 +123,6 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
             transformer = new MatrixScratchTransformer(
                     loader, source, VerifiedHookInstallerSupport.readReferenceBytes(jar, target));
             bridge = new MatrixScratchBridge(loader, admission);
-            originalTargetSha = VerifiedHookInstallerSupport.sha256Hex(captured.get(target));
         }
         dependencyGuard = new ClassFileTransformer() {
             @Override

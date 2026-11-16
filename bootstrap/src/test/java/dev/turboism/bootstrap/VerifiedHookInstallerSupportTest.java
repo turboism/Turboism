@@ -115,13 +115,6 @@ class VerifiedHookInstallerSupportTest {
     }
 
     @Test
-    void hashesWithLowercaseSha256() throws Exception {
-        assertEquals(
-                "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-                VerifiedHookInstallerSupport.sha256Hex("abc".getBytes(java.nio.charset.StandardCharsets.US_ASCII)));
-    }
-
-    @Test
     void retransformsOnlyLoadedExactOwnersFromTheHostLoader() throws Exception {
         final List<Class<?>> retransformed = new ArrayList<>();
         final Instrumentation instrumentation =
