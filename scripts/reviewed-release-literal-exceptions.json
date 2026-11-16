@@ -72,7 +72,7 @@
     },
     {
       "path": "scripts/preview/run-atlas-image-shadow-host-validation.sh",
-      "evidence": "scripts/preview/run-atlas-image-shadow-host-validation.sh: Blocked T040/T029 shadow scene wrapper pins exact obfuscated class/shape/patched bytecode SHA-256 digests for 5.2.03, 5.3.02, and 5.3.03 (verified by test_atlas_image_shadow_host_validation.sh).",
+      "evidence": "scripts/preview/run-atlas-image-shadow-host-validation.sh: Version-specific whole-artifact identities and fixed installation paths select reviewed validation profiles for 5.2.03, 5.3.02, and 5.3.03. External probes retain frozen input contracts; internal configurations use explicit Boolean preferences.",
       "versions": [
         "5.2.03",
         "5.3.02",
